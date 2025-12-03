@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ type AdminProperty = {
   city: string;
   rental_type: string;
   is_approved: boolean;
+  owner_id?: string;
 };
 
 type AdminUser = {
@@ -19,17 +21,25 @@ type AdminUser = {
   full_name: string | null;
 };
 
-async function getData() {
+async function getData(filter: "all" | "approved" | "pending" = "all", search = "") {
   if (!hasServerSupabaseEnv()) {
     return { properties: [], users: [] };
   }
 
   try {
     const supabase = createServerSupabaseClient();
-    const { data: properties } = await supabase
+    let query = supabase
       .from("properties")
-      .select("id, title, city, rental_type, is_approved")
+      .select("id, title, city, rental_type, is_approved, owner_id")
       .order("created_at", { ascending: false });
+
+    if (filter === "approved") query = query.eq("is_approved", true);
+    if (filter === "pending") query = query.eq("is_approved", false);
+    if (search) {
+      query = query.ilike("title", `%${search}%`);
+    }
+
+    const { data: properties } = await query;
 
     const { data: users } = await supabase
       .from("profiles")
@@ -71,6 +81,13 @@ async function updateStatus(id: string, action: "approve" | "reject") {
 
 export default async function AdminPage() {
   const supabaseReady = hasServerSupabaseEnv();
+  // Read server-side query params
+  const { searchParams } = new URL(`${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost"}`);
+  const filterParam = searchParams.get("status");
+  const searchParam = searchParams.get("q") || "";
+  const statusFilter =
+    filterParam === "approved" || filterParam === "pending" ? filterParam : "all";
+
   if (supabaseReady) {
     try {
       const supabase = createServerSupabaseClient();
@@ -96,7 +113,10 @@ export default async function AdminPage() {
     }
   }
 
-  const { properties, users } = await getData();
+  const { properties, users } = await getData(
+    statusFilter as "all" | "approved" | "pending",
+    searchParam
+  );
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -140,16 +160,38 @@ export default async function AdminPage() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Properties</h2>
             <p className="text-sm text-slate-600">
               Approve or reject listings before they go live.
             </p>
           </div>
-          <Link href="/dashboard/properties/new" className="text-sm text-sky-700">
-            Create listing
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <form className="flex flex-wrap items-center gap-2" action="/admin" method="get">
+              <select
+                name="status"
+                defaultValue={statusFilter}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+              >
+                <option value="all">All</option>
+                <option value="approved">Approved</option>
+                <option value="pending">Pending</option>
+              </select>
+              <Input
+                name="q"
+                defaultValue={searchParam}
+                placeholder="Search title"
+                className="h-9"
+              />
+              <Button size="sm" type="submit">
+                Filter
+              </Button>
+            </form>
+            <Link href="/dashboard/properties/new" className="text-sm text-sky-700">
+              Create listing
+            </Link>
+          </div>
         </div>
         <div className="grid gap-3">
           {properties.map((property) => (

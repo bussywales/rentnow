@@ -1,7 +1,7 @@
-import Image from "next/image";
 import Link from "next/link";
 import { MessageThreadClient } from "@/components/messaging/MessageThreadClient";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
+import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -114,17 +114,8 @@ export default async function PropertyDetail({ params }: Props) {
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4">
       <div className="grid gap-6 md:grid-cols-3">
-        <div className="relative h-72 overflow-hidden rounded-2xl md:col-span-2">
-          <Image
-            src={
-              property.images?.[0]?.image_url ||
-              "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80"
-            }
-            alt={property.title}
-            fill
-            className="object-cover"
-            priority
-          />
+        <div className="md:col-span-2">
+          <PropertyGallery images={property.images || []} title={property.title} />
         </div>
         <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
