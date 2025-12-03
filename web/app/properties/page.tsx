@@ -1,18 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import dynamic from "next/dynamic";
 import { PropertyCard } from "@/components/properties/PropertyCard";
+import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { Button } from "@/components/ui/Button";
 import { mockProperties } from "@/lib/mock";
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property } from "@/lib/types";
-
-export const dynamic = "force-dynamic";
-
-const PropertyMap = dynamic(
-  () => import("@/components/properties/PropertyMap"),
-  { ssr: false }
-);
 type Props = {
   searchParams: Record<string, string | string[] | undefined>;
 };
@@ -90,7 +83,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
         ))}
       </div>
 
-      <PropertyMap properties={properties.slice(0, 12)} height="420px" />
+      <PropertyMapClient properties={properties.slice(0, 12)} height="420px" />
     </div>
   );
 }

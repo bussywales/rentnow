@@ -1,7 +1,7 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
-import dynamic from "next/dynamic";
 import { MessageThreadClient } from "@/components/messaging/MessageThreadClient";
+import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { Button } from "@/components/ui/Button";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -9,11 +9,6 @@ import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
-
-const PropertyMap = dynamic(
-  () => import("@/components/properties/PropertyMap"),
-  { ssr: false }
-);
 
 type Props = { params: { id: string } };
 
@@ -109,7 +104,7 @@ export default async function PropertyDetail({ params }: Props) {
         <div className="md:col-span-2 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900">About</h2>
           <p className="text-slate-700 leading-7">{property.description}</p>
-          <PropertyMap properties={[property]} height="320px" />
+          <PropertyMapClient properties={[property]} height="320px" />
         </div>
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
