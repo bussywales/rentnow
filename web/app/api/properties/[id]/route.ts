@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -24,15 +24,15 @@ const updateSchema = z.object({
 });
 
 export async function GET(
-  _request: Request,
-  context: { params: { id: string } }
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { params } = context;
+  const { id } = await context.params;
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from("properties")
     .select("*, property_images(id, image_url)")
-    .eq("id", params.id)
+    .eq("id", id)
     .maybeSingle();
 
   if (error) {
@@ -43,10 +43,10 @@ export async function GET(
 }
 
 export async function PUT(
-  request: Request,
-  context: { params: { id: string } }
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { params } = context;
+  const { id } = await context.params;
   try {
     const supabase = createServerSupabaseClient();
     const {
@@ -61,7 +61,7 @@ export async function PUT(
     const { data: existing, error: fetchError } = await supabase
       .from("properties")
       .select("owner_id")
-      .eq("id", params.id)
+      .eq("id", id)
       .maybeSingle();
 
     if (fetchError || !existing) {
@@ -82,7 +82,7 @@ export async function PUT(
         amenities: updates.amenities ?? [],
         updated_at: new Date().toISOString(),
       })
-      .eq("id", params.id);
+      .eq("id", id);
 
     if (updateError) {
       return NextResponse.json(
@@ -92,18 +92,18 @@ export async function PUT(
     }
 
     if (updates.imageUrls) {
-      await supabase.from("property_images").delete().eq("property_id", params.id);
+      await supabase.from("property_images").delete().eq("property_id", id);
       if (updates.imageUrls.length) {
         await supabase.from("property_images").insert(
           updates.imageUrls.map((url) => ({
-            property_id: params.id,
+            property_id: id,
             image_url: url,
           }))
         );
       }
     }
 
-    return NextResponse.json({ id: params.id });
+    return NextResponse.json({ id });
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Unable to update property";
@@ -112,10 +112,10 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
-  context: { params: { id: string } }
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { params } = context;
+  const { id } = await context.params;
   const supabase = createServerSupabaseClient();
   const {
     data: { user },
@@ -129,7 +129,7 @@ export async function DELETE(
   const { data: existing, error: fetchError } = await supabase
     .from("properties")
     .select("owner_id")
-    .eq("id", params.id)
+    .eq("id", id)
     .maybeSingle();
 
   if (fetchError || !existing) {
@@ -140,11 +140,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const { error } = await supabase.from("properties").delete().eq("id", params.id);
+  const { error } = await supabase.from("properties").delete().eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({ id: params.id });
+  return NextResponse.json({ id });
 }
