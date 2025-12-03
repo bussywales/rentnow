@@ -41,19 +41,24 @@ export async function middleware(req: NextRequest) {
   const role = profile?.role as UserRole | undefined;
 
   if (pathname.startsWith("/admin") && !ADMIN_ROLES.includes(role ?? "tenant")) {
-    return NextResponse.redirect(new URL("/", req.url));
+    return buildRedirect(req, "/forbidden");
   }
 
   if (
     pathname.startsWith("/dashboard") &&
     !DASHBOARD_ROLES.includes(role ?? "tenant")
   ) {
-    return NextResponse.redirect(new URL("/", req.url));
+    return buildRedirect(req, "/forbidden");
   }
 
   return res;
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*", "/favourites/:path*"],
+  matcher: [
+    "/dashboard/:path*",
+    "/admin/:path*",
+    "/favourites/:path*",
+    "/messages/:path*",
+  ],
 };
