@@ -27,17 +27,27 @@ export function NavAuthClient({ initialAuthed }: Props) {
     };
   }, []);
 
+  const handleLogout = async () => {
+    try {
+      const supabase = createBrowserSupabaseClient();
+      await supabase.auth.signOut();
+      await fetch("/auth/logout", { method: "POST" });
+    } catch (err) {
+      console.warn("Logout failed, forcing reload", err);
+    } finally {
+      window.location.replace("/");
+    }
+  };
+
   if (isAuthed) {
     return (
       <>
         <Link href="/dashboard" className="hidden text-sm text-slate-700 md:block">
           My dashboard
         </Link>
-        <form action="/auth/logout" method="post">
-          <Button size="sm" type="submit" variant="secondary">
-            Log out
-          </Button>
-        </form>
+        <Button size="sm" type="button" variant="secondary" onClick={handleLogout}>
+          Log out
+        </Button>
       </>
     );
   }
