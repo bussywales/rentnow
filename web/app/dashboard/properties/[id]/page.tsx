@@ -9,6 +9,12 @@ export const dynamic = "force-dynamic";
 type Props = { params: { id: string } };
 
 async function loadProperty(id: string): Promise<Property | null> {
+  // Short-circuit to mock data for demo IDs
+  if (id.startsWith("mock-")) {
+    const fromMock = mockProperties.find((p) => p.id === id);
+    if (fromMock) return fromMock;
+  }
+
   try {
     const supabase = createServerSupabaseClient();
     const { data, error } = await supabase
