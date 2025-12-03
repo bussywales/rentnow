@@ -79,7 +79,7 @@ export function PropertyCard({ property, href, compact }: Props) {
               {property.title}
             </h3>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-slate-700">
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-slate-700 whitespace-nowrap shrink-0">
             {property.rental_type === "short_let" ? "Short-let" : "Long-term"}
           </span>
         </div>
