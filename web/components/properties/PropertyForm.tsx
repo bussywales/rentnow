@@ -21,6 +21,9 @@ const rentalTypes: { label: string; value: RentalType }[] = [
   { label: "Long-term", value: "long_term" },
 ];
 
+const STORAGE_BUCKET =
+  process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "property-images";
+
 export function PropertyForm({ initialData, onSubmit }: Props) {
   const [pending, startTransition] = useTransition();
   const router = useRouter();
@@ -79,17 +82,20 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
         let uploadedUrls: string[] = [];
         if (files.length) {
           setUploading(true);
+          if (!STORAGE_BUCKET) {
+            throw new Error("Storage bucket is not configured.");
+          }
           const uploads = await Promise.all(
             files.map(async (file) => {
               const path = `${user.id}/${Date.now()}-${file.name}`;
               const { error: uploadError } = await supabase.storage
-                .from("property-images")
+                .from(STORAGE_BUCKET)
                 .upload(path, file);
               if (uploadError) {
                 throw new Error(uploadError.message);
               }
               const { data: publicUrl } = supabase.storage
-                .from("property-images")
+                .from(STORAGE_BUCKET)
                 .getPublicUrl(path);
               return publicUrl.publicUrl;
             })
