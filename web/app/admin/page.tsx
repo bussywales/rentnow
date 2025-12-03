@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -111,7 +110,7 @@ export default async function AdminPage() {
           </Link>
         </div>
         <div className="grid gap-3">
-          {properties.map((property: Property) => (
+          {properties.map((property) => (
             <div
               key={property.id}
               className="flex flex-col gap-2 rounded-xl border border-slate-200 p-3 md:flex-row md:items-center md:justify-between"
