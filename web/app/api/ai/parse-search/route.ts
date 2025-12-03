@@ -95,10 +95,16 @@ Return ONLY the JSON. No explanation, no comments, no extra text.
 
     if (!filters.city && typeof query === "string") {
       const q = query.toLowerCase();
-      if (q.includes("lekki")) filters.city = "Lagos";
-      if (q.includes("victoria island") || q.includes("ikoyi")) filters.city = "Lagos";
-      if (q.includes("kilimani")) filters.city = "Nairobi";
-      if (q.includes("east legon")) filters.city = "Accra";
+      const cityFallbacks: Record<string, string> = {
+        lekki: "Lagos",
+        "victoria island": "Lagos",
+        ikoyi: "Lagos",
+        kilimani: "Nairobi",
+        "east legon": "Accra",
+      };
+      Object.entries(cityFallbacks).forEach(([needle, city]) => {
+        if (q.includes(needle)) filters.city = city;
+      });
     }
 
     return NextResponse.json({ filters });
