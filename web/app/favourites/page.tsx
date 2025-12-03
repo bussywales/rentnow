@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PropertyCard } from "@/components/properties/PropertyCard";
+import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -31,11 +32,12 @@ export default async function FavouritesPage() {
     .select("property_id, properties(*)")
     .eq("user_id", user.id);
 
-  const properties =
-    data?.map((row) => {
-      const props = row.properties as unknown as { id: string };
-      return { ...props, id: row.property_id };
-    }) || [];
+  const properties: Property[] =
+    data
+      ?.flatMap((row) => {
+        const props = row.properties as Property | null;
+        return props ? [props] : [];
+      }) || [];
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4">
