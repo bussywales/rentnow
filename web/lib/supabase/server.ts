@@ -1,22 +1,77 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
+type MockQueryResult = { data: unknown; error: Error | null };
+
 const getEnv = () => {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey =
     process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !anonKey) {
-    throw new Error(
-      "Missing Supabase environment variables. Set SUPABASE_URL and SUPABASE_ANON_KEY."
-    );
+    return null;
   }
 
   return { url, anonKey };
 };
 
+function createMockSupabaseClient() {
+  const mockResult: MockQueryResult = { data: null, error: new Error("Supabase not configured") };
+
+  const builder: Record<string, unknown> & {
+    select: () => typeof builder;
+    eq: () => typeof builder;
+    gte: () => typeof builder;
+    lte: () => typeof builder;
+    ilike: () => typeof builder;
+    contains: () => typeof builder;
+    order: () => typeof builder;
+    maybeSingle: () => Promise<MockQueryResult>;
+    single: () => Promise<MockQueryResult>;
+    insert: () => Promise<MockQueryResult>;
+    update: () => Promise<MockQueryResult>;
+    delete: () => Promise<MockQueryResult>;
+  } = {
+    select: () => builder,
+    eq: () => builder,
+    gte: () => builder,
+    lte: () => builder,
+    ilike: () => builder,
+    contains: () => builder,
+    order: () => builder,
+    maybeSingle: async () => mockResult,
+    single: async () => mockResult,
+    insert: async () => mockResult,
+    update: async () => mockResult,
+    delete: async () => mockResult,
+  };
+
+  const mockClient = {
+    auth: {
+      getSession: async () => ({ data: { session: null }, error: null }),
+      getUser: async () => ({ data: { user: null }, error: null }),
+      signOut: async () => ({ error: null }),
+    },
+    from: () => builder,
+    storage: {
+      from: () => ({
+        upload: async () => ({ error: new Error("Supabase not configured") }),
+        getPublicUrl: () => ({ data: { publicUrl: "" } }),
+      }),
+    },
+  };
+
+  return mockClient as ReturnType<typeof createServerClient>;
+}
+
 export function createServerSupabaseClient() {
-  const { url, anonKey } = getEnv();
+  const env = getEnv();
+  if (!env) {
+    console.warn("Supabase env vars missing; using mock client");
+    return createMockSupabaseClient();
+  }
+
+  const { url, anonKey } = env;
   const cookieStore = cookies as unknown as () => {
     get: (name: string) => { value?: string } | undefined;
     set: (options: CookieOptions & { name: string; value: string }) => void;
