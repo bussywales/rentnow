@@ -22,13 +22,19 @@ export function createServerSupabaseClient() {
   return createServerClient(url, anonKey, {
     cookies: {
       get(name: string) {
-        return cookieStore.get(name)?.value;
+        const store = cookieStore;
+        const cookie = "then" in store ? undefined : store.get(name);
+        return cookie?.value;
       },
       set(name: string, value: string, options: CookieOptions) {
-        cookieStore.set({ name, value, ...options });
+        const store = cookieStore;
+        if ("then" in store) return;
+        store.set({ name, value, ...options });
       },
       remove(name: string, options: CookieOptions) {
-        cookieStore.set({ name, value: "", ...options, maxAge: 0 });
+        const store = cookieStore;
+        if ("then" in store) return;
+        store.set({ name, value: "", ...options, maxAge: 0 });
       },
     },
   });
