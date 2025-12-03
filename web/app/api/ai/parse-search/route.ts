@@ -103,7 +103,9 @@ Return ONLY the JSON. No explanation, no comments, no extra text.
         "east legon": "Accra",
       };
       Object.entries(cityFallbacks).forEach(([needle, city]) => {
-        if (q.includes(needle)) filters.city = city;
+        if (q.includes(needle)) {
+          filters = { ...filters, city };
+        }
       });
     }
 
