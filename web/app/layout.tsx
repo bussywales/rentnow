@@ -20,6 +20,10 @@ export const metadata: Metadata = {
   title: "RENTNOW | Rentals across Africa",
   description:
     "Search, list, and manage African rentals with AI-assisted search and Supabase-powered dashboards.",
+  icons: {
+    icon: "/rentnow-logo.png",
+    shortcut: "/rentnow-logo.png",
+  },
 };
 
 export default function RootLayout({

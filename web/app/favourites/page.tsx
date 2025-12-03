@@ -47,21 +47,41 @@ export default async function FavouritesPage() {
     );
   }
 
-  const { data } = await supabase
-    .from("saved_properties")
-    .select(
-      "property_id, properties(id, owner_id, title, description, city, neighbourhood, address, latitude, longitude, rental_type, price, currency, bedrooms, bathrooms, furnished, amenities, available_from, max_guests, is_approved, is_active, created_at, updated_at, property_images(image_url,id))"
-    )
-    .eq("user_id", user.id);
+  let properties: Property[] = [];
+  try {
+    const { data, error } = await supabase
+      .from("saved_properties")
+      .select(
+        "property_id, properties(id, owner_id, title, description, city, neighbourhood, address, latitude, longitude, rental_type, price, currency, bedrooms, bathrooms, furnished, amenities, available_from, max_guests, is_approved, is_active, created_at, updated_at, property_images(image_url,id))"
+      )
+      .eq("user_id", user.id);
 
-  const properties: Property[] =
-    data
-      ?.flatMap((row) => {
-        const prop = Array.isArray(row.properties)
-          ? (row.properties[0] as Property | undefined)
-          : (row.properties as Property | null);
-        return prop ? [prop] : [];
-      }) || [];
+    if (error) throw error;
+
+    properties =
+      data
+        ?.flatMap((row) => {
+          const prop = Array.isArray(row.properties)
+            ? (row.properties[0] as Property | undefined)
+            : (row.properties as Property | null);
+          return prop ? [prop] : [];
+        }) || [];
+  } catch (err) {
+    console.error("Failed to load favourites", err);
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Saved properties</h1>
+          <p className="text-sm text-slate-600">
+            We could not load your favourites right now. Please refresh or try again later.
+          </p>
+        </div>
+        <Link href="/properties" className="text-sky-700 font-semibold">
+          Browse properties
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4">

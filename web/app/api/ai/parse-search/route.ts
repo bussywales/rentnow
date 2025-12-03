@@ -6,7 +6,18 @@ const bodySchema = z.object({
   query: z.string().min(3),
 });
 
-const defaultFilters = {
+type Filters = {
+  city: string | null;
+  minPrice: number | null;
+  maxPrice: number | null;
+  currency: string | null;
+  bedrooms: number | null;
+  rentalType: "short_let" | "long_term" | null;
+  furnished: boolean | null;
+  amenities: string[];
+};
+
+const defaultFilters: Filters = {
   city: null,
   minPrice: null,
   maxPrice: null,
@@ -14,7 +25,7 @@ const defaultFilters = {
   bedrooms: null,
   rentalType: null,
   furnished: null,
-  amenities: [] as string[],
+  amenities: [],
 };
 
 export async function POST(request: Request) {
@@ -86,9 +97,10 @@ Return ONLY the JSON. No explanation, no comments, no extra text.
             return match ? match[0] : "{}";
           })();
 
-    let filters = defaultFilters;
+    let filters: Filters = { ...defaultFilters };
     try {
-      filters = JSON.parse(jsonString);
+      const parsed = JSON.parse(jsonString);
+      filters = { ...filters, ...parsed };
     } catch (err) {
       console.warn("Failed to parse AI JSON", err);
     }
@@ -104,7 +116,7 @@ Return ONLY the JSON. No explanation, no comments, no extra text.
       };
       Object.entries(cityFallbacks).forEach(([needle, city]) => {
         if (q.includes(needle)) {
-          filters = { ...filters, city };
+          filters.city = city;
         }
       });
     }
