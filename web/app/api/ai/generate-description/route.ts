@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { openai, assertOpenAiKey } from "@/lib/openai";
+import { getOpenAI, assertOpenAiKey } from "@/lib/openai";
 
 const bodySchema = z.object({
   title: z.string().min(3),
@@ -41,6 +41,7 @@ Write a rental listing description for the following property details:
 Remember: 120–200 words, clear and honest, simple English, no invented features.
     `.trim();
 
+    const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       temperature: 0.7,

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { openai, assertOpenAiKey } from "@/lib/openai";
+import { getOpenAI, assertOpenAiKey } from "@/lib/openai";
 
 const bodySchema = z.object({
   query: z.string().min(3),
@@ -34,6 +34,7 @@ export async function POST(request: Request) {
     const json = await request.json();
     const { query } = bodySchema.parse(json);
 
+    const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
       temperature: 0,
