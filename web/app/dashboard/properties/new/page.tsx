@@ -1,5 +1,7 @@
 import { PropertyForm } from "@/components/properties/PropertyForm";
 
+export const dynamic = "force-dynamic";
+
 export default function NewPropertyPage() {
   return (
     <div className="space-y-4">

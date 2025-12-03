@@ -3,6 +3,8 @@ import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
 import { mockProperties } from "@/lib/mock";
 
+export const dynamic = "force-dynamic";
+
 export default function DashboardHome() {
   const myProperties = mockProperties;
 

@@ -1,11 +1,18 @@
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { PropertyCard } from "@/components/properties/PropertyCard";
-import { PropertyMap } from "@/components/properties/PropertyMap";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { mockProperties } from "@/lib/mock";
+
+export const dynamic = "force-dynamic";
+
+const PropertyMap = dynamic(
+  () => import("@/components/properties/PropertyMap"),
+  { ssr: false }
+);
 
 export default function Home() {
   const featured = mockProperties.slice(0, 3);

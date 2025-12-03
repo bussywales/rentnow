@@ -1,12 +1,19 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
+import dynamic from "next/dynamic";
 import { MessageThreadClient } from "@/components/messaging/MessageThreadClient";
-import { PropertyMap } from "@/components/properties/PropertyMap";
 import { Button } from "@/components/ui/Button";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
+
+const PropertyMap = dynamic(
+  () => import("@/components/properties/PropertyMap"),
+  { ssr: false }
+);
 
 type Props = { params: { id: string } };
 

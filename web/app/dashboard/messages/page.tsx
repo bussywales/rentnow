@@ -1,6 +1,8 @@
 import { MessageThread } from "@/components/messaging/MessageThread";
 import type { Message, Profile } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 const messages: Message[] = [
   {
     id: "m1",

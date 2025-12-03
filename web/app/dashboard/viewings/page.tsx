@@ -1,6 +1,8 @@
 import { Button } from "@/components/ui/Button";
 import type { ViewingRequest } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 const viewingRequests: ViewingRequest[] = [
   {
     id: "v1",
