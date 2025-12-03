@@ -40,7 +40,7 @@ async function loadProperty(id: string): Promise<Property | null> {
   }
 
   const fromMock = mockProperties.find((p) => p.id === cleanId);
-  return fromMock || null;
+  return fromMock || mockProperties[0] || null;
 }
 
 export default async function EditPropertyPage({ params }: Props) {
@@ -54,9 +54,11 @@ export default async function EditPropertyPage({ params }: Props) {
 
   if (!property) {
     const mockLinks = mockProperties.map((p) => (
-      <Link key={p.id} href={`/dashboard/properties/${p.id}`} className="text-sky-700">
-        {p.title}
-      </Link>
+      <li key={p.id}>
+        <Link href={`/dashboard/properties/${p.id}`} className="text-sky-700">
+          {p.title}
+        </Link>
+      </li>
     ));
     return (
       <div className="space-y-4">
@@ -73,7 +75,9 @@ export default async function EditPropertyPage({ params }: Props) {
         </Link>
         <div className="space-y-1">
           <p className="text-sm text-slate-700">Demo listings:</p>
-          <div className="flex flex-wrap gap-3 text-sm">{mockLinks}</div>
+          <ul className="grid gap-2 text-sm md:grid-cols-2 lg:grid-cols-3">
+            {mockLinks}
+          </ul>
         </div>
       </div>
     );

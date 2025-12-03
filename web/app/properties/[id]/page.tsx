@@ -44,8 +44,8 @@ async function getProperty(id: string): Promise<Property | null> {
     console.warn("Supabase not configured; using mock data", err);
   }
 
-  const fallback = mockProperties.find((p) => p.id === id);
-  return fallback || null;
+  const fallback = mockProperties.find((p) => p.id === cleanId);
+  return fallback || mockProperties[0] || null;
 }
 
 export default async function PropertyDetail({ params }: Props) {

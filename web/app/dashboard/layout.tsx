@@ -28,7 +28,7 @@ export default async function DashboardLayout({
               {profile?.full_name || "Your"} workspace
             </p>
             <p className="text-sm text-slate-200">
-              Role: {profile?.role || "unknown"} • Manage listings, messages, and viewings.
+              Role: {profile?.role || "demo"} • Manage listings, messages, and viewings.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
