@@ -37,6 +37,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const getSupabase = () => {
     try {
@@ -79,28 +80,34 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           return;
         }
 
-        let uploadedUrls: string[] = [];
+        const uploadedUrls: string[] = [];
         if (files.length) {
           setUploading(true);
+          setUploadProgress(0);
           if (!STORAGE_BUCKET) {
             throw new Error("Storage bucket is not configured.");
           }
-          const uploads = await Promise.all(
-            files.map(async (file) => {
-              const path = `${user.id}/${Date.now()}-${file.name}`;
-              const { error: uploadError } = await supabase.storage
-                .from(STORAGE_BUCKET)
-                .upload(path, file);
-              if (uploadError) {
-                throw new Error(uploadError.message);
-              }
-              const { data: publicUrl } = supabase.storage
-                .from(STORAGE_BUCKET)
-                .getPublicUrl(path);
-              return publicUrl.publicUrl;
-            })
-          );
-          uploadedUrls = uploads;
+          for (let i = 0; i < files.length; i += 1) {
+            const file = files[i];
+            if (file.size > 5 * 1024 * 1024) {
+              throw new Error(`File ${file.name} exceeds 5MB limit.`);
+            }
+            if (!file.type.startsWith("image/")) {
+              throw new Error(`File ${file.name} is not an image.`);
+            }
+            const path = `${user.id}/${Date.now()}-${file.name}`;
+            const { error: uploadError } = await supabase.storage
+              .from(STORAGE_BUCKET)
+              .upload(path, file);
+            if (uploadError) {
+              throw new Error(uploadError.message);
+            }
+            const { data: publicUrl } = supabase.storage
+              .from(STORAGE_BUCKET)
+              .getPublicUrl(path);
+            uploadedUrls.push(publicUrl.publicUrl);
+            setUploadProgress(Math.round(((i + 1) / files.length) * 100));
+          }
           setUploading(false);
         }
 
@@ -125,7 +132,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
       } finally {
         setUploading(false);
       }
-    });
+      });
   };
 
   const handleAiDescription = async () => {
@@ -353,6 +360,14 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           <p className="text-xs text-slate-600">
             {files.length} file{files.length > 1 ? "s" : ""} selected.
           </p>
+        )}
+        {uploading && (
+          <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
+            <div
+              className="h-full bg-sky-500 transition-all"
+              style={{ width: `${uploadProgress}%` }}
+            />
+          </div>
         )}
       </div>
 

@@ -2,7 +2,7 @@ import Image from "next/image";
 import { notFound } from "next/navigation";
 import { MessageThreadClient } from "@/components/messaging/MessageThreadClient";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
-import { Button } from "@/components/ui/Button";
+import { SaveButton } from "@/components/properties/SaveButton";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { mockProperties } from "@/lib/mock";
@@ -45,6 +45,25 @@ export default async function PropertyDetail({ params }: Props) {
   const property = await getProperty(params.id);
 
   if (!property) return notFound();
+
+  let isSaved = false;
+  try {
+    const supabase = createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (user) {
+      const { data } = await supabase
+        .from("saved_properties")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("property_id", property.id)
+        .maybeSingle();
+      isSaved = !!data;
+    }
+  } catch {
+    isSaved = false;
+  }
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4">
@@ -93,10 +112,7 @@ export default async function PropertyDetail({ params }: Props) {
               </span>
             ))}
           </div>
-          <div className="flex flex-col gap-2">
-            <Button>Contact landlord/agent</Button>
-            <Button variant="secondary">Save property</Button>
-          </div>
+          <SaveButton propertyId={property.id} initialSaved={isSaved} />
         </div>
       </div>
 
