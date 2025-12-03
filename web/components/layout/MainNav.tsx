@@ -1,5 +1,7 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const links = [
   { href: "/properties", label: "Browse" },
@@ -8,15 +10,26 @@ const links = [
   { href: "/admin", label: "Admin" },
 ];
 
-export function MainNav() {
+export async function MainNav() {
+  const supabase = createServerSupabaseClient();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+
+  const isAuthed = !!session?.user;
+
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur-lg">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
         <Link href="/" className="flex items-center gap-2 font-semibold">
+          <Image
+            src="/logo.svg"
+            alt="RENTNOW"
+            width={28}
+            height={28}
+            priority
+          />
           <span className="text-xl text-sky-600">RENTNOW</span>
-          <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
-            MVP
-          </span>
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm text-slate-700 md:flex">
@@ -32,12 +45,20 @@ export function MainNav() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link href="/auth/login" className="hidden text-sm text-slate-700 md:block">
-            Log in
-          </Link>
-          <Link href="/auth/register">
-            <Button size="sm">Get started</Button>
-          </Link>
+          {isAuthed ? (
+            <Link href="/dashboard">
+              <Button size="sm">Dashboard</Button>
+            </Link>
+          ) : (
+            <>
+              <Link href="/auth/login" className="hidden text-sm text-slate-700 md:block">
+                Log in
+              </Link>
+              <Link href="/auth/register">
+                <Button size="sm">Get started</Button>
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
