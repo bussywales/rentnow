@@ -91,7 +91,11 @@ export function createServerSupabaseClient() {
       get(name: string) {
         try {
           const store = cookieStore as unknown as { get?: (n: string) => { value?: string } };
-          return store?.get?.(name)?.value;
+          const direct = store?.get?.(name)?.value;
+          if (direct) return direct;
+          // Next.js 14+ stores signed cookie entries with a map-like shape
+          const asMap = store as unknown as Map<string, { value: string }>;
+          return asMap?.get?.(name)?.value;
         } catch {
           return undefined;
         }
