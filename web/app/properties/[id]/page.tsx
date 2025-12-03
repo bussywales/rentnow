@@ -4,6 +4,7 @@ import { MessageThreadClient } from "@/components/messaging/MessageThreadClient"
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
@@ -22,6 +23,12 @@ async function getProperty(id: string): Promise<Property | null> {
   if (cleanId.startsWith("mock-")) {
     const fromMock = mockProperties.find((p) => p.id === cleanId);
     if (fromMock) return fromMock;
+  }
+
+  const supabaseReady = hasServerSupabaseEnv();
+  if (!supabaseReady) {
+    // Supabase missing and not a mock ID: bail so we can show a helpful fallback instead of mock-1.
+    return null;
   }
 
   try {

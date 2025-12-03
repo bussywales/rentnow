@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PropertyForm } from "@/components/properties/PropertyForm";
 import { mockProperties } from "@/lib/mock";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +18,10 @@ async function loadProperty(id: string): Promise<Property | null> {
   if (cleanId.startsWith("mock-")) {
     const fromMock = mockProperties.find((p) => p.id === cleanId);
     if (fromMock) return fromMock;
+  }
+
+  if (!hasServerSupabaseEnv()) {
+    return null;
   }
 
   try {
