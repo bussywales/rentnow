@@ -30,7 +30,7 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getSession();
 
   if (!session?.user) {
-    return buildRedirect(req, "/auth/login", "auth");
+    return buildRedirect(req, "/auth/required", "auth");
   }
 
   const { data: profile } = await supabase
