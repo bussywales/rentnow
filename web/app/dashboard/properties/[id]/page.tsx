@@ -43,7 +43,13 @@ async function loadProperty(id: string): Promise<Property | null> {
 }
 
 export default async function EditPropertyPage({ params }: Props) {
-  const property = await loadProperty(params.id);
+  let property: Property | null = null;
+  try {
+    property = await loadProperty(params.id);
+  } catch (err) {
+    console.error("Failed to load property for dashboard edit", err);
+    property = null;
+  }
 
   if (!property) {
     return (
