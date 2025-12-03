@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { MainNav } from "@/components/layout/MainNav";
 import { Footer } from "@/components/layout/Footer";
@@ -32,7 +33,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased text-slate-900`}
       >
         <MainNav />
-        <ToastNotice />
+        <Suspense fallback={null}>
+          <ToastNotice />
+        </Suspense>
         <main className="min-h-[80vh] pb-12 pt-6">{children}</main>
         <Footer />
       </body>
