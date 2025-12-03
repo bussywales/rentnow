@@ -11,12 +11,17 @@ const links = [
 ];
 
 export async function MainNav() {
-  const supabase = createServerSupabaseClient();
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
-  const isAuthed = !!session?.user;
+  let isAuthed = false;
+  try {
+    const supabase = createServerSupabaseClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    isAuthed = !!session?.user;
+  } catch (err) {
+    console.warn("Supabase session check failed in nav", err);
+    isAuthed = false;
+  }
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur-lg">
