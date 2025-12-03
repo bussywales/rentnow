@@ -363,6 +363,9 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
             {files.length} file{files.length > 1 ? "s" : ""} selected.
           </p>
         )}
+        <p className="text-xs text-slate-600">
+          Max 5MB, images only. Uploads go to the `{STORAGE_BUCKET}` bucket (set `NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET`).
+        </p>
         {uploading && (
           <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
             <div

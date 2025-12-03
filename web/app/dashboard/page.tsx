@@ -63,6 +63,11 @@ export default async function DashboardHome() {
           <p className="text-sm text-slate-600">
             Listings you own. Approvals required for public visibility.
           </p>
+          {demoMode && (
+            <p className="text-xs text-amber-700">
+              Demo data shown until Supabase is connected.
+            </p>
+          )}
         </div>
         <Link href="/dashboard/properties/new">
           <Button>New listing</Button>

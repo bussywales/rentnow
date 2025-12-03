@@ -26,20 +26,16 @@ type Props = {
   height?: string;
 };
 
-function CenterMap({ properties }: { properties: Property[] }) {
+function FitToBounds({ properties }: { properties: Property[] }) {
   const map = useMap();
-  const first = properties.find(
-    (p) => typeof p.latitude === "number" && typeof p.longitude === "number"
-  );
 
   useEffect(() => {
-    if (first) {
-      map.setView(
-        [first.latitude as number, first.longitude as number],
-        12
-      );
-    }
-  }, [first, map]);
+    if (!properties.length) return;
+    const bounds = L.latLngBounds(
+      properties.map((p) => [p.latitude as number, p.longitude as number])
+    );
+    map.fitBounds(bounds, { padding: [24, 24] });
+  }, [properties, map]);
 
   return null;
 }
@@ -49,9 +45,18 @@ export function PropertyMap({ properties, height = "400px" }: Props) {
     (p) => typeof p.latitude === "number" && typeof p.longitude === "number"
   );
 
-  const fallbackCenter: [number, number] = valid.length
-    ? [valid[0].latitude as number, valid[0].longitude as number]
-    : [0, 0];
+  if (!valid.length) {
+    return (
+      <div className="flex h-[240px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white text-sm text-slate-600">
+        No map data yet. Add coordinates to show this listing on the map.
+      </div>
+    );
+  }
+
+  const fallbackCenter: [number, number] = [
+    valid[0].latitude as number,
+    valid[0].longitude as number,
+  ];
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -66,7 +71,7 @@ export function PropertyMap({ properties, height = "400px" }: Props) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <CenterMap properties={valid} />
+        <FitToBounds properties={valid} />
         {valid.map((property) => (
           <Marker
             key={property.id}
