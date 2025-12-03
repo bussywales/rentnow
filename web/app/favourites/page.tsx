@@ -27,9 +27,14 @@ export default async function FavouritesPage() {
     );
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user = null;
+  try {
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    user = data.user;
+  } catch (err) {
+    console.error("Failed to fetch user for favourites", err);
+  }
 
   if (!user) {
     return (
