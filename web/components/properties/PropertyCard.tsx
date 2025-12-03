@@ -3,6 +3,43 @@ import Link from "next/link";
 import type { Property } from "@/lib/types";
 import { cn } from "@/components/ui/cn";
 
+const BedIcon = () => (
+  <svg
+    aria-hidden
+    className="h-4 w-4 text-slate-500"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    viewBox="0 0 24 24"
+  >
+    <path d="M4 12V7a1 1 0 0 1 1-1h6v6" />
+    <path d="M4 21v-3" />
+    <path d="M20 21v-3" />
+    <path d="M4 15h16v-3a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2Z" />
+  </svg>
+);
+
+const BathIcon = () => (
+  <svg
+    aria-hidden
+    className="h-4 w-4 text-slate-500"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    viewBox="0 0 24 24"
+  >
+    <path d="M7 10h14" />
+    <path d="M6 21h12" />
+    <path d="M19 10a3 3 0 0 0-3-3h-3a3 3 0 0 0-3 3" />
+    <path d="M9 7V4h2" />
+    <path d="M5 21a3 3 0 0 1-3-3v-4h20v4a3 3 0 0 1-3 3" />
+  </svg>
+);
+
 type Props = {
   property: Property;
   href?: string;
@@ -57,8 +94,14 @@ export function PropertyCard({ property, href, compact }: Props) {
             </span>
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-600">
-            <span>{property.bedrooms} bd</span>
-            <span>{property.bathrooms} ba</span>
+            <span className="flex items-center gap-1">
+              <BedIcon />
+              {property.bedrooms}
+            </span>
+            <span className="flex items-center gap-1">
+              <BathIcon />
+              {property.bathrooms}
+            </span>
             {property.furnished && <span>Furnished</span>}
           </div>
         </div>
