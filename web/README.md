@@ -47,6 +47,7 @@ npm run dev
 - If Supabase env vars are missing, the app runs in demo mode with mock African listings. Save/favourites/messaging/viewings show friendly “connect Supabase” notices instead of crashing.
 - Nav auth state uses a Supabase session when configured; dashboard role pulls from the Supabase profile and falls back to `demo`.
 - AI routes short-circuit when `OPENAI_API_KEY` is absent: search parsing returns default filters and description generation returns a templated summary.
+- Protected routes (dashboard/admin/favourites) can be gated via the edge-friendly `/proxy/auth` helper once Supabase is set.
 
 ## AI endpoints
 - `POST /api/ai/generate-description` - body: property details; returns a 120-200 word marketing description. Uses `gpt-4.1-mini`.
