@@ -33,6 +33,12 @@ function parseFilters(params: Props["searchParams"]): ParsedSearchFilters {
 export default async function PropertiesPage({ searchParams }: Props) {
   const filters = parseFilters(searchParams);
   let properties: Property[] = mockProperties;
+  const hubs = [
+    { city: "Lagos", label: "Lagos Island" },
+    { city: "Nairobi", label: "Nairobi" },
+    { city: "Accra", label: "Accra" },
+    { city: "Dakar", label: "Dakar" },
+  ];
 
   try {
     const { data, error } = await searchProperties(filters);
@@ -93,6 +99,27 @@ export default async function PropertiesPage({ searchParams }: Props) {
         </div>
         <Link href="/dashboard/properties/new">
           <Button variant="secondary">List a property</Button>
+        </Link>
+      </div>
+
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">
+        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+          Popular hubs
+        </p>
+        {hubs.map((hub) => (
+          <Link
+            key={hub.city}
+            href={`/properties?city=${encodeURIComponent(hub.city)}`}
+            className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700"
+          >
+            {hub.label}
+          </Link>
+        ))}
+        <Link
+          href="/properties"
+          className="rounded-full border border-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-sky-100"
+        >
+          Clear
         </Link>
       </div>
 

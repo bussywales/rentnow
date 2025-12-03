@@ -195,6 +195,20 @@ export default async function PropertyDetail({ params }: Props) {
         </div>
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
+                {property.city.slice(0, 2).toUpperCase()}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-900">Hosted by</p>
+                <p className="text-xs text-slate-600">
+                  {property.owner_id ? `Host ID: ${property.owner_id}` : "Demo host"}
+                </p>
+                <p className="text-xs text-slate-500">Based in {property.city}</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="text-lg font-semibold text-slate-900">
               Request a viewing
             </h3>

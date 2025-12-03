@@ -9,6 +9,11 @@ import { mockProperties } from "@/lib/mock";
 
 export default function Home() {
   const featured = mockProperties.slice(0, 3);
+  const hubs = [
+    { city: "Lagos", caption: "Island • Ikoyi • Lekki" },
+    { city: "Nairobi", caption: "Kilimani • Westlands" },
+    { city: "Accra", caption: "East Legon • Airport" },
+  ];
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4">
@@ -68,6 +73,27 @@ export default function Home() {
             </form>
           </div>
         </div>
+      </section>
+
+      <section className="grid gap-4 md:grid-cols-3">
+        {hubs.map((hub) => (
+          <div
+            key={hub.city}
+            className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+          >
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
+              Featured hub
+            </p>
+            <p className="text-xl font-semibold text-slate-900">{hub.city}</p>
+            <p className="text-sm text-slate-600">{hub.caption}</p>
+            <Link
+              href={`/properties?city=${encodeURIComponent(hub.city)}`}
+              className="mt-3 inline-flex text-sm font-semibold text-sky-700"
+            >
+              Browse {hub.city}
+            </Link>
+          </div>
+        ))}
       </section>
 
       <section className="grid gap-6 md:grid-cols-5">
