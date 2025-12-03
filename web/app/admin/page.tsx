@@ -5,6 +5,20 @@ import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
+type AdminProperty = {
+  id: string;
+  title: string;
+  city: string;
+  rental_type: string;
+  is_approved: boolean;
+};
+
+type AdminUser = {
+  id: string;
+  role: string;
+  full_name: string | null;
+};
+
 async function getData() {
   const supabase = createServerSupabaseClient();
   const { data: properties } = await supabase
@@ -16,7 +30,10 @@ async function getData() {
     .from("profiles")
     .select("id, role, full_name");
 
-  return { properties: properties || [], users: users || [] };
+  return {
+    properties: (properties as AdminProperty[]) || [],
+    users: (users as AdminUser[]) || [],
+  };
 }
 
 async function updateStatus(id: string, action: "approve" | "reject") {
