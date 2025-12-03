@@ -6,7 +6,20 @@ const saveSchema = z.object({
   property_id: z.string().uuid(),
 });
 
+const supabaseConfigured = () =>
+  !!(
+    (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+    (process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
+  );
+
 export async function GET() {
+  if (!supabaseConfigured()) {
+    return NextResponse.json({
+      saved: [],
+      note: "Supabase is not configured; favourites are disabled in demo mode.",
+    });
+  }
+
   const supabase = createServerSupabaseClient();
   const {
     data: { user },
@@ -30,6 +43,13 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  if (!supabaseConfigured()) {
+    return NextResponse.json(
+      { error: "Supabase is not configured; favourites require a live backend." },
+      { status: 503 }
+    );
+  }
+
   try {
     const supabase = createServerSupabaseClient();
     const {
@@ -60,6 +80,13 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  if (!supabaseConfigured()) {
+    return NextResponse.json(
+      { error: "Supabase is not configured; favourites require a live backend." },
+      { status: 503 }
+    );
+  }
+
   const supabase = createServerSupabaseClient();
   const {
     data: { user },

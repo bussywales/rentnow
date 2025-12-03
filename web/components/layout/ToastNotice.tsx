@@ -23,7 +23,7 @@ export function ToastNotice() {
     (reason === "auth"
       ? "Please log in to continue."
       : reason === "role"
-      ? "You don’t have permission to access that area."
+      ? "You don't have permission to access that area."
       : null);
 
   if (!message) return null;

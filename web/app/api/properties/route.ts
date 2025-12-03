@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
 const propertySchema = z.object({
   title: z.string().min(3),
@@ -24,6 +24,13 @@ const propertySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (!hasServerSupabaseEnv()) {
+    return NextResponse.json(
+      { error: "Supabase is not configured; listing creation is unavailable in demo mode." },
+      { status: 503 }
+    );
+  }
+
   try {
     const supabase = createServerSupabaseClient();
     const {

@@ -28,12 +28,39 @@ const defaultFilters: Filters = {
   amenities: [],
 };
 
+function applyCityFallback(filters: Filters, query: string) {
+  if (!query) return filters;
+  const q = query.toLowerCase();
+  const cityFallbacks: Record<string, string> = {
+    lekki: "Lagos",
+    "victoria island": "Lagos",
+    ikoyi: "Lagos",
+    kilimani: "Nairobi",
+    "east legon": "Accra",
+  };
+  Object.entries(cityFallbacks).forEach(([needle, city]) => {
+    if (q.includes(needle)) {
+      filters.city = city;
+    }
+  });
+  return filters;
+}
+
 export async function POST(request: Request) {
   try {
-    assertOpenAiKey();
     const json = await request.json();
     const { query } = bodySchema.parse(json);
+    let filters: Filters = { ...defaultFilters };
 
+    if (!process.env.OPENAI_API_KEY) {
+      filters = applyCityFallback(filters, query);
+      return NextResponse.json({
+        filters,
+        note: "OPENAI_API_KEY is missing; returned defaults without AI parsing.",
+      });
+    }
+
+    assertOpenAiKey();
     const openai = getOpenAI();
     const completion = await openai.chat.completions.create({
       model: "gpt-4.1-mini",
@@ -62,7 +89,7 @@ Output MUST be valid, minified JSON with this exact shape:
 }
 
 Rules:
-- If the query doesn’t specify a field, set it to null (or [] for amenities).
+- If the query doesn't specify a field, set it to null (or [] for amenities).
 - Detect city names mentioned in the text when possible.
 - Detect price amounts and infer min/max when phrases like "under", "below", "at least" appear.
 - Use currencies like "USD", "NGN", "KES", etc. If not clear, set currency to null.
@@ -98,7 +125,6 @@ Return ONLY the JSON. No explanation, no comments, no extra text.
             return match ? match[0] : "{}";
           })();
 
-    let filters: Filters = { ...defaultFilters };
     try {
       const parsed = JSON.parse(jsonString);
       filters = { ...filters, ...parsed };
@@ -106,21 +132,7 @@ Return ONLY the JSON. No explanation, no comments, no extra text.
       console.warn("Failed to parse AI JSON", err);
     }
 
-    if (!filters.city && typeof query === "string") {
-      const q = query.toLowerCase();
-      const cityFallbacks: Record<string, string> = {
-        lekki: "Lagos",
-        "victoria island": "Lagos",
-        ikoyi: "Lagos",
-        kilimani: "Nairobi",
-        "east legon": "Accra",
-      };
-      Object.entries(cityFallbacks).forEach(([needle, city]) => {
-        if (q.includes(needle)) {
-          filters.city = city;
-        }
-      });
-    }
+    filters = applyCityFallback(filters, query);
 
     return NextResponse.json({ filters });
   } catch (error: unknown) {

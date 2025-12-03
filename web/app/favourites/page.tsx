@@ -1,18 +1,13 @@
 import Link from "next/link";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function FavouritesPage() {
-  let supabase;
-  try {
-    supabase = createServerSupabaseClient();
-  } catch (err) {
-    console.warn("Supabase not configured; favourites fallback", err);
-    supabase = null;
-  }
+  const supabaseReady = hasServerSupabaseEnv();
+  const supabase = supabaseReady ? createServerSupabaseClient() : null;
 
   if (!supabase) {
     return (
@@ -23,6 +18,9 @@ export default async function FavouritesPage() {
             Supabase is not configured; please add env vars to enable favourites.
           </p>
         </div>
+        <Link href="/properties" className="text-sky-700 font-semibold">
+          Browse demo properties
+        </Link>
       </div>
     );
   }
@@ -108,9 +106,15 @@ export default async function FavouritesPage() {
           ))}
         </div>
       ) : (
-        <Link href="/properties" className="text-sky-700 font-semibold">
-          Browse properties
-        </Link>
+        <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-center">
+          <p className="text-base font-semibold text-slate-900">No favourites yet</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Save homes you like to keep track of them across devices.
+          </p>
+          <Link href="/properties" className="mt-3 inline-flex text-sky-700 font-semibold">
+            Browse properties
+          </Link>
+        </div>
       )}
     </div>
   );

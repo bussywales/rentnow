@@ -14,11 +14,20 @@ export function ViewingRequestForm({ propertyId }: Props) {
     "idle"
   );
   const [error, setError] = useState<string | null>(null);
+  const supabaseEnabled =
+    !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setStatus("loading");
     setError(null);
+
+    if (!supabaseEnabled) {
+      setError("Viewing requests require Supabase. Try the demo listings instead.");
+      setStatus("error");
+      return;
+    }
 
     if (propertyId.startsWith("mock")) {
       setError("Viewing requests require a real property ID and Supabase auth.");

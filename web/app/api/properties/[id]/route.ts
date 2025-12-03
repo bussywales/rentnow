@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
 const updateSchema = z.object({
   title: z.string().min(3).optional(),
@@ -27,6 +27,13 @@ export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  if (!hasServerSupabaseEnv()) {
+    return NextResponse.json(
+      { error: "Supabase is not configured; properties are read-only in demo mode." },
+      { status: 503 }
+    );
+  }
+
   const { id } = await context.params;
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
@@ -46,6 +53,13 @@ export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  if (!hasServerSupabaseEnv()) {
+    return NextResponse.json(
+      { error: "Supabase is not configured; editing requires a live backend." },
+      { status: 503 }
+    );
+  }
+
   const { id } = await context.params;
   try {
     const supabase = createServerSupabaseClient();
@@ -115,6 +129,13 @@ export async function DELETE(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
+  if (!hasServerSupabaseEnv()) {
+    return NextResponse.json(
+      { error: "Supabase is not configured; deletion is unavailable in demo mode." },
+      { status: 503 }
+    );
+  }
+
   const { id } = await context.params;
   const supabase = createServerSupabaseClient();
   const {

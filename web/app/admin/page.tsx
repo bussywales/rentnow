@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +19,10 @@ type AdminUser = {
 };
 
 async function getData() {
+  if (!hasServerSupabaseEnv()) {
+    return { properties: [], users: [] };
+  }
+
   const supabase = createServerSupabaseClient();
   const { data: properties } = await supabase
     .from("properties")
@@ -59,6 +63,7 @@ async function updateStatus(id: string, action: "approve" | "reject") {
 }
 
 export default async function AdminPage() {
+  const supabaseReady = hasServerSupabaseEnv();
   const { properties, users } = await getData();
 
   return (
@@ -69,6 +74,11 @@ export default async function AdminPage() {
         <p className="text-sm text-slate-200">
           Approve listings and audit users. Restricted to role = admin.
         </p>
+        {!supabaseReady && (
+          <p className="mt-2 text-sm text-amber-100">
+            Connect Supabase to moderate real data. Demo mode shows empty lists.
+          </p>
+        )}
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -120,7 +130,7 @@ export default async function AdminPage() {
                   {property.title}
                 </p>
                 <p className="text-xs text-slate-600">
-                  {property.city} • {property.rental_type}
+                  {property.city} - {property.rental_type}
                 </p>
                 <p className="text-xs">
                   Status:{" "}

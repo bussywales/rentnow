@@ -14,12 +14,16 @@ export function NavAuthClient({ initialAuthed }: Props) {
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
-    supabase.auth.getSession().then(({ data }) => {
-      setIsAuthed(!!data.session);
-    });
+    supabase.auth
+      .getSession()
+      .then(
+        ({ data }: { data: { session: unknown } }) => {
+          setIsAuthed(!!data.session);
+        }
+      );
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((_event: unknown, session: unknown) => {
       setIsAuthed(!!session);
     });
     return () => {

@@ -74,7 +74,7 @@ export function PropertyCard({ property, href, compact }: Props) {
           <div>
             <p className="text-xs uppercase tracking-wide text-slate-500">
               {property.city}
-              {property.neighbourhood ? ` • ${property.neighbourhood}` : ""}
+            {property.neighbourhood ? ` - ${property.neighbourhood}` : ""}
             </p>
             <h3 className="text-base font-semibold text-slate-900">
               {property.title}

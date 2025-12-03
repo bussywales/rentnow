@@ -17,7 +17,7 @@ export default function Home() {
         <div className="relative grid items-center gap-8 md:grid-cols-2">
           <div className="space-y-4">
             <p className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100">
-              Rentals • Africa • AI
+              Rentals x Africa x AI
             </p>
             <h1 className="text-4xl font-semibold leading-tight md:text-5xl">
               Rent faster with a map-first, AI-guided experience.
@@ -84,7 +84,7 @@ export default function Home() {
           </ul>
           <div className="rounded-xl bg-slate-900 px-4 py-3 text-sm text-slate-100">
             <p className="font-semibold text-white">Tech stack</p>
-            <p>Next.js App Router • Supabase • Tailwind • Leaflet • OpenAI</p>
+            <p>Next.js App Router / Supabase / Tailwind / Leaflet / OpenAI</p>
           </div>
         </div>
       </section>
@@ -100,7 +100,7 @@ export default function Home() {
             </p>
           </div>
           <Link href="/dashboard/properties/new" className="text-sm font-semibold text-sky-600">
-            List a property →
+            {"List a property ->"}
           </Link>
         </div>
         <div className="grid gap-5 md:grid-cols-3">
@@ -118,7 +118,7 @@ export default function Home() {
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-semibold text-slate-900">Map preview</h2>
           <Link href="/properties" className="text-sm font-semibold text-sky-600">
-            Open full map →
+            {"Open full map ->"}
           </Link>
         </div>
         <PropertyMapClient properties={featured} height="360px" />

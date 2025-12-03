@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { Button } from "@/components/ui/Button";
@@ -56,7 +55,31 @@ export default async function PropertiesPage({ searchParams }: Props) {
     console.warn("Supabase not configured; using mock data", err);
   }
 
-  if (!properties.length) return notFound();
+  if (!properties.length) {
+    return (
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
+        <h1 className="text-2xl font-semibold text-slate-900">No properties found</h1>
+        <p className="text-sm text-slate-600">
+          We could not find any listings for these filters. Clear your search or jump into the demo
+          listings below.
+        </p>
+        <div className="flex flex-wrap gap-3">
+          {mockProperties.slice(0, 3).map((property) => (
+            <Link
+              key={property.id}
+              className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-sky-700 hover:border-sky-300"
+              href={`/properties/${property.id}`}
+            >
+              {property.title}
+            </Link>
+          ))}
+        </div>
+        <Link href="/properties" className="text-sky-700 font-semibold">
+          Reset filters
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">

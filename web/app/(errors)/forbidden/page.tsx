@@ -6,8 +6,8 @@ export default function ForbiddenPage({ searchParams }: Props) {
   const reason = searchParams?.reason;
   const note =
     reason === "role"
-      ? "Your account role doesn’t have access here."
-      : "You don’t have permission to view this page.";
+      ? "Your account role doesn't have access here."
+      : "You don't have permission to view this page.";
 
   return (
     <div className="mx-auto flex max-w-xl flex-col gap-3 px-4 py-12 text-center">

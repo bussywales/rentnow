@@ -9,9 +9,10 @@ type Props = {
   messages: Message[];
   currentUser?: Profile | null;
   onSend?: (body: string) => Promise<void> | void;
+  loading?: boolean;
 };
 
-export function MessageThread({ messages, currentUser, onSend }: Props) {
+export function MessageThread({ messages, currentUser, onSend, loading }: Props) {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
 
@@ -33,19 +34,22 @@ export function MessageThread({ messages, currentUser, onSend }: Props) {
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="space-y-3 max-h-64 overflow-y-auto">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-800"
-          >
-            <p className="mb-1 text-xs text-slate-500">
-              {message.sender_id === currentUser?.id ? "You" : "Contact"} •{" "}
-              {new Date(message.created_at || "").toLocaleString()}
-            </p>
-            <p>{message.body}</p>
-          </div>
-        ))}
-        {!messages.length && (
+        {loading ? (
+          <p className="text-sm text-slate-500">Loading messages...</p>
+        ) : messages.length ? (
+          messages.map((message) => (
+            <div
+              key={message.id}
+              className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-800"
+            >
+              <p className="mb-1 text-xs text-slate-500">
+                {message.sender_id === currentUser?.id ? "You" : "Contact"} -{" "}
+                {new Date(message.created_at || "").toLocaleString()}
+              </p>
+              <p>{message.body}</p>
+            </div>
+          ))
+        ) : (
           <p className="text-sm text-slate-500">No messages yet.</p>
         )}
       </div>

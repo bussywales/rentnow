@@ -76,7 +76,7 @@ export function PropertyMap({ properties, height = "400px" }: Props) {
             <Popup>
               <div className="text-sm font-semibold">{property.title}</div>
               <div className="text-xs text-slate-600">
-                {property.city} • {property.rental_type === "short_let" ? "Short-let" : "Long-term"}
+                {property.city} - {property.rental_type === "short_let" ? "Short-let" : "Long-term"}
               </div>
             </Popup>
           </Marker>

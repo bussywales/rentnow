@@ -17,6 +17,10 @@ export function MessageThreadClient({
 }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const supabaseEnabled =
+    !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+    !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -26,12 +30,19 @@ export function MessageThreadClient({
         if (data?.messages) setMessages(data.messages);
       } catch (err) {
         console.warn("Unable to load messages", err);
+      } finally {
+        setLoading(false);
       }
     };
     fetchMessages();
   }, [propertyId]);
 
   const handleSend = async (body: string) => {
+    if (!supabaseEnabled) {
+      setError("Messaging requires Supabase. Demo mode shows read-only messages.");
+      return;
+    }
+
     if (propertyId.startsWith("mock") || recipientId.startsWith("owner-")) {
       setError("Messaging requires Supabase auth and real property IDs.");
       return;
@@ -64,6 +75,7 @@ export function MessageThreadClient({
         messages={messages}
         currentUser={currentUser}
         onSend={handleSend}
+        loading={loading}
       />
       {error && <p className="text-sm text-red-600">{error}</p>}
     </div>

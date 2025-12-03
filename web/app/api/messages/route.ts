@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { mockProperties } from "@/lib/mock";
 import type { Message } from "@/lib/types";
 
@@ -17,6 +17,21 @@ export async function GET(request: Request) {
 
   if (!propertyId) {
     return NextResponse.json({ messages });
+  }
+
+  if (!hasServerSupabaseEnv()) {
+    return NextResponse.json({
+      messages: [
+        {
+          id: "demo-message",
+          property_id: propertyId,
+          sender_id: "demo-tenant",
+          recipient_id: mockProperties[0]?.owner_id || "demo-owner",
+          body: "Demo mode: connect Supabase to enable real messaging.",
+          created_at: new Date().toISOString(),
+        },
+      ],
+    });
   }
 
   try {
@@ -48,6 +63,13 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  if (!hasServerSupabaseEnv()) {
+    return NextResponse.json(
+      { error: "Supabase is not configured; messaging is available in live mode only." },
+      { status: 503 }
+    );
+  }
+
   try {
     const supabase = createServerSupabaseClient();
     const {

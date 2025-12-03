@@ -124,7 +124,7 @@ export default async function PropertyDetail({ params }: Props) {
           </h1>
           <p className="text-sm text-slate-600">
             {property.city}
-            {property.neighbourhood ? ` • ${property.neighbourhood}` : ""}
+            {property.neighbourhood ? ` - ${property.neighbourhood}` : ""}
           </p>
           <div className="text-3xl font-semibold text-slate-900">
             {property.currency} {property.price.toLocaleString()}

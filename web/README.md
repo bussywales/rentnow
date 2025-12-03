@@ -25,14 +25,14 @@ supabase/schema.sql # DB + RLS starter script
 cd web
 npm install
 ```
-3) Env vars: copy `.env.local.example` → `.env.local` and fill in:
+3) Env vars: copy `.env.local.example` -> `.env.local` and fill in (OpenAI is optional; AI routes return safe fallbacks if the key is missing):
 ```
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_URL=...                # server-side use
 SUPABASE_ANON_KEY=...           # server-side use
-NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET=property-images
-OPENAI_API_KEY=sk-...
+NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET=property-images # required for uploads
+OPENAI_API_KEY=sk-...                              # optional, enables AI routes
 ```
 4) Database: run `supabase/schema.sql` in Supabase SQL editor. Enable RLS and add the sample policies (see comments).  
 5) Storage: create a public bucket named `property-images` (or update the code to use your bucket name).  
@@ -41,10 +41,16 @@ OPENAI_API_KEY=sk-...
 npm run dev
 ```
 7) Auth notes: email/password via Supabase. On first login, users land on `/onboarding` to pick role (tenant/landlord/agent). Profile data lives in `profiles` table keyed by `auth.users.id`.
+8) Quality checks: `npm run lint` then `npm run build` (tolerates missing OpenAI key if AI routes aren't hit).
+
+## Demo mode and fallbacks
+- If Supabase env vars are missing, the app runs in demo mode with mock African listings. Save/favourites/messaging/viewings show friendly “connect Supabase” notices instead of crashing.
+- Nav auth state uses a Supabase session when configured; dashboard role pulls from the Supabase profile and falls back to `demo`.
+- AI routes short-circuit when `OPENAI_API_KEY` is absent: search parsing returns default filters and description generation returns a templated summary.
 
 ## AI endpoints
-- `POST /api/ai/generate-description` — body: property details; returns a 120–200 word marketing description. Uses `gpt-4.1-mini`.
-- `POST /api/ai/parse-search` — body: `{ query: string }`; returns structured filters `{ city, minPrice, maxPrice, currency, bedrooms, rentalType, furnished, amenities[] }`.
+- `POST /api/ai/generate-description` - body: property details; returns a 120-200 word marketing description. Uses `gpt-4.1-mini`.
+- `POST /api/ai/parse-search` - body: `{ query: string }`; returns structured filters `{ city, minPrice, maxPrice, currency, bedrooms, rentalType, furnished, amenities[] }`.
 
 ## Core API (App Router handlers)
 - Properties: `POST /api/properties` (create, attaches owner via auth), `PUT /api/properties/:id`, `DELETE /api/properties/:id`, `GET /api/properties/:id`, `GET /api/properties/search`.
@@ -63,5 +69,6 @@ Tables: `profiles`, `properties`, `property_images`, `saved_properties`, `messag
 
 ## Current status
 - UI scaffolding for all core flows (home, search, property detail, dashboard CRUD shell, messaging/viewings shell, admin). 
-- Supabase + OpenAI helpers are wired; falls back to mock data if Supabase isn’t configured.
+- Supabase + OpenAI helpers are wired; app degrades gracefully to mock/demo mode when Supabase or OpenAI keys are missing.
+- Storage uploads expect a bucket named `property-images`.
 - Ready for data hookup, Storage uploads, and polishing RLS/role enforcement.

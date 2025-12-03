@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { NavAuthClient } from "@/components/layout/NavAuthClient";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
 const links = [
   { href: "/properties", label: "Browse" },
@@ -10,6 +11,19 @@ const links = [
 ];
 
 export async function MainNav() {
+  let initialAuthed = false;
+  if (hasServerSupabaseEnv()) {
+    try {
+      const supabase = createServerSupabaseClient();
+      const { data, error } = await supabase.auth.getSession();
+      if (!error) {
+        initialAuthed = !!data.session;
+      }
+    } catch (err) {
+      console.warn("Unable to resolve initial auth state", err);
+    }
+  }
+
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur-lg">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
@@ -37,7 +51,7 @@ export async function MainNav() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <NavAuthClient initialAuthed={false} />
+          <NavAuthClient initialAuthed={initialAuthed} />
         </div>
       </div>
     </header>

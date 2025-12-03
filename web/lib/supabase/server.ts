@@ -15,6 +15,10 @@ const getEnv = () => {
   return { url, anonKey };
 };
 
+export function hasServerSupabaseEnv() {
+  return !!getEnv();
+}
+
 function createMockSupabaseClient() {
   const mockResult: MockQueryResult = { data: null, error: new Error("Supabase not configured") };
 
@@ -25,12 +29,13 @@ function createMockSupabaseClient() {
     lte: () => typeof builder;
     ilike: () => typeof builder;
     contains: () => typeof builder;
-    order: () => typeof builder;
+    order: () => Promise<MockQueryResult>;
     maybeSingle: () => Promise<MockQueryResult>;
     single: () => Promise<MockQueryResult>;
     insert: () => Promise<MockQueryResult>;
     update: () => Promise<MockQueryResult>;
     delete: () => Promise<MockQueryResult>;
+    upsert: () => Promise<MockQueryResult>;
   } = {
     select: () => builder,
     eq: () => builder,
@@ -38,12 +43,13 @@ function createMockSupabaseClient() {
     lte: () => builder,
     ilike: () => builder,
     contains: () => builder,
-    order: () => builder,
+    order: async () => mockResult,
     maybeSingle: async () => mockResult,
     single: async () => mockResult,
     insert: async () => mockResult,
     update: async () => mockResult,
     delete: async () => mockResult,
+    upsert: async () => mockResult,
   };
 
   const mockClient = {

@@ -12,7 +12,7 @@ export default function AuthRequiredPage({
       <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Sign in</p>
       <h1 className="text-3xl font-semibold text-slate-900">Please log in</h1>
       <p className="text-sm text-slate-600">
-        You need an account to access this page. Log in or create a free account, then we’ll
+        You need an account to access this page. Log in or create a free account, then we&apos;ll
         send you back.
       </p>
       <div className="mt-3 flex items-center justify-center gap-3 text-sm">

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
 const viewingSchema = z.object({
   property_id: z.string().uuid(),
@@ -10,6 +10,13 @@ const viewingSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  if (!hasServerSupabaseEnv()) {
+    return NextResponse.json(
+      { error: "Supabase is not configured; viewing requests are demo-only right now." },
+      { status: 503 }
+    );
+  }
+
   try {
     const supabase = createServerSupabaseClient();
     const {

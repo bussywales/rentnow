@@ -6,7 +6,10 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import {
+  createBrowserSupabaseClient,
+  hasBrowserSupabaseEnv,
+} from "@/lib/supabase/client";
 import type { Property, RentalType } from "@/lib/types";
 
 type FormState = Partial<Property> & { amenitiesText?: string };
@@ -40,12 +43,11 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
   const [uploadProgress, setUploadProgress] = useState(0);
 
   const getSupabase = () => {
-    try {
-      return createBrowserSupabaseClient();
-    } catch {
-      setError("Supabase environment variables are missing.");
+    if (!hasBrowserSupabaseEnv()) {
+      setError("Supabase environment variables are missing. Connect Supabase to save.");
       return null;
     }
+    return createBrowserSupabaseClient();
   };
 
   const handleChange = (key: keyof FormState, value: string | number | boolean) => {
