@@ -2,6 +2,10 @@
 
 AI-first rental platform for the African market. This MVP is a web-only PWA built with Next.js (App Router), Supabase, Tailwind, OpenAI, and Leaflet.
 
+## Version
+- Current: 0.2.0 (2025-12-03)
+- Highlights: property gallery with thumbnails, admin filters/search, Supabase auth hardening, demo/live helpers.
+
 ## Stack
 - Next.js 16 (App Router, TypeScript)
 - Tailwind CSS 4
@@ -73,3 +77,8 @@ Tables: `profiles`, `properties`, `property_images`, `saved_properties`, `messag
 - Supabase + OpenAI helpers are wired; app degrades gracefully to mock/demo mode when Supabase or OpenAI keys are missing.
 - Storage uploads expect a bucket named `property-images`.
 - Ready for data hookup, Storage uploads, and polishing RLS/role enforcement.
+
+## Support
+- Status & release notes: `/support`
+- Runtime env check: `/api/debug/env`
+- Contact: hello@rentnow.africa

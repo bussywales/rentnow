@@ -6,6 +6,10 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 
 export const dynamic = "force-dynamic";
 
+type Props = {
+  searchParams: Record<string, string | string[] | undefined>;
+};
+
 type AdminProperty = {
   id: string;
   title: string;
@@ -79,12 +83,18 @@ async function updateStatus(id: string, action: "approve" | "reject") {
     .eq("id", id);
 }
 
-export default async function AdminPage() {
+export default async function AdminPage({ searchParams }: Props) {
   const supabaseReady = hasServerSupabaseEnv();
-  // Read server-side query params
-  const { searchParams } = new URL(`${process.env.NEXT_PUBLIC_SITE_URL || "http://localhost"}`);
-  const filterParam = searchParams.get("status");
-  const searchParam = searchParams.get("q") || "";
+  const filterParam = searchParams.status
+    ? Array.isArray(searchParams.status)
+      ? searchParams.status[0]
+      : searchParams.status
+    : null;
+  const searchParam = searchParams.q
+    ? Array.isArray(searchParams.q)
+      ? searchParams.q[0]
+      : searchParams.q
+    : "";
   const statusFilter =
     filterParam === "approved" || filterParam === "pending" ? filterParam : "all";
 
