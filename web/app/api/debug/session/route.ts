@@ -3,7 +3,7 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 
 export async function GET() {
   if (!hasServerSupabaseEnv()) {
-    return NextResponse.json({ ready: false, user: null });
+    return NextResponse.json({ ready: false, user: null, error: "missing env" });
   }
 
   try {

@@ -78,21 +78,43 @@ export function createServerSupabaseClient() {
   }
 
   const { url, anonKey } = env;
-  const cookieStore = cookies as unknown as () => {
-    get: (name: string) => { value?: string } | undefined;
-    set: (options: CookieOptions & { name: string; value: string }) => void;
-  };
+  const cookieStore = (() => {
+    try {
+      return cookies();
+    } catch {
+      return null;
+    }
+  })();
 
   return createServerClient(url, anonKey, {
     cookies: {
       get(name: string) {
-        return cookieStore()?.get(name)?.value;
+        try {
+          const store = cookieStore as unknown as { get?: (n: string) => { value?: string } };
+          return store?.get?.(name)?.value;
+        } catch {
+          return undefined;
+        }
       },
       set(name: string, value: string, options: CookieOptions) {
-        cookieStore()?.set({ name, value, ...options });
+        try {
+          const store = cookieStore as unknown as {
+            set?: (opts: CookieOptions & { name: string; value: string }) => void;
+          };
+          store?.set?.({ name, value, ...options });
+        } catch {
+          /* no-op on read-only cookie store */
+        }
       },
       remove(name: string, options: CookieOptions) {
-        cookieStore()?.set({ name, value: "", ...options, maxAge: 0 });
+        try {
+          const store = cookieStore as unknown as {
+            set?: (opts: CookieOptions & { name: string; value: string }) => void;
+          };
+          store?.set?.({ name, value: "", ...options, maxAge: 0 });
+        } catch {
+          /* no-op */
+        }
       },
     },
   });
