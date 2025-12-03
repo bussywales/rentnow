@@ -46,9 +46,16 @@ export async function MainNav() {
 
         <div className="flex items-center gap-2">
           {isAuthed ? (
-            <Link href="/dashboard">
-              <Button size="sm">Dashboard</Button>
-            </Link>
+            <>
+              <Link href="/dashboard" className="hidden text-sm text-slate-700 md:block">
+                My dashboard
+              </Link>
+              <form action="/auth/logout" method="post">
+                <Button size="sm" type="submit" variant="secondary">
+                  Log out
+                </Button>
+              </form>
+            </>
           ) : (
             <>
               <Link href="/auth/login" className="hidden text-sm text-slate-700 md:block">
