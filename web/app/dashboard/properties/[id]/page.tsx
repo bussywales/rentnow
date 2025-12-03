@@ -8,8 +8,12 @@ export const dynamic = "force-dynamic";
 
 type Props = { params: { id: string } };
 
+function normalizeId(id: string) {
+  return decodeURIComponent(id).trim();
+}
+
 async function loadProperty(id: string): Promise<Property | null> {
-  const cleanId = decodeURIComponent(id);
+  const cleanId = normalizeId(id);
   // Short-circuit to mock data for demo IDs
   if (cleanId.startsWith("mock-")) {
     const fromMock = mockProperties.find((p) => p.id === cleanId);
