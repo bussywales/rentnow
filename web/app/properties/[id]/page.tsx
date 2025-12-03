@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { notFound } from "next/navigation";
+import Link from "next/link";
 import { MessageThreadClient } from "@/components/messaging/MessageThreadClient";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { SaveButton } from "@/components/properties/SaveButton";
@@ -48,9 +48,28 @@ async function getProperty(id: string): Promise<Property | null> {
 }
 
 export default async function PropertyDetail({ params }: Props) {
-  const property = await getProperty(params.id);
+  let property: Property | null = null;
+  try {
+    property = await getProperty(params.id);
+  } catch (err) {
+    console.error("Failed to load property detail", err);
+    property = null;
+  }
 
-  if (!property) return notFound();
+  if (!property) {
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
+        <h1 className="text-2xl font-semibold text-slate-900">Listing not found</h1>
+        <p className="text-sm text-slate-600">
+          This listing isn&apos;t available right now. If you&apos;re running the demo
+          without Supabase, please use the mock cards on the Browse page.
+        </p>
+        <Link href="/properties" className="text-sky-700 font-semibold">
+          Back to browse
+        </Link>
+      </div>
+    );
+  }
 
   let isSaved = false;
   try {
