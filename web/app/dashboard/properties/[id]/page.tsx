@@ -9,9 +9,10 @@ export const dynamic = "force-dynamic";
 type Props = { params: { id: string } };
 
 async function loadProperty(id: string): Promise<Property | null> {
+  const cleanId = decodeURIComponent(id);
   // Short-circuit to mock data for demo IDs
-  if (id.startsWith("mock-")) {
-    const fromMock = mockProperties.find((p) => p.id === id);
+  if (cleanId.startsWith("mock-")) {
+    const fromMock = mockProperties.find((p) => p.id === cleanId);
     if (fromMock) return fromMock;
   }
 
@@ -20,7 +21,7 @@ async function loadProperty(id: string): Promise<Property | null> {
     const { data, error } = await supabase
       .from("properties")
       .select("*, property_images(image_url,id)")
-      .eq("id", id)
+      .eq("id", cleanId)
       .maybeSingle();
     if (!error && data) {
       const typed = data as Property & {
@@ -38,7 +39,7 @@ async function loadProperty(id: string): Promise<Property | null> {
     console.warn("Supabase not configured for dashboard edit; using mock", err);
   }
 
-  const fromMock = mockProperties.find((p) => p.id === id);
+  const fromMock = mockProperties.find((p) => p.id === cleanId);
   return fromMock || null;
 }
 
@@ -52,6 +53,11 @@ export default async function EditPropertyPage({ params }: Props) {
   }
 
   if (!property) {
+    const mockLinks = mockProperties.map((p) => (
+      <Link key={p.id} href={`/dashboard/properties/${p.id}`} className="text-sky-700">
+        {p.title}
+      </Link>
+    ));
     return (
       <div className="space-y-4">
         <div>
@@ -65,6 +71,10 @@ export default async function EditPropertyPage({ params }: Props) {
         <Link href="/dashboard" className="text-sky-700 font-semibold">
           Back to dashboard
         </Link>
+        <div className="space-y-1">
+          <p className="text-sm text-slate-700">Demo listings:</p>
+          <div className="flex flex-wrap gap-3 text-sm">{mockLinks}</div>
+        </div>
       </div>
     );
   }

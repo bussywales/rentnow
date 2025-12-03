@@ -13,9 +13,10 @@ export const dynamic = "force-dynamic";
 type Props = { params: { id: string } };
 
 async function getProperty(id: string): Promise<Property | null> {
+  const cleanId = decodeURIComponent(id);
   // If this is a demo ID, serve from mock data immediately
-  if (id.startsWith("mock-")) {
-    const fromMock = mockProperties.find((p) => p.id === id);
+  if (cleanId.startsWith("mock-")) {
+    const fromMock = mockProperties.find((p) => p.id === cleanId);
     if (fromMock) return fromMock;
   }
 
@@ -24,7 +25,7 @@ async function getProperty(id: string): Promise<Property | null> {
     const { data, error } = await supabase
       .from("properties")
       .select("*, property_images(image_url, id)")
-      .eq("id", id)
+      .eq("id", cleanId)
       .maybeSingle();
 
     if (!error && data) {
@@ -57,6 +58,11 @@ export default async function PropertyDetail({ params }: Props) {
   }
 
   if (!property) {
+    const mockLinks = mockProperties.map((p) => (
+      <Link key={p.id} href={`/properties/${p.id}`} className="text-sky-700">
+        {p.title}
+      </Link>
+    ));
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
         <h1 className="text-2xl font-semibold text-slate-900">Listing not found</h1>
@@ -67,6 +73,10 @@ export default async function PropertyDetail({ params }: Props) {
         <Link href="/properties" className="text-sky-700 font-semibold">
           Back to browse
         </Link>
+        <div className="space-y-1">
+          <p className="text-sm text-slate-700">Demo listings:</p>
+          <div className="flex flex-wrap gap-3 text-sm">{mockLinks}</div>
+        </div>
       </div>
     );
   }
