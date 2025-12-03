@@ -3,7 +3,10 @@
 import dynamic from "next/dynamic";
 import type { Property } from "@/lib/types";
 
-const PropertyMap = dynamic(() => import("./PropertyMap"), { ssr: false });
+const PropertyMap = dynamic(
+  () => import("./PropertyMap").then((mod) => mod.PropertyMap),
+  { ssr: false }
+);
 
 type Props = {
   properties: Property[];
