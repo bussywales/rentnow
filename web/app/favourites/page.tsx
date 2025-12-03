@@ -6,7 +6,27 @@ import type { Property } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export default async function FavouritesPage() {
-  const supabase = createServerSupabaseClient();
+  let supabase;
+  try {
+    supabase = createServerSupabaseClient();
+  } catch (err) {
+    console.warn("Supabase not configured; favourites fallback", err);
+    supabase = null;
+  }
+
+  if (!supabase) {
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Saved properties</h1>
+          <p className="text-sm text-slate-600">
+            Supabase is not configured; please add env vars to enable favourites.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
