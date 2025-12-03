@@ -25,8 +25,9 @@ const updateSchema = z.object({
 
 export async function GET(
   _request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
+  const { params } = context;
   const supabase = createServerSupabaseClient();
   const { data, error } = await supabase
     .from("properties")
@@ -43,8 +44,9 @@ export async function GET(
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
+  const { params } = context;
   try {
     const supabase = createServerSupabaseClient();
     const {
@@ -111,8 +113,9 @@ export async function PUT(
 
 export async function DELETE(
   _request: Request,
-  { params }: { params: { id: string } }
+  context: { params: { id: string } }
 ) {
+  const { params } = context;
   const supabase = createServerSupabaseClient();
   const {
     data: { user },
