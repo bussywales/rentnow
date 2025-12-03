@@ -5,8 +5,11 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { useSearchParams } from "next/navigation";
 
 export default function LoginPage() {
+  const search = useSearchParams();
+  const reason = search.get("reason");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +52,11 @@ export default function LoginPage() {
         <p className="text-sm text-slate-600">
           Access your dashboard and messages.
         </p>
+        {reason === "auth" && (
+          <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Please log in to continue.
+          </p>
+        )}
       </div>
       <form className="space-y-4" onSubmit={handleSubmit}>
         <Input

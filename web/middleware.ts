@@ -6,10 +6,11 @@ import type { UserRole } from "@/lib/types";
 const DASHBOARD_ROLES: UserRole[] = ["landlord", "agent", "admin"];
 const ADMIN_ROLES: UserRole[] = ["admin"];
 
-function buildRedirect(req: NextRequest, target: string) {
+function buildRedirect(req: NextRequest, target: string, reason?: string) {
   const url = req.nextUrl.clone();
   url.pathname = target;
   url.searchParams.set("redirect", req.nextUrl.pathname + req.nextUrl.search);
+  if (reason) url.searchParams.set("reason", reason);
   return NextResponse.redirect(url);
 }
 
@@ -29,7 +30,7 @@ export async function middleware(req: NextRequest) {
   } = await supabase.auth.getSession();
 
   if (!session?.user) {
-    return buildRedirect(req, "/auth/login");
+    return buildRedirect(req, "/auth/login", "auth");
   }
 
   const { data: profile } = await supabase
@@ -41,14 +42,14 @@ export async function middleware(req: NextRequest) {
   const role = profile?.role as UserRole | undefined;
 
   if (pathname.startsWith("/admin") && !ADMIN_ROLES.includes(role ?? "tenant")) {
-    return buildRedirect(req, "/forbidden");
+    return buildRedirect(req, "/forbidden", "role");
   }
 
   if (
     pathname.startsWith("/dashboard") &&
     !DASHBOARD_ROLES.includes(role ?? "tenant")
   ) {
-    return buildRedirect(req, "/forbidden");
+    return buildRedirect(req, "/forbidden", "role");
   }
 
   return res;
