@@ -127,11 +127,12 @@ export default async function PropertyDetail({ params }: Props) {
                 strokeLinejoin="round"
                 viewBox="0 0 24 24"
               >
-                <path d="M7 10h14" />
-                <path d="M6 21h12" />
-                <path d="M19 10a3 3 0 0 0-3-3h-3a3 3 0 0 0-3 3" />
-                <path d="M9 7V4h2" />
-                <path d="M5 21a3 3 0 0 1-3-3v-4h20v4a3 3 0 0 1-3 3" />
+                <path d="M7 4a3 3 0 1 1 6 0v6" />
+                <path d="M4 10h14" />
+                <path d="M5 20h12" />
+                <path d="M5 16h14v2a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z" />
+                <path d="M15 4h1" />
+                <path d="M15 7h2" />
               </svg>
               {property.bathrooms}
             </span>
