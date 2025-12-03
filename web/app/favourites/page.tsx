@@ -63,14 +63,15 @@ export default async function FavouritesPage() {
 
     if (error) throw error;
 
+    type SavedRow = { properties?: Property | Property[] | null };
+    const rows = (data as SavedRow[]) || [];
     properties =
-      data
-        ?.flatMap((row) => {
-          const prop = Array.isArray(row.properties)
-            ? (row.properties[0] as Property | undefined)
-            : (row.properties as Property | null);
-          return prop ? [prop] : [];
-        }) || [];
+      rows.flatMap((row) => {
+        const prop = Array.isArray(row.properties)
+          ? (row.properties[0] as Property | undefined)
+          : (row.properties as Property | null);
+        return prop ? [prop] : [];
+      }) || [];
   } catch (err) {
     console.error("Failed to load favourites", err);
     return (
