@@ -29,14 +29,18 @@ export default async function FavouritesPage() {
 
   const { data } = await supabase
     .from("saved_properties")
-    .select("property_id, properties(*)")
+    .select(
+      "property_id, properties(id, owner_id, title, description, city, neighbourhood, address, latitude, longitude, rental_type, price, currency, bedrooms, bathrooms, furnished, amenities, available_from, max_guests, is_approved, is_active, created_at, updated_at, property_images(image_url,id))"
+    )
     .eq("user_id", user.id);
 
   const properties: Property[] =
     data
       ?.flatMap((row) => {
-        const props = row.properties as Property | null;
-        return props ? [props] : [];
+        const prop = Array.isArray(row.properties)
+          ? (row.properties[0] as Property | undefined)
+          : (row.properties as Property | null);
+        return prop ? [prop] : [];
       }) || [];
 
   return (
