@@ -24,24 +24,30 @@ async function getData() {
     return { properties: [], users: [] };
   }
 
-  const supabase = createServerSupabaseClient();
-  const { data: properties } = await supabase
-    .from("properties")
-    .select("id, title, city, rental_type, is_approved")
-    .order("created_at", { ascending: false });
+  try {
+    const supabase = createServerSupabaseClient();
+    const { data: properties } = await supabase
+      .from("properties")
+      .select("id, title, city, rental_type, is_approved")
+      .order("created_at", { ascending: false });
 
-  const { data: users } = await supabase
-    .from("profiles")
-    .select("id, role, full_name");
+    const { data: users } = await supabase
+      .from("profiles")
+      .select("id, role, full_name");
 
-  return {
-    properties: (properties as AdminProperty[]) || [],
-    users: (users as AdminUser[]) || [],
-  };
+    return {
+      properties: (properties as AdminProperty[]) || [],
+      users: (users as AdminUser[]) || [],
+    };
+  } catch (err) {
+    console.warn("Admin data load failed; rendering empty state", err);
+    return { properties: [], users: [] };
+  }
 }
 
 async function updateStatus(id: string, action: "approve" | "reject") {
   "use server";
+  if (!hasServerSupabaseEnv()) return;
   const supabase = createServerSupabaseClient();
   const {
     data: { user },
@@ -66,23 +72,27 @@ async function updateStatus(id: string, action: "approve" | "reject") {
 export default async function AdminPage() {
   const supabaseReady = hasServerSupabaseEnv();
   if (supabaseReady) {
-    const supabase = createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    try {
+      const supabase = createServerSupabaseClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
 
-    if (!user) {
-      redirect("/auth/required?redirect=/admin&reason=auth");
-    }
+      if (!user) {
+        redirect("/auth/required?redirect=/admin&reason=auth");
+      }
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
 
-    if (profile?.role !== "admin") {
-      redirect("/forbidden?reason=role");
+      if (profile?.role !== "admin") {
+        redirect("/forbidden?reason=role");
+      }
+    } catch (err) {
+      console.warn("Admin auth guard failed; showing demo state", err);
     }
   }
 
