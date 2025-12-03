@@ -73,11 +73,32 @@ Return ONLY the JSON. No explanation, no comments, no extra text.
     });
 
     const raw = completion.choices[0]?.message?.content?.trim() || "{}";
+    const cleaned = raw
+      .replace(/```json/gi, "")
+      .replace(/```javascript/gi, "")
+      .replace(/```/g, "")
+      .trim();
+    const jsonString =
+      cleaned.startsWith("{") && cleaned.endsWith("}")
+        ? cleaned
+        : (() => {
+            const match = cleaned.match(/\{[\s\S]*\}/);
+            return match ? match[0] : "{}";
+          })();
+
     let filters = defaultFilters;
     try {
-      filters = JSON.parse(raw);
+      filters = JSON.parse(jsonString);
     } catch (err) {
       console.warn("Failed to parse AI JSON", err);
+    }
+
+    if (!filters.city && typeof query === "string") {
+      const q = query.toLowerCase();
+      if (q.includes("lekki")) filters.city = "Lagos";
+      if (q.includes("victoria island") || q.includes("ikoyi")) filters.city = "Lagos";
+      if (q.includes("kilimani")) filters.city = "Nairobi";
+      if (q.includes("east legon")) filters.city = "Accra";
     }
 
     return NextResponse.json({ filters });

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { NavAuthClient } from "@/components/layout/NavAuthClient";
 
 const links = [
   { href: "/properties", label: "Browse" },
@@ -50,27 +50,7 @@ export async function MainNav() {
         </nav>
 
         <div className="flex items-center gap-2">
-          {isAuthed ? (
-            <>
-              <Link href="/dashboard" className="hidden text-sm text-slate-700 md:block">
-                My dashboard
-              </Link>
-              <form action="/auth/logout" method="post">
-                <Button size="sm" type="submit" variant="secondary">
-                  Log out
-                </Button>
-              </form>
-            </>
-          ) : (
-            <>
-              <Link href="/auth/login" className="hidden text-sm text-slate-700 md:block">
-                Log in
-              </Link>
-              <Link href="/auth/register">
-                <Button size="sm">Get started</Button>
-              </Link>
-            </>
-          )}
+          <NavAuthClient initialAuthed={isAuthed} />
         </div>
       </div>
     </header>
