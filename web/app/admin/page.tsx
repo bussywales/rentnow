@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
@@ -64,6 +65,27 @@ async function updateStatus(id: string, action: "approve" | "reject") {
 
 export default async function AdminPage() {
   const supabaseReady = hasServerSupabaseEnv();
+  if (supabaseReady) {
+    const supabase = createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      redirect("/auth/required?redirect=/admin&reason=auth");
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.role !== "admin") {
+      redirect("/forbidden?reason=role");
+    }
+  }
+
   const { properties, users } = await getData();
 
   return (

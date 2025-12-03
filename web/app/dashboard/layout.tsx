@@ -1,19 +1,29 @@
 export const dynamic = "force-dynamic";
 
+import { redirect } from "next/navigation";
 import Link from "next/link";
-import { getProfile } from "@/lib/auth";
+import { getProfile, getSession } from "@/lib/auth";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { ReactNode } from "react";
+
+const DASHBOARD_ROLES = ["landlord", "agent", "admin"];
 
 export default async function DashboardLayout({
   children,
 }: {
   children: ReactNode;
 }) {
+  const supabaseReady = hasServerSupabaseEnv();
   let profile = null;
-  try {
+  if (supabaseReady) {
+    const session = await getSession();
+    if (!session) {
+      redirect(`/auth/required?redirect=${encodeURIComponent("/dashboard")}&reason=auth`);
+    }
     profile = await getProfile();
-  } catch (err) {
-    console.warn("Supabase not configured; rendering dashboard shell", err);
+    if (profile && !DASHBOARD_ROLES.includes(profile.role)) {
+      redirect("/forbidden?reason=role");
+    }
   }
 
   return (
