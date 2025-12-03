@@ -17,18 +17,21 @@ const getEnv = () => {
 
 export function createServerSupabaseClient() {
   const { url, anonKey } = getEnv();
-  const cookieStore = cookies();
+  const cookieStore = cookies as unknown as () => {
+    get: (name: string) => { value?: string } | undefined;
+    set: (options: CookieOptions & { name: string; value: string }) => void;
+  };
 
   return createServerClient(url, anonKey, {
     cookies: {
       get(name: string) {
-        return cookieStore.get(name)?.value;
+        return cookieStore()?.get(name)?.value;
       },
       set(name: string, value: string, options: CookieOptions) {
-        cookieStore.set({ name, value, ...options });
+        cookieStore()?.set({ name, value, ...options });
       },
       remove(name: string, options: CookieOptions) {
-        cookieStore.set({ name, value: "", ...options, maxAge: 0 });
+        cookieStore()?.set({ name, value: "", ...options, maxAge: 0 });
       },
     },
   });
