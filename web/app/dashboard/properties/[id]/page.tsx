@@ -27,13 +27,14 @@ async function loadProperty(id: string): Promise<{ property: Property | null; er
       };
       if (data) {
         console.log("[dashboard edit] fetched via API", { id: cleanId, detailUrl });
-        return {
+        const withImages: Property = {
           ...data,
           images: data.property_images?.map((img) => ({
             id: img.id,
             image_url: img.image_url,
           })),
         };
+        return { property: withImages, error: null };
       }
     } else {
       // If direct fetch fails (e.g., RLS/session), try listing endpoint then filter.
@@ -44,7 +45,7 @@ async function loadProperty(id: string): Promise<{ property: Property | null; er
         const found = all.find((p) => p.id === cleanId);
         if (found) {
           console.log("[dashboard edit] fetched via list fallback", { id: cleanId });
-          return found;
+          return { property: found, error: null };
         }
       } else {
         console.warn("[dashboard edit] list fetch failed", { status: listRes.status });
@@ -71,13 +72,14 @@ async function loadProperty(id: string): Promise<{ property: Property | null; er
       const typed = data as Property & {
         property_images?: Array<{ id: string; image_url: string }>;
       };
-      return {
+      const withImages: Property = {
         ...typed,
         images: typed.property_images?.map((img) => ({
           id: img.id,
           image_url: img.image_url,
         })),
       };
+      return { property: withImages, error: null };
     }
     if (error) {
       return { property: null, error: error.message };
