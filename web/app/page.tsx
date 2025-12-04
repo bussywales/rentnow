@@ -5,10 +5,41 @@ import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { getSiteUrl } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
+import type { Property } from "@/lib/types";
 
-export default function Home() {
-  const featured = mockProperties.slice(0, 3);
+export default async function Home() {
+  let featured: Property[] = [];
+  const baseUrl = getSiteUrl();
+  const apiUrl = `${baseUrl}/api/properties`;
+
+  try {
+    const res = await fetch(apiUrl, { cache: "no-store" });
+    if (res.ok) {
+      const json = await res.json();
+      const typed =
+        (json.properties as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) ||
+        [];
+      featured =
+        typed
+          .map((row) => ({
+            ...row,
+            images: row.property_images?.map((img) => ({
+              id: img.id,
+              image_url: img.image_url,
+            })),
+          }))
+          .slice(0, 3) || [];
+    }
+  } catch (err) {
+    console.warn("[home] unable to fetch featured properties", err);
+  }
+
+  if (!featured.length) {
+    featured = mockProperties.slice(0, 3);
+  }
+
   const hubs = [
     { city: "Lagos", caption: "Island - Ikoyi - Lekki" },
     { city: "Nairobi", caption: "Kilimani - Westlands" },
