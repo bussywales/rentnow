@@ -32,12 +32,6 @@ type SupabaseBootstrapMeta = {
 
 function readCookieValue(headerCookies: Map<string, string>, name: string | null) {
   if (!name) return undefined;
-  try {
-    const direct = cookies().get(name)?.value;
-    if (direct) return direct;
-  } catch {
-    /* ignore */
-  }
   return headerCookies.get(name);
 }
 
@@ -150,13 +144,6 @@ export function createServerSupabaseClient() {
   const { url, anonKey } = env;
   const projectRef = getProjectRef(url);
   const cookieName = projectRef ? `sb-${projectRef}-auth-token` : null;
-  const cookieStore = (() => {
-    try {
-      return cookies();
-    } catch {
-      return null;
-    }
-  })();
   const headerCookieMap = (() => {
     const map = new Map<string, string>();
     try {
@@ -185,7 +172,7 @@ export function createServerSupabaseClient() {
       },
       set(name: string, value: string, options: CookieOptions) {
         try {
-          const store = cookieStore as unknown as {
+          const store = cookies() as unknown as {
             set?: (opts: CookieOptions & { name: string; value: string }) => void;
           };
           store?.set?.({ name, value, ...options });
@@ -195,7 +182,7 @@ export function createServerSupabaseClient() {
       },
       remove(name: string, options: CookieOptions) {
         try {
-          const store = cookieStore as unknown as {
+          const store = cookies() as unknown as {
             set?: (opts: CookieOptions & { name: string; value: string }) => void;
           };
           store?.set?.({ name, value: "", ...options, maxAge: 0 });
