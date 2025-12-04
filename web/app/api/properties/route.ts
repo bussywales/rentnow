@@ -44,12 +44,13 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const data = propertySchema.parse(body);
+    const { imageUrls = [], ...rest } = data;
 
     const { data: property, error: insertError } = await supabase
       .from("properties")
       .insert({
-        ...data,
-        amenities: data.amenities ?? [],
+        ...rest,
+        amenities: rest.amenities ?? [],
         owner_id: user.id,
       })
       .select("id")
@@ -64,9 +65,9 @@ export async function POST(request: Request) {
 
     const propertyId = property?.id;
 
-    if (propertyId && data.imageUrls?.length) {
+    if (propertyId && imageUrls.length) {
       await supabase.from("property_images").insert(
-        data.imageUrls.map((url) => ({
+        imageUrls.map((url) => ({
           property_id: propertyId,
           image_url: url,
         }))

@@ -114,12 +114,13 @@ export async function PUT(
 
     const body = await request.json();
     const updates = updateSchema.parse(body);
+    const { imageUrls = [], ...rest } = updates;
 
     const { error: updateError } = await supabase
       .from("properties")
       .update({
-        ...updates,
-        amenities: updates.amenities ?? [],
+        ...rest,
+        amenities: rest.amenities ?? [],
         updated_at: new Date().toISOString(),
       })
       .eq("id", id);
@@ -131,11 +132,11 @@ export async function PUT(
       );
     }
 
-    if (updates.imageUrls) {
+    if (imageUrls) {
       await supabase.from("property_images").delete().eq("property_id", id);
-      if (updates.imageUrls.length) {
+      if (imageUrls.length) {
         await supabase.from("property_images").insert(
-          updates.imageUrls.map((url) => ({
+          imageUrls.map((url) => ({
             property_id: id,
             image_url: url,
           }))
