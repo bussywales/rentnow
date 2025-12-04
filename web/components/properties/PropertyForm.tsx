@@ -19,6 +19,7 @@ type Props = {
   onSubmit?: (data: FormState) => Promise<void> | void;
 };
 
+const MAX_UPLOAD_BYTES = 20 * 1024 * 1024; // 20MB client-side limit
 const rentalTypes: { label: string; value: RentalType }[] = [
   { label: "Short-let", value: "short_let" },
   { label: "Long-term", value: "long_term" },
@@ -41,6 +42,47 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  const compressImage = async (file: File) => {
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      const img = new Image();
+      img.src = objectUrl;
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = () => reject(new Error("Image load failed"));
+      });
+      URL.revokeObjectURL(objectUrl);
+
+      const maxDim = 2000;
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const targetW = Math.max(1, Math.round(img.width * scale));
+      const targetH = Math.max(1, Math.round(img.height * scale));
+
+      const canvas = document.createElement("canvas");
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Canvas not supported");
+      ctx.drawImage(img, 0, 0, targetW, targetH);
+
+      const blob: Blob | null = await new Promise((resolve) =>
+        canvas.toBlob(resolve, "image/webp", 0.72)
+      );
+      if (!blob) throw new Error("Compression failed");
+
+      // If somehow bigger than original, keep the original file.
+      if (blob.size >= file.size) return file;
+
+      return new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), {
+        type: "image/webp",
+        lastModified: Date.now(),
+      });
+    } catch {
+      // On any compression failure, fall back to the original file.
+      return file;
+    }
+  };
 
   const getSupabase = () => {
     if (!hasBrowserSupabaseEnv()) {
@@ -101,16 +143,17 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           }
           for (let i = 0; i < files.length; i += 1) {
             const file = files[i];
-            if (file.size > 5 * 1024 * 1024) {
-              throw new Error(`File ${file.name} exceeds 5MB limit.`);
+            if (file.size > MAX_UPLOAD_BYTES) {
+              throw new Error(`File ${file.name} exceeds ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB limit.`);
             }
             if (!file.type.startsWith("image/")) {
               throw new Error(`File ${file.name} is not an image.`);
             }
-            const path = `${user.id}/${Date.now()}-${file.name}`;
+            const toUpload = await compressImage(file);
+            const path = `${user.id}/${Date.now()}-${toUpload.name}`;
             const { error: uploadError } = await supabase.storage
               .from(STORAGE_BUCKET)
-              .upload(path, file);
+              .upload(path, toUpload);
             if (uploadError) {
               throw new Error(uploadError.message);
             }
@@ -383,7 +426,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           </p>
         )}
         <p className="text-xs text-slate-600">
-          Max 5MB, images only. Uploads go to the `{STORAGE_BUCKET}` bucket (set `NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET`).
+          Max 20MB per file (auto-compressed before upload), images only. Uploads go to the `{STORAGE_BUCKET}` bucket (set `NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET`).
         </p>
         {uploading && (
           <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
