@@ -82,6 +82,11 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           return;
         }
 
+        if (initialData?.owner_id && initialData.owner_id !== user.id) {
+          setError("You can only edit listings you own. Create a new listing to duplicate this data.");
+          return;
+        }
+
         const uploadedUrls: string[] = [];
         if (files.length) {
           setUploading(true);
@@ -123,8 +128,14 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
         });
 
         if (!res.ok) {
-          const errText = await res.text();
-          throw new Error(errText);
+          let errText = await res.text();
+          try {
+            const parsed = JSON.parse(errText);
+            errText = parsed?.error || errText;
+          } catch {
+            /* ignore JSON parse failure */
+          }
+          throw new Error(errText || "Unable to save listing.");
         }
 
         router.push("/dashboard");
