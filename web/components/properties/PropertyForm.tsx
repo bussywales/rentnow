@@ -82,6 +82,11 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           return;
         }
 
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+        const accessToken = session?.access_token;
+
         if (initialData?.owner_id && initialData.owner_id !== user.id) {
           setError("You can only edit listings you own. Create a new listing to duplicate this data.");
           return;
@@ -120,7 +125,10 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
 
         const res = await fetch(initialData?.id ? `/api/properties/${initialData.id}` : "/api/properties", {
           method: initialData?.id ? "PUT" : "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
           body: JSON.stringify({
             ...payload,
             imageUrls: uploadedUrls,
