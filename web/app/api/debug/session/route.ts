@@ -8,16 +8,27 @@ export async function GET() {
 
   try {
     const supabase = createServerSupabaseClient();
+    const bootstrap = (supabase as unknown as { __bootstrap?: unknown }).__bootstrap;
+
     const {
       data: { user },
       error,
     } = await supabase.auth.getUser();
 
-    if (error) {
-      return NextResponse.json({ ready: true, user: null, error: error.message });
-    }
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
 
-    return NextResponse.json({ ready: true, user });
+    const errorMessage = error?.message || sessionError?.message || null;
+
+    return NextResponse.json({
+      ready: true,
+      user,
+      sessionUserId: session?.user?.id ?? null,
+      error: errorMessage,
+      bootstrap,
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown";
     return NextResponse.json({ ready: true, user: null, error: message });

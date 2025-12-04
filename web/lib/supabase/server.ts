@@ -21,6 +21,75 @@ function getProjectRef(url?: string) {
   return match?.[1] || null;
 }
 
+type SessionTokens = { access_token: string; refresh_token: string };
+type SupabaseBootstrapMeta = {
+  cookieName: string | null;
+  cookieFound: boolean;
+  tokensFound: boolean;
+  setSessionAttempted: boolean;
+  setSessionError: string | null;
+};
+
+function readCookieValue(
+  cookieStore: ReturnType<typeof cookies> | null,
+  name: string | null,
+) {
+  if (!cookieStore || !name) return undefined;
+  try {
+    const store = cookieStore as unknown as { get?: (n: string) => { value?: string } };
+    const direct = store?.get?.(name)?.value;
+    if (direct) return direct;
+    const asMap = cookieStore as unknown as Map<string, { value: string }>;
+    return asMap?.get?.(name)?.value;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseSupabaseAuthCookie(raw?: string | null): SessionTokens | null {
+  if (!raw) return null;
+
+  const tryDecode = (value: string) => {
+    try {
+      return decodeURIComponent(value);
+    } catch {
+      return value;
+    }
+  };
+
+  const candidates = [tryDecode(raw)];
+  if (!candidates.includes(raw)) candidates.push(raw);
+
+  for (const candidate of candidates) {
+    try {
+      // Supabase stores `{ currentSession, expiresAt }` in the auth cookie.
+      const parsed = JSON.parse(candidate) as unknown;
+      const base = Array.isArray(parsed) ? parsed[0] : parsed;
+      const sessionSource =
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (base as any)?.currentSession ||
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (base as any)?.session ||
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (base as any)?.data?.session ||
+        base;
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const access_token = (sessionSource as any)?.access_token;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const refresh_token = (sessionSource as any)?.refresh_token;
+
+      if (access_token && refresh_token) {
+        return { access_token, refresh_token };
+      }
+    } catch {
+      /* ignore parse failures */
+    }
+  }
+
+  return null;
+}
+
 export function hasServerSupabaseEnv() {
   return !!getEnv();
 }
@@ -97,16 +166,7 @@ export function createServerSupabaseClient() {
   const client = createServerClient(url, anonKey, {
     cookies: {
       get(name: string) {
-        try {
-          const store = cookieStore as unknown as { get?: (n: string) => { value?: string } };
-          const direct = store?.get?.(name)?.value;
-          if (direct) return direct;
-          // Next.js 14+ stores signed cookie entries with a map-like shape
-          const asMap = store as unknown as Map<string, { value: string }>;
-          return asMap?.get?.(name)?.value;
-        } catch {
-          return undefined;
-        }
+        return readCookieValue(cookieStore, name) as string | undefined;
       },
       set(name: string, value: string, options: CookieOptions) {
         try {
@@ -131,21 +191,61 @@ export function createServerSupabaseClient() {
     },
   });
 
-  if (cookieName) {
-    try {
-      const store = cookieStore as unknown as { get?: (n: string) => { value?: string } };
-      const direct = store?.get?.(cookieName)?.value;
-      const asMap = cookieStore as unknown as Map<string, { value: string }>;
-      const fromMap = asMap?.get?.(cookieName)?.value;
-      const raw = direct || fromMap;
-      if (raw) {
-        const parsed = JSON.parse(decodeURIComponent(raw));
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (client.auth as any)?.setSession?.(parsed);
-      }
-    } catch (err) {
-      console.warn("Failed to bootstrap Supabase session from cookie", err);
-    }
+  const authCookie = readCookieValue(cookieStore, cookieName);
+  const tokens = parseSupabaseAuthCookie(authCookie);
+  const setSession =
+    tokens &&
+    (client.auth as {
+      setSession?: (
+        t: SessionTokens,
+      ) => Promise<{ error?: { message?: string } | null }>;
+    }).setSession;
+  const bootstrap: SupabaseBootstrapMeta = {
+    cookieName,
+    cookieFound: !!authCookie,
+    tokensFound: !!tokens,
+    setSessionAttempted: !!setSession,
+    setSessionError: null,
+  };
+
+  const setSessionPromise =
+    tokens && setSession
+      ? setSession(tokens)
+          .then((result) => {
+            if (result?.error) {
+              bootstrap.setSessionError =
+                result.error.message || "Unknown Supabase auth error";
+            }
+          })
+          .catch((err: unknown) => {
+            bootstrap.setSessionError =
+              err instanceof Error ? err.message : "Failed to set Supabase session";
+          })
+      : null;
+
+  if (setSessionPromise) {
+    const baseGetSession = client.auth.getSession.bind(client.auth);
+    const baseGetUser = client.auth.getUser.bind(client.auth);
+
+    client.auth.getSession = async (...args: Parameters<typeof baseGetSession>) => {
+      await setSessionPromise;
+      return baseGetSession(...args);
+    };
+
+    client.auth.getUser = async (...args: Parameters<typeof baseGetUser>) => {
+      await setSessionPromise;
+      return baseGetUser(...args);
+    };
+  }
+
+  (client as unknown as { __bootstrap?: SupabaseBootstrapMeta }).__bootstrap = bootstrap;
+
+  if (tokens && !setSession && !bootstrap.setSessionError) {
+    bootstrap.setSessionError = "Supabase client missing setSession helper";
+  }
+
+  if (bootstrap.setSessionError) {
+    console.warn("Supabase session bootstrap failed", bootstrap.setSessionError);
   }
 
   return client;
