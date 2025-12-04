@@ -15,9 +15,24 @@ function normalizeId(id: string) {
 async function loadProperty(id: string): Promise<{ property: Property | null; error: string | null }> {
   const cleanId = normalizeId(id);
 
-  // First try the public API (works for anon/demo)
+  // First try the list API (most permissive, no per-id RLS surprises)
   try {
     const baseUrl = getSiteUrl();
+    const listUrl = `${baseUrl}/api/properties`;
+    const listRes = await fetch(listUrl, { cache: "no-store" });
+    if (listRes.ok) {
+      const json = await listRes.json();
+      const all = (json.properties as Property[]) || [];
+      const found = all.find((p) => p.id === cleanId);
+      if (found) {
+        console.log("[dashboard edit] fetched via list", { id: cleanId, listUrl });
+        return { property: found, error: null };
+      }
+    } else {
+      console.warn("[dashboard edit] list fetch failed", { status: listRes.status });
+    }
+
+    // Fallback to detail API for completeness (e.g., non-public records)
     const detailUrl = `${baseUrl}/api/properties/${cleanId}`;
     const res = await fetch(detailUrl, { cache: "no-store" });
     if (res.ok) {
@@ -26,7 +41,7 @@ async function loadProperty(id: string): Promise<{ property: Property | null; er
         property_images?: Array<{ id: string; image_url: string }>;
       };
       if (data) {
-        console.log("[dashboard edit] fetched via API", { id: cleanId, detailUrl });
+        console.log("[dashboard edit] fetched via detail API", { id: cleanId, detailUrl });
         const withImages: Property = {
           ...data,
           images: data.property_images?.map((img) => ({
@@ -37,24 +52,10 @@ async function loadProperty(id: string): Promise<{ property: Property | null; er
         return { property: withImages, error: null };
       }
     } else {
-      // If direct fetch fails (e.g., RLS/session), try listing endpoint then filter.
-      const listRes = await fetch(`${baseUrl}/api/properties`, { cache: "no-store" });
-      if (listRes.ok) {
-        const json = await listRes.json();
-        const all = (json.properties as Property[]) || [];
-        const found = all.find((p) => p.id === cleanId);
-        if (found) {
-          console.log("[dashboard edit] fetched via list fallback", { id: cleanId });
-          return { property: found, error: null };
-        }
-      } else {
-        console.warn("[dashboard edit] list fetch failed", { status: listRes.status });
-      }
-      return { property: null, error: `API responded with ${res.status}` };
+      console.warn("[dashboard edit] detail fetch failed", { status: res.status, detailUrl });
     }
   } catch (err) {
     console.warn("Dashboard edit API fetch failed", err);
-    return { property: null, error: err instanceof Error ? err.message : "Unknown API error" };
   }
 
   if (!hasServerSupabaseEnv()) {
@@ -85,7 +86,7 @@ async function loadProperty(id: string): Promise<{ property: Property | null; er
       return { property: null, error: error.message };
     }
   } catch (err) {
-    console.warn("Supabase not configured for dashboard edit", err);
+    console.warn("Supabase dashboard edit fetch failed", err);
     return { property: null, error: err instanceof Error ? err.message : "Supabase error" };
   }
 
