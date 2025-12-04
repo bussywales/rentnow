@@ -4,6 +4,7 @@ type AlertProps = {
   title?: string;
   description?: string;
   variant?: "info" | "warning" | "error" | "success";
+  onClose?: () => void;
   className?: string;
 };
 
@@ -18,6 +19,7 @@ export function Alert({
   title,
   description,
   variant = "info",
+  onClose,
   className,
 }: AlertProps) {
   return (
@@ -28,8 +30,22 @@ export function Alert({
         className
       )}
     >
-      {title && <p className="font-semibold">{title}</p>}
-      {description && <p className="mt-1 leading-relaxed">{description}</p>}
+      <div className="flex items-start gap-3">
+        <div className="flex-1">
+          {title && <p className="font-semibold">{title}</p>}
+          {description && <p className="mt-1 leading-relaxed">{description}</p>}
+        </div>
+        {onClose && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded p-1 text-sm text-slate-500 hover:bg-white/50"
+            aria-label="Close"
+          >
+            ✕
+          </button>
+        )}
+      </div>
     </div>
   );
 }

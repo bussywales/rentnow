@@ -11,6 +11,7 @@ import {
   hasBrowserSupabaseEnv,
 } from "@/lib/supabase/client";
 import type { Property, RentalType } from "@/lib/types";
+import { setToastQuery } from "@/lib/utils/toast";
 
 type FormState = Partial<Property> & { amenitiesText?: string };
 
@@ -189,7 +190,9 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           throw new Error(errText || "Unable to save listing.");
         }
 
-        router.push("/dashboard");
+        const params = new URLSearchParams();
+        setToastQuery(params, "Listing saved successfully", "success");
+        router.push(`/dashboard?${params.toString()}`);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unable to save listing.";
         setError(message);
