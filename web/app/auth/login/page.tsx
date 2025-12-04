@@ -28,8 +28,11 @@ function LoginContent() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    const emailTrimmed = email.trim();
-    const passwordTrimmed = password.trim();
+    const formData = new FormData(e.currentTarget);
+    const emailFromForm = (formData.get("email") as string | null) ?? "";
+    const passwordFromForm = (formData.get("password") as string | null) ?? "";
+    const emailTrimmed = (email || emailFromForm).trim();
+    const passwordTrimmed = (password || passwordFromForm).trim();
     if (!emailTrimmed || !passwordTrimmed) {
       setError("Email and password are required.");
       setLoading(false);
@@ -71,6 +74,7 @@ function LoginContent() {
           required
           placeholder="you@email.com"
           value={email}
+          name="email"
           autoComplete="username"
           onChange={(e) => setEmail(e.target.value)}
         />
@@ -79,6 +83,7 @@ function LoginContent() {
           required
           placeholder="Password"
           value={password}
+          name="password"
           autoComplete="current-password"
           onChange={(e) => setPassword(e.target.value)}
         />
