@@ -18,7 +18,8 @@ async function loadProperty(id: string): Promise<Property | null> {
   // First try the public API (works for anon/demo)
   try {
     const baseUrl = getSiteUrl();
-    const res = await fetch(`${baseUrl}/api/properties/${cleanId}`, { cache: "no-store" });
+    const detailUrl = `${baseUrl}/api/properties/${cleanId}`;
+    const res = await fetch(detailUrl, { cache: "no-store" });
     if (res.ok) {
       const json = await res.json();
       const data = json.property as Property & {
@@ -32,6 +33,15 @@ async function loadProperty(id: string): Promise<Property | null> {
             image_url: img.image_url,
           })),
         };
+      }
+    } else {
+      // If direct fetch fails (e.g., RLS/session), try listing endpoint then filter.
+      const listRes = await fetch(`${baseUrl}/api/properties`, { cache: "no-store" });
+      if (listRes.ok) {
+        const json = await listRes.json();
+        const all = (json.properties as Property[]) || [];
+        const found = all.find((p) => p.id === cleanId);
+        if (found) return found;
       }
     }
   } catch (err) {
@@ -91,6 +101,11 @@ export default async function EditPropertyPage({ params }: Props) {
           </p>
           {fetchError && (
             <p className="text-xs text-amber-700">Error: {fetchError}</p>
+          )}
+          {!fetchError && (
+            <p className="text-xs text-slate-500">
+              Ensure the listing id is approved/active and visible via /api/properties.
+            </p>
           )}
         </div>
         <Link href="/dashboard" className="text-sky-700 font-semibold">
