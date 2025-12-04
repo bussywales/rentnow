@@ -27,13 +27,14 @@
 - Visual polish: stronger typography pairing, micro-animations on cards, staggered reveal, refreshed map theme.
 - Upload UX: add success toast on media upload; keep compress-to-webp; consider background upload queue.
 - Maps: add blur placeholder for Leaflet tiles.
+- SEO/Sharing: per-property meta/OG tags, JSON-LD (Apartment/House/Product) with price/beds/amenities, dynamic sitemaps, canonical URLs, and similar-listings/internal linking to reduce thin content.
 - Trust: surface power/Internet/water reliability, verified host/listing markers, and transparent pricing (fees/deposits).
 - Messaging: quick replies + templated FAQs; collaborative shareable links for roommates/family.
 
 ## AI/Assist (Optional)
 - AI description rewrite for hosts; AI search (natural language) for tenants.
 - AI similar listings suggestions.
-- AI-assisted “intent” search with mood chips (business/family/creative/remote) feeding filters.
+- AI-assisted intent search with mood chips (business/family/creative/remote) feeding filters.
 
 ## Observability
 - Add simple logging for API fetch failures (env/URL, status) and image load errors.
