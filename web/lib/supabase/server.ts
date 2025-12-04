@@ -202,9 +202,9 @@ export function createServerSupabaseClient() {
         if (isPromise || !store) return false;
         const viaGet = store.get?.(cookieName)?.value;
         if (viaGet) return true;
-        const viaAll = store.getAll?.().some?.(
-          (c: { name: string }) => c.name === cookieName && !!c.value,
-        );
+        const viaAll = store
+          .getAll?.()
+          .some?.((c: { name: string; value?: string }) => c.name === cookieName && !!c.value);
         return !!viaAll;
       } catch {
         return false;
