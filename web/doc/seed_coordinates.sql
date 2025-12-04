@@ -30,3 +30,8 @@ WHERE id = '9b727e7e-e08a-a120-f0ef-777777777777';
 UPDATE public.properties
 SET latitude = -26.1076, longitude = 28.0567
 WHERE id = 'ac838f8f-f19b-b231-0110-888888888888';
+
+-- Fix broken Unsplash URL for Kilimani studio
+UPDATE public.property_images
+SET image_url = 'https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=1200&auto=format&fit=crop'
+WHERE property_id = '7f505c5c-ce6e-8f1e-decd-555555555555';
