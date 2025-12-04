@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { Metadata } from "next";
 import { MessageThreadClient } from "@/components/messaging/MessageThreadClient";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
@@ -86,6 +87,45 @@ async function getProperty(id: string | undefined): Promise<{ property: Property
   return { property: null, error: "Listing not found" };
 }
 
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const id = await extractId(params);
+  const { property } = await getProperty(id);
+  const baseUrl = getSiteUrl() || "https://www.rentnow.space";
+
+  if (!property) {
+    return {
+      title: "Listing not found | RENTNOW",
+      description: "This listing is unavailable.",
+      alternates: { canonical: `${baseUrl}/properties/${id ?? ""}` },
+    };
+  }
+
+  const title = `${property.title} | ${property.city}${property.neighbourhood ? ` - ${property.neighbourhood}` : ""}`;
+  const description =
+    property.description ||
+    `Discover ${property.title} in ${property.city}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${property.currency} ${property.price.toLocaleString()}.`;
+  const imageUrl = property.images?.[0]?.image_url;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `${baseUrl}/properties/${property.id}` },
+    openGraph: {
+      title,
+      description,
+      url: `${baseUrl}/properties/${property.id}`,
+      type: "article",
+      images: imageUrl ? [{ url: imageUrl, alt: property.title }] : undefined,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: imageUrl ? [imageUrl] : undefined,
+    },
+  };
+}
+
 export default async function PropertyDetail({ params }: Props) {
   let property: Property | null = null;
   let fetchError: string | null = null;
@@ -144,6 +184,41 @@ export default async function PropertyDetail({ params }: Props) {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4">
+      {property && (
+        <script
+          type="application/ld+json"
+          suppressHydrationWarning
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": property.rental_type === "short_let" ? "Apartment" : "Residence",
+              name: property.title,
+              description: property.description,
+              url: `${getSiteUrl() || "https://www.rentnow.space"}/properties/${property.id}`,
+              image: property.images?.map((img) => img.image_url),
+              numberOfRooms: property.bedrooms,
+              numberOfBathroomsTotal: property.bathrooms,
+              address: {
+                "@type": "PostalAddress",
+                addressLocality: property.city,
+                addressRegion: property.neighbourhood || "",
+                streetAddress: property.address || "",
+                addressCountry: "NG",
+              },
+              geo:
+                typeof property.latitude === "number" && typeof property.longitude === "number"
+                  ? { "@type": "GeoCoordinates", latitude: property.latitude, longitude: property.longitude }
+                  : undefined,
+              offers: {
+                "@type": "Offer",
+                price: property.price,
+                priceCurrency: property.currency,
+                availability: "https://schema.org/InStock",
+              },
+            }),
+          }}
+        />
+      )}
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2">
           <PropertyGallery images={property.images || []} title={property.title} />
