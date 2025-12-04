@@ -35,7 +35,12 @@ export async function GET() {
     })();
     const headerCookieKeys = await (async () => {
       try {
-        const raw = headers().get("cookie");
+        const rawHeaders = headers();
+        const maybePromise = (rawHeaders as unknown as { then?: unknown })?.then;
+        const raw =
+          typeof maybePromise === "function"
+            ? null
+            : ((rawHeaders as unknown as { get?: (key: string) => string | null })?.get?.("cookie") ?? null);
         return raw
           ?.split(";")
           .map((p) => p.split("=")[0]?.trim())
