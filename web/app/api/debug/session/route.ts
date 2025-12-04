@@ -33,9 +33,9 @@ export async function GET() {
         return [];
       }
     })();
-    const headerCookieKeys = (() => {
+    const headerCookieKeys = await (async () => {
       try {
-        const raw = (await headers()).get("cookie");
+        const raw = headers().get("cookie");
         return raw
           ?.split(";")
           .map((p) => p.split("=")[0]?.trim())
