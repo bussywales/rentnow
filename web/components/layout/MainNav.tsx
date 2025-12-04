@@ -14,7 +14,7 @@ export async function MainNav() {
   let initialAuthed = false;
   if (hasServerSupabaseEnv()) {
     try {
-      const supabase = createServerSupabaseClient();
+      const supabase = await createServerSupabaseClient();
       const { data, error } = await supabase.auth.getSession();
       if (!error) {
         initialAuthed = !!data.session;

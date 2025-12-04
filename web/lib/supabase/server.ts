@@ -178,7 +178,7 @@ function createMockSupabaseClient() {
   return mockClient as ReturnType<typeof createServerClient>;
 }
 
-export function createServerSupabaseClient(rawCookieHeader?: string | null) {
+export async function createServerSupabaseClient(rawCookieHeader?: string | null) {
   const env = getEnv();
   if (!env) {
     console.warn("Supabase env vars missing; using mock client");
@@ -300,16 +300,16 @@ export function createServerSupabaseClient(rawCookieHeader?: string | null) {
       : null;
 
   if (setSessionPromise) {
+    await setSessionPromise;
+
     const baseGetSession = client.auth.getSession.bind(client.auth);
     const baseGetUser = client.auth.getUser.bind(client.auth);
 
     client.auth.getSession = async (...args: Parameters<typeof baseGetSession>) => {
-      await setSessionPromise;
       return baseGetSession(...args);
     };
 
     client.auth.getUser = async (...args: Parameters<typeof baseGetUser>) => {
-      await setSessionPromise;
       return baseGetUser(...args);
     };
   }

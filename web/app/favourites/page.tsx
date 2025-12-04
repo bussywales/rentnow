@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 
 export default async function FavouritesPage() {
   const supabaseReady = hasServerSupabaseEnv();
-  const supabase = supabaseReady ? createServerSupabaseClient() : null;
+  const supabase = supabaseReady ? await createServerSupabaseClient() : null;
 
   if (!supabase) {
     return (

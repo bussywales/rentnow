@@ -35,7 +35,7 @@ export async function GET(
   }
 
   const { id } = await context.params;
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("properties")
     .select("*, property_images(id, image_url)")
@@ -62,7 +62,7 @@ export async function PUT(
 
   const { id } = await context.params;
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const {
       data: { user },
       error: authError,
@@ -137,7 +137,7 @@ export async function DELETE(
   }
 
   const { id } = await context.params;
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
     error: authError,

@@ -31,7 +31,7 @@ async function getData(filter: "all" | "approved" | "pending" = "all", search = 
   }
 
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     let query = supabase
       .from("properties")
       .select("id, title, city, rental_type, is_approved, owner_id")
@@ -62,7 +62,7 @@ async function getData(filter: "all" | "approved" | "pending" = "all", search = 
 async function updateStatus(id: string, action: "approve" | "reject") {
   "use server";
   if (!hasServerSupabaseEnv()) return;
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -100,7 +100,7 @@ export default async function AdminPage({ searchParams }: Props) {
 
   if (supabaseReady) {
     try {
-      const supabase = createServerSupabaseClient();
+      const supabase = await createServerSupabaseClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();

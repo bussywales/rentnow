@@ -25,7 +25,7 @@ async function loadProperty(id: string): Promise<Property | null> {
   }
 
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
       .from("properties")
       .select("*, property_images(image_url,id)")

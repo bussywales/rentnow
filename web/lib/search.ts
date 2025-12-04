@@ -2,7 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { ParsedSearchFilters, RentalType } from "@/lib/types";
 
 export async function searchProperties(filters: ParsedSearchFilters) {
-  const supabase = createServerSupabaseClient();
+  const supabase = await createServerSupabaseClient();
 
   let query = supabase
     .from("properties")

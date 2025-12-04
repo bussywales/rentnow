@@ -22,7 +22,7 @@ export default async function MessagesPage() {
 
   if (supabaseReady) {
     try {
-      const supabase = createServerSupabaseClient();
+      const supabase = await createServerSupabaseClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();

@@ -4,7 +4,7 @@ import type { Profile, UserRole } from "@/lib/types";
 
 export async function getSession() {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const {
       data: { session },
       error,
@@ -23,7 +23,7 @@ export async function getSession() {
 
 export async function getProfile(): Promise<Profile | null> {
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const session = await getSession();
 
     if (!session?.user?.id) return null;

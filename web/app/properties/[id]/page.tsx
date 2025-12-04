@@ -32,7 +32,7 @@ async function getProperty(id: string): Promise<Property | null> {
   }
 
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const { data, error } = await supabase
       .from("properties")
       .select("*, property_images(image_url, id)")
@@ -94,7 +94,7 @@ export default async function PropertyDetail({ params }: Props) {
 
   let isSaved = false;
   try {
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
