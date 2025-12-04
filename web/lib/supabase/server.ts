@@ -15,6 +15,12 @@ const getEnv = () => {
   return { url, anonKey };
 };
 
+function getProjectRef(url?: string) {
+  if (!url) return null;
+  const match = url.match(/https:\/\/(.*?)\.supabase\.co/);
+  return match?.[1] || null;
+}
+
 export function hasServerSupabaseEnv() {
   return !!getEnv();
 }
@@ -78,6 +84,8 @@ export function createServerSupabaseClient() {
   }
 
   const { url, anonKey } = env;
+  const projectRef = getProjectRef(url);
+  const cookieName = projectRef ? `sb-${projectRef}-auth-token` : null;
   const cookieStore = (() => {
     try {
       return cookies();
@@ -86,7 +94,7 @@ export function createServerSupabaseClient() {
     }
   })();
 
-  return createServerClient(url, anonKey, {
+  const client = createServerClient(url, anonKey, {
     cookies: {
       get(name: string) {
         try {
@@ -122,4 +130,23 @@ export function createServerSupabaseClient() {
       },
     },
   });
+
+  if (cookieName) {
+    try {
+      const store = cookieStore as unknown as { get?: (n: string) => { value?: string } };
+      const direct = store?.get?.(cookieName)?.value;
+      const asMap = cookieStore as unknown as Map<string, { value: string }>;
+      const fromMap = asMap?.get?.(cookieName)?.value;
+      const raw = direct || fromMap;
+      if (raw) {
+        const parsed = JSON.parse(decodeURIComponent(raw));
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (client.auth as any)?.setSession?.(parsed);
+      }
+    } catch (err) {
+      console.warn("Failed to bootstrap Supabase session from cookie", err);
+    }
+  }
+
+  return client;
 }
