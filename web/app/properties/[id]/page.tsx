@@ -10,13 +10,26 @@ import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
-type Props = { params: { id: string } };
+type Params = { id?: string };
+type Props = { params: Params | Promise<Params> };
 
 function normalizeId(id: string) {
   return decodeURIComponent(id).trim();
 }
 
-async function getProperty(id: string): Promise<{ property: Property | null; error: string | null }> {
+function extractId(raw: Params | Promise<Params>): Promise<string | undefined> {
+  const maybePromise = raw as Promise<Params>;
+  const isPromise = typeof (maybePromise as { then?: unknown }).then === "function";
+  if (isPromise) {
+    return maybePromise.then((p) => p?.id);
+  }
+  return Promise.resolve((raw as Params)?.id);
+}
+
+async function getProperty(id: string | undefined): Promise<{ property: Property | null; error: string | null }> {
+  if (!id) {
+    return { property: null, error: "Invalid property id" };
+  }
   const cleanId = normalizeId(id);
   if (!cleanId || cleanId === "undefined" || cleanId === "null") {
     return { property: null, error: "Invalid property id" };
@@ -77,7 +90,8 @@ export default async function PropertyDetail({ params }: Props) {
   let property: Property | null = null;
   let fetchError: string | null = null;
   try {
-    const result = await getProperty(params.id);
+    const id = await extractId(params);
+    const result = await getProperty(id);
     property = result.property;
     fetchError = result.error;
   } catch (err) {
