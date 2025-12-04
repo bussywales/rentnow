@@ -6,15 +6,16 @@ export async function getSession() {
   try {
     const supabase = await createServerSupabaseClient();
     const {
-      data: { session },
+      data: { user },
       error,
-    } = await supabase.auth.getSession();
+    } = await supabase.auth.getUser();
 
     if (error) {
-      console.error("Error fetching session", error.message);
+      console.error("Error fetching session user", error.message);
     }
 
-    return session;
+    // Shape it like a session object where we care about user
+    return user ? ({ user } as unknown as { user: unknown }) : null;
   } catch (err) {
     console.warn("Session fetch failed; returning null", err);
     return null;
@@ -24,14 +25,16 @@ export async function getSession() {
 export async function getProfile(): Promise<Profile | null> {
   try {
     const supabase = await createServerSupabaseClient();
-    const session = await getSession();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!session?.user?.id) return null;
+    if (!user?.id) return null;
 
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", session.user.id)
+      .eq("id", user.id)
       .maybeSingle();
 
     if (error) {
