@@ -35,17 +35,14 @@ type SupabaseBootstrapMeta = {
 function readCookieValue(headerCookies: Map<string, string>, name: string | null) {
   if (!name) return undefined;
   try {
-    // Next.js 16 may expose cookies() as sync or async; defensively handle either shape.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const storeFactory = cookies as unknown as () => any;
-    const store = storeFactory?.();
-    const isPromise = typeof store?.then === "function";
-    if (!isPromise && store) {
-      const viaGet = store.get?.(name)?.value;
-      if (viaGet) return viaGet;
-      const viaAll = store.getAll?.().find?.((c: { name: string }) => c.name === name)?.value;
-      if (viaAll) return viaAll;
-    }
+    const store = cookies() as unknown as {
+      get?: (n: string) => { value?: string };
+      getAll?: () => Array<{ name: string; value?: string }>;
+    };
+    const viaGet = store?.get?.(name)?.value;
+    if (viaGet) return viaGet;
+    const viaAll = store?.getAll?.().find?.((c) => c.name === name)?.value;
+    if (viaAll) return viaAll;
   } catch {
     /* ignore */
   }
@@ -194,13 +191,11 @@ export function createServerSupabaseClient() {
     !!cookieName &&
     (() => {
       try {
-        // cookies() may be sync or async; bail out if promise-like.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const storeFactory = cookies as unknown as () => any;
-        const store = storeFactory?.();
-        const isPromise = typeof store?.then === "function";
-        if (isPromise || !store) return false;
-        const viaGet = store.get?.(cookieName)?.value;
+        const store = cookies() as unknown as {
+          get?: (n: string) => { value?: string };
+          getAll?: () => Array<{ name: string; value?: string }>;
+        };
+        const viaGet = store?.get?.(cookieName)?.value;
         if (viaGet) return true;
         const viaAll = store
           .getAll?.()
