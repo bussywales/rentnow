@@ -19,13 +19,15 @@ export function getSiteUrl() {
 
   try {
     const headerStore = headers();
-    const host =
-      headerStore.get("x-forwarded-host") ||
-      headerStore.get("host");
-    const proto = headerStore.get("x-forwarded-proto") || "https";
-    if (host) {
-      return `${proto}://${host}`.replace(/\/$/, "");
-    }
+    const maybeThen = (headerStore as unknown as { then?: unknown })?.then;
+    const store =
+      typeof maybeThen === "function"
+        ? null
+        : (headerStore as unknown as { get?: (key: string) => string | null });
+
+    const host = store?.get?.("x-forwarded-host") || store?.get?.("host");
+    const proto = store?.get?.("x-forwarded-proto") || "https";
+    if (host) return `${proto}://${host}`.replace(/\/$/, "");
   } catch {
     // headers() can throw during build-time execution; fall through to empty string.
   }
