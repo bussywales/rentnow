@@ -12,7 +12,7 @@ function normalizeId(id: string) {
   return decodeURIComponent(id).trim();
 }
 
-async function loadProperty(id: string): Promise<Property | null> {
+async function loadProperty(id: string): Promise<{ property: Property | null; error: string | null }> {
   const cleanId = normalizeId(id);
 
   // First try the public API (works for anon/demo)
@@ -26,6 +26,7 @@ async function loadProperty(id: string): Promise<Property | null> {
         property_images?: Array<{ id: string; image_url: string }>;
       };
       if (data) {
+        console.log("[dashboard edit] fetched via API", { id: cleanId, detailUrl });
         return {
           ...data,
           images: data.property_images?.map((img) => ({
@@ -41,15 +42,22 @@ async function loadProperty(id: string): Promise<Property | null> {
         const json = await listRes.json();
         const all = (json.properties as Property[]) || [];
         const found = all.find((p) => p.id === cleanId);
-        if (found) return found;
+        if (found) {
+          console.log("[dashboard edit] fetched via list fallback", { id: cleanId });
+          return found;
+        }
+      } else {
+        console.warn("[dashboard edit] list fetch failed", { status: listRes.status });
       }
+      return { property: null, error: `API responded with ${res.status}` };
     }
   } catch (err) {
     console.warn("Dashboard edit API fetch failed", err);
+    return { property: null, error: err instanceof Error ? err.message : "Unknown API error" };
   }
 
   if (!hasServerSupabaseEnv()) {
-    return null;
+    return { property: null, error: "Supabase env missing" };
   }
 
   try {
@@ -71,18 +79,24 @@ async function loadProperty(id: string): Promise<Property | null> {
         })),
       };
     }
+    if (error) {
+      return { property: null, error: error.message };
+    }
   } catch (err) {
     console.warn("Supabase not configured for dashboard edit", err);
+    return { property: null, error: err instanceof Error ? err.message : "Supabase error" };
   }
 
-  return null;
+  return { property: null, error: "Unknown error" };
 }
 
 export default async function EditPropertyPage({ params }: Props) {
   let property: Property | null = null;
   let fetchError: string | null = null;
   try {
-    property = await loadProperty(params.id);
+    const result = await loadProperty(params.id);
+    property = result.property;
+    fetchError = result.error;
   } catch (err) {
     console.error("Failed to load property for dashboard edit", err);
     property = null;
