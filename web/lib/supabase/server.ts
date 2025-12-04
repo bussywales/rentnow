@@ -173,7 +173,9 @@ export function createServerSupabaseClient() {
     const map = new Map<string, string>();
     try {
       const rawHeaders = headers();
-      const raw = rawHeaders?.get("cookie") ?? null;
+      const raw =
+        (rawHeaders as unknown as { get?: (name: string) => string | null })?.get?.("cookie") ??
+        null;
       if (!raw) return map;
       raw.split(";").forEach((pair) => {
         const [k, ...rest] = pair.split("=");
