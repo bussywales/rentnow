@@ -28,17 +28,24 @@ function LoginContent() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    const emailTrimmed = email.trim();
+    const passwordTrimmed = password.trim();
+    if (!emailTrimmed || !passwordTrimmed) {
+      setError("Email and password are required.");
+      setLoading(false);
+      return;
+    }
     const supabase = getClient();
     if (!supabase) {
       setLoading(false);
       return;
     }
     const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+      email: emailTrimmed,
+      password: passwordTrimmed,
     });
     if (signInError) {
-      setError(signInError.message);
+      setError(signInError.message || "Unable to log in. Please try again.");
     } else {
       window.location.href = "/dashboard";
     }
@@ -64,6 +71,7 @@ function LoginContent() {
           required
           placeholder="you@email.com"
           value={email}
+          autoComplete="username"
           onChange={(e) => setEmail(e.target.value)}
         />
         <Input
@@ -71,6 +79,7 @@ function LoginContent() {
           required
           placeholder="Password"
           value={password}
+          autoComplete="current-password"
           onChange={(e) => setPassword(e.target.value)}
         />
         {error && <p className="text-sm text-red-600">{error}</p>}
