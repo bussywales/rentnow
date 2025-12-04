@@ -88,17 +88,18 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { data: existing, error: fetchError } = await supabase
-      .from("properties")
-      .select("owner_id")
-      .eq("id", id)
-      .maybeSingle();
+    const [{ data: existing, error: fetchError }, { data: profile }] = await Promise.all([
+      supabase.from("properties").select("owner_id").eq("id", id).maybeSingle(),
+      supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+    ]);
 
     if (fetchError || !existing) {
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
 
-    if (existing.owner_id !== user.id) {
+    const isAdmin = profile?.role === "admin";
+
+    if (existing.owner_id !== user.id && !isAdmin) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
