@@ -2,58 +2,37 @@ import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
 import { mockProperties } from "@/lib/mock";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardHome() {
   const supabaseReady = hasServerSupabaseEnv();
-  const loadProperties = async (): Promise<{ userId: string | null; properties: Property[] }> => {
-    if (!supabaseReady) {
-      return { userId: null, properties: mockProperties };
-    }
+  let properties: Property[] = mockProperties;
 
+  if (supabaseReady) {
     try {
-      const supabase = await createServerSupabaseClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        return { userId: null, properties: mockProperties };
+      const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ""}/api/properties`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const typed =
+          (json.properties as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) ||
+          [];
+        properties =
+          typed.map((row) => ({
+            ...row,
+            images: row.property_images?.map((img) => ({ id: img.id, image_url: img.image_url })),
+          })) || [];
       }
-
-      const { data, error } = await supabase
-        .from("properties")
-        .select("*, property_images(image_url,id)")
-        .eq("owner_id", user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        console.warn("Failed to load Supabase properties; using mock data", error);
-        return { userId: user.id, properties: [] };
-      }
-
-      const typed = (data as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) || [];
-      const mapped =
-        typed.map((row) => ({
-          ...row,
-          images: row.property_images?.map((img) => ({ id: img.id, image_url: img.image_url })),
-        })) || [];
-
-      return {
-        userId: user.id,
-        properties: mapped,
-      };
     } catch (err) {
       console.warn("Dashboard properties fallback to mock", err);
-      return { userId: null, properties: [] };
     }
-  };
+  }
 
-  const { properties, userId } = await loadProperties();
-  const demoMode = !userId;
+  const demoMode = !properties.length;
 
   return (
     <div className="space-y-4">
