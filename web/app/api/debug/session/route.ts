@@ -10,10 +10,11 @@ export async function GET() {
   try {
     const supabase = createServerSupabaseClient();
     const bootstrap = (supabase as unknown as { __bootstrap?: unknown }).__bootstrap;
-    const cookieNames = (() => {
+    const cookieNames = await (async () => {
       try {
         // List cookie names only (no values) to confirm visibility on the server.
-        return cookies()
+        const store = await cookies();
+        return store
           .getAll()
           .map((c) => c.name)
           .sort();
