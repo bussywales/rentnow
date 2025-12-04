@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { PropertyForm } from "@/components/properties/PropertyForm";
+import { getSiteUrl } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 
@@ -13,6 +14,29 @@ function normalizeId(id: string) {
 
 async function loadProperty(id: string): Promise<Property | null> {
   const cleanId = normalizeId(id);
+
+  // First try the public API (works for anon/demo)
+  try {
+    const baseUrl = getSiteUrl();
+    const res = await fetch(`${baseUrl}/api/properties/${cleanId}`, { cache: "no-store" });
+    if (res.ok) {
+      const json = await res.json();
+      const data = json.property as Property & {
+        property_images?: Array<{ id: string; image_url: string }>;
+      };
+      if (data) {
+        return {
+          ...data,
+          images: data.property_images?.map((img) => ({
+            id: img.id,
+            image_url: img.image_url,
+          })),
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("Dashboard edit API fetch failed", err);
+  }
 
   if (!hasServerSupabaseEnv()) {
     return null;
