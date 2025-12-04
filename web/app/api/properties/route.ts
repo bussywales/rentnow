@@ -80,3 +80,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+
+export async function GET() {
+  if (!hasServerSupabaseEnv()) {
+    return NextResponse.json({ properties: [] }, { status: 200 });
+  }
+
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { data, error } = await supabase
+      .from("properties")
+      .select("*, property_images(image_url,id)")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
+    }
+
+    return NextResponse.json({ properties: data || [] }, { status: 200 });
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : "Unable to fetch properties";
+    return NextResponse.json({ error: message, properties: [] }, { status: 500 });
+  }
+}
