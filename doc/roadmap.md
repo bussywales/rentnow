@@ -27,12 +27,16 @@
 - Visual polish: stronger typography pairing, micro-animations on cards, staggered reveal, refreshed map theme.
 - Upload UX: add success toast on media upload; keep compress-to-webp; consider background upload queue.
 - Maps: add blur placeholder for Leaflet tiles.
+- Trust: surface power/Internet/water reliability, verified host/listing markers, and transparent pricing (fees/deposits).
+- Messaging: quick replies + templated FAQs; collaborative shareable links for roommates/family.
 
 ## AI/Assist (Optional)
 - AI description rewrite for hosts; AI search (natural language) for tenants.
 - AI similar listings suggestions.
+- AI-assisted “intent” search with mood chips (business/family/creative/remote) feeding filters.
 
 ## Observability
 - Add simple logging for API fetch failures (env/URL, status) and image load errors.
 - Health check endpoint for Supabase connectivity.
 - Add 4xx/5xx alerts in Vercel; log storage upload failures for diagnostics.
+- Add storage/media error logging and alerting for upload failures.
