@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import type { Property } from "@/lib/types";
@@ -48,9 +51,10 @@ type Props = {
 };
 
 export function PropertyCard({ property, href, compact }: Props) {
-  const mainImage =
-    property.images?.[0]?.image_url ||
+  const fallbackImage =
     "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=80";
+  const primaryImage = property.images?.[0]?.image_url || fallbackImage;
+  const [imgSrc, setImgSrc] = useState(primaryImage);
 
   const body = (
     <div
@@ -61,12 +65,15 @@ export function PropertyCard({ property, href, compact }: Props) {
     >
       <div className={cn("relative", compact ? "h-32 w-32 flex-none" : "h-52")}>
         <Image
-          src={mainImage}
+          src={imgSrc}
           alt={property.title}
           fill
           className="object-cover"
           sizes="(max-width: 768px) 100vw, 320px"
           priority={false}
+          onError={() => {
+            if (imgSrc !== fallbackImage) setImgSrc(fallbackImage);
+          }}
         />
       </div>
       <div className="flex flex-1 flex-col gap-2 px-4 py-3">
@@ -120,3 +127,4 @@ export function PropertyCard({ property, href, compact }: Props) {
 
   return body;
 }
+

@@ -14,8 +14,22 @@ const fallbackImage =
 
 export function PropertyGallery({ images, title }: Props) {
   const [current, setCurrent] = useState(0);
+  const [broken, setBroken] = useState<Set<string>>(new Set());
   const safeImages = images.length ? images : [{ id: "fallback", image_url: fallbackImage }];
   const currentImage = safeImages[current] || safeImages[0];
+
+  const imageKey = (img: PropertyImage, idx: number) => img.id || `${img.image_url}-${idx}`;
+  const resolveSrc = (img: PropertyImage, idx: number) =>
+    broken.has(imageKey(img, idx)) ? fallbackImage : img.image_url;
+  const markBroken = (img: PropertyImage, idx: number) => {
+    const key = imageKey(img, idx);
+    setBroken((prev) => {
+      if (prev.has(key)) return prev;
+      const next = new Set(prev);
+      next.add(key);
+      return next;
+    });
+  };
 
   const handleKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "ArrowLeft") {
@@ -35,12 +49,14 @@ export function PropertyGallery({ images, title }: Props) {
         aria-label="Property photos"
       >
         <Image
-          src={currentImage.image_url}
+          key={imageKey(currentImage, current)}
+          src={resolveSrc(currentImage, current)}
           alt={title}
           fill
           className="object-cover"
           sizes="(max-width: 768px) 100vw, 640px"
           priority
+          onError={() => markBroken(currentImage, current)}
         />
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1">
@@ -55,11 +71,12 @@ export function PropertyGallery({ images, title }: Props) {
             aria-label={`Photo ${idx + 1}`}
           >
             <Image
-              src={img.image_url}
+              src={resolveSrc(img, idx)}
               alt={`${title} thumbnail ${idx + 1}`}
               fill
               className="object-cover"
               sizes="96px"
+              onError={() => markBroken(img, idx)}
             />
           </button>
         ))}
