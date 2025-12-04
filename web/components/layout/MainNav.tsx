@@ -2,22 +2,39 @@ import Image from "next/image";
 import Link from "next/link";
 import { NavAuthClient } from "@/components/layout/NavAuthClient";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import type { UserRole } from "@/lib/types";
 
-const links = [
+const links: Array<{
+  href: string;
+  label: string;
+  requireAuth?: boolean;
+  requireRole?: UserRole | "super_admin";
+}> = [
   { href: "/properties", label: "Browse" },
-  { href: "/favourites", label: "Saved" },
-  { href: "/dashboard", label: "Dashboard" },
-  { href: "/admin", label: "Admin" },
+  { href: "/favourites", label: "Saved", requireAuth: true },
+  { href: "/dashboard", label: "Dashboard", requireAuth: true },
+  { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
 ];
 
 export async function MainNav() {
   let initialAuthed = false;
+  let role: UserRole | "super_admin" | null = null;
+
   if (hasServerSupabaseEnv()) {
     try {
       const supabase = await createServerSupabaseClient();
       const { data, error } = await supabase.auth.getSession();
       if (!error) {
         initialAuthed = !!data.session;
+        const userId = data.session?.user?.id;
+        if (userId) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", userId)
+            .maybeSingle();
+          role = profile?.role as UserRole | "super_admin" | null;
+        }
       }
     } catch (err) {
       console.warn("Unable to resolve initial auth state", err);
@@ -39,15 +56,23 @@ export async function MainNav() {
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm text-slate-700 md:flex">
-          {links.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="transition hover:text-sky-600"
-            >
-              {link.label}
-            </Link>
-          ))}
+          {links
+            .filter((link) => {
+              if (link.requireAuth && !initialAuthed) return false;
+              if (link.requireRole && role !== link.requireRole && role !== "super_admin") {
+                return false;
+              }
+              return true;
+            })
+            .map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="transition hover:text-sky-600"
+              >
+                {link.label}
+              </Link>
+            ))}
         </nav>
 
         <div className="flex items-center gap-2">

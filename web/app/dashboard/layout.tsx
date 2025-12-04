@@ -4,6 +4,7 @@ import Link from "next/link";
 import { getProfile, getSession } from "@/lib/auth";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { ReactNode } from "react";
+import { redirect } from "next/navigation";
 
 export default async function DashboardLayout({
   children,
@@ -14,11 +15,10 @@ export default async function DashboardLayout({
   let profile = null;
   if (supabaseReady) {
     const session = await getSession();
-    if (session) {
-      profile = await getProfile();
-    } else {
-      console.warn("Dashboard: session missing; rendering demo shell");
+    if (!session) {
+      redirect("/auth/login?reason=auth");
     }
+    profile = await getProfile();
   }
 
   return (
