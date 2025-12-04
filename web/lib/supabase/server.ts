@@ -1,5 +1,5 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
 type MockQueryResult = { data: unknown; error: Error | null };
 
@@ -31,19 +31,26 @@ type SupabaseBootstrapMeta = {
 };
 
 function readCookieValue(
-  cookieStore: ReturnType<typeof cookies> | null,
+  cookieStore: ReturnType<typeof cookies> | Promise<ReturnType<typeof cookies>> | null,
+  headerCookies: Map<string, string>,
   name: string | null,
 ) {
-  if (!cookieStore || !name) return undefined;
+  if (!name) return undefined;
   try {
-    const store = cookieStore as unknown as { get?: (n: string) => { value?: string } };
-    const direct = store?.get?.(name)?.value;
+    const resolvedStore =
+      typeof (cookieStore as unknown as { then?: unknown })?.then === "function"
+        ? null
+        : (cookieStore as unknown as { get?: (n: string) => { value?: string } });
+    const direct = resolvedStore?.get?.(name)?.value;
     if (direct) return direct;
-    const asMap = cookieStore as unknown as Map<string, { value: string }>;
-    return asMap?.get?.(name)?.value;
+    const asMap = resolvedStore as unknown as Map<string, { value: string }>;
+    const mapped = asMap?.get?.(name)?.value;
+    if (mapped) return mapped;
   } catch {
-    return undefined;
+    /* ignore store parse errors */
   }
+
+  return headerCookies.get(name);
 }
 
 function parseSupabaseAuthCookie(raw?: string | null): SessionTokens | null {
@@ -162,11 +169,28 @@ export function createServerSupabaseClient() {
       return null;
     }
   })();
+  const headerCookieMap = (() => {
+    const map = new Map<string, string>();
+    try {
+      const raw = headers().get("cookie");
+      if (!raw) return map;
+      raw.split(";").forEach((pair) => {
+        const [k, ...rest] = pair.split("=");
+        const key = k?.trim();
+        if (!key) return;
+        const value = rest.join("=").trim();
+        if (value) map.set(key, value);
+      });
+    } catch {
+      /* ignore */
+    }
+    return map;
+  })();
 
   const client = createServerClient(url, anonKey, {
     cookies: {
       get(name: string) {
-        return readCookieValue(cookieStore, name) as string | undefined;
+        return readCookieValue(cookieStore, headerCookieMap, name) as string | undefined;
       },
       set(name: string, value: string, options: CookieOptions) {
         try {
@@ -191,7 +215,7 @@ export function createServerSupabaseClient() {
     },
   });
 
-  const authCookie = readCookieValue(cookieStore, cookieName);
+  const authCookie = readCookieValue(cookieStore, headerCookieMap, cookieName);
   const tokens = parseSupabaseAuthCookie(authCookie);
   const setSession =
     tokens &&
