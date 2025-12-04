@@ -30,26 +30,14 @@ type SupabaseBootstrapMeta = {
   setSessionError: string | null;
 };
 
-function readCookieValue(
-  cookieStore: ReturnType<typeof cookies> | Promise<ReturnType<typeof cookies>> | null,
-  headerCookies: Map<string, string>,
-  name: string | null,
-) {
+function readCookieValue(headerCookies: Map<string, string>, name: string | null) {
   if (!name) return undefined;
   try {
-    const resolvedStore =
-      typeof (cookieStore as unknown as { then?: unknown })?.then === "function"
-        ? null
-        : (cookieStore as unknown as { get?: (n: string) => { value?: string } });
-    const direct = resolvedStore?.get?.(name)?.value;
+    const direct = cookies().get(name)?.value;
     if (direct) return direct;
-    const asMap = resolvedStore as unknown as Map<string, { value: string }>;
-    const mapped = asMap?.get?.(name)?.value;
-    if (mapped) return mapped;
   } catch {
-    /* ignore store parse errors */
+    /* ignore */
   }
-
   return headerCookies.get(name);
 }
 
@@ -193,7 +181,7 @@ export function createServerSupabaseClient() {
   const client = createServerClient(url, anonKey, {
     cookies: {
       get(name: string) {
-        return readCookieValue(cookieStore, headerCookieMap, name) as string | undefined;
+        return readCookieValue(headerCookieMap, name) as string | undefined;
       },
       set(name: string, value: string, options: CookieOptions) {
         try {
@@ -218,7 +206,7 @@ export function createServerSupabaseClient() {
     },
   });
 
-  const authCookie = readCookieValue(cookieStore, headerCookieMap, cookieName);
+  const authCookie = readCookieValue(headerCookieMap, cookieName);
   const tokens = parseSupabaseAuthCookie(authCookie);
   const setSession =
     tokens &&
