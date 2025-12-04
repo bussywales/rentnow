@@ -26,7 +26,17 @@ async function getProperty(id: string): Promise<{ property: Property | null; err
       cache: "no-store",
     });
     if (!res.ok) {
-      return { property: null, error: `API responded with ${res.status}` };
+      let apiError: string | null = null;
+      try {
+        const body = await res.json();
+        apiError = body?.error || null;
+      } catch {
+        apiError = null;
+      }
+      return {
+        property: null,
+        error: apiError ? `API ${res.status}: ${apiError}` : `API responded with ${res.status}`,
+      };
     }
 
     const json = await res.json();

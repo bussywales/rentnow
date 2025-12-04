@@ -23,6 +23,10 @@ const updateSchema = z.object({
   imageUrls: z.array(z.string().url()).optional(),
 });
 
+const idParamSchema = z.object({
+  id: z.string().min(1),
+});
+
 export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -34,7 +38,7 @@ export async function GET(
     );
   }
 
-  const { id } = await context.params;
+  const { id } = idParamSchema.parse(await context.params);
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("properties")
@@ -43,7 +47,12 @@ export async function GET(
     .maybeSingle();
 
   if (error) {
+    console.error("[api/properties/[id]] fetch error", { id, message: error.message });
     return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  if (!data) {
+    return NextResponse.json({ error: "Property not found" }, { status: 404 });
   }
 
   return NextResponse.json({ property: data });
@@ -60,7 +69,7 @@ export async function PUT(
     );
   }
 
-  const { id } = await context.params;
+  const { id } = idParamSchema.parse(await context.params);
   try {
     const supabase = await createServerSupabaseClient();
     const {
@@ -136,7 +145,7 @@ export async function DELETE(
     );
   }
 
-  const { id } = await context.params;
+  const { id } = idParamSchema.parse(await context.params);
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },
