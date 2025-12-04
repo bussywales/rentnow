@@ -1,55 +1,62 @@
-import { cookies, headers } from "next/headers";
-import { NextResponse } from "next/server";
+import { cookies } from "next/headers";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   if (!hasServerSupabaseEnv()) {
     return NextResponse.json({ ready: false, user: null, error: "missing env" });
   }
 
   try {
-    const supabase = createServerSupabaseClient();
+    const rawCookieHeader = request.headers.get("cookie");
+    const supabase = createServerSupabaseClient(rawCookieHeader);
     const bootstrap = (supabase as unknown as { __bootstrap?: unknown }).__bootstrap;
-    const cookieNames = await (async () => {
+    const cookieNames = (() => {
       try {
         // List cookie names only (no values) to confirm visibility on the server.
-        const store = await cookies();
-        return store
-          .getAll()
-          .map((c) => c.name)
-          .sort();
-      } catch {
-        return [];
-      }
-    })();
-    const cookieDetails = await (async () => {
-      try {
-        const store = await cookies();
-        return store.getAll().map((c) => ({
-          name: c.name,
-          valueLength: c.value?.length ?? 0,
-        }));
-      } catch {
-        return [];
-      }
-    })();
-    const headerCookieKeys = await (async () => {
-      try {
-        const rawHeaders = headers();
-        const maybePromise = (rawHeaders as unknown as { then?: unknown })?.then;
-        const raw =
-          typeof maybePromise === "function"
+        const maybeStore = cookies();
+        const maybeThen = (maybeStore as unknown as { then?: unknown })?.then;
+        const store =
+          typeof maybeThen === "function"
             ? null
-            : ((rawHeaders as unknown as { get?: (key: string) => string | null })?.get?.("cookie") ?? null);
-        return raw
-          ?.split(";")
-          .map((p) => p.split("=")[0]?.trim())
-          .filter(Boolean)
-          .sort();
+            : (maybeStore as unknown as { getAll: () => { name: string }[] });
+        return (
+          store
+            ?.getAll()
+            ?.map((c) => c.name)
+            ?.sort() ?? []
+        );
       } catch {
         return [];
       }
     })();
+    const cookieDetails = (() => {
+      try {
+        const maybeStore = cookies();
+        const maybeThen = (maybeStore as unknown as { then?: unknown })?.then;
+        const store =
+          typeof maybeThen === "function"
+            ? null
+            : (maybeStore as unknown as {
+                getAll: () => { name: string; value?: string | null }[];
+              });
+        return (
+          store
+            ?.getAll()
+            ?.map((c) => ({
+              name: c.name,
+              valueLength: c.value?.length ?? 0,
+            })) ?? []
+        );
+      } catch {
+        return [];
+      }
+    })();
+    const headerCookieKeys = rawCookieHeader
+      ?.split(";")
+      .map((p) => p.split("=")[0]?.trim())
+      .filter(Boolean)
+      .sort() ?? [];
 
     const {
       data: { user },

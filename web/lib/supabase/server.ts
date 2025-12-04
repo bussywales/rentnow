@@ -32,6 +32,40 @@ type SupabaseBootstrapMeta = {
   setSessionError: string | null;
 };
 
+function addHeaderCookies(map: Map<string, string>, raw?: string | null) {
+  if (!raw) return;
+  raw.split(";").forEach((pair) => {
+    const [k, ...rest] = pair.split("=");
+    const key = k?.trim();
+    if (!key) return;
+    const value = rest.join("=").trim();
+    if (value) map.set(key, value);
+  });
+}
+
+function buildCookieLookup(rawCookieHeader?: string | null) {
+  const map = new Map<string, string>();
+  addHeaderCookies(map, rawCookieHeader);
+
+  // Also merge anything visible from Next.js cookies API (may differ from the raw header in edge runtimes).
+  try {
+    const maybeStore = cookies();
+    const maybeThen = (maybeStore as unknown as { then?: unknown })?.then;
+    const store = typeof maybeThen === "function" ? null : (maybeStore as unknown as {
+      getAll: () => { name: string; value?: string | null }[];
+    });
+
+    store
+      ?.getAll()
+      ?.filter((c) => !!c.value)
+      ?.forEach((c) => map.set(c.name, c.value as string));
+  } catch {
+    /* ignore cookies() failures */
+  }
+
+  return map;
+}
+
 function readCookieValue(lookup: Map<string, string>, name: string | null) {
   if (!name) return undefined;
   return lookup.get(name);
@@ -144,7 +178,7 @@ function createMockSupabaseClient() {
   return mockClient as ReturnType<typeof createServerClient>;
 }
 
-export function createServerSupabaseClient() {
+export function createServerSupabaseClient(rawCookieHeader?: string | null) {
   const env = getEnv();
   if (!env) {
     console.warn("Supabase env vars missing; using mock client");
@@ -154,48 +188,46 @@ export function createServerSupabaseClient() {
   const { url, anonKey } = env;
   const projectRef = getProjectRef(url);
   const cookieName = projectRef ? `sb-${projectRef}-auth-token` : null;
-  const cookieLookup = (() => {
-    const map = new Map<string, string>();
-    try {
-      const rawHeaders = headers();
-      const raw =
-        (rawHeaders as unknown as { get?: (name: string) => string | null })?.get?.("cookie") ??
-        null;
-      if (raw) {
-        raw.split(";").forEach((pair) => {
-          const [k, ...rest] = pair.split("=");
-          const key = k?.trim();
-          if (!key) return;
-          const value = rest.join("=").trim();
-          if (value) map.set(key, value);
-        });
+  const rawHeader =
+    rawCookieHeader ??
+    (() => {
+      try {
+        const maybeHeaders = headers();
+        const maybeThen = (maybeHeaders as unknown as { then?: unknown })?.then;
+        return typeof maybeThen === "function"
+          ? null
+          : (maybeHeaders as unknown as { get?: (key: string) => string | null })?.get?.("cookie") ??
+              null;
+      } catch {
+        return null;
       }
-    } catch {
-      /* ignore header parsing */
-    }
-
-    try {
-      const store = cookies();
-      store
-        .getAll()
-        .forEach((c) => {
-          if (c.name && c.value) map.set(c.name, c.value);
-        });
-    } catch {
-      /* ignore cookies() */
-    }
-
+    })();
+  const headerCookieMap = (() => {
+    const map = new Map<string, string>();
+    addHeaderCookies(map, rawHeader);
     return map;
   })();
+  const cookieLookup = buildCookieLookup(rawHeader);
 
   const cookiesApiHasCookie =
     !!cookieName &&
     (() => {
       try {
-        const store = cookies();
+        const maybeStore = cookies();
+        const maybeThen = (maybeStore as unknown as { then?: unknown })?.then;
+        const store =
+          typeof maybeThen === "function"
+            ? null
+            : (maybeStore as unknown as {
+                get: (name: string) => { value?: string | null } | undefined;
+                getAll: () => { name: string; value?: string | null }[];
+              });
+        if (!store) return false;
         const viaGet = store.get(cookieName)?.value;
         if (viaGet) return true;
-        const viaAll = store.getAll().some((c) => c.name === cookieName && !!c.value);
+        const viaAll = store
+          .getAll()
+          ?.some((c) => c.name === cookieName && !!c.value);
         return viaAll;
       } catch {
         return false;
@@ -230,7 +262,7 @@ export function createServerSupabaseClient() {
     },
   });
 
-  const authCookie = readCookieValue(headerCookieMap, cookieName);
+  const authCookie = readCookieValue(cookieLookup, cookieName);
   const tokens = parseSupabaseAuthCookie(authCookie);
   const setSession =
     tokens &&
