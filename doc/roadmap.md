@@ -30,14 +30,20 @@
 - SEO/Sharing: per-property meta/OG tags, JSON-LD (Apartment/House/Product) with price/beds/amenities, dynamic sitemaps, canonical URLs, and similar-listings/internal linking to reduce thin content.
 - Trust: surface power/Internet/water reliability, verified host/listing markers, and transparent pricing (fees/deposits).
 - Messaging: quick replies + templated FAQs; collaborative shareable links for roommates/family.
+- Media: optional 3D/VR tour embeds (Matterport), AI staging/cleanup for images.
+- Financials: multi-gateway payments (M-PESA/Paga/Flutterwave), escrow/deposit handling, simple income/expense reporting.
 
 ## AI/Assist (Optional)
 - AI description rewrite for hosts; AI search (natural language) for tenants.
 - AI similar listings suggestions.
 - AI-assisted intent search with mood chips (business/family/creative/remote) feeding filters.
+- AI-powered tenant screening/matching (risk scoring; owner-visible only, privacy-safe).
+- Dynamic pricing recommendations based on demand/seasonality/amenities; demand heatmaps on map.
+- Fraud detection: behavioral signals + ID verification; verified listing badges.
 
 ## Observability
 - Add simple logging for API fetch failures (env/URL, status) and image load errors.
 - Health check endpoint for Supabase connectivity.
 - Add 4xx/5xx alerts in Vercel; log storage upload failures for diagnostics.
 - Add storage/media error logging and alerting for upload failures.
+- If adding pricing/screening services, run them as separate services with event/queue logging and circuit breakers.
