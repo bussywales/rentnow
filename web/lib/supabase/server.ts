@@ -25,6 +25,8 @@ type SessionTokens = { access_token: string; refresh_token: string };
 type SupabaseBootstrapMeta = {
   cookieName: string | null;
   cookieFound: boolean;
+  headerHasCookie: boolean;
+  cookiesApiHasCookie: boolean;
   tokensFound: boolean;
   setSessionAttempted: boolean;
   setSessionError: string | null;
@@ -180,6 +182,27 @@ export function createServerSupabaseClient() {
     return map;
   })();
 
+  const cookiesApiHasCookie =
+    !!cookieName &&
+    (() => {
+      try {
+        // cookies() may be sync or async; bail out if promise-like.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const storeFactory = cookies as unknown as () => any;
+        const store = storeFactory?.();
+        const isPromise = typeof store?.then === "function";
+        if (isPromise || !store) return false;
+        const viaGet = store.get?.(cookieName)?.value;
+        if (viaGet) return true;
+        const viaAll = store.getAll?.().some?.(
+          (c: { name: string }) => c.name === cookieName && !!c.value,
+        );
+        return !!viaAll;
+      } catch {
+        return false;
+      }
+    })();
+
   const client = createServerClient(url, anonKey, {
     cookies: {
       get(name: string) {
@@ -220,6 +243,8 @@ export function createServerSupabaseClient() {
   const bootstrap: SupabaseBootstrapMeta = {
     cookieName,
     cookieFound: !!authCookie,
+    headerHasCookie: !!cookieName && headerCookieMap.has(cookieName),
+    cookiesApiHasCookie,
     tokensFound: !!tokens,
     setSessionAttempted: !!setSession,
     setSessionError: null,

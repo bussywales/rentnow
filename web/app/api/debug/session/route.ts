@@ -22,6 +22,29 @@ export async function GET() {
         return [];
       }
     })();
+    const cookieDetails = await (async () => {
+      try {
+        const store = await cookies();
+        return store.getAll().map((c) => ({
+          name: c.name,
+          valueLength: c.value?.length ?? 0,
+        }));
+      } catch {
+        return [];
+      }
+    })();
+    const headerCookieKeys = (() => {
+      try {
+        const raw = (await headers()).get("cookie");
+        return raw
+          ?.split(";")
+          .map((p) => p.split("=")[0]?.trim())
+          .filter(Boolean)
+          .sort();
+      } catch {
+        return [];
+      }
+    })();
 
     const {
       data: { user },
@@ -42,6 +65,8 @@ export async function GET() {
       error: errorMessage,
       bootstrap,
       cookieNames,
+      cookieDetails,
+      headerCookieKeys,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown";
