@@ -14,6 +14,9 @@ function normalizeId(id: string) {
 
 async function loadProperty(id: string): Promise<{ property: Property | null; error: string | null }> {
   const cleanId = normalizeId(id);
+  if (!cleanId || cleanId === "undefined" || cleanId === "null") {
+    return { property: null, error: "Invalid property id" };
+  }
 
   // First try the list API (most permissive, no per-id RLS surprises)
   try {
