@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { mockProperties } from "@/lib/mock";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property } from "@/lib/types";
 
@@ -35,26 +35,37 @@ function parseFilters(request: Request): ParsedSearchFilters {
 
 export async function GET(request: Request) {
   const filters = parseFilters(request);
-  let properties: Property[] = mockProperties;
+
+  if (!hasServerSupabaseEnv()) {
+    return NextResponse.json(
+      { error: "Supabase is not configured; live search is unavailable.", properties: [] },
+      { status: 503 }
+    );
+  }
 
   try {
     const { data, error } = await searchProperties(filters);
-    if (!error && data) {
-      const typed = data as Array<
-        Property & { property_images?: Array<{ id: string; image_url: string }> }
-      >;
-      properties =
-        typed.map((row) => ({
-          ...row,
-          images: row.property_images?.map((img) => ({
-            id: img.id,
-            image_url: img.image_url,
-          })),
-        })) || [];
+    if (error) {
+      return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
     }
+
+    const typed = data as Array<
+      Property & { property_images?: Array<{ id: string; image_url: string }> }
+    >;
+    const properties =
+      typed.map((row) => ({
+        ...row,
+        images: row.property_images?.map((img) => ({
+          id: img.id,
+          image_url: img.image_url,
+        })),
+      })) || [];
+
+    return NextResponse.json({ properties });
   } catch (err) {
-    console.warn("Supabase not configured; using mock data", err);
+    const message = err instanceof Error ? err.message : "Unable to search properties";
+    return NextResponse.json({ error: message, properties: [] }, { status: 500 });
   }
 
-  return NextResponse.json({ properties });
+  return NextResponse.json({ properties: [] });
 }

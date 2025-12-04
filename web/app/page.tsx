@@ -10,9 +10,9 @@ import { mockProperties } from "@/lib/mock";
 export default function Home() {
   const featured = mockProperties.slice(0, 3);
   const hubs = [
-    { city: "Lagos", caption: "Island • Ikoyi • Lekki" },
-    { city: "Nairobi", caption: "Kilimani • Westlands" },
-    { city: "Accra", caption: "East Legon • Airport" },
+    { city: "Lagos", caption: "Island - Ikoyi - Lekki" },
+    { city: "Nairobi", caption: "Kilimani - Westlands" },
+    { city: "Accra", caption: "East Legon - Airport" },
   ];
 
   return (
@@ -152,3 +152,4 @@ export default function Home() {
     </div>
   );
 }
+

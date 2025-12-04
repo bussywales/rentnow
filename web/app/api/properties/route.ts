@@ -83,7 +83,10 @@ export async function POST(request: Request) {
 
 export async function GET() {
   if (!hasServerSupabaseEnv()) {
-    return NextResponse.json({ properties: [] }, { status: 200 });
+    return NextResponse.json(
+      { error: "Supabase is not configured; set env vars to fetch properties.", properties: [] },
+      { status: 503 }
+    );
   }
 
   try {

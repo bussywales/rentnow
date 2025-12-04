@@ -4,8 +4,8 @@ import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
+import { getSiteUrl } from "@/lib/env";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -16,68 +16,81 @@ function normalizeId(id: string) {
   return decodeURIComponent(id).trim();
 }
 
-async function getProperty(id: string): Promise<Property | null> {
+async function getProperty(id: string): Promise<{ property: Property | null; error: string | null }> {
   const cleanId = normalizeId(id);
-  // If this is a demo ID, serve from mock data immediately
-  if (cleanId.startsWith("mock-")) {
-    const fromMock = mockProperties.find((p) => p.id === cleanId);
-    if (fromMock) return fromMock;
-  }
+  const baseUrl = getSiteUrl();
+  const apiUrl = `${baseUrl}/api/properties/${cleanId}`;
 
   try {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ""}/api/properties/${cleanId}`, {
+    const res = await fetch(apiUrl, {
       cache: "no-store",
     });
-    if (res.ok) {
-      const json = await res.json();
-      const data = json.property as
-        | (Property & { property_images?: Array<{ id: string; image_url: string }> })
-        | null;
-      if (data) {
-        return {
+    if (!res.ok) {
+      return { property: null, error: `API responded with ${res.status}` };
+    }
+
+    const json = await res.json();
+    const data = json.property as
+      | (Property & { property_images?: Array<{ id: string; image_url: string }> })
+      | null;
+    if (data) {
+      console.log("[property detail] fetched via API", {
+        id: cleanId,
+        title: data.title,
+        apiUrl,
+      });
+      return {
+        property: {
           ...data,
           images: data.property_images?.map((img) => ({
             id: img.id,
             image_url: img.image_url,
           })),
-        };
-      }
+        },
+        error: null,
+      };
     }
   } catch (err) {
-    console.warn("Property fetch failed; falling back to mock", err);
+    return {
+      property: null,
+      error: err instanceof Error ? err.message : "Unknown error while fetching property",
+    };
   }
 
-  return null;
+  return { property: null, error: "Listing not found" };
 }
 
 export default async function PropertyDetail({ params }: Props) {
   let property: Property | null = null;
+  let fetchError: string | null = null;
   try {
-    property = await getProperty(params.id);
+    const result = await getProperty(params.id);
+    property = result.property;
+    fetchError = result.error;
   } catch (err) {
     console.error("Failed to load property detail", err);
     property = null;
+    fetchError = err instanceof Error ? err.message : "Unknown error";
   }
 
   if (!property) {
-    const mockLinks = mockProperties.map((p) => (
-      <Link key={p.id} href={`/properties/${p.id}`} className="text-sky-700">
-        {p.title}
-      </Link>
-    ));
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
         <h1 className="text-2xl font-semibold text-slate-900">Listing not found</h1>
         <p className="text-sm text-slate-600">
-          This listing isn&apos;t available right now. If you&apos;re running the demo
-          without Supabase, please use the mock cards on the Browse page.
+          This listing isn&apos;t available right now. Verify the URL or check that the site URL env
+          is set correctly for API calls.
         </p>
-        <Link href="/properties" className="text-sky-700 font-semibold">
-          Back to browse
-        </Link>
-        <div className="space-y-1">
-          <p className="text-sm text-slate-700">Demo listings:</p>
-          <div className="flex flex-wrap gap-3 text-sm">{mockLinks}</div>
+        {fetchError && (
+          <p className="text-xs text-amber-700">Error: {fetchError}</p>
+        )}
+        <div className="flex gap-3">
+          <Link href="/properties" className="text-sky-700 font-semibold">
+            Back to browse
+          </Link>
+          <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
+            List a property
+          </Link>
         </div>
       </div>
     );
@@ -158,7 +171,7 @@ export default async function PropertyDetail({ params }: Props) {
                 <path d="M7 4a3 3 0 1 1 6 0v6" />
                 <path d="M4 10h14" />
                 <path d="M5 20h12" />
-                <path d="M5 16h14v2a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2Z" />
+                <path d="M5 16h14v2a2 2 0 0 1-2 2H7a2 2 0 0 0-2-2Z" />
                 <path d="M15 4h1" />
                 <path d="M15 7h2" />
               </svg>

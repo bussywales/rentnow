@@ -3,8 +3,8 @@
 AI-first rental platform for the African market. This MVP is a web-only PWA built with Next.js (App Router), Supabase, Tailwind, OpenAI, and Leaflet.
 
 ## Version
-- Current: 0.2.1 (2025-12-04)
-- Highlights: property gallery with thumbnails, admin filters/search, Supabase auth hardening, demo/live helpers, security patch (Next.js/React CVE fixes).
+- Current: 0.2.2 (2025-12-04)
+- Highlights: live Supabase data enforced on browse/detail/dashboard (no mock fallbacks), host-aware API base + logging, Next images temporarily unoptimized to bypass Unsplash 404s (see CHANGELOG.md).
 
 ## Stack
 - Next.js 16 (App Router, TypeScript)
@@ -31,6 +31,8 @@ npm install
 ```
 3) Env vars: copy `.env.local.example` -> `.env.local` and fill in (OpenAI is optional; AI routes return safe fallbacks if the key is missing):
 ```
+NEXT_PUBLIC_SITE_URL=https://www.rentnow.space
+SITE_URL=https://www.rentnow.space
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_URL=...                # server-side use
@@ -48,7 +50,7 @@ npm run dev
 8) Quality checks: `npm run lint` then `npm run build` (tolerates missing OpenAI key if AI routes aren't hit).
 
 ## Demo mode and fallbacks
-- If Supabase env vars are missing, the app runs in demo mode with mock African listings. Save/favourites/messaging/viewings show friendly “connect Supabase” notices instead of crashing.
+- Browse/detail/dashboard now expect live Supabase data; they surface API errors instead of showing mock cards. Home still uses a few mock highlights for marketing if Supabase is absent.
 - Nav auth state uses a Supabase session when configured; dashboard role pulls from the Supabase profile and falls back to `demo`.
 - AI routes short-circuit when `OPENAI_API_KEY` is absent: search parsing returns default filters and description generation returns a templated summary.
 - Protected routes (dashboard/admin/favourites) can be gated via the edge-friendly `/proxy/auth` helper once Supabase is set.
@@ -70,11 +72,12 @@ Tables: `profiles`, `properties`, `property_images`, `saved_properties`, `messag
 
 ## Deployment
 - Vercel for the Next.js app (add env vars in project settings).
+- Required envs for prod: `NEXT_PUBLIC_SITE_URL`, `SITE_URL` (optional), Supabase URL/keys, and bucket name. Optional `OPENAI_API_KEY` for AI routes.
 - Supabase for DB/Auth/Storage (free tier). Allow `*.vercel.app` origins in Auth settings.
 
 ## Current status
 - UI scaffolding for all core flows (home, search, property detail, dashboard CRUD shell, messaging/viewings shell, admin). 
-- Supabase + OpenAI helpers are wired; app degrades gracefully to mock/demo mode when Supabase or OpenAI keys are missing.
+- Supabase + OpenAI helpers are wired; browse/detail/dashboard rely on live Supabase data and surface API errors if misconfigured.
 - Storage uploads expect a bucket named `property-images`.
 - Ready for data hookup, Storage uploads, and polishing RLS/role enforcement.
 

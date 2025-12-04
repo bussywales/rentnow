@@ -25,7 +25,7 @@ const updateSchema = z.object({
 
 export async function GET(
   _request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: { id: string } }
 ) {
   if (!hasServerSupabaseEnv()) {
     return NextResponse.json(
@@ -34,7 +34,7 @@ export async function GET(
     );
   }
 
-  const { id } = await context.params;
+  const { id } = context.params;
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("properties")
@@ -51,7 +51,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: { id: string } }
 ) {
   if (!hasServerSupabaseEnv()) {
     return NextResponse.json(
@@ -60,7 +60,7 @@ export async function PUT(
     );
   }
 
-  const { id } = await context.params;
+  const { id } = context.params;
   try {
     const supabase = await createServerSupabaseClient();
     const {
@@ -127,7 +127,7 @@ export async function PUT(
 
 export async function DELETE(
   _request: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: { id: string } }
 ) {
   if (!hasServerSupabaseEnv()) {
     return NextResponse.json(
@@ -136,7 +136,7 @@ export async function DELETE(
     );
   }
 
-  const { id } = await context.params;
+  const { id } = context.params;
   const supabase = await createServerSupabaseClient();
   const {
     data: { user },

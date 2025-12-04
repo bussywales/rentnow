@@ -2,7 +2,8 @@ import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { Button } from "@/components/ui/Button";
-import { mockProperties } from "@/lib/mock";
+import { getSiteUrl } from "@/lib/env";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property } from "@/lib/types";
 type Props = {
@@ -34,7 +35,13 @@ function parseFilters(params: Props["searchParams"]): ParsedSearchFilters {
 
 export default async function PropertiesPage({ searchParams }: Props) {
   const filters = parseFilters(searchParams);
+  const hasFilters = Object.values(filters).some(
+    (v) => v !== null && v !== undefined && v !== ""
+  );
+  const baseUrl = getSiteUrl();
+  const apiUrl = `${baseUrl}/api/properties`;
   let properties: Property[] = [];
+  let fetchError: string | null = null;
   const hubs = [
     { city: "Lagos", label: "Lagos Island" },
     { city: "Nairobi", label: "Nairobi" },
@@ -43,11 +50,12 @@ export default async function PropertiesPage({ searchParams }: Props) {
   ];
 
   try {
-    // Prefer API to avoid build-time staleness
-    const apiRes = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ""}/api/properties`, {
+    const apiRes = await fetch(apiUrl, {
       cache: "no-store",
     });
-    if (apiRes.ok) {
+    if (!apiRes.ok) {
+      fetchError = `API responded with ${apiRes.status}`;
+    } else {
       const json = await apiRes.json();
       const typed =
         (json.properties as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) ||
@@ -60,11 +68,18 @@ export default async function PropertiesPage({ searchParams }: Props) {
             image_url: img.image_url,
           })),
         })) || [];
+      console.log("[properties] fetched via API", {
+        count: properties.length,
+        apiUrl,
+        sample: properties[0]?.title,
+      });
     }
 
-    // Apply filters server-side via searchProperties if present
-    if (properties.length && Object.values(filters).some((v) => v !== null && v !== undefined && v !== "")) {
+    if (hasFilters && hasServerSupabaseEnv()) {
       const { data, error } = await searchProperties(filters);
+      if (error) {
+        fetchError = error.message;
+      }
       if (!error && data) {
         const typed = data as Array<
           Property & { property_images?: Array<{ id: string; image_url: string }> }
@@ -77,14 +92,21 @@ export default async function PropertiesPage({ searchParams }: Props) {
               image_url: img.image_url,
             })),
           })) || [];
+        console.log("[properties] filtered via Supabase", {
+          count: properties.length,
+          filters,
+        });
       }
+    } else if (hasFilters) {
+      fetchError = fetchError ?? "Supabase env vars missing; live filtering is unavailable.";
     }
   } catch (err) {
-    console.warn("Supabase not configured; using mock data", err);
+    console.error("[properties] fetch failed", err);
+    fetchError = err instanceof Error ? err.message : "Unknown error while fetching properties";
   }
 
-  if (!properties.length) {
-    properties = mockProperties;
+  if (!properties.length && !fetchError) {
+    fetchError = "API returned 0 properties";
   }
 
   if (!properties.length) {
@@ -92,23 +114,22 @@ export default async function PropertiesPage({ searchParams }: Props) {
       <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
         <h1 className="text-2xl font-semibold text-slate-900">No properties found</h1>
         <p className="text-sm text-slate-600">
-          We could not find any listings for these filters. Clear your search or jump into the demo
-          listings below.
+          We couldn&apos;t load live listings right now.
+          {hasFilters
+            ? " Try adjusting your filters or clearing the search."
+            : " Check the API response and Supabase connection."}
         </p>
-        <div className="flex flex-wrap gap-3">
-          {mockProperties.slice(0, 3).map((property) => (
-            <Link
-              key={property.id}
-              className="rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-sky-700 hover:border-sky-300"
-              href={`/properties/${property.id}`}
-            >
-              {property.title}
-            </Link>
-          ))}
+        {fetchError && (
+          <p className="text-xs text-amber-700">Error: {fetchError}</p>
+        )}
+        <div className="flex flex-wrap gap-2">
+          <Link href="/properties" className="text-sky-700 font-semibold">
+            Reset filters
+          </Link>
+          <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
+            List your first property
+          </Link>
         </div>
-        <Link href="/properties" className="text-sky-700 font-semibold">
-          Reset filters
-        </Link>
       </div>
     );
   }
