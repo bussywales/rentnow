@@ -12,8 +12,6 @@ const nextConfig: NextConfig = {
         hostname: "**.supabase.co",
       },
     ],
-    // Temporary: bypass Next optimizer while Unsplash 404s are investigated.
-    unoptimized: true,
   },
   async redirects() {
     return [
