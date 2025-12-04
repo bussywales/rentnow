@@ -26,6 +26,39 @@ type Props = {
   height?: string;
 };
 
+const cityCenters: Record<string, [number, number]> = {
+  lagos: [6.465422, 3.406448],
+  "lagos island": [6.4457, 3.4062],
+  "victoria island": [6.4281, 3.4219],
+  lekki: [6.459964, 3.601521],
+  "lekki phase 1": [6.4518, 3.4805],
+  ikoyi: [6.4549, 3.4346],
+  cairo: [30.0444, 31.2357],
+  zamalek: [30.0661, 31.2156],
+  nairobi: [-1.2921, 36.8219],
+  kilimani: [-1.292066, 36.821945],
+  accra: [5.6037, -0.187],
+  "east legon": [5.631965, -0.174286],
+  dakar: [14.7167, -17.4677],
+  almadies: [14.722, -17.492],
+  johannesburg: [-26.2041, 28.0473],
+  sandton: [-26.1076, 28.0567],
+};
+
+function resolveCoords(property: Property): [number, number] | null {
+  if (typeof property.latitude === "number" && typeof property.longitude === "number") {
+    return [property.latitude, property.longitude];
+  }
+  const keyParts = [property.neighbourhood, property.city]
+    .filter(Boolean)
+    .map((s) => s?.toLowerCase() || "");
+  for (const key of keyParts) {
+    const match = cityCenters[key];
+    if (match) return match;
+  }
+  return null;
+}
+
 function FitToBounds({ properties }: { properties: Property[] }) {
   const map = useMap();
 
@@ -41,11 +74,16 @@ function FitToBounds({ properties }: { properties: Property[] }) {
 }
 
 export function PropertyMap({ properties, height = "400px" }: Props) {
-  const valid = properties.filter(
-    (p) => typeof p.latitude === "number" && typeof p.longitude === "number"
-  );
+  const withCoords = properties
+    .map((p) => ({ property: p, coords: resolveCoords(p) }))
+    .filter((entry) => !!entry.coords)
+    .map((entry) => ({
+      ...entry.property,
+      latitude: entry.coords?.[0],
+      longitude: entry.coords?.[1],
+    })) as Property[];
 
-  if (!valid.length) {
+  if (!withCoords.length) {
     return (
       <div className="flex h-[240px] items-center justify-center rounded-2xl border border-dashed border-slate-200 bg-white text-sm text-slate-600">
         No map data yet. Add coordinates to show this listing on the map.
@@ -54,8 +92,8 @@ export function PropertyMap({ properties, height = "400px" }: Props) {
   }
 
   const fallbackCenter: [number, number] = [
-    valid[0].latitude as number,
-    valid[0].longitude as number,
+    withCoords[0].latitude as number,
+    withCoords[0].longitude as number,
   ];
 
   return (
@@ -71,8 +109,8 @@ export function PropertyMap({ properties, height = "400px" }: Props) {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
-        <FitToBounds properties={valid} />
-        {valid.map((property) => (
+        <FitToBounds properties={withCoords} />
+        {withCoords.map((property) => (
           <Marker
             key={property.id}
             position={[property.latitude as number, property.longitude as number]}
