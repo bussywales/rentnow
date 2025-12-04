@@ -4,7 +4,6 @@ import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
-import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
@@ -25,38 +24,30 @@ async function getProperty(id: string): Promise<Property | null> {
     if (fromMock) return fromMock;
   }
 
-  const supabaseReady = hasServerSupabaseEnv();
-  if (!supabaseReady) {
-    // Supabase missing and not a mock ID: bail so we can show a helpful fallback instead of mock-1.
-    return null;
-  }
-
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data, error } = await supabase
-      .from("properties")
-      .select("*, property_images(image_url, id)")
-      .eq("id", cleanId)
-      .maybeSingle();
-
-    if (!error && data) {
-      const typed = data as Property & {
-        property_images?: Array<{ id: string; image_url: string }>;
-      };
-      return {
-        ...typed,
-        images: typed.property_images?.map((img) => ({
-          id: img.id,
-          image_url: img.image_url,
-        })),
-      } as Property;
+    const res = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ""}/api/properties/${cleanId}`, {
+      cache: "no-store",
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const data = json.property as
+        | (Property & { property_images?: Array<{ id: string; image_url: string }> })
+        | null;
+      if (data) {
+        return {
+          ...data,
+          images: data.property_images?.map((img) => ({
+            id: img.id,
+            image_url: img.image_url,
+          })),
+        };
+      }
     }
   } catch (err) {
-    console.warn("Supabase not configured; using mock data", err);
+    console.warn("Property fetch failed; falling back to mock", err);
   }
 
-  const fallback = mockProperties.find((p) => p.id === cleanId);
-  return fallback || mockProperties[0] || null;
+  return null;
 }
 
 export default async function PropertyDetail({ params }: Props) {
