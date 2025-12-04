@@ -266,11 +266,14 @@ export function createServerSupabaseClient(rawCookieHeader?: string | null) {
   const tokens = parseSupabaseAuthCookie(authCookie);
   const setSession =
     tokens &&
-    (client.auth as {
-      setSession?: (
-        t: SessionTokens,
-      ) => Promise<{ error?: { message?: string } | null }>;
-    }).setSession;
+    (() => {
+      const auth = client.auth as {
+        setSession?: (
+          t: SessionTokens,
+        ) => Promise<{ error?: { message?: string } | null }>;
+      };
+      return typeof auth.setSession === "function" ? auth.setSession.bind(auth) : null;
+    })();
   const bootstrap: SupabaseBootstrapMeta = {
     cookieName,
     cookieFound: !!authCookie,
