@@ -68,6 +68,14 @@ export default async function PropertiesPage({ searchParams }: Props) {
             image_url: img.image_url,
           })),
         })) || [];
+      properties = properties.filter((p) => !!p.id);
+      if (typed.length !== properties.length) {
+        console.warn("[properties] dropped items without id from API", {
+          total: typed.length,
+          kept: properties.length,
+          apiUrl,
+        });
+      }
       console.log("[properties] fetched via API", {
         count: properties.length,
         apiUrl,
@@ -92,6 +100,14 @@ export default async function PropertiesPage({ searchParams }: Props) {
               image_url: img.image_url,
             })),
           })) || [];
+        properties = properties.filter((p) => !!p.id);
+        if (typed.length !== properties.length) {
+          console.warn("[properties] dropped filtered items without id", {
+            total: typed.length,
+            kept: properties.length,
+            filters,
+          });
+        }
         console.log("[properties] filtered via Supabase", {
           count: properties.length,
           filters,
