@@ -1,4 +1,4 @@
-import { createBrowserClient } from "@supabase/ssr";
+import { createBrowserClient, type CookieOptionsWithName } from "@supabase/ssr";
 
 type MockQueryResult = { data: unknown; error: Error | null };
 
@@ -78,11 +78,29 @@ function createMockSupabaseClient() {
   return mockClient as ReturnType<typeof createBrowserClient>;
 }
 
+function getCookieOptions(): CookieOptionsWithName | undefined {
+  if (typeof window === "undefined") return undefined;
+  const host = window.location.hostname;
+  const isLocalhost =
+    host === "localhost" ||
+    host.endsWith(".localhost") ||
+    /^\d{1,3}(\.\d{1,3}){3}$/.test(host);
+
+  if (isLocalhost) {
+    return { sameSite: "lax", secure: false, path: "/" };
+  }
+
+  const domain = host.startsWith("www.") ? host.slice(4) : host;
+  return { domain: `.${domain}`, sameSite: "lax", secure: true, path: "/" };
+}
+
 export function createBrowserSupabaseClient() {
   const env = getEnv();
   if (!env) {
     console.warn("Supabase env vars missing; using mock browser client");
     return createMockSupabaseClient();
   }
-  return createBrowserClient(env.url, env.anonKey);
+  return createBrowserClient(env.url, env.anonKey, {
+    cookieOptions: getCookieOptions(),
+  });
 }
