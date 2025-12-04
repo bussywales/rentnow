@@ -32,5 +32,6 @@ export function getSiteUrl() {
     // headers() can throw during build-time execution; fall through to empty string.
   }
 
-  return "";
+  // Hard fallback to production host to avoid empty base URLs in server fetches.
+  return "https://www.rentnow.space";
 }

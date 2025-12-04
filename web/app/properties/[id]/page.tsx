@@ -18,6 +18,9 @@ function normalizeId(id: string) {
 
 async function getProperty(id: string): Promise<{ property: Property | null; error: string | null }> {
   const cleanId = normalizeId(id);
+  if (!cleanId || cleanId === "undefined" || cleanId === "null") {
+    return { property: null, error: "Invalid property id" };
+  }
   const baseUrl = getSiteUrl();
   const apiUrl = `${baseUrl}/api/properties/${cleanId}`;
 

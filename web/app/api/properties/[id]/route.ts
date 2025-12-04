@@ -27,6 +27,9 @@ const idParamSchema = z.object({
   id: z.string().min(1),
 });
 
+const uuidRegex =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(
   _request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -39,6 +42,12 @@ export async function GET(
   }
 
   const { id } = idParamSchema.parse(await context.params);
+  if (id === "undefined" || id === "null" || !uuidRegex.test(id)) {
+    return NextResponse.json(
+      { error: `Invalid property id: ${id}` },
+      { status: 400 }
+    );
+  }
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("properties")
