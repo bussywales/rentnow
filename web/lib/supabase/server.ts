@@ -32,21 +32,9 @@ type SupabaseBootstrapMeta = {
   setSessionError: string | null;
 };
 
-function readCookieValue(headerCookies: Map<string, string>, name: string | null) {
+function readCookieValue(lookup: Map<string, string>, name: string | null) {
   if (!name) return undefined;
-  try {
-    const store = cookies() as unknown as {
-      get?: (n: string) => { value?: string };
-      getAll?: () => Array<{ name: string; value?: string }>;
-    };
-    const viaGet = store?.get?.(name)?.value;
-    if (viaGet) return viaGet;
-    const viaAll = store?.getAll?.().find?.((c) => c.name === name)?.value;
-    if (viaAll) return viaAll;
-  } catch {
-    /* ignore */
-  }
-  return headerCookies.get(name);
+  return lookup.get(name);
 }
 
 function parseSupabaseAuthCookie(raw?: string | null): SessionTokens | null {
@@ -166,24 +154,37 @@ export function createServerSupabaseClient() {
   const { url, anonKey } = env;
   const projectRef = getProjectRef(url);
   const cookieName = projectRef ? `sb-${projectRef}-auth-token` : null;
-  const headerCookieMap = (() => {
+  const cookieLookup = (() => {
     const map = new Map<string, string>();
     try {
       const rawHeaders = headers();
       const raw =
         (rawHeaders as unknown as { get?: (name: string) => string | null })?.get?.("cookie") ??
         null;
-      if (!raw) return map;
-      raw.split(";").forEach((pair) => {
-        const [k, ...rest] = pair.split("=");
-        const key = k?.trim();
-        if (!key) return;
-        const value = rest.join("=").trim();
-        if (value) map.set(key, value);
-      });
+      if (raw) {
+        raw.split(";").forEach((pair) => {
+          const [k, ...rest] = pair.split("=");
+          const key = k?.trim();
+          if (!key) return;
+          const value = rest.join("=").trim();
+          if (value) map.set(key, value);
+        });
+      }
     } catch {
-      /* ignore */
+      /* ignore header parsing */
     }
+
+    try {
+      const store = cookies();
+      store
+        .getAll()
+        .forEach((c) => {
+          if (c.name && c.value) map.set(c.name, c.value);
+        });
+    } catch {
+      /* ignore cookies() */
+    }
+
     return map;
   })();
 
@@ -191,16 +192,11 @@ export function createServerSupabaseClient() {
     !!cookieName &&
     (() => {
       try {
-        const store = cookies() as unknown as {
-          get?: (n: string) => { value?: string };
-          getAll?: () => Array<{ name: string; value?: string }>;
-        };
-        const viaGet = store?.get?.(cookieName)?.value;
+        const store = cookies();
+        const viaGet = store.get(cookieName)?.value;
         if (viaGet) return true;
-        const viaAll = store
-          .getAll?.()
-          .some?.((c: { name: string; value?: string }) => c.name === cookieName && !!c.value);
-        return !!viaAll;
+        const viaAll = store.getAll().some((c) => c.name === cookieName && !!c.value);
+        return viaAll;
       } catch {
         return false;
       }
@@ -209,7 +205,7 @@ export function createServerSupabaseClient() {
   const client = createServerClient(url, anonKey, {
     cookies: {
       get(name: string) {
-        return readCookieValue(headerCookieMap, name) as string | undefined;
+        return readCookieValue(cookieLookup, name) as string | undefined;
       },
       set(name: string, value: string, options: CookieOptions) {
         try {
