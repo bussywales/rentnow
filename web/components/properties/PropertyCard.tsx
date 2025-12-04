@@ -55,6 +55,8 @@ export function PropertyCard({ property, href, compact }: Props) {
     "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=80";
   const primaryImage = property.images?.[0]?.image_url || fallbackImage;
   const [imgSrc, setImgSrc] = useState(primaryImage);
+  const blurDataURL =
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
 
   const body = (
     <div
@@ -71,6 +73,8 @@ export function PropertyCard({ property, href, compact }: Props) {
           className="object-cover"
           sizes="(max-width: 768px) 100vw, 320px"
           priority={false}
+          placeholder="blur"
+          blurDataURL={blurDataURL}
           onError={() => {
             if (imgSrc !== fallbackImage) setImgSrc(fallbackImage);
           }}

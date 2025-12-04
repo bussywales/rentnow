@@ -11,6 +11,8 @@ type Props = {
 
 const fallbackImage =
   "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80";
+const blurDataURL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
 
 export function PropertyGallery({ images, title }: Props) {
   const [current, setCurrent] = useState(0);
@@ -56,6 +58,8 @@ export function PropertyGallery({ images, title }: Props) {
           className="object-cover"
           sizes="(max-width: 768px) 100vw, 640px"
           priority
+          placeholder="blur"
+          blurDataURL={blurDataURL}
           onError={() => markBroken(currentImage, current)}
         />
       </div>
@@ -76,6 +80,8 @@ export function PropertyGallery({ images, title }: Props) {
               fill
               className="object-cover"
               sizes="96px"
+              placeholder="blur"
+              blurDataURL={blurDataURL}
               onError={() => markBroken(img, idx)}
             />
           </button>
