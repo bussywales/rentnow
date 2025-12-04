@@ -9,6 +9,8 @@ type Props = {
   searchParams: Record<string, string | string[] | undefined>;
 };
 
+export const dynamic = "force-dynamic";
+
 function parseFilters(params: Props["searchParams"]): ParsedSearchFilters {
   return {
     city: params.city ? String(params.city) : null,
@@ -32,7 +34,7 @@ function parseFilters(params: Props["searchParams"]): ParsedSearchFilters {
 
 export default async function PropertiesPage({ searchParams }: Props) {
   const filters = parseFilters(searchParams);
-  let properties: Property[] = mockProperties;
+  let properties: Property[] = [];
   const hubs = [
     { city: "Lagos", label: "Lagos Island" },
     { city: "Nairobi", label: "Nairobi" },
@@ -41,15 +43,17 @@ export default async function PropertiesPage({ searchParams }: Props) {
   ];
 
   try {
-    const { data, error } = await searchProperties(filters);
-    if (error) {
-      console.warn("Falling back to mock properties", error.message);
-    } else if (data) {
-      const typed = data as Array<
-        Property & { property_images?: Array<{ id: string; image_url: string }> }
-      >;
+    // Prefer API to avoid build-time staleness
+    const apiRes = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || ""}/api/properties`, {
+      cache: "no-store",
+    });
+    if (apiRes.ok) {
+      const json = await apiRes.json();
+      const typed =
+        (json.properties as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) ||
+        [];
       properties =
-        typed?.map((row) => ({
+        typed.map((row) => ({
           ...row,
           images: row.property_images?.map((img) => ({
             id: img.id,
@@ -57,8 +61,30 @@ export default async function PropertiesPage({ searchParams }: Props) {
           })),
         })) || [];
     }
+
+    // Apply filters server-side via searchProperties if present
+    if (properties.length && Object.values(filters).some((v) => v !== null && v !== undefined && v !== "")) {
+      const { data, error } = await searchProperties(filters);
+      if (!error && data) {
+        const typed = data as Array<
+          Property & { property_images?: Array<{ id: string; image_url: string }> }
+        >;
+        properties =
+          typed?.map((row) => ({
+            ...row,
+            images: row.property_images?.map((img) => ({
+              id: img.id,
+              image_url: img.image_url,
+            })),
+          })) || [];
+      }
+    }
   } catch (err) {
     console.warn("Supabase not configured; using mock data", err);
+  }
+
+  if (!properties.length) {
+    properties = mockProperties;
   }
 
   if (!properties.length) {
