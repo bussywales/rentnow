@@ -32,6 +32,21 @@ type SupabaseBootstrapMeta = {
 
 function readCookieValue(headerCookies: Map<string, string>, name: string | null) {
   if (!name) return undefined;
+  try {
+    // Next.js 16 may expose cookies() as sync or async; defensively handle either shape.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const storeFactory = cookies as unknown as () => any;
+    const store = storeFactory?.();
+    const isPromise = typeof store?.then === "function";
+    if (!isPromise && store) {
+      const viaGet = store.get?.(name)?.value;
+      if (viaGet) return viaGet;
+      const viaAll = store.getAll?.().find?.((c: { name: string }) => c.name === name)?.value;
+      if (viaAll) return viaAll;
+    }
+  } catch {
+    /* ignore */
+  }
   return headerCookies.get(name);
 }
 
