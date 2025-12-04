@@ -16,18 +16,23 @@
 - Admin: add bulk approval + activity log; inline edit-in-place.
 - Profile: add host badges and verification (phone/email/bank if applicable).
 - Seed pipeline: CLI/SQL + CSV import for properties/images; dedup images.
+- Storage policy audit: ensure `property-images` insert/read for authenticated users; add public-read only if desired.
+- Data hygiene: rerun `doc/seed_coordinates.sql` after reseeds; validate image URLs; reassign owners or use admin role to edit seeded listings.
 
 ## UX/UI Enhancements
 - Map clustering + heatmap for browse; location-aware suggestions.
 - Rich property detail: availability calendar, similar listings, host card with response time and trust markers.
-- Discovery chips: business/family/creative, budget sliders, “near transit” filter.
+- Discovery chips: business/family/creative, budget sliders, near-transit filter.
 - Speed: optimistic UI for save/viewings, skeletons, offline/PWA for saved searches.
 - Visual polish: stronger typography pairing, micro-animations on cards, staggered reveal, refreshed map theme.
+- Upload UX: add success toast on media upload; keep compress-to-webp; consider background upload queue.
+- Maps: add blur placeholder for Leaflet tiles.
 
 ## AI/Assist (Optional)
 - AI description rewrite for hosts; AI search (natural language) for tenants.
-- AI “similar listings” suggestions.
+- AI similar listings suggestions.
 
 ## Observability
 - Add simple logging for API fetch failures (env/URL, status) and image load errors.
 - Health check endpoint for Supabase connectivity.
+- Add 4xx/5xx alerts in Vercel; log storage upload failures for diagnostics.
