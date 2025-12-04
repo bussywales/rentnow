@@ -55,6 +55,14 @@ function readCookieValue(headerCookies: Map<string, string>, name: string | null
 function parseSupabaseAuthCookie(raw?: string | null): SessionTokens | null {
   if (!raw) return null;
 
+  const decodeBase64Url = (value: string) => {
+    try {
+      return Buffer.from(value, "base64url").toString("utf8");
+    } catch {
+      return value;
+    }
+  };
+
   const tryDecode = (value: string) => {
     try {
       return decodeURIComponent(value);
@@ -63,7 +71,7 @@ function parseSupabaseAuthCookie(raw?: string | null): SessionTokens | null {
     }
   };
 
-  const candidates = [tryDecode(raw)];
+  const candidates = [tryDecode(raw), decodeBase64Url(raw)];
   if (!candidates.includes(raw)) candidates.push(raw);
 
   for (const candidate of candidates) {
