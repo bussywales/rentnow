@@ -42,11 +42,9 @@ export async function GET(
   }
 
   const { id } = idParamSchema.parse(await context.params);
-  if (id === "undefined" || id === "null" || !uuidRegex.test(id)) {
-    return NextResponse.json(
-      { error: `Invalid property id: ${id}` },
-      { status: 400 }
-    );
+  const isUuid = uuidRegex.test(id);
+  if (id === "undefined" || id === "null" || (!isUuid && !id.startsWith("mock-"))) {
+    return NextResponse.json({ error: "Property not found" }, { status: 404 });
   }
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
