@@ -9,6 +9,17 @@ export async function GET() {
   try {
     const supabase = createServerSupabaseClient();
     const bootstrap = (supabase as unknown as { __bootstrap?: unknown }).__bootstrap;
+    const cookieNames = (() => {
+      try {
+        // List cookie names only (no values) to confirm visibility on the server.
+        return cookies()
+          .getAll()
+          .map((c) => c.name)
+          .sort();
+      } catch {
+        return [];
+      }
+    })();
 
     const {
       data: { user },
@@ -28,6 +39,7 @@ export async function GET() {
       sessionUserId: session?.user?.id ?? null,
       error: errorMessage,
       bootstrap,
+      cookieNames,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "unknown";
