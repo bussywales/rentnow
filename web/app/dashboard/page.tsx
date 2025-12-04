@@ -32,7 +32,7 @@ export default async function DashboardHome() {
 
       if (error) {
         console.warn("Failed to load Supabase properties; using mock data", error);
-        return { userId: user.id, properties: mockProperties };
+        return { userId: user.id, properties: [] };
       }
 
       const typed = (data as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) || [];
@@ -44,11 +44,11 @@ export default async function DashboardHome() {
 
       return {
         userId: user.id,
-        properties: mapped.length ? mapped : mockProperties,
+        properties: mapped,
       };
     } catch (err) {
       console.warn("Dashboard properties fallback to mock", err);
-      return { userId: null, properties: mockProperties };
+      return { userId: null, properties: [] };
     }
   };
 
