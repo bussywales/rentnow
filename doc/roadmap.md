@@ -11,6 +11,7 @@
 - Add integration tests (Playwright) for auth + properties listing/detail.
 - Add server logging around API fetches to catch missing env/URL issues in prod.
 - Normalize properties page/detail to single fetch path and shared mapper; eliminate mock fallback in production mode.
+- Fix nav auth hydration so protected links render immediately after client redirects (no refresh needed); ensure browser Supabase client drives nav state.
 
 ## Priority 2: Data & Admin
 - Admin: add bulk approval + activity log; inline edit-in-place.
