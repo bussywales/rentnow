@@ -1,5 +1,5 @@
 import { cookies } from "next/headers";
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 
 const getEnv = () => {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -29,24 +29,20 @@ export async function createServerSupabaseClient() {
   const cookieStore = await getCookieStore();
 
   return createServerClient(env.url, env.anonKey, {
+    cookieEncoding: "base64url",
     cookies: {
-      get(name: string) {
+      getAll: async () => {
         try {
-          return cookieStore.get(name)?.value;
+          return cookieStore.getAll();
         } catch {
-          return undefined;
+          return [];
         }
       },
-      set(name: string, value: string, options: CookieOptions) {
+      setAll: async (cookies) => {
         try {
-          cookieStore.set({ name, value, ...options });
-        } catch {
-          /* ignore write failures */
-        }
-      },
-      remove(name: string, options: CookieOptions) {
-        try {
-          cookieStore.set({ name, value: "", ...options, maxAge: 0 });
+          cookies.forEach(({ name, value, options }) =>
+            cookieStore.set({ name, value, ...options })
+          );
         } catch {
           /* ignore write failures */
         }

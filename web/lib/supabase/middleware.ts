@@ -16,14 +16,13 @@ export async function updateSession(request: NextRequest) {
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
-      get(name: string) {
-        return request.cookies.get(name)?.value;
+      getAll() {
+        return request.cookies.getAll();
       },
-      set(name: string, value: string, options: Parameters<typeof response.cookies.set>[2]) {
-        response.cookies.set(name, value, options);
-      },
-      remove(name: string, options: Parameters<typeof response.cookies.set>[2]) {
-        response.cookies.set(name, "", { ...options, maxAge: 0 });
+      setAll(cookies) {
+        cookies.forEach(({ name, value, options }) => {
+          response.cookies.set(name, value, options);
+        });
       },
     },
   });
