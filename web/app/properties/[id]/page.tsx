@@ -3,10 +3,11 @@ import type { Metadata } from "next";
 import { MessageThreadClient } from "@/components/messaging/MessageThreadClient";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
+import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
 import { getSiteUrl } from "@/lib/env";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -164,22 +165,42 @@ export default async function PropertyDetail({ params }: Props) {
   }
 
   let isSaved = false;
-  try {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (user) {
-      const { data } = await supabase
-        .from("saved_properties")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("property_id", property.id)
-        .maybeSingle();
-      isSaved = !!data;
+  let similar: Property[] = [];
+  if (hasServerSupabaseEnv()) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from("saved_properties")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("property_id", property.id)
+          .maybeSingle();
+        isSaved = !!data;
+      }
+
+      const { data: similarRaw } = await supabase
+        .from("properties")
+        .select("*, property_images(id, image_url)")
+        .eq("city", property.city)
+        .neq("id", property.id)
+        .limit(4);
+
+      similar =
+        similarRaw?.map((row) => ({
+          ...row,
+          images: row.property_images?.map((img: { id: string; image_url: string }) => ({
+            id: img.id,
+            image_url: img.image_url,
+          })),
+        })) || [];
+    } catch {
+      isSaved = false;
+      similar = [];
     }
-  } catch {
-    isSaved = false;
   }
 
   return (
@@ -333,6 +354,17 @@ export default async function PropertyDetail({ params }: Props) {
           </div>
         </div>
       </div>
+
+      {similar.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-xl font-semibold text-slate-900">Similar listings</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {similar.map((item) => (
+              <PropertyCard key={item.id} property={item} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
