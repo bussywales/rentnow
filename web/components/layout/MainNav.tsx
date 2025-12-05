@@ -68,6 +68,7 @@ export async function MainNav() {
               <Link
                 key={link.href}
                 href={link.href}
+                prefetch={link.requireAuth || link.requireRole ? false : undefined}
                 className="transition hover:text-sky-600"
               >
                 {link.label}
