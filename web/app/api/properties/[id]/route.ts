@@ -2,6 +2,10 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
+function logApiError(message: string, meta?: unknown) {
+  console.error(`[api/properties/[id]] ${message}`, meta ?? {});
+}
+
 const updateSchema = z.object({
   title: z.string().min(3).optional(),
   description: z.string().optional().nullable(),
@@ -54,7 +58,7 @@ export async function GET(
     .maybeSingle();
 
   if (error) {
-    console.error("[api/properties/[id]] fetch error", { id, message: error.message });
+    logApiError("fetch error", { id, message: error.message });
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
@@ -102,6 +106,7 @@ export async function PUT(
     ]);
 
     if (fetchError || !existing) {
+      logApiError("property not found on update", { id, fetchError: fetchError?.message });
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
 
@@ -125,6 +130,7 @@ export async function PUT(
       .eq("id", id);
 
     if (updateError) {
+      logApiError("update failed", { id, error: updateError.message });
       return NextResponse.json(
         { error: updateError.message },
         { status: 400 }
@@ -147,6 +153,7 @@ export async function PUT(
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Unable to update property";
+    logApiError("unhandled error on PUT", { id, message });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -180,6 +187,7 @@ export async function DELETE(
     .maybeSingle();
 
   if (fetchError || !existing) {
+    logApiError("property not found on delete", { id, fetchError: fetchError?.message });
     return NextResponse.json({ error: "Property not found" }, { status: 404 });
   }
 
@@ -190,6 +198,7 @@ export async function DELETE(
   const { error } = await supabase.from("properties").delete().eq("id", id);
 
   if (error) {
+    logApiError("delete failed", { id, error: error.message });
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 

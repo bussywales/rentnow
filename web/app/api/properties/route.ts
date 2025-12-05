@@ -2,6 +2,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
+function logApiError(message: string, meta?: unknown) {
+  console.error(`[api/properties] ${message}`, meta ?? {});
+}
+
 const propertySchema = z.object({
   title: z.string().min(3),
   description: z.string().optional().nullable(),
@@ -57,6 +61,7 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) {
+      logApiError("insert failed", { error: insertError.message, owner_id: user.id });
       return NextResponse.json(
         { error: insertError.message },
         { status: 400 }
@@ -78,6 +83,7 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Unable to create property";
+    logApiError("unhandled error on POST", { message });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
@@ -98,12 +104,14 @@ export async function GET() {
       .order("created_at", { ascending: false });
 
     if (error) {
+      logApiError("fetch failed", { error: error.message });
       return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
     }
 
     return NextResponse.json({ properties: data || [] }, { status: 200 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unable to fetch properties";
+    logApiError("unhandled error on GET", { message });
     return NextResponse.json({ error: message, properties: [] }, { status: 500 });
   }
 }
