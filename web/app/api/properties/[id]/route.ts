@@ -78,13 +78,12 @@ export async function PUT(
 
   const { id } = idParamSchema.parse(await context.params);
   try {
-    const rawCookie = request.headers.get("cookie");
     const authHeader = request.headers.get("authorization");
     const bearerToken = authHeader?.startsWith("Bearer ")
       ? authHeader.slice("Bearer ".length)
       : null;
 
-    const supabase = await createServerSupabaseClient(rawCookie);
+    const supabase = await createServerSupabaseClient();
     const userResult = bearerToken
       ? await supabase.auth.getUser(bearerToken)
       : await supabase.auth.getUser();

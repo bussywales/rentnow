@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
 
   try {
     const rawCookieHeader = request.headers.get("cookie");
-    const supabase = await createServerSupabaseClient(rawCookieHeader);
+    const supabase = await createServerSupabaseClient();
     const bootstrap = (supabase as unknown as { __bootstrap?: unknown }).__bootstrap;
     const cookieNames = (() => {
       try {
