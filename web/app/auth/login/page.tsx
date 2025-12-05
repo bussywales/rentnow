@@ -16,6 +16,7 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
 
   const getClient = () => {
     try {
@@ -72,13 +73,18 @@ function LoginContent() {
 
   useEffect(() => {
     const supabase = getClient();
-    if (!supabase) return;
+    if (!supabase) {
+      setCheckingSession(false);
+      return;
+    }
 
     supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
       const session = data.session;
       if (session?.user) {
         router.replace("/dashboard");
+        return;
       }
+      setCheckingSession(false);
     });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
@@ -101,18 +107,23 @@ function LoginContent() {
         <p className="text-sm text-slate-600">
           Access your dashboard and messages.
         </p>
-        {reason === "auth" && (
+        {!checkingSession && reason === "auth" && (
           <p className="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
             Please log in to continue.
           </p>
         )}
       </div>
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <Input
-          type="email"
-          required
-          placeholder="you@email.com"
-          value={email}
+      {checkingSession ? (
+        <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          Checking your session...
+        </div>
+      ) : (
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <Input
+            type="email"
+            required
+            placeholder="you@email.com"
+            value={email}
           name="email"
           autoComplete="username"
           onChange={(e) => setEmail(e.target.value)}
@@ -130,7 +141,8 @@ function LoginContent() {
         <Button className="w-full" type="submit" disabled={loading}>
           {loading ? "Logging in..." : "Log in"}
         </Button>
-      </form>
+        </form>
+      )}
       <p className="text-sm text-slate-600">
         New here?{" "}
         <Link href="/auth/register" className="font-semibold text-sky-700">
