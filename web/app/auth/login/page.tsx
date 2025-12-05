@@ -29,17 +29,17 @@ function LoginContent() {
     const maxAge = session ? 60 * 60 * 24 * 7 : 0;
     const common = `path=/; max-age=${maxAge}; secure; samesite=lax`;
 
-    // Clear existing cookies on both host and parent domain
+    // Always clear any host-only cookie
+    document.cookie = `${authCookieName}=; ${common}`;
+    // Always clear any apex-domain cookie
     if (baseDomain) {
       document.cookie = `${authCookieName}=; domain=.${baseDomain}; ${common}`;
     }
-    document.cookie = `${authCookieName}=; ${common}`;
 
-    // Set fresh cookie (host-only and parent domain for safety)
-    if (session) {
-      if (baseDomain) {
-        document.cookie = `${authCookieName}=${payload}; domain=.${baseDomain}; ${common}`;
-      }
+    // Set a single apex-domain cookie so it is available to all subdomains
+    if (session && baseDomain) {
+      document.cookie = `${authCookieName}=${payload}; domain=.${baseDomain}; ${common}`;
+    } else if (session) {
       document.cookie = `${authCookieName}=${payload}; ${common}`;
     }
   };
