@@ -14,6 +14,20 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const projectRef =
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.match(/https:\/\/(.*?)\.supabase\.co/)?.[1] ||
+    "supabase";
+  const authCookieName = `sb-${projectRef}-auth-token`;
+
+  const writeAuthCookie = (session: { access_token: string; refresh_token: string } | null) => {
+    if (!authCookieName) return;
+    if (!session) {
+      document.cookie = `${authCookieName}=; path=/; max-age=0; secure; samesite=lax`;
+      return;
+    }
+    const payload = encodeURIComponent(JSON.stringify(session));
+    document.cookie = `${authCookieName}=${payload}; path=/; max-age=${60 * 60 * 24 * 7}; secure; samesite=lax`;
+  };
 
   const getClient = () => {
     try {
@@ -43,13 +57,19 @@ function LoginContent() {
       setLoading(false);
       return;
     }
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { error: signInError, data } = await supabase.auth.signInWithPassword({
       email: emailTrimmed,
       password: passwordTrimmed,
     });
     if (signInError) {
       setError(signInError.message || "Unable to log in. Please try again.");
     } else {
+      if (data.session?.access_token && data.session.refresh_token) {
+        writeAuthCookie({
+          access_token: data.session.access_token,
+          refresh_token: data.session.refresh_token,
+        });
+      }
       window.location.href = "/dashboard";
     }
     setLoading(false);
