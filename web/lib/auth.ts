@@ -1,20 +1,22 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { User } from "@supabase/supabase-js";
 import type { Profile, UserRole } from "@/lib/types";
 
 export async function getSession() {
   try {
     const supabase = await createServerSupabaseClient();
     const {
-      data: { user },
+      data: { session },
       error,
-    } = await supabase.auth.getUser();
+    } = await supabase.auth.getSession();
 
     if (error) {
       console.error("Error fetching session user", error.message);
     }
 
-    return user ? ({ user } as unknown as { user: unknown }) : null;
+    const user = session?.user as User | null | undefined;
+    return user ? ({ user } as { user: User }) : null;
   } catch (err) {
     console.warn("Session fetch failed; returning null", err);
     return null;
@@ -23,17 +25,15 @@ export async function getSession() {
 
 export async function getProfile(): Promise<Profile | null> {
   try {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const session = await getSession();
+    if (!session?.user) return null;
 
-    if (!user?.id) return null;
+    const supabase = await createServerSupabaseClient();
 
     const { data, error } = await supabase
       .from("profiles")
       .select("*")
-      .eq("id", user.id)
+      .eq("id", session.user.id)
       .maybeSingle();
 
     if (error) {
