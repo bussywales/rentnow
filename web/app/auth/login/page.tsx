@@ -19,14 +19,11 @@ function LoginContent() {
     "supabase";
   const authCookieName = `sb-${projectRef}-auth-token`;
 
-  const writeAuthCookie = (session: { access_token: string; refresh_token: string } | null) => {
+  const writeAuthCookie = (session: unknown) => {
     if (!authCookieName) return;
-    if (!session) {
-      document.cookie = `${authCookieName}=; path=/; max-age=0; secure; samesite=lax`;
-      return;
-    }
-    const payload = encodeURIComponent(JSON.stringify(session));
-    document.cookie = `${authCookieName}=${payload}; path=/; max-age=${60 * 60 * 24 * 7}; secure; samesite=lax`;
+    const payload = session ? encodeURIComponent(JSON.stringify(session)) : "";
+    const maxAge = session ? 60 * 60 * 24 * 7 : 0;
+    document.cookie = `${authCookieName}=${payload}; path=/; max-age=${maxAge}; secure; samesite=lax`;
   };
 
   const getClient = () => {
@@ -76,12 +73,8 @@ function LoginContent() {
           /* ignore setSession failures; we still set our own cookie */
         }
 
-        // Mirror the Supabase auth cookie shape so the server can restore the session
-        const cookiePayload = {
-          currentSession: session,
-          expiresAt: session.expires_at,
-        };
-        writeAuthCookie(cookiePayload as unknown as { access_token: string; refresh_token: string });
+        // Mirror the Supabase session payload so the server can restore the session
+        writeAuthCookie(session);
       }
       window.location.href = "/dashboard";
     }
