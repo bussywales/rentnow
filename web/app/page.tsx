@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
