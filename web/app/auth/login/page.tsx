@@ -18,12 +18,30 @@ function LoginContent() {
     process.env.NEXT_PUBLIC_SUPABASE_URL?.match(/https:\/\/(.*?)\.supabase\.co/)?.[1] ||
     "supabase";
   const authCookieName = `sb-${projectRef}-auth-token`;
+  const host =
+    typeof window !== "undefined" ? window.location.hostname : undefined;
+  const baseDomain =
+    host && host.startsWith("www.") ? host.slice(4) : host;
 
   const writeAuthCookie = (session: unknown) => {
     if (!authCookieName) return;
     const payload = session ? encodeURIComponent(JSON.stringify(session)) : "";
     const maxAge = session ? 60 * 60 * 24 * 7 : 0;
-    document.cookie = `${authCookieName}=${payload}; path=/; max-age=${maxAge}; secure; samesite=lax`;
+    const common = `path=/; max-age=${maxAge}; secure; samesite=lax`;
+
+    // Clear existing cookies on both host and parent domain
+    if (baseDomain) {
+      document.cookie = `${authCookieName}=; domain=.${baseDomain}; ${common}`;
+    }
+    document.cookie = `${authCookieName}=; ${common}`;
+
+    // Set fresh cookie (host-only and parent domain for safety)
+    if (session) {
+      if (baseDomain) {
+        document.cookie = `${authCookieName}=${payload}; domain=.${baseDomain}; ${common}`;
+      }
+      document.cookie = `${authCookieName}=${payload}; ${common}`;
+    }
   };
 
   const getClient = () => {
