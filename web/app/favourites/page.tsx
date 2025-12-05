@@ -64,12 +64,20 @@ export default async function FavouritesPage() {
     type SavedRow = { properties?: Property | Property[] | null };
     const rows = (data as SavedRow[]) || [];
     properties =
-      rows.flatMap((row) => {
-        const prop = Array.isArray(row.properties)
-          ? (row.properties[0] as Property | undefined)
-          : (row.properties as Property | null);
-        return prop ? [prop] : [];
-      }) || [];
+      rows
+        .flatMap((row) => {
+          const prop = Array.isArray(row.properties)
+            ? (row.properties[0] as Property | undefined)
+            : (row.properties as Property | null);
+          if (!prop) return [];
+          const images =
+            (prop as Property & { property_images?: Array<{ id: string; image_url: string }> })
+              ?.property_images?.map((img) => ({
+                id: img.id,
+                image_url: img.image_url,
+              })) || [];
+          return [{ ...prop, images }];
+        }) || [];
   } catch (err) {
     console.error("Failed to load favourites", err);
     return (
