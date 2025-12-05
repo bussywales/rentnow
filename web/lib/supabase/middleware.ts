@@ -26,11 +26,6 @@ export async function updateSession(request: NextRequest) {
         response.cookies.set(name, "", { ...options, maxAge: 0 });
       },
     },
-    headers: {
-      get(name: string) {
-        return request.headers.get(name) ?? undefined;
-      },
-    },
   });
 
   // Refresh the session if needed and propagate cookies to the response
