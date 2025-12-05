@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { NavAuthClient } from "@/components/layout/NavAuthClient";
+import { NavLinksClient } from "@/components/layout/NavLinksClient";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 
@@ -56,24 +57,7 @@ export async function MainNav() {
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm text-slate-700 md:flex">
-          {links
-            .filter((link) => {
-              if (link.requireAuth && !initialAuthed) return false;
-              if (link.requireRole && role !== link.requireRole && role !== "super_admin") {
-                return false;
-              }
-              return true;
-            })
-            .map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                prefetch={link.requireAuth || link.requireRole ? false : undefined}
-                className="transition hover:text-sky-600"
-              >
-                {link.label}
-              </Link>
-            ))}
+          <NavLinksClient links={links} initialAuthed={initialAuthed} initialRole={role} />
         </nav>
 
         <div className="flex items-center gap-2">
