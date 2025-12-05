@@ -1,328 +1,46 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies, headers } from "next/headers";
-
-type MockQueryResult = { data: unknown; error: Error | null };
+import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 const getEnv = () => {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey =
     process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    return null;
-  }
-
+  if (!url || !anonKey) return null;
   return { url, anonKey };
 };
 
-function getProjectRef(url?: string) {
-  if (!url) return null;
-  const match = url.match(/https:\/\/(.*?)\.supabase\.co/);
-  return match?.[1] || null;
-}
-
-type SessionTokens = { access_token: string; refresh_token: string };
-type SupabaseBootstrapMeta = {
-  cookieName: string | null;
-  cookieFound: boolean;
-  headerHasCookie: boolean;
-  cookiesApiHasCookie: boolean;
-  tokensFound: boolean;
-  setSessionAttempted: boolean;
-  setSessionError: string | null;
-};
-
-function addHeaderCookies(map: Map<string, string>, raw?: string | null) {
-  if (!raw) return;
-  raw.split(";").forEach((pair) => {
-    const [k, ...rest] = pair.split("=");
-    const key = k?.trim();
-    if (!key) return;
-    const value = rest.join("=").trim();
-    if (value) map.set(key, value);
-  });
-}
-
-function buildCookieLookup(rawCookieHeader?: string | null) {
-  const map = new Map<string, string>();
-  addHeaderCookies(map, rawCookieHeader);
-
-  // Also merge anything visible from Next.js cookies API (may differ from the raw header in edge runtimes).
-  try {
-    const maybeStore = cookies();
-    const maybeThen = (maybeStore as unknown as { then?: unknown })?.then;
-    const store = typeof maybeThen === "function" ? null : (maybeStore as unknown as {
-      getAll: () => { name: string; value?: string | null }[];
-    });
-
-    store
-      ?.getAll()
-      ?.filter((c) => !!c.value)
-      ?.forEach((c) => map.set(c.name, c.value as string));
-  } catch {
-    /* ignore cookies() failures */
-  }
-
-  return map;
-}
-
-function readCookieValue(lookup: Map<string, string>, name: string | null) {
-  if (!name) return undefined;
-  return lookup.get(name);
-}
-
-function parseSupabaseAuthCookie(raw?: string | null): SessionTokens | null {
-  if (!raw) return null;
-
-  const decodeBase64Url = (value: string) => {
-    try {
-      return Buffer.from(value, "base64url").toString("utf8");
-    } catch {
-      return value;
-    }
-  };
-
-  const tryDecode = (value: string) => {
-    try {
-      return decodeURIComponent(value);
-    } catch {
-      return value;
-    }
-  };
-
-  const candidates = [tryDecode(raw), decodeBase64Url(raw)];
-  if (!candidates.includes(raw)) candidates.push(raw);
-
-  for (const candidate of candidates) {
-    try {
-      // Supabase stores `{ currentSession, expiresAt }` in the auth cookie.
-      const parsed = JSON.parse(candidate) as unknown;
-      const base = Array.isArray(parsed) ? parsed[0] : parsed;
-      const sessionSource =
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (base as any)?.currentSession ||
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (base as any)?.session ||
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (base as any)?.data?.session ||
-        base;
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const access_token = (sessionSource as any)?.access_token;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const refresh_token = (sessionSource as any)?.refresh_token;
-
-      if (access_token && refresh_token) {
-        return { access_token, refresh_token };
-      }
-    } catch {
-      /* ignore parse failures */
-    }
-  }
-
-  return null;
-}
-
-export function hasServerSupabaseEnv() {
-  return !!getEnv();
-}
-
-function createMockSupabaseClient() {
-  const mockResult: MockQueryResult = { data: null, error: new Error("Supabase not configured") };
-
-  const builder: Record<string, unknown> & {
-    select: () => typeof builder;
-    eq: () => typeof builder;
-    gte: () => typeof builder;
-    lte: () => typeof builder;
-    ilike: () => typeof builder;
-    contains: () => typeof builder;
-    order: () => Promise<MockQueryResult>;
-    maybeSingle: () => Promise<MockQueryResult>;
-    single: () => Promise<MockQueryResult>;
-    insert: () => Promise<MockQueryResult>;
-    update: () => Promise<MockQueryResult>;
-    delete: () => Promise<MockQueryResult>;
-    upsert: () => Promise<MockQueryResult>;
-  } = {
-    select: () => builder,
-    eq: () => builder,
-    gte: () => builder,
-    lte: () => builder,
-    ilike: () => builder,
-    contains: () => builder,
-    order: async () => mockResult,
-    maybeSingle: async () => mockResult,
-    single: async () => mockResult,
-    insert: async () => mockResult,
-    update: async () => mockResult,
-    delete: async () => mockResult,
-    upsert: async () => mockResult,
-  };
-
-  const mockClient = {
-    auth: {
-      getSession: async () => ({ data: { session: null }, error: null }),
-      getUser: async () => ({ data: { user: null }, error: null }),
-      signOut: async () => ({ error: null }),
-    },
-    from: () => builder,
-    storage: {
-      from: () => ({
-        upload: async () => ({ error: new Error("Supabase not configured") }),
-        getPublicUrl: () => ({ data: { publicUrl: "" } }),
-      }),
-    },
-  };
-
-  return mockClient as ReturnType<typeof createServerClient>;
-}
-
-export async function createServerSupabaseClient(rawCookieHeader?: string | null) {
+export function createServerSupabaseClient() {
   const env = getEnv();
   if (!env) {
-    console.warn("Supabase env vars missing; using mock client");
-    return createMockSupabaseClient();
+    throw new Error("Supabase env vars missing");
   }
 
-  const { url, anonKey } = env;
-  const projectRef = getProjectRef(url);
-  const cookieName = projectRef ? `sb-${projectRef}-auth-token` : null;
-  const rawHeader =
-    rawCookieHeader ??
-    (() => {
-      try {
-        const maybeHeaders = headers();
-        const maybeThen = (maybeHeaders as unknown as { then?: unknown })?.then;
-        return typeof maybeThen === "function"
-          ? null
-          : (maybeHeaders as unknown as { get?: (key: string) => string | null })?.get?.("cookie") ??
-              null;
-      } catch {
-        return null;
-      }
-    })();
-  const headerCookieMap = (() => {
-    const map = new Map<string, string>();
-    addHeaderCookies(map, rawHeader);
-    return map;
-  })();
-  const cookieLookup = buildCookieLookup(rawHeader);
+  const cookieStore = cookies();
+  const headersList = headers();
 
-  const cookiesApiHasCookie =
-    !!cookieName &&
-    (() => {
-      try {
-        const maybeStore = cookies();
-        const maybeThen = (maybeStore as unknown as { then?: unknown })?.then;
-        const store =
-          typeof maybeThen === "function"
-            ? null
-            : (maybeStore as unknown as {
-                get: (name: string) => { value?: string | null } | undefined;
-                getAll: () => { name: string; value?: string | null }[];
-              });
-        if (!store) return false;
-        const viaGet = store.get(cookieName)?.value;
-        if (viaGet) return true;
-        const viaAll = store
-          .getAll()
-          ?.some((c) => c.name === cookieName && !!c.value);
-        return viaAll;
-      } catch {
-        return false;
-      }
-    })();
-
-  const client = createServerClient(url, anonKey, {
+  return createServerClient(env.url, env.anonKey, {
     cookies: {
+      getAll() {
+        try {
+          return cookieStore.getAll();
+        } catch {
+          return [];
+        }
+      },
+      setAll(cookiesToSet) {
+        cookiesToSet.forEach(({ name, value, options }) => {
+          try {
+            cookieStore.set(name, value, options as CookieOptions);
+          } catch {
+            /* ignore write failures */
+          }
+        });
+      },
+    },
+    headers: {
       get(name: string) {
-        return readCookieValue(cookieLookup, name) as string | undefined;
-      },
-      set(name: string, value: string, options: CookieOptions) {
-        try {
-          const store = cookies() as unknown as {
-            set?: (opts: CookieOptions & { name: string; value: string }) => void;
-          };
-          store?.set?.({ name, value, ...options });
-        } catch {
-          /* no-op on read-only cookie store */
-        }
-      },
-      remove(name: string, options: CookieOptions) {
-        try {
-          const store = cookies() as unknown as {
-            set?: (opts: CookieOptions & { name: string; value: string }) => void;
-          };
-          store?.set?.({ name, value: "", ...options, maxAge: 0 });
-        } catch {
-          /* no-op */
-        }
+        return headersList.get(name) ?? undefined;
       },
     },
   });
-
-  const authCookie = readCookieValue(cookieLookup, cookieName);
-  const tokens = parseSupabaseAuthCookie(authCookie);
-  const setSession =
-    tokens &&
-    (() => {
-      const auth = client.auth as {
-        setSession?: (
-          t: SessionTokens,
-        ) => Promise<{ error?: { message?: string } | null }>;
-      };
-      return typeof auth.setSession === "function" ? auth.setSession.bind(auth) : null;
-    })();
-  const bootstrap: SupabaseBootstrapMeta = {
-    cookieName,
-    cookieFound: !!authCookie,
-    headerHasCookie: !!cookieName && headerCookieMap.has(cookieName),
-    cookiesApiHasCookie,
-    tokensFound: !!tokens,
-    setSessionAttempted: !!setSession,
-    setSessionError: null,
-  };
-
-  const setSessionPromise =
-    tokens && setSession
-      ? setSession(tokens)
-          .then((result) => {
-            if (result?.error) {
-              bootstrap.setSessionError =
-                result.error.message || "Unknown Supabase auth error";
-            }
-          })
-          .catch((err: unknown) => {
-            bootstrap.setSessionError =
-              err instanceof Error ? err.message : "Failed to set Supabase session";
-          })
-      : null;
-
-  if (setSessionPromise) {
-    await setSessionPromise;
-
-    const baseGetSession = client.auth.getSession.bind(client.auth);
-    const baseGetUser = client.auth.getUser.bind(client.auth);
-
-    client.auth.getSession = async (...args: Parameters<typeof baseGetSession>) => {
-      return baseGetSession(...args);
-    };
-
-    client.auth.getUser = async (...args: Parameters<typeof baseGetUser>) => {
-      return baseGetUser(...args);
-    };
-  }
-
-  (client as unknown as { __bootstrap?: SupabaseBootstrapMeta }).__bootstrap = bootstrap;
-
-  if (tokens && !setSession && !bootstrap.setSessionError) {
-    bootstrap.setSessionError = "Supabase client missing setSession helper";
-  }
-
-  if (bootstrap.setSessionError) {
-    console.warn("Supabase session bootstrap failed", bootstrap.setSessionError);
-  }
-
-  return client;
 }
