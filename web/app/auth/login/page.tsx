@@ -64,11 +64,24 @@ function LoginContent() {
     if (signInError) {
       setError(signInError.message || "Unable to log in. Please try again.");
     } else {
-      if (data.session?.access_token && data.session.refresh_token) {
-        writeAuthCookie({
-          access_token: data.session.access_token,
-          refresh_token: data.session.refresh_token,
-        });
+      const session = data.session;
+      if (session?.access_token && session.refresh_token) {
+        // Ensure Supabase persists the session client-side
+        try {
+          await supabase.auth.setSession({
+            access_token: session.access_token,
+            refresh_token: session.refresh_token,
+          });
+        } catch {
+          /* ignore setSession failures; we still set our own cookie */
+        }
+
+        // Mirror the Supabase auth cookie shape so the server can restore the session
+        const cookiePayload = {
+          currentSession: session,
+          expiresAt: session.expires_at,
+        };
+        writeAuthCookie(cookiePayload as unknown as { access_token: string; refresh_token: string });
       }
       window.location.href = "/dashboard";
     }
