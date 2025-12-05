@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { getSiteUrl } from "@/lib/env";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
 
@@ -15,14 +16,19 @@ export default async function Home() {
   let featured: Property[] = [];
   const baseUrl = getSiteUrl();
   const apiUrl = `${baseUrl}/api/properties`;
+  const supabaseReady = hasServerSupabaseEnv();
+  let fetchError: string | null = null;
 
-  try {
-    const res = await fetch(apiUrl, { cache: "no-store" });
-    if (res.ok) {
-      const json = await res.json();
-      const typed =
-        (json.properties as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) ||
-        [];
+  if (supabaseReady) {
+    try {
+      const res = await fetch(apiUrl, { cache: "no-store" });
+      if (!res.ok) {
+        fetchError = `API responded with ${res.status}`;
+      } else {
+        const json = await res.json();
+        const typed =
+          (json.properties as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) ||
+          [];
       featured =
         typed
           .map((row) => ({
@@ -33,12 +39,17 @@ export default async function Home() {
             })),
           }))
           .slice(0, 3) || [];
+        if (!featured.length) {
+          fetchError = "No properties returned from API.";
+        }
+      }
+    } catch (err) {
+      fetchError = err instanceof Error ? err.message : "Unknown error";
+      console.warn("[home] unable to fetch featured properties", err);
     }
-  } catch (err) {
-    console.warn("[home] unable to fetch featured properties", err);
   }
 
-  if (!featured.length) {
+  if (!supabaseReady || !featured.length) {
     featured = mockProperties.slice(0, 3);
   }
 
