@@ -14,35 +14,6 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const projectRef =
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.match(/https:\/\/(.*?)\.supabase\.co/)?.[1] ||
-    "supabase";
-  const authCookieName = `sb-${projectRef}-auth-token`;
-  const host =
-    typeof window !== "undefined" ? window.location.hostname : undefined;
-  const baseDomain =
-    host && host.startsWith("www.") ? host.slice(4) : host;
-
-  const writeAuthCookie = (session: unknown) => {
-    if (!authCookieName) return;
-    const payload = session ? encodeURIComponent(JSON.stringify(session)) : "";
-    const maxAge = session ? 60 * 60 * 24 * 7 : 0;
-    const common = `path=/; max-age=${maxAge}; secure; samesite=lax`;
-
-    // Always clear any host-only cookie
-    document.cookie = `${authCookieName}=; ${common}`;
-    // Always clear any apex-domain cookie
-    if (baseDomain) {
-      document.cookie = `${authCookieName}=; domain=.${baseDomain}; ${common}`;
-    }
-
-    // Set a single apex-domain cookie so it is available to all subdomains
-    if (session && baseDomain) {
-      document.cookie = `${authCookieName}=${payload}; domain=.${baseDomain}; ${common}`;
-    } else if (session) {
-      document.cookie = `${authCookieName}=${payload}; ${common}`;
-    }
-  };
 
   const getClient = () => {
     try {
@@ -88,11 +59,8 @@ function LoginContent() {
             refresh_token: session.refresh_token,
           });
         } catch {
-          /* ignore setSession failures; we still set our own cookie */
+          /* ignore setSession failures; Supabase will fall back to existing state */
         }
-
-        // Mirror the Supabase session payload so the server can restore the session
-        writeAuthCookie(session);
       }
       window.location.href = "/dashboard";
     }
