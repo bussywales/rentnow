@@ -9,6 +9,10 @@ const getEnv = () => {
   return { url, anonKey };
 };
 
+export function hasServerSupabaseEnv() {
+  return !!getEnv();
+}
+
 export function createServerSupabaseClient() {
   const env = getEnv();
   if (!env) {
