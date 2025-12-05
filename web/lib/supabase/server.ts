@@ -24,26 +24,26 @@ export function createServerSupabaseClient() {
 
   return createServerClient(env.url, env.anonKey, {
     cookies: {
-      getAll() {
+      get(name: string) {
         try {
-          return cookieStore.getAll();
+          return cookieStore.get(name)?.value;
         } catch {
-          return [];
+          return undefined;
         }
       },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          try {
-            cookieStore.set(name, value, options as CookieOptions);
-          } catch {
-            /* ignore write failures */
-          }
-        });
+      set(name: string, value: string, options: CookieOptions) {
+        try {
+          cookieStore.set(name, value, options);
+        } catch {
+          /* ignore write failures */
+        }
       },
-    },
-    headers: {
-      get(name: string) {
-        return headersList.get(name) ?? undefined;
+      remove(name: string, options: CookieOptions) {
+        try {
+          cookieStore.set(name, "", { ...options, maxAge: 0 });
+        } catch {
+          /* ignore write failures */
+        }
       },
     },
   });
