@@ -1,4 +1,4 @@
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 
 const getEnv = () => {
@@ -13,14 +13,20 @@ export function hasServerSupabaseEnv() {
   return !!getEnv();
 }
 
-export function createServerSupabaseClient() {
+type CookieStore = Awaited<ReturnType<typeof cookies>>;
+
+async function getCookieStore(): Promise<CookieStore> {
+  const store = cookies();
+  return store instanceof Promise ? await store : store;
+}
+
+export async function createServerSupabaseClient() {
   const env = getEnv();
   if (!env) {
     throw new Error("Supabase env vars missing");
   }
 
-  const cookieStore = cookies();
-  const headersList = headers();
+  const cookieStore = await getCookieStore();
 
   return createServerClient(env.url, env.anonKey, {
     cookies: {
@@ -33,14 +39,14 @@ export function createServerSupabaseClient() {
       },
       set(name: string, value: string, options: CookieOptions) {
         try {
-          cookieStore.set(name, value, options);
+          cookieStore.set({ name, value, ...options });
         } catch {
           /* ignore write failures */
         }
       },
       remove(name: string, options: CookieOptions) {
         try {
-          cookieStore.set(name, "", { ...options, maxAge: 0 });
+          cookieStore.set({ name, value: "", ...options, maxAge: 0 });
         } catch {
           /* ignore write failures */
         }

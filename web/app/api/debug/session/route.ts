@@ -2,6 +2,15 @@ import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
+async function getRequestCookies() {
+  try {
+    const store = cookies();
+    return store instanceof Promise ? await store : store;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(request: NextRequest) {
   if (!hasServerSupabaseEnv()) {
     return NextResponse.json({ ready: false, user: null, error: "missing env" });
@@ -11,47 +20,19 @@ export async function GET(request: NextRequest) {
     const rawCookieHeader = request.headers.get("cookie");
     const supabase = await createServerSupabaseClient();
     const bootstrap = (supabase as unknown as { __bootstrap?: unknown }).__bootstrap;
-    const cookieNames = (() => {
-      try {
-        // List cookie names only (no values) to confirm visibility on the server.
-        const maybeStore = cookies();
-        const maybeThen = (maybeStore as unknown as { then?: unknown })?.then;
-        const store =
-          typeof maybeThen === "function"
-            ? null
-            : (maybeStore as unknown as { getAll: () => { name: string }[] });
-        return (
-          store
-            ?.getAll()
-            ?.map((c) => c.name)
-            ?.sort() ?? []
-        );
-      } catch {
-        return [];
-      }
-    })();
-    const cookieDetails = (() => {
-      try {
-        const maybeStore = cookies();
-        const maybeThen = (maybeStore as unknown as { then?: unknown })?.then;
-        const store =
-          typeof maybeThen === "function"
-            ? null
-            : (maybeStore as unknown as {
-                getAll: () => { name: string; value?: string | null }[];
-              });
-        return (
-          store
-            ?.getAll()
-            ?.map((c) => ({
-              name: c.name,
-              valueLength: c.value?.length ?? 0,
-            })) ?? []
-        );
-      } catch {
-        return [];
-      }
-    })();
+    const cookieStore = await getRequestCookies();
+    const cookieNames =
+      cookieStore
+        ?.getAll()
+        .map((c) => c.name)
+        .sort() ?? [];
+    const cookieDetails =
+      cookieStore
+        ?.getAll()
+        ?.map((c) => ({
+          name: c.name,
+          valueLength: c.value?.length ?? 0,
+        })) ?? [];
     const headerCookieKeys = rawCookieHeader
       ?.split(";")
       .map((p) => p.split("=")[0]?.trim())
