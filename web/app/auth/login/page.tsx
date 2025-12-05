@@ -1,14 +1,16 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-import { useSearchParams } from "next/navigation";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
+import { useRouter, useSearchParams } from "next/navigation";
 
 function LoginContent() {
   const search = useSearchParams();
+  const router = useRouter();
   const reason = search.get("reason");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -61,11 +63,36 @@ function LoginContent() {
         } catch {
           /* ignore setSession failures; Supabase will fall back to existing state */
         }
+
+        router.replace("/dashboard");
       }
-      window.location.href = "/dashboard";
     }
     setLoading(false);
   };
+
+  useEffect(() => {
+    const supabase = getClient();
+    if (!supabase) return;
+
+    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
+      const session = data.session;
+      if (session?.user) {
+        router.replace("/dashboard");
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange(
+      (event: AuthChangeEvent, session: Session | null) => {
+        if (event === "SIGNED_IN" && session?.user) {
+          router.replace("/dashboard");
+        }
+      }
+    );
+
+    return () => {
+      authListener?.subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
