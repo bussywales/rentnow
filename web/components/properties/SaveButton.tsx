@@ -23,6 +23,9 @@ export function SaveButton({ propertyId, initialSaved = false }: Props) {
     setSaved(initialSaved);
   }, [initialSaved]);
 
+  const uuidRegex =
+    /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
+
   const toggle = () => {
     startTransition(async () => {
       setError(null);
@@ -35,6 +38,10 @@ export function SaveButton({ propertyId, initialSaved = false }: Props) {
       }
 
       try {
+        if (!uuidRegex.test(propertyId)) {
+          throw new Error("Unable to save: invalid property id. Please refresh the page and try again.");
+        }
+
         const method = saved ? "DELETE" : "POST";
         const url =
           method === "DELETE"

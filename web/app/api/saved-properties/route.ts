@@ -3,8 +3,11 @@ import { z } from "zod";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const saveSchema = z.object({
-  property_id: z.string().uuid(),
+  property_id: z.string(),
 });
+
+const uuidRegex =
+  /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
 
 const supabaseConfigured = () =>
   !!(
@@ -62,7 +65,16 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json();
-    const { property_id } = saveSchema.parse(body);
+    const { property_id: rawPropertyId } = saveSchema.parse(body);
+    const trimmed = (rawPropertyId || "").trim();
+    const match = trimmed.match(uuidRegex);
+    if (!match) {
+      return NextResponse.json(
+        { error: "Invalid property id; please refresh and try again." },
+        { status: 400 }
+      );
+    }
+    const property_id = match[0];
 
     const { error } = await supabase
       .from("saved_properties")
