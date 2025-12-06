@@ -136,6 +136,14 @@ export default async function AdminPage({ searchParams }: Props) {
         <p className="text-sm text-slate-200">
           Approve listings and audit users. Restricted to role = admin.
         </p>
+        <div className="mt-3 flex gap-3 text-sm">
+          <Link
+            href="/admin/users"
+            className="inline-flex items-center justify-center rounded-lg bg-white/15 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
+          >
+            Open user management
+          </Link>
+        </div>
         {!supabaseReady && (
           <p className="mt-2 text-sm text-amber-100">
             Connect Supabase to moderate real data. Demo mode shows empty lists.
