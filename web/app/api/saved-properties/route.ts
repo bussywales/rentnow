@@ -6,9 +6,6 @@ const saveSchema = z.object({
   property_id: z.string(),
 });
 
-const uuidRegex =
-  /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
-
 const supabaseConfigured = () =>
   !!(
     (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
@@ -66,15 +63,27 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const { property_id: rawPropertyId } = saveSchema.parse(body);
-    const trimmed = (rawPropertyId || "").trim();
-    const match = trimmed.match(uuidRegex);
-    if (!match) {
+    const property_id = (rawPropertyId || "").trim();
+    if (!property_id) {
+      return NextResponse.json({ error: "Invalid property id." }, { status: 400 });
+    }
+
+    // Validate the property exists; also normalizes UUID parsing errors into a friendly message.
+    const { data: exists, error: existsError } = await supabase
+      .from("properties")
+      .select("id")
+      .eq("id", property_id)
+      .maybeSingle();
+
+    if (existsError) {
       return NextResponse.json(
-        { error: "Invalid property id; please refresh and try again." },
+        { error: "Invalid property id. Please refresh and try again." },
         { status: 400 }
       );
     }
-    const property_id = match[0];
+    if (!exists) {
+      return NextResponse.json({ error: "Property not found." }, { status: 404 });
+    }
 
     const { error } = await supabase
       .from("saved_properties")

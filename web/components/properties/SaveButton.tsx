@@ -23,9 +23,6 @@ export function SaveButton({ propertyId, initialSaved = false }: Props) {
     setSaved(initialSaved);
   }, [initialSaved]);
 
-  const uuidRegex =
-    /^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$/;
-
   const toggle = () => {
     startTransition(async () => {
       setError(null);
@@ -38,8 +35,9 @@ export function SaveButton({ propertyId, initialSaved = false }: Props) {
       }
 
       try {
-        if (!uuidRegex.test(propertyId)) {
-          throw new Error("Unable to save: invalid property id. Please refresh the page and try again.");
+        const trimmedId = propertyId.trim();
+        if (!trimmedId) {
+          throw new Error("Unable to save: missing property id. Please refresh and try again.");
         }
 
         const method = saved ? "DELETE" : "POST";
@@ -50,7 +48,7 @@ export function SaveButton({ propertyId, initialSaved = false }: Props) {
         const res = await fetch(url, {
           method,
           headers: { "Content-Type": "application/json" },
-          body: method === "POST" ? JSON.stringify({ property_id: propertyId }) : undefined,
+          body: method === "POST" ? JSON.stringify({ property_id: trimmedId }) : undefined,
         });
         if (!res.ok) {
           if (res.status === 401) {

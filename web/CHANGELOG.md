@@ -5,6 +5,9 @@
 - Dashboard now queries Supabase directly for owner/admin listings (no self-fetch 401s).
 - Version bump.
 
+## 0.2.13 — 2025-12-06
+- Relaxed save validation: client trims the property id, server validates existence via Supabase so valid UUIDs don’t get blocked; error messages stay friendly.
+
 ## 0.2.11 — 2025-12-06
 - Dashboard isolation: `/api/properties?scope=own` and `/api/properties/:id?scope=own` enforce owner/admin access; dashboard list/edit now use the scoped endpoints; fallback Supabase fetch also checks owner/admin.
 - Tenant gating: tenants are redirected away from the dashboard to favourites; nav hides dashboard for tenants client and server side.
