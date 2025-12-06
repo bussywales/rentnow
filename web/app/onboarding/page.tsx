@@ -15,6 +15,8 @@ export default function OnboardingPage() {
   const router = useRouter();
   const [selected, setSelected] = useState("tenant");
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(false);
+  const [hasSession, setHasSession] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const getClient = () => {
@@ -26,9 +28,35 @@ export default function OnboardingPage() {
     }
   };
 
+  const refreshSession = async () => {
+    setCheckingSession(true);
+    const supabase = getClient();
+    if (!supabase) {
+      setCheckingSession(false);
+      return false;
+    }
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    const authed = !!session?.user;
+    setHasSession(authed);
+    setCheckingSession(false);
+    if (!authed) {
+      setError("Please confirm your email, then log in to continue.");
+    } else {
+      setError(null);
+    }
+    return authed;
+  };
+
   const handleSave = async () => {
     setLoading(true);
     setError(null);
+    const authed = await refreshSession();
+    if (!authed) {
+      setLoading(false);
+      return;
+    }
     const supabase = getClient();
     if (!supabase) {
       setLoading(false);
@@ -39,7 +67,8 @@ export default function OnboardingPage() {
       error: sessionError,
     } = await supabase.auth.getUser();
     if (sessionError || !user) {
-      setError("Please log in first.");
+      setError("Please confirm your email, then log in to continue.");
+      setHasSession(false);
       setLoading(false);
       return;
     }
@@ -63,6 +92,23 @@ export default function OnboardingPage() {
         <h1 className="text-2xl font-semibold text-slate-900">Choose your role</h1>
         <p className="text-sm text-slate-600">You can change this later in your profile.</p>
       </div>
+      {!hasSession && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="font-semibold">Confirm your email to continue.</p>
+          <p className="mt-1">
+            Check your inbox for the verification email, confirm it, then log in. After that,
+            click &quot;Refresh session&quot; to proceed.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="secondary" size="sm" onClick={() => router.push("/auth/login")}>
+              Log in
+            </Button>
+            <Button variant="ghost" size="sm" onClick={refreshSession} disabled={checkingSession}>
+              {checkingSession ? "Checking..." : "Refresh session"}
+            </Button>
+          </div>
+        </div>
+      )}
       <div className="grid gap-3 md:grid-cols-3">
         {roles.map((role) => (
           <button
