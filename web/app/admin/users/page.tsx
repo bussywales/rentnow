@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import { AdminUserActions } from "@/components/admin/AdminUserActions";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
@@ -117,27 +118,7 @@ export default async function AdminUsersPage() {
                     sign-in: {user.last_sign_in_at?.replace("T", " ").replace("Z", "") || "—"}
                   </p>
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <form action="/api/admin/users" method="post">
-                    <input type="hidden" name="action" value="reset_password" />
-                    <input type="hidden" name="userId" value={user.id} />
-                    <input type="hidden" name="email" value={user.email || ""} />
-                    <Button size="sm" type="submit" disabled={!serviceReady || !user.email}>
-                      Send reset email
-                    </Button>
-                  </form>
-                  <form action="/api/admin/users" method="post" onSubmit={(e) => {
-                    if (!confirm("Delete this user? This cannot be undone.")) {
-                      e.preventDefault();
-                    }
-                  }}>
-                    <input type="hidden" name="action" value="delete" />
-                    <input type="hidden" name="userId" value={user.id} />
-                    <Button size="sm" variant="secondary" type="submit" disabled={!serviceReady}>
-                      Delete user
-                    </Button>
-                  </form>
-                </div>
+                <AdminUserActions userId={user.id} email={user.email} serviceReady={serviceReady} />
               </div>
             );
           })}
