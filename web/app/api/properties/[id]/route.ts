@@ -35,7 +35,7 @@ const uuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   if (!hasServerSupabaseEnv()) {
@@ -51,6 +51,50 @@ export async function GET(
     return NextResponse.json({ error: "Property not found" }, { status: 404 });
   }
   const supabase = await createServerSupabaseClient();
+  const { searchParams } = new URL(request.url);
+  const scope = searchParams.get("scope");
+  const ownerOnly = scope === "own";
+
+  if (ownerOnly) {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    const isAdmin = profile?.role === "admin";
+
+    let query = supabase
+      .from("properties")
+      .select("*, property_images(id, image_url)")
+      .eq("id", id);
+
+    if (!isAdmin) {
+      query = query.eq("owner_id", user.id);
+    }
+
+    const { data, error } = await query.maybeSingle();
+
+    if (error) {
+      logApiError("fetch error", { id, message: error.message, scope });
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: "Property not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ property: data });
+  }
+
   const { data, error } = await supabase
     .from("properties")
     .select("*, property_images(id, image_url)")

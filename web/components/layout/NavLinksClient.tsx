@@ -10,6 +10,7 @@ type NavLink = {
   label: string;
   requireAuth?: boolean;
   requireRole?: UserRole | "super_admin";
+  denyRoles?: UserRole[];
 };
 
 type Props = {
@@ -56,6 +57,14 @@ export function NavLinksClient({ links, initialAuthed, initialRole }: Props) {
         .filter((link) => {
           if (link.requireAuth && !isAuthed) return false;
           if (link.requireRole && role !== link.requireRole && role !== "super_admin") {
+            return false;
+          }
+          if (
+            link.denyRoles?.length &&
+            role &&
+            role !== "super_admin" &&
+            link.denyRoles.includes(role)
+          ) {
             return false;
           }
           return true;

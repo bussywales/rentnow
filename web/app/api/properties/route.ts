@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   if (!hasServerSupabaseEnv()) {
     return NextResponse.json(
       { error: "Supabase is not configured; set env vars to fetch properties.", properties: [] },
@@ -98,6 +98,46 @@ export async function GET() {
 
   try {
     const supabase = await createServerSupabaseClient();
+    const { searchParams } = new URL(request.url);
+    const scope = searchParams.get("scope");
+    const ownerOnly = scope === "own";
+
+    if (ownerOnly) {
+      const {
+        data: { user },
+        error: authError,
+      } = await supabase.auth.getUser();
+
+      if (authError || !user) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      const isAdmin = profile?.role === "admin";
+
+      let query = supabase
+        .from("properties")
+        .select("*, property_images(image_url,id)")
+        .order("created_at", { ascending: false });
+
+      if (!isAdmin) {
+        query = query.eq("owner_id", user.id);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        logApiError("fetch failed", { error: error.message, scope });
+        return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
+      }
+
+      return NextResponse.json({ properties: data || [] }, { status: 200 });
+    }
+
     const { data, error } = await supabase
       .from("properties")
       .select("*, property_images(image_url,id)")

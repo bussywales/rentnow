@@ -10,10 +10,11 @@ const links: Array<{
   label: string;
   requireAuth?: boolean;
   requireRole?: UserRole | "super_admin";
+  denyRoles?: UserRole[];
 }> = [
   { href: "/properties", label: "Browse" },
   { href: "/favourites", label: "Saved", requireAuth: true },
-  { href: "/dashboard", label: "Dashboard", requireAuth: true },
+  { href: "/dashboard", label: "Dashboard", requireAuth: true, denyRoles: ["tenant"] },
   { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
 ];
 
@@ -61,7 +62,7 @@ export async function MainNav() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <NavAuthClient initialAuthed={initialAuthed} />
+          <NavAuthClient initialAuthed={initialAuthed} initialRole={role} />
         </div>
       </div>
     </header>

@@ -22,6 +22,9 @@ export default async function DashboardLayout({
     if (!profile?.role) {
       redirect("/onboarding");
     }
+    if (profile.role === "tenant") {
+      redirect("/favourites");
+    }
   }
 
   return (

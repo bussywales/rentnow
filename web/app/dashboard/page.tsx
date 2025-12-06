@@ -15,7 +15,7 @@ export default async function DashboardHome() {
 
   if (supabaseReady) {
     try {
-      const res = await fetch(`${baseUrl}/api/properties`, {
+      const res = await fetch(`${baseUrl}/api/properties?scope=own`, {
         cache: "no-store",
       });
       if (!res.ok) {
@@ -32,7 +32,7 @@ export default async function DashboardHome() {
           })) || [];
         console.log("[dashboard] fetched properties", {
           count: properties.length,
-          apiUrl: `${baseUrl}/api/properties`,
+          apiUrl: `${baseUrl}/api/properties?scope=own`,
         });
       }
     } catch (err) {

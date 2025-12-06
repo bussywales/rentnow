@@ -5,13 +5,16 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useCallback } from "react";
+import type { Session } from "@supabase/supabase-js";
 
 type Props = {
   initialAuthed: boolean;
+  initialRole?: string | null;
 };
 
-export function NavAuthClient({ initialAuthed }: Props) {
+export function NavAuthClient({ initialAuthed, initialRole = null }: Props) {
   const [isAuthed, setIsAuthed] = useState(initialAuthed);
+  const [role, setRole] = useState<string | null>(initialRole);
   const projectRef =
     process.env.NEXT_PUBLIC_SUPABASE_URL?.match(/https:\/\/(.*?)\.supabase\.co/)?.[1] ||
     "supabase";
@@ -33,33 +36,53 @@ export function NavAuthClient({ initialAuthed }: Props) {
   useEffect(() => {
     const sync = syncAuthCookie;
     const supabase = createBrowserSupabaseClient();
-    supabase.auth
-      .getSession()
-      .then(({ data }: { data: { session: { access_token: string; refresh_token: string } | null } }) => {
-        const session = data.session;
-        setIsAuthed(!!session);
-        if (session?.access_token && session?.refresh_token) {
-          sync({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          });
-        }
-      });
+    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
+      const session = data.session;
+      setIsAuthed(!!session);
+      if (session?.user?.id && !role) {
+        supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .maybeSingle()
+          .then(({ data: profile }: { data: { role?: string } | null }) => {
+            if (profile?.role) setRole(profile.role);
+          })
+          .catch(() => undefined);
+      }
+      if (session?.access_token && session?.refresh_token) {
+        sync({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+      }
+    });
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(
-      (_event: unknown, session: { access_token?: string; refresh_token?: string } | null) => {
-        setIsAuthed(!!session);
-        if (session?.access_token && session?.refresh_token) {
-          syncAuthCookie({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token,
-          });
-        } else {
-          syncAuthCookie(null);
-        }
+    } = supabase.auth.onAuthStateChange((_event: unknown, session: Session | null) => {
+      setIsAuthed(!!session);
+      if (session?.user?.id) {
+        supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .maybeSingle()
+          .then(({ data: profile }: { data: { role?: string } | null }) => {
+            if (profile?.role) setRole(profile.role);
+          })
+          .catch(() => undefined);
+      } else {
+        setRole(null);
       }
-    );
+      if (session?.access_token && session?.refresh_token) {
+        syncAuthCookie({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+      } else {
+        syncAuthCookie(null);
+      }
+    });
     return () => {
       subscription.unsubscribe();
     };
@@ -78,12 +101,16 @@ export function NavAuthClient({ initialAuthed }: Props) {
     }
   };
 
+  const canShowDashboard = isAuthed && role !== "tenant";
+
   if (isAuthed) {
     return (
       <>
-        <Link href="/dashboard" className="hidden text-sm text-slate-700 md:block">
-          My dashboard
-        </Link>
+        {canShowDashboard && (
+          <Link href="/dashboard" className="hidden text-sm text-slate-700 md:block">
+            My dashboard
+          </Link>
+        )}
         <Button size="sm" type="button" variant="secondary" onClick={handleLogout}>
           Log out
         </Button>

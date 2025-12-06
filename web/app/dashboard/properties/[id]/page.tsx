@@ -34,7 +34,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
   // First try the list API (most permissive, no per-id RLS surprises)
   try {
     const baseUrl = getSiteUrl();
-    const listUrl = `${baseUrl}/api/properties`;
+    const listUrl = `${baseUrl}/api/properties?scope=own`;
     const listRes = await fetch(listUrl, { cache: "no-store" });
     if (listRes.ok) {
       const json = await listRes.json();
@@ -49,7 +49,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
     }
 
     // Fallback to detail API for completeness (e.g., non-public records)
-    const detailUrl = `${baseUrl}/api/properties/${cleanId}`;
+    const detailUrl = `${baseUrl}/api/properties/${cleanId}?scope=own`;
     const res = await fetch(detailUrl, { cache: "no-store" });
     if (res.ok) {
       const json = await res.json();
@@ -80,11 +80,26 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
 
   try {
     const supabase = await createServerSupabaseClient();
-    const { data, error } = await supabase
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user?.id ?? "")
+      .maybeSingle();
+    const isAdmin = profile?.role === "admin";
+
+    let query = supabase
       .from("properties")
       .select("*, property_images(image_url,id)")
-      .eq("id", cleanId)
-      .maybeSingle();
+      .eq("id", cleanId);
+
+    if (!isAdmin) {
+      query = query.eq("owner_id", user?.id ?? "");
+    }
+
+    const { data, error } = await query.maybeSingle();
     if (!error && data) {
       const typed = data as Property & {
         property_images?: Array<{ id: string; image_url: string }>;
