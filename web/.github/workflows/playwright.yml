@@ -9,6 +9,15 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL || 'https://www.rentnow.space' }}
+      PLAYWRIGHT_USER_EMAIL: ${{ secrets.PLAYWRIGHT_USER_EMAIL || '' }}
+      PLAYWRIGHT_USER_PASSWORD: ${{ secrets.PLAYWRIGHT_USER_PASSWORD || '' }}
+      PLAYWRIGHT_ALLOW_WRITE: ${{ secrets.PLAYWRIGHT_ALLOW_WRITE || 'false' }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL || '' }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || '' }}
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL || '' }}
+      SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY || '' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,9 +39,9 @@ jobs:
 
       - name: Run Playwright tests
         working-directory: web
-        env:
-          PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL || 'https://www.rentnow.space' }}
-          PLAYWRIGHT_USER_EMAIL: ${{ secrets.PLAYWRIGHT_USER_EMAIL || 'bussywales@hotmail.com' }}
-          PLAYWRIGHT_USER_PASSWORD: ${{ secrets.PLAYWRIGHT_USER_PASSWORD || 'Iamlimitless991278##' }}
-          PLAYWRIGHT_ALLOW_WRITE: ${{ secrets.PLAYWRIGHT_ALLOW_WRITE || 'true' }}
         run: npm run test:e2e -- --reporter=dot
+
+      - name: Cleanup Playwright data
+        if: ${{ env.PLAYWRIGHT_ALLOW_WRITE == 'true' && env.NEXT_PUBLIC_SUPABASE_URL != '' && env.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' }}
+        working-directory: web
+        run: npm run test:e2e:cleanup
