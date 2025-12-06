@@ -62,13 +62,28 @@ function ConfirmContent() {
       return;
     }
     const run = async () => {
+      // If we already have a session (e.g., user logged in manually), skip exchange.
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user) {
+        setStatus("success");
+        setMessage("Session found. Redirecting to onboarding...");
+        goToNextStep();
+        return;
+      }
+
       if (code) {
         setStatus("exchanging");
         setMessage("Processing your verification link...");
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) {
-          setStatus("error");
-          setError(exchangeError.message || "Unable to finish sign-in. Please try logging in.");
+          const hint = exchangeError.message?.toLowerCase().includes("code verifier")
+            ? "It looks like the magic link opened in a different browser/device. Log in here with your email/password, then hit Continue."
+            : "Unable to finish sign-in. Log in and then press Continue.";
+          setStatus("idle");
+          setError(exchangeError.message);
+          setMessage(hint);
           return;
         }
         setStatus("success");

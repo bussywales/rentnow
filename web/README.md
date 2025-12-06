@@ -3,8 +3,8 @@
 AI-first rental platform for the African market. This MVP is a web-only PWA built with Next.js (App Router), Supabase, Tailwind, OpenAI, and Leaflet.
 
 ## Version
-- Current: 0.2.8 (2025-12-06)
-- Highlights: restored `/auth/confirm` magic-link handler that exchanges the Supabase `code` and redirects to onboarding; admin user management at `/admin/users` (service role required) with reset/delete; Playwright smoke tests + CI; saved properties use correct images; live Supabase data enforced on browse/detail/dashboard. See `CHANGELOG.md` for details.
+- Current: 0.2.9 (2025-12-06)
+- Highlights: `/auth/confirm` now handles magic-link errors gracefully (e.g., missing code verifier when opened in another browser) and guides users to log in/continue; admin user management at `/admin/users` (service role required) with reset/delete; Playwright smoke tests + CI; saved properties use correct images; live Supabase data enforced on browse/detail/dashboard. See `CHANGELOG.md` for details.
 
 ## Stack
 - Next.js 16 (App Router, TypeScript)

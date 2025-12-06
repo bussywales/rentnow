@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.9 — 2025-12-06
+- `/auth/confirm` now handles magic-link PKCE errors gracefully (e.g., code verifier missing when the link opens in another browser) and guides users to log in then continue to onboarding.
+- Registration success copy/buttons cleaned (ASCII-safe); onboarding gating remains enforced via dashboard layout.
+- Docs and version bumped for the improved confirmation flow.
+
 ## 0.2.8 — 2025-12-06
 - Restored `/auth/confirm` magic-link handler: exchanges Supabase `code` query params for a session, shows guidance, and routes users to onboarding to pick a role.
 - Cleaned registration success copy and buttons (ASCII-safe) and kept login/onboarding pointers aligned with the confirmation flow.
