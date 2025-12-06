@@ -3,9 +3,9 @@ import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { Button } from "@/components/ui/Button";
 import { getSiteUrl } from "@/lib/env";
-import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
-import type { ParsedSearchFilters, Property } from "@/lib/types";
+import type { ParsedSearchFilters, Property, UserRole } from "@/lib/types";
 type Props = {
   searchParams: Record<string, string | string[] | undefined>;
 };
@@ -38,6 +38,26 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const hasFilters = Object.values(filters).some(
     (v) => v !== null && v !== undefined && v !== ""
   );
+  let role: UserRole | null = null;
+  if (hasServerSupabaseEnv()) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        role = (profile?.role as UserRole) ?? null;
+      }
+    } catch {
+      role = null;
+    }
+  }
+  const showListCta = role && role !== "tenant";
   const baseUrl = getSiteUrl();
   const apiUrl = `${baseUrl}/api/properties`;
   let properties: Property[] = [];
@@ -142,9 +162,11 @@ export default async function PropertiesPage({ searchParams }: Props) {
           <Link href="/properties" className="text-sky-700 font-semibold">
             Reset filters
           </Link>
-          <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
-            List your first property
-          </Link>
+          {showListCta && (
+            <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
+              List your first property
+            </Link>
+          )}
         </div>
       </div>
     );
@@ -160,9 +182,11 @@ export default async function PropertiesPage({ searchParams }: Props) {
             {filters.city ? ` in ${filters.city}` : ""}.
           </p>
         </div>
-        <Link href="/dashboard/properties/new">
-          <Button variant="secondary">List a property</Button>
-        </Link>
+        {showListCta && (
+          <Link href="/dashboard/properties/new">
+            <Button variant="secondary">List a property</Button>
+          </Link>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">
