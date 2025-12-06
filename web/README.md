@@ -73,6 +73,7 @@ Tables: `profiles`, `properties`, `property_images`, `saved_properties`, `messag
 ## Deployment
 - Vercel for the Next.js app (add env vars in project settings).
 - Required envs for prod: `NEXT_PUBLIC_SITE_URL`, `SITE_URL` (optional), Supabase URL/keys, and bucket name. Optional `OPENAI_API_KEY` for AI routes.
+- Supabase RLS: apply `supabase/rls_policies.sql` in the Supabase SQL editor after seeding schema; keep canonical host (`https://www.rentnow.space`) in Supabase Auth redirect URLs.
 - Supabase for DB/Auth/Storage (free tier). Allow `*.vercel.app` origins in Auth settings.
 - Health: `/api/health` returns `{ ok, supabase, error? }` (use for uptime/alerting).
 - Releases: tag deployments as `vX.Y.Z` after merging to `main` and bump `package.json`/`package-lock.json`. Example: `git tag v0.2.3 && git push origin v0.2.3`.

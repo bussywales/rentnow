@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,9 @@ async function updateStatus(id: string, action: "approve" | "reject") {
     .from("properties")
     .update({ is_approved: action === "approve" })
     .eq("id", id);
+
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
 }
 
 export default async function AdminPage({ searchParams }: Props) {
