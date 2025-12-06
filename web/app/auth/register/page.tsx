@@ -36,11 +36,16 @@ export default function RegisterPage() {
       setLoading(false);
       return;
     }
+    const siteUrl =
+      (typeof window !== "undefined" ? window.location.origin : "") ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "https://www.rentnow.space";
+    const normalizedSite = siteUrl.replace(/\/$/, "");
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm`,
+        emailRedirectTo: `${normalizedSite}/auth/confirm`,
       },
     });
     if (signUpError) {
