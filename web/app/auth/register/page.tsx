@@ -11,6 +11,7 @@ export default function RegisterPage() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const getClient = () => {
@@ -38,11 +39,16 @@ export default function RegisterPage() {
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
+      options: {
+        emailRedirectTo: `${window.location.origin}/auth/confirm`,
+      },
     });
     if (signUpError) {
       setError(signUpError.message);
     } else {
-      window.location.href = "/onboarding";
+      setSuccess(
+        "Check your email to confirm your account. After confirming, log in and you’ll be taken to choose your role."
+      );
     }
     setLoading(false);
   };
@@ -55,33 +61,57 @@ export default function RegisterPage() {
           Choose a role on the next step.
         </p>
       </div>
-      <form className="space-y-4" onSubmit={handleSubmit}>
-        <Input
-          type="email"
-          required
-          placeholder="you@email.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <Input
-          type="password"
-          required
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        <Input
-          type="password"
-          required
-          placeholder="Confirm password"
-          value={confirmPassword}
-          onChange={(e) => setConfirmPassword(e.target.value)}
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button className="w-full" type="submit" disabled={loading}>
-          {loading ? "Creating..." : "Create account"}
-        </Button>
-      </form>
+      {success ? (
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">Check your email</p>
+          <p>{success}</p>
+          <p className="text-xs text-slate-600">
+            Tip: the verification link will bring you back to RentNow. If you’ve already confirmed, just{" "}
+            <Link href="/auth/login" className="font-semibold text-sky-700">
+              log in
+            </Link>{" "}
+            and you’ll be redirected to choose your role.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/auth/confirm">
+              <Button size="sm" variant="secondary">
+                I’ve confirmed – continue
+              </Button>
+            </Link>
+            <Link href="/auth/login" className="text-sm font-semibold text-sky-700">
+              Go to login
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <form className="space-y-4" onSubmit={handleSubmit}>
+          <Input
+            type="email"
+            required
+            placeholder="you@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Input
+            type="password"
+            required
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <Input
+            type="password"
+            required
+            placeholder="Confirm password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+          />
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <Button className="w-full" type="submit" disabled={loading}>
+            {loading ? "Creating..." : "Create account"}
+          </Button>
+        </form>
+      )}
       <p className="text-sm text-slate-600">
         Already have an account?{" "}
         <Link href="/auth/login" className="font-semibold text-sky-700">
