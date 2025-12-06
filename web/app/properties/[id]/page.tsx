@@ -182,15 +182,45 @@ export default async function PropertyDetail({ params }: Props) {
         isSaved = !!data;
       }
 
+      const priceFloor = property.price ? Math.max(0, property.price * 0.6) : null;
+      const priceCeil = property.price ? property.price * 1.4 : null;
       const { data: similarRaw } = await supabase
         .from("properties")
         .select("*, property_images(id, image_url)")
         .eq("city", property.city)
+        .eq("rental_type", property.rental_type)
         .neq("id", property.id)
-        .limit(4);
+        .order("created_at", { ascending: false })
+        .limit(8);
+
+      let similarResults: Array<
+        Property & { property_images?: Array<{ id: string; image_url: string }> }
+      > = [];
+
+      if (Array.isArray(similarRaw)) {
+        similarResults = similarRaw as typeof similarResults;
+      } else {
+        // fallback fetch without rental_type if no result
+        const { data: fallback } = await supabase
+          .from("properties")
+          .select("*, property_images(id, image_url)")
+          .eq("city", property.city)
+          .neq("id", property.id)
+          .order("created_at", { ascending: false })
+          .limit(8);
+        similarResults = (fallback as typeof similarResults) ?? [];
+      }
+
+      similarResults = similarResults
+        .filter((row) => row.id !== property.id)
+        .filter((row) => {
+          if (priceFloor === null || priceCeil === null || !row.price) return true;
+          return row.price >= priceFloor && row.price <= priceCeil;
+        })
+        .slice(0, 4);
 
       similar =
-        similarRaw?.map((row) => ({
+        similarResults?.map((row) => ({
           ...row,
           images: row.property_images?.map((img: { id: string; image_url: string }) => ({
             id: img.id,

@@ -1,13 +1,14 @@
 {
   "name": "rentnow",
-  "version": "0.2.4",
+  "version": "0.2.5",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:cleanup": "node scripts/cleanup-playwright.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.8.0",

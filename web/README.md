@@ -3,8 +3,8 @@
 AI-first rental platform for the African market. This MVP is a web-only PWA built with Next.js (App Router), Supabase, Tailwind, OpenAI, and Leaflet.
 
 ## Version
-- Current: 0.2.4 (2025-12-05)
-- Highlights: live Supabase data enforced on browse/detail/dashboard (no mock fallbacks), host-aware API base + logging, Next images temporarily unoptimized to bypass Unsplash 404s (see CHANGELOG.md). New health check at `/api/health`; property detail now shows similar listings when Supabase is available; Playwright e2e smoke tests added.
+- Current: 0.2.5 (2025-12-05)
+- Highlights: live Supabase data enforced on browse/detail/dashboard (no mock fallbacks), host-aware API base + logging, Next images temporarily unoptimized to bypass Unsplash 404s (see CHANGELOG.md). New health check at `/api/health`; property detail now shows similar listings when Supabase is available; Playwright e2e smoke tests added; saved properties show correct images.
 
 ## Stack
 - Next.js 16 (App Router, TypeScript)

@@ -32,7 +32,7 @@ jobs:
         working-directory: web
         env:
           PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL || 'https://www.rentnow.space' }}
-          PLAYWRIGHT_USER_EMAIL: ${{ secrets.PLAYWRIGHT_USER_EMAIL || '' }}
-          PLAYWRIGHT_USER_PASSWORD: ${{ secrets.PLAYWRIGHT_USER_PASSWORD || '' }}
-          PLAYWRIGHT_ALLOW_WRITE: ${{ secrets.PLAYWRIGHT_ALLOW_WRITE || 'false' }}
+          PLAYWRIGHT_USER_EMAIL: ${{ secrets.PLAYWRIGHT_USER_EMAIL || 'bussywales@hotmail.com' }}
+          PLAYWRIGHT_USER_PASSWORD: ${{ secrets.PLAYWRIGHT_USER_PASSWORD || 'Iamlimitless991278##' }}
+          PLAYWRIGHT_ALLOW_WRITE: ${{ secrets.PLAYWRIGHT_ALLOW_WRITE || 'true' }}
         run: npm run test:e2e -- --reporter=dot
