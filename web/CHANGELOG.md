@@ -12,6 +12,9 @@
 - Added `/auth/confirmed` landing page that sends users to login/onboarding after email verification and auto-redirects if already signed in.
 - Registration now uses the canonical site URL for magic-link redirects (`/auth/confirm`) to avoid host mismatch.
 
+## 0.2.15 — 2025-12-06
+- Viewing requests page now filters by role: tenants see their own requests; landlords/agents see requests for their listings via property owner join.
+
 ## 0.2.11 — 2025-12-06
 - Dashboard isolation: `/api/properties?scope=own` and `/api/properties/:id?scope=own` enforce owner/admin access; dashboard list/edit now use the scoped endpoints; fallback Supabase fetch also checks owner/admin.
 - Tenant gating: tenants are redirected away from the dashboard to favourites; nav hides dashboard for tenants client and server side.

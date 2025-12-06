@@ -3,8 +3,8 @@
 AI-first rental platform for the African market. This MVP is a web-only PWA built with Next.js (App Router), Supabase, Tailwind, OpenAI, and Leaflet.
 
 ## Version
-- Current: 0.2.14 (2025-12-06)
-- Highlights: Added `/auth/confirmed` landing to finish email verification and jump to onboarding; registration uses canonical site URL for magic-link redirects; owner dashboard uses direct Supabase queries; favourites validate IDs; dashboard remains owner/agent/admin-only with tenant redirects; admin user management at `/admin/users` (service role required); Playwright smoke tests + CI; live Supabase data enforced. See `CHANGELOG.md` for details.
+- Current: 0.2.15 (2025-12-06)
+- Highlights: Viewing requests respect roles (tenants see theirs; landlords/agents see requests for their listings); `/auth/confirmed` handles post-verification redirect; owner dashboard uses direct Supabase queries; favourites validate IDs; dashboard remains owner/agent/admin-only with tenant redirects; admin user management at `/admin/users` (service role required); Playwright smoke tests + CI; live Supabase data enforced. See `CHANGELOG.md` for details.
 
 ## Stack
 - Next.js 16 (App Router, TypeScript)

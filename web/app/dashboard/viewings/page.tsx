@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/Button";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-import type { ViewingRequest } from "@/lib/types";
+import type { ViewingRequest, UserRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +20,7 @@ const viewingRequests: ViewingRequest[] = [
 export default async function ViewingsPage() {
   const supabaseReady = hasServerSupabaseEnv();
   let currentUserId: string | null = null;
+  let role: UserRole | null = null;
   let requests: ViewingRequest[] = viewingRequests;
 
   if (supabaseReady) {
@@ -31,14 +32,33 @@ export default async function ViewingsPage() {
 
       if (user) {
         currentUserId = user.id;
-        const { data, error } = await supabase
-          .from("viewing_requests")
-          .select("*")
-          .eq("tenant_id", user.id)
-          .order("created_at", { ascending: false });
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        role = (profile?.role as UserRole) ?? null;
 
-        if (!error && data) {
-          requests = data as ViewingRequest[];
+        if (role === "tenant") {
+          const { data, error } = await supabase
+            .from("viewing_requests")
+            .select("*, properties(id, title)")
+            .eq("tenant_id", user.id)
+            .order("created_at", { ascending: false });
+
+          if (!error && data) {
+            requests = data as ViewingRequest[];
+          }
+        } else {
+          const { data, error } = await supabase
+            .from("viewing_requests")
+            .select("*, properties!inner(id, owner_id, title)")
+            .eq("properties.owner_id", user.id)
+            .order("created_at", { ascending: false });
+
+          if (!error && data) {
+            requests = data as ViewingRequest[];
+          }
         }
       }
     } catch (err) {
@@ -47,13 +67,16 @@ export default async function ViewingsPage() {
   }
 
   const demoMode = !supabaseReady || !currentUserId;
+  const isTenant = role === "tenant";
 
   return (
     <div className="space-y-4">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Viewing requests</h1>
         <p className="text-sm text-slate-600">
-          Coordinate tours and confirm availability with tenants.
+          {isTenant
+            ? "Your viewing requests and their status."
+            : "Coordinate tours and confirm availability on your listings."}
         </p>
         {demoMode && (
           <p className="mt-2 text-sm text-amber-700">
@@ -70,7 +93,7 @@ export default async function ViewingsPage() {
           >
             <div>
               <p className="text-sm font-semibold text-slate-900">
-                Property: {req.property_id}
+                Property: {(req as any).properties?.title || req.property_id}
               </p>
               <p className="text-sm text-slate-600">
                 {req.preferred_date}
