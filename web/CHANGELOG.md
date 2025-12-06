@@ -24,6 +24,9 @@
 ## 0.2.18 — 2025-12-06
 - Added admin-only `/api/debug/rls` endpoint to sanity-check RLS posture (public approved reads, owner listings, saved isolation).
 
+## 0.2.19 — 2025-12-06
+- Added admin-only support page (`/admin/support`) with diagnostics (auth role, property counts, saved count) and quick links to debug endpoints, approvals, and user management.
+
 ## 0.2.11 — 2025-12-06
 - Dashboard isolation: `/api/properties?scope=own` and `/api/properties/:id?scope=own` enforce owner/admin access; dashboard list/edit now use the scoped endpoints; fallback Supabase fetch also checks owner/admin.
 - Tenant gating: tenants are redirected away from the dashboard to favourites; nav hides dashboard for tenants client and server side.
