@@ -12,6 +12,7 @@ function LoginContent() {
   const search = useSearchParams();
   const router = useRouter();
   const reason = search.get("reason");
+  const redirectTo = search.get("redirect") || "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +66,7 @@ function LoginContent() {
           /* ignore setSession failures; Supabase will fall back to existing state */
         }
 
-        router.replace("/dashboard");
+        router.replace(redirectTo);
       }
     }
     setLoading(false);
@@ -81,7 +82,7 @@ function LoginContent() {
     supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
       const session = data.session;
       if (session?.user) {
-        router.replace("/dashboard");
+        router.replace(redirectTo);
         return;
       }
       setCheckingSession(false);
@@ -90,7 +91,7 @@ function LoginContent() {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, session: Session | null) => {
         if (event === "SIGNED_IN" && session?.user) {
-          router.replace("/dashboard");
+          router.replace(redirectTo);
         }
       }
     );

@@ -12,6 +12,8 @@ function ConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const code = searchParams?.get("code");
+  const redirectTarget = "/onboarding";
+  const loginHref = `/auth/login?redirect=${encodeURIComponent(redirectTarget)}`;
 
   const [status, setStatus] = useState<Status>(code ? "exchanging" : "checking");
   const [message, setMessage] = useState<string | null>(null);
@@ -28,7 +30,7 @@ function ConfirmContent() {
   };
 
   const goToNextStep = () => {
-    router.replace("/onboarding");
+    router.replace(redirectTarget);
   };
 
   const checkSession = async () => {
@@ -78,9 +80,10 @@ function ConfirmContent() {
         setMessage("Processing your verification link...");
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) {
-          const hint = exchangeError.message?.toLowerCase().includes("code verifier")
-            ? "It looks like the magic link opened in a different browser/device. Log in here with your email/password, then hit Continue."
-            : "Unable to finish sign-in. Log in and then press Continue.";
+          const isVerifierIssue = exchangeError.message?.toLowerCase().includes("code verifier");
+          const hint = isVerifierIssue
+            ? "Looks like the verification link opened in another browser/device. Your email should be confirmed. Please log in here, then hit Continue."
+            : "Unable to finish sign-in. Log in, then press Continue.";
           setStatus("idle");
           setError(exchangeError.message);
           setMessage(hint);
@@ -129,7 +132,7 @@ function ConfirmContent() {
         <Button onClick={() => checkSession()} disabled={status === "exchanging"}>
           {status === "exchanging" ? "Processing..." : "Continue"}
         </Button>
-        <Link href="/auth/login" className="text-sm font-semibold text-sky-700">
+        <Link href={loginHref} className="text-sm font-semibold text-sky-700">
           Go to login
         </Link>
       </div>

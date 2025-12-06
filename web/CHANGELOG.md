@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.10 — 2025-12-06
+- Magic-link flow tightened: `/auth/confirm` now catches PKCE verifier errors and routes users to log in with a redirect back to onboarding; messaging is clearer that email is confirmed.
+- Login accepts `?redirect=` so auth flows (confirm/onboarding) can send users to the right destination post-sign-in.
+- Version bump and copy updates.
+
 ## 0.2.9 — 2025-12-06
 - `/auth/confirm` now handles magic-link PKCE errors gracefully (e.g., code verifier missing when the link opens in another browser) and guides users to log in then continue to onboarding.
 - Registration success copy/buttons cleaned (ASCII-safe); onboarding gating remains enforced via dashboard layout.
