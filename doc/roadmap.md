@@ -5,6 +5,7 @@
 - Verify `/api/properties` and `/api/properties/[id]` in production return data client-side; remove demo fallbacks once confirmed.
 - Temporarily set `images.unoptimized = true` in `next.config.ts` if Unsplash `_next/image` 404s persist; confirm images render, then re-enable optimizer with proper domains.
 - Migrate `middleware` to `proxy` to remove the deprecation warning.
+- Auth bug: magic-link confirmation still fails with missing PKCE verifier when opened in another browser. Add a “email confirmed” landing screen that always redirects users to login with onboarding redirect, and validate Supabase email-confirmed flag before allowing role selection.
 
 ## Priority 1: Stability & Cleanup
 - Remove debug routes (`/api/debug/*`) after confirmation.
@@ -12,6 +13,7 @@
 - Add server logging around API fetches to catch missing env/URL issues in prod.
 - Normalize properties page/detail to single fetch path and shared mapper; eliminate mock fallback in production mode.
 - Fix nav auth hydration so protected links render immediately after client redirects (no refresh needed); ensure browser Supabase client drives nav state.
+- Roles: enforce per-role dashboards. Tenants should see saved/viewings only (no owner listings); landlords/agents manage only their own listings. Filter dashboard queries by `owner_id = user.id` and tighten RLS so owners cannot see/update others’ records. Add tests for cross-user isolation.
 
 ## Priority 2: Data & Admin
 - Admin: add bulk approval + activity log; inline edit-in-place.
