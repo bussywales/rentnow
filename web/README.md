@@ -77,6 +77,7 @@ Tables: `profiles`, `properties`, `property_images`, `saved_properties`, `messag
 - Health: `/api/health` returns `{ ok, supabase, error? }` (use for uptime/alerting).
 - Releases: tag deployments as `vX.Y.Z` after merging to `main` and bump `package.json`/`package-lock.json`. Example: `git tag v0.2.3 && git push origin v0.2.3`.
 - E2E tests: Playwright with `npm run test:e2e` (env: `PLAYWRIGHT_BASE_URL`, `PLAYWRIGHT_USER_EMAIL`, `PLAYWRIGHT_USER_PASSWORD`; `PLAYWRIGHT_ALLOW_WRITE=true` to enable viewing requests).
+- Admin user management: requires `SUPABASE_SERVICE_ROLE_KEY` on the server to list/delete users and send password reset links via `/admin/users`.
 
 ## Current status
 - UI scaffolding for all core flows (home, search, property detail, dashboard CRUD shell, messaging/viewings shell, admin). 
