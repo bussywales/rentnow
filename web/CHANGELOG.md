@@ -18,6 +18,9 @@
 ## 0.2.16 — 2025-12-06
 - Added Playwright role isolation test for tenants (uses PLAYWRIGHT_TENANT_EMAIL/PASSWORD); ensures dashboard redirects and owner routes/CTAs are hidden.
 
+## 0.2.17 — 2025-12-06
+- Added Playwright admin approval test (skips if no pending listings or missing creds) to exercise approve flow when PLAYWRIGHT_ALLOW_WRITE=true.
+
 ## 0.2.11 — 2025-12-06
 - Dashboard isolation: `/api/properties?scope=own` and `/api/properties/:id?scope=own` enforce owner/admin access; dashboard list/edit now use the scoped endpoints; fallback Supabase fetch also checks owner/admin.
 - Tenant gating: tenants are redirected away from the dashboard to favourites; nav hides dashboard for tenants client and server side.
