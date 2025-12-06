@@ -5,7 +5,7 @@
 - Verify `/api/properties` and `/api/properties/[id]` in production return data client-side; remove demo fallbacks once confirmed.
 - Temporarily set `images.unoptimized = true` in `next.config.ts` if Unsplash `_next/image` 404s persist; confirm images render, then re-enable optimizer with proper domains.
 - Migrate `middleware` to `proxy` to remove the deprecation warning.
-- Auth bug: magic-link confirmation still fails with missing PKCE verifier when opened in another browser. Add a “email confirmed” landing screen that always redirects users to login with onboarding redirect, and validate Supabase email-confirmed flag before allowing role selection.
+- Auth: canonical host enforced; added `/auth/confirm` + `/auth/confirmed` flows; remaining: validate Supabase email-confirmed flag before allowing role selection (minor).
 
 ## Priority 1: Stability & Cleanup
 - Remove debug routes (`/api/debug/*`) after confirmation.
@@ -50,3 +50,10 @@
 - Add 4xx/5xx alerts in Vercel; log storage upload failures for diagnostics.
 - Add storage/media error logging and alerting for upload failures.
 - If adding pricing/screening services, run them as separate services with event/queue logging and circuit breakers.
+
+## Current status (2025-12-06)
+- Auth/session: edge SSR + `/auth/confirm` + `/auth/confirmed` in place; canonical host redirects enforced; RLS applied in Supabase; roles enforced in code + isolation tests.
+- Dashboard: owner/agent/admin only; tenants redirected; viewings are role-aware.
+- Admin: approvals flow with revalidation; user management; support page with diagnostics; RLS debug endpoint.
+- Playwright: auth/dashboard, save/viewing (optional), tenant isolation, admin approvals (optional).
+- Version: 0.2.19.
