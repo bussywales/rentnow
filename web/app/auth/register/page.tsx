@@ -47,7 +47,7 @@ export default function RegisterPage() {
       setError(signUpError.message);
     } else {
       setSuccess(
-        "Check your email to confirm your account. After confirming, log in and you’ll be taken to choose your role."
+        "Check your email to confirm your account. After confirming, log in and you'll be taken to choose your role."
       );
     }
     setLoading(false);
@@ -57,25 +57,23 @@ export default function RegisterPage() {
     <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Create account</h1>
-        <p className="text-sm text-slate-600">
-          Choose a role on the next step.
-        </p>
+        <p className="text-sm text-slate-600">Choose a role on the next step.</p>
       </div>
       {success ? (
         <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
           <p className="font-semibold text-slate-900">Check your email</p>
           <p>{success}</p>
           <p className="text-xs text-slate-600">
-            Tip: the verification link will bring you back to RentNow. If you’ve already confirmed, just{" "}
+            Tip: the verification link will bring you back to RentNow. If you've already confirmed, just{" "}
             <Link href="/auth/login" className="font-semibold text-sky-700">
               log in
             </Link>{" "}
-            and you’ll be redirected to choose your role.
+            and you'll be redirected to choose your role.
           </p>
           <div className="flex flex-wrap gap-2">
             <Link href="/auth/confirm">
               <Button size="sm" variant="secondary">
-                I’ve confirmed – continue
+                I've confirmed — continue
               </Button>
             </Link>
             <Link href="/auth/login" className="text-sm font-semibold text-sky-700">

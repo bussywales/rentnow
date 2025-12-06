@@ -1,79 +1,142 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
-export default function ConfirmPage() {
+type Status = "checking" | "exchanging" | "idle" | "success" | "error";
+
+function ConfirmContent() {
   const router = useRouter();
-  const [status, setStatus] = useState<"checking" | "ready" | "error">("checking");
+  const searchParams = useSearchParams();
+  const code = searchParams?.get("code");
+
+  const [status, setStatus] = useState<Status>(code ? "exchanging" : "checking");
+  const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const supabase = createBrowserSupabaseClient();
-    supabase.auth
-      .getSession()
-      .then(({ data }: { data: { session: { user?: unknown } | null } }) => {
-        if (data.session?.user) {
-          router.replace("/onboarding");
-        } else {
-          setStatus("ready");
-        }
-      })
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Unable to verify session");
-        setStatus("error");
-      });
-  }, [router]);
-
-  const handleCheck = async () => {
-    setStatus("checking");
-    setError(null);
+  const getClient = () => {
     try {
-      const supabase = createBrowserSupabaseClient();
-      const { data } = await supabase.auth.getSession();
-      if (data.session?.user) {
-        router.replace("/onboarding");
-      } else {
-        setStatus("ready");
-        setError("We couldn’t find a session. Try logging in after confirming your email.");
-      }
-    } catch (err) {
+      return createBrowserSupabaseClient();
+    } catch {
+      setError("Supabase environment variables are missing.");
       setStatus("error");
-      setError(err instanceof Error ? err.message : "Unable to verify session");
+      return null;
     }
   };
 
+  const goToNextStep = () => {
+    router.replace("/onboarding");
+  };
+
+  const checkSession = async () => {
+    const supabase = getClient();
+    if (!supabase) {
+      return;
+    }
+    setStatus("checking");
+    setError(null);
+    setMessage(null);
+
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (session?.user) {
+      setStatus("success");
+      setMessage("Session found. Taking you to choose your role...");
+      goToNextStep();
+      return;
+    }
+
+    setStatus("idle");
+    setMessage("Check your email for the verification link, then return here and continue.");
+    setError("We could not find a session. Log in after confirming your email, then try again.");
+  };
+
+  useEffect(() => {
+    const supabase = getClient();
+    if (!supabase) {
+      return;
+    }
+    const run = async () => {
+      if (code) {
+        setStatus("exchanging");
+        setMessage("Processing your verification link...");
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          setStatus("error");
+          setError(exchangeError.message || "Unable to finish sign-in. Please try logging in.");
+          return;
+        }
+        setStatus("success");
+        setMessage("Verified. Redirecting to finish onboarding...");
+        goToNextStep();
+        return;
+      }
+      await checkSession();
+    };
+
+    void run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code]);
+
   return (
-    <div className="mx-auto flex max-w-md flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-      <div className="space-y-2">
+    <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div>
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Email confirmation</p>
         <h1 className="text-2xl font-semibold text-slate-900">Finish signing in</h1>
         <p className="text-sm text-slate-600">
-          If you just clicked the verification link, we’ll log you in and take you to role selection.
+          If you just clicked the verification link, we will log you in and take you to role selection.
         </p>
       </div>
 
-      {status === "checking" && (
-        <p className="text-sm text-slate-600">Verifying your session...</p>
-      )}
+      <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <p className="font-semibold text-slate-900">
+          {status === "exchanging"
+            ? "Processing magic link..."
+            : status === "checking"
+              ? "Checking your session..."
+              : status === "success"
+                ? "Success"
+                : "Almost there"}
+        </p>
+        {message && <p>{message}</p>}
+        {error && <p className="text-red-600">{error}</p>}
+        {!message && !error && status === "idle" && (
+          <p>Check your inbox and click the verification email. Then hit continue.</p>
+        )}
+      </div>
 
-      {status !== "checking" && (
-        <div className="space-y-3 text-sm text-slate-700">
-          <Button className="w-full" onClick={handleCheck}>
-            {status === "error" ? "Try again" : "Continue"}
-          </Button>
-          <div className="flex flex-col gap-1 text-xs text-slate-600">
-            <span>Didn&apos;t get an email? Check spam or request a new one from the login page.</span>
-            <Link href="/auth/login" className="font-semibold text-sky-700">
-              Go to login
-            </Link>
-          </div>
-          {error && <p className="text-xs text-rose-600">{error}</p>}
-        </div>
-      )}
+      <div className="flex flex-wrap gap-3">
+        <Button onClick={() => checkSession()} disabled={status === "exchanging"}>
+          {status === "exchanging" ? "Processing..." : "Continue"}
+        </Button>
+        <Link href="/auth/login" className="text-sm font-semibold text-sky-700">
+          Go to login
+        </Link>
+      </div>
+
+      <p className="text-xs text-slate-500">
+        If the verification link opens in another device, just log in on this device and return here to continue.
+      </p>
     </div>
+  );
+}
+
+export default function ConfirmPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto flex max-w-md flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm text-sm text-slate-600">
+          <p className="font-semibold text-slate-900">Checking your session...</p>
+          <p>If you just clicked the verification email, we are processing it.</p>
+        </div>
+      }
+    >
+      <ConfirmContent />
+    </Suspense>
   );
 }

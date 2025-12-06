@@ -19,6 +19,9 @@ export default async function DashboardLayout({
       redirect("/auth/login?reason=auth");
     }
     profile = await getProfile();
+    if (!profile?.role) {
+      redirect("/onboarding");
+    }
   }
 
   return (
