@@ -3,10 +3,11 @@ import { test, expect } from "@playwright/test";
 const ADMIN_EMAIL = process.env.PLAYWRIGHT_USER_EMAIL || "";
 const ADMIN_PASSWORD = process.env.PLAYWRIGHT_USER_PASSWORD || "";
 const ALLOW_WRITE = (process.env.PLAYWRIGHT_ALLOW_WRITE || "false").toLowerCase() === "true";
+const HAS_CREDS = !!ADMIN_EMAIL && !!ADMIN_PASSWORD;
 
 test.describe("Admin approvals", () => {
   test("approve pending listing if present", async ({ page }) => {
-    test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, "Set PLAYWRIGHT_USER_EMAIL/PASSWORD (admin) to run this test.");
+    test.skip(!HAS_CREDS, "Set PLAYWRIGHT_USER_EMAIL/PASSWORD (admin) to run this test.");
     test.skip(!ALLOW_WRITE, "PLAYWRIGHT_ALLOW_WRITE must be true to mutate approvals.");
 
     await page.goto("/auth/login");

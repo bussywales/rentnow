@@ -9,7 +9,10 @@ export default defineConfig({
   fullyParallel: true,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000",
+    baseURL:
+      process.env.PLAYWRIGHT_BASE_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      "http://localhost:3000",
     trace: "on-first-retry",
     video: "retain-on-failure",
   },

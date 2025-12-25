@@ -1,11 +1,12 @@
 import { test, expect } from "@playwright/test";
 
-const EMAIL = process.env.PLAYWRIGHT_USER_EMAIL || "bussywales@hotmail.com";
+const EMAIL = process.env.PLAYWRIGHT_USER_EMAIL || "";
 const PASSWORD = process.env.PLAYWRIGHT_USER_PASSWORD || "";
+const HAS_CREDS = !!EMAIL && !!PASSWORD;
 
 test.describe("Auth -> dashboard -> property detail", () => {
   test("login and reach dashboard and property detail", async ({ page }) => {
-    test.skip(!PASSWORD, "Set PLAYWRIGHT_USER_PASSWORD to run this test.");
+    test.skip(!HAS_CREDS, "Set PLAYWRIGHT_USER_EMAIL and PLAYWRIGHT_USER_PASSWORD to run this test.");
 
     await page.goto("/auth/login");
     await page.getByPlaceholder("you@email.com").fill(EMAIL);
