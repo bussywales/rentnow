@@ -28,7 +28,7 @@ function LoginContent() {
     supabase ? null : "Supabase environment variables are missing."
   );
   const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(true);
+  const [checkingSession, setCheckingSession] = useState(() => !!supabase);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -75,10 +75,7 @@ function LoginContent() {
   };
 
   useEffect(() => {
-    if (!supabase) {
-      setCheckingSession(false);
-      return;
-    }
+    if (!supabase) return;
 
     supabase.auth
       .getSession()
