@@ -14,6 +14,7 @@ const messageSchema = z.object({
 export async function GET(request: Request) {
   const startTime = Date.now();
   const routeLabel = "/api/messages";
+  const allowDemo = process.env.NODE_ENV !== "production";
   const url = new URL(request.url);
   const propertyId = url.searchParams.get("propertyId");
   let messages: Message[] = [];
@@ -23,18 +24,31 @@ export async function GET(request: Request) {
   }
 
   if (!hasServerSupabaseEnv()) {
-    return NextResponse.json({
-      messages: [
-        {
-          id: "demo-message",
-          property_id: propertyId,
-          sender_id: "demo-tenant",
-          recipient_id: mockProperties[0]?.owner_id || "demo-owner",
-          body: "Demo mode: connect Supabase to enable real messaging.",
-          created_at: new Date().toISOString(),
-        },
-      ],
+    if (allowDemo) {
+      return NextResponse.json({
+        messages: [
+          {
+            id: "demo-message",
+            property_id: propertyId,
+            sender_id: "demo-tenant",
+            recipient_id: mockProperties[0]?.owner_id || "demo-owner",
+            body: "Demo mode: connect Supabase to enable real messaging.",
+            created_at: new Date().toISOString(),
+          },
+        ],
+      });
+    }
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 503,
+      startTime,
+      error: "Supabase env vars missing",
     });
+    return NextResponse.json(
+      { error: "Supabase is not configured; messaging is unavailable.", messages: [] },
+      { status: 503 }
+    );
   }
 
   try {
@@ -45,27 +59,48 @@ export async function GET(request: Request) {
       .eq("property_id", propertyId)
       .order("created_at", { ascending: true });
 
-    if (!error && data) {
+    if (error) {
+      if (!allowDemo) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 500,
+          startTime,
+          error: new Error(error.message),
+        });
+        return NextResponse.json(
+          { error: error.message, messages: [] },
+          { status: 500 }
+        );
+      }
+    } else if (data) {
       messages = data;
     }
   } catch (err: unknown) {
-    logFailure({
-      request,
-      route: routeLabel,
-      status: 500,
-      startTime,
-      error: err,
-    });
-    messages = [
-      {
-        id: "mock-msg-1",
-        property_id: propertyId,
-        sender_id: "tenant-1",
-        recipient_id: mockProperties[0]?.owner_id,
-        body: "Is this still available next month?",
-        created_at: new Date().toISOString(),
-      },
-    ];
+    if (allowDemo) {
+      messages = [
+        {
+          id: "mock-msg-1",
+          property_id: propertyId,
+          sender_id: "tenant-1",
+          recipient_id: mockProperties[0]?.owner_id,
+          body: "Is this still available next month?",
+          created_at: new Date().toISOString(),
+        },
+      ];
+    } else {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 500,
+        startTime,
+        error: err,
+      });
+      return NextResponse.json(
+        { error: "Unable to load messages.", messages: [] },
+        { status: 500 }
+      );
+    }
   }
 
   return NextResponse.json({ messages });

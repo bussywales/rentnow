@@ -1,4 +1,5 @@
 import { MessageThread } from "@/components/messaging/MessageThread";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Message, Profile } from "@/lib/types";
 
@@ -17,8 +18,10 @@ const demoMessages: Message[] = [
 
 export default async function MessagesPage() {
   const supabaseReady = hasServerSupabaseEnv();
+  const allowDemo = process.env.NODE_ENV !== "production";
   let currentUser: Profile | null = null;
-  let messages: Message[] = demoMessages;
+  let messages: Message[] = allowDemo ? demoMessages : [];
+  let fetchError: string | null = null;
 
   if (supabaseReady) {
     try {
@@ -42,14 +45,32 @@ export default async function MessagesPage() {
 
         if (!error && data) {
           messages = data as Message[];
+        } else if (error && !allowDemo) {
+          fetchError = "Unable to load messages right now.";
         }
       }
     } catch (err) {
-      console.warn("Falling back to demo messages", err);
+      if (!allowDemo) {
+        fetchError = "Unable to load messages right now.";
+      }
     }
+  } else if (!allowDemo) {
+    fetchError = "Supabase is not configured; messaging is unavailable.";
   }
 
-  const demoMode = !supabaseReady || !currentUser;
+  const demoMode = allowDemo && (!supabaseReady || !currentUser);
+
+  if (fetchError && !allowDemo) {
+    return (
+      <div className="space-y-4">
+        <ErrorState
+          title="Messages unavailable"
+          description={fetchError}
+          retryHref="/dashboard/messages"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

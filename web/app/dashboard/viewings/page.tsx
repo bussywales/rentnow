@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/Button";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { ViewingRequest, UserRole } from "@/lib/types";
 
@@ -19,9 +20,11 @@ const viewingRequests: ViewingRequest[] = [
 
 export default async function ViewingsPage() {
   const supabaseReady = hasServerSupabaseEnv();
+  const allowDemo = process.env.NODE_ENV !== "production";
   let currentUserId: string | null = null;
   let role: UserRole | null = null;
-  let requests: ViewingRequest[] = viewingRequests;
+  let requests: ViewingRequest[] = allowDemo ? viewingRequests : [];
+  let fetchError: string | null = null;
 
   if (supabaseReady) {
     try {
@@ -48,6 +51,8 @@ export default async function ViewingsPage() {
 
           if (!error && data) {
             requests = data as ViewingRequest[];
+          } else if (error && !allowDemo) {
+            fetchError = "Unable to load viewing requests right now.";
           }
         } else {
           const { data, error } = await supabase
@@ -58,16 +63,34 @@ export default async function ViewingsPage() {
 
           if (!error && data) {
             requests = data as ViewingRequest[];
+          } else if (error && !allowDemo) {
+            fetchError = "Unable to load viewing requests right now.";
           }
         }
       }
     } catch (err) {
-      console.warn("Falling back to mock viewing requests", err);
+      if (!allowDemo) {
+        fetchError = "Unable to load viewing requests right now.";
+      }
     }
+  } else if (!allowDemo) {
+    fetchError = "Supabase is not configured; viewing requests are unavailable.";
   }
 
-  const demoMode = !supabaseReady || !currentUserId;
+  const demoMode = allowDemo && (!supabaseReady || !currentUserId);
   const isTenant = role === "tenant";
+
+  if (fetchError && !allowDemo) {
+    return (
+      <div className="space-y-4">
+        <ErrorState
+          title="Viewing requests unavailable"
+          description={fetchError}
+          retryHref="/dashboard/viewings"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">

@@ -25,10 +25,19 @@ export function MessageThreadClient({
     const fetchMessages = async () => {
       try {
         const res = await fetch(`/api/messages?propertyId=${propertyId}`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          setError(data?.error || "Unable to load messages.");
+          return;
+        }
         const data = await res.json();
-        if (data?.messages) setMessages(data.messages);
+        if (data?.messages) {
+          setMessages(data.messages);
+          setError(null);
+        }
       } catch (err) {
         console.warn("Unable to load messages", err);
+        setError("Unable to load messages.");
       } finally {
         setLoading(false);
       }
