@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { requireRole } from "@/lib/authz";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
 
@@ -44,22 +45,16 @@ export async function POST(request: Request) {
   }
 
   try {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const auth = await requireRole({
+      request,
+      route: routeLabel,
+      startTime,
+      roles: ["landlord", "agent", "admin"],
+    });
+    if (!auth.ok) return auth.response;
 
-    if (authError || !user) {
-      logFailure({
-        request,
-        route: routeLabel,
-        status: 401,
-        startTime,
-        error: "Unauthorized",
-      });
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const supabase = auth.supabase;
+    const user = auth.user;
 
     const body = await request.json();
     const data = propertySchema.parse(body);
@@ -139,36 +134,22 @@ export async function GET(request: NextRequest) {
     const ownerOnly = scope === "own";
 
     if (ownerOnly) {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-
-      if (authError || !user) {
-        logFailure({
-          request,
-          route: routeLabel,
-          status: 401,
-          startTime,
-          error: "Unauthorized",
-        });
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-      }
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-      const isAdmin = profile?.role === "admin";
+      const auth = await requireRole({
+        request,
+        route: routeLabel,
+        startTime,
+        roles: ["landlord", "agent", "admin"],
+        supabase,
+      });
+      if (!auth.ok) return auth.response;
 
       let query = supabase
         .from("properties")
         .select("*, property_images(image_url,id)")
         .order("created_at", { ascending: false });
 
-      if (!isAdmin) {
-        query = query.eq("owner_id", user.id);
+      if (auth.role !== "admin") {
+        query = query.eq("owner_id", auth.user.id);
       }
 
       const { data, error } = await query;
@@ -190,6 +171,8 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase
       .from("properties")
       .select("*, property_images(image_url,id)")
+      .eq("is_approved", true)
+      .eq("is_active", true)
       .order("created_at", { ascending: false });
 
     if (error) {

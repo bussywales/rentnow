@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { getUserRole, requireOwnership, requireUser } from "@/lib/authz";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
 
@@ -70,66 +71,6 @@ export async function GET(
   const scope = searchParams.get("scope");
   const ownerOnly = scope === "own";
 
-  if (ownerOnly) {
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      logFailure({
-        request,
-        route: routeLabel,
-        status: 401,
-        startTime,
-        error: "Unauthorized",
-      });
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-    const isAdmin = profile?.role === "admin";
-
-    let query = supabase
-      .from("properties")
-      .select("*, property_images(id, image_url)")
-      .eq("id", id);
-
-    if (!isAdmin) {
-      query = query.eq("owner_id", user.id);
-    }
-
-    const { data, error } = await query.maybeSingle();
-
-    if (error) {
-      logFailure({
-        request,
-        route: routeLabel,
-        status: 400,
-        startTime,
-        error: new Error(error.message),
-      });
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    if (!data) {
-      logFailure({
-        request,
-        route: routeLabel,
-        status: 404,
-        startTime,
-        error: "Property not found",
-      });
-      return NextResponse.json({ error: "Property not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({ property: data });
-  }
-
   const { data, error } = await supabase
     .from("properties")
     .select("*, property_images(id, image_url)")
@@ -156,6 +97,30 @@ export async function GET(
       error: "Property not found",
     });
     return NextResponse.json({ error: "Property not found" }, { status: 404 });
+  }
+
+  const isPublic = data.is_approved === true && data.is_active === true;
+
+  if (ownerOnly || !isPublic) {
+    const auth = await requireUser({
+      request,
+      route: routeLabel,
+      startTime,
+      supabase,
+    });
+    if (!auth.ok) return auth.response;
+
+    const role = await getUserRole(supabase, auth.user.id);
+    const ownership = requireOwnership({
+      request,
+      route: routeLabel,
+      startTime,
+      resourceOwnerId: data.owner_id,
+      userId: auth.user.id,
+      role,
+      allowRoles: ["admin"],
+    });
+    if (!ownership.ok) return ownership.response;
   }
 
   return NextResponse.json({ property: data });
@@ -189,29 +154,20 @@ export async function PUT(
       : null;
 
     const supabase = await createServerSupabaseClient();
-    const userResult = bearerToken
-      ? await supabase.auth.getUser(bearerToken)
-      : await supabase.auth.getUser();
-    const {
-      data: { user },
-      error: authError,
-    } = userResult;
+    const auth = await requireUser({
+      request,
+      route: routeLabel,
+      startTime,
+      supabase,
+      accessToken: bearerToken,
+    });
+    if (!auth.ok) return auth.response;
 
-    if (authError || !user) {
-      logFailure({
-        request,
-        route: routeLabel,
-        status: 401,
-        startTime,
-        error: "Unauthorized",
-      });
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const [{ data: existing, error: fetchError }, { data: profile }] = await Promise.all([
-      supabase.from("properties").select("owner_id").eq("id", id).maybeSingle(),
-      supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-    ]);
+    const { data: existing, error: fetchError } = await supabase
+      .from("properties")
+      .select("owner_id")
+      .eq("id", id)
+      .maybeSingle();
 
     if (fetchError || !existing) {
       logFailure({
@@ -224,18 +180,17 @@ export async function PUT(
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
 
-    const isAdmin = profile?.role === "admin";
-
-    if (existing.owner_id !== user.id && !isAdmin) {
-      logFailure({
-        request,
-        route: routeLabel,
-        status: 403,
-        startTime,
-        error: "Forbidden",
-      });
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    const role = await getUserRole(supabase, auth.user.id);
+    const ownership = requireOwnership({
+      request,
+      route: routeLabel,
+      startTime,
+      resourceOwnerId: existing.owner_id,
+      userId: auth.user.id,
+      role,
+      allowRoles: ["admin"],
+    });
+    if (!ownership.ok) return ownership.response;
 
     const body = await request.json();
     const updates = updateSchema.parse(body);
@@ -313,21 +268,13 @@ export async function DELETE(
 
   const { id } = idParamSchema.parse(await context.params);
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    logFailure({
-      request,
-      route: routeLabel,
-      status: 401,
-      startTime,
-      error: "Unauthorized",
-    });
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser({
+    request,
+    route: routeLabel,
+    startTime,
+    supabase,
+  });
+  if (!auth.ok) return auth.response;
 
   const { data: existing, error: fetchError } = await supabase
     .from("properties")
@@ -346,16 +293,17 @@ export async function DELETE(
     return NextResponse.json({ error: "Property not found" }, { status: 404 });
   }
 
-  if (existing.owner_id !== user.id) {
-    logFailure({
-      request,
-      route: routeLabel,
-      status: 403,
-      startTime,
-      error: "Forbidden",
-    });
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const role = await getUserRole(supabase, auth.user.id);
+  const ownership = requireOwnership({
+    request,
+    route: routeLabel,
+    startTime,
+    resourceOwnerId: existing.owner_id,
+    userId: auth.user.id,
+    role,
+    allowRoles: ["admin"],
+  });
+  if (!ownership.ok) return ownership.response;
 
   const { error } = await supabase.from("properties").delete().eq("id", id);
 
