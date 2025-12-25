@@ -4,8 +4,8 @@ import { getApiBaseUrl, getSiteUrl } from "@/lib/env";
 type PropertySummary = { id: string; updated_at?: string | null };
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = getSiteUrl() || "https://www.rentnow.space";
-  const apiBaseUrl = getApiBaseUrl();
+  const baseUrl = (await getSiteUrl()) || "https://www.rentnow.space";
+  const apiBaseUrl = await getApiBaseUrl();
   const urls: MetadataRoute.Sitemap = [
     {
       url: `${baseUrl}/`,

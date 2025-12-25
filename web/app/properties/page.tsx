@@ -4,16 +4,30 @@ import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getApiBaseUrl, getEnvPresence } from "@/lib/env";
+import { mockProperties } from "@/lib/mock";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property, UserRole } from "@/lib/types";
+type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams?: SearchParams | Promise<SearchParams>;
 };
 
 export const dynamic = "force-dynamic";
 
-function parseFilters(params: Props["searchParams"]): ParsedSearchFilters {
+async function resolveSearchParams(
+  params: Props["searchParams"]
+): Promise<SearchParams> {
+  if (!params) return {};
+  const maybePromise = params as Promise<SearchParams>;
+  const isPromise = typeof (maybePromise as { then?: unknown }).then === "function";
+  if (isPromise) {
+    return maybePromise;
+  }
+  return params as SearchParams;
+}
+
+function parseFilters(params: SearchParams): ParsedSearchFilters {
   return {
     city: params.city ? String(params.city) : null,
     minPrice: params.minPrice ? Number(params.minPrice) : null,
@@ -34,11 +48,36 @@ function parseFilters(params: Props["searchParams"]): ParsedSearchFilters {
   };
 }
 
+function applyMockFilters(items: Property[], filters: ParsedSearchFilters): Property[] {
+  return items.filter((property) => {
+    if (filters.city) {
+      const cityMatch = property.city.toLowerCase().includes(filters.city.toLowerCase());
+      if (!cityMatch) return false;
+    }
+    if (filters.minPrice !== null && property.price < filters.minPrice) return false;
+    if (filters.maxPrice !== null && property.price > filters.maxPrice) return false;
+    if (filters.currency && property.currency.toLowerCase() !== filters.currency.toLowerCase()) {
+      return false;
+    }
+    if (filters.bedrooms !== null && property.bedrooms < filters.bedrooms) return false;
+    if (filters.rentalType && property.rental_type !== filters.rentalType) return false;
+    if (filters.furnished !== null && property.furnished !== filters.furnished) return false;
+    if (filters.amenities.length) {
+      const available = new Set((property.amenities || []).map((item) => item.toLowerCase()));
+      const needsAll = filters.amenities.every((item) => available.has(item.toLowerCase()));
+      if (!needsAll) return false;
+    }
+    return true;
+  });
+}
+
 export default async function PropertiesPage({ searchParams }: Props) {
-  const filters = parseFilters(searchParams);
-  const hasFilters = Object.values(filters).some(
-    (v) => v !== null && v !== undefined && v !== ""
-  );
+  const resolvedSearchParams = await resolveSearchParams(searchParams);
+  const filters = parseFilters(resolvedSearchParams);
+  const hasFilters = Object.values(filters).some((value) => {
+    if (Array.isArray(value)) return value.length > 0;
+    return value !== null && value !== undefined && value !== "";
+  });
   const supabaseReady = hasServerSupabaseEnv();
   let role: UserRole | null = null;
   if (supabaseReady) {
@@ -60,9 +99,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
     }
   }
   const showListCta = role && role !== "tenant";
-  const apiBaseUrl = getApiBaseUrl();
+  const apiBaseUrl = await getApiBaseUrl();
   const apiUrl = `${apiBaseUrl}/api/properties`;
   const envPresence = getEnvPresence();
+  const allowDemo = process.env.NODE_ENV !== "production";
   let properties: Property[] = [];
   let fetchError: string | null = null;
   const hubs = [
@@ -144,13 +184,21 @@ export default async function PropertiesPage({ searchParams }: Props) {
     fetchError = err instanceof Error ? err.message : "Unknown error while fetching properties";
   }
 
+  if (allowDemo && !properties.length) {
+    const fallback = hasFilters ? applyMockFilters(mockProperties, filters) : mockProperties;
+    if (fallback.length) {
+      properties = fallback;
+      fetchError = null;
+    }
+  }
+
   if (!properties.length && !fetchError) {
     fetchError = "API returned 0 properties";
   }
 
   if (!properties.length) {
     const retryParams = new URLSearchParams();
-    Object.entries(searchParams).forEach(([key, value]) => {
+    Object.entries(resolvedSearchParams).forEach(([key, value]) => {
       if (Array.isArray(value)) {
         value
           .filter((entry) => entry !== undefined && entry !== "")

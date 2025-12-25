@@ -14,7 +14,7 @@ import type { Property } from "@/lib/types";
 
 export default async function Home() {
   let featured: Property[] = [];
-  const apiBaseUrl = getApiBaseUrl();
+  const apiBaseUrl = await getApiBaseUrl();
   const apiUrl = `${apiBaseUrl}/api/properties`;
   const supabaseReady = hasServerSupabaseEnv();
   const allowDemo = process.env.NODE_ENV !== "production";

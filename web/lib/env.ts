@@ -12,17 +12,16 @@ function normalizeBaseUrl(value?: string | null) {
 
 let loggedMissingPublicSiteUrl = false;
 
-function getHeaderBaseUrl() {
+async function getHeaderBaseUrl() {
   try {
-    const headerStore = headers();
-    const maybeThen = (headerStore as unknown as { then?: unknown })?.then;
-    const store =
-      typeof maybeThen === "function"
-        ? null
-        : (headerStore as unknown as { get?: (key: string) => string | null });
-
+    const store = await headers();
     const host = store?.get?.("x-forwarded-host") || store?.get?.("host");
-    const proto = store?.get?.("x-forwarded-proto") || "https";
+    const forwardedProto = store?.get?.("x-forwarded-proto");
+    const proto =
+      forwardedProto ||
+      (host && (host.startsWith("localhost") || host.startsWith("127.0.0.1"))
+        ? "http"
+        : "https");
     if (host) return `${proto}://${host}`.replace(/\/$/, "");
   } catch {
     // headers() can throw during build-time execution; fall through to null.
@@ -43,7 +42,7 @@ export function getEnvPresence() {
   };
 }
 
-export function getApiBaseUrl() {
+export async function getApiBaseUrl() {
   const envUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_SITE_URL);
   if (envUrl) return envUrl;
 
@@ -60,19 +59,19 @@ export function getApiBaseUrl() {
   return (
     normalizeBaseUrl(process.env.SITE_URL) ||
     normalizeBaseUrl(process.env.VERCEL_URL) ||
-    getHeaderBaseUrl() ||
+    (await getHeaderBaseUrl()) ||
     ""
   );
 }
 
-export function getSiteUrl() {
+export async function getSiteUrl() {
   const envUrl =
     normalizeBaseUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
     normalizeBaseUrl(process.env.SITE_URL) ||
     normalizeBaseUrl(process.env.VERCEL_URL);
   if (envUrl) return envUrl;
 
-  const headerUrl = getHeaderBaseUrl();
+  const headerUrl = await getHeaderBaseUrl();
   if (headerUrl) return headerUrl;
 
   // Hard fallback to production host to avoid empty base URLs in server fetches.

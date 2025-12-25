@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
 import { getApiBaseUrl, getEnvPresence, getSiteUrl } from "@/lib/env";
+import { mockProperties } from "@/lib/mock";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 
@@ -40,65 +41,68 @@ async function getProperty(
   if (!cleanId || cleanId === "undefined" || cleanId === "null") {
     return { property: null, error: "Invalid property id", apiUrl: null };
   }
-  const apiBaseUrl = getApiBaseUrl();
+  const apiBaseUrl = await getApiBaseUrl();
   const apiUrl = `${apiBaseUrl}/api/properties/${cleanId}`;
+  const allowDemo = process.env.NODE_ENV !== "production";
+  let apiError: string | null = null;
 
   try {
     const res = await fetch(apiUrl, {
       cache: "no-store",
     });
     if (!res.ok) {
-      let apiError: string | null = null;
+      let responseError: string | null = null;
       try {
         const body = await res.json();
-        apiError = body?.error || null;
+        responseError = body?.error || null;
       } catch {
-        apiError = null;
+        responseError = null;
       }
-      return {
-        property: null,
-        error: apiError ? `API ${res.status}: ${apiError}` : `API responded with ${res.status}`,
-        apiUrl,
-      };
-    }
-
-    const json = await res.json();
-    const data = json.property as
-      | (Property & { property_images?: Array<{ id: string; image_url: string }> })
-      | null;
-    if (data) {
-      console.log("[property detail] fetched via API", {
-        id: cleanId,
-        title: data.title,
-        apiUrl,
-      });
-      return {
-        property: {
-          ...data,
-          images: data.property_images?.map((img) => ({
-            id: img.id,
-            image_url: img.image_url,
-          })),
-        },
-        error: null,
-        apiUrl,
-      };
+      apiError = responseError
+        ? `API ${res.status}: ${responseError}`
+        : `API responded with ${res.status}`;
+    } else {
+      const json = await res.json();
+      const data = json.property as
+        | (Property & { property_images?: Array<{ id: string; image_url: string }> })
+        | null;
+      if (data) {
+        console.log("[property detail] fetched via API", {
+          id: cleanId,
+          title: data.title,
+          apiUrl,
+        });
+        return {
+          property: {
+            ...data,
+            images: data.property_images?.map((img) => ({
+              id: img.id,
+              image_url: img.image_url,
+            })),
+          },
+          error: null,
+          apiUrl,
+        };
+      }
     }
   } catch (err) {
-    return {
-      property: null,
-      error: err instanceof Error ? err.message : "Unknown error while fetching property",
-      apiUrl,
-    };
+    apiError = err instanceof Error ? err.message : "Unknown error while fetching property";
   }
 
-  return { property: null, error: "Listing not found", apiUrl };
+  if (allowDemo) {
+    const fallback = mockProperties.find((item) => item.id === cleanId) ?? null;
+    if (fallback) {
+      return { property: fallback, error: null, apiUrl };
+    }
+  }
+
+  return { property: null, error: apiError ?? "Listing not found", apiUrl };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const id = await extractId(params);
   const { property } = await getProperty(id);
-  const baseUrl = getSiteUrl() || "https://www.rentnow.space";
+  const baseUrl = (await getSiteUrl()) || "https://www.rentnow.space";
 
   if (!property) {
     return {
@@ -137,6 +141,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PropertyDetail({ params }: Props) {
   const envPresence = getEnvPresence();
   const supabaseReady = hasServerSupabaseEnv();
+  const siteUrl = (await getSiteUrl()) || "https://www.rentnow.space";
   const id = await extractId(params);
   let property: Property | null = null;
   let fetchError: string | null = null;
@@ -268,7 +273,7 @@ export default async function PropertyDetail({ params }: Props) {
               "@type": property.rental_type === "short_let" ? "Apartment" : "Residence",
               name: property.title,
               description: property.description,
-              url: `${getSiteUrl() || "https://www.rentnow.space"}/properties/${property.id}`,
+              url: `${siteUrl}/properties/${property.id}`,
               image: property.images?.map((img) => img.image_url),
               numberOfRooms: property.bedrooms,
               numberOfBathroomsTotal: property.bathrooms,

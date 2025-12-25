@@ -33,7 +33,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
 
   // First try the list API (most permissive, no per-id RLS surprises)
   try {
-    const apiBaseUrl = getApiBaseUrl();
+    const apiBaseUrl = await getApiBaseUrl();
     const listUrl = `${apiBaseUrl}/api/properties?scope=own`;
     const listRes = await fetch(listUrl, { cache: "no-store" });
     if (listRes.ok) {
