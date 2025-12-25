@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { logFailure } from "@/lib/observability";
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property } from "@/lib/types";
 
@@ -34,9 +35,18 @@ function parseFilters(request: Request): ParsedSearchFilters {
 }
 
 export async function GET(request: Request) {
+  const startTime = Date.now();
+  const routeLabel = "/api/properties/search";
   const filters = parseFilters(request);
 
   if (!hasServerSupabaseEnv()) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 503,
+      startTime,
+      error: "Supabase env vars missing",
+    });
     return NextResponse.json(
       { error: "Supabase is not configured; live search is unavailable.", properties: [] },
       { status: 503 }
@@ -46,6 +56,13 @@ export async function GET(request: Request) {
   try {
     const { data, error } = await searchProperties(filters);
     if (error) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 400,
+        startTime,
+        error: new Error(error.message),
+      });
       return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
     }
 
@@ -64,6 +81,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ properties });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unable to search properties";
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 500,
+      startTime,
+      error: err,
+    });
     return NextResponse.json({ error: message, properties: [] }, { status: 500 });
   }
 

@@ -1,28 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { getEnvPresence } from "@/lib/env";
+import { logFailure } from "@/lib/observability";
 
-function getRequestId(request: Request) {
-  return request.headers.get("x-request-id") || request.headers.get("x-vercel-id");
-}
-
-function logApiFailure(
-  request: Request,
-  status: number,
-  message: string,
-  meta: Record<string, unknown> = {}
-) {
-  const requestId = getRequestId(request);
-  console.error("[api/properties] request failed", {
-    status,
-    url: request.url,
-    requestId: requestId || undefined,
-    env: getEnvPresence(),
-    message,
-    ...meta,
-  });
-}
+const routeLabel = "/api/properties";
 
 const propertySchema = z.object({
   title: z.string().min(3),
@@ -46,8 +27,16 @@ const propertySchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const startTime = Date.now();
+
   if (!hasServerSupabaseEnv()) {
-    logApiFailure(request, 503, "Supabase env vars missing");
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 503,
+      startTime,
+      error: "Supabase env vars missing",
+    });
     return NextResponse.json(
       { error: "Supabase is not configured; listing creation is unavailable in demo mode." },
       { status: 503 }
@@ -62,7 +51,13 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
-      logApiFailure(request, 401, "Unauthorized");
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 401,
+        startTime,
+        error: "Unauthorized",
+      });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -81,9 +76,12 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) {
-      logApiFailure(request, 400, "Insert failed", {
-        error: insertError.message,
-        owner_id: user.id,
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 400,
+        startTime,
+        error: new Error(insertError.message),
       });
       return NextResponse.json(
         { error: insertError.message },
@@ -106,14 +104,28 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Unable to create property";
-    logApiFailure(request, 500, "Unhandled error on POST", { error: message });
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 500,
+      startTime,
+      error,
+    });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+
   if (!hasServerSupabaseEnv()) {
-    logApiFailure(request, 503, "Supabase env vars missing");
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 503,
+      startTime,
+      error: "Supabase env vars missing",
+    });
     return NextResponse.json(
       { error: "Supabase is not configured; set env vars to fetch properties.", properties: [] },
       { status: 503 }
@@ -133,7 +145,13 @@ export async function GET(request: NextRequest) {
       } = await supabase.auth.getUser();
 
       if (authError || !user) {
-        logApiFailure(request, 401, "Unauthorized", { scope });
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 401,
+          startTime,
+          error: "Unauthorized",
+        });
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
@@ -156,7 +174,13 @@ export async function GET(request: NextRequest) {
       const { data, error } = await query;
 
       if (error) {
-        logApiFailure(request, 400, "Fetch failed", { error: error.message, scope });
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 400,
+          startTime,
+          error: new Error(error.message),
+        });
         return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
       }
 
@@ -169,14 +193,26 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      logApiFailure(request, 400, "Fetch failed", { error: error.message });
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 400,
+        startTime,
+        error: new Error(error.message),
+      });
       return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
     }
 
     return NextResponse.json({ properties: data || [] }, { status: 200 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unable to fetch properties";
-    logApiFailure(request, 500, "Unhandled error on GET", { error: message });
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 500,
+      startTime,
+      error,
+    });
     return NextResponse.json({ error: message, properties: [] }, { status: 500 });
   }
 }
