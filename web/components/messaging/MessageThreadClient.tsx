@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { MessageThread } from "@/components/messaging/MessageThread";
+import { hasBrowserSupabaseEnv } from "@/lib/supabase/client";
 import type { Message, Profile } from "@/lib/types";
 
 type Props = {
@@ -18,9 +19,7 @@ export function MessageThreadClient({
   const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabaseEnabled =
-    !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
-    !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseEnabled = hasBrowserSupabaseEnv();
 
   useEffect(() => {
     const fetchMessages = async () => {
