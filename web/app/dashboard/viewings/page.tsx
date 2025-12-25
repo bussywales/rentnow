@@ -18,6 +18,10 @@ const viewingRequests: ViewingRequest[] = [
   },
 ];
 
+type ViewingRequestRow = ViewingRequest & {
+  properties?: { title?: string | null } | null;
+};
+
 export default async function ViewingsPage() {
   const supabaseReady = hasServerSupabaseEnv();
   const allowDemo = process.env.NODE_ENV !== "production";
@@ -109,32 +113,36 @@ export default async function ViewingsPage() {
       </div>
 
       <div className="space-y-3">
-        {requests.map((req) => (
-          <div
-            key={req.id}
-            className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between"
-          >
-            <div>
-              <p className="text-sm font-semibold text-slate-900">
-                Property: {(req as any).properties?.title || req.property_id}
-              </p>
-              <p className="text-sm text-slate-600">
-                {req.preferred_date}
-                {req.preferred_time_window ? ` - ${req.preferred_time_window}` : ""}
-              </p>
-              {req.note && <p className="text-sm text-slate-600">{req.note}</p>}
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                Status: {req.status}
-              </p>
+        {requests.map((req) => {
+          const propertyTitle =
+            (req as ViewingRequestRow).properties?.title || req.property_id;
+          return (
+            <div
+              key={req.id}
+              className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between"
+            >
+              <div>
+                <p className="text-sm font-semibold text-slate-900">
+                  Property: {propertyTitle}
+                </p>
+                <p className="text-sm text-slate-600">
+                  {req.preferred_date}
+                  {req.preferred_time_window ? ` - ${req.preferred_time_window}` : ""}
+                </p>
+                {req.note && <p className="text-sm text-slate-600">{req.note}</p>}
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Status: {req.status}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm">Accept</Button>
+                <Button size="sm" variant="secondary">
+                  Decline
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm">Accept</Button>
-              <Button size="sm" variant="secondary">
-                Decline
-              </Button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {!requests.length && (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
             <p className="text-base font-semibold text-slate-900">No viewings yet</p>

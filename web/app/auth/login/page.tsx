@@ -15,18 +15,16 @@ function LoginContent() {
   const redirectTo = search.get("redirect") || "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [{ client: supabase, initError }] = useState(() => {
+    try {
+      return { client: createBrowserSupabaseClient(), initError: null as string | null };
+    } catch {
+      return { client: null, initError: "Supabase environment variables are missing." };
+    }
+  });
+  const [error, setError] = useState<string | null>(initError);
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
-
-  const getClient = () => {
-    try {
-      return createBrowserSupabaseClient();
-    } catch {
-      setError("Supabase environment variables are missing.");
-      return null;
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -42,8 +40,8 @@ function LoginContent() {
       setLoading(false);
       return;
     }
-    const supabase = getClient();
     if (!supabase) {
+      setError("Supabase environment variables are missing.");
       setLoading(false);
       return;
     }
@@ -73,20 +71,24 @@ function LoginContent() {
   };
 
   useEffect(() => {
-    const supabase = getClient();
     if (!supabase) {
       setCheckingSession(false);
       return;
     }
 
-    supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
-      const session = data.session;
-      if (session?.user) {
-        router.replace(redirectTo);
-        return;
-      }
-      setCheckingSession(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(({ data }: { data: { session: Session | null } }) => {
+        const session = data.session;
+        if (session?.user) {
+          router.replace(redirectTo);
+          return;
+        }
+        setCheckingSession(false);
+      })
+      .catch(() => {
+        setCheckingSession(false);
+      });
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, session: Session | null) => {
@@ -99,7 +101,7 @@ function LoginContent() {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, []);
+  }, [redirectTo, router, supabase]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -125,23 +127,23 @@ function LoginContent() {
             required
             placeholder="you@email.com"
             value={email}
-          name="email"
-          autoComplete="username"
-          onChange={(e) => setEmail(e.target.value)}
-        />
-        <Input
-          type="password"
-          required
-          placeholder="Password"
-          value={password}
-          name="password"
-          autoComplete="current-password"
-          onChange={(e) => setPassword(e.target.value)}
-        />
-        {error && <p className="text-sm text-red-600">{error}</p>}
-        <Button className="w-full" type="submit" disabled={loading}>
-          {loading ? "Logging in..." : "Log in"}
-        </Button>
+            name="email"
+            autoComplete="username"
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          <Input
+            type="password"
+            required
+            placeholder="Password"
+            value={password}
+            name="password"
+            autoComplete="current-password"
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <Button className="w-full" type="submit" disabled={loading}>
+            {loading ? "Logging in..." : "Log in"}
+          </Button>
         </form>
       )}
       <p className="text-sm text-slate-600">
