@@ -16,6 +16,7 @@ AI-first rental platform for the African market. This MVP is a web-only PWA buil
 ## Tooling requirements
 - Node.js >=20.9.0 (see `.nvmrc`).
 - npm (uses `package-lock.json`).
+- Install/build: `npm install`, `npm run lint`, `npm run build`.
 - If Node is below 20.9, `npm install` fails fast via `scripts/check-node.mjs` with a clear error.
 
 ## Project structure
