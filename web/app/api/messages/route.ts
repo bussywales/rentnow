@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { DEV_MOCKS } from "@/lib/env";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getUserRole, requireUser } from "@/lib/authz";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
 import { mockProperties } from "@/lib/mock";
 import type { Message } from "@/lib/types";
@@ -52,12 +53,25 @@ export async function GET(request: Request) {
   }
 
   try {
-    const supabase = await createServerSupabaseClient();
-    const { data, error } = await supabase
+    const auth = await requireUser({ request, route: routeLabel, startTime });
+    if (!auth.ok) return auth.response;
+
+    const supabase = auth.supabase;
+    const role = await getUserRole(supabase, auth.user.id);
+
+    let query = supabase
       .from("messages")
       .select("*")
       .eq("property_id", propertyId)
       .order("created_at", { ascending: true });
+
+    if (role !== "admin") {
+      query = query.or(
+        `sender_id.eq.${auth.user.id},recipient_id.eq.${auth.user.id}`
+      );
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       if (!DEV_MOCKS) {
@@ -125,31 +139,82 @@ export async function POST(request: Request) {
   }
 
   try {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      logFailure({
-        request,
-        route: routeLabel,
-        status: 401,
-        startTime,
-        error: "Unauthorized",
-      });
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireUser({ request, route: routeLabel, startTime });
+    if (!auth.ok) return auth.response;
+    const supabase = auth.supabase;
+    const role = await getUserRole(supabase, auth.user.id);
 
     const body = await request.json();
     const payload = messageSchema.parse(body);
+
+    const { data: property, error: propertyError } = await supabase
+      .from("properties")
+      .select("id, owner_id, is_approved, is_active")
+      .eq("id", payload.property_id)
+      .maybeSingle();
+
+    if (propertyError || !property) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 404,
+        startTime,
+        error: "Property not found",
+      });
+      return NextResponse.json({ error: "Property not found" }, { status: 404 });
+    }
+
+    const isAdmin = role === "admin";
+    const isOwner = auth.user.id === property.owner_id;
+    const isPublished = property.is_approved === true && property.is_active === true;
+
+    if (!isPublished && !isOwner && !isAdmin) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 403,
+        startTime,
+        error: "Property not published",
+      });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
+    if (isOwner) {
+      const { data: existingThread } = await supabase
+        .from("messages")
+        .select("id")
+        .eq("property_id", payload.property_id)
+        .or(
+          `and(sender_id.eq.${auth.user.id},recipient_id.eq.${payload.recipient_id}),and(sender_id.eq.${payload.recipient_id},recipient_id.eq.${auth.user.id})`
+        )
+        .limit(1);
+
+      if (!existingThread?.length && !isAdmin) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 403,
+          startTime,
+          error: "Owner cannot start new thread",
+        });
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+    } else if (payload.recipient_id !== property.owner_id && !isAdmin) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 403,
+        startTime,
+        error: "Recipient must be owner",
+      });
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const { data, error } = await supabase
       .from("messages")
       .insert({
         ...payload,
-        sender_id: user.id,
+        sender_id: auth.user.id,
       })
       .select()
       .single();
