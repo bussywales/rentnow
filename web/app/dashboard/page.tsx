@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
-import { getSiteUrl } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 
@@ -9,7 +8,6 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardHome() {
   const supabaseReady = hasServerSupabaseEnv();
-  const baseUrl = getSiteUrl();
   let properties: Property[] = [];
   let fetchError: string | null = null;
 

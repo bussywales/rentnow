@@ -49,7 +49,7 @@ export default async function MessagesPage() {
           fetchError = "Unable to load messages right now.";
         }
       }
-    } catch (err) {
+    } catch {
       if (!allowDemo) {
         fetchError = "Unable to load messages right now.";
       }

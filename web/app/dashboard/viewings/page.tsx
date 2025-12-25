@@ -72,7 +72,7 @@ export default async function ViewingsPage() {
           }
         }
       }
-    } catch (err) {
+    } catch {
       if (!allowDemo) {
         fetchError = "Unable to load viewing requests right now.";
       }
