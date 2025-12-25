@@ -7,7 +7,10 @@ const ALLOW_WRITE = (process.env.PLAYWRIGHT_ALLOW_WRITE || "false").toLowerCase(
 
 test.describe("Save property and viewing request", () => {
   test("save toggle and optional viewing request", async ({ page }) => {
-    test.skip(!HAS_CREDS, "Set PLAYWRIGHT_USER_EMAIL and PLAYWRIGHT_USER_PASSWORD to run this test.");
+    test.skip(
+      !HAS_CREDS,
+      "Set PLAYWRIGHT_USER_EMAIL and PLAYWRIGHT_USER_PASSWORD to run this test."
+    );
 
     await page.goto("/auth/login");
     await page.getByPlaceholder("you@email.com").fill(EMAIL);
