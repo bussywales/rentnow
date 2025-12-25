@@ -13,6 +13,11 @@ AI-first rental platform for the African market. This MVP is a web-only PWA buil
 - Leaflet + OpenStreetMap
 - OpenAI (chat completions)
 
+## Tooling requirements
+- Node.js >=20.9.0 (see `.nvmrc`).
+- npm (uses `package-lock.json`).
+- If Node is below 20.9, `npm install` fails fast via `scripts/check-node.mjs` with a clear error.
+
 ## Project structure
 ```
 app/                # Routes (home, auth, onboarding, dashboard, admin, properties)
@@ -23,7 +28,7 @@ supabase/schema.sql # DB + RLS starter script
 ```
 
 ## Getting started
-1) Prereqs: Node 18+, npm.  
+1) Prereqs: Node 20.9+, npm.  
 2) Install deps:
 ```bash
 cd web
