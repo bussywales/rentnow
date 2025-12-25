@@ -1,5 +1,9 @@
 import { headers } from "next/headers";
 
+export const DEV_MOCKS =
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_ENABLE_DEV_MOCKS === "true";
+
 function normalizeBaseUrl(value?: string | null) {
   if (!value) return null;
   const trimmed = value.trim().replace(/\/$/, "");
@@ -33,6 +37,7 @@ async function getHeaderBaseUrl() {
 export function getEnvPresence() {
   return {
     NEXT_PUBLIC_SITE_URL: !!process.env.NEXT_PUBLIC_SITE_URL,
+    NEXT_PUBLIC_ENABLE_DEV_MOCKS: process.env.NEXT_PUBLIC_ENABLE_DEV_MOCKS === "true",
     SITE_URL: !!process.env.SITE_URL,
     VERCEL_URL: !!process.env.VERCEL_URL,
     SUPABASE_URL: !!process.env.SUPABASE_URL,

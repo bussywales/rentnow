@@ -7,7 +7,7 @@ import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { getApiBaseUrl, getEnvPresence } from "@/lib/env";
+import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
@@ -17,7 +17,6 @@ export default async function Home() {
   const apiBaseUrl = await getApiBaseUrl();
   const apiUrl = `${apiBaseUrl}/api/properties`;
   const supabaseReady = hasServerSupabaseEnv();
-  const allowDemo = process.env.NODE_ENV !== "production";
   const envPresence = getEnvPresence();
   let fetchError: string | null = null;
 
@@ -53,7 +52,7 @@ export default async function Home() {
     fetchError = "Supabase env vars missing; configure NEXT_PUBLIC_SITE_URL and Supabase keys.";
   }
 
-  if (allowDemo && (!supabaseReady || !featured.length)) {
+  if (DEV_MOCKS && (!supabaseReady || !featured.length)) {
     featured = mockProperties.slice(0, 3);
   }
 

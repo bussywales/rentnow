@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { DEV_MOCKS } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
 import { mockProperties } from "@/lib/mock";
@@ -14,7 +15,6 @@ const messageSchema = z.object({
 export async function GET(request: Request) {
   const startTime = Date.now();
   const routeLabel = "/api/messages";
-  const allowDemo = process.env.NODE_ENV !== "production";
   const url = new URL(request.url);
   const propertyId = url.searchParams.get("propertyId");
   let messages: Message[] = [];
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   }
 
   if (!hasServerSupabaseEnv()) {
-    if (allowDemo) {
+    if (DEV_MOCKS) {
       return NextResponse.json({
         messages: [
           {
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: true });
 
     if (error) {
-      if (!allowDemo) {
+      if (!DEV_MOCKS) {
         logFailure({
           request,
           route: routeLabel,
@@ -77,7 +77,7 @@ export async function GET(request: Request) {
       messages = data;
     }
   } catch (err: unknown) {
-    if (allowDemo) {
+    if (DEV_MOCKS) {
       messages = [
         {
           id: "mock-msg-1",

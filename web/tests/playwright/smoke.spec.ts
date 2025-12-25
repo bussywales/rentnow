@@ -3,10 +3,29 @@ import { test, expect } from "@playwright/test";
 const EMAIL = process.env.PLAYWRIGHT_USER_EMAIL || "";
 const PASSWORD = process.env.PLAYWRIGHT_USER_PASSWORD || "";
 const HAS_CREDS = !!EMAIL && !!PASSWORD;
+const DEV_MOCKS =
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_ENABLE_DEV_MOCKS === "true";
+const HAS_SUPABASE_ENV =
+  (!!process.env.SUPABASE_URL || !!process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+  (!!process.env.SUPABASE_ANON_KEY || !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
 test.describe("Smoke checks", () => {
   test("properties list and detail load", async ({ page }) => {
     await page.goto("/properties");
+    const expectListings = HAS_SUPABASE_ENV || DEV_MOCKS;
+
+    if (!expectListings) {
+      await expect(
+        page.getByRole("heading", { name: /no properties found/i })
+      ).toBeVisible();
+      await expect(page.getByText(/diagnostics/i)).toBeVisible();
+      await expect(
+        page.locator("a").filter({ hasText: /ngn|usd|egp|zar|kes/i })
+      ).toHaveCount(0);
+      return;
+    }
+
     await expect(page.getByRole("heading", { name: /properties/i })).toBeVisible();
 
     const propertyLink = page

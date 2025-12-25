@@ -8,7 +8,7 @@ import { SaveButton } from "@/components/properties/SaveButton";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
-import { getApiBaseUrl, getEnvPresence, getSiteUrl } from "@/lib/env";
+import { DEV_MOCKS, getApiBaseUrl, getEnvPresence, getSiteUrl } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
@@ -43,7 +43,6 @@ async function getProperty(
   }
   const apiBaseUrl = await getApiBaseUrl();
   const apiUrl = `${apiBaseUrl}/api/properties/${cleanId}`;
-  const allowDemo = process.env.NODE_ENV !== "production";
   let apiError: string | null = null;
 
   try {
@@ -89,7 +88,7 @@ async function getProperty(
     apiError = err instanceof Error ? err.message : "Unknown error while fetching property";
   }
 
-  if (allowDemo) {
+  if (DEV_MOCKS) {
     const fallback = mockProperties.find((item) => item.id === cleanId) ?? null;
     if (fallback) {
       return { property: fallback, error: null, apiUrl };

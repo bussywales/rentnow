@@ -3,7 +3,7 @@ import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { getApiBaseUrl, getEnvPresence } from "@/lib/env";
+import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
@@ -102,7 +102,6 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const apiBaseUrl = await getApiBaseUrl();
   const apiUrl = `${apiBaseUrl}/api/properties`;
   const envPresence = getEnvPresence();
-  const allowDemo = process.env.NODE_ENV !== "production";
   let properties: Property[] = [];
   let fetchError: string | null = null;
   const hubs = [
@@ -184,7 +183,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     fetchError = err instanceof Error ? err.message : "Unknown error while fetching properties";
   }
 
-  if (allowDemo && !properties.length) {
+  if (DEV_MOCKS && !properties.length) {
     const fallback = hasFilters ? applyMockFilters(mockProperties, filters) : mockProperties;
     if (fallback.length) {
       properties = fallback;

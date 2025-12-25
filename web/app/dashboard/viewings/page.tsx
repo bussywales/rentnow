@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { DEV_MOCKS } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { ViewingRequest, UserRole } from "@/lib/types";
 
@@ -24,10 +25,9 @@ type ViewingRequestRow = ViewingRequest & {
 
 export default async function ViewingsPage() {
   const supabaseReady = hasServerSupabaseEnv();
-  const allowDemo = process.env.NODE_ENV !== "production";
   let currentUserId: string | null = null;
   let role: UserRole | null = null;
-  let requests: ViewingRequest[] = allowDemo ? viewingRequests : [];
+  let requests: ViewingRequest[] = DEV_MOCKS ? viewingRequests : [];
   let fetchError: string | null = null;
 
   if (supabaseReady) {
@@ -55,7 +55,7 @@ export default async function ViewingsPage() {
 
           if (!error && data) {
             requests = data as ViewingRequest[];
-          } else if (error && !allowDemo) {
+          } else if (error && !DEV_MOCKS) {
             fetchError = "Unable to load viewing requests right now.";
           }
         } else {
@@ -67,24 +67,24 @@ export default async function ViewingsPage() {
 
           if (!error && data) {
             requests = data as ViewingRequest[];
-          } else if (error && !allowDemo) {
+          } else if (error && !DEV_MOCKS) {
             fetchError = "Unable to load viewing requests right now.";
           }
         }
       }
     } catch {
-      if (!allowDemo) {
+      if (!DEV_MOCKS) {
         fetchError = "Unable to load viewing requests right now.";
       }
     }
-  } else if (!allowDemo) {
+  } else if (!DEV_MOCKS) {
     fetchError = "Supabase is not configured; viewing requests are unavailable.";
   }
 
-  const demoMode = allowDemo && (!supabaseReady || !currentUserId);
+  const demoMode = DEV_MOCKS && (!supabaseReady || !currentUserId);
   const isTenant = role === "tenant";
 
-  if (fetchError && !allowDemo) {
+  if (fetchError && !DEV_MOCKS) {
     return (
       <div className="space-y-4">
         <ErrorState
