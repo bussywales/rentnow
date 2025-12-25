@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PropertyForm } from "@/components/properties/PropertyForm";
-import { getSiteUrl } from "@/lib/env";
+import { getApiBaseUrl } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 
@@ -33,8 +33,8 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
 
   // First try the list API (most permissive, no per-id RLS surprises)
   try {
-    const baseUrl = getSiteUrl();
-    const listUrl = `${baseUrl}/api/properties?scope=own`;
+    const apiBaseUrl = getApiBaseUrl();
+    const listUrl = `${apiBaseUrl}/api/properties?scope=own`;
     const listRes = await fetch(listUrl, { cache: "no-store" });
     if (listRes.ok) {
       const json = await listRes.json();
@@ -49,7 +49,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
     }
 
     // Fallback to detail API for completeness (e.g., non-public records)
-    const detailUrl = `${baseUrl}/api/properties/${cleanId}?scope=own`;
+    const detailUrl = `${apiBaseUrl}/api/properties/${cleanId}?scope=own`;
     const res = await fetch(detailUrl, { cache: "no-store" });
     if (res.ok) {
       const json = await res.json();

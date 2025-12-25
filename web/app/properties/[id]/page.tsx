@@ -6,7 +6,7 @@ import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
-import { getSiteUrl } from "@/lib/env";
+import { getApiBaseUrl, getSiteUrl } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 
@@ -36,8 +36,8 @@ async function getProperty(id: string | undefined): Promise<{ property: Property
   if (!cleanId || cleanId === "undefined" || cleanId === "null") {
     return { property: null, error: "Invalid property id" };
   }
-  const baseUrl = getSiteUrl();
-  const apiUrl = `${baseUrl}/api/properties/${cleanId}`;
+  const apiBaseUrl = getApiBaseUrl();
+  const apiUrl = `${apiBaseUrl}/api/properties/${cleanId}`;
 
   try {
     const res = await fetch(apiUrl, {

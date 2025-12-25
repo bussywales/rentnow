@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { Button } from "@/components/ui/Button";
-import { getSiteUrl } from "@/lib/env";
+import { getApiBaseUrl } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property, UserRole } from "@/lib/types";
@@ -58,8 +58,8 @@ export default async function PropertiesPage({ searchParams }: Props) {
     }
   }
   const showListCta = role && role !== "tenant";
-  const baseUrl = getSiteUrl();
-  const apiUrl = `${baseUrl}/api/properties`;
+  const apiBaseUrl = getApiBaseUrl();
+  const apiUrl = `${apiBaseUrl}/api/properties`;
   let properties: Property[] = [];
   let fetchError: string | null = null;
   const hubs = [
