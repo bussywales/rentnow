@@ -5,8 +5,9 @@ import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
+import { Button } from "@/components/ui/Button";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
-import { getApiBaseUrl, getSiteUrl } from "@/lib/env";
+import { getApiBaseUrl, getEnvPresence, getSiteUrl } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 
@@ -28,13 +29,15 @@ function extractId(raw: Params | Promise<Params>): Promise<string | undefined> {
   return Promise.resolve((raw as Params)?.id);
 }
 
-async function getProperty(id: string | undefined): Promise<{ property: Property | null; error: string | null }> {
+async function getProperty(
+  id: string | undefined
+): Promise<{ property: Property | null; error: string | null; apiUrl: string | null }> {
   if (!id) {
-    return { property: null, error: "Invalid property id" };
+    return { property: null, error: "Invalid property id", apiUrl: null };
   }
   const cleanId = normalizeId(id);
   if (!cleanId || cleanId === "undefined" || cleanId === "null") {
-    return { property: null, error: "Invalid property id" };
+    return { property: null, error: "Invalid property id", apiUrl: null };
   }
   const apiBaseUrl = getApiBaseUrl();
   const apiUrl = `${apiBaseUrl}/api/properties/${cleanId}`;
@@ -54,6 +57,7 @@ async function getProperty(id: string | undefined): Promise<{ property: Property
       return {
         property: null,
         error: apiError ? `API ${res.status}: ${apiError}` : `API responded with ${res.status}`,
+        apiUrl,
       };
     }
 
@@ -76,16 +80,18 @@ async function getProperty(id: string | undefined): Promise<{ property: Property
           })),
         },
         error: null,
+        apiUrl,
       };
     }
   } catch (err) {
     return {
       property: null,
       error: err instanceof Error ? err.message : "Unknown error while fetching property",
+      apiUrl,
     };
   }
 
-  return { property: null, error: "Listing not found" };
+  return { property: null, error: "Listing not found", apiUrl };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -128,13 +134,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function PropertyDetail({ params }: Props) {
+  const envPresence = getEnvPresence();
+  const supabaseReady = hasServerSupabaseEnv();
+  const id = await extractId(params);
   let property: Property | null = null;
   let fetchError: string | null = null;
+  let apiUrl: string | null = null;
   try {
-    const id = await extractId(params);
     const result = await getProperty(id);
     property = result.property;
     fetchError = result.error;
+    apiUrl = result.apiUrl;
   } catch (err) {
     console.error("Failed to load property detail", err);
     property = null;
@@ -142,6 +152,8 @@ export default async function PropertyDetail({ params }: Props) {
   }
 
   if (!property) {
+    const retryHref = id ? `/properties/${id}` : "/properties";
+
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
         <h1 className="text-2xl font-semibold text-slate-900">Listing not found</h1>
@@ -153,12 +165,27 @@ export default async function PropertyDetail({ params }: Props) {
           <p className="text-xs text-amber-700">Error: {fetchError}</p>
         )}
         <div className="flex gap-3">
+          <Link href={retryHref}>
+            <Button size="sm" variant="secondary">
+              Retry
+            </Button>
+          </Link>
           <Link href="/properties" className="text-sky-700 font-semibold">
             Back to browse
           </Link>
           <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
             List a property
           </Link>
+        </div>
+        <div className="rounded-lg bg-amber-50/60 p-3 text-xs text-amber-900">
+          <p className="font-semibold">Diagnostics</p>
+          <pre className="mt-2 whitespace-pre-wrap font-mono">
+            {JSON.stringify(
+              { apiUrl, id, supabaseReady, env: envPresence },
+              null,
+              2
+            )}
+          </pre>
         </div>
       </div>
     );

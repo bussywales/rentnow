@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { Button } from "@/components/ui/Button";
-import { getApiBaseUrl } from "@/lib/env";
+import { getApiBaseUrl, getEnvPresence } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property, UserRole } from "@/lib/types";
@@ -38,8 +38,9 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const hasFilters = Object.values(filters).some(
     (v) => v !== null && v !== undefined && v !== ""
   );
+  const supabaseReady = hasServerSupabaseEnv();
   let role: UserRole | null = null;
-  if (hasServerSupabaseEnv()) {
+  if (supabaseReady) {
     try {
       const supabase = await createServerSupabaseClient();
       const {
@@ -60,6 +61,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const showListCta = role && role !== "tenant";
   const apiBaseUrl = getApiBaseUrl();
   const apiUrl = `${apiBaseUrl}/api/properties`;
+  const envPresence = getEnvPresence();
   let properties: Property[] = [];
   let fetchError: string | null = null;
   const hubs = [
@@ -103,7 +105,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
       });
     }
 
-    if (hasFilters && hasServerSupabaseEnv()) {
+    if (hasFilters && supabaseReady) {
       const { data, error } = await searchProperties(filters);
       if (error) {
         fetchError = error.message;
@@ -146,6 +148,22 @@ export default async function PropertiesPage({ searchParams }: Props) {
   }
 
   if (!properties.length) {
+    const retryParams = new URLSearchParams();
+    Object.entries(searchParams).forEach(([key, value]) => {
+      if (Array.isArray(value)) {
+        value
+          .filter((entry) => entry !== undefined && entry !== "")
+          .forEach((entry) => retryParams.append(key, entry));
+        return;
+      }
+      if (value !== undefined && value !== "") {
+        retryParams.append(key, value);
+      }
+    });
+    const retryHref = retryParams.toString()
+      ? `/properties?${retryParams.toString()}`
+      : "/properties";
+
     return (
       <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
         <h1 className="text-2xl font-semibold text-slate-900">No properties found</h1>
@@ -159,6 +177,11 @@ export default async function PropertiesPage({ searchParams }: Props) {
           <p className="text-xs text-amber-700">Error: {fetchError}</p>
         )}
         <div className="flex flex-wrap gap-2">
+          <Link href={retryHref}>
+            <Button size="sm" variant="secondary">
+              Retry
+            </Button>
+          </Link>
           <Link href="/properties" className="text-sky-700 font-semibold">
             Reset filters
           </Link>
@@ -167,6 +190,16 @@ export default async function PropertiesPage({ searchParams }: Props) {
               List your first property
             </Link>
           )}
+        </div>
+        <div className="rounded-lg bg-amber-50/60 p-3 text-xs text-amber-900">
+          <p className="font-semibold">Diagnostics</p>
+          <pre className="mt-2 whitespace-pre-wrap font-mono">
+            {JSON.stringify(
+              { apiUrl, hasFilters, supabaseReady, env: envPresence },
+              null,
+              2
+            )}
+          </pre>
         </div>
       </div>
     );
