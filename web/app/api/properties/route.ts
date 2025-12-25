@@ -1,9 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getEnvPresence } from "@/lib/env";
 
-function logApiError(message: string, meta?: unknown) {
-  console.error(`[api/properties] ${message}`, meta ?? {});
+function getRequestId(request: Request) {
+  return request.headers.get("x-request-id") || request.headers.get("x-vercel-id");
+}
+
+function logApiFailure(
+  request: Request,
+  status: number,
+  message: string,
+  meta: Record<string, unknown> = {}
+) {
+  const requestId = getRequestId(request);
+  console.error("[api/properties] request failed", {
+    status,
+    url: request.url,
+    requestId: requestId || undefined,
+    env: getEnvPresence(),
+    message,
+    ...meta,
+  });
 }
 
 const propertySchema = z.object({
@@ -29,6 +47,7 @@ const propertySchema = z.object({
 
 export async function POST(request: Request) {
   if (!hasServerSupabaseEnv()) {
+    logApiFailure(request, 503, "Supabase env vars missing");
     return NextResponse.json(
       { error: "Supabase is not configured; listing creation is unavailable in demo mode." },
       { status: 503 }
@@ -43,6 +62,7 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
+      logApiFailure(request, 401, "Unauthorized");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -61,7 +81,10 @@ export async function POST(request: Request) {
       .single();
 
     if (insertError) {
-      logApiError("insert failed", { error: insertError.message, owner_id: user.id });
+      logApiFailure(request, 400, "Insert failed", {
+        error: insertError.message,
+        owner_id: user.id,
+      });
       return NextResponse.json(
         { error: insertError.message },
         { status: 400 }
@@ -83,13 +106,14 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Unable to create property";
-    logApiError("unhandled error on POST", { message });
+    logApiFailure(request, 500, "Unhandled error on POST", { error: message });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function GET(request: NextRequest) {
   if (!hasServerSupabaseEnv()) {
+    logApiFailure(request, 503, "Supabase env vars missing");
     return NextResponse.json(
       { error: "Supabase is not configured; set env vars to fetch properties.", properties: [] },
       { status: 503 }
@@ -109,6 +133,7 @@ export async function GET(request: NextRequest) {
       } = await supabase.auth.getUser();
 
       if (authError || !user) {
+        logApiFailure(request, 401, "Unauthorized", { scope });
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
@@ -131,7 +156,7 @@ export async function GET(request: NextRequest) {
       const { data, error } = await query;
 
       if (error) {
-        logApiError("fetch failed", { error: error.message, scope });
+        logApiFailure(request, 400, "Fetch failed", { error: error.message, scope });
         return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
       }
 
@@ -144,14 +169,14 @@ export async function GET(request: NextRequest) {
       .order("created_at", { ascending: false });
 
     if (error) {
-      logApiError("fetch failed", { error: error.message });
+      logApiFailure(request, 400, "Fetch failed", { error: error.message });
       return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
     }
 
     return NextResponse.json({ properties: data || [] }, { status: 200 });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unable to fetch properties";
-    logApiError("unhandled error on GET", { message });
+    logApiFailure(request, 500, "Unhandled error on GET", { error: message });
     return NextResponse.json({ error: message, properties: [] }, { status: 500 });
   }
 }

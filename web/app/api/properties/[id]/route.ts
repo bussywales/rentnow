@@ -1,9 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getEnvPresence } from "@/lib/env";
 
-function logApiError(message: string, meta?: unknown) {
-  console.error(`[api/properties/[id]] ${message}`, meta ?? {});
+function getRequestId(request: Request) {
+  return request.headers.get("x-request-id") || request.headers.get("x-vercel-id");
+}
+
+function logApiFailure(
+  request: Request,
+  status: number,
+  message: string,
+  meta: Record<string, unknown> = {}
+) {
+  const requestId = getRequestId(request);
+  console.error("[api/properties/[id]] request failed", {
+    status,
+    url: request.url,
+    requestId: requestId || undefined,
+    env: getEnvPresence(),
+    message,
+    ...meta,
+  });
 }
 
 const updateSchema = z.object({
@@ -39,6 +57,7 @@ export async function GET(
   context: { params: Promise<{ id: string }> }
 ) {
   if (!hasServerSupabaseEnv()) {
+    logApiFailure(request, 503, "Supabase env vars missing");
     return NextResponse.json(
       { error: "Supabase is not configured; properties are read-only in demo mode." },
       { status: 503 }
@@ -48,6 +67,7 @@ export async function GET(
   const { id } = idParamSchema.parse(await context.params);
   const isUuid = uuidRegex.test(id);
   if (id === "undefined" || id === "null" || (!isUuid && !id.startsWith("mock-"))) {
+    logApiFailure(request, 404, "Invalid property id", { id });
     return NextResponse.json({ error: "Property not found" }, { status: 404 });
   }
   const supabase = await createServerSupabaseClient();
@@ -62,6 +82,7 @@ export async function GET(
     } = await supabase.auth.getUser();
 
     if (authError || !user) {
+      logApiFailure(request, 401, "Unauthorized", { id, scope });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -84,11 +105,12 @@ export async function GET(
     const { data, error } = await query.maybeSingle();
 
     if (error) {
-      logApiError("fetch error", { id, message: error.message, scope });
+      logApiFailure(request, 400, "Fetch failed", { id, error: error.message, scope });
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
     if (!data) {
+      logApiFailure(request, 404, "Property not found", { id, scope });
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
 
@@ -102,11 +124,12 @@ export async function GET(
     .maybeSingle();
 
   if (error) {
-    logApiError("fetch error", { id, message: error.message });
+    logApiFailure(request, 400, "Fetch failed", { id, error: error.message });
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
   if (!data) {
+    logApiFailure(request, 404, "Property not found", { id });
     return NextResponse.json({ error: "Property not found" }, { status: 404 });
   }
 
@@ -118,6 +141,7 @@ export async function PUT(
   context: { params: Promise<{ id: string }> }
 ) {
   if (!hasServerSupabaseEnv()) {
+    logApiFailure(request, 503, "Supabase env vars missing");
     return NextResponse.json(
       { error: "Supabase is not configured; editing requires a live backend." },
       { status: 503 }
@@ -141,6 +165,7 @@ export async function PUT(
     } = userResult;
 
     if (authError || !user) {
+      logApiFailure(request, 401, "Unauthorized", { id });
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
@@ -150,13 +175,17 @@ export async function PUT(
     ]);
 
     if (fetchError || !existing) {
-      logApiError("property not found on update", { id, fetchError: fetchError?.message });
+      logApiFailure(request, 404, "Property not found", {
+        id,
+        fetchError: fetchError?.message,
+      });
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
 
     const isAdmin = profile?.role === "admin";
 
     if (existing.owner_id !== user.id && !isAdmin) {
+      logApiFailure(request, 403, "Forbidden", { id, owner_id: existing.owner_id });
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -174,7 +203,7 @@ export async function PUT(
       .eq("id", id);
 
     if (updateError) {
-      logApiError("update failed", { id, error: updateError.message });
+      logApiFailure(request, 400, "Update failed", { id, error: updateError.message });
       return NextResponse.json(
         { error: updateError.message },
         { status: 400 }
@@ -197,16 +226,17 @@ export async function PUT(
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Unable to update property";
-    logApiError("unhandled error on PUT", { id, message });
+    logApiFailure(request, 500, "Unhandled error on PUT", { id, error: message });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {
   if (!hasServerSupabaseEnv()) {
+    logApiFailure(request, 503, "Supabase env vars missing");
     return NextResponse.json(
       { error: "Supabase is not configured; deletion is unavailable in demo mode." },
       { status: 503 }
@@ -221,6 +251,7 @@ export async function DELETE(
   } = await supabase.auth.getUser();
 
   if (authError || !user) {
+    logApiFailure(request, 401, "Unauthorized", { id });
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -231,18 +262,22 @@ export async function DELETE(
     .maybeSingle();
 
   if (fetchError || !existing) {
-    logApiError("property not found on delete", { id, fetchError: fetchError?.message });
+    logApiFailure(request, 404, "Property not found", {
+      id,
+      fetchError: fetchError?.message,
+    });
     return NextResponse.json({ error: "Property not found" }, { status: 404 });
   }
 
   if (existing.owner_id !== user.id) {
+    logApiFailure(request, 403, "Forbidden", { id, owner_id: existing.owner_id });
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
   const { error } = await supabase.from("properties").delete().eq("id", id);
 
   if (error) {
-    logApiError("delete failed", { id, error: error.message });
+    logApiFailure(request, 400, "Delete failed", { id, error: error.message });
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
