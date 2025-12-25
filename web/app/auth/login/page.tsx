@@ -1,12 +1,20 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
+
+const getClient = () => {
+  try {
+    return createBrowserSupabaseClient();
+  } catch {
+    return null;
+  }
+};
 
 function LoginContent() {
   const search = useSearchParams();
@@ -15,14 +23,10 @@ function LoginContent() {
   const redirectTo = search.get("redirect") || "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [{ client: supabase, initError }] = useState(() => {
-    try {
-      return { client: createBrowserSupabaseClient(), initError: null as string | null };
-    } catch {
-      return { client: null, initError: "Supabase environment variables are missing." };
-    }
-  });
-  const [error, setError] = useState<string | null>(initError);
+  const supabase = useMemo(() => getClient(), []);
+  const [error, setError] = useState<string | null>(() =>
+    supabase ? null : "Supabase environment variables are missing."
+  );
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
 
