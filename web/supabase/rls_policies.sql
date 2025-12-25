@@ -31,6 +31,11 @@ CREATE POLICY "profiles select self" ON public.profiles
   FOR SELECT
   USING (auth.uid() = id);
 
+DROP POLICY IF EXISTS "profiles admin read" ON public.profiles;
+CREATE POLICY "profiles admin read" ON public.profiles
+  FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+
 DROP POLICY IF EXISTS "profiles insert self" ON public.profiles;
 CREATE POLICY "profiles insert self" ON public.profiles
   FOR INSERT
@@ -155,17 +160,13 @@ CREATE POLICY "saved self delete" ON public.saved_properties
   FOR DELETE
   USING (auth.uid() = user_id);
 
--- messages: participants and property owners can read; sender creates
+-- messages: participants and admins can read; sender creates
 DROP POLICY IF EXISTS "messages participant/owner read" ON public.messages;
 CREATE POLICY "messages participant/owner read" ON public.messages
   FOR SELECT
   USING (
     auth.uid() = sender_id
     OR auth.uid() = recipient_id
-    OR EXISTS (
-      SELECT 1 FROM public.properties pr
-      WHERE pr.id = property_id AND pr.owner_id = auth.uid()
-    )
     OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
   );
 
