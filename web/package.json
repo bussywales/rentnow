@@ -12,6 +12,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "setup": "npm install && npx playwright install --with-deps",
     "test:e2e": "playwright test",
     "test:e2e:cleanup": "node scripts/cleanup-playwright.mjs"
   },
