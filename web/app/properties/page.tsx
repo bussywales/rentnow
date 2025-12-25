@@ -2,6 +2,7 @@ import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
 import { Button } from "@/components/ui/Button";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { getApiBaseUrl, getEnvPresence } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
@@ -166,41 +167,39 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
     return (
       <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
-        <h1 className="text-2xl font-semibold text-slate-900">No properties found</h1>
-        <p className="text-sm text-slate-600">
-          We couldn&apos;t load live listings right now.
-          {hasFilters
-            ? " Try adjusting your filters or clearing the search."
-            : " Check the API response and Supabase connection."}
-        </p>
-        {fetchError && (
-          <p className="text-xs text-amber-700">Error: {fetchError}</p>
-        )}
-        <div className="flex flex-wrap gap-2">
-          <Link href={retryHref}>
-            <Button size="sm" variant="secondary">
-              Retry
-            </Button>
-          </Link>
-          <Link href="/properties" className="text-sky-700 font-semibold">
-            Reset filters
-          </Link>
-          {showListCta && (
-            <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
-              List your first property
-            </Link>
-          )}
-        </div>
-        <div className="rounded-lg bg-amber-50/60 p-3 text-xs text-amber-900">
-          <p className="font-semibold">Diagnostics</p>
-          <pre className="mt-2 whitespace-pre-wrap font-mono">
-            {JSON.stringify(
-              { apiUrl, hasFilters, supabaseReady, env: envPresence },
-              null,
-              2
-            )}
-          </pre>
-        </div>
+        <ErrorState
+          title="No properties found"
+          description={
+            `We couldn't load live listings right now.` +
+            (hasFilters
+              ? " Try adjusting your filters or clearing the search."
+              : " Check the API response and Supabase connection.")
+          }
+          retryAction={
+            <>
+              <Link href={retryHref}>
+                <Button size="sm" variant="secondary">
+                  Retry
+                </Button>
+              </Link>
+              <Link href="/properties" className="text-sky-700 font-semibold">
+                Reset filters
+              </Link>
+              {showListCta && (
+                <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
+                  List your first property
+                </Link>
+              )}
+            </>
+          }
+          diagnostics={{
+            apiUrl,
+            hasFilters,
+            supabaseReady,
+            fetchError,
+            env: envPresence,
+          }}
+        />
       </div>
     );
   }

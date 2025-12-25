@@ -6,6 +6,7 @@ import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { Button } from "@/components/ui/Button";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
 import { getApiBaseUrl, getEnvPresence, getSiteUrl } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -156,37 +157,32 @@ export default async function PropertyDetail({ params }: Props) {
 
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
-        <h1 className="text-2xl font-semibold text-slate-900">Listing not found</h1>
-        <p className="text-sm text-slate-600">
-          This listing isn&apos;t available right now. Verify the URL or check that the site URL env
-          is set correctly for API calls.
-        </p>
-        {fetchError && (
-          <p className="text-xs text-amber-700">Error: {fetchError}</p>
-        )}
-        <div className="flex gap-3">
-          <Link href={retryHref}>
-            <Button size="sm" variant="secondary">
-              Retry
-            </Button>
-          </Link>
-          <Link href="/properties" className="text-sky-700 font-semibold">
-            Back to browse
-          </Link>
-          <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
-            List a property
-          </Link>
-        </div>
-        <div className="rounded-lg bg-amber-50/60 p-3 text-xs text-amber-900">
-          <p className="font-semibold">Diagnostics</p>
-          <pre className="mt-2 whitespace-pre-wrap font-mono">
-            {JSON.stringify(
-              { apiUrl, id, supabaseReady, env: envPresence },
-              null,
-              2
-            )}
-          </pre>
-        </div>
+        <ErrorState
+          title="Listing not found"
+          description="This listing isn't available right now. Verify the URL or check that the site URL env is set correctly for API calls."
+          retryAction={
+            <>
+              <Link href={retryHref}>
+                <Button size="sm" variant="secondary">
+                  Retry
+                </Button>
+              </Link>
+              <Link href="/properties" className="text-sky-700 font-semibold">
+                Back to browse
+              </Link>
+              <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
+                List a property
+              </Link>
+            </>
+          }
+          diagnostics={{
+            apiUrl,
+            id,
+            supabaseReady,
+            fetchError,
+            env: envPresence,
+          }}
+        />
       </div>
     );
   }
