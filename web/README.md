@@ -33,6 +33,10 @@ supabase/schema.sql # DB + RLS starter script
 2) Install deps:
 ```bash
 cd web
+npm run setup
+```
+If you don't need Playwright locally, you can run:
+```bash
 npm install
 ```
 3) Env vars: copy `.env.local.example` -> `.env.local` and fill in (OpenAI is optional; AI routes return safe fallbacks if the key is missing):
@@ -54,6 +58,10 @@ npm run dev
 ```
 7) Auth notes: email/password via Supabase. On first login, users land on `/onboarding` to pick role (tenant/landlord/agent). Profile data lives in `profiles` table keyed by `auth.users.id`.
 8) Quality checks: `npm run lint` then `npm run build` (tolerates missing OpenAI key if AI routes aren't hit).
+
+## Troubleshooting
+- If `npm install` fails with `Permission denied` in `node_modules/.bin`, move the repo to a local disk or fix permissions, then reinstall.
+- If native deps (e.g. `lightningcss` or `sharp`) fail on Apple Silicon, confirm Node 20.9+ and rerun `npm install` after clearing `node_modules` and `package-lock.json`.
 
 ## Demo mode and fallbacks
 - Browse/detail/dashboard now expect live Supabase data; they surface API errors instead of showing mock cards. Home still uses a few mock highlights for marketing if Supabase is absent.
