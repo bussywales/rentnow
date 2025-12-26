@@ -9,6 +9,9 @@ export interface Profile {
   phone?: string | null;
   city?: string | null;
   avatar_url?: string | null;
+  business_name?: string | null;
+  preferred_contact?: string | null;
+  areas_served?: string[] | null;
   created_at?: string;
 }
 

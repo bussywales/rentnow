@@ -13,6 +13,9 @@ CREATE TABLE public.profiles (
   phone TEXT,
   city TEXT,
   avatar_url TEXT,
+  business_name TEXT,
+  preferred_contact TEXT,
+  areas_served TEXT[],
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
