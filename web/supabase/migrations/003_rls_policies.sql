@@ -1,7 +1,4 @@
--- RentNow RLS and policies
--- Apply in Supabase SQL editor or via CLI (after updating auth session handling).
--- These policies align with the current app routes: public browsing of approved listings,
--- authenticated owners/admins manage their own records, and user-owned collections/messages.
+-- RentNow RLS policies and debug metadata helper (idempotent).
 
 -- Enable and enforce RLS on all exposed tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
