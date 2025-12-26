@@ -179,7 +179,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
         window.clearTimeout(autoSaveTimer.current);
       }
     };
-  }, [canCreateDraft, saveDraft, startSaving]);
+  }, [canCreateDraft, saveDraft, setError, startSaving]);
 
   const handleChange = (key: keyof FormState, value: string | number | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
