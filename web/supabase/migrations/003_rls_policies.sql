@@ -249,6 +249,10 @@ BEGIN
       'enabled', COALESCE((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.saved_properties')), false),
       'forced', COALESCE((SELECT relforcerowsecurity FROM pg_class WHERE oid = to_regclass('public.saved_properties')), false)
     ),
+    'saved_searches', jsonb_build_object(
+      'enabled', COALESCE((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.saved_searches')), false),
+      'forced', COALESCE((SELECT relforcerowsecurity FROM pg_class WHERE oid = to_regclass('public.saved_searches')), false)
+    ),
     'messages', jsonb_build_object(
       'enabled', COALESCE((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.messages')), false),
       'forced', COALESCE((SELECT relforcerowsecurity FROM pg_class WHERE oid = to_regclass('public.messages')), false)
@@ -282,6 +286,12 @@ BEGIN
       (SELECT jsonb_agg(policyname ORDER BY policyname)
        FROM pg_policies
        WHERE schemaname = 'public' AND tablename = 'saved_properties'),
+      '[]'::jsonb
+    ),
+    'saved_searches', COALESCE(
+      (SELECT jsonb_agg(policyname ORDER BY policyname)
+       FROM pg_policies
+       WHERE schemaname = 'public' AND tablename = 'saved_searches'),
       '[]'::jsonb
     ),
     'messages', COALESCE(
@@ -326,6 +336,15 @@ BEGIN
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'is_active'
       )
+      ,
+      'status', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'status'
+      ),
+      'rejection_reason', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'rejection_reason'
+      )
     ),
     'property_images', jsonb_build_object(
       'property_id', EXISTS (
@@ -341,6 +360,16 @@ BEGIN
       'property_id', EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'saved_properties' AND column_name = 'property_id'
+      )
+    ),
+    'saved_searches', jsonb_build_object(
+      'user_id', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'saved_searches' AND column_name = 'user_id'
+      ),
+      'query_params', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'saved_searches' AND column_name = 'query_params'
       )
     ),
     'messages', jsonb_build_object(

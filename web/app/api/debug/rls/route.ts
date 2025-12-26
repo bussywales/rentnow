@@ -23,6 +23,12 @@ const requiredPolicies: Record<string, string[]> = {
     "images public read approved",
   ],
   saved_properties: ["saved self delete", "saved self insert", "saved self select"],
+  saved_searches: [
+    "saved searches delete self",
+    "saved searches insert self",
+    "saved searches select self",
+    "saved searches update self",
+  ],
   messages: ["messages participant/owner read", "messages sender insert"],
   viewing_requests: ["viewings tenant insert", "viewings tenant/owner read", "viewings tenant/owner update"],
 };
@@ -68,7 +74,15 @@ export async function GET(request: Request) {
     const policies = metadata?.policies;
     const columns = metadata?.columns;
 
-    const rlsTables = ["profiles", "properties", "property_images", "saved_properties", "messages", "viewing_requests"];
+    const rlsTables = [
+      "profiles",
+      "properties",
+      "property_images",
+      "saved_properties",
+      "saved_searches",
+      "messages",
+      "viewing_requests",
+    ];
     rlsTables.forEach((table) => {
       if (!rls?.[table]?.enabled) {
         issues.push(`rls disabled: ${table}`);
@@ -88,8 +102,12 @@ export async function GET(request: Request) {
     if (!columns?.properties?.owner_id) issues.push("missing column: properties.owner_id");
     if (!columns?.properties?.is_approved) issues.push("missing column: properties.is_approved");
     if (!columns?.properties?.is_active) issues.push("missing column: properties.is_active");
+    if (!columns?.properties?.status) issues.push("missing column: properties.status");
+    if (!columns?.properties?.rejection_reason) issues.push("missing column: properties.rejection_reason");
     if (!columns?.saved_properties?.user_id) issues.push("missing column: saved_properties.user_id");
     if (!columns?.saved_properties?.property_id) issues.push("missing column: saved_properties.property_id");
+    if (!columns?.saved_searches?.user_id) issues.push("missing column: saved_searches.user_id");
+    if (!columns?.saved_searches?.query_params) issues.push("missing column: saved_searches.query_params");
     if (!columns?.messages?.sender_id) issues.push("missing column: messages.sender_id");
     if (!columns?.messages?.recipient_id) issues.push("missing column: messages.recipient_id");
     if (!columns?.viewing_requests?.tenant_id) issues.push("missing column: viewing_requests.tenant_id");
@@ -122,6 +140,15 @@ export async function GET(request: Request) {
   results.saved_properties = {
     count: saved.count ?? 0,
     error: saved.error?.message ?? null,
+  };
+
+  const searches = await supabase
+    .from("saved_searches")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", auth.user.id);
+  results.saved_searches = {
+    count: searches.count ?? 0,
+    error: searches.error?.message ?? null,
   };
 
   return NextResponse.json({ ok: issues.length === 0, issues, results });

@@ -16,6 +16,9 @@ ALTER TABLE public.property_images FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_properties FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.saved_searches ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.saved_searches FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages FORCE ROW LEVEL SECURITY;
 
@@ -160,6 +163,28 @@ CREATE POLICY "saved self delete" ON public.saved_properties
   FOR DELETE
   USING (auth.uid() = user_id);
 
+-- saved_searches: user-owned saved searches
+DROP POLICY IF EXISTS "saved searches select self" ON public.saved_searches;
+CREATE POLICY "saved searches select self" ON public.saved_searches
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "saved searches insert self" ON public.saved_searches;
+CREATE POLICY "saved searches insert self" ON public.saved_searches
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "saved searches update self" ON public.saved_searches;
+CREATE POLICY "saved searches update self" ON public.saved_searches
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "saved searches delete self" ON public.saved_searches;
+CREATE POLICY "saved searches delete self" ON public.saved_searches
+  FOR DELETE
+  USING (auth.uid() = user_id);
+
 -- messages: participants and admins can read; sender creates
 DROP POLICY IF EXISTS "messages participant/owner read" ON public.messages;
 CREATE POLICY "messages participant/owner read" ON public.messages
@@ -252,6 +277,10 @@ BEGIN
       'enabled', COALESCE((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.saved_properties')), false),
       'forced', COALESCE((SELECT relforcerowsecurity FROM pg_class WHERE oid = to_regclass('public.saved_properties')), false)
     ),
+    'saved_searches', jsonb_build_object(
+      'enabled', COALESCE((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.saved_searches')), false),
+      'forced', COALESCE((SELECT relforcerowsecurity FROM pg_class WHERE oid = to_regclass('public.saved_searches')), false)
+    ),
     'messages', jsonb_build_object(
       'enabled', COALESCE((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.messages')), false),
       'forced', COALESCE((SELECT relforcerowsecurity FROM pg_class WHERE oid = to_regclass('public.messages')), false)
@@ -285,6 +314,12 @@ BEGIN
       (SELECT jsonb_agg(policyname ORDER BY policyname)
        FROM pg_policies
        WHERE schemaname = 'public' AND tablename = 'saved_properties'),
+      '[]'::jsonb
+    ),
+    'saved_searches', COALESCE(
+      (SELECT jsonb_agg(policyname ORDER BY policyname)
+       FROM pg_policies
+       WHERE schemaname = 'public' AND tablename = 'saved_searches'),
       '[]'::jsonb
     ),
     'messages', COALESCE(
@@ -329,6 +364,15 @@ BEGIN
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'is_active'
       )
+      ,
+      'status', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'status'
+      ),
+      'rejection_reason', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'rejection_reason'
+      )
     ),
     'property_images', jsonb_build_object(
       'property_id', EXISTS (
@@ -344,6 +388,16 @@ BEGIN
       'property_id', EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'saved_properties' AND column_name = 'property_id'
+      )
+    ),
+    'saved_searches', jsonb_build_object(
+      'user_id', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'saved_searches' AND column_name = 'user_id'
+      ),
+      'query_params', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'saved_searches' AND column_name = 'query_params'
       )
     ),
     'messages', jsonb_build_object(
