@@ -22,9 +22,6 @@ export default async function DashboardLayout({
     if (!profile?.role) {
       redirect("/onboarding");
     }
-    if (profile.role === "tenant") {
-      redirect("/favourites");
-    }
   }
 
   const profileIncomplete =
@@ -50,6 +47,12 @@ export default async function DashboardLayout({
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <Link href="/dashboard" className="rounded-full bg-white/10 px-3 py-1">
               My properties
+            </Link>
+            <Link
+              href="/dashboard/saved-searches"
+              className="rounded-full bg-white/10 px-3 py-1"
+            >
+              Saved searches
             </Link>
             <Link href="/dashboard/messages" className="rounded-full bg-white/10 px-3 py-1">
               Messages

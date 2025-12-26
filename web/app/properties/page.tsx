@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
+import { SavedSearchButton } from "@/components/search/SavedSearchButton";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
@@ -317,6 +318,14 @@ export default async function PropertiesPage({ searchParams }: Props) {
             <Button variant="secondary">List a property</Button>
           </Link>
         )}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
+        <div>
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Saved searches</p>
+          <p className="text-sm text-slate-600">Save this filter set for alerts later.</p>
+        </div>
+        <SavedSearchButton filters={filters} />
       </div>
 
       <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -61,6 +62,7 @@ export default async function DashboardHome() {
   const supabaseReady = hasServerSupabaseEnv();
   let properties: Property[] = [];
   let fetchError: string | null = null;
+  let role: string | null = null;
 
   if (supabaseReady) {
     try {
@@ -77,7 +79,11 @@ export default async function DashboardHome() {
           .select("role")
           .eq("id", user.id)
           .maybeSingle();
-        const isAdmin = profile?.role === "admin";
+        role = profile?.role ?? null;
+        if (role === "tenant") {
+          redirect("/dashboard/saved-searches");
+        }
+        const isAdmin = role === "admin";
         let query = supabase
           .from("properties")
           .select("*, property_images(image_url,id,position)")

@@ -111,6 +111,19 @@ CREATE TABLE public.viewing_requests (
 CREATE INDEX idx_viewing_requests_property ON public.viewing_requests (property_id);
 CREATE INDEX idx_viewing_requests_tenant ON public.viewing_requests (tenant_id);
 
+-- SAVED SEARCHES
+CREATE TABLE public.saved_searches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  query_params JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_notified_at TIMESTAMPTZ,
+  last_checked_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_saved_searches_user ON public.saved_searches (user_id);
+
 -- BASIC RLS SUGGESTIONS
 -- Enable RLS on tables:
 -- ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

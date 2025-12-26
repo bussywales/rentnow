@@ -89,3 +89,13 @@ export interface ParsedSearchFilters {
   furnished: boolean | null;
   amenities: string[];
 }
+
+export interface SavedSearch {
+  id: string;
+  user_id: string;
+  name: string;
+  query_params: Record<string, unknown>;
+  created_at?: string;
+  last_notified_at?: string | null;
+  last_checked_at?: string | null;
+}
