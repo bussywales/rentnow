@@ -19,6 +19,7 @@ AI-first rental platform for the African market. This MVP is a web-only PWA buil
 - npm (uses `package-lock.json`).
 - Install/build: `npm install`, `npm run lint`, `npm run build`.
 - If Node is below 20.9, `npm install` fails fast via `scripts/check-node.mjs` with a clear error.
+- CI-friendly validation: use `npm run lint:ci`, `npm run build:ci`, and `npm run test:e2e:ci` to skip execution with a clear message when Node <20.9.
 
 ## Project structure
 ```

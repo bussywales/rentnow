@@ -10,10 +10,13 @@
     "preinstall": "node ./scripts/check-node.mjs",
     "dev": "next dev",
     "build": "next build",
+    "build:ci": "node ./scripts/run-build-ci.mjs",
     "start": "next start",
     "lint": "eslint",
+    "lint:ci": "node ./scripts/run-lint-ci.mjs",
     "setup": "npm install && npx playwright install --with-deps",
     "test:e2e": "playwright test",
+    "test:e2e:ci": "node ./scripts/run-test-e2e-ci.mjs",
     "test:e2e:cleanup": "node scripts/cleanup-playwright.mjs"
   },
   "dependencies": {
