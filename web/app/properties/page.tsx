@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
-import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
+import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
@@ -382,7 +382,12 @@ export default async function PropertiesPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <PropertyMapClient properties={properties.slice(0, 12)} height="420px" />
+      <PropertyMapToggle
+        properties={properties.slice(0, 12)}
+        height="420px"
+        title="Listings map"
+        description="Open the map only when you need it to keep the grid fast."
+      />
     </div>
   );
 }

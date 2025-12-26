@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { MessageThreadClient } from "@/components/messaging/MessageThreadClient";
-import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
+import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
@@ -386,7 +386,13 @@ export default async function PropertyDetail({ params }: Props) {
         <div className="md:col-span-2 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900">About</h2>
           <p className="text-slate-700 leading-7">{property.description}</p>
-          <PropertyMapClient properties={[property]} height="320px" />
+          <PropertyMapToggle
+            properties={[property]}
+            height="320px"
+            title="Location map"
+            description="Show the exact location only when you need it."
+            variant="inline"
+          />
         </div>
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

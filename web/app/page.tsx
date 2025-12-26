@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
-import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
+import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -223,7 +223,13 @@ export default async function Home() {
             {"Open full map ->"}
           </Link>
         </div>
-        <PropertyMapClient properties={featured} height="360px" />
+        <PropertyMapToggle
+          properties={featured}
+          height="360px"
+          title="Listings map"
+          description="Toggle the map on-demand to keep browsing fast."
+          variant="inline"
+        />
       </section>
     </div>
   );
