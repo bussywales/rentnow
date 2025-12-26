@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { HAS_SUPABASE_ENV } from "./helpers/env";
 
 const EMAIL = process.env.PLAYWRIGHT_USER_EMAIL || "";
 const PASSWORD = process.env.PLAYWRIGHT_USER_PASSWORD || "";
@@ -7,6 +8,7 @@ const ALLOW_WRITE = (process.env.PLAYWRIGHT_ALLOW_WRITE || "false").toLowerCase(
 
 test.describe("Save property and viewing request", () => {
   test("save toggle and optional viewing request", async ({ page }) => {
+    test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping save/viewing flow.");
     test.skip(
       !HAS_CREDS,
       "Set PLAYWRIGHT_USER_EMAIL and PLAYWRIGHT_USER_PASSWORD to run this test."

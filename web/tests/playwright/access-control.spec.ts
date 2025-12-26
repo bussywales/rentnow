@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { HAS_SUPABASE_ENV } from "./helpers/env";
 
 const TENANT_EMAIL = process.env.PLAYWRIGHT_USER_EMAIL || "";
 const TENANT_PASSWORD = process.env.PLAYWRIGHT_USER_PASSWORD || "";
@@ -21,6 +22,8 @@ async function login(page: Page, email: string, password: string) {
 
 test.describe("Access control", () => {
   test("debug rls requires admin", async ({ browser }) => {
+    test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping debug rls checks.");
+
     const anonContext = await browser.newContext();
     const anonPage = await anonContext.newPage();
     const anonRes = await anonPage.request.get("/api/debug/rls");
@@ -50,6 +53,7 @@ test.describe("Access control", () => {
     await adminContext.close();
   });
   test("tenant cannot edit or delete landlord property", async ({ browser }) => {
+    test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping access control checks.");
     test.skip(
       !(HAS_TENANT && HAS_LANDLORD),
       "Set PLAYWRIGHT_USER_EMAIL/PASSWORD and PLAYWRIGHT_LANDLORD_EMAIL/PASSWORD to run this test."
@@ -87,6 +91,7 @@ test.describe("Access control", () => {
   });
 
   test("unpublished property hidden from public/tenant but visible to landlord/admin", async ({ browser }) => {
+    test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping visibility checks.");
     test.skip(
       !(HAS_TENANT && HAS_LANDLORD && HAS_ADMIN),
       "Set PLAYWRIGHT_USER_EMAIL/PASSWORD, PLAYWRIGHT_LANDLORD_EMAIL/PASSWORD, and PLAYWRIGHT_ADMIN_EMAIL/PASSWORD to run this test."
@@ -135,6 +140,7 @@ test.describe("Access control", () => {
   });
 
   test("tenant cannot read other tenants' viewings or messages by guessing IDs", async ({ browser }) => {
+    test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping isolation checks.");
     test.skip(
       !(HAS_TENANT && HAS_ADMIN),
       "Set PLAYWRIGHT_USER_EMAIL/PASSWORD and PLAYWRIGHT_ADMIN_EMAIL/PASSWORD to run this test."

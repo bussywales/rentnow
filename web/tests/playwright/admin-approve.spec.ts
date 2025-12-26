@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { HAS_SUPABASE_ENV } from "./helpers/env";
 
 const ADMIN_EMAIL = process.env.PLAYWRIGHT_ADMIN_EMAIL || "";
 const ADMIN_PASSWORD = process.env.PLAYWRIGHT_ADMIN_PASSWORD || "";
@@ -7,6 +8,7 @@ const HAS_CREDS = !!ADMIN_EMAIL && !!ADMIN_PASSWORD;
 
 test.describe("Admin approvals", () => {
   test("approve pending listing if present", async ({ page }) => {
+    test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping admin approvals.");
     test.skip(
       !HAS_CREDS,
       "Set PLAYWRIGHT_ADMIN_EMAIL and PLAYWRIGHT_ADMIN_PASSWORD to run this test."

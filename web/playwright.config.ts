@@ -1,4 +1,35 @@
+import fs from "node:fs";
+import path from "node:path";
 import { defineConfig, devices } from "@playwright/test";
+import { loadEnvConfig } from "@next/env";
+
+const cwd = process.cwd();
+loadEnvConfig(cwd);
+
+const envFile = process.env.PLAYWRIGHT_ENV_FILE;
+if (envFile) {
+  const resolvedPath = path.isAbsolute(envFile) ? envFile : path.join(cwd, envFile);
+  if (fs.existsSync(resolvedPath)) {
+    const contents = fs.readFileSync(resolvedPath, "utf8");
+    contents.split(/\r?\n/).forEach((line) => {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) return;
+      const eqIndex = trimmed.indexOf("=");
+      if (eqIndex === -1) return;
+      const key = trimmed.slice(0, eqIndex).trim();
+      let value = trimmed.slice(eqIndex + 1).trim();
+      if (
+        (value.startsWith("\"") && value.endsWith("\"")) ||
+        (value.startsWith("'") && value.endsWith("'"))
+      ) {
+        value = value.slice(1, -1);
+      }
+      if (process.env[key] === undefined) {
+        process.env[key] = value;
+      }
+    });
+  }
+}
 
 const baseURL =
   process.env.PLAYWRIGHT_BASE_URL ||
@@ -22,6 +53,9 @@ export default defineConfig({
           url: "http://localhost:3000",
           reuseExistingServer: true,
           timeout: 120_000,
+          env: {
+            ...process.env,
+          },
         },
       }
     : {}),

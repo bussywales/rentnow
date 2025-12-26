@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { HAS_SUPABASE_ENV } from "./helpers/env";
 
 const TENANT_EMAIL = process.env.PLAYWRIGHT_USER_EMAIL || "";
 const TENANT_PASSWORD = process.env.PLAYWRIGHT_USER_PASSWORD || "";
@@ -17,6 +18,7 @@ async function login(page: Page, email: string, password: string) {
 }
 
 test("tenant can save search and others cannot access it", async ({ browser }) => {
+  test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping saved search flow.");
   test.skip(
     !(HAS_TENANT && HAS_LANDLORD),
     "Set PLAYWRIGHT_USER_EMAIL/PASSWORD and PLAYWRIGHT_LANDLORD_EMAIL/PASSWORD to run this test."

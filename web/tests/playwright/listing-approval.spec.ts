@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { HAS_SUPABASE_ENV } from "./helpers/env";
 
 const LANDLORD_EMAIL = process.env.PLAYWRIGHT_LANDLORD_EMAIL || "";
 const LANDLORD_PASSWORD = process.env.PLAYWRIGHT_LANDLORD_PASSWORD || "";
@@ -17,6 +18,7 @@ async function login(page: Page, email: string, password: string) {
 }
 
 test("landlord can submit and admin can reject with reason", async ({ browser }) => {
+  test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping listing approval flow.");
   test.skip(
     !(HAS_LANDLORD && HAS_ADMIN),
     "Set PLAYWRIGHT_LANDLORD_EMAIL/PASSWORD and PLAYWRIGHT_ADMIN_EMAIL/PASSWORD to run this test."
