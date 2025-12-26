@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -92,15 +92,15 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     payload.bedrooms !== undefined &&
     payload.bathrooms !== undefined;
 
-  const getSupabase = () => {
+  const getSupabase = useCallback(() => {
     if (!hasBrowserSupabaseEnv()) {
       setError("Supabase environment variables are missing. Connect Supabase to save.");
       return null;
     }
     return createBrowserSupabaseClient();
-  };
+  }, [setError]);
 
-  const saveDraft = async (statusOverride?: PropertyStatus) => {
+  const saveDraft = useCallback(async (statusOverride?: PropertyStatus) => {
     if (!canCreateDraft) return;
     const supabase = getSupabase();
     if (!supabase) return;
@@ -161,7 +161,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
 
     lastAutoSaved.current = requestKey;
     setDraftNotice(status === "draft" ? "Draft saved." : null);
-  };
+  }, [canCreateDraft, form.status, getSupabase, imageUrls, payload, propertyId, setDraftNotice, setError]);
 
   useEffect(() => {
     if (!canCreateDraft) return;
@@ -179,7 +179,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
         window.clearTimeout(autoSaveTimer.current);
       }
     };
-  }, [payload, imageUrls, canCreateDraft]);
+  }, [canCreateDraft, saveDraft, startSaving]);
 
   const handleChange = (key: keyof FormState, value: string | number | boolean) => {
     setForm((prev) => ({ ...prev, [key]: value }));
