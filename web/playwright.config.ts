@@ -37,6 +37,9 @@ const baseURL =
   "http://localhost:3000";
 const useLocalServer =
   !process.env.PLAYWRIGHT_BASE_URL && !process.env.NEXT_PUBLIC_SITE_URL;
+const webServerEnv = Object.fromEntries(
+  Object.entries(process.env).filter(([, value]) => typeof value === "string")
+) as Record<string, string>;
 
 export default defineConfig({
   testDir: "./tests/playwright",
@@ -54,7 +57,7 @@ export default defineConfig({
           reuseExistingServer: true,
           timeout: 120_000,
           env: {
-            ...process.env,
+            ...webServerEnv,
           },
         },
       }
