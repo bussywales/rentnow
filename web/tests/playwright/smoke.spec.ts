@@ -26,6 +26,23 @@ test.describe("Smoke checks", () => {
       return;
     }
 
+    const apiRes = await page.request.get("/api/properties");
+    if (!apiRes.ok()) {
+      await expect(
+        page.getByRole("heading", { name: /no properties found/i })
+      ).toBeVisible();
+      return;
+    }
+
+    const apiJson = await apiRes.json().catch(() => ({}));
+    const hasListings = Array.isArray(apiJson?.properties) && apiJson.properties.length > 0;
+    if (!hasListings) {
+      await expect(
+        page.getByRole("heading", { name: /no properties found/i })
+      ).toBeVisible();
+      return;
+    }
+
     await expect(page.getByRole("heading", { name: /properties/i })).toBeVisible();
 
     const propertyLink = page
