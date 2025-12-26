@@ -358,8 +358,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       {stepIndex === 0 && (
         <div className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Listing title</label>
+            <label htmlFor="listing-title" className="text-sm font-medium text-slate-700">
+              Listing title
+            </label>
             <Input
+              id="listing-title"
               required
               value={form.title || ""}
               onChange={(e) => handleChange("title", e.target.value)}
@@ -367,8 +370,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Rental type</label>
+            <label htmlFor="rental-type" className="text-sm font-medium text-slate-700">
+              Rental type
+            </label>
             <Select
+              id="rental-type"
               value={form.rental_type}
               onChange={(e) => handleChange("rental_type", e.target.value as RentalType)}
             >
@@ -380,8 +386,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
             </Select>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">City</label>
+            <label htmlFor="city" className="text-sm font-medium text-slate-700">
+              City
+            </label>
             <Input
+              id="city"
               required
               value={form.city || ""}
               onChange={(e) => handleChange("city", e.target.value)}
@@ -389,16 +398,22 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Neighbourhood</label>
+            <label htmlFor="neighbourhood" className="text-sm font-medium text-slate-700">
+              Neighbourhood
+            </label>
             <Input
+              id="neighbourhood"
               value={form.neighbourhood || ""}
               onChange={(e) => handleChange("neighbourhood", e.target.value)}
               placeholder="Lekki Phase 1"
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Address</label>
+            <label htmlFor="address" className="text-sm font-medium text-slate-700">
+              Address
+            </label>
             <Input
+              id="address"
               value={form.address || ""}
               onChange={(e) => handleChange("address", e.target.value)}
               placeholder="Street, building, house number"
@@ -406,8 +421,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Latitude</label>
+              <label htmlFor="latitude" className="text-sm font-medium text-slate-700">
+                Latitude
+              </label>
               <Input
+                id="latitude"
                 type="number"
                 step="0.000001"
                 value={form.latitude ?? ""}
@@ -416,8 +434,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Longitude</label>
+              <label htmlFor="longitude" className="text-sm font-medium text-slate-700">
+                Longitude
+              </label>
               <Input
+                id="longitude"
                 type="number"
                 step="0.000001"
                 value={form.longitude ?? ""}
@@ -428,8 +449,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Bedrooms</label>
+              <label htmlFor="bedrooms" className="text-sm font-medium text-slate-700">
+                Bedrooms
+              </label>
               <Input
+                id="bedrooms"
                 type="number"
                 min={0}
                 value={form.bedrooms ?? 0}
@@ -437,8 +461,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Bathrooms</label>
+              <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
+                Bathrooms
+              </label>
               <Input
+                id="bathrooms"
                 type="number"
                 min={0}
                 value={form.bathrooms ?? 0}
@@ -446,8 +473,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Max guests</label>
+              <label htmlFor="max-guests" className="text-sm font-medium text-slate-700">
+                Max guests
+              </label>
               <Input
+                id="max-guests"
                 type="number"
                 min={0}
                 value={form.max_guests ?? ""}
@@ -458,8 +488,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Price</label>
+              <label htmlFor="price" className="text-sm font-medium text-slate-700">
+                Price
+              </label>
               <Input
+                id="price"
                 type="number"
                 min={0}
                 value={form.price ?? ""}
@@ -467,16 +500,22 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Currency</label>
+              <label htmlFor="currency" className="text-sm font-medium text-slate-700">
+                Currency
+              </label>
               <Input
+                id="currency"
                 value={form.currency || "USD"}
                 onChange={(e) => handleChange("currency", e.target.value)}
                 placeholder="USD / NGN / KES"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Available from</label>
+              <label htmlFor="available-from" className="text-sm font-medium text-slate-700">
+                Available from
+              </label>
               <Input
+                id="available-from"
                 type="date"
                 value={form.available_from || ""}
                 onChange={(e) => handleChange("available_from", e.target.value)}
@@ -501,8 +540,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       {stepIndex === 1 && (
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Description</label>
+            <label htmlFor="description" className="text-sm font-medium text-slate-700">
+              Description
+            </label>
             <Textarea
+              id="description"
               rows={5}
               value={form.description || ""}
               onChange={(e) => handleChange("description", e.target.value)}
@@ -511,24 +553,33 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Features</label>
+              <label htmlFor="features" className="text-sm font-medium text-slate-700">
+                Features
+              </label>
               <Input
+                id="features"
                 value={form.featuresText || ""}
                 onChange={(e) => handleChange("featuresText", e.target.value)}
                 placeholder="balcony, generator, lift"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">EPC rating</label>
+              <label htmlFor="epc-rating" className="text-sm font-medium text-slate-700">
+                EPC rating
+              </label>
               <Input
+                id="epc-rating"
                 value={form.epc_rating || ""}
                 onChange={(e) => handleChange("epc_rating", e.target.value)}
                 placeholder="A, B, C"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-700">Council tax band</label>
+              <label htmlFor="council-tax-band" className="text-sm font-medium text-slate-700">
+                Council tax band
+              </label>
               <Input
+                id="council-tax-band"
                 value={form.council_tax_band || ""}
                 onChange={(e) => handleChange("council_tax_band", e.target.value)}
                 placeholder="Band D"
@@ -548,8 +599,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
             </label>
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Amenities</label>
+            <label htmlFor="amenities" className="text-sm font-medium text-slate-700">
+              Amenities
+            </label>
             <Input
+              id="amenities"
               value={form.amenitiesText || ""}
               onChange={(e) => handleChange("amenitiesText", e.target.value)}
               placeholder="wifi, parking, security, pool"
@@ -561,10 +615,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       {stepIndex === 2 && (
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">
+            <label htmlFor="photo-upload" className="text-sm font-medium text-slate-700">
               Photos (Supabase Storage)
             </label>
             <input
+              id="photo-upload"
               type="file"
               accept="image/*"
               multiple

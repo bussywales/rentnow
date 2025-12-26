@@ -79,8 +79,14 @@ export function SavedSearchButton({ filters }: Props) {
               </p>
             </div>
             <div className="mt-4 space-y-2">
-              <label className="text-sm font-medium text-slate-700">Search name</label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
+              <label htmlFor="saved-search-name" className="text-sm font-medium text-slate-700">
+                Search name
+              </label>
+              <Input
+                id="saved-search-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
             </div>
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
               <Button variant="ghost" onClick={() => setOpen(false)}>
