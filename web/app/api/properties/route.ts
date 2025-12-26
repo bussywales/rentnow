@@ -159,6 +159,11 @@ export async function GET(request: NextRequest) {
     const safePageSize =
       Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 48) : 12;
 
+    const missingPosition = (message?: string | null) =>
+      typeof message === "string" &&
+      message.includes("position") &&
+      message.includes("property_images");
+
     if (ownerOnly) {
       const auth = await requireRole({
         request,
@@ -169,17 +174,69 @@ export async function GET(request: NextRequest) {
       });
       if (!auth.ok) return auth.response;
 
-    let query = supabase
-      .from("properties")
-      .select("*, property_images(image_url,id,position)")
-      .order("created_at", { ascending: false })
-      .order("position", { foreignTable: "property_images", ascending: true });
+      const buildOwnerQuery = (includePosition: boolean) => {
+        const imageFields = includePosition ? "image_url,id,position" : "image_url,id";
+        let query = supabase
+          .from("properties")
+          .select(`*, property_images(${imageFields})`)
+          .order("created_at", { ascending: false });
+        if (includePosition) {
+          query = query.order("position", { foreignTable: "property_images", ascending: true });
+        }
+        return query;
+      };
 
       if (auth.role !== "admin") {
-        query = query.eq("owner_id", auth.user.id);
+        const baseQuery = buildOwnerQuery(true).eq("owner_id", auth.user.id);
+        const { data, error } = await baseQuery;
+        if (error && missingPosition(error.message)) {
+          const fallback = await buildOwnerQuery(false).eq("owner_id", auth.user.id);
+          if (fallback.error) {
+            logFailure({
+              request,
+              route: routeLabel,
+              status: 400,
+              startTime,
+              error: new Error(fallback.error.message),
+            });
+            return NextResponse.json(
+              { error: fallback.error.message, properties: [] },
+              { status: 400 }
+            );
+          }
+          return NextResponse.json({ properties: fallback.data || [] }, { status: 200 });
+        }
+        if (error) {
+          logFailure({
+            request,
+            route: routeLabel,
+            status: 400,
+            startTime,
+            error: new Error(error.message),
+          });
+          return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
+        }
+        return NextResponse.json({ properties: data || [] }, { status: 200 });
       }
 
-      const { data, error } = await query;
+      const { data, error } = await buildOwnerQuery(true);
+      if (error && missingPosition(error.message)) {
+        const fallback = await buildOwnerQuery(false);
+        if (fallback.error) {
+          logFailure({
+            request,
+            route: routeLabel,
+            status: 400,
+            startTime,
+            error: new Error(fallback.error.message),
+          });
+          return NextResponse.json(
+            { error: fallback.error.message, properties: [] },
+            { status: 400 }
+          );
+        }
+        return NextResponse.json({ properties: fallback.data || [] }, { status: 200 });
+      }
 
       if (error) {
         logFailure({
@@ -195,23 +252,84 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ properties: data || [] }, { status: 200 });
     }
 
-    let query = supabase
-      .from("properties")
-      .select("*, property_images(image_url,id,position)", {
-        count: shouldPaginate ? "exact" : undefined,
-      })
-      .eq("is_approved", true)
-      .eq("is_active", true)
-      .order("created_at", { ascending: false })
-      .order("position", { foreignTable: "property_images", ascending: true });
+    const buildPublicQuery = (includePosition: boolean) => {
+      const imageFields = includePosition ? "image_url,id,position" : "image_url,id";
+      let query = supabase
+        .from("properties")
+        .select(`*, property_images(${imageFields})`, {
+          count: shouldPaginate ? "exact" : undefined,
+        })
+        .eq("is_approved", true)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+      if (includePosition) {
+        query = query.order("position", { foreignTable: "property_images", ascending: true });
+      }
+      return query;
+    };
 
     if (shouldPaginate) {
       const from = (safePage - 1) * safePageSize;
       const to = from + safePageSize - 1;
-      query = query.range(from, to);
-    }
+      const { data, error, count } = await buildPublicQuery(true).range(from, to);
+      if (error && missingPosition(error.message)) {
+        const fallback = await buildPublicQuery(false).range(from, to);
+        if (fallback.error) {
+          logFailure({
+            request,
+            route: routeLabel,
+            status: 400,
+            startTime,
+            error: new Error(fallback.error.message),
+          });
+          return NextResponse.json(
+            { error: fallback.error.message, properties: [] },
+            { status: 400 }
+          );
+        }
+        return NextResponse.json(
+          { properties: fallback.data || [], page: safePage, pageSize: safePageSize, total: fallback.count ?? null },
+          { status: 200 }
+        );
+      }
 
-    const { data, error, count } = await query;
+      if (error) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 400,
+          startTime,
+          error: new Error(error.message),
+        });
+        return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
+      }
+
+      return NextResponse.json(
+        { properties: data || [], page: safePage, pageSize: safePageSize, total: count ?? null },
+        { status: 200 }
+      );
+    }
+    const { data, error, count } = await buildPublicQuery(true);
+    if (error && missingPosition(error.message)) {
+      const fallback = await buildPublicQuery(false);
+      if (fallback.error) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 400,
+          startTime,
+          error: new Error(fallback.error.message),
+        });
+        return NextResponse.json(
+          { error: fallback.error.message, properties: [] },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        { properties: fallback.data || [], page: safePage, pageSize: safePageSize, total: fallback.count ?? null },
+        { status: 200 }
+      );
+    }
 
     if (error) {
       logFailure({

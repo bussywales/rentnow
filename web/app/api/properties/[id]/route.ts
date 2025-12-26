@@ -77,12 +77,29 @@ export async function GET(
   const scope = searchParams.get("scope");
   const ownerOnly = scope === "own";
 
-  const { data, error } = await supabase
-    .from("properties")
-    .select("*, property_images(id, image_url, position)")
-    .eq("id", id)
-    .order("position", { foreignTable: "property_images", ascending: true })
-    .maybeSingle();
+  const missingPosition = (message?: string | null) =>
+    typeof message === "string" &&
+    message.includes("position") &&
+    message.includes("property_images");
+
+  const buildQuery = (includePosition: boolean) => {
+    const imageFields = includePosition ? "id, image_url, position" : "id, image_url";
+    let query = supabase
+      .from("properties")
+      .select(`*, property_images(${imageFields})`)
+      .eq("id", id);
+    if (includePosition) {
+      query = query.order("position", { foreignTable: "property_images", ascending: true });
+    }
+    return query.maybeSingle();
+  };
+
+  let { data, error } = await buildQuery(true);
+  if (error && missingPosition(error.message)) {
+    const fallback = await buildQuery(false);
+    data = fallback.data;
+    error = fallback.error;
+  }
 
   if (error) {
     logFailure({
