@@ -346,6 +346,10 @@ BEGIN
       'property_id', EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'property_images' AND column_name = 'property_id'
+      ),
+      'position', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'property_images' AND column_name = 'position'
       )
     ),
     'saved_properties', jsonb_build_object(

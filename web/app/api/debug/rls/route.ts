@@ -104,6 +104,7 @@ export async function GET(request: Request) {
     if (!columns?.properties?.is_active) issues.push("missing column: properties.is_active");
     if (!columns?.properties?.status) issues.push("missing column: properties.status");
     if (!columns?.properties?.rejection_reason) issues.push("missing column: properties.rejection_reason");
+    if (!columns?.property_images?.position) issues.push("missing column: property_images.position");
     if (!columns?.saved_properties?.user_id) issues.push("missing column: saved_properties.user_id");
     if (!columns?.saved_properties?.property_id) issues.push("missing column: saved_properties.property_id");
     if (!columns?.saved_searches?.user_id) issues.push("missing column: saved_searches.user_id");
