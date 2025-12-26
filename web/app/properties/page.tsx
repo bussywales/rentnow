@@ -14,6 +14,7 @@ type Props = {
 };
 
 export const dynamic = "force-dynamic";
+const PAGE_SIZE = 9;
 
 async function resolveSearchParams(
   params: Props["searchParams"]
@@ -48,6 +49,44 @@ function parseFilters(params: SearchParams): ParsedSearchFilters {
   };
 }
 
+function parsePage(params: SearchParams): number {
+  const raw = params.page;
+  if (Array.isArray(raw)) {
+    const first = raw[0];
+    const num = Number(first);
+    return Number.isFinite(num) && num > 0 ? num : 1;
+  }
+  if (raw) {
+    const num = Number(raw);
+    return Number.isFinite(num) && num > 0 ? num : 1;
+  }
+  return 1;
+}
+
+function buildSearchParams(
+  params: SearchParams,
+  overrides: Record<string, string | null>
+) {
+  const next = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (value === undefined || value === "") return;
+    if (Array.isArray(value)) {
+      value
+        .filter((entry) => entry !== undefined && entry !== "")
+        .forEach((entry) => next.append(key, entry));
+      return;
+    }
+    next.append(key, value);
+  });
+
+  Object.entries(overrides).forEach(([key, value]) => {
+    next.delete(key);
+    if (value !== null) next.set(key, value);
+  });
+
+  return next;
+}
+
 function applyMockFilters(items: Property[], filters: ParsedSearchFilters): Property[] {
   return items.filter((property) => {
     if (filters.city) {
@@ -74,6 +113,7 @@ function applyMockFilters(items: Property[], filters: ParsedSearchFilters): Prop
 export default async function PropertiesPage({ searchParams }: Props) {
   const resolvedSearchParams = await resolveSearchParams(searchParams);
   const filters = parseFilters(resolvedSearchParams);
+  const page = parsePage(resolvedSearchParams);
   const hasFilters = Object.values(filters).some((value) => {
     if (Array.isArray(value)) return value.length > 0;
     return value !== null && value !== undefined && value !== "";
@@ -100,9 +140,14 @@ export default async function PropertiesPage({ searchParams }: Props) {
   }
   const showListCta = role && role !== "tenant";
   const apiBaseUrl = await getApiBaseUrl();
-  const apiUrl = `${apiBaseUrl}/api/properties`;
+  const listParams = buildSearchParams(resolvedSearchParams, {
+    page: String(page),
+    pageSize: String(PAGE_SIZE),
+  });
+  const apiUrl = `${apiBaseUrl}/api/properties?${listParams.toString()}`;
   const envPresence = getEnvPresence();
   let properties: Property[] = [];
+  let totalCount: number | null = null;
   let fetchError: string | null = null;
   const hubs = [
     { city: "Lagos", label: "Lagos Island" },
@@ -112,41 +157,11 @@ export default async function PropertiesPage({ searchParams }: Props) {
   ];
 
   try {
-    const apiRes = await fetch(apiUrl, {
-      cache: "no-store",
-    });
-    if (!apiRes.ok) {
-      fetchError = `API responded with ${apiRes.status}`;
-    } else {
-      const json = await apiRes.json();
-      const typed =
-        (json.properties as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) ||
-        [];
-      properties =
-        typed.map((row) => ({
-          ...row,
-          images: row.property_images?.map((img) => ({
-            id: img.id,
-            image_url: img.image_url,
-          })),
-        })) || [];
-      properties = properties.filter((p) => !!p.id);
-      if (typed.length !== properties.length) {
-        console.warn("[properties] dropped items without id from API", {
-          total: typed.length,
-          kept: properties.length,
-          apiUrl,
-        });
-      }
-      console.log("[properties] fetched via API", {
-        count: properties.length,
-        apiUrl,
-        sample: properties[0]?.title,
-      });
-    }
-
     if (hasFilters && supabaseReady) {
-      const { data, error } = await searchProperties(filters);
+      const { data, error, count } = await searchProperties(filters, {
+        page,
+        pageSize: PAGE_SIZE,
+      });
       if (error) {
         fetchError = error.message;
       }
@@ -162,6 +177,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
               image_url: img.image_url,
             })),
           })) || [];
+        totalCount = typeof count === "number" ? count : null;
         properties = properties.filter((p) => !!p.id);
         if (typed.length !== properties.length) {
           console.warn("[properties] dropped filtered items without id", {
@@ -177,6 +193,41 @@ export default async function PropertiesPage({ searchParams }: Props) {
       }
     } else if (hasFilters) {
       fetchError = fetchError ?? "Supabase env vars missing; live filtering is unavailable.";
+    } else {
+      const apiRes = await fetch(apiUrl, {
+        next: { revalidate: 60 },
+      });
+      if (!apiRes.ok) {
+        fetchError = `API responded with ${apiRes.status}`;
+      } else {
+        const json = await apiRes.json();
+        const typed =
+          (json.properties as Array<
+            Property & { property_images?: Array<{ id: string; image_url: string }> }
+          >) || [];
+        properties =
+          typed.map((row) => ({
+            ...row,
+            images: row.property_images?.map((img) => ({
+              id: img.id,
+              image_url: img.image_url,
+            })),
+          })) || [];
+        totalCount = typeof json.total === "number" ? json.total : null;
+        properties = properties.filter((p) => !!p.id);
+        if (typed.length !== properties.length) {
+          console.warn("[properties] dropped items without id from API", {
+            total: typed.length,
+            kept: properties.length,
+            apiUrl,
+          });
+        }
+        console.log("[properties] fetched via API", {
+          count: properties.length,
+          apiUrl,
+          sample: properties[0]?.title,
+        });
+      }
     }
   } catch (err) {
     console.error("[properties] fetch failed", err);
@@ -196,18 +247,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
   }
 
   if (!properties.length) {
-    const retryParams = new URLSearchParams();
-    Object.entries(resolvedSearchParams).forEach(([key, value]) => {
-      if (Array.isArray(value)) {
-        value
-          .filter((entry) => entry !== undefined && entry !== "")
-          .forEach((entry) => retryParams.append(key, entry));
-        return;
-      }
-      if (value !== undefined && value !== "") {
-        retryParams.append(key, value);
-      }
-    });
+    const retryParams = buildSearchParams(resolvedSearchParams, {});
     const retryHref = retryParams.toString()
       ? `/properties?${retryParams.toString()}`
       : "/properties";
@@ -251,13 +291,24 @@ export default async function PropertiesPage({ searchParams }: Props) {
     );
   }
 
+  const total = typeof totalCount === "number" ? totalCount : properties.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const prevPage =
+    page > 1
+      ? `/properties?${buildSearchParams(resolvedSearchParams, { page: String(page - 1) }).toString()}`
+      : null;
+  const nextPage =
+    page < totalPages
+      ? `/properties?${buildSearchParams(resolvedSearchParams, { page: String(page + 1) }).toString()}`
+      : null;
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Properties</h1>
           <p className="text-sm text-slate-600">
-            Showing {properties.length} listings
+            Showing {properties.length} of {total} listings
             {filters.city ? ` in ${filters.city}` : ""}.
           </p>
         </div>
@@ -297,6 +348,38 @@ export default async function PropertiesPage({ searchParams }: Props) {
             href={`/properties/${property.id}`}
           />
         ))}
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
+        <span>
+          Page {page} of {totalPages}
+        </span>
+        <div className="flex items-center gap-2">
+          {prevPage ? (
+            <Link
+              href={prevPage}
+              className="rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700"
+            >
+              Previous
+            </Link>
+          ) : (
+            <span className="cursor-not-allowed rounded-full border border-slate-100 px-3 py-1 font-semibold text-slate-400">
+              Previous
+            </span>
+          )}
+          {nextPage ? (
+            <Link
+              href={nextPage}
+              className="rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700"
+            >
+              Next
+            </Link>
+          ) : (
+            <span className="cursor-not-allowed rounded-full border border-slate-100 px-3 py-1 font-semibold text-slate-400">
+              Next
+            </span>
+          )}
+        </div>
       </div>
 
       <PropertyMapClient properties={properties.slice(0, 12)} height="420px" />

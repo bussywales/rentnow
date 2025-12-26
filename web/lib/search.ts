@@ -1,12 +1,17 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { ParsedSearchFilters, RentalType } from "@/lib/types";
 
-export async function searchProperties(filters: ParsedSearchFilters) {
+type SearchOptions = {
+  page?: number;
+  pageSize?: number;
+};
+
+export async function searchProperties(filters: ParsedSearchFilters, options: SearchOptions = {}) {
   const supabase = await createServerSupabaseClient();
 
   let query = supabase
     .from("properties")
-    .select("*, property_images(image_url)")
+    .select("*, property_images(image_url)", { count: "exact" })
     .eq("is_approved", true)
     .eq("is_active", true);
 
@@ -34,6 +39,13 @@ export async function searchProperties(filters: ParsedSearchFilters) {
     });
   }
 
-  const { data, error } = await query.order("created_at", { ascending: false });
-  return { data, error };
+  const page = options.page && options.page > 0 ? options.page : 1;
+  const pageSize = options.pageSize && options.pageSize > 0 ? options.pageSize : 12;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
+  const { data, error, count } = await query
+    .order("created_at", { ascending: false })
+    .range(from, to);
+  return { data, error, count };
 }

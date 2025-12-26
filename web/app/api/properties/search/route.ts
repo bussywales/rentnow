@@ -34,10 +34,22 @@ function parseFilters(request: Request): ParsedSearchFilters {
   };
 }
 
+function parsePagination(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const page = Number(searchParams.get("page") || "1");
+  const pageSize = Number(searchParams.get("pageSize") || "12");
+  return {
+    page: Number.isFinite(page) && page > 0 ? page : 1,
+    pageSize:
+      Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 48) : 12,
+  };
+}
+
 export async function GET(request: Request) {
   const startTime = Date.now();
   const routeLabel = "/api/properties/search";
   const filters = parseFilters(request);
+  const { page, pageSize } = parsePagination(request);
 
   if (!hasServerSupabaseEnv()) {
     logFailure({
@@ -54,7 +66,7 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { data, error } = await searchProperties(filters);
+    const { data, error, count } = await searchProperties(filters, { page, pageSize });
     if (error) {
       logFailure({
         request,
@@ -78,7 +90,7 @@ export async function GET(request: Request) {
         })),
       })) || [];
 
-    return NextResponse.json({ properties });
+    return NextResponse.json({ properties, page, pageSize, total: count ?? null });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unable to search properties";
     logFailure({

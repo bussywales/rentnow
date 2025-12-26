@@ -132,6 +132,14 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const scope = searchParams.get("scope");
     const ownerOnly = scope === "own";
+    const pageParam = searchParams.get("page");
+    const pageSizeParam = searchParams.get("pageSize");
+    const page = Number(pageParam || "1");
+    const pageSize = Number(pageSizeParam || "12");
+    const shouldPaginate = pageParam !== null || pageSizeParam !== null;
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const safePageSize =
+      Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 48) : 12;
 
     if (ownerOnly) {
       const auth = await requireRole({
@@ -168,12 +176,20 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ properties: data || [] }, { status: 200 });
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("properties")
-      .select("*, property_images(image_url,id)")
+      .select("*, property_images(image_url,id)", { count: shouldPaginate ? "exact" : undefined })
       .eq("is_approved", true)
       .eq("is_active", true)
       .order("created_at", { ascending: false });
+
+    if (shouldPaginate) {
+      const from = (safePage - 1) * safePageSize;
+      const to = from + safePageSize - 1;
+      query = query.range(from, to);
+    }
+
+    const { data, error, count } = await query;
 
     if (error) {
       logFailure({
@@ -186,7 +202,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
     }
 
-    return NextResponse.json({ properties: data || [] }, { status: 200 });
+    return NextResponse.json(
+      {
+        properties: data || [],
+        page: shouldPaginate ? safePage : undefined,
+        pageSize: shouldPaginate ? safePageSize : undefined,
+        total: shouldPaginate ? count ?? null : undefined,
+      },
+      { status: 200 }
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unable to fetch properties";
     logFailure({
