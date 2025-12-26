@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { logApprovalAction } from "@/lib/observability";
 
 export const dynamic = "force-dynamic";
 
@@ -91,6 +92,8 @@ async function updateStatus(
   const rejectionReason = formData.get("reason");
   const reason =
     typeof rejectionReason === "string" ? rejectionReason.trim() : null;
+
+  if (action === "reject" && !reason) return;
   const now = new Date().toISOString();
 
   await supabase
@@ -110,10 +113,82 @@ async function updateStatus(
             is_approved: false,
             is_active: false,
             rejected_at: now,
-            rejection_reason: reason || "Rejected by admin",
+            rejection_reason: reason,
           }
     )
     .eq("id", id);
+
+  logApprovalAction({
+    route: "/admin",
+    actorId: user.id,
+    propertyId: id,
+    action,
+    reasonProvided: action === "reject",
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/dashboard");
+}
+
+async function bulkUpdate(formData: FormData) {
+  "use server";
+  if (!hasServerSupabaseEnv()) return;
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (profile?.role !== "admin") return;
+
+  const ids = formData.getAll("ids").map((value) => String(value)).filter(Boolean);
+  if (!ids.length) return;
+
+  const actionValue = formData.get("action");
+  const action = actionValue === "approve" || actionValue === "reject" ? actionValue : null;
+  if (!action) return;
+
+  const reasonValue = formData.get("reason");
+  const reason = typeof reasonValue === "string" ? reasonValue.trim() : "";
+  if (action === "reject" && !reason) return;
+
+  const now = new Date().toISOString();
+  const update =
+    action === "approve"
+      ? {
+          status: "live",
+          is_approved: true,
+          is_active: true,
+          approved_at: now,
+          rejection_reason: null,
+          rejected_at: null,
+        }
+      : {
+          status: "rejected",
+          is_approved: false,
+          is_active: false,
+          rejected_at: now,
+          rejection_reason: reason,
+        };
+
+  const { error } = await supabase.from("properties").update(update).in("id", ids);
+  if (error) return;
+
+  ids.forEach((propertyId) => {
+    logApprovalAction({
+      route: "/admin",
+      actorId: user.id,
+      propertyId,
+      action,
+      reasonProvided: action === "reject",
+    });
+  });
 
   revalidatePath("/admin");
   revalidatePath("/dashboard");
@@ -266,6 +341,35 @@ export default async function AdminPage({ searchParams }: Props) {
             </Link>
           </div>
         </div>
+        <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+          <form id="bulk-approvals" action={bulkUpdate} className="flex flex-col gap-3 md:flex-row md:items-end">
+            <div className="flex-1">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Bulk actions
+              </p>
+              <p className="text-xs text-slate-600">
+                Select listings below to approve or reject them together.
+              </p>
+            </div>
+            <div className="min-w-[220px]">
+              <Input
+                name="reason"
+                placeholder="Rejection reason"
+                className="h-9"
+                minLength={3}
+                required
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" type="submit" name="action" value="approve" formNoValidate>
+                Approve selected
+              </Button>
+              <Button size="sm" variant="secondary" type="submit" name="action" value="reject">
+                Reject selected
+              </Button>
+            </div>
+          </form>
+        </div>
         <div className="grid gap-3">
           {properties.map((property) => (
             <div
@@ -289,6 +393,17 @@ export default async function AdminPage({ searchParams }: Props) {
                   </p>
                 )}
               </div>
+              <div className="flex items-center gap-3">
+                <input
+                  form="bulk-approvals"
+                  type="checkbox"
+                  name="ids"
+                  value={property.id}
+                  aria-label={`Select ${property.title}`}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+                <span className="text-xs text-slate-500">Select</span>
+              </div>
               <div className="flex items-center gap-2">
                 <form
                   className="flex items-center gap-2"
@@ -306,6 +421,8 @@ export default async function AdminPage({ searchParams }: Props) {
                     name="reason"
                     placeholder="Rejection reason"
                     className="h-9 w-44"
+                    minLength={3}
+                    required
                   />
                   <Button size="sm" variant="secondary" type="submit">
                     Reject

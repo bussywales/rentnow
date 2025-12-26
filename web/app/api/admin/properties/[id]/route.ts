@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
+import { logApprovalAction } from "@/lib/observability";
 
 const routeLabel = "/api/admin/properties/[id]";
 
@@ -28,6 +29,11 @@ export async function PATCH(
   const { action, reason } = bodySchema.parse(body);
   const isApproved = action === "approve";
   const now = new Date().toISOString();
+  const trimmedReason = typeof reason === "string" ? reason.trim() : "";
+
+  if (!isApproved && !trimmedReason) {
+    return NextResponse.json({ error: "Rejection reason is required." }, { status: 400 });
+  }
 
   const { error } = await supabase
     .from("properties")
@@ -46,7 +52,7 @@ export async function PATCH(
             is_approved: false,
             is_active: false,
             rejected_at: now,
-            rejection_reason: reason?.trim() || "Rejected by admin",
+            rejection_reason: trimmedReason,
           }
     )
     .eq("id", id);
@@ -54,6 +60,15 @@ export async function PATCH(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
+
+  logApprovalAction({
+    request,
+    route: routeLabel,
+    actorId: auth.user.id,
+    propertyId: id,
+    action,
+    reasonProvided: !isApproved,
+  });
 
   return NextResponse.json({ id, is_approved: isApproved });
 }

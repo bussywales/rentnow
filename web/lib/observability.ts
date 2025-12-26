@@ -11,6 +11,15 @@ type FailureLogInput = {
   error?: unknown;
 };
 
+type ApprovalLogInput = {
+  request?: Request;
+  route: string;
+  actorId: string;
+  propertyId: string;
+  action: "approve" | "reject";
+  reasonProvided?: boolean;
+};
+
 function normalizeError(error: unknown) {
   if (!error) return undefined;
   if (error instanceof Error) {
@@ -64,4 +73,26 @@ export function logFailure({
   };
 
   console.error(JSON.stringify(payload));
+}
+
+export function logApprovalAction({
+  request,
+  route,
+  actorId,
+  propertyId,
+  action,
+  reasonProvided = false,
+}: ApprovalLogInput) {
+  const payload = {
+    level: "info",
+    event: "property_approval",
+    route,
+    requestId: getRequestId(request),
+    actorId,
+    propertyId,
+    action,
+    reasonProvided,
+  };
+
+  console.log(JSON.stringify(payload));
 }
