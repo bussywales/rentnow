@@ -123,6 +123,27 @@ export default async function DashboardHome() {
         </div>
       </div>
 
+      {properties.some((property) => normalizeStatus(property) === "rejected") && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+          <p className="font-semibold">One or more listings were rejected.</p>
+          <p className="mt-1">
+            Review the rejection reason and update the listing before resubmitting.
+          </p>
+        </div>
+      )}
+
+      {properties.some((property) => {
+        if (normalizeStatus(property) !== "live") return false;
+        if (!property.approved_at) return false;
+        const approvedAt = new Date(property.approved_at).getTime();
+        return Number.isFinite(approvedAt) && Date.now() - approvedAt < 7 * 24 * 3600 * 1000;
+      }) && (
+        <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+          <p className="font-semibold">Your listing was approved.</p>
+          <p className="mt-1">Great news — your property is live and visible to tenants.</p>
+        </div>
+      )}
+
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-900">
           Getting approved faster

@@ -17,6 +17,8 @@ type AdminProperty = {
   city: string;
   rental_type: string;
   is_approved: boolean;
+  status?: string | null;
+  rejection_reason?: string | null;
   owner_id?: string;
 };
 
@@ -26,7 +28,11 @@ type AdminUser = {
   full_name: string | null;
 };
 
-async function getData(filter: "all" | "approved" | "pending" = "all", search = "") {
+async function getData(
+  status: "all" | "draft" | "pending" | "live" | "rejected" | "paused" = "all",
+  search = "",
+  ownerId = ""
+) {
   if (!hasServerSupabaseEnv()) {
     return { properties: [], users: [] };
   }
@@ -35,11 +41,11 @@ async function getData(filter: "all" | "approved" | "pending" = "all", search = 
     const supabase = await createServerSupabaseClient();
     let query = supabase
       .from("properties")
-      .select("id, title, city, rental_type, is_approved, owner_id")
+      .select("id, title, city, rental_type, is_approved, owner_id, status, rejection_reason")
       .order("created_at", { ascending: false });
 
-    if (filter === "approved") query = query.eq("is_approved", true);
-    if (filter === "pending") query = query.eq("is_approved", false);
+    if (status !== "all") query = query.eq("status", status);
+    if (ownerId) query = query.eq("owner_id", ownerId);
     if (search) {
       query = query.ilike("title", `%${search}%`);
     }
@@ -60,7 +66,11 @@ async function getData(filter: "all" | "approved" | "pending" = "all", search = 
   }
 }
 
-async function updateStatus(id: string, action: "approve" | "reject") {
+async function updateStatus(
+  id: string,
+  action: "approve" | "reject",
+  formData: FormData
+) {
   "use server";
   if (!hasServerSupabaseEnv()) return;
   const supabase = await createServerSupabaseClient();
@@ -78,9 +88,31 @@ async function updateStatus(id: string, action: "approve" | "reject") {
 
   if (profile?.role !== "admin") return;
 
+  const rejectionReason = formData.get("reason");
+  const reason =
+    typeof rejectionReason === "string" ? rejectionReason.trim() : null;
+  const now = new Date().toISOString();
+
   await supabase
     .from("properties")
-    .update({ is_approved: action === "approve" })
+    .update(
+      action === "approve"
+        ? {
+            status: "live",
+            is_approved: true,
+            is_active: true,
+            approved_at: now,
+            rejection_reason: null,
+            rejected_at: null,
+          }
+        : {
+            status: "rejected",
+            is_approved: false,
+            is_active: false,
+            rejected_at: now,
+            rejection_reason: reason || "Rejected by admin",
+          }
+    )
     .eq("id", id);
 
   revalidatePath("/admin");
@@ -89,18 +121,25 @@ async function updateStatus(id: string, action: "approve" | "reject") {
 
 export default async function AdminPage({ searchParams }: Props) {
   const supabaseReady = hasServerSupabaseEnv();
-  const filterParam = searchParams.status
+  const statusParam = searchParams.status
     ? Array.isArray(searchParams.status)
       ? searchParams.status[0]
       : searchParams.status
     : null;
+  const ownerParam = searchParams.owner
+    ? Array.isArray(searchParams.owner)
+      ? searchParams.owner[0]
+      : searchParams.owner
+    : "";
   const searchParam = searchParams.q
     ? Array.isArray(searchParams.q)
       ? searchParams.q[0]
       : searchParams.q
     : "";
   const statusFilter =
-    filterParam === "approved" || filterParam === "pending" ? filterParam : "all";
+    statusParam && ["draft", "pending", "live", "rejected", "paused"].includes(statusParam)
+      ? (statusParam as "draft" | "pending" | "live" | "rejected" | "paused")
+      : "all";
 
   if (supabaseReady) {
     try {
@@ -127,10 +166,7 @@ export default async function AdminPage({ searchParams }: Props) {
     }
   }
 
-  const { properties, users } = await getData(
-    statusFilter as "all" | "approved" | "pending",
-    searchParam
-  );
+  const { properties, users } = await getData(statusFilter, searchParam, ownerParam);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -197,8 +233,23 @@ export default async function AdminPage({ searchParams }: Props) {
                 className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
               >
                 <option value="all">All</option>
-                <option value="approved">Approved</option>
                 <option value="pending">Pending</option>
+                <option value="live">Live</option>
+                <option value="draft">Draft</option>
+                <option value="rejected">Rejected</option>
+                <option value="paused">Paused</option>
+              </select>
+              <select
+                name="owner"
+                defaultValue={ownerParam}
+                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+              >
+                <option value="">All owners</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.full_name || user.id.slice(0, 6)}
+                  </option>
+                ))}
               </select>
               <Input
                 name="q"
@@ -230,20 +281,32 @@ export default async function AdminPage({ searchParams }: Props) {
                 </p>
                 <p className="text-xs">
                   Status:{" "}
-                  {property.is_approved ? (
-                    <span className="text-emerald-600">Approved</span>
-                  ) : (
-                    <span className="text-amber-600">Pending</span>
-                  )}
+                  <span className="text-slate-700">{property.status || "pending"}</span>
                 </p>
+                {property.rejection_reason && (
+                  <p className="text-xs text-rose-600">
+                    Reason: {property.rejection_reason}
+                  </p>
+                )}
               </div>
               <div className="flex items-center gap-2">
-                <form action={updateStatus.bind(null, property.id, "approve")}>
+                <form
+                  className="flex items-center gap-2"
+                  action={updateStatus.bind(null, property.id, "approve")}
+                >
                   <Button size="sm" type="submit">
                     Approve
                   </Button>
                 </form>
-                <form action={updateStatus.bind(null, property.id, "reject")}>
+                <form
+                  className="flex items-center gap-2"
+                  action={updateStatus.bind(null, property.id, "reject")}
+                >
+                  <Input
+                    name="reason"
+                    placeholder="Rejection reason"
+                    className="h-9 w-44"
+                  />
                   <Button size="sm" variant="secondary" type="submit">
                     Reject
                   </Button>
