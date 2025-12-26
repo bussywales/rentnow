@@ -69,7 +69,7 @@ export async function getApiBaseUrl() {
   );
 }
 
-export async function getSiteUrl() {
+export async function getSiteUrl(options?: { allowFallback?: boolean }) {
   const envUrl =
     normalizeBaseUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
     normalizeBaseUrl(process.env.SITE_URL) ||
@@ -78,6 +78,8 @@ export async function getSiteUrl() {
 
   const headerUrl = await getHeaderBaseUrl();
   if (headerUrl) return headerUrl;
+
+  if (options?.allowFallback === false) return "";
 
   // Hard fallback to production host to avoid empty base URLs in server fetches.
   return "https://www.rentnow.space";
