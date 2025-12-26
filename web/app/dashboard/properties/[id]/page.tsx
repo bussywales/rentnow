@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { PropertyForm } from "@/components/properties/PropertyForm";
+import { PropertyStepper } from "@/components/properties/PropertyStepper";
 import { getApiBaseUrl } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
@@ -174,7 +174,7 @@ export default async function EditPropertyPage({ params }: Props) {
           Update details, tweak pricing, or generate fresh AI copy.
         </p>
       </div>
-      <PropertyForm initialData={property} />
+      <PropertyStepper initialData={property} />
     </div>
   );
 }

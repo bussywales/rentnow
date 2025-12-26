@@ -11,7 +11,7 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
 
   let query = supabase
     .from("properties")
-    .select("*, property_images(image_url)", { count: "exact" })
+    .select("*, property_images(id,image_url,position)", { count: "exact" })
     .eq("is_approved", true)
     .eq("is_active", true);
 
@@ -46,6 +46,7 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
 
   const { data, error, count } = await query
     .order("created_at", { ascending: false })
+    .order("position", { foreignTable: "property_images", ascending: true })
     .range(from, to);
   return { data, error, count };
 }

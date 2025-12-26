@@ -2,6 +2,8 @@ export type UserRole = "tenant" | "landlord" | "agent" | "admin";
 
 export type RentalType = "short_let" | "long_term";
 
+export type PropertyStatus = "draft" | "pending" | "live" | "rejected" | "paused";
+
 export interface Profile {
   id: string;
   role: UserRole;
@@ -42,6 +44,16 @@ export interface Property {
   max_guests?: number | null;
   is_approved?: boolean;
   is_active?: boolean;
+  status?: PropertyStatus;
+  rejection_reason?: string | null;
+  submitted_at?: string | null;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+  paused_at?: string | null;
+  bills_included?: boolean | null;
+  epc_rating?: string | null;
+  council_tax_band?: string | null;
+  features?: string[] | null;
   created_at?: string;
   updated_at?: string;
   images?: PropertyImage[];

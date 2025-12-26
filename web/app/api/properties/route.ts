@@ -23,6 +23,11 @@ const propertySchema = z.object({
   amenities: z.array(z.string()).optional().nullable(),
   available_from: z.string().optional().nullable(),
   max_guests: z.number().int().nullable().optional(),
+  bills_included: z.boolean().optional(),
+  epc_rating: z.string().optional().nullable(),
+  council_tax_band: z.string().optional().nullable(),
+  features: z.array(z.string()).optional().nullable(),
+  status: z.enum(["draft", "pending", "live", "rejected", "paused"]).optional(),
   is_active: z.boolean().optional(),
   imageUrls: z.array(z.string().url()).optional(),
 });
@@ -58,13 +63,25 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const data = propertySchema.parse(body);
-    const { imageUrls = [], ...rest } = data;
+    const { imageUrls = [], status, ...rest } = data;
+    const isAdmin = auth.role === "admin";
+    const normalizedStatus = isAdmin && status ? status : "draft";
+    const isActive = normalizedStatus === "pending" || normalizedStatus === "live";
+    const isApproved = normalizedStatus === "live";
+    const submittedAt = normalizedStatus === "pending" ? new Date().toISOString() : null;
+    const approvedAt = normalizedStatus === "live" ? new Date().toISOString() : null;
 
     const { data: property, error: insertError } = await supabase
       .from("properties")
       .insert({
         ...rest,
         amenities: rest.amenities ?? [],
+        features: rest.features ?? [],
+        status: normalizedStatus,
+        is_active: isActive,
+        is_approved: isApproved,
+        submitted_at: submittedAt,
+        approved_at: approvedAt,
         owner_id: user.id,
       })
       .select("id")
@@ -88,9 +105,10 @@ export async function POST(request: Request) {
 
     if (propertyId && imageUrls.length) {
       await supabase.from("property_images").insert(
-        imageUrls.map((url) => ({
+        imageUrls.map((url, index) => ({
           property_id: propertyId,
           image_url: url,
+          position: index,
         }))
       );
     }
@@ -151,10 +169,11 @@ export async function GET(request: NextRequest) {
       });
       if (!auth.ok) return auth.response;
 
-      let query = supabase
-        .from("properties")
-        .select("*, property_images(image_url,id)")
-        .order("created_at", { ascending: false });
+    let query = supabase
+      .from("properties")
+      .select("*, property_images(image_url,id,position)")
+      .order("created_at", { ascending: false })
+      .order("position", { foreignTable: "property_images", ascending: true });
 
       if (auth.role !== "admin") {
         query = query.eq("owner_id", auth.user.id);
@@ -178,10 +197,13 @@ export async function GET(request: NextRequest) {
 
     let query = supabase
       .from("properties")
-      .select("*, property_images(image_url,id)", { count: shouldPaginate ? "exact" : undefined })
+      .select("*, property_images(image_url,id,position)", {
+        count: shouldPaginate ? "exact" : undefined,
+      })
       .eq("is_approved", true)
       .eq("is_active", true)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .order("position", { foreignTable: "property_images", ascending: true });
 
     if (shouldPaginate) {
       const from = (safePage - 1) * safePageSize;

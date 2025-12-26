@@ -4,6 +4,7 @@
 CREATE TYPE user_role AS ENUM ('tenant', 'landlord', 'agent', 'admin');
 CREATE TYPE rental_type AS ENUM ('short_let', 'long_term');
 CREATE TYPE viewing_status AS ENUM ('pending', 'accepted', 'declined', 'cancelled');
+CREATE TYPE property_status AS ENUM ('draft', 'pending', 'live', 'rejected', 'paused');
 
 -- PROFILES
 CREATE TABLE public.profiles (
@@ -41,6 +42,16 @@ CREATE TABLE public.properties (
   max_guests INT,
   is_approved BOOLEAN NOT NULL DEFAULT FALSE,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  status property_status NOT NULL DEFAULT 'draft',
+  rejection_reason TEXT,
+  submitted_at TIMESTAMPTZ,
+  approved_at TIMESTAMPTZ,
+  rejected_at TIMESTAMPTZ,
+  paused_at TIMESTAMPTZ,
+  bills_included BOOLEAN NOT NULL DEFAULT FALSE,
+  epc_rating TEXT,
+  council_tax_band TEXT,
+  features TEXT[],
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -55,6 +66,7 @@ CREATE TABLE public.property_images (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
   image_url TEXT NOT NULL,
+  position INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

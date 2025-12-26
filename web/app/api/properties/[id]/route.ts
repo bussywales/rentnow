@@ -23,6 +23,12 @@ const updateSchema = z.object({
   amenities: z.array(z.string()).optional().nullable(),
   available_from: z.string().optional().nullable(),
   max_guests: z.number().int().nullable().optional(),
+  bills_included: z.boolean().optional(),
+  epc_rating: z.string().optional().nullable(),
+  council_tax_band: z.string().optional().nullable(),
+  features: z.array(z.string()).optional().nullable(),
+  status: z.enum(["draft", "pending", "live", "rejected", "paused"]).optional(),
+  rejection_reason: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
   imageUrls: z.array(z.string().url()).optional(),
 });
@@ -73,8 +79,9 @@ export async function GET(
 
   const { data, error } = await supabase
     .from("properties")
-    .select("*, property_images(id, image_url)")
+    .select("*, property_images(id, image_url, position)")
     .eq("id", id)
+    .order("position", { foreignTable: "property_images", ascending: true })
     .maybeSingle();
 
   if (error) {
@@ -165,7 +172,7 @@ export async function PUT(
 
     const { data: existing, error: fetchError } = await supabase
       .from("properties")
-      .select("owner_id")
+      .select("owner_id, status")
       .eq("id", id)
       .maybeSingle();
 
@@ -194,14 +201,42 @@ export async function PUT(
 
     const body = await request.json();
     const updates = updateSchema.parse(body);
-    const { imageUrls = [], ...rest } = updates;
+    const { imageUrls = [], status, rejection_reason, ...rest } = updates;
+    const now = new Date().toISOString();
+    const isAdmin = role === "admin";
+    let statusUpdate: Record<string, unknown> = {};
+
+    if (status) {
+      const allowed = isAdmin
+        ? ["draft", "pending", "live", "rejected", "paused"]
+        : ["draft", "pending", "paused"];
+      if (!allowed.includes(status)) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+
+      statusUpdate = {
+        status,
+        rejection_reason:
+          status === "rejected" ? rejection_reason || "Rejected by admin" : null,
+        submitted_at: status === "pending" ? now : null,
+        approved_at: status === "live" ? now : null,
+        rejected_at: status === "rejected" ? now : null,
+        paused_at: status === "paused" ? now : null,
+        is_active: status === "pending" || status === "live",
+        is_approved: status === "live",
+      };
+    } else if (typeof rejection_reason !== "undefined" && isAdmin) {
+      statusUpdate = { rejection_reason };
+    }
 
     const { error: updateError } = await supabase
       .from("properties")
       .update({
         ...rest,
         amenities: rest.amenities ?? [],
+        features: rest.features ?? [],
         updated_at: new Date().toISOString(),
+        ...statusUpdate,
       })
       .eq("id", id);
 
@@ -223,9 +258,10 @@ export async function PUT(
       await supabase.from("property_images").delete().eq("property_id", id);
       if (imageUrls.length) {
         await supabase.from("property_images").insert(
-          imageUrls.map((url) => ({
+          imageUrls.map((url, index) => ({
             property_id: id,
             image_url: url,
+            position: index,
           }))
         );
       }
