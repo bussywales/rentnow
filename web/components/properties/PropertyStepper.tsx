@@ -18,6 +18,7 @@ type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: st
 
 type Props = {
   initialData?: Partial<Property>;
+  initialStep?: number;
 };
 
 const rentalTypes: { label: string; value: RentalType }[] = [
@@ -38,9 +39,11 @@ const steps = [
   { id: "submit", label: "Submit" },
 ];
 
-export function PropertyStepper({ initialData }: Props) {
+export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const router = useRouter();
-  const [stepIndex, setStepIndex] = useState(0);
+  const [stepIndex, setStepIndex] = useState(
+    Math.min(Math.max(initialStep, 0), steps.length - 1)
+  );
   const [propertyId, setPropertyId] = useState<string | null>(
     initialData?.id || null
   );

@@ -7,7 +7,10 @@ import type { Property } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 type Params = { id?: string };
-type Props = { params: Params | Promise<Params> };
+type Props = {
+  params: Params | Promise<Params>;
+  searchParams?: Record<string, string | string[] | undefined>;
+};
 
 function normalizeId(id: string) {
   return decodeURIComponent(id).trim();
@@ -124,7 +127,24 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
   return { property: null, error: "Unknown error" };
 }
 
-export default async function EditPropertyPage({ params }: Props) {
+function resolveStep(searchParams?: Props["searchParams"]) {
+  const raw = searchParams?.step;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  switch (value) {
+    case "details":
+      return 1;
+    case "photos":
+      return 2;
+    case "preview":
+      return 3;
+    case "submit":
+      return 4;
+    default:
+      return 0;
+  }
+}
+
+export default async function EditPropertyPage({ params, searchParams }: Props) {
   let property: Property | null = null;
   let fetchError: string | null = null;
   try {
@@ -174,7 +194,7 @@ export default async function EditPropertyPage({ params }: Props) {
           Update details, tweak pricing, or generate fresh AI copy.
         </p>
       </div>
-      <PropertyStepper initialData={property} />
+      <PropertyStepper initialData={property} initialStep={resolveStep(searchParams)} />
     </div>
   );
 }

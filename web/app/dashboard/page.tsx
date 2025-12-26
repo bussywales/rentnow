@@ -3,8 +3,59 @@ import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
+import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
+
+type PropertyStatus = "draft" | "pending" | "live" | "rejected" | "paused";
+
+function normalizeStatus(property: Property): PropertyStatus {
+  if (property.status) return property.status as PropertyStatus;
+  if (property.is_approved && property.is_active) return "live";
+  if (!property.is_approved && property.is_active) return "pending";
+  return "draft";
+}
+
+function qualityScore(property: Property) {
+  let score = 0;
+  if (property.title) score += 20;
+  if (property.price) score += 15;
+  if ((property.description || "").length >= 120) score += 25;
+  if ((property.images || []).length >= 3) score += 25;
+  if ((property.amenities || []).length >= 3) score += 15;
+  return Math.min(score, 100);
+}
+
+async function submitForApproval(id: string) {
+  "use server";
+  if (!hasServerSupabaseEnv()) return;
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: existing } = await supabase
+    .from("properties")
+    .select("owner_id")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (!existing || existing.owner_id !== user.id) return;
+
+  await supabase
+    .from("properties")
+    .update({
+      status: "pending",
+      is_active: true,
+      is_approved: false,
+      submitted_at: new Date().toISOString(),
+      rejection_reason: null,
+    })
+    .eq("id", id);
+
+  revalidatePath("/dashboard");
+}
 
 export default async function DashboardHome() {
   const supabaseReady = hasServerSupabaseEnv();
@@ -29,8 +80,9 @@ export default async function DashboardHome() {
         const isAdmin = profile?.role === "admin";
         let query = supabase
           .from("properties")
-          .select("*, property_images(image_url,id)")
-          .order("created_at", { ascending: false });
+          .select("*, property_images(image_url,id,position)")
+          .order("created_at", { ascending: false })
+          .order("position", { foreignTable: "property_images", ascending: true });
         if (!isAdmin) {
           query = query.eq("owner_id", user.id);
         }
@@ -57,16 +109,29 @@ export default async function DashboardHome() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-slate-900">My properties</h2>
           <p className="text-sm text-slate-600">
             Listings you own. Approvals required for public visibility.
           </p>
         </div>
-        <Link href="/dashboard/properties/new">
-          <Button>New listing</Button>
-        </Link>
+        <div className="flex items-center gap-3">
+          <Link href="/dashboard/properties/new">
+            <Button>New listing</Button>
+          </Link>
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h3 className="text-lg font-semibold text-slate-900">
+          Getting approved faster
+        </h3>
+        <ul className="mt-3 space-y-2 text-sm text-slate-600">
+          <li>Upload at least 3 high-quality photos.</li>
+          <li>Write a 120+ character description.</li>
+          <li>Confirm rent, availability, and contact details.</li>
+        </ul>
       </div>
       <div className="space-y-3">
         {fetchError && (
@@ -77,14 +142,71 @@ export default async function DashboardHome() {
 
         {properties.length ? (
           <div className="grid gap-4 md:grid-cols-2">
-            {properties.map((property) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-                compact
-                href={`/dashboard/properties/${property.id}`}
-              />
-            ))}
+            {properties.map((property) => {
+              const status = normalizeStatus(property);
+              const score = qualityScore(property);
+              const hasPhotos = (property.images || []).length > 0;
+              return (
+                <div
+                  key={property.id}
+                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
+                      {status}
+                    </span>
+                    {status === "draft" && (
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                        Continue draft
+                      </span>
+                    )}
+                  </div>
+                  <div className="mt-3">
+                    <PropertyCard
+                      property={property}
+                      compact
+                      href={`/dashboard/properties/${property.id}`}
+                    />
+                  </div>
+                  <div className="mt-3 flex items-center justify-between text-xs text-slate-600">
+                    <span>Quality score</span>
+                    <span className="font-semibold text-slate-900">{score}%</span>
+                  </div>
+                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className="h-full bg-sky-500"
+                      style={{ width: `${score}%` }}
+                    />
+                  </div>
+                  {property.rejection_reason && status === "rejected" && (
+                    <p className="mt-2 text-xs text-rose-600">
+                      Rejection reason: {property.rejection_reason}
+                    </p>
+                  )}
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link href={`/dashboard/properties/${property.id}`}>
+                      <Button size="sm" variant="secondary">
+                        Edit listing
+                      </Button>
+                    </Link>
+                    {!hasPhotos && (
+                      <Link href={`/dashboard/properties/${property.id}?step=photos`}>
+                        <Button size="sm" variant="secondary">
+                          Add photos
+                        </Button>
+                      </Link>
+                    )}
+                    {status === "draft" || status === "paused" || status === "rejected" ? (
+                      <form action={submitForApproval.bind(null, property.id)}>
+                        <Button size="sm" type="submit">
+                          Submit for approval
+                        </Button>
+                      </form>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
