@@ -31,12 +31,13 @@ if (envFile) {
   }
 }
 
-const baseURL =
+const resolvedBaseURL =
   process.env.PLAYWRIGHT_BASE_URL ||
   process.env.NEXT_PUBLIC_SITE_URL ||
   "http://localhost:3000";
-const useLocalServer =
-  !process.env.PLAYWRIGHT_BASE_URL && !process.env.NEXT_PUBLIC_SITE_URL;
+const isLocalBaseURL =
+  resolvedBaseURL.includes("localhost") || resolvedBaseURL.includes("127.0.0.1");
+const useLocalServer = !process.env.PLAYWRIGHT_BASE_URL && isLocalBaseURL;
 const webServerEnv = Object.fromEntries(
   Object.entries(process.env).filter(([, value]) => typeof value === "string")
 ) as Record<string, string>;
@@ -63,7 +64,7 @@ export default defineConfig({
       }
     : {}),
   use: {
-    baseURL,
+    baseURL: resolvedBaseURL,
     trace: "on-first-retry",
     video: "retain-on-failure",
   },
