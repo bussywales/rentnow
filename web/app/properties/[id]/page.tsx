@@ -8,7 +8,7 @@ import { SaveButton } from "@/components/properties/SaveButton";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
-import { DEV_MOCKS, getApiBaseUrl, getEnvPresence, getSiteUrl } from "@/lib/env";
+import { DEV_MOCKS, getApiBaseUrl, getCanonicalBaseUrl, getEnvPresence } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
@@ -101,7 +101,7 @@ async function getProperty(
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const id = await extractId(params);
   const { property } = await getProperty(id);
-  const baseUrl = (await getSiteUrl({ allowFallback: false })) || "";
+  const baseUrl = await getCanonicalBaseUrl();
 
   if (!property) {
     const canonicalPath = `/properties/${id ?? ""}`;
@@ -146,7 +146,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PropertyDetail({ params }: Props) {
   const envPresence = getEnvPresence();
   const supabaseReady = hasServerSupabaseEnv();
-  const siteUrl = (await getSiteUrl({ allowFallback: false })) || "";
+  const siteUrl = await getCanonicalBaseUrl();
   const id = await extractId(params);
   let property: Property | null = null;
   let fetchError: string | null = null;
