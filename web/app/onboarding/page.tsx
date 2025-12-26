@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
+export const dynamic = "force-dynamic";
+
 const roles = [
   { value: "tenant", label: "Tenant", description: "Search, save, and request viewings." },
   { value: "landlord", label: "Landlord", description: "List properties and manage leads." },

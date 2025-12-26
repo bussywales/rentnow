@@ -8,6 +8,8 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
 
+export const dynamic = "force-dynamic";
+
 const getClient = () => {
   try {
     return createBrowserSupabaseClient();

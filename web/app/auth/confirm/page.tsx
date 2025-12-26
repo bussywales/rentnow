@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
+export const dynamic = "force-dynamic";
+
 type Status = "checking" | "exchanging" | "idle" | "success" | "error";
 
 function ConfirmContent() {

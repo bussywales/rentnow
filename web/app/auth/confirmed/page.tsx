@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
+export const dynamic = "force-dynamic";
+
 function ConfirmedContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
