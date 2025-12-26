@@ -11,6 +11,21 @@ Apply SQL files in this order:
 
 Each migration is idempotent and can be re-run safely.
 
+## Profiles preflight (id-based)
+
+This project uses `public.profiles.id` as the auth.users FK and does not have `user_id`.
+
+Confirm the schema with:
+```sql
+select column_name, data_type
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'profiles'
+order by ordinal_position;
+```
+
+Expected columns: `id`, `role`, `full_name`, `phone`, `city`, `avatar_url`, `created_at`.
+
 ## Apply via Supabase SQL Editor
 
 1) Open your Supabase project SQL editor.
