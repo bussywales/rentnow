@@ -103,6 +103,13 @@ order by table_name, column_name;
 ### App-side verification (admin only)
 - `GET /api/debug/rls` should return `ok: true` with `rls`, `policies`, and `columns` metadata.
 
+## Idempotency Check
+
+To confirm migrations are safe to re-run:
+1) Apply `001_profiles_id_alignment.sql`, `002_core_schema.sql`, and `003_rls_policies.sql`.
+2) Run them a second time in the same order.
+3) The second run must complete with zero errors.
+
 ## Rollback Guidance
 
 Rollback depends on the environment and data:

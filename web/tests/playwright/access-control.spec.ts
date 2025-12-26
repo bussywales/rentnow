@@ -20,6 +20,35 @@ async function login(page: Page, email: string, password: string) {
 }
 
 test.describe("Access control", () => {
+  test("debug rls requires admin", async ({ browser }) => {
+    const anonContext = await browser.newContext();
+    const anonPage = await anonContext.newPage();
+    const anonRes = await anonPage.request.get("/api/debug/rls");
+    expect([401, 403]).toContain(anonRes.status());
+    await anonContext.close();
+
+    test.skip(
+      !(HAS_TENANT && HAS_ADMIN),
+      "Set PLAYWRIGHT_USER_EMAIL/PASSWORD and PLAYWRIGHT_ADMIN_EMAIL/PASSWORD to run debug rls checks."
+    );
+
+    const tenantContext = await browser.newContext();
+    const tenantPage = await tenantContext.newPage();
+    await login(tenantPage, TENANT_EMAIL, TENANT_PASSWORD);
+    const tenantRes = await tenantPage.request.get("/api/debug/rls");
+    expect(tenantRes.status()).toBe(403);
+    await tenantContext.close();
+
+    const adminContext = await browser.newContext();
+    const adminPage = await adminContext.newPage();
+    await login(adminPage, ADMIN_EMAIL, ADMIN_PASSWORD);
+    const adminRes = await adminPage.request.get("/api/debug/rls");
+    expect(adminRes.ok()).toBeTruthy();
+    const adminJson = await adminRes.json();
+    expect(adminJson?.ok).toBeTruthy();
+    expect(adminJson?.results?.metadata).toBeTruthy();
+    await adminContext.close();
+  });
   test("tenant cannot edit or delete landlord property", async ({ browser }) => {
     test.skip(
       !(HAS_TENANT && HAS_LANDLORD),
