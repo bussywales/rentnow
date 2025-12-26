@@ -4,6 +4,7 @@ import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
+import { getPlanForRole, isListingLimitReached } from "@/lib/plans";
 import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
@@ -113,6 +114,9 @@ export default async function DashboardHome() {
     fetchError = "Supabase env vars missing; add NEXT_PUBLIC_SITE_URL and Supabase keys.";
   }
 
+  const plan = getPlanForRole(role);
+  const listingLimitReached = isListingLimitReached(properties.length, plan);
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
@@ -123,11 +127,33 @@ export default async function DashboardHome() {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Link href="/dashboard/properties/new">
-            <Button>New listing</Button>
-          </Link>
+          {listingLimitReached ? (
+            <Button variant="secondary" disabled>
+              Max listings reached
+            </Button>
+          ) : (
+            <Link href="/dashboard/properties/new">
+              <Button>New listing</Button>
+            </Link>
+          )}
         </div>
       </div>
+
+      {plan && listingLimitReached && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-semibold">You have reached your {plan.name} plan limit.</p>
+          <p className="mt-1">
+            Upgrade to publish more listings and unlock premium distribution.
+          </p>
+          <div className="mt-3">
+            <Link href="/support?intent=upgrade">
+              <Button variant="secondary" size="sm">
+                Upgrade
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
 
       {properties.some((property) => normalizeStatus(property) === "rejected") && (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
