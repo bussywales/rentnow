@@ -92,18 +92,21 @@ export async function requireRole({
   startTime,
   roles,
   supabase: existingSupabase,
+  accessToken,
 }: {
   request: Request;
   route: string;
   startTime: number;
   roles: UserRole[];
   supabase?: SupabaseClient;
+  accessToken?: string | null;
 }): Promise<RequireRoleResult> {
   const auth = await requireUser({
     request,
     route,
     startTime,
     supabase: existingSupabase,
+    accessToken,
   });
   if (!auth.ok) return auth;
 
