@@ -8,7 +8,7 @@ const routeLabel = "/api/saved-searches";
 
 const createSchema = z.object({
   name: z.string().min(2),
-  query_params: z.record(z.any()),
+  query_params: z.record(z.string(), z.unknown()),
 });
 
 export async function GET(request: Request) {

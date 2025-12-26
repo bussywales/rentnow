@@ -10,7 +10,7 @@ const routeLabel = "/api/saved-searches/[id]";
 
 const patchSchema = z.object({
   name: z.string().min(2).optional(),
-  query_params: z.record(z.any()).optional(),
+  query_params: z.record(z.string(), z.unknown()).optional(),
   action: z.enum(["check"]).optional(),
 });
 
