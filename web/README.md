@@ -14,7 +14,8 @@ AI-first rental platform for the African market. This MVP is a web-only PWA buil
 - OpenAI (chat completions)
 
 ## Tooling requirements
-- Node.js >=20.9.0 (see `.nvmrc`).
+- Node.js >=20.9.0 (see `.nvmrc`) is mandatory.
+- Any Node 14/16 lint/build failures are non-actionable for this repo.
 - npm (uses `package-lock.json`).
 - Install/build: `npm install`, `npm run lint`, `npm run build`.
 - If Node is below 20.9, `npm install` fails fast via `scripts/check-node.mjs` with a clear error.
@@ -86,6 +87,7 @@ Tables: `profiles`, `properties`, `property_images`, `saved_properties`, `messag
 
 ## Deployment
 - Vercel for the Next.js app (add env vars in project settings).
+- CI/Vercel uses Node 20+ via `package.json` engines and the `check-node.mjs` preinstall guard.
 - Required envs for prod: `NEXT_PUBLIC_SITE_URL`, `SITE_URL` (optional), Supabase URL/keys, and bucket name. Optional `OPENAI_API_KEY` for AI routes.
 - Supabase RLS: apply `supabase/rls_policies.sql` in the Supabase SQL editor after seeding schema; keep canonical host (`https://www.rentnow.space`) in Supabase Auth redirect URLs.
 - Supabase for DB/Auth/Storage (free tier). Allow `*.vercel.app` origins in Auth settings.
