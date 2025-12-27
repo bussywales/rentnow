@@ -85,15 +85,34 @@ export default async function DashboardHome() {
           redirect("/dashboard/saved-searches");
         }
         const isAdmin = role === "admin";
-        let query = supabase
-          .from("properties")
-          .select("*, property_images(image_url,id,position)")
-          .order("created_at", { ascending: false })
-          .order("position", { foreignTable: "property_images", ascending: true });
-        if (!isAdmin) {
-          query = query.eq("owner_id", user.id);
+        const missingPosition = (message?: string | null) =>
+          typeof message === "string" &&
+          message.includes("position") &&
+          message.includes("property_images");
+        const buildQuery = (includePosition: boolean) => {
+          const imageFields = includePosition ? "image_url,id,position" : "image_url,id";
+          let query = supabase
+            .from("properties")
+            .select(`*, property_images(${imageFields})`)
+            .order("created_at", { ascending: false });
+          if (includePosition) {
+            query = query.order("position", {
+              foreignTable: "property_images",
+              ascending: true,
+            });
+          }
+          if (!isAdmin) {
+            query = query.eq("owner_id", user.id);
+          }
+          return query;
+        };
+
+        let { data, error } = await buildQuery(true);
+        if (error && missingPosition(error.message)) {
+          const fallback = await buildQuery(false);
+          data = fallback.data;
+          error = fallback.error;
         }
-        const { data, error } = await query;
         if (error) {
           fetchError = error.message;
         } else {

@@ -14,6 +14,7 @@ Apply SQL files in this order:
 7) `web/supabase/migrations/007_property_images_position.sql`
 8) `web/supabase/migrations/008_fix_profiles_rls_recursion.sql`
 9) `web/supabase/migrations/009_properties_workflow_columns.sql`
+10) `web/supabase/migrations/010_property_images_position.sql`
 
 Each migration is idempotent and can be re-run safely.
 
@@ -123,7 +124,8 @@ where table_schema = 'public'
     'recipient_id',
     'is_approved',
     'is_active',
-    'status'
+    'status',
+    'position'
   )
 order by table_name, column_name;
 ```
