@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getUserRole, requireOwnership, requireUser } from "@/lib/authz";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
 
@@ -39,6 +41,25 @@ const idParamSchema = z.object({
 
 const uuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const getAnonEnv = () => {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey =
+    process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+  return { url, anonKey };
+};
+
+async function createRequestSupabaseClient(accessToken?: string | null) {
+  const env = accessToken ? getAnonEnv() : null;
+  if (accessToken && env) {
+    return createClient(env.url, env.anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    });
+  }
+  return createServerSupabaseClient();
+}
 
 export async function GET(
   request: NextRequest,
@@ -177,7 +198,7 @@ export async function PUT(
       ? authHeader.slice("Bearer ".length)
       : null;
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = await createRequestSupabaseClient(bearerToken);
     const auth = await requireUser({
       request,
       route: routeLabel,
@@ -187,13 +208,28 @@ export async function PUT(
     });
     if (!auth.ok) return auth.response;
 
-    const { data: existing, error: fetchError } = await supabase
-      .from("properties")
-      .select("owner_id, status")
-      .eq("id", id)
-      .maybeSingle();
+    const role = await getUserRole(supabase, auth.user.id);
+    if (!role || !["landlord", "agent", "admin"].includes(role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
-    if (fetchError || !existing) {
+    const adminClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
+    const { data: existing, error: fetchError } = adminClient
+      ? await adminClient.from("properties").select("owner_id, status").eq("id", id).maybeSingle()
+      : await supabase.from("properties").select("owner_id, status").eq("id", id).maybeSingle();
+
+    if (fetchError) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 400,
+        startTime,
+        error: new Error(fetchError.message),
+      });
+      return NextResponse.json({ error: fetchError.message }, { status: 400 });
+    }
+
+    if (!existing) {
       logFailure({
         request,
         route: routeLabel,
@@ -203,8 +239,6 @@ export async function PUT(
       });
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
     }
-
-    const role = await getUserRole(supabase, auth.user.id);
     const ownership = requireOwnership({
       request,
       route: routeLabel,
@@ -299,6 +333,13 @@ export async function PUT(
   }
 }
 
+export async function PATCH(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  return PUT(request, context);
+}
+
 export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
@@ -346,12 +387,11 @@ export async function DELETE(
     return NextResponse.json({ error: "Property not found" }, { status: 404 });
   }
 
-  const role = await getUserRole(supabase, auth.user.id);
-  const ownership = requireOwnership({
-    request,
-    route: routeLabel,
-    startTime,
-    resourceOwnerId: existing.owner_id,
+    const ownership = requireOwnership({
+      request,
+      route: routeLabel,
+      startTime,
+      resourceOwnerId: existing.owner_id,
     userId: auth.user.id,
     role,
     allowRoles: ["admin"],
