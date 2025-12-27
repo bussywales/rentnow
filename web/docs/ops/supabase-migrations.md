@@ -8,6 +8,7 @@ Apply SQL files in this order:
 1) `web/supabase/migrations/001_profiles_id_alignment.sql`
 2) `web/supabase/migrations/002_core_schema.sql`
 3) `web/supabase/migrations/003_rls_policies.sql`
+4) `web/supabase/migrations/008_fix_profiles_rls_recursion.sql`
 
 Each migration is idempotent and can be re-run safely.
 
@@ -25,6 +26,9 @@ order by ordinal_position;
 ```
 
 Expected columns: `id`, `role`, `full_name`, `phone`, `city`, `avatar_url`, `created_at`.
+
+Admin profile reads are gated by a JWT claim (`role=admin`) or `service_role`. Apply
+`008_fix_profiles_rls_recursion.sql` after the base policies to avoid recursive RLS.
 
 ## Apply via Supabase SQL Editor
 
