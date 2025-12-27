@@ -387,11 +387,12 @@ export async function DELETE(
     return NextResponse.json({ error: "Property not found" }, { status: 404 });
   }
 
-    const ownership = requireOwnership({
-      request,
-      route: routeLabel,
-      startTime,
-      resourceOwnerId: existing.owner_id,
+  const role = await getUserRole(supabase, auth.user.id);
+  const ownership = requireOwnership({
+    request,
+    route: routeLabel,
+    startTime,
+    resourceOwnerId: existing.owner_id,
     userId: auth.user.id,
     role,
     allowRoles: ["admin"],
