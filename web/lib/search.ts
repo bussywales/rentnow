@@ -14,7 +14,9 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     message.includes("property_images");
 
   const runQuery = async (includePosition: boolean) => {
-    const imageFields = includePosition ? "id,image_url,position" : "id,image_url";
+    const imageFields = includePosition
+      ? "id,image_url,position,created_at"
+      : "id,image_url,created_at";
 
     let query = supabase
       .from("properties")
@@ -51,9 +53,17 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const ordered = includePosition
-      ? query.order("position", { foreignTable: "property_images", ascending: true })
-      : query;
+    let ordered = query;
+    if (includePosition) {
+      ordered = ordered
+        .order("position", { foreignTable: "property_images", ascending: true })
+        .order("created_at", { foreignTable: "property_images", ascending: true });
+    } else {
+      ordered = ordered.order("created_at", {
+        foreignTable: "property_images",
+        ascending: true,
+      });
+    }
 
     const { data, error, count } = await ordered
       .order("created_at", { ascending: false })

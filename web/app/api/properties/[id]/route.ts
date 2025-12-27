@@ -104,13 +104,22 @@ export async function GET(
     message.includes("property_images");
 
   const buildQuery = (includePosition: boolean) => {
-    const imageFields = includePosition ? "id, image_url, position" : "id, image_url";
+    const imageFields = includePosition
+      ? "id, image_url, position, created_at"
+      : "id, image_url, created_at";
     let query = supabase
       .from("properties")
       .select(`*, property_images(${imageFields})`)
       .eq("id", id);
     if (includePosition) {
-      query = query.order("position", { foreignTable: "property_images", ascending: true });
+      query = query
+        .order("position", { foreignTable: "property_images", ascending: true })
+        .order("created_at", { foreignTable: "property_images", ascending: true });
+    } else {
+      query = query.order("created_at", {
+        foreignTable: "property_images",
+        ascending: true,
+      });
     }
     return query.maybeSingle();
   };

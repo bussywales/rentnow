@@ -175,13 +175,22 @@ export async function GET(request: NextRequest) {
       if (!auth.ok) return auth.response;
 
       const buildOwnerQuery = (includePosition: boolean) => {
-        const imageFields = includePosition ? "image_url,id,position" : "image_url,id";
+        const imageFields = includePosition
+          ? "image_url,id,position,created_at"
+          : "image_url,id,created_at";
         let query = supabase
           .from("properties")
           .select(`*, property_images(${imageFields})`)
           .order("created_at", { ascending: false });
         if (includePosition) {
-          query = query.order("position", { foreignTable: "property_images", ascending: true });
+          query = query
+            .order("position", { foreignTable: "property_images", ascending: true })
+            .order("created_at", { foreignTable: "property_images", ascending: true });
+        } else {
+          query = query.order("created_at", {
+            foreignTable: "property_images",
+            ascending: true,
+          });
         }
         return query;
       };
@@ -253,7 +262,9 @@ export async function GET(request: NextRequest) {
     }
 
     const buildPublicQuery = (includePosition: boolean) => {
-      const imageFields = includePosition ? "image_url,id,position" : "image_url,id";
+      const imageFields = includePosition
+        ? "image_url,id,position,created_at"
+        : "image_url,id,created_at";
       let query = supabase
         .from("properties")
         .select(`*, property_images(${imageFields})`, {
@@ -263,7 +274,14 @@ export async function GET(request: NextRequest) {
         .eq("is_active", true)
         .order("created_at", { ascending: false });
       if (includePosition) {
-        query = query.order("position", { foreignTable: "property_images", ascending: true });
+        query = query
+          .order("position", { foreignTable: "property_images", ascending: true })
+          .order("created_at", { foreignTable: "property_images", ascending: true });
+      } else {
+        query = query.order("created_at", {
+          foreignTable: "property_images",
+          ascending: true,
+        });
       }
       return query;
     };

@@ -17,6 +17,8 @@ Apply SQL files in this order:
 10) `web/supabase/migrations/010_property_images_position.sql`
 
 Each migration is idempotent and can be re-run safely.
+If your environment already has workflow columns (e.g., `properties.status`),
+`009_properties_workflow_columns.sql` is a no-op and can be skipped.
 
 If you see `column properties.status does not exist`, apply:
 - `web/supabase/migrations/009_properties_workflow_columns.sql`
@@ -128,6 +130,16 @@ where table_schema = 'public'
     'position'
   )
 order by table_name, column_name;
+```
+
+### Property image columns
+```sql
+select column_name
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'property_images'
+  and column_name in ('id', 'property_id', 'image_url', 'created_at', 'position')
+order by column_name;
 ```
 
 ### App-side verification (admin only)
