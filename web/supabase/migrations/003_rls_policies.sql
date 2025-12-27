@@ -28,14 +28,6 @@ CREATE POLICY "profiles select self" ON public.profiles
   FOR SELECT
   USING (auth.uid() = id);
 
-DROP POLICY IF EXISTS "profiles admin read" ON public.profiles;
-CREATE POLICY "profiles admin read" ON public.profiles
-  FOR SELECT
-  USING (
-    (auth.jwt() ->> 'role') = 'admin'
-    OR auth.role() = 'service_role'
-  );
-
 DROP POLICY IF EXISTS "profiles insert self" ON public.profiles;
 CREATE POLICY "profiles insert self" ON public.profiles
   FOR INSERT
