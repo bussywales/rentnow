@@ -8,12 +8,17 @@ Apply SQL files in this order:
 1) `web/supabase/migrations/001_profiles_id_alignment.sql`
 2) `web/supabase/migrations/002_core_schema.sql`
 3) `web/supabase/migrations/003_rls_policies.sql`
-4) `web/supabase/migrations/008_fix_profiles_rls_recursion.sql`
+4) `web/supabase/migrations/004_profile_onboarding.sql`
+5) `web/supabase/migrations/005_property_status_and_details.sql`
+6) `web/supabase/migrations/006_saved_searches.sql`
+7) `web/supabase/migrations/007_property_images_position.sql`
+8) `web/supabase/migrations/008_fix_profiles_rls_recursion.sql`
+9) `web/supabase/migrations/009_properties_workflow_columns.sql`
 
 Each migration is idempotent and can be re-run safely.
 
 If you see `column properties.status does not exist`, apply:
-- `web/supabase/migrations/009_properties_status.sql`
+- `web/supabase/migrations/009_properties_workflow_columns.sql`
 
 ## Profiles preflight (id-based)
 
@@ -117,7 +122,8 @@ where table_schema = 'public'
     'sender_id',
     'recipient_id',
     'is_approved',
-    'is_active'
+    'is_active',
+    'status'
   )
 order by table_name, column_name;
 ```

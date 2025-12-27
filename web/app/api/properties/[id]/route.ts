@@ -285,7 +285,11 @@ export async function PUT(
 
     if (statusMissing) {
       return NextResponse.json(
-        { error: "DB migration required: properties.status" },
+        {
+          error: "DB migration required: properties.status",
+          missingColumn: "properties.status",
+          migration: "009_properties_workflow_columns.sql",
+        },
         { status: 409 }
       );
     }
