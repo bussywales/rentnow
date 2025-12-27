@@ -213,10 +213,53 @@ export async function PUT(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const missingStatus = (message?: string | null) =>
+      typeof message === "string" && message.includes("properties.status");
+
     const adminClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
-    const { data: existing, error: fetchError } = adminClient
-      ? await adminClient.from("properties").select("owner_id, status").eq("id", id).maybeSingle()
-      : await supabase.from("properties").select("owner_id, status").eq("id", id).maybeSingle();
+    let existing: { owner_id: string } | null = null;
+    let fetchError: { message: string } | null = null;
+    let statusMissing = false;
+
+    if (adminClient) {
+      const initial = await adminClient
+        .from("properties")
+        .select("owner_id, status")
+        .eq("id", id)
+        .maybeSingle();
+      if (initial.error && missingStatus(initial.error.message)) {
+        statusMissing = true;
+        const fallback = await adminClient
+          .from("properties")
+          .select("owner_id")
+          .eq("id", id)
+          .maybeSingle();
+        existing = fallback.data ?? null;
+        fetchError = fallback.error;
+      } else {
+        existing = (initial.data as { owner_id: string } | null) ?? null;
+        fetchError = initial.error;
+      }
+    } else {
+      const initial = await supabase
+        .from("properties")
+        .select("owner_id, status")
+        .eq("id", id)
+        .maybeSingle();
+      if (initial.error && missingStatus(initial.error.message)) {
+        statusMissing = true;
+        const fallback = await supabase
+          .from("properties")
+          .select("owner_id")
+          .eq("id", id)
+          .maybeSingle();
+        existing = fallback.data ?? null;
+        fetchError = fallback.error;
+      } else {
+        existing = (initial.data as { owner_id: string } | null) ?? null;
+        fetchError = initial.error;
+      }
+    }
 
     if (fetchError) {
       logFailure({
@@ -238,6 +281,13 @@ export async function PUT(
         error: "Property not found",
       });
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
+    }
+
+    if (statusMissing) {
+      return NextResponse.json(
+        { error: "DB migration required: properties.status" },
+        { status: 409 }
+      );
     }
     const ownership = requireOwnership({
       request,

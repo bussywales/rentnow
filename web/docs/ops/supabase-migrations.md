@@ -12,6 +12,9 @@ Apply SQL files in this order:
 
 Each migration is idempotent and can be re-run safely.
 
+If you see `column properties.status does not exist`, apply:
+- `web/supabase/migrations/009_properties_status.sql`
+
 ## Profiles preflight (id-based)
 
 This project uses `public.profiles.id` as the auth.users FK and does not have `user_id`.
