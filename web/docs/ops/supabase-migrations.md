@@ -15,6 +15,7 @@ Apply SQL files in this order:
 8) `web/supabase/migrations/008_fix_profiles_rls_recursion.sql`
 9) `web/supabase/migrations/009_properties_workflow_columns.sql`
 10) `web/supabase/migrations/010_property_images_position.sql`
+11) `web/supabase/migrations/011_agent_delegations.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -71,6 +72,7 @@ select to_regclass('public.property_images') as property_images;
 select to_regclass('public.saved_properties') as saved_properties;
 select to_regclass('public.messages') as messages;
 select to_regclass('public.viewing_requests') as viewing_requests;
+select to_regclass('public.agent_delegations') as agent_delegations;
 ```
 
 ### RLS enabled
@@ -83,7 +85,8 @@ where relname in (
   'property_images',
   'saved_properties',
   'messages',
-  'viewing_requests'
+  'viewing_requests',
+  'agent_delegations'
 );
 ```
 
@@ -98,7 +101,8 @@ where schemaname = 'public'
     'property_images',
     'saved_properties',
     'messages',
-    'viewing_requests'
+    'viewing_requests',
+    'agent_delegations'
   )
 order by tablename, policyname;
 ```
@@ -127,7 +131,9 @@ where table_schema = 'public'
     'is_approved',
     'is_active',
     'status',
-    'position'
+    'position',
+    'agent_id',
+    'landlord_id'
   )
 order by table_name, column_name;
 ```

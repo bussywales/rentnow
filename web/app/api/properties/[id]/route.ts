@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getUserRole, requireOwnership, requireUser } from "@/lib/authz";
+import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
@@ -174,7 +175,14 @@ export async function GET(
       role,
       allowRoles: ["admin"],
     });
-    if (!ownership.ok) return ownership.response;
+    if (!ownership.ok) {
+      if (role === "agent") {
+        const allowed = await hasActiveDelegation(supabase, auth.user.id, data.owner_id);
+        if (!allowed) return ownership.response;
+      } else {
+        return ownership.response;
+      }
+    }
   }
 
   return NextResponse.json({ property: data });
@@ -311,7 +319,14 @@ export async function PUT(
       role,
       allowRoles: ["admin"],
     });
-    if (!ownership.ok) return ownership.response;
+    if (!ownership.ok) {
+      if (role === "agent") {
+        const allowed = await hasActiveDelegation(supabase, auth.user.id, existing.owner_id);
+        if (!allowed) return ownership.response;
+      } else {
+        return ownership.response;
+      }
+    }
 
     const body = await request.json();
     const updates = updateSchema.parse(body);
@@ -460,7 +475,14 @@ export async function DELETE(
     role,
     allowRoles: ["admin"],
   });
-  if (!ownership.ok) return ownership.response;
+  if (!ownership.ok) {
+    if (role === "agent") {
+      const allowed = await hasActiveDelegation(supabase, auth.user.id, existing.owner_id);
+      if (!allowed) return ownership.response;
+    } else {
+      return ownership.response;
+    }
+  }
 
   const { error } = await supabase.from("properties").delete().eq("id", id);
 

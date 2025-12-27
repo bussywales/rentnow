@@ -3,6 +3,7 @@ import { PropertyStepper } from "@/components/properties/PropertyStepper";
 import { getApiBaseUrl } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
+import { cookies } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -38,7 +39,11 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
   try {
     const apiBaseUrl = await getApiBaseUrl();
     const listUrl = `${apiBaseUrl}/api/properties?scope=own`;
-    const listRes = await fetch(listUrl, { cache: "no-store" });
+    const cookieHeader = cookies().toString();
+    const listRes = await fetch(listUrl, {
+      cache: "no-store",
+      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+    });
     if (listRes.ok) {
       const json = await listRes.json();
       const all = (json.properties as Property[]) || [];
@@ -53,7 +58,10 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
 
     // Fallback to detail API for completeness (e.g., non-public records)
     const detailUrl = `${apiBaseUrl}/api/properties/${cleanId}?scope=own`;
-    const res = await fetch(detailUrl, { cache: "no-store" });
+    const res = await fetch(detailUrl, {
+      cache: "no-store",
+      headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+    });
     if (res.ok) {
       const json = await res.json();
       const data = json.property as Property & {

@@ -99,3 +99,12 @@ export interface SavedSearch {
   last_notified_at?: string | null;
   last_checked_at?: string | null;
 }
+
+export interface AgentDelegation {
+  id: string;
+  agent_id: string;
+  landlord_id: string;
+  status: "pending" | "active" | "revoked";
+  created_at?: string;
+  approved_at?: string | null;
+}

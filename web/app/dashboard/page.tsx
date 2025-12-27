@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
+import { readActingAsFromCookies } from "@/lib/acting-as.server";
+import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 import { getPlanForRole, isListingLimitReached } from "@/lib/plans";
@@ -85,6 +87,16 @@ export default async function DashboardHome() {
           redirect("/dashboard/saved-searches");
         }
         const isAdmin = role === "admin";
+        let ownerId = user.id;
+        if (role === "agent") {
+          const actingAs = await readActingAsFromCookies();
+          if (actingAs && actingAs !== user.id) {
+            const allowed = await hasActiveDelegation(supabase, user.id, actingAs);
+            if (allowed) {
+              ownerId = actingAs;
+            }
+          }
+        }
         const missingPosition = (message?: string | null) =>
           typeof message === "string" &&
           message.includes("position") &&
@@ -113,7 +125,7 @@ export default async function DashboardHome() {
             });
           }
           if (!isAdmin) {
-            query = query.eq("owner_id", user.id);
+            query = query.eq("owner_id", ownerId);
           }
           return query;
         };

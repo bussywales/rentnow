@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
+import { hasActiveDelegation } from "@/lib/agent-delegations";
+import { readActingAsFromRequest } from "@/lib/acting-as";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
 
@@ -60,6 +62,17 @@ export async function POST(request: Request) {
 
     const supabase = auth.supabase;
     const user = auth.user;
+    const role = auth.role;
+    const actingAs = readActingAsFromRequest(request as NextRequest);
+    let ownerId = user.id;
+
+    if (role === "agent" && actingAs && actingAs !== user.id) {
+      const allowed = await hasActiveDelegation(supabase, user.id, actingAs);
+      if (!allowed) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      ownerId = actingAs;
+    }
 
     const body = await request.json();
     const data = propertySchema.parse(body);
@@ -82,7 +95,7 @@ export async function POST(request: Request) {
         is_approved: isApproved,
         submitted_at: submittedAt,
         approved_at: approvedAt,
-        owner_id: user.id,
+        owner_id: ownerId,
       })
       .select("id")
       .single();
@@ -174,6 +187,16 @@ export async function GET(request: NextRequest) {
       });
       if (!auth.ok) return auth.response;
 
+      const actingAs = readActingAsFromRequest(request);
+      let ownerId = auth.user.id;
+      if (auth.role === "agent" && actingAs && actingAs !== auth.user.id) {
+        const allowed = await hasActiveDelegation(supabase, auth.user.id, actingAs);
+        if (!allowed) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+        ownerId = actingAs;
+      }
+
       const buildOwnerQuery = (includePosition: boolean) => {
         const imageFields = includePosition
           ? "image_url,id,position,created_at"
@@ -196,10 +219,10 @@ export async function GET(request: NextRequest) {
       };
 
       if (auth.role !== "admin") {
-        const baseQuery = buildOwnerQuery(true).eq("owner_id", auth.user.id);
+        const baseQuery = buildOwnerQuery(true).eq("owner_id", ownerId);
         const { data, error } = await baseQuery;
         if (error && missingPosition(error.message)) {
-          const fallback = await buildOwnerQuery(false).eq("owner_id", auth.user.id);
+          const fallback = await buildOwnerQuery(false).eq("owner_id", ownerId);
           if (fallback.error) {
             logFailure({
               request,

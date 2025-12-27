@@ -5,6 +5,7 @@ import { getProfile, getSession } from "@/lib/auth";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import { ActingAsSelector } from "@/components/dashboard/ActingAsSelector";
 
 export default async function DashboardLayout({
   children,
@@ -77,6 +78,7 @@ export default async function DashboardLayout({
           </Link>
         </div>
       )}
+      {profile?.role === "agent" && <ActingAsSelector />}
       {children}
     </div>
   );

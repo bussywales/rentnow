@@ -31,6 +31,12 @@ const requiredPolicies: Record<string, string[]> = {
   ],
   messages: ["messages participant/owner read", "messages sender insert"],
   viewing_requests: ["viewings tenant insert", "viewings tenant/owner read", "viewings tenant/owner update"],
+  agent_delegations: [
+    "agent delegations delete",
+    "agent delegations insert",
+    "agent delegations select",
+    "agent delegations update",
+  ],
 };
 
 export async function GET(request: Request) {
@@ -82,6 +88,7 @@ export async function GET(request: Request) {
       "saved_searches",
       "messages",
       "viewing_requests",
+      "agent_delegations",
     ];
     rlsTables.forEach((table) => {
       if (!rls?.[table]?.enabled) {
@@ -113,6 +120,9 @@ export async function GET(request: Request) {
     if (!columns?.messages?.recipient_id) issues.push("missing column: messages.recipient_id");
     if (!columns?.viewing_requests?.tenant_id) issues.push("missing column: viewing_requests.tenant_id");
     if (!columns?.viewing_requests?.property_id) issues.push("missing column: viewing_requests.property_id");
+    if (!columns?.agent_delegations?.agent_id) issues.push("missing column: agent_delegations.agent_id");
+    if (!columns?.agent_delegations?.landlord_id) issues.push("missing column: agent_delegations.landlord_id");
+    if (!columns?.agent_delegations?.status) issues.push("missing column: agent_delegations.status");
   }
 
   const publicProps = await supabase
