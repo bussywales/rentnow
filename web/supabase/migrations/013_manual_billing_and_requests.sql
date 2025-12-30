@@ -1,124 +1,57 @@
--- RentNow RLS and policies
--- Apply in Supabase SQL editor or via CLI (after updating auth session handling).
--- These policies align with the current app routes: public browsing of approved listings,
--- authenticated owners/admins manage their own records, and user-owned collections/messages.
+-- Manual billing fields and upgrade requests (idempotent).
 
--- Enable and enforce RLS on all exposed tables
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.profiles FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.profile_plans
+  ADD COLUMN IF NOT EXISTS billing_source TEXT,
+  ADD COLUMN IF NOT EXISTS valid_until TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS upgraded_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS upgraded_by UUID REFERENCES public.profiles (id) ON DELETE SET NULL;
 
-ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.properties FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.profile_plans
+  ALTER COLUMN billing_source SET DEFAULT 'manual';
 
-ALTER TABLE public.property_images ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.property_images FORCE ROW LEVEL SECURITY;
+UPDATE public.profile_plans
+SET billing_source = 'manual'
+WHERE billing_source IS NULL;
 
-ALTER TABLE public.saved_properties ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.saved_properties FORCE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'profile_plans'
+      AND column_name = 'billing_source'
+      AND is_nullable = 'YES'
+  ) THEN
+    ALTER TABLE public.profile_plans
+      ALTER COLUMN billing_source SET NOT NULL;
+  END IF;
+END $$;
 
-ALTER TABLE public.saved_searches ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.saved_searches FORCE ROW LEVEL SECURITY;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'profile_plans_billing_source_check'
+      AND conrelid = 'public.profile_plans'::regclass
+  ) THEN
+    ALTER TABLE public.profile_plans
+      ADD CONSTRAINT profile_plans_billing_source_check
+      CHECK (billing_source IN ('manual', 'stripe', 'paystack'));
+  END IF;
+END $$;
 
-ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.messages FORCE ROW LEVEL SECURITY;
-
-ALTER TABLE public.viewing_requests ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.viewing_requests FORCE ROW LEVEL SECURITY;
-
-ALTER TABLE public.agent_delegations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.agent_delegations FORCE ROW LEVEL SECURITY;
-
-ALTER TABLE public.profile_plans ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.profile_plans FORCE ROW LEVEL SECURITY;
+-- Admin-only billing notes.
+CREATE TABLE IF NOT EXISTS public.profile_billing_notes (
+  profile_id UUID PRIMARY KEY REFERENCES public.profiles (id) ON DELETE CASCADE,
+  billing_notes TEXT,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by UUID REFERENCES public.profiles (id) ON DELETE SET NULL
+);
 
 ALTER TABLE public.profile_billing_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profile_billing_notes FORCE ROW LEVEL SECURITY;
 
-ALTER TABLE public.plan_upgrade_requests ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.plan_upgrade_requests FORCE ROW LEVEL SECURITY;
-
--- Helpers (inline): is_admin checks the caller's profile role
--- EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-
--- profiles: users manage their own row
-DROP POLICY IF EXISTS "profiles select self" ON public.profiles;
-CREATE POLICY "profiles select self" ON public.profiles
-  FOR SELECT
-  USING (auth.uid() = id);
-
-DROP POLICY IF EXISTS "profiles insert self" ON public.profiles;
-CREATE POLICY "profiles insert self" ON public.profiles
-  FOR INSERT
-  WITH CHECK (auth.uid() = id);
-
-DROP POLICY IF EXISTS "profiles update self" ON public.profiles;
-CREATE POLICY "profiles update self" ON public.profiles
-  FOR UPDATE
-  USING (auth.uid() = id)
-  WITH CHECK (auth.uid() = id);
-
--- agent_delegations: agents/landlords can see their delegations
-DROP POLICY IF EXISTS "agent delegations select" ON public.agent_delegations;
-CREATE POLICY "agent delegations select" ON public.agent_delegations
-  FOR SELECT
-  USING (
-    auth.uid() = agent_id
-    OR auth.uid() = landlord_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
-
-DROP POLICY IF EXISTS "agent delegations insert" ON public.agent_delegations;
-CREATE POLICY "agent delegations insert" ON public.agent_delegations
-  FOR INSERT
-  WITH CHECK (
-    (
-      auth.uid() = agent_id
-      AND status = 'pending'
-    )
-    OR (
-      auth.uid() = landlord_id
-      AND status IN ('pending', 'active')
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
-
-DROP POLICY IF EXISTS "agent delegations update" ON public.agent_delegations;
-CREATE POLICY "agent delegations update" ON public.agent_delegations
-  FOR UPDATE
-  USING (
-    auth.uid() = landlord_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  )
-  WITH CHECK (
-    auth.uid() = landlord_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
-
-DROP POLICY IF EXISTS "agent delegations delete" ON public.agent_delegations;
-CREATE POLICY "agent delegations delete" ON public.agent_delegations
-  FOR DELETE
-  USING (
-    auth.uid() = agent_id
-    OR auth.uid() = landlord_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
-
--- profile_plans: users can read their own plan rows
-DROP POLICY IF EXISTS "profile plans select self" ON public.profile_plans;
-CREATE POLICY "profile plans select self" ON public.profile_plans
-  FOR SELECT
-  USING (auth.uid() = profile_id);
-
-DROP POLICY IF EXISTS "profile plans insert self" ON public.profile_plans;
-CREATE POLICY "profile plans insert self" ON public.profile_plans
-  FOR INSERT
-  WITH CHECK (
-    auth.uid() = profile_id
-    AND plan_tier = 'free'
-    AND max_listings_override IS NULL
-  );
-
--- profile_billing_notes: admin-only
 DROP POLICY IF EXISTS "billing notes admin read" ON public.profile_billing_notes;
 CREATE POLICY "billing notes admin read" ON public.profile_billing_notes
   FOR SELECT
@@ -130,7 +63,42 @@ CREATE POLICY "billing notes admin write" ON public.profile_billing_notes
   USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
   WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
 
--- plan_upgrade_requests: users can request upgrades, admins can manage
+-- Upgrade requests table.
+CREATE TABLE IF NOT EXISTS public.plan_upgrade_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  profile_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  requester_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  requested_plan_tier TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  resolved_at TIMESTAMPTZ,
+  resolved_by UUID REFERENCES public.profiles (id) ON DELETE SET NULL
+);
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'plan_upgrade_requests_status_check'
+      AND conrelid = 'public.plan_upgrade_requests'::regclass
+  ) THEN
+    ALTER TABLE public.plan_upgrade_requests
+      ADD CONSTRAINT plan_upgrade_requests_status_check
+      CHECK (status IN ('pending', 'approved', 'rejected'));
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_plan_upgrade_requests_profile_status
+  ON public.plan_upgrade_requests (profile_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_plan_upgrade_requests_requester_status
+  ON public.plan_upgrade_requests (requester_id, status);
+
+ALTER TABLE public.plan_upgrade_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.plan_upgrade_requests FORCE ROW LEVEL SECURITY;
+
 DROP POLICY IF EXISTS "upgrade requests select self" ON public.plan_upgrade_requests;
 CREATE POLICY "upgrade requests select self" ON public.plan_upgrade_requests
   FOR SELECT
@@ -168,242 +136,6 @@ DROP POLICY IF EXISTS "upgrade requests delete admin" ON public.plan_upgrade_req
 CREATE POLICY "upgrade requests delete admin" ON public.plan_upgrade_requests
   FOR DELETE
   USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
-
--- properties: public can read approved/active; owners/admins can manage their own
-DROP POLICY IF EXISTS "properties public read" ON public.properties;
-CREATE POLICY "properties public read" ON public.properties
-  FOR SELECT
-  USING (is_approved = TRUE AND is_active = TRUE);
-
-DROP POLICY IF EXISTS "properties owner/admin read" ON public.properties;
-CREATE POLICY "properties owner/admin read" ON public.properties
-  FOR SELECT
-  USING (
-    auth.uid() = owner_id
-    OR EXISTS (
-      SELECT 1 FROM public.agent_delegations d
-      WHERE d.agent_id = auth.uid()
-        AND d.landlord_id = owner_id
-        AND d.status = 'active'
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
-
-DROP POLICY IF EXISTS "properties owner/admin insert" ON public.properties;
-CREATE POLICY "properties owner/admin insert" ON public.properties
-  FOR INSERT
-  WITH CHECK (
-    auth.uid() = owner_id
-    OR EXISTS (
-      SELECT 1 FROM public.agent_delegations d
-      WHERE d.agent_id = auth.uid()
-        AND d.landlord_id = owner_id
-        AND d.status = 'active'
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
-
-DROP POLICY IF EXISTS "properties owner/admin update" ON public.properties;
-CREATE POLICY "properties owner/admin update" ON public.properties
-  FOR UPDATE
-  USING (
-    auth.uid() = owner_id
-    OR EXISTS (
-      SELECT 1 FROM public.agent_delegations d
-      WHERE d.agent_id = auth.uid()
-        AND d.landlord_id = owner_id
-        AND d.status = 'active'
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  )
-  WITH CHECK (
-    auth.uid() = owner_id
-    OR EXISTS (
-      SELECT 1 FROM public.agent_delegations d
-      WHERE d.agent_id = auth.uid()
-        AND d.landlord_id = owner_id
-        AND d.status = 'active'
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
-
-DROP POLICY IF EXISTS "properties owner/admin delete" ON public.properties;
-CREATE POLICY "properties owner/admin delete" ON public.properties
-  FOR DELETE
-  USING (
-    auth.uid() = owner_id
-    OR EXISTS (
-      SELECT 1 FROM public.agent_delegations d
-      WHERE d.agent_id = auth.uid()
-        AND d.landlord_id = owner_id
-        AND d.status = 'active'
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
-
--- property_images: follow parent property permissions
-DROP POLICY IF EXISTS "images public read approved" ON public.property_images;
-CREATE POLICY "images public read approved" ON public.property_images
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.properties pr
-      WHERE pr.id = property_id
-        AND pr.is_approved = TRUE
-        AND pr.is_active = TRUE
-    )
-  );
-
-DROP POLICY IF EXISTS "images owner/admin read" ON public.property_images;
-CREATE POLICY "images owner/admin read" ON public.property_images
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.properties pr
-      WHERE pr.id = property_id
-        AND (
-          pr.owner_id = auth.uid()
-          OR EXISTS (
-            SELECT 1 FROM public.agent_delegations d
-            WHERE d.agent_id = auth.uid()
-              AND d.landlord_id = pr.owner_id
-              AND d.status = 'active'
-          )
-          OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-        )
-    )
-  );
-
-DROP POLICY IF EXISTS "images owner/admin insert" ON public.property_images;
-CREATE POLICY "images owner/admin insert" ON public.property_images
-  FOR INSERT
-  WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM public.properties pr
-      WHERE pr.id = property_id
-        AND (
-          pr.owner_id = auth.uid()
-          OR EXISTS (
-            SELECT 1 FROM public.agent_delegations d
-            WHERE d.agent_id = auth.uid()
-              AND d.landlord_id = pr.owner_id
-              AND d.status = 'active'
-          )
-          OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-        )
-    )
-  );
-
-DROP POLICY IF EXISTS "images owner/admin delete" ON public.property_images;
-CREATE POLICY "images owner/admin delete" ON public.property_images
-  FOR DELETE
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.properties pr
-      WHERE pr.id = property_id
-        AND (
-          pr.owner_id = auth.uid()
-          OR EXISTS (
-            SELECT 1 FROM public.agent_delegations d
-            WHERE d.agent_id = auth.uid()
-              AND d.landlord_id = pr.owner_id
-              AND d.status = 'active'
-          )
-          OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-        )
-    )
-  );
-
--- saved_properties: user-owned favourites
-DROP POLICY IF EXISTS "saved self select" ON public.saved_properties;
-CREATE POLICY "saved self select" ON public.saved_properties
-  FOR SELECT
-  USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "saved self insert" ON public.saved_properties;
-CREATE POLICY "saved self insert" ON public.saved_properties
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "saved self delete" ON public.saved_properties;
-CREATE POLICY "saved self delete" ON public.saved_properties
-  FOR DELETE
-  USING (auth.uid() = user_id);
-
--- saved_searches: user-owned saved searches
-DROP POLICY IF EXISTS "saved searches select self" ON public.saved_searches;
-CREATE POLICY "saved searches select self" ON public.saved_searches
-  FOR SELECT
-  USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "saved searches insert self" ON public.saved_searches;
-CREATE POLICY "saved searches insert self" ON public.saved_searches
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "saved searches update self" ON public.saved_searches;
-CREATE POLICY "saved searches update self" ON public.saved_searches
-  FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "saved searches delete self" ON public.saved_searches;
-CREATE POLICY "saved searches delete self" ON public.saved_searches
-  FOR DELETE
-  USING (auth.uid() = user_id);
-
--- messages: participants and admins can read; sender creates
-DROP POLICY IF EXISTS "messages participant/owner read" ON public.messages;
-CREATE POLICY "messages participant/owner read" ON public.messages
-  FOR SELECT
-  USING (
-    auth.uid() = sender_id
-    OR auth.uid() = recipient_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
-
-DROP POLICY IF EXISTS "messages sender insert" ON public.messages;
-CREATE POLICY "messages sender insert" ON public.messages
-  FOR INSERT
-  WITH CHECK (auth.uid() = sender_id);
-
--- viewing_requests: tenants create; tenants, owners, admins can read/update
-DROP POLICY IF EXISTS "viewings tenant/owner read" ON public.viewing_requests;
-CREATE POLICY "viewings tenant/owner read" ON public.viewing_requests
-  FOR SELECT
-  USING (
-    auth.uid() = tenant_id
-    OR EXISTS (
-      SELECT 1 FROM public.properties pr
-      WHERE pr.id = property_id AND pr.owner_id = auth.uid()
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
-
-DROP POLICY IF EXISTS "viewings tenant insert" ON public.viewing_requests;
-CREATE POLICY "viewings tenant insert" ON public.viewing_requests
-  FOR INSERT
-  WITH CHECK (auth.uid() = tenant_id);
-
-DROP POLICY IF EXISTS "viewings tenant/owner update" ON public.viewing_requests;
-CREATE POLICY "viewings tenant/owner update" ON public.viewing_requests
-  FOR UPDATE
-  USING (
-    auth.uid() = tenant_id
-    OR EXISTS (
-      SELECT 1 FROM public.properties pr
-      WHERE pr.id = property_id AND pr.owner_id = auth.uid()
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  )
-  WITH CHECK (
-    auth.uid() = tenant_id
-    OR EXISTS (
-      SELECT 1 FROM public.properties pr
-      WHERE pr.id = property_id AND pr.owner_id = auth.uid()
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
 
 CREATE OR REPLACE FUNCTION public.debug_rls_status()
 RETURNS JSONB
@@ -566,8 +298,7 @@ BEGIN
       'is_active', EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'is_active'
-      )
-      ,
+      ),
       'status', EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'properties' AND column_name = 'status'

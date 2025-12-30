@@ -17,6 +17,7 @@ Apply SQL files in this order:
 10) `web/supabase/migrations/010_property_images_position.sql`
 11) `web/supabase/migrations/011_agent_delegations.sql`
 12) `web/supabase/migrations/012_profile_plans.sql`
+13) `web/supabase/migrations/013_manual_billing_and_requests.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -75,6 +76,8 @@ select to_regclass('public.messages') as messages;
 select to_regclass('public.viewing_requests') as viewing_requests;
 select to_regclass('public.agent_delegations') as agent_delegations;
 select to_regclass('public.profile_plans') as profile_plans;
+select to_regclass('public.profile_billing_notes') as profile_billing_notes;
+select to_regclass('public.plan_upgrade_requests') as plan_upgrade_requests;
 ```
 
 ### RLS enabled
@@ -89,7 +92,9 @@ where relname in (
   'messages',
   'viewing_requests',
   'agent_delegations',
-  'profile_plans'
+  'profile_plans',
+  'profile_billing_notes',
+  'plan_upgrade_requests'
 );
 ```
 
@@ -106,7 +111,9 @@ where schemaname = 'public'
     'messages',
     'viewing_requests',
     'agent_delegations',
-    'profile_plans'
+    'profile_plans',
+    'profile_billing_notes',
+    'plan_upgrade_requests'
   )
 order by tablename, policyname;
 ```
@@ -123,7 +130,9 @@ where table_schema = 'public'
     'saved_properties',
     'messages',
     'viewing_requests',
-    'profile_plans'
+    'profile_plans',
+    'profile_billing_notes',
+    'plan_upgrade_requests'
   )
   and column_name in (
     'id',
@@ -141,7 +150,11 @@ where table_schema = 'public'
     'landlord_id',
     'profile_id',
     'plan_tier',
-    'max_listings_override'
+    'max_listings_override',
+    'billing_notes',
+    'requester_id',
+    'valid_until',
+    'billing_source'
   )
 order by table_name, column_name;
 ```

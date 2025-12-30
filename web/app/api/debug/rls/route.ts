@@ -38,6 +38,13 @@ const requiredPolicies: Record<string, string[]> = {
     "agent delegations update",
   ],
   profile_plans: ["profile plans insert self", "profile plans select self"],
+  profile_billing_notes: ["billing notes admin read", "billing notes admin write"],
+  plan_upgrade_requests: [
+    "upgrade requests delete admin",
+    "upgrade requests insert self",
+    "upgrade requests select self",
+    "upgrade requests update admin",
+  ],
 };
 
 export async function GET(request: Request) {
@@ -91,6 +98,8 @@ export async function GET(request: Request) {
       "viewing_requests",
       "agent_delegations",
       "profile_plans",
+      "profile_billing_notes",
+      "plan_upgrade_requests",
     ];
     rlsTables.forEach((table) => {
       if (!rls?.[table]?.enabled) {
@@ -129,6 +138,27 @@ export async function GET(request: Request) {
     if (!columns?.profile_plans?.plan_tier) issues.push("missing column: profile_plans.plan_tier");
     if (!columns?.profile_plans?.max_listings_override) {
       issues.push("missing column: profile_plans.max_listings_override");
+    }
+    if (!columns?.profile_plans?.billing_source) {
+      issues.push("missing column: profile_plans.billing_source");
+    }
+    if (!columns?.profile_plans?.valid_until) {
+      issues.push("missing column: profile_plans.valid_until");
+    }
+    if (!columns?.profile_billing_notes?.profile_id) {
+      issues.push("missing column: profile_billing_notes.profile_id");
+    }
+    if (!columns?.profile_billing_notes?.billing_notes) {
+      issues.push("missing column: profile_billing_notes.billing_notes");
+    }
+    if (!columns?.plan_upgrade_requests?.profile_id) {
+      issues.push("missing column: plan_upgrade_requests.profile_id");
+    }
+    if (!columns?.plan_upgrade_requests?.requester_id) {
+      issues.push("missing column: plan_upgrade_requests.requester_id");
+    }
+    if (!columns?.plan_upgrade_requests?.status) {
+      issues.push("missing column: plan_upgrade_requests.status");
     }
   }
 
