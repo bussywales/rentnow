@@ -2,11 +2,15 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
+import { getUserRole } from "@/lib/authz";
 import { readActingAsFromCookies } from "@/lib/acting-as.server";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
+import { getPlanUsage } from "@/lib/plan-enforcement";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
-import { getPlanForRole, isListingLimitReached } from "@/lib/plans";
+import { getPlanForTier, isListingLimitReached } from "@/lib/plans";
+import { logPlanLimitHit } from "@/lib/observability";
 import { revalidatePath } from "next/cache";
 
 export const dynamic = "force-dynamic";
@@ -39,13 +43,50 @@ async function submitForApproval(id: string) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
+  const role = await getUserRole(supabase, user.id);
+  if (!role) return;
+
+  let ownerId = user.id;
+  if (role === "agent") {
+    const actingAs = await readActingAsFromCookies();
+    if (actingAs && actingAs !== user.id) {
+      const allowed = await hasActiveDelegation(supabase, user.id, actingAs);
+      if (!allowed) return;
+      ownerId = actingAs;
+    }
+  }
+
   const { data: existing } = await supabase
     .from("properties")
-    .select("owner_id")
+    .select("owner_id, is_active")
     .eq("id", id)
     .maybeSingle();
 
-  if (!existing || existing.owner_id !== user.id) return;
+  if (!existing || existing.owner_id !== ownerId) return;
+
+  const willActivate = !existing.is_active;
+  if (willActivate && role !== "admin") {
+    const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
+    const usage = await getPlanUsage({
+      supabase,
+      ownerId,
+      serviceClient,
+      excludeId: id,
+    });
+    if (!usage.error && usage.activeCount >= usage.plan.maxListings) {
+      logPlanLimitHit({
+        route: "dashboard/submitForApproval",
+        actorId: user.id,
+        ownerId,
+        planTier: usage.plan.tier,
+        maxListings: usage.plan.maxListings,
+        activeCount: usage.activeCount,
+        propertyId: id,
+        source: usage.source,
+      });
+      return;
+    }
+  }
 
   await supabase
     .from("properties")
@@ -66,6 +107,8 @@ export default async function DashboardHome() {
   let properties: Property[] = [];
   let fetchError: string | null = null;
   let role: string | null = null;
+  let planTier: string | null = null;
+  let maxOverride: number | null = null;
 
   if (supabaseReady) {
     try {
@@ -148,6 +191,23 @@ export default async function DashboardHome() {
               images: row.property_images?.map((img) => ({ id: img.id, image_url: img.image_url })),
             })) || [];
         }
+
+        if (role === "landlord" || role === "agent") {
+          const planClient = hasServiceRoleEnv()
+            ? createServiceRoleClient()
+            : ownerId === user.id
+              ? supabase
+              : null;
+          if (planClient) {
+            const { data: planRow } = await planClient
+              .from("profile_plans")
+              .select("plan_tier, max_listings_override")
+              .eq("profile_id", ownerId)
+              .maybeSingle();
+            planTier = planRow?.plan_tier ?? null;
+            maxOverride = planRow?.max_listings_override ?? null;
+          }
+        }
       }
     } catch (err) {
       fetchError = err instanceof Error ? err.message : "Unknown error while fetching properties";
@@ -156,8 +216,17 @@ export default async function DashboardHome() {
     fetchError = "Supabase env vars missing; add NEXT_PUBLIC_SITE_URL and Supabase keys.";
   }
 
-  const plan = getPlanForRole(role);
-  const listingLimitReached = isListingLimitReached(properties.length, plan);
+  const plan =
+    role === "landlord" || role === "agent"
+      ? getPlanForTier(planTier ?? "free", maxOverride)
+      : null;
+  const activeCount = properties.filter((property) => {
+    if (property.status) {
+      return property.status === "pending" || property.status === "live";
+    }
+    return !!property.is_active;
+  }).length;
+  const listingLimitReached = isListingLimitReached(activeCount, plan);
 
   return (
     <div className="space-y-4">
@@ -181,9 +250,11 @@ export default async function DashboardHome() {
         </div>
       </div>
 
-      {plan && listingLimitReached && (
+          {plan && listingLimitReached && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          <p className="font-semibold">You have reached your {plan.name} plan limit.</p>
+          <p className="font-semibold">
+            You have reached your {plan.name} plan limit ({activeCount}/{plan.maxListings}).
+          </p>
           <p className="mt-1">
             Upgrade to publish more listings and unlock premium distribution.
           </p>
@@ -292,11 +363,17 @@ export default async function DashboardHome() {
                       </Link>
                     )}
                     {status === "draft" || status === "paused" || status === "rejected" ? (
-                      <form action={submitForApproval.bind(null, property.id)}>
-                        <Button size="sm" type="submit">
+                      listingLimitReached ? (
+                        <Button size="sm" type="button" variant="secondary" disabled>
                           Submit for approval
                         </Button>
-                      </form>
+                      ) : (
+                        <form action={submitForApproval.bind(null, property.id)}>
+                          <Button size="sm" type="submit">
+                            Submit for approval
+                          </Button>
+                        </form>
+                      )
                     ) : null}
                   </div>
                 </div>
@@ -310,7 +387,9 @@ export default async function DashboardHome() {
               Publish your first property to see it here. Ensure Supabase env vars are set in Vercel.
             </p>
             <Link href="/dashboard/properties/new" className="mt-3 inline-flex">
-              <Button size="sm">Create listing</Button>
+              <Button size="sm" disabled={listingLimitReached}>
+                Create listing
+              </Button>
             </Link>
           </div>
         )}

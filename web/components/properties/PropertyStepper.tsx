@@ -149,8 +149,21 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     });
 
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(text || "Unable to save draft.");
+      const raw = await res.text().catch(() => "");
+      let data: { code?: string; maxListings?: number; error?: string } | null = null;
+      try {
+        data = raw ? (JSON.parse(raw) as { code?: string; maxListings?: number; error?: string }) : null;
+      } catch {
+        data = null;
+      }
+      if (data?.code === "plan_limit_reached") {
+        const limitMessage =
+          typeof data?.maxListings === "number"
+            ? ` Plan limit: ${data.maxListings}.`
+            : "";
+        throw new Error(`Plan limit reached.${limitMessage} Upgrade to add more listings.`);
+      }
+      throw new Error(data?.error || raw || "Unable to save draft.");
     }
 
     if (!propertyId) {
