@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 const routeLabel = "/api/debug/rls";
 
 const requiredPolicies: Record<string, string[]> = {
-  profiles: ["profiles admin read", "profiles insert self", "profiles select self", "profiles update self"],
+  profiles: ["profiles insert self", "profiles select self", "profiles update self"],
   properties: [
     "properties owner/admin delete",
     "properties owner/admin insert",
@@ -37,6 +37,7 @@ const requiredPolicies: Record<string, string[]> = {
     "agent delegations select",
     "agent delegations update",
   ],
+  profile_plans: ["profile plans insert self", "profile plans select self"],
 };
 
 export async function GET(request: Request) {
@@ -89,6 +90,7 @@ export async function GET(request: Request) {
       "messages",
       "viewing_requests",
       "agent_delegations",
+      "profile_plans",
     ];
     rlsTables.forEach((table) => {
       if (!rls?.[table]?.enabled) {
@@ -123,6 +125,11 @@ export async function GET(request: Request) {
     if (!columns?.agent_delegations?.agent_id) issues.push("missing column: agent_delegations.agent_id");
     if (!columns?.agent_delegations?.landlord_id) issues.push("missing column: agent_delegations.landlord_id");
     if (!columns?.agent_delegations?.status) issues.push("missing column: agent_delegations.status");
+    if (!columns?.profile_plans?.profile_id) issues.push("missing column: profile_plans.profile_id");
+    if (!columns?.profile_plans?.plan_tier) issues.push("missing column: profile_plans.plan_tier");
+    if (!columns?.profile_plans?.max_listings_override) {
+      issues.push("missing column: profile_plans.max_listings_override");
+    }
   }
 
   const publicProps = await supabase

@@ -28,6 +28,9 @@ ALTER TABLE public.viewing_requests FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.agent_delegations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agent_delegations FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.profile_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profile_plans FORCE ROW LEVEL SECURITY;
+
 -- Helpers (inline): is_admin checks the caller's profile role
 -- EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
 
@@ -92,6 +95,21 @@ CREATE POLICY "agent delegations delete" ON public.agent_delegations
     auth.uid() = agent_id
     OR auth.uid() = landlord_id
     OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+  );
+
+-- profile_plans: users can read their own plan rows
+DROP POLICY IF EXISTS "profile plans select self" ON public.profile_plans;
+CREATE POLICY "profile plans select self" ON public.profile_plans
+  FOR SELECT
+  USING (auth.uid() = profile_id);
+
+DROP POLICY IF EXISTS "profile plans insert self" ON public.profile_plans;
+CREATE POLICY "profile plans insert self" ON public.profile_plans
+  FOR INSERT
+  WITH CHECK (
+    auth.uid() = profile_id
+    AND plan_tier = 'free'
+    AND max_listings_override IS NULL
   );
 
 -- properties: public can read approved/active; owners/admins can manage their own
@@ -384,6 +402,10 @@ BEGIN
     'agent_delegations', jsonb_build_object(
       'enabled', COALESCE((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.agent_delegations')), false),
       'forced', COALESCE((SELECT relforcerowsecurity FROM pg_class WHERE oid = to_regclass('public.agent_delegations')), false)
+    ),
+    'profile_plans', jsonb_build_object(
+      'enabled', COALESCE((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.profile_plans')), false),
+      'forced', COALESCE((SELECT relforcerowsecurity FROM pg_class WHERE oid = to_regclass('public.profile_plans')), false)
     )
   );
 
@@ -434,6 +456,12 @@ BEGIN
       (SELECT jsonb_agg(policyname ORDER BY policyname)
        FROM pg_policies
        WHERE schemaname = 'public' AND tablename = 'agent_delegations'),
+      '[]'::jsonb
+    ),
+    'profile_plans', COALESCE(
+      (SELECT jsonb_agg(policyname ORDER BY policyname)
+       FROM pg_policies
+       WHERE schemaname = 'public' AND tablename = 'profile_plans'),
       '[]'::jsonb
     )
   );
@@ -542,6 +570,20 @@ BEGIN
       'status', EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'agent_delegations' AND column_name = 'status'
+      )
+    ),
+    'profile_plans', jsonb_build_object(
+      'profile_id', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'profile_plans' AND column_name = 'profile_id'
+      ),
+      'plan_tier', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'profile_plans' AND column_name = 'plan_tier'
+      ),
+      'max_listings_override', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'profile_plans' AND column_name = 'max_listings_override'
       )
     )
   );

@@ -16,6 +16,7 @@ Apply SQL files in this order:
 9) `web/supabase/migrations/009_properties_workflow_columns.sql`
 10) `web/supabase/migrations/010_property_images_position.sql`
 11) `web/supabase/migrations/011_agent_delegations.sql`
+12) `web/supabase/migrations/012_profile_plans.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -73,6 +74,7 @@ select to_regclass('public.saved_properties') as saved_properties;
 select to_regclass('public.messages') as messages;
 select to_regclass('public.viewing_requests') as viewing_requests;
 select to_regclass('public.agent_delegations') as agent_delegations;
+select to_regclass('public.profile_plans') as profile_plans;
 ```
 
 ### RLS enabled
@@ -86,7 +88,8 @@ where relname in (
   'saved_properties',
   'messages',
   'viewing_requests',
-  'agent_delegations'
+  'agent_delegations',
+  'profile_plans'
 );
 ```
 
@@ -102,7 +105,8 @@ where schemaname = 'public'
     'saved_properties',
     'messages',
     'viewing_requests',
-    'agent_delegations'
+    'agent_delegations',
+    'profile_plans'
   )
 order by tablename, policyname;
 ```
@@ -118,7 +122,8 @@ where table_schema = 'public'
     'property_images',
     'saved_properties',
     'messages',
-    'viewing_requests'
+    'viewing_requests',
+    'profile_plans'
   )
   and column_name in (
     'id',
@@ -133,7 +138,10 @@ where table_schema = 'public'
     'status',
     'position',
     'agent_id',
-    'landlord_id'
+    'landlord_id',
+    'profile_id',
+    'plan_tier',
+    'max_listings_override'
   )
 order by table_name, column_name;
 ```
