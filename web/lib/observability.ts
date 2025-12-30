@@ -20,6 +20,27 @@ type ApprovalLogInput = {
   reasonProvided?: boolean;
 };
 
+type PlanLimitLogInput = {
+  request?: Request;
+  route: string;
+  actorId: string;
+  ownerId: string;
+  planTier: string;
+  maxListings: number;
+  activeCount: number;
+  propertyId?: string;
+  source?: "service" | "rls" | "default";
+};
+
+type PlanOverrideLogInput = {
+  request?: Request;
+  route: string;
+  actorId: string;
+  profileId: string;
+  planTier: string;
+  maxListingsOverride?: number | null;
+};
+
 function normalizeError(error: unknown) {
   if (!error) return undefined;
   if (error instanceof Error) {
@@ -92,6 +113,56 @@ export function logApprovalAction({
     propertyId,
     action,
     reasonProvided,
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logPlanLimitHit({
+  request,
+  route,
+  actorId,
+  ownerId,
+  planTier,
+  maxListings,
+  activeCount,
+  propertyId,
+  source,
+}: PlanLimitLogInput) {
+  const payload = {
+    level: "info",
+    event: "plan_limit_hit",
+    route,
+    requestId: getRequestId(request),
+    actorId,
+    ownerId,
+    propertyId,
+    planTier,
+    maxListings,
+    activeCount,
+    source,
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logPlanOverride({
+  request,
+  route,
+  actorId,
+  profileId,
+  planTier,
+  maxListingsOverride,
+}: PlanOverrideLogInput) {
+  const payload = {
+    level: "info",
+    event: "plan_override",
+    route,
+    requestId: getRequestId(request),
+    actorId,
+    profileId,
+    planTier,
+    maxListingsOverride,
   };
 
   console.log(JSON.stringify(payload));

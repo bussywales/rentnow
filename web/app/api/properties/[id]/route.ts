@@ -3,9 +3,10 @@ import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getUserRole, requireOwnership, requireUser } from "@/lib/authz";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
+import { getPlanUsage } from "@/lib/plan-enforcement";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { logFailure } from "@/lib/observability";
+import { logFailure, logPlanLimitHit } from "@/lib/observability";
 
 const routeLabel = "/api/properties/[id]";
 
@@ -234,21 +235,21 @@ export async function PUT(
       typeof message === "string" && message.includes("properties.status");
 
     const adminClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
-    let existing: { owner_id: string } | null = null;
+    let existing: { owner_id: string; status?: string | null; is_active?: boolean | null } | null = null;
     let fetchError: { message: string } | null = null;
     let statusMissing = false;
 
     if (adminClient) {
       const initial = await adminClient
         .from("properties")
-        .select("owner_id, status")
+        .select("owner_id, status, is_active")
         .eq("id", id)
         .maybeSingle();
       if (initial.error && missingStatus(initial.error.message)) {
         statusMissing = true;
         const fallback = await adminClient
           .from("properties")
-          .select("owner_id")
+          .select("owner_id, is_active")
           .eq("id", id)
           .maybeSingle();
         existing = fallback.data ?? null;
@@ -260,14 +261,14 @@ export async function PUT(
     } else {
       const initial = await supabase
         .from("properties")
-        .select("owner_id, status")
+        .select("owner_id, status, is_active")
         .eq("id", id)
         .maybeSingle();
       if (initial.error && missingStatus(initial.error.message)) {
         statusMissing = true;
         const fallback = await supabase
           .from("properties")
-          .select("owner_id")
+          .select("owner_id, is_active")
           .eq("id", id)
           .maybeSingle();
         existing = fallback.data ?? null;
@@ -356,6 +357,57 @@ export async function PUT(
       };
     } else if (typeof rejection_reason !== "undefined" && isAdmin) {
       statusUpdate = { rejection_reason };
+    }
+
+    const wasActive = existing.is_active ?? false;
+    const requestedActive =
+      typeof status !== "undefined"
+        ? status === "pending" || status === "live"
+        : typeof updates.is_active === "boolean"
+          ? updates.is_active
+          : wasActive;
+    const willActivate = requestedActive && !wasActive;
+
+    if (!isAdmin && willActivate) {
+      const usage = await getPlanUsage({
+        supabase,
+        ownerId: existing.owner_id,
+        serviceClient: adminClient,
+        excludeId: id,
+      });
+      if (usage.error) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 500,
+          startTime,
+          error: new Error(usage.error),
+        });
+        return NextResponse.json({ error: usage.error }, { status: 500 });
+      }
+      if (usage.activeCount >= usage.plan.maxListings) {
+        logPlanLimitHit({
+          request,
+          route: routeLabel,
+          actorId: auth.user.id,
+          ownerId: existing.owner_id,
+          propertyId: id,
+          planTier: usage.plan.tier,
+          maxListings: usage.plan.maxListings,
+          activeCount: usage.activeCount,
+          source: usage.source,
+        });
+        return NextResponse.json(
+          {
+            error: "Plan limit reached",
+            code: "plan_limit_reached",
+            maxListings: usage.plan.maxListings,
+            activeCount: usage.activeCount,
+            planTier: usage.plan.tier,
+          },
+          { status: 409 }
+        );
+      }
     }
 
     const { error: updateError } = await supabase

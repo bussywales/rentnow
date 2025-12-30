@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
-import { logApprovalAction } from "@/lib/observability";
+import { getPlanUsage } from "@/lib/plan-enforcement";
+import { logApprovalAction, logFailure, logPlanLimitHit } from "@/lib/observability";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 
 const routeLabel = "/api/admin/properties/[id]";
 
@@ -33,6 +35,68 @@ export async function PATCH(
 
   if (!isApproved && !trimmedReason) {
     return NextResponse.json({ error: "Rejection reason is required." }, { status: 400 });
+  }
+
+  const adminClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
+  const lookupClient = adminClient ?? supabase;
+  const { data: existing, error: fetchError } = await lookupClient
+    .from("properties")
+    .select("owner_id, is_active")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (fetchError || !existing) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 404,
+      startTime,
+      error: fetchError || "Property not found",
+    });
+    return NextResponse.json({ error: "Property not found" }, { status: 404 });
+  }
+
+  const willActivate = isApproved && !existing.is_active;
+  if (willActivate) {
+    const usage = await getPlanUsage({
+      supabase,
+      ownerId: existing.owner_id,
+      serviceClient: adminClient,
+      excludeId: id,
+    });
+    if (usage.error) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 500,
+        startTime,
+        error: new Error(usage.error),
+      });
+      return NextResponse.json({ error: usage.error }, { status: 500 });
+    }
+    if (usage.activeCount >= usage.plan.maxListings) {
+      logPlanLimitHit({
+        request,
+        route: routeLabel,
+        actorId: auth.user.id,
+        ownerId: existing.owner_id,
+        propertyId: id,
+        planTier: usage.plan.tier,
+        maxListings: usage.plan.maxListings,
+        activeCount: usage.activeCount,
+        source: usage.source,
+      });
+      return NextResponse.json(
+        {
+          error: "Plan limit reached",
+          code: "plan_limit_reached",
+          maxListings: usage.plan.maxListings,
+          activeCount: usage.activeCount,
+          planTier: usage.plan.tier,
+        },
+        { status: 409 }
+      );
+    }
   }
 
   const { error } = await supabase

@@ -3,8 +3,10 @@ import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { readActingAsFromRequest } from "@/lib/acting-as";
+import { getPlanUsage } from "@/lib/plan-enforcement";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { logFailure } from "@/lib/observability";
+import { logFailure, logPlanLimitHit } from "@/lib/observability";
 
 const routeLabel = "/api/properties";
 
@@ -83,6 +85,47 @@ export async function POST(request: Request) {
     const isApproved = normalizedStatus === "live";
     const submittedAt = normalizedStatus === "pending" ? new Date().toISOString() : null;
     const approvedAt = normalizedStatus === "live" ? new Date().toISOString() : null;
+
+    if (!isAdmin && isActive) {
+      const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
+      const usage = await getPlanUsage({
+        supabase,
+        ownerId,
+        serviceClient,
+      });
+      if (usage.error) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 500,
+          startTime,
+          error: new Error(usage.error),
+        });
+        return NextResponse.json({ error: usage.error }, { status: 500 });
+      }
+      if (usage.activeCount >= usage.plan.maxListings) {
+        logPlanLimitHit({
+          request,
+          route: routeLabel,
+          actorId: user.id,
+          ownerId,
+          planTier: usage.plan.tier,
+          maxListings: usage.plan.maxListings,
+          activeCount: usage.activeCount,
+          source: usage.source,
+        });
+        return NextResponse.json(
+          {
+            error: "Plan limit reached",
+            code: "plan_limit_reached",
+            maxListings: usage.plan.maxListings,
+            activeCount: usage.activeCount,
+            planTier: usage.plan.tier,
+          },
+          { status: 409 }
+        );
+      }
+    }
 
     const { data: property, error: insertError } = await supabase
       .from("properties")
