@@ -5,6 +5,8 @@ type PlanUsage = {
   plan: PlanGate;
   activeCount: number;
   source: "service" | "rls" | "default";
+  validUntil?: string | null;
+  expired?: boolean;
   error?: string;
 };
 
@@ -25,13 +27,16 @@ export async function getPlanUsage({
   const source = serviceClient ? "service" : "rls";
   const { data: planRow, error: planError } = await client
     .from("profile_plans")
-    .select("plan_tier, max_listings_override")
+    .select("plan_tier, max_listings_override, valid_until")
     .eq("profile_id", ownerId)
     .maybeSingle();
 
+  const validUntil = planRow?.valid_until ?? null;
+  const expired =
+    !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
   const plan = getPlanForTier(
-    planRow?.plan_tier ?? "free",
-    planRow?.max_listings_override ?? null
+    expired ? "free" : planRow?.plan_tier ?? "free",
+    expired ? null : planRow?.max_listings_override ?? null
   );
 
   if (planError) {
@@ -39,6 +44,8 @@ export async function getPlanUsage({
       plan,
       activeCount: 0,
       source,
+      validUntil,
+      expired,
       error: planError.message,
     };
   }
@@ -59,6 +66,8 @@ export async function getPlanUsage({
       plan,
       activeCount: 0,
       source,
+      validUntil,
+      expired,
       error: countError.message,
     };
   }
@@ -67,5 +76,7 @@ export async function getPlanUsage({
     plan,
     activeCount: count ?? 0,
     source,
+    validUntil,
+    expired,
   };
 }

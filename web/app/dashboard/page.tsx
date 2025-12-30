@@ -102,6 +102,46 @@ async function submitForApproval(id: string) {
   revalidatePath("/dashboard");
 }
 
+async function requestUpgrade() {
+  "use server";
+  if (!hasServerSupabaseEnv()) return;
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const role = await getUserRole(supabase, user.id);
+  if (!role || (role !== "landlord" && role !== "agent")) return;
+
+  let ownerId = user.id;
+  if (role === "agent") {
+    const actingAs = await readActingAsFromCookies();
+    if (actingAs && actingAs !== user.id) {
+      const allowed = await hasActiveDelegation(supabase, user.id, actingAs);
+      if (!allowed) return;
+      ownerId = actingAs;
+    }
+  }
+
+  const { data: existing } = await supabase
+    .from("plan_upgrade_requests")
+    .select("id")
+    .eq("profile_id", ownerId)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (existing) return;
+
+  await supabase.from("plan_upgrade_requests").insert({
+    profile_id: ownerId,
+    requester_id: user.id,
+    requested_plan_tier: "starter",
+    status: "pending",
+  });
+
+  revalidatePath("/dashboard");
+}
+
 export default async function DashboardHome() {
   const supabaseReady = hasServerSupabaseEnv();
   let properties: Property[] = [];
@@ -109,6 +149,8 @@ export default async function DashboardHome() {
   let role: string | null = null;
   let planTier: string | null = null;
   let maxOverride: number | null = null;
+  let validUntil: string | null = null;
+  let pendingUpgrade = false;
 
   if (supabaseReady) {
     try {
@@ -201,12 +243,21 @@ export default async function DashboardHome() {
           if (planClient) {
             const { data: planRow } = await planClient
               .from("profile_plans")
-              .select("plan_tier, max_listings_override")
+              .select("plan_tier, max_listings_override, valid_until")
               .eq("profile_id", ownerId)
               .maybeSingle();
             planTier = planRow?.plan_tier ?? null;
             maxOverride = planRow?.max_listings_override ?? null;
+            validUntil = planRow?.valid_until ?? null;
           }
+
+          const { data: upgradeRequest } = await supabase
+            .from("plan_upgrade_requests")
+            .select("id")
+            .eq("profile_id", ownerId)
+            .eq("status", "pending")
+            .maybeSingle();
+          pendingUpgrade = !!upgradeRequest;
         }
       }
     } catch (err) {
@@ -216,9 +267,11 @@ export default async function DashboardHome() {
     fetchError = "Supabase env vars missing; add NEXT_PUBLIC_SITE_URL and Supabase keys.";
   }
 
+  const expired =
+    !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
   const plan =
     role === "landlord" || role === "agent"
-      ? getPlanForTier(planTier ?? "free", maxOverride)
+      ? getPlanForTier(expired ? "free" : planTier ?? "free", expired ? null : maxOverride)
       : null;
   const activeCount = properties.filter((property) => {
     if (property.status) {
@@ -250,7 +303,7 @@ export default async function DashboardHome() {
         </div>
       </div>
 
-          {plan && listingLimitReached && (
+      {plan && listingLimitReached && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <p className="font-semibold">
             You have reached your {plan.name} plan limit ({activeCount}/{plan.maxListings}).
@@ -259,12 +312,33 @@ export default async function DashboardHome() {
             Upgrade to publish more listings and unlock premium distribution.
           </p>
           <div className="mt-3">
-            <Link href="/support?intent=upgrade">
-              <Button variant="secondary" size="sm">
-                Upgrade
-              </Button>
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/support?intent=upgrade">
+                <Button variant="secondary" size="sm">
+                  Upgrade
+                </Button>
+              </Link>
+              {pendingUpgrade ? (
+                <Button variant="secondary" size="sm" disabled>
+                  Request sent
+                </Button>
+              ) : (
+                <form action={requestUpgrade}>
+                  <Button variant="secondary" size="sm" type="submit">
+                    Request upgrade
+                  </Button>
+                </form>
+              )}
+            </div>
           </div>
+        </div>
+      )}
+      {plan && expired && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-semibold">Your paid plan has expired.</p>
+          <p className="mt-1">
+            You are now on the Free plan. Renew to restore higher listing limits.
+          </p>
         </div>
       )}
 

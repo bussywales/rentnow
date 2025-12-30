@@ -9,3 +9,12 @@
 - In Admin → Users, change a user plan tier and save.
 - Set a Max listings override and save (positive integer).
 - Confirm the user can publish up to the new limit and events are logged.
+
+## Manual billing
+- Set `valid_until` in Admin → Users and confirm listing limits re-apply after expiry.
+- Add billing notes and confirm they persist (admin-only).
+- Verify manual plan changes survive refresh and are enforced server-side.
+
+## Upgrade requests
+- As a landlord/agent hitting the limit, click “Request upgrade”.
+- Confirm the request appears in Admin → Control panel and can be approved/rejected.
