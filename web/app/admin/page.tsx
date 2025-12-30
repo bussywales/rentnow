@@ -29,13 +29,23 @@ type AdminUser = {
   full_name: string | null;
 };
 
+type UpgradeRequest = {
+  id: string;
+  profile_id: string;
+  requester_id: string;
+  requested_plan_tier: string | null;
+  status: string;
+  notes: string | null;
+  created_at: string;
+};
+
 async function getData(
   status: "all" | "draft" | "pending" | "live" | "rejected" | "paused" = "all",
   search = "",
   ownerId = ""
 ) {
   if (!hasServerSupabaseEnv()) {
-    return { properties: [], users: [] };
+    return { properties: [], users: [], requests: [] };
   }
 
   try {
@@ -57,13 +67,19 @@ async function getData(
       .from("profiles")
       .select("id, role, full_name");
 
+    const { data: requests } = await supabase
+      .from("plan_upgrade_requests")
+      .select("id, profile_id, requester_id, requested_plan_tier, status, notes, created_at")
+      .order("created_at", { ascending: false });
+
     return {
       properties: (properties as AdminProperty[]) || [],
       users: (users as AdminUser[]) || [],
+      requests: (requests as UpgradeRequest[]) || [],
     };
   } catch (err) {
     console.warn("Admin data load failed; rendering empty state", err);
-    return { properties: [], users: [] };
+    return { properties: [], users: [], requests: [] };
   }
 }
 
@@ -194,6 +210,42 @@ async function bulkUpdate(formData: FormData) {
   revalidatePath("/dashboard");
 }
 
+async function updateUpgradeRequest(formData: FormData) {
+  "use server";
+  if (!hasServerSupabaseEnv()) return;
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profile?.role !== "admin") return;
+
+  const id = String(formData.get("id") || "");
+  const action = formData.get("action");
+  const status =
+    action === "approve" ? "approved" : action === "reject" ? "rejected" : null;
+  if (!id || !status) return;
+
+  const now = new Date().toISOString();
+  await supabase
+    .from("plan_upgrade_requests")
+    .update({
+      status,
+      resolved_at: now,
+      resolved_by: user.id,
+      updated_at: now,
+    })
+    .eq("id", id);
+
+  revalidatePath("/admin");
+}
+
 export default async function AdminPage({ searchParams }: Props) {
   const supabaseReady = hasServerSupabaseEnv();
   const statusParam = searchParams.status
@@ -241,7 +293,7 @@ export default async function AdminPage({ searchParams }: Props) {
     }
   }
 
-  const { properties, users } = await getData(statusFilter, searchParam, ownerParam);
+  const { properties, users, requests } = await getData(statusFilter, searchParam, ownerParam);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -434,6 +486,59 @@ export default async function AdminPage({ searchParams }: Props) {
           {!properties.length && (
             <p className="text-sm text-slate-600">No properties found.</p>
           )}
+        </div>
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Upgrade requests</h2>
+            <p className="text-sm text-slate-600">
+              Manual billing requests from landlords and agents.
+            </p>
+          </div>
+        </div>
+        {!requests.length && (
+          <p className="text-sm text-slate-600">No upgrade requests.</p>
+        )}
+        <div className="divide-y divide-slate-100 text-sm">
+          {requests.map((request) => {
+            const requester = users.find((u) => u.id === request.requester_id);
+            return (
+              <div key={request.id} className="flex flex-col gap-2 py-3 md:flex-row md:items-center md:justify-between">
+                <div>
+                  <p className="font-semibold text-slate-900">
+                    {requester?.full_name || requester?.id || "Unknown requester"}
+                  </p>
+                  <p className="text-slate-600">
+                    Requested: {request.requested_plan_tier || "starter"} • Status:{" "}
+                    {request.status}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Created: {request.created_at?.replace("T", " ").replace("Z", "") || "—"}
+                  </p>
+                </div>
+                {request.status === "pending" && (
+                  <div className="flex gap-2">
+                    <form action={updateUpgradeRequest}>
+                      <input type="hidden" name="id" value={request.id} />
+                      <input type="hidden" name="action" value="approve" />
+                      <Button size="sm" type="submit">
+                        Mark approved
+                      </Button>
+                    </form>
+                    <form action={updateUpgradeRequest}>
+                      <input type="hidden" name="id" value={request.id} />
+                      <input type="hidden" name="action" value="reject" />
+                      <Button size="sm" variant="secondary" type="submit">
+                        Reject
+                      </Button>
+                    </form>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>

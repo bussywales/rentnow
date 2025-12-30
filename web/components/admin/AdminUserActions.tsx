@@ -9,6 +9,8 @@ type Props = {
   serviceReady: boolean;
   planTier?: string | null;
   maxListingsOverride?: number | null;
+  validUntil?: string | null;
+  billingNotes?: string | null;
 };
 
 export function AdminUserActions({
@@ -17,6 +19,8 @@ export function AdminUserActions({
   serviceReady,
   planTier,
   maxListingsOverride,
+  validUntil,
+  billingNotes,
 }: Props) {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
@@ -26,6 +30,10 @@ export function AdminUserActions({
   const [override, setOverride] = useState(
     typeof maxListingsOverride === "number" ? String(maxListingsOverride) : ""
   );
+  const [validUntilValue, setValidUntilValue] = useState(
+    typeof validUntil === "string" ? validUntil.slice(0, 10) : ""
+  );
+  const [notes, setNotes] = useState(billingNotes ?? "");
 
   const post = async (body: Record<string, string>) => {
     setStatus("loading");
@@ -59,6 +67,10 @@ export function AdminUserActions({
         profileId: userId,
         planTier: tier,
         maxListingsOverride: overrideValue,
+        validUntil: validUntilValue
+          ? `${validUntilValue}T23:59:59.999Z`
+          : null,
+        billingNotes: notes,
       }),
     });
     if (!res.ok) {
@@ -137,6 +149,16 @@ export function AdminUserActions({
               disabled={!serviceReady || planStatus === "loading"}
             />
           </label>
+          <label className="text-xs text-slate-600">
+            Valid until
+            <input
+              className="ml-2 rounded-md border border-slate-300 px-2 py-1 text-xs"
+              type="date"
+              value={validUntilValue}
+              onChange={(event) => setValidUntilValue(event.target.value)}
+              disabled={!serviceReady || planStatus === "loading"}
+            />
+          </label>
           <Button
             size="sm"
             variant="secondary"
@@ -147,6 +169,16 @@ export function AdminUserActions({
             {planStatus === "loading" ? "Saving..." : "Save plan"}
           </Button>
         </div>
+        <label className="mt-3 block text-xs text-slate-600">
+          Billing notes (admin only)
+          <textarea
+            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+            rows={3}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            disabled={!serviceReady || planStatus === "loading"}
+          />
+        </label>
         {planMessage && <p className="mt-2 text-xs text-slate-600">{planMessage}</p>}
         {planStatus === "error" && !planMessage && (
           <p className="mt-2 text-xs text-rose-600">Plan update failed.</p>

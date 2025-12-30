@@ -39,6 +39,8 @@ type PlanOverrideLogInput = {
   profileId: string;
   planTier: string;
   maxListingsOverride?: number | null;
+  billingSource?: string;
+  validUntil?: string | null;
 };
 
 function normalizeError(error: unknown) {
@@ -153,6 +155,8 @@ export function logPlanOverride({
   profileId,
   planTier,
   maxListingsOverride,
+  billingSource,
+  validUntil,
 }: PlanOverrideLogInput) {
   const payload = {
     level: "info",
@@ -163,6 +167,9 @@ export function logPlanOverride({
     profileId,
     planTier,
     maxListingsOverride,
+    billingSource: billingSource || "manual",
+    validUntil,
+    source: "manual",
   };
 
   console.log(JSON.stringify(payload));
