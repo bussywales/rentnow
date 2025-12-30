@@ -12,6 +12,7 @@ type Props = {
   title?: string;
   description?: string;
   variant?: "card" | "inline";
+  defaultOpen?: boolean;
 };
 
 export function PropertyMapToggle({
@@ -20,8 +21,9 @@ export function PropertyMapToggle({
   title = "Map preview",
   description = "See listings plotted by city and neighbourhood.",
   variant = "card",
+  defaultOpen = false,
 }: Props) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const wrapperClass =
     variant === "card"
       ? "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"

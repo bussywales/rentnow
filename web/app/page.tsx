@@ -229,6 +229,7 @@ export default async function Home() {
           title="Listings map"
           description="Toggle the map on-demand to keep browsing fast."
           variant="inline"
+          defaultOpen
         />
       </section>
     </div>
