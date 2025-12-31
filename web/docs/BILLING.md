@@ -79,12 +79,12 @@ Optional:
 ### Status handling
 - Active/trialing subscriptions set `billing_source = stripe` and update `valid_until`.
 - `invoice.payment_failed` keeps access until `current_period_end`, but logs a warning.
-- `customer.subscription.deleted` downgrades at period end (no instant revoke if still paid).
+- `customer.subscription.deleted` or expired subscriptions downgrade immediately (set tier to Free, clear `valid_until`).
 
 ## Manual override vs Stripe
-- Stripe webhooks sync plan tier and `valid_until`.
-- Admins can still apply manual overrides at any time.
-- If you want manual control to persist, cancel the Stripe subscription to stop future webhook updates.
+- Stripe webhooks sync plan tier and `valid_until` only when `billing_source = stripe`.
+- Admins can still apply manual overrides at any time; manual overrides always win.
+- If you want manual control to persist, set `billing_source = manual` and cancel the Stripe subscription.
 
 ## Ops checklist
 1) Set Stripe env vars in Vercel.

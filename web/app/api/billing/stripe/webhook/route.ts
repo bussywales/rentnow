@@ -18,6 +18,16 @@ type PlanUpdateInput = {
   allowImmediateDowngrade?: boolean;
 };
 
+type ExistingPlan = {
+  billing_source?: string | null;
+  plan_tier?: string | null;
+  valid_until?: string | null;
+  stripe_subscription_id?: string | null;
+  stripe_status?: string | null;
+  stripe_price_id?: string | null;
+  stripe_current_period_end?: string | null;
+};
+
 function toIso(seconds: number | null | undefined) {
   if (!seconds || !Number.isFinite(seconds)) return null;
   return new Date(seconds * 1000).toISOString();
@@ -46,16 +56,63 @@ async function lookupProfileIdBySubscription(
   return row?.profile_id || null;
 }
 
+async function getExistingPlan(
+  adminClient: ReturnType<typeof createServiceRoleClient>,
+  profileId: string
+): Promise<ExistingPlan | null> {
+  const { data } = await adminClient
+    .from("profile_plans")
+    .select(
+      "billing_source, plan_tier, valid_until, stripe_subscription_id, stripe_status, stripe_price_id, stripe_current_period_end"
+    )
+    .eq("profile_id", profileId)
+    .maybeSingle();
+  return (data as ExistingPlan | null) ?? null;
+}
+
+function isManualOverride(plan: ExistingPlan | null) {
+  return plan?.billing_source === "manual";
+}
+
+function isRedundantStripeUpdate(plan: ExistingPlan | null, input: PlanUpdateInput, planTier: string, validUntil: string | null) {
+  if (!plan) return false;
+  return (
+    plan.billing_source === "stripe" &&
+    plan.stripe_subscription_id === input.subscriptionId &&
+    plan.stripe_status === input.status &&
+    plan.stripe_price_id === input.priceId &&
+    plan.stripe_current_period_end === input.currentPeriodEnd &&
+    plan.plan_tier === planTier &&
+    plan.valid_until === validUntil
+  );
+}
+
 async function applyPlanUpdate(
   adminClient: ReturnType<typeof createServiceRoleClient>,
-  input: PlanUpdateInput
+  input: PlanUpdateInput,
+  existingPlan: ExistingPlan | null
 ) {
+  if (isManualOverride(existingPlan)) {
+    return { error: null, planTier: existingPlan?.plan_tier ?? "free", validUntil: existingPlan?.valid_until ?? null, skipped: true };
+  }
+
   const now = new Date().toISOString();
-  const expired = input.currentPeriodEnd
-    ? Date.parse(input.currentPeriodEnd) <= Date.now()
-    : false;
-  const planTier = input.allowImmediateDowngrade && expired ? "free" : input.tier;
-  const validUntil = input.allowImmediateDowngrade && expired ? null : input.currentPeriodEnd;
+  const isExpired =
+    !!input.currentPeriodEnd &&
+    Number.isFinite(Date.parse(input.currentPeriodEnd)) &&
+    Date.parse(input.currentPeriodEnd) <= Date.now();
+  const shouldDowngradeNow =
+    !!input.allowImmediateDowngrade ||
+    input.status === "canceled" ||
+    input.status === "incomplete_expired" ||
+    isExpired;
+  const planTier = shouldDowngradeNow ? "free" : input.tier;
+  const validUntil = shouldDowngradeNow ? null : input.currentPeriodEnd;
+
+  if (isRedundantStripeUpdate(existingPlan, input, planTier, validUntil)) {
+    return { error: null, planTier, validUntil, skipped: true };
+  }
+
   const adminDb = adminClient as unknown as {
     from: (table: string) => {
       upsert: (
@@ -83,7 +140,7 @@ async function applyPlanUpdate(
       { onConflict: "profile_id" }
     );
 
-  return { error, planTier, validUntil };
+  return { error, planTier, validUntil, skipped: false };
 }
 
 export async function POST(request: Request) {
@@ -140,7 +197,10 @@ export async function POST(request: Request) {
         }
         const currentPeriodEnd = toIso(subscription.current_period_end);
         const tier = plan.tier || "starter";
-        const result = await applyPlanUpdate(adminClient, {
+        const existingPlan = await getExistingPlan(adminClient, profileId);
+        const result = await applyPlanUpdate(
+          adminClient,
+          {
           profileId,
           tier,
           status: subscription.status,
@@ -148,15 +208,19 @@ export async function POST(request: Request) {
           subscriptionId: subscription.id,
           priceId: plan.priceId,
           currentPeriodEnd,
-        });
+          },
+          existingPlan
+        );
 
-        logStripePlanUpdated({
-          route: routeLabel,
-          profileId,
-          planTier: result.planTier,
-          stripeStatus: subscription.status,
-          stripeSubscriptionId: subscription.id,
-        });
+        if (!result.skipped) {
+          logStripePlanUpdated({
+            route: routeLabel,
+            profileId,
+            planTier: result.planTier,
+            stripeStatus: subscription.status,
+            stripeSubscriptionId: subscription.id,
+          });
+        }
         break;
       }
       case "customer.subscription.created":
@@ -183,7 +247,10 @@ export async function POST(request: Request) {
         const currentPeriodEnd = toIso(subscription.current_period_end);
         const tier = plan.tier || "starter";
         const allowImmediateDowngrade = event.type === "customer.subscription.deleted";
-        const result = await applyPlanUpdate(adminClient, {
+        const existingPlan = await getExistingPlan(adminClient, profileId);
+        const result = await applyPlanUpdate(
+          adminClient,
+          {
           profileId,
           tier,
           status: subscription.status,
@@ -192,15 +259,19 @@ export async function POST(request: Request) {
           priceId: plan.priceId,
           currentPeriodEnd,
           allowImmediateDowngrade,
-        });
+          },
+          existingPlan
+        );
 
-        logStripePlanUpdated({
-          route: routeLabel,
-          profileId,
-          planTier: result.planTier,
-          stripeStatus: subscription.status,
-          stripeSubscriptionId: subscription.id,
-        });
+        if (!result.skipped) {
+          logStripePlanUpdated({
+            route: routeLabel,
+            profileId,
+            planTier: result.planTier,
+            stripeStatus: subscription.status,
+            stripeSubscriptionId: subscription.id,
+          });
+        }
         break;
       }
       case "invoice.paid":
@@ -231,7 +302,10 @@ export async function POST(request: Request) {
         }
         const currentPeriodEnd = toIso(subscription.current_period_end);
         const tier = plan.tier || "starter";
-        const result = await applyPlanUpdate(adminClient, {
+        const existingPlan = await getExistingPlan(adminClient, profileId);
+        const result = await applyPlanUpdate(
+          adminClient,
+          {
           profileId,
           tier,
           status: subscription.status,
@@ -239,17 +313,21 @@ export async function POST(request: Request) {
           subscriptionId: subscription.id,
           priceId: plan.priceId,
           currentPeriodEnd,
-        });
+          },
+          existingPlan
+        );
 
-        logStripePlanUpdated({
-          route: routeLabel,
-          profileId,
-          planTier: result.planTier,
-          stripeStatus: subscription.status,
-          stripeSubscriptionId: subscription.id,
-        });
+        if (!result.skipped) {
+          logStripePlanUpdated({
+            route: routeLabel,
+            profileId,
+            planTier: result.planTier,
+            stripeStatus: subscription.status,
+            stripeSubscriptionId: subscription.id,
+          });
+        }
 
-        if (event.type === "invoice.payment_failed") {
+        if (!result.skipped && event.type === "invoice.payment_failed") {
           logStripePaymentFailed({
             route: routeLabel,
             profileId,
