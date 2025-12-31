@@ -120,11 +120,14 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     } = await supabase.auth.getSession();
     const accessToken = session?.access_token;
 
-    const status = statusOverride || (form.status as PropertyStatus) || "draft";
+    const restPayload = { ...payload } as FormState;
+    delete restPayload.status;
+    delete restPayload.is_active;
+    const status = statusOverride || (payload.status as PropertyStatus) || "draft";
     const shouldIncludeStatus =
       !propertyId || !!statusOverride || status === "draft" || status === "paused";
     const requestBody = {
-      ...payload,
+      ...restPayload,
       imageUrls,
       ...(shouldIncludeStatus
         ? { status, is_active: status === "pending" || status === "live" }
