@@ -18,6 +18,7 @@ Apply SQL files in this order:
 11) `web/supabase/migrations/011_agent_delegations.sql`
 12) `web/supabase/migrations/012_profile_plans.sql`
 13) `web/supabase/migrations/013_manual_billing_and_requests.sql`
+14) `web/supabase/migrations/014_stripe_subscription_fields.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -154,7 +155,12 @@ where table_schema = 'public'
     'billing_notes',
     'requester_id',
     'valid_until',
-    'billing_source'
+    'billing_source',
+    'stripe_customer_id',
+    'stripe_subscription_id',
+    'stripe_price_id',
+    'stripe_current_period_end',
+    'stripe_status'
   )
 order by table_name, column_name;
 ```

@@ -15,6 +15,11 @@
 - Add billing notes and confirm they persist (admin-only).
 - Verify manual plan changes survive refresh and are enforced server-side.
 
+## Stripe subscriptions
+- Start a Stripe checkout as landlord/agent and confirm redirect to Checkout.
+- Complete checkout (test mode) and verify `profile_plans` updates with Stripe IDs and `valid_until`.
+- Trigger a cancellation and confirm access persists until period end.
+
 ## Upgrade requests
 - As a landlord/agent hitting the limit, click “Request upgrade”.
 - Confirm the request appears in Admin → Control panel and can be approved/rejected.
