@@ -145,6 +145,21 @@ export async function GET(request: Request) {
     if (!columns?.profile_plans?.valid_until) {
       issues.push("missing column: profile_plans.valid_until");
     }
+    if (!columns?.profile_plans?.stripe_customer_id) {
+      issues.push("missing column: profile_plans.stripe_customer_id");
+    }
+    if (!columns?.profile_plans?.stripe_subscription_id) {
+      issues.push("missing column: profile_plans.stripe_subscription_id");
+    }
+    if (!columns?.profile_plans?.stripe_price_id) {
+      issues.push("missing column: profile_plans.stripe_price_id");
+    }
+    if (!columns?.profile_plans?.stripe_current_period_end) {
+      issues.push("missing column: profile_plans.stripe_current_period_end");
+    }
+    if (!columns?.profile_plans?.stripe_status) {
+      issues.push("missing column: profile_plans.stripe_status");
+    }
     if (!columns?.profile_billing_notes?.profile_id) {
       issues.push("missing column: profile_billing_notes.profile_id");
     }

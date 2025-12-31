@@ -6,6 +6,13 @@ export async function GET() {
   const storageBucket = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET;
   const openai = process.env.OPENAI_API_KEY || process.env.OPENAI_APT_KEY;
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL;
+  const stripeSecret = process.env.STRIPE_SECRET_KEY;
+  const stripeWebhook = process.env.STRIPE_WEBHOOK_SECRET;
+  const stripePublishable = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  const stripeLandlordMonthly = process.env.STRIPE_PRICE_LANDLORD_MONTHLY;
+  const stripeLandlordYearly = process.env.STRIPE_PRICE_LANDLORD_YEARLY;
+  const stripeAgentMonthly = process.env.STRIPE_PRICE_AGENT_MONTHLY;
+  const stripeAgentYearly = process.env.STRIPE_PRICE_AGENT_YEARLY;
 
   const required = [
     "NEXT_PUBLIC_SITE_URL",
@@ -14,6 +21,15 @@ export async function GET() {
     "NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET",
   ];
   const missing = required.filter((key) => !process.env[key]);
+  const stripeRequired = [
+    "STRIPE_SECRET_KEY",
+    "STRIPE_WEBHOOK_SECRET",
+    "STRIPE_PRICE_LANDLORD_MONTHLY",
+    "STRIPE_PRICE_LANDLORD_YEARLY",
+    "STRIPE_PRICE_AGENT_MONTHLY",
+    "STRIPE_PRICE_AGENT_YEARLY",
+  ];
+  const stripeMissing = stripeRequired.filter((key) => !process.env[key]);
 
   return NextResponse.json({
     supabaseUrl: !!supabaseUrl,
@@ -21,6 +37,16 @@ export async function GET() {
     storageBucket: !!storageBucket,
     openai: !!openai,
     siteUrl: !!siteUrl,
+    stripe: {
+      secret: !!stripeSecret,
+      webhook: !!stripeWebhook,
+      publishable: !!stripePublishable,
+      landlordMonthly: !!stripeLandlordMonthly,
+      landlordYearly: !!stripeLandlordYearly,
+      agentMonthly: !!stripeAgentMonthly,
+      agentYearly: !!stripeAgentYearly,
+      missing: stripeMissing,
+    },
     missing,
     runtime: process.env.VERCEL ? "vercel" : "local",
   });

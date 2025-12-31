@@ -669,6 +669,26 @@ BEGIN
       'valid_until', EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'profile_plans' AND column_name = 'valid_until'
+      ),
+      'stripe_customer_id', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'profile_plans' AND column_name = 'stripe_customer_id'
+      ),
+      'stripe_subscription_id', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'profile_plans' AND column_name = 'stripe_subscription_id'
+      ),
+      'stripe_price_id', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'profile_plans' AND column_name = 'stripe_price_id'
+      ),
+      'stripe_current_period_end', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'profile_plans' AND column_name = 'stripe_current_period_end'
+      ),
+      'stripe_status', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'profile_plans' AND column_name = 'stripe_status'
       )
     ),
     'profile_billing_notes', jsonb_build_object(
