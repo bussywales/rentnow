@@ -2,37 +2,8 @@ import { NextResponse } from "next/server";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
 import { searchProperties } from "@/lib/search";
-import type { ParsedSearchFilters, Property } from "@/lib/types";
-
-function parseFilters(request: Request): ParsedSearchFilters {
-  const { searchParams } = new URL(request.url);
-  return {
-    city: searchParams.get("city"),
-    minPrice: searchParams.get("minPrice")
-      ? Number(searchParams.get("minPrice"))
-      : null,
-    maxPrice: searchParams.get("maxPrice")
-      ? Number(searchParams.get("maxPrice"))
-      : null,
-    currency: searchParams.get("currency"),
-    bedrooms: searchParams.get("bedrooms")
-      ? Number(searchParams.get("bedrooms"))
-      : null,
-    rentalType: searchParams.get("rentalType") as ParsedSearchFilters["rentalType"],
-    furnished:
-      searchParams.get("furnished") === "true"
-        ? true
-        : searchParams.get("furnished") === "false"
-        ? false
-        : null,
-    amenities: searchParams.get("amenities")
-      ? String(searchParams.get("amenities"))
-          .split(",")
-          .map((a) => a.trim())
-          .filter(Boolean)
-      : [],
-  };
-}
+import { parseFiltersFromSearchParams } from "@/lib/search-filters";
+import type { Property } from "@/lib/types";
 
 function parsePagination(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -48,7 +19,8 @@ function parsePagination(request: Request) {
 export async function GET(request: Request) {
   const startTime = Date.now();
   const routeLabel = "/api/properties/search";
-  const filters = parseFilters(request);
+  const { searchParams } = new URL(request.url);
+  const filters = parseFiltersFromSearchParams(searchParams);
   const { page, pageSize } = parsePagination(request);
 
   if (!hasServerSupabaseEnv()) {
