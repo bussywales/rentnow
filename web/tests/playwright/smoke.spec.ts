@@ -6,6 +6,7 @@ const HAS_CREDS = !!EMAIL && !!PASSWORD;
 const DEV_MOCKS =
   process.env.NODE_ENV !== "production" &&
   process.env.NEXT_PUBLIC_ENABLE_DEV_MOCKS === "true";
+const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
 const HAS_SUPABASE_ENV =
   (!!process.env.SUPABASE_URL || !!process.env.NEXT_PUBLIC_SUPABASE_URL) &&
   (!!process.env.SUPABASE_ANON_KEY || !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
@@ -58,6 +59,23 @@ test.describe("Smoke checks", () => {
       return;
     }
     await expect(page.getByText(/Request a viewing/i)).toBeVisible();
+  });
+
+  test("smart search routes to browse with filters", async ({ page }) => {
+    test.skip(!HAS_OPENAI, "OPENAI_API_KEY missing; skipping smart search parse test.");
+
+    await page.goto("/");
+    await page
+      .getByPlaceholder(/furnished 2-bed|describe what you need/i)
+      .fill("2 bed in Lagos");
+    await page.getByRole("button", { name: /parse/i }).click();
+
+    const cta = page.getByRole("button", { name: /search properties/i });
+    await expect(cta).toBeVisible();
+    await cta.click();
+
+    await expect(page).toHaveURL(/bedrooms=2/);
+    await expect(page.getByRole("heading", { name: /properties/i })).toBeVisible();
   });
 
   test("login persists on dashboard reload", async ({ page }) => {
