@@ -43,6 +43,36 @@ type PlanOverrideLogInput = {
   validUntil?: string | null;
 };
 
+type StripeCheckoutLogInput = {
+  request?: Request;
+  route: string;
+  actorId: string;
+  role: string;
+  tier: string;
+  cadence: string;
+};
+
+type StripeWebhookLogInput = {
+  route: string;
+  eventType: string;
+  eventId: string;
+};
+
+type StripePlanUpdateLogInput = {
+  route: string;
+  profileId: string;
+  planTier: string;
+  stripeStatus: string | null;
+  stripeSubscriptionId?: string | null;
+};
+
+type StripePaymentFailedLogInput = {
+  route: string;
+  profileId: string;
+  stripeStatus: string | null;
+  stripeSubscriptionId?: string | null;
+};
+
 function normalizeError(error: unknown) {
   if (!error) return undefined;
   if (error instanceof Error) {
@@ -170,6 +200,78 @@ export function logPlanOverride({
     billingSource: billingSource || "manual",
     validUntil,
     source: "manual",
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logStripeCheckoutStarted({
+  request,
+  route,
+  actorId,
+  role,
+  tier,
+  cadence,
+}: StripeCheckoutLogInput) {
+  const payload = {
+    level: "info",
+    event: "stripe_checkout_started",
+    route,
+    requestId: getRequestId(request),
+    actorId,
+    role,
+    tier,
+    cadence,
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logStripeWebhookApplied({ route, eventType, eventId }: StripeWebhookLogInput) {
+  const payload = {
+    level: "info",
+    event: "stripe_webhook_applied",
+    route,
+    eventType,
+    eventId,
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logStripePlanUpdated({
+  route,
+  profileId,
+  planTier,
+  stripeStatus,
+  stripeSubscriptionId,
+}: StripePlanUpdateLogInput) {
+  const payload = {
+    level: "info",
+    event: "stripe_plan_updated",
+    route,
+    profileId,
+    planTier,
+    stripeStatus,
+    stripeSubscriptionId,
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logStripePaymentFailed({
+  route,
+  profileId,
+  stripeStatus,
+  stripeSubscriptionId,
+}: StripePaymentFailedLogInput) {
+  const payload = {
+    level: "warn",
+    event: "stripe_payment_failed",
+    route,
+    profileId,
+    stripeStatus,
+    stripeSubscriptionId,
   };
 
   console.log(JSON.stringify(payload));
