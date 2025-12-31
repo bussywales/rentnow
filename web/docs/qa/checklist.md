@@ -18,7 +18,8 @@
 ## Stripe subscriptions
 - Start a Stripe checkout as landlord/agent and confirm redirect to Checkout.
 - Complete checkout (test mode) and verify `profile_plans` updates with Stripe IDs and `valid_until`.
-- Trigger a cancellation and confirm access persists until period end.
+- Trigger a cancellation and confirm access downgrades immediately.
+- Visit `/dashboard/billing` and confirm plan tier, billing source, status, and valid_until render.
 
 ## Upgrade requests
 - As a landlord/agent hitting the limit, click “Request upgrade”.
