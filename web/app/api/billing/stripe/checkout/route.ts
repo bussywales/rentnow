@@ -107,7 +107,9 @@ export async function POST(request: Request) {
     cancel_url: `${siteUrl}/dashboard?stripe=cancel`,
     metadata: {
       profile_id: auth.user.id,
+      user_id: auth.user.id,
       role: auth.role,
+      plan_tier: payload.tier,
       tier: payload.tier,
       cadence: payload.cadence,
       billing_source: "stripe",
@@ -116,7 +118,9 @@ export async function POST(request: Request) {
     subscription_data: {
       metadata: {
         profile_id: auth.user.id,
+        user_id: auth.user.id,
         role: auth.role,
+        plan_tier: payload.tier,
         tier: payload.tier,
         cadence: payload.cadence,
         billing_source: "stripe",

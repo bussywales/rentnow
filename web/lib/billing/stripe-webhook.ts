@@ -22,7 +22,11 @@ export function constructStripeEvent(payload: string, signature: string | null) 
 export function extractPlanMetadata(metadata?: Stripe.Metadata | null): StripePlanMetadata {
   const profileId = metadata?.profile_id || metadata?.user_id || null;
   const roleValue = metadata?.role === "agent" || metadata?.role === "landlord" ? metadata.role : null;
-  const tierValue = metadata?.tier ? normalizePlanTier(metadata.tier) : null;
+  const tierValue = metadata?.plan_tier
+    ? normalizePlanTier(metadata.plan_tier)
+    : metadata?.tier
+    ? normalizePlanTier(metadata.tier)
+    : null;
   const cadenceValue = metadata?.cadence === "yearly" || metadata?.cadence === "monthly" ? metadata.cadence : null;
 
   return {
