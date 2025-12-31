@@ -227,7 +227,7 @@ export async function PUT(
     if (!auth.ok) return auth.response;
 
     const role = await getUserRole(supabase, auth.user.id);
-    if (!role || !["landlord", "agent", "admin"].includes(role)) {
+    if (role && !["landlord", "agent", "admin"].includes(role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
