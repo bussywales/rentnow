@@ -13,6 +13,7 @@ type Props = {
   stripeStatus?: string | null;
   stripePeriodEnd?: string | null;
   showManage?: boolean;
+  showUpgrade?: boolean;
 };
 
 export function StripeUpgradeActions({
@@ -21,6 +22,7 @@ export function StripeUpgradeActions({
   stripeStatus,
   stripePeriodEnd,
   showManage = false,
+  showUpgrade = true,
 }: Props) {
   const [tier, setTier] = useState<PlanTier>(defaultTier);
   const [cadence, setCadence] = useState<Cadence>("monthly");
@@ -93,9 +95,11 @@ export function StripeUpgradeActions({
           <option value="monthly">Monthly</option>
           <option value="yearly">Yearly</option>
         </Select>
-        <Button variant="secondary" size="sm" onClick={startCheckout} disabled={loading}>
-          {loading ? "Redirecting..." : "Upgrade with Stripe"}
-        </Button>
+        {showUpgrade && (
+          <Button variant="secondary" size="sm" onClick={startCheckout} disabled={loading}>
+            {loading ? "Redirecting..." : "Upgrade with Stripe"}
+          </Button>
+        )}
         {showManage && (
           <Button variant="secondary" size="sm" onClick={openPortal} disabled={loading}>
             Manage subscription

@@ -49,6 +49,9 @@ export default async function DashboardLayout({
             <Link href="/dashboard" className="rounded-full bg-white/10 px-3 py-1">
               My properties
             </Link>
+            <Link href="/dashboard/billing" className="rounded-full bg-white/10 px-3 py-1">
+              Billing
+            </Link>
             <Link
               href="/dashboard/saved-searches"
               className="rounded-full bg-white/10 px-3 py-1"
