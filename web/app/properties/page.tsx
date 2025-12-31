@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
+import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { SavedSearchButton } from "@/components/search/SavedSearchButton";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
+import { filtersToChips, parseFiltersFromParams } from "@/lib/search-filters";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property, UserRole } from "@/lib/types";
@@ -27,27 +29,6 @@ async function resolveSearchParams(
     return maybePromise;
   }
   return params as SearchParams;
-}
-
-function parseFilters(params: SearchParams): ParsedSearchFilters {
-  return {
-    city: params.city ? String(params.city) : null,
-    minPrice: params.minPrice ? Number(params.minPrice) : null,
-    maxPrice: params.maxPrice ? Number(params.maxPrice) : null,
-    currency: params.currency ? String(params.currency) : null,
-    bedrooms: params.bedrooms ? Number(params.bedrooms) : null,
-    rentalType: params.rentalType
-      ? (params.rentalType as ParsedSearchFilters["rentalType"])
-      : null,
-    furnished:
-      params.furnished === "true" ? true : params.furnished === "false" ? false : null,
-    amenities: params.amenities
-      ? String(params.amenities)
-          .split(",")
-          .map((a) => a.trim())
-          .filter(Boolean)
-      : [],
-  };
 }
 
 function parsePage(params: SearchParams): number {
@@ -113,7 +94,8 @@ function applyMockFilters(items: Property[], filters: ParsedSearchFilters): Prop
 
 export default async function PropertiesPage({ searchParams }: Props) {
   const resolvedSearchParams = await resolveSearchParams(searchParams);
-  const filters = parseFilters(resolvedSearchParams);
+  const filters = parseFiltersFromParams(resolvedSearchParams);
+  const filterChips = filtersToChips(filters);
   const page = parsePage(resolvedSearchParams);
   const hasFilters = Object.values(filters).some((value) => {
     if (Array.isArray(value)) return value.length > 0;
@@ -319,6 +301,30 @@ export default async function PropertiesPage({ searchParams }: Props) {
           </Link>
         )}
       </div>
+
+      <SmartSearchBox mode="browse" />
+
+      {filterChips.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 p-3 text-xs text-slate-700 shadow-sm">
+          <p className="font-semibold uppercase tracking-[0.2em] text-slate-500">
+            Active filters
+          </p>
+          {filterChips.map((chip) => (
+            <span
+              key={`${chip.label}-${chip.value}`}
+              className="rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-700"
+            >
+              {chip.label}: {chip.value}
+            </span>
+          ))}
+          <Link
+            href="/properties"
+            className="rounded-full border border-slate-100 px-3 py-1 font-semibold text-slate-600 transition hover:border-sky-100"
+          >
+            Clear
+          </Link>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
         <div>
