@@ -53,6 +53,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [aiLoading, setAiLoading] = useState(false);
   const [imageUrls, setImageUrls] = useState<string[]>(
     initialData?.images?.map((img) => img.image_url) || []
   );
@@ -215,6 +216,59 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const prev = () => {
     setError(null);
     setStepIndex((prev) => Math.max(prev - 1, 0));
+  };
+
+  const handleAiDescription = async () => {
+    if (!form.title || !form.city) {
+      setError("Add a title and city before generating a description.");
+      return;
+    }
+    setError(null);
+    setAiLoading(true);
+    try {
+      const response = await fetch("/api/ai/generate-description", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: form.title,
+          city: form.city,
+          neighbourhood: form.neighbourhood,
+          rentalType: form.rental_type,
+          price: form.price ?? 0,
+          currency: form.currency || "USD",
+          bedrooms: form.bedrooms ?? 0,
+          bathrooms: form.bathrooms ?? 0,
+          furnished: !!form.furnished,
+          amenities: form.amenitiesText
+            ?.split(",")
+            .map((item) => item.trim())
+            .filter(Boolean),
+          maxGuests: form.max_guests,
+          nearbyLandmarks: [],
+        }),
+      });
+
+      const requestId =
+        response.headers.get("x-request-id") || response.headers.get("x-vercel-id");
+      const data = await response.json();
+      if (!response.ok) {
+        const message = data?.error || "Unable to generate description.";
+        const suffix = requestId ? ` • ${requestId}` : "";
+        setError(`AI generation failed (${response.status})${suffix}: ${message}`);
+        return;
+      }
+      if (!data?.description) {
+        const suffix = requestId ? ` • ${requestId}` : "";
+        setError(`AI returned no description${suffix}.`);
+        return;
+      }
+      setForm((prev) => ({ ...prev, description: data.description }));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to generate description.";
+      setError(message);
+    } finally {
+      setAiLoading(false);
+    }
   };
 
   const compressImage = async (file: File) => {
@@ -554,9 +608,20 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       {stepIndex === 1 && (
         <div className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor="description" className="text-sm font-medium text-slate-700">
-              Description
-            </label>
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="description" className="text-sm font-medium text-slate-700">
+                Description
+              </label>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={handleAiDescription}
+                disabled={aiLoading}
+              >
+                {aiLoading ? "Generating..." : "Generate with AI"}
+              </Button>
+            </div>
             <Textarea
               id="description"
               rows={5}

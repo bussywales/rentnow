@@ -3,6 +3,7 @@ import { HAS_SUPABASE_ENV } from "./helpers/env";
 
 const LANDLORD_EMAIL = process.env.PLAYWRIGHT_LANDLORD_EMAIL || "";
 const LANDLORD_PASSWORD = process.env.PLAYWRIGHT_LANDLORD_PASSWORD || "";
+const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
 
 const HAS_LANDLORD = !!LANDLORD_EMAIL && !!LANDLORD_PASSWORD;
 
@@ -51,4 +52,46 @@ test("landlord can edit a property via dashboard autosave", async ({ page }) => 
 
   await page.reload();
   await expect(page.getByLabel("Listing title")).toHaveValue(updatedTitle);
+});
+
+test("landlord can generate AI description", async ({ page }) => {
+  test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping AI generation test.");
+  test.skip(
+    !HAS_LANDLORD,
+    "Set PLAYWRIGHT_LANDLORD_EMAIL/PASSWORD to run the AI generation test."
+  );
+  test.skip(!HAS_OPENAI, "OPENAI_API_KEY missing; skipping AI generation test.");
+
+  await login(page, LANDLORD_EMAIL, LANDLORD_PASSWORD);
+
+  const ownRes = await page.request.get("/api/properties?scope=own");
+  if (!ownRes.ok()) {
+    test.skip(true, "Unable to load landlord properties for AI test.");
+  }
+  const ownJson = await ownRes.json();
+  const propertyId = ownJson?.properties?.[0]?.id as string | undefined;
+  if (!propertyId) {
+    test.skip(true, "No landlord properties available to edit.");
+  }
+
+  await page.goto(`/dashboard/properties/${propertyId}`);
+  const descriptionField = page.getByLabel("Description");
+  if (!(await descriptionField.isVisible())) {
+    await page.getByRole("button", { name: "Next" }).click();
+  }
+  await expect(descriptionField).toBeVisible();
+  await descriptionField.fill("");
+
+  const aiResponsePromise = page.waitForResponse((response) => {
+    return (
+      response.url().includes("/api/ai/generate-description") &&
+      response.request().method() === "POST"
+    );
+  });
+
+  await page.getByRole("button", { name: /generate with ai/i }).click();
+  const aiResponse = await aiResponsePromise;
+  expect(aiResponse.ok()).toBeTruthy();
+
+  await expect(descriptionField).not.toHaveValue("", { timeout: 15_000 });
 });
