@@ -2,10 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import Stripe from "stripe";
 
-import { constructStripeEvent, extractPlanMetadata } from "../../lib/billing/stripe-webhook";
+import { constructStripeEvent, extractPlanMetadata, resolvePlanFromStripe } from "../../lib/billing/stripe-webhook";
 
 process.env.STRIPE_SECRET_KEY = "sk_test_123";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
+process.env.STRIPE_PRICE_LANDLORD_STARTER_MONTHLY = "price_landlord_starter_monthly";
 
 void test("constructStripeEvent verifies signature", () => {
   const payload = JSON.stringify({
@@ -38,4 +39,43 @@ void test("extractPlanMetadata prefers plan_tier and user_id", () => {
   assert.equal(parsed.tier, "pro");
   assert.equal(parsed.role, "landlord");
   assert.equal(parsed.cadence, "monthly");
+});
+
+void test("resolvePlanFromStripe prefers price mapping over metadata", () => {
+  const subscription = {
+    items: {
+      data: [
+        {
+          price: { id: "price_landlord_starter_monthly" },
+        },
+      ],
+    },
+    metadata: {
+      plan_tier: "pro",
+      user_id: "user_456",
+    },
+  } as Stripe.Subscription;
+
+  const plan = resolvePlanFromStripe(subscription, null);
+  assert.equal(plan.tier, "starter");
+  assert.equal(plan.priceId, "price_landlord_starter_monthly");
+});
+
+void test("resolvePlanFromStripe returns null tier when price is unmapped", () => {
+  const subscription = {
+    items: {
+      data: [
+        {
+          price: { id: "price_unknown" },
+        },
+      ],
+    },
+    metadata: {
+      plan_tier: "starter",
+      user_id: "user_789",
+    },
+  } as Stripe.Subscription;
+
+  const plan = resolvePlanFromStripe(subscription, null);
+  assert.equal(plan.tier, null);
 });

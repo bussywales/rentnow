@@ -19,6 +19,7 @@ Apply SQL files in this order:
 12) `web/supabase/migrations/012_profile_plans.sql`
 13) `web/supabase/migrations/013_manual_billing_and_requests.sql`
 14) `web/supabase/migrations/014_stripe_subscription_fields.sql`
+15) `web/supabase/migrations/015_stripe_webhook_events.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -79,6 +80,7 @@ select to_regclass('public.agent_delegations') as agent_delegations;
 select to_regclass('public.profile_plans') as profile_plans;
 select to_regclass('public.profile_billing_notes') as profile_billing_notes;
 select to_regclass('public.plan_upgrade_requests') as plan_upgrade_requests;
+select to_regclass('public.stripe_webhook_events') as stripe_webhook_events;
 ```
 
 ### RLS enabled
@@ -95,7 +97,8 @@ where relname in (
   'agent_delegations',
   'profile_plans',
   'profile_billing_notes',
-  'plan_upgrade_requests'
+  'plan_upgrade_requests',
+  'stripe_webhook_events'
 );
 ```
 
@@ -114,7 +117,8 @@ where schemaname = 'public'
     'agent_delegations',
     'profile_plans',
     'profile_billing_notes',
-    'plan_upgrade_requests'
+    'plan_upgrade_requests',
+    'stripe_webhook_events'
   )
 order by tablename, policyname;
 ```
@@ -133,7 +137,8 @@ where table_schema = 'public'
     'viewing_requests',
     'profile_plans',
     'profile_billing_notes',
-    'plan_upgrade_requests'
+    'plan_upgrade_requests',
+    'stripe_webhook_events'
   )
   and column_name in (
     'id',
@@ -160,7 +165,9 @@ where table_schema = 'public'
     'stripe_subscription_id',
     'stripe_price_id',
     'stripe_current_period_end',
-    'stripe_status'
+    'stripe_status',
+    'event_id',
+    'event_type'
   )
 order by table_name, column_name;
 ```

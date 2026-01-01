@@ -50,18 +50,35 @@ export function resolvePlanFromStripe(
   subscription: Stripe.Subscription,
   fallbackMetadata?: Stripe.Metadata | null
 ) {
-  const metadata = extractPlanMetadata(subscription.metadata || fallbackMetadata || undefined);
-  if (metadata.tier) {
-    return { ...metadata, priceId: getSubscriptionPriceId(subscription) };
-  }
-
   const priceId = getSubscriptionPriceId(subscription);
   const mapped = priceId ? getStripePlanByPriceId(priceId) : null;
+  const metadata = extractPlanMetadata(subscription.metadata || fallbackMetadata || undefined);
+  if (mapped?.tier) {
+    return {
+      profileId: metadata.profileId,
+      role: mapped.role ?? metadata.role,
+      cadence: mapped.cadence ?? metadata.cadence,
+      tier: mapped.tier,
+      priceId,
+    };
+  }
+  if (priceId) {
+    return {
+      profileId: metadata.profileId,
+      role: metadata.role,
+      cadence: metadata.cadence,
+      tier: null,
+      priceId,
+    };
+  }
+  if (metadata.tier) {
+    return { ...metadata, priceId: null };
+  }
   return {
     profileId: metadata.profileId,
     role: metadata.role,
     cadence: metadata.cadence,
-    tier: mapped?.tier ?? null,
-    priceId,
+    tier: null,
+    priceId: null,
   };
 }
