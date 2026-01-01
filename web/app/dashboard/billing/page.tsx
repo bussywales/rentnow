@@ -6,6 +6,7 @@ import { getUserRole } from "@/lib/authz";
 import { getPlanUsage } from "@/lib/plan-enforcement";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { normalizePlanTier } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -89,7 +90,7 @@ export default async function BillingPage() {
   const now = new Date();
   const expired =
     !!validUntil && Number.isFinite(Date.parse(validUntil)) && new Date(validUntil).getTime() < now.getTime();
-  const planTier = (planRow as PlanRow | null)?.plan_tier ?? "free";
+  const planTier = normalizePlanTier((planRow as PlanRow | null)?.plan_tier);
   const usage = await getPlanUsage({
     supabase,
     ownerId: profile.id,
