@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { StripeUpgradeActions } from "@/components/billing/StripeUpgradeActions";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
 import { getUserRole } from "@/lib/authz";
@@ -151,10 +150,6 @@ export default async function DashboardHome() {
   let planTier: string | null = null;
   let maxOverride: number | null = null;
   let validUntil: string | null = null;
-  let billingSource: string | null = null;
-  let stripeStatus: string | null = null;
-  let stripePeriodEnd: string | null = null;
-  let stripeCustomerId: string | null = null;
   let pendingUpgrade = false;
 
   if (supabaseReady) {
@@ -249,17 +244,13 @@ export default async function DashboardHome() {
             const { data: planRow } = await planClient
               .from("profile_plans")
               .select(
-                "plan_tier, max_listings_override, valid_until, billing_source, stripe_status, stripe_current_period_end, stripe_customer_id"
+                "plan_tier, max_listings_override, valid_until"
               )
               .eq("profile_id", ownerId)
               .maybeSingle();
             planTier = planRow?.plan_tier ?? null;
             maxOverride = planRow?.max_listings_override ?? null;
             validUntil = planRow?.valid_until ?? null;
-            billingSource = planRow?.billing_source ?? null;
-            stripeStatus = planRow?.stripe_status ?? null;
-            stripePeriodEnd = planRow?.stripe_current_period_end ?? null;
-            stripeCustomerId = planRow?.stripe_customer_id ?? null;
           }
 
           const { data: upgradeRequest } = await supabase
@@ -291,17 +282,6 @@ export default async function DashboardHome() {
     return !!property.is_active;
   }).length;
   const listingLimitReached = isListingLimitReached(activeCount, plan);
-  const stripeEnabled =
-    (role === "landlord" &&
-      !!process.env.STRIPE_SECRET_KEY &&
-      !!process.env.STRIPE_PRICE_LANDLORD_MONTHLY &&
-      !!process.env.STRIPE_PRICE_LANDLORD_YEARLY) ||
-    (role === "agent" &&
-      !!process.env.STRIPE_SECRET_KEY &&
-      !!process.env.STRIPE_PRICE_AGENT_MONTHLY &&
-      !!process.env.STRIPE_PRICE_AGENT_YEARLY);
-  const showManage = billingSource === "stripe" && !!stripeCustomerId;
-
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
@@ -332,32 +312,21 @@ export default async function DashboardHome() {
           <p className="mt-1">
             Upgrade to publish more listings and unlock premium distribution.
           </p>
-          <div className="mt-3">
-            <StripeUpgradeActions
-              defaultTier="starter"
-              stripeEnabled={stripeEnabled}
-              stripeStatus={stripeStatus}
-              stripePeriodEnd={stripePeriodEnd}
-              showManage={showManage}
-            />
-            <div className="mt-3 flex flex-wrap gap-2">
-              <Link href="/support?intent=upgrade">
-                <Button variant="secondary" size="sm">
-                  Contact support
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link href="/dashboard/billing#plans">
+              <Button size="sm">View plans</Button>
+            </Link>
+            {pendingUpgrade ? (
+              <Button variant="secondary" size="sm" disabled>
+                Request sent
+              </Button>
+            ) : (
+              <form action={requestUpgrade}>
+                <Button variant="secondary" size="sm" type="submit">
+                  Request upgrade
                 </Button>
-              </Link>
-              {pendingUpgrade ? (
-                <Button variant="secondary" size="sm" disabled>
-                  Request sent
-                </Button>
-              ) : (
-                <form action={requestUpgrade}>
-                  <Button variant="secondary" size="sm" type="submit">
-                    Request upgrade
-                  </Button>
-                </form>
-              )}
-            </div>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -368,13 +337,9 @@ export default async function DashboardHome() {
             You are now on the Free plan. Renew to restore higher listing limits.
           </p>
           <div className="mt-3">
-            <StripeUpgradeActions
-              defaultTier="starter"
-              stripeEnabled={stripeEnabled}
-              stripeStatus={stripeStatus}
-              stripePeriodEnd={stripePeriodEnd}
-              showManage={showManage}
-            />
+            <Link href="/dashboard/billing#plans">
+              <Button size="sm">View plans</Button>
+            </Link>
           </div>
         </div>
       )}
