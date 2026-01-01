@@ -60,8 +60,11 @@ export default async function BillingPage() {
   const stripeStatus = (planRow as PlanRow | null)?.stripe_status ?? null;
   const stripePeriodEnd = (planRow as PlanRow | null)?.stripe_current_period_end ?? null;
   const stripeCustomerId = (planRow as PlanRow | null)?.stripe_customer_id ?? null;
+  const now = new Date();
   const expired =
-    !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
+    !!validUntil &&
+    Number.isFinite(Date.parse(validUntil)) &&
+    new Date(validUntil).getTime() < now.getTime();
   const planTier = (planRow as PlanRow | null)?.plan_tier ?? "free";
   const plan = getPlanForTier(expired ? "free" : planTier);
 

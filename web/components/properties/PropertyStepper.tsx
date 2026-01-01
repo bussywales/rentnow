@@ -179,7 +179,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
 
     lastAutoSaved.current = requestKey;
     setDraftNotice(status === "draft" ? "Draft saved." : null);
-  }, [canCreateDraft, form.status, getSupabase, imageUrls, payload, propertyId, setDraftNotice, setError]);
+  }, [canCreateDraft, getSupabase, imageUrls, payload, propertyId, setDraftNotice, setError]);
 
   useEffect(() => {
     if (!canCreateDraft) return;
