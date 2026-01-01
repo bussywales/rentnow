@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { BillingPlans } from "@/components/billing/BillingPlans";
+import { PlansGrid } from "@/components/billing/PlansGrid";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getProfile } from "@/lib/auth";
 import { getUserRole } from "@/lib/authz";
@@ -161,7 +161,7 @@ export default async function BillingPage() {
         </div>
       </div>
 
-      <BillingPlans
+      <PlansGrid
         currentTier={planTier}
         currentRole={profile.role}
         billingSource={billingSource}
