@@ -1,12 +1,11 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
-import { StripeUpgradeActions } from "@/components/billing/StripeUpgradeActions";
-import { Button } from "@/components/ui/Button";
+import { BillingPlans } from "@/components/billing/BillingPlans";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getProfile } from "@/lib/auth";
+import { getUserRole } from "@/lib/authz";
+import { getPlanUsage } from "@/lib/plan-enforcement";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { hasServiceRoleEnv, createServiceRoleClient } from "@/lib/supabase/admin";
-import { getPlanForTier } from "@/lib/plans";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -19,19 +18,45 @@ type PlanRow = {
   stripe_customer_id?: string | null;
 };
 
+async function requestUpgrade(formData: FormData) {
+  "use server";
+  if (!hasServerSupabaseEnv()) return;
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const role = await getUserRole(supabase, user.id);
+  if (!role || (role !== "landlord" && role !== "agent")) return;
+
+  const rawTier = formData.get("plan_tier");
+  const requestedPlan = rawTier === "pro" || rawTier === "starter" ? rawTier : "starter";
+
+  const { data: existing } = await supabase
+    .from("plan_upgrade_requests")
+    .select("id")
+    .eq("profile_id", user.id)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (existing) return;
+
+  await supabase.from("plan_upgrade_requests").insert({
+    profile_id: user.id,
+    requester_id: user.id,
+    requested_plan_tier: requestedPlan,
+    status: "pending",
+  });
+}
+
 export default async function BillingPage() {
   if (!hasServerSupabaseEnv()) {
     return (
       <ErrorState
         title="Billing unavailable"
         description="Supabase is not configured, so billing details cannot be loaded."
-        retryAction={
-          <Link href="/dashboard">
-            <Button size="sm" variant="secondary">
-              Back to dashboard
-            </Button>
-          </Link>
-        }
+        retryLabel="Back to dashboard"
+        retryHref="/dashboard"
       />
     );
   }
@@ -46,7 +71,8 @@ export default async function BillingPage() {
   }
 
   const supabase = await createServerSupabaseClient();
-  const planClient = hasServiceRoleEnv() ? createServiceRoleClient() : supabase;
+  const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
+  const planClient = serviceClient ?? supabase;
   const { data: planRow } = await planClient
     .from("profile_plans")
     .select(
@@ -62,11 +88,22 @@ export default async function BillingPage() {
   const stripeCustomerId = (planRow as PlanRow | null)?.stripe_customer_id ?? null;
   const now = new Date();
   const expired =
-    !!validUntil &&
-    Number.isFinite(Date.parse(validUntil)) &&
-    new Date(validUntil).getTime() < now.getTime();
+    !!validUntil && Number.isFinite(Date.parse(validUntil)) && new Date(validUntil).getTime() < now.getTime();
   const planTier = (planRow as PlanRow | null)?.plan_tier ?? "free";
-  const plan = getPlanForTier(expired ? "free" : planTier);
+  const usage = await getPlanUsage({
+    supabase,
+    ownerId: profile.id,
+    serviceClient,
+  });
+  const plan = usage.plan;
+
+  const { data: upgradeRequest } = await supabase
+    .from("plan_upgrade_requests")
+    .select("id")
+    .eq("profile_id", profile.id)
+    .eq("status", "pending")
+    .maybeSingle();
+  const pendingUpgrade = !!upgradeRequest;
 
   const stripeEnabled =
     (profile.role === "landlord" &&
@@ -90,73 +127,53 @@ export default async function BillingPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h1 className="text-2xl font-semibold text-slate-900">Billing</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Manage your plan and subscription status.
-        </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Current plan</h2>
-          <dl className="mt-4 space-y-2 text-sm text-slate-700">
-            <div className="flex items-center justify-between">
-              <dt>Plan tier</dt>
-              <dd className="font-semibold text-slate-900">{plan.name}</dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt>Billing source</dt>
-              <dd className="capitalize">{billingSource}</dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt>Status</dt>
-              <dd className="capitalize">{statusLabel.replace(/_/g, " ")}</dd>
-            </div>
-            <div className="flex items-center justify-between">
-              <dt>Valid until</dt>
-              <dd>{validUntil ? new Date(validUntil).toLocaleDateString() : "—"}</dd>
-            </div>
-          </dl>
-        </div>
-
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">Actions</h2>
-          <p className="mt-1 text-sm text-slate-600">
-            Upgrade or manage your subscription based on your billing source.
-          </p>
-          <div className="mt-4">
-            {billingSource === "stripe" ? (
-              <StripeUpgradeActions
-                defaultTier="starter"
-                stripeEnabled={stripeEnabled}
-                stripeStatus={stripeStatus}
-                stripePeriodEnd={stripePeriodEnd}
-                showManage={showManage}
-                showUpgrade={false}
-              />
-            ) : billingSource === "manual" ? (
-              <Link href="/support?intent=billing">
-                <Button variant="secondary">Contact support</Button>
-              </Link>
-            ) : (
-              <StripeUpgradeActions
-                defaultTier="starter"
-                stripeEnabled={stripeEnabled}
-                stripeStatus={stripeStatus}
-                stripePeriodEnd={stripePeriodEnd}
-                showManage={showManage}
-                showUpgrade
-              />
-            )}
-          </div>
-          {billingSource !== "stripe" && (
-            <p className="mt-3 text-xs text-slate-500">
-              Manual upgrades remain available even after Stripe is enabled.
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              Plans & Billing
             </p>
-          )}
+            <h1 className="mt-2 text-2xl font-semibold text-slate-900">
+              Upgrade and manage your subscription
+            </h1>
+            <p className="mt-2 text-sm text-slate-600">
+              Your plan controls listing limits and approval priority.
+            </p>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-slate-500">Current plan</span>
+              <span className="font-semibold">{plan.name}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-4">
+              <span className="text-slate-500">Billing source</span>
+              <span className="capitalize">{billingSource}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-4">
+              <span className="text-slate-500">Status</span>
+              <span className="capitalize">{statusLabel.replace(/_/g, " ")}</span>
+            </div>
+            <div className="mt-2 flex items-center justify-between gap-4">
+              <span className="text-slate-500">Valid until</span>
+              <span>{validUntil ? new Date(validUntil).toLocaleDateString() : "—"}</span>
+            </div>
+          </div>
         </div>
       </div>
+
+      <BillingPlans
+        currentTier={planTier}
+        currentRole={profile.role}
+        billingSource={billingSource}
+        stripeStatus={stripeStatus}
+        stripePeriodEnd={stripePeriodEnd}
+        stripeEnabled={stripeEnabled}
+        showManage={showManage}
+        pendingUpgrade={pendingUpgrade}
+        activeCount={usage.activeCount}
+        maxListings={plan.maxListings}
+        requestUpgradeAction={requestUpgrade}
+      />
     </div>
   );
 }
