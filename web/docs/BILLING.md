@@ -1,11 +1,12 @@
 # Billing & Plans
 
-This document covers manual billing (admin-driven) and Stripe subscriptions for landlords and agents.
+This document covers manual billing (admin-driven), Stripe subscriptions, and tenant premium alerts.
 
 ## Plan model
-- Plan tiers: `free`, `starter`, `pro`.
-- Plans apply to both landlord and agent roles.
+- Landlord/agent tiers: `free`, `starter`, `pro`.
+- Tenant tier: `tenant_pro`.
 - Plan limits are enforced server-side on listing creation/activation.
+- Tenant Pro unlocks unlimited saved searches and instant alerts.
 - `valid_until` drives expiry; if expired, the plan is treated as `free`.
 
 ## Data model
@@ -26,6 +27,10 @@ This document covers manual billing (admin-driven) and Stripe subscriptions for 
 `public.plan_upgrade_requests`
 - Upgrade requests for manual review.
 
+`public.saved_search_alerts`
+- Alert audit entries for tenant saved search matches.
+- Used to track delivery status and last alert timestamps.
+
 ## Manual billing (admin)
 - Admins can set plan tier, max listing overrides, and `valid_until` in `/admin/users`.
 - Admin actions are logged with `plan_override` events.
@@ -40,6 +45,8 @@ Server-only:
 - `STRIPE_PRICE_LANDLORD_YEARLY`
 - `STRIPE_PRICE_AGENT_MONTHLY`
 - `STRIPE_PRICE_AGENT_YEARLY`
+- `STRIPE_PRICE_TENANT_MONTHLY`
+- `STRIPE_PRICE_TENANT_YEARLY`
 
 Optional:
 - `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` (not required for Checkout redirect flow)
@@ -59,8 +66,8 @@ Optional:
 
 ### Checkout flow
 - Endpoint: `POST /api/billing/stripe/checkout`
-- Payload: `{ tier: "starter" | "pro", cadence: "monthly" | "yearly" }`
-- Only landlord/agent roles can create a Checkout session.
+- Payload: `{ tier: "starter" | "pro" | "tenant_pro", cadence: "monthly" | "yearly" }`
+- Landlord/agent roles can use starter/pro; tenants can use tenant_pro.
 - Session metadata includes profile id, role, tier, cadence, and billing source.
 
 ### Webhook flow
@@ -80,6 +87,15 @@ Optional:
 - Active/trialing subscriptions set `billing_source = stripe` and update `valid_until`.
 - `invoice.payment_failed` keeps access until `current_period_end`, but logs a warning.
 - `customer.subscription.deleted` or expired subscriptions downgrade immediately (set tier to Free, clear `valid_until`).
+
+## Tenant premium alerts
+- Tenant Pro users receive instant alerts for saved search matches.
+- Alerts are sent when a listing is approved or activated and matches saved search filters.
+- Email delivery uses Resend when configured.
+
+### Email env vars
+- `RESEND_API_KEY`
+- `RESEND_FROM`
 
 ## Manual override vs Stripe
 - Stripe webhooks sync plan tier and `valid_until` only when `billing_source = stripe`.

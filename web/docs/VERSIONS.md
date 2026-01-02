@@ -1,5 +1,11 @@
 # Versions
 
+## 2026-01-02 — v1.7.0-r6.2-tenant-premium
+- Added Tenant Pro plan tier with Stripe pricing support.
+- Enforced saved search limits for free tenants and unlimited searches for Tenant Pro.
+- Added saved search alert audit table and email alert dispatch on new approvals.
+- Added tenant upsell prompts and priority contact CTA on listings.
+
 ## 2026-01-01 — v1.6.1-stripe-foundation
 - Added billing dashboard entry with Stripe/manual CTA logic.
 - Hardened Stripe webhooks with idempotency tracking and price-id plan mapping.

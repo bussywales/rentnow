@@ -20,6 +20,8 @@ Apply SQL files in this order:
 13) `web/supabase/migrations/013_manual_billing_and_requests.sql`
 14) `web/supabase/migrations/014_stripe_subscription_fields.sql`
 15) `web/supabase/migrations/015_stripe_webhook_events.sql`
+16) `web/supabase/migrations/016_tenant_plan_tier.sql`
+17) `web/supabase/migrations/017_saved_search_alerts.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -81,6 +83,7 @@ select to_regclass('public.profile_plans') as profile_plans;
 select to_regclass('public.profile_billing_notes') as profile_billing_notes;
 select to_regclass('public.plan_upgrade_requests') as plan_upgrade_requests;
 select to_regclass('public.stripe_webhook_events') as stripe_webhook_events;
+select to_regclass('public.saved_search_alerts') as saved_search_alerts;
 ```
 
 ### RLS enabled
@@ -98,7 +101,8 @@ where relname in (
   'profile_plans',
   'profile_billing_notes',
   'plan_upgrade_requests',
-  'stripe_webhook_events'
+  'stripe_webhook_events',
+  'saved_search_alerts'
 );
 ```
 
@@ -115,10 +119,11 @@ where schemaname = 'public'
     'messages',
     'viewing_requests',
     'agent_delegations',
-    'profile_plans',
-    'profile_billing_notes',
-    'plan_upgrade_requests',
-    'stripe_webhook_events'
+  'profile_plans',
+  'profile_billing_notes',
+  'plan_upgrade_requests',
+  'stripe_webhook_events',
+  'saved_search_alerts'
   )
 order by tablename, policyname;
 ```
@@ -138,7 +143,8 @@ where table_schema = 'public'
     'profile_plans',
     'profile_billing_notes',
     'plan_upgrade_requests',
-    'stripe_webhook_events'
+    'stripe_webhook_events',
+    'saved_search_alerts'
   )
   and column_name in (
     'id',
@@ -167,7 +173,14 @@ where table_schema = 'public'
     'stripe_current_period_end',
     'stripe_status',
     'event_id',
-    'event_type'
+    'event_type',
+    'saved_search_id',
+    'property_id',
+    'user_id',
+    'status',
+    'channel',
+    'sent_at',
+    'error'
   )
 order by table_name, column_name;
 ```
