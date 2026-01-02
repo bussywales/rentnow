@@ -24,3 +24,6 @@
 ## Upgrade requests
 - As a landlord/agent hitting the limit, click “Request upgrade”.
 - Confirm the request appears in Admin → Control panel and can be approved/rejected.
+
+## Billing UX polish
+- Confirm the Plans & Billing hub shows pricing, usage indicators, and clear CTAs.

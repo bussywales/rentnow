@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { PlanTier } from "@/lib/plans";
 import { PlanCard, type PlanCardConfig } from "@/components/billing/PlanCard";
 
@@ -25,7 +25,7 @@ const PLAN_CARDS: PlanCardConfig[] = [
     key: "free",
     title: "Free",
     tier: "free",
-    features: ["1 active listing", "Standard approvals", "Basic support"],
+    features: ["Publish 1 active listing", "Standard approval queue", "Essential support"],
   },
   {
     key: "landlord-pro",
@@ -33,14 +33,14 @@ const PLAN_CARDS: PlanCardConfig[] = [
     tier: "pro",
     role: "landlord",
     highlight: true,
-    features: ["Up to 10 active listings", "Featured placement", "Priority approvals"],
+    features: ["Publish up to 10 active listings", "Featured placement on search", "Priority approval queue"],
   },
   {
     key: "agent-pro",
     title: "Agent Pro",
     tier: "pro",
     role: "agent",
-    features: ["Up to 10 active listings", "Manage multiple landlords", "Priority approvals"],
+    features: ["Publish up to 10 active listings", "Manage multiple landlords", "Priority approval queue"],
   },
 ];
 
@@ -65,11 +65,16 @@ export function PlansGrid({
   const periodLabel = stripePeriodEnd ? new Date(stripePeriodEnd).toLocaleDateString() : null;
   const limitReached = activeCount >= maxListings;
 
-  const priceLabel = useMemo(() => {
-    return cadence === "monthly" ? "Stripe monthly" : "Stripe yearly";
-  }, [cadence]);
-
   const cadenceLabel = cadence === "monthly" ? "Billed monthly" : "Billed yearly";
+  const priceSubLabel = cadence === "yearly" ? "Save 17%" : null;
+
+  const getPriceLabel = (plan: PlanCardConfig) => {
+    if (plan.tier === "free") return "£0";
+    if (plan.role === "agent") {
+      return cadence === "monthly" ? "£49 / month" : "£490 / year";
+    }
+    return cadence === "monthly" ? "£29 / month" : "£290 / year";
+  };
 
   const startCheckout = async (tier: PlanTier) => {
     setLoadingKey(tier);
@@ -164,7 +169,8 @@ export function PlansGrid({
           <PlanCard
             key={plan.key}
             plan={plan}
-            priceLabel={priceLabel}
+            priceLabel={getPriceLabel(plan)}
+            priceSubLabel={plan.tier === "pro" ? priceSubLabel : null}
             cadenceLabel={cadenceLabel}
             currentTier={currentTier}
             currentRole={currentRole}
@@ -173,6 +179,7 @@ export function PlansGrid({
             stripeEnabled={stripeEnabled}
             pendingUpgrade={pendingUpgrade}
             loadingKey={loadingKey}
+            usageCount={activeCount}
             onUpgrade={startCheckout}
             onManage={openPortal}
             requestUpgradeAction={requestUpgradeAction}

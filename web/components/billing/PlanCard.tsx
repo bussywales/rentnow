@@ -18,6 +18,7 @@ export type PlanCardConfig = {
 type Props = {
   plan: PlanCardConfig;
   priceLabel: string;
+  priceSubLabel?: string | null;
   currentTier: PlanTier;
   currentRole: string | null;
   billingSource: string;
@@ -26,6 +27,7 @@ type Props = {
   pendingUpgrade: boolean;
   loadingKey: string | null;
   cadenceLabel: string;
+  usageCount: number;
   onUpgrade: (tier: PlanTier) => void;
   onManage: () => void;
   requestUpgradeAction: (formData: FormData) => void;
@@ -34,6 +36,7 @@ type Props = {
 export function PlanCard({
   plan,
   priceLabel,
+  priceSubLabel,
   currentTier,
   currentRole,
   billingSource,
@@ -42,6 +45,7 @@ export function PlanCard({
   pendingUpgrade,
   loadingKey,
   cadenceLabel,
+  usageCount,
   onUpgrade,
   onManage,
   requestUpgradeAction,
@@ -54,12 +58,15 @@ export function PlanCard({
   const canUpgrade = plan.tier !== "free" && stripeEnabled && roleMatches && !isCurrent;
   const showCurrent = isCurrent && !pendingUpgrade;
   const showRequest = plan.tier !== "free" && roleMatches;
+  const usageMax = planGate.maxListings;
+  const usagePercent = usageMax > 0 ? Math.min(100, Math.round((usageCount / usageMax) * 100)) : 0;
+  const muted = !roleMatches && !!plan.role;
 
   return (
     <div
       className={`flex h-full flex-col rounded-2xl border p-5 shadow-sm ${
         plan.highlight ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white text-slate-900"
-      }`}
+      } ${muted ? "opacity-60 grayscale" : ""}`}
     >
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">{plan.title}</h3>
@@ -71,15 +78,37 @@ export function PlanCard({
       </div>
       <div className="mt-4">
         <p className="text-3xl font-semibold">{plan.tier === "free" ? "£0" : priceLabel}</p>
-        <p className={`text-sm ${plan.highlight ? "text-white/70" : "text-slate-500"}`}>
-          {plan.tier === "free" ? "Always free" : cadenceLabel}
-        </p>
+        <div className={`text-sm ${plan.highlight ? "text-white/70" : "text-slate-500"}`}>
+          <p>{plan.tier === "free" ? "Always free" : cadenceLabel}</p>
+          {priceSubLabel && <p className="font-semibold">{priceSubLabel}</p>}
+        </div>
       </div>
+      {!roleMatches && plan.role && (
+        <p className={`mt-3 text-xs ${plan.highlight ? "text-white/70" : "text-slate-500"}`}>
+          Available when using a {plan.role === "agent" ? "Agent" : "Landlord"} account.
+        </p>
+      )}
       <div className="mt-4 text-sm">
         <p className="font-semibold">Listing limit</p>
         <p className={plan.highlight ? "text-white/80" : "text-slate-600"}>
-          {planGate.maxListings} active listings
+          Publish up to {planGate.maxListings} active listings
         </p>
+        <div className="mt-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className={plan.highlight ? "text-white/70" : "text-slate-500"}>
+              Listings used
+            </span>
+            <span className={plan.highlight ? "text-white/70" : "text-slate-500"}>
+              {Math.min(usageCount, usageMax)} / {usageMax}
+            </span>
+          </div>
+          <div className={`mt-2 h-2 w-full rounded-full ${plan.highlight ? "bg-white/10" : "bg-slate-100"}`}>
+            <div
+              className={`h-2 rounded-full ${plan.highlight ? "bg-white" : "bg-slate-900"}`}
+              style={{ width: `${usagePercent}%` }}
+            />
+          </div>
+        </div>
       </div>
       <ul className="mt-4 space-y-2 text-sm">
         {plan.features.map((feature) => (
@@ -107,23 +136,31 @@ export function PlanCard({
           </Button>
         ) : (
           <Button variant="secondary" disabled>
-            Not available for your role
+            Not available
           </Button>
         )}
 
         {isCurrent && billingSource === "stripe" && stripeManageAvailable && (
-          <Button
-            variant="secondary"
+          <button
+            type="button"
             onClick={onManage}
             disabled={loadingKey === "portal"}
+            className={`text-left text-sm font-semibold ${
+              plan.highlight ? "text-white/80 hover:text-white" : "text-slate-600 hover:text-slate-900"
+            }`}
           >
             {loadingKey === "portal" ? "Opening..." : "Manage subscription"}
-          </Button>
+          </button>
         )}
 
         {isCurrent && billingSource === "manual" && (
-          <Link href="/support?intent=billing">
-            <Button variant="secondary">Contact support</Button>
+          <Link
+            href="/support?intent=billing"
+            className={`text-sm font-semibold ${
+              plan.highlight ? "text-white/80 hover:text-white" : "text-slate-600 hover:text-slate-900"
+            }`}
+          >
+            Contact support
           </Link>
         )}
       </div>
@@ -131,14 +168,15 @@ export function PlanCard({
       {showRequest && (
         <form action={requestUpgradeAction} className="mt-3">
           <input type="hidden" name="plan_tier" value={plan.tier} />
-          <Button
+          <button
             type="submit"
-            variant="ghost"
-            className={plan.highlight ? "text-white hover:bg-white/10" : ""}
             disabled={pendingUpgrade}
+            className={`text-left text-sm font-semibold ${
+              plan.highlight ? "text-white/80 hover:text-white" : "text-slate-600 hover:text-slate-900"
+            }`}
           >
             {pendingUpgrade ? "Request sent" : "Request invoice / bank transfer"}
-          </Button>
+          </button>
         </form>
       )}
     </div>
