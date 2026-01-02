@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { getPlanUsage } from "@/lib/plan-enforcement";
+import { dispatchSavedSearchAlerts } from "@/lib/alerts/tenant-alerts";
 import { logApprovalAction, logFailure, logPlanLimitHit } from "@/lib/observability";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 
@@ -133,6 +134,20 @@ export async function PATCH(
     action,
     reasonProvided: !isApproved,
   });
+
+  if (isApproved) {
+    try {
+      await dispatchSavedSearchAlerts(id);
+    } catch (err) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 500,
+        startTime,
+        error: err,
+      });
+    }
+  }
 
   return NextResponse.json({ id, is_approved: isApproved });
 }

@@ -13,6 +13,10 @@ export async function GET() {
   const stripeLandlordYearly = process.env.STRIPE_PRICE_LANDLORD_YEARLY;
   const stripeAgentMonthly = process.env.STRIPE_PRICE_AGENT_MONTHLY;
   const stripeAgentYearly = process.env.STRIPE_PRICE_AGENT_YEARLY;
+  const stripeTenantMonthly = process.env.STRIPE_PRICE_TENANT_MONTHLY;
+  const stripeTenantYearly = process.env.STRIPE_PRICE_TENANT_YEARLY;
+  const resendApiKey = process.env.RESEND_API_KEY;
+  const resendFrom = process.env.RESEND_FROM;
 
   const required = [
     "NEXT_PUBLIC_SITE_URL",
@@ -28,6 +32,8 @@ export async function GET() {
     "STRIPE_PRICE_LANDLORD_YEARLY",
     "STRIPE_PRICE_AGENT_MONTHLY",
     "STRIPE_PRICE_AGENT_YEARLY",
+    "STRIPE_PRICE_TENANT_MONTHLY",
+    "STRIPE_PRICE_TENANT_YEARLY",
   ];
   const stripeMissing = stripeRequired.filter((key) => !process.env[key]);
 
@@ -45,7 +51,13 @@ export async function GET() {
       landlordYearly: !!stripeLandlordYearly,
       agentMonthly: !!stripeAgentMonthly,
       agentYearly: !!stripeAgentYearly,
+      tenantMonthly: !!stripeTenantMonthly,
+      tenantYearly: !!stripeTenantYearly,
       missing: stripeMissing,
+    },
+    email: {
+      resendApiKey: !!resendApiKey,
+      resendFrom: !!resendFrom,
     },
     missing,
     runtime: process.env.VERCEL ? "vercel" : "local",

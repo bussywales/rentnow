@@ -43,6 +43,15 @@ type PlanOverrideLogInput = {
   validUntil?: string | null;
 };
 
+type SavedSearchLimitLogInput = {
+  request?: Request;
+  route: string;
+  actorId: string;
+  planTier: string;
+  maxSavedSearches: number | null;
+  searchCount: number;
+};
+
 type StripeCheckoutLogInput = {
   request?: Request;
   route: string;
@@ -200,6 +209,28 @@ export function logPlanOverride({
     billingSource: billingSource || "manual",
     validUntil,
     source: "manual",
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logSavedSearchLimitHit({
+  request,
+  route,
+  actorId,
+  planTier,
+  maxSavedSearches,
+  searchCount,
+}: SavedSearchLimitLogInput) {
+  const payload = {
+    level: "info",
+    event: "saved_search_limit_hit",
+    route,
+    requestId: getRequestId(request),
+    actorId,
+    planTier,
+    maxSavedSearches,
+    searchCount,
   };
 
   console.log(JSON.stringify(payload));

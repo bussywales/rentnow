@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser } from "@/lib/authz";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { logFailure } from "@/lib/observability";
+import { logFailure, logSavedSearchLimitHit } from "@/lib/observability";
+import { getTenantPlanForTier, isSavedSearchLimitReached } from "@/lib/plans";
 
 const routeLabel = "/api/saved-searches";
 
@@ -78,6 +79,54 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
 
   try {
+    const { data: planRow } = await supabase
+      .from("profile_plans")
+      .select("plan_tier, valid_until")
+      .eq("profile_id", auth.user.id)
+      .maybeSingle();
+
+    const validUntil = planRow?.valid_until ?? null;
+    const expired =
+      !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
+    const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+
+    const { count: searchCount, error: countError } = await supabase
+      .from("saved_searches")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", auth.user.id);
+
+    if (countError) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 400,
+        startTime,
+        error: new Error(countError.message),
+      });
+      return NextResponse.json({ error: countError.message }, { status: 400 });
+    }
+
+    if (isSavedSearchLimitReached(searchCount ?? 0, tenantPlan)) {
+      logSavedSearchLimitHit({
+        request,
+        route: routeLabel,
+        actorId: auth.user.id,
+        planTier: tenantPlan.tier,
+        maxSavedSearches: tenantPlan.maxSavedSearches,
+        searchCount: searchCount ?? 0,
+      });
+      return NextResponse.json(
+        {
+          error: "Saved search limit reached",
+          code: "plan_limit_reached",
+          maxSavedSearches: tenantPlan.maxSavedSearches,
+          searchCount: searchCount ?? 0,
+          planTier: tenantPlan.tier,
+        },
+        { status: 409 }
+      );
+    }
+
     const body = await request.json();
     const payload = createSchema.parse(body);
     const { data, error } = await supabase

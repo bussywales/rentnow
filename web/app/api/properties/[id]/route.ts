@@ -6,6 +6,7 @@ import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { getPlanUsage } from "@/lib/plan-enforcement";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { dispatchSavedSearchAlerts } from "@/lib/alerts/tenant-alerts";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
 
 const routeLabel = "/api/properties/[id]";
@@ -235,21 +236,26 @@ export async function PUT(
       typeof message === "string" && message.includes("properties.status");
 
     const adminClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
-    let existing: { owner_id: string; status?: string | null; is_active?: boolean | null } | null = null;
+    let existing: {
+      owner_id: string;
+      status?: string | null;
+      is_active?: boolean | null;
+      is_approved?: boolean | null;
+    } | null = null;
     let fetchError: { message: string } | null = null;
     let statusMissing = false;
 
     if (adminClient) {
       const initial = await adminClient
         .from("properties")
-        .select("owner_id, status, is_active")
+        .select("owner_id, status, is_active, is_approved")
         .eq("id", id)
         .maybeSingle();
       if (initial.error && missingStatus(initial.error.message)) {
         statusMissing = true;
         const fallback = await adminClient
           .from("properties")
-          .select("owner_id, is_active")
+          .select("owner_id, is_active, is_approved")
           .eq("id", id)
           .maybeSingle();
         existing = fallback.data ?? null;
@@ -261,14 +267,14 @@ export async function PUT(
     } else {
       const initial = await supabase
         .from("properties")
-        .select("owner_id, status, is_active")
+        .select("owner_id, status, is_active, is_approved")
         .eq("id", id)
         .maybeSingle();
       if (initial.error && missingStatus(initial.error.message)) {
         statusMissing = true;
         const fallback = await supabase
           .from("properties")
-          .select("owner_id, is_active")
+          .select("owner_id, is_active, is_approved")
           .eq("id", id)
           .maybeSingle();
         existing = fallback.data ?? null;
@@ -445,6 +451,27 @@ export async function PUT(
             position: index,
           }))
         );
+      }
+    }
+
+    if (willActivate) {
+      const { data: updated } = await supabase
+        .from("properties")
+        .select("id, is_active, is_approved")
+        .eq("id", id)
+        .maybeSingle();
+      if (updated?.is_active && updated?.is_approved) {
+        try {
+          await dispatchSavedSearchAlerts(id);
+        } catch (err) {
+          logFailure({
+            request,
+            route: routeLabel,
+            status: 500,
+            startTime,
+            error: err,
+          });
+        }
       }
     }
 

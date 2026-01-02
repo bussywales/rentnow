@@ -121,3 +121,83 @@ export function filtersToChips(filters: ParsedSearchFilters): FilterChip[] {
   }
   return chips;
 }
+
+export function parseFiltersFromSavedSearch(params: Record<string, unknown>): ParsedSearchFilters {
+  const city = typeof params.city === "string" ? params.city : null;
+  const minPrice =
+    typeof params.minPrice === "number"
+      ? params.minPrice
+      : params.minPrice
+      ? Number(params.minPrice)
+      : null;
+  const maxPrice =
+    typeof params.maxPrice === "number"
+      ? params.maxPrice
+      : params.maxPrice
+      ? Number(params.maxPrice)
+      : null;
+  const currency = typeof params.currency === "string" ? params.currency : null;
+  const bedrooms =
+    typeof params.bedrooms === "number"
+      ? params.bedrooms
+      : params.bedrooms
+      ? Number(params.bedrooms)
+      : null;
+  const rentalType =
+    params.rentalType === "short_let" || params.rentalType === "long_term"
+      ? (params.rentalType as RentalType)
+      : null;
+  const furnished =
+    params.furnished === true || params.furnished === false
+      ? params.furnished
+      : params.furnished === "true"
+      ? true
+      : params.furnished === "false"
+      ? false
+      : null;
+  const amenities = Array.isArray(params.amenities)
+    ? params.amenities.filter((item): item is string => typeof item === "string")
+    : typeof params.amenities === "string"
+    ? params.amenities.split(",").map((item) => item.trim()).filter(Boolean)
+    : [];
+
+  return {
+    city,
+    minPrice,
+    maxPrice,
+    currency,
+    bedrooms,
+    rentalType,
+    furnished,
+    amenities,
+  };
+}
+
+export function propertyMatchesFilters(property: {
+  city: string;
+  price: number;
+  currency: string;
+  bedrooms: number;
+  rental_type: RentalType;
+  furnished: boolean;
+  amenities?: string[] | null;
+}, filters: ParsedSearchFilters): boolean {
+  if (filters.city) {
+    const cityMatch = property.city.toLowerCase().includes(filters.city.toLowerCase());
+    if (!cityMatch) return false;
+  }
+  if (filters.minPrice !== null && property.price < filters.minPrice) return false;
+  if (filters.maxPrice !== null && property.price > filters.maxPrice) return false;
+  if (filters.currency && property.currency.toLowerCase() !== filters.currency.toLowerCase()) {
+    return false;
+  }
+  if (filters.bedrooms !== null && property.bedrooms < filters.bedrooms) return false;
+  if (filters.rentalType && property.rental_type !== filters.rentalType) return false;
+  if (filters.furnished !== null && property.furnished !== filters.furnished) return false;
+  if (filters.amenities.length) {
+    const available = new Set((property.amenities || []).map((item) => item.toLowerCase()));
+    const needsAll = filters.amenities.every((item) => available.has(item.toLowerCase()));
+    if (!needsAll) return false;
+  }
+  return true;
+}

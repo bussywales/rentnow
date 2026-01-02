@@ -4,6 +4,8 @@ import { requireUser } from "@/lib/authz";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
 import { searchProperties } from "@/lib/search";
+import { getTenantPlanForTier } from "@/lib/plans";
+import { parseFiltersFromSavedSearch } from "@/lib/search-filters";
 import type { ParsedSearchFilters } from "@/lib/types";
 
 const routeLabel = "/api/saved-searches/[id]";
@@ -15,45 +17,7 @@ const patchSchema = z.object({
 });
 
 function toFilters(queryParams: Record<string, unknown>): ParsedSearchFilters {
-  return {
-    city: typeof queryParams.city === "string" ? queryParams.city : null,
-    minPrice:
-      typeof queryParams.minPrice === "number"
-        ? queryParams.minPrice
-        : queryParams.minPrice
-        ? Number(queryParams.minPrice)
-        : null,
-    maxPrice:
-      typeof queryParams.maxPrice === "number"
-        ? queryParams.maxPrice
-        : queryParams.maxPrice
-        ? Number(queryParams.maxPrice)
-        : null,
-    currency: typeof queryParams.currency === "string" ? queryParams.currency : null,
-    bedrooms:
-      typeof queryParams.bedrooms === "number"
-        ? queryParams.bedrooms
-        : queryParams.bedrooms
-        ? Number(queryParams.bedrooms)
-        : null,
-    rentalType:
-      queryParams.rentalType === "short_let" || queryParams.rentalType === "long_term"
-        ? queryParams.rentalType
-        : null,
-    furnished:
-      queryParams.furnished === true || queryParams.furnished === false
-        ? queryParams.furnished
-        : queryParams.furnished === "true"
-        ? true
-        : queryParams.furnished === "false"
-        ? false
-        : null,
-    amenities: Array.isArray(queryParams.amenities)
-      ? queryParams.amenities.filter((item): item is string => typeof item === "string")
-      : typeof queryParams.amenities === "string"
-      ? queryParams.amenities.split(",").map((item) => item.trim()).filter(Boolean)
-      : [],
-  };
+  return parseFiltersFromSavedSearch(queryParams);
 }
 
 export async function PATCH(
@@ -102,9 +66,33 @@ export async function PATCH(
 
   if (payload.action === "check") {
     const filters = toFilters(existing.query_params || {});
+    let approvedBefore: string | null = null;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", auth.user.id)
+      .maybeSingle();
+    if (profile?.role === "tenant") {
+      const { data: planRow } = await supabase
+        .from("profile_plans")
+        .select("plan_tier, valid_until")
+        .eq("profile_id", auth.user.id)
+        .maybeSingle();
+      const validUntil = planRow?.valid_until ?? null;
+      const expired =
+        !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
+      const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+      if (tenantPlan.tier !== "tenant_pro" && tenantPlan.earlyAccessMinutes > 0) {
+        approvedBefore = new Date(
+          Date.now() - tenantPlan.earlyAccessMinutes * 60 * 1000
+        ).toISOString();
+      }
+    }
+
     const { data, error, count } = await searchProperties(filters, {
       page: 1,
       pageSize: 3,
+      approvedBefore,
     });
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });

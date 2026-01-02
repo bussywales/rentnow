@@ -29,6 +29,10 @@ const requiredPolicies: Record<string, string[]> = {
     "saved searches select self",
     "saved searches update self",
   ],
+  saved_search_alerts: [
+    "saved search alerts admin read",
+    "saved search alerts select self",
+  ],
   messages: ["messages participant/owner read", "messages sender insert"],
   viewing_requests: ["viewings tenant insert", "viewings tenant/owner read", "viewings tenant/owner update"],
   agent_delegations: [
@@ -94,6 +98,7 @@ export async function GET(request: Request) {
       "property_images",
       "saved_properties",
       "saved_searches",
+      "saved_search_alerts",
       "messages",
       "viewing_requests",
       "agent_delegations",
@@ -127,6 +132,16 @@ export async function GET(request: Request) {
     if (!columns?.saved_properties?.property_id) issues.push("missing column: saved_properties.property_id");
     if (!columns?.saved_searches?.user_id) issues.push("missing column: saved_searches.user_id");
     if (!columns?.saved_searches?.query_params) issues.push("missing column: saved_searches.query_params");
+    if (!columns?.saved_search_alerts?.user_id) issues.push("missing column: saved_search_alerts.user_id");
+    if (!columns?.saved_search_alerts?.saved_search_id) {
+      issues.push("missing column: saved_search_alerts.saved_search_id");
+    }
+    if (!columns?.saved_search_alerts?.property_id) {
+      issues.push("missing column: saved_search_alerts.property_id");
+    }
+    if (!columns?.saved_search_alerts?.status) {
+      issues.push("missing column: saved_search_alerts.status");
+    }
     if (!columns?.messages?.sender_id) issues.push("missing column: messages.sender_id");
     if (!columns?.messages?.recipient_id) issues.push("missing column: messages.recipient_id");
     if (!columns?.viewing_requests?.tenant_id) issues.push("missing column: viewing_requests.tenant_id");
@@ -212,6 +227,15 @@ export async function GET(request: Request) {
   results.saved_searches = {
     count: searches.count ?? 0,
     error: searches.error?.message ?? null,
+  };
+
+  const alerts = await supabase
+    .from("saved_search_alerts")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", auth.user.id);
+  results.saved_search_alerts = {
+    count: alerts.count ?? 0,
+    error: alerts.error?.message ?? null,
   };
 
   return NextResponse.json({ ok: issues.length === 0, issues, results });
