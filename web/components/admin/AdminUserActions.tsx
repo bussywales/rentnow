@@ -135,6 +135,7 @@ export function AdminUserActions({
               <option value="free">Free</option>
               <option value="starter">Starter</option>
               <option value="pro">Pro</option>
+              <option value="tenant_pro">Tenant Pro</option>
             </select>
           </label>
           <label className="text-xs text-slate-600">

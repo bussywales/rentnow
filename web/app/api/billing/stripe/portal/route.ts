@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     request,
     route: routeLabel,
     startTime,
-    roles: ["landlord", "agent"],
+    roles: ["landlord", "agent", "tenant"],
   });
   if (!auth.ok) return auth.response;
 

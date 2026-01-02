@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { PlanTier } from "@/lib/plans";
+import { getTenantPlanForTier, isSavedSearchLimitReached, type PlanTier } from "@/lib/plans";
 import { PlanCard, type PlanCardConfig } from "@/components/billing/PlanCard";
 
 type Cadence = "monthly" | "yearly";
@@ -17,6 +17,7 @@ type Props = {
   pendingUpgrade: boolean;
   activeCount: number;
   maxListings: number;
+  savedSearchCount: number;
   requestUpgradeAction: (formData: FormData) => void;
 };
 
@@ -25,7 +26,7 @@ const PLAN_CARDS: PlanCardConfig[] = [
     key: "free",
     title: "Free",
     tier: "free",
-    features: ["Publish 1 active listing", "Standard approval queue", "Essential support"],
+    features: ["Essentials to browse or list", "Standard approval queue", "Email support"],
   },
   {
     key: "landlord-pro",
@@ -42,6 +43,14 @@ const PLAN_CARDS: PlanCardConfig[] = [
     role: "agent",
     features: ["Publish up to 10 active listings", "Manage multiple landlords", "Priority approval queue"],
   },
+  {
+    key: "tenant-pro",
+    title: "Tenant Pro",
+    tier: "tenant_pro",
+    role: "tenant",
+    usageType: "saved_searches",
+    features: ["Unlimited saved searches", "Instant alerts for new listings", "Priority contact on listings"],
+  },
 ];
 
 export function PlansGrid({
@@ -55,6 +64,7 @@ export function PlansGrid({
   pendingUpgrade,
   activeCount,
   maxListings,
+  savedSearchCount,
   requestUpgradeAction,
 }: Props) {
   const [cadence, setCadence] = useState<Cadence>("monthly");
@@ -63,7 +73,11 @@ export function PlansGrid({
 
   const statusLabel = stripeStatus ? stripeStatus.replace(/_/g, " ") : null;
   const periodLabel = stripePeriodEnd ? new Date(stripePeriodEnd).toLocaleDateString() : null;
-  const limitReached = activeCount >= maxListings;
+  const tenantPlan = currentRole === "tenant" ? getTenantPlanForTier(currentTier) : null;
+  const limitReached =
+    currentRole === "tenant"
+      ? isSavedSearchLimitReached(savedSearchCount, tenantPlan)
+      : activeCount >= maxListings;
 
   const cadenceLabel = cadence === "monthly" ? "Billed monthly" : "Billed yearly";
   const priceSubLabel = cadence === "yearly" ? "Save 17%" : null;
@@ -72,6 +86,9 @@ export function PlansGrid({
     if (plan.tier === "free") return "£0";
     if (plan.role === "agent") {
       return cadence === "monthly" ? "£49 / month" : "£490 / year";
+    }
+    if (plan.role === "tenant") {
+      return cadence === "monthly" ? "£9 / month" : "£90 / year";
     }
     return cadence === "monthly" ? "£29 / month" : "£290 / year";
   };
@@ -158,9 +175,15 @@ export function PlansGrid({
       {limitReached && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="font-semibold">
-            You are at your listing limit ({activeCount}/{maxListings}).
+            {currentRole === "tenant"
+              ? `You are at your saved search limit (${savedSearchCount}/${tenantPlan?.maxSavedSearches ?? 0}).`
+              : `You are at your listing limit (${activeCount}/${maxListings}).`}
           </p>
-          <p className="mt-1">Upgrade to publish more listings without delays.</p>
+          <p className="mt-1">
+            {currentRole === "tenant"
+              ? "Upgrade to unlock unlimited searches and instant alerts."
+              : "Upgrade to publish more listings without delays."}
+          </p>
         </div>
       )}
 
@@ -170,7 +193,7 @@ export function PlansGrid({
             key={plan.key}
             plan={plan}
             priceLabel={getPriceLabel(plan)}
-            priceSubLabel={plan.tier === "pro" ? priceSubLabel : null}
+            priceSubLabel={plan.tier !== "free" ? priceSubLabel : null}
             cadenceLabel={cadenceLabel}
             currentTier={currentTier}
             currentRole={currentRole}
@@ -179,7 +202,7 @@ export function PlansGrid({
             stripeEnabled={stripeEnabled}
             pendingUpgrade={pendingUpgrade}
             loadingKey={loadingKey}
-            usageCount={activeCount}
+            usageCount={plan.usageType === "saved_searches" ? savedSearchCount : activeCount}
             onUpgrade={startCheckout}
             onManage={openPortal}
             requestUpgradeAction={requestUpgradeAction}

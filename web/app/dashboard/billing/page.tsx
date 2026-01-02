@@ -29,10 +29,15 @@ async function requestUpgrade(formData: FormData) {
   if (!user) return;
 
   const role = await getUserRole(supabase, user.id);
-  if (!role || (role !== "landlord" && role !== "agent")) return;
+  if (!role || (role !== "landlord" && role !== "agent" && role !== "tenant")) return;
 
   const rawTier = formData.get("plan_tier");
-  const requestedPlan = rawTier === "pro" || rawTier === "starter" ? rawTier : "starter";
+  const requestedPlan =
+    role === "tenant"
+      ? "tenant_pro"
+      : rawTier === "pro" || rawTier === "starter"
+      ? rawTier
+      : "starter";
 
   const { data: existing } = await supabase
     .from("plan_upgrade_requests")
@@ -67,7 +72,7 @@ export default async function BillingPage() {
     redirect("/auth/login?reason=auth");
   }
 
-  if (!["landlord", "agent", "admin"].includes(profile.role)) {
+  if (!["landlord", "agent", "tenant", "admin"].includes(profile.role)) {
     redirect("/dashboard");
   }
 
@@ -97,6 +102,13 @@ export default async function BillingPage() {
     serviceClient,
   });
   const plan = usage.plan;
+  const { count: savedSearchCount } =
+    profile.role === "tenant"
+      ? await supabase
+          .from("saved_searches")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", profile.id)
+      : { data: null };
 
   const { data: upgradeRequest } = await supabase
     .from("plan_upgrade_requests")
@@ -114,7 +126,11 @@ export default async function BillingPage() {
     (profile.role === "agent" &&
       !!process.env.STRIPE_SECRET_KEY &&
       !!process.env.STRIPE_PRICE_AGENT_MONTHLY &&
-      !!process.env.STRIPE_PRICE_AGENT_YEARLY);
+      !!process.env.STRIPE_PRICE_AGENT_YEARLY) ||
+    (profile.role === "tenant" &&
+      !!process.env.STRIPE_SECRET_KEY &&
+      !!process.env.STRIPE_PRICE_TENANT_MONTHLY &&
+      !!process.env.STRIPE_PRICE_TENANT_YEARLY);
   const showManage = billingSource === "stripe" && !!stripeCustomerId;
 
   const statusLabel =
@@ -125,6 +141,10 @@ export default async function BillingPage() {
       : expired
       ? "expired"
       : "free";
+  const summaryCopy =
+    profile.role === "tenant"
+      ? "Your plan unlocks saved search alerts and early access."
+      : "Your plan controls listing limits and approval priority.";
 
   return (
     <div className="space-y-6">
@@ -138,7 +158,7 @@ export default async function BillingPage() {
               Upgrade and manage your subscription
             </h1>
             <p className="mt-2 text-sm text-slate-600">
-              Your plan controls listing limits and approval priority.
+              {summaryCopy}
             </p>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
@@ -173,6 +193,7 @@ export default async function BillingPage() {
         pendingUpgrade={pendingUpgrade}
         activeCount={usage.activeCount}
         maxListings={plan.maxListings}
+        savedSearchCount={savedSearchCount ?? 0}
         requestUpgradeAction={requestUpgrade}
       />
     </div>

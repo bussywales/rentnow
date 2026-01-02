@@ -8,7 +8,7 @@ const routeLabel = "/api/admin/plans";
 
 const bodySchema = z.object({
   profileId: z.string().uuid(),
-  planTier: z.enum(["free", "starter", "pro"]),
+  planTier: z.enum(["free", "starter", "pro", "tenant_pro"]),
   maxListingsOverride: z.number().int().positive().nullable().optional(),
   validUntil: z.string().datetime().nullable().optional(),
   billingNotes: z.string().max(2000).nullable().optional(),

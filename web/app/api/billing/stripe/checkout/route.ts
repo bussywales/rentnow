@@ -9,7 +9,7 @@ import { logFailure, logStripeCheckoutStarted } from "@/lib/observability";
 const routeLabel = "/api/billing/stripe/checkout";
 
 const bodySchema = z.object({
-  tier: z.enum(["starter", "pro"]),
+  tier: z.enum(["starter", "pro", "tenant_pro"]),
   cadence: z.enum(["monthly", "yearly"]),
 });
 
@@ -39,11 +39,17 @@ export async function POST(request: Request) {
     request,
     route: routeLabel,
     startTime,
-    roles: ["landlord", "agent"],
+    roles: ["landlord", "agent", "tenant"],
   });
   if (!auth.ok) return auth.response;
 
   const payload = bodySchema.parse(await request.json());
+  if (auth.role === "tenant" && payload.tier !== "tenant_pro") {
+    return NextResponse.json({ error: "Invalid plan selection" }, { status: 400 });
+  }
+  if (auth.role !== "tenant" && payload.tier === "tenant_pro") {
+    return NextResponse.json({ error: "Invalid plan selection" }, { status: 400 });
+  }
   if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json(
       { error: "Stripe is not configured", code: "stripe_not_configured" },

@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { getPlanForTier, type PlanTier } from "@/lib/plans";
+import { getPlanForTier, getTenantPlanForTier, type PlanTier } from "@/lib/plans";
 
-type BillingRole = "landlord" | "agent";
+type BillingRole = "landlord" | "agent" | "tenant";
 
 export type PlanCardConfig = {
   key: string;
@@ -13,6 +13,7 @@ export type PlanCardConfig = {
   role?: BillingRole;
   highlight?: boolean;
   features: string[];
+  usageType?: "listings" | "saved_searches";
 };
 
 type Props = {
@@ -50,7 +51,9 @@ export function PlanCard({
   onManage,
   requestUpgradeAction,
 }: Props) {
-  const planGate = getPlanForTier(plan.tier);
+  const usageType = plan.usageType ?? "listings";
+  const listingGate = usageType === "saved_searches" ? null : getPlanForTier(plan.tier);
+  const tenantGate = usageType === "saved_searches" ? getTenantPlanForTier(plan.tier) : null;
   const roleMatches = plan.role ? plan.role === currentRole : true;
   const isCurrent =
     (plan.tier === currentTier && roleMatches) ||
@@ -58,8 +61,25 @@ export function PlanCard({
   const canUpgrade = plan.tier !== "free" && stripeEnabled && roleMatches && !isCurrent;
   const showCurrent = isCurrent && !pendingUpgrade;
   const showRequest = plan.tier !== "free" && roleMatches;
-  const usageMax = planGate.maxListings;
-  const usagePercent = usageMax > 0 ? Math.min(100, Math.round((usageCount / usageMax) * 100)) : 0;
+  const usageMax =
+    usageType === "saved_searches"
+      ? tenantGate?.maxSavedSearches ?? 0
+      : listingGate?.maxListings ?? 0;
+  const usageLabel = usageType === "saved_searches" ? "Saved searches used" : "Listings used";
+  const usageCapLabel =
+    usageType === "saved_searches" ? "Saved search limit" : "Listing limit";
+  const usageDesc =
+    usageType === "saved_searches"
+      ? tenantGate?.maxSavedSearches === null
+        ? "Unlimited saved searches with instant alerts"
+        : `Save up to ${tenantGate?.maxSavedSearches ?? 0} searches`
+      : `Publish up to ${listingGate?.maxListings ?? 0} active listings`;
+  const usagePercent =
+    usageType === "saved_searches" && tenantGate?.maxSavedSearches === null
+      ? 100
+      : usageMax > 0
+      ? Math.min(100, Math.round((usageCount / usageMax) * 100))
+      : 0;
   const muted = !roleMatches && !!plan.role;
 
   return (
@@ -85,21 +105,24 @@ export function PlanCard({
       </div>
       {!roleMatches && plan.role && (
         <p className={`mt-3 text-xs ${plan.highlight ? "text-white/70" : "text-slate-500"}`}>
-          Available when using a {plan.role === "agent" ? "Agent" : "Landlord"} account.
+          Available when using a{" "}
+          {plan.role === "agent" ? "Agent" : plan.role === "tenant" ? "Tenant" : "Landlord"} account.
         </p>
       )}
       <div className="mt-4 text-sm">
-        <p className="font-semibold">Listing limit</p>
+        <p className="font-semibold">{usageCapLabel}</p>
         <p className={plan.highlight ? "text-white/80" : "text-slate-600"}>
-          Publish up to {planGate.maxListings} active listings
+          {usageDesc}
         </p>
         <div className="mt-2">
           <div className="flex items-center justify-between text-xs">
             <span className={plan.highlight ? "text-white/70" : "text-slate-500"}>
-              Listings used
+              {usageLabel}
             </span>
             <span className={plan.highlight ? "text-white/70" : "text-slate-500"}>
-              {Math.min(usageCount, usageMax)} / {usageMax}
+              {tenantGate?.maxSavedSearches === null && usageType === "saved_searches"
+                ? `${usageCount} / ∞`
+                : `${Math.min(usageCount, usageMax)} / ${usageMax}`}
             </span>
           </div>
           <div className={`mt-2 h-2 w-full rounded-full ${plan.highlight ? "bg-white/10" : "bg-slate-100"}`}>
