@@ -22,6 +22,7 @@ export function SavedSearchButton({ filters }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
 
   const payload = useMemo(() => ({
     city: filters.city,
@@ -38,6 +39,7 @@ export function SavedSearchButton({ filters }: Props) {
     setSaving(true);
     setError(null);
     setSuccess(null);
+    setLimitReached(false);
     try {
       const res = await fetch("/api/saved-searches", {
         method: "POST",
@@ -49,6 +51,9 @@ export function SavedSearchButton({ filters }: Props) {
           throw new Error("Please log in to save searches.");
         }
         const data = await res.json().catch(() => ({}));
+        if (data?.code === "plan_limit_reached") {
+          setLimitReached(true);
+        }
         throw new Error(data?.error || "Unable to save search.");
       }
       setSuccess("Saved! You can manage alerts in your dashboard.");
@@ -98,15 +103,20 @@ export function SavedSearchButton({ filters }: Props) {
             </div>
             {error && (
               <p className="mt-3 text-xs text-rose-600">
-                {error}{" "}
-                {error.toLowerCase().includes("log in") && (
-                  <Link href="/auth/login" className="underline">
-                    Log in
-                  </Link>
-                )}
-              </p>
+            {error}{" "}
+            {error.toLowerCase().includes("log in") && (
+              <Link href="/auth/login" className="underline">
+                Log in
+              </Link>
             )}
-          </div>
+            {limitReached && (
+              <Link href="/dashboard/billing#plans" className="underline">
+                Upgrade to Tenant Pro
+              </Link>
+            )}
+          </p>
+        )}
+      </div>
         </div>
       )}
     </div>

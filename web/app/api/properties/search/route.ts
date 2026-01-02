@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
 import { searchProperties } from "@/lib/search";
 import { parseFiltersFromSearchParams } from "@/lib/search-filters";
+import { getTenantPlanForTier } from "@/lib/plans";
 import type { Property } from "@/lib/types";
 
 function parsePagination(request: Request) {
@@ -22,6 +23,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const filters = parseFiltersFromSearchParams(searchParams);
   const { page, pageSize } = parsePagination(request);
+  const earlyAccessMinutes = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
 
   if (!hasServerSupabaseEnv()) {
     logFailure({
@@ -38,7 +40,55 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { data, error, count } = await searchProperties(filters, { page, pageSize });
+    let approvedBefore: string | null = null;
+    if (earlyAccessMinutes > 0) {
+      try {
+        const supabase = await createServerSupabaseClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        let applyDelay = !user;
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .maybeSingle();
+          const role = profile?.role ?? null;
+          if (role === "tenant") {
+            const { data: planRow } = await supabase
+              .from("profile_plans")
+              .select("plan_tier, valid_until")
+              .eq("profile_id", user.id)
+              .maybeSingle();
+            const validUntil = planRow?.valid_until ?? null;
+            const expired =
+              !!validUntil &&
+              Number.isFinite(Date.parse(validUntil)) &&
+              Date.parse(validUntil) < Date.now();
+            const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+            applyDelay = tenantPlan.tier !== "tenant_pro";
+          } else if (role) {
+            applyDelay = false;
+          }
+        }
+        if (applyDelay) {
+          approvedBefore = new Date(
+            Date.now() - earlyAccessMinutes * 60 * 1000
+          ).toISOString();
+        }
+      } catch {
+        approvedBefore = new Date(
+          Date.now() - earlyAccessMinutes * 60 * 1000
+        ).toISOString();
+      }
+    }
+
+    const { data, error, count } = await searchProperties(filters, {
+      page,
+      pageSize,
+      approvedBefore,
+    });
     if (error) {
       logFailure({
         request,

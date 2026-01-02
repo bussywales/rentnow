@@ -4,11 +4,13 @@ import { requireRole } from "@/lib/authz";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { readActingAsFromRequest } from "@/lib/acting-as";
 import { getPlanUsage } from "@/lib/plan-enforcement";
+import { getTenantPlanForTier } from "@/lib/plans";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
 
 const routeLabel = "/api/properties";
+const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
 
 const propertySchema = z.object({
   title: z.string().min(3),
@@ -219,6 +221,53 @@ export async function GET(request: NextRequest) {
       typeof message === "string" &&
       message.includes("position") &&
       message.includes("property_images");
+    const missingApprovedAt = (message?: string | null) =>
+      typeof message === "string" &&
+      message.includes("approved_at") &&
+      message.includes("properties");
+
+    let approvedBefore: string | null = null;
+    if (!ownerOnly && EARLY_ACCESS_MINUTES > 0) {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        let applyDelay = !user;
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .maybeSingle();
+          const role = profile?.role ?? null;
+          if (role === "tenant") {
+            const { data: planRow } = await supabase
+              .from("profile_plans")
+              .select("plan_tier, valid_until")
+              .eq("profile_id", user.id)
+              .maybeSingle();
+            const validUntil = planRow?.valid_until ?? null;
+            const expired =
+              !!validUntil &&
+              Number.isFinite(Date.parse(validUntil)) &&
+              Date.parse(validUntil) < Date.now();
+            const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+            applyDelay = tenantPlan.tier !== "tenant_pro";
+          } else if (role) {
+            applyDelay = false;
+          }
+        }
+        if (applyDelay) {
+          approvedBefore = new Date(
+            Date.now() - EARLY_ACCESS_MINUTES * 60 * 1000
+          ).toISOString();
+        }
+      } catch {
+        approvedBefore = new Date(
+          Date.now() - EARLY_ACCESS_MINUTES * 60 * 1000
+        ).toISOString();
+      }
+    }
 
     if (ownerOnly) {
       const auth = await requireRole({
@@ -327,7 +376,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ properties: data || [] }, { status: 200 });
     }
 
-    const buildPublicQuery = (includePosition: boolean) => {
+    const buildPublicQuery = (includePosition: boolean, cutoff: string | null) => {
       const imageFields = includePosition
         ? "image_url,id,position,created_at"
         : "image_url,id,created_at";
@@ -339,6 +388,9 @@ export async function GET(request: NextRequest) {
         .eq("is_approved", true)
         .eq("is_active", true)
         .order("created_at", { ascending: false });
+      if (cutoff) {
+        query = query.or(`approved_at.is.null,approved_at.lte.${cutoff}`);
+      }
       if (includePosition) {
         query = query
           .order("position", { foreignTable: "property_images", ascending: true })
@@ -355,9 +407,17 @@ export async function GET(request: NextRequest) {
     if (shouldPaginate) {
       const from = (safePage - 1) * safePageSize;
       const to = from + safePageSize - 1;
-      const { data, error, count } = await buildPublicQuery(true).range(from, to);
+      const runQuery = async (includePosition: boolean, cutoff: string | null) => {
+        const result = await buildPublicQuery(includePosition, cutoff).range(from, to);
+        if (result.error && missingApprovedAt(result.error.message) && cutoff) {
+          return buildPublicQuery(includePosition, null).range(from, to);
+        }
+        return result;
+      };
+
+      const { data, error, count } = await runQuery(true, approvedBefore);
       if (error && missingPosition(error.message)) {
-        const fallback = await buildPublicQuery(false).range(from, to);
+        const fallback = await runQuery(false, approvedBefore);
         if (fallback.error) {
           logFailure({
             request,
@@ -393,9 +453,17 @@ export async function GET(request: NextRequest) {
         { status: 200 }
       );
     }
-    const { data, error, count } = await buildPublicQuery(true);
+    const runQuery = async (includePosition: boolean, cutoff: string | null) => {
+      const result = await buildPublicQuery(includePosition, cutoff);
+      if (result.error && missingApprovedAt(result.error.message) && cutoff) {
+        return buildPublicQuery(includePosition, null);
+      }
+      return result;
+    };
+
+    const { data, error, count } = await runQuery(true, approvedBefore);
     if (error && missingPosition(error.message)) {
-      const fallback = await buildPublicQuery(false);
+      const fallback = await runQuery(false, approvedBefore);
       if (fallback.error) {
         logFailure({
           request,

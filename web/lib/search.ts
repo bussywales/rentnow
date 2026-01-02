@@ -4,6 +4,7 @@ import type { ParsedSearchFilters, RentalType } from "@/lib/types";
 type SearchOptions = {
   page?: number;
   pageSize?: number;
+  approvedBefore?: string | null;
 };
 
 export async function searchProperties(filters: ParsedSearchFilters, options: SearchOptions = {}) {
@@ -12,8 +13,12 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     typeof message === "string" &&
     message.includes("position") &&
     message.includes("property_images");
+  const missingApprovedAt = (message?: string | null) =>
+    typeof message === "string" &&
+    message.includes("approved_at") &&
+    message.includes("properties");
 
-  const runQuery = async (includePosition: boolean) => {
+  const runQuery = async (includePosition: boolean, approvedBefore: string | null) => {
     const imageFields = includePosition
       ? "id,image_url,position,created_at"
       : "id,image_url,created_at";
@@ -24,6 +29,9 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
       .eq("is_approved", true)
       .eq("is_active", true);
 
+    if (approvedBefore) {
+      query = query.or(`approved_at.is.null,approved_at.lte.${approvedBefore}`);
+    }
     if (filters.city) {
       query = query.ilike("city", `%${filters.city}%`);
     }
@@ -71,9 +79,17 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     return { data, error, count };
   };
 
-  const initial = await runQuery(true);
+  const attempt = async (includePosition: boolean, approvedBefore: string | null) => {
+    const result = await runQuery(includePosition, approvedBefore);
+    if (missingApprovedAt(result.error?.message) && approvedBefore) {
+      return runQuery(includePosition, null);
+    }
+    return result;
+  };
+
+  const initial = await attempt(true, options.approvedBefore ?? null);
   if (missingPosition(initial.error?.message)) {
-    return runQuery(false);
+    return attempt(false, options.approvedBefore ?? null);
   }
 
   return initial;

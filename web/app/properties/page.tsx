@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
+import { getTenantPlanForTier } from "@/lib/plans";
 import { filtersToChips, parseFiltersFromParams } from "@/lib/search-filters";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
@@ -103,6 +104,9 @@ export default async function PropertiesPage({ searchParams }: Props) {
   });
   const supabaseReady = hasServerSupabaseEnv();
   let role: UserRole | null = null;
+  let isTenantPro = false;
+  let approvedBefore: string | null = null;
+  const earlyAccessMinutes = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
   if (supabaseReady) {
     try {
       const supabase = await createServerSupabaseClient();
@@ -116,6 +120,25 @@ export default async function PropertiesPage({ searchParams }: Props) {
           .eq("id", user.id)
           .maybeSingle();
         role = (profile?.role as UserRole) ?? null;
+        if (role === "tenant") {
+          const { data: planRow } = await supabase
+            .from("profile_plans")
+            .select("plan_tier, valid_until")
+            .eq("profile_id", user.id)
+            .maybeSingle();
+          const validUntil = planRow?.valid_until ?? null;
+          const expired =
+            !!validUntil &&
+            Number.isFinite(Date.parse(validUntil)) &&
+            Date.parse(validUntil) < Date.now();
+          const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+          isTenantPro = tenantPlan.tier === "tenant_pro";
+        }
+      }
+      if ((!role || role === "tenant") && !isTenantPro && earlyAccessMinutes > 0) {
+        approvedBefore = new Date(
+          Date.now() - earlyAccessMinutes * 60 * 1000
+        ).toISOString();
       }
     } catch {
       role = null;
@@ -144,6 +167,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
       const { data, error, count } = await searchProperties(filters, {
         page,
         pageSize: PAGE_SIZE,
+        approvedBefore,
       });
       if (error) {
         fetchError = error.message;
@@ -303,6 +327,18 @@ export default async function PropertiesPage({ searchParams }: Props) {
       </div>
 
       <SmartSearchBox mode="browse" />
+
+      {role === "tenant" && !isTenantPro && (
+        <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">Upgrade for instant alerts</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Tenant Pro unlocks unlimited saved searches and faster access to new listings.
+          </p>
+          <Link href="/dashboard/billing#plans" className="mt-2 inline-flex text-sm font-semibold text-sky-700">
+            View Tenant Pro
+          </Link>
+        </div>
+      )}
 
       {filterChips.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 p-3 text-xs text-slate-700 shadow-sm">

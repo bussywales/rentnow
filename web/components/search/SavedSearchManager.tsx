@@ -7,6 +7,7 @@ import type { SavedSearch } from "@/lib/types";
 
 type Props = {
   initialSearches: SavedSearch[];
+  alertsEnabled?: boolean;
 };
 
 type MatchResult = {
@@ -30,7 +31,7 @@ function formatSummary(search: SavedSearch) {
   return parts.length ? parts.join(" • ") : "All listings";
 }
 
-export function SavedSearchManager({ initialSearches }: Props) {
+export function SavedSearchManager({ initialSearches, alertsEnabled = false }: Props) {
   const [searches, setSearches] = useState(initialSearches);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
@@ -134,6 +135,9 @@ export function SavedSearchManager({ initialSearches }: Props) {
                     search.name
                   )}
                 </p>
+                {alertsEnabled && (
+                  <p className="text-xs font-semibold text-emerald-600">Alerts enabled</p>
+                )}
                 <p className="text-xs text-slate-600">{formatSummary(search)}</p>
                 {search.last_checked_at && (
                   <p className="text-xs text-slate-500">

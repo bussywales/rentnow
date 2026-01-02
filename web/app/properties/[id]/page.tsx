@@ -11,6 +11,7 @@ import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
 import { DEV_MOCKS, getApiBaseUrl, getCanonicalBaseUrl, getEnvPresence } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getTenantPlanForTier } from "@/lib/plans";
 import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -198,6 +199,8 @@ export default async function PropertyDetail({ params }: Props) {
   }
 
   let isSaved = false;
+  let isTenant = false;
+  let isTenantPro = false;
   let similar: Property[] = [];
   if (hasServerSupabaseEnv()) {
     try {
@@ -206,6 +209,24 @@ export default async function PropertyDetail({ params }: Props) {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        isTenant = profile?.role === "tenant";
+
+        const { data: planRow } = await supabase
+          .from("profile_plans")
+          .select("plan_tier, valid_until")
+          .eq("profile_id", user.id)
+          .maybeSingle();
+        const validUntil = planRow?.valid_until ?? null;
+        const expired =
+          !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
+        const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+        isTenantPro = isTenant && tenantPlan.tier === "tenant_pro";
+
         const { data } = await supabase
           .from("saved_properties")
           .select("id")
@@ -416,9 +437,24 @@ export default async function PropertyDetail({ params }: Props) {
             <ViewingRequestForm propertyId={property.id} />
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="text-lg font-semibold text-slate-900">
-              Contact landlord/agent
-            </h3>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Contact landlord/agent
+              </h3>
+              {isTenantPro && (
+                <Button size="sm" variant="secondary">
+                  Priority contact
+                </Button>
+              )}
+            </div>
+            {isTenant && !isTenantPro && (
+              <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                Upgrade to Tenant Pro for priority contact and instant alerts.{" "}
+                <Link href="/dashboard/billing#plans" className="font-semibold underline">
+                  View plans
+                </Link>
+              </div>
+            )}
             <MessageThreadClient
               propertyId={property.id}
               recipientId={property.owner_id}

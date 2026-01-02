@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import Link from "next/link";
 import { SavedSearchManager } from "@/components/search/SavedSearchManager";
+import { getTenantPlanForTier } from "@/lib/plans";
 import type { SavedSearch } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +35,24 @@ export default async function SavedSearchesPage() {
     .order("created_at", { ascending: false });
 
   const searches = (data as SavedSearch[]) || [];
+  const { data: planRow } = await supabase
+    .from("profile_plans")
+    .select("plan_tier, valid_until")
+    .eq("profile_id", user.id)
+    .maybeSingle();
+  const validUntil = planRow?.valid_until ?? null;
+  const expired =
+    !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
+  const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+  const alertsEnabled = tenantPlan.instantAlerts;
+
+  const { data: alertRows } = await supabase
+    .from("saved_search_alerts")
+    .select("sent_at")
+    .eq("user_id", user.id)
+    .order("sent_at", { ascending: false })
+    .limit(1);
+  const lastAlertSentAt = Array.isArray(alertRows) ? alertRows[0]?.sent_at ?? null : null;
 
   return (
     <div className="space-y-4">
@@ -42,7 +62,29 @@ export default async function SavedSearchesPage() {
           Manage saved filters and check new matches.
         </p>
       </div>
-      <SavedSearchManager initialSearches={searches} />
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <p className="text-sm font-semibold text-slate-900">Alerts & saved searches</p>
+        <p className="text-xs text-slate-600">
+          {alertsEnabled
+            ? "Instant alerts are enabled for your saved searches."
+            : "Upgrade to Tenant Pro to get instant alerts for new listings."}
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+          <span>Active alerts: {searches.length}</span>
+          <span>
+            Last alert sent: {lastAlertSentAt ? new Date(lastAlertSentAt).toLocaleString() : "—"}
+          </span>
+        </div>
+        {!alertsEnabled && (
+          <Link
+            href="/dashboard/billing#plans"
+            className="mt-3 inline-flex text-sm font-semibold text-sky-700"
+          >
+            View Tenant Pro
+          </Link>
+        )}
+      </div>
+      <SavedSearchManager initialSearches={searches} alertsEnabled={alertsEnabled} />
     </div>
   );
 }
