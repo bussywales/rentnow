@@ -60,6 +60,15 @@ Optional:
   - `STRIPE_PRICE_AGENT_PRO_MONTHLY`
   - `STRIPE_PRICE_AGENT_PRO_YEARLY`
 
+### Provider mode toggles (test/live)
+- Modes are stored in `provider_settings` and managed in `/admin/settings/billing`.
+- Stripe key resolution prefers mode-specific keys when present:
+  - `STRIPE_SECRET_KEY_TEST` / `STRIPE_SECRET_KEY_LIVE`
+  - `STRIPE_WEBHOOK_SECRET_TEST` / `STRIPE_WEBHOOK_SECRET_LIVE`
+  - `STRIPE_PRICE_*_TEST` / `STRIPE_PRICE_*_LIVE`
+- If mode-specific keys are missing, the single-key env vars above are used as a fallback.
+- Paystack/Flutterwave modes are tracked for ops visibility only (no checkout integration yet).
+
 ### Plan-to-price mapping
 - The mapping is centralized in `web/lib/billing/stripe-plans.ts`.
 - If tier-specific price env vars are not set, the role/cadence base price is used for both Starter and Pro.

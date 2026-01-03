@@ -1,5 +1,11 @@
 # Versions
 
+## 2026-01-03 — v1.7.4-r6.4.2-provider-modes
+- Added provider settings singleton with test/live toggles for Stripe/Paystack/Flutterwave.
+- Added admin billing settings page for mode controls and env readiness visibility.
+- Made Stripe config resolution mode-aware with safe fallbacks to single-key env vars.
+- Added debug/env provider mode + dual-key presence reporting and unit coverage.
+
 ## 2026-01-03 — v1.7.3-r6.4.1-stripe-go-live
 - Hardened Stripe webhook idempotency, audit metadata, and processed_at stamping.
 - Enforced checkout metadata requirements and clarified plan status transitions.

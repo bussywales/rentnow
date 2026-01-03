@@ -22,6 +22,7 @@
 - Visit `/dashboard/billing` and confirm plan tier, billing source, status, and valid_until render.
 - Replay a webhook event (duplicate) and confirm no double-apply occurs.
 - Confirm `stripe_status` changes surface in billing UI (past_due/unpaid/canceled).
+- In `/admin/settings/billing`, toggle Stripe mode and confirm `/api/debug/env` shows the current mode and key presence.
 
 ## Upgrade requests
 - As a landlord/agent hitting the limit, click “Request upgrade”.

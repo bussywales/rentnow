@@ -23,6 +23,7 @@ Apply SQL files in this order:
 16) `web/supabase/migrations/016_tenant_plan_tier.sql`
 17) `web/supabase/migrations/017_saved_search_alerts.sql`
 18) `web/supabase/migrations/018_stripe_webhook_event_metadata.sql`
+19) `web/supabase/migrations/019_provider_settings.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -85,6 +86,7 @@ select to_regclass('public.profile_billing_notes') as profile_billing_notes;
 select to_regclass('public.plan_upgrade_requests') as plan_upgrade_requests;
 select to_regclass('public.stripe_webhook_events') as stripe_webhook_events;
 select to_regclass('public.saved_search_alerts') as saved_search_alerts;
+select to_regclass('public.provider_settings') as provider_settings;
 ```
 
 ### RLS enabled
@@ -103,7 +105,8 @@ where relname in (
   'profile_billing_notes',
   'plan_upgrade_requests',
   'stripe_webhook_events',
-  'saved_search_alerts'
+  'saved_search_alerts',
+  'provider_settings'
 );
 ```
 
@@ -124,7 +127,8 @@ where schemaname = 'public'
   'profile_billing_notes',
   'plan_upgrade_requests',
   'stripe_webhook_events',
-  'saved_search_alerts'
+  'saved_search_alerts',
+  'provider_settings'
   )
 order by tablename, policyname;
 ```
@@ -145,7 +149,8 @@ where table_schema = 'public'
     'profile_billing_notes',
     'plan_upgrade_requests',
     'stripe_webhook_events',
-    'saved_search_alerts'
+    'saved_search_alerts',
+    'provider_settings'
   )
   and column_name in (
     'id',
@@ -188,7 +193,10 @@ where table_schema = 'public'
     'status',
     'channel',
     'sent_at',
-    'error'
+    'error',
+    'stripe_mode',
+    'paystack_mode',
+    'flutterwave_mode'
   )
 order by table_name, column_name;
 ```
