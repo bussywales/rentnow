@@ -259,7 +259,12 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
 
           {email && snapshotResult.error && (
             <div className="mt-4">
-              <ErrorState title="Lookup failed" description={snapshotResult.error} actionLabel="Back to Admin" actionHref="/admin" />
+              <ErrorState
+                title="Lookup failed"
+                description={snapshotResult.error}
+                retryLabel="Back to Admin"
+                retryHref="/admin"
+              />
             </div>
           )}
 
@@ -402,7 +407,12 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
         </div>
 
         {error && (
-          <ErrorState title="Billing events unavailable" description={error} actionLabel="Back to Admin" actionHref="/admin" />
+          <ErrorState
+            title="Billing events unavailable"
+            description={error}
+            retryLabel="Back to Admin"
+            retryHref="/admin"
+          />
         )}
 
         {!error && !events.length && (
