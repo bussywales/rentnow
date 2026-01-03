@@ -111,6 +111,20 @@ type StripeEventsViewedLogInput = {
   page?: number;
 };
 
+type StripeReplayLogInput = {
+  route: string;
+  eventId: string;
+  mode: string;
+  outcome: string;
+};
+
+type StripeReplayFailureLogInput = {
+  route: string;
+  eventId: string;
+  mode: string;
+  error?: unknown;
+};
+
 function normalizeError(error: unknown) {
   if (!error) return undefined;
   if (error instanceof Error) {
@@ -397,6 +411,37 @@ export function logStripeEventsViewed({
     range,
     query: query || undefined,
     page,
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logStripeReplayAttempt({ route, eventId, mode, outcome }: StripeReplayLogInput) {
+  const payload = {
+    level: "info",
+    event: "stripe_replay_attempt",
+    route,
+    eventId,
+    mode,
+    outcome,
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logStripeReplayFetchFailure({
+  route,
+  eventId,
+  mode,
+  error,
+}: StripeReplayFailureLogInput) {
+  const payload = {
+    level: "warn",
+    event: "stripe_replay_fetch_failed",
+    route,
+    eventId,
+    mode,
+    error: normalizeError(error),
   };
 
   console.log(JSON.stringify(payload));
