@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/authz";
 import { computeValidUntil, computeProviderPlanUpdate, isProviderEventProcessed, normalizeCadence, resolveTierForRole } from "@/lib/billing/provider-payments";
 import { getFlutterwaveConfig } from "@/lib/billing/flutterwave";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { logFailure, logProviderPlanUpdated, logProviderVerifyOutcome } from "@/lib/observability";
 import { type PlanTier } from "@/lib/plans";
 
@@ -13,6 +14,19 @@ const payloadSchema = z.object({
   tx_ref: z.string().min(8).optional(),
   transaction_id: z.union([z.string(), z.number()]).optional(),
 });
+
+type ProviderPaymentEventRow = {
+  id: string;
+  profile_id: string;
+  plan_tier: string | null;
+  cadence: string | null;
+  status: string | null;
+  processed_at: string | null;
+  mode: string | null;
+  amount: number | null;
+  currency: string | null;
+  transaction_id: string | null;
+};
 
 export async function POST(request: Request) {
   const startTime = Date.now();
@@ -45,9 +59,9 @@ export async function POST(request: Request) {
   }
 
   const adminClient = createServiceRoleClient();
-  const adminDb = adminClient as unknown as { from: (table: string) => any };
+  const adminDb = adminClient as unknown as UntypedAdminClient;
   const { data: event } = await adminDb
-    .from("provider_payment_events")
+    .from<ProviderPaymentEventRow>("provider_payment_events")
     .select("id, profile_id, plan_tier, cadence, status, processed_at, mode, amount, currency, transaction_id")
     .eq("provider", "flutterwave")
     .eq("reference", reference)

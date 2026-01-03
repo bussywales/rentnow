@@ -13,6 +13,7 @@ import { getProviderModes } from "@/lib/billing/provider-settings";
 import { logProviderEventsViewed, logStripeEventsViewed } from "@/lib/observability";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 export const dynamic = "force-dynamic";
 
@@ -424,9 +425,9 @@ async function loadEvents(params: SearchParams): Promise<{ events: StripeEventRo
   const to = from + PAGE_SIZE - 1;
 
   const adminClient = createServiceRoleClient();
-  const adminDb = adminClient as unknown as { from: (table: string) => any };
+  const adminDb = adminClient as unknown as UntypedAdminClient;
   let eventsQuery = adminDb
-    .from("stripe_webhook_events")
+    .from<StripeEventRow>("stripe_webhook_events")
     .select(
       "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, processed_at"
     )
