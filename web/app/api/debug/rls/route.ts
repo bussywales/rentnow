@@ -50,6 +50,13 @@ const requiredPolicies: Record<string, string[]> = {
     "upgrade requests update admin",
   ],
   provider_settings: ["provider settings admin read", "provider settings admin write"],
+  provider_payment_events: [
+    "provider events select self",
+    "provider events admin read",
+    "provider events insert self",
+    "provider events update self",
+    "provider events admin update",
+  ],
 };
 
 export async function GET(request: Request) {
@@ -107,6 +114,7 @@ export async function GET(request: Request) {
       "profile_billing_notes",
       "plan_upgrade_requests",
       "provider_settings",
+      "provider_payment_events",
     ];
     rlsTables.forEach((table) => {
       if (!rls?.[table]?.enabled) {
@@ -224,6 +232,39 @@ export async function GET(request: Request) {
     }
     if (!columns?.provider_settings?.flutterwave_live_public_key) {
       issues.push("missing column: provider_settings.flutterwave_live_public_key");
+    }
+    if (!columns?.provider_payment_events?.provider) {
+      issues.push("missing column: provider_payment_events.provider");
+    }
+    if (!columns?.provider_payment_events?.mode) {
+      issues.push("missing column: provider_payment_events.mode");
+    }
+    if (!columns?.provider_payment_events?.reference) {
+      issues.push("missing column: provider_payment_events.reference");
+    }
+    if (!columns?.provider_payment_events?.status) {
+      issues.push("missing column: provider_payment_events.status");
+    }
+    if (!columns?.provider_payment_events?.plan_tier) {
+      issues.push("missing column: provider_payment_events.plan_tier");
+    }
+    if (!columns?.provider_payment_events?.profile_id) {
+      issues.push("missing column: provider_payment_events.profile_id");
+    }
+    if (!columns?.provider_payment_events?.cadence) {
+      issues.push("missing column: provider_payment_events.cadence");
+    }
+    if (!columns?.provider_payment_events?.amount) {
+      issues.push("missing column: provider_payment_events.amount");
+    }
+    if (!columns?.provider_payment_events?.currency) {
+      issues.push("missing column: provider_payment_events.currency");
+    }
+    if (!columns?.provider_payment_events?.transaction_id) {
+      issues.push("missing column: provider_payment_events.transaction_id");
+    }
+    if (!columns?.provider_payment_events?.processed_at) {
+      issues.push("missing column: provider_payment_events.processed_at");
     }
   }
 

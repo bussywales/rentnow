@@ -26,6 +26,8 @@ Apply SQL files in this order:
 19) `web/supabase/migrations/019_provider_settings.sql`
 20) `web/supabase/migrations/020_stripe_ops_replay_audit.sql`
 21) `web/supabase/migrations/021_provider_keys_paystack_flutterwave.sql`
+22) `web/supabase/migrations/022_provider_payment_events.sql`
+23) `web/supabase/migrations/023_profile_plans_billing_source_flutterwave.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -89,6 +91,7 @@ select to_regclass('public.plan_upgrade_requests') as plan_upgrade_requests;
 select to_regclass('public.stripe_webhook_events') as stripe_webhook_events;
 select to_regclass('public.saved_search_alerts') as saved_search_alerts;
 select to_regclass('public.provider_settings') as provider_settings;
+select to_regclass('public.provider_payment_events') as provider_payment_events;
 ```
 
 ### RLS enabled
@@ -130,7 +133,8 @@ where schemaname = 'public'
   'plan_upgrade_requests',
   'stripe_webhook_events',
   'saved_search_alerts',
-  'provider_settings'
+  'provider_settings',
+  'provider_payment_events'
   )
 order by tablename, policyname;
 ```
@@ -152,7 +156,8 @@ where table_schema = 'public'
     'plan_upgrade_requests',
     'stripe_webhook_events',
     'saved_search_alerts',
-    'provider_settings'
+    'provider_settings',
+    'provider_payment_events'
   )
   and column_name in (
     'id',
@@ -210,7 +215,20 @@ where table_schema = 'public'
     'flutterwave_test_secret_key',
     'flutterwave_live_secret_key',
     'flutterwave_test_public_key',
-    'flutterwave_live_public_key'
+    'flutterwave_live_public_key',
+    'provider',
+    'mode',
+    'reference',
+    'event_type',
+    'status',
+    'reason',
+    'plan_tier',
+    'profile_id',
+    'cadence',
+    'amount',
+    'currency',
+    'transaction_id',
+    'processed_at'
   )
 order by table_name, column_name;
 ```
