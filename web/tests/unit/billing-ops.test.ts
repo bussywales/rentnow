@@ -1,14 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { maskIdentifier } from "../../lib/billing/mask";
+import { maskEmail, maskIdentifier } from "../../lib/billing/mask";
 import { buildBillingSnapshot } from "../../lib/billing/snapshot";
 import { isAdminRole, validateUpgradeRequestAction } from "../../lib/billing/admin-validation";
+import { buildSupportSnapshot } from "../../lib/billing/support-snapshot";
 
 void test("maskIdentifier hides long identifiers and keeps short values", () => {
   assert.equal(maskIdentifier(null), "—");
   assert.equal(maskIdentifier("short"), "short");
   assert.equal(maskIdentifier("cus_1234567890"), "cus_12...7890");
+});
+
+void test("maskEmail hides local part and keeps domain", () => {
+  assert.equal(maskEmail(null), "—");
+  assert.equal(maskEmail("a@rentnow.space"), "a***@rentnow.space");
+  assert.equal(maskEmail("support@rentnow.space"), "su***@rentnow.space");
 });
 
 void test("buildBillingSnapshot normalizes plan and masks Stripe fields", () => {
@@ -63,4 +70,45 @@ void test("validateUpgradeRequestAction enforces admin role and reject reason", 
     note: null,
   });
   assert.equal(approve.ok, true);
+});
+
+void test("buildSupportSnapshot masks ids and includes recent events", () => {
+  const snapshot = buildBillingSnapshot({
+    profileId: "11111111-1111-1111-1111-111111111111",
+    email: "support@rentnow.space",
+    role: "tenant",
+    fullName: "Support User",
+    plan: {
+      plan_tier: "tenant_pro",
+      billing_source: "stripe",
+      stripe_customer_id: "cus_1234567890",
+      stripe_subscription_id: "sub_1234567890",
+      stripe_status: "active",
+      valid_until: "2026-01-01T00:00:00.000Z",
+    },
+    notes: null,
+  });
+
+  const supportSnapshot = buildSupportSnapshot({
+    snapshot,
+    openUpgradeRequests: 2,
+    events: [
+      {
+        event_type: "invoice.payment_failed",
+        status: "failed",
+        reason: "payment_failed",
+        mode: "test",
+        created_at: "2026-01-02T10:00:00.000Z",
+        processed_at: "2026-01-02T10:00:01.000Z",
+        event_id: "evt_1234567890",
+        stripe_customer_id: "cus_1234567890",
+        stripe_subscription_id: "sub_1234567890",
+      },
+    ],
+  });
+
+  assert.equal(supportSnapshot.email, "su***@rentnow.space");
+  assert.equal(supportSnapshot.open_upgrade_requests, 2);
+  assert.equal(supportSnapshot.recent_events.length, 1);
+  assert.equal(supportSnapshot.recent_events[0].event_id, "evt_12...7890");
 });
