@@ -57,6 +57,7 @@ const requiredPolicies: Record<string, string[]> = {
     "provider events update self",
     "provider events admin update",
   ],
+  role_change_audit: ["role change audit admin read", "role change audit admin insert"],
 };
 
 export async function GET(request: Request) {
@@ -115,6 +116,7 @@ export async function GET(request: Request) {
       "plan_upgrade_requests",
       "provider_settings",
       "provider_payment_events",
+      "role_change_audit",
     ];
     rlsTables.forEach((table) => {
       if (!rls?.[table]?.enabled) {
@@ -265,6 +267,18 @@ export async function GET(request: Request) {
     }
     if (!columns?.provider_payment_events?.processed_at) {
       issues.push("missing column: provider_payment_events.processed_at");
+    }
+    if (!columns?.role_change_audit?.target_profile_id) {
+      issues.push("missing column: role_change_audit.target_profile_id");
+    }
+    if (!columns?.role_change_audit?.actor_profile_id) {
+      issues.push("missing column: role_change_audit.actor_profile_id");
+    }
+    if (!columns?.role_change_audit?.new_role) {
+      issues.push("missing column: role_change_audit.new_role");
+    }
+    if (!columns?.role_change_audit?.created_at) {
+      issues.push("missing column: role_change_audit.created_at");
     }
   }
 
