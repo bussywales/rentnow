@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { UpgradeRequestsQueue } from "@/components/admin/UpgradeRequestsQueue";
 import { BillingOpsActions } from "@/components/admin/BillingOpsActions";
@@ -466,11 +467,46 @@ async function loadEvents(params: SearchParams): Promise<{ events: StripeEventRo
   return { events, error: undefined };
 }
 
+async function switchStripeToTest() {
+  "use server";
+  if (!hasServerSupabaseEnv()) return;
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (profile?.role !== "admin") return;
+
+  await supabase.from("provider_settings").upsert(
+    {
+      id: "default",
+      stripe_mode: "test",
+      updated_at: new Date().toISOString(),
+      updated_by: user.id,
+    },
+    { onConflict: "id" }
+  );
+
+  revalidatePath("/admin/billing");
+  revalidatePath("/admin/settings/billing");
+}
+
 export default async function AdminBillingPage({ searchParams }: { searchParams: SearchParams }) {
   await requireAdmin();
 
   const providerModes = await getProviderModes();
   const stripeMode = providerModes.stripeMode;
+  const stripeLiveSecretReady = Boolean(process.env.STRIPE_SECRET_KEY_LIVE || process.env.STRIPE_SECRET_KEY);
+  const stripeLiveWebhookReady = Boolean(
+    process.env.STRIPE_WEBHOOK_SECRET_LIVE || process.env.STRIPE_WEBHOOK_SECRET
+  );
+  const stripeLiveReady = stripeLiveSecretReady && stripeLiveWebhookReady;
   const email = parseParam(searchParams, "email");
   const profileIdParam = parseParam(searchParams, "profileId");
   const triageParam = parseParam(searchParams, "triage");
@@ -568,6 +604,12 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
         <p className="text-sm text-slate-200">
           Diagnose plan issues, manage manual overrides, and audit Stripe events.
         </p>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-200">
+          <span className="rounded-full bg-slate-800 px-2 py-1">Stripe mode: {stripeMode}</span>
+          {!stripeLiveReady && stripeMode === "live" && (
+            <span className="rounded-full bg-amber-500/20 px-2 py-1 text-amber-200">Live keys missing</span>
+          )}
+        </div>
         <div className="mt-3 flex gap-3 text-sm">
           <Link href="/admin" className="underline underline-offset-4">
             Back to Admin
@@ -580,6 +622,24 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
           </Link>
         </div>
       </div>
+
+      {stripeMode === "live" && !stripeLiveReady && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-semibold">Live Stripe mode is missing keys</p>
+              <p className="text-xs text-amber-800">
+                Add live keys in the environment or switch back to test mode to avoid webhook failures.
+              </p>
+            </div>
+            <form action={switchStripeToTest}>
+              <button className="rounded-lg bg-amber-900 px-3 py-2 text-xs font-semibold text-white">
+                Switch to test mode
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
