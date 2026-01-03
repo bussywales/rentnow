@@ -5,6 +5,8 @@
 - Enforced saved search limits for free tenants and unlimited searches for Tenant Pro.
 - Added saved search alert audit table and email alert dispatch on new approvals.
 - Added tenant upsell prompts and priority contact CTA on listings.
+- Centralized early-access gating logic with unit coverage for tenant/free behavior.
+- Added Resend guard for alert dispatch with safe 503-style handling and unit coverage.
 
 ## 2026-01-01 — v1.6.1-stripe-foundation
 - Added billing dashboard entry with Stripe/manual CTA logic.
