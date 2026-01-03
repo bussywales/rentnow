@@ -25,6 +25,11 @@
 - In `/admin/settings/billing`, toggle Stripe mode and confirm `/api/debug/env` shows the current mode and key presence.
 - Confirm the Payments mode badge shows TEST/LIVE on `/dashboard/billing`, `/admin/billing`, and `/admin/settings/billing`.
 - Set Paystack/Flutterwave keys in `/admin/settings/billing`, save, and confirm they show as “Saved” (masked).
+- Start a Paystack test checkout and confirm redirect to Paystack (test mode).
+- Return from Paystack and confirm verification updates `profile_plans` with `billing_source=paystack`.
+- Start a Flutterwave test checkout and confirm redirect to Flutterwave (test mode).
+- Return from Flutterwave and confirm verification updates `profile_plans` with `billing_source=flutterwave`.
+- In `/admin/billing`, confirm provider payment events appear with masked references and status.
 
 ## Upgrade requests
 - As a landlord/agent hitting the limit, click “Request upgrade”.

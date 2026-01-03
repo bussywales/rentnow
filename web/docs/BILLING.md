@@ -13,7 +13,7 @@ This document covers manual billing (admin-driven), Stripe subscriptions, and te
 `public.profile_plans`
 - `plan_tier`: current tier (free/starter/pro)
 - `max_listings_override`: optional override
-- `billing_source`: `manual` | `stripe` | `paystack`
+- `billing_source`: `manual` | `stripe` | `paystack` | `flutterwave`
 - `valid_until`: subscription end or manual expiry
 - `stripe_customer_id`
 - `stripe_subscription_id`
@@ -73,10 +73,20 @@ Optional:
 - Paystack/Flutterwave keys live in `provider_settings` (not in env).
 - Admins update them in `/admin/settings/billing` (keys are masked on screen).
 - Mode selection is applied per provider; if live keys are missing, the config falls back to test.
-- Stub endpoints exist for future integration:
-  - `POST /api/billing/paystack/initialize`
-  - `POST /api/billing/flutterwave/initialize`
-  These return `{ ok: false, code: "not_implemented" }` plus mode + key presence.
+
+### Paystack + Flutterwave test-mode checkout
+- Paystack init endpoint: `POST /api/billing/paystack/initialize`
+- Paystack verify endpoint: `POST /api/billing/paystack/verify`
+- Flutterwave init endpoint: `POST /api/billing/flutterwave/initialize`
+- Flutterwave verify endpoint: `POST /api/billing/flutterwave/verify`
+- Billing page handles provider return URLs and triggers verification:
+  - Paystack expects `reference` (or `trxref`) in the query string.
+  - Flutterwave expects `tx_ref` (and optional `transaction_id`) in the query string.
+- Verification is idempotent per reference; if already processed it returns `already_processed`.
+- Successful verify updates `profile_plans`:
+  - `billing_source` set to `paystack` or `flutterwave`
+  - `plan_tier` and `valid_until` set based on cadence
+  - Manual overrides still win (verification is marked `skipped`).
 
 ### Plan-to-price mapping
 - The mapping is centralized in `web/lib/billing/stripe-plans.ts`.
@@ -106,6 +116,11 @@ Optional:
 - Stripe webhook events are recorded in `stripe_webhook_events` with metadata only (no raw payloads).
 - Stored fields include `event_type`, `status`, `reason`, `mode`, `profile_id`, and Stripe identifiers.
 - `processed_at` is stamped only when a plan update is applied (or when explicitly marked as handled).
+
+### Provider payment audit
+- Paystack/Flutterwave events are recorded in `provider_payment_events`.
+- Stored fields include provider, mode, reference, status, plan_tier, profile_id, amount/currency, and `processed_at`.
+- Admins can review these in `/admin/billing` under “Provider payment events”.
 
 ### Stripe ops viewer + replay
 - Admins can review webhook activity in `/admin/billing` with mode/status/date filters.

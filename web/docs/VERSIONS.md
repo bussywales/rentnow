@@ -1,5 +1,11 @@
 # Versions
 
+## 2026-01-04 — v1.7.7-r6.6-paystack-flutterwave-testmode
+- Added Paystack + Flutterwave init/verify flows with plan application and manual override safety.
+- Added provider payment events audit table and admin viewer for Paystack/Flutterwave activity.
+- Added billing UI actions for Paystack/Flutterwave when keys are configured.
+- Added provider-payment unit coverage for idempotency and manual override behavior.
+
 ## 2026-01-03 — v1.7.6-r6.5-provider-expansion
 - Added reusable Payments mode badge for billing/admin surfaces with TEST/LIVE messaging.
 - Added Paystack/Flutterwave key storage in provider_settings with masked admin UI.
