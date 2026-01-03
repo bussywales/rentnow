@@ -12,7 +12,7 @@ const bodySchema = z.object({
   maxListingsOverride: z.number().int().positive().nullable().optional(),
   validUntil: z.string().datetime().nullable().optional(),
   billingNotes: z.string().max(2000).nullable().optional(),
-  billingSource: z.enum(["manual", "stripe", "paystack"]).optional(),
+  billingSource: z.enum(["manual", "stripe", "paystack", "flutterwave"]).optional(),
 });
 
 export async function PATCH(request: Request) {
