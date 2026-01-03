@@ -25,11 +25,17 @@ type Props = {
   billingSource: string;
   stripeManageAvailable: boolean;
   stripeEnabled: boolean;
+  paystackEnabled?: boolean;
+  paystackMode?: string;
+  flutterwaveEnabled?: boolean;
+  flutterwaveMode?: string;
   pendingUpgrade: boolean;
   loadingKey: string | null;
   cadenceLabel: string;
   usageCount: number;
   onUpgrade: (tier: PlanTier) => void;
+  onPaystack?: (tier: PlanTier) => void;
+  onFlutterwave?: (tier: PlanTier) => void;
   onManage: () => void;
   requestUpgradeAction: (formData: FormData) => void;
 };
@@ -43,11 +49,17 @@ export function PlanCard({
   billingSource,
   stripeManageAvailable,
   stripeEnabled,
+  paystackEnabled,
+  paystackMode,
+  flutterwaveEnabled,
+  flutterwaveMode,
   pendingUpgrade,
   loadingKey,
   cadenceLabel,
   usageCount,
   onUpgrade,
+  onPaystack,
+  onFlutterwave,
   onManage,
   requestUpgradeAction,
 }: Props) {
@@ -58,9 +70,18 @@ export function PlanCard({
   const isCurrent =
     (plan.tier === currentTier && roleMatches) ||
     (plan.tier === "free" && currentTier === "starter");
-  const canUpgrade = plan.tier !== "free" && stripeEnabled && roleMatches && !isCurrent;
+  const canStripeUpgrade = plan.tier !== "free" && stripeEnabled && roleMatches && !isCurrent;
+  const canProviderUpgrade = plan.tier !== "free" && roleMatches && !isCurrent;
   const showCurrent = isCurrent && !pendingUpgrade;
   const showRequest = plan.tier !== "free" && roleMatches;
+  const showProviderActions =
+    canProviderUpgrade && (onPaystack || onFlutterwave);
+  const paystackLabel =
+    paystackMode === "live" ? "Pay with Paystack" : "Pay with Paystack (Test)";
+  const flutterwaveLabel =
+    flutterwaveMode === "live"
+      ? "Pay with Flutterwave"
+      : "Pay with Flutterwave (Test)";
   const usageMax =
     usageType === "saved_searches"
       ? tenantGate?.maxSavedSearches ?? 0
@@ -145,7 +166,7 @@ export function PlanCard({
           <Button variant={plan.highlight ? "secondary" : "primary"} disabled>
             Current plan
           </Button>
-        ) : canUpgrade ? (
+        ) : canStripeUpgrade ? (
           <Button
             variant={plan.highlight ? "secondary" : "primary"}
             onClick={() => onUpgrade(plan.tier)}
@@ -156,6 +177,10 @@ export function PlanCard({
         ) : plan.tier === "free" ? (
           <Button variant="secondary" disabled>
             Free forever
+          </Button>
+        ) : showProviderActions ? (
+          <Button variant="secondary" disabled>
+            Stripe unavailable
           </Button>
         ) : (
           <Button variant="secondary" disabled>
@@ -187,6 +212,47 @@ export function PlanCard({
           </Link>
         )}
       </div>
+
+      {showProviderActions && (
+        <div className="mt-3 space-y-2">
+          {onPaystack && (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => onPaystack(plan.tier)}
+                disabled={!paystackEnabled || loadingKey === `paystack:${plan.tier}`}
+              >
+                {loadingKey === `paystack:${plan.tier}`
+                  ? "Redirecting..."
+                  : paystackLabel}
+              </Button>
+              {!paystackEnabled && (
+                <p className="text-xs text-slate-500">
+                  Configure Paystack in Admin → Billing settings.
+                </p>
+              )}
+            </>
+          )}
+          {onFlutterwave && (
+            <>
+              <Button
+                variant="secondary"
+                onClick={() => onFlutterwave(plan.tier)}
+                disabled={!flutterwaveEnabled || loadingKey === `flutterwave:${plan.tier}`}
+              >
+                {loadingKey === `flutterwave:${plan.tier}`
+                  ? "Redirecting..."
+                  : flutterwaveLabel}
+              </Button>
+              {!flutterwaveEnabled && (
+                <p className="text-xs text-slate-500">
+                  Configure Flutterwave in Admin → Billing settings.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+      )}
 
       {showRequest && (
         <form action={requestUpgradeAction} className="mt-3">

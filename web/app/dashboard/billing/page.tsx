@@ -6,6 +6,8 @@ import { getProfile } from "@/lib/auth";
 import { getUserRole } from "@/lib/authz";
 import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getStripeConfigForMode } from "@/lib/billing/stripe";
+import { getPaystackConfig } from "@/lib/billing/paystack";
+import { getFlutterwaveConfig } from "@/lib/billing/flutterwave";
 import { getStripePriceId } from "@/lib/billing/stripe-plans";
 import { getPlanUsage } from "@/lib/plan-enforcement";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -124,6 +126,8 @@ export default async function BillingPage() {
 
   const providerModes = await getProviderModes();
   const stripeConfig = getStripeConfigForMode(providerModes.stripeMode);
+  const paystackConfig = await getPaystackConfig(providerModes.paystackMode);
+  const flutterwaveConfig = await getFlutterwaveConfig(providerModes.flutterwaveMode);
   const paidTiers: PlanTier[] =
     profile.role === "tenant" ? ["tenant_pro"] : ["starter", "pro"];
   const hasStripePrice = paidTiers.some((tier) =>
@@ -137,6 +141,10 @@ export default async function BillingPage() {
     )
   );
   const stripeEnabled = !!stripeConfig.secretKey && hasStripePrice;
+  const paystackEnabled =
+    !!paystackConfig.secretKey && !(providerModes.paystackMode === "live" && paystackConfig.fallbackFromLive);
+  const flutterwaveEnabled =
+    !!flutterwaveConfig.secretKey && !(providerModes.flutterwaveMode === "live" && flutterwaveConfig.fallbackFromLive);
   const showManage = billingSource === "stripe" && !!stripeCustomerId;
 
   const statusToken =
@@ -146,7 +154,7 @@ export default async function BillingPage() {
       ? "manual"
       : expired
       ? "expired"
-      : "free";
+      : "active";
   const statusLabel = statusToken.replace(/_/g, " ");
   const statusTone =
     statusToken === "active" || statusToken === "trialing"
@@ -220,6 +228,10 @@ export default async function BillingPage() {
         stripeStatus={stripeStatus}
         stripePeriodEnd={stripePeriodEnd}
         stripeEnabled={stripeEnabled}
+        paystackEnabled={paystackEnabled}
+        paystackMode={providerModes.paystackMode}
+        flutterwaveEnabled={flutterwaveEnabled}
+        flutterwaveMode={providerModes.flutterwaveMode}
         showManage={showManage}
         pendingUpgrade={pendingUpgrade}
         activeCount={usage.activeCount}

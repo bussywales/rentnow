@@ -10,7 +10,7 @@ import { SupportSnapshotCopy } from "@/components/admin/SupportSnapshotCopy";
 import { buildSupportSnapshot } from "@/lib/billing/support-snapshot";
 import { maskEmail, maskIdentifier } from "@/lib/billing/mask";
 import { getProviderModes } from "@/lib/billing/provider-settings";
-import { logStripeEventsViewed } from "@/lib/observability";
+import { logProviderEventsViewed, logStripeEventsViewed } from "@/lib/observability";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
@@ -58,6 +58,22 @@ type StripeEventRow = {
   processed_at?: string | null;
 };
 
+type ProviderEventRow = {
+  provider: string;
+  reference: string;
+  event_type: string;
+  status: string;
+  reason?: string | null;
+  mode: string;
+  plan_tier: string;
+  profile_id: string;
+  transaction_id?: string | null;
+  amount?: number | null;
+  currency?: string | null;
+  created_at: string;
+  processed_at?: string | null;
+};
+
 type SupportAccount = {
   profile_id: string;
   role: string | null;
@@ -77,6 +93,9 @@ const PLAN_OPTIONS = ["all", "free", "starter", "pro", "tenant_pro"] as const;
 const TRIAGE_OPTIONS = ["pending", "manual", "stripe", "expired", "attention"] as const;
 const MODE_OPTIONS = ["all", "test", "live"] as const;
 const PAGE_SIZE = 50;
+const PROVIDER_OPTIONS = ["all", "paystack", "flutterwave"] as const;
+const PROVIDER_STATUS_OPTIONS = ["all", "initialized", "verified", "failed", "skipped"] as const;
+const PROVIDER_RANGE_OPTIONS = ["24h", "7d", "30d", "all"] as const;
 
 function parseParam(params: SearchParams, key: string) {
   const value = params[key];
@@ -405,7 +424,8 @@ async function loadEvents(params: SearchParams): Promise<{ events: StripeEventRo
   const to = from + PAGE_SIZE - 1;
 
   const adminClient = createServiceRoleClient();
-  let eventsQuery = adminClient
+  const adminDb = adminClient as unknown as { from: (table: string) => any };
+  let eventsQuery = adminDb
     .from("stripe_webhook_events")
     .select(
       "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, processed_at"
@@ -460,6 +480,79 @@ async function loadEvents(params: SearchParams): Promise<{ events: StripeEventRo
     mode: modeFilter,
     status: statusFilter,
     plan: planFilter,
+    range: rangeFilter,
+    query: query || null,
+    page,
+  });
+
+  return { events, error: undefined };
+}
+
+async function loadProviderEvents(
+  params: SearchParams
+): Promise<{ events: ProviderEventRow[]; error?: string }> {
+  if (!hasServiceRoleEnv()) {
+    return { events: [], error: "Service role key missing for provider events." };
+  }
+
+  const providerFilter = parseParam(params, "provider") || "all";
+  const statusFilter = parseParam(params, "provider_status") || "all";
+  const modeFilter = parseParam(params, "provider_mode") || "all";
+  const rangeFilter = parseParam(params, "provider_range") || "7d";
+  const query = parseParam(params, "provider_q").trim();
+  const pageParam = Number.parseInt(parseParam(params, "provider_page") || "1", 10);
+  const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
+
+  const adminClient = createServiceRoleClient();
+  let eventsQuery = adminClient
+    .from("provider_payment_events")
+    .select(
+      "provider, reference, event_type, status, reason, mode, plan_tier, profile_id, transaction_id, amount, currency, created_at, processed_at"
+    )
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (providerFilter !== "all") {
+    eventsQuery = eventsQuery.eq("provider", providerFilter);
+  }
+  if (statusFilter !== "all") {
+    eventsQuery = eventsQuery.eq("status", statusFilter);
+  }
+  if (modeFilter !== "all") {
+    eventsQuery = eventsQuery.eq("mode", modeFilter);
+  }
+  const startDate = resolveStartDate(rangeFilter);
+  if (startDate) {
+    eventsQuery = eventsQuery.gte("created_at", startDate.toISOString());
+  }
+
+  const { data, error } = await eventsQuery;
+  if (error) {
+    const message = error.message?.includes("provider_payment_events")
+      ? "Provider payment events table missing. Apply migration 022_provider_payment_events.sql."
+      : error.message || "Unable to load provider events.";
+    return { events: [], error: message };
+  }
+
+  let events = (data as ProviderEventRow[]) || [];
+  if (query) {
+    const lower = query.toLowerCase();
+    events = events.filter(
+      (event) =>
+        event.reference?.toLowerCase().includes(lower) ||
+        event.transaction_id?.toLowerCase().includes(lower) ||
+        event.profile_id?.toLowerCase().includes(lower) ||
+        event.plan_tier?.toLowerCase().includes(lower)
+    );
+  }
+
+  logProviderEventsViewed({
+    route: "/admin/billing",
+    provider: providerFilter,
+    mode: modeFilter,
+    status: statusFilter,
     range: rangeFilter,
     query: query || null,
     page,
@@ -523,6 +616,31 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
   const pageParam = Number.parseInt(parseParam(searchParams, "page") || "1", 10);
   const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
+  const providerNameParam = parseParam(searchParams, "provider");
+  const providerStatusParam = parseParam(searchParams, "provider_status");
+  const providerModeParam = parseParam(searchParams, "provider_mode");
+  const providerRangeParam = parseParam(searchParams, "provider_range");
+  const providerQuery = parseParam(searchParams, "provider_q");
+  const providerPageParam = Number.parseInt(parseParam(searchParams, "provider_page") || "1", 10);
+  const providerPage = Number.isFinite(providerPageParam) && providerPageParam > 0 ? providerPageParam : 1;
+
+  const providerFilter = PROVIDER_OPTIONS.includes(providerNameParam as (typeof PROVIDER_OPTIONS)[number])
+    ? providerNameParam
+    : "all";
+  const providerStatusFilter = PROVIDER_STATUS_OPTIONS.includes(
+    providerStatusParam as (typeof PROVIDER_STATUS_OPTIONS)[number]
+  )
+    ? providerStatusParam
+    : "all";
+  const providerModeFilter = MODE_OPTIONS.includes(providerModeParam as (typeof MODE_OPTIONS)[number])
+    ? providerModeParam
+    : "all";
+  const providerRangeFilter = PROVIDER_RANGE_OPTIONS.includes(
+    providerRangeParam as (typeof PROVIDER_RANGE_OPTIONS)[number]
+  )
+    ? providerRangeParam
+    : "7d";
+
   const snapshotResult =
     email || profileIdParam
       ? await loadBillingSnapshot({
@@ -535,6 +653,15 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
     ...searchParams,
     mode: modeFilter,
     page: String(page),
+  });
+  const { events: providerEvents, error: providerEventsError } = await loadProviderEvents({
+    ...searchParams,
+    provider: providerFilter,
+    provider_status: providerStatusFilter,
+    provider_mode: providerModeFilter,
+    provider_range: providerRangeFilter,
+    provider_q: providerQuery,
+    provider_page: String(providerPage),
   });
   const { accounts: supportAccounts, error: supportError } = await loadSupportQueue(triage);
   const userEventsResult = snapshotResult.snapshot
@@ -596,6 +723,29 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
     params.set("page", String(page - 1));
     return `/admin/billing?${params.toString()}#events`;
   })() : null;
+
+  const providerEventParams = new URLSearchParams();
+  if (email) providerEventParams.set("email", email);
+  if (profileIdParam) providerEventParams.set("profileId", profileIdParam);
+  if (providerFilter) providerEventParams.set("provider", providerFilter);
+  if (providerStatusFilter) providerEventParams.set("provider_status", providerStatusFilter);
+  if (providerModeFilter) providerEventParams.set("provider_mode", providerModeFilter);
+  if (providerRangeFilter) providerEventParams.set("provider_range", providerRangeFilter);
+  if (providerQuery) providerEventParams.set("provider_q", providerQuery);
+  const providerNextPageHref = (() => {
+    if (providerEvents.length < PAGE_SIZE) return null;
+    const params = new URLSearchParams(providerEventParams);
+    params.set("provider_page", String(providerPage + 1));
+    return `/admin/billing?${params.toString()}#provider-events`;
+  })();
+  const providerPrevPageHref =
+    providerPage > 1
+      ? (() => {
+          const params = new URLSearchParams(providerEventParams);
+          params.set("provider_page", String(providerPage - 1));
+          return `/admin/billing?${params.toString()}#provider-events`;
+        })()
+      : null;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -1066,6 +1216,155 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
             )}
             {nextPageHref && (
               <Link href={nextPageHref} className="font-semibold text-slate-900 underline underline-offset-4">
+                Load more
+              </Link>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" id="provider-events">
+        <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">Provider payment events</h2>
+            <p className="text-sm text-slate-600">
+              Paystack and Flutterwave activity (init, verify, and status updates).
+            </p>
+          </div>
+          <form className="flex flex-wrap items-center gap-2" action="/admin/billing" method="get">
+            <input type="hidden" name="email" value={email} />
+            <input type="hidden" name="profileId" value={profileIdParam} />
+            <select
+              name="provider"
+              defaultValue={providerFilter}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+            >
+              {PROVIDER_OPTIONS.map((provider) => (
+                <option key={provider} value={provider}>
+                  {provider === "all" ? "All providers" : provider}
+                </option>
+              ))}
+            </select>
+            <select
+              name="provider_mode"
+              defaultValue={providerModeFilter}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+            >
+              {MODE_OPTIONS.map((mode) => (
+                <option key={mode} value={mode}>
+                  {mode === "all" ? "All modes" : mode}
+                </option>
+              ))}
+            </select>
+            <select
+              name="provider_status"
+              defaultValue={providerStatusFilter}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+            >
+              {PROVIDER_STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {status === "all" ? "All statuses" : status}
+                </option>
+              ))}
+            </select>
+            <select
+              name="provider_range"
+              defaultValue={providerRangeFilter}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+            >
+              {PROVIDER_RANGE_OPTIONS.map((range) => (
+                <option key={range} value={range}>
+                  {range === "all" ? "All time" : `Last ${range}`}
+                </option>
+              ))}
+            </select>
+            <input
+              name="provider_q"
+              placeholder="Search reference or profile id"
+              defaultValue={providerQuery}
+              className="w-44 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+            />
+            <input type="hidden" name="provider_page" value="1" />
+            <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white">
+              Apply
+            </button>
+          </form>
+        </div>
+
+        {providerEventsError && (
+          <ErrorState
+            title="Provider events unavailable"
+            description={providerEventsError}
+            retryLabel="Back to Admin"
+            retryHref="/admin"
+          />
+        )}
+
+        {!providerEventsError && !providerEvents.length && (
+          <p className="text-sm text-slate-600">No provider payment events found for this filter.</p>
+        )}
+
+        {!providerEventsError && !!providerEvents.length && (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="py-2 pr-3">Created</th>
+                  <th className="py-2 pr-3">Provider</th>
+                  <th className="py-2 pr-3">Reference</th>
+                  <th className="py-2 pr-3">Mode</th>
+                  <th className="py-2 pr-3">Profile</th>
+                  <th className="py-2 pr-3">Plan</th>
+                  <th className="py-2 pr-3">Amount</th>
+                  <th className="py-2 pr-3">Outcome</th>
+                  <th className="py-2 pr-3">Reason</th>
+                  <th className="py-2">Processed</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 text-slate-700">
+                {providerEvents.map((event) => (
+                  <tr key={`${event.provider}:${event.reference}`}>
+                    <td className="py-2 pr-3 text-xs text-slate-500">
+                      {event.created_at?.replace("T", " ").replace("Z", "") || "—"}
+                    </td>
+                    <td className="py-2 pr-3 text-xs text-slate-500 capitalize">{event.provider}</td>
+                    <td className="py-2 pr-3">
+                      <div className="text-sm font-semibold text-slate-900">{event.event_type}</div>
+                      <div className="text-xs text-slate-500">{maskIdentifier(event.reference)}</div>
+                    </td>
+                    <td className="py-2 pr-3 text-xs text-slate-500">{event.mode || "—"}</td>
+                    <td className="py-2 pr-3 text-xs text-slate-500">{maskIdentifier(event.profile_id)}</td>
+                    <td className="py-2 pr-3 text-xs text-slate-500">{event.plan_tier || "—"}</td>
+                    <td className="py-2 pr-3 text-xs text-slate-500">
+                      {typeof event.amount === "number"
+                        ? `${(event.amount / 100).toFixed(2)} ${event.currency || "NGN"}`
+                        : "—"}
+                    </td>
+                    <td className="py-2 pr-3 text-xs">
+                      <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">
+                        {event.status || "received"}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-3 text-xs text-slate-500">{event.reason || "—"}</td>
+                    <td className="py-2 text-xs text-slate-500">
+                      {event.processed_at?.replace("T", " ").replace("Z", "") || "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {!providerEventsError && (providerPrevPageHref || providerNextPageHref) && (
+          <div className="mt-4 flex items-center justify-end gap-3 text-sm">
+            {providerPrevPageHref && (
+              <Link href={providerPrevPageHref} className="text-slate-600 underline underline-offset-4">
+                Previous
+              </Link>
+            )}
+            {providerNextPageHref && (
+              <Link href={providerNextPageHref} className="font-semibold text-slate-900 underline underline-offset-4">
                 Load more
               </Link>
             )}

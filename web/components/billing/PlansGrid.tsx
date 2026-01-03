@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { getTenantPlanForTier, isSavedSearchLimitReached, type PlanTier } from "@/lib/plans";
 import { PlanCard, type PlanCardConfig } from "@/components/billing/PlanCard";
 
@@ -13,6 +14,10 @@ type Props = {
   stripeStatus?: string | null;
   stripePeriodEnd?: string | null;
   stripeEnabled: boolean;
+  paystackEnabled: boolean;
+  paystackMode: string;
+  flutterwaveEnabled: boolean;
+  flutterwaveMode: string;
   showManage: boolean;
   pendingUpgrade: boolean;
   activeCount: number;
@@ -60,6 +65,10 @@ export function PlansGrid({
   stripeStatus,
   stripePeriodEnd,
   stripeEnabled,
+  paystackEnabled,
+  paystackMode,
+  flutterwaveEnabled,
+  flutterwaveMode,
   showManage,
   pendingUpgrade,
   activeCount,
@@ -67,9 +76,14 @@ export function PlansGrid({
   savedSearchCount,
   requestUpgradeAction,
 }: Props) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [cadence, setCadence] = useState<Cadence>("monthly");
   const [loadingKey, setLoadingKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const verificationRan = useRef(false);
 
   const statusLabel = stripeStatus ? stripeStatus.replace(/_/g, " ") : null;
   const periodLabel = stripePeriodEnd ? new Date(stripePeriodEnd).toLocaleDateString() : null;
@@ -119,6 +133,33 @@ export function PlansGrid({
     }
   };
 
+  const startProviderCheckout = async (provider: "paystack" | "flutterwave", tier: PlanTier) => {
+    setLoadingKey(`${provider}:${tier}`);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/billing/${provider}/initialize`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ tier, cadence }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data?.error || `Unable to start ${provider} checkout.`);
+        return;
+      }
+      if (data?.url) {
+        window.location.assign(data.url);
+      } else {
+        setError(`${provider} did not return a checkout URL.`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : `Unable to start ${provider} checkout.`);
+    } finally {
+      setLoadingKey(null);
+    }
+  };
+
   const openPortal = async () => {
     setLoadingKey("portal");
     setError(null);
@@ -140,6 +181,57 @@ export function PlansGrid({
       setLoadingKey(null);
     }
   };
+
+  useEffect(() => {
+    if (verificationRan.current) return;
+    const provider = searchParams.get("provider");
+    if (!provider) return;
+
+    const reference = searchParams.get("reference") || searchParams.get("trxref");
+    const txRef = searchParams.get("tx_ref") || reference;
+    const transactionId = searchParams.get("transaction_id");
+
+    if (provider === "paystack" && !reference) return;
+    if (provider === "flutterwave" && !txRef) return;
+
+    verificationRan.current = true;
+    setVerifying(true);
+    setError(null);
+    setNotice(null);
+
+    const verify = async () => {
+      try {
+        const res = await fetch(`/api/billing/${provider}/verify`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(
+            provider === "paystack"
+              ? { reference }
+              : { tx_ref: txRef, transaction_id: transactionId }
+          ),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setError(data?.error || "Payment verification failed.");
+        } else {
+          const status = data?.status || "verified";
+          setNotice(
+            status === "skipped"
+              ? "Payment captured, but manual billing override is active."
+              : "Payment verified. Your plan will update shortly."
+          );
+          router.refresh();
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Payment verification failed.");
+      } finally {
+        setVerifying(false);
+        router.replace("/dashboard/billing#plans");
+      }
+    };
+
+    void verify();
+  }, [router, searchParams]);
 
   return (
     <div className="space-y-6" id="plans">
@@ -200,10 +292,16 @@ export function PlansGrid({
             billingSource={billingSource}
             stripeManageAvailable={showManage}
             stripeEnabled={stripeEnabled}
+            paystackEnabled={paystackEnabled}
+            paystackMode={paystackMode}
+            flutterwaveEnabled={flutterwaveEnabled}
+            flutterwaveMode={flutterwaveMode}
             pendingUpgrade={pendingUpgrade}
             loadingKey={loadingKey}
             usageCount={plan.usageType === "saved_searches" ? savedSearchCount : activeCount}
             onUpgrade={startCheckout}
+            onPaystack={(tier) => startProviderCheckout("paystack", tier)}
+            onFlutterwave={(tier) => startProviderCheckout("flutterwave", tier)}
             onManage={openPortal}
             requestUpgradeAction={requestUpgradeAction}
           />
@@ -217,6 +315,8 @@ export function PlansGrid({
         </p>
       )}
 
+      {verifying && <p className="text-sm text-slate-500">Verifying payment…</p>}
+      {notice && <p className="text-sm text-emerald-700">{notice}</p>}
       {error && <p className="text-sm text-rose-600">{error}</p>}
     </div>
   );
