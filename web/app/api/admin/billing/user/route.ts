@@ -80,7 +80,7 @@ export async function GET(request: Request) {
 
   let events: Array<Record<string, string | null>> = [];
   try {
-    let eventsQuery = adminDb
+    const eventsQuery = adminDb
       .from("stripe_webhook_events")
       .select(
         "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id"
@@ -91,15 +91,11 @@ export async function GET(request: Request) {
     const stripeCustomerId = (plan as { stripe_customer_id?: string | null } | null)?.stripe_customer_id;
     const stripeSubscriptionId = (plan as { stripe_subscription_id?: string | null } | null)?.stripe_subscription_id;
 
-    if (stripeCustomerId) {
-      eventsQuery = eventsQuery.eq("stripe_customer_id", stripeCustomerId);
-    } else if (stripeSubscriptionId) {
-      eventsQuery = eventsQuery.eq("stripe_subscription_id", stripeSubscriptionId);
-    } else {
-      eventsQuery = eventsQuery.eq("profile_id", user.id);
-    }
-
-    const { data: eventRows, error: eventError } = await eventsQuery;
+    const { data: eventRows, error: eventError } = stripeCustomerId
+      ? await eventsQuery.eq("stripe_customer_id", stripeCustomerId)
+      : stripeSubscriptionId
+        ? await eventsQuery.eq("stripe_subscription_id", stripeSubscriptionId)
+        : await eventsQuery.eq("profile_id", user.id);
     if (!eventError && eventRows) {
       events = (eventRows as Array<Record<string, string | null>>).map((row) => ({
         event_id: maskIdentifier(row.event_id),
