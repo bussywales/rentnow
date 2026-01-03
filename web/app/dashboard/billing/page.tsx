@@ -133,7 +133,7 @@ export default async function BillingPage() {
       !!process.env.STRIPE_PRICE_TENANT_YEARLY);
   const showManage = billingSource === "stripe" && !!stripeCustomerId;
 
-  const statusLabel =
+  const statusToken =
     billingSource === "stripe"
       ? stripeStatus || (expired ? "expired" : "active")
       : billingSource === "manual"
@@ -141,6 +141,15 @@ export default async function BillingPage() {
       : expired
       ? "expired"
       : "free";
+  const statusLabel = statusToken.replace(/_/g, " ");
+  const statusTone =
+    statusToken === "active" || statusToken === "trialing"
+      ? "bg-emerald-100 text-emerald-700"
+      : statusToken === "past_due" || statusToken === "unpaid"
+      ? "bg-amber-100 text-amber-700"
+      : statusToken === "canceled" || statusToken === "incomplete_expired" || statusToken === "expired"
+      ? "bg-rose-100 text-rose-700"
+      : "bg-slate-100 text-slate-600";
   const summaryCopy =
     profile.role === "tenant"
       ? "Your plan unlocks saved search alerts and early access."
@@ -172,8 +181,16 @@ export default async function BillingPage() {
             </div>
             <div className="mt-2 flex items-center justify-between gap-4">
               <span className="text-slate-500">Status</span>
-              <span className="capitalize">{statusLabel.replace(/_/g, " ")}</span>
+              <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${statusTone}`}>
+                {statusLabel}
+              </span>
             </div>
+            {billingSource === "stripe" && stripePeriodEnd && (
+              <div className="mt-2 flex items-center justify-between gap-4">
+                <span className="text-slate-500">Renews</span>
+                <span>{new Date(stripePeriodEnd).toLocaleDateString()}</span>
+              </div>
+            )}
             <div className="mt-2 flex items-center justify-between gap-4">
               <span className="text-slate-500">Valid until</span>
               <span>{validUntil ? new Date(validUntil).toLocaleDateString() : "—"}</span>
