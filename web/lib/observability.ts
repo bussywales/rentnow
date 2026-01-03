@@ -111,6 +111,16 @@ type StripeEventsViewedLogInput = {
   page?: number;
 };
 
+type ProviderEventsViewedLogInput = {
+  route: string;
+  provider: string;
+  mode: string;
+  status: string;
+  range: string;
+  query?: string | null;
+  page?: number;
+};
+
 type StripeReplayLogInput = {
   route: string;
   eventId: string;
@@ -123,6 +133,37 @@ type StripeReplayFailureLogInput = {
   eventId: string;
   mode: string;
   error?: unknown;
+};
+
+type ProviderCheckoutLogInput = {
+  request?: Request;
+  route: string;
+  provider: string;
+  mode: string;
+  profileId: string;
+  planTier: string;
+  cadence: string;
+};
+
+type ProviderVerifyLogInput = {
+  request?: Request;
+  route: string;
+  provider: string;
+  mode: string;
+  reference: string;
+  outcome: string;
+  reason?: string | null;
+  profileId?: string | null;
+};
+
+type ProviderPlanUpdateLogInput = {
+  request?: Request;
+  route: string;
+  provider: string;
+  profileId: string;
+  planTier: string;
+  billingSource: string;
+  validUntil?: string | null;
 };
 
 function normalizeError(error: unknown) {
@@ -414,6 +455,104 @@ export function logStripeEventsViewed({
   };
 
   console.log(JSON.stringify(payload));
+}
+
+export function logProviderEventsViewed({
+  route,
+  provider,
+  mode,
+  status,
+  range,
+  query,
+  page,
+}: ProviderEventsViewedLogInput) {
+  console.log(
+    JSON.stringify({
+      level: "info",
+      event: "provider_events_viewed",
+      route,
+      provider,
+      mode,
+      status,
+      range,
+      query: query || null,
+      page: page || 1,
+    })
+  );
+}
+
+export function logProviderCheckoutStarted({
+  request,
+  route,
+  provider,
+  mode,
+  profileId,
+  planTier,
+  cadence,
+}: ProviderCheckoutLogInput) {
+  console.log(
+    JSON.stringify({
+      level: "info",
+      event: "provider_checkout_started",
+      route,
+      requestId: getRequestId(request),
+      provider,
+      mode,
+      profileId,
+      planTier,
+      cadence,
+    })
+  );
+}
+
+export function logProviderVerifyOutcome({
+  request,
+  route,
+  provider,
+  mode,
+  reference,
+  outcome,
+  reason,
+  profileId,
+}: ProviderVerifyLogInput) {
+  console.log(
+    JSON.stringify({
+      level: "info",
+      event: "provider_payment_verify",
+      route,
+      requestId: getRequestId(request),
+      provider,
+      mode,
+      reference,
+      outcome,
+      reason: reason || null,
+      profileId: profileId || null,
+    })
+  );
+}
+
+export function logProviderPlanUpdated({
+  request,
+  route,
+  provider,
+  profileId,
+  planTier,
+  billingSource,
+  validUntil,
+}: ProviderPlanUpdateLogInput) {
+  console.log(
+    JSON.stringify({
+      level: "info",
+      event: "provider_plan_updated",
+      route,
+      requestId: getRequestId(request),
+      provider,
+      profileId,
+      planTier,
+      billingSource,
+      validUntil: validUntil || null,
+    })
+  );
 }
 
 export function logStripeReplayAttempt({ route, eventId, mode, outcome }: StripeReplayLogInput) {
