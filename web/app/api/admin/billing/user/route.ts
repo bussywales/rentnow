@@ -83,7 +83,7 @@ export async function GET(request: Request) {
     const eventsQuery = adminDb
       .from("stripe_webhook_events")
       .select(
-        "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id"
+        "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id, processed_at"
       )
       .order("created_at", { ascending: false })
       .limit(20);
@@ -108,6 +108,7 @@ export async function GET(request: Request) {
         profile_id: maskIdentifier(row.profile_id),
         stripe_customer_id: maskIdentifier(row.stripe_customer_id),
         stripe_subscription_id: maskIdentifier(row.stripe_subscription_id),
+        processed_at: row.processed_at ?? null,
       }));
     }
   } catch {
