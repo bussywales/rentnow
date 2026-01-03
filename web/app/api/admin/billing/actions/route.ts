@@ -80,7 +80,15 @@ export async function POST(request: Request) {
     validUntil = payload.validUntil ?? validUntil;
   }
 
-  const { error } = await adminClient
+  const adminDb = adminClient as unknown as {
+    from: (table: string) => {
+      upsert: (
+        values: Record<string, unknown>,
+        options?: { onConflict?: string }
+      ) => Promise<{ error: { message: string } | null }>;
+    };
+  };
+  const { error } = await adminDb
     .from("profile_plans")
     .upsert(
       {
