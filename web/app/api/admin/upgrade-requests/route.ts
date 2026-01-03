@@ -113,7 +113,7 @@ export async function PATCH(request: Request) {
       request,
       route: routeLabel,
       actorId: auth.user.id,
-      profileId: requestRow.profile_id,
+      profileId: requestData.profile_id,
       planTier,
       maxListingsOverride: null,
       billingSource: "manual",
