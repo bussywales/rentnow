@@ -10,6 +10,11 @@
 - Set a Max listings override and save (positive integer).
 - Confirm the user can publish up to the new limit and events are logged.
 
+## Admin role management
+- In Admin → Users, change a user role and supply a reason.
+- Confirm the role badge updates and the user sees the correct dashboard links.
+- Verify a role change audit row exists in `role_change_audit`.
+
 ## Manual billing
 - Set `valid_until` in Admin → Users and confirm listing limits re-apply after expiry.
 - Add billing notes and confirm they persist (admin-only).

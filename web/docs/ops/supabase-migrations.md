@@ -28,6 +28,7 @@ Apply SQL files in this order:
 21) `web/supabase/migrations/021_provider_keys_paystack_flutterwave.sql`
 22) `web/supabase/migrations/022_provider_payment_events.sql`
 23) `web/supabase/migrations/023_profile_plans_billing_source_flutterwave.sql`
+24) `web/supabase/migrations/024_admin_role_management.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -92,6 +93,7 @@ select to_regclass('public.stripe_webhook_events') as stripe_webhook_events;
 select to_regclass('public.saved_search_alerts') as saved_search_alerts;
 select to_regclass('public.provider_settings') as provider_settings;
 select to_regclass('public.provider_payment_events') as provider_payment_events;
+select to_regclass('public.role_change_audit') as role_change_audit;
 ```
 
 ### RLS enabled
@@ -111,7 +113,8 @@ where relname in (
   'plan_upgrade_requests',
   'stripe_webhook_events',
   'saved_search_alerts',
-  'provider_settings'
+  'provider_settings',
+  'role_change_audit'
 );
 ```
 
@@ -134,7 +137,8 @@ where schemaname = 'public'
   'stripe_webhook_events',
   'saved_search_alerts',
   'provider_settings',
-  'provider_payment_events'
+  'provider_payment_events',
+  'role_change_audit'
   )
 order by tablename, policyname;
 ```
@@ -157,7 +161,8 @@ where table_schema = 'public'
     'stripe_webhook_events',
     'saved_search_alerts',
     'provider_settings',
-    'provider_payment_events'
+    'provider_payment_events',
+    'role_change_audit'
   )
   and column_name in (
     'id',
@@ -228,7 +233,12 @@ where table_schema = 'public'
     'amount',
     'currency',
     'transaction_id',
-    'processed_at'
+    'processed_at',
+    'target_profile_id',
+    'actor_profile_id',
+    'old_role',
+    'new_role',
+    'reason'
   )
 order by table_name, column_name;
 ```

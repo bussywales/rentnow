@@ -6,6 +6,11 @@
 - Added billing UI actions for Paystack/Flutterwave when keys are configured.
 - Added provider-payment unit coverage for idempotency and manual override behavior.
 
+## 2026-01-03 — v1.7.7-r6.6-admin-roles
+- Added admin-only role management API with audit logging.
+- Ensured profiles default to tenant and unknown roles route to onboarding.
+- Added role change controls in Admin → Users and role label normalization in admin views.
+
 ## 2026-01-03 — v1.7.6-r6.5-provider-expansion
 - Added reusable Payments mode badge for billing/admin surfaces with TEST/LIVE messaging.
 - Added Paystack/Flutterwave key storage in provider_settings with masked admin UI.
@@ -27,6 +32,7 @@
 - Hardened Stripe webhook idempotency, audit metadata, and processed_at stamping.
 - Enforced checkout metadata requirements and clarified plan status transitions.
 - Added Stripe status indicators in billing UI and expanded go-live checklist.
+
 
 ## 2026-01-03 — v1.7.2-r6.3.2-support-polish
 - Added billing ops triage filters and per-user Stripe event panel for support.
