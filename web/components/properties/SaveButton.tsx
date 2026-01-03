@@ -24,23 +24,26 @@ export function SaveButton({ propertyId, initialSaved = false }: Props) {
   }, [initialSaved]);
 
   const toggle = () => {
+    const nextSaved = !saved;
+    const previousSaved = saved;
     startTransition(async () => {
       setError(null);
       setNotice(null);
 
       if (isDemoSave) {
-        setSaved((prev) => !prev);
+        setSaved(nextSaved);
         setNotice("Saved in demo mode. Connect Supabase and log in to sync.");
         return;
       }
 
       try {
+        setSaved(nextSaved);
         const trimmedId = propertyId.trim();
         if (!trimmedId) {
           throw new Error("Unable to save: missing property id. Please refresh and try again.");
         }
 
-        const method = saved ? "DELETE" : "POST";
+        const method = nextSaved ? "POST" : "DELETE";
         const url =
           method === "DELETE"
             ? `/api/saved-properties?property_id=${propertyId}`
@@ -57,8 +60,8 @@ export function SaveButton({ propertyId, initialSaved = false }: Props) {
           const data = await res.json().catch(() => ({}));
           throw new Error(data?.error || "Unable to update saved state");
         }
-        setSaved(!saved);
       } catch (err) {
+        setSaved(previousSaved);
         const message = err instanceof Error ? err.message : "Unable to update saved state";
         setError(message);
       }
@@ -72,11 +75,20 @@ export function SaveButton({ propertyId, initialSaved = false }: Props) {
         size="sm"
         onClick={toggle}
         disabled={loading}
+        aria-pressed={saved}
       >
         {loading ? "Saving..." : saved ? "Saved" : "Save property"}
       </Button>
-      {notice && !error && <p className="text-xs text-slate-600">{notice}</p>}
-      {error && <p className="text-xs text-rose-600">{error}</p>}
+      {notice && !error && (
+        <p className="text-xs text-slate-600" aria-live="polite">
+          {notice}
+        </p>
+      )}
+      {error && (
+        <p className="text-xs text-rose-600" aria-live="polite">
+          {error}
+        </p>
+      )}
     </div>
   );
 }

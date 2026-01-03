@@ -1,10 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { requireRole } from "@/lib/authz";
+import { hasActiveDelegation } from "@/lib/agent-delegations";
+import { readActingAsFromRequest } from "@/lib/acting-as";
+import { getEarlyAccessApprovedBefore } from "@/lib/early-access";
+import { getPlanUsage } from "@/lib/plan-enforcement";
+import { getTenantPlanForTier } from "@/lib/plans";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { logFailure, logPlanLimitHit } from "@/lib/observability";
 
-function logApiError(message: string, meta?: unknown) {
-  console.error(`[api/properties] ${message}`, meta ?? {});
-}
+const routeLabel = "/api/properties";
+const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
 
 const propertySchema = z.object({
   title: z.string().min(3),
@@ -23,12 +30,26 @@ const propertySchema = z.object({
   amenities: z.array(z.string()).optional().nullable(),
   available_from: z.string().optional().nullable(),
   max_guests: z.number().int().nullable().optional(),
+  bills_included: z.boolean().optional(),
+  epc_rating: z.string().optional().nullable(),
+  council_tax_band: z.string().optional().nullable(),
+  features: z.array(z.string()).optional().nullable(),
+  status: z.enum(["draft", "pending", "live", "rejected", "paused"]).optional(),
   is_active: z.boolean().optional(),
   imageUrls: z.array(z.string().url()).optional(),
 });
 
 export async function POST(request: Request) {
+  const startTime = Date.now();
+
   if (!hasServerSupabaseEnv()) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 503,
+      startTime,
+      error: "Supabase env vars missing",
+    });
     return NextResponse.json(
       { error: "Supabase is not configured; listing creation is unavailable in demo mode." },
       { status: 503 }
@@ -36,32 +57,103 @@ export async function POST(request: Request) {
   }
 
   try {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
+    const auth = await requireRole({
+      request,
+      route: routeLabel,
+      startTime,
+      roles: ["landlord", "agent", "admin"],
+    });
+    if (!auth.ok) return auth.response;
 
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const supabase = auth.supabase;
+    const user = auth.user;
+    const role = auth.role;
+    const actingAs = readActingAsFromRequest(request as NextRequest);
+    let ownerId = user.id;
+
+    if (role === "agent" && actingAs && actingAs !== user.id) {
+      const allowed = await hasActiveDelegation(supabase, user.id, actingAs);
+      if (!allowed) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      }
+      ownerId = actingAs;
     }
 
     const body = await request.json();
     const data = propertySchema.parse(body);
-    const { imageUrls = [], ...rest } = data;
+    const { imageUrls = [], status, ...rest } = data;
+    const isAdmin = auth.role === "admin";
+    const normalizedStatus = isAdmin && status ? status : "draft";
+    const isActive = normalizedStatus === "pending" || normalizedStatus === "live";
+    const isApproved = normalizedStatus === "live";
+    const submittedAt = normalizedStatus === "pending" ? new Date().toISOString() : null;
+    const approvedAt = normalizedStatus === "live" ? new Date().toISOString() : null;
+
+    if (!isAdmin && isActive) {
+      const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
+      const usage = await getPlanUsage({
+        supabase,
+        ownerId,
+        serviceClient,
+      });
+      if (usage.error) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 500,
+          startTime,
+          error: new Error(usage.error),
+        });
+        return NextResponse.json({ error: usage.error }, { status: 500 });
+      }
+      if (usage.activeCount >= usage.plan.maxListings) {
+        logPlanLimitHit({
+          request,
+          route: routeLabel,
+          actorId: user.id,
+          ownerId,
+          planTier: usage.plan.tier,
+          maxListings: usage.plan.maxListings,
+          activeCount: usage.activeCount,
+          source: usage.source,
+        });
+        return NextResponse.json(
+          {
+            error: "Plan limit reached",
+            code: "plan_limit_reached",
+            maxListings: usage.plan.maxListings,
+            activeCount: usage.activeCount,
+            planTier: usage.plan.tier,
+          },
+          { status: 409 }
+        );
+      }
+    }
 
     const { data: property, error: insertError } = await supabase
       .from("properties")
       .insert({
         ...rest,
         amenities: rest.amenities ?? [],
-        owner_id: user.id,
+        features: rest.features ?? [],
+        status: normalizedStatus,
+        is_active: isActive,
+        is_approved: isApproved,
+        submitted_at: submittedAt,
+        approved_at: approvedAt,
+        owner_id: ownerId,
       })
       .select("id")
       .single();
 
     if (insertError) {
-      logApiError("insert failed", { error: insertError.message, owner_id: user.id });
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 400,
+        startTime,
+        error: new Error(insertError.message),
+      });
       return NextResponse.json(
         { error: insertError.message },
         { status: 400 }
@@ -72,9 +164,10 @@ export async function POST(request: Request) {
 
     if (propertyId && imageUrls.length) {
       await supabase.from("property_images").insert(
-        imageUrls.map((url) => ({
+        imageUrls.map((url, index) => ({
           property_id: propertyId,
           image_url: url,
+          position: index,
         }))
       );
     }
@@ -83,13 +176,28 @@ export async function POST(request: Request) {
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "Unable to create property";
-    logApiError("unhandled error on POST", { message });
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 500,
+      startTime,
+      error,
+    });
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 export async function GET(request: NextRequest) {
+  const startTime = Date.now();
+
   if (!hasServerSupabaseEnv()) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 503,
+      startTime,
+      error: "Supabase env vars missing",
+    });
     return NextResponse.json(
       { error: "Supabase is not configured; set env vars to fetch properties.", properties: [] },
       { status: 503 }
@@ -101,57 +209,311 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const scope = searchParams.get("scope");
     const ownerOnly = scope === "own";
+    const pageParam = searchParams.get("page");
+    const pageSizeParam = searchParams.get("pageSize");
+    const page = Number(pageParam || "1");
+    const pageSize = Number(pageSizeParam || "12");
+    const shouldPaginate = pageParam !== null || pageSizeParam !== null;
+    const safePage = Number.isFinite(page) && page > 0 ? page : 1;
+    const safePageSize =
+      Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 48) : 12;
+
+    const missingPosition = (message?: string | null) =>
+      typeof message === "string" &&
+      message.includes("position") &&
+      message.includes("property_images");
+    const missingApprovedAt = (message?: string | null) =>
+      typeof message === "string" &&
+      message.includes("approved_at") &&
+      message.includes("properties");
+
+    let approvedBefore: string | null = null;
+    if (!ownerOnly && EARLY_ACCESS_MINUTES > 0) {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        let role: string | null = null;
+        let planTier: string | null = null;
+        let validUntil: string | null = null;
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .maybeSingle();
+          role = profile?.role ?? null;
+          if (role === "tenant") {
+            const { data: planRow } = await supabase
+              .from("profile_plans")
+              .select("plan_tier, valid_until")
+              .eq("profile_id", user.id)
+              .maybeSingle();
+            planTier = planRow?.plan_tier ?? null;
+            validUntil = planRow?.valid_until ?? null;
+          }
+        }
+        ({ approvedBefore } = getEarlyAccessApprovedBefore({
+          role,
+          hasUser: !!user,
+          planTier,
+          validUntil,
+          earlyAccessMinutes: EARLY_ACCESS_MINUTES,
+        }));
+      } catch {
+        ({ approvedBefore } = getEarlyAccessApprovedBefore({
+          role: null,
+          hasUser: false,
+          planTier: null,
+          validUntil: null,
+          earlyAccessMinutes: EARLY_ACCESS_MINUTES,
+        }));
+      }
+    }
 
     if (ownerOnly) {
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
+      const auth = await requireRole({
+        request,
+        route: routeLabel,
+        startTime,
+        roles: ["landlord", "agent", "admin"],
+        supabase,
+      });
+      if (!auth.ok) return auth.response;
 
-      if (authError || !user) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      const actingAs = readActingAsFromRequest(request);
+      let ownerId = auth.user.id;
+      if (auth.role === "agent" && actingAs && actingAs !== auth.user.id) {
+        const allowed = await hasActiveDelegation(supabase, auth.user.id, actingAs);
+        if (!allowed) {
+          return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+        }
+        ownerId = actingAs;
       }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-      const isAdmin = profile?.role === "admin";
+      const buildOwnerQuery = (includePosition: boolean) => {
+        const imageFields = includePosition
+          ? "image_url,id,position,created_at"
+          : "image_url,id,created_at";
+        let query = supabase
+          .from("properties")
+          .select(`*, property_images(${imageFields})`)
+          .order("created_at", { ascending: false });
+        if (includePosition) {
+          query = query
+            .order("position", { foreignTable: "property_images", ascending: true })
+            .order("created_at", { foreignTable: "property_images", ascending: true });
+        } else {
+          query = query.order("created_at", {
+            foreignTable: "property_images",
+            ascending: true,
+          });
+        }
+        return query;
+      };
 
-      let query = supabase
-        .from("properties")
-        .select("*, property_images(image_url,id)")
-        .order("created_at", { ascending: false });
-
-      if (!isAdmin) {
-        query = query.eq("owner_id", user.id);
+      if (auth.role !== "admin") {
+        const baseQuery = buildOwnerQuery(true).eq("owner_id", ownerId);
+        const { data, error } = await baseQuery;
+        if (error && missingPosition(error.message)) {
+          const fallback = await buildOwnerQuery(false).eq("owner_id", ownerId);
+          if (fallback.error) {
+            logFailure({
+              request,
+              route: routeLabel,
+              status: 400,
+              startTime,
+              error: new Error(fallback.error.message),
+            });
+            return NextResponse.json(
+              { error: fallback.error.message, properties: [] },
+              { status: 400 }
+            );
+          }
+          return NextResponse.json({ properties: fallback.data || [] }, { status: 200 });
+        }
+        if (error) {
+          logFailure({
+            request,
+            route: routeLabel,
+            status: 400,
+            startTime,
+            error: new Error(error.message),
+          });
+          return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
+        }
+        return NextResponse.json({ properties: data || [] }, { status: 200 });
       }
 
-      const { data, error } = await query;
+      const { data, error } = await buildOwnerQuery(true);
+      if (error && missingPosition(error.message)) {
+        const fallback = await buildOwnerQuery(false);
+        if (fallback.error) {
+          logFailure({
+            request,
+            route: routeLabel,
+            status: 400,
+            startTime,
+            error: new Error(fallback.error.message),
+          });
+          return NextResponse.json(
+            { error: fallback.error.message, properties: [] },
+            { status: 400 }
+          );
+        }
+        return NextResponse.json({ properties: fallback.data || [] }, { status: 200 });
+      }
 
       if (error) {
-        logApiError("fetch failed", { error: error.message, scope });
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 400,
+          startTime,
+          error: new Error(error.message),
+        });
         return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
       }
 
       return NextResponse.json({ properties: data || [] }, { status: 200 });
     }
 
-    const { data, error } = await supabase
-      .from("properties")
-      .select("*, property_images(image_url,id)")
-      .order("created_at", { ascending: false });
+    const buildPublicQuery = (includePosition: boolean, cutoff: string | null) => {
+      const imageFields = includePosition
+        ? "image_url,id,position,created_at"
+        : "image_url,id,created_at";
+      let query = supabase
+        .from("properties")
+        .select(`*, property_images(${imageFields})`, {
+          count: shouldPaginate ? "exact" : undefined,
+        })
+        .eq("is_approved", true)
+        .eq("is_active", true)
+        .order("created_at", { ascending: false });
+      if (cutoff) {
+        query = query.or(`approved_at.is.null,approved_at.lte.${cutoff}`);
+      }
+      if (includePosition) {
+        query = query
+          .order("position", { foreignTable: "property_images", ascending: true })
+          .order("created_at", { foreignTable: "property_images", ascending: true });
+      } else {
+        query = query.order("created_at", {
+          foreignTable: "property_images",
+          ascending: true,
+        });
+      }
+      return query;
+    };
+
+    if (shouldPaginate) {
+      const from = (safePage - 1) * safePageSize;
+      const to = from + safePageSize - 1;
+      const runQuery = async (includePosition: boolean, cutoff: string | null) => {
+        const result = await buildPublicQuery(includePosition, cutoff).range(from, to);
+        if (result.error && missingApprovedAt(result.error.message) && cutoff) {
+          return buildPublicQuery(includePosition, null).range(from, to);
+        }
+        return result;
+      };
+
+      const { data, error, count } = await runQuery(true, approvedBefore);
+      if (error && missingPosition(error.message)) {
+        const fallback = await runQuery(false, approvedBefore);
+        if (fallback.error) {
+          logFailure({
+            request,
+            route: routeLabel,
+            status: 400,
+            startTime,
+            error: new Error(fallback.error.message),
+          });
+          return NextResponse.json(
+            { error: fallback.error.message, properties: [] },
+            { status: 400 }
+          );
+        }
+        return NextResponse.json(
+          { properties: fallback.data || [], page: safePage, pageSize: safePageSize, total: fallback.count ?? null },
+          { status: 200 }
+        );
+      }
+
+      if (error) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 400,
+          startTime,
+          error: new Error(error.message),
+        });
+        return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
+      }
+
+      return NextResponse.json(
+        { properties: data || [], page: safePage, pageSize: safePageSize, total: count ?? null },
+        { status: 200 }
+      );
+    }
+    const runQuery = async (includePosition: boolean, cutoff: string | null) => {
+      const result = await buildPublicQuery(includePosition, cutoff);
+      if (result.error && missingApprovedAt(result.error.message) && cutoff) {
+        return buildPublicQuery(includePosition, null);
+      }
+      return result;
+    };
+
+    const { data, error, count } = await runQuery(true, approvedBefore);
+    if (error && missingPosition(error.message)) {
+      const fallback = await runQuery(false, approvedBefore);
+      if (fallback.error) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 400,
+          startTime,
+          error: new Error(fallback.error.message),
+        });
+        return NextResponse.json(
+          { error: fallback.error.message, properties: [] },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json(
+        { properties: fallback.data || [], page: safePage, pageSize: safePageSize, total: fallback.count ?? null },
+        { status: 200 }
+      );
+    }
 
     if (error) {
-      logApiError("fetch failed", { error: error.message });
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 400,
+        startTime,
+        error: new Error(error.message),
+      });
       return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
     }
 
-    return NextResponse.json({ properties: data || [] }, { status: 200 });
+    return NextResponse.json(
+      {
+        properties: data || [],
+        page: shouldPaginate ? safePage : undefined,
+        pageSize: shouldPaginate ? safePageSize : undefined,
+        total: shouldPaginate ? count ?? null : undefined,
+      },
+      { status: 200 }
+    );
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unable to fetch properties";
-    logApiError("unhandled error on GET", { message });
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 500,
+      startTime,
+      error,
+    });
     return NextResponse.json({ error: message, properties: [] }, { status: 500 });
   }
 }

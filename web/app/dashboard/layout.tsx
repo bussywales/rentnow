@@ -5,6 +5,7 @@ import { getProfile, getSession } from "@/lib/auth";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import { ActingAsSelector } from "@/components/dashboard/ActingAsSelector";
 
 export default async function DashboardLayout({
   children,
@@ -22,10 +23,12 @@ export default async function DashboardLayout({
     if (!profile?.role) {
       redirect("/onboarding");
     }
-    if (profile.role === "tenant") {
-      redirect("/favourites");
-    }
   }
+
+  const profileIncomplete =
+    profile?.role === "landlord" || profile?.role === "agent"
+      ? !profile?.phone || !profile?.preferred_contact
+      : false;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -46,6 +49,15 @@ export default async function DashboardLayout({
             <Link href="/dashboard" className="rounded-full bg-white/10 px-3 py-1">
               My properties
             </Link>
+            <Link href="/dashboard/billing" className="rounded-full bg-white/10 px-3 py-1">
+              Billing
+            </Link>
+            <Link
+              href="/dashboard/saved-searches"
+              className="rounded-full bg-white/10 px-3 py-1"
+            >
+              Saved searches
+            </Link>
             <Link href="/dashboard/messages" className="rounded-full bg-white/10 px-3 py-1">
               Messages
             </Link>
@@ -55,6 +67,21 @@ export default async function DashboardLayout({
           </div>
         </div>
       </div>
+      {profileIncomplete && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">Complete your profile to get listings approved faster.</p>
+          <p className="mt-1 text-amber-800">
+            Add a phone number and preferred contact so tenants can reach you quickly.
+          </p>
+          <Link
+            href={`/onboarding/${profile?.role}`}
+            className="mt-2 inline-flex text-sm font-semibold text-amber-900 underline-offset-4 hover:underline"
+          >
+            Finish setup
+          </Link>
+        </div>
+      )}
+      {profile?.role === "agent" && <ActingAsSelector />}
       {children}
     </div>
   );

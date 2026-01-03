@@ -1,30 +1,16 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
 export async function GET() {
-  const supabaseReady = hasServerSupabaseEnv();
-  if (!supabaseReady) {
-    return NextResponse.json(
-      { ok: false, supabase: false, error: "Supabase env vars missing" },
-      { status: 503 }
-    );
-  }
+  const commit =
+    process.env.VERCEL_GIT_COMMIT_SHA ||
+    process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA ||
+    null;
+  const version = process.env.npm_package_version || null;
 
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { error } = await supabase.from("properties").select("id").limit(1);
-    if (error) {
-      return NextResponse.json(
-        { ok: false, supabase: false, error: error.message },
-        { status: 503 }
-      );
-    }
-    return NextResponse.json({ ok: true, supabase: true });
-  } catch (err) {
-    const message = err instanceof Error ? err.message : "Unknown error";
-    return NextResponse.json(
-      { ok: false, supabase: false, error: message },
-      { status: 500 }
-    );
-  }
+  return NextResponse.json({
+    ok: true,
+    timestamp: new Date().toISOString(),
+    commit,
+    version,
+  });
 }

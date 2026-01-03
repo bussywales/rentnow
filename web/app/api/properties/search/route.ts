@@ -1,42 +1,39 @@
 import { NextResponse } from "next/server";
-import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { logFailure } from "@/lib/observability";
+import { getEarlyAccessApprovedBefore } from "@/lib/early-access";
 import { searchProperties } from "@/lib/search";
-import type { ParsedSearchFilters, Property } from "@/lib/types";
+import { parseFiltersFromSearchParams } from "@/lib/search-filters";
+import { getTenantPlanForTier } from "@/lib/plans";
+import type { Property } from "@/lib/types";
 
-function parseFilters(request: Request): ParsedSearchFilters {
+function parsePagination(request: Request) {
   const { searchParams } = new URL(request.url);
+  const page = Number(searchParams.get("page") || "1");
+  const pageSize = Number(searchParams.get("pageSize") || "12");
   return {
-    city: searchParams.get("city"),
-    minPrice: searchParams.get("minPrice")
-      ? Number(searchParams.get("minPrice"))
-      : null,
-    maxPrice: searchParams.get("maxPrice")
-      ? Number(searchParams.get("maxPrice"))
-      : null,
-    currency: searchParams.get("currency"),
-    bedrooms: searchParams.get("bedrooms")
-      ? Number(searchParams.get("bedrooms"))
-      : null,
-    rentalType: searchParams.get("rentalType") as ParsedSearchFilters["rentalType"],
-    furnished:
-      searchParams.get("furnished") === "true"
-        ? true
-        : searchParams.get("furnished") === "false"
-        ? false
-        : null,
-    amenities: searchParams.get("amenities")
-      ? String(searchParams.get("amenities"))
-          .split(",")
-          .map((a) => a.trim())
-          .filter(Boolean)
-      : [],
+    page: Number.isFinite(page) && page > 0 ? page : 1,
+    pageSize:
+      Number.isFinite(pageSize) && pageSize > 0 ? Math.min(pageSize, 48) : 12,
   };
 }
 
 export async function GET(request: Request) {
-  const filters = parseFilters(request);
+  const startTime = Date.now();
+  const routeLabel = "/api/properties/search";
+  const { searchParams } = new URL(request.url);
+  const filters = parseFiltersFromSearchParams(searchParams);
+  const { page, pageSize } = parsePagination(request);
+  const earlyAccessMinutes = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
 
   if (!hasServerSupabaseEnv()) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 503,
+      startTime,
+      error: "Supabase env vars missing",
+    });
     return NextResponse.json(
       { error: "Supabase is not configured; live search is unavailable.", properties: [] },
       { status: 503 }
@@ -44,8 +41,64 @@ export async function GET(request: Request) {
   }
 
   try {
-    const { data, error } = await searchProperties(filters);
+    let approvedBefore: string | null = null;
+    if (earlyAccessMinutes > 0) {
+      try {
+        const supabase = await createServerSupabaseClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        let role: string | null = null;
+        let planTier: string | null = null;
+        let validUntil: string | null = null;
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", user.id)
+            .maybeSingle();
+          role = profile?.role ?? null;
+          if (role === "tenant") {
+            const { data: planRow } = await supabase
+              .from("profile_plans")
+              .select("plan_tier, valid_until")
+              .eq("profile_id", user.id)
+              .maybeSingle();
+            planTier = planRow?.plan_tier ?? null;
+            validUntil = planRow?.valid_until ?? null;
+          }
+        }
+        ({ approvedBefore } = getEarlyAccessApprovedBefore({
+          role,
+          hasUser: !!user,
+          planTier,
+          validUntil,
+          earlyAccessMinutes,
+        }));
+      } catch {
+        ({ approvedBefore } = getEarlyAccessApprovedBefore({
+          role: null,
+          hasUser: false,
+          planTier: null,
+          validUntil: null,
+          earlyAccessMinutes,
+        }));
+      }
+    }
+
+    const { data, error, count } = await searchProperties(filters, {
+      page,
+      pageSize,
+      approvedBefore,
+    });
     if (error) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 400,
+        startTime,
+        error: new Error(error.message),
+      });
       return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
     }
 
@@ -61,9 +114,16 @@ export async function GET(request: Request) {
         })),
       })) || [];
 
-    return NextResponse.json({ properties });
+    return NextResponse.json({ properties, page, pageSize, total: count ?? null });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unable to search properties";
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 500,
+      startTime,
+      error: err,
+    });
     return NextResponse.json({ error: message, properties: [] }, { status: 500 });
   }
 

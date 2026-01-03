@@ -23,3 +23,9 @@ pnpm-debug.log*
 supabase/.branches
 supabase/.temp
 supabase/.env
+
+# Playwright artifacts
+playwright-report/
+test-results/
+web/playwright-report/
+web/test-results/

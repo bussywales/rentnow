@@ -2,21 +2,22 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
-import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
+import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { getSiteUrl } from "@/lib/env";
+import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
 
 export default async function Home() {
   let featured: Property[] = [];
-  const baseUrl = getSiteUrl();
-  const apiUrl = `${baseUrl}/api/properties`;
+  const apiBaseUrl = await getApiBaseUrl();
+  const apiUrl = `${apiBaseUrl}/api/properties`;
   const supabaseReady = hasServerSupabaseEnv();
+  const envPresence = getEnvPresence();
   let fetchError: string | null = null;
 
   if (supabaseReady) {
@@ -47,9 +48,11 @@ export default async function Home() {
       fetchError = err instanceof Error ? err.message : "Unknown error";
       console.warn("[home] unable to fetch featured properties", err);
     }
+  } else {
+    fetchError = "Supabase env vars missing; configure NEXT_PUBLIC_SITE_URL and Supabase keys.";
   }
 
-  if (!supabaseReady || !featured.length) {
+  if (DEV_MOCKS && (!supabaseReady || !featured.length)) {
     featured = mockProperties.slice(0, 3);
   }
 
@@ -173,15 +176,44 @@ export default async function Home() {
             {"List a property ->"}
           </Link>
         </div>
-        <div className="grid gap-5 md:grid-cols-3">
-          {featured.map((property) => (
-            <PropertyCard
-              key={property.id}
-              property={property}
-              href={`/properties/${property.id}`}
-            />
-          ))}
-        </div>
+        {featured.length ? (
+          <div className="grid gap-5 md:grid-cols-3">
+            {featured.map((property) => (
+              <PropertyCard
+                key={property.id}
+                property={property}
+                href={`/properties/${property.id}`}
+              />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <p className="text-base font-semibold">Unable to load featured listings</p>
+            <p className="mt-1 text-sm text-amber-800">
+              {fetchError ?? "Live listings are unavailable right now."}
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <form action="/">
+                <Button type="submit" size="sm" variant="secondary">
+                  Retry
+                </Button>
+              </form>
+              <Link href="/properties" className="text-sm font-semibold text-amber-900 underline-offset-4 hover:underline">
+                Browse all listings
+              </Link>
+            </div>
+            <div className="mt-3 rounded-lg bg-amber-100/70 p-3 text-xs text-amber-900">
+              <p className="font-semibold">Diagnostics</p>
+              <pre className="mt-2 whitespace-pre-wrap font-mono">
+                {JSON.stringify(
+                  { apiUrl, supabaseReady, env: envPresence },
+                  null,
+                  2
+                )}
+              </pre>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="space-y-4">
@@ -191,9 +223,15 @@ export default async function Home() {
             {"Open full map ->"}
           </Link>
         </div>
-        <PropertyMapClient properties={featured} height="360px" />
+        <PropertyMapToggle
+          properties={featured}
+          height="360px"
+          title="Listings map"
+          description="Toggle the map on-demand to keep browsing fast."
+          variant="inline"
+          defaultOpen
+        />
       </section>
     </div>
   );
 }
-

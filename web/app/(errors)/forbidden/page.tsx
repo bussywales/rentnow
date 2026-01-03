@@ -2,6 +2,8 @@ import Link from "next/link";
 
 type Props = { searchParams: { reason?: string } };
 
+export const dynamic = "force-dynamic";
+
 export default function ForbiddenPage({ searchParams }: Props) {
   const reason = searchParams?.reason;
   const note =

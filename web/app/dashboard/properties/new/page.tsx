@@ -1,4 +1,4 @@
-import { PropertyForm } from "@/components/properties/PropertyForm";
+import { PropertyStepper } from "@/components/properties/PropertyStepper";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +11,7 @@ export default function NewPropertyPage() {
           Add details, upload photos via Supabase Storage, and publish when ready.
         </p>
       </div>
-      <PropertyForm />
+      <PropertyStepper />
     </div>
   );
 }

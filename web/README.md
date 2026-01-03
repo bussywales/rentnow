@@ -13,6 +13,14 @@ AI-first rental platform for the African market. This MVP is a web-only PWA buil
 - Leaflet + OpenStreetMap
 - OpenAI (chat completions)
 
+## Tooling requirements
+- Node.js >=20.9.0 (see `.nvmrc`) is mandatory.
+- Any Node 14/16 lint/build failures are non-actionable for this repo.
+- npm (uses `package-lock.json`).
+- Install/build: `npm install`, `npm run lint`, `npm run build`.
+- If Node is below 20.9, `npm install` fails fast via `scripts/check-node.mjs` with a clear error.
+- CI-friendly validation: use `npm run lint:ci`, `npm run build:ci`, and `npm run test:e2e:ci` to skip execution with a clear message when Node <20.9.
+
 ## Project structure
 ```
 app/                # Routes (home, auth, onboarding, dashboard, admin, properties)
@@ -23,10 +31,14 @@ supabase/schema.sql # DB + RLS starter script
 ```
 
 ## Getting started
-1) Prereqs: Node 18+, npm.  
+1) Prereqs: Node 20.9+, npm.  
 2) Install deps:
 ```bash
 cd web
+npm run setup
+```
+If you don't need Playwright locally, you can run:
+```bash
 npm install
 ```
 3) Env vars: copy `.env.local.example` -> `.env.local` and fill in (OpenAI is optional; AI routes return safe fallbacks if the key is missing):
@@ -48,6 +60,10 @@ npm run dev
 ```
 7) Auth notes: email/password via Supabase. On first login, users land on `/onboarding` to pick role (tenant/landlord/agent). Profile data lives in `profiles` table keyed by `auth.users.id`.
 8) Quality checks: `npm run lint` then `npm run build` (tolerates missing OpenAI key if AI routes aren't hit).
+
+## Troubleshooting
+- If `npm install` fails with `Permission denied` in `node_modules/.bin`, move the repo to a local disk or fix permissions, then reinstall.
+- If native deps (e.g. `lightningcss` or `sharp`) fail on Apple Silicon, confirm Node 20.9+ and rerun `npm install` after clearing `node_modules` and `package-lock.json`.
 
 ## Demo mode and fallbacks
 - Browse/detail/dashboard now expect live Supabase data; they surface API errors instead of showing mock cards. Home still uses a few mock highlights for marketing if Supabase is absent.
@@ -72,6 +88,7 @@ Tables: `profiles`, `properties`, `property_images`, `saved_properties`, `messag
 
 ## Deployment
 - Vercel for the Next.js app (add env vars in project settings).
+- CI/Vercel uses Node 20+ via `package.json` engines and the `check-node.mjs` preinstall guard.
 - Required envs for prod: `NEXT_PUBLIC_SITE_URL`, `SITE_URL` (optional), Supabase URL/keys, and bucket name. Optional `OPENAI_API_KEY` for AI routes.
 - Supabase RLS: apply `supabase/rls_policies.sql` in the Supabase SQL editor after seeding schema; keep canonical host (`https://www.rentnow.space`) in Supabase Auth redirect URLs.
 - Supabase for DB/Auth/Storage (free tier). Allow `*.vercel.app` origins in Auth settings.

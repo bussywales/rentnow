@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { requireRole } from "@/lib/authz";
+import { logFailure } from "@/lib/observability";
 import { getOpenAI, assertOpenAiKey } from "@/lib/openai";
+
+const routeLabel = "/api/ai/generate-description";
 
 const bodySchema = z.object({
   title: z.string().min(3),
@@ -19,33 +23,16 @@ const bodySchema = z.object({
 
 type BodyInput = z.infer<typeof bodySchema>;
 
-function buildFallbackDescription(data: BodyInput) {
-  const location = `${data.city}${data.neighbourhood ? ` - ${data.neighbourhood}` : ""}`;
-  const rentalLabel = data.rentalType === "short_let" ? "short-let" : "long-term rental";
-  const amenities = (data.amenities || []).slice(0, 5).join(", ");
-  const furnished = data.furnished ? "Furnished" : "Unfurnished";
-  const length =
-    data.rentalType === "short_let" ? "nightly stays" : "monthly living";
+export async function generateDescriptionResponse(
+  data: BodyInput,
+  request?: Request,
+  startTime?: number
+) {
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json({ error: "AI not configured" }, { status: 503 });
+  }
 
-  return [
-    `${data.title} is a ${data.bedrooms}-bed, ${data.bathrooms}-bath ${rentalLabel} in ${location}.`,
-    `${furnished}${amenities ? ` - Amenities: ${amenities}.` : "."}`,
-    `From ${data.price} ${data.currency} for ${length}.`,
-  ].join(" ");
-}
-
-export async function POST(request: Request) {
   try {
-    const json = await request.json();
-    const data = bodySchema.parse(json);
-
-    if (!process.env.OPENAI_API_KEY) {
-      return NextResponse.json({
-        description: buildFallbackDescription(data),
-        note: "OPENAI_API_KEY is missing; returned a templated description.",
-      });
-    }
-
     assertOpenAiKey();
 
     const userPrompt = `
@@ -83,6 +70,42 @@ Remember: 120-200 words, clear and honest, simple English, no invented features.
 
     const description = completion.choices[0]?.message?.content?.trim() || "";
     return NextResponse.json({ description });
+  } catch (error: unknown) {
+    if (request && typeof startTime === "number") {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 502,
+        startTime,
+        error,
+      });
+    } else {
+      console.error(error);
+    }
+    return NextResponse.json(
+      { error: "Unable to generate description" },
+      { status: 502 }
+    );
+  }
+}
+
+export async function POST(request: Request) {
+  const startTime = Date.now();
+  const auth = await requireRole({
+    request,
+    route: routeLabel,
+    startTime,
+    roles: ["landlord", "agent", "admin"],
+  });
+  if (!auth.ok) return auth.response;
+
+  try {
+    const json = await request.json();
+    const parsed = bodySchema.safeParse(json);
+    if (!parsed.success) {
+      return NextResponse.json({ error: "Invalid request payload" }, { status: 400 });
+    }
+    return generateDescriptionResponse(parsed.data, request, startTime);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unable to generate description";
     console.error(error);

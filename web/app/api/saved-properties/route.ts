@@ -1,41 +1,49 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { requireUser } from "@/lib/authz";
+import { logFailure } from "@/lib/observability";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+
+const routeLabel = "/api/saved-properties";
 
 const saveSchema = z.object({
   property_id: z.string(),
 });
 
-const supabaseConfigured = () =>
-  !!(
-    (process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL) &&
-    (process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)
-  );
+export async function GET(request: Request) {
+  const startTime = Date.now();
 
-export async function GET() {
-  if (!supabaseConfigured()) {
-    return NextResponse.json({
-      saved: [],
-      note: "Supabase is not configured; favourites are disabled in demo mode.",
+  if (!hasServerSupabaseEnv()) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 503,
+      startTime,
+      error: "Supabase env vars missing",
     });
+    return NextResponse.json(
+      { error: "Supabase is not configured; favourites require a live backend.", saved: [] },
+      { status: 503 }
+    );
   }
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ saved: [] });
-  }
+  const auth = await requireUser({ request, route: routeLabel, startTime });
+  if (!auth.ok) return auth.response;
+  const supabase = auth.supabase;
 
   const { data, error } = await supabase
     .from("saved_properties")
     .select("id, property_id, properties(*)")
-    .eq("user_id", user.id);
+    .eq("user_id", auth.user.id);
 
   if (error) {
+    logFailure({
+      request: new Request(routeLabel),
+      route: routeLabel,
+      status: 400,
+      startTime,
+      error: new Error(error.message),
+    });
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
@@ -43,7 +51,16 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
-  if (!supabaseConfigured()) {
+  const startTime = Date.now();
+
+  if (!hasServerSupabaseEnv()) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 503,
+      startTime,
+      error: "Supabase env vars missing",
+    });
     return NextResponse.json(
       { error: "Supabase is not configured; favourites require a live backend." },
       { status: 503 }
@@ -51,15 +68,9 @@ export async function POST(request: Request) {
   }
 
   try {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const auth = await requireUser({ request, route: routeLabel, startTime });
+    if (!auth.ok) return auth.response;
+    const supabase = auth.supabase;
 
     const body = await request.json();
     const { property_id: rawPropertyId } = saveSchema.parse(body);
@@ -87,36 +98,53 @@ export async function POST(request: Request) {
 
     const { error } = await supabase
       .from("saved_properties")
-      .upsert({ user_id: user.id, property_id });
+      .upsert({ user_id: auth.user.id, property_id });
 
     if (error) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 400,
+        startTime,
+        error: new Error(error.message),
+      });
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unable to save property";
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 400,
+      startTime,
+      error,
+    });
     return NextResponse.json({ error: message }, { status: 400 });
   }
 }
 
 export async function DELETE(request: Request) {
-  if (!supabaseConfigured()) {
+  const startTime = Date.now();
+
+  if (!hasServerSupabaseEnv()) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 503,
+      startTime,
+      error: "Supabase env vars missing",
+    });
     return NextResponse.json(
       { error: "Supabase is not configured; favourites require a live backend." },
       { status: 503 }
     );
   }
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
-
-  if (authError || !user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const auth = await requireUser({ request, route: routeLabel, startTime });
+  if (!auth.ok) return auth.response;
+  const supabase = auth.supabase;
 
   const { searchParams } = new URL(request.url);
   const propertyId = searchParams.get("property_id");
@@ -128,10 +156,17 @@ export async function DELETE(request: Request) {
   const { error } = await supabase
     .from("saved_properties")
     .delete()
-    .eq("user_id", user.id)
+    .eq("user_id", auth.user.id)
     .eq("property_id", propertyId);
 
   if (error) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 400,
+      startTime,
+      error: new Error(error.message),
+    });
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 

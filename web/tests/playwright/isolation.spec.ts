@@ -1,10 +1,12 @@
 import { test, expect } from "@playwright/test";
+import { HAS_SUPABASE_ENV } from "./helpers/env";
 
 const TENANT_EMAIL = process.env.PLAYWRIGHT_TENANT_EMAIL || "";
 const TENANT_PASSWORD = process.env.PLAYWRIGHT_TENANT_PASSWORD || "";
 
 test.describe("Role isolation (tenant)", () => {
   test("tenant is redirected off dashboard and cannot list properties", async ({ page }) => {
+    test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping tenant isolation checks.");
     test.skip(!TENANT_EMAIL || !TENANT_PASSWORD, "Set PLAYWRIGHT_TENANT_EMAIL/PASSWORD to run this test.");
 
     await page.goto("/auth/login");

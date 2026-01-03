@@ -4,6 +4,7 @@
 CREATE TYPE user_role AS ENUM ('tenant', 'landlord', 'agent', 'admin');
 CREATE TYPE rental_type AS ENUM ('short_let', 'long_term');
 CREATE TYPE viewing_status AS ENUM ('pending', 'accepted', 'declined', 'cancelled');
+CREATE TYPE property_status AS ENUM ('draft', 'pending', 'live', 'rejected', 'paused');
 
 -- PROFILES
 CREATE TABLE public.profiles (
@@ -13,6 +14,9 @@ CREATE TABLE public.profiles (
   phone TEXT,
   city TEXT,
   avatar_url TEXT,
+  business_name TEXT,
+  preferred_contact TEXT,
+  areas_served TEXT[],
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -38,6 +42,16 @@ CREATE TABLE public.properties (
   max_guests INT,
   is_approved BOOLEAN NOT NULL DEFAULT FALSE,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  status property_status NOT NULL DEFAULT 'draft',
+  rejection_reason TEXT,
+  submitted_at TIMESTAMPTZ,
+  approved_at TIMESTAMPTZ,
+  rejected_at TIMESTAMPTZ,
+  paused_at TIMESTAMPTZ,
+  bills_included BOOLEAN NOT NULL DEFAULT FALSE,
+  epc_rating TEXT,
+  council_tax_band TEXT,
+  features TEXT[],
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -52,6 +66,7 @@ CREATE TABLE public.property_images (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
   image_url TEXT NOT NULL,
+  position INT NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -95,6 +110,19 @@ CREATE TABLE public.viewing_requests (
 
 CREATE INDEX idx_viewing_requests_property ON public.viewing_requests (property_id);
 CREATE INDEX idx_viewing_requests_tenant ON public.viewing_requests (tenant_id);
+
+-- SAVED SEARCHES
+CREATE TABLE public.saved_searches (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  name TEXT NOT NULL,
+  query_params JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  last_notified_at TIMESTAMPTZ,
+  last_checked_at TIMESTAMPTZ
+);
+
+CREATE INDEX idx_saved_searches_user ON public.saved_searches (user_id);
 
 -- BASIC RLS SUGGESTIONS
 -- Enable RLS on tables:

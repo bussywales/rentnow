@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Button } from "@/components/ui/Button";
 import { AdminUserActions } from "@/components/admin/AdminUserActions";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -16,6 +15,13 @@ type AdminAuthUser = {
 };
 
 type ProfileRow = { id: string; role: string | null; full_name: string | null };
+type PlanRow = {
+  profile_id: string;
+  plan_tier: string | null;
+  max_listings_override: number | null;
+  valid_until: string | null;
+};
+type BillingNotesRow = { profile_id: string; billing_notes: string | null };
 
 async function requireAdmin() {
   if (!hasServerSupabaseEnv()) {
@@ -37,13 +43,13 @@ async function requireAdmin() {
 
 async function getUsers() {
   if (!hasServiceRoleEnv()) {
-    return { users: [], profiles: [] };
+    return { users: [], profiles: [], plans: [], notes: [] };
   }
   const adminClient = createServiceRoleClient();
   const { data, error } = await adminClient.auth.admin.listUsers({ perPage: 200 });
   if (error) {
     console.error("[admin/users] listUsers failed", error.message);
-    return { users: [], profiles: [] };
+    return { users: [], profiles: [], plans: [], notes: [] };
   }
   const supabase = await createServerSupabaseClient();
   const ids = (data.users || []).map((u) => u.id);
@@ -51,9 +57,19 @@ async function getUsers() {
     .from("profiles")
     .select("id, role, full_name")
     .in("id", ids);
+  const { data: plans } = await adminClient
+    .from("profile_plans")
+    .select("profile_id, plan_tier, max_listings_override, valid_until")
+    .in("profile_id", ids);
+  const { data: notes } = await adminClient
+    .from("profile_billing_notes")
+    .select("profile_id, billing_notes")
+    .in("profile_id", ids);
   return {
     users: (data.users as AdminAuthUser[]) || [],
     profiles: (profiles as ProfileRow[]) || [],
+    plans: (plans as PlanRow[]) || [],
+    notes: (notes as BillingNotesRow[]) || [],
   };
 }
 
@@ -61,10 +77,18 @@ function joinProfile(profiles: ProfileRow[], userId: string) {
   return profiles.find((p) => p.id === userId) || null;
 }
 
+function joinPlan(plans: PlanRow[], userId: string) {
+  return plans.find((plan) => plan.profile_id === userId) || null;
+}
+
+function joinNotes(notes: BillingNotesRow[], userId: string) {
+  return notes.find((note) => note.profile_id === userId) || null;
+}
+
 export default async function AdminUsersPage() {
   await requireAdmin();
   const serviceReady = hasServiceRoleEnv();
-  const { users, profiles } = await getUsers();
+  const { users, profiles, plans, notes } = await getUsers();
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -106,19 +130,30 @@ export default async function AdminUsersPage() {
         <div className="divide-y divide-slate-100 text-sm">
           {users.map((user) => {
             const profile = joinProfile(profiles, user.id);
+            const plan = joinPlan(plans, user.id);
+            const note = joinNotes(notes, user.id);
             return (
               <div key={user.id} className="flex flex-col gap-2 py-3 md:flex-row md:items-center md:justify-between">
                 <div>
                   <p className="font-semibold text-slate-900">{user.email || "No email"}</p>
                   <p className="text-slate-600">
-                    Role: {profile?.role || "unknown"} • Name: {profile?.full_name || "—"}
+                    Role: {profile?.role || "unknown"} • Name: {profile?.full_name || "—"} • Plan:{" "}
+                    {plan?.plan_tier || "free"}
                   </p>
                   <p className="text-xs text-slate-500">
                     Created: {user.created_at?.replace("T", " ").replace("Z", "") || "—"} | Last
                     sign-in: {user.last_sign_in_at?.replace("T", " ").replace("Z", "") || "—"}
                   </p>
                 </div>
-                <AdminUserActions userId={user.id} email={user.email} serviceReady={serviceReady} />
+                <AdminUserActions
+                  userId={user.id}
+                  email={user.email}
+                  serviceReady={serviceReady}
+                  planTier={plan?.plan_tier ?? null}
+                  maxListingsOverride={plan?.max_listings_override ?? null}
+                  validUntil={plan?.valid_until ?? null}
+                  billingNotes={note?.billing_notes ?? null}
+                />
               </div>
             );
           })}

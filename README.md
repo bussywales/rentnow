@@ -7,6 +7,7 @@ The app lives in `web/`. See `web/README.md` for full setup steps, env vars, sch
 Quick start:
 ```bash
 cd web
+# Node.js >=20.9.0 is mandatory (Node 14/16 failures are non-actionable).
 npm install
 cp .env.local.example .env.local   # fill Supabase + OpenAI values
 npm run dev

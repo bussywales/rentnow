@@ -173,6 +173,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
             "Content-Type": "application/json",
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
+          credentials: "include",
           body: JSON.stringify({
             ...payload,
             imageUrls: uploadedUrls,

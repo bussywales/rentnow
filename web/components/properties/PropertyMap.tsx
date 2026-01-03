@@ -21,6 +21,8 @@ const icon = L.icon({
   iconAnchor: [12, 41],
 });
 
+const CLUSTER_GRID = 0.03;
+
 type Props = {
   properties: Property[];
   height?: string;
@@ -59,6 +61,47 @@ function resolveCoords(property: Property): [number, number] | null {
   return null;
 }
 
+type Cluster = {
+  id: string;
+  latitude: number;
+  longitude: number;
+  count: number;
+  items: Property[];
+};
+
+function clusterProperties(properties: Property[]): Cluster[] {
+  const clusters = new Map<string, Cluster>();
+  properties.forEach((property) => {
+    const lat = property.latitude as number;
+    const lng = property.longitude as number;
+    const key = `${Math.round(lat / CLUSTER_GRID)}:${Math.round(lng / CLUSTER_GRID)}`;
+    const existing = clusters.get(key);
+    if (existing) {
+      existing.count += 1;
+      existing.items.push(property);
+      existing.latitude = (existing.latitude * (existing.count - 1) + lat) / existing.count;
+      existing.longitude = (existing.longitude * (existing.count - 1) + lng) / existing.count;
+    } else {
+      clusters.set(key, {
+        id: key,
+        latitude: lat,
+        longitude: lng,
+        count: 1,
+        items: [property],
+      });
+    }
+  });
+  return Array.from(clusters.values());
+}
+
+function clusterIcon(count: number) {
+  return L.divIcon({
+    html: `<div style="align-items:center;background:#0ea5e9;border-radius:9999px;color:#fff;display:flex;font-weight:600;height:32px;justify-content:center;width:32px;">${count}</div>`,
+    className: "",
+    iconSize: [32, 32],
+  });
+}
+
 function FitToBounds({ properties }: { properties: Property[] }) {
   const map = useMap();
 
@@ -95,6 +138,8 @@ export function PropertyMap({ properties, height = "400px" }: Props) {
     withCoords[0].latitude as number,
     withCoords[0].longitude as number,
   ];
+  const shouldCluster = withCoords.length > 12;
+  const clustered = shouldCluster ? clusterProperties(withCoords) : null;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -110,20 +155,47 @@ export function PropertyMap({ properties, height = "400px" }: Props) {
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <FitToBounds properties={withCoords} />
-        {withCoords.map((property) => (
-          <Marker
-            key={property.id}
-            position={[property.latitude as number, property.longitude as number]}
-            icon={icon}
-          >
-            <Popup>
-              <div className="text-sm font-semibold">{property.title}</div>
-              <div className="text-xs text-slate-600">
-                {property.city} - {property.rental_type === "short_let" ? "Short-let" : "Long-term"}
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        {clustered
+          ? clustered.map((cluster) => (
+              <Marker
+                key={cluster.id}
+                position={[cluster.latitude, cluster.longitude]}
+                icon={cluster.count > 1 ? clusterIcon(cluster.count) : icon}
+              >
+                <Popup>
+                  {cluster.count > 1 ? (
+                    <div className="text-sm font-semibold">
+                      {cluster.count} listings in this area
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-sm font-semibold">{cluster.items[0]?.title}</div>
+                      <div className="text-xs text-slate-600">
+                        {cluster.items[0]?.city} -{" "}
+                        {cluster.items[0]?.rental_type === "short_let"
+                          ? "Short-let"
+                          : "Long-term"}
+                      </div>
+                    </>
+                  )}
+                </Popup>
+              </Marker>
+            ))
+          : withCoords.map((property) => (
+              <Marker
+                key={property.id}
+                position={[property.latitude as number, property.longitude as number]}
+                icon={icon}
+              >
+                <Popup>
+                  <div className="text-sm font-semibold">{property.title}</div>
+                  <div className="text-xs text-slate-600">
+                    {property.city} -{" "}
+                    {property.rental_type === "short_let" ? "Short-let" : "Long-term"}
+                  </div>
+                </Popup>
+              </Marker>
+            ))}
       </MapContainer>
     </div>
   );

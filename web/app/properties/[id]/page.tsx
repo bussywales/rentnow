@@ -1,13 +1,17 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import { MessageThreadClient } from "@/components/messaging/MessageThreadClient";
-import { PropertyMapClient } from "@/components/properties/PropertyMapClient";
+import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
+import { Button } from "@/components/ui/Button";
+import { ErrorState } from "@/components/ui/ErrorState";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
-import { getSiteUrl } from "@/lib/env";
+import { DEV_MOCKS, getApiBaseUrl, getCanonicalBaseUrl, getEnvPresence } from "@/lib/env";
+import { mockProperties } from "@/lib/mock";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getTenantPlanForTier } from "@/lib/plans";
 import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -28,76 +32,85 @@ function extractId(raw: Params | Promise<Params>): Promise<string | undefined> {
   return Promise.resolve((raw as Params)?.id);
 }
 
-async function getProperty(id: string | undefined): Promise<{ property: Property | null; error: string | null }> {
+async function getProperty(
+  id: string | undefined
+): Promise<{ property: Property | null; error: string | null; apiUrl: string | null }> {
   if (!id) {
-    return { property: null, error: "Invalid property id" };
+    return { property: null, error: "Invalid property id", apiUrl: null };
   }
   const cleanId = normalizeId(id);
   if (!cleanId || cleanId === "undefined" || cleanId === "null") {
-    return { property: null, error: "Invalid property id" };
+    return { property: null, error: "Invalid property id", apiUrl: null };
   }
-  const baseUrl = getSiteUrl();
-  const apiUrl = `${baseUrl}/api/properties/${cleanId}`;
+  const apiBaseUrl = await getApiBaseUrl();
+  const apiUrl = `${apiBaseUrl}/api/properties/${cleanId}`;
+  let apiError: string | null = null;
 
   try {
     const res = await fetch(apiUrl, {
-      cache: "no-store",
+      next: { revalidate: 60 },
     });
     if (!res.ok) {
-      let apiError: string | null = null;
+      let responseError: string | null = null;
       try {
         const body = await res.json();
-        apiError = body?.error || null;
+        responseError = body?.error || null;
       } catch {
-        apiError = null;
+        responseError = null;
       }
-      return {
-        property: null,
-        error: apiError ? `API ${res.status}: ${apiError}` : `API responded with ${res.status}`,
-      };
-    }
-
-    const json = await res.json();
-    const data = json.property as
-      | (Property & { property_images?: Array<{ id: string; image_url: string }> })
-      | null;
-    if (data) {
-      console.log("[property detail] fetched via API", {
-        id: cleanId,
-        title: data.title,
-        apiUrl,
-      });
-      return {
-        property: {
-          ...data,
-          images: data.property_images?.map((img) => ({
-            id: img.id,
-            image_url: img.image_url,
-          })),
-        },
-        error: null,
-      };
+      apiError = responseError
+        ? `API ${res.status}: ${responseError}`
+        : `API responded with ${res.status}`;
+    } else {
+      const json = await res.json();
+      const data = json.property as
+        | (Property & { property_images?: Array<{ id: string; image_url: string }> })
+        | null;
+      if (data) {
+        console.log("[property detail] fetched via API", {
+          id: cleanId,
+          title: data.title,
+          apiUrl,
+        });
+        return {
+          property: {
+            ...data,
+            images: data.property_images?.map((img) => ({
+              id: img.id,
+              image_url: img.image_url,
+            })),
+          },
+          error: null,
+          apiUrl,
+        };
+      }
     }
   } catch (err) {
-    return {
-      property: null,
-      error: err instanceof Error ? err.message : "Unknown error while fetching property",
-    };
+    apiError = err instanceof Error ? err.message : "Unknown error while fetching property";
   }
 
-  return { property: null, error: "Listing not found" };
+  if (DEV_MOCKS) {
+    const fallback = mockProperties.find((item) => item.id === cleanId) ?? null;
+    if (fallback) {
+      return { property: fallback, error: null, apiUrl };
+    }
+  }
+
+  return { property: null, error: apiError ?? "Listing not found", apiUrl };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const id = await extractId(params);
   const { property } = await getProperty(id);
-  const baseUrl = getSiteUrl() || "https://www.rentnow.space";
+  const baseUrl = await getCanonicalBaseUrl();
 
   if (!property) {
+    const canonicalPath = `/properties/${id ?? ""}`;
+    const canonicalUrl = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;
     return {
       title: "Listing not found | RENTNOW",
       description: "This listing is unavailable.",
-      alternates: { canonical: `${baseUrl}/properties/${id ?? ""}` },
+      alternates: { canonical: canonicalUrl },
     };
   }
 
@@ -107,15 +120,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     `Discover ${property.title} in ${property.city}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${property.currency} ${property.price.toLocaleString()}.`;
   const imageUrl = property.images?.[0]?.image_url;
 
+  const canonicalPath = `/properties/${property.id}`;
+  const canonicalUrl = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;
+
   return {
     title,
     description,
-    alternates: { canonical: `${baseUrl}/properties/${property.id}` },
+    alternates: { canonical: canonicalUrl },
     openGraph: {
       title,
       description,
-      url: `${baseUrl}/properties/${property.id}`,
+      url: canonicalUrl,
       type: "article",
+      siteName: "RENTNOW",
       images: imageUrl ? [{ url: imageUrl, alt: property.title }] : undefined,
     },
     twitter: {
@@ -128,13 +145,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 }
 
 export default async function PropertyDetail({ params }: Props) {
+  const envPresence = getEnvPresence();
+  const supabaseReady = hasServerSupabaseEnv();
+  const siteUrl = await getCanonicalBaseUrl();
+  const id = await extractId(params);
   let property: Property | null = null;
   let fetchError: string | null = null;
+  let apiUrl: string | null = null;
   try {
-    const id = await extractId(params);
     const result = await getProperty(id);
     property = result.property;
     fetchError = result.error;
+    apiUrl = result.apiUrl;
   } catch (err) {
     console.error("Failed to load property detail", err);
     property = null;
@@ -142,29 +164,43 @@ export default async function PropertyDetail({ params }: Props) {
   }
 
   if (!property) {
+    const retryHref = id ? `/properties/${id}` : "/properties";
+
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
-        <h1 className="text-2xl font-semibold text-slate-900">Listing not found</h1>
-        <p className="text-sm text-slate-600">
-          This listing isn&apos;t available right now. Verify the URL or check that the site URL env
-          is set correctly for API calls.
-        </p>
-        {fetchError && (
-          <p className="text-xs text-amber-700">Error: {fetchError}</p>
-        )}
-        <div className="flex gap-3">
-          <Link href="/properties" className="text-sky-700 font-semibold">
-            Back to browse
-          </Link>
-          <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
-            List a property
-          </Link>
-        </div>
+        <ErrorState
+          title="Listing not found"
+          description="This listing isn't available right now. Verify the URL or check that the site URL env is set correctly for API calls."
+          retryAction={
+            <>
+              <Link href={retryHref}>
+                <Button size="sm" variant="secondary">
+                  Retry
+                </Button>
+              </Link>
+              <Link href="/properties" className="text-sky-700 font-semibold">
+                Back to browse
+              </Link>
+              <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
+                List a property
+              </Link>
+            </>
+          }
+          diagnostics={{
+            apiUrl,
+            id,
+            supabaseReady,
+            fetchError,
+            env: envPresence,
+          }}
+        />
       </div>
     );
   }
 
   let isSaved = false;
+  let isTenant = false;
+  let isTenantPro = false;
   let similar: Property[] = [];
   if (hasServerSupabaseEnv()) {
     try {
@@ -173,6 +209,24 @@ export default async function PropertyDetail({ params }: Props) {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        isTenant = profile?.role === "tenant";
+
+        const { data: planRow } = await supabase
+          .from("profile_plans")
+          .select("plan_tier, valid_until")
+          .eq("profile_id", user.id)
+          .maybeSingle();
+        const validUntil = planRow?.valid_until ?? null;
+        const expired =
+          !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
+        const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+        isTenantPro = isTenant && tenantPlan.tier === "tenant_pro";
+
         const { data } = await supabase
           .from("saved_properties")
           .select("id")
@@ -242,12 +296,14 @@ export default async function PropertyDetail({ params }: Props) {
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
-              "@type": property.rental_type === "short_let" ? "Apartment" : "Residence",
+              "@type": "RealEstateListing",
               name: property.title,
               description: property.description,
-              url: `${getSiteUrl() || "https://www.rentnow.space"}/properties/${property.id}`,
+              url: siteUrl ? `${siteUrl}/properties/${property.id}` : `/properties/${property.id}`,
               image: property.images?.map((img) => img.image_url),
+              datePosted: property.created_at,
               numberOfRooms: property.bedrooms,
+              numberOfBedrooms: property.bedrooms,
               numberOfBathroomsTotal: property.bathrooms,
               address: {
                 "@type": "PostalAddress",
@@ -265,6 +321,7 @@ export default async function PropertyDetail({ params }: Props) {
                 price: property.price,
                 priceCurrency: property.currency,
                 availability: "https://schema.org/InStock",
+                url: siteUrl ? `${siteUrl}/properties/${property.id}` : `/properties/${property.id}`,
               },
             }),
           }}
@@ -350,7 +407,13 @@ export default async function PropertyDetail({ params }: Props) {
         <div className="md:col-span-2 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900">About</h2>
           <p className="text-slate-700 leading-7">{property.description}</p>
-          <PropertyMapClient properties={[property]} height="320px" />
+          <PropertyMapToggle
+            properties={[property]}
+            height="320px"
+            title="Location map"
+            description="Show the exact location only when you need it."
+            variant="inline"
+          />
         </div>
         <div className="space-y-4">
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -374,9 +437,24 @@ export default async function PropertyDetail({ params }: Props) {
             <ViewingRequestForm propertyId={property.id} />
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="text-lg font-semibold text-slate-900">
-              Contact landlord/agent
-            </h3>
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-lg font-semibold text-slate-900">
+                Contact landlord/agent
+              </h3>
+              {isTenantPro && (
+                <Button size="sm" variant="secondary">
+                  Priority contact
+                </Button>
+              )}
+            </div>
+            {isTenant && !isTenantPro && (
+              <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                Upgrade to Tenant Pro for priority contact and instant alerts.{" "}
+                <Link href="/dashboard/billing#plans" className="font-semibold underline">
+                  View plans
+                </Link>
+              </div>
+            )}
             <MessageThreadClient
               propertyId={property.id}
               recipientId={property.owner_id}
