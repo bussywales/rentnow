@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
+import { getEarlyAccessApprovedBefore } from "@/lib/early-access";
 import { searchProperties } from "@/lib/search";
 import { parseFiltersFromSearchParams } from "@/lib/search-filters";
 import { getTenantPlanForTier } from "@/lib/plans";
@@ -47,40 +48,41 @@ export async function GET(request: Request) {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        let applyDelay = !user;
+        let role: string | null = null;
+        let planTier: string | null = null;
+        let validUntil: string | null = null;
         if (user) {
           const { data: profile } = await supabase
             .from("profiles")
             .select("role")
             .eq("id", user.id)
             .maybeSingle();
-          const role = profile?.role ?? null;
+          role = profile?.role ?? null;
           if (role === "tenant") {
             const { data: planRow } = await supabase
               .from("profile_plans")
               .select("plan_tier, valid_until")
               .eq("profile_id", user.id)
               .maybeSingle();
-            const validUntil = planRow?.valid_until ?? null;
-            const expired =
-              !!validUntil &&
-              Number.isFinite(Date.parse(validUntil)) &&
-              Date.parse(validUntil) < Date.now();
-            const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
-            applyDelay = tenantPlan.tier !== "tenant_pro";
-          } else if (role) {
-            applyDelay = false;
+            planTier = planRow?.plan_tier ?? null;
+            validUntil = planRow?.valid_until ?? null;
           }
         }
-        if (applyDelay) {
-          approvedBefore = new Date(
-            Date.now() - earlyAccessMinutes * 60 * 1000
-          ).toISOString();
-        }
+        ({ approvedBefore } = getEarlyAccessApprovedBefore({
+          role,
+          hasUser: !!user,
+          planTier,
+          validUntil,
+          earlyAccessMinutes,
+        }));
       } catch {
-        approvedBefore = new Date(
-          Date.now() - earlyAccessMinutes * 60 * 1000
-        ).toISOString();
+        ({ approvedBefore } = getEarlyAccessApprovedBefore({
+          role: null,
+          hasUser: false,
+          planTier: null,
+          validUntil: null,
+          earlyAccessMinutes,
+        }));
       }
     }
 
