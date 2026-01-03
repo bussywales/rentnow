@@ -37,7 +37,15 @@ export async function PATCH(request: Request) {
 
   const adminClient = createServiceRoleClient();
   const now = new Date().toISOString();
-  const { error } = await adminClient
+  const adminDb = adminClient as unknown as {
+    from: (table: string) => {
+      upsert: (
+        values: Record<string, unknown>,
+        options?: { onConflict?: string }
+      ) => Promise<{ error: { message: string } | null }>;
+    };
+  };
+  const { error } = await adminDb
     .from("profile_billing_notes")
     .upsert(
       {
