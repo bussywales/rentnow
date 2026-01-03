@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
-import { getStripeClient } from "@/lib/billing/stripe";
+import { getProviderModes } from "@/lib/billing/provider-settings";
+import { getStripeClient, getStripeConfigForMode } from "@/lib/billing/stripe";
 import { constructStripeEvent, requireCheckoutMetadata, resolvePlanFromStripe } from "@/lib/billing/stripe-webhook";
 import { computeStripePlanUpdate } from "@/lib/billing/stripe-plan-update";
 import { parseWebhookInsertError, shouldMarkWebhookProcessed } from "@/lib/billing/stripe-webhook-events";
@@ -213,8 +214,17 @@ export async function POST(request: Request) {
   const payload = await request.text();
   let event: Stripe.Event;
 
+  const { stripeMode } = await getProviderModes();
+  const stripeConfig = getStripeConfigForMode(stripeMode);
+  if (!stripeConfig.secretKey || !stripeConfig.webhookSecret) {
+    return NextResponse.json({ error: "Stripe webhook not configured" }, { status: 503 });
+  }
+
   try {
-    event = constructStripeEvent(payload, signature);
+    event = constructStripeEvent(payload, signature, {
+      secretKey: stripeConfig.secretKey,
+      webhookSecret: stripeConfig.webhookSecret,
+    });
   } catch (error) {
     logFailure({
       request,
@@ -251,7 +261,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ received: true });
   }
 
-  const stripe = getStripeClient();
+  const stripe = getStripeClient(stripeConfig.secretKey);
   let outcomeStatus: "processed" | "ignored" | "failed" | "error" = "processed";
   let outcomeReason: string | null = null;
   let outcomeProfileId: string | null = null;

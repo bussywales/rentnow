@@ -1,4 +1,5 @@
 import { getPlanForTier, normalizePlanTier, type PlanGate, type PlanTier } from "@/lib/plans";
+import type { ProviderMode } from "@/lib/billing/provider-settings";
 import type { UserRole } from "@/lib/types";
 
 export type BillingCadence = "monthly" | "yearly";
@@ -30,40 +31,54 @@ function tierPriceKey(role: BillingRole, tier: PlanTier, cadence: BillingCadence
   return `STRIPE_PRICE_${role.toUpperCase()}_${tier.toUpperCase()}_${cadence.toUpperCase()}`;
 }
 
-function resolvePriceId(role: BillingRole, tier: PlanTier, cadence: BillingCadence) {
+function resolvePriceId(
+  role: BillingRole,
+  tier: PlanTier,
+  cadence: BillingCadence,
+  mode?: ProviderMode | null
+) {
   const tierKey = tierPriceKey(role, tier, cadence);
+  const modeSuffix = mode ? `_${mode.toUpperCase()}` : "";
+  const modeTierValue = modeSuffix ? process.env[`${tierKey}${modeSuffix}`] : null;
+  if (modeTierValue) return modeTierValue;
+
   const tierValue = process.env[tierKey];
   if (tierValue) return tierValue;
 
   const baseKey = basePriceKey(role, cadence);
-  return process.env[baseKey] || null;
+  const modeBaseValue = modeSuffix ? process.env[`${baseKey}${modeSuffix}`] : null;
+  return modeBaseValue || process.env[baseKey] || null;
 }
 
 export function getStripePriceId(input: {
   role: UserRole;
   tier: PlanTier;
   cadence: BillingCadence;
+  mode?: ProviderMode | null;
 }): string | null {
   const role = normalizeRole(input.role);
   if (!role) return null;
   const tier = normalizePlanTier(input.tier);
   const allowedTiers = ROLE_PAID_TIERS[role];
   if (!allowedTiers.includes(tier)) return null;
-  return resolvePriceId(role, tier, input.cadence);
+  return resolvePriceId(role, tier, input.cadence, input.mode);
 }
 
 export function listStripePlans(): StripePlanDescriptor[] {
   const roles: BillingRole[] = ["landlord", "agent", "tenant"];
   const cadences: BillingCadence[] = ["monthly", "yearly"];
   const plans: StripePlanDescriptor[] = [];
+  const modes: (ProviderMode | null)[] = ["live", "test", null];
 
   roles.forEach((role) => {
     ROLE_PAID_TIERS[role].forEach((tier) => {
       cadences.forEach((cadence) => {
-        const priceId = resolvePriceId(role, tier, cadence);
-        if (priceId) {
-          plans.push({ role, tier, cadence, priceId });
-        }
+        modes.forEach((mode) => {
+          const priceId = resolvePriceId(role, tier, cadence, mode);
+          if (priceId && !plans.find((plan) => plan.priceId === priceId)) {
+            plans.push({ role, tier, cadence, priceId });
+          }
+        });
       });
     });
   });

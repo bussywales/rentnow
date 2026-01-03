@@ -21,12 +21,16 @@ export function requireCheckoutMetadata(metadata?: Stripe.Metadata | null) {
   };
 }
 
-export function constructStripeEvent(payload: string, signature: string | null) {
+export function constructStripeEvent(
+  payload: string,
+  signature: string | null,
+  options?: { secretKey?: string | null; webhookSecret?: string | null }
+) {
   if (!signature) {
     throw new Error("Missing Stripe signature");
   }
-  const stripe = getStripeClient();
-  const secret = getStripeWebhookSecret();
+  const stripe = getStripeClient(options?.secretKey);
+  const secret = getStripeWebhookSecret(options?.webhookSecret);
   return stripe.webhooks.constructEvent(payload, signature, secret);
 }
 

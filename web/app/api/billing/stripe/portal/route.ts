@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/authz";
-import { getStripeClient } from "@/lib/billing/stripe";
+import { getProviderModes } from "@/lib/billing/provider-settings";
+import { getStripeClient, getStripeConfigForMode } from "@/lib/billing/stripe";
 import { getSiteUrl } from "@/lib/env";
 import { logFailure } from "@/lib/observability";
 
@@ -36,7 +37,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No Stripe customer" }, { status: 404 });
   }
 
-  const stripe = getStripeClient();
+  const { stripeMode } = await getProviderModes();
+  const stripeConfig = getStripeConfigForMode(stripeMode);
+  if (!stripeConfig.secretKey) {
+    return NextResponse.json(
+      { error: "Stripe is not configured", code: "stripe_not_configured" },
+      { status: 503 }
+    );
+  }
+  const stripe = getStripeClient(stripeConfig.secretKey);
   const siteUrl = await getSiteUrl();
   if (!siteUrl) {
     return NextResponse.json({ error: "Unable to resolve site URL" }, { status: 500 });

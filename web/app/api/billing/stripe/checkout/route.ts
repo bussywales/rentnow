@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
-import { getStripeClient } from "@/lib/billing/stripe";
+import { getProviderModes } from "@/lib/billing/provider-settings";
+import { getStripeClient, getStripeConfigForMode } from "@/lib/billing/stripe";
 import { getStripePriceId } from "@/lib/billing/stripe-plans";
 import { getSiteUrl } from "@/lib/env";
 import { logFailure, logStripeCheckoutStarted } from "@/lib/observability";
@@ -50,7 +51,9 @@ export async function POST(request: Request) {
   if (auth.role !== "tenant" && payload.tier === "tenant_pro") {
     return NextResponse.json({ error: "Invalid plan selection" }, { status: 400 });
   }
-  if (!process.env.STRIPE_SECRET_KEY) {
+  const { stripeMode } = await getProviderModes();
+  const stripeConfig = getStripeConfigForMode(stripeMode);
+  if (!stripeConfig.secretKey) {
     return NextResponse.json(
       { error: "Stripe is not configured", code: "stripe_not_configured" },
       { status: 503 }
@@ -60,6 +63,7 @@ export async function POST(request: Request) {
     role: auth.role,
     tier: payload.tier,
     cadence: payload.cadence,
+    mode: stripeConfig.mode,
   });
 
   if (!priceId) {
@@ -101,7 +105,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const stripe = getStripeClient();
+  const stripe = getStripeClient(stripeConfig.secretKey);
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: planRow?.stripe_customer_id || undefined,
@@ -119,6 +123,7 @@ export async function POST(request: Request) {
       tier: payload.tier,
       cadence: payload.cadence,
       billing_source: "stripe",
+      stripe_mode: stripeConfig.mode,
       env: process.env.NODE_ENV || "unknown",
     },
     subscription_data: {
@@ -130,6 +135,7 @@ export async function POST(request: Request) {
         tier: payload.tier,
         cadence: payload.cadence,
         billing_source: "stripe",
+        stripe_mode: stripeConfig.mode,
         env: process.env.NODE_ENV || "unknown",
       },
     },

@@ -3,10 +3,13 @@ import { PlansGrid } from "@/components/billing/PlansGrid";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getProfile } from "@/lib/auth";
 import { getUserRole } from "@/lib/authz";
+import { getProviderModes } from "@/lib/billing/provider-settings";
+import { getStripeConfigForMode } from "@/lib/billing/stripe";
+import { getStripePriceId } from "@/lib/billing/stripe-plans";
 import { getPlanUsage } from "@/lib/plan-enforcement";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
-import { normalizePlanTier } from "@/lib/plans";
+import { normalizePlanTier, type PlanTier } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -118,19 +121,21 @@ export default async function BillingPage() {
     .maybeSingle();
   const pendingUpgrade = !!upgradeRequest;
 
-  const stripeEnabled =
-    (profile.role === "landlord" &&
-      !!process.env.STRIPE_SECRET_KEY &&
-      !!process.env.STRIPE_PRICE_LANDLORD_MONTHLY &&
-      !!process.env.STRIPE_PRICE_LANDLORD_YEARLY) ||
-    (profile.role === "agent" &&
-      !!process.env.STRIPE_SECRET_KEY &&
-      !!process.env.STRIPE_PRICE_AGENT_MONTHLY &&
-      !!process.env.STRIPE_PRICE_AGENT_YEARLY) ||
-    (profile.role === "tenant" &&
-      !!process.env.STRIPE_SECRET_KEY &&
-      !!process.env.STRIPE_PRICE_TENANT_MONTHLY &&
-      !!process.env.STRIPE_PRICE_TENANT_YEARLY);
+  const providerModes = await getProviderModes();
+  const stripeConfig = getStripeConfigForMode(providerModes.stripeMode);
+  const paidTiers: PlanTier[] =
+    profile.role === "tenant" ? ["tenant_pro"] : ["starter", "pro"];
+  const hasStripePrice = paidTiers.some((tier) =>
+    (["monthly", "yearly"] as const).some((cadence) =>
+      !!getStripePriceId({
+        role: profile.role,
+        tier,
+        cadence,
+        mode: stripeConfig.mode,
+      })
+    )
+  );
+  const stripeEnabled = !!stripeConfig.secretKey && hasStripePrice;
   const showManage = billingSource === "stripe" && !!stripeCustomerId;
 
   const statusToken =
