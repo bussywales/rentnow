@@ -2,7 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import Stripe from "stripe";
 
-import { constructStripeEvent, extractPlanMetadata, resolvePlanFromStripe } from "../../lib/billing/stripe-webhook";
+import {
+  constructStripeEvent,
+  extractPlanMetadata,
+  requireCheckoutMetadata,
+  resolvePlanFromStripe,
+} from "../../lib/billing/stripe-webhook";
+import { computeStripePlanUpdate } from "../../lib/billing/stripe-plan-update";
+import { parseWebhookInsertError } from "../../lib/billing/stripe-webhook-events";
 
 process.env.STRIPE_SECRET_KEY = "sk_test_123";
 process.env.STRIPE_WEBHOOK_SECRET = "whsec_test";
@@ -78,4 +85,42 @@ void test("resolvePlanFromStripe returns null tier when price is unmapped", () =
 
   const plan = resolvePlanFromStripe(subscription, null);
   assert.equal(plan.tier, null);
+});
+
+void test("parseWebhookInsertError treats duplicate event ids as idempotent", () => {
+  const result = parseWebhookInsertError({ code: "23505" });
+  assert.equal(result.duplicate, true);
+  assert.equal(result.error, null);
+});
+
+void test("requireCheckoutMetadata flags missing user_id or plan_tier", () => {
+  const result = requireCheckoutMetadata({});
+  assert.equal(result.ok, false);
+  assert.equal(result.profileId, null);
+  assert.equal(result.tier, null);
+});
+
+void test("computeStripePlanUpdate downgrades canceled unless manual", () => {
+  const canceled = computeStripePlanUpdate(
+    {
+      tier: "pro",
+      status: "canceled",
+      currentPeriodEnd: "2099-01-01T00:00:00.000Z",
+    },
+    null
+  );
+  assert.equal(canceled.planTier, "free");
+  assert.equal(canceled.validUntil, null);
+  assert.equal(canceled.skipped, false);
+
+  const manual = computeStripePlanUpdate(
+    {
+      tier: "pro",
+      status: "canceled",
+      currentPeriodEnd: "2099-01-01T00:00:00.000Z",
+    },
+    { billing_source: "manual", plan_tier: "pro", valid_until: "2099-02-01T00:00:00.000Z" }
+  );
+  assert.equal(manual.skipped, true);
+  assert.equal(manual.planTier, "pro");
 });
