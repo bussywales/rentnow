@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { normalizeRole } from "@/lib/roles";
 import type { UserRole } from "@/lib/types";
 
 type NavLink = {
@@ -21,7 +22,11 @@ type Props = {
 
 export function NavLinksClient({ links, initialAuthed, initialRole }: Props) {
   const [isAuthed, setIsAuthed] = useState(initialAuthed);
-  const [role, setRole] = useState<UserRole | "super_admin" | null>(initialRole);
+  const normalizedInitialRole =
+    initialRole === "super_admin" ? "super_admin" : normalizeRole(initialRole);
+  const [role, setRole] = useState<UserRole | "super_admin" | null>(
+    normalizedInitialRole
+  );
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
@@ -40,8 +45,9 @@ export function NavLinksClient({ links, initialAuthed, initialRole }: Props) {
               .eq("id", userId)
               .maybeSingle()
               .then(({ data: profile }: { data: { role?: string } | null }) => {
-                if (profile?.role) {
-                  setRole(profile.role as UserRole);
+                const normalizedRole = normalizeRole(profile?.role);
+                if (normalizedRole) {
+                  setRole(normalizedRole);
                 }
               })
               .catch(() => undefined);

@@ -4,6 +4,7 @@ import { NavAuthClient } from "@/components/layout/NavAuthClient";
 import { NavLinksClient } from "@/components/layout/NavLinksClient";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
+import { normalizeRole } from "@/lib/roles";
 
 const links: Array<{
   href: string;
@@ -36,7 +37,7 @@ export async function MainNav() {
             .select("role")
             .eq("id", userId)
             .maybeSingle();
-          role = profile?.role as UserRole | "super_admin" | null;
+          role = normalizeRole(profile?.role) as UserRole | "super_admin" | null;
         }
       }
     } catch (err) {

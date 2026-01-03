@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 
 import Link from "next/link";
 import { getProfile, getSession } from "@/lib/auth";
+import { formatRoleLabel, normalizeRole } from "@/lib/roles";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
@@ -20,13 +21,16 @@ export default async function DashboardLayout({
       redirect("/auth/login?reason=auth");
     }
     profile = await getProfile();
-    if (!profile?.role) {
+    const normalizedRole = normalizeRole(profile?.role);
+    if (!normalizedRole) {
       redirect("/onboarding");
     }
   }
 
+  const normalizedRole = normalizeRole(profile?.role);
+  const roleLabel = formatRoleLabel(normalizedRole);
   const profileIncomplete =
-    profile?.role === "landlord" || profile?.role === "agent"
+    normalizedRole === "landlord" || normalizedRole === "agent"
       ? !profile?.phone || !profile?.preferred_contact
       : false;
 
@@ -42,7 +46,7 @@ export default async function DashboardLayout({
               {profile?.full_name || "Your"} workspace
             </p>
             <p className="text-sm text-slate-200">
-              Role: {profile?.role || "demo"} - Manage listings, messages, and viewings.
+              Role: {roleLabel} - Manage listings, messages, and viewings.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -74,14 +78,14 @@ export default async function DashboardLayout({
             Add a phone number and preferred contact so tenants can reach you quickly.
           </p>
           <Link
-            href={`/onboarding/${profile?.role}`}
+            href={`/onboarding/${normalizedRole}`}
             className="mt-2 inline-flex text-sm font-semibold text-amber-900 underline-offset-4 hover:underline"
           >
             Finish setup
           </Link>
         </div>
       )}
-      {profile?.role === "agent" && <ActingAsSelector />}
+      {normalizedRole === "agent" && <ActingAsSelector />}
       {children}
     </div>
   );

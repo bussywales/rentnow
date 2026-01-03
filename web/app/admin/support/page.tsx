@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { formatRoleLabel } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,7 @@ export default async function AdminSupportPage() {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="text-lg font-semibold text-slate-900">Auth & role</h3>
             <p className="text-sm text-slate-600">User: {diag.userId}</p>
-            <p className="text-sm text-slate-600">Role: {diag.role || "unknown"}</p>
+            <p className="text-sm text-slate-600">Role: {formatRoleLabel(diag.role)}</p>
             <div className="mt-3 flex flex-wrap gap-2 text-sm">
               <Link href="/api/debug/session" className="text-sky-700 underline">
                 /api/debug/session

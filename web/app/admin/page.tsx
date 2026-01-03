@@ -6,6 +6,7 @@ import { UpgradeRequestsQueue } from "@/components/admin/UpgradeRequestsQueue";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { logApprovalAction } from "@/lib/observability";
+import { formatRoleLabel } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -314,7 +315,7 @@ export default async function AdminPage({ searchParams }: Props) {
                 <p className="font-semibold text-slate-900">
                   {user.full_name || "No name"}
                 </p>
-                <p className="text-slate-600">Role: {user.role}</p>
+                <p className="text-slate-600">Role: {formatRoleLabel(user.role)}</p>
               </div>
             </div>
           ))}
