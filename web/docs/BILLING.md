@@ -107,3 +107,16 @@ Optional:
 2) Configure webhook endpoint: `/api/billing/stripe/webhook`.
 3) Validate via `/api/debug/env` (Stripe section).
 4) Validate `/api/debug/rls` for Stripe columns in `profile_plans`.
+
+## Support playbook (admin billing ops)
+- Open `/admin/billing` and search by user email.
+- Review the billing snapshot (plan tier, billing source, valid until, Stripe status).
+- Use Support actions for manual overrides:
+  - Extend valid_until by 30 days for courtesy extensions.
+  - Set plan tier to apply an immediate manual upgrade/downgrade.
+  - Expire now to revoke access immediately.
+- Update billing notes for internal tracking (admin-only).
+- Review upgrade requests and approve/reject with a reason.
+- Check Stripe webhook events for processed/ignored/failed outcomes and reasons.
+
+Manual overrides set `billing_source = manual` and take precedence over Stripe updates.

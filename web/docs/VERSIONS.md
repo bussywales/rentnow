@@ -1,5 +1,11 @@
 # Versions
 
+## 2026-01-02 — v1.7.1-r6.3.1-billing-ops
+- Added admin billing ops hub with email lookup, snapshot, and manual actions.
+- Added upgrade request queue actions with required rejection reason.
+- Expanded Stripe webhook audit metadata and read-only admin viewer.
+- Added billing ops unit tests for masking and validation helpers.
+
 ## 2026-01-02 — v1.7.0-r6.2-tenant-premium
 - Added Tenant Pro plan tier with Stripe pricing support.
 - Enforced saved search limits for free tenants and unlimited searches for Tenant Pro.
