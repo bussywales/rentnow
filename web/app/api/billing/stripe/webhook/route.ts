@@ -2,7 +2,9 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getStripeClient } from "@/lib/billing/stripe";
-import { constructStripeEvent, resolvePlanFromStripe } from "@/lib/billing/stripe-webhook";
+import { constructStripeEvent, requireCheckoutMetadata, resolvePlanFromStripe } from "@/lib/billing/stripe-webhook";
+import { computeStripePlanUpdate } from "@/lib/billing/stripe-plan-update";
+import { parseWebhookInsertError, shouldMarkWebhookProcessed } from "@/lib/billing/stripe-webhook-events";
 import { logFailure, logStripePaymentFailed, logStripePlanUpdated, logStripeWebhookApplied } from "@/lib/observability";
 
 const routeLabel = "/api/billing/stripe/webhook";
@@ -73,10 +75,7 @@ async function recordStripeWebhookEvent(
       status: "received",
       mode: event.livemode ? "live" : "test",
     });
-  if (!error) return { duplicate: false, error: null };
-  const code = (error as { code?: string }).code;
-  if (code === "23505") return { duplicate: true, error: null };
-  return { duplicate: false, error };
+  return parseWebhookInsertError(error as { code?: string } | null);
 }
 
 async function updateStripeWebhookEvent(
@@ -112,10 +111,6 @@ async function getExistingPlan(
   return (data as ExistingPlan | null) ?? null;
 }
 
-function isManualOverride(plan: ExistingPlan | null) {
-  return plan?.billing_source === "manual";
-}
-
 function isRedundantStripeUpdate(plan: ExistingPlan | null, input: PlanUpdateInput, planTier: string, validUntil: string | null) {
   if (!plan) return false;
   return (
@@ -134,25 +129,40 @@ async function applyPlanUpdate(
   input: PlanUpdateInput,
   existingPlan: ExistingPlan | null
 ) {
-  if (isManualOverride(existingPlan)) {
-    return { error: null, planTier: existingPlan?.plan_tier ?? "free", validUntil: existingPlan?.valid_until ?? null, skipped: true };
+  const decision = computeStripePlanUpdate(
+    {
+      tier: input.tier,
+      status: input.status,
+      currentPeriodEnd: input.currentPeriodEnd,
+      allowImmediateDowngrade: input.allowImmediateDowngrade,
+    },
+    existingPlan
+  );
+
+  if (decision.skipped) {
+    return {
+      error: null,
+      planTier: decision.planTier,
+      validUntil: decision.validUntil,
+      skipped: true,
+      skipReason: decision.skipReason,
+      applied: false,
+    };
   }
 
   const now = new Date().toISOString();
-  const isExpired =
-    !!input.currentPeriodEnd &&
-    Number.isFinite(Date.parse(input.currentPeriodEnd)) &&
-    Date.parse(input.currentPeriodEnd) <= Date.now();
-  const shouldDowngradeNow =
-    !!input.allowImmediateDowngrade ||
-    input.status === "canceled" ||
-    input.status === "incomplete_expired" ||
-    isExpired;
-  const planTier = shouldDowngradeNow ? "free" : input.tier;
-  const validUntil = shouldDowngradeNow ? null : input.currentPeriodEnd;
+  const planTier = decision.planTier;
+  const validUntil = decision.validUntil;
 
   if (isRedundantStripeUpdate(existingPlan, input, planTier, validUntil)) {
-    return { error: null, planTier, validUntil, skipped: true };
+    return {
+      error: null,
+      planTier,
+      validUntil,
+      skipped: true,
+      skipReason: "duplicate_update",
+      applied: false,
+    };
   }
 
   const adminDb = adminClient as unknown as {
@@ -182,7 +192,14 @@ async function applyPlanUpdate(
       { onConflict: "profile_id" }
     );
 
-  return { error, planTier, validUntil, skipped: false };
+  return {
+    error,
+    planTier,
+    validUntil,
+    skipped: false,
+    skipReason: null,
+    applied: !error,
+  };
 }
 
 export async function POST(request: Request) {
@@ -222,32 +239,54 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Webhook idempotency failed" }, { status: 500 });
   }
   if (idempotency.duplicate) {
-    logStripeWebhookApplied({
-      route: routeLabel,
-      eventType: event.type,
-      eventId: event.id,
-    });
+    console.log(
+      JSON.stringify({
+        level: "info",
+        event: "stripe_webhook_duplicate",
+        route: routeLabel,
+        eventType: event.type,
+        eventId: event.id,
+      })
+    );
     return NextResponse.json({ received: true });
   }
 
   const stripe = getStripeClient();
-  let outcomeStatus: "processed" | "ignored" | "failed" = "processed";
+  let outcomeStatus: "processed" | "ignored" | "failed" | "error" = "processed";
   let outcomeReason: string | null = null;
   let outcomeProfileId: string | null = null;
   let outcomePlanTier: string | null = null;
   let outcomeCustomerId: string | null = null;
   let outcomeSubscriptionId: string | null = null;
   let outcomePriceId: string | null = null;
+  let planApplied = false;
 
   try {
     switch (event.type) {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
-        if (session.mode !== "subscription" || !session.subscription) break;
+        if (session.mode !== "subscription" || !session.subscription) {
+          outcomeStatus = "ignored";
+          outcomeReason = "missing_subscription";
+          break;
+        }
+        const metadataCheck = requireCheckoutMetadata(session.metadata || null);
         const subscription = await stripe.subscriptions.retrieve(session.subscription as string, {
           expand: ["items.data.price"],
         });
         const plan = resolvePlanFromStripe(subscription, session.metadata || undefined);
+        const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
+        outcomeCustomerId = customerId;
+        outcomeSubscriptionId = subscription.id;
+        outcomePriceId = plan.priceId;
+
+        if (!metadataCheck.ok) {
+          outcomeStatus = "error";
+          outcomeReason = "missing_metadata";
+          outcomeProfileId = metadataCheck.profileId;
+          outcomePlanTier = metadataCheck.tier ?? plan.tier;
+          break;
+        }
         if (!plan.tier) {
           logFailure({
             request,
@@ -261,12 +300,8 @@ export async function POST(request: Request) {
           outcomeReason = "missing_plan_mapping";
           break;
         }
-        const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
-        outcomeCustomerId = customerId;
-        outcomeSubscriptionId = subscription.id;
-        outcomePriceId = plan.priceId;
         const profileId =
-          plan.profileId ||
+          metadataCheck.profileId ||
           (customerId ? await lookupProfileIdByCustomer(adminClient, customerId) : null) ||
           (subscription.id ? await lookupProfileIdBySubscription(adminClient, subscription.id) : null);
 
@@ -315,9 +350,10 @@ export async function POST(request: Request) {
 
         if (result.skipped) {
           outcomeStatus = "ignored";
-          outcomeReason = existingPlan?.billing_source === "manual" ? "manual_override" : "duplicate_update";
+          outcomeReason = result.skipReason;
         }
         outcomePlanTier = result.planTier;
+        planApplied = result.applied;
 
         if (!result.skipped) {
           logStripePlanUpdated({
@@ -404,9 +440,10 @@ export async function POST(request: Request) {
 
         if (result.skipped) {
           outcomeStatus = "ignored";
-          outcomeReason = existingPlan?.billing_source === "manual" ? "manual_override" : "duplicate_update";
+          outcomeReason = result.skipReason;
         }
         outcomePlanTier = result.planTier;
+        planApplied = result.applied;
 
         if (!result.skipped) {
           logStripePlanUpdated({
@@ -496,9 +533,10 @@ export async function POST(request: Request) {
 
         if (result.skipped) {
           outcomeStatus = "ignored";
-          outcomeReason = existingPlan?.billing_source === "manual" ? "manual_override" : "duplicate_update";
+          outcomeReason = result.skipReason;
         }
         outcomePlanTier = result.planTier;
+        planApplied = result.applied;
 
         if (!result.skipped) {
           logStripePlanUpdated({
@@ -526,10 +564,16 @@ export async function POST(request: Request) {
         break;
     }
 
+    const shouldStamp = shouldMarkWebhookProcessed({
+      applied: planApplied,
+      status: outcomeStatus,
+      reason: outcomeReason,
+    });
+
     await updateStripeWebhookEvent(adminClient, event.id, {
       status: outcomeStatus,
       reason: outcomeReason,
-      processed_at: new Date().toISOString(),
+      processed_at: shouldStamp ? new Date().toISOString() : null,
       profile_id: outcomeProfileId,
       plan_tier: outcomePlanTier,
       stripe_customer_id: outcomeCustomerId,
@@ -548,7 +592,7 @@ export async function POST(request: Request) {
     await updateStripeWebhookEvent(adminClient, event.id, {
       status: "failed",
       reason: "handler_error",
-      processed_at: new Date().toISOString(),
+      processed_at: null,
     });
     logFailure({
       request,

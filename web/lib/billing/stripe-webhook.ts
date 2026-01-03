@@ -10,6 +10,17 @@ export type StripePlanMetadata = {
   cadence: BillingCadence | null;
 };
 
+export function requireCheckoutMetadata(metadata?: Stripe.Metadata | null) {
+  const profileId = metadata?.user_id || metadata?.profile_id || null;
+  const tierRaw = metadata?.plan_tier || metadata?.tier || null;
+  const tier = tierRaw ? normalizePlanTier(tierRaw) : null;
+  return {
+    ok: !!profileId && !!tier,
+    profileId,
+    tier,
+  };
+}
+
 export function constructStripeEvent(payload: string, signature: string | null) {
   if (!signature) {
     throw new Error("Missing Stripe signature");
