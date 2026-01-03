@@ -66,9 +66,21 @@ export async function GET(request: Request) {
     .order("created_at", { ascending: false })
     .limit(20);
 
+  const adminDb = adminClient as unknown as {
+    from: (table: string) => {
+      select: (columns: string) => {
+        order: (column: string, options?: { ascending?: boolean }) => {
+          limit: (count: number) => {
+            eq: (column: string, value: string) => Promise<{ data: unknown[] | null; error: { message?: string } | null }>;
+          };
+        };
+      };
+    };
+  };
+
   let events: Array<Record<string, string | null>> = [];
   try {
-    let eventsQuery = adminClient
+    let eventsQuery = adminDb
       .from("stripe_webhook_events")
       .select(
         "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id"
@@ -76,13 +88,13 @@ export async function GET(request: Request) {
       .order("created_at", { ascending: false })
       .limit(20);
 
-    if ((plan as { stripe_customer_id?: string | null } | null)?.stripe_customer_id) {
-      eventsQuery = eventsQuery.eq("stripe_customer_id", (plan as { stripe_customer_id?: string | null }).stripe_customer_id);
-    } else if ((plan as { stripe_subscription_id?: string | null } | null)?.stripe_subscription_id) {
-      eventsQuery = eventsQuery.eq(
-        "stripe_subscription_id",
-        (plan as { stripe_subscription_id?: string | null }).stripe_subscription_id
-      );
+    const stripeCustomerId = (plan as { stripe_customer_id?: string | null } | null)?.stripe_customer_id;
+    const stripeSubscriptionId = (plan as { stripe_subscription_id?: string | null } | null)?.stripe_subscription_id;
+
+    if (stripeCustomerId) {
+      eventsQuery = eventsQuery.eq("stripe_customer_id", stripeCustomerId);
+    } else if (stripeSubscriptionId) {
+      eventsQuery = eventsQuery.eq("stripe_subscription_id", stripeSubscriptionId);
     } else {
       eventsQuery = eventsQuery.eq("profile_id", user.id);
     }
