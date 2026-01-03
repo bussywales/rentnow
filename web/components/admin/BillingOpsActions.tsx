@@ -36,6 +36,7 @@ export function BillingOpsActions({
   const [notes, setNotes] = useState(billingNotes || "");
   const [noteStatus, setNoteStatus] = useState<Status>("idle");
   const [noteMessage, setNoteMessage] = useState<string | null>(null);
+  const [actionReason, setActionReason] = useState("");
 
   const runAction = async (body: Record<string, unknown>, message: string) => {
     setActionStatus("loading");
@@ -71,10 +72,16 @@ export function BillingOpsActions({
   const expireNow = async () => {
     const ok = confirm("Expire this plan immediately? This will restrict access.");
     if (!ok) return;
+    if (!actionReason.trim()) {
+      setActionStatus("error");
+      setActionMessage("Reason is required to expire a plan.");
+      return;
+    }
     await runAction(
       {
         action: "expire_now",
         profileId,
+        reason: actionReason.trim(),
       },
       "Plan expired."
     );
@@ -83,12 +90,18 @@ export function BillingOpsActions({
   const setPlan = async () => {
     const ok = confirm("Apply a manual plan override?");
     if (!ok) return;
+    if (!actionReason.trim()) {
+      setActionStatus("error");
+      setActionMessage("Reason is required for plan changes.");
+      return;
+    }
     await runAction(
       {
         action: "set_plan_tier",
         profileId,
         planTier,
         validUntil: validUntilValue ? `${validUntilValue}T23:59:59.999Z` : null,
+        reason: actionReason.trim(),
       },
       "Plan updated."
     );
@@ -135,6 +148,19 @@ export function BillingOpsActions({
         >
           Expire now
         </Button>
+      </div>
+
+      <div className="mt-4">
+        <label className="text-xs font-semibold text-slate-700">
+          Reason (required for expire or plan change)
+          <input
+            className="mt-2 w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+            value={actionReason}
+            onChange={(event) => setActionReason(event.target.value)}
+            placeholder="e.g. Chargeback, manual downgrade request"
+            disabled={actionStatus === "loading"}
+          />
+        </label>
       </div>
 
       <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">

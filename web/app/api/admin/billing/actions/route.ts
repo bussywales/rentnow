@@ -11,16 +11,19 @@ const actionSchema = z.discriminatedUnion("action", [
     action: z.literal("extend_valid_until"),
     profileId: z.string().uuid(),
     days: z.number().int().positive().max(365).optional(),
+    reason: z.string().max(500).optional(),
   }),
   z.object({
     action: z.literal("expire_now"),
     profileId: z.string().uuid(),
+    reason: z.string().max(500),
   }),
   z.object({
     action: z.literal("set_plan_tier"),
     profileId: z.string().uuid(),
     planTier: z.enum(["free", "starter", "pro", "tenant_pro"]),
     validUntil: z.string().datetime().nullable().optional(),
+    reason: z.string().max(500),
   }),
 ]);
 
@@ -49,6 +52,10 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
 
   const payload = actionSchema.parse(await request.json());
+  const reason = (payload as { reason?: string }).reason?.trim() ?? "";
+  if ((payload.action === "expire_now" || payload.action === "set_plan_tier") && !reason) {
+    return NextResponse.json({ error: "Reason is required for this action." }, { status: 400 });
+  }
   const adminClient = createServiceRoleClient();
 
   const { data: existingPlan } = await adminClient
@@ -106,6 +113,29 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
+  }
+
+  if (reason) {
+    const { data: existing } = await adminClient
+      .from("profile_billing_notes")
+      .select("billing_notes")
+      .eq("profile_id", payload.profileId)
+      .maybeSingle();
+    const existingNotes = (existing as { billing_notes?: string | null } | null)?.billing_notes ?? "";
+    const stamp = new Date().toISOString();
+    const noteLine = `[${stamp}] Support action: ${payload.action}. Reason: ${reason}`;
+    const updatedNotes = existingNotes ? `${existingNotes}\n${noteLine}` : noteLine;
+    await adminDb
+      .from("profile_billing_notes")
+      .upsert(
+        {
+          profile_id: payload.profileId,
+          billing_notes: updatedNotes,
+          updated_at: stamp,
+          updated_by: auth.user.id,
+        },
+        { onConflict: "profile_id" }
+      );
   }
 
   logPlanOverride({

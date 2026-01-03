@@ -111,6 +111,11 @@ export function UpgradeRequestsQueue({ initialRequests, users }: Props) {
       return;
     }
 
+    if (action === "reject") {
+      const ok = confirm("Reject this upgrade request?");
+      if (!ok) return;
+    }
+
     if (action === "approve" && !state.planTier) {
       updateState(request.id, { status: "error", message: "Choose a plan tier to approve." });
       return;
