@@ -265,7 +265,7 @@ async function loadSupportQueue(filter: string): Promise<{ accounts: SupportAcco
   const pendingMap = new Map<string, number>();
   let profileIds: string[] = [];
   let planRows: PlanRow[] = [];
-  let eventStatusMap = new Map<string, { status: string | null; created_at: string | null }>();
+  const eventStatusMap = new Map<string, { status: string | null; created_at: string | null }>();
 
   if (filter === "pending") {
     const { data: pending } = await adminClient
