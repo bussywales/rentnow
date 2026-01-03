@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-03 — v1.7.3-r6.4.1-stripe-go-live
+- Hardened Stripe webhook idempotency, audit metadata, and processed_at stamping.
+- Enforced checkout metadata requirements and clarified plan status transitions.
+- Added Stripe status indicators in billing UI and expanded go-live checklist.
+
 ## 2026-01-03 — v1.7.2-r6.3.2-support-polish
 - Added billing ops triage filters and per-user Stripe event panel for support.
 - Added masked support snapshot and copy-to-clipboard tooling for admin tickets.

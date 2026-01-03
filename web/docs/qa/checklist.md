@@ -20,6 +20,8 @@
 - Complete checkout (test mode) and verify `profile_plans` updates with Stripe IDs and `valid_until`.
 - Trigger a cancellation and confirm access downgrades immediately.
 - Visit `/dashboard/billing` and confirm plan tier, billing source, status, and valid_until render.
+- Replay a webhook event (duplicate) and confirm no double-apply occurs.
+- Confirm `stripe_status` changes surface in billing UI (past_due/unpaid/canceled).
 
 ## Upgrade requests
 - As a landlord/agent hitting the limit, click “Request upgrade”.

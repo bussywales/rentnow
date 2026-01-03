@@ -81,11 +81,17 @@ Optional:
   - `invoice.paid`
   - `invoice.payment_failed`
 - Updates `profile_plans` with Stripe identifiers and `valid_until`.
-- Plan tiers are updated based on metadata (preferred) or price mapping.
+- Checkout sessions require `user_id` + `plan_tier` metadata; missing metadata is logged as an error and ignored.
+- Subscription events rely on price-id mapping and stored Stripe IDs to resolve the profile.
+
+### Webhook audit
+- Stripe webhook events are recorded in `stripe_webhook_events` with metadata only (no raw payloads).
+- Stored fields include `event_type`, `status`, `reason`, `mode`, `profile_id`, and Stripe identifiers.
+- `processed_at` is stamped only when a plan update is applied (or when explicitly marked as handled).
 
 ### Status handling
 - Active/trialing subscriptions set `billing_source = stripe` and update `valid_until`.
-- `invoice.payment_failed` keeps access until `current_period_end`, but logs a warning.
+- `past_due`/`unpaid` keep access until `current_period_end`, but log a warning.
 - `customer.subscription.deleted` or expired subscriptions downgrade immediately (set tier to Free, clear `valid_until`).
 
 ## Tenant premium alerts
@@ -107,6 +113,15 @@ Optional:
 2) Configure webhook endpoint: `/api/billing/stripe/webhook`.
 3) Validate via `/api/debug/env` (Stripe section).
 4) Validate `/api/debug/rls` for Stripe columns in `profile_plans`.
+
+## Live-mode checklist
+1) Confirm live price IDs are set in Vercel (`STRIPE_PRICE_*`).
+2) Verify webhook signing secret matches the live endpoint.
+3) Run a live-mode checkout and confirm:
+   - `profile_plans` updates to `billing_source = stripe`
+   - `stripe_status` and `stripe_current_period_end` are set
+4) Cancel a subscription and confirm immediate downgrade (unless manual override).
+5) Re-deliver a webhook event and confirm it is marked as duplicate (no reapply).
 
 ## Support playbook (admin billing ops)
 - Open `/admin/billing` and search by user email.
