@@ -7,6 +7,8 @@ import { buildBillingSnapshot, type BillingSnapshot } from "@/lib/billing/snapsh
 import { SupportSnapshotCopy } from "@/components/admin/SupportSnapshotCopy";
 import { buildSupportSnapshot } from "@/lib/billing/support-snapshot";
 import { maskEmail, maskIdentifier } from "@/lib/billing/mask";
+import { getProviderModes } from "@/lib/billing/provider-settings";
+import { logStripeEventsViewed } from "@/lib/observability";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
@@ -50,6 +52,7 @@ type StripeEventRow = {
   profile_id?: string | null;
   stripe_customer_id?: string | null;
   stripe_subscription_id?: string | null;
+  stripe_price_id?: string | null;
   processed_at?: string | null;
 };
 
@@ -66,10 +69,12 @@ type SupportAccount = {
   email: string | null;
 };
 
-const STATUS_OPTIONS = ["all", "processed", "ignored", "failed"] as const;
+const STATUS_OPTIONS = ["all", "ok", "ignored", "failed"] as const;
 const RANGE_OPTIONS = ["24h", "7d", "30d", "all"] as const;
 const PLAN_OPTIONS = ["all", "free", "starter", "pro", "tenant_pro"] as const;
 const TRIAGE_OPTIONS = ["pending", "manual", "stripe", "expired", "attention"] as const;
+const MODE_OPTIONS = ["all", "test", "live"] as const;
+const PAGE_SIZE = 50;
 
 function parseParam(params: SearchParams, key: string) {
   const value = params[key];
@@ -389,23 +394,37 @@ async function loadEvents(params: SearchParams): Promise<{ events: StripeEventRo
 
   const statusFilter = parseParam(params, "status") || "all";
   const planFilter = parseParam(params, "plan") || "all";
+  const modeFilter = parseParam(params, "mode") || "all";
   const rangeFilter = parseParam(params, "range") || "7d";
   const query = parseParam(params, "q").trim();
+  const pageParam = Number.parseInt(parseParam(params, "page") || "1", 10);
+  const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+  const from = (page - 1) * PAGE_SIZE;
+  const to = from + PAGE_SIZE - 1;
 
   const adminClient = createServiceRoleClient();
   let eventsQuery = adminClient
     .from("stripe_webhook_events")
     .select(
-      "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id"
+      "event_id, event_type, created_at, status, reason, mode, plan_tier, profile_id, stripe_customer_id, stripe_subscription_id, stripe_price_id, processed_at"
     )
     .order("created_at", { ascending: false })
-    .limit(50);
+    .range(from, to);
 
   if (statusFilter !== "all") {
-    eventsQuery = eventsQuery.eq("status", statusFilter);
+    if (statusFilter === "ok") {
+      eventsQuery = eventsQuery.in("status", ["processed", "ok"]);
+    } else if (statusFilter === "failed") {
+      eventsQuery = eventsQuery.in("status", ["failed", "error"]);
+    } else {
+      eventsQuery = eventsQuery.eq("status", statusFilter);
+    }
   }
   if (planFilter !== "all") {
     eventsQuery = eventsQuery.eq("plan_tier", planFilter);
+  }
+  if (modeFilter !== "all") {
+    eventsQuery = eventsQuery.eq("mode", modeFilter);
   }
   const startDate = resolveStartDate(rangeFilter);
   if (startDate) {
@@ -428,9 +447,21 @@ async function loadEvents(params: SearchParams): Promise<{ events: StripeEventRo
         event.event_id?.toLowerCase().includes(lower) ||
         event.event_type?.toLowerCase().includes(lower) ||
         event.stripe_customer_id?.toLowerCase().includes(lower) ||
-        event.stripe_subscription_id?.toLowerCase().includes(lower)
+        event.stripe_subscription_id?.toLowerCase().includes(lower) ||
+        event.stripe_price_id?.toLowerCase().includes(lower) ||
+        event.profile_id?.toLowerCase().includes(lower)
     );
   }
+
+  logStripeEventsViewed({
+    route: "/admin/billing",
+    mode: modeFilter,
+    status: statusFilter,
+    plan: planFilter,
+    range: rangeFilter,
+    query: query || null,
+    page,
+  });
 
   return { events, error: undefined };
 }
@@ -438,16 +469,22 @@ async function loadEvents(params: SearchParams): Promise<{ events: StripeEventRo
 export default async function AdminBillingPage({ searchParams }: { searchParams: SearchParams }) {
   await requireAdmin();
 
+  const providerModes = await getProviderModes();
+  const stripeMode = providerModes.stripeMode;
   const email = parseParam(searchParams, "email");
   const profileIdParam = parseParam(searchParams, "profileId");
   const triageParam = parseParam(searchParams, "triage");
   const triage = TRIAGE_OPTIONS.includes(triageParam as (typeof TRIAGE_OPTIONS)[number])
     ? triageParam
     : "pending";
-  const statusFilter = parseParam(searchParams, "status") || "all";
+  const rawStatusFilter = parseParam(searchParams, "status") || "all";
+  const statusFilter = rawStatusFilter === "processed" ? "ok" : rawStatusFilter;
   const planFilter = parseParam(searchParams, "plan") || "all";
+  const modeFilter = parseParam(searchParams, "mode") || stripeMode;
   const rangeFilter = parseParam(searchParams, "range") || "7d";
   const query = parseParam(searchParams, "q");
+  const pageParam = Number.parseInt(parseParam(searchParams, "page") || "1", 10);
+  const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
 
   const snapshotResult =
     email || profileIdParam
@@ -457,7 +494,11 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
         })
       : { snapshot: null };
   const { requests, users } = await loadUpgradeRequests();
-  const { events, error } = await loadEvents(searchParams);
+  const { events, error } = await loadEvents({
+    ...searchParams,
+    mode: modeFilter,
+    page: String(page),
+  });
   const { accounts: supportAccounts, error: supportError } = await loadSupportQueue(triage);
   const userEventsResult = snapshotResult.snapshot
     ? await loadUserEvents({ profileId: snapshotResult.snapshot.profileId, plan: snapshotResult.plan ?? null })
@@ -499,6 +540,25 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
     params.delete("email");
     return `/admin/billing?${params.toString()}`;
   };
+  const eventParams = new URLSearchParams();
+  if (email) eventParams.set("email", email);
+  if (profileIdParam) eventParams.set("profileId", profileIdParam);
+  if (modeFilter) eventParams.set("mode", modeFilter);
+  if (statusFilter) eventParams.set("status", statusFilter);
+  if (planFilter) eventParams.set("plan", planFilter);
+  if (rangeFilter) eventParams.set("range", rangeFilter);
+  if (query) eventParams.set("q", query);
+  const nextPageHref = (() => {
+    if (events.length < PAGE_SIZE) return null;
+    const params = new URLSearchParams(eventParams);
+    params.set("page", String(page + 1));
+    return `/admin/billing?${params.toString()}#events`;
+  })();
+  const prevPageHref = page > 1 ? (() => {
+    const params = new URLSearchParams(eventParams);
+    params.set("page", String(page - 1));
+    return `/admin/billing?${params.toString()}#events`;
+  })() : null;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -800,7 +860,7 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
 
       <UpgradeRequestsQueue initialRequests={requests} users={users} />
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" id="events">
         <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Stripe webhook events</h2>
@@ -810,6 +870,18 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
           </div>
           <form className="flex flex-wrap items-center gap-2" action="/admin/billing" method="get">
             <input type="hidden" name="email" value={email} />
+            <input type="hidden" name="profileId" value={profileIdParam} />
+            <select
+              name="mode"
+              defaultValue={MODE_OPTIONS.includes(modeFilter as (typeof MODE_OPTIONS)[number]) ? modeFilter : stripeMode}
+              className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+            >
+              {MODE_OPTIONS.map((mode) => (
+                <option key={mode} value={mode}>
+                  {mode === "all" ? "All modes" : mode}
+                </option>
+              ))}
+            </select>
             <select
               name="status"
               defaultValue={STATUS_OPTIONS.includes(statusFilter as (typeof STATUS_OPTIONS)[number]) ? statusFilter : "all"}
@@ -817,7 +889,7 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
             >
               {STATUS_OPTIONS.map((status) => (
                 <option key={status} value={status}>
-                  {status === "all" ? "All statuses" : status}
+                  {status === "all" ? "All statuses" : status === "ok" ? "Processed" : status}
                 </option>
               ))}
             </select>
@@ -849,6 +921,7 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
               defaultValue={query}
               className="w-44 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
             />
+            <input type="hidden" name="page" value="1" />
             <button className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-semibold text-white">
               Apply
             </button>
@@ -880,8 +953,10 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
                   <th className="py-2 pr-3">Plan</th>
                   <th className="py-2 pr-3">Customer</th>
                   <th className="py-2 pr-3">Subscription</th>
+                  <th className="py-2 pr-3">Price</th>
                   <th className="py-2 pr-3">Outcome</th>
-                  <th className="py-2">Reason</th>
+                  <th className="py-2 pr-3">Reason</th>
+                  <th className="py-2">Processed</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-slate-700">
@@ -899,16 +974,35 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
                     <td className="py-2 pr-3 text-xs text-slate-500">{event.plan_tier || "—"}</td>
                     <td className="py-2 pr-3 text-xs text-slate-500">{maskIdentifier(event.stripe_customer_id)}</td>
                     <td className="py-2 pr-3 text-xs text-slate-500">{maskIdentifier(event.stripe_subscription_id)}</td>
+                    <td className="py-2 pr-3 text-xs text-slate-500">{maskIdentifier(event.stripe_price_id)}</td>
                     <td className="py-2 pr-3 text-xs">
                       <span className="rounded-full bg-slate-100 px-2 py-1 text-slate-700">
-                        {event.status || "received"}
+                        {event.status === "processed" ? "ok" : event.status || "received"}
                       </span>
                     </td>
-                    <td className="py-2 text-xs text-slate-500">{event.reason || "—"}</td>
+                    <td className="py-2 pr-3 text-xs text-slate-500">{event.reason || "—"}</td>
+                    <td className="py-2 text-xs text-slate-500">
+                      {event.processed_at?.replace("T", " ").replace("Z", "") || "—"}
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {!error && (prevPageHref || nextPageHref) && (
+          <div className="mt-4 flex items-center justify-end gap-3 text-sm">
+            {prevPageHref && (
+              <Link href={prevPageHref} className="text-slate-600 underline underline-offset-4">
+                Previous
+              </Link>
+            )}
+            {nextPageHref && (
+              <Link href={nextPageHref} className="font-semibold text-slate-900 underline underline-offset-4">
+                Load more
+              </Link>
+            )}
           </div>
         )}
       </div>

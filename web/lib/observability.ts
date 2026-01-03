@@ -101,6 +101,16 @@ type StripePaymentFailedLogInput = {
   stripeSubscriptionId?: string | null;
 };
 
+type StripeEventsViewedLogInput = {
+  route: string;
+  mode: string;
+  status: string;
+  plan: string;
+  range: string;
+  query?: string | null;
+  page?: number;
+};
+
 function normalizeError(error: unknown) {
   if (!error) return undefined;
   if (error instanceof Error) {
@@ -363,6 +373,30 @@ export function logStripePaymentFailed({
     profileId,
     stripeStatus,
     stripeSubscriptionId,
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logStripeEventsViewed({
+  route,
+  mode,
+  status,
+  plan,
+  range,
+  query,
+  page,
+}: StripeEventsViewedLogInput) {
+  const payload = {
+    level: "info",
+    event: "stripe_events_viewed",
+    route,
+    mode,
+    status,
+    plan,
+    range,
+    query: query || undefined,
+    page,
   };
 
   console.log(JSON.stringify(payload));
