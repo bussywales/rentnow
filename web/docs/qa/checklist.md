@@ -31,10 +31,12 @@
 ## Admin billing ops
 - Open `/admin/billing` and search for a known user email.
 - Confirm the billing snapshot renders with masked Stripe IDs and valid_until status.
+- Use the filter tabs (Pending/Manual/Stripe/Expired/Needs attention) and confirm results change.
 - Extend valid_until by 30 days and confirm it updates (manual override).
 - Expire now and confirm the user is marked expired.
 - Add billing notes and confirm they persist.
 - Review Stripe webhook events list; ensure IDs are masked and status/reason render.
+- Use “Copy support snapshot” and “Copy events” to confirm masked output for tickets.
 
 ## Tenant premium & alerts
 - As a free tenant, save up to the limit and confirm `plan_limit_reached` is returned on the next save.

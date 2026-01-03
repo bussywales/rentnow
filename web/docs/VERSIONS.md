@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-03 — v1.7.2-r6.3.2-support-polish
+- Added billing ops triage filters and per-user Stripe event panel for support.
+- Added masked support snapshot and copy-to-clipboard tooling for admin tickets.
+- Required reasons and confirmations for admin billing actions with notes logging.
+
 ## 2026-01-02 — v1.7.1-r6.3.1-billing-ops
 - Added admin billing ops hub with email lookup, snapshot, and manual actions.
 - Added upgrade request queue actions with required rejection reason.
