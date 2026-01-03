@@ -124,7 +124,12 @@ export async function GET(request: Request) {
   });
 
   const safeSnapshot = { ...snapshot, profileId: maskIdentifier(snapshot.profileId) };
-  const safeRequests = (requests || []).map((row) => ({
+  const safeRequests = ((requests as Array<{
+    status: string | null;
+    requested_plan_tier: string | null;
+    created_at: string | null;
+    notes: string | null;
+  }> | null) ?? []).map((row) => ({
     status: row.status,
     requested_plan_tier: row.requested_plan_tier,
     created_at: row.created_at,
