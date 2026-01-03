@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { PlansGrid } from "@/components/billing/PlansGrid";
+import { PaymentModeBadge } from "@/components/billing/PaymentModeBadge";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getProfile } from "@/lib/auth";
 import { getUserRole } from "@/lib/authz";
@@ -174,6 +175,14 @@ export default async function BillingPage() {
             <p className="mt-2 text-sm text-slate-600">
               {summaryCopy}
             </p>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+              <PaymentModeBadge mode={providerModes.stripeMode} />
+              <span>
+                {providerModes.stripeMode === "test"
+                  ? "You are in TEST mode. No real charges will be made."
+                  : "LIVE mode enabled."}
+              </span>
+            </div>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
             <div className="flex items-center justify-between gap-4">

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { UpgradeRequestsQueue } from "@/components/admin/UpgradeRequestsQueue";
 import { BillingOpsActions } from "@/components/admin/BillingOpsActions";
+import { PaymentModeBadge } from "@/components/billing/PaymentModeBadge";
 import { buildBillingSnapshot, type BillingSnapshot } from "@/lib/billing/snapshot";
 import { SupportSnapshotCopy } from "@/components/admin/SupportSnapshotCopy";
 import { buildSupportSnapshot } from "@/lib/billing/support-snapshot";
@@ -604,12 +605,17 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
         <p className="text-sm text-slate-200">
           Diagnose plan issues, manage manual overrides, and audit Stripe events.
         </p>
-        <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-200">
-          <span className="rounded-full bg-slate-800 px-2 py-1">Stripe mode: {stripeMode}</span>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-200">
+          <PaymentModeBadge mode={stripeMode} />
           {!stripeLiveReady && stripeMode === "live" && (
             <span className="rounded-full bg-amber-500/20 px-2 py-1 text-amber-200">Live keys missing</span>
           )}
         </div>
+        <p className="mt-2 text-xs text-slate-200">
+          {stripeMode === "test"
+            ? "You are in TEST mode. No real charges will be made."
+            : "LIVE mode enabled."}
+        </p>
         <div className="mt-3 flex gap-3 text-sm">
           <Link href="/admin" className="underline underline-offset-4">
             Back to Admin
