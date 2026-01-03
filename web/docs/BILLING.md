@@ -67,7 +67,16 @@ Optional:
   - `STRIPE_WEBHOOK_SECRET_TEST` / `STRIPE_WEBHOOK_SECRET_LIVE`
   - `STRIPE_PRICE_*_TEST` / `STRIPE_PRICE_*_LIVE`
 - If mode-specific keys are missing, the single-key env vars above are used as a fallback.
-- Paystack/Flutterwave modes are tracked for ops visibility only (no checkout integration yet).
+- Paystack/Flutterwave modes are tracked alongside Stripe and default to test when live keys are missing.
+
+### Paystack + Flutterwave provider keys
+- Paystack/Flutterwave keys live in `provider_settings` (not in env).
+- Admins update them in `/admin/settings/billing` (keys are masked on screen).
+- Mode selection is applied per provider; if live keys are missing, the config falls back to test.
+- Stub endpoints exist for future integration:
+  - `POST /api/billing/paystack/initialize`
+  - `POST /api/billing/flutterwave/initialize`
+  These return `{ ok: false, code: "not_implemented" }` plus mode + key presence.
 
 ### Plan-to-price mapping
 - The mapping is centralized in `web/lib/billing/stripe-plans.ts`.

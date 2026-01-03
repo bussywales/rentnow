@@ -25,6 +25,7 @@ Apply SQL files in this order:
 18) `web/supabase/migrations/018_stripe_webhook_event_metadata.sql`
 19) `web/supabase/migrations/019_provider_settings.sql`
 20) `web/supabase/migrations/020_stripe_ops_replay_audit.sql`
+21) `web/supabase/migrations/021_provider_keys_paystack_flutterwave.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -201,7 +202,15 @@ where table_schema = 'public'
     'error',
     'stripe_mode',
     'paystack_mode',
-    'flutterwave_mode'
+    'flutterwave_mode',
+    'paystack_test_secret_key',
+    'paystack_live_secret_key',
+    'paystack_test_public_key',
+    'paystack_live_public_key',
+    'flutterwave_test_secret_key',
+    'flutterwave_live_secret_key',
+    'flutterwave_test_public_key',
+    'flutterwave_live_public_key'
   )
 order by table_name, column_name;
 ```

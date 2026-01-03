@@ -1,5 +1,11 @@
 # Versions
 
+## 2026-01-03 — v1.7.6-r6.5-provider-expansion
+- Added reusable Payments mode badge for billing/admin surfaces with TEST/LIVE messaging.
+- Added Paystack/Flutterwave key storage in provider_settings with masked admin UI.
+- Added mode-aware Paystack/Flutterwave config helpers and stub initialize endpoints.
+- Expanded debug env/rls checks and unit coverage for provider mode fallbacks.
+
 ## 2026-01-03 — v1.7.5-r6.4.3-stripe-ops
 - Added mode-aware Stripe webhook viewer filters with pagination and processed_at visibility.
 - Added admin replay endpoint with idempotent processing and replay audit fields.
