@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-03 — v1.7.5-r6.4.3-stripe-ops
+- Added mode-aware Stripe webhook viewer filters with pagination and processed_at visibility.
+- Added admin replay endpoint with idempotent processing and replay audit fields.
+- Added live-mode safety banner with one-click switch back to test mode.
+
 ## 2026-01-03 — v1.7.4-r6.4.2-provider-modes
 - Added provider settings singleton with test/live toggles for Stripe/Paystack/Flutterwave.
 - Added admin billing settings page for mode controls and env readiness visibility.

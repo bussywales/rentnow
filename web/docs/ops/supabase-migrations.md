@@ -24,6 +24,7 @@ Apply SQL files in this order:
 17) `web/supabase/migrations/017_saved_search_alerts.sql`
 18) `web/supabase/migrations/018_stripe_webhook_event_metadata.sql`
 19) `web/supabase/migrations/019_provider_settings.sql`
+20) `web/supabase/migrations/020_stripe_ops_replay_audit.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -183,6 +184,10 @@ where table_schema = 'public'
     'status',
     'reason',
     'mode',
+    'replay_count',
+    'last_replay_at',
+    'last_replay_status',
+    'last_replay_reason',
     'profile_id',
     'plan_tier',
     'stripe_customer_id',

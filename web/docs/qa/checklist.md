@@ -39,6 +39,8 @@
 - Expire now and confirm the user is marked expired.
 - Add billing notes and confirm they persist.
 - Review Stripe webhook events list; ensure IDs are masked and status/reason render.
+- Switch mode filter between test/live and confirm event rows update.
+- Replay a failed event and confirm the row updates without duplicating plan changes.
 - Use “Copy support snapshot” and “Copy events” to confirm masked output for tickets.
 
 ## Tenant premium & alerts

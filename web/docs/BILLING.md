@@ -98,6 +98,13 @@ Optional:
 - Stored fields include `event_type`, `status`, `reason`, `mode`, `profile_id`, and Stripe identifiers.
 - `processed_at` is stamped only when a plan update is applied (or when explicitly marked as handled).
 
+### Stripe ops viewer + replay
+- Admins can review webhook activity in `/admin/billing` with mode/status/date filters.
+- Use the replay endpoint for safe reprocessing: `POST /api/admin/billing/stripe/replay` with `{ event_id }`.
+- Replays are idempotent: already-processed events will no-op and log a replay attempt.
+- Replay audit fields on `stripe_webhook_events`:
+  - `replay_count`, `last_replay_at`, `last_replay_status`, `last_replay_reason`.
+
 ### Status handling
 - Active/trialing subscriptions set `billing_source = stripe` and update `valid_until`.
 - `past_due`/`unpaid` keep access until `current_period_end`, but log a warning.
@@ -142,5 +149,6 @@ Optional:
 - Update billing notes for internal tracking (admin-only).
 - Review upgrade requests and approve/reject with a reason.
 - Check Stripe webhook events for processed/ignored/failed outcomes and reasons.
+- Filter events by mode (test/live) and use replay for failed events when needed.
 
 Manual overrides set `billing_source = manual` and take precedence over Stripe updates.
