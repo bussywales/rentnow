@@ -471,7 +471,17 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
     ? buildSupportSnapshot({
         snapshot: snapshotResult.snapshot,
         openUpgradeRequests: openRequests,
-        events: userEventsResult.events,
+        events: userEventsResult.events.map((event) => ({
+          event_type: event.event_type ?? null,
+          status: event.status ?? null,
+          reason: event.reason ?? null,
+          mode: event.mode ?? null,
+          created_at: event.created_at ?? null,
+          processed_at: event.processed_at ?? null,
+          event_id: event.event_id ?? null,
+          stripe_customer_id: event.stripe_customer_id ?? null,
+          stripe_subscription_id: event.stripe_subscription_id ?? null,
+        })),
       })
     : null;
 
