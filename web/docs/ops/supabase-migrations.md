@@ -22,6 +22,7 @@ Apply SQL files in this order:
 15) `web/supabase/migrations/015_stripe_webhook_events.sql`
 16) `web/supabase/migrations/016_tenant_plan_tier.sql`
 17) `web/supabase/migrations/017_saved_search_alerts.sql`
+18) `web/supabase/migrations/018_stripe_webhook_event_metadata.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -174,6 +175,13 @@ where table_schema = 'public'
     'stripe_status',
     'event_id',
     'event_type',
+    'status',
+    'reason',
+    'mode',
+    'profile_id',
+    'plan_tier',
+    'stripe_customer_id',
+    'stripe_subscription_id',
     'saved_search_id',
     'property_id',
     'user_id',

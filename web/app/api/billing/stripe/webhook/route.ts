@@ -58,8 +58,7 @@ async function lookupProfileIdBySubscription(
 
 async function recordStripeWebhookEvent(
   adminClient: ReturnType<typeof createServiceRoleClient>,
-  eventId: string,
-  eventType: string
+  event: Stripe.Event
 ) {
   const adminDb = adminClient as unknown as {
     from: (table: string) => {
@@ -68,11 +67,35 @@ async function recordStripeWebhookEvent(
   };
   const { error } = await adminDb
     .from("stripe_webhook_events")
-    .insert({ event_id: eventId, event_type: eventType });
+    .insert({
+      event_id: event.id,
+      event_type: event.type,
+      status: "received",
+      mode: event.livemode ? "live" : "test",
+    });
   if (!error) return { duplicate: false, error: null };
   const code = (error as { code?: string }).code;
   if (code === "23505") return { duplicate: true, error: null };
   return { duplicate: false, error };
+}
+
+async function updateStripeWebhookEvent(
+  adminClient: ReturnType<typeof createServiceRoleClient>,
+  eventId: string,
+  updates: Record<string, unknown>
+) {
+  const adminDb = adminClient as unknown as {
+    from: (table: string) => {
+      update: (values: Record<string, unknown>) => {
+        eq: (column: string, value: string) => Promise<{ error: { message?: string } | null }>;
+      };
+    };
+  };
+  const { error } = await adminDb
+    .from("stripe_webhook_events")
+    .update(updates)
+    .eq("event_id", eventId);
+  return { error };
 }
 
 async function getExistingPlan(
@@ -187,7 +210,7 @@ export async function POST(request: Request) {
   }
 
   const adminClient = createServiceRoleClient();
-  const idempotency = await recordStripeWebhookEvent(adminClient, event.id, event.type);
+  const idempotency = await recordStripeWebhookEvent(adminClient, event);
   if (idempotency.error) {
     logFailure({
       request,
@@ -208,6 +231,13 @@ export async function POST(request: Request) {
   }
 
   const stripe = getStripeClient();
+  let outcomeStatus: "processed" | "ignored" | "failed" = "processed";
+  let outcomeReason: string | null = null;
+  let outcomeProfileId: string | null = null;
+  let outcomePlanTier: string | null = null;
+  let outcomeCustomerId: string | null = null;
+  let outcomeSubscriptionId: string | null = null;
+  let outcomePriceId: string | null = null;
 
   try {
     switch (event.type) {
@@ -227,9 +257,14 @@ export async function POST(request: Request) {
             level: "warn",
             error: new Error(`stripe_plan_mapping_missing price_id=${plan.priceId || "unknown"}`),
           });
+          outcomeStatus = "ignored";
+          outcomeReason = "missing_plan_mapping";
           break;
         }
         const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
+        outcomeCustomerId = customerId;
+        outcomeSubscriptionId = subscription.id;
+        outcomePriceId = plan.priceId;
         const profileId =
           plan.profileId ||
           (customerId ? await lookupProfileIdByCustomer(adminClient, customerId) : null) ||
@@ -243,24 +278,46 @@ export async function POST(request: Request) {
             startTime,
             error: "stripe_missing_profile_id",
           });
+          outcomeStatus = "ignored";
+          outcomeReason = "missing_profile_id";
           break;
         }
+        outcomeProfileId = profileId;
         const currentPeriodEnd = toIso(subscription.current_period_end);
         const tier = plan.tier;
         const existingPlan = await getExistingPlan(adminClient, profileId);
         const result = await applyPlanUpdate(
           adminClient,
           {
-          profileId,
-          tier,
-          status: subscription.status,
-          customerId,
-          subscriptionId: subscription.id,
-          priceId: plan.priceId,
-          currentPeriodEnd,
+            profileId,
+            tier,
+            status: subscription.status,
+            customerId,
+            subscriptionId: subscription.id,
+            priceId: plan.priceId,
+            currentPeriodEnd,
           },
           existingPlan
         );
+
+        if (result.error) {
+          outcomeStatus = "failed";
+          outcomeReason = "plan_update_failed";
+          logFailure({
+            request,
+            route: routeLabel,
+            status: 500,
+            startTime,
+            error: result.error,
+          });
+          break;
+        }
+
+        if (result.skipped) {
+          outcomeStatus = "ignored";
+          outcomeReason = existingPlan?.billing_source === "manual" ? "manual_override" : "duplicate_update";
+        }
+        outcomePlanTier = result.planTier;
 
         if (!result.skipped) {
           logStripePlanUpdated({
@@ -287,9 +344,14 @@ export async function POST(request: Request) {
             level: "warn",
             error: new Error(`stripe_plan_mapping_missing price_id=${plan.priceId || "unknown"}`),
           });
+          outcomeStatus = "ignored";
+          outcomeReason = "missing_plan_mapping";
           break;
         }
         const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
+        outcomeCustomerId = customerId;
+        outcomeSubscriptionId = subscription.id;
+        outcomePriceId = plan.priceId;
         const profileId =
           plan.profileId ||
           (customerId ? await lookupProfileIdByCustomer(adminClient, customerId) : null) ||
@@ -303,8 +365,11 @@ export async function POST(request: Request) {
             startTime,
             error: "stripe_missing_profile_id",
           });
+          outcomeStatus = "ignored";
+          outcomeReason = "missing_profile_id";
           break;
         }
+        outcomeProfileId = profileId;
         const currentPeriodEnd = toIso(subscription.current_period_end);
         const tier = plan.tier;
         const allowImmediateDowngrade = event.type === "customer.subscription.deleted";
@@ -312,17 +377,36 @@ export async function POST(request: Request) {
         const result = await applyPlanUpdate(
           adminClient,
           {
-          profileId,
-          tier,
-          status: subscription.status,
-          customerId,
-          subscriptionId: subscription.id,
-          priceId: plan.priceId,
-          currentPeriodEnd,
-          allowImmediateDowngrade,
+            profileId,
+            tier,
+            status: subscription.status,
+            customerId,
+            subscriptionId: subscription.id,
+            priceId: plan.priceId,
+            currentPeriodEnd,
+            allowImmediateDowngrade,
           },
           existingPlan
         );
+
+        if (result.error) {
+          outcomeStatus = "failed";
+          outcomeReason = "plan_update_failed";
+          logFailure({
+            request,
+            route: routeLabel,
+            status: 500,
+            startTime,
+            error: result.error,
+          });
+          break;
+        }
+
+        if (result.skipped) {
+          outcomeStatus = "ignored";
+          outcomeReason = existingPlan?.billing_source === "manual" ? "manual_override" : "duplicate_update";
+        }
+        outcomePlanTier = result.planTier;
 
         if (!result.skipped) {
           logStripePlanUpdated({
@@ -354,9 +438,14 @@ export async function POST(request: Request) {
             level: "warn",
             error: new Error(`stripe_plan_mapping_missing price_id=${plan.priceId || "unknown"}`),
           });
+          outcomeStatus = "ignored";
+          outcomeReason = "missing_plan_mapping";
           break;
         }
         const customerId = typeof subscription.customer === "string" ? subscription.customer : null;
+        outcomeCustomerId = customerId;
+        outcomeSubscriptionId = subscription.id;
+        outcomePriceId = plan.priceId;
         const profileId =
           plan.profileId ||
           (customerId ? await lookupProfileIdByCustomer(adminClient, customerId) : null) ||
@@ -370,24 +459,46 @@ export async function POST(request: Request) {
             startTime,
             error: "stripe_missing_profile_id",
           });
+          outcomeStatus = "ignored";
+          outcomeReason = "missing_profile_id";
           break;
         }
+        outcomeProfileId = profileId;
         const currentPeriodEnd = toIso(subscription.current_period_end);
         const tier = plan.tier;
         const existingPlan = await getExistingPlan(adminClient, profileId);
         const result = await applyPlanUpdate(
           adminClient,
           {
-          profileId,
-          tier,
-          status: subscription.status,
-          customerId,
-          subscriptionId: subscription.id,
-          priceId: plan.priceId,
-          currentPeriodEnd,
+            profileId,
+            tier,
+            status: subscription.status,
+            customerId,
+            subscriptionId: subscription.id,
+            priceId: plan.priceId,
+            currentPeriodEnd,
           },
           existingPlan
         );
+
+        if (result.error) {
+          outcomeStatus = "failed";
+          outcomeReason = "plan_update_failed";
+          logFailure({
+            request,
+            route: routeLabel,
+            status: 500,
+            startTime,
+            error: result.error,
+          });
+          break;
+        }
+
+        if (result.skipped) {
+          outcomeStatus = "ignored";
+          outcomeReason = existingPlan?.billing_source === "manual" ? "manual_override" : "duplicate_update";
+        }
+        outcomePlanTier = result.planTier;
 
         if (!result.skipped) {
           logStripePlanUpdated({
@@ -410,8 +521,21 @@ export async function POST(request: Request) {
         break;
       }
       default:
+        outcomeStatus = "ignored";
+        outcomeReason = "unhandled_event";
         break;
     }
+
+    await updateStripeWebhookEvent(adminClient, event.id, {
+      status: outcomeStatus,
+      reason: outcomeReason,
+      processed_at: new Date().toISOString(),
+      profile_id: outcomeProfileId,
+      plan_tier: outcomePlanTier,
+      stripe_customer_id: outcomeCustomerId,
+      stripe_subscription_id: outcomeSubscriptionId,
+      stripe_price_id: outcomePriceId,
+    });
 
     logStripeWebhookApplied({
       route: routeLabel,
@@ -421,6 +545,11 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
+    await updateStripeWebhookEvent(adminClient, event.id, {
+      status: "failed",
+      reason: "handler_error",
+      processed_at: new Date().toISOString(),
+    });
     logFailure({
       request,
       route: routeLabel,
