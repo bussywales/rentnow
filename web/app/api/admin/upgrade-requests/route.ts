@@ -57,7 +57,13 @@ export async function PATCH(request: Request) {
   }
 
   const now = new Date().toISOString();
-  const planTier = payload.planTier || requestRow.requested_plan_tier || "starter";
+  const requestData = requestRow as {
+    id: string;
+    profile_id: string;
+    requester_id: string;
+    requested_plan_tier?: string | null;
+  };
+  const planTier = payload.planTier || requestData.requested_plan_tier || "starter";
   const validUntil = payload.validUntil ?? null;
 
   if (action === "approve") {
@@ -65,7 +71,7 @@ export async function PATCH(request: Request) {
       .from("profile_plans")
       .upsert(
         {
-          profile_id: requestRow.profile_id,
+          profile_id: requestData.profile_id,
           plan_tier: planTier,
           valid_until: validUntil,
           billing_source: "manual",
@@ -86,7 +92,7 @@ export async function PATCH(request: Request) {
         .from("profile_billing_notes")
         .upsert(
           {
-            profile_id: requestRow.profile_id,
+            profile_id: requestData.profile_id,
             billing_notes: note,
             updated_at: now,
             updated_by: auth.user.id,
@@ -111,7 +117,7 @@ export async function PATCH(request: Request) {
     .from("plan_upgrade_requests")
     .update({
       status: action === "approve" ? "approved" : "rejected",
-      notes: note ?? requestRow.requested_plan_tier ?? null,
+      notes: note ?? requestData.requested_plan_tier ?? null,
       resolved_at: now,
       resolved_by: auth.user.id,
       updated_at: now,
@@ -126,8 +132,8 @@ export async function PATCH(request: Request) {
     request,
     route: routeLabel,
     actorId: auth.user.id,
-    requestId: requestRow.id,
-    profileId: requestRow.profile_id,
+    requestId: requestData.id,
+    profileId: requestData.profile_id,
     action,
     planTier: action === "approve" ? planTier : null,
     validUntil,
