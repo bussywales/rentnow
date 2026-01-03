@@ -39,7 +39,7 @@ export function NavAuthClient({ initialAuthed, initialRole = null }: Props) {
     supabase.auth.getSession().then(({ data }: { data: { session: Session | null } }) => {
       const session = data.session;
       setIsAuthed(!!session);
-      if (session?.user?.id && !role) {
+      if (session?.user?.id) {
         supabase
           .from("profiles")
           .select("role")

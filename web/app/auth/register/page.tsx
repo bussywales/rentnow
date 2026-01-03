@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
+export const dynamic = "force-dynamic";
+
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -69,16 +71,16 @@ export default function RegisterPage() {
           <p className="font-semibold text-slate-900">Check your email</p>
           <p>{success}</p>
           <p className="text-xs text-slate-600">
-            Tip: the verification link will bring you back to RentNow. If you've already confirmed, just{" "}
+            Tip: the verification link will bring you back to RentNow. If you&apos;ve already confirmed, just{" "}
             <Link href="/auth/login" className="font-semibold text-sky-700">
               log in
             </Link>{" "}
-            and you'll be redirected to choose your role.
+            and you&apos;ll be redirected to choose your role.
           </p>
           <div className="flex flex-wrap gap-2">
             <Link href="/auth/confirm">
               <Button size="sm" variant="secondary">
-                I've confirmed — continue
+                I&apos;ve confirmed — continue
               </Button>
             </Link>
             <Link href="/auth/login" className="text-sm font-semibold text-sky-700">

@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
+export const dynamic = "force-dynamic";
+
 const roles = [
   { value: "tenant", label: "Tenant", description: "Search, save, and request viewings." },
   { value: "landlord", label: "Landlord", description: "List properties and manage leads." },
@@ -80,7 +82,13 @@ export default function OnboardingPage() {
     if (profileError) {
       setError(profileError.message);
     } else {
-      router.replace(selected === "tenant" ? "/properties" : "/dashboard");
+      if (selected === "tenant") {
+        router.replace("/properties");
+      } else if (selected === "agent") {
+        router.replace("/onboarding/agent");
+      } else {
+        router.replace("/onboarding/landlord");
+      }
     }
     setLoading(false);
   };
@@ -127,7 +135,10 @@ export default function OnboardingPage() {
         ))}
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      <div className="flex justify-end">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <Button variant="ghost" onClick={() => router.replace("/dashboard")} disabled={loading}>
+          Skip for now
+        </Button>
         <Button onClick={handleSave} disabled={loading}>
           {loading ? "Saving..." : "Continue"}
         </Button>

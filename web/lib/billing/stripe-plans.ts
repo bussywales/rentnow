@@ -1,0 +1,96 @@
+import { getPlanForTier, normalizePlanTier, type PlanGate, type PlanTier } from "@/lib/plans";
+import type { ProviderMode } from "@/lib/billing/provider-settings";
+import type { UserRole } from "@/lib/types";
+
+export type BillingCadence = "monthly" | "yearly";
+export type BillingRole = "landlord" | "agent" | "tenant";
+
+export type StripePlanDescriptor = {
+  role: BillingRole;
+  tier: PlanTier;
+  cadence: BillingCadence;
+  priceId: string;
+};
+
+const ROLE_PAID_TIERS: Record<BillingRole, PlanTier[]> = {
+  landlord: ["starter", "pro"],
+  agent: ["starter", "pro"],
+  tenant: ["tenant_pro"],
+};
+
+function normalizeRole(role: UserRole): BillingRole | null {
+  if (role === "landlord" || role === "agent" || role === "tenant") return role;
+  return null;
+}
+
+function basePriceKey(role: BillingRole, cadence: BillingCadence) {
+  return `STRIPE_PRICE_${role.toUpperCase()}_${cadence.toUpperCase()}`;
+}
+
+function tierPriceKey(role: BillingRole, tier: PlanTier, cadence: BillingCadence) {
+  return `STRIPE_PRICE_${role.toUpperCase()}_${tier.toUpperCase()}_${cadence.toUpperCase()}`;
+}
+
+function resolvePriceId(
+  role: BillingRole,
+  tier: PlanTier,
+  cadence: BillingCadence,
+  mode?: ProviderMode | null
+) {
+  const tierKey = tierPriceKey(role, tier, cadence);
+  const modeSuffix = mode ? `_${mode.toUpperCase()}` : "";
+  const modeTierValue = modeSuffix ? process.env[`${tierKey}${modeSuffix}`] : null;
+  if (modeTierValue) return modeTierValue;
+
+  const tierValue = process.env[tierKey];
+  if (tierValue) return tierValue;
+
+  const baseKey = basePriceKey(role, cadence);
+  const modeBaseValue = modeSuffix ? process.env[`${baseKey}${modeSuffix}`] : null;
+  return modeBaseValue || process.env[baseKey] || null;
+}
+
+export function getStripePriceId(input: {
+  role: UserRole;
+  tier: PlanTier;
+  cadence: BillingCadence;
+  mode?: ProviderMode | null;
+}): string | null {
+  const role = normalizeRole(input.role);
+  if (!role) return null;
+  const tier = normalizePlanTier(input.tier);
+  const allowedTiers = ROLE_PAID_TIERS[role];
+  if (!allowedTiers.includes(tier)) return null;
+  return resolvePriceId(role, tier, input.cadence, input.mode);
+}
+
+export function listStripePlans(): StripePlanDescriptor[] {
+  const roles: BillingRole[] = ["landlord", "agent", "tenant"];
+  const cadences: BillingCadence[] = ["monthly", "yearly"];
+  const plans: StripePlanDescriptor[] = [];
+  const modes: (ProviderMode | null)[] = ["live", "test", null];
+
+  roles.forEach((role) => {
+    ROLE_PAID_TIERS[role].forEach((tier) => {
+      cadences.forEach((cadence) => {
+        modes.forEach((mode) => {
+          const priceId = resolvePriceId(role, tier, cadence, mode);
+          if (priceId && !plans.find((plan) => plan.priceId === priceId)) {
+            plans.push({ role, tier, cadence, priceId });
+          }
+        });
+      });
+    });
+  });
+
+  return plans;
+}
+
+export function getStripePlanByPriceId(priceId: string): StripePlanDescriptor | null {
+  const match = listStripePlans().find((plan) => plan.priceId === priceId);
+  return match || null;
+}
+
+export function getStripePlanGate(tier: PlanTier, maxOverride?: number | null): PlanGate {
+  return getPlanForTier(tier, maxOverride ?? null);
+}

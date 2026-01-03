@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
-import { getSiteUrl } from "@/lib/env";
+import { getApiBaseUrl, getSiteUrl } from "@/lib/env";
 
 type PropertySummary = { id: string; updated_at?: string | null };
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = getSiteUrl() || "https://www.rentnow.space";
+  const baseUrl = (await getSiteUrl()) || "https://www.rentnow.space";
+  const apiBaseUrl = await getApiBaseUrl();
   const urls: MetadataRoute.Sitemap = [
     {
       url: `${baseUrl}/`,
@@ -24,7 +25,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   ];
 
   try {
-    const res = await fetch(`${baseUrl}/api/properties`, { cache: "no-store" });
+    const res = await fetch(`${apiBaseUrl}/api/properties`, { cache: "no-store" });
     if (res.ok) {
       const json = await res.json();
       const properties = (json.properties as PropertySummary[]) || [];

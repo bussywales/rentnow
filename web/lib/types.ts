@@ -2,6 +2,8 @@ export type UserRole = "tenant" | "landlord" | "agent" | "admin";
 
 export type RentalType = "short_let" | "long_term";
 
+export type PropertyStatus = "draft" | "pending" | "live" | "rejected" | "paused";
+
 export interface Profile {
   id: string;
   role: UserRole;
@@ -9,6 +11,9 @@ export interface Profile {
   phone?: string | null;
   city?: string | null;
   avatar_url?: string | null;
+  business_name?: string | null;
+  preferred_contact?: string | null;
+  areas_served?: string[] | null;
   created_at?: string;
 }
 
@@ -39,6 +44,16 @@ export interface Property {
   max_guests?: number | null;
   is_approved?: boolean;
   is_active?: boolean;
+  status?: PropertyStatus;
+  rejection_reason?: string | null;
+  submitted_at?: string | null;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+  paused_at?: string | null;
+  bills_included?: boolean | null;
+  epc_rating?: string | null;
+  council_tax_band?: string | null;
+  features?: string[] | null;
   created_at?: string;
   updated_at?: string;
   images?: PropertyImage[];
@@ -73,4 +88,23 @@ export interface ParsedSearchFilters {
   rentalType: RentalType | null;
   furnished: boolean | null;
   amenities: string[];
+}
+
+export interface SavedSearch {
+  id: string;
+  user_id: string;
+  name: string;
+  query_params: Record<string, unknown>;
+  created_at?: string;
+  last_notified_at?: string | null;
+  last_checked_at?: string | null;
+}
+
+export interface AgentDelegation {
+  id: string;
+  agent_id: string;
+  landlord_id: string;
+  status: "pending" | "active" | "revoked";
+  created_at?: string;
+  approved_at?: string | null;
 }

@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/Button";
+import { ErrorState } from "@/components/ui/ErrorState";
+import { DEV_MOCKS } from "@/lib/env";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { ViewingRequest, UserRole } from "@/lib/types";
 
@@ -17,11 +19,16 @@ const viewingRequests: ViewingRequest[] = [
   },
 ];
 
+type ViewingRequestRow = ViewingRequest & {
+  properties?: { title?: string | null } | null;
+};
+
 export default async function ViewingsPage() {
   const supabaseReady = hasServerSupabaseEnv();
   let currentUserId: string | null = null;
   let role: UserRole | null = null;
-  let requests: ViewingRequest[] = viewingRequests;
+  let requests: ViewingRequest[] = DEV_MOCKS ? viewingRequests : [];
+  let fetchError: string | null = null;
 
   if (supabaseReady) {
     try {
@@ -48,6 +55,8 @@ export default async function ViewingsPage() {
 
           if (!error && data) {
             requests = data as ViewingRequest[];
+          } else if (error && !DEV_MOCKS) {
+            fetchError = "Unable to load viewing requests right now.";
           }
         } else {
           const { data, error } = await supabase
@@ -58,16 +67,34 @@ export default async function ViewingsPage() {
 
           if (!error && data) {
             requests = data as ViewingRequest[];
+          } else if (error && !DEV_MOCKS) {
+            fetchError = "Unable to load viewing requests right now.";
           }
         }
       }
-    } catch (err) {
-      console.warn("Falling back to mock viewing requests", err);
+    } catch {
+      if (!DEV_MOCKS) {
+        fetchError = "Unable to load viewing requests right now.";
+      }
     }
+  } else if (!DEV_MOCKS) {
+    fetchError = "Supabase is not configured; viewing requests are unavailable.";
   }
 
-  const demoMode = !supabaseReady || !currentUserId;
+  const demoMode = DEV_MOCKS && (!supabaseReady || !currentUserId);
   const isTenant = role === "tenant";
+
+  if (fetchError && !DEV_MOCKS) {
+    return (
+      <div className="space-y-4">
+        <ErrorState
+          title="Viewing requests unavailable"
+          description={fetchError}
+          retryHref="/dashboard/viewings"
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -86,32 +113,36 @@ export default async function ViewingsPage() {
       </div>
 
       <div className="space-y-3">
-        {requests.map((req) => (
-          <div
-            key={req.id}
-            className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between"
-          >
-            <div>
-              <p className="text-sm font-semibold text-slate-900">
-                Property: {(req as any).properties?.title || req.property_id}
-              </p>
-              <p className="text-sm text-slate-600">
-                {req.preferred_date}
-                {req.preferred_time_window ? ` - ${req.preferred_time_window}` : ""}
-              </p>
-              {req.note && <p className="text-sm text-slate-600">{req.note}</p>}
-              <p className="text-xs uppercase tracking-wide text-slate-500">
-                Status: {req.status}
-              </p>
+        {requests.map((req) => {
+          const propertyTitle =
+            (req as ViewingRequestRow).properties?.title || req.property_id;
+          return (
+            <div
+              key={req.id}
+              className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between"
+            >
+              <div>
+                <p className="text-sm font-semibold text-slate-900">
+                  Property: {propertyTitle}
+                </p>
+                <p className="text-sm text-slate-600">
+                  {req.preferred_date}
+                  {req.preferred_time_window ? ` - ${req.preferred_time_window}` : ""}
+                </p>
+                {req.note && <p className="text-sm text-slate-600">{req.note}</p>}
+                <p className="text-xs uppercase tracking-wide text-slate-500">
+                  Status: {req.status}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm">Accept</Button>
+                <Button size="sm" variant="secondary">
+                  Decline
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <Button size="sm">Accept</Button>
-              <Button size="sm" variant="secondary">
-                Decline
-              </Button>
-            </div>
-          </div>
-        ))}
+          );
+        })}
         {!requests.length && (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
             <p className="text-base font-semibold text-slate-900">No viewings yet</p>

@@ -7,11 +7,33 @@ type Props = {
   userId: string;
   email?: string;
   serviceReady: boolean;
+  planTier?: string | null;
+  maxListingsOverride?: number | null;
+  validUntil?: string | null;
+  billingNotes?: string | null;
 };
 
-export function AdminUserActions({ userId, email, serviceReady }: Props) {
+export function AdminUserActions({
+  userId,
+  email,
+  serviceReady,
+  planTier,
+  maxListingsOverride,
+  validUntil,
+  billingNotes,
+}: Props) {
   const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
+  const [planStatus, setPlanStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [planMessage, setPlanMessage] = useState<string | null>(null);
+  const [tier, setTier] = useState(planTier || "free");
+  const [override, setOverride] = useState(
+    typeof maxListingsOverride === "number" ? String(maxListingsOverride) : ""
+  );
+  const [validUntilValue, setValidUntilValue] = useState(
+    typeof validUntil === "string" ? validUntil.slice(0, 10) : ""
+  );
+  const [notes, setNotes] = useState(billingNotes ?? "");
 
   const post = async (body: Record<string, string>) => {
     setStatus("loading");
@@ -26,6 +48,39 @@ export function AdminUserActions({ userId, email, serviceReady }: Props) {
       throw new Error(data?.error || `Request failed (${res.status})`);
     }
     setStatus("done");
+  };
+
+  const updatePlan = async () => {
+    setPlanStatus("loading");
+    setPlanMessage(null);
+    const overrideValue =
+      override.trim().length > 0 ? Number.parseInt(override.trim(), 10) : null;
+    if (overrideValue !== null && (!Number.isFinite(overrideValue) || overrideValue <= 0)) {
+      setPlanStatus("error");
+      setPlanMessage("Override must be a positive number.");
+      return;
+    }
+    const res = await fetch("/api/admin/plans", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        profileId: userId,
+        planTier: tier,
+        maxListingsOverride: overrideValue,
+        validUntil: validUntilValue
+          ? `${validUntilValue}T23:59:59.999Z`
+          : null,
+        billingNotes: notes,
+      }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setPlanStatus("error");
+      setPlanMessage(data?.error || `Request failed (${res.status})`);
+      return;
+    }
+    setPlanStatus("done");
+    setPlanMessage("Plan updated.");
   };
 
   const handleReset = async () => {
@@ -65,6 +120,70 @@ export function AdminUserActions({ userId, email, serviceReady }: Props) {
         >
           Delete user
         </Button>
+      </div>
+      <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+        <p className="font-semibold text-slate-900">Plan override</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <label className="text-xs text-slate-600">
+            Tier
+            <select
+              className="ml-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
+              value={tier}
+              onChange={(event) => setTier(event.target.value)}
+              disabled={!serviceReady || planStatus === "loading"}
+            >
+              <option value="free">Free</option>
+              <option value="starter">Starter</option>
+              <option value="pro">Pro</option>
+              <option value="tenant_pro">Tenant Pro</option>
+            </select>
+          </label>
+          <label className="text-xs text-slate-600">
+            Max listings override
+            <input
+              className="ml-2 w-20 rounded-md border border-slate-300 px-2 py-1 text-xs"
+              type="number"
+              min={1}
+              placeholder="—"
+              value={override}
+              onChange={(event) => setOverride(event.target.value)}
+              disabled={!serviceReady || planStatus === "loading"}
+            />
+          </label>
+          <label className="text-xs text-slate-600">
+            Valid until
+            <input
+              className="ml-2 rounded-md border border-slate-300 px-2 py-1 text-xs"
+              type="date"
+              value={validUntilValue}
+              onChange={(event) => setValidUntilValue(event.target.value)}
+              disabled={!serviceReady || planStatus === "loading"}
+            />
+          </label>
+          <Button
+            size="sm"
+            variant="secondary"
+            type="button"
+            onClick={updatePlan}
+            disabled={!serviceReady || planStatus === "loading"}
+          >
+            {planStatus === "loading" ? "Saving..." : "Save plan"}
+          </Button>
+        </div>
+        <label className="mt-3 block text-xs text-slate-600">
+          Billing notes (admin only)
+          <textarea
+            className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-xs"
+            rows={3}
+            value={notes}
+            onChange={(event) => setNotes(event.target.value)}
+            disabled={!serviceReady || planStatus === "loading"}
+          />
+        </label>
+        {planMessage && <p className="mt-2 text-xs text-slate-600">{planMessage}</p>}
+        {planStatus === "error" && !planMessage && (
+          <p className="mt-2 text-xs text-rose-600">Plan update failed.</p>
+        )}
       </div>
       {message && <p className="text-xs text-slate-600">{message}</p>}
       {status === "error" && !message && <p className="text-xs text-rose-600">Action failed.</p>}
