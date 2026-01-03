@@ -43,6 +43,25 @@ type PlanOverrideLogInput = {
   validUntil?: string | null;
 };
 
+type UpgradeRequestLogInput = {
+  request?: Request;
+  route: string;
+  actorId: string;
+  requestId: string;
+  profileId: string;
+  action: "approve" | "reject";
+  planTier?: string | null;
+  validUntil?: string | null;
+  noteProvided?: boolean;
+};
+
+type BillingNoteLogInput = {
+  request?: Request;
+  route: string;
+  actorId: string;
+  profileId: string;
+};
+
 type SavedSearchLimitLogInput = {
   request?: Request;
   route: string;
@@ -209,6 +228,47 @@ export function logPlanOverride({
     billingSource: billingSource || "manual",
     validUntil,
     source: "manual",
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logUpgradeRequestAction({
+  request,
+  route,
+  actorId,
+  requestId,
+  profileId,
+  action,
+  planTier,
+  validUntil,
+  noteProvided = false,
+}: UpgradeRequestLogInput) {
+  const payload = {
+    level: "info",
+    event: "upgrade_request_action",
+    route,
+    requestId: getRequestId(request),
+    actorId,
+    requestRecordId: requestId,
+    profileId,
+    action,
+    planTier,
+    validUntil,
+    noteProvided,
+  };
+
+  console.log(JSON.stringify(payload));
+}
+
+export function logBillingNoteUpdated({ request, route, actorId, profileId }: BillingNoteLogInput) {
+  const payload = {
+    level: "info",
+    event: "billing_note_updated",
+    route,
+    requestId: getRequestId(request),
+    actorId,
+    profileId,
   };
 
   console.log(JSON.stringify(payload));
