@@ -9,6 +9,13 @@ type AlertDispatchResult = {
   matched: number;
   sent: number;
   skipped: number;
+  status?: number;
+  error?: string;
+};
+
+type EmailDispatchGuard = {
+  ok: boolean;
+  status: number;
   error?: string;
 };
 
@@ -20,16 +27,26 @@ function isPlanExpired(validUntil: string | null) {
   return Number.isFinite(parsed) && parsed < Date.now();
 }
 
+export function getEmailDispatchGuard(): EmailDispatchGuard {
+  const apiKey = process.env.RESEND_API_KEY;
+  const from = process.env.RESEND_FROM;
+  if (!apiKey || !from) {
+    return { ok: false, status: 503, error: "Email not configured" };
+  }
+  return { ok: true, status: 200 };
+}
+
 async function sendAlertEmail(input: {
   to: string;
   property: Property;
   searchName: string;
 }) {
-  const apiKey = process.env.RESEND_API_KEY;
-  const from = process.env.RESEND_FROM;
-  if (!apiKey || !from) {
-    return { status: "skipped" as const, error: "Email not configured" };
+  const guard = getEmailDispatchGuard();
+  if (!guard.ok) {
+    return { status: "skipped" as const, error: guard.error || "Email not configured" };
   }
+  const apiKey = process.env.RESEND_API_KEY ?? "";
+  const from = process.env.RESEND_FROM ?? "";
 
   const siteUrl = await getSiteUrl();
   const listingUrl = `${siteUrl}/properties/${input.property.id}`;
@@ -69,7 +86,26 @@ export async function dispatchSavedSearchAlerts(
   propertyId: string
 ): Promise<AlertDispatchResult> {
   if (!hasServiceRoleEnv()) {
-    return { ok: false, matched: 0, sent: 0, skipped: 0, error: "Service role missing" };
+    return {
+      ok: false,
+      matched: 0,
+      sent: 0,
+      skipped: 0,
+      status: 503,
+      error: "Service role missing",
+    };
+  }
+
+  const emailGuard = getEmailDispatchGuard();
+  if (!emailGuard.ok) {
+    return {
+      ok: false,
+      matched: 0,
+      sent: 0,
+      skipped: 0,
+      status: emailGuard.status,
+      error: emailGuard.error,
+    };
   }
 
   const adminClient = createServiceRoleClient();

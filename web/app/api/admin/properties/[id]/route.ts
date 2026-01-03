@@ -137,7 +137,16 @@ export async function PATCH(
 
   if (isApproved) {
     try {
-      await dispatchSavedSearchAlerts(id);
+      const alertResult = await dispatchSavedSearchAlerts(id);
+      if (!alertResult.ok) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: alertResult.status ?? 500,
+          startTime,
+          error: new Error(alertResult.error ?? "Alert dispatch failed"),
+        });
+      }
     } catch (err) {
       logFailure({
         request,
