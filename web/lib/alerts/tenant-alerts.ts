@@ -1,3 +1,4 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getSiteUrl } from "@/lib/env";
 import { getTenantPlanForTier } from "@/lib/plans";
@@ -109,19 +110,7 @@ export async function dispatchSavedSearchAlerts(
   }
 
   const adminClient = createServiceRoleClient();
-  const adminDb = adminClient as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        eq: (column: string, value: string) => Promise<{ data: unknown; error: { message: string } | null }>;
-      };
-      insert: (values: Record<string, unknown>) => {
-        select: (columns: string) => Promise<{ data: unknown; error: { message: string; code?: string } | null }>;
-      };
-      update: (values: Record<string, unknown>) => {
-        eq: (column: string, value: string) => Promise<{ error: { message: string } | null }>;
-      };
-    };
-  };
+  const adminDb = adminClient as SupabaseClient;
 
   const { data: propertyData, error: propertyError } = await adminDb
     .from("properties")

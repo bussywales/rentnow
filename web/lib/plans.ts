@@ -110,3 +110,9 @@ export function isListingLimitReached(count: number, plan: PlanGate | null) {
   if (!plan) return false;
   return count >= plan.maxListings;
 }
+
+export function isPlanExpired(validUntil: string | null, now = Date.now()) {
+  if (!validUntil) return false;
+  const parsed = Date.parse(validUntil);
+  return Number.isFinite(parsed) && parsed < now;
+}

@@ -108,7 +108,7 @@ export default async function BillingPage() {
           .from("saved_searches")
           .select("id", { count: "exact", head: true })
           .eq("user_id", profile.id)
-      : { data: null };
+      : { count: 0 };
 
   const { data: upgradeRequest } = await supabase
     .from("plan_upgrade_requests")

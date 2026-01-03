@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import Link from "next/link";
 import { SavedSearchManager } from "@/components/search/SavedSearchManager";
-import { getTenantPlanForTier } from "@/lib/plans";
+import { getTenantPlanForTier, isPlanExpired } from "@/lib/plans";
 import type { SavedSearch } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -41,8 +41,7 @@ export default async function SavedSearchesPage() {
     .eq("profile_id", user.id)
     .maybeSingle();
   const validUntil = planRow?.valid_until ?? null;
-  const expired =
-    !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
+  const expired = isPlanExpired(validUntil);
   const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
   const alertsEnabled = tenantPlan.instantAlerts;
 
