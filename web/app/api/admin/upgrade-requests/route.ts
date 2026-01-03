@@ -46,6 +46,14 @@ export async function PATCH(request: Request) {
   }
 
   const adminClient = createServiceRoleClient();
+  const adminDb = adminClient as unknown as {
+    from: (table: string) => {
+      upsert: (
+        values: Record<string, unknown>,
+        options?: { onConflict?: string }
+      ) => Promise<{ error: { message: string } | null }>;
+    };
+  };
   const { data: requestRow, error: requestError } = await adminClient
     .from("plan_upgrade_requests")
     .select("id, profile_id, requester_id, requested_plan_tier")
@@ -67,7 +75,7 @@ export async function PATCH(request: Request) {
   const validUntil = payload.validUntil ?? null;
 
   if (action === "approve") {
-    const { error: planError } = await adminClient
+    const { error: planError } = await adminDb
       .from("profile_plans")
       .upsert(
         {
@@ -88,7 +96,7 @@ export async function PATCH(request: Request) {
     }
 
     if (note) {
-      await adminClient
+      await adminDb
         .from("profile_billing_notes")
         .upsert(
           {
