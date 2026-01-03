@@ -54,6 +54,13 @@ export async function PATCH(request: Request) {
       ) => Promise<{ error: { message: string } | null }>;
     };
   };
+  const adminUpdate = adminClient as unknown as {
+    from: (table: string) => {
+      update: (values: Record<string, unknown>) => {
+        eq: (column: string, value: string) => Promise<{ error: { message: string } | null }>;
+      };
+    };
+  };
   const { data: requestRow, error: requestError } = await adminClient
     .from("plan_upgrade_requests")
     .select("id, profile_id, requester_id, requested_plan_tier")
@@ -121,7 +128,7 @@ export async function PATCH(request: Request) {
     });
   }
 
-  const { error: updateError } = await adminClient
+  const { error: updateError } = await adminUpdate
     .from("plan_upgrade_requests")
     .update({
       status: action === "approve" ? "approved" : "rejected",
