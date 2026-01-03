@@ -49,6 +49,7 @@ const requiredPolicies: Record<string, string[]> = {
     "upgrade requests select self",
     "upgrade requests update admin",
   ],
+  provider_settings: ["provider settings admin read", "provider settings admin write"],
 };
 
 export async function GET(request: Request) {
@@ -105,6 +106,7 @@ export async function GET(request: Request) {
       "profile_plans",
       "profile_billing_notes",
       "plan_upgrade_requests",
+      "provider_settings",
     ];
     rlsTables.forEach((table) => {
       if (!rls?.[table]?.enabled) {
@@ -189,6 +191,39 @@ export async function GET(request: Request) {
     }
     if (!columns?.plan_upgrade_requests?.status) {
       issues.push("missing column: plan_upgrade_requests.status");
+    }
+    if (!columns?.provider_settings?.stripe_mode) {
+      issues.push("missing column: provider_settings.stripe_mode");
+    }
+    if (!columns?.provider_settings?.paystack_mode) {
+      issues.push("missing column: provider_settings.paystack_mode");
+    }
+    if (!columns?.provider_settings?.flutterwave_mode) {
+      issues.push("missing column: provider_settings.flutterwave_mode");
+    }
+    if (!columns?.provider_settings?.paystack_test_secret_key) {
+      issues.push("missing column: provider_settings.paystack_test_secret_key");
+    }
+    if (!columns?.provider_settings?.paystack_live_secret_key) {
+      issues.push("missing column: provider_settings.paystack_live_secret_key");
+    }
+    if (!columns?.provider_settings?.paystack_test_public_key) {
+      issues.push("missing column: provider_settings.paystack_test_public_key");
+    }
+    if (!columns?.provider_settings?.paystack_live_public_key) {
+      issues.push("missing column: provider_settings.paystack_live_public_key");
+    }
+    if (!columns?.provider_settings?.flutterwave_test_secret_key) {
+      issues.push("missing column: provider_settings.flutterwave_test_secret_key");
+    }
+    if (!columns?.provider_settings?.flutterwave_live_secret_key) {
+      issues.push("missing column: provider_settings.flutterwave_live_secret_key");
+    }
+    if (!columns?.provider_settings?.flutterwave_test_public_key) {
+      issues.push("missing column: provider_settings.flutterwave_test_public_key");
+    }
+    if (!columns?.provider_settings?.flutterwave_live_public_key) {
+      issues.push("missing column: provider_settings.flutterwave_live_public_key");
     }
   }
 

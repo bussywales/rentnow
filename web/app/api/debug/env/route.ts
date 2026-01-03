@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { getProviderModes } from "@/lib/billing/provider-settings";
+import { getProviderModes, getProviderSettings } from "@/lib/billing/provider-settings";
 
 export async function GET() {
   const providerModes = await getProviderModes();
+  const providerSettings = await getProviderSettings();
   const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnon = process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const storageBucket = process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET;
@@ -53,6 +54,16 @@ export async function GET() {
     openai: !!openai,
     siteUrl: !!siteUrl,
     providerModes,
+    providerSettings: {
+      paystackTestSecret: !!providerSettings?.paystack_test_secret_key,
+      paystackLiveSecret: !!providerSettings?.paystack_live_secret_key,
+      paystackTestPublic: !!providerSettings?.paystack_test_public_key,
+      paystackLivePublic: !!providerSettings?.paystack_live_public_key,
+      flutterwaveTestSecret: !!providerSettings?.flutterwave_test_secret_key,
+      flutterwaveLiveSecret: !!providerSettings?.flutterwave_live_secret_key,
+      flutterwaveTestPublic: !!providerSettings?.flutterwave_test_public_key,
+      flutterwaveLivePublic: !!providerSettings?.flutterwave_live_public_key,
+    },
     stripe: {
       mode: providerModes.stripeMode,
       secret: !!stripeSecret,

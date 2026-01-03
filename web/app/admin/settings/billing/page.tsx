@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
+import { PaymentModeBadge } from "@/components/billing/PaymentModeBadge";
 import { normalizeProviderMode } from "@/lib/billing/provider-settings";
+import { maskIdentifier } from "@/lib/billing/mask";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -12,6 +14,14 @@ type ProviderSettingsRow = {
   stripe_mode?: string | null;
   paystack_mode?: string | null;
   flutterwave_mode?: string | null;
+  paystack_test_secret_key?: string | null;
+  paystack_live_secret_key?: string | null;
+  paystack_test_public_key?: string | null;
+  paystack_live_public_key?: string | null;
+  flutterwave_test_secret_key?: string | null;
+  flutterwave_live_secret_key?: string | null;
+  flutterwave_test_public_key?: string | null;
+  flutterwave_live_public_key?: string | null;
   updated_at?: string | null;
   updated_by?: string | null;
 };
@@ -42,7 +52,9 @@ async function loadSettings(): Promise<{ settings?: ProviderSettingsRow; error?:
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("provider_settings")
-    .select("stripe_mode, paystack_mode, flutterwave_mode, updated_at, updated_by")
+    .select(
+      "stripe_mode, paystack_mode, flutterwave_mode, paystack_test_secret_key, paystack_live_secret_key, paystack_test_public_key, paystack_live_public_key, flutterwave_test_secret_key, flutterwave_live_secret_key, flutterwave_test_public_key, flutterwave_live_public_key, updated_at, updated_by"
+    )
     .eq("id", "default")
     .maybeSingle();
   if (error) {
@@ -67,6 +79,20 @@ async function updateProviderSettings(formData: FormData) {
     .maybeSingle();
   if (profile?.role !== "admin") return;
 
+  const { data: existing } = await supabase
+    .from("provider_settings")
+    .select(
+      "paystack_test_secret_key, paystack_live_secret_key, paystack_test_public_key, paystack_live_public_key, flutterwave_test_secret_key, flutterwave_live_secret_key, flutterwave_test_public_key, flutterwave_live_public_key"
+    )
+    .eq("id", "default")
+    .maybeSingle();
+
+  const resolveKey = (field: string, fallback?: string | null) => {
+    const raw = formData.get(field);
+    const value = typeof raw === "string" ? raw.trim() : "";
+    return value.length > 0 ? value : fallback || null;
+  };
+
   const stripeMode = normalizeProviderMode(String(formData.get("stripe_mode") || ""));
   const paystackMode = normalizeProviderMode(String(formData.get("paystack_mode") || ""));
   const flutterwaveMode = normalizeProviderMode(String(formData.get("flutterwave_mode") || ""));
@@ -78,6 +104,38 @@ async function updateProviderSettings(formData: FormData) {
       stripe_mode: stripeMode,
       paystack_mode: paystackMode,
       flutterwave_mode: flutterwaveMode,
+      paystack_test_secret_key: resolveKey(
+        "paystack_test_secret_key",
+        (existing as ProviderSettingsRow | null)?.paystack_test_secret_key
+      ),
+      paystack_live_secret_key: resolveKey(
+        "paystack_live_secret_key",
+        (existing as ProviderSettingsRow | null)?.paystack_live_secret_key
+      ),
+      paystack_test_public_key: resolveKey(
+        "paystack_test_public_key",
+        (existing as ProviderSettingsRow | null)?.paystack_test_public_key
+      ),
+      paystack_live_public_key: resolveKey(
+        "paystack_live_public_key",
+        (existing as ProviderSettingsRow | null)?.paystack_live_public_key
+      ),
+      flutterwave_test_secret_key: resolveKey(
+        "flutterwave_test_secret_key",
+        (existing as ProviderSettingsRow | null)?.flutterwave_test_secret_key
+      ),
+      flutterwave_live_secret_key: resolveKey(
+        "flutterwave_live_secret_key",
+        (existing as ProviderSettingsRow | null)?.flutterwave_live_secret_key
+      ),
+      flutterwave_test_public_key: resolveKey(
+        "flutterwave_test_public_key",
+        (existing as ProviderSettingsRow | null)?.flutterwave_test_public_key
+      ),
+      flutterwave_live_public_key: resolveKey(
+        "flutterwave_live_public_key",
+        (existing as ProviderSettingsRow | null)?.flutterwave_live_public_key
+      ),
       updated_at: now,
       updated_by: user.id,
     },
@@ -159,6 +217,20 @@ export default async function AdminBillingSettingsPage() {
     publicLive: !!process.env.FLUTTERWAVE_PUBLIC_KEY_LIVE,
   };
 
+  const paystackStored = {
+    testSecret: settings?.paystack_test_secret_key || null,
+    liveSecret: settings?.paystack_live_secret_key || null,
+    testPublic: settings?.paystack_test_public_key || null,
+    livePublic: settings?.paystack_live_public_key || null,
+  };
+
+  const flutterwaveStored = {
+    testSecret: settings?.flutterwave_test_secret_key || null,
+    liveSecret: settings?.flutterwave_live_secret_key || null,
+    testPublic: settings?.flutterwave_test_public_key || null,
+    livePublic: settings?.flutterwave_live_public_key || null,
+  };
+
   const updatedAt = settings?.updated_at
     ? settings.updated_at.replace("T", " ").replace("Z", "")
     : "—";
@@ -170,6 +242,14 @@ export default async function AdminBillingSettingsPage() {
         <p className="text-xl font-semibold">Billing provider settings</p>
         <p className="text-sm text-slate-200">
           Toggle live/test mode per provider. Env keys remain the source of truth.
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-200">
+          <PaymentModeBadge mode={stripeMode} />
+        </div>
+        <p className="mt-2 text-xs text-slate-200">
+          {stripeMode === "test"
+            ? "You are in TEST mode. No real charges will be made."
+            : "LIVE mode enabled."}
         </p>
         <div className="mt-3 flex gap-3 text-sm">
           <Link href="/admin/billing" className="underline underline-offset-4">
@@ -234,6 +314,140 @@ export default async function AdminBillingSettingsPage() {
               </select>
             </div>
           </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Paystack stored keys</p>
+              <p className="text-xs text-slate-500">Leave blank to keep existing values.</p>
+              <div className="mt-3 grid gap-3">
+                <div>
+                  <label className="text-xs text-slate-500">Test secret key</label>
+                  <input
+                    name="paystack_test_secret_key"
+                    type="password"
+                    autoComplete="off"
+                    placeholder="ps_test_..."
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  />
+                  {paystackStored.testSecret && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Saved: {maskIdentifier(paystackStored.testSecret)}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500">Live secret key</label>
+                  <input
+                    name="paystack_live_secret_key"
+                    type="password"
+                    autoComplete="off"
+                    placeholder="ps_live_..."
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  />
+                  {paystackStored.liveSecret && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Saved: {maskIdentifier(paystackStored.liveSecret)}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500">Test public key (optional)</label>
+                  <input
+                    name="paystack_test_public_key"
+                    type="text"
+                    autoComplete="off"
+                    placeholder="pk_test_..."
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  />
+                  {paystackStored.testPublic && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Saved: {maskIdentifier(paystackStored.testPublic)}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500">Live public key (optional)</label>
+                  <input
+                    name="paystack_live_public_key"
+                    type="text"
+                    autoComplete="off"
+                    placeholder="pk_live_..."
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  />
+                  {paystackStored.livePublic && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Saved: {maskIdentifier(paystackStored.livePublic)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Flutterwave stored keys</p>
+              <p className="text-xs text-slate-500">Leave blank to keep existing values.</p>
+              <div className="mt-3 grid gap-3">
+                <div>
+                  <label className="text-xs text-slate-500">Test secret key</label>
+                  <input
+                    name="flutterwave_test_secret_key"
+                    type="password"
+                    autoComplete="off"
+                    placeholder="FLWSECK_TEST..."
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  />
+                  {flutterwaveStored.testSecret && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Saved: {maskIdentifier(flutterwaveStored.testSecret)}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500">Live secret key</label>
+                  <input
+                    name="flutterwave_live_secret_key"
+                    type="password"
+                    autoComplete="off"
+                    placeholder="FLWSECK_LIVE..."
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  />
+                  {flutterwaveStored.liveSecret && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Saved: {maskIdentifier(flutterwaveStored.liveSecret)}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500">Test public key (optional)</label>
+                  <input
+                    name="flutterwave_test_public_key"
+                    type="text"
+                    autoComplete="off"
+                    placeholder="FLWPUBK_TEST..."
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  />
+                  {flutterwaveStored.testPublic && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Saved: {maskIdentifier(flutterwaveStored.testPublic)}
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="text-xs text-slate-500">Live public key (optional)</label>
+                  <input
+                    name="flutterwave_live_public_key"
+                    type="text"
+                    autoComplete="off"
+                    placeholder="FLWPUBK_LIVE..."
+                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                  />
+                  {flutterwaveStored.livePublic && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Saved: {maskIdentifier(flutterwaveStored.livePublic)}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
           <div className="flex items-center justify-between text-xs text-slate-500">
             <span>Last updated: {updatedAt}</span>
             <Button size="sm" type="submit">
@@ -244,9 +458,9 @@ export default async function AdminBillingSettingsPage() {
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Environment readiness</h2>
+        <h2 className="text-lg font-semibold text-slate-900">Environment readiness (fallback)</h2>
         <p className="text-sm text-slate-600">
-          Keys are never shown. Green means the env key is present.
+          Keys are never shown. Green means the env key is present if database keys are missing.
         </p>
         <div className="mt-4 grid gap-6 md:grid-cols-3">
           <div>
