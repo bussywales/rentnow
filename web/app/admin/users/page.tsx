@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminUserActions } from "@/components/admin/AdminUserActions";
 import { isPlanExpired, normalizePlanTier } from "@/lib/plans";
+import { formatRoleLabel } from "@/lib/roles";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
@@ -167,7 +168,7 @@ export default async function AdminUsersPage() {
                     )}
                   </div>
                   <p className="text-slate-600">
-                    Role: {profile?.role || "unknown"} • Name: {profile?.full_name || "—"} • Plan:{" "}
+                    Role: {formatRoleLabel(profile?.role)} • Name: {profile?.full_name || "—"} • Plan:{" "}
                     {planTier}
                   </p>
                   <p className="text-xs text-slate-500">
@@ -183,6 +184,7 @@ export default async function AdminUsersPage() {
                   userId={user.id}
                   email={user.email}
                   serviceReady={serviceReady}
+                  currentRole={profile?.role ?? null}
                   planTier={plan?.plan_tier ?? null}
                   maxListingsOverride={plan?.max_listings_override ?? null}
                   validUntil={plan?.valid_until ?? null}
