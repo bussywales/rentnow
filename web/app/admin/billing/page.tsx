@@ -515,6 +515,9 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
           <Link href="/admin/users" className="underline underline-offset-4">
             User management
           </Link>
+          <Link href="/admin/settings/billing" className="underline underline-offset-4">
+            Provider settings
+          </Link>
         </div>
       </div>
 
