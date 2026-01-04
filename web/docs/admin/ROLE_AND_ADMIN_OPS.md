@@ -19,7 +19,7 @@ Sources:
 - DB enum (initial schema): `web/supabase/schema.sql` (`CREATE TYPE user_role AS ENUM ('tenant','landlord','agent','admin')`)
 - DB enum update (agent add): `web/supabase/migrations/004_profile_onboarding.sql`
 
-Status: DB and app are aligned. If you see any other value in `profiles.role`, treat it as invalid and reset to `tenant`.
+Status: DB and app are aligned. If you see any other value in `profiles.role`, treat it as invalid and reset to `tenant` (or set to `NULL` and keep onboarding incomplete if the user has not chosen a role yet).
 
 ## What “Incomplete” means
 The app treats a profile as incomplete when either:
@@ -27,6 +27,14 @@ The app treats a profile as incomplete when either:
 - `profiles.role` is null/invalid.
 
 This avoids showing a misleading default role before onboarding is finished.
+
+## Profile auto-creation (auth trigger)
+The database now auto-creates a `public.profiles` row for every new `auth.users` record.
+This prevents Admin from seeing "missing profile" rows after sign-up and ensures the onboarding
+state is explicit from day one.
+
+If you still see **Profile missing** in Admin, apply:
+- `web/supabase/migrations/026_profiles_autocreate_trigger.sql`
 
 ## Admin UI: Promote/Demote a user
 Path: `Admin → Users` (`/admin/users`)

@@ -4,6 +4,7 @@
 - Added onboarding completion flags to make role state explicit.
 - Updated onboarding to persist role + completion state for tenant/landlord/agent.
 - Made Admin → Users show “Incomplete” when onboarding is not finished.
+- Added an auth.users trigger to auto-create missing profile rows.
 
 ## 2026-01-04 — docs: admin role ops runbook
 - Documented admin role management steps, API shape, and emergency recovery SQL.
