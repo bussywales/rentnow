@@ -61,9 +61,8 @@ async function getUsers() {
     console.error("[admin/users] listUsers failed", error.message);
     return { users: [], profiles: [], plans: [], notes: [], pendingCount: 0, pendingMap: {} as Record<string, number> };
   }
-  const supabase = await createServerSupabaseClient();
   const ids = (data.users || []).map((u) => u.id);
-  const { data: profiles } = await supabase
+  const { data: profiles } = await adminClient
     .from("profiles")
     .select("id, role, full_name, onboarding_completed")
     .in("id", ids);
