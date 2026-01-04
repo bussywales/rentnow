@@ -134,6 +134,12 @@ export async function GET(request: Request) {
     });
 
     if (!columns?.profiles?.id) issues.push("missing column: profiles.id");
+    if (!columns?.profiles?.onboarding_completed) {
+      issues.push("missing column: profiles.onboarding_completed");
+    }
+    if (!columns?.profiles?.onboarding_completed_at) {
+      issues.push("missing column: profiles.onboarding_completed_at");
+    }
     if (!columns?.properties?.owner_id) issues.push("missing column: properties.owner_id");
     if (!columns?.properties?.is_approved) issues.push("missing column: properties.is_approved");
     if (!columns?.properties?.is_active) issues.push("missing column: properties.is_active");

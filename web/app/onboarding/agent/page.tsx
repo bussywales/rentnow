@@ -47,6 +47,9 @@ export default function AgentOnboardingPage() {
       const { error: updateError } = await supabase
         .from("profiles")
         .update({
+          role: "agent",
+          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString(),
           business_name: form.business_name || null,
           phone: form.phone || null,
           preferred_contact: form.preferred_contact || null,

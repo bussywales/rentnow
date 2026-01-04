@@ -47,6 +47,9 @@ export default function LandlordOnboardingPage() {
       const { error: updateError } = await supabase
         .from("profiles")
         .update({
+          role: "landlord",
+          onboarding_completed: true,
+          onboarding_completed_at: new Date().toISOString(),
           business_name: form.business_name || null,
           phone: form.phone || null,
           preferred_contact: form.preferred_contact || null,

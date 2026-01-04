@@ -29,6 +29,7 @@ Apply SQL files in this order:
 22) `web/supabase/migrations/022_provider_payment_events.sql`
 23) `web/supabase/migrations/023_profile_plans_billing_source_flutterwave.sql`
 24) `web/supabase/migrations/024_admin_role_management.sql`
+25) `web/supabase/migrations/025_profiles_onboarding_state.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -166,6 +167,8 @@ where table_schema = 'public'
   )
   and column_name in (
     'id',
+    'onboarding_completed',
+    'onboarding_completed_at',
     'user_id',
     'owner_id',
     'tenant_id',

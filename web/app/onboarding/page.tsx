@@ -75,9 +75,15 @@ export default function OnboardingPage() {
       return;
     }
 
+    const completedNow = selected === "tenant";
     const { error: profileError } = await supabase
       .from("profiles")
-      .upsert({ id: user.id, role: selected });
+      .upsert({
+        id: user.id,
+        role: selected,
+        onboarding_completed: completedNow,
+        onboarding_completed_at: completedNow ? new Date().toISOString() : null,
+      });
 
     if (profileError) {
       setError(profileError.message);

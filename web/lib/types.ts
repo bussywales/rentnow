@@ -7,6 +7,8 @@ export type PropertyStatus = "draft" | "pending" | "live" | "rejected" | "paused
 export interface Profile {
   id: string;
   role: UserRole;
+  onboarding_completed?: boolean | null;
+  onboarding_completed_at?: string | null;
   full_name?: string | null;
   phone?: string | null;
   city?: string | null;
