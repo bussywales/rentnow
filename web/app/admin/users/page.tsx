@@ -45,10 +45,11 @@ async function requireAdmin() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, onboarding_completed")
     .eq("id", user.id)
     .maybeSingle();
   if (profile?.role !== "admin") redirect("/forbidden?reason=role");
+  if (!profile?.onboarding_completed) redirect("/forbidden?reason=onboarding");
 }
 
 async function getUsers() {
