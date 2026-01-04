@@ -161,6 +161,10 @@ export default async function AdminUsersPage() {
             const planTier = normalizePlanTier(plan?.plan_tier ?? "free");
             const expired = isPlanExpired(plan?.valid_until ?? null);
             const pendingForUser = pendingMap[user.id] ?? 0;
+            const profileMissing = !profile;
+            const roleLabel = profileMissing
+              ? "Profile missing"
+              : formatRoleStatus(profile?.role, profile?.onboarding_completed ?? null);
             return (
               <div key={user.id} className="flex flex-col gap-2 py-3 md:flex-row md:items-center md:justify-between">
                 <div>
@@ -171,11 +175,14 @@ export default async function AdminUsersPage() {
                         Pending request
                       </span>
                     )}
+                    {profileMissing && (
+                      <span className="rounded-full bg-rose-100 px-2 py-1 text-xs text-rose-700">
+                        Profile missing
+                      </span>
+                    )}
                   </div>
                   <p className="text-slate-600">
-                    Role: {formatRoleStatus(profile?.role, profile?.onboarding_completed ?? null)} • Name:{" "}
-                    {profile?.full_name || "—"} • Plan:{" "}
-                    {planTier}
+                    Role: {roleLabel} • Name: {profile?.full_name || "—"} • Plan: {planTier}
                   </p>
                   <p className="text-xs text-slate-500">
                     Source: {plan?.billing_source || "manual"} • Status: {plan?.stripe_status || "—"} • Valid
