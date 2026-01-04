@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-04 — v1.7.8-r6.6.1-role-truth-fix
+- Added onboarding completion flags to make role state explicit.
+- Updated onboarding to persist role + completion state for tenant/landlord/agent.
+- Made Admin → Users show “Incomplete” when onboarding is not finished.
+
 ## 2026-01-04 — docs: admin role ops runbook
 - Documented admin role management steps, API shape, and emergency recovery SQL.
 - Added a role source-of-truth section and verification checklist.

@@ -21,6 +21,13 @@ Sources:
 
 Status: DB and app are aligned. If you see any other value in `profiles.role`, treat it as invalid and reset to `tenant`.
 
+## What “Incomplete” means
+The app treats a profile as incomplete when either:
+- `profiles.onboarding_completed = false`, or
+- `profiles.role` is null/invalid.
+
+This avoids showing a misleading default role before onboarding is finished.
+
 ## Admin UI: Promote/Demote a user
 Path: `Admin → Users` (`/admin/users`)
 
@@ -32,6 +39,7 @@ Steps:
 
 Expected outcomes:
 - Role is updated in `public.profiles.role`.
+- `profiles.onboarding_completed` is set to true (admin override completes onboarding).
 - An audit row is written in `public.role_change_audit`.
 - The UI confirms success.
 
@@ -61,10 +69,12 @@ Responses:
 ## Emergency SQL (lockout recovery only)
 Use only if no admin can access the UI/API. Execute in Supabase SQL editor.
 
-1) Force a known role:
+1) Force a known role and mark onboarding complete:
 ```sql
 UPDATE public.profiles
-SET role = 'admin'
+SET role = 'admin',
+    onboarding_completed = true,
+    onboarding_completed_at = NOW()
 WHERE id = '<profile_id>';
 ```
 
@@ -94,6 +104,12 @@ FROM public.profiles
 GROUP BY role
 ORDER BY role;
 
+-- Check onboarding completion
+SELECT onboarding_completed, COUNT(*)
+FROM public.profiles
+GROUP BY onboarding_completed
+ORDER BY onboarding_completed;
+
 -- Ensure audit trail is writing
 SELECT COUNT(*) AS audit_rows
 FROM public.role_change_audit;
@@ -105,20 +121,22 @@ App checks:
 
 ## Common issues
 - **"Unknown" or missing role in UI**:
-  - Cause: `profiles.role` is null/invalid.
-  - Fix: set role to `tenant` or the intended value; the UI now labels invalid roles as “Incomplete” and redirects to `/onboarding`.
+  - Cause: `profiles.role` is null/invalid, or onboarding not completed.
+  - Fix: set role and mark onboarding complete via Admin UI; the UI labels incomplete profiles as “Incomplete” and redirects to `/onboarding`.
 
 - **Role changes fail with 503**:
   - Cause: service role env missing.
   - Fix: ensure `SUPABASE_SERVICE_ROLE_KEY` is configured server-side.
 
 - **User stuck in onboarding**:
-  - Cause: role not set or invalid.
-  - Fix: set role via admin UI or emergency SQL, then re-login.
+  - Cause: role not set/invalid, or onboarding_completed still false.
+  - Fix: set role via admin UI (with reason), or use emergency SQL to set onboarding_completed true.
 
 ## Migration reference
 - `web/supabase/migrations/024_admin_role_management.sql`
   - Sets default role to `tenant`
   - Backfills invalid/null roles
   - Adds `role_change_audit` table + RLS
-
+- `web/supabase/migrations/025_profiles_onboarding_state.sql`
+  - Adds onboarding completion fields
+  - Backfills onboarding state for existing users
