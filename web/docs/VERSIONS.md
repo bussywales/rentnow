@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-04 — docs: admin role ops runbook
+- Documented admin role management steps, API shape, and emergency recovery SQL.
+- Added a role source-of-truth section and verification checklist.
+
 ## 2026-01-04 — v1.7.7-r6.6-paystack-flutterwave-testmode
 - Added Paystack + Flutterwave init/verify flows with plan application and manual override safety.
 - Added provider payment events audit table and admin viewer for Paystack/Flutterwave activity.
