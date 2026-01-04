@@ -17,6 +17,17 @@ export function formatRoleLabel(value?: string | null): string {
   return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
+export function formatRoleStatus(
+  roleValue?: string | null,
+  onboardingCompleted?: boolean | null
+): string {
+  const role = normalizeRole(roleValue);
+  const completionKnown = typeof onboardingCompleted === "boolean";
+  const isComplete = completionKnown ? onboardingCompleted : !!role;
+  if (!role || !isComplete) return "Incomplete";
+  return formatRoleLabel(role);
+}
+
 export function isAdminRole(value?: string | null): boolean {
   return normalizeRole(value) === "admin";
 }

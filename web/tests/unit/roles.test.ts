@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { formatRoleLabel, isAdminRole, normalizeRole, ROLE_VALUES } from "../../lib/roles";
+import { formatRoleLabel, formatRoleStatus, isAdminRole, normalizeRole, ROLE_VALUES } from "../../lib/roles";
 
 void test("normalizeRole accepts known roles and rejects unknown values", () => {
   assert.equal(normalizeRole("tenant"), "tenant");
@@ -14,6 +14,13 @@ void test("normalizeRole accepts known roles and rejects unknown values", () => 
 void test("formatRoleLabel returns a readable label or Incomplete", () => {
   assert.equal(formatRoleLabel("agent"), "Agent");
   assert.equal(formatRoleLabel("invalid"), "Incomplete");
+});
+
+void test("formatRoleStatus respects onboarding completion", () => {
+  assert.equal(formatRoleStatus(null, false), "Incomplete");
+  assert.equal(formatRoleStatus("tenant", false), "Incomplete");
+  assert.equal(formatRoleStatus("landlord", true), "Landlord");
+  assert.equal(formatRoleStatus("agent", null), "Agent");
 });
 
 void test("isAdminRole only returns true for admin", () => {

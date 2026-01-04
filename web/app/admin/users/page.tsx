@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminUserActions } from "@/components/admin/AdminUserActions";
 import { isPlanExpired, normalizePlanTier } from "@/lib/plans";
-import { formatRoleLabel } from "@/lib/roles";
+import { formatRoleStatus } from "@/lib/roles";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
@@ -16,7 +16,12 @@ type AdminAuthUser = {
   last_sign_in_at?: string;
 };
 
-type ProfileRow = { id: string; role: string | null; full_name: string | null };
+type ProfileRow = {
+  id: string;
+  role: string | null;
+  full_name: string | null;
+  onboarding_completed?: boolean | null;
+};
 type PlanRow = {
   profile_id: string;
   plan_tier: string | null;
@@ -60,7 +65,7 @@ async function getUsers() {
   const ids = (data.users || []).map((u) => u.id);
   const { data: profiles } = await supabase
     .from("profiles")
-    .select("id, role, full_name")
+    .select("id, role, full_name, onboarding_completed")
     .in("id", ids);
   const { data: plans } = await adminClient
     .from("profile_plans")
@@ -168,7 +173,8 @@ export default async function AdminUsersPage() {
                     )}
                   </div>
                   <p className="text-slate-600">
-                    Role: {formatRoleLabel(profile?.role)} • Name: {profile?.full_name || "—"} • Plan:{" "}
+                    Role: {formatRoleStatus(profile?.role, profile?.onboarding_completed ?? null)} • Name:{" "}
+                    {profile?.full_name || "—"} • Plan:{" "}
                     {planTier}
                   </p>
                   <p className="text-xs text-slate-500">
@@ -185,6 +191,7 @@ export default async function AdminUsersPage() {
                   email={user.email}
                   serviceReady={serviceReady}
                   currentRole={profile?.role ?? null}
+                  onboardingCompleted={profile?.onboarding_completed ?? null}
                   planTier={plan?.plan_tier ?? null}
                   maxListingsOverride={plan?.max_listings_override ?? null}
                   validUntil={plan?.valid_until ?? null}

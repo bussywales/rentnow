@@ -9,6 +9,7 @@ type Props = {
   email?: string;
   serviceReady: boolean;
   currentRole?: string | null;
+  onboardingCompleted?: boolean | null;
   planTier?: string | null;
   maxListingsOverride?: number | null;
   validUntil?: string | null;
@@ -20,6 +21,7 @@ export function AdminUserActions({
   email,
   serviceReady,
   currentRole,
+  onboardingCompleted,
   planTier,
   maxListingsOverride,
   validUntil,
@@ -32,7 +34,9 @@ export function AdminUserActions({
   const [roleStatus, setRoleStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [roleMessage, setRoleMessage] = useState<string | null>(null);
   const normalizedRole = normalizeRole(currentRole);
-  const [roleValue, setRoleValue] = useState<KnownRole>(normalizedRole ?? "tenant");
+  const onboardingComplete =
+    typeof onboardingCompleted === "boolean" ? onboardingCompleted : null;
+  const [roleValue, setRoleValue] = useState<KnownRole | "">(normalizedRole ?? "");
   const [roleReason, setRoleReason] = useState("");
   const [tier, setTier] = useState(planTier || "free");
   const [override, setOverride] = useState(
@@ -100,7 +104,12 @@ export function AdminUserActions({
       setRoleMessage("Reason is required.");
       return;
     }
-    if (normalizedRole && normalizedRole === roleValue) {
+    if (!roleValue) {
+      setRoleStatus("error");
+      setRoleMessage("Select a role before saving.");
+      return;
+    }
+    if (normalizedRole && normalizedRole === roleValue && onboardingComplete !== false) {
       setRoleStatus("error");
       setRoleMessage("Role is unchanged.");
       return;
@@ -173,6 +182,9 @@ export function AdminUserActions({
               onChange={(event) => setRoleValue(event.target.value as KnownRole)}
               disabled={!serviceReady || roleStatus === "loading"}
             >
+              <option value="" disabled>
+                Select role
+              </option>
               <option value="tenant">Tenant</option>
               <option value="landlord">Landlord</option>
               <option value="agent">Agent</option>

@@ -42,8 +42,8 @@ export async function POST(request: Request) {
   const adminDb = adminClient as unknown as UntypedAdminClient;
 
   const { data: existingProfile, error: fetchError } = await adminDb
-    .from<{ role: string | null }>("profiles")
-    .select("role")
+    .from<{ role: string | null; onboarding_completed: boolean | null }>("profiles")
+    .select("role, onboarding_completed")
     .eq("id", profileId)
     .maybeSingle();
 
@@ -63,13 +63,19 @@ export async function POST(request: Request) {
   }
 
   const oldRole = normalizeRole(existingProfile.role ?? null);
-  if (oldRole === role) {
+  const onboardingCompleted = existingProfile.onboarding_completed;
+  const shouldUpdateOnboarding = onboardingCompleted !== true;
+  if (oldRole === role && !shouldUpdateOnboarding) {
     return NextResponse.json({ ok: true, status: "no_change" });
   }
 
   const { error: updateError } = await adminDb
     .from("profiles")
-    .update({ role })
+    .update({
+      role,
+      onboarding_completed: true,
+      onboarding_completed_at: new Date().toISOString(),
+    })
     .eq("id", profileId);
 
   if (updateError) {
