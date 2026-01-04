@@ -41,8 +41,8 @@ export async function POST(request: Request) {
   const adminClient = createServiceRoleClient();
   const adminDb = adminClient as unknown as UntypedAdminClient;
 
-  const { data: existingProfile, error: fetchError } = await adminClient
-    .from("profiles")
+  const { data: existingProfile, error: fetchError } = await adminDb
+    .from<{ role: string | null }>("profiles")
     .select("role")
     .eq("id", profileId)
     .maybeSingle();
@@ -67,7 +67,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, status: "no_change" });
   }
 
-  const { error: updateError } = await adminClient
+  const { error: updateError } = await adminDb
     .from("profiles")
     .update({ role })
     .eq("id", profileId);

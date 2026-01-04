@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { normalizeRole } from "@/lib/roles";
+import { normalizeRole, type KnownRole } from "@/lib/roles";
 
 type Props = {
   userId: string;
@@ -32,7 +32,7 @@ export function AdminUserActions({
   const [roleStatus, setRoleStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [roleMessage, setRoleMessage] = useState<string | null>(null);
   const normalizedRole = normalizeRole(currentRole);
-  const [roleValue, setRoleValue] = useState(normalizedRole || "tenant");
+  const [roleValue, setRoleValue] = useState<KnownRole>(normalizedRole ?? "tenant");
   const [roleReason, setRoleReason] = useState("");
   const [tier, setTier] = useState(planTier || "free");
   const [override, setOverride] = useState(
@@ -170,7 +170,7 @@ export function AdminUserActions({
             <select
               className="ml-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
               value={roleValue}
-              onChange={(event) => setRoleValue(event.target.value)}
+              onChange={(event) => setRoleValue(event.target.value as KnownRole)}
               disabled={!serviceReady || roleStatus === "loading"}
             >
               <option value="tenant">Tenant</option>
