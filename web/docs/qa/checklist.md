@@ -65,3 +65,9 @@
 - Trigger rate limiting with rapid sends and confirm the cooldown UI appears.
 - Verify a row appears in `public.messaging_throttle_events` for the rate-limited attempt.
 - Open `/admin/support` and confirm throttle telemetry counts and top senders render.
+
+## PWA foundation
+- Confirm install prompt appears in the browser (or install button in DevTools).
+- Confirm the service worker registers and is active.
+- Go offline and refresh a public route; `/offline` should render.
+- Confirm `/api/*`, `/dashboard/*`, `/admin/*`, `/auth/*` are not cached.

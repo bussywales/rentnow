@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-09 — v1.7.14-r6.8-pwa-foundation
+- Added installable PWA manifest, icons, and service worker shell caching.
+- Added offline fallback route and lightweight offline indicator.
+- Added PWA ops runbook notes and QA checklist coverage.
+
 ## 2026-01-08 — fix: throttle telemetry column naming
 - Renamed messaging throttle telemetry column from reserved `limit` to `max_sends`.
 - Updated telemetry insert payloads and RLS/debug checks to match the schema.
