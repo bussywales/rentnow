@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-10 — fix: tighten push subscription RLS policies
+- Scoped push subscription policies to the authenticated role only.
+- Kept ownership checks enforced via `auth.uid()` on all write paths.
+
 ## 2026-01-10 — v1.7.15-r6.9-pwa-push-alerts
 - Added Web Push subscriptions model with RLS and server APIs for subscribe/unsubscribe/status.
 - Extended saved-search alerts with optional push delivery and failure auditing.

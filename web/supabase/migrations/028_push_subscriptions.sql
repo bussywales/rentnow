@@ -40,23 +40,23 @@ ALTER TABLE public.push_subscriptions FORCE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "push subscriptions select self" ON public.push_subscriptions;
 CREATE POLICY "push subscriptions select self" ON public.push_subscriptions
-  FOR SELECT
+  FOR SELECT TO authenticated
   USING (auth.uid() = profile_id);
 
 DROP POLICY IF EXISTS "push subscriptions insert self" ON public.push_subscriptions;
 CREATE POLICY "push subscriptions insert self" ON public.push_subscriptions
-  FOR INSERT
+  FOR INSERT TO authenticated
   WITH CHECK (auth.uid() = profile_id);
 
 DROP POLICY IF EXISTS "push subscriptions update self" ON public.push_subscriptions;
 CREATE POLICY "push subscriptions update self" ON public.push_subscriptions
-  FOR UPDATE
+  FOR UPDATE TO authenticated
   USING (auth.uid() = profile_id)
   WITH CHECK (auth.uid() = profile_id);
 
 DROP POLICY IF EXISTS "push subscriptions delete self" ON public.push_subscriptions;
 CREATE POLICY "push subscriptions delete self" ON public.push_subscriptions
-  FOR DELETE
+  FOR DELETE TO authenticated
   USING (auth.uid() = profile_id);
 
 CREATE OR REPLACE FUNCTION public.debug_rls_status()
