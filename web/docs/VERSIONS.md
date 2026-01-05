@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-04 — v1.7.9-r6.7-admin-users-api-tests
+- Added a testable admin users API handler for regression coverage.
+- Added unit coverage for admin/non-admin access to `/api/admin/users`.
+- Documented admin users API response expectations in the ops runbook.
+
 ## 2026-01-04 — v1.7.8-r6.6.1-role-truth-fix
 - Added onboarding completion flags to make role state explicit.
 - Updated onboarding to persist role + completion state for tenant/landlord/agent.

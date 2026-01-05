@@ -74,6 +74,15 @@ Responses:
 - `403` if not admin
 - `503` if service role key missing
 
+## Admin API: List users
+Endpoint (admin-only):
+- `GET /api/admin/users`
+
+Responses:
+- `200 { users: [...] }` on success
+- `403` if not admin
+- `503` if service role key missing
+
 ## Emergency SQL (lockout recovery only)
 Use only if no admin can access the UI/API. Execute in Supabase SQL editor.
 
@@ -125,6 +134,7 @@ FROM public.role_change_audit;
 
 App checks:
 - `/api/debug/rls` returns `ok:true` for admin and `401/403` for non-admin.
+- `/api/admin/users` returns `403` for non-admin and `200` for admin when service role env is set.
 - A role change in `/admin/users` creates a new row in `role_change_audit`.
 
 ## Common issues
