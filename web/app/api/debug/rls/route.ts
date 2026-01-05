@@ -58,6 +58,7 @@ const requiredPolicies: Record<string, string[]> = {
     "provider events admin update",
   ],
   role_change_audit: ["role change audit admin read", "role change audit admin insert"],
+  messaging_throttle_events: ["messaging throttle admin read"],
 };
 
 export async function GET(request: Request) {
@@ -117,6 +118,7 @@ export async function GET(request: Request) {
       "provider_settings",
       "provider_payment_events",
       "role_change_audit",
+      "messaging_throttle_events",
     ];
     rlsTables.forEach((table) => {
       if (!rls?.[table]?.enabled) {
@@ -285,6 +287,39 @@ export async function GET(request: Request) {
     }
     if (!columns?.role_change_audit?.created_at) {
       issues.push("missing column: role_change_audit.created_at");
+    }
+    if (!columns?.messaging_throttle_events?.actor_profile_id) {
+      issues.push("missing column: messaging_throttle_events.actor_profile_id");
+    }
+    if (!columns?.messaging_throttle_events?.thread_key) {
+      issues.push("missing column: messaging_throttle_events.thread_key");
+    }
+    if (!columns?.messaging_throttle_events?.property_id) {
+      issues.push("missing column: messaging_throttle_events.property_id");
+    }
+    if (!columns?.messaging_throttle_events?.recipient_profile_id) {
+      issues.push("missing column: messaging_throttle_events.recipient_profile_id");
+    }
+    if (!columns?.messaging_throttle_events?.reason_code) {
+      issues.push("missing column: messaging_throttle_events.reason_code");
+    }
+    if (!columns?.messaging_throttle_events?.retry_after_seconds) {
+      issues.push("missing column: messaging_throttle_events.retry_after_seconds");
+    }
+    if (!columns?.messaging_throttle_events?.window_seconds) {
+      issues.push("missing column: messaging_throttle_events.window_seconds");
+    }
+    if (!columns?.messaging_throttle_events?.limit) {
+      issues.push("missing column: messaging_throttle_events.limit");
+    }
+    if (!columns?.messaging_throttle_events?.mode) {
+      issues.push("missing column: messaging_throttle_events.mode");
+    }
+    if (!columns?.messaging_throttle_events?.ip_hash) {
+      issues.push("missing column: messaging_throttle_events.ip_hash");
+    }
+    if (!columns?.messaging_throttle_events?.created_at) {
+      issues.push("missing column: messaging_throttle_events.created_at");
     }
   }
 

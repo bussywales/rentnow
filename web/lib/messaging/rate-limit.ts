@@ -68,6 +68,10 @@ function getConfig() {
   return { windowSeconds, maxSends };
 }
 
+export function getMessagingRateLimitConfig() {
+  return getConfig();
+}
+
 class InMemoryRateLimiter {
   private map = new Map<string, RateLimitState>();
   private windowMs: number;

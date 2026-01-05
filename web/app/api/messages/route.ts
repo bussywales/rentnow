@@ -3,6 +3,7 @@ import { z } from "zod";
 import { DEV_MOCKS } from "@/lib/env";
 import { getUserRole, requireUser } from "@/lib/authz";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { logFailure } from "@/lib/observability";
 import { mockProperties } from "@/lib/mock";
 import {
@@ -11,7 +12,15 @@ import {
   getMessagingReasonCta,
   type MessagingPermissionCode,
 } from "@/lib/messaging/permissions";
-import { checkMessagingRateLimit } from "@/lib/messaging/rate-limit";
+import {
+  checkMessagingRateLimit,
+  getMessagingRateLimitConfig,
+} from "@/lib/messaging/rate-limit";
+import {
+  buildThrottleTelemetryRow,
+  buildThrottleThreadKey,
+  recordThrottleTelemetryEvent,
+} from "@/lib/messaging/throttle-telemetry";
 import { mapDeliveryState, withDeliveryState } from "@/lib/messaging/status";
 import type { Message } from "@/lib/types";
 
@@ -314,6 +323,51 @@ export async function POST(request: Request) {
     });
 
     if (!rateLimit.allowed) {
+      if (hasServiceRoleEnv()) {
+        const config = getMessagingRateLimitConfig();
+        const threadKey = buildThrottleThreadKey({
+          propertyId: payload.property_id,
+          recipientId: payload.recipient_id,
+          senderId: auth.user.id,
+        });
+        try {
+          const adminClient = createServiceRoleClient();
+          const row = buildThrottleTelemetryRow({
+            actorProfileId: auth.user.id,
+            threadKey,
+            propertyId: payload.property_id,
+            recipientProfileId: payload.recipient_id,
+            retryAfterSeconds: rateLimit.retryAfterSeconds,
+            windowSeconds: config.windowSeconds,
+            limit: config.maxSends,
+            mode: "send_message",
+          });
+          const result = await recordThrottleTelemetryEvent({
+            client: adminClient,
+            code: "rate_limited",
+            row,
+          });
+          if (!result.ok && !result.skipped) {
+            logFailure({
+              request,
+              route: routeLabel,
+              status: 500,
+              startTime,
+              level: "warn",
+              error: result.error || "messaging throttle telemetry insert failed",
+            });
+          }
+        } catch (err) {
+          logFailure({
+            request,
+            route: routeLabel,
+            status: 500,
+            startTime,
+            level: "warn",
+            error: err,
+          });
+        }
+      }
       return permissionErrorResponse("rate_limited", {
         retry_after_seconds: rateLimit.retryAfterSeconds,
         cta: getMessagingReasonCta("rate_limited"),
