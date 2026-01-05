@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
+import { deriveDeliveryState, formatDeliveryState } from "@/lib/messaging/status";
 import type { Message, Profile } from "@/lib/types";
 
 type Props = {
@@ -10,11 +11,23 @@ type Props = {
   currentUser?: Profile | null;
   onSend?: (body: string) => Promise<void> | void;
   loading?: boolean;
+  canSend?: boolean;
+  sendDisabledReason?: string | null;
+  rules?: string[];
 };
 
-export function MessageThread({ messages, currentUser, onSend, loading }: Props) {
+export function MessageThread({
+  messages,
+  currentUser,
+  onSend,
+  loading,
+  canSend,
+  sendDisabledReason,
+  rules,
+}: Props) {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
+  const sendAllowed = typeof canSend === "boolean" ? canSend : !!onSend;
 
   const handleSend = async () => {
     if (!body.trim()) return;
@@ -45,6 +58,11 @@ export function MessageThread({ messages, currentUser, onSend, loading }: Props)
               <p className="mb-1 text-xs text-slate-500">
                 {message.sender_id === currentUser?.id ? "You" : "Contact"} -{" "}
                 {new Date(message.created_at || "").toLocaleString()}
+                {message.sender_id === currentUser?.id && (
+                  <span className="ml-2 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500">
+                    {formatDeliveryState(deriveDeliveryState(message))}
+                  </span>
+                )}
               </p>
               <p>{message.body}</p>
             </div>
@@ -54,17 +72,38 @@ export function MessageThread({ messages, currentUser, onSend, loading }: Props)
         )}
       </div>
       <div className="space-y-2">
-        <Textarea
-          rows={3}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-          placeholder="Ask about availability, payment terms, or viewing details."
-        />
-        <div className="flex justify-end">
-          <Button onClick={handleSend} disabled={sending}>
-            {sending ? "Sending..." : "Send message"}
-          </Button>
-        </div>
+        {rules?.length ? (
+          <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+              Messaging rules
+            </p>
+            <ul className="mt-2 space-y-1">
+              {rules.map((rule) => (
+                <li key={rule}>• {rule}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+        {sendAllowed ? (
+          <>
+            <Textarea
+              rows={3}
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Ask about availability, payment terms, or viewing details."
+              disabled={sending}
+            />
+            <div className="flex justify-end">
+              <Button onClick={handleSend} disabled={sending}>
+                {sending ? "Sending..." : "Send message"}
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            {sendDisabledReason || "Messaging is read-only here."}
+          </div>
+        )}
       </div>
     </div>
   );

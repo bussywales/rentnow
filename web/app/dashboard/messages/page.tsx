@@ -1,6 +1,7 @@
 import { MessageThread } from "@/components/messaging/MessageThread";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { DEV_MOCKS } from "@/lib/env";
+import { MESSAGING_RULES } from "@/lib/messaging/permissions";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Message, Profile } from "@/lib/types";
 
@@ -85,7 +86,13 @@ export default async function MessagesPage() {
           </p>
         )}
       </div>
-      <MessageThread messages={messages} currentUser={currentUser} />
+      <MessageThread
+        messages={messages}
+        currentUser={currentUser}
+        canSend={false}
+        sendDisabledReason="Messaging is read-only here. Open a listing to contact the host."
+        rules={MESSAGING_RULES}
+      />
     </div>
   );
 }

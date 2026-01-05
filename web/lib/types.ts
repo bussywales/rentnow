@@ -4,6 +4,8 @@ export type RentalType = "short_let" | "long_term";
 
 export type PropertyStatus = "draft" | "pending" | "live" | "rejected" | "paused";
 
+export type MessageDeliveryState = "sent" | "delivered" | "read";
+
 export interface Profile {
   id: string;
   role: UserRole | null;
@@ -68,6 +70,7 @@ export interface Message {
   recipient_id: string;
   body: string;
   created_at?: string;
+  delivery_state?: MessageDeliveryState;
 }
 
 export interface ViewingRequest {

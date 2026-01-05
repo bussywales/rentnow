@@ -12,7 +12,7 @@ import { DEV_MOCKS, getApiBaseUrl, getCanonicalBaseUrl, getEnvPresence } from "@
 import { mockProperties } from "@/lib/mock";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getTenantPlanForTier } from "@/lib/plans";
-import type { Property } from "@/lib/types";
+import type { Profile, Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -201,6 +201,7 @@ export default async function PropertyDetail({ params }: Props) {
   let isSaved = false;
   let isTenant = false;
   let isTenantPro = false;
+  let currentUser: Profile | null = null;
   let similar: Property[] = [];
   if (hasServerSupabaseEnv()) {
     try {
@@ -211,10 +212,15 @@ export default async function PropertyDetail({ params }: Props) {
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role")
+          .select("role, full_name")
           .eq("id", user.id)
           .maybeSingle();
         isTenant = profile?.role === "tenant";
+        currentUser = {
+          id: user.id,
+          role: profile?.role ?? null,
+          full_name: profile?.full_name || user.email || "You",
+        };
 
         const { data: planRow } = await supabase
           .from("profile_plans")
@@ -458,6 +464,7 @@ export default async function PropertyDetail({ params }: Props) {
             <MessageThreadClient
               propertyId={property.id}
               recipientId={property.owner_id}
+              currentUser={currentUser}
             />
           </div>
         </div>
