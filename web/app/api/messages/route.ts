@@ -6,8 +6,8 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
 import { mockProperties } from "@/lib/mock";
 import {
+  buildMessagingPermission,
   getMessagingPermission,
-  getMessagingPermissionMessage,
   type MessagingPermissionCode,
 } from "@/lib/messaging/permissions";
 import { mapDeliveryState, withDeliveryState } from "@/lib/messaging/status";
@@ -26,38 +26,39 @@ type PermissionPayload = {
 };
 
 function buildPermission(code: MessagingPermissionCode): PermissionPayload {
-  return {
-    allowed: false,
-    code,
-    message: getMessagingPermissionMessage(code),
-  };
+  return buildMessagingPermission(code);
 }
 
 function permissionStatus(code: MessagingPermissionCode): number {
   switch (code) {
-    case "auth_required":
+    case "not_authenticated":
       return 401;
-    case "missing_property":
-    case "self_message":
-      return 400;
-    case "property_not_found":
+    case "rate_limited":
+      return 429;
+    case "property_not_accessible":
       return 404;
-    case "messaging_unavailable":
+    case "unknown":
       return 503;
     default:
       return 403;
   }
 }
 
-function permissionErrorResponse(
+export function buildPermissionResponseBody(
   code: MessagingPermissionCode,
   extra: Record<string, unknown> = {}
 ) {
   const permission = buildPermission(code);
-  return NextResponse.json(
-    { error: permission.message, code: permission.code, permission, ...extra },
-    { status: permissionStatus(code) }
-  );
+  return { error: permission.message, code: permission.code, permission, ...extra };
+}
+
+function permissionErrorResponse(
+  code: MessagingPermissionCode,
+  extra: Record<string, unknown> = {}
+) {
+  return NextResponse.json(buildPermissionResponseBody(code, extra), {
+    status: permissionStatus(code),
+  });
 }
 
 export async function GET(request: Request) {
@@ -70,12 +71,12 @@ export async function GET(request: Request) {
   if (!propertyId) {
     return NextResponse.json({
       messages,
-      permission: buildPermission("missing_property"),
+      permission: buildPermission("property_not_accessible"),
     });
   }
 
   if (!hasServerSupabaseEnv()) {
-    const permission = buildPermission("messaging_unavailable");
+    const permission = buildPermission("unknown");
     if (DEV_MOCKS) {
       return NextResponse.json({
         messages: mapDeliveryState([
@@ -112,7 +113,7 @@ export async function GET(request: Request) {
   try {
     const auth = await requireUser({ request, route: routeLabel, startTime });
     if (!auth.ok) {
-      return permissionErrorResponse("auth_required", { messages: [] });
+      return permissionErrorResponse("not_authenticated", { messages: [] });
     }
 
     const supabase = auth.supabase;
@@ -162,7 +163,7 @@ export async function GET(request: Request) {
           startTime,
           error: new Error(error.message),
         });
-        return permissionErrorResponse("messaging_unavailable", { messages: [] });
+        return permissionErrorResponse("unknown", { messages: [] });
       }
     } else if (data) {
       messages = mapDeliveryState(data);
@@ -179,7 +180,7 @@ export async function GET(request: Request) {
           isOwner: auth.user.id === propertyOwnerId,
           hasThread,
         })
-      : buildPermission("property_unavailable");
+      : buildPermission("property_not_accessible");
 
     return NextResponse.json({ messages, permission });
   } catch (err: unknown) {
@@ -202,12 +203,12 @@ export async function GET(request: Request) {
         startTime,
         error: err,
       });
-      return permissionErrorResponse("messaging_unavailable", { messages: [] });
+      return permissionErrorResponse("unknown", { messages: [] });
     }
   }
   return NextResponse.json({
     messages,
-    permission: buildPermission("messaging_unavailable"),
+    permission: buildPermission("unknown"),
   });
 }
 
@@ -223,19 +224,23 @@ export async function POST(request: Request) {
       startTime,
       error: "Supabase env vars missing",
     });
-    return permissionErrorResponse("messaging_unavailable");
+    return permissionErrorResponse("unknown");
   }
 
   try {
     const auth = await requireUser({ request, route: routeLabel, startTime });
     if (!auth.ok) {
-      return permissionErrorResponse("auth_required");
+      return permissionErrorResponse("not_authenticated");
     }
     const supabase = auth.supabase;
     const role = await getUserRole(supabase, auth.user.id);
 
-    const body = await request.json();
-    const payload = messageSchema.parse(body);
+    const body = await request.json().catch(() => null);
+    const parsed = messageSchema.safeParse(body);
+    if (!parsed.success) {
+      return permissionErrorResponse("unknown");
+    }
+    const payload = parsed.data;
 
     const { data: property, error: propertyError } = await supabase
       .from("properties")
@@ -251,7 +256,7 @@ export async function POST(request: Request) {
         startTime,
         error: "Property not found",
       });
-      return permissionErrorResponse("property_not_found");
+      return permissionErrorResponse("property_not_accessible");
     }
 
     const isOwner = auth.user.id === property.owner_id;
@@ -281,7 +286,7 @@ export async function POST(request: Request) {
     });
 
     if (!permission.allowed) {
-      const code = permission.code ?? "role_not_permitted";
+      const code = permission.code ?? "unknown";
       logFailure({
         request,
         route: routeLabel,
@@ -310,7 +315,7 @@ export async function POST(request: Request) {
         error: new Error(error.message),
       });
       return NextResponse.json(
-        { error: error.message, code: "messaging_unavailable" },
+        { error: error.message, code: "unknown" },
         { status: 400 }
       );
     }

@@ -2,8 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  MESSAGING_REASON_CODES,
   getMessagingPermission,
   getMessagingPermissionMessage,
+  getMessagingReasonCta,
 } from "../../lib/messaging/permissions";
 
 void test("tenant can message listing host when live", () => {
@@ -32,7 +34,7 @@ void test("tenant blocked when listing is not live", () => {
   });
 
   assert.equal(result.allowed, false);
-  assert.equal(result.code, "property_unavailable");
+  assert.equal(result.code, "property_not_accessible");
 });
 
 void test("host cannot start a new thread", () => {
@@ -47,7 +49,7 @@ void test("host cannot start a new thread", () => {
   });
 
   assert.equal(result.allowed, false);
-  assert.equal(result.code, "owner_cannot_start");
+  assert.equal(result.code, "conversation_not_allowed");
 });
 
 void test("self messaging is blocked", () => {
@@ -62,10 +64,23 @@ void test("self messaging is blocked", () => {
   });
 
   assert.equal(result.allowed, false);
-  assert.equal(result.code, "self_message");
+  assert.equal(result.code, "conversation_not_allowed");
 });
 
-void test("permission copy returns a user-facing message", () => {
-  const message = getMessagingPermissionMessage("owner_cannot_start");
-  assert.ok(message.includes("reply"));
+void test("reason copy and CTA mapping are exhaustive", () => {
+  for (const code of MESSAGING_REASON_CODES) {
+    const message = getMessagingPermissionMessage(code);
+    assert.equal(typeof message, "string");
+    assert.ok(message.length > 0);
+    const cta = getMessagingReasonCta(code);
+    assert.ok(cta);
+  }
+});
+
+void test("CTA routing is actionable for auth and onboarding", () => {
+  const authCta = getMessagingReasonCta("not_authenticated");
+  assert.equal(authCta?.href, "/auth/login");
+
+  const onboardingCta = getMessagingReasonCta("onboarding_incomplete");
+  assert.equal(onboardingCta?.href, "/onboarding");
 });

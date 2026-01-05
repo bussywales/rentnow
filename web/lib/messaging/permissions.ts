@@ -1,18 +1,16 @@
 import type { UserRole } from "@/lib/types";
 
-export type MessagingPermissionCode =
-  | "auth_required"
-  | "messaging_unavailable"
-  | "missing_property"
-  | "property_not_found"
-  | "property_unavailable"
-  | "role_required"
-  | "role_not_permitted"
-  | "recipient_not_owner"
-  | "owner_cannot_start"
-  | "owner_mismatch"
-  | "self_message"
-  | "recipient_role_unavailable";
+export const MESSAGING_REASON_CODES = [
+  "not_authenticated",
+  "onboarding_incomplete",
+  "role_not_allowed",
+  "property_not_accessible",
+  "conversation_not_allowed",
+  "rate_limited",
+  "unknown",
+] as const;
+
+export type MessagingPermissionCode = (typeof MESSAGING_REASON_CODES)[number];
 
 export type MessagingPermission = {
   allowed: boolean;
@@ -32,18 +30,13 @@ export type MessagingPermissionContext = {
 };
 
 const MESSAGING_PERMISSION_MESSAGES: Record<MessagingPermissionCode, string> = {
-  auth_required: "Sign in to message the host.",
-  messaging_unavailable: "Messaging is unavailable right now. Try again later.",
-  missing_property: "Select a listing before messaging.",
-  property_not_found: "Listing not found.",
-  property_unavailable: "Messaging is unavailable for this listing.",
-  role_required: "Complete onboarding to enable messaging.",
-  role_not_permitted: "Your account cannot send messages.",
-  recipient_not_owner: "Messaging is only available for the listing host.",
-  owner_cannot_start: "Hosts can reply after a tenant starts the conversation.",
-  owner_mismatch: "Only the listing host can reply in this thread.",
-  self_message: "You cannot message yourself.",
-  recipient_role_unavailable: "Messaging is restricted to tenants and listing hosts.",
+  not_authenticated: "Sign in to message the host.",
+  onboarding_incomplete: "Complete onboarding to message the host.",
+  role_not_allowed: "Your account cannot send messages.",
+  property_not_accessible: "Messaging is unavailable for this listing.",
+  conversation_not_allowed: "Messaging is only available between a tenant and the listing host.",
+  rate_limited: "Too many messages. Try again shortly.",
+  unknown: "Messaging is unavailable right now. Try again later.",
 };
 
 export const MESSAGING_RULES = [
@@ -54,6 +47,32 @@ export const MESSAGING_RULES = [
 
 export function getMessagingPermissionMessage(code: MessagingPermissionCode): string {
   return MESSAGING_PERMISSION_MESSAGES[code];
+}
+
+export function getMessagingReasonCta(
+  code: MessagingPermissionCode
+): { href: string; label: string } | null {
+  switch (code) {
+    case "not_authenticated":
+      return { href: "/auth/login", label: "Sign in" };
+    case "onboarding_incomplete":
+      return { href: "/onboarding", label: "Finish onboarding" };
+    case "unknown":
+    case "property_not_accessible":
+    case "conversation_not_allowed":
+    case "role_not_allowed":
+    case "rate_limited":
+    default:
+      return { href: "/support", label: "Contact support" };
+  }
+}
+
+export function buildMessagingPermission(code: MessagingPermissionCode): MessagingPermission {
+  return {
+    allowed: false,
+    code,
+    message: getMessagingPermissionMessage(code),
+  };
 }
 
 export function getMessagingPermission(
@@ -71,52 +90,28 @@ export function getMessagingPermission(
   } = context;
 
   if (!recipientId) {
-    return {
-      allowed: false,
-      code: "missing_property",
-      message: getMessagingPermissionMessage("missing_property"),
-    };
+    return buildMessagingPermission("property_not_accessible");
   }
 
   if (senderId === recipientId) {
-    return {
-      allowed: false,
-      code: "self_message",
-      message: getMessagingPermissionMessage("self_message"),
-    };
+    return buildMessagingPermission("conversation_not_allowed");
   }
 
   if (!senderRole) {
-    return {
-      allowed: false,
-      code: "role_required",
-      message: getMessagingPermissionMessage("role_required"),
-    };
+    return buildMessagingPermission("onboarding_incomplete");
   }
 
   if (senderRole === "tenant") {
     if (propertyOwnerId && recipientId !== propertyOwnerId) {
-      return {
-        allowed: false,
-        code: "recipient_not_owner",
-        message: getMessagingPermissionMessage("recipient_not_owner"),
-      };
+      return buildMessagingPermission("conversation_not_allowed");
     }
 
     if (!propertyPublished) {
-      return {
-        allowed: false,
-        code: "property_unavailable",
-        message: getMessagingPermissionMessage("property_unavailable"),
-      };
+      return buildMessagingPermission("property_not_accessible");
     }
 
     if (recipientRole && recipientRole !== "landlord" && recipientRole !== "agent") {
-      return {
-        allowed: false,
-        code: "recipient_role_unavailable",
-        message: getMessagingPermissionMessage("recipient_role_unavailable"),
-      };
+      return buildMessagingPermission("conversation_not_allowed");
     }
 
     return { allowed: true };
@@ -124,35 +119,19 @@ export function getMessagingPermission(
 
   if (senderRole === "landlord" || senderRole === "agent") {
     if (!isOwner) {
-      return {
-        allowed: false,
-        code: "owner_mismatch",
-        message: getMessagingPermissionMessage("owner_mismatch"),
-      };
+      return buildMessagingPermission("conversation_not_allowed");
     }
 
     if (!hasThread) {
-      return {
-        allowed: false,
-        code: "owner_cannot_start",
-        message: getMessagingPermissionMessage("owner_cannot_start"),
-      };
+      return buildMessagingPermission("conversation_not_allowed");
     }
 
     if (recipientRole && recipientRole !== "tenant") {
-      return {
-        allowed: false,
-        code: "recipient_role_unavailable",
-        message: getMessagingPermissionMessage("recipient_role_unavailable"),
-      };
+      return buildMessagingPermission("conversation_not_allowed");
     }
 
     return { allowed: true };
   }
 
-  return {
-    allowed: false,
-    code: "role_not_permitted",
-    message: getMessagingPermissionMessage("role_not_permitted"),
-  };
+  return buildMessagingPermission("role_not_allowed");
 }

@@ -1,7 +1,12 @@
 import type { Message, MessageDeliveryState } from "@/lib/types";
 
-export function deriveDeliveryState(message: { delivery_state?: MessageDeliveryState }): MessageDeliveryState {
-  if (message.delivery_state) return message.delivery_state;
+export function deriveDeliveryState(message: {
+  delivery_state?: MessageDeliveryState | string | null;
+}): MessageDeliveryState {
+  const state = message.delivery_state;
+  if (state === "sent" || state === "delivered" || state === "read") {
+    return state;
+  }
   return "delivered";
 }
 
@@ -21,7 +26,7 @@ export function formatDeliveryState(state: MessageDeliveryState): string {
     case "sent":
       return "Sent";
     case "read":
-      return "Read";
+      return "Seen";
     default:
       return "Delivered";
   }

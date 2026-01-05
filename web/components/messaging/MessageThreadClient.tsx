@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { MessageThread } from "@/components/messaging/MessageThread";
-import { MESSAGING_RULES, type MessagingPermission } from "@/lib/messaging/permissions";
+import {
+  MESSAGING_RULES,
+  getMessagingPermissionMessage,
+  getMessagingReasonCta,
+  type MessagingPermission,
+} from "@/lib/messaging/permissions";
 import { mapDeliveryState, withDeliveryState } from "@/lib/messaging/status";
-import { hasBrowserSupabaseEnv } from "@/lib/supabase/client";
 import type { Message, Profile } from "@/lib/types";
 
 type Props = {
@@ -22,7 +26,6 @@ export function MessageThreadClient({
   const [error, setError] = useState<string | null>(null);
   const [permission, setPermission] = useState<MessagingPermission | null>(null);
   const [loading, setLoading] = useState(true);
-  const supabaseEnabled = hasBrowserSupabaseEnv();
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -50,25 +53,28 @@ export function MessageThreadClient({
     fetchMessages();
   }, [propertyId]);
 
-  const sendDisabledReason = !supabaseEnabled
-    ? "Messaging requires Supabase. Demo mode shows read-only messages."
-    : permission?.allowed === false
-      ? permission.message || "Messaging is restricted."
-      : error
-        ? "Messaging is unavailable right now."
-        : loading
-          ? "Checking messaging permissions..."
-          : null;
-  const canSend = !!supabaseEnabled && permission?.allowed === true;
+  const reasonCode = permission?.allowed === false ? permission.code || "unknown" : null;
+  const reasonMessage = reasonCode
+    ? permission?.message || getMessagingPermissionMessage(reasonCode)
+    : null;
+  const restriction = permission?.allowed === false
+    ? {
+        message: reasonMessage || "Messaging is unavailable right now.",
+        cta: reasonCode ? getMessagingReasonCta(reasonCode) : null,
+      }
+    : error
+      ? {
+          message: "Messaging is unavailable right now.",
+          cta: getMessagingReasonCta("unknown"),
+        }
+      : loading
+        ? { message: "Checking messaging permissions..." }
+        : null;
+  const canSend = permission?.allowed === true;
 
   const handleSend = async (body: string) => {
-    if (!supabaseEnabled || !canSend) {
-      setError(sendDisabledReason || "Messaging is unavailable.");
-      return;
-    }
-
-    if (propertyId.startsWith("mock") || recipientId.startsWith("owner-")) {
-      setError("Messaging requires Supabase auth and real property IDs.");
+    if (!canSend) {
+      setError(restriction?.message || "Messaging is unavailable.");
       return;
     }
 
@@ -96,6 +102,9 @@ export function MessageThreadClient({
     });
     if (!res.ok) {
       const data = await res.json().catch(() => null);
+      if (data?.permission) {
+        setPermission(data.permission);
+      }
       setError(data?.error || "Unable to send message.");
       setMessages((prev) => prev.filter((message) => message.id !== tempId));
       return;
@@ -120,7 +129,7 @@ export function MessageThreadClient({
         onSend={handleSend}
         loading={loading}
         canSend={canSend}
-        sendDisabledReason={sendDisabledReason}
+        restriction={restriction}
         rules={MESSAGING_RULES}
       />
       {error && <p className="text-sm text-red-600">{error}</p>}

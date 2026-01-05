@@ -90,7 +90,10 @@ export default async function MessagesPage() {
         messages={messages}
         currentUser={currentUser}
         canSend={false}
-        sendDisabledReason="Messaging is read-only here. Open a listing to contact the host."
+        restriction={{
+          message: "Messaging is read-only here. Open a listing to contact the host.",
+          cta: { href: "/support", label: "Contact support" },
+        }}
         rules={MESSAGING_RULES}
       />
     </div>

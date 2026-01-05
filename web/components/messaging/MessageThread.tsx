@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
 import { deriveDeliveryState, formatDeliveryState } from "@/lib/messaging/status";
@@ -12,7 +13,10 @@ type Props = {
   onSend?: (body: string) => Promise<void> | void;
   loading?: boolean;
   canSend?: boolean;
-  sendDisabledReason?: string | null;
+  restriction?: {
+    message: string;
+    cta?: { href: string; label: string };
+  } | null;
   rules?: string[];
 };
 
@@ -22,7 +26,7 @@ export function MessageThread({
   onSend,
   loading,
   canSend,
-  sendDisabledReason,
+  restriction,
   rules,
 }: Props) {
   const [body, setBody] = useState("");
@@ -101,7 +105,15 @@ export function MessageThread({
           </>
         ) : (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            {sendDisabledReason || "Messaging is read-only here."}
+            <p>{restriction?.message || "Messaging is read-only here."}</p>
+            {restriction?.cta && (
+              <Link
+                href={restriction.cta.href}
+                className="mt-2 inline-flex text-xs font-semibold text-amber-900 underline"
+              >
+                {restriction.cta.label}
+              </Link>
+            )}
           </div>
         )}
       </div>
