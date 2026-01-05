@@ -60,3 +60,8 @@
 - As Tenant Pro, confirm unlimited saved searches and “Alerts enabled” badge in the dashboard.
 - Approve a new listing and confirm a saved search alert row is created (email sends if Resend is configured).
 - Free tenant sees the “Upgrade for instant alerts” prompt on browse.
+
+## Messaging throttle telemetry
+- Trigger rate limiting with rapid sends and confirm the cooldown UI appears.
+- Verify a row appears in `public.messaging_throttle_events` for the rate-limited attempt.
+- Open `/admin/support` and confirm throttle telemetry counts and top senders render.

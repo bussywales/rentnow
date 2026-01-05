@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-08 — v1.7.13-r6.7.5-messaging-telemetry
+- Added durable messaging throttle telemetry table with admin read-only policies.
+- Recorded rate-limited send attempts server-side and surfaced counts in admin support.
+- Added throttle telemetry tests plus ops/QA runbook updates.
+
 ## 2026-01-07 — v1.7.12-r6.7.4-messaging-cooldown
 - Added client-side cooldown UX for messaging rate limits with countdown and auto re-enable.
 - Disabled composer interactions while cooling down to prevent repeated sends.

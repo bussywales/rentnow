@@ -31,6 +31,7 @@ Apply SQL files in this order:
 24) `web/supabase/migrations/024_admin_role_management.sql`
 25) `web/supabase/migrations/025_profiles_onboarding_state.sql`
 26) `web/supabase/migrations/026_profiles_autocreate_trigger.sql`
+27) `web/supabase/migrations/027_messaging_throttle_telemetry.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -96,6 +97,7 @@ select to_regclass('public.saved_search_alerts') as saved_search_alerts;
 select to_regclass('public.provider_settings') as provider_settings;
 select to_regclass('public.provider_payment_events') as provider_payment_events;
 select to_regclass('public.role_change_audit') as role_change_audit;
+select to_regclass('public.messaging_throttle_events') as messaging_throttle_events;
 ```
 
 ### RLS enabled
@@ -116,7 +118,8 @@ where relname in (
   'stripe_webhook_events',
   'saved_search_alerts',
   'provider_settings',
-  'role_change_audit'
+  'role_change_audit',
+  'messaging_throttle_events'
 );
 ```
 
@@ -133,14 +136,15 @@ where schemaname = 'public'
     'messages',
     'viewing_requests',
     'agent_delegations',
-  'profile_plans',
-  'profile_billing_notes',
-  'plan_upgrade_requests',
-  'stripe_webhook_events',
-  'saved_search_alerts',
-  'provider_settings',
-  'provider_payment_events',
-  'role_change_audit'
+    'profile_plans',
+    'profile_billing_notes',
+    'plan_upgrade_requests',
+    'stripe_webhook_events',
+    'saved_search_alerts',
+    'provider_settings',
+    'provider_payment_events',
+    'role_change_audit',
+    'messaging_throttle_events'
   )
 order by tablename, policyname;
 ```
@@ -164,7 +168,8 @@ where table_schema = 'public'
     'saved_search_alerts',
     'provider_settings',
     'provider_payment_events',
-    'role_change_audit'
+    'role_change_audit',
+    'messaging_throttle_events'
   )
   and column_name in (
     'id',
@@ -242,7 +247,16 @@ where table_schema = 'public'
     'actor_profile_id',
     'old_role',
     'new_role',
-    'reason'
+    'reason',
+    'recipient_profile_id',
+    'created_at',
+    'thread_key',
+    'reason_code',
+    'retry_after_seconds',
+    'window_seconds',
+    'limit',
+    'mode',
+    'ip_hash'
   )
 order by table_name, column_name;
 ```

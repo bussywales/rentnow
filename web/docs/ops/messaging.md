@@ -34,6 +34,25 @@ Messaging sends are throttled per sender (and per property when available).
 - UI shows a retry hint with `retry_after_seconds` and a support CTA.
 - The cooldown timer is client-side and resets if the user navigates away or reloads the page.
 
+## Throttle telemetry (durable)
+Rate-limited send attempts are recorded to `public.messaging_throttle_events` for ops visibility.
+Captured fields:
+- `actor_profile_id`, `thread_key`, `property_id`, `recipient_profile_id`
+- `reason_code` (rate_limited only), `retry_after_seconds`, `window_seconds`, `limit`
+- `mode` (currently `send_message`)
+
+Not captured:
+- message body/content
+- delivery/read state
+- raw IP addresses (no IP stored today)
+
+Verification:
+```sql
+select count(*)
+from public.messaging_throttle_events
+where created_at >= now() - interval '24 hours';
+```
+
 ## Admin observability (read-only)
 Admin Support page (`/admin/support`) includes a messaging snapshot:
 - Message status counts (sent/delivered/read).
@@ -41,6 +60,7 @@ Admin Support page (`/admin/support`) includes a messaging snapshot:
 - Restricted cases derived from current data with reason codes + labels.
 - Filters for status (sent/delivered/read/restricted) and reason codes.
 - Rate limiting window + throttled counts and top senders.
+- Throttle telemetry totals (24h/7d/30d) with top senders/threads (sampled).
 
 Notes:
 - The snapshot uses the most recent 200 messages.
