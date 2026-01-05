@@ -60,7 +60,7 @@ export function MessageThreadClient({
   const restriction = permission?.allowed === false
     ? {
         message: reasonMessage || "Messaging is unavailable right now.",
-        cta: reasonCode ? getMessagingReasonCta(reasonCode) : null,
+        cta: reasonCode ? getMessagingReasonCta(reasonCode) ?? undefined : undefined,
       }
     : error
       ? {
