@@ -3,6 +3,7 @@
 ## 2026-01-08 — fix: throttle telemetry column naming
 - Renamed messaging throttle telemetry column from reserved `limit` to `max_sends`.
 - Updated telemetry insert payloads and RLS/debug checks to match the schema.
+- Updated throttle telemetry verification snippets to use `to_regclass`.
 
 ## 2026-01-08 — v1.7.13-r6.7.5-messaging-telemetry
 - Added durable messaging throttle telemetry table with admin read-only policies.

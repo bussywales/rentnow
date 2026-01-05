@@ -100,6 +100,19 @@ select to_regclass('public.role_change_audit') as role_change_audit;
 select to_regclass('public.messaging_throttle_events') as messaging_throttle_events;
 ```
 
+### Throttle telemetry verification
+```sql
+select to_regclass('public.messaging_throttle_events') as exists;
+```
+
+Optional RLS flags:
+```sql
+select c.relrowsecurity as rls_enabled, c.relforcerowsecurity as rls_forced
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relname = 'messaging_throttle_events';
+```
+
 ### RLS enabled
 ```sql
 select relname, relrowsecurity, relforcerowsecurity
