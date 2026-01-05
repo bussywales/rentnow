@@ -1,5 +1,11 @@
 # Versions
 
+## 2026-01-04 — v1.7.9-r6.7.1-messaging-hardening
+- Added explicit message delivery states and clearer in-app messaging rules.
+- Hardened message permissions with user-facing block reasons and no silent send failures.
+- Added admin-only messaging observability snapshot (read-only) on Support.
+- Added unit coverage for messaging permissions and observability.
+
 ## 2026-01-04 — v1.7.9-r6.7-admin-users-api-tests
 - Added a testable admin users API handler for regression coverage.
 - Added unit coverage for admin/non-admin access to `/api/admin/users`.
