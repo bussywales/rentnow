@@ -5,6 +5,10 @@ import {
   filterMessagingAdminMessages,
   type MessagingAdminSnapshot,
 } from "@/lib/admin/messaging-observability";
+import {
+  buildThrottleTelemetrySummary,
+  type ThrottleTelemetrySummary,
+} from "@/lib/admin/messaging-throttle";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { formatRoleLabel } from "@/lib/roles";
@@ -33,6 +37,20 @@ type RateLimitDiagnostics = {
   }>;
 };
 
+type ThrottleRange = "24h" | "7d" | "30d";
+
+type ThrottleTelemetryDiagnostics = {
+  ready: boolean;
+  range: ThrottleRange;
+  totals: {
+    last24h: number;
+    last7d: number;
+    last30d: number;
+  };
+  summary: ThrottleTelemetrySummary | null;
+  error: string | null;
+};
+
 type SearchParams = Record<string, string | string[] | undefined>;
 
 type SupportProps = {
@@ -59,7 +77,22 @@ type MessagingPropertyRow = {
   is_active?: boolean | null;
 };
 
-async function getDiagnostics() {
+const THROTTLE_RANGES: Record<ThrottleRange, { label: string; windowMs: number }> = {
+  "24h": { label: "Last 24h", windowMs: 24 * 60 * 60 * 1000 },
+  "7d": { label: "Last 7d", windowMs: 7 * 24 * 60 * 60 * 1000 },
+  "30d": { label: "Last 30d", windowMs: 30 * 24 * 60 * 60 * 1000 },
+};
+
+function resolveThrottleRange(value?: string): ThrottleRange {
+  if (value === "7d" || value === "30d") return value;
+  return "24h";
+}
+
+function toIsoRangeStart(windowMs: number) {
+  return new Date(Date.now() - windowMs).toISOString();
+}
+
+async function getDiagnostics(throttleRange: ThrottleRange) {
   if (!hasServerSupabaseEnv()) {
     return { supabaseReady: false };
   }
@@ -107,6 +140,14 @@ async function getDiagnostics() {
     ready: false,
     sampleSize: 0,
     snapshot: null,
+    error: null,
+  };
+
+  let throttleTelemetry: ThrottleTelemetryDiagnostics = {
+    ready: false,
+    range: throttleRange,
+    totals: { last24h: 0, last7d: 0, last30d: 0 },
+    summary: null,
     error: null,
   };
 
@@ -167,12 +208,64 @@ async function getDiagnostics() {
           .join(" | ") || null,
       };
     }
+
+    const [last24hResult, last7dResult, last30dResult] = await Promise.all([
+      adminClient
+        .from("messaging_throttle_events")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", toIsoRangeStart(THROTTLE_RANGES["24h"].windowMs)),
+      adminClient
+        .from("messaging_throttle_events")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", toIsoRangeStart(THROTTLE_RANGES["7d"].windowMs)),
+      adminClient
+        .from("messaging_throttle_events")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", toIsoRangeStart(THROTTLE_RANGES["30d"].windowMs)),
+    ]);
+
+    const throttleRangeStart = toIsoRangeStart(
+      THROTTLE_RANGES[throttleRange].windowMs
+    );
+    const { data: throttleEvents, error: throttleError } = await adminClient
+      .from("messaging_throttle_events")
+      .select("actor_profile_id, thread_key, created_at")
+      .gte("created_at", throttleRangeStart)
+      .order("created_at", { ascending: false })
+      .limit(1000);
+
+    throttleTelemetry = {
+      ready: true,
+      range: throttleRange,
+      totals: {
+        last24h: last24hResult.count ?? 0,
+        last7d: last7dResult.count ?? 0,
+        last30d: last30dResult.count ?? 0,
+      },
+      summary: buildThrottleTelemetrySummary(
+        (throttleEvents ?? []) as Array<{
+          actor_profile_id: string;
+          thread_key: string;
+          created_at?: string | null;
+        }>
+      ),
+      error: [throttleError?.message, last24hResult.error?.message, last7dResult.error?.message, last30dResult.error?.message]
+        .filter(Boolean)
+        .join(" | ") || null,
+    };
   } else {
     messaging = {
       ready: false,
       sampleSize: 0,
       snapshot: null,
       error: "Service role key missing; messaging observability unavailable.",
+    };
+    throttleTelemetry = {
+      ready: false,
+      range: throttleRange,
+      totals: { last24h: 0, last7d: 0, last30d: 0 },
+      summary: null,
+      error: "Service role key missing; throttle telemetry unavailable.",
     };
   }
 
@@ -191,6 +284,7 @@ async function getDiagnostics() {
       saved: savedCount.error?.message ?? null,
     },
     messaging,
+    throttleTelemetry,
     rateLimit,
   };
 }
@@ -210,7 +304,8 @@ async function resolveSearchParams(raw?: SearchParams | Promise<SearchParams>) {
 
 export default async function AdminSupportPage({ searchParams }: SupportProps) {
   const params = await resolveSearchParams(searchParams);
-  const diag = await getDiagnostics();
+  const throttleRange = resolveThrottleRange(getParamValue(params, "throttle"));
+  const diag = await getDiagnostics(throttleRange);
   const statusFilter = getParamValue(params, "status") || "all";
   const reasonFilter = getParamValue(params, "reason") || "all";
   const snapshot = diag.messaging?.snapshot;
@@ -326,6 +421,77 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
               </ul>
             ) : (
               <p className="mt-2 text-sm text-slate-600">No throttled senders in this window.</p>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-semibold text-slate-900">Throttle telemetry</h3>
+            {!diag.throttleTelemetry?.ready && (
+              <p className="text-sm text-slate-600">
+                {diag.throttleTelemetry?.error || "Throttle telemetry is unavailable."}
+              </p>
+            )}
+            {diag.throttleTelemetry?.ready && diag.throttleTelemetry.summary && (
+              <>
+                <p className="text-sm text-slate-600">
+                  Totals: 24h {diag.throttleTelemetry.totals.last24h} · 7d {diag.throttleTelemetry.totals.last7d} · 30d {diag.throttleTelemetry.totals.last30d}
+                </p>
+                <form className="mt-3 flex flex-wrap items-end gap-2 text-sm" method="get">
+                  <input type="hidden" name="status" value={statusFilter} />
+                  <input type="hidden" name="reason" value={reasonFilter} />
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs text-slate-500">Range</span>
+                    <select
+                      name="throttle"
+                      defaultValue={diag.throttleTelemetry.range}
+                      className="rounded-md border border-slate-200 px-2 py-1 text-sm"
+                    >
+                      {Object.entries(THROTTLE_RANGES).map(([key, value]) => (
+                        <option key={key} value={key}>
+                          {value.label}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="submit"
+                    className="rounded-md border border-slate-200 px-3 py-1 text-sm text-slate-700"
+                  >
+                    Apply
+                  </button>
+                </form>
+                <p className="mt-3 text-xs text-slate-500">
+                  Sample: last {diag.throttleTelemetry.summary.sampleSize} events in {THROTTLE_RANGES[diag.throttleTelemetry.range].label}.
+                </p>
+                {diag.throttleTelemetry.summary.topSenders.length ? (
+                  <ul className="mt-2 text-sm text-slate-700">
+                    {diag.throttleTelemetry.summary.topSenders.map((entry) => (
+                      <li key={entry.key}>
+                        {entry.key} · throttled {entry.count}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-600">No throttled users in this range.</p>
+                )}
+                {diag.throttleTelemetry.summary.topThreads.length ? (
+                  <div className="mt-3">
+                    <p className="text-xs text-slate-500">Top threads</p>
+                    <ul className="mt-1 text-sm text-slate-700">
+                      {diag.throttleTelemetry.summary.topThreads.map((entry) => (
+                        <li key={entry.key}>
+                          {entry.key} · throttled {entry.count}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {diag.throttleTelemetry.error && (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    Errors: {diag.throttleTelemetry.error}
+                  </div>
+                )}
+              </>
             )}
           </div>
 
