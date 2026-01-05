@@ -59,6 +59,12 @@ const requiredPolicies: Record<string, string[]> = {
   ],
   role_change_audit: ["role change audit admin read", "role change audit admin insert"],
   messaging_throttle_events: ["messaging throttle admin read"],
+  push_subscriptions: [
+    "push subscriptions delete self",
+    "push subscriptions insert self",
+    "push subscriptions select self",
+    "push subscriptions update self",
+  ],
 };
 
 export async function GET(request: Request) {
@@ -119,6 +125,7 @@ export async function GET(request: Request) {
       "provider_payment_events",
       "role_change_audit",
       "messaging_throttle_events",
+      "push_subscriptions",
     ];
     rlsTables.forEach((table) => {
       if (!rls?.[table]?.enabled) {
@@ -317,6 +324,24 @@ export async function GET(request: Request) {
     }
     if (!columns?.messaging_throttle_events?.ip_hash) {
       issues.push("missing column: messaging_throttle_events.ip_hash");
+    }
+    if (!columns?.push_subscriptions?.id) {
+      issues.push("missing column: push_subscriptions.id");
+    }
+    if (!columns?.push_subscriptions?.profile_id) {
+      issues.push("missing column: push_subscriptions.profile_id");
+    }
+    if (!columns?.push_subscriptions?.endpoint) {
+      issues.push("missing column: push_subscriptions.endpoint");
+    }
+    if (!columns?.push_subscriptions?.p256dh) {
+      issues.push("missing column: push_subscriptions.p256dh");
+    }
+    if (!columns?.push_subscriptions?.auth) {
+      issues.push("missing column: push_subscriptions.auth");
+    }
+    if (!columns?.push_subscriptions?.is_active) {
+      issues.push("missing column: push_subscriptions.is_active");
     }
     if (!columns?.messaging_throttle_events?.created_at) {
       issues.push("missing column: messaging_throttle_events.created_at");

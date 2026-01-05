@@ -32,6 +32,7 @@ Apply SQL files in this order:
 25) `web/supabase/migrations/025_profiles_onboarding_state.sql`
 26) `web/supabase/migrations/026_profiles_autocreate_trigger.sql`
 27) `web/supabase/migrations/027_messaging_throttle_telemetry.sql`
+28) `web/supabase/migrations/028_push_subscriptions.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -98,6 +99,7 @@ select to_regclass('public.provider_settings') as provider_settings;
 select to_regclass('public.provider_payment_events') as provider_payment_events;
 select to_regclass('public.role_change_audit') as role_change_audit;
 select to_regclass('public.messaging_throttle_events') as messaging_throttle_events;
+select to_regclass('public.push_subscriptions') as push_subscriptions;
 ```
 
 ### Throttle telemetry verification
@@ -111,6 +113,11 @@ select c.relrowsecurity as rls_enabled, c.relforcerowsecurity as rls_forced
 from pg_class c
 join pg_namespace n on n.oid = c.relnamespace
 where n.nspname = 'public' and c.relname = 'messaging_throttle_events';
+```
+
+### Push subscriptions verification
+```sql
+select to_regclass('public.push_subscriptions') as exists;
 ```
 
 ### RLS enabled
@@ -132,7 +139,8 @@ where relname in (
   'saved_search_alerts',
   'provider_settings',
   'role_change_audit',
-  'messaging_throttle_events'
+  'messaging_throttle_events',
+  'push_subscriptions'
 );
 ```
 
@@ -157,7 +165,8 @@ where schemaname = 'public'
     'provider_settings',
     'provider_payment_events',
     'role_change_audit',
-    'messaging_throttle_events'
+    'messaging_throttle_events',
+    'push_subscriptions'
   )
 order by tablename, policyname;
 ```
@@ -182,7 +191,8 @@ where table_schema = 'public'
     'provider_settings',
     'provider_payment_events',
     'role_change_audit',
-    'messaging_throttle_events'
+    'messaging_throttle_events',
+    'push_subscriptions'
   )
   and column_name in (
     'id',
@@ -232,6 +242,10 @@ where table_schema = 'public'
     'channel',
     'sent_at',
     'error',
+    'endpoint',
+    'p256dh',
+    'auth',
+    'is_active',
     'stripe_mode',
     'paystack_mode',
     'flutterwave_mode',
