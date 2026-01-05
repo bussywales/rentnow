@@ -309,8 +309,8 @@ export async function GET(request: Request) {
     if (!columns?.messaging_throttle_events?.window_seconds) {
       issues.push("missing column: messaging_throttle_events.window_seconds");
     }
-    if (!columns?.messaging_throttle_events?.limit) {
-      issues.push("missing column: messaging_throttle_events.limit");
+    if (!columns?.messaging_throttle_events?.max_sends) {
+      issues.push("missing column: messaging_throttle_events.max_sends");
     }
     if (!columns?.messaging_throttle_events?.mode) {
       issues.push("missing column: messaging_throttle_events.mode");

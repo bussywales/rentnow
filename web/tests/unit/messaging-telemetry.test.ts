@@ -25,7 +25,7 @@ void test("telemetry insert is attempted for rate-limited sends", async () => {
     recipientProfileId: "host-1",
     retryAfterSeconds: 12,
     windowSeconds: 60,
-    limit: 6,
+    maxSends: 6,
     mode: "send_message",
   });
 

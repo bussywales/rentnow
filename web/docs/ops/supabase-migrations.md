@@ -254,7 +254,7 @@ where table_schema = 'public'
     'reason_code',
     'retry_after_seconds',
     'window_seconds',
-    'limit',
+    'max_sends',
     'mode',
     'ip_hash'
   )

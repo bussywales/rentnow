@@ -339,7 +339,7 @@ export async function POST(request: Request) {
             recipientProfileId: payload.recipient_id,
             retryAfterSeconds: rateLimit.retryAfterSeconds,
             windowSeconds: config.windowSeconds,
-            limit: config.maxSends,
+            maxSends: config.maxSends,
             mode: "send_message",
           });
           const result = await recordThrottleTelemetryEvent({

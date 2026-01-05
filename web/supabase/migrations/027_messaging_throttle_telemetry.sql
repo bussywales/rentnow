@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS public.messaging_throttle_events (
   reason_code TEXT NOT NULL,
   retry_after_seconds INTEGER,
   window_seconds INTEGER,
-  limit INTEGER,
+  max_sends INTEGER,
   mode TEXT,
   ip_hash TEXT
 );
@@ -537,9 +537,9 @@ BEGIN
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'messaging_throttle_events' AND column_name = 'window_seconds'
       ),
-      'limit', EXISTS (
+      'max_sends', EXISTS (
         SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'messaging_throttle_events' AND column_name = 'limit'
+        WHERE table_schema = 'public' AND table_name = 'messaging_throttle_events' AND column_name = 'max_sends'
       ),
       'mode', EXISTS (
         SELECT 1 FROM information_schema.columns

@@ -38,7 +38,7 @@ Messaging sends are throttled per sender (and per property when available).
 Rate-limited send attempts are recorded to `public.messaging_throttle_events` for ops visibility.
 Captured fields:
 - `actor_profile_id`, `thread_key`, `property_id`, `recipient_profile_id`
-- `reason_code` (rate_limited only), `retry_after_seconds`, `window_seconds`, `limit`
+- `reason_code` (rate_limited only), `retry_after_seconds`, `window_seconds`, `max_sends`
 - `mode` (currently `send_message`)
 
 Not captured:

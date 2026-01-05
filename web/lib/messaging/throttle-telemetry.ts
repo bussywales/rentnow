@@ -8,7 +8,7 @@ export type ThrottleTelemetryRow = {
   reason_code: "rate_limited";
   retry_after_seconds: number | null;
   window_seconds: number | null;
-  limit: number | null;
+  max_sends: number | null;
   mode: string | null;
   ip_hash: string | null;
 };
@@ -46,7 +46,7 @@ export function buildThrottleTelemetryRow(input: {
   recipientProfileId?: string | null;
   retryAfterSeconds?: number | null;
   windowSeconds?: number | null;
-  limit?: number | null;
+  maxSends?: number | null;
   mode?: string | null;
   ipHash?: string | null;
 }): ThrottleTelemetryRow {
@@ -58,7 +58,7 @@ export function buildThrottleTelemetryRow(input: {
     reason_code: "rate_limited",
     retry_after_seconds: input.retryAfterSeconds ?? null,
     window_seconds: input.windowSeconds ?? null,
-    limit: input.limit ?? null,
+    max_sends: input.maxSends ?? null,
     mode: input.mode ?? null,
     ip_hash: input.ipHash ?? null,
   };
