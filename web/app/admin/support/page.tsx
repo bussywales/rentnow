@@ -8,6 +8,8 @@ import {
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { formatRoleLabel } from "@/lib/roles";
+import { getMessagingPermissionMessage, MESSAGING_REASON_CODES } from "@/lib/messaging/permissions";
+import { getRateLimitSnapshot } from "@/lib/messaging/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,19 @@ type MessagingDiagnostics = {
   sampleSize: number;
   snapshot: MessagingAdminSnapshot | null;
   error: string | null;
+};
+
+type RateLimitDiagnostics = {
+  windowSeconds: number;
+  total: number;
+  bySender: Array<{ senderId: string; count: number }>;
+  events: Array<{
+    senderId: string;
+    recipientId: string | null;
+    propertyId: string | null;
+    createdAt: string;
+    retryAfterSeconds: number;
+  }>;
 };
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -73,6 +88,20 @@ async function getDiagnostics() {
     supabase.from("properties").select("id", { count: "exact", head: true }).eq("is_approved", false),
     supabase.from("saved_properties").select("id", { count: "exact", head: true }).eq("user_id", user.id),
   ]);
+
+  const rateLimitSnapshot = getRateLimitSnapshot();
+  const rateLimit: RateLimitDiagnostics = {
+    windowSeconds: rateLimitSnapshot.windowSeconds,
+    total: rateLimitSnapshot.total,
+    bySender: rateLimitSnapshot.bySender,
+    events: rateLimitSnapshot.events.map((event) => ({
+      senderId: event.senderId,
+      recipientId: event.recipientId,
+      propertyId: event.propertyId,
+      createdAt: event.createdAt,
+      retryAfterSeconds: event.retryAfterSeconds,
+    })),
+  };
 
   let messaging: MessagingDiagnostics = {
     ready: false,
@@ -162,6 +191,7 @@ async function getDiagnostics() {
       saved: savedCount.error?.message ?? null,
     },
     messaging,
+    rateLimit,
   };
 }
 
@@ -184,12 +214,27 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
   const statusFilter = getParamValue(params, "status") || "all";
   const reasonFilter = getParamValue(params, "reason") || "all";
   const snapshot = diag.messaging?.snapshot;
-  const reasonCodes = snapshot
-    ? Array.from(new Set(snapshot.restricted.map((item) => item.reason))).sort()
-    : [];
-  const filteredMessages = snapshot
-    ? filterMessagingAdminMessages(snapshot.recentMessages, statusFilter, reasonFilter)
-    : [];
+  const reasonCodes = Array.from(MESSAGING_REASON_CODES);
+  const rateLimitMessages = (diag.rateLimit?.events ?? []).map((event) => ({
+    id: `rate-limit-${event.senderId}-${event.createdAt}`,
+    propertyId: event.propertyId ?? "unknown",
+    senderId: event.senderId,
+    recipientId: event.recipientId ?? "unknown",
+    senderRole: null,
+    recipientRole: null,
+    status: "restricted" as const,
+    reasonCode: "rate_limited" as const,
+    reasonLabel: getMessagingPermissionMessage("rate_limited"),
+    createdAt: event.createdAt,
+  }));
+  const activityMessages = snapshot
+    ? [...snapshot.recentMessages, ...rateLimitMessages]
+    : rateLimitMessages;
+  const filteredMessages = filterMessagingAdminMessages(
+    activityMessages,
+    statusFilter,
+    reasonFilter
+  );
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8">
@@ -263,6 +308,24 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                   </div>
                 )}
               </>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-semibold text-slate-900">Rate limiting</h3>
+            <p className="text-sm text-slate-600">
+              Window: {diag.rateLimit?.windowSeconds ?? 0}s · Throttled events: {diag.rateLimit?.total ?? 0}
+            </p>
+            {diag.rateLimit?.bySender.length ? (
+              <ul className="mt-2 text-sm text-slate-700">
+                {diag.rateLimit.bySender.map((entry) => (
+                  <li key={entry.senderId}>
+                    {entry.senderId} · throttled {entry.count}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-2 text-sm text-slate-600">No throttled senders in this window.</p>
             )}
           </div>
 

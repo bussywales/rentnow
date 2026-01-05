@@ -25,6 +25,7 @@ export function MessageThreadClient({
   const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [permission, setPermission] = useState<MessagingPermission | null>(null);
+  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -35,6 +36,7 @@ export function MessageThreadClient({
           const data = await res.json().catch(() => null);
           setError(data?.error || "Unable to load messages.");
           setPermission(data?.permission ?? null);
+          setRetryAfterSeconds(data?.retry_after_seconds ?? null);
           return;
         }
         const data = await res.json();
@@ -42,6 +44,7 @@ export function MessageThreadClient({
           setMessages(mapDeliveryState(data.messages));
         }
         setPermission(data?.permission ?? null);
+        setRetryAfterSeconds(data?.retry_after_seconds ?? null);
         setError(null);
       } catch (err) {
         console.warn("Unable to load messages", err);
@@ -57,9 +60,14 @@ export function MessageThreadClient({
   const reasonMessage = reasonCode
     ? permission?.message || getMessagingPermissionMessage(reasonCode)
     : null;
+  const retryHint =
+    reasonCode === "rate_limited" && typeof retryAfterSeconds === "number"
+      ? `Try again in ~${retryAfterSeconds} seconds.`
+      : undefined;
   const restriction = permission?.allowed === false
     ? {
         message: reasonMessage || "Messaging is unavailable right now.",
+        detail: retryHint,
         cta: reasonCode ? getMessagingReasonCta(reasonCode) ?? undefined : undefined,
       }
     : error
@@ -105,6 +113,11 @@ export function MessageThreadClient({
       if (data?.permission) {
         setPermission(data.permission);
       }
+      if (typeof data?.retry_after_seconds === "number") {
+        setRetryAfterSeconds(data.retry_after_seconds);
+      } else {
+        setRetryAfterSeconds(null);
+      }
       setError(data?.error || "Unable to send message.");
       setMessages((prev) => prev.filter((message) => message.id !== tempId));
       return;
@@ -116,6 +129,7 @@ export function MessageThreadClient({
           message.id === tempId ? withDeliveryState(data.message) : message
         )
       );
+      setRetryAfterSeconds(null);
     } else {
       setMessages((prev) => prev.filter((message) => message.id !== tempId));
     }

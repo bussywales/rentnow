@@ -15,6 +15,7 @@ type Props = {
   canSend?: boolean;
   restriction?: {
     message: string;
+    detail?: string;
     cta?: { href: string; label: string };
   } | null;
   rules?: string[];
@@ -106,6 +107,9 @@ export function MessageThread({
         ) : (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             <p>{restriction?.message || "Messaging is read-only here."}</p>
+            {restriction?.detail && (
+              <p className="mt-1 text-xs text-amber-800">{restriction.detail}</p>
+            )}
             {restriction?.cta && (
               <Link
                 href={restriction.cta.href}

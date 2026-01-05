@@ -8,8 +8,10 @@ import { mockProperties } from "@/lib/mock";
 import {
   buildMessagingPermission,
   getMessagingPermission,
+  getMessagingReasonCta,
   type MessagingPermissionCode,
 } from "@/lib/messaging/permissions";
+import { checkMessagingRateLimit } from "@/lib/messaging/rate-limit";
 import { mapDeliveryState, withDeliveryState } from "@/lib/messaging/status";
 import type { Message } from "@/lib/types";
 
@@ -49,7 +51,15 @@ export function buildPermissionResponseBody(
   extra: Record<string, unknown> = {}
 ) {
   const permission = buildPermission(code);
-  return { error: permission.message, code: permission.code, permission, ...extra };
+  return {
+    ok: false,
+    message: permission.message,
+    reason_code: permission.code,
+    error: permission.message,
+    code: permission.code,
+    permission,
+    ...extra,
+  };
 }
 
 function permissionErrorResponse(
@@ -295,6 +305,19 @@ export async function POST(request: Request) {
         error: permission.message ?? "Messaging restricted",
       });
       return permissionErrorResponse(code);
+    }
+
+    const rateLimit = checkMessagingRateLimit({
+      senderId: auth.user.id,
+      recipientId: payload.recipient_id,
+      propertyId: payload.property_id,
+    });
+
+    if (!rateLimit.allowed) {
+      return permissionErrorResponse("rate_limited", {
+        retry_after_seconds: rateLimit.retryAfterSeconds,
+        cta: getMessagingReasonCta("rate_limited"),
+      });
     }
 
     const { data, error } = await supabase
