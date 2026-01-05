@@ -32,6 +32,7 @@ Messaging sends are throttled per sender (and per property when available).
 - Defaults: 60 seconds / 6 sends.
 - Configurable via env: `MESSAGING_RATE_LIMIT_WINDOW_SECONDS`, `MESSAGING_RATE_LIMIT_MAX_SENDS`.
 - UI shows a retry hint with `retry_after_seconds` and a support CTA.
+- The cooldown timer is client-side and resets if the user navigates away or reloads the page.
 
 ## Admin observability (read-only)
 Admin Support page (`/admin/support`) includes a messaging snapshot:

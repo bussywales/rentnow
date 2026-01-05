@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-07 — v1.7.12-r6.7.4-messaging-cooldown
+- Added client-side cooldown UX for messaging rate limits with countdown and auto re-enable.
+- Disabled composer interactions while cooling down to prevent repeated sends.
+- Added cooldown helper unit tests and updated messaging ops runbook.
+
 ## 2026-01-06 — v1.7.11-r6.7.3-messaging-guardrails
 - Added lightweight messaging rate limiting with retry guidance and support CTA.
 - Surfaced throttling events in admin support diagnostics with filters and rollups.
