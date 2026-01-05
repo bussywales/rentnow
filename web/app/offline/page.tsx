@@ -3,7 +3,7 @@ export default function OfflinePage() {
     <div className="mx-auto max-w-2xl px-6 py-16 text-center">
       <p className="text-xs uppercase tracking-[0.3em] text-slate-400">Offline</p>
       <h1 className="mt-3 text-3xl font-semibold text-slate-900">
-        You're offline
+        You&apos;re offline
       </h1>
       <p className="mt-4 text-sm text-slate-600">
         The connection dropped, so this page is unavailable right now. Check your
