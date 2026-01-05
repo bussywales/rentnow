@@ -84,3 +84,8 @@ void test("CTA routing is actionable for auth and onboarding", () => {
   const onboardingCta = getMessagingReasonCta("onboarding_incomplete");
   assert.equal(onboardingCta?.href, "/onboarding");
 });
+
+void test("rate-limited CTA routes to support", () => {
+  const cta = getMessagingReasonCta("rate_limited");
+  assert.equal(cta?.href, "/support");
+});

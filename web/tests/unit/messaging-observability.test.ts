@@ -88,3 +88,34 @@ void test("messaging admin filters handle optional fields", () => {
   const filtered = filterMessagingAdminMessages(messages, "restricted", "conversation_not_allowed");
   assert.equal(filtered.length, 0);
 });
+
+void test("messaging admin filters match rate-limited cases", () => {
+  const messages = [
+    {
+      id: "m1",
+      propertyId: "p1",
+      senderId: "s1",
+      recipientId: "r1",
+      senderRole: null,
+      recipientRole: null,
+      status: "restricted" as const,
+      reasonCode: "rate_limited" as const,
+      reasonLabel: "Too many messages.",
+      createdAt: "2026-01-05T10:00:00.000Z",
+    },
+    {
+      id: "m2",
+      propertyId: "p2",
+      senderId: "s2",
+      recipientId: "r2",
+      senderRole: "tenant" as const,
+      recipientRole: "landlord" as const,
+      status: "delivered" as const,
+      createdAt: "2026-01-05T11:00:00.000Z",
+    },
+  ];
+
+  const filtered = filterMessagingAdminMessages(messages, "restricted", "rate_limited");
+  assert.equal(filtered.length, 1);
+  assert.equal(filtered[0]?.id, "m1");
+});

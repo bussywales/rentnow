@@ -12,3 +12,15 @@ void test("api messages permission payload includes permission context", () => {
   assert.ok(typeof body.permission?.message === "string");
   assert.ok(Array.isArray(body.messages));
 });
+
+void test("rate-limited payload includes retry metadata", () => {
+  const body = buildPermissionResponseBody("rate_limited", {
+    retry_after_seconds: 12,
+    cta: { href: "/support", label: "Contact support" },
+  });
+
+  assert.equal(body.code, "rate_limited");
+  assert.equal(body.reason_code, "rate_limited");
+  assert.equal(body.retry_after_seconds, 12);
+  assert.deepEqual(body.cta, { href: "/support", label: "Contact support" });
+});

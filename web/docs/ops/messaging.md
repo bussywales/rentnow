@@ -15,7 +15,7 @@ Messaging restrictions return one of these reason codes:
 - role_not_allowed: non-tenant/host roles cannot send messages.
 - property_not_accessible: listing is missing or not live.
 - conversation_not_allowed: participants are not the listing host/tenant pair or host tried to start a thread.
-- rate_limited: only used if an existing limiter is active.
+- rate_limited: sender hit the short-window throttle (see Rate limiting).
 - unknown: service unavailable or unexpected failure.
 
 The UI renders copy based on the reason code and shows the matching CTA.
@@ -27,12 +27,19 @@ The UI renders copy based on the reason code and shows the matching CTA.
 
 When blocked, the UI shows a clear reason and an action (login, onboarding, or support).
 
+## Rate limiting
+Messaging sends are throttled per sender (and per property when available).
+- Defaults: 60 seconds / 6 sends.
+- Configurable via env: `MESSAGING_RATE_LIMIT_WINDOW_SECONDS`, `MESSAGING_RATE_LIMIT_MAX_SENDS`.
+- UI shows a retry hint with `retry_after_seconds` and a support CTA.
+
 ## Admin observability (read-only)
 Admin Support page (`/admin/support`) includes a messaging snapshot:
 - Message status counts (sent/delivered/read).
 - Message counts per user (sampled).
 - Restricted cases derived from current data with reason codes + labels.
 - Filters for status (sent/delivered/read/restricted) and reason codes.
+- Rate limiting window + throttled counts and top senders.
 
 Notes:
 - The snapshot uses the most recent 200 messages.
@@ -45,3 +52,4 @@ Notes:
 - Repeated `not_authenticated`: confirm the user is signed in and session cookies are set.
 - Repeated `property_not_accessible`: confirm listing is live and IDs match the listing host.
 - Repeated `conversation_not_allowed`: confirm the host is replying to an existing tenant thread.
+- Repeated `rate_limited`: ask the user to wait for the window to reset; tune env limits only if necessary.

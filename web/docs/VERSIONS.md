@@ -1,5 +1,11 @@
 # Versions
 
+## 2026-01-06 — v1.7.11-r6.7.3-messaging-guardrails
+- Added lightweight messaging rate limiting with retry guidance and support CTA.
+- Surfaced throttling events in admin support diagnostics with filters and rollups.
+- Added unit coverage for rate limiting, payload metadata, and admin filtering.
+- Updated messaging ops runbook with rate limit configuration and support steps.
+
 ## 2026-01-05 — v1.7.10-r6.7.2-messaging-ux-polish
 - Standardized messaging reason codes and UI copy with actionable CTAs.
 - Added messaging snapshot filters and richer restricted-case context for admins.
