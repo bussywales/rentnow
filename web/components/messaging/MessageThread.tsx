@@ -13,6 +13,8 @@ type Props = {
   onSend?: (body: string) => Promise<void> | void;
   loading?: boolean;
   canSend?: boolean;
+  sendDisabled?: boolean;
+  cooldownMessage?: string | null;
   restriction?: {
     message: string;
     detail?: string;
@@ -27,14 +29,19 @@ export function MessageThread({
   onSend,
   loading,
   canSend,
+  sendDisabled,
+  cooldownMessage,
   restriction,
   rules,
 }: Props) {
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const sendAllowed = typeof canSend === "boolean" ? canSend : !!onSend;
+  const showComposer = sendAllowed || !!cooldownMessage;
+  const disableComposer = sending || !!sendDisabled;
 
   const handleSend = async () => {
+    if (disableComposer) return;
     if (!body.trim()) return;
     setSending(true);
     try {
@@ -89,17 +96,20 @@ export function MessageThread({
             </ul>
           </div>
         ) : null}
-        {sendAllowed ? (
+        {showComposer ? (
           <>
             <Textarea
               rows={3}
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="Ask about availability, payment terms, or viewing details."
-              disabled={sending}
+              disabled={disableComposer}
             />
+            {cooldownMessage && (
+              <p className="text-xs text-amber-800">{cooldownMessage}</p>
+            )}
             <div className="flex justify-end">
-              <Button onClick={handleSend} disabled={sending}>
+              <Button onClick={handleSend} disabled={disableComposer}>
                 {sending ? "Sending..." : "Send message"}
               </Button>
             </div>

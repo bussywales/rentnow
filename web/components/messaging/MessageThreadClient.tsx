@@ -8,6 +8,11 @@ import {
   getMessagingReasonCta,
   type MessagingPermission,
 } from "@/lib/messaging/permissions";
+import {
+  formatCooldownMessage,
+  getCooldownRemaining,
+  resolveCooldownUntil,
+} from "@/lib/messaging/cooldown";
 import { mapDeliveryState, withDeliveryState } from "@/lib/messaging/status";
 import type { Message, Profile } from "@/lib/types";
 
@@ -25,8 +30,35 @@ export function MessageThreadClient({
   const [messages, setMessages] = useState<Message[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [permission, setPermission] = useState<MessagingPermission | null>(null);
-  const [retryAfterSeconds, setRetryAfterSeconds] = useState<number | null>(null);
+  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
+  const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!cooldownUntil) {
+      setCooldownRemaining(0);
+      return;
+    }
+
+    const updateRemaining = () => {
+      const remaining = getCooldownRemaining(cooldownUntil);
+      setCooldownRemaining(remaining);
+      if (remaining <= 0) {
+        setCooldownUntil(null);
+      }
+    };
+
+    updateRemaining();
+    const interval = window.setInterval(updateRemaining, 1000);
+    return () => window.clearInterval(interval);
+  }, [cooldownUntil]);
+
+  const activateCooldown = (retryAfterSeconds: number | null | undefined) => {
+    const nextUntil = resolveCooldownUntil(retryAfterSeconds);
+    if (nextUntil) {
+      setCooldownUntil(nextUntil);
+    }
+  };
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -34,9 +66,14 @@ export function MessageThreadClient({
         const res = await fetch(`/api/messages?propertyId=${propertyId}`);
         if (!res.ok) {
           const data = await res.json().catch(() => null);
+          const permissionCode = data?.permission?.code ?? data?.code ?? null;
           setError(data?.error || "Unable to load messages.");
           setPermission(data?.permission ?? null);
-          setRetryAfterSeconds(data?.retry_after_seconds ?? null);
+          if (permissionCode === "rate_limited") {
+            activateCooldown(data?.retry_after_seconds);
+          } else {
+            setCooldownUntil(null);
+          }
           return;
         }
         const data = await res.json();
@@ -44,7 +81,11 @@ export function MessageThreadClient({
           setMessages(mapDeliveryState(data.messages));
         }
         setPermission(data?.permission ?? null);
-        setRetryAfterSeconds(data?.retry_after_seconds ?? null);
+        if (data?.permission?.code === "rate_limited") {
+          activateCooldown(data?.retry_after_seconds);
+        } else {
+          setCooldownUntil(null);
+        }
         setError(null);
       } catch (err) {
         console.warn("Unable to load messages", err);
@@ -60,14 +101,14 @@ export function MessageThreadClient({
   const reasonMessage = reasonCode
     ? permission?.message || getMessagingPermissionMessage(reasonCode)
     : null;
-  const retryHint =
-    reasonCode === "rate_limited" && typeof retryAfterSeconds === "number"
-      ? `Try again in ~${retryAfterSeconds} seconds.`
-      : undefined;
-  const restriction = permission?.allowed === false
+  const isRateLimited = reasonCode === "rate_limited";
+  const cooldownMessage =
+    isRateLimited && cooldownRemaining > 0
+      ? formatCooldownMessage(cooldownRemaining)
+      : null;
+  const restriction = permission?.allowed === false && !isRateLimited
     ? {
         message: reasonMessage || "Messaging is unavailable right now.",
-        detail: retryHint,
         cta: reasonCode ? getMessagingReasonCta(reasonCode) ?? undefined : undefined,
       }
     : error
@@ -78,26 +119,20 @@ export function MessageThreadClient({
       : loading
         ? { message: "Checking messaging permissions..." }
         : null;
-  const canSend = permission?.allowed === true;
+  const canSend =
+    permission?.allowed === true || (isRateLimited && cooldownRemaining === 0);
 
   const handleSend = async (body: string) => {
+    if (cooldownRemaining > 0) {
+      setError(null);
+      return;
+    }
     if (!canSend) {
       setError(restriction?.message || "Messaging is unavailable.");
       return;
     }
 
     setError(null);
-    const tempId = `local-${Date.now()}`;
-    const optimisticMessage: Message = {
-      id: tempId,
-      property_id: propertyId,
-      sender_id: currentUser?.id || "local-user",
-      recipient_id: recipientId,
-      body,
-      created_at: new Date().toISOString(),
-      delivery_state: "sent",
-    };
-    setMessages((prev) => [...prev, optimisticMessage]);
 
     const res = await fetch("/api/messages", {
       method: "POST",
@@ -113,25 +148,19 @@ export function MessageThreadClient({
       if (data?.permission) {
         setPermission(data.permission);
       }
-      if (typeof data?.retry_after_seconds === "number") {
-        setRetryAfterSeconds(data.retry_after_seconds);
+      const permissionCode = data?.permission?.code ?? data?.code ?? null;
+      if (permissionCode === "rate_limited") {
+        activateCooldown(data?.retry_after_seconds);
+        setError(null);
       } else {
-        setRetryAfterSeconds(null);
+        setError(data?.error || "Unable to send message.");
       }
-      setError(data?.error || "Unable to send message.");
-      setMessages((prev) => prev.filter((message) => message.id !== tempId));
       return;
     }
     const data = await res.json();
     if (data?.message) {
-      setMessages((prev) =>
-        prev.map((message) =>
-          message.id === tempId ? withDeliveryState(data.message) : message
-        )
-      );
-      setRetryAfterSeconds(null);
-    } else {
-      setMessages((prev) => prev.filter((message) => message.id !== tempId));
+      setMessages((prev) => [...prev, withDeliveryState(data.message)]);
+      setCooldownUntil(null);
     }
   };
 
@@ -143,6 +172,8 @@ export function MessageThreadClient({
         onSend={handleSend}
         loading={loading}
         canSend={canSend}
+        sendDisabled={cooldownRemaining > 0}
+        cooldownMessage={cooldownMessage}
         restriction={restriction}
         rules={MESSAGING_RULES}
       />
