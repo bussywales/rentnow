@@ -8,6 +8,7 @@ type Props = {
   userId: string;
   email?: string;
   serviceReady: boolean;
+  actionsDisabled?: boolean;
   currentRole?: string | null;
   onboardingCompleted?: boolean | null;
   planTier?: string | null;
@@ -20,6 +21,7 @@ export function AdminUserActions({
   userId,
   email,
   serviceReady,
+  actionsDisabled = false,
   currentRole,
   onboardingCompleted,
   planTier,
@@ -46,6 +48,7 @@ export function AdminUserActions({
     typeof validUntil === "string" ? validUntil.slice(0, 10) : ""
   );
   const [notes, setNotes] = useState(billingNotes ?? "");
+  const disabled = !serviceReady || actionsDisabled;
 
   const post = async (body: Record<string, string>) => {
     setStatus("loading");
@@ -158,7 +161,7 @@ export function AdminUserActions({
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" type="button" onClick={handleReset} disabled={!serviceReady || !email || status === "loading"}>
+        <Button size="sm" type="button" onClick={handleReset} disabled={disabled || !email || status === "loading"}>
           {status === "loading" ? "Working..." : "Send reset email"}
         </Button>
         <Button
@@ -166,7 +169,7 @@ export function AdminUserActions({
           variant="secondary"
           type="button"
           onClick={handleDelete}
-          disabled={!serviceReady || status === "loading"}
+          disabled={disabled || status === "loading"}
         >
           Delete user
         </Button>
@@ -180,7 +183,7 @@ export function AdminUserActions({
               className="ml-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
               value={roleValue}
               onChange={(event) => setRoleValue(event.target.value as KnownRole)}
-              disabled={!serviceReady || roleStatus === "loading"}
+              disabled={disabled || roleStatus === "loading"}
             >
               <option value="" disabled>
                 Select role
@@ -199,7 +202,7 @@ export function AdminUserActions({
               placeholder="Required"
               value={roleReason}
               onChange={(event) => setRoleReason(event.target.value)}
-              disabled={!serviceReady || roleStatus === "loading"}
+              disabled={disabled || roleStatus === "loading"}
             />
           </label>
           <Button
@@ -207,7 +210,7 @@ export function AdminUserActions({
             variant="secondary"
             type="button"
             onClick={updateRole}
-            disabled={!serviceReady || roleStatus === "loading"}
+            disabled={disabled || roleStatus === "loading"}
           >
             {roleStatus === "loading" ? "Saving..." : "Save role"}
           </Button>
@@ -226,7 +229,7 @@ export function AdminUserActions({
               className="ml-2 rounded-md border border-slate-300 bg-white px-2 py-1 text-xs"
               value={tier}
               onChange={(event) => setTier(event.target.value)}
-              disabled={!serviceReady || planStatus === "loading"}
+              disabled={disabled || planStatus === "loading"}
             >
               <option value="free">Free</option>
               <option value="starter">Starter</option>
@@ -243,7 +246,7 @@ export function AdminUserActions({
               placeholder="—"
               value={override}
               onChange={(event) => setOverride(event.target.value)}
-              disabled={!serviceReady || planStatus === "loading"}
+              disabled={disabled || planStatus === "loading"}
             />
           </label>
           <label className="text-xs text-slate-600">
@@ -253,7 +256,7 @@ export function AdminUserActions({
               type="date"
               value={validUntilValue}
               onChange={(event) => setValidUntilValue(event.target.value)}
-              disabled={!serviceReady || planStatus === "loading"}
+              disabled={disabled || planStatus === "loading"}
             />
           </label>
           <Button
@@ -261,7 +264,7 @@ export function AdminUserActions({
             variant="secondary"
             type="button"
             onClick={updatePlan}
-            disabled={!serviceReady || planStatus === "loading"}
+            disabled={disabled || planStatus === "loading"}
           >
             {planStatus === "loading" ? "Saving..." : "Save plan"}
           </Button>
@@ -273,7 +276,7 @@ export function AdminUserActions({
             rows={3}
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
-            disabled={!serviceReady || planStatus === "loading"}
+            disabled={disabled || planStatus === "loading"}
           />
         </label>
         {planMessage && <p className="mt-2 text-xs text-slate-600">{planMessage}</p>}
