@@ -1,5 +1,11 @@
 # Versions
 
+## 2026-01-10 — v1.7.15-r6.9-pwa-push-alerts
+- Added Web Push subscriptions model with RLS and server APIs for subscribe/unsubscribe/status.
+- Extended saved-search alerts with optional push delivery and failure auditing.
+- Added push observability to admin support plus a user-facing push status badge.
+- Extended PWA service worker for push handling and refreshed PWA/QA runbooks.
+
 ## 2026-01-09 — v1.7.14-r6.8-pwa-foundation
 - Added installable PWA manifest, icons, and service worker shell caching.
 - Added offline fallback route and lightweight offline indicator.

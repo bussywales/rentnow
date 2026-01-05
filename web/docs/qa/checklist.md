@@ -71,3 +71,9 @@
 - Confirm the service worker registers and is active.
 - Go offline and refresh a public route; `/offline` should render.
 - Confirm `/api/*`, `/dashboard/*`, `/admin/*`, `/auth/*` are not cached.
+
+## PWA push alerts
+- With VAPID keys configured, confirm the Push badge shows status on `/dashboard/saved-searches`.
+- Enable notifications and verify a row exists in `public.push_subscriptions`.
+- Trigger a saved search alert and confirm a push notification is delivered.
+- In `/admin/support`, confirm push subscription counts and alert sample metrics render.

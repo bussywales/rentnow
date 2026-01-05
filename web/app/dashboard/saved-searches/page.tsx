@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import Link from "next/link";
 import { SavedSearchManager } from "@/components/search/SavedSearchManager";
+import { PushStatusBadge } from "@/components/dashboard/PushStatusBadge";
 import { getTenantPlanForTier, isPlanExpired } from "@/lib/plans";
 import type { SavedSearch } from "@/lib/types";
 
@@ -68,6 +69,7 @@ export default async function SavedSearchesPage() {
             ? "Instant alerts are enabled for your saved searches."
             : "Upgrade to Tenant Pro to get instant alerts for new listings."}
         </p>
+        <PushStatusBadge />
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-600">
           <span>Active alerts: {searches.length}</span>
           <span>

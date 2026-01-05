@@ -17,14 +17,7 @@ void test("service worker includes offline and skip-cache paths", () => {
   const swPath = path.join(process.cwd(), "public", "sw.js");
   const contents = fs.readFileSync(swPath, "utf8");
 
-  const requiredPaths = [
-    "/offline",
-    "/api",
-    "/auth",
-    "/admin",
-    "/dashboard",
-    "/proxy/auth",
-  ];
+  const requiredPaths = ["/offline", "/api", "/auth", "/admin", "/dashboard", "/proxy/auth"];
 
   for (const entry of requiredPaths) {
     assert.ok(
@@ -32,4 +25,19 @@ void test("service worker includes offline and skip-cache paths", () => {
       `expected service worker to reference ${entry}`
     );
   }
+
+  const skipMatch = contents.match(/const SKIP_CACHE_PATHS = \[([\s\S]*?)\];/);
+  assert.ok(skipMatch, "expected service worker to define SKIP_CACHE_PATHS");
+  const skipList = Array.from(skipMatch[1].matchAll(/"([^"]+)"/g)).map(
+    (match) => match[1]
+  );
+
+  assert.ok(
+    !skipList.includes("/properties"),
+    "expected /properties to remain cache-eligible"
+  );
+  assert.ok(
+    contents.includes('addEventListener("push"'),
+    "expected service worker to register push handlers"
+  );
 });

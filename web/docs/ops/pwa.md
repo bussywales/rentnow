@@ -30,3 +30,25 @@ Navigation fallback:
 2) In DevTools → Application → Service Workers, confirm the SW is active.
 3) Set the browser to Offline and refresh a public page; `/offline` should render.
 4) Confirm `/dashboard` and `/admin` are not cached (network error or offline page).
+
+## Push notifications (Web Push)
+Required env vars (do not commit secrets):
+- `VAPID_PUBLIC_KEY`
+- `VAPID_PRIVATE_KEY`
+- `VAPID_SUBJECT` (optional, mailto or site URL)
+- `NEXT_PUBLIC_VAPID_PUBLIC_KEY` (client access)
+
+Endpoints:
+- `POST /api/push/subscribe`
+- `POST /api/push/unsubscribe`
+- `GET /api/push/status`
+
+Behavior:
+- Push only delivers alerts; no sensitive data is cached or stored in the service worker.
+- If VAPID keys are missing, push endpoints return a 503-style response.
+
+Verification:
+1) Ensure the VAPID keys are set in the environment.
+2) Visit `/dashboard/saved-searches` and use the Push badge to enable notifications.
+3) Confirm a row appears in `public.push_subscriptions`.
+4) Trigger a saved search alert; confirm a push notification appears and clicks through to the listing.
