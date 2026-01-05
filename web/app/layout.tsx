@@ -4,6 +4,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { MainNav } from "@/components/layout/MainNav";
 import { Footer } from "@/components/layout/Footer";
 import { ToastNotice } from "@/components/layout/ToastNotice";
+import { OfflineIndicator } from "@/components/layout/OfflineIndicator";
+import { PwaServiceWorker } from "@/components/layout/PwaServiceWorker";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -23,9 +25,12 @@ export const metadata: Metadata = {
   description:
     "Search, list, and manage African rentals with AI-assisted search and Supabase-powered dashboards.",
   icons: {
-    icon: "/rentnow-logo.png",
-    shortcut: "/rentnow-logo.png",
+    icon: "/icons/icon-192.png",
+    shortcut: "/icons/icon-192.png",
+    apple: "/icons/icon-192.png",
   },
+  manifest: "/manifest.webmanifest",
+  themeColor: "#0f172a",
 };
 
 export default function RootLayout({
@@ -42,6 +47,8 @@ export default function RootLayout({
         <Suspense fallback={null}>
           <ToastNotice />
         </Suspense>
+        <OfflineIndicator />
+        <PwaServiceWorker />
         <main className="min-h-[80vh] pb-12 pt-6">{children}</main>
         <Footer />
       </body>
