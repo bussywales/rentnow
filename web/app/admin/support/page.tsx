@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { buildMessagingAdminSnapshot, type MessagingAdminSnapshot } from "@/lib/admin/messaging-observability";
+import {
+  buildMessagingAdminSnapshot,
+  filterMessagingAdminMessages,
+  type MessagingAdminSnapshot,
+} from "@/lib/admin/messaging-observability";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { formatRoleLabel } from "@/lib/roles";
@@ -12,6 +16,12 @@ type MessagingDiagnostics = {
   sampleSize: number;
   snapshot: MessagingAdminSnapshot | null;
   error: string | null;
+};
+
+type SearchParams = Record<string, string | string[] | undefined>;
+
+type SupportProps = {
+  searchParams?: SearchParams | Promise<SearchParams>;
 };
 
 type MessagingRow = {
@@ -155,8 +165,31 @@ async function getDiagnostics() {
   };
 }
 
-export default async function AdminSupportPage() {
+function getParamValue(params: SearchParams | undefined, key: string) {
+  const value = params?.[key];
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+async function resolveSearchParams(raw?: SearchParams | Promise<SearchParams>) {
+  if (raw && typeof (raw as { then?: unknown }).then === "function") {
+    return (raw as Promise<SearchParams>);
+  }
+  return raw ?? {};
+}
+
+export default async function AdminSupportPage({ searchParams }: SupportProps) {
+  const params = await resolveSearchParams(searchParams);
   const diag = await getDiagnostics();
+  const statusFilter = getParamValue(params, "status") || "all";
+  const reasonFilter = getParamValue(params, "reason") || "all";
+  const snapshot = diag.messaging?.snapshot;
+  const reasonCodes = snapshot
+    ? Array.from(new Set(snapshot.restricted.map((item) => item.reason))).sort()
+    : [];
+  const filteredMessages = snapshot
+    ? filterMessagingAdminMessages(snapshot.recentMessages, statusFilter, reasonFilter)
+    : [];
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-8">
@@ -215,19 +248,103 @@ export default async function AdminSupportPage() {
             {diag.messaging?.ready && diag.messaging.snapshot && (
               <>
                 <ul className="text-sm text-slate-700">
-                  <li>Sample size: {diag.messaging.sampleSize}</li>
+                  <li>Snapshot scope: last {diag.messaging.sampleSize} messages</li>
                   <li>Total messages: {diag.messaging.snapshot.totalMessages}</li>
                   <li>Delivered: {diag.messaging.snapshot.statusCounts.delivered}</li>
                   <li>Sent: {diag.messaging.snapshot.statusCounts.sent}</li>
                   <li>Read: {diag.messaging.snapshot.statusCounts.read}</li>
                 </ul>
                 <p className="mt-2 text-xs text-slate-500">
-                  Delivery means the message was persisted. Read receipts are not tracked.
+                  This is a read-only snapshot. Delivery means the message was persisted. Read receipts are not tracked.
                 </p>
                 {diag.messaging.error && (
                   <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     Errors: {diag.messaging.error}
                   </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-semibold text-slate-900">Messaging filters</h3>
+            {!diag.messaging?.ready && (
+              <p className="text-sm text-slate-600">
+                Messaging counts require the service role key.
+              </p>
+            )}
+            {diag.messaging?.ready && diag.messaging.snapshot && (
+              <>
+                <form className="flex flex-wrap items-end gap-2 text-sm" method="get">
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs text-slate-500">Status</span>
+                    <select
+                      name="status"
+                      defaultValue={statusFilter}
+                      className="rounded-md border border-slate-200 px-2 py-1 text-sm"
+                    >
+                      <option value="all">All</option>
+                      <option value="sent">Sent</option>
+                      <option value="delivered">Delivered</option>
+                      <option value="read">Read</option>
+                      <option value="restricted">Restricted</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1">
+                    <span className="text-xs text-slate-500">Reason</span>
+                    <select
+                      name="reason"
+                      defaultValue={reasonFilter}
+                      className="rounded-md border border-slate-200 px-2 py-1 text-sm"
+                    >
+                      <option value="all">All</option>
+                      {reasonCodes.map((code) => (
+                        <option key={code} value={code}>
+                          {code}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <button
+                    type="submit"
+                    className="rounded-md border border-slate-200 px-3 py-1 text-sm text-slate-700"
+                  >
+                    Apply
+                  </button>
+                </form>
+                <p className="mt-3 text-xs text-slate-500">
+                  Restricted cases: {diag.messaging.snapshot.restricted.length}
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-semibold text-slate-900">Messaging activity</h3>
+            {!diag.messaging?.ready && (
+              <p className="text-sm text-slate-600">
+                Messaging activity is unavailable without the service role key.
+              </p>
+            )}
+            {diag.messaging?.ready && snapshot && (
+              <>
+                {filteredMessages.length ? (
+                  <ul className="text-sm text-slate-700">
+                    {filteredMessages.slice(0, 12).map((item) => (
+                      <li key={item.id} className="py-1">
+                        <span className="font-semibold">{item.status}</span> · {item.id} ·
+                        {item.reasonCode ? ` ${item.reasonCode}` : " ok"} ·
+                        {item.reasonLabel ? ` ${item.reasonLabel}` : ""} ·
+                        sender {item.senderId} ({item.senderRole || "n/a"}) ·
+                        recipient {item.recipientId} ({item.recipientRole || "n/a"}) ·
+                        property {item.propertyId}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-slate-600">
+                    No messages match the current filter.
+                  </p>
                 )}
               </>
             )}
@@ -240,11 +357,11 @@ export default async function AdminSupportPage() {
                 Messaging counts require the service role key.
               </p>
             )}
-            {diag.messaging?.ready && diag.messaging.snapshot && (
+            {diag.messaging?.ready && snapshot && (
               <>
-                {diag.messaging.snapshot.perUser.length ? (
+                {snapshot.perUser.length ? (
                   <ul className="text-sm text-slate-700">
-                    {diag.messaging.snapshot.perUser.map((entry) => (
+                    {snapshot.perUser.map((entry) => (
                       <li key={entry.userId}>
                         {entry.userId} · sent {entry.sent} · received {entry.received}
                       </li>
@@ -252,18 +369,6 @@ export default async function AdminSupportPage() {
                   </ul>
                 ) : (
                   <p className="text-sm text-slate-600">No message traffic in the sample.</p>
-                )}
-                <div className="mt-3 text-xs text-slate-500">
-                  Restricted cases: {diag.messaging.snapshot.restricted.length}
-                </div>
-                {diag.messaging.snapshot.restricted.length > 0 && (
-                  <ul className="mt-2 text-xs text-rose-700">
-                    {diag.messaging.snapshot.restricted.slice(0, 5).map((item) => (
-                      <li key={item.messageId}>
-                        {item.messageId} · {item.reason}
-                      </li>
-                    ))}
-                  </ul>
                 )}
               </>
             )}

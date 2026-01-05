@@ -1,6 +1,7 @@
 import { normalizeRole } from "@/lib/roles";
 import {
   getMessagingPermission,
+  getMessagingPermissionMessage,
   type MessagingPermissionCode,
 } from "@/lib/messaging/permissions";
 import { deriveDeliveryState } from "@/lib/messaging/status";
@@ -41,6 +42,22 @@ export type MessagingRestrictedCase = {
   senderId: string;
   recipientId: string;
   reason: MessagingPermissionCode;
+  reasonLabel: string;
+  senderRole: UserRole | null;
+  recipientRole: UserRole | null;
+};
+
+export type MessagingAdminMessage = {
+  id: string;
+  propertyId: string;
+  senderId: string;
+  recipientId: string;
+  senderRole: UserRole | null;
+  recipientRole: UserRole | null;
+  status: MessageDeliveryState | "restricted";
+  reasonCode?: MessagingPermissionCode;
+  reasonLabel?: string;
+  createdAt?: string | null;
 };
 
 export type MessagingAdminSnapshot = {
@@ -48,7 +65,22 @@ export type MessagingAdminSnapshot = {
   statusCounts: Record<MessageDeliveryState, number>;
   perUser: MessagingUserCount[];
   restricted: MessagingRestrictedCase[];
+  recentMessages: MessagingAdminMessage[];
 };
+
+export function filterMessagingAdminMessages(
+  messages: MessagingAdminMessage[],
+  status: string,
+  reason: string
+): MessagingAdminMessage[] {
+  return messages.filter((item) => {
+    if (status !== "all" && item.status !== status) return false;
+    if (status === "restricted" && reason !== "all") {
+      return item.reasonCode === reason;
+    }
+    return true;
+  });
+}
 
 function ensureUserCount(
   counts: Map<string, MessagingUserCount>,
@@ -99,6 +131,7 @@ export function buildMessagingAdminSnapshot(input: {
   };
   const userCounts = new Map<string, MessagingUserCount>();
   const restricted: MessagingRestrictedCase[] = [];
+  const recentMessages: MessagingAdminMessage[] = [];
 
   const sortedMessages = [...input.messages].sort((a, b) => {
     const aTime = a.created_at ? Date.parse(a.created_at) : 0;
@@ -109,7 +142,8 @@ export function buildMessagingAdminSnapshot(input: {
   const tenantThreadStarted = new Map<string, boolean>();
 
   for (const message of sortedMessages) {
-    statusCounts[deriveDeliveryState(message)] += 1;
+    const deliveryState = deriveDeliveryState(message);
+    statusCounts[deliveryState] += 1;
 
     const senderEntry = ensureUserCount(userCounts, message.sender_id);
     senderEntry.sent += 1;
@@ -121,14 +155,33 @@ export function buildMessagingAdminSnapshot(input: {
     recipientEntry.total += 1;
     updateLastMessageAt(recipientEntry, message.created_at);
 
+    const senderRole = resolveRole(roleById, message.sender_id);
+    const recipientRole = resolveRole(roleById, message.recipient_id);
     const property = propertyById.get(message.property_id);
     if (!property) {
+      const reason = "property_not_accessible" as MessagingPermissionCode;
+      const reasonLabel = getMessagingPermissionMessage(reason);
       restricted.push({
         messageId: message.id,
         propertyId: message.property_id,
         senderId: message.sender_id,
         recipientId: message.recipient_id,
-        reason: "property_not_found",
+        reason,
+        reasonLabel,
+        senderRole,
+        recipientRole,
+      });
+      recentMessages.push({
+        id: message.id,
+        propertyId: message.property_id,
+        senderId: message.sender_id,
+        recipientId: message.recipient_id,
+        senderRole,
+        recipientRole,
+        status: "restricted",
+        reasonCode: reason,
+        reasonLabel,
+        createdAt: message.created_at ?? null,
       });
       continue;
     }
@@ -137,12 +190,29 @@ export function buildMessagingAdminSnapshot(input: {
     const includesHost =
       message.sender_id === hostId || message.recipient_id === hostId;
     if (!includesHost) {
+      const reason = "conversation_not_allowed" as MessagingPermissionCode;
+      const reasonLabel = getMessagingPermissionMessage(reason);
       restricted.push({
         messageId: message.id,
         propertyId: message.property_id,
         senderId: message.sender_id,
         recipientId: message.recipient_id,
-        reason: "owner_mismatch",
+        reason,
+        reasonLabel,
+        senderRole,
+        recipientRole,
+      });
+      recentMessages.push({
+        id: message.id,
+        propertyId: message.property_id,
+        senderId: message.sender_id,
+        recipientId: message.recipient_id,
+        senderRole,
+        recipientRole,
+        status: "restricted",
+        reasonCode: reason,
+        reasonLabel,
+        createdAt: message.created_at ?? null,
       });
       continue;
     }
@@ -152,23 +222,51 @@ export function buildMessagingAdminSnapshot(input: {
     const hasThread = tenantThreadStarted.get(threadKey) ?? false;
 
     const permission = getMessagingPermission({
-      senderRole: resolveRole(roleById, message.sender_id),
+      senderRole,
       senderId: message.sender_id,
       recipientId: message.recipient_id,
       propertyOwnerId: hostId,
       propertyPublished: property.is_approved === true && property.is_active === true,
       isOwner: message.sender_id === hostId,
       hasThread,
-      recipientRole: resolveRole(roleById, message.recipient_id),
+      recipientRole,
     });
 
-    if (!permission.allowed && permission.code) {
+    if (!permission.allowed) {
+      const reason = permission.code ?? "unknown";
+      const reasonLabel = permission.message ?? getMessagingPermissionMessage(reason);
       restricted.push({
         messageId: message.id,
         propertyId: message.property_id,
         senderId: message.sender_id,
         recipientId: message.recipient_id,
-        reason: permission.code,
+        reason,
+        reasonLabel,
+        senderRole,
+        recipientRole,
+      });
+      recentMessages.push({
+        id: message.id,
+        propertyId: message.property_id,
+        senderId: message.sender_id,
+        recipientId: message.recipient_id,
+        senderRole,
+        recipientRole,
+        status: "restricted",
+        reasonCode: reason,
+        reasonLabel,
+        createdAt: message.created_at ?? null,
+      });
+    } else {
+      recentMessages.push({
+        id: message.id,
+        propertyId: message.property_id,
+        senderId: message.sender_id,
+        recipientId: message.recipient_id,
+        senderRole,
+        recipientRole,
+        status: deliveryState,
+        createdAt: message.created_at ?? null,
       });
     }
 
@@ -186,5 +284,6 @@ export function buildMessagingAdminSnapshot(input: {
     statusCounts,
     perUser,
     restricted,
+    recentMessages,
   };
 }

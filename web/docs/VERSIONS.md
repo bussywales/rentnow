@@ -1,5 +1,11 @@
 # Versions
 
+## 2026-01-05 — v1.7.10-r6.7.2-messaging-ux-polish
+- Standardized messaging reason codes and UI copy with actionable CTAs.
+- Added messaging snapshot filters and richer restricted-case context for admins.
+- Added tests for permission payloads, reason code mapping, and snapshot stability.
+- Updated messaging ops runbook with reason codes and support guidance.
+
 ## 2026-01-04 — v1.7.9-r6.7.1-messaging-hardening
 - Added explicit message delivery states and clearer in-app messaging rules.
 - Hardened message permissions with user-facing block reasons and no silent send failures.
