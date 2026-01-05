@@ -51,6 +51,32 @@ type ThrottleTelemetryDiagnostics = {
   error: string | null;
 };
 
+type PushAlertRow = {
+  id: string;
+  user_id: string;
+  property_id: string;
+  channel?: string | null;
+  status?: string | null;
+  error?: string | null;
+  created_at?: string | null;
+};
+
+type PushTelemetryDiagnostics = {
+  ready: boolean;
+  counts: {
+    active: number;
+    last24h: number;
+    last7d: number;
+  };
+  alerts: {
+    sampleSize: number;
+    pushAttempted: number;
+    pushSucceeded: number;
+    recent: PushAlertRow[];
+  };
+  error: string | null;
+};
+
 type SearchParams = Record<string, string | string[] | undefined>;
 
 type SupportProps = {
@@ -90,6 +116,14 @@ function resolveThrottleRange(value?: string): ThrottleRange {
 
 function toIsoRangeStart(windowMs: number) {
   return new Date(Date.now() - windowMs).toISOString();
+}
+
+function isPushAttempted(row: PushAlertRow) {
+  return (row.channel || "").includes("push");
+}
+
+function isPushFailed(row: PushAlertRow) {
+  return (row.error || "").includes("push_failed");
 }
 
 async function getDiagnostics(throttleRange: ThrottleRange) {
@@ -148,6 +182,13 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     range: throttleRange,
     totals: { last24h: 0, last7d: 0, last30d: 0 },
     summary: null,
+    error: null,
+  };
+
+  let pushTelemetry: PushTelemetryDiagnostics = {
+    ready: false,
+    counts: { active: 0, last24h: 0, last7d: 0 },
+    alerts: { sampleSize: 0, pushAttempted: 0, pushSucceeded: 0, recent: [] },
     error: null,
   };
 
@@ -253,6 +294,56 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
         .filter(Boolean)
         .join(" | ") || null,
     };
+
+    const [activeSubsResult, subs24hResult, subs7dResult] = await Promise.all([
+      adminClient
+        .from("push_subscriptions")
+        .select("id", { count: "exact", head: true })
+        .eq("is_active", true),
+      adminClient
+        .from("push_subscriptions")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", toIsoRangeStart(THROTTLE_RANGES["24h"].windowMs)),
+      adminClient
+        .from("push_subscriptions")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", toIsoRangeStart(THROTTLE_RANGES["7d"].windowMs)),
+    ]);
+
+    const { data: alertRowsRaw, error: alertRowsError } = await adminClient
+      .from("saved_search_alerts")
+      .select("id, user_id, property_id, channel, status, error, created_at")
+      .order("created_at", { ascending: false })
+      .limit(200);
+
+    const alertRows = (alertRowsRaw as PushAlertRow[]) ?? [];
+    const pushRows = alertRows.filter(isPushAttempted);
+    const pushSucceeded = pushRows.filter(
+      (row) => row.status === "sent" && !isPushFailed(row)
+    ).length;
+
+    pushTelemetry = {
+      ready: true,
+      counts: {
+        active: activeSubsResult.count ?? 0,
+        last24h: subs24hResult.count ?? 0,
+        last7d: subs7dResult.count ?? 0,
+      },
+      alerts: {
+        sampleSize: alertRows.length,
+        pushAttempted: pushRows.length,
+        pushSucceeded,
+        recent: pushRows.slice(0, 6),
+      },
+      error: [
+        activeSubsResult.error?.message,
+        subs24hResult.error?.message,
+        subs7dResult.error?.message,
+        alertRowsError?.message,
+      ]
+        .filter(Boolean)
+        .join(" | ") || null,
+    };
   } else {
     messaging = {
       ready: false,
@@ -266,6 +357,12 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       totals: { last24h: 0, last7d: 0, last30d: 0 },
       summary: null,
       error: "Service role key missing; throttle telemetry unavailable.",
+    };
+    pushTelemetry = {
+      ready: false,
+      counts: { active: 0, last24h: 0, last7d: 0 },
+      alerts: { sampleSize: 0, pushAttempted: 0, pushSucceeded: 0, recent: [] },
+      error: "Service role key missing; push telemetry unavailable.",
     };
   }
 
@@ -285,6 +382,7 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     },
     messaging,
     throttleTelemetry,
+    pushTelemetry,
     rateLimit,
   };
 }
@@ -489,6 +587,48 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 {diag.throttleTelemetry.error && (
                   <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     Errors: {diag.throttleTelemetry.error}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-semibold text-slate-900">Push & alerts</h3>
+            {!diag.pushTelemetry?.ready && (
+              <p className="text-sm text-slate-600">
+                {diag.pushTelemetry?.error || "Push telemetry is unavailable."}
+              </p>
+            )}
+            {diag.pushTelemetry?.ready && (
+              <>
+                <p className="text-sm text-slate-600">
+                  Active subscriptions: {diag.pushTelemetry.counts.active} · New 24h {diag.pushTelemetry.counts.last24h} · 7d {diag.pushTelemetry.counts.last7d}
+                </p>
+                <p className="mt-2 text-xs text-slate-500">
+                  Alert sample: last {diag.pushTelemetry.alerts.sampleSize} alerts.
+                </p>
+                <p className="text-sm text-slate-700">
+                  Push attempted: {diag.pushTelemetry.alerts.pushAttempted} · Push succeeded: {diag.pushTelemetry.alerts.pushSucceeded}
+                </p>
+                {diag.pushTelemetry.alerts.recent.length ? (
+                  <div className="mt-3">
+                    <p className="text-xs text-slate-500">Recent push outcomes</p>
+                    <ul className="mt-1 text-sm text-slate-700">
+                      {diag.pushTelemetry.alerts.recent.map((row) => (
+                        <li key={row.id}>
+                          {row.user_id} · {row.property_id || "property unknown"} · {row.status || "unknown"}
+                          {row.error ? ` · ${row.error}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-600">No push attempts in the recent sample.</p>
+                )}
+                {diag.pushTelemetry.error && (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    Errors: {diag.pushTelemetry.error}
                   </div>
                 )}
               </>

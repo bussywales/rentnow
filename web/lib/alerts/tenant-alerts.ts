@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getSiteUrl } from "@/lib/env";
 import { getTenantPlanForTier } from "@/lib/plans";
+import { getPushConfig, sendPushNotification, type PushSubscriptionRow } from "@/lib/push/server";
 import { parseFiltersFromSavedSearch, propertyMatchesFilters } from "@/lib/search-filters";
 import type { Property, SavedSearch } from "@/lib/types";
 
@@ -17,6 +18,12 @@ type AlertDispatchResult = {
 type EmailDispatchGuard = {
   ok: boolean;
   status: number;
+  error?: string;
+};
+
+type PushDeliveryOutcome = {
+  attempted: boolean;
+  status: "sent" | "failed" | "skipped";
   error?: string;
 };
 
@@ -83,6 +90,59 @@ async function sendAlertEmail(input: {
   return { status: "sent" as const, error: null };
 }
 
+async function deliverPushNotifications(input: {
+  adminDb: SupabaseClient;
+  userId: string;
+  subscriptions: PushSubscriptionRow[];
+  payload: Record<string, unknown>;
+}): Promise<PushDeliveryOutcome> {
+  if (!input.subscriptions.length) {
+    return { attempted: false, status: "skipped", error: "push_unavailable:no_subscription" };
+  }
+
+  let successCount = 0;
+  let lastError: string | null = null;
+  let lastStatus: number | null = null;
+  const staleEndpoints: string[] = [];
+
+  for (const subscription of input.subscriptions) {
+    const result = await sendPushNotification({
+      subscription,
+      payload: input.payload,
+    });
+    if (result.ok) {
+      successCount += 1;
+      continue;
+    }
+    lastError = result.error;
+    if (typeof result.statusCode === "number") {
+      lastStatus = result.statusCode;
+      if (result.statusCode === 404 || result.statusCode === 410) {
+        staleEndpoints.push(subscription.endpoint);
+      }
+    }
+  }
+
+  if (staleEndpoints.length) {
+    await input.adminDb
+      .from("push_subscriptions")
+      .delete()
+      .eq("profile_id", input.userId)
+      .in("endpoint", staleEndpoints);
+  }
+
+  if (successCount > 0) {
+    return { attempted: true, status: "sent" };
+  }
+
+  const errorSuffix = lastStatus ? `${lastStatus}` : lastError ?? "delivery_failed";
+  return {
+    attempted: true,
+    status: "failed",
+    error: `push_failed:${errorSuffix}`,
+  };
+}
+
 export async function dispatchSavedSearchAlerts(
   propertyId: string
 ): Promise<AlertDispatchResult> {
@@ -98,14 +158,17 @@ export async function dispatchSavedSearchAlerts(
   }
 
   const emailGuard = getEmailDispatchGuard();
-  if (!emailGuard.ok) {
+  const pushConfig = getPushConfig();
+  const pushReady = pushConfig.configured;
+
+  if (!emailGuard.ok && !pushReady) {
     return {
       ok: false,
       matched: 0,
       sent: 0,
       skipped: 0,
-      status: emailGuard.status,
-      error: emailGuard.error,
+      status: 503,
+      error: "Email and push delivery are not configured",
     };
   }
 
@@ -133,6 +196,8 @@ export async function dispatchSavedSearchAlerts(
   if (!property.is_active || !property.is_approved) {
     return { ok: true, matched: 0, sent: 0, skipped: 0 };
   }
+
+  const siteUrl = await getSiteUrl();
 
   const { data: savedSearchesRaw, error: searchesError } = await adminDb
     .from("saved_searches")
@@ -165,11 +230,37 @@ export async function dispatchSavedSearchAlerts(
     });
   }
 
-  const { data: userList } = await adminClient.auth.admin.listUsers({ perPage: 2000 });
   const emailMap = new Map<string, string>();
-  userList?.users?.forEach((user) => {
-    if (user.email) emailMap.set(user.id, user.email);
-  });
+  if (emailGuard.ok) {
+    const { data: userList } = await adminClient.auth.admin.listUsers({ perPage: 2000 });
+    userList?.users?.forEach((user) => {
+      if (user.email) emailMap.set(user.id, user.email);
+    });
+  }
+
+  const pushSubscriptions = new Map<string, PushSubscriptionRow[]>();
+  let pushLoadError: string | null = null;
+  if (pushReady && userIds.length) {
+    const { data: pushRows, error: pushError } = await adminDb
+      .from("push_subscriptions")
+      .select("profile_id, endpoint, p256dh, auth")
+      .in("profile_id", userIds)
+      .eq("is_active", true);
+    if (pushError) {
+      pushLoadError = pushError.message;
+    } else if (Array.isArray(pushRows)) {
+      pushRows.forEach((row) => {
+        const typed = row as { profile_id: string; endpoint: string; p256dh: string; auth: string };
+        const existing = pushSubscriptions.get(typed.profile_id) ?? [];
+        existing.push({
+          endpoint: typed.endpoint,
+          p256dh: typed.p256dh,
+          auth: typed.auth,
+        });
+        pushSubscriptions.set(typed.profile_id, existing);
+      });
+    }
+  }
 
   let matched = 0;
   let sent = 0;
@@ -210,40 +301,105 @@ export async function dispatchSavedSearchAlerts(
     }
 
     const alertId = Array.isArray(alertRow) ? (alertRow[0] as { id?: string })?.id : null;
-    const recipientEmail = emailMap.get(search.user_id);
-    if (!recipientEmail || !alertId) {
+    if (!alertId) {
       skipped += 1;
-      if (alertId) {
-        await adminDb
-          .from("saved_search_alerts")
-          .update({ status: "skipped", error: "Missing recipient email" })
-          .eq("id", alertId);
-      }
       continue;
     }
 
-    const emailResult = await sendAlertEmail({
-      to: recipientEmail,
-      property,
-      searchName: search.name,
-    });
+    const recipientEmail = emailMap.get(search.user_id);
+    const emailAttempted = emailGuard.ok && !!recipientEmail;
+    let emailStatus: "sent" | "failed" | "skipped" = "skipped";
+    let emailError: string | null = null;
 
-    if (emailResult.status === "sent") {
+    if (!emailGuard.ok) {
+      emailStatus = "skipped";
+      emailError = emailGuard.error ?? "email_not_configured";
+    } else if (!recipientEmail) {
+      emailStatus = "skipped";
+      emailError = "missing_recipient_email";
+    } else {
+      const emailResult = await sendAlertEmail({
+        to: recipientEmail,
+        property,
+        searchName: search.name,
+      });
+      emailStatus = emailResult.status;
+      emailError = emailResult.error;
+    }
+
+    let pushOutcome: PushDeliveryOutcome = {
+      attempted: false,
+      status: "skipped",
+      error: "push_unavailable:not_configured",
+    };
+
+    if (pushReady) {
+      if (pushLoadError) {
+        pushOutcome = {
+          attempted: false,
+          status: "skipped",
+          error: "push_unavailable:subscription_lookup_failed",
+        };
+      } else {
+        const subscriptions = pushSubscriptions.get(search.user_id) ?? [];
+        pushOutcome = await deliverPushNotifications({
+          adminDb,
+          userId: search.user_id,
+          subscriptions,
+          payload: {
+            title: "New listing match",
+            body: `${property.title} matches "${search.name}".`,
+            url: `${siteUrl}/properties/${property.id}`,
+          },
+        });
+      }
+    }
+
+    const channel = pushOutcome.attempted
+      ? emailAttempted
+        ? "email+push"
+        : "push"
+      : "email";
+
+    const alertStatus =
+      emailStatus === "sent" || pushOutcome.status === "sent"
+        ? "sent"
+        : emailStatus === "failed" || pushOutcome.status === "failed"
+          ? "failed"
+          : "skipped";
+
+    const errorParts: string[] = [];
+    if (emailStatus !== "sent") {
+      errorParts.push(`email_${emailStatus}:${emailError ?? "unknown"}`);
+    }
+    if (pushOutcome.error) {
+      errorParts.push(pushOutcome.error);
+    }
+    const errorMessage = errorParts.length ? errorParts.join(" | ") : null;
+
+    if (alertStatus === "sent") {
       sent += 1;
-      await adminDb
-        .from("saved_search_alerts")
-        .update({ status: "sent", sent_at: new Date().toISOString() })
-        .eq("id", alertId);
+    } else {
+      skipped += 1;
+    }
+
+    const updatePayload: Record<string, unknown> = {
+      status: alertStatus,
+      channel,
+      error: errorMessage,
+    };
+
+    if (alertStatus === "sent") {
+      updatePayload.sent_at = new Date().toISOString();
+    }
+
+    await adminDb.from("saved_search_alerts").update(updatePayload).eq("id", alertId);
+
+    if (alertStatus === "sent") {
       await adminDb
         .from("saved_searches")
         .update({ last_notified_at: new Date().toISOString() })
         .eq("id", search.id);
-    } else {
-      skipped += 1;
-      await adminDb
-        .from("saved_search_alerts")
-        .update({ status: emailResult.status, error: emailResult.error })
-        .eq("id", alertId);
     }
   }
 
