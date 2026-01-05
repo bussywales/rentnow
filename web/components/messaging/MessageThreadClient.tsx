@@ -65,7 +65,7 @@ export function MessageThreadClient({
     : error
       ? {
           message: "Messaging is unavailable right now.",
-          cta: getMessagingReasonCta("unknown"),
+          cta: getMessagingReasonCta("unknown") ?? undefined,
         }
       : loading
         ? { message: "Checking messaging permissions..." }
