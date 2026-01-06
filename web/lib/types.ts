@@ -18,6 +18,13 @@ export interface Profile {
   business_name?: string | null;
   preferred_contact?: string | null;
   areas_served?: string[] | null;
+  email_verified?: boolean | null;
+  phone_verified?: boolean | null;
+  bank_verified?: boolean | null;
+  reliability_power?: string | null;
+  reliability_water?: string | null;
+  reliability_internet?: string | null;
+  trust_updated_at?: string | null;
   created_at?: string;
 }
 
