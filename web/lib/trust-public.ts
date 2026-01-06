@@ -12,7 +12,13 @@ export type TrustPublicRow = {
 };
 
 type TrustPublicRpcClient = {
-  rpc: (fn: string, params?: Record<string, unknown>) => any;
+  rpc: (
+    fn: string,
+    params?: Record<string, unknown>
+  ) => PromiseLike<{
+    data: TrustPublicRow[] | null;
+    error: { message?: string } | null;
+  }>;
 };
 
 export function mapTrustPublicToMarkers(row: TrustPublicRow): TrustMarkerState {
