@@ -52,3 +52,9 @@ Verification:
 2) Visit `/dashboard/saved-searches` and use the Push badge to enable notifications.
 3) Confirm a row appears in `public.push_subscriptions`.
 4) Trigger a saved search alert; confirm a push notification appears and clicks through to the listing.
+
+Troubleshooting markers (saved_search_alerts.error):
+- `push_unavailable:not_configured` → missing VAPID keys.
+- `push_unavailable:missing_subscription` → user has no active subscription.
+- `push_unavailable:subscription_lookup_failed` → DB query failed.
+- `push_failed:rate_limited` or `push_failed:provider_error` → delivery issues.

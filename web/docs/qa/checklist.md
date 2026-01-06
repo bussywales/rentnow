@@ -77,3 +77,4 @@
 - Enable notifications and verify a row exists in `public.push_subscriptions`.
 - Trigger a saved search alert and confirm a push notification is delivered.
 - In `/admin/support`, confirm push subscription counts and alert sample metrics render.
+- If a push attempt fails, confirm `saved_search_alerts.error` includes a `push_unavailable:` or `push_failed:` marker.

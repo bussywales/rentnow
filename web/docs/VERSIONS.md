@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-11 — v1.7.16-r6.9.1-push-e2e
+- Hardened push subscription UI with clearer error states and status refresh.
+- Standardized push alert outcome markers and added push reliability telemetry summaries.
+- Added unit coverage for push APIs and push outcome markers, plus debug env flags.
+
 ## 2026-01-10 — fix: tighten push subscription RLS policies
 - Scoped push subscription policies to the authenticated role only.
 - Kept ownership checks enforced via `auth.uid()` on all write paths.
