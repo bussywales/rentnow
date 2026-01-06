@@ -78,3 +78,5 @@
 - Trigger a saved search alert and confirm a push notification is delivered.
 - In `/admin/support`, confirm push subscription counts and alert sample metrics render.
 - If a push attempt fails, confirm `saved_search_alerts.error` includes a `push_unavailable:` or `push_failed:` marker.
+- If a push attempt returns a permanent failure (404/410), confirm the subscription row is removed and `saved_search_alerts.error` includes `push_pruned:gone`.
+- Run `select public.cleanup_push_alerts(60)` in the SQL editor and confirm old push alert rows are pruned.

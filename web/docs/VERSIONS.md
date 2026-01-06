@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-12 — v1.7.17-r6.9.2-push-durability
+- Added stale push subscription pruning markers with admin telemetry counts.
+- Added push alert retention cleanup function and documented ops/QA steps.
+- Added unit coverage for pruning markers and retention verification.
+
 ## 2026-01-11 — v1.7.16-r6.9.1-push-e2e
 - Hardened push subscription UI with clearer error states and status refresh.
 - Standardized push alert outcome markers and added push reliability telemetry summaries.

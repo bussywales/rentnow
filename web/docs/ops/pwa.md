@@ -46,6 +46,7 @@ Endpoints:
 Behavior:
 - Push only delivers alerts; no sensitive data is cached or stored in the service worker.
 - If VAPID keys are missing, push endpoints return a 503-style response.
+- Stale subscriptions are pruned automatically when the provider reports a permanent failure (404/410).
 
 Verification:
 1) Ensure the VAPID keys are set in the environment.
@@ -58,3 +59,22 @@ Troubleshooting markers (saved_search_alerts.error):
 - `push_unavailable:missing_subscription` → user has no active subscription.
 - `push_unavailable:subscription_lookup_failed` → DB query failed.
 - `push_failed:rate_limited` or `push_failed:provider_error` → delivery issues.
+- `push_pruned:gone` → subscription was removed after a permanent failure; user must re-enable.
+
+Tenant UX:
+- When a subscription is pruned, the Push badge shows “Notifications need to be re-enabled.”
+
+Retention cleanup (manual):
+```sql
+select count(*) as candidate_rows
+from public.saved_search_alerts
+where created_at < (now() - interval '60 days')
+  and channel ilike '%push%';
+
+select public.cleanup_push_alerts(60) as deleted_rows;
+```
+
+Notes:
+- Run in the Supabase SQL editor (admin context).
+- Cleanup only targets alert rows with push in the channel; subscriptions are not deleted here.
+- Safety check: `deleted_rows` should be less than or equal to `candidate_rows`.
