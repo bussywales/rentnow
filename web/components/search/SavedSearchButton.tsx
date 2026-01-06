@@ -22,7 +22,7 @@ export function SavedSearchButton({ filters }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [limitReached, setLimitReached] = useState(false);
+  const [reasonCode, setReasonCode] = useState<string | null>(null);
 
   const payload = useMemo(() => ({
     city: filters.city,
@@ -39,7 +39,7 @@ export function SavedSearchButton({ filters }: Props) {
     setSaving(true);
     setError(null);
     setSuccess(null);
-    setLimitReached(false);
+    setReasonCode(null);
     try {
       const res = await fetch("/api/saved-searches", {
         method: "POST",
@@ -48,12 +48,11 @@ export function SavedSearchButton({ filters }: Props) {
       });
       if (!res.ok) {
         if (res.status === 401) {
+          setReasonCode("not_authenticated");
           throw new Error("Please log in to save searches.");
         }
         const data = await res.json().catch(() => ({}));
-        if (data?.code === "plan_limit_reached") {
-          setLimitReached(true);
-        }
+        if (typeof data?.code === "string") setReasonCode(data.code);
         throw new Error(data?.error || "Unable to save search.");
       }
       setSuccess("Saved! You can manage alerts in your dashboard.");
@@ -103,20 +102,20 @@ export function SavedSearchButton({ filters }: Props) {
             </div>
             {error && (
               <p className="mt-3 text-xs text-rose-600">
-            {error}{" "}
-            {error.toLowerCase().includes("log in") && (
-              <Link href="/auth/login" className="underline">
-                Log in
-              </Link>
+                {error}{" "}
+                {reasonCode === "not_authenticated" && (
+                  <Link href="/auth/login" className="underline">
+                    Log in
+                  </Link>
+                )}
+                {reasonCode === "limit_reached" && (
+                  <Link href="/dashboard/billing#plans" className="underline">
+                    Upgrade to Tenant Pro
+                  </Link>
+                )}
+              </p>
             )}
-            {limitReached && (
-              <Link href="/dashboard/billing#plans" className="underline">
-                Upgrade to Tenant Pro
-              </Link>
-            )}
-          </p>
-        )}
-      </div>
+          </div>
         </div>
       )}
     </div>

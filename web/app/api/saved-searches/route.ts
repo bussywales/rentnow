@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUser } from "@/lib/authz";
+import { getUserRole, requireUser } from "@/lib/authz";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure, logSavedSearchLimitHit } from "@/lib/observability";
 import { getTenantPlanForTier, isSavedSearchLimitReached } from "@/lib/plans";
@@ -11,6 +11,17 @@ const createSchema = z.object({
   name: z.string().min(2),
   query_params: z.record(z.string(), z.unknown()),
 });
+
+type SavedSearchDeps = {
+  hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
+  createServerSupabaseClient: typeof createServerSupabaseClient;
+  requireUser: typeof requireUser;
+  getUserRole: typeof getUserRole;
+  getTenantPlanForTier: typeof getTenantPlanForTier;
+  isSavedSearchLimitReached: typeof isSavedSearchLimitReached;
+  logFailure: typeof logFailure;
+  logSavedSearchLimitHit: typeof logSavedSearchLimitHit;
+};
 
 export async function GET(request: Request) {
   const startTime = Date.now();
@@ -52,11 +63,24 @@ export async function GET(request: Request) {
   return NextResponse.json({ searches: data || [] });
 }
 
-export async function POST(request: Request) {
+export async function postSavedSearchResponse(
+  request: Request,
+  deps: Partial<SavedSearchDeps> = {}
+) {
   const startTime = Date.now();
+  const {
+    hasServerSupabaseEnv: hasEnv = hasServerSupabaseEnv,
+    createServerSupabaseClient: createClient = createServerSupabaseClient,
+    requireUser: requireAuthUser = requireUser,
+    getUserRole: getRole = getUserRole,
+    getTenantPlanForTier: resolveTenantPlan = getTenantPlanForTier,
+    isSavedSearchLimitReached: isLimitReached = isSavedSearchLimitReached,
+    logFailure: logError = logFailure,
+    logSavedSearchLimitHit: logLimitHit = logSavedSearchLimitHit,
+  } = deps;
 
-  if (!hasServerSupabaseEnv()) {
-    logFailure({
+  if (!hasEnv()) {
+    logError({
       request,
       route: routeLabel,
       status: 503,
@@ -69,16 +93,36 @@ export async function POST(request: Request) {
     );
   }
 
-  const supabase = await createServerSupabaseClient();
-  const auth = await requireUser({
+  const supabase = await createClient();
+  const auth = await requireAuthUser({
     request,
     route: routeLabel,
     startTime,
     supabase,
   });
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: "Please log in to save searches.", code: "not_authenticated" },
+      { status: 401 }
+    );
+  }
 
   try {
+    const role = await getRole(supabase, auth.user.id);
+    if (role !== "tenant") {
+      logError({
+        request,
+        route: routeLabel,
+        status: 403,
+        startTime,
+        error: new Error("role_not_allowed"),
+      });
+      return NextResponse.json(
+        { error: "Saved searches are available to tenants.", code: "role_not_allowed" },
+        { status: 403 }
+      );
+    }
+
     const { data: planRow } = await supabase
       .from("profile_plans")
       .select("plan_tier, valid_until")
@@ -88,7 +132,7 @@ export async function POST(request: Request) {
     const validUntil = planRow?.valid_until ?? null;
     const expired =
       !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
-    const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+    const tenantPlan = resolveTenantPlan(expired ? "free" : planRow?.plan_tier ?? "free");
 
     const { count: searchCount, error: countError } = await supabase
       .from("saved_searches")
@@ -96,7 +140,7 @@ export async function POST(request: Request) {
       .eq("user_id", auth.user.id);
 
     if (countError) {
-      logFailure({
+      logError({
         request,
         route: routeLabel,
         status: 400,
@@ -106,8 +150,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: countError.message }, { status: 400 });
     }
 
-    if (isSavedSearchLimitReached(searchCount ?? 0, tenantPlan)) {
-      logSavedSearchLimitHit({
+    if (isLimitReached(searchCount ?? 0, tenantPlan)) {
+      logLimitHit({
         request,
         route: routeLabel,
         actorId: auth.user.id,
@@ -118,7 +162,7 @@ export async function POST(request: Request) {
       return NextResponse.json(
         {
           error: "Saved search limit reached",
-          code: "plan_limit_reached",
+          code: "limit_reached",
           maxSavedSearches: tenantPlan.maxSavedSearches,
           searchCount: searchCount ?? 0,
           planTier: tenantPlan.tier,
@@ -140,7 +184,7 @@ export async function POST(request: Request) {
       .single();
 
     if (error) {
-      logFailure({
+      logError({
         request,
         route: routeLabel,
         status: 400,
@@ -153,7 +197,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ search: data });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unable to save search";
-    logFailure({
+    logError({
       request,
       route: routeLabel,
       status: 500,
@@ -162,4 +206,8 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+export async function POST(request: Request) {
+  return postSavedSearchResponse(request);
 }
