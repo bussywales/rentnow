@@ -11,13 +11,8 @@ export type TrustPublicRow = {
   internet_reliability: string | null;
 };
 
-type TrustPublicRpcResponse<T> = {
-  data: T | null;
-  error: { message?: string } | null;
-};
-
 type TrustPublicRpcClient = {
-  rpc: (fn: string, params?: Record<string, unknown>) => Promise<TrustPublicRpcResponse<TrustPublicRow[]>>;
+  rpc: (fn: string, params?: Record<string, unknown>) => any;
 };
 
 export function mapTrustPublicToMarkers(row: TrustPublicRow): TrustMarkerState {
@@ -38,9 +33,11 @@ export async function fetchTrustPublicSnapshots(
   const uniqueIds = Array.from(new Set(profileIds.filter(Boolean)));
   if (!uniqueIds.length) return {};
 
-  const { data, error } = await supabase.rpc("get_profiles_trust_public", {
+  const response = await supabase.rpc("get_profiles_trust_public", {
     profile_ids: uniqueIds,
   });
+  const data = response?.data ?? null;
+  const error = response?.error ?? null;
 
   if (error || !Array.isArray(data)) {
     console.warn("[trust-public] failed to load trust snapshots", {
