@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-06 — v1.7.19-r6.9.3-saved-search-discovery
+- Added tenant-only saved-search navigation with friendly non-tenant fallback copy.
+- Made “List a property” CTAs role-aware and aligned listing guards with role error codes.
+- Added unit coverage for role-aware CTAs, saved-search navigation, and listing access checks.
+
 ## 2026-01-13 — v1.7.18-r6.9.2-saved-search-gating
 - Scoped saved-search creation to tenants with clear role/limit reason codes.
 - Updated push alert verification query docs to use `user_id`.

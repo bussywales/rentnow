@@ -60,6 +60,16 @@
 - As Tenant Pro, confirm unlimited saved searches and “Alerts enabled” badge in the dashboard.
 - Approve a new listing and confirm a saved search alert row is created (email sends if Resend is configured).
 - Free tenant sees the “Upgrade for instant alerts” prompt on browse.
+- Saved-search create/update/delete returns `role_not_allowed` for non-tenant roles.
+
+## Saved searches UX
+- Tenant sees “Saved searches” in the dashboard navigation and can open `/dashboard/saved-searches`.
+- Non-tenants do not see the nav item and get a friendly message if they visit the URL directly.
+
+## Role-aware CTAs
+- Landing CTA shows “List a property” for unauthenticated users (redirects to login).
+- Landing CTA shows “Find a home” for tenants and “List a property” for landlords/agents.
+- Tenants receive `role_not_allowed` when attempting to create/update/delete listings.
 
 ## Messaging throttle telemetry
 - Trigger rate limiting with rapid sends and confirm the cooldown UI appears.
