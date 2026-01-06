@@ -22,6 +22,7 @@ import {
 import { getListingCta } from "@/lib/role-access";
 import { normalizeRole } from "@/lib/roles";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import { getTenantPlanForTier } from "@/lib/plans";
 import type { Profile, Property } from "@/lib/types";
 import type { TrustMarkerState } from "@/lib/trust-markers";
@@ -319,6 +320,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             .eq("id", user.id)
             .maybeSingle();
           hostTrust = (trustProfile as TrustMarkerState | null) ?? null;
+        } else if (profile?.role === "tenant") {
+          const trustMap = await fetchTrustPublicSnapshots(supabase, [property.owner_id]);
+          hostTrust = trustMap[property.owner_id] ?? null;
         }
       }
 

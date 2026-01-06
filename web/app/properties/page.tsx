@@ -14,6 +14,8 @@ import { filtersToChips, parseFiltersFromParams } from "@/lib/search-filters";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property, UserRole } from "@/lib/types";
+import type { TrustMarkerState } from "@/lib/trust-markers";
+import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
   searchParams?: SearchParams | Promise<SearchParams>;
@@ -157,6 +159,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
   let properties: Property[] = [];
   let totalCount: number | null = null;
   let fetchError: string | null = null;
+  let trustSnapshots: Record<string, TrustMarkerState> = {};
   const hubs = [
     { city: "Lagos", label: "Lagos Island" },
     { city: "Nairobi", label: "Nairobi" },
@@ -253,6 +256,17 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
   if (!properties.length && !fetchError) {
     fetchError = "API returned 0 properties";
+  }
+
+  if (role === "tenant" && supabaseReady && properties.length) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const ownerIds = properties.map((property) => property.owner_id);
+      trustSnapshots = await fetchTrustPublicSnapshots(supabase, ownerIds);
+    } catch (err) {
+      console.warn("[properties] trust snapshot fetch failed", err);
+      trustSnapshots = {};
+    }
   }
 
   if (!properties.length) {
@@ -430,6 +444,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
             key={property.id}
             property={property}
             href={`/properties/${property.id}?back=${encodeURIComponent(backHref)}`}
+            trustMarkers={trustSnapshots[property.owner_id]}
           />
         ))}
       </div>
