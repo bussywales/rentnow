@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { MessageThreadClient } from "@/components/messaging/MessageThreadClient";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
@@ -11,6 +12,11 @@ import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
 import { getProfile } from "@/lib/auth";
 import { DEV_MOCKS, getApiBaseUrl, getCanonicalBaseUrl, getEnvPresence } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
+import {
+  formatCadence,
+  formatLocationLabel,
+  formatPriceValue,
+} from "@/lib/property-discovery";
 import { getListingCta } from "@/lib/role-access";
 import { normalizeRole } from "@/lib/roles";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -20,7 +26,11 @@ import type { Profile, Property } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 type Params = { id?: string };
-type Props = { params: Params | Promise<Params> };
+type SearchParams = Record<string, string | string[] | undefined>;
+type Props = {
+  params: Params | Promise<Params>;
+  searchParams?: SearchParams | Promise<SearchParams>;
+};
 
 function normalizeId(id: string) {
   return decodeURIComponent(id).trim();
@@ -33,6 +43,46 @@ function extractId(raw: Params | Promise<Params>): Promise<string | undefined> {
     return maybePromise.then((p) => p?.id);
   }
   return Promise.resolve((raw as Params)?.id);
+}
+
+function getSearchParamValue(
+  params: SearchParams | undefined,
+  key: string
+): string | undefined {
+  if (!params) return undefined;
+  const value = params[key];
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+function resolveBackHref(
+  params: SearchParams | undefined,
+  referer: string | null
+): string | null {
+  const rawBack = getSearchParamValue(params, "back");
+  if (rawBack) {
+    try {
+      const decoded = decodeURIComponent(rawBack);
+      if (decoded.startsWith("/properties")) {
+        return decoded;
+      }
+    } catch {
+      if (rawBack.startsWith("/properties")) {
+        return rawBack;
+      }
+    }
+  }
+
+  if (!referer) return null;
+  try {
+    const url = new URL(referer);
+    if (url.pathname === "/properties") {
+      return `${url.pathname}${url.search}`;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 async function getProperty(
@@ -147,13 +197,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function PropertyDetail({ params }: Props) {
+export default async function PropertyDetail({ params, searchParams }: Props) {
   const envPresence = getEnvPresence();
   const supabaseReady = hasServerSupabaseEnv();
   const profile = supabaseReady ? await getProfile() : null;
   const listingCta = getListingCta(normalizeRole(profile?.role));
   const siteUrl = await getCanonicalBaseUrl();
   const id = await extractId(params);
+  const resolvedSearchParams =
+    searchParams &&
+    (typeof (searchParams as Promise<SearchParams>).then === "function"
+      ? await (searchParams as Promise<SearchParams>)
+      : (searchParams as SearchParams));
+  const headerList = await headers();
+  const backHref = resolveBackHref(resolvedSearchParams, headerList.get("referer"));
   let property: Property | null = null;
   let fetchError: string | null = null;
   let apiUrl: string | null = null;
@@ -301,8 +358,25 @@ export default async function PropertyDetail({ params }: Props) {
     }
   }
 
+  const locationLabel = formatLocationLabel(property.city, property.neighbourhood);
+  const priceValue = formatPriceValue(property.currency, property.price);
+  const cadence = formatCadence(property.rental_type);
+  const description =
+    typeof property.description === "string" && property.description.trim().length > 0
+      ? property.description
+      : "This listing doesn't have a description yet. Contact the host for details.";
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4">
+      {backHref && (
+        <Link
+          href={backHref}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-sky-700"
+        >
+          <span aria-hidden>{"<-"}</span>
+          Back to results
+        </Link>
+      )}
       {property && (
         <script
           type="application/ld+json"
@@ -349,18 +423,16 @@ export default async function PropertyDetail({ params }: Props) {
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
             {property.rental_type === "short_let" ? "Short-let" : "Long-term"}
           </p>
-          <h1 className="text-2xl font-semibold text-slate-900">
-            {property.title}
-          </h1>
-          <p className="text-sm text-slate-600">
-            {property.city}
-            {property.neighbourhood ? ` - ${property.neighbourhood}` : ""}
-          </p>
-          <div className="text-3xl font-semibold text-slate-900">
-            {property.currency} {property.price.toLocaleString()}
-            <span className="text-sm font-normal text-slate-500">
-              {property.rental_type === "short_let" ? " / night" : " / month"}
-            </span>
+          <h1 className="text-2xl font-semibold text-slate-900">{property.title}</h1>
+          <p className="text-sm text-slate-600">{locationLabel}</p>
+          <div className="rounded-xl bg-slate-50 px-3 py-2">
+            <p className="text-3xl font-semibold text-slate-900">
+              {priceValue}
+              <span className="text-sm font-normal text-slate-500">{` / ${cadence}`}</span>
+            </p>
+            <p className="text-xs text-slate-500">
+              {property.rental_type === "short_let" ? "Short stay pricing" : "Monthly rent"}
+            </p>
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-700">
             <span className="flex items-center gap-1">
@@ -379,7 +451,7 @@ export default async function PropertyDetail({ params }: Props) {
                 <path d="M20 21v-3" />
                 <path d="M4 15h16v-3a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2Z" />
               </svg>
-              {property.bedrooms}
+              {property.bedrooms} beds
             </span>
             <span className="flex items-center gap-1">
               <svg
@@ -399,9 +471,9 @@ export default async function PropertyDetail({ params }: Props) {
                 <path d="M15 4h1" />
                 <path d="M15 7h2" />
               </svg>
-              {property.bathrooms}
+              {property.bathrooms} baths
             </span>
-            {property.furnished && <span>Furnished</span>}
+            <span>{property.furnished ? "Furnished" : "Unfurnished"}</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {(property.amenities || []).map((item) => (
@@ -420,7 +492,7 @@ export default async function PropertyDetail({ params }: Props) {
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900">About</h2>
-          <p className="text-slate-700 leading-7">{property.description}</p>
+          <p className="text-slate-700 leading-7">{description}</p>
           <PropertyMapToggle
             properties={[property]}
             height="320px"
@@ -483,7 +555,11 @@ export default async function PropertyDetail({ params }: Props) {
           <h2 className="text-xl font-semibold text-slate-900">Similar listings</h2>
           <div className="grid gap-4 md:grid-cols-2">
             {similar.map((item) => (
-              <PropertyCard key={item.id} property={item} />
+              <PropertyCard
+                key={item.id}
+                property={item}
+                href={`/properties/${item.id}`}
+              />
             ))}
           </div>
         </div>

@@ -5,6 +5,11 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Property } from "@/lib/types";
 import { cn } from "@/components/ui/cn";
+import {
+  formatCadence,
+  formatLocationLabel,
+  formatPriceValue,
+} from "@/lib/property-discovery";
 
 const BedIcon = () => (
   <svg
@@ -57,6 +62,13 @@ export function PropertyCard({ property, href, compact }: Props) {
   const [imgSrc, setImgSrc] = useState(primaryImage);
   const blurDataURL =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
+  const locationLabel = formatLocationLabel(property.city, property.neighbourhood);
+  const priceValue = formatPriceValue(property.currency, property.price);
+  const cadence = formatCadence(property.rental_type);
+  const description =
+    typeof property.description === "string" && property.description.trim().length > 0
+      ? property.description
+      : "No description provided yet.";
 
   const body = (
     <div
@@ -83,11 +95,10 @@ export function PropertyCard({ property, href, compact }: Props) {
       <div className="flex flex-1 flex-col gap-2 px-4 py-3">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">
-              {property.city}
-            {property.neighbourhood ? ` - ${property.neighbourhood}` : ""}
+            <p className="text-xs font-semibold text-slate-500">
+              {locationLabel}
             </p>
-            <h3 className="text-base font-semibold text-slate-900">
+            <h3 className="text-base font-semibold text-slate-900 line-clamp-1">
               {property.title}
             </h3>
           </div>
@@ -95,14 +106,14 @@ export function PropertyCard({ property, href, compact }: Props) {
             {property.rental_type === "short_let" ? "Short-let" : "Long-term"}
           </span>
         </div>
-        <p className="text-sm text-slate-600 line-clamp-2">
-          {property.description}
+        <p className="min-h-[40px] text-sm text-slate-600 line-clamp-2">
+          {description}
         </p>
         <div className="flex items-center justify-between text-sm text-slate-800">
           <div className="font-semibold">
-            {property.currency} {property.price.toLocaleString()}
+            {priceValue}
             <span className="text-xs font-normal text-slate-500">
-              {property.rental_type === "short_let" ? " / night" : " / month"}
+              {` / ${cadence}`}
             </span>
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-600">
@@ -114,7 +125,7 @@ export function PropertyCard({ property, href, compact }: Props) {
               <BathIcon />
               {property.bathrooms}
             </span>
-            {property.furnished && <span>Furnished</span>}
+            <span>{property.furnished ? "Furnished" : "Unfurnished"}</span>
           </div>
         </div>
       </div>
@@ -131,4 +142,3 @@ export function PropertyCard({ property, href, compact }: Props) {
 
   return body;
 }
-

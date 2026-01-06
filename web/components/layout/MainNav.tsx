@@ -15,6 +15,12 @@ const links: Array<{
 }> = [
   { href: "/properties", label: "Browse" },
   { href: "/favourites", label: "Saved", requireAuth: true },
+  {
+    href: "/dashboard/saved-searches",
+    label: "Saved searches",
+    requireAuth: true,
+    requireRole: "tenant",
+  },
   { href: "/dashboard", label: "Dashboard", requireAuth: true, denyRoles: ["tenant"] },
   { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
   { href: "/admin/support", label: "Support", requireAuth: true, requireRole: "admin" },

@@ -17,7 +17,7 @@ const blurDataURL =
 export function PropertyGallery({ images, title }: Props) {
   const [current, setCurrent] = useState(0);
   const [broken, setBroken] = useState<Set<string>>(new Set());
-  const safeImages = images.length ? images : [{ id: "fallback", image_url: fallbackImage }];
+  const safeImages = images.length ? images : [];
   const currentImage = safeImages[current] || safeImages[0];
 
   const imageKey = (img: PropertyImage, idx: number) => img.id || `${img.image_url}-${idx}`;
@@ -42,6 +42,19 @@ export function PropertyGallery({ images, title }: Props) {
     }
   };
 
+  if (!safeImages.length) {
+    return (
+      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center text-sm text-slate-600">
+        <p className="text-base font-semibold text-slate-900">No photos available</p>
+        <p className="mt-1 text-sm text-slate-600">
+          This listing doesn&apos;t have images yet. Check back soon.
+        </p>
+      </div>
+    );
+  }
+
+  const showNav = safeImages.length > 1;
+
   return (
     <div className="space-y-3">
       <div
@@ -62,6 +75,31 @@ export function PropertyGallery({ images, title }: Props) {
           blurDataURL={blurDataURL}
           onError={() => markBroken(currentImage, current)}
         />
+        {showNav && (
+          <>
+            <div className="absolute right-3 top-3 rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-white">
+              {current + 1} / {safeImages.length}
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                setCurrent((prev) => (prev - 1 + safeImages.length) % safeImages.length)
+              }
+              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-white"
+              aria-label="Previous photo"
+            >
+              Prev
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrent((prev) => (prev + 1) % safeImages.length)}
+              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-white"
+              aria-label="Next photo"
+            >
+              Next
+            </button>
+          </>
+        )}
       </div>
       <div className="flex gap-2 overflow-x-auto pb-1">
         {safeImages.map((img, idx) => (

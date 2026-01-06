@@ -8,6 +8,8 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
 import { getTenantPlanForTier } from "@/lib/plans";
+import { getBrowseEmptyStateCtas } from "@/lib/property-discovery";
+import { normalizeRole } from "@/lib/roles";
 import { filtersToChips, parseFiltersFromParams } from "@/lib/search-filters";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
@@ -119,7 +121,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
           .select("role")
           .eq("id", user.id)
           .maybeSingle();
-        role = (profile?.role as UserRole) ?? null;
+        role = normalizeRole(profile?.role);
         if (role === "tenant") {
           const { data: planRow } = await supabase
             .from("profile_plans")
@@ -254,31 +256,58 @@ export default async function PropertiesPage({ searchParams }: Props) {
   }
 
   if (!properties.length) {
+    const emptyDescription = hasFilters
+      ? "No listings match your filters yet. Try clearing filters or browsing all listings."
+      : "No listings are available right now. Check back soon or browse all listings.";
     const retryParams = buildSearchParams(resolvedSearchParams, {});
     const retryHref = retryParams.toString()
       ? `/properties?${retryParams.toString()}`
       : "/properties";
+    const emptyCtas = getBrowseEmptyStateCtas({ role, hasFilters });
+    const showRetry = !!fetchError && fetchError !== "API returned 0 properties";
+    const renderEmptyCta = (cta: (typeof emptyCtas)[number]) => {
+      if (cta.kind === "primary") {
+        return (
+          <Link key={cta.label} href={cta.href}>
+            <Button size="sm">{cta.label}</Button>
+          </Link>
+        );
+      }
+      if (cta.kind === "secondary") {
+        return (
+          <Link key={cta.label} href={cta.href}>
+            <Button size="sm" variant="secondary">
+              {cta.label}
+            </Button>
+          </Link>
+        );
+      }
+      return (
+        <Link
+          key={cta.label}
+          href={cta.href}
+          className="text-sky-700 font-semibold"
+        >
+          {cta.label}
+        </Link>
+      );
+    };
 
     return (
       <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
         <ErrorState
           title="No properties found"
-          description={
-            `We couldn't load live listings right now.` +
-            (hasFilters
-              ? " Try adjusting your filters or clearing the search."
-              : " Check the API response and Supabase connection.")
-          }
+          description={emptyDescription}
           retryAction={
             <>
-              <Link href={retryHref}>
-                <Button size="sm" variant="secondary">
-                  Retry
-                </Button>
-              </Link>
-              <Link href="/properties" className="text-sky-700 font-semibold">
-                Reset filters
-              </Link>
+              {showRetry && (
+                <Link href={retryHref}>
+                  <Button size="sm" variant="secondary">
+                    Retry
+                  </Button>
+                </Link>
+              )}
+              {emptyCtas.map((cta) => renderEmptyCta(cta))}
               {showListCta && (
                 <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
                   List your first property
@@ -300,6 +329,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
   const total = typeof totalCount === "number" ? totalCount : properties.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const backParams = buildSearchParams(resolvedSearchParams, {});
+  const backHref = backParams.toString()
+    ? `/properties?${backParams.toString()}`
+    : "/properties";
   const prevPage =
     page > 1
       ? `/properties?${buildSearchParams(resolvedSearchParams, { page: String(page - 1) }).toString()}`
@@ -396,7 +429,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
           <PropertyCard
             key={property.id}
             property={property}
-            href={`/properties/${property.id}`}
+            href={`/properties/${property.id}?back=${encodeURIComponent(backHref)}`}
           />
         ))}
       </div>
