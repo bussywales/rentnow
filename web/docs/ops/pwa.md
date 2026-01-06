@@ -54,6 +54,15 @@ Verification:
 3) Confirm a row appears in `public.push_subscriptions`.
 4) Trigger a saved search alert; confirm a push notification appears and clicks through to the listing.
 
+Push alert verification query (uses `user_id`):
+```sql
+select id, user_id, saved_search_id, property_id, channel, status, error, created_at, sent_at
+from public.saved_search_alerts
+where channel like '%push%'
+order by created_at desc
+limit 50;
+```
+
 Troubleshooting markers (saved_search_alerts.error):
 - `push_unavailable:not_configured` → missing VAPID keys.
 - `push_unavailable:missing_subscription` → user has no active subscription.

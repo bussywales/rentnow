@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-13 — v1.7.18-r6.9.2-saved-search-gating
+- Scoped saved-search creation to tenants with clear role/limit reason codes.
+- Updated push alert verification query docs to use `user_id`.
+- Added unit coverage for saved-search gating and verification snippets.
+
 ## 2026-01-12 — v1.7.17-r6.9.2-push-durability
 - Added stale push subscription pruning markers with admin telemetry counts.
 - Added push alert retention cleanup function and documented ops/QA steps.

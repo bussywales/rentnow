@@ -56,7 +56,7 @@
 - Use “Copy support snapshot” and “Copy events” to confirm masked output for tickets.
 
 ## Tenant premium & alerts
-- As a free tenant, save up to the limit and confirm `plan_limit_reached` is returned on the next save.
+- As a free tenant, save up to the limit and confirm `limit_reached` is returned on the next save.
 - As Tenant Pro, confirm unlimited saved searches and “Alerts enabled” badge in the dashboard.
 - Approve a new listing and confirm a saved search alert row is created (email sends if Resend is configured).
 - Free tenant sees the “Upgrade for instant alerts” prompt on browse.
