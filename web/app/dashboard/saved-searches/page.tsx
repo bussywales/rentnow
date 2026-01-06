@@ -4,6 +4,8 @@ import Link from "next/link";
 import { SavedSearchManager } from "@/components/search/SavedSearchManager";
 import { PushStatusBadge } from "@/components/dashboard/PushStatusBadge";
 import { getTenantPlanForTier, isPlanExpired } from "@/lib/plans";
+import { normalizeRole } from "@/lib/roles";
+import { shouldShowSavedSearchNav } from "@/lib/role-access";
 import type { SavedSearch } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -27,6 +29,33 @@ export default async function SavedSearchesPage() {
 
   if (!user) {
     redirect("/auth/login?reason=auth");
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const normalizedRole = normalizeRole(profile?.role);
+  const showSavedSearches = shouldShowSavedSearchNav(normalizedRole);
+
+  if (!showSavedSearches) {
+    return (
+      <div className="space-y-3">
+        <h1 className="text-2xl font-semibold text-slate-900">Saved searches</h1>
+        <p className="text-sm text-slate-600">
+          Saved searches are available to tenants. Browse listings to find your next home.
+        </p>
+        <div className="flex flex-wrap items-center gap-3 text-sm">
+          <Link href="/properties" className="font-semibold text-sky-700">
+            Browse listings
+          </Link>
+          <Link href="/dashboard" className="font-semibold text-slate-600">
+            Back to dashboard
+          </Link>
+        </div>
+      </div>
+    );
   }
 
   const { data } = await supabase

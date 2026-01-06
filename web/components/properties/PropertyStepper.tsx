@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -49,6 +50,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   );
   const [saving, startSaving] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -96,6 +98,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const getSupabase = useCallback(() => {
     if (!hasBrowserSupabaseEnv()) {
       setError("Supabase environment variables are missing. Connect Supabase to save.");
+      setErrorCode(null);
       return null;
     }
     return createBrowserSupabaseClient();
@@ -103,6 +106,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
 
   const saveDraft = useCallback(async (statusOverride?: PropertyStatus) => {
     if (!canCreateDraft) return;
+    setErrorCode(null);
     const supabase = getSupabase();
     if (!supabase) return;
 
@@ -112,6 +116,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     } = await supabase.auth.getUser();
     if (authError || !user) {
       setError("Please log in to save a listing.");
+      setErrorCode("not_authenticated");
       return;
     }
 
@@ -165,7 +170,13 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
           typeof data?.maxListings === "number"
             ? ` Plan limit: ${data.maxListings}.`
             : "";
+        setErrorCode(data.code);
         throw new Error(`Plan limit reached.${limitMessage} Upgrade to add more listings.`);
+      }
+      if (typeof data?.code === "string") {
+        setErrorCode(data.code);
+      } else {
+        setErrorCode(null);
       }
       throw new Error(data?.error || raw || "Unable to save draft.");
     }
@@ -424,7 +435,21 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
         </div>
       </div>
 
-      {error && <p className="text-sm text-rose-600">{error}</p>}
+      {error && (
+        <div className="text-sm text-rose-600">
+          <p>{error}</p>
+          {errorCode === "not_authenticated" && (
+            <Link href="/auth/login" className="text-sm font-semibold text-rose-700 underline">
+              Log in
+            </Link>
+          )}
+          {errorCode === "role_not_allowed" && (
+            <Link href="/properties" className="text-sm font-semibold text-rose-700 underline">
+              Browse listings
+            </Link>
+          )}
+        </div>
+      )}
 
       {stepIndex === 0 && (
         <div className="grid gap-4 md:grid-cols-2">

@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { requireRole } from "@/lib/authz";
+import { getUserRole, requireUser } from "@/lib/authz";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { readActingAsFromRequest } from "@/lib/acting-as";
 import { getEarlyAccessApprovedBefore } from "@/lib/early-access";
 import { getPlanUsage } from "@/lib/plan-enforcement";
 import { getTenantPlanForTier } from "@/lib/plans";
+import { getListingAccessResult } from "@/lib/role-access";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
@@ -57,17 +58,43 @@ export async function POST(request: Request) {
   }
 
   try {
-    const auth = await requireRole({
+    const supabase = await createServerSupabaseClient();
+    const auth = await requireUser({
       request,
       route: routeLabel,
       startTime,
-      roles: ["landlord", "agent", "admin"],
+      supabase,
     });
-    if (!auth.ok) return auth.response;
+    if (!auth.ok) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 401,
+        startTime,
+        error: "not_authenticated",
+      });
+      return NextResponse.json(
+        { error: "Please log in to manage listings.", code: "not_authenticated" },
+        { status: 401 }
+      );
+    }
 
-    const supabase = auth.supabase;
     const user = auth.user;
-    const role = auth.role;
+    const role = await getUserRole(supabase, user.id);
+    const access = getListingAccessResult(role, true);
+    if (!access.ok) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: access.status,
+        startTime,
+        error: new Error(access.message),
+      });
+      return NextResponse.json(
+        { error: access.message, code: access.code },
+        { status: access.status }
+      );
+    }
     const actingAs = readActingAsFromRequest(request as NextRequest);
     let ownerId = user.id;
 
@@ -82,7 +109,7 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = propertySchema.parse(body);
     const { imageUrls = [], status, ...rest } = data;
-    const isAdmin = auth.role === "admin";
+    const isAdmin = role === "admin";
     const normalizedStatus = isAdmin && status ? status : "draft";
     const isActive = normalizedStatus === "pending" || normalizedStatus === "live";
     const isApproved = normalizedStatus === "live";
@@ -272,18 +299,45 @@ export async function GET(request: NextRequest) {
     }
 
     if (ownerOnly) {
-      const auth = await requireRole({
+      const auth = await requireUser({
         request,
         route: routeLabel,
         startTime,
-        roles: ["landlord", "agent", "admin"],
         supabase,
       });
-      if (!auth.ok) return auth.response;
+      if (!auth.ok) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 401,
+          startTime,
+          error: "not_authenticated",
+        });
+        return NextResponse.json(
+          { error: "Please log in to manage listings.", code: "not_authenticated" },
+          { status: 401 }
+        );
+      }
+
+      const role = await getUserRole(supabase, auth.user.id);
+      const access = getListingAccessResult(role, true);
+      if (!access.ok) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: access.status,
+          startTime,
+          error: new Error(access.message),
+        });
+        return NextResponse.json(
+          { error: access.message, code: access.code },
+          { status: access.status }
+        );
+      }
 
       const actingAs = readActingAsFromRequest(request);
       let ownerId = auth.user.id;
-      if (auth.role === "agent" && actingAs && actingAs !== auth.user.id) {
+      if (role === "agent" && actingAs && actingAs !== auth.user.id) {
         const allowed = await hasActiveDelegation(supabase, auth.user.id, actingAs);
         if (!allowed) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -312,7 +366,7 @@ export async function GET(request: NextRequest) {
         return query;
       };
 
-      if (auth.role !== "admin") {
+      if (role !== "admin") {
         const baseQuery = buildOwnerQuery(true).eq("owner_id", ownerId);
         const { data, error } = await baseQuery;
         if (error && missingPosition(error.message)) {

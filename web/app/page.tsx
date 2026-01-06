@@ -7,7 +7,10 @@ import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { getProfile } from "@/lib/auth";
 import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
+import { normalizeRole } from "@/lib/roles";
+import { getListingCta } from "@/lib/role-access";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
@@ -18,7 +21,14 @@ export default async function Home() {
   const apiUrl = `${apiBaseUrl}/api/properties`;
   const supabaseReady = hasServerSupabaseEnv();
   const envPresence = getEnvPresence();
+  let role = null;
   let fetchError: string | null = null;
+
+  if (supabaseReady) {
+    const profile = await getProfile();
+    role = normalizeRole(profile?.role);
+  }
+  const listingCta = getListingCta(role);
 
   if (supabaseReady) {
     try {
@@ -172,8 +182,8 @@ export default async function Home() {
               A taste of what landlords and agents can publish.
             </p>
           </div>
-          <Link href="/dashboard/properties/new" className="text-sm font-semibold text-sky-600">
-            {"List a property ->"}
+          <Link href={listingCta.href} className="text-sm font-semibold text-sky-600">
+            {`${listingCta.label} ->`}
           </Link>
         </div>
         {featured.length ? (

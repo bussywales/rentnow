@@ -8,6 +8,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { dispatchSavedSearchAlerts } from "@/lib/alerts/tenant-alerts";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
+import { getListingAccessResult } from "@/lib/role-access";
 
 const routeLabel = "/api/properties/[id]";
 
@@ -225,11 +226,34 @@ export async function PUT(
       supabase,
       accessToken: bearerToken,
     });
-    if (!auth.ok) return auth.response;
+    if (!auth.ok) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 401,
+        startTime,
+        error: "not_authenticated",
+      });
+      return NextResponse.json(
+        { error: "Please log in to manage listings.", code: "not_authenticated" },
+        { status: 401 }
+      );
+    }
 
     const role = await getUserRole(supabase, auth.user.id);
-    if (role && !["landlord", "agent", "admin"].includes(role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const access = getListingAccessResult(role, true);
+    if (!access.ok) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: access.status,
+        startTime,
+        error: new Error(access.message),
+      });
+      return NextResponse.json(
+        { error: access.message, code: access.code },
+        { status: access.status }
+      );
     }
 
     const missingStatus = (message?: string | null) =>
@@ -534,7 +558,19 @@ export async function DELETE(
     startTime,
     supabase,
   });
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 401,
+      startTime,
+      error: "not_authenticated",
+    });
+    return NextResponse.json(
+      { error: "Please log in to manage listings.", code: "not_authenticated" },
+      { status: 401 }
+    );
+  }
 
   const { data: existing, error: fetchError } = await supabase
     .from("properties")
@@ -554,6 +590,20 @@ export async function DELETE(
   }
 
   const role = await getUserRole(supabase, auth.user.id);
+  const access = getListingAccessResult(role, true);
+  if (!access.ok) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: access.status,
+      startTime,
+      error: new Error(access.message),
+    });
+    return NextResponse.json(
+      { error: access.message, code: access.code },
+      { status: access.status }
+    );
+  }
   const ownership = requireOwnership({
     request,
     route: routeLabel,

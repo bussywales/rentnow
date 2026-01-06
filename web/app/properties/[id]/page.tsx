@@ -8,8 +8,11 @@ import { SaveButton } from "@/components/properties/SaveButton";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
+import { getProfile } from "@/lib/auth";
 import { DEV_MOCKS, getApiBaseUrl, getCanonicalBaseUrl, getEnvPresence } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
+import { getListingCta } from "@/lib/role-access";
+import { normalizeRole } from "@/lib/roles";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getTenantPlanForTier } from "@/lib/plans";
 import type { Profile, Property } from "@/lib/types";
@@ -147,6 +150,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PropertyDetail({ params }: Props) {
   const envPresence = getEnvPresence();
   const supabaseReady = hasServerSupabaseEnv();
+  const profile = supabaseReady ? await getProfile() : null;
+  const listingCta = getListingCta(normalizeRole(profile?.role));
   const siteUrl = await getCanonicalBaseUrl();
   const id = await extractId(params);
   let property: Property | null = null;
@@ -181,8 +186,11 @@ export default async function PropertyDetail({ params }: Props) {
               <Link href="/properties" className="text-sky-700 font-semibold">
                 Back to browse
               </Link>
-              <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
-                List a property
+              <Link
+                href={listingCta.href}
+                className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline"
+              >
+                {listingCta.label}
               </Link>
             </>
           }
