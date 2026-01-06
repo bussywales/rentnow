@@ -22,6 +22,7 @@ type PushStatusState = {
   publicKey: string | null;
   error: string | null;
   permission: NotificationPermission;
+  subscriptionCount: number;
 };
 
 const defaultState: PushStatusState = {
@@ -32,6 +33,7 @@ const defaultState: PushStatusState = {
   publicKey: null,
   error: null,
   permission: "default",
+  subscriptionCount: 0,
 };
 
 function urlBase64ToUint8Array(base64String: string) {
@@ -70,6 +72,7 @@ export function PushStatusBadge() {
           publicKey: data?.vapidPublicKey ?? null,
           error: res.ok ? null : data?.message || data?.error || "Push unavailable",
           permission: supportsPush ? Notification.permission : "default",
+          subscriptionCount: data?.subscriptionCount ?? 0,
         });
       } catch {
         if (cancelled) return;
@@ -81,6 +84,7 @@ export function PushStatusBadge() {
           publicKey: null,
           error: "Unable to load push status",
           permission: supportsPush ? Notification.permission : "default",
+          subscriptionCount: 0,
         });
       }
     };
@@ -102,6 +106,15 @@ export function PushStatusBadge() {
       return;
     }
 
+    const registration = await navigator.serviceWorker.getRegistration();
+    if (!registration) {
+      setState((prev) => ({
+        ...prev,
+        error: "Service worker not ready. Reload and try again.",
+      }));
+      return;
+    }
+
     setIsEnabling(true);
     try {
       const permission = await Notification.requestPermission();
@@ -114,11 +127,11 @@ export function PushStatusBadge() {
         return;
       }
 
-      const registration = await navigator.serviceWorker.ready;
-      const existing = await registration.pushManager.getSubscription();
+      const ready = await navigator.serviceWorker.ready;
+      const existing = await ready.pushManager.getSubscription();
       const subscription =
         existing ||
-        (await registration.pushManager.subscribe({
+        (await ready.pushManager.subscribe({
           userVisibleOnly: true,
           applicationServerKey: urlBase64ToUint8Array(state.publicKey),
         }));
@@ -138,10 +151,13 @@ export function PushStatusBadge() {
         return;
       }
 
+      const statusRes = await fetch("/api/push/status");
+      const statusData = (await statusRes.json().catch(() => null)) as PushStatusResponse | null;
       setState((prev) => ({
         ...prev,
-        active: true,
-        error: null,
+        active: statusData?.active === true,
+        subscriptionCount: statusData?.subscriptionCount ?? prev.subscriptionCount,
+        error: statusRes.ok ? null : statusData?.message || statusData?.error || null,
         permission: Notification.permission,
       }));
     } catch (err) {
@@ -190,6 +206,11 @@ export function PushStatusBadge() {
         >
           {isEnabling ? "Enabling..." : "Enable notifications"}
         </button>
+      )}
+      {state.active && state.subscriptionCount > 0 && (
+        <span className="text-xs text-slate-500">
+          Subscriptions: {state.subscriptionCount}
+        </span>
       )}
       {state.error && (
         <span className="text-xs text-amber-600">{state.error}</span>

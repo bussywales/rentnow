@@ -6,11 +6,22 @@ import { getPushConfig } from "@/lib/push/server";
 
 const routeLabel = "/api/push/status";
 
-export async function GET(request: Request) {
-  const startTime = Date.now();
+type StatusDeps = {
+  hasServerSupabaseEnv?: typeof hasServerSupabaseEnv;
+  requireUser?: typeof requireUser;
+  getPushConfig?: typeof getPushConfig;
+  logFailure?: typeof logFailure;
+};
 
-  if (!hasServerSupabaseEnv()) {
-    logFailure({
+export async function getPushStatusResponse(request: Request, deps: StatusDeps = {}) {
+  const startTime = Date.now();
+  const requireUserFn = deps.requireUser ?? requireUser;
+  const hasEnv = deps.hasServerSupabaseEnv ?? hasServerSupabaseEnv;
+  const getConfig = deps.getPushConfig ?? getPushConfig;
+  const logFailureFn = deps.logFailure ?? logFailure;
+
+  if (!hasEnv()) {
+    logFailureFn({
       request,
       route: routeLabel,
       status: 503,
@@ -23,10 +34,10 @@ export async function GET(request: Request) {
     );
   }
 
-  const auth = await requireUser({ request, route: routeLabel, startTime });
+  const auth = await requireUserFn({ request, route: routeLabel, startTime });
   if (!auth.ok) return auth.response;
 
-  const config = getPushConfig();
+  const config = getConfig();
   if (!config.configured) {
     return NextResponse.json(
       {
@@ -47,7 +58,7 @@ export async function GET(request: Request) {
     .eq("is_active", true);
 
   if (error) {
-    logFailure({
+    logFailureFn({
       request,
       route: routeLabel,
       status: 400,
@@ -65,4 +76,8 @@ export async function GET(request: Request) {
     active: (count ?? 0) > 0,
     subscriptionCount: count ?? 0,
   });
+}
+
+export async function GET(request: Request) {
+  return getPushStatusResponse(request);
 }

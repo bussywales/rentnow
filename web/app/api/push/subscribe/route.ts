@@ -15,11 +15,22 @@ const subscribeSchema = z.object({
   }),
 });
 
-export async function POST(request: Request) {
-  const startTime = Date.now();
+type SubscribeDeps = {
+  hasServerSupabaseEnv?: typeof hasServerSupabaseEnv;
+  requireUser?: typeof requireUser;
+  getPushConfig?: typeof getPushConfig;
+  logFailure?: typeof logFailure;
+};
 
-  if (!hasServerSupabaseEnv()) {
-    logFailure({
+export async function postPushSubscribeResponse(request: Request, deps: SubscribeDeps = {}) {
+  const startTime = Date.now();
+  const requireUserFn = deps.requireUser ?? requireUser;
+  const hasEnv = deps.hasServerSupabaseEnv ?? hasServerSupabaseEnv;
+  const getConfig = deps.getPushConfig ?? getPushConfig;
+  const logFailureFn = deps.logFailure ?? logFailure;
+
+  if (!hasEnv()) {
+    logFailureFn({
       request,
       route: routeLabel,
       status: 503,
@@ -32,7 +43,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const config = getPushConfig();
+  const config = getConfig();
   if (!config.configured) {
     return NextResponse.json(
       {
@@ -44,7 +55,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const auth = await requireUser({ request, route: routeLabel, startTime });
+  const auth = await requireUserFn({ request, route: routeLabel, startTime });
   if (!auth.ok) return auth.response;
 
   const body = await request.json().catch(() => null);
@@ -75,7 +86,7 @@ export async function POST(request: Request) {
     .upsert(payload, { onConflict: "profile_id,endpoint" });
 
   if (error) {
-    logFailure({
+    logFailureFn({
       request,
       route: routeLabel,
       status: 400,
@@ -86,4 +97,8 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+export async function POST(request: Request) {
+  return postPushSubscribeResponse(request);
 }

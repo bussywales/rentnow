@@ -10,11 +10,20 @@ const unsubscribeSchema = z.object({
   endpoint: z.string().url(),
 });
 
-export async function POST(request: Request) {
-  const startTime = Date.now();
+type UnsubscribeDeps = {
+  hasServerSupabaseEnv?: typeof hasServerSupabaseEnv;
+  requireUser?: typeof requireUser;
+  logFailure?: typeof logFailure;
+};
 
-  if (!hasServerSupabaseEnv()) {
-    logFailure({
+export async function postPushUnsubscribeResponse(request: Request, deps: UnsubscribeDeps = {}) {
+  const startTime = Date.now();
+  const requireUserFn = deps.requireUser ?? requireUser;
+  const hasEnv = deps.hasServerSupabaseEnv ?? hasServerSupabaseEnv;
+  const logFailureFn = deps.logFailure ?? logFailure;
+
+  if (!hasEnv()) {
+    logFailureFn({
       request,
       route: routeLabel,
       status: 503,
@@ -27,7 +36,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const auth = await requireUser({ request, route: routeLabel, startTime });
+  const auth = await requireUserFn({ request, route: routeLabel, startTime });
   if (!auth.ok) return auth.response;
 
   const body = await request.json().catch(() => null);
@@ -46,7 +55,7 @@ export async function POST(request: Request) {
     .eq("endpoint", parsed.data.endpoint);
 
   if (error) {
-    logFailure({
+    logFailureFn({
       request,
       route: routeLabel,
       status: 400,
@@ -57,4 +66,8 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+export async function POST(request: Request) {
+  return postPushUnsubscribeResponse(request);
 }
