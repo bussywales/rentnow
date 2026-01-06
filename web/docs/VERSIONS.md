@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-16 — v1.7.22-r7.1.1-trust-public-badges
+- Added a security-definer trust snapshot RPC for tenant-visible badges without widening profile RLS.
+- Wired browse and property detail to display host trust badges for tenants via the snapshot.
+- Added unit coverage for trust snapshot mapping and migration safety.
+
 ## 2026-01-15 — v1.7.21-r7.1-trust-markers
 - Added profile trust marker fields with safe defaults and read-only admin visibility.
 - Rendered trust badges on host listings and property detail host cards when available.

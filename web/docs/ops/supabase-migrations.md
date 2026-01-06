@@ -35,6 +35,7 @@ Apply SQL files in this order:
 28) `web/supabase/migrations/028_push_subscriptions.sql`
 29) `web/supabase/migrations/029_push_alert_retention.sql`
 30) `web/supabase/migrations/030_profile_trust_markers.sql`
+31) `web/supabase/migrations/031_profile_trust_public_view.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -134,6 +135,14 @@ select email_verified, phone_verified, bank_verified, reliability_power, reliabi
 from public.profiles
 limit 1;
 ```
+
+### Trust public snapshot verification
+```sql
+select to_regprocedure('public.get_profiles_trust_public(uuid[])') as trust_public_snapshot;
+select * from public.get_profiles_trust_public(array[]::uuid[]);
+```
+
+Note: the trust snapshot uses a `SECURITY DEFINER` function to return only safe fields without widening `profiles` RLS.
 
 ### RLS enabled
 ```sql
