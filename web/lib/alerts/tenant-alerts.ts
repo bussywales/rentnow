@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getSiteUrl } from "@/lib/env";
 import { getTenantPlanForTier } from "@/lib/plans";
+import { formatPushFailed, formatPushUnavailable, type PushDeliveryOutcome } from "@/lib/push/outcomes";
 import { getPushConfig, sendPushNotification, type PushSubscriptionRow } from "@/lib/push/server";
 import { parseFiltersFromSavedSearch, propertyMatchesFilters } from "@/lib/search-filters";
 import type { Property, SavedSearch } from "@/lib/types";
@@ -18,12 +19,6 @@ type AlertDispatchResult = {
 type EmailDispatchGuard = {
   ok: boolean;
   status: number;
-  error?: string;
-};
-
-type PushDeliveryOutcome = {
-  attempted: boolean;
-  status: "sent" | "failed" | "skipped";
   error?: string;
 };
 
@@ -97,7 +92,11 @@ async function deliverPushNotifications(input: {
   payload: Record<string, unknown>;
 }): Promise<PushDeliveryOutcome> {
   if (!input.subscriptions.length) {
-    return { attempted: false, status: "skipped", error: "push_unavailable:no_subscription" };
+    return {
+      attempted: false,
+      status: "skipped",
+      error: formatPushUnavailable("missing_subscription"),
+    };
   }
 
   let successCount = 0;
@@ -135,11 +134,23 @@ async function deliverPushNotifications(input: {
     return { attempted: true, status: "sent" };
   }
 
-  const errorSuffix = lastStatus ? `${lastStatus}` : lastError ?? "delivery_failed";
+  let failureReason = "delivery_failed";
+  if (lastStatus === 404 || lastStatus === 410) {
+    failureReason = "gone";
+  } else if (lastStatus === 401 || lastStatus === 403) {
+    failureReason = "unauthorized";
+  } else if (lastStatus === 429) {
+    failureReason = "rate_limited";
+  } else if (lastStatus && lastStatus >= 500) {
+    failureReason = "provider_error";
+  } else if (lastError) {
+    failureReason = lastError;
+  }
+
   return {
     attempted: true,
     status: "failed",
-    error: `push_failed:${errorSuffix}`,
+    error: formatPushFailed(failureReason),
   };
 }
 
@@ -330,7 +341,7 @@ export async function dispatchSavedSearchAlerts(
     let pushOutcome: PushDeliveryOutcome = {
       attempted: false,
       status: "skipped",
-      error: "push_unavailable:not_configured",
+      error: formatPushUnavailable("not_configured"),
     };
 
     if (pushReady) {
@@ -338,7 +349,7 @@ export async function dispatchSavedSearchAlerts(
         pushOutcome = {
           attempted: false,
           status: "skipped",
-          error: "push_unavailable:subscription_lookup_failed",
+          error: formatPushUnavailable("subscription_lookup_failed"),
         };
       } else {
         const subscriptions = pushSubscriptions.get(search.user_id) ?? [];

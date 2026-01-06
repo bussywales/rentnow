@@ -9,11 +9,18 @@ import {
   buildThrottleTelemetrySummary,
   type ThrottleTelemetrySummary,
 } from "@/lib/admin/messaging-throttle";
+import {
+  buildPushTelemetrySummary,
+  derivePushOutcomeMarker,
+  type PushAlertRow,
+  type PushTelemetrySummary,
+} from "@/lib/admin/push-telemetry";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { formatRoleLabel } from "@/lib/roles";
 import { getMessagingPermissionMessage, MESSAGING_REASON_CODES } from "@/lib/messaging/permissions";
 import { getRateLimitSnapshot } from "@/lib/messaging/rate-limit";
+import { getPushConfig } from "@/lib/push/server";
 
 export const dynamic = "force-dynamic";
 
@@ -51,29 +58,15 @@ type ThrottleTelemetryDiagnostics = {
   error: string | null;
 };
 
-type PushAlertRow = {
-  id: string;
-  user_id: string;
-  property_id: string;
-  channel?: string | null;
-  status?: string | null;
-  error?: string | null;
-  created_at?: string | null;
-};
-
 type PushTelemetryDiagnostics = {
   ready: boolean;
+  configured: boolean;
   counts: {
     active: number;
     last24h: number;
     last7d: number;
   };
-  alerts: {
-    sampleSize: number;
-    pushAttempted: number;
-    pushSucceeded: number;
-    recent: PushAlertRow[];
-  };
+  summary: PushTelemetrySummary | null;
   error: string | null;
 };
 
@@ -116,14 +109,6 @@ function resolveThrottleRange(value?: string): ThrottleRange {
 
 function toIsoRangeStart(windowMs: number) {
   return new Date(Date.now() - windowMs).toISOString();
-}
-
-function isPushAttempted(row: PushAlertRow) {
-  return (row.channel || "").includes("push");
-}
-
-function isPushFailed(row: PushAlertRow) {
-  return (row.error || "").includes("push_failed");
 }
 
 async function getDiagnostics(throttleRange: ThrottleRange) {
@@ -185,10 +170,12 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     error: null,
   };
 
+  const pushConfig = getPushConfig();
   let pushTelemetry: PushTelemetryDiagnostics = {
     ready: false,
+    configured: pushConfig.configured,
     counts: { active: 0, last24h: 0, last7d: 0 },
-    alerts: { sampleSize: 0, pushAttempted: 0, pushSucceeded: 0, recent: [] },
+    summary: null,
     error: null,
   };
 
@@ -317,24 +304,16 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       .limit(200);
 
     const alertRows = (alertRowsRaw as PushAlertRow[]) ?? [];
-    const pushRows = alertRows.filter(isPushAttempted);
-    const pushSucceeded = pushRows.filter(
-      (row) => row.status === "sent" && !isPushFailed(row)
-    ).length;
 
     pushTelemetry = {
       ready: true,
+      configured: pushConfig.configured,
       counts: {
         active: activeSubsResult.count ?? 0,
         last24h: subs24hResult.count ?? 0,
         last7d: subs7dResult.count ?? 0,
       },
-      alerts: {
-        sampleSize: alertRows.length,
-        pushAttempted: pushRows.length,
-        pushSucceeded,
-        recent: pushRows.slice(0, 6),
-      },
+      summary: buildPushTelemetrySummary(alertRows),
       error: [
         activeSubsResult.error?.message,
         subs24hResult.error?.message,
@@ -360,8 +339,9 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     };
     pushTelemetry = {
       ready: false,
+      configured: pushConfig.configured,
       counts: { active: 0, last24h: 0, last7d: 0 },
-      alerts: { sampleSize: 0, pushAttempted: 0, pushSucceeded: 0, recent: [] },
+      summary: null,
       error: "Service role key missing; push telemetry unavailable.",
     };
   }
@@ -600,25 +580,41 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 {diag.pushTelemetry?.error || "Push telemetry is unavailable."}
               </p>
             )}
-            {diag.pushTelemetry?.ready && (
+            {diag.pushTelemetry?.ready && diag.pushTelemetry.summary && (
               <>
+                <p className="text-sm text-slate-600">
+                  Push configured: {diag.pushTelemetry.configured ? "Yes" : "No"}
+                </p>
                 <p className="text-sm text-slate-600">
                   Active subscriptions: {diag.pushTelemetry.counts.active} · New 24h {diag.pushTelemetry.counts.last24h} · 7d {diag.pushTelemetry.counts.last7d}
                 </p>
                 <p className="mt-2 text-xs text-slate-500">
-                  Alert sample: last {diag.pushTelemetry.alerts.sampleSize} alerts.
+                  Alert sample: last {diag.pushTelemetry.summary.sampleSize} alerts.
                 </p>
                 <p className="text-sm text-slate-700">
-                  Push attempted: {diag.pushTelemetry.alerts.pushAttempted} · Push succeeded: {diag.pushTelemetry.alerts.pushSucceeded}
+                  Push attempted: {diag.pushTelemetry.summary.pushAttempted} · Push succeeded: {diag.pushTelemetry.summary.pushSucceeded}
                 </p>
-                {diag.pushTelemetry.alerts.recent.length ? (
+                {diag.pushTelemetry.summary.topFailureReasons.length ? (
+                  <div className="mt-3">
+                    <p className="text-xs text-slate-500">Top failure reasons</p>
+                    <ul className="mt-1 text-sm text-slate-700">
+                      {diag.pushTelemetry.summary.topFailureReasons.map((entry) => (
+                        <li key={entry.reason}>
+                          {entry.reason} · {entry.count}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-600">No push failures in the recent sample.</p>
+                )}
+                {diag.pushTelemetry.summary.recent.length ? (
                   <div className="mt-3">
                     <p className="text-xs text-slate-500">Recent push outcomes</p>
                     <ul className="mt-1 text-sm text-slate-700">
-                      {diag.pushTelemetry.alerts.recent.map((row) => (
+                      {diag.pushTelemetry.summary.recent.map((row) => (
                         <li key={row.id}>
-                          {row.user_id} · {row.property_id || "property unknown"} · {row.status || "unknown"}
-                          {row.error ? ` · ${row.error}` : ""}
+                          {row.user_id} · {row.property_id || "property unknown"} · {derivePushOutcomeMarker(row)}
                         </li>
                       ))}
                     </ul>
