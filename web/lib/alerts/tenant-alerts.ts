@@ -366,7 +366,9 @@ export async function dispatchSavedSearchAlerts(
       }
     }
 
-    const channel = pushOutcome.attempted
+    const pushConsidered =
+      pushOutcome.attempted || (pushOutcome.error ?? "").startsWith("push_unavailable:");
+    const channel = pushConsidered
       ? emailAttempted
         ? "email+push"
         : "push"

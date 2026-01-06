@@ -43,17 +43,31 @@ function isPushFailed(row: PushAlertRow) {
 }
 
 export function derivePushOutcomeMarker(row: PushAlertRow) {
-  const attempted = isPushAttempted(row);
-  let status: PushDeliveryOutcome["status"] = "skipped";
-  if (attempted) {
-    status = row.status === "sent" && !isPushFailed(row) ? "sent" : "failed";
+  const error = row.error ?? "";
+  const errorParts = error
+    .split("|")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const marker = errorParts.find(
+    (part) => part.startsWith("push_unavailable:") || part.startsWith("push_failed:")
+  );
+  if (marker) {
+    return marker;
   }
-  const outcome: PushDeliveryOutcome = {
-    attempted,
-    status,
-    error: row.error ?? undefined,
-  };
-  return getPushOutcomeMarker(outcome);
+
+  if (isPushAttempted(row) && row.status === "sent" && !isPushFailed(row)) {
+    return getPushOutcomeMarker({ attempted: true, status: "sent" });
+  }
+
+  if (isPushAttempted(row)) {
+    const outcome: PushDeliveryOutcome = {
+      attempted: true,
+      status: "failed",
+    };
+    return getPushOutcomeMarker(outcome);
+  }
+
+  return getPushOutcomeMarker({ attempted: false, status: "skipped" });
 }
 
 export function buildPushTelemetrySummary(
