@@ -33,6 +33,7 @@ Apply SQL files in this order:
 26) `web/supabase/migrations/026_profiles_autocreate_trigger.sql`
 27) `web/supabase/migrations/027_messaging_throttle_telemetry.sql`
 28) `web/supabase/migrations/028_push_subscriptions.sql`
+29) `web/supabase/migrations/029_push_alert_retention.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -118,6 +119,11 @@ where n.nspname = 'public' and c.relname = 'messaging_throttle_events';
 ### Push subscriptions verification
 ```sql
 select to_regclass('public.push_subscriptions') as exists;
+```
+
+### Push alert retention verification
+```sql
+select to_regprocedure('public.cleanup_push_alerts(integer)') as cleanup_push_alerts;
 ```
 
 ### RLS enabled
