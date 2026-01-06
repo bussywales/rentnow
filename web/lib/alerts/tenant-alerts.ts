@@ -2,8 +2,18 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getSiteUrl } from "@/lib/env";
 import { getTenantPlanForTier } from "@/lib/plans";
-import { formatPushFailed, formatPushUnavailable, type PushDeliveryOutcome } from "@/lib/push/outcomes";
-import { getPushConfig, sendPushNotification, type PushSubscriptionRow } from "@/lib/push/server";
+import {
+  formatPushFailed,
+  formatPushPruned,
+  formatPushUnavailable,
+  type PushDeliveryOutcome,
+} from "@/lib/push/outcomes";
+import {
+  getPushConfig,
+  sendPushNotification,
+  type PushSendResult,
+  type PushSubscriptionRow,
+} from "@/lib/push/server";
 import { parseFiltersFromSavedSearch, propertyMatchesFilters } from "@/lib/search-filters";
 import type { Property, SavedSearch } from "@/lib/types";
 
@@ -85,11 +95,15 @@ async function sendAlertEmail(input: {
   return { status: "sent" as const, error: null };
 }
 
-async function deliverPushNotifications(input: {
+export async function deliverPushNotifications(input: {
   adminDb: SupabaseClient;
   userId: string;
   subscriptions: PushSubscriptionRow[];
   payload: Record<string, unknown>;
+  sendPush?: (input: {
+    subscription: PushSubscriptionRow;
+    payload: Record<string, unknown>;
+  }) => Promise<PushSendResult>;
 }): Promise<PushDeliveryOutcome> {
   if (!input.subscriptions.length) {
     return {
@@ -99,13 +113,14 @@ async function deliverPushNotifications(input: {
     };
   }
 
+  const sendPush = input.sendPush ?? sendPushNotification;
   let successCount = 0;
   let lastError: string | null = null;
   let lastStatus: number | null = null;
   const staleEndpoints: string[] = [];
 
   for (const subscription of input.subscriptions) {
-    const result = await sendPushNotification({
+    const result = await sendPush({
       subscription,
       payload: input.payload,
     });
@@ -122,6 +137,7 @@ async function deliverPushNotifications(input: {
     }
   }
 
+  const prunedMarker = staleEndpoints.length ? formatPushPruned("gone") : null;
   if (staleEndpoints.length) {
     await input.adminDb
       .from("push_subscriptions")
@@ -131,7 +147,11 @@ async function deliverPushNotifications(input: {
   }
 
   if (successCount > 0) {
-    return { attempted: true, status: "sent" };
+    return {
+      attempted: true,
+      status: "sent",
+      error: prunedMarker ?? undefined,
+    };
   }
 
   let failureReason = "delivery_failed";
@@ -150,7 +170,9 @@ async function deliverPushNotifications(input: {
   return {
     attempted: true,
     status: "failed",
-    error: formatPushFailed(failureReason),
+    error: prunedMarker
+      ? `${formatPushFailed(failureReason)} | ${prunedMarker}`
+      : formatPushFailed(failureReason),
   };
 }
 

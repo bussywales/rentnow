@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   formatPushFailed,
+  formatPushPruned,
   formatPushUnavailable,
   getPushOutcomeMarker,
 } from "../../lib/push/outcomes";
@@ -40,4 +41,8 @@ void test("push outcomes preserve failure markers", () => {
     error: formatPushFailed("rate_limited"),
   });
   assert.equal(marker, "push_failed:rate_limited");
+});
+
+void test("push outcomes format prune markers", () => {
+  assert.equal(formatPushPruned("gone"), "push_pruned:gone");
 });

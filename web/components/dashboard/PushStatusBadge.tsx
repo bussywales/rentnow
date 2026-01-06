@@ -191,6 +191,13 @@ export function PushStatusBadge() {
     state.configured &&
     !state.active &&
     state.permission !== "denied";
+  const showReenableHint =
+    !state.loading &&
+    state.supported &&
+    state.configured &&
+    !state.active &&
+    state.permission === "granted" &&
+    state.subscriptionCount === 0;
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
@@ -211,6 +218,9 @@ export function PushStatusBadge() {
         <span className="text-xs text-slate-500">
           Subscriptions: {state.subscriptionCount}
         </span>
+      )}
+      {showReenableHint && (
+        <span className="text-xs text-slate-500">Notifications need to be re-enabled.</span>
       )}
       {state.error && (
         <span className="text-xs text-amber-600">{state.error}</span>

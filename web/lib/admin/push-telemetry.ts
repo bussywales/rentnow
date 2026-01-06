@@ -20,6 +20,8 @@ export type PushTelemetrySummary = {
   pushAttempted: number;
   pushSucceeded: number;
   topFailureReasons: PushFailureEntry[];
+  prunedCount: number;
+  topPrunedReasons: PushFailureEntry[];
   recent: PushAlertRow[];
 };
 
@@ -42,12 +44,15 @@ function isPushFailed(row: PushAlertRow) {
   return (row.error || "").includes("push_failed:");
 }
 
-export function derivePushOutcomeMarker(row: PushAlertRow) {
-  const error = row.error ?? "";
-  const errorParts = error
+function parseErrorMarkers(error: string | null | undefined) {
+  return (error ?? "")
     .split("|")
     .map((part) => part.trim())
     .filter(Boolean);
+}
+
+export function derivePushOutcomeMarker(row: PushAlertRow) {
+  const errorParts = parseErrorMarkers(row.error);
   const marker = errorParts.find(
     (part) => part.startsWith("push_unavailable:") || part.startsWith("push_failed:")
   );
@@ -83,11 +88,17 @@ export function buildPushTelemetrySummary(
     .map((row) => derivePushOutcomeMarker(row))
     .filter((marker) => marker.startsWith("push_failed:") || marker.startsWith("push_unavailable:"));
 
+  const prunedReasons = pushRows
+    .flatMap((row) => parseErrorMarkers(row.error))
+    .filter((marker) => marker.startsWith("push_pruned:"));
+
   return {
     sampleSize: rows.length,
     pushAttempted: pushRows.length,
     pushSucceeded,
     topFailureReasons: buildFailureCounts(failureReasons, maxItems),
+    prunedCount: prunedReasons.length,
+    topPrunedReasons: buildFailureCounts(prunedReasons, maxItems),
     recent: pushRows.slice(0, 6),
   };
 }

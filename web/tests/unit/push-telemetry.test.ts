@@ -19,7 +19,7 @@ void test("push telemetry summary counts attempts and failures", () => {
       property_id: "prop-2",
       channel: "email+push",
       status: "failed",
-      error: "push_failed:rate_limited",
+      error: "push_failed:rate_limited | push_pruned:gone",
     },
     {
       id: "a3",
@@ -44,4 +44,6 @@ void test("push telemetry summary counts attempts and failures", () => {
   assert.equal(summary.pushSucceeded, 1);
   assert.equal(summary.topFailureReasons[0]?.reason, "push_failed:rate_limited");
   assert.equal(summary.topFailureReasons[1]?.reason, "push_unavailable:missing_subscription");
+  assert.equal(summary.prunedCount, 1);
+  assert.equal(summary.topPrunedReasons[0]?.reason, "push_pruned:gone");
 });

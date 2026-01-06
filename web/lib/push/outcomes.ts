@@ -6,6 +6,7 @@ export type PushDeliveryOutcome = {
 
 const PUSH_UNAVAILABLE_PREFIX = "push_unavailable:";
 const PUSH_FAILED_PREFIX = "push_failed:";
+const PUSH_PRUNED_PREFIX = "push_pruned:";
 
 export function formatPushUnavailable(reason: string) {
   return `${PUSH_UNAVAILABLE_PREFIX}${reason}`;
@@ -13,6 +14,10 @@ export function formatPushUnavailable(reason: string) {
 
 export function formatPushFailed(reason: string) {
   return `${PUSH_FAILED_PREFIX}${reason}`;
+}
+
+export function formatPushPruned(reason: string) {
+  return `${PUSH_PRUNED_PREFIX}${reason}`;
 }
 
 export function getPushOutcomeMarker(outcome: PushDeliveryOutcome) {

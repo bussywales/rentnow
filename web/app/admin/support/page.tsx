@@ -62,9 +62,14 @@ type PushTelemetryDiagnostics = {
   ready: boolean;
   configured: boolean;
   counts: {
+    total: number;
     active: number;
     last24h: number;
     last7d: number;
+  };
+  pruned: {
+    last7d: number;
+    last30d: number;
   };
   summary: PushTelemetrySummary | null;
   error: string | null;
@@ -174,7 +179,8 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
   let pushTelemetry: PushTelemetryDiagnostics = {
     ready: false,
     configured: pushConfig.configured,
-    counts: { active: 0, last24h: 0, last7d: 0 },
+    counts: { total: 0, active: 0, last24h: 0, last7d: 0 },
+    pruned: { last7d: 0, last30d: 0 },
     summary: null,
     error: null,
   };
@@ -282,7 +288,17 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
         .join(" | ") || null,
     };
 
-    const [activeSubsResult, subs24hResult, subs7dResult] = await Promise.all([
+    const pruned7dStart = toIsoRangeStart(THROTTLE_RANGES["7d"].windowMs);
+    const pruned30dStart = toIsoRangeStart(THROTTLE_RANGES["30d"].windowMs);
+    const [
+      totalSubsResult,
+      activeSubsResult,
+      subs24hResult,
+      subs7dResult,
+      pruned7dResult,
+      pruned30dResult,
+    ] = await Promise.all([
+      adminClient.from("push_subscriptions").select("id", { count: "exact", head: true }),
       adminClient
         .from("push_subscriptions")
         .select("id", { count: "exact", head: true })
@@ -295,6 +311,16 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
         .from("push_subscriptions")
         .select("id", { count: "exact", head: true })
         .gte("created_at", toIsoRangeStart(THROTTLE_RANGES["7d"].windowMs)),
+      adminClient
+        .from("saved_search_alerts")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", pruned7dStart)
+        .ilike("error", "%push_pruned:%"),
+      adminClient
+        .from("saved_search_alerts")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", pruned30dStart)
+        .ilike("error", "%push_pruned:%"),
     ]);
 
     const { data: alertRowsRaw, error: alertRowsError } = await adminClient
@@ -309,15 +335,23 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       ready: true,
       configured: pushConfig.configured,
       counts: {
+        total: totalSubsResult.count ?? 0,
         active: activeSubsResult.count ?? 0,
         last24h: subs24hResult.count ?? 0,
         last7d: subs7dResult.count ?? 0,
       },
+      pruned: {
+        last7d: pruned7dResult.count ?? 0,
+        last30d: pruned30dResult.count ?? 0,
+      },
       summary: buildPushTelemetrySummary(alertRows),
       error: [
+        totalSubsResult.error?.message,
         activeSubsResult.error?.message,
         subs24hResult.error?.message,
         subs7dResult.error?.message,
+        pruned7dResult.error?.message,
+        pruned30dResult.error?.message,
         alertRowsError?.message,
       ]
         .filter(Boolean)
@@ -340,7 +374,8 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     pushTelemetry = {
       ready: false,
       configured: pushConfig.configured,
-      counts: { active: 0, last24h: 0, last7d: 0 },
+      counts: { total: 0, active: 0, last24h: 0, last7d: 0 },
+      pruned: { last7d: 0, last30d: 0 },
       summary: null,
       error: "Service role key missing; push telemetry unavailable.",
     };
@@ -586,7 +621,10 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                   Push configured: {diag.pushTelemetry.configured ? "Yes" : "No"}
                 </p>
                 <p className="text-sm text-slate-600">
-                  Active subscriptions: {diag.pushTelemetry.counts.active} · New 24h {diag.pushTelemetry.counts.last24h} · 7d {diag.pushTelemetry.counts.last7d}
+                  Subscriptions: total {diag.pushTelemetry.counts.total} · active {diag.pushTelemetry.counts.active} · new 24h {diag.pushTelemetry.counts.last24h} · 7d {diag.pushTelemetry.counts.last7d}
+                </p>
+                <p className="text-sm text-slate-600">
+                  Pruned (alerts): last 7d {diag.pushTelemetry.pruned.last7d} · 30d {diag.pushTelemetry.pruned.last30d}
                 </p>
                 <p className="mt-2 text-xs text-slate-500">
                   Alert sample: last {diag.pushTelemetry.summary.sampleSize} alerts.
@@ -608,6 +646,18 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 ) : (
                   <p className="mt-2 text-sm text-slate-600">No push failures in the recent sample.</p>
                 )}
+                {diag.pushTelemetry.summary.topPrunedReasons.length ? (
+                  <div className="mt-3">
+                    <p className="text-xs text-slate-500">Pruned reasons (sample)</p>
+                    <ul className="mt-1 text-sm text-slate-700">
+                      {diag.pushTelemetry.summary.topPrunedReasons.map((entry) => (
+                        <li key={entry.reason}>
+                          {entry.reason} · {entry.count}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {diag.pushTelemetry.summary.recent.length ? (
                   <div className="mt-3">
                     <p className="text-xs text-slate-500">Recent push outcomes</p>
