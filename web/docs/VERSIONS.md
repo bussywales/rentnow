@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-14 — v1.7.20-r7.0-discovery-detail-polish
+- Polished browse cards with consistent location/price/facts formatting and role-aware empty-state CTAs.
+- Improved property detail layout with back-to-results affordance and clearer pricing/amenities.
+- Added unit coverage for discovery formatting helpers and empty-state CTA mapping.
+
 ## 2026-01-06 — v1.7.19-r6.9.3-saved-search-discovery
 - Added tenant-only saved-search navigation with friendly non-tenant fallback copy.
 - Made “List a property” CTAs role-aware and aligned listing guards with role error codes.

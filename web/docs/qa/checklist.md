@@ -66,6 +66,11 @@
 - Tenant sees “Saved searches” in the dashboard navigation and can open `/dashboard/saved-searches`.
 - Non-tenants do not see the nav item and get a friendly message if they visit the URL directly.
 
+## Discovery & detail UX
+- Browse cards show location, price cadence, beds/baths, and furnished status consistently.
+- Empty browse results include Clear filters, Browse all, and (tenant-only) Saved searches CTAs.
+- Property detail shows a Back to results link when opened from Browse and a clean placeholder when no photos exist.
+
 ## Role-aware CTAs
 - Landing CTA shows “List a property” for unauthenticated users (redirects to login).
 - Landing CTA shows “Find a home” for tenants and “List a property” for landlords/agents.

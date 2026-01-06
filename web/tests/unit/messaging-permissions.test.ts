@@ -89,3 +89,9 @@ void test("rate-limited CTA routes to support", () => {
   const cta = getMessagingReasonCta("rate_limited");
   assert.equal(cta?.href, "/support");
 });
+
+void test("property restrictions map to support CTA", () => {
+  const cta = getMessagingReasonCta("property_not_accessible");
+  assert.equal(cta?.href, "/support");
+  assert.equal(cta?.label, "Contact support");
+});
