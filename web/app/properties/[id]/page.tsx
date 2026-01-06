@@ -6,6 +6,8 @@ import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
+import { TrustBadges } from "@/components/trust/TrustBadges";
+import { TrustReliability } from "@/components/trust/TrustReliability";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
@@ -22,6 +24,7 @@ import { normalizeRole } from "@/lib/roles";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getTenantPlanForTier } from "@/lib/plans";
 import type { Profile, Property } from "@/lib/types";
+import type { TrustMarkerState } from "@/lib/trust-markers";
 
 export const dynamic = "force-dynamic";
 
@@ -267,6 +270,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   let isTenant = false;
   let isTenantPro = false;
   let currentUser: Profile | null = null;
+  let hostTrust: TrustMarkerState | null = null;
   let similar: Property[] = [];
   if (hasServerSupabaseEnv()) {
     try {
@@ -305,6 +309,17 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           .eq("property_id", property.id)
           .maybeSingle();
         isSaved = !!data;
+
+        if (user.id === property.owner_id) {
+          const { data: trustProfile } = await supabase
+            .from("profiles")
+            .select(
+              "email_verified, phone_verified, bank_verified, reliability_power, reliability_water, reliability_internet, trust_updated_at"
+            )
+            .eq("id", user.id)
+            .maybeSingle();
+          hostTrust = (trustProfile as TrustMarkerState | null) ?? null;
+        }
       }
 
       const priceFloor = property.price ? Math.max(0, property.price * 0.6) : null;
@@ -515,6 +530,20 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                 <p className="text-xs text-slate-500">Based in {property.city}</p>
               </div>
             </div>
+            {hostTrust && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Verification
+                </p>
+                <TrustBadges markers={hostTrust} />
+                <TrustReliability markers={hostTrust} />
+                {hostTrust.trust_updated_at && (
+                  <p className="text-xs text-slate-500">
+                    Updated {new Date(hostTrust.trust_updated_at).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="text-lg font-semibold text-slate-900">

@@ -36,6 +36,33 @@ state is explicit from day one.
 If you still see **Profile missing** in Admin, apply:
 - `web/supabase/migrations/026_profiles_autocreate_trigger.sql`
 
+## Trust markers (read-only in UI)
+Trust markers provide lightweight credibility signals for listings. They do **not** block messaging or listings.
+
+Fields stored on `public.profiles`:
+- `email_verified` (boolean, default false)
+- `phone_verified` (boolean, default false)
+- `bank_verified` (boolean, default false)
+- `reliability_power` (text: excellent|good|fair|poor)
+- `reliability_water` (text: excellent|good|fair|poor)
+- `reliability_internet` (text: excellent|good|fair|poor)
+- `trust_updated_at` (timestamp)
+
+Permissions:
+- Users can read their own trust markers (via existing profile select policy).
+- Users cannot update verification booleans; updates require admin/service role.
+- Admin UI is read-only for trust markers in this phase.
+
+Quick SQL check (admin/service role):
+```sql
+select id, role, email_verified, phone_verified, bank_verified,
+       reliability_power, reliability_water, reliability_internet, trust_updated_at
+from public.profiles
+where role in ('landlord', 'agent')
+order by trust_updated_at desc nulls last
+limit 50;
+```
+
 ## Admin UI: Promote/Demote a user
 Path: `Admin → Users` (`/admin/users`)
 

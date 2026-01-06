@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-15 — v1.7.21-r7.1-trust-markers
+- Added profile trust marker fields with safe defaults and read-only admin visibility.
+- Rendered trust badges on host listings and property detail host cards when available.
+- Added unit coverage for trust marker formatting, summary counts, and migration presence.
+
 ## 2026-01-14 — v1.7.20-r7.0-discovery-detail-polish
 - Polished browse cards with consistent location/price/facts formatting and role-aware empty-state CTAs.
 - Improved property detail layout with back-to-results affordance and clearer pricing/amenities.

@@ -15,6 +15,10 @@ import {
   type PushAlertRow,
   type PushTelemetrySummary,
 } from "@/lib/admin/push-telemetry";
+import {
+  buildTrustMarkerSummary,
+  type TrustMarkerSummary,
+} from "@/lib/admin/trust-markers";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { formatRoleLabel } from "@/lib/roles";
@@ -72,6 +76,12 @@ type PushTelemetryDiagnostics = {
     last30d: number;
   };
   summary: PushTelemetrySummary | null;
+  error: string | null;
+};
+
+type TrustMarkerDiagnostics = {
+  ready: boolean;
+  summary: TrustMarkerSummary | null;
   error: string | null;
 };
 
@@ -181,6 +191,11 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     configured: pushConfig.configured,
     counts: { total: 0, active: 0, last24h: 0, last7d: 0 },
     pruned: { last7d: 0, last30d: 0 },
+    summary: null,
+    error: null,
+  };
+  let trustMarkers: TrustMarkerDiagnostics = {
+    ready: false,
     summary: null,
     error: null,
   };
@@ -357,6 +372,19 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
         .filter(Boolean)
         .join(" | ") || null,
     };
+
+    const { data: trustRows, error: trustError } = await adminClient
+      .from("profiles")
+      .select(
+        "id, role, email_verified, phone_verified, bank_verified, reliability_power, reliability_water, reliability_internet"
+      )
+      .in("role", ["landlord", "agent"]);
+
+    trustMarkers = {
+      ready: !trustError,
+      summary: trustRows ? buildTrustMarkerSummary(trustRows) : null,
+      error: trustError?.message ?? null,
+    };
   } else {
     messaging = {
       ready: false,
@@ -379,6 +407,11 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       summary: null,
       error: "Service role key missing; push telemetry unavailable.",
     };
+    trustMarkers = {
+      ready: false,
+      summary: null,
+      error: "Service role key missing; trust markers unavailable.",
+    };
   }
 
   return {
@@ -399,6 +432,7 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     throttleTelemetry,
     pushTelemetry,
     rateLimit,
+    trustMarkers,
   };
 }
 
@@ -675,6 +709,33 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 {diag.pushTelemetry.error && (
                   <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     Errors: {diag.pushTelemetry.error}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-semibold text-slate-900">Trust markers</h3>
+            {!diag.trustMarkers?.ready && (
+              <p className="text-sm text-slate-600">
+                {diag.trustMarkers?.error || "Trust markers are unavailable."}
+              </p>
+            )}
+            {diag.trustMarkers?.ready && diag.trustMarkers.summary && (
+              <>
+                <p className="text-sm text-slate-600">
+                  Host profiles: {diag.trustMarkers.summary.hostCount}
+                </p>
+                <p className="text-sm text-slate-600">
+                  Email verified: {diag.trustMarkers.summary.emailVerified} · Phone verified: {diag.trustMarkers.summary.phoneVerified} · Bank verified: {diag.trustMarkers.summary.bankVerified}
+                </p>
+                <p className="text-sm text-slate-600">
+                  Reliability fields set: {diag.trustMarkers.summary.reliabilitySet}
+                </p>
+                {diag.trustMarkers.error && (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    Errors: {diag.trustMarkers.error}
                   </div>
                 )}
               </>

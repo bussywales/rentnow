@@ -34,6 +34,7 @@ Apply SQL files in this order:
 27) `web/supabase/migrations/027_messaging_throttle_telemetry.sql`
 28) `web/supabase/migrations/028_push_subscriptions.sql`
 29) `web/supabase/migrations/029_push_alert_retention.sql`
+30) `web/supabase/migrations/030_profile_trust_markers.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -55,7 +56,8 @@ where table_schema = 'public'
 order by ordinal_position;
 ```
 
-Expected columns: `id`, `role`, `full_name`, `phone`, `city`, `avatar_url`, `created_at`.
+Expected columns: `id`, `role`, `full_name`, `phone`, `city`, `avatar_url`, `created_at`,
+plus trust markers (`email_verified`, `phone_verified`, `bank_verified`, `trust_updated_at`).
 
 Admin profile reads are gated by a JWT claim (`role=admin`) or `service_role`. Apply
 `008_fix_profiles_rls_recursion.sql` after the base policies to avoid recursive RLS.
@@ -124,6 +126,13 @@ select to_regclass('public.push_subscriptions') as exists;
 ### Push alert retention verification
 ```sql
 select to_regprocedure('public.cleanup_push_alerts(integer)') as cleanup_push_alerts;
+```
+
+### Trust markers verification
+```sql
+select email_verified, phone_verified, bank_verified, reliability_power, reliability_water, reliability_internet, trust_updated_at
+from public.profiles
+limit 1;
 ```
 
 ### RLS enabled
@@ -289,7 +298,14 @@ where table_schema = 'public'
     'window_seconds',
     'max_sends',
     'mode',
-    'ip_hash'
+    'ip_hash',
+    'email_verified',
+    'phone_verified',
+    'bank_verified',
+    'reliability_power',
+    'reliability_water',
+    'reliability_internet',
+    'trust_updated_at'
   )
 order by table_name, column_name;
 ```

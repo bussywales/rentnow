@@ -12,6 +12,9 @@ import type { Property } from "@/lib/types";
 import { getPlanForTier, isListingLimitReached } from "@/lib/plans";
 import { logPlanLimitHit } from "@/lib/observability";
 import { revalidatePath } from "next/cache";
+import { TrustBadges } from "@/components/trust/TrustBadges";
+import { TrustReliability } from "@/components/trust/TrustReliability";
+import type { TrustMarkerState } from "@/lib/trust-markers";
 
 export const dynamic = "force-dynamic";
 
@@ -151,6 +154,7 @@ export default async function DashboardHome() {
   let maxOverride: number | null = null;
   let validUntil: string | null = null;
   let pendingUpgrade = false;
+  let trustMarkers: TrustMarkerState | null = null;
 
   if (supabaseReady) {
     try {
@@ -164,10 +168,13 @@ export default async function DashboardHome() {
       } else {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("role")
+          .select(
+            "role, email_verified, phone_verified, bank_verified, reliability_power, reliability_water, reliability_internet, trust_updated_at"
+          )
           .eq("id", user.id)
           .maybeSingle();
         role = profile?.role ?? null;
+        trustMarkers = (profile as TrustMarkerState | null) ?? null;
         if (role === "tenant") {
           redirect("/dashboard/saved-searches");
         }
@@ -375,6 +382,23 @@ export default async function DashboardHome() {
           <li>Confirm rent, availability, and contact details.</li>
         </ul>
       </div>
+      {(role === "landlord" || role === "agent") && trustMarkers && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-slate-900">Trust status</h3>
+          <p className="mt-1 text-sm text-slate-600">
+            Verification markers help tenants feel confident about your listing.
+          </p>
+          <div className="mt-3 space-y-2">
+            <TrustBadges markers={trustMarkers} />
+            <TrustReliability markers={trustMarkers} />
+            {trustMarkers.trust_updated_at && (
+              <p className="text-xs text-slate-500">
+                Last updated {new Date(trustMarkers.trust_updated_at).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
       <div className="space-y-3">
         {fetchError && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -408,6 +432,7 @@ export default async function DashboardHome() {
                       property={property}
                       compact
                       href={`/dashboard/properties/${property.id}`}
+                      trustMarkers={trustMarkers}
                     />
                   </div>
                   <div className="mt-3 flex items-center justify-between text-xs text-slate-600">

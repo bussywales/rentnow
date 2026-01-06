@@ -10,6 +10,8 @@ import {
   formatLocationLabel,
   formatPriceValue,
 } from "@/lib/property-discovery";
+import { TrustBadges } from "@/components/trust/TrustBadges";
+import type { TrustMarkerState } from "@/lib/trust-markers";
 
 const BedIcon = () => (
   <svg
@@ -53,9 +55,10 @@ type Props = {
   property: Property;
   href?: string;
   compact?: boolean;
+  trustMarkers?: TrustMarkerState | null;
 };
 
-export function PropertyCard({ property, href, compact }: Props) {
+export function PropertyCard({ property, href, compact, trustMarkers }: Props) {
   const fallbackImage =
     "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=80";
   const primaryImage = property.images?.[0]?.image_url || fallbackImage;
@@ -109,6 +112,9 @@ export function PropertyCard({ property, href, compact }: Props) {
         <p className="min-h-[40px] text-sm text-slate-600 line-clamp-2">
           {description}
         </p>
+        {trustMarkers && (
+          <TrustBadges markers={trustMarkers} compact />
+        )}
         <div className="flex items-center justify-between text-sm text-slate-800">
           <div className="font-semibold">
             {priceValue}
