@@ -37,6 +37,7 @@ Apply SQL files in this order:
 30) `web/supabase/migrations/030_profile_trust_markers.sql`
 31) `web/supabase/migrations/031_profile_trust_public_view.sql`
 32) `web/supabase/migrations/032_message_thread_shares.sql`
+33) `web/supabase/migrations/033_message_thread_shares_rls_roles.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -150,6 +151,15 @@ Note: the trust snapshot uses a `SECURITY DEFINER` function to return only safe 
 ```sql
 select to_regclass('public.message_thread_shares') as message_thread_shares;
 select to_regprocedure('public.get_message_thread_share(text)') as message_thread_share;
+```
+
+### Message share policy roles
+```sql
+select policyname, roles
+from pg_policies
+where schemaname = 'public'
+  and tablename = 'message_thread_shares'
+order by policyname;
 ```
 
 ### RLS enabled

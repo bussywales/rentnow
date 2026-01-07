@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-19 — fix: scope message share policies to authenticated
+- Scoped message share RLS policies to authenticated roles (defense in depth).
+- Added runbook check for message share policy roles.
+
 ## 2026-01-18 — v1.7.24-r7.2-messaging-ux
 - Added quick replies and per-thread drafts with autosave/restore behavior.
 - Added read-only share links for message threads with secure tokens and expiry.
