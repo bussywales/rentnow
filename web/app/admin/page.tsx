@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { PropertyBulkActions } from "@/components/admin/PropertyBulkActions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { UpgradeRequestsQueue } from "@/components/admin/UpgradeRequestsQueue";
@@ -375,40 +376,24 @@ export default async function AdminPage({ searchParams }: Props) {
           </div>
         </div>
         <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
-          <form id="bulk-approvals" action={bulkUpdate} className="flex flex-col gap-3 md:flex-row md:items-end">
-            <div className="flex-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                Bulk actions
-              </p>
-              <p className="text-xs text-slate-600">
-                Select listings below to approve or reject them together.
-              </p>
-            </div>
-            <div className="min-w-[220px]">
-              <Input
-                name="reason"
-                placeholder="Rejection reason"
-                className="h-9"
-                minLength={3}
-                required
-              />
-            </div>
-            <div className="flex gap-2">
-              <Button size="sm" type="submit" name="action" value="approve" formNoValidate>
-                Approve selected
-              </Button>
-              <Button size="sm" variant="secondary" type="submit" name="action" value="reject">
-                Reject selected
-              </Button>
-            </div>
-          </form>
+          <PropertyBulkActions action={bulkUpdate} />
         </div>
         <div className="grid gap-3">
           {properties.map((property) => (
             <div
               key={property.id}
-              className="flex flex-col gap-2 rounded-xl border border-slate-200 p-3 md:flex-row md:items-center md:justify-between"
+              className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[32px_minmax(0,1fr)_auto] md:items-start"
             >
+              <div className="flex items-start pt-1">
+                <input
+                  form="bulk-approvals"
+                  type="checkbox"
+                  name="ids"
+                  value={property.id}
+                  aria-label={`Select ${property.title}`}
+                  className="h-4 w-4 rounded border-slate-300"
+                />
+              </div>
               <div>
                 <p className="text-sm font-semibold text-slate-900">
                   {property.title}
@@ -426,41 +411,35 @@ export default async function AdminPage({ searchParams }: Props) {
                   </p>
                 )}
               </div>
-              <div className="flex items-center gap-3">
-                <input
-                  form="bulk-approvals"
-                  type="checkbox"
-                  name="ids"
-                  value={property.id}
-                  aria-label={`Select ${property.title}`}
-                  className="h-4 w-4 rounded border-slate-300"
-                />
-                <span className="text-xs text-slate-500">Select</span>
-              </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
                 <form
-                  className="flex items-center gap-2"
+                  className="flex items-center"
                   action={updateStatus.bind(null, property.id, "approve")}
                 >
                   <Button size="sm" type="submit">
                     Approve
                   </Button>
                 </form>
-                <form
-                  className="flex items-center gap-2"
-                  action={updateStatus.bind(null, property.id, "reject")}
-                >
-                  <Input
-                    name="reason"
-                    placeholder="Rejection reason"
-                    className="h-9 w-44"
-                    minLength={3}
-                    required
-                  />
-                  <Button size="sm" variant="secondary" type="submit">
+                <details className="group">
+                  <summary className="list-none cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200">
                     Reject
-                  </Button>
-                </form>
+                  </summary>
+                  <form
+                    className="mt-2 flex flex-wrap items-center gap-2"
+                    action={updateStatus.bind(null, property.id, "reject")}
+                  >
+                    <Input
+                      name="reason"
+                      placeholder="Reason for rejection"
+                      className="h-9 w-48"
+                      minLength={3}
+                      required
+                    />
+                    <Button size="sm" variant="secondary" type="submit">
+                      Confirm reject
+                    </Button>
+                  </form>
+                </details>
               </div>
             </div>
           ))}
