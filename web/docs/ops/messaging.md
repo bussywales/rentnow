@@ -34,6 +34,22 @@ Messaging sends are throttled per sender (and per property when available).
 - UI shows a retry hint with `retry_after_seconds` and a support CTA.
 - The cooldown timer is client-side and resets if the user navigates away or reloads the page.
 
+## UX helpers (client-side)
+Quick replies:
+- Pre-filled buttons insert text into the composer (no auto-send).
+- Only shown when the server permission payload allows sending.
+
+Drafts:
+- Drafts autosave per thread in localStorage.
+- Key format: `rentnow:msg:draft:<threadId>`.
+- Drafts restore on load with a clear notice and can be cleared manually.
+- Drafts clear on successful send and reset if browser storage is cleared.
+
+Share link (read-only):
+- Generates a short-lived, read-only link for a specific tenant/host thread.
+- Tokens expire after 7 days and can be rotated or revoked.
+- Share view disables sending and shows a read-only notice.
+
 ## Throttle telemetry (durable)
 Rate-limited send attempts are recorded to `public.messaging_throttle_events` for ops visibility.
 Captured fields:

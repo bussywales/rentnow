@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-18 — v1.7.24-r7.2-messaging-ux
+- Added quick replies and per-thread drafts with autosave/restore behavior.
+- Added read-only share links for message threads with secure tokens and expiry.
+- Added tests and ops runbook notes for messaging UX helpers and share links.
+
 ## 2026-01-17 — v1.7.23-r7.0.1-admin-properties-ui-cleanup
 - Aligned the admin properties moderation list with a single bulk action bar.
 - Standardized row layout with checkbox and inline reject details.

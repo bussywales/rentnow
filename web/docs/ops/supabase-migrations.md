@@ -36,6 +36,7 @@ Apply SQL files in this order:
 29) `web/supabase/migrations/029_push_alert_retention.sql`
 30) `web/supabase/migrations/030_profile_trust_markers.sql`
 31) `web/supabase/migrations/031_profile_trust_public_view.sql`
+32) `web/supabase/migrations/032_message_thread_shares.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -104,6 +105,7 @@ select to_regclass('public.provider_payment_events') as provider_payment_events;
 select to_regclass('public.role_change_audit') as role_change_audit;
 select to_regclass('public.messaging_throttle_events') as messaging_throttle_events;
 select to_regclass('public.push_subscriptions') as push_subscriptions;
+select to_regclass('public.message_thread_shares') as message_thread_shares;
 ```
 
 ### Throttle telemetry verification
@@ -144,6 +146,12 @@ select * from public.get_profiles_trust_public(array[]::uuid[]);
 
 Note: the trust snapshot uses a `SECURITY DEFINER` function to return only safe fields without widening `profiles` RLS.
 
+### Message share verification
+```sql
+select to_regclass('public.message_thread_shares') as message_thread_shares;
+select to_regprocedure('public.get_message_thread_share(text)') as message_thread_share;
+```
+
 ### RLS enabled
 ```sql
 select relname, relrowsecurity, relforcerowsecurity
@@ -164,7 +172,8 @@ where relname in (
   'provider_settings',
   'role_change_audit',
   'messaging_throttle_events',
-  'push_subscriptions'
+  'push_subscriptions',
+  'message_thread_shares'
 );
 ```
 
@@ -190,7 +199,8 @@ where schemaname = 'public'
     'provider_payment_events',
     'role_change_audit',
     'messaging_throttle_events',
-    'push_subscriptions'
+    'push_subscriptions',
+    'message_thread_shares'
   )
 order by tablename, policyname;
 ```
@@ -216,7 +226,8 @@ where table_schema = 'public'
     'provider_payment_events',
     'role_change_audit',
     'messaging_throttle_events',
-    'push_subscriptions'
+    'push_subscriptions',
+    'message_thread_shares'
   )
   and column_name in (
     'id',
@@ -308,6 +319,12 @@ where table_schema = 'public'
     'max_sends',
     'mode',
     'ip_hash',
+    'thread_id',
+    'tenant_id',
+    'token',
+    'created_by',
+    'expires_at',
+    'revoked_at',
     'email_verified',
     'phone_verified',
     'bank_verified',
