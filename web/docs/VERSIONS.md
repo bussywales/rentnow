@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-17 — v1.7.23-r7.0.1-admin-properties-ui-cleanup
+- Aligned the admin properties moderation list with a single bulk action bar.
+- Standardized row layout with checkbox and inline reject details.
+
 ## 2026-01-16 — v1.7.22-r7.1.1-trust-public-badges
 - Added a security-definer trust snapshot RPC for tenant-visible badges without widening profile RLS.
 - Wired browse and property detail to display host trust badges for tenants via the snapshot.
