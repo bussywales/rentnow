@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { MessageThread } from "@/components/messaging/MessageThread";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getShareStatusCopy, type ShareLinkStatus } from "@/lib/messaging/share";
+import { logShareAccess } from "@/lib/messaging/share-logging";
 import { mapDeliveryState } from "@/lib/messaging/status";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { Message } from "@/lib/types";
@@ -29,6 +30,7 @@ export default async function ShareMessagesPage({ params }: Props) {
   } = await supabase.auth.getUser();
 
   if (!user) {
+    logShareAccess({ result: "unauthenticated" });
     redirect(`/auth/login?reason=auth&next=${encodeURIComponent(sharePath)}`);
   }
 
@@ -39,6 +41,7 @@ export default async function ShareMessagesPage({ params }: Props) {
       p_token: token,
     });
     if (error || !data) {
+      logShareAccess({ result: "invalid", actorProfileId: user.id });
       const invalidCopy = getShareStatusCopy("invalid");
       return (
         <ErrorState
@@ -60,7 +63,13 @@ export default async function ShareMessagesPage({ params }: Props) {
       expires_at: data?.expires_at,
       revoked_at: data?.revoked_at,
     };
+    logShareAccess({
+      result: status === "active" ? "ok" : status,
+      actorProfileId: user.id,
+      propertyId: data?.property_id ?? null,
+    });
   } catch {
+    logShareAccess({ result: "invalid", actorProfileId: user.id });
     const invalidCopy = getShareStatusCopy("invalid");
     return (
       <ErrorState

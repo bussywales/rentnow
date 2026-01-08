@@ -16,6 +16,7 @@ export type ShareTelemetrySummary = {
   sampleSize: number;
   statusCounts: Record<ShareLinkStatus, number>;
   topFailureReasons: ShareFailureEntry[];
+  invalidTracked: boolean;
 };
 
 export function buildShareTelemetrySummary(
@@ -40,7 +41,6 @@ export function buildShareTelemetrySummary(
   });
 
   const topFailureReasons: ShareFailureEntry[] = [
-    { reason: "invalid", count: statusCounts.invalid },
     { reason: "expired", count: statusCounts.expired },
     { reason: "revoked", count: statusCounts.revoked },
   ];
@@ -49,5 +49,6 @@ export function buildShareTelemetrySummary(
     sampleSize: rows.length,
     statusCounts,
     topFailureReasons,
+    invalidTracked: false,
   };
 }

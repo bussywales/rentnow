@@ -832,6 +832,9 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 <p className="text-sm text-slate-600">
                   Status: active {diag.shareTelemetry.counts.active} · revoked {diag.shareTelemetry.counts.revoked} · expired {diag.shareTelemetry.counts.expired}
                 </p>
+                <p className="text-sm text-slate-600">
+                  Invalid/unknown attempts: Not tracked
+                </p>
                 <p className="mt-2 text-xs text-slate-500">
                   Sample: last {diag.shareTelemetry.summary.sampleSize} links. Invalid tokens are not tracked.
                 </p>

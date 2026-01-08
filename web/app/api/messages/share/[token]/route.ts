@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { hasServerSupabaseEnv, createServerSupabaseClient } from "@/lib/supabase/server";
 import type { ShareLinkStatus } from "@/lib/messaging/share";
+import { logShareAccess } from "@/lib/messaging/share-logging";
 
 export async function GET(
   _request: Request,
@@ -21,6 +22,7 @@ export async function GET(
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) {
+    logShareAccess({ result: "unauthenticated" });
     return NextResponse.json(
       { error: "Sign in to continue.", code: "not_authenticated" },
       { status: 401 }
@@ -31,6 +33,10 @@ export async function GET(
   });
 
   if (error || !data) {
+    logShareAccess({
+      result: "invalid",
+      actorProfileId: user.id,
+    });
     return NextResponse.json(
       { error: "Share link is invalid or expired.", status: "invalid" },
       { status: 404 }
@@ -39,5 +45,11 @@ export async function GET(
 
   const status = (data?.status as ShareLinkStatus)
     ?? (Array.isArray(data?.messages) ? "active" : "invalid");
+  logShareAccess({
+    result: status === "active" ? "ok" : status,
+    actorProfileId: user.id,
+    propertyId: data?.property_id ?? null,
+    tenantId: data?.tenant_id ?? null,
+  });
   return NextResponse.json({ ok: status === "active", status, ...data });
 }
