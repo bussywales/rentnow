@@ -16,6 +16,10 @@ import {
   type PushTelemetrySummary,
 } from "@/lib/admin/push-telemetry";
 import {
+  buildShareTelemetrySummary,
+  type ShareTelemetrySummary,
+} from "@/lib/admin/message-share-telemetry";
+import {
   buildTrustMarkerSummary,
   type TrustMarkerSummary,
 } from "@/lib/admin/trust-markers";
@@ -79,6 +83,19 @@ type PushTelemetryDiagnostics = {
   error: string | null;
 };
 
+type ShareTelemetryDiagnostics = {
+  ready: boolean;
+  counts: {
+    last7d: number;
+    last30d: number;
+    active: number;
+    revoked: number;
+    expired: number;
+  };
+  summary: ShareTelemetrySummary | null;
+  error: string | null;
+};
+
 type TrustMarkerDiagnostics = {
   ready: boolean;
   summary: TrustMarkerSummary | null;
@@ -109,6 +126,13 @@ type MessagingPropertyRow = {
   owner_id: string;
   is_approved?: boolean | null;
   is_active?: boolean | null;
+};
+
+type ShareRow = {
+  id: string;
+  created_at?: string | null;
+  expires_at?: string | null;
+  revoked_at?: string | null;
 };
 
 const THROTTLE_RANGES: Record<ThrottleRange, { label: string; windowMs: number }> = {
@@ -191,6 +215,12 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     configured: pushConfig.configured,
     counts: { total: 0, active: 0, last24h: 0, last7d: 0 },
     pruned: { last7d: 0, last30d: 0 },
+    summary: null,
+    error: null,
+  };
+  let shareTelemetry: ShareTelemetryDiagnostics = {
+    ready: false,
+    counts: { last7d: 0, last30d: 0, active: 0, revoked: 0, expired: 0 },
     summary: null,
     error: null,
   };
@@ -373,6 +403,71 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
         .join(" | ") || null,
     };
 
+    const shareNowIso = new Date().toISOString();
+    const share7dStart = toIsoRangeStart(THROTTLE_RANGES["7d"].windowMs);
+    const share30dStart = toIsoRangeStart(THROTTLE_RANGES["30d"].windowMs);
+
+    const [
+      share7dResult,
+      share30dResult,
+      shareActiveResult,
+      shareRevokedResult,
+      shareExpiredResult,
+      shareRowsResult,
+    ] = await Promise.all([
+      adminClient
+        .from("message_thread_shares")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", share7dStart),
+      adminClient
+        .from("message_thread_shares")
+        .select("id", { count: "exact", head: true })
+        .gte("created_at", share30dStart),
+      adminClient
+        .from("message_thread_shares")
+        .select("id", { count: "exact", head: true })
+        .is("revoked_at", null)
+        .gt("expires_at", shareNowIso),
+      adminClient
+        .from("message_thread_shares")
+        .select("id", { count: "exact", head: true })
+        .not("revoked_at", "is", null),
+      adminClient
+        .from("message_thread_shares")
+        .select("id", { count: "exact", head: true })
+        .is("revoked_at", null)
+        .lte("expires_at", shareNowIso),
+      adminClient
+        .from("message_thread_shares")
+        .select("id, created_at, expires_at, revoked_at")
+        .order("created_at", { ascending: false })
+        .limit(200),
+    ]);
+
+    const shareRows = (shareRowsResult.data as ShareRow[]) ?? [];
+
+    shareTelemetry = {
+      ready: true,
+      counts: {
+        last7d: share7dResult.count ?? 0,
+        last30d: share30dResult.count ?? 0,
+        active: shareActiveResult.count ?? 0,
+        revoked: shareRevokedResult.count ?? 0,
+        expired: shareExpiredResult.count ?? 0,
+      },
+      summary: buildShareTelemetrySummary(shareRows),
+      error: [
+        share7dResult.error?.message,
+        share30dResult.error?.message,
+        shareActiveResult.error?.message,
+        shareRevokedResult.error?.message,
+        shareExpiredResult.error?.message,
+        shareRowsResult.error?.message,
+      ]
+        .filter(Boolean)
+        .join(" | ") || null,
+    };
+
     const { data: trustRows, error: trustError } = await adminClient
       .from("profiles")
       .select(
@@ -407,6 +502,12 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       summary: null,
       error: "Service role key missing; push telemetry unavailable.",
     };
+    shareTelemetry = {
+      ready: false,
+      counts: { last7d: 0, last30d: 0, active: 0, revoked: 0, expired: 0 },
+      summary: null,
+      error: "Service role key missing; share telemetry unavailable.",
+    };
     trustMarkers = {
       ready: false,
       summary: null,
@@ -431,6 +532,7 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     messaging,
     throttleTelemetry,
     pushTelemetry,
+    shareTelemetry,
     rateLimit,
     trustMarkers,
   };
@@ -709,6 +811,45 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 {diag.pushTelemetry.error && (
                   <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     Errors: {diag.pushTelemetry.error}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-semibold text-slate-900">Share links</h3>
+            {!diag.shareTelemetry?.ready && (
+              <p className="text-sm text-slate-600">
+                {diag.shareTelemetry?.error || "Share telemetry is unavailable."}
+              </p>
+            )}
+            {diag.shareTelemetry?.ready && diag.shareTelemetry.summary && (
+              <>
+                <p className="text-sm text-slate-600">
+                  Created: last 7d {diag.shareTelemetry.counts.last7d} · 30d {diag.shareTelemetry.counts.last30d}
+                </p>
+                <p className="text-sm text-slate-600">
+                  Status: active {diag.shareTelemetry.counts.active} · revoked {diag.shareTelemetry.counts.revoked} · expired {diag.shareTelemetry.counts.expired}
+                </p>
+                <p className="mt-2 text-xs text-slate-500">
+                  Sample: last {diag.shareTelemetry.summary.sampleSize} links. Invalid tokens are not tracked.
+                </p>
+                {diag.shareTelemetry.summary.topFailureReasons.length ? (
+                  <div className="mt-3">
+                    <p className="text-xs text-slate-500">Top failure reasons</p>
+                    <ul className="mt-1 text-sm text-slate-700">
+                      {diag.shareTelemetry.summary.topFailureReasons.map((entry) => (
+                        <li key={entry.reason}>
+                          {entry.reason} · {entry.count}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+                {diag.shareTelemetry.error && (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    Errors: {diag.shareTelemetry.error}
                   </div>
                 )}
               </>

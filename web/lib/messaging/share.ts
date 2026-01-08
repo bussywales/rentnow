@@ -14,17 +14,69 @@ export function buildThreadId(propertyId: string, tenantId: string): string {
   return formatUuidFromHex(hash);
 }
 
+export type ShareLinkStatus = "active" | "expired" | "revoked" | "invalid";
+
+type ShareStatusInput = {
+  expiresAt: string | Date;
+  revokedAt?: string | Date | null;
+  now?: Date;
+};
+
 export function isShareActive(input: {
   expiresAt: string | Date;
   revokedAt?: string | Date | null;
   now?: Date;
 }): boolean {
-  if (input.revokedAt) return false;
-  const now = input.now ?? new Date();
+  return resolveShareStatus(input, input.now) === "active";
+}
+
+export function resolveShareStatus(
+  input: ShareStatusInput | null,
+  nowOverride?: Date
+): ShareLinkStatus {
+  if (!input) return "invalid";
+  if (input.revokedAt) return "revoked";
+  const now = nowOverride ?? input.now ?? new Date();
   const expires = input.expiresAt instanceof Date
     ? input.expiresAt
     : new Date(input.expiresAt);
-  return expires.getTime() > now.getTime();
+  if (expires.getTime() <= now.getTime()) {
+    return "expired";
+  }
+  return "active";
+}
+
+export function getShareStatusCopy(status: ShareLinkStatus): {
+  title: string;
+  description: string;
+  cta?: { href: string; label: string };
+} {
+  switch (status) {
+    case "revoked":
+      return {
+        title: "Share link revoked",
+        description: "This link was revoked by a participant.",
+        cta: { href: "/dashboard/messages", label: "Back to messages" },
+      };
+    case "expired":
+      return {
+        title: "Share link expired",
+        description: "This link has expired. Ask for a fresh share link.",
+        cta: { href: "/dashboard/messages", label: "Back to messages" },
+      };
+    case "invalid":
+      return {
+        title: "Share link unavailable",
+        description: "This link is invalid or you no longer have access.",
+        cta: { href: "/support", label: "Contact support" },
+      };
+    case "active":
+    default:
+      return {
+        title: "Shared thread",
+        description: "Read-only link.",
+      };
+  }
 }
 
 function formatUuidFromHex(hex: string): string {

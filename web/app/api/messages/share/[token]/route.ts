@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { hasServerSupabaseEnv, createServerSupabaseClient } from "@/lib/supabase/server";
+import type { ShareLinkStatus } from "@/lib/messaging/share";
 
 export async function GET(
   _request: Request,
@@ -16,13 +17,27 @@ export async function GET(
   }
 
   const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json(
+      { error: "Sign in to continue.", code: "not_authenticated" },
+      { status: 401 }
+    );
+  }
   const { data, error } = await supabase.rpc("get_message_thread_share", {
     p_token: token,
   });
 
   if (error || !data) {
-    return NextResponse.json({ error: "Share link is invalid or expired." }, { status: 404 });
+    return NextResponse.json(
+      { error: "Share link is invalid or expired.", status: "invalid" },
+      { status: 404 }
+    );
   }
 
-  return NextResponse.json({ ok: true, ...data });
+  const status = (data?.status as ShareLinkStatus)
+    ?? (Array.isArray(data?.messages) ? "active" : "invalid");
+  return NextResponse.json({ ok: status === "active", status, ...data });
 }
