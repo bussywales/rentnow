@@ -49,6 +49,10 @@ Share link (read-only):
 - Generates a short-lived, read-only link for a specific tenant/host thread.
 - Tokens expire after 7 days and can be rotated or revoked.
 - Share view disables sending and shows a read-only notice.
+- Share links require a logged-in participant; unauthenticated users are redirected to login.
+- Revoked/expired links show a friendly status message instead of raw errors.
+- Successful views update `message_thread_shares.last_accessed_at`.
+- Non-participants see an invalid link state.
 
 ## Throttle telemetry (durable)
 Rate-limited send attempts are recorded to `public.messaging_throttle_events` for ops visibility.

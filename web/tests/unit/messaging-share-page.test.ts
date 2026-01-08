@@ -16,4 +16,5 @@ void test("share page renders read-only messaging copy", () => {
 
   assert.ok(contents.includes("Read-only link"));
   assert.ok(contents.includes("canSend={false}"));
+  assert.ok(contents.includes("/auth/login?reason=auth&next="));
 });

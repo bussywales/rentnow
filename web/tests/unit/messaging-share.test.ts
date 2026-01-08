@@ -1,7 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { buildShareToken, buildThreadId, isShareActive } from "../../lib/messaging/share";
+import {
+  buildShareToken,
+  buildThreadId,
+  getShareStatusCopy,
+  isShareActive,
+  resolveShareStatus,
+} from "../../lib/messaging/share";
 
 void test("buildShareToken returns url-safe token", () => {
   const token = buildShareToken();
@@ -30,4 +36,27 @@ void test("isShareActive respects expiry and revoke", () => {
     isShareActive({ expiresAt: "2026-01-02T00:00:00Z", revokedAt: "2025-12-31T10:00:00Z", now }),
     false
   );
+});
+
+void test("resolveShareStatus returns explicit states", () => {
+  const now = new Date("2026-01-01T00:00:00Z");
+  assert.equal(resolveShareStatus(null, now), "invalid");
+  assert.equal(
+    resolveShareStatus({ expiresAt: "2025-12-31T10:00:00Z" }, now),
+    "expired"
+  );
+  assert.equal(
+    resolveShareStatus({ expiresAt: "2026-01-02T00:00:00Z", revokedAt: "2025-12-31T10:00:00Z" }, now),
+    "revoked"
+  );
+  assert.equal(
+    resolveShareStatus({ expiresAt: "2026-01-02T00:00:00Z" }, now),
+    "active"
+  );
+});
+
+void test("getShareStatusCopy returns expected CTAs", () => {
+  assert.equal(getShareStatusCopy("revoked").cta?.href, "/dashboard/messages");
+  assert.equal(getShareStatusCopy("expired").cta?.href, "/dashboard/messages");
+  assert.equal(getShareStatusCopy("invalid").cta?.href, "/support");
 });

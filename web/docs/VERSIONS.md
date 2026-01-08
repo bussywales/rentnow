@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-20 — v1.7.26-r7.3-share-ux-safety
+- Added share link status handling (active/expired/revoked/invalid) with login redirect.
+- Tracked share link access timestamps and tightened share telemetry in admin support.
+- Added unit coverage for share status helpers, migration, and admin telemetry UI.
+
 ## 2026-01-19 — fix: scope message share policies to authenticated
 - Scoped message share RLS policies to authenticated roles (defense in depth).
 - Added runbook check for message share policy roles.
