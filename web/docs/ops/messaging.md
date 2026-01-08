@@ -53,6 +53,9 @@ Share link (read-only):
 - Revoked/expired links show a friendly status message instead of raw errors.
 - Successful views update `message_thread_shares.last_accessed_at`.
 - Non-participants see an invalid link state.
+- Invalid token attempts are not tracked in the database. Use Vercel logs to inspect access attempts.
+- Example log entry (tokens/URLs are never logged):
+  `{"event":"share_access_attempt","result":"invalid","actor_profile_id":"<uuid>","property_id":"<uuid>","ts":"2026-01-20T12:34:56.000Z"}`
 
 ## Throttle telemetry (durable)
 Rate-limited send attempts are recorded to `public.messaging_throttle_events` for ops visibility.

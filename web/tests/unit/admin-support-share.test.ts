@@ -9,4 +9,5 @@ void test("admin support includes share link telemetry block", () => {
 
   assert.ok(contents.includes("Share links"));
   assert.ok(contents.includes("Top failure reasons"));
+  assert.ok(contents.includes("Not tracked"));
 });

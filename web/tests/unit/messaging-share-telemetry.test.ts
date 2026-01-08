@@ -17,4 +17,5 @@ void test("buildShareTelemetrySummary counts active, expired, and revoked links"
   assert.equal(summary.statusCounts.expired, 1);
   assert.equal(summary.statusCounts.revoked, 1);
   assert.equal(summary.statusCounts.invalid, 0);
+  assert.equal(summary.invalidTracked, false);
 });

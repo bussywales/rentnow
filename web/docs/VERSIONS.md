@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-21 — v1.7.27-r7.4-share-ops-telemetry
+- Marked invalid share attempts as not tracked in admin support.
+- Added structured logging for share access outcomes.
+- Added unit coverage for share logs and telemetry copy.
+
 ## 2026-01-20 — v1.7.26-r7.3-share-ux-safety
 - Added share link status handling (active/expired/revoked/invalid) with login redirect.
 - Tracked share link access timestamps and tightened share telemetry in admin support.
