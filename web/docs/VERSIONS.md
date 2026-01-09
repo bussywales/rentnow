@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-25 — v1.7.30-r7.5.3-browse-trust-parity
+- Included admin hosts in trust snapshot RPC for public badges.
+- Prevented zero-result browse pages from surfacing diagnostics in production.
+- Standardized property detail trust badges to use the public snapshot helper.
+
 ## 2026-01-24 — v1.7.30-r7.5.2-auth-ui-polish
 - Synced navigation links with client auth state changes to avoid stale menus after login.
 - Auto-refresh onboarding session checks to clear the email confirmation banner promptly.

@@ -41,6 +41,7 @@ Apply SQL files in this order:
 34) `web/supabase/migrations/034_message_thread_shares_last_accessed.sql`
 35) `web/supabase/migrations/035_trust_public_rpc_grants.sql`
 36) `web/supabase/migrations/036_trust_snapshot_rpc.sql`
+37) `web/supabase/migrations/037_trust_snapshot_include_admin.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),

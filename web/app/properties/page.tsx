@@ -254,11 +254,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     }
   }
 
-  if (!properties.length && !fetchError) {
-    fetchError = "API returned 0 properties";
-  }
-
-  if (role === "tenant" && supabaseReady && properties.length) {
+  if (supabaseReady && properties.length) {
     try {
       const supabase = await createServerSupabaseClient();
       const ownerIds = properties.map((property) => property.owner_id);
@@ -278,7 +274,9 @@ export default async function PropertiesPage({ searchParams }: Props) {
       ? `/properties?${retryParams.toString()}`
       : "/properties";
     const emptyCtas = getBrowseEmptyStateCtas({ role, hasFilters });
-    const showRetry = !!fetchError && fetchError !== "API returned 0 properties";
+    const showDiagnostics =
+      !!fetchError && (DEV_MOCKS || process.env.NODE_ENV !== "production");
+    const showRetry = !!fetchError;
     const renderEmptyCta = (cta: (typeof emptyCtas)[number]) => {
       if (cta.kind === "primary") {
         return (
@@ -329,13 +327,17 @@ export default async function PropertiesPage({ searchParams }: Props) {
               )}
             </>
           }
-          diagnostics={{
-            apiUrl,
-            hasFilters,
-            supabaseReady,
-            fetchError,
-            env: envPresence,
-          }}
+          diagnostics={
+            showDiagnostics
+              ? {
+                  apiUrl,
+                  hasFilters,
+                  supabaseReady,
+                  fetchError,
+                  env: envPresence,
+                }
+              : undefined
+          }
         />
       </div>
     );
