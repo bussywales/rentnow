@@ -52,7 +52,7 @@ Permissions:
 - Users can read their own trust markers (via existing profile select policy).
 - Users cannot update verification booleans; updates require admin/service role.
 - Admin UI is read-only for trust markers in this phase.
-- Trust badges for property viewers read from `public.get_profiles_trust_public(...)` (granted to `anon`) to avoid widening `profiles` RLS.
+- Trust badges for property viewers read from `public.get_trust_snapshot(...)` (granted to `anon`) to avoid widening `profiles` RLS.
 
 Quick SQL check (admin/service role):
 ```sql

@@ -1,8 +1,10 @@
 # Versions
 
+## 2026-01-23 — v1.7.29-r7.5.1-trust-snapshot-rpc
+- Added get_trust_snapshot RPC for public trust badges with anon access grants.
+- Updated trust snapshot helper to use the new RPC on property browse and detail pages.
+
 ## 2026-01-22 — v1.7.28-r7.5-trust-currency-ux
-- Granted anon access to the trust snapshot RPC so trust badges render for public property viewers.
-- Swapped property detail trust lookups to use the public snapshot helper consistently.
 - Replaced currency text inputs with a searchable dropdown and pinned NGN/USD/GBP options.
 
 ## 2026-01-21 — v1.7.27-r7.4-share-ops-telemetry
