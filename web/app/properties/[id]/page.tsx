@@ -310,20 +310,14 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           .eq("property_id", property.id)
           .maybeSingle();
         isSaved = !!data;
+      }
 
-        if (user.id === property.owner_id) {
-          const { data: trustProfile } = await supabase
-            .from("profiles")
-            .select(
-              "email_verified, phone_verified, bank_verified, reliability_power, reliability_water, reliability_internet, trust_updated_at"
-            )
-            .eq("id", user.id)
-            .maybeSingle();
-          hostTrust = (trustProfile as TrustMarkerState | null) ?? null;
-        } else if (profile?.role === "tenant") {
-          const trustMap = await fetchTrustPublicSnapshots(supabase, [property.owner_id]);
-          hostTrust = trustMap[property.owner_id] ?? null;
-        }
+      try {
+        const trustMap = await fetchTrustPublicSnapshots(supabase, [property.owner_id]);
+        hostTrust = trustMap[property.owner_id] ?? null;
+      } catch (err) {
+        console.warn("[property-detail] trust snapshot fetch failed", err);
+        hostTrust = null;
       }
 
       const priceFloor = property.price ? Math.max(0, property.price * 0.6) : null;

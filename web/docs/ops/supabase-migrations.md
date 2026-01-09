@@ -39,6 +39,7 @@ Apply SQL files in this order:
 32) `web/supabase/migrations/032_message_thread_shares.sql`
 33) `web/supabase/migrations/033_message_thread_shares_rls_roles.sql`
 34) `web/supabase/migrations/034_message_thread_shares_last_accessed.sql`
+35) `web/supabase/migrations/035_trust_public_rpc_grants.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -144,6 +145,7 @@ limit 1;
 ```sql
 select to_regprocedure('public.get_profiles_trust_public(uuid[])') as trust_public_snapshot;
 select * from public.get_profiles_trust_public(array[]::uuid[]);
+select has_function_privilege('anon', 'public.get_profiles_trust_public(uuid[])', 'EXECUTE') as trust_public_anon;
 ```
 
 Note: the trust snapshot uses a `SECURITY DEFINER` function to return only safe fields without widening `profiles` RLS.
