@@ -348,7 +348,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
             <label className="text-sm font-medium text-slate-700">Price</label>
             <Input
               type="number"
-              min={0}
+              min={1}
               value={form.price ?? ""}
               onChange={(e) => handleChange("price", Number(e.target.value))}
             />
@@ -385,6 +385,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
                 Yearly
               </label>
             </div>
+            <p className="text-xs text-slate-500">How often is rent paid?</p>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Available from</label>

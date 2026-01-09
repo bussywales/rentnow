@@ -1,7 +1,28 @@
+import { normalizeCurrency } from "@/lib/currencies";
 import { shouldShowSavedSearchNav } from "@/lib/role-access";
 import type { RentPeriod, RentalType, UserRole } from "@/lib/types";
 
-const PRICE_FORMATTER = new Intl.NumberFormat("en-US");
+const PRICE_FORMATTER = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  GBP: "\u00a3",
+  EUR: "\u20ac",
+  NGN: "\u20a6",
+};
+
+function resolveCurrencyCode(input?: string | null): string {
+  const normalized = normalizeCurrency(input);
+  if (normalized) return normalized;
+  const trimmed = input?.trim().toUpperCase();
+  return trimmed || "USD";
+}
+
+function resolveCurrencyPrefix(code: string): string {
+  return CURRENCY_SYMBOLS[code] || `${code} `;
+}
 
 export type BrowseEmptyCta = {
   label: string;
@@ -27,15 +48,18 @@ export function formatLocationLabel(
 export function formatCadence(
   rentalType: RentalType,
   rentPeriod?: RentPeriod | null
-): string {
+): string | null {
   if (rentalType === "short_let") return "night";
-  return rentPeriod === "yearly" ? "year" : "month";
+  if (rentPeriod === "yearly") return "year";
+  if (rentPeriod === "monthly") return "month";
+  return null;
 }
 
 export function formatPriceValue(currency: string, price: number): string {
-  const safeCurrency = currency?.trim() || "USD";
+  const safeCurrency = resolveCurrencyCode(currency);
   const safePrice = Number.isFinite(price) ? price : 0;
-  return `${safeCurrency} ${PRICE_FORMATTER.format(safePrice)}`;
+  const prefix = resolveCurrencyPrefix(safeCurrency);
+  return `${prefix}${PRICE_FORMATTER.format(safePrice)}`;
 }
 
 export function formatPriceLabel(
@@ -44,10 +68,9 @@ export function formatPriceLabel(
   rentalType: RentalType,
   rentPeriod?: RentPeriod | null
 ): string {
-  return `${formatPriceValue(currency, price)} / ${formatCadence(
-    rentalType,
-    rentPeriod
-  )}`;
+  const cadence = formatCadence(rentalType, rentPeriod);
+  const base = formatPriceValue(currency, price);
+  return cadence ? `${base} / ${cadence}` : base;
 }
 
 export function getBrowseEmptyStateCtas(input: {

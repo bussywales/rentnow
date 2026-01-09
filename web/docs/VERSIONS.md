@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-27 — v1.7.33-r7.7-pricing-rent-ux-polish
+- Standardized pricing display with currency symbols and cadence suffixes.
+- Clarified rent period inputs with helper text and minimum price validation.
+- Added unit coverage for rent period formatting and UI guards.
+
 ## 2026-01-27 — v1.7.32-r7.6-rent-cadence-ux
 - Added properties.rent_period for monthly/yearly pricing semantics.
 - Added rent period controls in listing editor and ensured card/detail displays use / month or / year.

@@ -592,7 +592,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
               <Input
                 id="price"
                 type="number"
-                min={0}
+                min={1}
                 value={form.price ?? ""}
                 onChange={(e) => handleChange("price", Number(e.target.value))}
               />
@@ -632,6 +632,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                   Yearly
                 </label>
               </div>
+              <p className="text-xs text-slate-500">How often is rent paid?</p>
             </div>
             <div className="space-y-2">
               <label htmlFor="available-from" className="text-sm font-medium text-slate-700">

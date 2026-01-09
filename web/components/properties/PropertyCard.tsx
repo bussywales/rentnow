@@ -116,11 +116,13 @@ export function PropertyCard({ property, href, compact, trustMarkers }: Props) {
           <TrustBadges markers={trustMarkers} compact />
         )}
         <div className="flex items-center justify-between text-sm text-slate-800">
-          <div className="font-semibold">
+          <div className="font-semibold flex flex-wrap items-baseline gap-1">
             {priceValue}
-            <span className="text-xs font-normal text-slate-500">
-              {` / ${cadence}`}
-            </span>
+            {cadence && (
+              <span className="text-xs font-normal text-slate-500 whitespace-nowrap">
+                {` / ${cadence}`}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-600">
             <span className="flex items-center gap-1">

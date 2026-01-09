@@ -70,6 +70,7 @@
 - Browse cards show location, price cadence, beds/baths, and furnished status consistently.
 - Empty browse results include Clear filters, Browse all, and (tenant-only) Saved searches CTAs.
 - Property detail shows a Back to results link when opened from Browse and a clean placeholder when no photos exist.
+- Price formatting shows currency symbol when known (e.g. ₦/£), otherwise ISO code, and includes / month or / year for long-term listings.
 
 ## Role-aware CTAs
 - Landing CTA shows “List a property” for unauthenticated users (redirects to login).

@@ -23,7 +23,7 @@ const propertySchema = z.object({
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
   rental_type: z.enum(["short_let", "long_term"]),
-  price: z.number().nonnegative(),
+  price: z.number().positive(),
   currency: z.string().min(2),
   rent_period: z.enum(["monthly", "yearly"]).optional(),
   bedrooms: z.number().int().nonnegative(),

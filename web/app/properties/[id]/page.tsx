@@ -386,7 +386,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
       ? "Short stay pricing"
       : property.rent_period === "yearly"
       ? "Annual rent"
-      : "Monthly rent";
+      : property.rent_period === "monthly"
+      ? "Monthly rent"
+      : "Rent";
   const description =
     typeof property.description === "string" && property.description.trim().length > 0
       ? property.description
@@ -452,9 +454,13 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           <h1 className="text-2xl font-semibold text-slate-900">{property.title}</h1>
           <p className="text-sm text-slate-600">{locationLabel}</p>
           <div className="rounded-xl bg-slate-50 px-3 py-2">
-            <p className="text-3xl font-semibold text-slate-900">
+            <p className="text-3xl font-semibold text-slate-900 flex flex-wrap items-baseline gap-1">
               {priceValue}
-              <span className="text-sm font-normal text-slate-500">{` / ${cadence}`}</span>
+              {cadence && (
+                <span className="text-sm font-normal text-slate-500 whitespace-nowrap">
+                  {` / ${cadence}`}
+                </span>
+              )}
             </p>
             <p className="text-xs text-slate-500">{rentSubtext}</p>
           </div>

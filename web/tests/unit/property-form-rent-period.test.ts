@@ -24,6 +24,14 @@ void test("property form defaults rent period to monthly", () => {
     contents.includes("handleChange(\"rent_period\", \"yearly\")"),
     "expected rent_period yearly toggle in PropertyForm"
   );
+  assert.ok(
+    contents.includes("min={1}"),
+    "expected price input to enforce min=1 in PropertyForm"
+  );
+  assert.ok(
+    contents.includes("How often is rent paid?"),
+    "expected rent period helper text in PropertyForm"
+  );
 });
 
 void test("property stepper defaults rent period to monthly", () => {
@@ -46,5 +54,13 @@ void test("property stepper defaults rent period to monthly", () => {
   assert.ok(
     contents.includes("handleChange(\"rent_period\", \"yearly\")"),
     "expected rent_period yearly toggle in PropertyStepper"
+  );
+  assert.ok(
+    contents.includes("min={1}"),
+    "expected price input to enforce min=1 in PropertyStepper"
+  );
+  assert.ok(
+    contents.includes("How often is rent paid?"),
+    "expected rent period helper text in PropertyStepper"
   );
 });

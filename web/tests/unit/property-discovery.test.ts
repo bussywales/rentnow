@@ -15,7 +15,9 @@ void test("formatLocationLabel prefers neighbourhood then city", () => {
 });
 
 void test("formatPriceLabel formats price with cadence", () => {
-  assert.equal(formatPriceValue("NGN", 125000), "NGN 125,000");
+  assert.equal(formatPriceValue("NGN", 125000), "\u20a6125,000");
+  assert.equal(formatPriceValue("GBP", 1250), "\u00a31,250");
+  assert.equal(formatPriceValue("USD", 1200), "USD 1,200");
   assert.equal(formatPriceLabel("USD", 1200, "short_let"), "USD 1,200 / night");
   assert.equal(
     formatPriceLabel("USD", 1200, "long_term", "monthly"),
