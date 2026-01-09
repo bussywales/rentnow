@@ -556,106 +556,108 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
               />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <label htmlFor="bedrooms" className="text-sm font-medium text-slate-700">
-                Bedrooms
-              </label>
-              <Input
-                id="bedrooms"
-                type="number"
-                min={0}
-                value={form.bedrooms ?? 0}
-                onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
-                Bathrooms
-              </label>
-              <Input
-                id="bathrooms"
-                type="number"
-                min={0}
-                value={form.bathrooms ?? 0}
-                onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="max-guests" className="text-sm font-medium text-slate-700">
-                Max guests
-              </label>
-              <Input
-                id="max-guests"
-                type="number"
-                min={0}
-                value={form.max_guests ?? ""}
-                onChange={(e) => handleChange("max_guests", Number(e.target.value))}
-                placeholder="For short-let"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <div className="space-y-2">
-              <label htmlFor="price" className="text-sm font-medium text-slate-700">
-                Price
-              </label>
-              <Input
-                id="price"
-                type="number"
-                min={1}
-                value={form.price ?? ""}
-                onChange={(e) => handleChange("price", Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="currency" className="text-sm font-medium text-slate-700">
-                Currency
-              </label>
-              <CurrencySelect
-                id="currency"
-                value={form.currency || "USD"}
-                onChange={(value) => handleChange("currency", value)}
-                placeholder="Search currency codes"
-              />
-            </div>
-            <div className="space-y-2">
-              <span className="text-sm font-medium text-slate-700">Rent period</span>
-              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="rent_period"
-                    value="monthly"
-                    checked={(form.rent_period ?? "monthly") === "monthly"}
-                    onChange={() => handleChange("rent_period", "monthly")}
-                  />
-                  Monthly
+          <div className="grid gap-6 lg:grid-cols-[2fr_1fr]">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="bedrooms" className="text-sm font-medium text-slate-700">
+                  Bedrooms
                 </label>
-                <label className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name="rent_period"
-                    value="yearly"
-                    checked={form.rent_period === "yearly"}
-                    onChange={() => handleChange("rent_period", "yearly")}
-                  />
-                  Yearly
-                </label>
+                <Input
+                  id="bedrooms"
+                  type="number"
+                  min={0}
+                  value={form.bedrooms ?? 0}
+                  onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
+                />
               </div>
-              <p className="text-xs text-slate-500">How often is rent paid?</p>
+              <div className="space-y-2">
+                <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
+                  Bathrooms
+                </label>
+                <Input
+                  id="bathrooms"
+                  type="number"
+                  min={0}
+                  value={form.bathrooms ?? 0}
+                  onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="max-guests" className="text-sm font-medium text-slate-700">
+                  Max guests
+                </label>
+                <Input
+                  id="max-guests"
+                  type="number"
+                  min={0}
+                  value={form.max_guests ?? ""}
+                  onChange={(e) => handleChange("max_guests", Number(e.target.value))}
+                  placeholder="For short-let"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="available-from" className="text-sm font-medium text-slate-700">
+                  Available from
+                </label>
+                <Input
+                  id="available-from"
+                  type="date"
+                  value={form.available_from || ""}
+                  onChange={(e) => handleChange("available_from", e.target.value)}
+                />
+                <p className="text-xs text-slate-500">Optional if the date is flexible.</p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <label htmlFor="available-from" className="text-sm font-medium text-slate-700">
-                Available from
-              </label>
-              <Input
-                id="available-from"
-                type="date"
-                value={form.available_from || ""}
-                onChange={(e) => handleChange("available_from", e.target.value)}
-              />
-              <p className="text-xs text-slate-500">Optional if the date is flexible.</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1.4fr]">
+              <div className="space-y-2">
+                <label htmlFor="price" className="text-sm font-medium text-slate-700">
+                  Price
+                </label>
+                <Input
+                  id="price"
+                  type="number"
+                  min={1}
+                  value={form.price ?? ""}
+                  onChange={(e) => handleChange("price", Number(e.target.value))}
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="currency" className="text-sm font-medium text-slate-700">
+                  Currency
+                </label>
+                <CurrencySelect
+                  id="currency"
+                  value={form.currency || "USD"}
+                  onChange={(value) => handleChange("currency", value)}
+                  placeholder="Search currency codes"
+                />
+              </div>
+              <div className="space-y-2">
+                <span className="text-sm font-medium text-slate-700">Rent period</span>
+                <div className="flex min-h-[42px] flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="rent_period"
+                      value="monthly"
+                      checked={(form.rent_period ?? "monthly") === "monthly"}
+                      onChange={() => handleChange("rent_period", "monthly")}
+                    />
+                    Monthly
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name="rent_period"
+                      value="yearly"
+                      checked={form.rent_period === "yearly"}
+                      onChange={() => handleChange("rent_period", "yearly")}
+                    />
+                    Yearly
+                  </label>
+                </div>
+                <p className="text-xs text-slate-500">How often is rent paid?</p>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">

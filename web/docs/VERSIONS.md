@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-27 — v1.7.33-r7.7.3.1-form-bottom-row-layout
+- Rebalanced the basics step bottom row into two groups for better spacing.
+- Widened the rent period control and kept pricing fields aligned.
+
 ## 2026-01-27 — v1.7.33-r7.7.3-form-polish-airbnb
 - Polished listing stepper layout, spacing, and error presentation for a cleaner flow.
 - Refined mobile button layout and pricing section balance.
