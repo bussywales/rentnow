@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { CurrencySelect } from "@/components/properties/CurrencySelect";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -353,10 +354,10 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Currency</label>
-            <Input
+            <CurrencySelect
               value={form.currency || "USD"}
-              onChange={(e) => handleChange("currency", e.target.value)}
-              placeholder="USD / NGN / KES / GHS"
+              onChange={(value) => handleChange("currency", value)}
+              placeholder="Search currency codes"
             />
           </div>
           <div className="space-y-2">

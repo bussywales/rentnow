@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { CurrencySelect } from "@/components/properties/CurrencySelect";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -599,11 +600,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
               <label htmlFor="currency" className="text-sm font-medium text-slate-700">
                 Currency
               </label>
-              <Input
+              <CurrencySelect
                 id="currency"
                 value={form.currency || "USD"}
-                onChange={(e) => handleChange("currency", e.target.value)}
-                placeholder="USD / NGN / KES"
+                onChange={(value) => handleChange("currency", value)}
+                placeholder="Search currency codes"
               />
             </div>
             <div className="space-y-2">
