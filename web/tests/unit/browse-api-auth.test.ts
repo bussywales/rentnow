@@ -15,4 +15,8 @@ void test("browse API fetch forwards cookies when available", () => {
     contents.includes("headers: cookieHeader ? { cookie: cookieHeader }"),
     "expected browse page to forward cookie header"
   );
+  assert.ok(
+    contents.includes("cache: \"no-store\""),
+    "expected authed browse fetch to bypass cache"
+  );
 });

@@ -209,7 +209,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     } else {
       const cookieHeader = cookies().toString();
       const apiRes = await fetch(apiUrl, {
-        next: { revalidate: 60 },
+        ...(cookieHeader ? { cache: "no-store" } : { next: { revalidate: 60 } }),
         headers: cookieHeader ? { cookie: cookieHeader } : undefined,
       });
       if (!apiRes.ok) {

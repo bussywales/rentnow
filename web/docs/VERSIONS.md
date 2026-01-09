@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-27 — v1.7.30-r7.5.5-browse-cache-bypass
+- Disabled cached browse API responses when a user session cookie is present.
+- Added unit coverage to verify authed browse requests bypass cache.
+
 ## 2026-01-26 — v1.7.30-r7.5.4-browse-auth-cookie
 - Forwarded auth cookies to the browse API so logged-in users bypass anonymous early-access gating.
 - Added unit coverage to ensure browse fetch includes the cookie header.
