@@ -6,19 +6,21 @@ import { fetchTrustPublicSnapshots } from "../../lib/trust-public";
 
 void test("fetchTrustPublicSnapshots maps trust snapshot payload for badges", async () => {
   const client = {
-    rpc: async () => ({
-      data: [
-        {
-          profile_id: "host-1",
-          email_verified: true,
-          phone_verified: false,
-          bank_verified: true,
-          host_rating: null,
-          power_reliability: "good",
-          water_reliability: null,
-          internet_reliability: "fair",
-        },
-      ],
+    rpc: async (_fn: string, params?: Record<string, unknown>) => ({
+      data:
+        params?.target_profile_id === "host-1"
+          ? [
+              {
+                profile_id: "host-1",
+                email_verified: true,
+                phone_verified: false,
+                bank_verified: true,
+                power_reliability: "good",
+                water_reliability: null,
+                internet_reliability: "fair",
+              },
+            ]
+          : [],
       error: null,
     }),
   };

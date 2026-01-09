@@ -8,13 +8,13 @@ void test("trust public RPC grants include anon", () => {
     process.cwd(),
     "supabase",
     "migrations",
-    "035_trust_public_rpc_grants.sql"
+    "036_trust_snapshot_rpc.sql"
   );
   const contents = fs.readFileSync(migrationPath, "utf8");
 
   assert.ok(
-    contents.includes("get_profiles_trust_public"),
-    "expected batch trust RPC grant"
+    contents.includes("get_trust_snapshot"),
+    "expected trust snapshot RPC"
   );
   assert.ok(contents.includes("TO anon"), "expected anon grant");
 });
