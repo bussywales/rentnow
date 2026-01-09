@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-27 — v1.7.33-r7.7.3-form-polish-airbnb
+- Polished listing stepper layout, spacing, and error presentation for a cleaner flow.
+- Refined mobile button layout and pricing section balance.
+- Improved currency dropdown popover alignment and selection highlights.
+
 ## 2026-01-27 — v1.7.33-r7.7.1-currency-dropdown
 - Replaced currency chips with a searchable dropdown and pinned NGN/USD/GBP.
 - Added unit coverage for the new CurrencySelect behavior.

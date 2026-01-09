@@ -28,6 +28,7 @@ export function CurrencySelect({ id, value, onChange, placeholder, disabled }: P
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [activeIndex, setActiveIndex] = useState(0);
+  const [openUp, setOpenUp] = useState(false);
   const normalizedValue = normalizeCurrency(value) ?? value;
 
   const displayNames = useMemo(() => {
@@ -152,6 +153,12 @@ export function CurrencySelect({ id, value, onChange, placeholder, disabled }: P
         onClick={() =>
           setIsOpen((prev) => {
             if (!prev) {
+              if (containerRef.current) {
+                const rect = containerRef.current.getBoundingClientRect();
+                const spaceBelow = window.innerHeight - rect.bottom;
+                const shouldFlip = spaceBelow < 240 && rect.top > 240;
+                setOpenUp(shouldFlip);
+              }
               setActiveIndex(0);
             }
             return !prev;
@@ -168,7 +175,11 @@ export function CurrencySelect({ id, value, onChange, placeholder, disabled }: P
         <span className="text-slate-400">v</span>
       </button>
       {isOpen ? (
-        <div className="absolute z-30 w-full rounded-lg border border-slate-200 bg-white shadow-lg">
+        <div
+          className={`absolute z-30 w-full rounded-lg border border-slate-200 bg-white shadow-lg ${
+            openUp ? "bottom-full mb-2" : "top-full mt-2"
+          }`}
+        >
           <div className="p-2">
             <Input
               ref={searchRef}
@@ -199,6 +210,8 @@ export function CurrencySelect({ id, value, onChange, placeholder, disabled }: P
                   aria-selected={activeIndex === index}
                   className={`flex w-full items-center justify-between rounded-md px-2 py-2 text-left transition ${
                     activeIndex === index ? "bg-slate-100" : "hover:bg-slate-50"
+                  } ${
+                    option.code === normalizedValue ? "font-semibold text-slate-900" : ""
                   }`}
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => handleSelect(option.code)}
@@ -207,7 +220,7 @@ export function CurrencySelect({ id, value, onChange, placeholder, disabled }: P
                 </button>
               ))}
             </div>
-            <div className="mt-3 px-2 py-1 text-xs font-semibold uppercase text-slate-400">
+            <div className="mt-3 border-t border-slate-100 px-2 py-2 text-xs font-semibold uppercase text-slate-400">
               All currencies
             </div>
             <div className="space-y-1">
@@ -224,6 +237,8 @@ export function CurrencySelect({ id, value, onChange, placeholder, disabled }: P
                         activeIndex === optionIndex
                           ? "bg-slate-100"
                           : "hover:bg-slate-50"
+                      } ${
+                        option.code === normalizedValue ? "font-semibold text-slate-900" : ""
                       }`}
                       onMouseEnter={() => setActiveIndex(optionIndex)}
                       onClick={() => handleSelect(option.code)}
