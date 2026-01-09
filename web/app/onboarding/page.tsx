@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
@@ -30,7 +30,7 @@ export default function OnboardingPage() {
     }
   };
 
-  const refreshSession = async () => {
+  const refreshSession = async (options?: { silent?: boolean }) => {
     setCheckingSession(true);
     const supabase = getClient();
     if (!supabase) {
@@ -43,13 +43,31 @@ export default function OnboardingPage() {
     const authed = !!session?.user;
     setHasSession(authed);
     setCheckingSession(false);
-    if (!authed) {
+    if (!authed && !options?.silent) {
       setError("Please confirm your email, then log in to continue.");
     } else {
       setError(null);
     }
     return authed;
   };
+
+  useEffect(() => {
+    refreshSession({ silent: true }).catch(() => undefined);
+    const supabase = getClient();
+    if (!supabase) return;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      const authed = !!session?.user;
+      setHasSession(authed);
+      if (authed) {
+        setError(null);
+      }
+    });
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   const handleSave = async () => {
     setLoading(true);

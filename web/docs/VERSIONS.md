@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-24 — v1.7.30-r7.5.2-auth-ui-polish
+- Synced navigation links with client auth state changes to avoid stale menus after login.
+- Auto-refresh onboarding session checks to clear the email confirmation banner promptly.
+
 ## 2026-01-23 — v1.7.29-r7.5.1-trust-snapshot-rpc
 - Added get_trust_snapshot RPC for public trust badges with anon access grants.
 - Updated trust snapshot helper to use the new RPC on property browse and detail pages.
