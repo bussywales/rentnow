@@ -2,6 +2,8 @@ export type UserRole = "tenant" | "landlord" | "agent" | "admin";
 
 export type RentalType = "short_let" | "long_term";
 
+export type RentPeriod = "monthly" | "yearly";
+
 export type PropertyStatus = "draft" | "pending" | "live" | "rejected" | "paused";
 
 export type MessageDeliveryState = "sent" | "delivered" | "read";
@@ -47,6 +49,7 @@ export interface Property {
   rental_type: RentalType;
   price: number;
   currency: string;
+  rent_period?: RentPeriod | null;
   bedrooms: number;
   bathrooms: number;
   furnished: boolean;

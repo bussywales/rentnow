@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-27 — v1.7.32-r7.6-rent-cadence-ux
+- Added properties.rent_period for monthly/yearly pricing semantics.
+- Added rent period controls in listing editor and ensured card/detail displays use / month or / year.
+- Added unit coverage for rent period helpers, forms, and migration.
+
 ## 2026-01-27 — v1.7.31-r7.5.4-detail-trust-badges
 - Isolated property detail trust snapshot fetching from personalization failures.
 - Added unit coverage to ensure trust badges render only when a snapshot exists.

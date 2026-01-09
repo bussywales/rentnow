@@ -42,6 +42,7 @@ Apply SQL files in this order:
 35) `web/supabase/migrations/035_trust_public_rpc_grants.sql`
 36) `web/supabase/migrations/036_trust_snapshot_rpc.sql`
 37) `web/supabase/migrations/037_trust_snapshot_include_admin.sql`
+38) `web/supabase/migrations/038_properties_rent_period.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -111,6 +112,19 @@ select to_regclass('public.role_change_audit') as role_change_audit;
 select to_regclass('public.messaging_throttle_events') as messaging_throttle_events;
 select to_regclass('public.push_subscriptions') as push_subscriptions;
 select to_regclass('public.message_thread_shares') as message_thread_shares;
+```
+
+### Rent period column
+```sql
+select column_name, data_type, column_default, is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'properties'
+  and column_name = 'rent_period';
+
+select conname, pg_get_constraintdef(oid)
+from pg_constraint
+where conname = 'properties_rent_period_check';
 ```
 
 ### Throttle telemetry verification

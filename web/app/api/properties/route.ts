@@ -25,6 +25,7 @@ const propertySchema = z.object({
   rental_type: z.enum(["short_let", "long_term"]),
   price: z.number().nonnegative(),
   currency: z.string().min(2),
+  rent_period: z.enum(["monthly", "yearly"]).optional(),
   bedrooms: z.number().int().nonnegative(),
   bathrooms: z.number().int().nonnegative(),
   furnished: z.boolean(),

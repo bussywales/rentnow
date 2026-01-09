@@ -23,6 +23,7 @@ const updateSchema = z.object({
   rental_type: z.enum(["short_let", "long_term"]).optional(),
   price: z.number().nonnegative().optional(),
   currency: z.string().min(2).optional(),
+  rent_period: z.enum(["monthly", "yearly"]).optional(),
   bedrooms: z.number().int().nonnegative().optional(),
   bathrooms: z.number().int().nonnegative().optional(),
   furnished: z.boolean().optional(),

@@ -380,7 +380,13 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
 
   const locationLabel = formatLocationLabel(property.city, property.neighbourhood);
   const priceValue = formatPriceValue(property.currency, property.price);
-  const cadence = formatCadence(property.rental_type);
+  const cadence = formatCadence(property.rental_type, property.rent_period);
+  const rentSubtext =
+    property.rental_type === "short_let"
+      ? "Short stay pricing"
+      : property.rent_period === "yearly"
+      ? "Annual rent"
+      : "Monthly rent";
   const description =
     typeof property.description === "string" && property.description.trim().length > 0
       ? property.description
@@ -450,9 +456,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               {priceValue}
               <span className="text-sm font-normal text-slate-500">{` / ${cadence}`}</span>
             </p>
-            <p className="text-xs text-slate-500">
-              {property.rental_type === "short_let" ? "Short stay pricing" : "Monthly rent"}
-            </p>
+            <p className="text-xs text-slate-500">{rentSubtext}</p>
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-700">
             <span className="flex items-center gap-1">

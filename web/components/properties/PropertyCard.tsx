@@ -67,7 +67,7 @@ export function PropertyCard({ property, href, compact, trustMarkers }: Props) {
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
   const locationLabel = formatLocationLabel(property.city, property.neighbourhood);
   const priceValue = formatPriceValue(property.currency, property.price);
-  const cadence = formatCadence(property.rental_type);
+  const cadence = formatCadence(property.rental_type, property.rent_period);
   const description =
     typeof property.description === "string" && property.description.trim().length > 0
       ? property.description

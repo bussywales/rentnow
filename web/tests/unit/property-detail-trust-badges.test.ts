@@ -39,3 +39,23 @@ void test("property detail hides trust badges when snapshot is missing", () => {
     "expected trust badges to render only when hostTrust is present"
   );
 });
+
+void test("property detail renders rent period subtext", () => {
+  const pagePath = path.join(
+    process.cwd(),
+    "app",
+    "properties",
+    "[id]",
+    "page.tsx"
+  );
+  const contents = fs.readFileSync(pagePath, "utf8");
+
+  assert.ok(
+    contents.includes("Annual rent"),
+    "expected annual rent subtext for yearly cadence"
+  );
+  assert.ok(
+    contents.includes("Monthly rent"),
+    "expected monthly rent subtext for monthly cadence"
+  );
+});

@@ -1,5 +1,5 @@
 import { shouldShowSavedSearchNav } from "@/lib/role-access";
-import type { RentalType, UserRole } from "@/lib/types";
+import type { RentPeriod, RentalType, UserRole } from "@/lib/types";
 
 const PRICE_FORMATTER = new Intl.NumberFormat("en-US");
 
@@ -24,8 +24,12 @@ export function formatLocationLabel(
   return safeCity || "Location unavailable";
 }
 
-export function formatCadence(rentalType: RentalType): string {
-  return rentalType === "short_let" ? "night" : "month";
+export function formatCadence(
+  rentalType: RentalType,
+  rentPeriod?: RentPeriod | null
+): string {
+  if (rentalType === "short_let") return "night";
+  return rentPeriod === "yearly" ? "year" : "month";
 }
 
 export function formatPriceValue(currency: string, price: number): string {
@@ -37,9 +41,13 @@ export function formatPriceValue(currency: string, price: number): string {
 export function formatPriceLabel(
   currency: string,
   price: number,
-  rentalType: RentalType
+  rentalType: RentalType,
+  rentPeriod?: RentPeriod | null
 ): string {
-  return `${formatPriceValue(currency, price)} / ${formatCadence(rentalType)}`;
+  return `${formatPriceValue(currency, price)} / ${formatCadence(
+    rentalType,
+    rentPeriod
+  )}`;
 }
 
 export function getBrowseEmptyStateCtas(input: {

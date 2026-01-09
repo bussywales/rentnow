@@ -17,7 +17,14 @@ void test("formatLocationLabel prefers neighbourhood then city", () => {
 void test("formatPriceLabel formats price with cadence", () => {
   assert.equal(formatPriceValue("NGN", 125000), "NGN 125,000");
   assert.equal(formatPriceLabel("USD", 1200, "short_let"), "USD 1,200 / night");
-  assert.equal(formatPriceLabel("USD", 1200, "long_term"), "USD 1,200 / month");
+  assert.equal(
+    formatPriceLabel("USD", 1200, "long_term", "monthly"),
+    "USD 1,200 / month"
+  );
+  assert.equal(
+    formatPriceLabel("USD", 1200, "long_term", "yearly"),
+    "USD 1,200 / year"
+  );
 });
 
 void test("empty state CTAs include saved searches for tenants", () => {
