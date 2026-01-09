@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { normalizeRole } from "@/lib/roles";
 import type { UserRole } from "@/lib/types";
@@ -60,11 +61,13 @@ export function NavLinksClient({ links, initialAuthed, initialRole }: Props) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
       const authed = !!session?.user;
       setIsAuthed(authed);
       syncRole(session?.user?.id ?? null).catch(() => undefined);
-    });
+      }
+    );
 
     return () => {
       subscription.unsubscribe();

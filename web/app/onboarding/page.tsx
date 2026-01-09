@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/Button";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
@@ -15,24 +16,23 @@ const roles = [
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const [selected, setSelected] = useState("tenant");
-  const [loading, setLoading] = useState(false);
-  const [checkingSession, setCheckingSession] = useState(false);
-  const [hasSession, setHasSession] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const getClient = () => {
+  const [supabase] = useState(() => {
     try {
       return createBrowserSupabaseClient();
     } catch {
-      setError("Supabase environment variables are missing.");
       return null;
     }
-  };
+  });
+  const [selected, setSelected] = useState("tenant");
+  const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(() => !!supabase);
+  const [hasSession, setHasSession] = useState(false);
+  const [error, setError] = useState<string | null>(() =>
+    supabase ? null : "Supabase environment variables are missing."
+  );
 
   const refreshSession = async (options?: { silent?: boolean }) => {
     setCheckingSession(true);
-    const supabase = getClient();
     if (!supabase) {
       setCheckingSession(false);
       return false;
@@ -52,22 +52,33 @@ export default function OnboardingPage() {
   };
 
   useEffect(() => {
-    refreshSession({ silent: true }).catch(() => undefined);
-    const supabase = getClient();
     if (!supabase) return;
+    supabase.auth
+      .getSession()
+      .then(({ data }: { data: { session: Session | null } }) => {
+        const authed = !!data.session?.user;
+        setHasSession(authed);
+        if (authed) {
+          setError(null);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => setCheckingSession(false));
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      const authed = !!session?.user;
-      setHasSession(authed);
-      if (authed) {
-        setError(null);
+    } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+        const authed = !!session?.user;
+        setHasSession(authed);
+        if (authed) {
+          setError(null);
+        }
       }
-    });
+    );
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [supabase]);
 
   const handleSave = async () => {
     setLoading(true);
@@ -77,8 +88,8 @@ export default function OnboardingPage() {
       setLoading(false);
       return;
     }
-    const supabase = getClient();
     if (!supabase) {
+      setError("Supabase environment variables are missing.");
       setLoading(false);
       return;
     }
@@ -135,7 +146,12 @@ export default function OnboardingPage() {
             <Button variant="secondary" size="sm" onClick={() => router.push("/auth/login")}>
               Log in
             </Button>
-            <Button variant="ghost" size="sm" onClick={refreshSession} disabled={checkingSession}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => refreshSession()}
+              disabled={checkingSession}
+            >
               {checkingSession ? "Checking..." : "Refresh session"}
             </Button>
           </div>
