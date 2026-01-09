@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
@@ -206,8 +207,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
     } else if (hasFilters) {
       fetchError = fetchError ?? "Supabase env vars missing; live filtering is unavailable.";
     } else {
+      const cookieHeader = cookies().toString();
       const apiRes = await fetch(apiUrl, {
         next: { revalidate: 60 },
+        headers: cookieHeader ? { cookie: cookieHeader } : undefined,
       });
       if (!apiRes.ok) {
         fetchError = `API responded with ${apiRes.status}`;

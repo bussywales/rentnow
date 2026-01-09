@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-26 — v1.7.30-r7.5.4-browse-auth-cookie
+- Forwarded auth cookies to the browse API so logged-in users bypass anonymous early-access gating.
+- Added unit coverage to ensure browse fetch includes the cookie header.
+
 ## 2026-01-25 — v1.7.30-r7.5.3-browse-trust-parity
 - Included admin hosts in trust snapshot RPC for public badges.
 - Prevented zero-result browse pages from surfacing diagnostics in production.
