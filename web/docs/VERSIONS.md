@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-27 — v1.7.33-r7.7.1-currency-dropdown
+- Replaced currency chips with a searchable dropdown and pinned NGN/USD/GBP.
+- Added unit coverage for the new CurrencySelect behavior.
+
 ## 2026-01-27 — v1.7.33-r7.7-pricing-rent-ux-polish
 - Standardized pricing display with currency symbols and cadence suffixes.
 - Clarified rent period inputs with helper text and minimum price validation.
