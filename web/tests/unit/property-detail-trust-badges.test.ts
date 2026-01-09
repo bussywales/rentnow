@@ -15,7 +15,7 @@ void test("property detail renders trust badges from snapshot", () => {
 
   assert.ok(contents.includes("TrustBadges"), "expected TrustBadges usage");
   assert.ok(
-    contents.includes("trustMarkers={hostTrust}"),
+    contents.includes("markers={hostTrust}"),
     "expected TrustBadges to receive hostTrust"
   );
   assert.ok(
