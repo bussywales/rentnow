@@ -23,3 +23,19 @@ void test("property detail renders trust badges from snapshot", () => {
     "expected trust snapshot helper usage"
   );
 });
+
+void test("property detail hides trust badges when snapshot is missing", () => {
+  const pagePath = path.join(
+    process.cwd(),
+    "app",
+    "properties",
+    "[id]",
+    "page.tsx"
+  );
+  const contents = fs.readFileSync(pagePath, "utf8");
+
+  assert.ok(
+    contents.includes("hostTrust &&"),
+    "expected trust badges to render only when hostTrust is present"
+  );
+});

@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-27 — v1.7.31-r7.5.4-detail-trust-badges
+- Isolated property detail trust snapshot fetching from personalization failures.
+- Added unit coverage to ensure trust badges render only when a snapshot exists.
+
 ## 2026-01-27 — v1.7.30-r7.5.5-browse-cache-bypass
 - Disabled cached browse API responses when a user session cookie is present.
 - Added unit coverage to verify authed browse requests bypass cache.
