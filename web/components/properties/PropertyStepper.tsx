@@ -134,6 +134,9 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       listing_type: normalizeOptionalString(form.listing_type),
       country: normalizeOptionalString(form.country),
       state_region: normalizeOptionalString(form.state_region),
+      city: normalizeOptionalString(form.city),
+      neighbourhood: normalizeOptionalString(form.neighbourhood),
+      address: normalizeOptionalString(form.address),
       size_value: sizeValue,
       size_unit: sizeValue ? form.size_unit ?? "sqm" : null,
       year_built:
@@ -154,6 +157,40 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
         : [],
     };
   }, [form]);
+
+  const resolveAuthUser = useCallback(async (supabase: ReturnType<typeof createBrowserSupabaseClient>) => {
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (session?.user) {
+      return { user: session.user, accessToken: session.access_token, error: sessionError };
+    }
+
+    const {
+      data: { session: refreshedSession },
+    } = await supabase.auth.refreshSession();
+
+    if (refreshedSession?.user) {
+      return {
+        user: refreshedSession.user,
+        accessToken: refreshedSession.access_token,
+        error: sessionError,
+      };
+    }
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    return {
+      user,
+      accessToken: refreshedSession?.access_token ?? session?.access_token ?? null,
+      error: sessionError || userError,
+    };
+  }, []);
 
   const canCreateDraft =
     !!payload.title &&
@@ -180,20 +217,12 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     const supabase = getSupabase();
     if (!supabase) return;
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const { user, accessToken } = await resolveAuthUser(supabase);
+    if (!user) {
       setError("Please log in to save a listing.");
       setErrorCode("not_authenticated");
       return;
     }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const accessToken = session?.access_token;
 
     const restPayload = { ...payload } as FormState;
     delete restPayload.status;
@@ -260,7 +289,16 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
 
     lastAutoSaved.current = requestKey;
     setDraftNotice(status === "draft" ? "Draft saved." : null);
-  }, [canCreateDraft, getSupabase, imageUrls, payload, propertyId, setDraftNotice, setError]);
+  }, [
+    canCreateDraft,
+    getSupabase,
+    imageUrls,
+    payload,
+    propertyId,
+    resolveAuthUser,
+    setDraftNotice,
+    setError,
+  ]);
 
   useEffect(() => {
     if (!canCreateDraft) return;
@@ -403,11 +441,8 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     const supabase = getSupabase();
     if (!supabase) return;
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const { user } = await resolveAuthUser(supabase);
+    if (!user) {
       setError("Please log in to upload photos.");
       return;
     }
@@ -537,150 +572,212 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       </div>
 
       {stepIndex === 0 && (
-        <div className="grid gap-6 lg:grid-cols-[2fr_1.2fr]">
-          <div className="space-y-5">
-            <div className="space-y-2">
-              <label htmlFor="listing-title" className="text-sm font-medium text-slate-700">
-                Listing title
-              </label>
-              <Input
-                id="listing-title"
-                required
-                value={form.title || ""}
-                onChange={(e) => handleChange("title", e.target.value)}
-                placeholder="e.g. Bright 2-bed in Lekki Phase 1"
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="rental-type" className="text-sm font-medium text-slate-700">
-                Rental type
-              </label>
-              <Select
-                id="rental-type"
-                value={form.rental_type}
-                onChange={(e) => handleChange("rental_type", e.target.value as RentalType)}
-              >
-                {rentalTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </Select>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label htmlFor="city" className="text-sm font-medium text-slate-700">
-                  City
-                </label>
-                <Input
-                  id="city"
-                  required
-                  value={form.city || ""}
-                  onChange={(e) => handleChange("city", e.target.value)}
-                  placeholder="Lagos, Nairobi, Accra..."
-                />
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-6">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Basics</h3>
+                  <p className="text-xs text-slate-500">
+                    Core details that appear in search and cards.
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label htmlFor="neighbourhood" className="text-sm font-medium text-slate-700">
-                  Neighbourhood
-                </label>
-                <Input
-                  id="neighbourhood"
-                  value={form.neighbourhood || ""}
-                  onChange={(e) => handleChange("neighbourhood", e.target.value)}
-                  placeholder="Lekki Phase 1"
-                />
+              <div className="mt-4 grid gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="listing-title" className="text-sm font-medium text-slate-700">
+                    Listing title
+                  </label>
+                  <Input
+                    id="listing-title"
+                    required
+                    value={form.title || ""}
+                    onChange={(e) => handleChange("title", e.target.value)}
+                    placeholder="e.g. Bright 2-bed in Lekki Phase 1"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="rental-type" className="text-sm font-medium text-slate-700">
+                    Rental type
+                  </label>
+                  <Select
+                    id="rental-type"
+                    value={form.rental_type}
+                    onChange={(e) => handleChange("rental_type", e.target.value as RentalType)}
+                  >
+                    {rentalTypes.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
               </div>
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="address" className="text-sm font-medium text-slate-700">
-                Address
-              </label>
-              <Input
-                id="address"
-                value={form.address || ""}
-                onChange={(e) => handleChange("address", e.target.value)}
-                placeholder="Street, building, house number"
-              />
-            </div>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2">
-                <label htmlFor="latitude" className="text-sm font-medium text-slate-700">
-                  Latitude
-                </label>
-                <Input
-                  id="latitude"
-                  type="number"
-                  step="0.000001"
-                  value={form.latitude ?? ""}
-                  onChange={(e) => handleChange("latitude", Number(e.target.value))}
-                  placeholder="6.5244"
-                />
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Location</h3>
+                  <p className="text-xs text-slate-500">
+                    Used for search relevance and map placement.
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label htmlFor="longitude" className="text-sm font-medium text-slate-700">
-                  Longitude
-                </label>
-                <Input
-                  id="longitude"
-                  type="number"
-                  step="0.000001"
-                  value={form.longitude ?? ""}
-                  onChange={(e) => handleChange("longitude", Number(e.target.value))}
-                  placeholder="3.3792"
-                />
+              <div className="mt-4 space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="country" className="text-sm font-medium text-slate-700">
+                      Country / Region
+                    </label>
+                    <Input
+                      id="country"
+                      value={form.country || ""}
+                      onChange={(e) => handleChange("country", e.target.value)}
+                      placeholder="Nigeria"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="state-region" className="text-sm font-medium text-slate-700">
+                      State / Region
+                    </label>
+                    <Input
+                      id="state-region"
+                      value={form.state_region || ""}
+                      onChange={(e) => handleChange("state_region", e.target.value)}
+                      placeholder="Lagos State"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="city" className="text-sm font-medium text-slate-700">
+                      City
+                    </label>
+                    <Input
+                      id="city"
+                      required
+                      value={form.city || ""}
+                      onChange={(e) => handleChange("city", e.target.value)}
+                      placeholder="Lagos, Nairobi, Accra..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="neighbourhood" className="text-sm font-medium text-slate-700">
+                      Neighbourhood
+                    </label>
+                    <Input
+                      id="neighbourhood"
+                      value={form.neighbourhood || ""}
+                      onChange={(e) => handleChange("neighbourhood", e.target.value)}
+                      placeholder="Lekki Phase 1"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="address" className="text-sm font-medium text-slate-700">
+                    Address
+                  </label>
+                  <Input
+                    id="address"
+                    value={form.address || ""}
+                    onChange={(e) => handleChange("address", e.target.value)}
+                    placeholder="Street, building, house number"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="latitude" className="text-sm font-medium text-slate-700">
+                      Latitude
+                    </label>
+                    <Input
+                      id="latitude"
+                      type="number"
+                      step="0.000001"
+                      value={form.latitude ?? ""}
+                      onChange={(e) => handleChange("latitude", Number(e.target.value))}
+                      placeholder="6.5244"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="longitude" className="text-sm font-medium text-slate-700">
+                      Longitude
+                    </label>
+                    <Input
+                      id="longitude"
+                      type="number"
+                      step="0.000001"
+                      value={form.longitude ?? ""}
+                      onChange={(e) => handleChange("longitude", Number(e.target.value))}
+                      placeholder="3.3792"
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="grid gap-4 sm:grid-cols-3">
-              <div className="space-y-2">
-                <label htmlFor="bedrooms" className="text-sm font-medium text-slate-700">
-                  Bedrooms
-                </label>
-                <Input
-                  id="bedrooms"
-                  type="number"
-                  min={0}
-                  value={form.bedrooms ?? 0}
-                  onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
-                />
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Capacity</h3>
+                  <p className="text-xs text-slate-500">
+                    Bedrooms, bathrooms, and guest limits.
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
-                  Bathrooms
-                </label>
-                <Input
-                  id="bathrooms"
-                  type="number"
-                  min={0}
-                  value={form.bathrooms ?? 0}
-                  onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
-                />
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <label htmlFor="bedrooms" className="text-sm font-medium text-slate-700">
+                    Bedrooms
+                  </label>
+                  <Input
+                    id="bedrooms"
+                    type="number"
+                    min={0}
+                    value={form.bedrooms ?? 0}
+                    onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
+                    Bathrooms
+                  </label>
+                  <Input
+                    id="bathrooms"
+                    type="number"
+                    min={0}
+                    value={form.bathrooms ?? 0}
+                    onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="max-guests" className="text-sm font-medium text-slate-700">
+                    Max guests
+                  </label>
+                  <Input
+                    id="max-guests"
+                    type="number"
+                    min={0}
+                    value={form.max_guests ?? ""}
+                    onChange={(e) => handleChange("max_guests", Number(e.target.value))}
+                    placeholder="For short-let"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
-                <label htmlFor="max-guests" className="text-sm font-medium text-slate-700">
-                  Max guests
-                </label>
-                <Input
-                  id="max-guests"
-                  type="number"
-                  min={0}
-                  value={form.max_guests ?? ""}
-                  onChange={(e) => handleChange("max_guests", Number(e.target.value))}
-                  placeholder="For short-let"
-                />
-              </div>
-            </div>
+            </section>
           </div>
 
           <div className="lg:sticky lg:top-6 lg:self-start">
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="space-y-1">
-                <h3 className="text-base font-semibold text-slate-900">
-                  Pricing & availability
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Set the rent amount, cadence, and availability details.
-                </p>
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Pricing & availability
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Set the rent amount, cadence, and move-in details.
+                  </p>
+                </div>
               </div>
               <div className="mt-4 space-y-4">
                 <div className="space-y-2">
@@ -708,22 +805,24 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                 </div>
                 <div className="space-y-2">
                   <span className="text-sm font-medium text-slate-700">Rent period</span>
-                  <div className="flex min-h-[42px] flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-                    <label className="flex items-center gap-2">
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300">
                       <input
                         type="radio"
                         name="rent_period"
                         value="monthly"
+                        className="h-4 w-4"
                         checked={(form.rent_period ?? "monthly") === "monthly"}
                         onChange={() => handleChange("rent_period", "monthly")}
                       />
                       Monthly
                     </label>
-                    <label className="flex items-center gap-2">
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300">
                       <input
                         type="radio"
                         name="rent_period"
                         value="yearly"
+                        className="h-4 w-4"
                         checked={form.rent_period === "yearly"}
                         onChange={() => handleChange("rent_period", "yearly")}
                       />
@@ -757,7 +856,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                   </label>
                 </div>
               </div>
-            </div>
+            </section>
           </div>
         </div>
       )}
@@ -817,34 +916,6 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
               <label htmlFor="pets_allowed" className="text-sm text-slate-700">
                 Pets allowed
               </label>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-900">Address</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label htmlFor="country" className="text-sm font-medium text-slate-700">
-                  Country
-                </label>
-                <Input
-                  id="country"
-                  value={form.country || ""}
-                  onChange={(e) => handleChange("country", e.target.value)}
-                  placeholder="Nigeria"
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="state-region" className="text-sm font-medium text-slate-700">
-                  State / Region
-                </label>
-                <Input
-                  id="state-region"
-                  value={form.state_region || ""}
-                  onChange={(e) => handleChange("state_region", e.target.value)}
-                  placeholder="Lagos State"
-                />
-              </div>
             </div>
           </div>
 

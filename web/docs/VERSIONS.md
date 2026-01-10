@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-27 — v1.7.37-r9.1-layout-lock-photos-auth-fix
+- Locked the Basics step into carded sections with a sticky pricing panel.
+- Refreshed client auth before save/upload to avoid Photos-step login bounces.
+- Added unit coverage for location placement and auth continuity in the stepper.
+
 ## 2026-01-27 — v1.7.36-r9-listing-data-expansion
 - Added listing detail fields (type, address breakdown, size, deposit, bathroom privacy, pets) to properties schema and forms.
 - Surfaced key facts on property detail pages and optional type/size meta on cards.

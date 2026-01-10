@@ -99,11 +99,21 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const normalizeOptionalString = (value?: string | null) => {
+    if (!value) return null;
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  };
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     const payload: FormState = {
       ...form,
+      country: normalizeOptionalString(form.country),
+      state_region: normalizeOptionalString(form.state_region),
+      neighbourhood: normalizeOptionalString(form.neighbourhood),
+      address: normalizeOptionalString(form.address),
       amenities: form.amenitiesText
         ? form.amenitiesText.split(",").map((a) => a.trim()).filter(Boolean)
         : [],
@@ -281,6 +291,22 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
             value={form.neighbourhood || ""}
             onChange={(e) => handleChange("neighbourhood", e.target.value)}
             placeholder="Lekki Phase 1, Kilimani..."
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">Country / Region</label>
+          <Input
+            value={form.country || ""}
+            onChange={(e) => handleChange("country", e.target.value)}
+            placeholder="Nigeria"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">State / Region</label>
+          <Input
+            value={form.state_region || ""}
+            onChange={(e) => handleChange("state_region", e.target.value)}
+            placeholder="Lagos State"
           />
         </div>
         <div className="space-y-2">
