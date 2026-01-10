@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-27 — v1.7.35-r8-stability-role-hygiene
+- Differentiated browse/home fetch errors from empty results and hid diagnostics outside development.
+- Removed tenant-facing listing navigation in dashboard header.
+- Prevented redirect guard errors from being swallowed in admin entrypoint.
+
 ## 2026-01-27 — v1.7.33-r7.7.3.2-airbnb-form-layout
 - Reworked Basics step into a two-column layout with a sticky pricing card.
 - Grouped pricing and availability fields for clearer hierarchy and spacing.

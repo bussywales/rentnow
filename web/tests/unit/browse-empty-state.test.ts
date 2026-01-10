@@ -12,7 +12,11 @@ void test("browse empty state does not treat zero results as error", () => {
     "did not expect zero-results error string"
   );
   assert.ok(
-    contents.includes("showDiagnostics"),
-    "expected diagnostics to be gated"
+    contents.includes("NODE_ENV === \"development\""),
+    "expected diagnostics to be gated to development only"
+  );
+  assert.ok(
+    contents.includes("Unable to load listings"),
+    "expected a distinct fetch error title"
   );
 });

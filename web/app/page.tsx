@@ -40,19 +40,16 @@ export default async function Home() {
         const typed =
           (json.properties as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) ||
           [];
-      featured =
-        typed
-          .map((row) => ({
-            ...row,
-            images: row.property_images?.map((img) => ({
-              id: img.id,
-              image_url: img.image_url,
-            })),
-          }))
+        featured =
+          typed
+            .map((row) => ({
+              ...row,
+              images: row.property_images?.map((img) => ({
+                id: img.id,
+                image_url: img.image_url,
+              })),
+            }))
           .slice(0, 3) || [];
-        if (!featured.length) {
-          fetchError = "No properties returned from API.";
-        }
       }
     } catch (err) {
       fetchError = err instanceof Error ? err.message : "Unknown error";
@@ -198,30 +195,38 @@ export default async function Home() {
           </div>
         ) : (
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="text-base font-semibold">Unable to load featured listings</p>
+            <p className="text-base font-semibold">
+              {fetchError ? "Unable to load featured listings" : "No featured listings yet"}
+            </p>
             <p className="mt-1 text-sm text-amber-800">
-              {fetchError ?? "Live listings are unavailable right now."}
+              {fetchError
+                ? fetchError
+                : "Check back soon or browse the full catalogue."}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <form action="/">
-                <Button type="submit" size="sm" variant="secondary">
-                  Retry
-                </Button>
-              </form>
+              {fetchError && (
+                <form action="/">
+                  <Button type="submit" size="sm" variant="secondary">
+                    Retry
+                  </Button>
+                </form>
+              )}
               <Link href="/properties" className="text-sm font-semibold text-amber-900 underline-offset-4 hover:underline">
                 Browse all listings
               </Link>
             </div>
-            <div className="mt-3 rounded-lg bg-amber-100/70 p-3 text-xs text-amber-900">
-              <p className="font-semibold">Diagnostics</p>
-              <pre className="mt-2 whitespace-pre-wrap font-mono">
-                {JSON.stringify(
-                  { apiUrl, supabaseReady, env: envPresence },
-                  null,
-                  2
-                )}
-              </pre>
-            </div>
+            {fetchError && process.env.NODE_ENV === "development" && (
+              <div className="mt-3 rounded-lg bg-amber-100/70 p-3 text-xs text-amber-900">
+                <p className="font-semibold">Diagnostics</p>
+                <pre className="mt-2 whitespace-pre-wrap font-mono">
+                  {JSON.stringify(
+                    { apiUrl, supabaseReady, env: envPresence },
+                    null,
+                    2
+                  )}
+                </pre>
+              </div>
+            )}
           </div>
         )}
       </section>

@@ -15,6 +15,12 @@ type Props = {
   searchParams: Record<string, string | string[] | undefined>;
 };
 
+function isRedirectError(err: unknown) {
+  if (!err || typeof err !== "object") return false;
+  const digest = (err as { digest?: unknown }).digest;
+  return typeof digest === "string" && digest.startsWith("NEXT_REDIRECT");
+}
+
 type AdminProperty = {
   id: string;
   title: string;
@@ -256,6 +262,9 @@ export default async function AdminPage({ searchParams }: Props) {
         redirect("/forbidden?reason=role");
       }
     } catch (err) {
+      if (isRedirectError(err)) {
+        throw err;
+      }
       console.warn("Admin auth guard failed; showing demo state", err);
     }
   }

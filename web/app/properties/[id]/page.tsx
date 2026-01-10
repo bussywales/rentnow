@@ -231,6 +231,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
 
   if (!property) {
     const retryHref = id ? `/properties/${id}` : "/properties";
+    const showDiagnostics = process.env.NODE_ENV === "development";
 
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
@@ -255,13 +256,17 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </Link>
             </>
           }
-          diagnostics={{
-            apiUrl,
-            id,
-            supabaseReady,
-            fetchError,
-            env: envPresence,
-          }}
+          diagnostics={
+            showDiagnostics
+              ? {
+                  apiUrl,
+                  id,
+                  supabaseReady,
+                  fetchError,
+                  env: envPresence,
+                }
+              : undefined
+          }
         />
       </div>
     );

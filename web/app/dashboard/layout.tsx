@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getProfile, getSession } from "@/lib/auth";
 import { formatRoleLabel, normalizeRole } from "@/lib/roles";
-import { shouldShowSavedSearchNav } from "@/lib/role-access";
+import { canManageListings, shouldShowSavedSearchNav } from "@/lib/role-access";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
@@ -30,6 +30,7 @@ export default async function DashboardLayout({
 
   const normalizedRole = normalizeRole(profile?.role);
   const roleLabel = formatRoleLabel(normalizedRole);
+  const showMyProperties = canManageListings(normalizedRole);
   const showSavedSearches = shouldShowSavedSearchNav(normalizedRole);
   const profileIncomplete =
     normalizedRole === "landlord" || normalizedRole === "agent"
@@ -52,9 +53,11 @@ export default async function DashboardLayout({
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            <Link href="/dashboard" className="rounded-full bg-white/10 px-3 py-1">
-              My properties
-            </Link>
+            {showMyProperties && (
+              <Link href="/dashboard" className="rounded-full bg-white/10 px-3 py-1">
+                My properties
+              </Link>
+            )}
             <Link href="/dashboard/billing" className="rounded-full bg-white/10 px-3 py-1">
               Billing
             </Link>

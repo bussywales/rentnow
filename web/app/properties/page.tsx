@@ -272,14 +272,19 @@ export default async function PropertiesPage({ searchParams }: Props) {
     const emptyDescription = hasFilters
       ? "No listings match your filters yet. Try clearing filters or browsing all listings."
       : "No listings are available right now. Check back soon or browse all listings.";
+    const isFetchError = !!fetchError;
+    const title = isFetchError ? "Unable to load listings" : "No properties found";
+    const description = isFetchError
+      ? "We couldn't load listings right now. Please try again."
+      : emptyDescription;
     const retryParams = buildSearchParams(resolvedSearchParams, {});
     const retryHref = retryParams.toString()
       ? `/properties?${retryParams.toString()}`
       : "/properties";
     const emptyCtas = getBrowseEmptyStateCtas({ role, hasFilters });
     const showDiagnostics =
-      !!fetchError && (DEV_MOCKS || process.env.NODE_ENV !== "production");
-    const showRetry = !!fetchError;
+      isFetchError && process.env.NODE_ENV === "development";
+    const showRetry = isFetchError;
     const renderEmptyCta = (cta: (typeof emptyCtas)[number]) => {
       if (cta.kind === "primary") {
         return (
@@ -311,8 +316,8 @@ export default async function PropertiesPage({ searchParams }: Props) {
     return (
       <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
         <ErrorState
-          title="No properties found"
-          description={emptyDescription}
+          title={title}
+          description={description}
           retryAction={
             <>
               {showRetry && (
