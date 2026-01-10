@@ -45,6 +45,7 @@ Apply SQL files in this order:
 38) `web/supabase/migrations/038_properties_rent_period.sql`
 39) `web/supabase/migrations/039_properties_listing_details.sql`
 40) `web/supabase/migrations/040_properties_country_code.sql`
+41) `web/supabase/migrations/041_backfill_properties_country_code.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -157,6 +158,23 @@ from information_schema.columns
 where table_schema = 'public'
   and table_name = 'properties'
   and column_name = 'country_code';
+```
+
+### Country code backfill coverage
+```sql
+select
+  count(*) filter (where country is not null) as total_with_country,
+  count(*) filter (where country_code is not null) as total_with_country_code,
+  count(*) filter (
+    where country is not null and country_code is null
+  ) as missing_country_code
+from public.properties;
+
+select id, country, country_code
+from public.properties
+where country is not null and country_code is null
+order by updated_at desc nulls last
+limit 20;
 ```
 
 ### Throttle telemetry verification

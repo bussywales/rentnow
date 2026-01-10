@@ -275,6 +275,11 @@
 - Added Stripe upgrade UI actions with cadence selection and status display.
 - Added unit tests for plan mapping and webhook signature verification.
 - Documented Stripe and manual billing rules in `docs/BILLING.md`.
+## 2026-01-10 — v1.7.41-r9.1.7-country-code-backfill-guardrails
+- Added an idempotent backfill to populate property country_code from country names.
+- Documented coverage queries and backfill verification steps for ops/QA.
+- Added guardrail tests to ensure the backfill only fills missing codes.
+
 ## 2026-01-10 — v1.7.40-r9.1.6-country-iso-dualwrite
 - Added `country_code` to properties with a safe migration and verification snippet.
 - Updated country selection to persist both display name and ISO code.

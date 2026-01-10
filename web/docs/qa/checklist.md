@@ -79,6 +79,11 @@
 - Logged-out user opening Photos step is redirected to `/auth/login?reason=auth&next=...`.
 - Expired session mid-flow shows a friendly login CTA (no raw errors).
 
+## Country code backfill verification
+- Apply `041_backfill_properties_country_code.sql` in Supabase SQL editor.
+- Run the backfill coverage query and confirm missing_country_code trends down.
+- Create or edit a listing and confirm `country_code` is written alongside `country`.
+
 ## Role-aware CTAs
 - Landing CTA shows “List a property” for unauthenticated users (redirects to login).
 - Landing CTA shows “Find a home” for tenants and “List a property” for landlords/agents.
