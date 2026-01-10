@@ -5,6 +5,10 @@
 - Added session troubleshooting notes for auth cookie validation.
 - Added unit guardrails for Photos-step auth resolution.
 
+## 2026-01-27 — v1.7.38-r9.1.4-details-card-layout
+- Reworked Details step into carded sections with a sticky tips panel.
+- Grouped property specs, size, deposit, and description fields for clearer hierarchy.
+
 ## 2026-01-27 — v1.7.37-r9.1-layout-lock-photos-auth-fix
 - Locked the Basics step into carded sections with a sticky pricing panel.
 - Refreshed client auth before save/upload to avoid Photos-step login bounces.

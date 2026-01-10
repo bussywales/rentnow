@@ -48,6 +48,14 @@ void test("property details step includes listing detail fields", () => {
     contents.includes("deposit_currency"),
     "expected deposit_currency to be wired in details payload"
   );
+  assert.ok(
+    contents.includes("Detail tips"),
+    "expected details helper card to render"
+  );
+  assert.ok(
+    contents.includes("Description & features"),
+    "expected description card heading to render"
+  );
 });
 
 void test("property basics step includes location inputs", () => {

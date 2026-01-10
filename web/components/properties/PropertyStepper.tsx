@@ -882,239 +882,283 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       )}
 
       {stepIndex === 1 && (
-        <div className="space-y-6">
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-900">Property type</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label htmlFor="listing-type" className="text-sm font-medium text-slate-700">
-                  Listing type
-                </label>
-                <Select
-                  id="listing-type"
-                  value={form.listing_type ?? ""}
-                  onChange={(e) =>
-                    handleChange("listing_type", e.target.value || null)
-                  }
-                >
-                  <option value="">Select type</option>
-                  {listingTypes.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="bathroom-type" className="text-sm font-medium text-slate-700">
-                  Bathroom privacy
-                </label>
-                <Select
-                  id="bathroom-type"
-                  value={form.bathroom_type ?? ""}
-                  onChange={(e) =>
-                    handleChange("bathroom_type", e.target.value || null)
-                  }
-                >
-                  <option value="">Select privacy</option>
-                  {bathroomTypes.map((type) => (
-                    <option key={type.value} value={type.value}>
-                      {type.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <input
-                id="pets_allowed"
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-sky-600"
-                checked={!!form.pets_allowed}
-                onChange={(e) => handleChange("pets_allowed", e.target.checked)}
-              />
-              <label htmlFor="pets_allowed" className="text-sm text-slate-700">
-                Pets allowed
-              </label>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-900">Size</h3>
-            <div className="grid gap-4 md:grid-cols-3">
-              <div className="space-y-2">
-                <label htmlFor="size-value" className="text-sm font-medium text-slate-700">
-                  Size value
-                </label>
-                <Input
-                  id="size-value"
-                  type="number"
-                  min={0}
-                  step="0.1"
-                  value={form.size_value ?? ""}
-                  onChange={(e) =>
-                    handleChange(
-                      "size_value",
-                      e.target.value === "" ? null : Number(e.target.value)
-                    )
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="size-unit" className="text-sm font-medium text-slate-700">
-                  Size unit
-                </label>
-                <Select
-                  id="size-unit"
-                  value={form.size_unit ?? "sqm"}
-                  onChange={(e) => handleChange("size_unit", e.target.value as SizeUnit)}
-                >
-                  {sizeUnits.map((unit) => (
-                    <option key={unit.value} value={unit.value}>
-                      {unit.label}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <label htmlFor="year-built" className="text-sm font-medium text-slate-700">
-                  Year built
-                </label>
-                <Input
-                  id="year-built"
-                  type="number"
-                  min={1800}
-                  max={maxYearBuilt}
-                  value={form.year_built ?? ""}
-                  onChange={(e) =>
-                    handleChange(
-                      "year_built",
-                      e.target.value === "" ? null : Number(e.target.value)
-                    )
-                  }
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <h3 className="text-sm font-semibold text-slate-900">Deposit & rules</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <label htmlFor="deposit-amount" className="text-sm font-medium text-slate-700">
-                  Security deposit
-                </label>
-                <Input
-                  id="deposit-amount"
-                  type="number"
-                  min={0}
-                  value={form.deposit_amount ?? ""}
-                  onChange={(e) =>
-                    handleChange(
-                      "deposit_amount",
-                      e.target.value === "" ? null : Number(e.target.value)
-                    )
-                  }
-                />
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-6">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-slate-900">Property specs</h3>
                 <p className="text-xs text-slate-500">
-                  Optional; common is 1–2 months.
+                  Essentials tenants expect at a glance.
                 </p>
               </div>
-              <div className="space-y-2">
-                <label htmlFor="deposit-currency" className="text-sm font-medium text-slate-700">
-                  Deposit currency
-                </label>
-                <CurrencySelect
-                  id="deposit-currency"
-                  value={form.deposit_currency ?? form.currency ?? "USD"}
-                  onChange={(value) => handleChange("deposit_currency", value)}
-                  placeholder="Search currency codes"
-                />
-                <p className="text-xs text-slate-500">Defaults to listing currency.</p>
+              <div className="mt-4 space-y-3">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="listing-type" className="text-sm font-medium text-slate-700">
+                      Listing type
+                    </label>
+                    <Select
+                      id="listing-type"
+                      value={form.listing_type ?? ""}
+                      onChange={(e) =>
+                        handleChange("listing_type", e.target.value || null)
+                      }
+                    >
+                      <option value="">Select type</option>
+                      {listingTypes.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="bathroom-type" className="text-sm font-medium text-slate-700">
+                      Bathroom privacy
+                    </label>
+                    <Select
+                      id="bathroom-type"
+                      value={form.bathroom_type ?? ""}
+                      onChange={(e) =>
+                        handleChange("bathroom_type", e.target.value || null)
+                      }
+                    >
+                      <option value="">Select privacy</option>
+                      {bathroomTypes.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    id="pets_allowed"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-sky-600"
+                    checked={!!form.pets_allowed}
+                    onChange={(e) => handleChange("pets_allowed", e.target.checked)}
+                  />
+                  <label htmlFor="pets_allowed" className="text-sm text-slate-700">
+                    Pets allowed
+                  </label>
+                </div>
               </div>
-            </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-slate-900">Size & age</h3>
+                <p className="text-xs text-slate-500">
+                  Optional sizing details for comparison.
+                </p>
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <label htmlFor="size-value" className="text-sm font-medium text-slate-700">
+                    Size value
+                  </label>
+                  <Input
+                    id="size-value"
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    value={form.size_value ?? ""}
+                    onChange={(e) =>
+                      handleChange(
+                        "size_value",
+                        e.target.value === "" ? null : Number(e.target.value)
+                      )
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="size-unit" className="text-sm font-medium text-slate-700">
+                    Size unit
+                  </label>
+                  <Select
+                    id="size-unit"
+                    value={form.size_unit ?? "sqm"}
+                    onChange={(e) => handleChange("size_unit", e.target.value as SizeUnit)}
+                  >
+                    {sizeUnits.map((unit) => (
+                      <option key={unit.value} value={unit.value}>
+                        {unit.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="year-built" className="text-sm font-medium text-slate-700">
+                    Year built
+                  </label>
+                  <Input
+                    id="year-built"
+                    type="number"
+                    min={1800}
+                    max={maxYearBuilt}
+                    value={form.year_built ?? ""}
+                    onChange={(e) =>
+                      handleChange(
+                        "year_built",
+                        e.target.value === "" ? null : Number(e.target.value)
+                      )
+                    }
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-slate-900">Deposit & rules</h3>
+                <p className="text-xs text-slate-500">
+                  Clearly set deposits and included utilities.
+                </p>
+              </div>
+              <div className="mt-4 space-y-3">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="deposit-amount" className="text-sm font-medium text-slate-700">
+                      Security deposit
+                    </label>
+                    <Input
+                      id="deposit-amount"
+                      type="number"
+                      min={0}
+                      value={form.deposit_amount ?? ""}
+                      onChange={(e) =>
+                        handleChange(
+                          "deposit_amount",
+                          e.target.value === "" ? null : Number(e.target.value)
+                        )
+                      }
+                    />
+                    <p className="text-xs text-slate-500">
+                      Optional; common is 1–2 months.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="deposit-currency" className="text-sm font-medium text-slate-700">
+                      Deposit currency
+                    </label>
+                    <CurrencySelect
+                      id="deposit-currency"
+                      value={form.deposit_currency ?? form.currency ?? "USD"}
+                      onChange={(value) => handleChange("deposit_currency", value)}
+                      placeholder="Search currency codes"
+                    />
+                    <p className="text-xs text-slate-500">Defaults to listing currency.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    id="bills_included"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-sky-600"
+                    checked={!!form.bills_included}
+                    onChange={(e) => handleChange("bills_included", e.target.checked)}
+                  />
+                  <label htmlFor="bills_included" className="text-sm text-slate-700">
+                    Bills included
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Description & features
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Add story, highlights, and compliance details.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleAiDescription}
+                  disabled={aiLoading}
+                >
+                  {aiLoading ? "Generating..." : "Generate with AI"}
+                </Button>
+              </div>
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="description" className="text-sm font-medium text-slate-700">
+                    Description
+                  </label>
+                  <Textarea
+                    id="description"
+                    rows={5}
+                    value={form.description || ""}
+                    onChange={(e) => handleChange("description", e.target.value)}
+                    placeholder="Share highlights, who it's great for, and availability."
+                  />
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <label htmlFor="features" className="text-sm font-medium text-slate-700">
+                      Features
+                    </label>
+                    <Input
+                      id="features"
+                      value={form.featuresText || ""}
+                      onChange={(e) => handleChange("featuresText", e.target.value)}
+                      placeholder="balcony, generator, lift"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="epc-rating" className="text-sm font-medium text-slate-700">
+                      EPC rating
+                    </label>
+                    <Input
+                      id="epc-rating"
+                      value={form.epc_rating || ""}
+                      onChange={(e) => handleChange("epc_rating", e.target.value)}
+                      placeholder="A, B, C"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="council-tax-band" className="text-sm font-medium text-slate-700">
+                      Council tax band
+                    </label>
+                    <Input
+                      id="council-tax-band"
+                      value={form.council_tax_band || ""}
+                      onChange={(e) => handleChange("council_tax_band", e.target.value)}
+                      placeholder="Band D"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="amenities" className="text-sm font-medium text-slate-700">
+                    Amenities
+                  </label>
+                  <Input
+                    id="amenities"
+                    value={form.amenitiesText || ""}
+                    onChange={(e) => handleChange("amenitiesText", e.target.value)}
+                    placeholder="wifi, parking, security, pool"
+                  />
+                </div>
+              </div>
+            </section>
           </div>
 
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <label htmlFor="description" className="text-sm font-medium text-slate-700">
-                Description
-              </label>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={handleAiDescription}
-                disabled={aiLoading}
-              >
-                {aiLoading ? "Generating..." : "Generate with AI"}
-              </Button>
-            </div>
-            <Textarea
-              id="description"
-              rows={5}
-              value={form.description || ""}
-              onChange={(e) => handleChange("description", e.target.value)}
-              placeholder="Share highlights, who it's great for, and availability."
-            />
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <label htmlFor="features" className="text-sm font-medium text-slate-700">
-                Features
-              </label>
-              <Input
-                id="features"
-                value={form.featuresText || ""}
-                onChange={(e) => handleChange("featuresText", e.target.value)}
-                placeholder="balcony, generator, lift"
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="epc-rating" className="text-sm font-medium text-slate-700">
-                EPC rating
-              </label>
-              <Input
-                id="epc-rating"
-                value={form.epc_rating || ""}
-                onChange={(e) => handleChange("epc_rating", e.target.value)}
-                placeholder="A, B, C"
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="council-tax-band" className="text-sm font-medium text-slate-700">
-                Council tax band
-              </label>
-              <Input
-                id="council-tax-band"
-                value={form.council_tax_band || ""}
-                onChange={(e) => handleChange("council_tax_band", e.target.value)}
-                placeholder="Band D"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              id="bills_included"
-              type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-sky-600"
-              checked={!!form.bills_included}
-              onChange={(e) => handleChange("bills_included", e.target.checked)}
-            />
-            <label htmlFor="bills_included" className="text-sm text-slate-700">
-              Bills included
-            </label>
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="amenities" className="text-sm font-medium text-slate-700">
-              Amenities
-            </label>
-            <Input
-              id="amenities"
-              value={form.amenitiesText || ""}
-              onChange={(e) => handleChange("amenitiesText", e.target.value)}
-              placeholder="wifi, parking, security, pool"
-            />
+          <div className="lg:sticky lg:top-6 lg:self-start">
+            <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+              <h3 className="text-sm font-semibold text-slate-900">Detail tips</h3>
+              <ul className="mt-3 space-y-2 text-xs text-slate-600">
+                <li>Deposit currency defaults to listing currency.</li>
+                <li>Size and year built are optional.</li>
+                <li>Add rules and utilities tenants should know.</li>
+              </ul>
+            </section>
           </div>
         </div>
       )}
