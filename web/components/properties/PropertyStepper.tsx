@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CurrencySelect } from "@/components/properties/CurrencySelect";
+import { CountrySelect } from "@/components/properties/CountrySelect";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -648,13 +649,13 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
                     <label htmlFor="country" className="text-sm font-medium text-slate-700">
-                      Country / Region
+                      Country
                     </label>
-                    <Input
+                    <CountrySelect
                       id="country"
                       value={form.country || ""}
-                      onChange={(e) => handleChange("country", e.target.value)}
-                      placeholder="Nigeria"
+                      onChange={(value) => handleChange("country", value)}
+                      placeholder="Search countries"
                     />
                   </div>
                   <div className="space-y-2">

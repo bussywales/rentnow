@@ -9,6 +9,10 @@
 - Reworked Details step into carded sections with a sticky tips panel.
 - Grouped property specs, size, deposit, and description fields for clearer hierarchy.
 
+## 2026-01-27 — v1.7.39-r9.1.5-country-dropdown
+- Replaced the Basics country field with a searchable ISO country dropdown.
+- Updated country label copy and added unit coverage for the new selector.
+
 ## 2026-01-27 — v1.7.37-r9.1-layout-lock-photos-auth-fix
 - Locked the Basics step into carded sections with a sticky pricing panel.
 - Refreshed client auth before save/upload to avoid Photos-step login bounces.
