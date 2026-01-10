@@ -13,6 +13,7 @@ import {
   createBrowserSupabaseClient,
   hasBrowserSupabaseEnv,
 } from "@/lib/supabase/client";
+import type { User } from "@supabase/supabase-js";
 import type {
   BathroomType,
   ListingType,
@@ -24,6 +25,11 @@ import type {
 import { setToastQuery } from "@/lib/utils/toast";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
+type ResolvedAuth = {
+  user: User | null;
+  accessToken: string | null;
+  error: Error | null | undefined;
+};
 
 type Props = {
   initialData?: Partial<Property>;
@@ -112,6 +118,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
 
   const lastAutoSaved = useRef<string>("");
   const autoSaveTimer = useRef<number | null>(null);
+  const authResolveRef = useRef<Promise<ResolvedAuth> | null>(null);
 
   const normalizeOptionalString = (value?: string | null) => {
     if (!value) return null;
@@ -159,37 +166,50 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   }, [form]);
 
   const resolveAuthUser = useCallback(async (supabase: ReturnType<typeof createBrowserSupabaseClient>) => {
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
-
-    if (session?.user) {
-      return { user: session.user, accessToken: session.access_token, error: sessionError };
+    if (authResolveRef.current) {
+      return authResolveRef.current;
     }
 
-    const {
-      data: { session: refreshedSession },
-    } = await supabase.auth.refreshSession();
-
-    if (refreshedSession?.user) {
-      return {
-        user: refreshedSession.user,
-        accessToken: refreshedSession.access_token,
+    const resolver = (async () => {
+      const {
+        data: { session },
         error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        return { user: session.user, accessToken: session.access_token, error: sessionError };
+      }
+
+      const {
+        data: { session: refreshedSession },
+      } = await supabase.auth.refreshSession();
+
+      if (refreshedSession?.user) {
+        return {
+          user: refreshedSession.user,
+          accessToken: refreshedSession.access_token,
+          error: sessionError,
+        };
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      return {
+        user,
+        accessToken: refreshedSession?.access_token ?? session?.access_token ?? null,
+        error: sessionError || userError,
       };
+    })();
+
+    authResolveRef.current = resolver;
+    try {
+      return await resolver;
+    } finally {
+      authResolveRef.current = null;
     }
-
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
-
-    return {
-      user,
-      accessToken: refreshedSession?.access_token ?? session?.access_token ?? null,
-      error: sessionError || userError,
-    };
   }, []);
 
   const canCreateDraft =

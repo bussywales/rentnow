@@ -21,6 +21,10 @@ void test("property stepper refreshes session before auth gating photos", () => 
     "expected session refresh fallback for auth continuity"
   );
   assert.ok(
+    contents.includes("authResolveRef"),
+    "expected single-flight auth resolve guard"
+  );
+  assert.ok(
     contents.includes("Please log in to upload photos."),
     "expected login prompt to remain for unauthenticated users"
   );

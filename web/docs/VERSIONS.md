@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-27 — v1.7.38-r9.1.3-beta-guardrails
+- Documented beta smoke checklist for the listing stepper (Photos auth flow).
+- Added session troubleshooting notes for auth cookie validation.
+- Added unit guardrails for Photos-step auth resolution.
+
 ## 2026-01-27 — v1.7.37-r9.1-layout-lock-photos-auth-fix
 - Locked the Basics step into carded sections with a sticky pricing panel.
 - Refreshed client auth before save/upload to avoid Photos-step login bounces.

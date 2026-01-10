@@ -72,6 +72,13 @@
 - Property detail shows a Back to results link when opened from Browse and a clean placeholder when no photos exist.
 - Price formatting shows currency symbol when known (e.g. ₦/£), otherwise ISO code, and includes / month or / year for long-term listings.
 
+## Listing stepper beta verification
+- Logged-in user can go Basics → Details → Photos without a login prompt.
+- Hard refresh on Photos step while logged-in stays authenticated.
+- Direct open Photos step URL in a new tab while logged-in stays authenticated.
+- Logged-out user opening Photos step is redirected to `/auth/login?reason=auth&next=...`.
+- Expired session mid-flow shows a friendly login CTA (no raw errors).
+
 ## Role-aware CTAs
 - Landing CTA shows “List a property” for unauthenticated users (redirects to login).
 - Landing CTA shows “Find a home” for tenants and “List a property” for landlords/agents.
