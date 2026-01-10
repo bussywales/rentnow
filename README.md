@@ -4,6 +4,10 @@ This repo hosts the RENTNOW web MVP built with Next.js (App Router), Tailwind, S
 
 The app lives in `web/`. See `web/README.md` for full setup steps, env vars, schema, and feature notes.
 
+Project docs:
+- Roadmap: `docs/ROADMAP.md`
+- Releases: `docs/RELEASES.md` (see `web/docs/VERSIONS.md` for full detail)
+
 Quick start:
 ```bash
 cd web
