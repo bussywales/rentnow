@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-27 — v1.7.36-r9-listing-data-expansion
+- Added listing detail fields (type, address breakdown, size, deposit, bathroom privacy, pets) to properties schema and forms.
+- Surfaced key facts on property detail pages and optional type/size meta on cards.
+- Updated property APIs, migration runbook, and unit coverage for new fields.
+
 ## 2026-01-27 — v1.7.35-r8-stability-role-hygiene
 - Differentiated browse/home fetch errors from empty results and hid diagnostics outside development.
 - Removed tenant-facing listing navigation in dashboard header.

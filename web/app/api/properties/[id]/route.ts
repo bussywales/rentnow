@@ -11,22 +11,42 @@ import { logFailure, logPlanLimitHit } from "@/lib/observability";
 import { getListingAccessResult } from "@/lib/role-access";
 
 const routeLabel = "/api/properties/[id]";
+const CURRENT_YEAR = new Date().getFullYear();
 
 const updateSchema = z.object({
   title: z.string().min(3).optional(),
   description: z.string().optional().nullable(),
   city: z.string().min(2).optional(),
+  country: z.string().optional().nullable(),
+  state_region: z.string().optional().nullable(),
   neighbourhood: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
+  listing_type: z
+    .enum(["apartment", "house", "duplex", "studio", "room", "shop", "office", "land"])
+    .optional()
+    .nullable(),
   rental_type: z.enum(["short_let", "long_term"]).optional(),
   price: z.number().positive().optional(),
   currency: z.string().min(2).optional(),
   rent_period: z.enum(["monthly", "yearly"]).optional(),
   bedrooms: z.number().int().nonnegative().optional(),
   bathrooms: z.number().int().nonnegative().optional(),
+  bathroom_type: z.enum(["private", "shared"]).optional().nullable(),
   furnished: z.boolean().optional(),
+  size_value: z.number().positive().optional().nullable(),
+  size_unit: z.enum(["sqm", "sqft"]).optional().nullable(),
+  year_built: z
+    .number()
+    .int()
+    .min(1800)
+    .max(CURRENT_YEAR + 1)
+    .optional()
+    .nullable(),
+  deposit_amount: z.number().nonnegative().optional().nullable(),
+  deposit_currency: z.string().min(2).optional().nullable(),
+  pets_allowed: z.boolean().optional(),
   amenities: z.array(z.string()).optional().nullable(),
   available_from: z.string().optional().nullable(),
   max_guests: z.number().int().nullable().optional(),
@@ -363,6 +383,31 @@ export async function PUT(
     const body = await request.json();
     const updates = updateSchema.parse(body);
     const { imageUrls = [], status, rejection_reason, ...rest } = updates;
+    const normalizedRest = {
+      ...rest,
+      listing_type: typeof rest.listing_type === "undefined" ? undefined : rest.listing_type,
+      country: typeof rest.country === "undefined" ? undefined : rest.country,
+      state_region: typeof rest.state_region === "undefined" ? undefined : rest.state_region,
+      size_value: typeof rest.size_value === "undefined" ? undefined : rest.size_value,
+      size_unit:
+        typeof rest.size_value === "number"
+          ? rest.size_unit ?? "sqm"
+          : typeof rest.size_unit === "undefined"
+            ? undefined
+            : null,
+      year_built: typeof rest.year_built === "undefined" ? undefined : rest.year_built,
+      deposit_amount:
+        typeof rest.deposit_amount === "undefined" ? undefined : rest.deposit_amount,
+      deposit_currency:
+        typeof rest.deposit_amount === "number"
+          ? rest.deposit_currency ?? rest.currency ?? null
+          : typeof rest.deposit_currency === "undefined"
+            ? undefined
+            : null,
+      bathroom_type:
+        typeof rest.bathroom_type === "undefined" ? undefined : rest.bathroom_type,
+      pets_allowed: typeof rest.pets_allowed === "undefined" ? undefined : rest.pets_allowed,
+    };
     const now = new Date().toISOString();
     const isAdmin = role === "admin";
     let statusUpdate: Record<string, unknown> = {};
@@ -444,7 +489,7 @@ export async function PUT(
     const { error: updateError } = await supabase
       .from("properties")
       .update({
-        ...rest,
+        ...normalizedRest,
         amenities: rest.amenities ?? [],
         features: rest.features ?? [],
         updated_at: new Date().toISOString(),

@@ -1,6 +1,6 @@
 import { normalizeCurrency } from "@/lib/currencies";
 import { shouldShowSavedSearchNav } from "@/lib/role-access";
-import type { RentPeriod, RentalType, UserRole } from "@/lib/types";
+import type { ListingType, RentPeriod, RentalType, SizeUnit, UserRole } from "@/lib/types";
 
 const PRICE_FORMATTER = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 0,
@@ -11,6 +11,22 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
   GBP: "\u00a3",
   EUR: "\u20ac",
   NGN: "\u20a6",
+};
+
+const LISTING_TYPE_LABELS: Record<ListingType, string> = {
+  apartment: "Apartment",
+  house: "House",
+  duplex: "Duplex",
+  studio: "Studio",
+  room: "Room",
+  shop: "Shop",
+  office: "Office",
+  land: "Land",
+};
+
+const SIZE_UNIT_LABELS: Record<SizeUnit, string> = {
+  sqm: "sqm",
+  sqft: "sqft",
 };
 
 function resolveCurrencyCode(input?: string | null): string {
@@ -71,6 +87,20 @@ export function formatPriceLabel(
   const cadence = formatCadence(rentalType, rentPeriod);
   const base = formatPriceValue(currency, price);
   return cadence ? `${base} / ${cadence}` : base;
+}
+
+export function formatListingType(listingType?: ListingType | null): string | null {
+  if (!listingType) return null;
+  return LISTING_TYPE_LABELS[listingType] || listingType;
+}
+
+export function formatSizeLabel(
+  sizeValue?: number | null,
+  sizeUnit?: SizeUnit | null
+): string | null {
+  if (!Number.isFinite(sizeValue)) return null;
+  const unit = sizeUnit ? SIZE_UNIT_LABELS[sizeUnit] || sizeUnit : "";
+  return unit ? `${sizeValue} ${unit}` : `${sizeValue}`;
 }
 
 export function getBrowseEmptyStateCtas(input: {

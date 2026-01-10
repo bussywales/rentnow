@@ -16,8 +16,10 @@ import { DEV_MOCKS, getApiBaseUrl, getCanonicalBaseUrl, getEnvPresence } from "@
 import { mockProperties } from "@/lib/mock";
 import {
   formatCadence,
+  formatListingType,
   formatLocationLabel,
   formatPriceValue,
+  formatSizeLabel,
 } from "@/lib/property-discovery";
 import { getListingCta } from "@/lib/role-access";
 import { normalizeRole } from "@/lib/roles";
@@ -386,6 +388,42 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   const locationLabel = formatLocationLabel(property.city, property.neighbourhood);
   const priceValue = formatPriceValue(property.currency, property.price);
   const cadence = formatCadence(property.rental_type, property.rent_period);
+  const listingTypeLabel = formatListingType(property.listing_type);
+  const sizeLabel =
+    typeof property.size_value === "number" && property.size_value > 0
+      ? formatSizeLabel(property.size_value, property.size_unit)
+      : null;
+  const depositLabel =
+    typeof property.deposit_amount === "number" && property.deposit_amount > 0
+      ? formatPriceValue(
+          property.deposit_currency || property.currency,
+          property.deposit_amount
+        )
+      : null;
+  const bathroomLabel =
+    property.bathroom_type === "private"
+      ? "Private bathroom"
+      : property.bathroom_type === "shared"
+        ? "Shared bathroom"
+        : null;
+  const petsLabel =
+    typeof property.pets_allowed === "boolean"
+      ? property.pets_allowed
+        ? "Pets allowed"
+        : "No pets"
+      : null;
+  const keyFacts = [
+    listingTypeLabel ? { label: "Listing type", value: listingTypeLabel } : null,
+    property.state_region ? { label: "State/Region", value: property.state_region } : null,
+    property.country ? { label: "Country", value: property.country } : null,
+    sizeLabel ? { label: "Size", value: sizeLabel } : null,
+    typeof property.year_built === "number"
+      ? { label: "Year built", value: String(property.year_built) }
+      : null,
+    bathroomLabel ? { label: "Bathroom", value: bathroomLabel } : null,
+    depositLabel ? { label: "Security deposit", value: depositLabel } : null,
+    petsLabel ? { label: "Pets", value: petsLabel } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
   const rentSubtext =
     property.rental_type === "short_let"
       ? "Short stay pricing"
@@ -428,11 +466,11 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               numberOfBathroomsTotal: property.bathrooms,
               address: {
                 "@type": "PostalAddress",
-                addressLocality: property.city,
-                addressRegion: property.neighbourhood || "",
-                streetAddress: property.address || "",
-                addressCountry: "NG",
-              },
+              addressLocality: property.city,
+              addressRegion: property.state_region || property.neighbourhood || "",
+              streetAddress: property.address || "",
+              addressCountry: property.country || "NG",
+            },
               geo:
                 typeof property.latitude === "number" && typeof property.longitude === "number"
                   ? { "@type": "GeoCoordinates", latitude: property.latitude, longitude: property.longitude }
@@ -537,6 +575,19 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           />
         </div>
         <div className="space-y-4">
+          {keyFacts.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-lg font-semibold text-slate-900">Key facts</h3>
+              <dl className="mt-3 space-y-2 text-sm text-slate-700">
+                {keyFacts.map((fact) => (
+                  <div key={fact.label} className="flex items-start justify-between gap-3">
+                    <dt className="text-slate-500">{fact.label}</dt>
+                    <dd className="font-semibold text-slate-900">{fact.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">

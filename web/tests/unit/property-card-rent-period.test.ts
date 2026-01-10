@@ -16,4 +16,12 @@ void test("property card formats cadence with rent period", () => {
     contents.includes("formatCadence(property.rental_type, property.rent_period)"),
     "expected PropertyCard to include rent_period in cadence formatting"
   );
+  assert.ok(
+    contents.includes("formatListingType(property.listing_type)"),
+    "expected PropertyCard to include listing type formatting"
+  );
+  assert.ok(
+    contents.includes("formatSizeLabel(property.size_value, property.size_unit)"),
+    "expected PropertyCard to include size formatting"
+  );
 });

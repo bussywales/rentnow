@@ -7,8 +7,10 @@ import type { Property } from "@/lib/types";
 import { cn } from "@/components/ui/cn";
 import {
   formatCadence,
+  formatListingType,
   formatLocationLabel,
   formatPriceValue,
+  formatSizeLabel,
 } from "@/lib/property-discovery";
 import { TrustBadges } from "@/components/trust/TrustBadges";
 import type { TrustMarkerState } from "@/lib/trust-markers";
@@ -68,6 +70,9 @@ export function PropertyCard({ property, href, compact, trustMarkers }: Props) {
   const locationLabel = formatLocationLabel(property.city, property.neighbourhood);
   const priceValue = formatPriceValue(property.currency, property.price);
   const cadence = formatCadence(property.rental_type, property.rent_period);
+  const listingTypeLabel = formatListingType(property.listing_type);
+  const sizeLabel = formatSizeLabel(property.size_value, property.size_unit);
+  const metaLine = [listingTypeLabel, sizeLabel].filter(Boolean).join(" \u00b7 ");
   const description =
     typeof property.description === "string" && property.description.trim().length > 0
       ? property.description
@@ -101,6 +106,9 @@ export function PropertyCard({ property, href, compact, trustMarkers }: Props) {
             <p className="text-xs font-semibold text-slate-500">
               {locationLabel}
             </p>
+            {metaLine && (
+              <p className="text-xs text-slate-500">{metaLine}</p>
+            )}
             <h3 className="text-base font-semibold text-slate-900 line-clamp-1">
               {property.title}
             </h3>

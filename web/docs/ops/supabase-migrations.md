@@ -43,6 +43,7 @@ Apply SQL files in this order:
 36) `web/supabase/migrations/036_trust_snapshot_rpc.sql`
 37) `web/supabase/migrations/037_trust_snapshot_include_admin.sql`
 38) `web/supabase/migrations/038_properties_rent_period.sql`
+39) `web/supabase/migrations/039_properties_listing_details.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -125,6 +126,27 @@ where table_schema = 'public'
 select conname, pg_get_constraintdef(oid)
 from pg_constraint
 where conname = 'properties_rent_period_check';
+```
+
+### Listing detail columns
+```sql
+select column_name, data_type, column_default, is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'properties'
+  and column_name in (
+    'listing_type',
+    'country',
+    'state_region',
+    'size_value',
+    'size_unit',
+    'year_built',
+    'deposit_amount',
+    'deposit_currency',
+    'bathroom_type',
+    'pets_allowed'
+  )
+order by column_name;
 ```
 
 ### Throttle telemetry verification
@@ -379,7 +401,17 @@ where table_schema = 'public'
     'reliability_power',
     'reliability_water',
     'reliability_internet',
-    'trust_updated_at'
+    'trust_updated_at',
+    'listing_type',
+    'country',
+    'state_region',
+    'size_value',
+    'size_unit',
+    'year_built',
+    'deposit_amount',
+    'deposit_currency',
+    'bathroom_type',
+    'pets_allowed'
   )
 order by table_name, column_name;
 ```

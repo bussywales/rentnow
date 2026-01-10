@@ -13,7 +13,14 @@ import {
   createBrowserSupabaseClient,
   hasBrowserSupabaseEnv,
 } from "@/lib/supabase/client";
-import type { Property, PropertyStatus, RentalType } from "@/lib/types";
+import type {
+  BathroomType,
+  ListingType,
+  Property,
+  PropertyStatus,
+  RentalType,
+  SizeUnit,
+} from "@/lib/types";
 import { setToastQuery } from "@/lib/utils/toast";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
@@ -26,6 +33,27 @@ type Props = {
 const rentalTypes: { label: string; value: RentalType }[] = [
   { label: "Short-let", value: "short_let" },
   { label: "Long-term", value: "long_term" },
+];
+
+const listingTypes: { label: string; value: ListingType }[] = [
+  { label: "Apartment", value: "apartment" },
+  { label: "House", value: "house" },
+  { label: "Duplex", value: "duplex" },
+  { label: "Studio", value: "studio" },
+  { label: "Room", value: "room" },
+  { label: "Shop", value: "shop" },
+  { label: "Office", value: "office" },
+  { label: "Land", value: "land" },
+];
+
+const bathroomTypes: { label: string; value: BathroomType }[] = [
+  { label: "Private", value: "private" },
+  { label: "Shared", value: "shared" },
+];
+
+const sizeUnits: { label: string; value: SizeUnit }[] = [
+  { label: "sqm", value: "sqm" },
+  { label: "sqft", value: "sqft" },
 ];
 
 const STORAGE_BUCKET =
@@ -63,6 +91,16 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const [form, setForm] = useState<FormState>({
     rental_type: initialData?.rental_type ?? "long_term",
     currency: initialData?.currency ?? "USD",
+    listing_type: initialData?.listing_type ?? null,
+    country: initialData?.country ?? null,
+    state_region: initialData?.state_region ?? null,
+    size_value: initialData?.size_value ?? null,
+    size_unit: initialData?.size_unit ?? "sqm",
+    year_built: initialData?.year_built ?? null,
+    deposit_amount: initialData?.deposit_amount ?? null,
+    deposit_currency: initialData?.deposit_currency ?? null,
+    bathroom_type: initialData?.bathroom_type ?? null,
+    pets_allowed: initialData?.pets_allowed ?? false,
     furnished: initialData?.furnished ?? false,
     bills_included: initialData?.bills_included ?? false,
     status: initialData?.status ?? "draft",
@@ -75,9 +113,39 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const lastAutoSaved = useRef<string>("");
   const autoSaveTimer = useRef<number | null>(null);
 
+  const normalizeOptionalString = (value?: string | null) => {
+    if (!value) return null;
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  };
+
   const payload = useMemo(() => {
+    const sizeValue =
+      typeof form.size_value === "number" && Number.isFinite(form.size_value)
+        ? form.size_value
+        : null;
+    const depositAmount =
+      typeof form.deposit_amount === "number" && Number.isFinite(form.deposit_amount)
+        ? form.deposit_amount
+        : null;
+
     return {
       ...form,
+      listing_type: normalizeOptionalString(form.listing_type),
+      country: normalizeOptionalString(form.country),
+      state_region: normalizeOptionalString(form.state_region),
+      size_value: sizeValue,
+      size_unit: sizeValue ? form.size_unit ?? "sqm" : null,
+      year_built:
+        typeof form.year_built === "number" && Number.isFinite(form.year_built)
+          ? form.year_built
+          : null,
+      deposit_amount: depositAmount,
+      deposit_currency: depositAmount
+        ? form.deposit_currency ?? form.currency ?? null
+        : null,
+      bathroom_type: normalizeOptionalString(form.bathroom_type),
+      pets_allowed: !!form.pets_allowed,
       amenities: form.amenitiesText
         ? form.amenitiesText.split(",").map((item) => item.trim()).filter(Boolean)
         : [],
@@ -212,7 +280,10 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     };
   }, [canCreateDraft, saveDraft, setError, startSaving]);
 
-  const handleChange = (key: keyof FormState, value: string | number | boolean) => {
+  const handleChange = (
+    key: keyof FormState,
+    value: string | number | boolean | null
+  ) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -408,6 +479,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   };
 
   const stepLabel = steps[stepIndex]?.label || "Basics";
+  const maxYearBuilt = new Date().getFullYear() + 1;
 
   return (
     <div className="space-y-8">
@@ -691,7 +763,187 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       )}
 
       {stepIndex === 1 && (
-        <div className="space-y-4">
+        <div className="space-y-6">
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-slate-900">Property type</h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="listing-type" className="text-sm font-medium text-slate-700">
+                  Listing type
+                </label>
+                <Select
+                  id="listing-type"
+                  value={form.listing_type ?? ""}
+                  onChange={(e) =>
+                    handleChange("listing_type", e.target.value || null)
+                  }
+                >
+                  <option value="">Select type</option>
+                  {listingTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="bathroom-type" className="text-sm font-medium text-slate-700">
+                  Bathroom privacy
+                </label>
+                <Select
+                  id="bathroom-type"
+                  value={form.bathroom_type ?? ""}
+                  onChange={(e) =>
+                    handleChange("bathroom_type", e.target.value || null)
+                  }
+                >
+                  <option value="">Select privacy</option>
+                  {bathroomTypes.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <input
+                id="pets_allowed"
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-sky-600"
+                checked={!!form.pets_allowed}
+                onChange={(e) => handleChange("pets_allowed", e.target.checked)}
+              />
+              <label htmlFor="pets_allowed" className="text-sm text-slate-700">
+                Pets allowed
+              </label>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-slate-900">Address</h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="country" className="text-sm font-medium text-slate-700">
+                  Country
+                </label>
+                <Input
+                  id="country"
+                  value={form.country || ""}
+                  onChange={(e) => handleChange("country", e.target.value)}
+                  placeholder="Nigeria"
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="state-region" className="text-sm font-medium text-slate-700">
+                  State / Region
+                </label>
+                <Input
+                  id="state-region"
+                  value={form.state_region || ""}
+                  onChange={(e) => handleChange("state_region", e.target.value)}
+                  placeholder="Lagos State"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-slate-900">Size</h3>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <label htmlFor="size-value" className="text-sm font-medium text-slate-700">
+                  Size value
+                </label>
+                <Input
+                  id="size-value"
+                  type="number"
+                  min={0}
+                  step="0.1"
+                  value={form.size_value ?? ""}
+                  onChange={(e) =>
+                    handleChange(
+                      "size_value",
+                      e.target.value === "" ? null : Number(e.target.value)
+                    )
+                  }
+                />
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="size-unit" className="text-sm font-medium text-slate-700">
+                  Size unit
+                </label>
+                <Select
+                  id="size-unit"
+                  value={form.size_unit ?? "sqm"}
+                  onChange={(e) => handleChange("size_unit", e.target.value as SizeUnit)}
+                >
+                  {sizeUnits.map((unit) => (
+                    <option key={unit.value} value={unit.value}>
+                      {unit.label}
+                    </option>
+                  ))}
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="year-built" className="text-sm font-medium text-slate-700">
+                  Year built
+                </label>
+                <Input
+                  id="year-built"
+                  type="number"
+                  min={1800}
+                  max={maxYearBuilt}
+                  value={form.year_built ?? ""}
+                  onChange={(e) =>
+                    handleChange(
+                      "year_built",
+                      e.target.value === "" ? null : Number(e.target.value)
+                    )
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-slate-900">Deposit & rules</h3>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <label htmlFor="deposit-amount" className="text-sm font-medium text-slate-700">
+                  Security deposit
+                </label>
+                <Input
+                  id="deposit-amount"
+                  type="number"
+                  min={0}
+                  value={form.deposit_amount ?? ""}
+                  onChange={(e) =>
+                    handleChange(
+                      "deposit_amount",
+                      e.target.value === "" ? null : Number(e.target.value)
+                    )
+                  }
+                />
+                <p className="text-xs text-slate-500">
+                  Optional; common is 1–2 months.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <label htmlFor="deposit-currency" className="text-sm font-medium text-slate-700">
+                  Deposit currency
+                </label>
+                <CurrencySelect
+                  id="deposit-currency"
+                  value={form.deposit_currency ?? form.currency ?? "USD"}
+                  onChange={(value) => handleChange("deposit_currency", value)}
+                  placeholder="Search currency codes"
+                />
+                <p className="text-xs text-slate-500">Defaults to listing currency.</p>
+              </div>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
               <label htmlFor="description" className="text-sm font-medium text-slate-700">
@@ -890,13 +1142,23 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
               address: form.address || null,
               latitude: form.latitude || null,
               longitude: form.longitude || null,
+              listing_type: form.listing_type || null,
+              country: form.country || null,
+              state_region: form.state_region || null,
               rental_type: form.rental_type || "long_term",
               price: form.price || 0,
               currency: form.currency || "USD",
               rent_period: form.rent_period || "monthly",
               bedrooms: form.bedrooms || 0,
               bathrooms: form.bathrooms || 0,
+              bathroom_type: form.bathroom_type || null,
               furnished: !!form.furnished,
+              size_value: form.size_value || null,
+              size_unit: form.size_unit || null,
+              year_built: form.year_built || null,
+              deposit_amount: form.deposit_amount || null,
+              deposit_currency: form.deposit_currency || null,
+              pets_allowed: !!form.pets_allowed,
               amenities:
                 payload.amenities && payload.amenities.length ? payload.amenities : null,
               images: imageUrls.map((url, index) => ({

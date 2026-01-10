@@ -13,22 +13,42 @@ import { logFailure, logPlanLimitHit } from "@/lib/observability";
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
+const CURRENT_YEAR = new Date().getFullYear();
 
 const propertySchema = z.object({
   title: z.string().min(3),
   description: z.string().optional().nullable(),
   city: z.string().min(2),
+  country: z.string().optional().nullable(),
+  state_region: z.string().optional().nullable(),
   neighbourhood: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
+  listing_type: z
+    .enum(["apartment", "house", "duplex", "studio", "room", "shop", "office", "land"])
+    .optional()
+    .nullable(),
   rental_type: z.enum(["short_let", "long_term"]),
   price: z.number().positive(),
   currency: z.string().min(2),
   rent_period: z.enum(["monthly", "yearly"]).optional(),
   bedrooms: z.number().int().nonnegative(),
   bathrooms: z.number().int().nonnegative(),
+  bathroom_type: z.enum(["private", "shared"]).optional().nullable(),
   furnished: z.boolean(),
+  size_value: z.number().positive().optional().nullable(),
+  size_unit: z.enum(["sqm", "sqft"]).optional().nullable(),
+  year_built: z
+    .number()
+    .int()
+    .min(1800)
+    .max(CURRENT_YEAR + 1)
+    .optional()
+    .nullable(),
+  deposit_amount: z.number().nonnegative().optional().nullable(),
+  deposit_currency: z.string().min(2).optional().nullable(),
+  pets_allowed: z.boolean().optional(),
   amenities: z.array(z.string()).optional().nullable(),
   available_from: z.string().optional().nullable(),
   max_guests: z.number().int().nullable().optional(),
@@ -110,6 +130,25 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = propertySchema.parse(body);
     const { imageUrls = [], status, ...rest } = data;
+    const normalizedDepositCurrency =
+      typeof rest.deposit_amount === "number"
+        ? rest.deposit_currency ?? rest.currency
+        : null;
+    const normalizedSizeUnit =
+      typeof rest.size_value === "number" ? rest.size_unit ?? "sqm" : null;
+    const normalized = {
+      ...rest,
+      listing_type: rest.listing_type ?? null,
+      country: rest.country ?? null,
+      state_region: rest.state_region ?? null,
+      size_value: typeof rest.size_value === "number" ? rest.size_value : null,
+      size_unit: normalizedSizeUnit,
+      year_built: typeof rest.year_built === "number" ? rest.year_built : null,
+      deposit_amount: typeof rest.deposit_amount === "number" ? rest.deposit_amount : null,
+      deposit_currency: normalizedDepositCurrency,
+      bathroom_type: rest.bathroom_type ?? null,
+      pets_allowed: typeof rest.pets_allowed === "boolean" ? rest.pets_allowed : false,
+    };
     const isAdmin = role === "admin";
     const normalizedStatus = isAdmin && status ? status : "draft";
     const isActive = normalizedStatus === "pending" || normalizedStatus === "live";
@@ -161,7 +200,7 @@ export async function POST(request: Request) {
     const { data: property, error: insertError } = await supabase
       .from("properties")
       .insert({
-        ...rest,
+        ...normalized,
         amenities: rest.amenities ?? [],
         features: rest.features ?? [],
         status: normalizedStatus,

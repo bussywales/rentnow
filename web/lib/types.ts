@@ -4,6 +4,20 @@ export type RentalType = "short_let" | "long_term";
 
 export type RentPeriod = "monthly" | "yearly";
 
+export type ListingType =
+  | "apartment"
+  | "house"
+  | "duplex"
+  | "studio"
+  | "room"
+  | "shop"
+  | "office"
+  | "land";
+
+export type SizeUnit = "sqm" | "sqft";
+
+export type BathroomType = "private" | "shared";
+
 export type PropertyStatus = "draft" | "pending" | "live" | "rejected" | "paused";
 
 export type MessageDeliveryState = "sent" | "delivered" | "read";
@@ -42,17 +56,27 @@ export interface Property {
   title: string;
   description?: string | null;
   city: string;
+  country?: string | null;
+  state_region?: string | null;
   neighbourhood?: string | null;
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  listing_type?: ListingType | null;
   rental_type: RentalType;
   price: number;
   currency: string;
   rent_period?: RentPeriod | null;
   bedrooms: number;
   bathrooms: number;
+  bathroom_type?: BathroomType | null;
   furnished: boolean;
+  size_value?: number | null;
+  size_unit?: SizeUnit | null;
+  year_built?: number | null;
+  deposit_amount?: number | null;
+  deposit_currency?: string | null;
+  pets_allowed?: boolean | null;
   amenities?: string[] | null;
   available_from?: string | null;
   max_guests?: number | null;
