@@ -10,6 +10,7 @@ import { getListingAccessResult } from "@/lib/role-access";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
+import { normalizeCountryForCreate } from "@/lib/properties/country-normalize";
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
@@ -20,6 +21,7 @@ const propertySchema = z.object({
   description: z.string().optional().nullable(),
   city: z.string().min(2),
   country: z.string().optional().nullable(),
+  country_code: z.string().optional().nullable(),
   state_region: z.string().optional().nullable(),
   neighbourhood: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
@@ -136,10 +138,15 @@ export async function POST(request: Request) {
         : null;
     const normalizedSizeUnit =
       typeof rest.size_value === "number" ? rest.size_unit ?? "sqm" : null;
+    const { country, country_code } = normalizeCountryForCreate({
+      country: rest.country,
+      country_code: rest.country_code,
+    });
     const normalized = {
       ...rest,
       listing_type: rest.listing_type ?? null,
-      country: rest.country ?? null,
+      country,
+      country_code,
       state_region: rest.state_region ?? null,
       size_value: typeof rest.size_value === "number" ? rest.size_value : null,
       size_unit: normalizedSizeUnit,

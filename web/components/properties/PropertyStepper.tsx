@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { CurrencySelect } from "@/components/properties/CurrencySelect";
 import { CountrySelect } from "@/components/properties/CountrySelect";
+import { normalizeCountryCode } from "@/lib/countries";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -100,6 +101,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     currency: initialData?.currency ?? "USD",
     listing_type: initialData?.listing_type ?? null,
     country: initialData?.country ?? null,
+    country_code: initialData?.country_code ?? null,
     state_region: initialData?.state_region ?? null,
     size_value: initialData?.size_value ?? null,
     size_unit: initialData?.size_unit ?? "sqm",
@@ -141,6 +143,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       ...form,
       listing_type: normalizeOptionalString(form.listing_type),
       country: normalizeOptionalString(form.country),
+      country_code: normalizeCountryCode(form.country_code),
       state_region: normalizeOptionalString(form.state_region),
       city: normalizeOptionalString(form.city),
       neighbourhood: normalizeOptionalString(form.neighbourhood),
@@ -653,8 +656,14 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                     </label>
                     <CountrySelect
                       id="country"
-                      value={form.country || ""}
-                      onChange={(value) => handleChange("country", value)}
+                      value={{
+                        code: form.country_code ?? null,
+                        name: form.country ?? null,
+                      }}
+                      onChange={(option) => {
+                        handleChange("country", option.name);
+                        handleChange("country_code", option.code);
+                      }}
                       placeholder="Search countries"
                     />
                   </div>

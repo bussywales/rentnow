@@ -44,6 +44,7 @@ Apply SQL files in this order:
 37) `web/supabase/migrations/037_trust_snapshot_include_admin.sql`
 38) `web/supabase/migrations/038_properties_rent_period.sql`
 39) `web/supabase/migrations/039_properties_listing_details.sql`
+40) `web/supabase/migrations/040_properties_country_code.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -147,6 +148,15 @@ where table_schema = 'public'
     'pets_allowed'
   )
 order by column_name;
+```
+
+### Country code column
+```sql
+select column_name, data_type, column_default, is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'properties'
+  and column_name = 'country_code';
 ```
 
 ### Throttle telemetry verification

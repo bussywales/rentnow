@@ -107,6 +107,10 @@ void test("property payload normalizes location fields to null", () => {
     "expected country to normalize to null"
   );
   assert.ok(
+    contents.includes("country_code: normalizeCountryCode(form.country_code)"),
+    "expected country_code to normalize to null"
+  );
+  assert.ok(
     contents.includes("state_region: normalizeOptionalString(form.state_region)"),
     "expected state_region to normalize to null"
   );

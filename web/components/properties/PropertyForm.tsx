@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
+import { normalizeCountryCode } from "@/lib/countries";
 import {
   createBrowserSupabaseClient,
   hasBrowserSupabaseEnv,
@@ -111,6 +112,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
     const payload: FormState = {
       ...form,
       country: normalizeOptionalString(form.country),
+      country_code: normalizeCountryCode(form.country_code),
       state_region: normalizeOptionalString(form.state_region),
       neighbourhood: normalizeOptionalString(form.neighbourhood),
       address: normalizeOptionalString(form.address),

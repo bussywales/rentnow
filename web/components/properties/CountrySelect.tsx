@@ -2,12 +2,18 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Input } from "@/components/ui/Input";
-import { COUNTRIES, TOP_COUNTRIES } from "@/lib/countries";
+import {
+  COUNTRIES,
+  TOP_COUNTRIES,
+  getCountryByCode,
+  getCountryByName,
+  type CountryOption,
+} from "@/lib/countries";
 
 type Props = {
   id?: string;
-  value: string | null | undefined;
-  onChange: (value: string) => void;
+  value?: { code?: string | null; name?: string | null } | null;
+  onChange: (value: CountryOption) => void;
   placeholder?: string;
   disabled?: boolean;
 };
@@ -27,10 +33,6 @@ export function CountrySelect({ id, value, onChange, placeholder, disabled }: Pr
   );
   const optionByCode = useMemo(
     () => new Map(options.map((option) => [option.code, option])),
-    [options]
-  );
-  const optionByName = useMemo(
-    () => new Map(options.map((option) => [option.name.toLowerCase(), option])),
     [options]
   );
   const topSet = useMemo(() => new Set<string>(TOP_COUNTRIES), []);
@@ -64,16 +66,15 @@ export function CountrySelect({ id, value, onChange, placeholder, disabled }: Pr
   const formatOptionLabel = (option: { code: string; name: string }) =>
     `${option.code} - ${option.name}`;
 
-  const normalizedValue = value?.trim() || "";
   const selectedOption =
-    optionByCode.get(normalizedValue.toUpperCase()) ||
-    optionByName.get(normalizedValue.toLowerCase());
+    (value?.code ? getCountryByCode(value.code) : null) ||
+    (value?.name ? getCountryByName(value.name) : null);
   const selectedLabel = selectedOption
     ? formatOptionLabel(selectedOption)
-    : normalizedValue;
+    : value?.name || value?.code || "";
 
   const handleSelect = (option: { code: string; name: string }) => {
-    onChange(option.name);
+    onChange(option);
     setIsOpen(false);
     setQuery("");
   };
@@ -190,7 +191,9 @@ export function CountrySelect({ id, value, onChange, placeholder, disabled }: Pr
                   className={`flex w-full items-center justify-between rounded-md px-2 py-2 text-left transition ${
                     activeIndex === index ? "bg-slate-100" : "hover:bg-slate-50"
                   } ${
-                    option.name === normalizedValue ? "font-semibold text-slate-900" : ""
+                    selectedOption?.code === option.code
+                      ? "font-semibold text-slate-900"
+                      : ""
                   }`}
                   onMouseEnter={() => setActiveIndex(index)}
                   onClick={() => handleSelect(option)}
@@ -217,7 +220,7 @@ export function CountrySelect({ id, value, onChange, placeholder, disabled }: Pr
                           ? "bg-slate-100"
                           : "hover:bg-slate-50"
                       } ${
-                        option.name === normalizedValue
+                        selectedOption?.code === option.code
                           ? "font-semibold text-slate-900"
                           : ""
                       }`}

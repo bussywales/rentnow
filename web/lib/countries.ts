@@ -255,3 +255,27 @@ export const COUNTRIES: CountryOption[] = [
   { code: "ZM", name: "Zambia" },
   { code: "ZW", name: "Zimbabwe" },
 ];
+
+const COUNTRY_BY_CODE = new Map(COUNTRIES.map((country) => [country.code, country]));
+const COUNTRY_BY_NAME = new Map(
+  COUNTRIES.map((country) => [country.name.toLowerCase(), country])
+);
+
+export const normalizeCountryCode = (value?: string | null) => {
+  if (!value) return null;
+  const normalized = value.trim().toUpperCase();
+  return normalized.length ? normalized : null;
+};
+
+export const getCountryByCode = (value?: string | null) => {
+  const normalized = normalizeCountryCode(value);
+  if (!normalized) return null;
+  return COUNTRY_BY_CODE.get(normalized) ?? null;
+};
+
+export const getCountryByName = (value?: string | null) => {
+  if (!value) return null;
+  const normalized = value.trim().toLowerCase();
+  if (!normalized.length) return null;
+  return COUNTRY_BY_NAME.get(normalized) ?? null;
+};

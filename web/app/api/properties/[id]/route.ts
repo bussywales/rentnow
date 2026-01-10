@@ -9,6 +9,7 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { dispatchSavedSearchAlerts } from "@/lib/alerts/tenant-alerts";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
 import { getListingAccessResult } from "@/lib/role-access";
+import { normalizeCountryForUpdate } from "@/lib/properties/country-normalize";
 
 const routeLabel = "/api/properties/[id]";
 const CURRENT_YEAR = new Date().getFullYear();
@@ -18,6 +19,7 @@ const updateSchema = z.object({
   description: z.string().optional().nullable(),
   city: z.string().min(2).optional(),
   country: z.string().optional().nullable(),
+  country_code: z.string().optional().nullable(),
   state_region: z.string().optional().nullable(),
   neighbourhood: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
@@ -383,10 +385,15 @@ export async function PUT(
     const body = await request.json();
     const updates = updateSchema.parse(body);
     const { imageUrls = [], status, rejection_reason, ...rest } = updates;
+    const countryFields = normalizeCountryForUpdate({
+      country: rest.country,
+      country_code: rest.country_code,
+    });
     const normalizedRest = {
       ...rest,
       listing_type: typeof rest.listing_type === "undefined" ? undefined : rest.listing_type,
-      country: typeof rest.country === "undefined" ? undefined : rest.country,
+      country: countryFields.country,
+      country_code: countryFields.country_code,
       state_region: typeof rest.state_region === "undefined" ? undefined : rest.state_region,
       size_value: typeof rest.size_value === "undefined" ? undefined : rest.size_value,
       size_unit:
