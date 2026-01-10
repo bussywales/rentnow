@@ -23,6 +23,10 @@ import {
   buildTrustMarkerSummary,
   type TrustMarkerSummary,
 } from "@/lib/admin/trust-markers";
+import {
+  buildDataQualitySnapshot,
+  type DataQualitySnapshot,
+} from "@/lib/admin/data-quality";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { formatRoleLabel } from "@/lib/roles";
@@ -99,6 +103,12 @@ type ShareTelemetryDiagnostics = {
 type TrustMarkerDiagnostics = {
   ready: boolean;
   summary: TrustMarkerSummary | null;
+  error: string | null;
+};
+
+type DataQualityDiagnostics = {
+  ready: boolean;
+  snapshot: DataQualitySnapshot | null;
   error: string | null;
 };
 
@@ -227,6 +237,11 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
   let trustMarkers: TrustMarkerDiagnostics = {
     ready: false,
     summary: null,
+    error: null,
+  };
+  let dataQuality: DataQualityDiagnostics = {
+    ready: false,
+    snapshot: null,
     error: null,
   };
 
@@ -480,6 +495,14 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       summary: trustRows ? buildTrustMarkerSummary(trustRows) : null,
       error: trustError?.message ?? null,
     };
+
+    const { snapshot: dataQualitySnapshot, error: dataQualityError } =
+      await buildDataQualitySnapshot(adminClient);
+    dataQuality = {
+      ready: true,
+      snapshot: dataQualitySnapshot,
+      error: dataQualityError,
+    };
   } else {
     messaging = {
       ready: false,
@@ -513,6 +536,11 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       summary: null,
       error: "Service role key missing; trust markers unavailable.",
     };
+    dataQuality = {
+      ready: false,
+      snapshot: null,
+      error: "Service role key missing; data quality unavailable.",
+    };
   }
 
   return {
@@ -535,6 +563,7 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     shareTelemetry,
     rateLimit,
     trustMarkers,
+    dataQuality,
   };
 }
 
@@ -880,6 +909,80 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 {diag.trustMarkers.error && (
                   <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     Errors: {diag.trustMarkers.error}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-semibold text-slate-900">Data quality</h3>
+            {!diag.dataQuality?.ready && (
+              <p className="text-sm text-slate-600">
+                {diag.dataQuality?.error || "Data quality metrics are unavailable."}
+              </p>
+            )}
+            {diag.dataQuality?.ready && diag.dataQuality.snapshot && (
+              <>
+                <ul className="text-sm text-slate-700">
+                  <li>Properties total: {diag.dataQuality.snapshot.counts.total}</li>
+                  <li>Country present, code missing: {diag.dataQuality.snapshot.counts.missingCountryCode}</li>
+                  <li>Code present, country missing: {diag.dataQuality.snapshot.counts.countryCodeMissingCountry}</li>
+                  <li>Deposit amount missing currency: {diag.dataQuality.snapshot.counts.depositMissingCurrency}</li>
+                  <li>Deposit currency missing amount: {diag.dataQuality.snapshot.counts.currencyMissingDeposit}</li>
+                  <li>Size value missing unit: {diag.dataQuality.snapshot.counts.sizeMissingUnit}</li>
+                  <li>Size unit missing value: {diag.dataQuality.snapshot.counts.unitMissingSize}</li>
+                  <li>Listing type missing: {diag.dataQuality.snapshot.counts.listingTypeMissing}</li>
+                  <li>Year built out of range: {diag.dataQuality.snapshot.counts.yearBuiltOutOfRange}</li>
+                  <li>Bathroom type missing (bathrooms &gt; 0): {diag.dataQuality.snapshot.counts.bathroomTypeMissing}</li>
+                  <li>
+                    Missing photos:{" "}
+                    {diag.dataQuality.snapshot.counts.missingPhotos === null
+                      ? "Not available"
+                      : diag.dataQuality.snapshot.counts.missingPhotos}
+                  </li>
+                </ul>
+                <div className="mt-3 space-y-3">
+                  {diag.dataQuality.snapshot.samples.missingCountryCode.length ? (
+                    <div>
+                      <p className="text-xs text-slate-500">Sample: missing country codes</p>
+                      <ul className="mt-1 text-sm text-slate-700">
+                        {diag.dataQuality.snapshot.samples.missingCountryCode.map((row) => (
+                          <li key={row.id}>
+                            {row.id} · {row.title || "Untitled"} · {row.country || "country n/a"} · {row.city || "city n/a"}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {diag.dataQuality.snapshot.samples.missingDepositCurrency.length ? (
+                    <div>
+                      <p className="text-xs text-slate-500">Sample: deposit missing currency</p>
+                      <ul className="mt-1 text-sm text-slate-700">
+                        {diag.dataQuality.snapshot.samples.missingDepositCurrency.map((row) => (
+                          <li key={row.id}>
+                            {row.id} · {row.title || "Untitled"} · deposit {row.deposit_amount ?? "n/a"} · {row.currency || "currency n/a"}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {diag.dataQuality.snapshot.samples.missingPhotos?.length ? (
+                    <div>
+                      <p className="text-xs text-slate-500">Sample: missing photos</p>
+                      <ul className="mt-1 text-sm text-slate-700">
+                        {diag.dataQuality.snapshot.samples.missingPhotos.map((row) => (
+                          <li key={row.id}>
+                            {row.id} · {row.title || "Untitled"}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                </div>
+                {diag.dataQuality.error && (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    Errors: {diag.dataQuality.error}
                   </div>
                 )}
               </>

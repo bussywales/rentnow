@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-10 — v1.7.42-r9.1.9-data-quality-dashboard
+- Added admin read-only data quality snapshot with missing metadata counts and samples.
+- Included missing-photos metric when derived from property_images.
+- Documented QA checks for data quality verification.
+
 ## 2026-01-27 — v1.7.38-r9.1.3-beta-guardrails
 - Documented beta smoke checklist for the listing stepper (Photos auth flow).
 - Added session troubleshooting notes for auth cookie validation.

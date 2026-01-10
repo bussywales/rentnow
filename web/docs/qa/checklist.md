@@ -84,6 +84,16 @@
 - Run the backfill coverage query and confirm missing_country_code trends down.
 - Create or edit a listing and confirm `country_code` is written alongside `country`.
 
+## Admin data quality checks
+- Open `/admin/support` and confirm the Data quality panel renders.
+- Verify counts for missing country codes, deposit mismatches, and size mismatches are visible.
+- If missing photos is supported, confirm the count is non-null and sample rows render.
+- SQL coverage checks:
+- `select count(*) from public.properties where country is not null and country_code is null;`
+- `select count(*) from public.properties where deposit_amount is not null and deposit_currency is null;`
+- `select count(*) from public.properties where size_value is not null and size_unit is null;`
+- `select count(*) from public.properties p left join public.property_images pi on pi.property_id = p.id where pi.id is null;`
+
 ## Role-aware CTAs
 - Landing CTA shows “List a property” for unauthenticated users (redirects to login).
 - Landing CTA shows “Find a home” for tenants and “List a property” for landlords/agents.
