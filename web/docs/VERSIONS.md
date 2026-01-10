@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-27 — v1.7.33-r7.7.3.2-airbnb-form-layout
+- Reworked Basics step into a two-column layout with a sticky pricing card.
+- Grouped pricing and availability fields for clearer hierarchy and spacing.
+- Updated layout coverage to validate the pricing card structure.
+
 ## 2026-01-27 — v1.7.33-r7.7.3.1-form-bottom-row-layout
 - Rebalanced the basics step bottom row into two groups for better spacing.
 - Widened the rent period control and kept pricing fields aligned.

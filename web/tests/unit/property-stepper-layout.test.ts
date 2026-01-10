@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-void test("property stepper basics layout groups bottom fields into two columns", () => {
+void test("property stepper basics layout groups pricing into a card", () => {
   const stepperPath = path.join(
     process.cwd(),
     "components",
@@ -13,19 +13,15 @@ void test("property stepper basics layout groups bottom fields into two columns"
   const contents = fs.readFileSync(stepperPath, "utf8");
 
   assert.ok(
-    contents.includes("lg:grid-cols-[2fr_1fr]"),
-    "expected two-column wrapper for the bottom row groups"
+    contents.includes("Pricing & availability"),
+    "expected pricing card heading"
   );
-  assert.ok(
-    contents.includes("lg:grid-cols-[1fr_1fr_1.4fr]"),
-    "expected widened rent period column in the pricing group"
-  );
+  assert.ok(contents.includes("Price"), "expected price field in pricing card");
+  assert.ok(contents.includes("Currency"), "expected currency field in pricing card");
+  assert.ok(contents.includes("Rent period"), "expected rent period in pricing card");
   assert.ok(
     contents.includes("Available from"),
-    "expected available from field in the left group"
+    "expected available from in pricing card"
   );
-  assert.ok(
-    contents.includes("Rent period"),
-    "expected rent period field in the right group"
-  );
+  assert.ok(contents.includes("Furnished"), "expected furnished toggle in pricing card");
 });

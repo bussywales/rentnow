@@ -176,7 +176,7 @@ export function CurrencySelect({ id, value, onChange, placeholder, disabled }: P
       </button>
       {isOpen ? (
         <div
-          className={`absolute z-30 w-full rounded-lg border border-slate-200 bg-white shadow-lg ${
+          className={`absolute z-40 w-full rounded-lg border border-slate-200 bg-white shadow-lg ${
             openUp ? "bottom-full mb-2" : "top-full mt-2"
           }`}
         >
