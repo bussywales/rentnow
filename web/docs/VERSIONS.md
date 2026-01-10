@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-10 — v1.7.43-r9.1.10-admin-support-affected-listings
+- Added affected listings table to admin support with owner display and missing-field summaries.
+- Added unit coverage for affected listing detection and owner label fallback.
+- Documented admin QA steps for the affected listings sample.
+
 ## 2026-01-10 — v1.7.42-r9.1.9-data-quality-dashboard
 - Added admin read-only data quality snapshot with missing metadata counts and samples.
 - Included missing-photos metric when derived from property_images.

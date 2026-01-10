@@ -86,6 +86,7 @@
 
 ## Admin data quality checks
 - Open `/admin/support` and confirm the Data quality panel renders.
+- Confirm the Affected listings table appears with sample rows and missing-field chips.
 - Verify counts for missing country codes, deposit mismatches, and size mismatches are visible.
 - If missing photos is supported, confirm the count is non-null and sample rows render.
 - SQL coverage checks:

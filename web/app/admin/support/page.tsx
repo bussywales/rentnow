@@ -24,6 +24,10 @@ import {
   type TrustMarkerSummary,
 } from "@/lib/admin/trust-markers";
 import {
+  buildAffectedListings,
+  type AffectedListingsSnapshot,
+} from "@/lib/admin/affected-listings";
+import {
   buildDataQualitySnapshot,
   type DataQualitySnapshot,
 } from "@/lib/admin/data-quality";
@@ -112,6 +116,12 @@ type DataQualityDiagnostics = {
   error: string | null;
 };
 
+type AffectedListingsDiagnostics = {
+  ready: boolean;
+  snapshot: AffectedListingsSnapshot | null;
+  error: string | null;
+};
+
 type SearchParams = Record<string, string | string[] | undefined>;
 
 type SupportProps = {
@@ -158,6 +168,11 @@ function resolveThrottleRange(value?: string): ThrottleRange {
 
 function toIsoRangeStart(windowMs: number) {
   return new Date(Date.now() - windowMs).toISOString();
+}
+
+function formatDateLabel(value?: string | null) {
+  if (!value) return "n/a";
+  return value.slice(0, 10);
 }
 
 async function getDiagnostics(throttleRange: ThrottleRange) {
@@ -240,6 +255,11 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     error: null,
   };
   let dataQuality: DataQualityDiagnostics = {
+    ready: false,
+    snapshot: null,
+    error: null,
+  };
+  let affectedListings: AffectedListingsDiagnostics = {
     ready: false,
     snapshot: null,
     error: null,
@@ -503,6 +523,14 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       snapshot: dataQualitySnapshot,
       error: dataQualityError,
     };
+
+    const { listings, missingPhotosAvailable, error: affectedError } =
+      await buildAffectedListings(adminClient);
+    affectedListings = {
+      ready: true,
+      snapshot: { listings, missingPhotosAvailable, error: affectedError },
+      error: affectedError,
+    };
   } else {
     messaging = {
       ready: false,
@@ -541,6 +569,11 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       snapshot: null,
       error: "Service role key missing; data quality unavailable.",
     };
+    affectedListings = {
+      ready: false,
+      snapshot: null,
+      error: "Service role key missing; affected listings unavailable.",
+    };
   }
 
   return {
@@ -564,6 +597,7 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     rateLimit,
     trustMarkers,
     dataQuality,
+    affectedListings,
   };
 }
 
@@ -983,6 +1017,66 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 {diag.dataQuality.error && (
                   <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     Errors: {diag.dataQuality.error}
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:col-span-2">
+            <h3 className="text-lg font-semibold text-slate-900">Affected listings</h3>
+            {!diag.affectedListings?.ready && (
+              <p className="text-sm text-slate-600">
+                {diag.affectedListings?.error || "Affected listings are unavailable."}
+              </p>
+            )}
+            {diag.affectedListings?.ready && diag.affectedListings.snapshot && (
+              <>
+                {!diag.affectedListings.snapshot.missingPhotosAvailable && (
+                  <p className="text-xs text-slate-500">
+                    Missing photos: not available (property_images join unavailable).
+                  </p>
+                )}
+                {diag.affectedListings.snapshot.listings.length ? (
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="min-w-full text-left text-sm text-slate-700">
+                      <thead className="text-xs uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="py-2 pr-4">Listing</th>
+                          <th className="py-2 pr-4">Status</th>
+                          <th className="py-2 pr-4">Owner</th>
+                          <th className="py-2 pr-4">Missing fields</th>
+                          <th className="py-2">Created</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {diag.affectedListings.snapshot.listings.map((row) => (
+                          <tr key={row.id} className="border-t border-slate-100">
+                            <td className="py-2 pr-4">
+                              <Link
+                                href={`/properties/${row.id}`}
+                                className="font-semibold text-sky-700 underline"
+                              >
+                                {row.title || "Untitled"}
+                              </Link>
+                            </td>
+                            <td className="py-2 pr-4 capitalize">{row.statusLabel}</td>
+                            <td className="py-2 pr-4">{row.ownerLabel}</td>
+                            <td className="py-2 pr-4">
+                              Missing: {row.missingLabels.join(", ")}
+                            </td>
+                            <td className="py-2">{formatDateLabel(row.createdAt)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-600">No affected listings in the current sample.</p>
+                )}
+                {diag.affectedListings.snapshot.error && (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    Errors: {diag.affectedListings.snapshot.error}
                   </div>
                 )}
               </>
