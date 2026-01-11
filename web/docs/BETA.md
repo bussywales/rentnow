@@ -4,6 +4,14 @@
 This doc captures beta-facing guardrails, expected behaviors, and quick checks for common support issues.
 It does not add new features; it documents what the product already does.
 
+## Tooling requirement
+- Node.js >= 20.9.0 (recommended: 20.9.0).
+- npm version follows the Node install.
+- Example:
+  - `nvm install 20.9.0`
+  - `nvm use 20.9.0`
+- Troubleshooting: If `npm ci` fails with `@supabase/ssr` undefined, you are likely on an old Node (e.g. v14).
+
 ## Release Discipline (Beta)
 - Work only from the beta branch (`feat/r6.7`).
 - Run validations before tagging: `npm ci`, `npm run lint`, `npm run build`, `npm test`.
