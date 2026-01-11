@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-10 — v1.7.44-r9.2-alerting
+- Added admin alerts inbox with push/messaging/data quality signals and runbook guidance.
+- Added admin-only alert dispatch webhook endpoint (disabled by default).
+- Documented alerting verification steps and payload safety guardrails.
+
 ## 2026-01-10 — v1.7.43-r9.1.10-admin-support-affected-listings
 - Added affected listings table to admin support with owner display and missing-field summaries.
 - Added unit coverage for affected listing detection and owner label fallback.

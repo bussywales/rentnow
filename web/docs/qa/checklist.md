@@ -89,6 +89,11 @@
 - Confirm the Affected listings table appears with sample rows and missing-field chips.
 - Verify counts for missing country codes, deposit mismatches, and size mismatches are visible.
 - If missing photos is supported, confirm the count is non-null and sample rows render.
+
+## Alerting verification
+- Visit `/admin/alerts` and confirm alerts render with severity and windows.
+- Without `ALERT_WEBHOOK_URL`, call `POST /api/admin/alerts/dispatch` and confirm `reason: "disabled"`.
+- With `ALERT_WEBHOOK_URL`, confirm dispatch returns `dispatched > 0` when alerts are eligible.
 - SQL coverage checks:
 - `select count(*) from public.properties where country is not null and country_code is null;`
 - `select count(*) from public.properties where deposit_amount is not null and deposit_currency is null;`
