@@ -57,6 +57,14 @@ const requiredPolicies: Record<string, string[]> = {
     "provider events update self",
     "provider events admin update",
   ],
+  role_change_audit: ["role change audit admin read", "role change audit admin insert"],
+  messaging_throttle_events: ["messaging throttle admin read"],
+  push_subscriptions: [
+    "push subscriptions delete self",
+    "push subscriptions insert self",
+    "push subscriptions select self",
+    "push subscriptions update self",
+  ],
 };
 
 export async function GET(request: Request) {
@@ -115,6 +123,9 @@ export async function GET(request: Request) {
       "plan_upgrade_requests",
       "provider_settings",
       "provider_payment_events",
+      "role_change_audit",
+      "messaging_throttle_events",
+      "push_subscriptions",
     ];
     rlsTables.forEach((table) => {
       if (!rls?.[table]?.enabled) {
@@ -132,6 +143,12 @@ export async function GET(request: Request) {
     });
 
     if (!columns?.profiles?.id) issues.push("missing column: profiles.id");
+    if (!columns?.profiles?.onboarding_completed) {
+      issues.push("missing column: profiles.onboarding_completed");
+    }
+    if (!columns?.profiles?.onboarding_completed_at) {
+      issues.push("missing column: profiles.onboarding_completed_at");
+    }
     if (!columns?.properties?.owner_id) issues.push("missing column: properties.owner_id");
     if (!columns?.properties?.is_approved) issues.push("missing column: properties.is_approved");
     if (!columns?.properties?.is_active) issues.push("missing column: properties.is_active");
@@ -265,6 +282,69 @@ export async function GET(request: Request) {
     }
     if (!columns?.provider_payment_events?.processed_at) {
       issues.push("missing column: provider_payment_events.processed_at");
+    }
+    if (!columns?.role_change_audit?.target_profile_id) {
+      issues.push("missing column: role_change_audit.target_profile_id");
+    }
+    if (!columns?.role_change_audit?.actor_profile_id) {
+      issues.push("missing column: role_change_audit.actor_profile_id");
+    }
+    if (!columns?.role_change_audit?.new_role) {
+      issues.push("missing column: role_change_audit.new_role");
+    }
+    if (!columns?.role_change_audit?.created_at) {
+      issues.push("missing column: role_change_audit.created_at");
+    }
+    if (!columns?.messaging_throttle_events?.actor_profile_id) {
+      issues.push("missing column: messaging_throttle_events.actor_profile_id");
+    }
+    if (!columns?.messaging_throttle_events?.thread_key) {
+      issues.push("missing column: messaging_throttle_events.thread_key");
+    }
+    if (!columns?.messaging_throttle_events?.property_id) {
+      issues.push("missing column: messaging_throttle_events.property_id");
+    }
+    if (!columns?.messaging_throttle_events?.recipient_profile_id) {
+      issues.push("missing column: messaging_throttle_events.recipient_profile_id");
+    }
+    if (!columns?.messaging_throttle_events?.reason_code) {
+      issues.push("missing column: messaging_throttle_events.reason_code");
+    }
+    if (!columns?.messaging_throttle_events?.retry_after_seconds) {
+      issues.push("missing column: messaging_throttle_events.retry_after_seconds");
+    }
+    if (!columns?.messaging_throttle_events?.window_seconds) {
+      issues.push("missing column: messaging_throttle_events.window_seconds");
+    }
+    if (!columns?.messaging_throttle_events?.max_sends) {
+      issues.push("missing column: messaging_throttle_events.max_sends");
+    }
+    if (!columns?.messaging_throttle_events?.mode) {
+      issues.push("missing column: messaging_throttle_events.mode");
+    }
+    if (!columns?.messaging_throttle_events?.ip_hash) {
+      issues.push("missing column: messaging_throttle_events.ip_hash");
+    }
+    if (!columns?.push_subscriptions?.id) {
+      issues.push("missing column: push_subscriptions.id");
+    }
+    if (!columns?.push_subscriptions?.profile_id) {
+      issues.push("missing column: push_subscriptions.profile_id");
+    }
+    if (!columns?.push_subscriptions?.endpoint) {
+      issues.push("missing column: push_subscriptions.endpoint");
+    }
+    if (!columns?.push_subscriptions?.p256dh) {
+      issues.push("missing column: push_subscriptions.p256dh");
+    }
+    if (!columns?.push_subscriptions?.auth) {
+      issues.push("missing column: push_subscriptions.auth");
+    }
+    if (!columns?.push_subscriptions?.is_active) {
+      issues.push("missing column: push_subscriptions.is_active");
+    }
+    if (!columns?.messaging_throttle_events?.created_at) {
+      issues.push("missing column: messaging_throttle_events.created_at");
     }
   }
 

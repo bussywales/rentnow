@@ -167,6 +167,15 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
   }
 
   if (!property) {
+    const showDiagnostics = process.env.NODE_ENV === "development";
+    const normalizedError = fetchError?.toLowerCase() ?? "";
+    const invalidLink =
+      normalizedError.includes("invalid property id") ||
+      normalizedError.includes("invalid input syntax") ||
+      normalizedError.includes("uuid");
+    const userMessage = invalidLink
+      ? "This listing link looks invalid. Please open it again from your dashboard."
+      : "This listing doesn't exist or could not be loaded. Please pick another from your dashboard.";
     return (
       <div className="space-y-4">
         <div>
@@ -174,15 +183,10 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
             Listing not found
           </h1>
           <p className="text-sm text-slate-600">
-            This listing doesn&apos;t exist or could not be loaded. Please pick another from your dashboard.
+            {userMessage}
           </p>
-          {fetchError && (
-            <p className="text-xs text-amber-700">Error: {fetchError}</p>
-          )}
-          {!fetchError && (
-            <p className="text-xs text-slate-500">
-              Ensure the listing id is approved/active and visible via /api/properties.
-            </p>
+          {fetchError && showDiagnostics && (
+            <p className="text-xs text-amber-700">Diagnostics: {fetchError}</p>
           )}
         </div>
         <Link href="/dashboard" className="text-sky-700 font-semibold">

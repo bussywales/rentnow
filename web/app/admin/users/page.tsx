@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AdminUserActions } from "@/components/admin/AdminUserActions";
 import { isPlanExpired, normalizePlanTier } from "@/lib/plans";
+import { formatRoleStatus } from "@/lib/roles";
+import { getAdminAccessState, shouldShowProfileMissing } from "@/lib/admin/user-view";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
@@ -15,7 +17,12 @@ type AdminAuthUser = {
   last_sign_in_at?: string;
 };
 
-type ProfileRow = { id: string; role: string | null; full_name: string | null };
+type ProfileRow = {
+  id: string;
+  role: string | null;
+  full_name: string | null;
+  onboarding_completed?: boolean | null;
+};
 type PlanRow = {
   profile_id: string;
   plan_tier: string | null;
@@ -39,10 +46,12 @@ async function requireAdmin() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("role")
+    .select("role, onboarding_completed")
     .eq("id", user.id)
     .maybeSingle();
-  if (profile?.role !== "admin") redirect("/forbidden?reason=role");
+  const access = getAdminAccessState(profile);
+  if (!access.isAdmin) redirect("/forbidden?reason=role");
+  return access;
 }
 
 async function getUsers() {
@@ -55,11 +64,10 @@ async function getUsers() {
     console.error("[admin/users] listUsers failed", error.message);
     return { users: [], profiles: [], plans: [], notes: [], pendingCount: 0, pendingMap: {} as Record<string, number> };
   }
-  const supabase = await createServerSupabaseClient();
   const ids = (data.users || []).map((u) => u.id);
-  const { data: profiles } = await supabase
+  const { data: profiles } = await adminClient
     .from("profiles")
-    .select("id, role, full_name")
+    .select("id, role, full_name, onboarding_completed")
     .in("id", ids);
   const { data: plans } = await adminClient
     .from("profile_plans")
@@ -101,9 +109,10 @@ function joinNotes(notes: BillingNotesRow[], userId: string) {
 }
 
 export default async function AdminUsersPage() {
-  await requireAdmin();
+  const adminAccess = await requireAdmin();
   const serviceReady = hasServiceRoleEnv();
   const { users, profiles, plans, notes, pendingCount, pendingMap } = await getUsers();
+  const adminActionsDisabled = adminAccess.actionsDisabled;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -116,6 +125,11 @@ export default async function AdminUsersPage() {
         {!serviceReady && (
           <p className="mt-2 text-sm text-amber-100">
             Add SUPABASE_SERVICE_ROLE_KEY to enable admin user actions.
+          </p>
+        )}
+        {adminAccess.showOnboardingBanner && (
+          <p className="mt-2 text-sm text-amber-100">
+            Finish onboarding to enable admin actions. You can still view users in read-only mode.
           </p>
         )}
         <div className="mt-3 flex gap-3 text-sm">
@@ -155,6 +169,10 @@ export default async function AdminUsersPage() {
             const planTier = normalizePlanTier(plan?.plan_tier ?? "free");
             const expired = isPlanExpired(plan?.valid_until ?? null);
             const pendingForUser = pendingMap[user.id] ?? 0;
+            const profileMissing = shouldShowProfileMissing(profile, serviceReady);
+            const roleLabel = profileMissing
+              ? "Profile missing"
+              : formatRoleStatus(profile?.role, profile?.onboarding_completed ?? null);
             return (
               <div key={user.id} className="flex flex-col gap-2 py-3 md:flex-row md:items-center md:justify-between">
                 <div>
@@ -165,10 +183,14 @@ export default async function AdminUsersPage() {
                         Pending request
                       </span>
                     )}
+                    {profileMissing && (
+                      <span className="rounded-full bg-rose-100 px-2 py-1 text-xs text-rose-700">
+                        Profile missing
+                      </span>
+                    )}
                   </div>
                   <p className="text-slate-600">
-                    Role: {profile?.role || "unknown"} • Name: {profile?.full_name || "—"} • Plan:{" "}
-                    {planTier}
+                    Role: {roleLabel} • Name: {profile?.full_name || "—"} • Plan: {planTier}
                   </p>
                   <p className="text-xs text-slate-500">
                     Source: {plan?.billing_source || "manual"} • Status: {plan?.stripe_status || "—"} • Valid
@@ -183,6 +205,9 @@ export default async function AdminUsersPage() {
                   userId={user.id}
                   email={user.email}
                   serviceReady={serviceReady}
+                  actionsDisabled={adminActionsDisabled}
+                  currentRole={profile?.role ?? null}
+                  onboardingCompleted={profile?.onboarding_completed ?? null}
                   planTier={plan?.plan_tier ?? null}
                   maxListingsOverride={plan?.max_listings_override ?? null}
                   validUntil={plan?.valid_until ?? null}

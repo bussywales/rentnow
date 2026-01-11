@@ -3,8 +3,25 @@ import { z } from "zod";
 import { DEV_MOCKS } from "@/lib/env";
 import { getUserRole, requireUser } from "@/lib/authz";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { logFailure } from "@/lib/observability";
 import { mockProperties } from "@/lib/mock";
+import {
+  buildMessagingPermission,
+  getMessagingPermission,
+  getMessagingReasonCta,
+  type MessagingPermissionCode,
+} from "@/lib/messaging/permissions";
+import {
+  checkMessagingRateLimit,
+  getMessagingRateLimitConfig,
+} from "@/lib/messaging/rate-limit";
+import {
+  buildThrottleTelemetryRow,
+  buildThrottleThreadKey,
+  recordThrottleTelemetryEvent,
+} from "@/lib/messaging/throttle-telemetry";
+import { mapDeliveryState, withDeliveryState } from "@/lib/messaging/status";
 import type { Message } from "@/lib/types";
 
 const messageSchema = z.object({
@@ -12,6 +29,56 @@ const messageSchema = z.object({
   recipient_id: z.string().uuid(),
   body: z.string().min(1),
 });
+
+type PermissionPayload = {
+  allowed: boolean;
+  code?: MessagingPermissionCode;
+  message?: string;
+};
+
+function buildPermission(code: MessagingPermissionCode): PermissionPayload {
+  return buildMessagingPermission(code);
+}
+
+function permissionStatus(code: MessagingPermissionCode): number {
+  switch (code) {
+    case "not_authenticated":
+      return 401;
+    case "rate_limited":
+      return 429;
+    case "property_not_accessible":
+      return 404;
+    case "unknown":
+      return 503;
+    default:
+      return 403;
+  }
+}
+
+export function buildPermissionResponseBody(
+  code: MessagingPermissionCode,
+  extra: Record<string, unknown> = {}
+) {
+  const permission = buildPermission(code);
+  return {
+    ok: false,
+    message: permission.message,
+    reason_code: permission.code,
+    error: permission.message,
+    code: permission.code,
+    permission,
+    ...extra,
+  };
+}
+
+function permissionErrorResponse(
+  code: MessagingPermissionCode,
+  extra: Record<string, unknown> = {}
+) {
+  return NextResponse.json(buildPermissionResponseBody(code, extra), {
+    status: permissionStatus(code),
+  });
+}
 
 export async function GET(request: Request) {
   const startTime = Date.now();
@@ -21,13 +88,17 @@ export async function GET(request: Request) {
   let messages: Message[] = [];
 
   if (!propertyId) {
-    return NextResponse.json({ messages });
+    return NextResponse.json({
+      messages,
+      permission: buildPermission("property_not_accessible"),
+    });
   }
 
   if (!hasServerSupabaseEnv()) {
+    const permission = buildPermission("unknown");
     if (DEV_MOCKS) {
       return NextResponse.json({
-        messages: [
+        messages: mapDeliveryState([
           {
             id: "demo-message",
             property_id: propertyId,
@@ -36,7 +107,8 @@ export async function GET(request: Request) {
             body: "Demo mode: connect Supabase to enable real messaging.",
             created_at: new Date().toISOString(),
           },
-        ],
+        ]),
+        permission,
       });
     }
     logFailure({
@@ -47,17 +119,45 @@ export async function GET(request: Request) {
       error: "Supabase env vars missing",
     });
     return NextResponse.json(
-      { error: "Supabase is not configured; messaging is unavailable.", messages: [] },
+      {
+        error: permission.message,
+        code: permission.code,
+        messages: [],
+        permission,
+      },
       { status: 503 }
     );
   }
 
   try {
     const auth = await requireUser({ request, route: routeLabel, startTime });
-    if (!auth.ok) return auth.response;
+    if (!auth.ok) {
+      return permissionErrorResponse("not_authenticated", { messages: [] });
+    }
 
     const supabase = auth.supabase;
     const role = await getUserRole(supabase, auth.user.id);
+    let propertyOwnerId: string | null = null;
+    let propertyPublished = false;
+
+    const { data: property, error: propertyError } = await supabase
+      .from("properties")
+      .select("id, owner_id, is_approved, is_active")
+      .eq("id", propertyId)
+      .maybeSingle();
+
+    if (propertyError) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 500,
+        startTime,
+        error: new Error(propertyError.message),
+      });
+    } else if (property) {
+      propertyOwnerId = property.owner_id;
+      propertyPublished = property.is_approved === true && property.is_active === true;
+    }
 
     let query = supabase
       .from("messages")
@@ -82,17 +182,29 @@ export async function GET(request: Request) {
           startTime,
           error: new Error(error.message),
         });
-        return NextResponse.json(
-          { error: error.message, messages: [] },
-          { status: 500 }
-        );
+        return permissionErrorResponse("unknown", { messages: [] });
       }
     } else if (data) {
-      messages = data;
+      messages = mapDeliveryState(data);
     }
+
+    const hasThread = messages.length > 0;
+    const permission = propertyOwnerId
+      ? getMessagingPermission({
+          senderRole: role,
+          senderId: auth.user.id,
+          recipientId: propertyOwnerId,
+          propertyOwnerId,
+          propertyPublished,
+          isOwner: auth.user.id === propertyOwnerId,
+          hasThread,
+        })
+      : buildPermission("property_not_accessible");
+
+    return NextResponse.json({ messages, permission });
   } catch (err: unknown) {
     if (DEV_MOCKS) {
-      messages = [
+      messages = mapDeliveryState([
         {
           id: "mock-msg-1",
           property_id: propertyId,
@@ -101,7 +213,7 @@ export async function GET(request: Request) {
           body: "Is this still available next month?",
           created_at: new Date().toISOString(),
         },
-      ];
+      ]);
     } else {
       logFailure({
         request,
@@ -110,14 +222,13 @@ export async function GET(request: Request) {
         startTime,
         error: err,
       });
-      return NextResponse.json(
-        { error: "Unable to load messages.", messages: [] },
-        { status: 500 }
-      );
+      return permissionErrorResponse("unknown", { messages: [] });
     }
   }
-
-  return NextResponse.json({ messages });
+  return NextResponse.json({
+    messages,
+    permission: buildPermission("unknown"),
+  });
 }
 
 export async function POST(request: Request) {
@@ -132,20 +243,23 @@ export async function POST(request: Request) {
       startTime,
       error: "Supabase env vars missing",
     });
-    return NextResponse.json(
-      { error: "Supabase is not configured; messaging is available in live mode only." },
-      { status: 503 }
-    );
+    return permissionErrorResponse("unknown");
   }
 
   try {
     const auth = await requireUser({ request, route: routeLabel, startTime });
-    if (!auth.ok) return auth.response;
+    if (!auth.ok) {
+      return permissionErrorResponse("not_authenticated");
+    }
     const supabase = auth.supabase;
     const role = await getUserRole(supabase, auth.user.id);
 
-    const body = await request.json();
-    const payload = messageSchema.parse(body);
+    const body = await request.json().catch(() => null);
+    const parsed = messageSchema.safeParse(body);
+    if (!parsed.success) {
+      return permissionErrorResponse("unknown");
+    }
+    const payload = parsed.data;
 
     const { data: property, error: propertyError } = await supabase
       .from("properties")
@@ -161,23 +275,12 @@ export async function POST(request: Request) {
         startTime,
         error: "Property not found",
       });
-      return NextResponse.json({ error: "Property not found" }, { status: 404 });
+      return permissionErrorResponse("property_not_accessible");
     }
 
-    const isAdmin = role === "admin";
     const isOwner = auth.user.id === property.owner_id;
     const isPublished = property.is_approved === true && property.is_active === true;
-
-    if (!isPublished && !isOwner && !isAdmin) {
-      logFailure({
-        request,
-        route: routeLabel,
-        status: 403,
-        startTime,
-        error: "Property not published",
-      });
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-    }
+    let hasThread = true;
 
     if (isOwner) {
       const { data: existingThread } = await supabase
@@ -188,26 +291,87 @@ export async function POST(request: Request) {
           `and(sender_id.eq.${auth.user.id},recipient_id.eq.${payload.recipient_id}),and(sender_id.eq.${payload.recipient_id},recipient_id.eq.${auth.user.id})`
         )
         .limit(1);
+      hasThread = !!existingThread?.length;
+    }
 
-      if (!existingThread?.length && !isAdmin) {
-        logFailure({
-          request,
-          route: routeLabel,
-          status: 403,
-          startTime,
-          error: "Owner cannot start new thread",
-        });
-        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-      }
-    } else if (payload.recipient_id !== property.owner_id && !isAdmin) {
+    const permission = getMessagingPermission({
+      senderRole: role,
+      senderId: auth.user.id,
+      recipientId: payload.recipient_id,
+      propertyOwnerId: property.owner_id,
+      propertyPublished: isPublished,
+      isOwner,
+      hasThread,
+    });
+
+    if (!permission.allowed) {
+      const code = permission.code ?? "unknown";
       logFailure({
         request,
         route: routeLabel,
-        status: 403,
+        status: permissionStatus(code),
         startTime,
-        error: "Recipient must be owner",
+        error: permission.message ?? "Messaging restricted",
       });
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+      return permissionErrorResponse(code);
+    }
+
+    const rateLimit = checkMessagingRateLimit({
+      senderId: auth.user.id,
+      recipientId: payload.recipient_id,
+      propertyId: payload.property_id,
+    });
+
+    if (!rateLimit.allowed) {
+      if (hasServiceRoleEnv()) {
+        const config = getMessagingRateLimitConfig();
+        const threadKey = buildThrottleThreadKey({
+          propertyId: payload.property_id,
+          recipientId: payload.recipient_id,
+          senderId: auth.user.id,
+        });
+        try {
+          const adminClient = createServiceRoleClient();
+          const row = buildThrottleTelemetryRow({
+            actorProfileId: auth.user.id,
+            threadKey,
+            propertyId: payload.property_id,
+            recipientProfileId: payload.recipient_id,
+            retryAfterSeconds: rateLimit.retryAfterSeconds,
+            windowSeconds: config.windowSeconds,
+            maxSends: config.maxSends,
+            mode: "send_message",
+          });
+          const result = await recordThrottleTelemetryEvent({
+            client: adminClient,
+            code: "rate_limited",
+            row,
+          });
+          if (!result.ok && !result.skipped) {
+            logFailure({
+              request,
+              route: routeLabel,
+              status: 500,
+              startTime,
+              level: "warn",
+              error: result.error || "messaging throttle telemetry insert failed",
+            });
+          }
+        } catch (err) {
+          logFailure({
+            request,
+            route: routeLabel,
+            status: 500,
+            startTime,
+            level: "warn",
+            error: err,
+          });
+        }
+      }
+      return permissionErrorResponse("rate_limited", {
+        retry_after_seconds: rateLimit.retryAfterSeconds,
+        cta: getMessagingReasonCta("rate_limited"),
+      });
     }
 
     const { data, error } = await supabase
@@ -227,9 +391,12 @@ export async function POST(request: Request) {
         startTime,
         error: new Error(error.message),
       });
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: error.message, code: "unknown" },
+        { status: 400 }
+      );
     }
-    return NextResponse.json({ message: data });
+    return NextResponse.json({ message: withDeliveryState(data) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unable to send message";
     logFailure({

@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { normalizeRole } from "@/lib/roles";
 import type { UserRole } from "@/lib/types";
 
 type NavLink = {
@@ -21,35 +23,56 @@ type Props = {
 
 export function NavLinksClient({ links, initialAuthed, initialRole }: Props) {
   const [isAuthed, setIsAuthed] = useState(initialAuthed);
-  const [role, setRole] = useState<UserRole | "super_admin" | null>(initialRole);
+  const normalizedInitialRole =
+    initialRole === "super_admin" ? "super_admin" : normalizeRole(initialRole);
+  const [role, setRole] = useState<UserRole | "super_admin" | null>(
+    normalizedInitialRole
+  );
 
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
+    const syncRole = async (userId?: string | null) => {
+      if (!userId) {
+        setRole(null);
+        return;
+      }
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", userId)
+          .maybeSingle();
+        const normalizedRole = normalizeRole(profile?.role);
+        setRole(normalizedRole ?? null);
+      } catch {
+        setRole(null);
+      }
+    };
+
     supabase.auth
       .getSession()
-      .then(
-        ({ data }: { data: { session: { user?: { id: string } } | null } }) => {
-          const session = data.session;
-          const authed = !!session?.user;
-          setIsAuthed(authed);
-          if (authed && session?.user?.id && !role) {
-            const userId = session.user.id;
-            supabase
-              .from("profiles")
-              .select("role")
-              .eq("id", userId)
-              .maybeSingle()
-              .then(({ data: profile }: { data: { role?: string } | null }) => {
-                if (profile?.role) {
-                  setRole(profile.role as UserRole);
-                }
-              })
-              .catch(() => undefined);
-          }
-        }
-      )
+      .then(({ data }: { data: { session: { user?: { id: string } } | null } }) => {
+        const session = data.session;
+        const authed = !!session?.user;
+        setIsAuthed(authed);
+        syncRole(session?.user?.id ?? null).catch(() => undefined);
+      })
       .catch(() => undefined);
-  }, [role]);
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+      const authed = !!session?.user;
+      setIsAuthed(authed);
+      syncRole(session?.user?.id ?? null).catch(() => undefined);
+      }
+    );
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
 
   return (
     <>

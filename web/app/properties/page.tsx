@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
@@ -8,10 +9,14 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
 import { getTenantPlanForTier } from "@/lib/plans";
+import { getBrowseEmptyStateCtas } from "@/lib/property-discovery";
+import { normalizeRole } from "@/lib/roles";
 import { filtersToChips, parseFiltersFromParams } from "@/lib/search-filters";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property, UserRole } from "@/lib/types";
+import type { TrustMarkerState } from "@/lib/trust-markers";
+import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
   searchParams?: SearchParams | Promise<SearchParams>;
@@ -119,7 +124,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
           .select("role")
           .eq("id", user.id)
           .maybeSingle();
-        role = (profile?.role as UserRole) ?? null;
+        role = normalizeRole(profile?.role);
         if (role === "tenant") {
           const { data: planRow } = await supabase
             .from("profile_plans")
@@ -155,6 +160,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
   let properties: Property[] = [];
   let totalCount: number | null = null;
   let fetchError: string | null = null;
+  let trustSnapshots: Record<string, TrustMarkerState> = {};
   const hubs = [
     { city: "Lagos", label: "Lagos Island" },
     { city: "Nairobi", label: "Nairobi" },
@@ -201,8 +207,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
     } else if (hasFilters) {
       fetchError = fetchError ?? "Supabase env vars missing; live filtering is unavailable.";
     } else {
+      const cookieHeader = cookies().toString();
       const apiRes = await fetch(apiUrl, {
-        next: { revalidate: 60 },
+        ...(cookieHeader ? { cache: "no-store" } : { next: { revalidate: 60 } }),
+        headers: cookieHeader ? { cookie: cookieHeader } : undefined,
       });
       if (!apiRes.ok) {
         fetchError = `API responded with ${apiRes.status}`;
@@ -249,36 +257,77 @@ export default async function PropertiesPage({ searchParams }: Props) {
     }
   }
 
-  if (!properties.length && !fetchError) {
-    fetchError = "API returned 0 properties";
+  if (supabaseReady && properties.length) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const ownerIds = properties.map((property) => property.owner_id);
+      trustSnapshots = await fetchTrustPublicSnapshots(supabase, ownerIds);
+    } catch (err) {
+      console.warn("[properties] trust snapshot fetch failed", err);
+      trustSnapshots = {};
+    }
   }
 
   if (!properties.length) {
+    const emptyDescription = hasFilters
+      ? "No listings match your filters yet. Try clearing filters or browsing all listings."
+      : "No listings are available right now. Check back soon or browse all listings.";
+    const isFetchError = !!fetchError;
+    const title = isFetchError ? "Unable to load listings" : "No properties found";
+    const description = isFetchError
+      ? "We couldn't load listings right now. Please try again."
+      : emptyDescription;
     const retryParams = buildSearchParams(resolvedSearchParams, {});
     const retryHref = retryParams.toString()
       ? `/properties?${retryParams.toString()}`
       : "/properties";
+    const emptyCtas = getBrowseEmptyStateCtas({ role, hasFilters });
+    const showDiagnostics =
+      isFetchError && process.env.NODE_ENV === "development";
+    const showRetry = isFetchError;
+    const renderEmptyCta = (cta: (typeof emptyCtas)[number]) => {
+      if (cta.kind === "primary") {
+        return (
+          <Link key={cta.label} href={cta.href}>
+            <Button size="sm">{cta.label}</Button>
+          </Link>
+        );
+      }
+      if (cta.kind === "secondary") {
+        return (
+          <Link key={cta.label} href={cta.href}>
+            <Button size="sm" variant="secondary">
+              {cta.label}
+            </Button>
+          </Link>
+        );
+      }
+      return (
+        <Link
+          key={cta.label}
+          href={cta.href}
+          className="text-sky-700 font-semibold"
+        >
+          {cta.label}
+        </Link>
+      );
+    };
 
     return (
       <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
         <ErrorState
-          title="No properties found"
-          description={
-            `We couldn't load live listings right now.` +
-            (hasFilters
-              ? " Try adjusting your filters or clearing the search."
-              : " Check the API response and Supabase connection.")
-          }
+          title={title}
+          description={description}
           retryAction={
             <>
-              <Link href={retryHref}>
-                <Button size="sm" variant="secondary">
-                  Retry
-                </Button>
-              </Link>
-              <Link href="/properties" className="text-sky-700 font-semibold">
-                Reset filters
-              </Link>
+              {showRetry && (
+                <Link href={retryHref}>
+                  <Button size="sm" variant="secondary">
+                    Retry
+                  </Button>
+                </Link>
+              )}
+              {emptyCtas.map((cta) => renderEmptyCta(cta))}
               {showListCta && (
                 <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
                   List your first property
@@ -286,13 +335,17 @@ export default async function PropertiesPage({ searchParams }: Props) {
               )}
             </>
           }
-          diagnostics={{
-            apiUrl,
-            hasFilters,
-            supabaseReady,
-            fetchError,
-            env: envPresence,
-          }}
+          diagnostics={
+            showDiagnostics
+              ? {
+                  apiUrl,
+                  hasFilters,
+                  supabaseReady,
+                  fetchError,
+                  env: envPresence,
+                }
+              : undefined
+          }
         />
       </div>
     );
@@ -300,6 +353,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
   const total = typeof totalCount === "number" ? totalCount : properties.length;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const backParams = buildSearchParams(resolvedSearchParams, {});
+  const backHref = backParams.toString()
+    ? `/properties?${backParams.toString()}`
+    : "/properties";
   const prevPage =
     page > 1
       ? `/properties?${buildSearchParams(resolvedSearchParams, { page: String(page - 1) }).toString()}`
@@ -396,7 +453,8 @@ export default async function PropertiesPage({ searchParams }: Props) {
           <PropertyCard
             key={property.id}
             property={property}
-            href={`/properties/${property.id}`}
+            href={`/properties/${property.id}?back=${encodeURIComponent(backHref)}`}
+            trustMarkers={trustSnapshots[property.owner_id]}
           />
         ))}
       </div>

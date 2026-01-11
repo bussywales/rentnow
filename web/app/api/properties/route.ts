@@ -1,32 +1,56 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { requireRole } from "@/lib/authz";
+import { getUserRole, requireUser } from "@/lib/authz";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { readActingAsFromRequest } from "@/lib/acting-as";
 import { getEarlyAccessApprovedBefore } from "@/lib/early-access";
 import { getPlanUsage } from "@/lib/plan-enforcement";
 import { getTenantPlanForTier } from "@/lib/plans";
+import { getListingAccessResult } from "@/lib/role-access";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
+import { normalizeCountryForCreate } from "@/lib/properties/country-normalize";
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
+const CURRENT_YEAR = new Date().getFullYear();
 
 const propertySchema = z.object({
   title: z.string().min(3),
   description: z.string().optional().nullable(),
   city: z.string().min(2),
+  country: z.string().optional().nullable(),
+  country_code: z.string().optional().nullable(),
+  state_region: z.string().optional().nullable(),
   neighbourhood: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
+  listing_type: z
+    .enum(["apartment", "house", "duplex", "studio", "room", "shop", "office", "land"])
+    .optional()
+    .nullable(),
   rental_type: z.enum(["short_let", "long_term"]),
-  price: z.number().nonnegative(),
+  price: z.number().positive(),
   currency: z.string().min(2),
+  rent_period: z.enum(["monthly", "yearly"]).optional(),
   bedrooms: z.number().int().nonnegative(),
   bathrooms: z.number().int().nonnegative(),
+  bathroom_type: z.enum(["private", "shared"]).optional().nullable(),
   furnished: z.boolean(),
+  size_value: z.number().positive().optional().nullable(),
+  size_unit: z.enum(["sqm", "sqft"]).optional().nullable(),
+  year_built: z
+    .number()
+    .int()
+    .min(1800)
+    .max(CURRENT_YEAR + 1)
+    .optional()
+    .nullable(),
+  deposit_amount: z.number().nonnegative().optional().nullable(),
+  deposit_currency: z.string().min(2).optional().nullable(),
+  pets_allowed: z.boolean().optional(),
   amenities: z.array(z.string()).optional().nullable(),
   available_from: z.string().optional().nullable(),
   max_guests: z.number().int().nullable().optional(),
@@ -57,17 +81,43 @@ export async function POST(request: Request) {
   }
 
   try {
-    const auth = await requireRole({
+    const supabase = await createServerSupabaseClient();
+    const auth = await requireUser({
       request,
       route: routeLabel,
       startTime,
-      roles: ["landlord", "agent", "admin"],
+      supabase,
     });
-    if (!auth.ok) return auth.response;
+    if (!auth.ok) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 401,
+        startTime,
+        error: "not_authenticated",
+      });
+      return NextResponse.json(
+        { error: "Please log in to manage listings.", code: "not_authenticated" },
+        { status: 401 }
+      );
+    }
 
-    const supabase = auth.supabase;
     const user = auth.user;
-    const role = auth.role;
+    const role = await getUserRole(supabase, user.id);
+    const access = getListingAccessResult(role, true);
+    if (!access.ok) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: access.status,
+        startTime,
+        error: new Error(access.message),
+      });
+      return NextResponse.json(
+        { error: access.message, code: access.code },
+        { status: access.status }
+      );
+    }
     const actingAs = readActingAsFromRequest(request as NextRequest);
     let ownerId = user.id;
 
@@ -82,7 +132,31 @@ export async function POST(request: Request) {
     const body = await request.json();
     const data = propertySchema.parse(body);
     const { imageUrls = [], status, ...rest } = data;
-    const isAdmin = auth.role === "admin";
+    const normalizedDepositCurrency =
+      typeof rest.deposit_amount === "number"
+        ? rest.deposit_currency ?? rest.currency
+        : null;
+    const normalizedSizeUnit =
+      typeof rest.size_value === "number" ? rest.size_unit ?? "sqm" : null;
+    const { country, country_code } = normalizeCountryForCreate({
+      country: rest.country,
+      country_code: rest.country_code,
+    });
+    const normalized = {
+      ...rest,
+      listing_type: rest.listing_type ?? null,
+      country,
+      country_code,
+      state_region: rest.state_region ?? null,
+      size_value: typeof rest.size_value === "number" ? rest.size_value : null,
+      size_unit: normalizedSizeUnit,
+      year_built: typeof rest.year_built === "number" ? rest.year_built : null,
+      deposit_amount: typeof rest.deposit_amount === "number" ? rest.deposit_amount : null,
+      deposit_currency: normalizedDepositCurrency,
+      bathroom_type: rest.bathroom_type ?? null,
+      pets_allowed: typeof rest.pets_allowed === "boolean" ? rest.pets_allowed : false,
+    };
+    const isAdmin = role === "admin";
     const normalizedStatus = isAdmin && status ? status : "draft";
     const isActive = normalizedStatus === "pending" || normalizedStatus === "live";
     const isApproved = normalizedStatus === "live";
@@ -133,7 +207,7 @@ export async function POST(request: Request) {
     const { data: property, error: insertError } = await supabase
       .from("properties")
       .insert({
-        ...rest,
+        ...normalized,
         amenities: rest.amenities ?? [],
         features: rest.features ?? [],
         status: normalizedStatus,
@@ -272,18 +346,45 @@ export async function GET(request: NextRequest) {
     }
 
     if (ownerOnly) {
-      const auth = await requireRole({
+      const auth = await requireUser({
         request,
         route: routeLabel,
         startTime,
-        roles: ["landlord", "agent", "admin"],
         supabase,
       });
-      if (!auth.ok) return auth.response;
+      if (!auth.ok) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 401,
+          startTime,
+          error: "not_authenticated",
+        });
+        return NextResponse.json(
+          { error: "Please log in to manage listings.", code: "not_authenticated" },
+          { status: 401 }
+        );
+      }
+
+      const role = await getUserRole(supabase, auth.user.id);
+      const access = getListingAccessResult(role, true);
+      if (!access.ok) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: access.status,
+          startTime,
+          error: new Error(access.message),
+        });
+        return NextResponse.json(
+          { error: access.message, code: access.code },
+          { status: access.status }
+        );
+      }
 
       const actingAs = readActingAsFromRequest(request);
       let ownerId = auth.user.id;
-      if (auth.role === "agent" && actingAs && actingAs !== auth.user.id) {
+      if (role === "agent" && actingAs && actingAs !== auth.user.id) {
         const allowed = await hasActiveDelegation(supabase, auth.user.id, actingAs);
         if (!allowed) {
           return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -312,7 +413,7 @@ export async function GET(request: NextRequest) {
         return query;
       };
 
-      if (auth.role !== "admin") {
+      if (role !== "admin") {
         const baseQuery = buildOwnerQuery(true).eq("owner_id", ownerId);
         const { data, error } = await baseQuery;
         if (error && missingPosition(error.message)) {

@@ -176,3 +176,9 @@ Optional:
 - Filter events by mode (test/live) and use replay for failed events when needed.
 
 Manual overrides set `billing_source = manual` and take precedence over Stripe updates.
+
+## Admin role management
+- Go to `/admin/users`.
+- Find the target user and use the Role dropdown to select the new role.
+- Enter a reason (required) and click “Save role”.
+- Role changes are audited in `role_change_audit` for support review.

@@ -10,6 +10,11 @@
 - Set a Max listings override and save (positive integer).
 - Confirm the user can publish up to the new limit and events are logged.
 
+## Admin role management
+- In Admin → Users, change a user role and supply a reason.
+- Confirm the role badge updates and the user sees the correct dashboard links.
+- Verify a role change audit row exists in `role_change_audit`.
+
 ## Manual billing
 - Set `valid_until` in Admin → Users and confirm listing limits re-apply after expiry.
 - Add billing notes and confirm they persist (admin-only).
@@ -51,7 +56,104 @@
 - Use “Copy support snapshot” and “Copy events” to confirm masked output for tickets.
 
 ## Tenant premium & alerts
-- As a free tenant, save up to the limit and confirm `plan_limit_reached` is returned on the next save.
+- As a free tenant, save up to the limit and confirm `limit_reached` is returned on the next save.
 - As Tenant Pro, confirm unlimited saved searches and “Alerts enabled” badge in the dashboard.
 - Approve a new listing and confirm a saved search alert row is created (email sends if Resend is configured).
 - Free tenant sees the “Upgrade for instant alerts” prompt on browse.
+- Saved-search create/update/delete returns `role_not_allowed` for non-tenant roles.
+
+## Saved searches UX
+- Tenant sees “Saved searches” in the dashboard navigation and can open `/dashboard/saved-searches`.
+- Non-tenants do not see the nav item and get a friendly message if they visit the URL directly.
+
+## Discovery & detail UX
+- Browse cards show location, price cadence, beds/baths, and furnished status consistently.
+- Empty browse results include Clear filters, Browse all, and (tenant-only) Saved searches CTAs.
+- Property detail shows a Back to results link when opened from Browse and a clean placeholder when no photos exist.
+- Price formatting shows currency symbol when known (e.g. ₦/£), otherwise ISO code, and includes / month or / year for long-term listings.
+
+## Listing stepper beta verification
+- Logged-in user can go Basics → Details → Photos without a login prompt.
+- Hard refresh on Photos step while logged-in stays authenticated.
+- Direct open Photos step URL in a new tab while logged-in stays authenticated.
+- Logged-out user opening Photos step is redirected to `/auth/login?reason=auth&next=...`.
+- Expired session mid-flow shows a friendly login CTA (no raw errors).
+
+## Beta role-based smoke checks
+- Tenant: can browse and save searches; cannot create listings; receives role_not_allowed when attempting to list.
+- Landlord/Agent: can create/edit listings, upload photos, and submit for approval.
+- Admin: can access `/admin/support` and `/admin/alerts` (read-only).
+
+## Landlord analytics smoke
+- Landlord/Agent can open `/dashboard/analytics` and see KPI cards plus coverage indicators.
+- Admin can open `/admin/analytics/host/<host_id>` and see the same layout for a specific host.
+- When a metric source is missing, the UI shows “Not available” (no zero or crash).
+
+## Demand funnel verification (R12)
+- Landlord/Agent sees the demand funnel card with counts and drop-off highlight.
+- Admin sees the marketplace demand funnel with previous-period deltas.
+- If a stage is not tracked, the UI shows “Not available” (no misleading zeroes).
+- SQL spot checks (replace `<HOST_ID>`):
+- `select count(*) from public.property_views pv join public.properties p on p.id = pv.property_id where p.owner_id = '<HOST_ID>'::uuid and pv.viewer_role in ('tenant','anon');`
+- `select count(*) from public.saved_properties sp join public.properties p on p.id = sp.property_id where p.owner_id = '<HOST_ID>'::uuid;`
+- `select count(distinct (m.property_id::text || ':' || m.sender_id::text)) as enquiries from public.messages m join public.properties p on p.id = m.property_id where p.owner_id = '<HOST_ID>'::uuid and m.sender_id <> p.owner_id;`
+- `select count(*) from public.viewing_requests vr join public.properties p on p.id = vr.property_id where p.owner_id = '<HOST_ID>'::uuid;`
+
+## Property views telemetry
+- Open a property detail page while logged out and confirm a row can be inserted into `public.property_views`.
+- Verify views aggregation surfaces in `/dashboard/analytics` and `/admin/analytics` once data exists.
+- View a listing as its owner and confirm no view row is inserted.
+- Refresh a listing as an authenticated non-owner within 60 seconds and confirm only one view row is recorded.
+- Navigate back/forward to a listing and confirm views are not double-counted due to prefetch.
+
+## Stop-ship conditions
+- Listings cannot be created or saved for any host role.
+- Browse returns “Unable to load listings” for all users.
+- Photo uploads fail for all hosts (not user-specific).
+- Admin support dashboards fail to load or show no data across the board.
+
+## Country code backfill verification
+- Apply `041_backfill_properties_country_code.sql` in Supabase SQL editor.
+- Run the backfill coverage query and confirm missing_country_code trends down.
+- Create or edit a listing and confirm `country_code` is written alongside `country`.
+
+## Admin data quality checks
+- Open `/admin/support` and confirm the Data quality panel renders.
+- Confirm the Affected listings table appears with sample rows and missing-field chips.
+- Verify counts for missing country codes, deposit mismatches, and size mismatches are visible.
+- If missing photos is supported, confirm the count is non-null and sample rows render.
+
+## Alerting verification
+- Visit `/admin/alerts` and confirm alerts render with severity and windows.
+- Without `ALERT_WEBHOOK_URL`, call `POST /api/admin/alerts/dispatch` and confirm `reason: "disabled"`.
+- With `ALERT_WEBHOOK_URL`, confirm dispatch returns `dispatched > 0` when alerts are eligible.
+- SQL coverage checks:
+- `select count(*) from public.properties where country is not null and country_code is null;`
+- `select count(*) from public.properties where deposit_amount is not null and deposit_currency is null;`
+- `select count(*) from public.properties where size_value is not null and size_unit is null;`
+- `select count(*) from public.properties p left join public.property_images pi on pi.property_id = p.id where pi.id is null;`
+
+## Role-aware CTAs
+- Landing CTA shows “List a property” for unauthenticated users (redirects to login).
+- Landing CTA shows “Find a home” for tenants and “List a property” for landlords/agents.
+- Tenants receive `role_not_allowed` when attempting to create/update/delete listings.
+
+## Messaging throttle telemetry
+- Trigger rate limiting with rapid sends and confirm the cooldown UI appears.
+- Verify a row appears in `public.messaging_throttle_events` for the rate-limited attempt.
+- Open `/admin/support` and confirm throttle telemetry counts and top senders render.
+
+## PWA foundation
+- Confirm install prompt appears in the browser (or install button in DevTools).
+- Confirm the service worker registers and is active.
+- Go offline and refresh a public route; `/offline` should render.
+- Confirm `/api/*`, `/dashboard/*`, `/admin/*`, `/auth/*` are not cached.
+
+## PWA push alerts
+- With VAPID keys configured, confirm the Push badge shows status on `/dashboard/saved-searches`.
+- Enable notifications and verify a row exists in `public.push_subscriptions`.
+- Trigger a saved search alert and confirm a push notification is delivered.
+- In `/admin/support`, confirm push subscription counts and alert sample metrics render.
+- If a push attempt fails, confirm `saved_search_alerts.error` includes a `push_unavailable:` or `push_failed:` marker.
+- If a push attempt returns a permanent failure (404/410), confirm the subscription row is removed and `saved_search_alerts.error` includes `push_pruned:gone`.
+- Run `select public.cleanup_push_alerts(60)` in the SQL editor and confirm old push alert rows are pruned.

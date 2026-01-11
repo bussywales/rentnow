@@ -51,6 +51,7 @@ export async function getProfile(): Promise<Profile | null> {
 export async function requireRole(roles: UserRole[]) {
   const profile = await getProfile();
   if (!profile) redirect("/auth/login");
+  if (!profile.role) redirect("/onboarding");
   if (!roles.includes(profile.role)) redirect("/");
   return profile;
 }

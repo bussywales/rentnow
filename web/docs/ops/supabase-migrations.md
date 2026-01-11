@@ -28,6 +28,26 @@ Apply SQL files in this order:
 21) `web/supabase/migrations/021_provider_keys_paystack_flutterwave.sql`
 22) `web/supabase/migrations/022_provider_payment_events.sql`
 23) `web/supabase/migrations/023_profile_plans_billing_source_flutterwave.sql`
+24) `web/supabase/migrations/024_admin_role_management.sql`
+25) `web/supabase/migrations/025_profiles_onboarding_state.sql`
+26) `web/supabase/migrations/026_profiles_autocreate_trigger.sql`
+27) `web/supabase/migrations/027_messaging_throttle_telemetry.sql`
+28) `web/supabase/migrations/028_push_subscriptions.sql`
+29) `web/supabase/migrations/029_push_alert_retention.sql`
+30) `web/supabase/migrations/030_profile_trust_markers.sql`
+31) `web/supabase/migrations/031_profile_trust_public_view.sql`
+32) `web/supabase/migrations/032_message_thread_shares.sql`
+33) `web/supabase/migrations/033_message_thread_shares_rls_roles.sql`
+34) `web/supabase/migrations/034_message_thread_shares_last_accessed.sql`
+35) `web/supabase/migrations/035_trust_public_rpc_grants.sql`
+36) `web/supabase/migrations/036_trust_snapshot_rpc.sql`
+37) `web/supabase/migrations/037_trust_snapshot_include_admin.sql`
+38) `web/supabase/migrations/038_properties_rent_period.sql`
+39) `web/supabase/migrations/039_properties_listing_details.sql`
+40) `web/supabase/migrations/040_properties_country_code.sql`
+41) `web/supabase/migrations/041_backfill_properties_country_code.sql`
+42) `web/supabase/migrations/042_property_views.sql`
+43) `web/supabase/migrations/043_property_views_viewer_id.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -49,7 +69,8 @@ where table_schema = 'public'
 order by ordinal_position;
 ```
 
-Expected columns: `id`, `role`, `full_name`, `phone`, `city`, `avatar_url`, `created_at`.
+Expected columns: `id`, `role`, `full_name`, `phone`, `city`, `avatar_url`, `created_at`,
+plus trust markers (`email_verified`, `phone_verified`, `bank_verified`, `trust_updated_at`).
 
 Admin profile reads are gated by a JWT claim (`role=admin`) or `service_role`. Apply
 `008_fix_profiles_rls_recursion.sql` after the base policies to avoid recursive RLS.
@@ -92,6 +113,178 @@ select to_regclass('public.stripe_webhook_events') as stripe_webhook_events;
 select to_regclass('public.saved_search_alerts') as saved_search_alerts;
 select to_regclass('public.provider_settings') as provider_settings;
 select to_regclass('public.provider_payment_events') as provider_payment_events;
+select to_regclass('public.role_change_audit') as role_change_audit;
+select to_regclass('public.messaging_throttle_events') as messaging_throttle_events;
+select to_regclass('public.push_subscriptions') as push_subscriptions;
+select to_regclass('public.message_thread_shares') as message_thread_shares;
+select to_regclass('public.property_views') as property_views;
+```
+
+### Rent period column
+```sql
+select column_name, data_type, column_default, is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'properties'
+  and column_name = 'rent_period';
+
+select conname, pg_get_constraintdef(oid)
+from pg_constraint
+where conname = 'properties_rent_period_check';
+```
+
+### Listing detail columns
+```sql
+select column_name, data_type, column_default, is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'properties'
+  and column_name in (
+    'listing_type',
+    'country',
+    'state_region',
+    'size_value',
+    'size_unit',
+    'year_built',
+    'deposit_amount',
+    'deposit_currency',
+    'bathroom_type',
+    'pets_allowed'
+  )
+order by column_name;
+```
+
+### Country code column
+```sql
+select column_name, data_type, column_default, is_nullable
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'properties'
+  and column_name = 'country_code';
+```
+
+### Country code backfill coverage
+```sql
+select
+  count(*) filter (where country is not null) as total_with_country,
+  count(*) filter (where country_code is not null) as total_with_country_code,
+  count(*) filter (
+    where country is not null and country_code is null
+  ) as missing_country_code
+from public.properties;
+
+select id, country, country_code
+from public.properties
+where country is not null and country_code is null
+order by updated_at desc nulls last
+limit 20;
+```
+
+### Throttle telemetry verification
+```sql
+select to_regclass('public.messaging_throttle_events') as exists;
+```
+
+Optional RLS flags:
+```sql
+select c.relrowsecurity as rls_enabled, c.relforcerowsecurity as rls_forced
+from pg_class c
+join pg_namespace n on n.oid = c.relnamespace
+where n.nspname = 'public' and c.relname = 'messaging_throttle_events';
+```
+
+### Push subscriptions verification
+```sql
+select to_regclass('public.push_subscriptions') as exists;
+```
+
+### Push alert retention verification
+```sql
+select to_regprocedure('public.cleanup_push_alerts(integer)') as cleanup_push_alerts;
+```
+
+### Property views verification
+```sql
+select to_regclass('public.property_views') as property_views;
+
+select conname, pg_get_constraintdef(oid)
+from pg_constraint
+where conname = 'property_views_viewer_role_check';
+
+select column_name
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'property_views'
+order by ordinal_position;
+
+select count(*) as owner_views
+from public.property_views pv
+join public.properties p on p.id = pv.property_id
+where pv.viewer_id is not null
+  and pv.viewer_id = p.owner_id;
+
+select viewer_id, count(*) as views
+from public.property_views
+where viewer_id is not null
+group by viewer_id
+order by views desc
+limit 20;
+
+select property_id, viewer_id, created_at
+from public.property_views
+where property_id = '<PROPERTY_ID>'::uuid
+  and viewer_id = '<VIEWER_ID>'::uuid
+order by created_at desc
+limit 20;
+```
+
+### Trust markers verification
+```sql
+select email_verified, phone_verified, bank_verified, reliability_power, reliability_water, reliability_internet, trust_updated_at
+from public.profiles
+limit 1;
+```
+
+### Trust public snapshot verification
+```sql
+select
+  n.nspname as schema,
+  p.proname as function_name,
+  pg_get_function_identity_arguments(p.oid) as args
+from pg_proc p
+join pg_namespace n on n.oid = p.pronamespace
+where n.nspname = 'public' and p.proname ilike '%trust%'
+order by p.proname;
+
+select routine_name, grantee, privilege_type
+from information_schema.routine_privileges
+where routine_schema = 'public'
+  and routine_name = 'get_trust_snapshot'
+order by grantee;
+
+select * from public.get_trust_snapshot('<uuid>'::uuid);
+```
+
+Note: the trust snapshot uses a `SECURITY DEFINER` function to return only safe fields without widening `profiles` RLS.
+
+### Message share verification
+```sql
+select to_regclass('public.message_thread_shares') as message_thread_shares;
+select to_regprocedure('public.get_message_thread_share(text)') as message_thread_share;
+select column_name
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'message_thread_shares'
+  and column_name = 'last_accessed_at';
+```
+
+### Message share policy roles
+```sql
+select policyname, roles
+from pg_policies
+where schemaname = 'public'
+  and tablename = 'message_thread_shares'
+order by policyname;
 ```
 
 ### RLS enabled
@@ -111,7 +304,11 @@ where relname in (
   'plan_upgrade_requests',
   'stripe_webhook_events',
   'saved_search_alerts',
-  'provider_settings'
+  'provider_settings',
+  'role_change_audit',
+  'messaging_throttle_events',
+  'push_subscriptions',
+  'message_thread_shares'
 );
 ```
 
@@ -128,13 +325,17 @@ where schemaname = 'public'
     'messages',
     'viewing_requests',
     'agent_delegations',
-  'profile_plans',
-  'profile_billing_notes',
-  'plan_upgrade_requests',
-  'stripe_webhook_events',
-  'saved_search_alerts',
-  'provider_settings',
-  'provider_payment_events'
+    'profile_plans',
+    'profile_billing_notes',
+    'plan_upgrade_requests',
+    'stripe_webhook_events',
+    'saved_search_alerts',
+    'provider_settings',
+    'provider_payment_events',
+    'role_change_audit',
+    'messaging_throttle_events',
+    'push_subscriptions',
+    'message_thread_shares'
   )
 order by tablename, policyname;
 ```
@@ -157,10 +358,16 @@ where table_schema = 'public'
     'stripe_webhook_events',
     'saved_search_alerts',
     'provider_settings',
-    'provider_payment_events'
+    'provider_payment_events',
+    'role_change_audit',
+    'messaging_throttle_events',
+    'push_subscriptions',
+    'message_thread_shares'
   )
   and column_name in (
     'id',
+    'onboarding_completed',
+    'onboarding_completed_at',
     'user_id',
     'owner_id',
     'tenant_id',
@@ -205,6 +412,10 @@ where table_schema = 'public'
     'channel',
     'sent_at',
     'error',
+    'endpoint',
+    'p256dh',
+    'auth',
+    'is_active',
     'stripe_mode',
     'paystack_mode',
     'flutterwave_mode',
@@ -228,7 +439,45 @@ where table_schema = 'public'
     'amount',
     'currency',
     'transaction_id',
-    'processed_at'
+    'processed_at',
+    'target_profile_id',
+    'actor_profile_id',
+    'old_role',
+    'new_role',
+    'reason',
+    'recipient_profile_id',
+    'created_at',
+    'thread_key',
+    'reason_code',
+    'retry_after_seconds',
+    'window_seconds',
+    'max_sends',
+    'mode',
+    'ip_hash',
+    'thread_id',
+    'tenant_id',
+    'token',
+    'created_by',
+    'expires_at',
+    'revoked_at',
+    'last_accessed_at',
+    'email_verified',
+    'phone_verified',
+    'bank_verified',
+    'reliability_power',
+    'reliability_water',
+    'reliability_internet',
+    'trust_updated_at',
+    'listing_type',
+    'country',
+    'state_region',
+    'size_value',
+    'size_unit',
+    'year_built',
+    'deposit_amount',
+    'deposit_currency',
+    'bathroom_type',
+    'pets_allowed'
   )
 order by table_name, column_name;
 ```

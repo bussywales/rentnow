@@ -2,7 +2,12 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { CurrencySelect } from "@/components/properties/CurrencySelect";
+import { CountrySelect } from "@/components/properties/CountrySelect";
+import { normalizeCountryCode } from "@/lib/countries";
 import { Button } from "@/components/ui/Button";
+import InfoPopover from "@/components/ui/InfoPopover";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
@@ -11,10 +16,23 @@ import {
   createBrowserSupabaseClient,
   hasBrowserSupabaseEnv,
 } from "@/lib/supabase/client";
-import type { Property, PropertyStatus, RentalType } from "@/lib/types";
+import type { User } from "@supabase/supabase-js";
+import type {
+  BathroomType,
+  ListingType,
+  Property,
+  PropertyStatus,
+  RentalType,
+  SizeUnit,
+} from "@/lib/types";
 import { setToastQuery } from "@/lib/utils/toast";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
+type ResolvedAuth = {
+  user: User | null;
+  accessToken: string | null;
+  error: Error | null | undefined;
+};
 
 type Props = {
   initialData?: Partial<Property>;
@@ -26,10 +44,39 @@ const rentalTypes: { label: string; value: RentalType }[] = [
   { label: "Long-term", value: "long_term" },
 ];
 
+const listingTypes: { label: string; value: ListingType }[] = [
+  { label: "Apartment", value: "apartment" },
+  { label: "House", value: "house" },
+  { label: "Duplex", value: "duplex" },
+  { label: "Studio", value: "studio" },
+  { label: "Room", value: "room" },
+  { label: "Shop", value: "shop" },
+  { label: "Office", value: "office" },
+  { label: "Land", value: "land" },
+];
+
+const bathroomTypes: { label: string; value: BathroomType }[] = [
+  { label: "Private", value: "private" },
+  { label: "Shared", value: "shared" },
+];
+
+const sizeUnits: { label: string; value: SizeUnit }[] = [
+  { label: "sqm", value: "sqm" },
+  { label: "sqft", value: "sqft" },
+];
+
 const STORAGE_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "property-images";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+const COORDINATES_HELP = {
+  title: "How to find coordinates",
+  bullets: [
+    "Google Maps (recommended): Search the address, right-click the pin, then click the numbers to copy.",
+    "On mobile: Drop a pin, swipe up, then copy the coordinates.",
+    "Tip: Latitude is like 51.50…, longitude is like -0.12….",
+  ],
+};
 
 const steps = [
   { id: "basics", label: "Basics" },
@@ -49,6 +96,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   );
   const [saving, startSaving] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -60,20 +108,67 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const [form, setForm] = useState<FormState>({
     rental_type: initialData?.rental_type ?? "long_term",
     currency: initialData?.currency ?? "USD",
+    listing_type: initialData?.listing_type ?? null,
+    country: initialData?.country ?? null,
+    country_code: initialData?.country_code ?? null,
+    state_region: initialData?.state_region ?? null,
+    size_value: initialData?.size_value ?? null,
+    size_unit: initialData?.size_unit ?? "sqm",
+    year_built: initialData?.year_built ?? null,
+    deposit_amount: initialData?.deposit_amount ?? null,
+    deposit_currency: initialData?.deposit_currency ?? null,
+    bathroom_type: initialData?.bathroom_type ?? null,
+    pets_allowed: initialData?.pets_allowed ?? false,
     furnished: initialData?.furnished ?? false,
     bills_included: initialData?.bills_included ?? false,
     status: initialData?.status ?? "draft",
     amenitiesText: initialData?.amenities?.join(", ") ?? "",
     featuresText: initialData?.features?.join(", ") ?? "",
     ...initialData,
+    rent_period: initialData?.rent_period ?? "monthly",
   });
 
   const lastAutoSaved = useRef<string>("");
   const autoSaveTimer = useRef<number | null>(null);
+  const authResolveRef = useRef<Promise<ResolvedAuth> | null>(null);
+
+  const normalizeOptionalString = (value?: string | null) => {
+    if (!value) return null;
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  };
 
   const payload = useMemo(() => {
+    const sizeValue =
+      typeof form.size_value === "number" && Number.isFinite(form.size_value)
+        ? form.size_value
+        : null;
+    const depositAmount =
+      typeof form.deposit_amount === "number" && Number.isFinite(form.deposit_amount)
+        ? form.deposit_amount
+        : null;
+
     return {
       ...form,
+      listing_type: normalizeOptionalString(form.listing_type),
+      country: normalizeOptionalString(form.country),
+      country_code: normalizeCountryCode(form.country_code),
+      state_region: normalizeOptionalString(form.state_region),
+      city: normalizeOptionalString(form.city),
+      neighbourhood: normalizeOptionalString(form.neighbourhood),
+      address: normalizeOptionalString(form.address),
+      size_value: sizeValue,
+      size_unit: sizeValue ? form.size_unit ?? "sqm" : null,
+      year_built:
+        typeof form.year_built === "number" && Number.isFinite(form.year_built)
+          ? form.year_built
+          : null,
+      deposit_amount: depositAmount,
+      deposit_currency: depositAmount
+        ? form.deposit_currency ?? form.currency ?? null
+        : null,
+      bathroom_type: normalizeOptionalString(form.bathroom_type),
+      pets_allowed: !!form.pets_allowed,
       amenities: form.amenitiesText
         ? form.amenitiesText.split(",").map((item) => item.trim()).filter(Boolean)
         : [],
@@ -82,6 +177,53 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
         : [],
     };
   }, [form]);
+
+  const resolveAuthUser = useCallback(async (supabase: ReturnType<typeof createBrowserSupabaseClient>) => {
+    if (authResolveRef.current) {
+      return authResolveRef.current;
+    }
+
+    const resolver = (async () => {
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        return { user: session.user, accessToken: session.access_token, error: sessionError };
+      }
+
+      const {
+        data: { session: refreshedSession },
+      } = await supabase.auth.refreshSession();
+
+      if (refreshedSession?.user) {
+        return {
+          user: refreshedSession.user,
+          accessToken: refreshedSession.access_token,
+          error: sessionError,
+        };
+      }
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      return {
+        user,
+        accessToken: refreshedSession?.access_token ?? session?.access_token ?? null,
+        error: sessionError || userError,
+      };
+    })();
+
+    authResolveRef.current = resolver;
+    try {
+      return await resolver;
+    } finally {
+      authResolveRef.current = null;
+    }
+  }, []);
 
   const canCreateDraft =
     !!payload.title &&
@@ -96,6 +238,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const getSupabase = useCallback(() => {
     if (!hasBrowserSupabaseEnv()) {
       setError("Supabase environment variables are missing. Connect Supabase to save.");
+      setErrorCode(null);
       return null;
     }
     return createBrowserSupabaseClient();
@@ -103,22 +246,16 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
 
   const saveDraft = useCallback(async (statusOverride?: PropertyStatus) => {
     if (!canCreateDraft) return;
+    setErrorCode(null);
     const supabase = getSupabase();
     if (!supabase) return;
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const { user, accessToken } = await resolveAuthUser(supabase);
+    if (!user) {
       setError("Please log in to save a listing.");
+      setErrorCode("not_authenticated");
       return;
     }
-
-    const {
-      data: { session },
-    } = await supabase.auth.getSession();
-    const accessToken = session?.access_token;
 
     const restPayload = { ...payload } as FormState;
     delete restPayload.status;
@@ -165,7 +302,13 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
           typeof data?.maxListings === "number"
             ? ` Plan limit: ${data.maxListings}.`
             : "";
+        setErrorCode(data.code);
         throw new Error(`Plan limit reached.${limitMessage} Upgrade to add more listings.`);
+      }
+      if (typeof data?.code === "string") {
+        setErrorCode(data.code);
+      } else {
+        setErrorCode(null);
       }
       throw new Error(data?.error || raw || "Unable to save draft.");
     }
@@ -179,7 +322,16 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
 
     lastAutoSaved.current = requestKey;
     setDraftNotice(status === "draft" ? "Draft saved." : null);
-  }, [canCreateDraft, getSupabase, imageUrls, payload, propertyId, setDraftNotice, setError]);
+  }, [
+    canCreateDraft,
+    getSupabase,
+    imageUrls,
+    payload,
+    propertyId,
+    resolveAuthUser,
+    setDraftNotice,
+    setError,
+  ]);
 
   useEffect(() => {
     if (!canCreateDraft) return;
@@ -199,7 +351,10 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     };
   }, [canCreateDraft, saveDraft, setError, startSaving]);
 
-  const handleChange = (key: keyof FormState, value: string | number | boolean) => {
+  const handleChange = (
+    key: keyof FormState,
+    value: string | number | boolean | null
+  ) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -319,11 +474,8 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     const supabase = getSupabase();
     if (!supabase) return;
 
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-    if (authError || !user) {
+    const { user } = await resolveAuthUser(supabase);
+    if (!user) {
       setError("Please log in to upload photos.");
       return;
     }
@@ -395,11 +547,35 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   };
 
   const stepLabel = steps[stepIndex]?.label || "Basics";
+  const maxYearBuilt = new Date().getFullYear() + 1;
+  const showErrorDetails = process.env.NODE_ENV === "development";
+  const resolveStepperError = (message: string, code: string | null) => {
+    if (code === "not_authenticated") {
+      return "Please log in to continue.";
+    }
+    if (code === "role_not_allowed") {
+      return "Your role can’t create listings.";
+    }
+    if (code === "plan_limit_reached") {
+      return message;
+    }
+    const normalized = message.toLowerCase();
+    if (normalized.includes("supabase environment variables are missing")) {
+      return "Listing saves are unavailable right now. Please contact support.";
+    }
+    if (normalized.includes("storage bucket is not configured")) {
+      return "Photo uploads are unavailable right now.";
+    }
+    return message;
+  };
+  const errorSummary = error ? resolveStepperError(error, errorCode) : null;
+  const errorDetails =
+    error && showErrorDetails && errorSummary !== error ? error : null;
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+    <div className="space-y-8">
+      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
               Step {stepIndex + 1} of {steps.length}
@@ -408,288 +584,635 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
           </div>
           {draftNotice && <p className="text-xs text-emerald-600">{draftNotice}</p>}
         </div>
-        <div className="mt-3 grid gap-2 md:grid-cols-5">
-          {steps.map((step, index) => (
-            <div
-              key={step.id}
-              className={`rounded-full px-3 py-2 text-center text-xs font-semibold uppercase tracking-wide ${
-                index <= stepIndex
-                  ? "bg-sky-100 text-sky-700"
-                  : "bg-slate-100 text-slate-500"
-              }`}
-            >
-              {step.label}
-            </div>
-          ))}
+        <div className="mt-4 grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-5 sm:text-xs">
+          {steps.map((step, index) => {
+            const isActive = index === stepIndex;
+            const isComplete = index < stepIndex;
+            return (
+              <div
+                key={step.id}
+                aria-current={isActive ? "step" : undefined}
+                className={`rounded-full px-3 py-1.5 text-center font-semibold uppercase tracking-wide transition ${
+                  isActive
+                    ? "bg-sky-600 text-white"
+                    : isComplete
+                      ? "bg-sky-100 text-sky-700"
+                      : "bg-slate-100 text-slate-500"
+                }`}
+              >
+                {step.label}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {error && <p className="text-sm text-rose-600">{error}</p>}
+      <div className="min-h-[1.5rem]">
+        {errorSummary && (
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+            <p>{errorSummary}</p>
+            <div className="mt-2 flex flex-wrap gap-3">
+              {errorCode === "not_authenticated" && (
+                <Link href="/auth/login" className="text-sm font-semibold underline">
+                  Log in
+                </Link>
+              )}
+              {errorCode === "role_not_allowed" && (
+                <Link href="/properties" className="text-sm font-semibold underline">
+                  Browse listings
+                </Link>
+              )}
+            </div>
+            {errorDetails && (
+              <p className="mt-2 text-xs text-rose-700/80">
+                Details: {errorDetails}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
 
       {stepIndex === 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label htmlFor="listing-title" className="text-sm font-medium text-slate-700">
-              Listing title
-            </label>
-            <Input
-              id="listing-title"
-              required
-              value={form.title || ""}
-              onChange={(e) => handleChange("title", e.target.value)}
-              placeholder="e.g. Bright 2-bed in Lekki Phase 1"
-            />
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
+          <div className="space-y-6">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Basics</h3>
+                  <p className="text-xs text-slate-500">
+                    Core details that appear in search and cards.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-4">
+                <div className="space-y-2">
+                  <label htmlFor="listing-title" className="text-sm font-medium text-slate-700">
+                    Listing title
+                  </label>
+                  <Input
+                    id="listing-title"
+                    required
+                    value={form.title || ""}
+                    onChange={(e) => handleChange("title", e.target.value)}
+                    placeholder="e.g. Bright 2-bed in Lekki Phase 1"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="rental-type" className="text-sm font-medium text-slate-700">
+                    Rental type
+                  </label>
+                  <Select
+                    id="rental-type"
+                    value={form.rental_type}
+                    onChange={(e) => handleChange("rental_type", e.target.value as RentalType)}
+                  >
+                    {rentalTypes.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Location</h3>
+                  <p className="text-xs text-slate-500">
+                    Used for search relevance and map placement.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 space-y-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="country" className="text-sm font-medium text-slate-700">
+                      Country
+                    </label>
+                    <CountrySelect
+                      id="country"
+                      value={{
+                        code: form.country_code ?? null,
+                        name: form.country ?? null,
+                      }}
+                      onChange={(option) => {
+                        handleChange("country", option.name);
+                        handleChange("country_code", option.code);
+                      }}
+                      placeholder="Search countries"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="state-region" className="text-sm font-medium text-slate-700">
+                      State / Region
+                    </label>
+                    <Input
+                      id="state-region"
+                      value={form.state_region || ""}
+                      onChange={(e) => handleChange("state_region", e.target.value)}
+                      placeholder="Lagos State"
+                    />
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="city" className="text-sm font-medium text-slate-700">
+                      City
+                    </label>
+                    <Input
+                      id="city"
+                      required
+                      value={form.city || ""}
+                      onChange={(e) => handleChange("city", e.target.value)}
+                      placeholder="Lagos, Nairobi, Accra..."
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="neighbourhood" className="text-sm font-medium text-slate-700">
+                      Neighbourhood
+                    </label>
+                    <Input
+                      id="neighbourhood"
+                      value={form.neighbourhood || ""}
+                      onChange={(e) => handleChange("neighbourhood", e.target.value)}
+                      placeholder="Lekki Phase 1"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="address" className="text-sm font-medium text-slate-700">
+                    Address
+                  </label>
+                  <Input
+                    id="address"
+                    value={form.address || ""}
+                    onChange={(e) => handleChange("address", e.target.value)}
+                    placeholder="Street, building, house number"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="latitude" className="text-sm font-medium text-slate-700">
+                        Latitude
+                      </label>
+                      <InfoPopover
+                        ariaLabel="Latitude and longitude help"
+                        title={COORDINATES_HELP.title}
+                        bullets={COORDINATES_HELP.bullets}
+                      />
+                    </div>
+                    <Input
+                      id="latitude"
+                      type="number"
+                      step="0.000001"
+                      value={form.latitude ?? ""}
+                      onChange={(e) => handleChange("latitude", Number(e.target.value))}
+                      placeholder="6.5244"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="longitude" className="text-sm font-medium text-slate-700">
+                      Longitude
+                    </label>
+                    <Input
+                      id="longitude"
+                      type="number"
+                      step="0.000001"
+                      value={form.longitude ?? ""}
+                      onChange={(e) => handleChange("longitude", Number(e.target.value))}
+                      placeholder="3.3792"
+                    />
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">Capacity</h3>
+                  <p className="text-xs text-slate-500">
+                    Bedrooms, bathrooms, and guest limits.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                <div className="space-y-2">
+                  <label htmlFor="bedrooms" className="text-sm font-medium text-slate-700">
+                    Bedrooms
+                  </label>
+                  <Input
+                    id="bedrooms"
+                    type="number"
+                    min={0}
+                    value={form.bedrooms ?? 0}
+                    onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
+                    Bathrooms
+                  </label>
+                  <Input
+                    id="bathrooms"
+                    type="number"
+                    min={0}
+                    value={form.bathrooms ?? 0}
+                    onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="max-guests" className="text-sm font-medium text-slate-700">
+                    Max guests
+                  </label>
+                  <Input
+                    id="max-guests"
+                    type="number"
+                    min={0}
+                    value={form.max_guests ?? ""}
+                    onChange={(e) => handleChange("max_guests", Number(e.target.value))}
+                    placeholder="For short-let"
+                  />
+                </div>
+              </div>
+            </section>
           </div>
-          <div className="space-y-2">
-            <label htmlFor="rental-type" className="text-sm font-medium text-slate-700">
-              Rental type
-            </label>
-            <Select
-              id="rental-type"
-              value={form.rental_type}
-              onChange={(e) => handleChange("rental_type", e.target.value as RentalType)}
-            >
-              {rentalTypes.map((type) => (
-                <option key={type.value} value={type.value}>
-                  {type.label}
-                </option>
-              ))}
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="city" className="text-sm font-medium text-slate-700">
-              City
-            </label>
-            <Input
-              id="city"
-              required
-              value={form.city || ""}
-              onChange={(e) => handleChange("city", e.target.value)}
-              placeholder="Lagos, Nairobi, Accra..."
-            />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="neighbourhood" className="text-sm font-medium text-slate-700">
-              Neighbourhood
-            </label>
-            <Input
-              id="neighbourhood"
-              value={form.neighbourhood || ""}
-              onChange={(e) => handleChange("neighbourhood", e.target.value)}
-              placeholder="Lekki Phase 1"
-            />
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="address" className="text-sm font-medium text-slate-700">
-              Address
-            </label>
-            <Input
-              id="address"
-              value={form.address || ""}
-              onChange={(e) => handleChange("address", e.target.value)}
-              placeholder="Street, building, house number"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <label htmlFor="latitude" className="text-sm font-medium text-slate-700">
-                Latitude
-              </label>
-              <Input
-                id="latitude"
-                type="number"
-                step="0.000001"
-                value={form.latitude ?? ""}
-                onChange={(e) => handleChange("latitude", Number(e.target.value))}
-                placeholder="6.5244"
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="longitude" className="text-sm font-medium text-slate-700">
-                Longitude
-              </label>
-              <Input
-                id="longitude"
-                type="number"
-                step="0.000001"
-                value={form.longitude ?? ""}
-                onChange={(e) => handleChange("longitude", Number(e.target.value))}
-                placeholder="3.3792"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <label htmlFor="bedrooms" className="text-sm font-medium text-slate-700">
-                Bedrooms
-              </label>
-              <Input
-                id="bedrooms"
-                type="number"
-                min={0}
-                value={form.bedrooms ?? 0}
-                onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
-                Bathrooms
-              </label>
-              <Input
-                id="bathrooms"
-                type="number"
-                min={0}
-                value={form.bathrooms ?? 0}
-                onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="max-guests" className="text-sm font-medium text-slate-700">
-                Max guests
-              </label>
-              <Input
-                id="max-guests"
-                type="number"
-                min={0}
-                value={form.max_guests ?? ""}
-                onChange={(e) => handleChange("max_guests", Number(e.target.value))}
-                placeholder="For short-let"
-              />
-            </div>
-          </div>
-          <div className="grid grid-cols-3 gap-3">
-            <div className="space-y-2">
-              <label htmlFor="price" className="text-sm font-medium text-slate-700">
-                Price
-              </label>
-              <Input
-                id="price"
-                type="number"
-                min={0}
-                value={form.price ?? ""}
-                onChange={(e) => handleChange("price", Number(e.target.value))}
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="currency" className="text-sm font-medium text-slate-700">
-                Currency
-              </label>
-              <Input
-                id="currency"
-                value={form.currency || "USD"}
-                onChange={(e) => handleChange("currency", e.target.value)}
-                placeholder="USD / NGN / KES"
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="available-from" className="text-sm font-medium text-slate-700">
-                Available from
-              </label>
-              <Input
-                id="available-from"
-                type="date"
-                value={form.available_from || ""}
-                onChange={(e) => handleChange("available_from", e.target.value)}
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              id="furnished"
-              type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-sky-600"
-              checked={!!form.furnished}
-              onChange={(e) => handleChange("furnished", e.target.checked)}
-            />
-            <label htmlFor="furnished" className="text-sm text-slate-700">
-              Furnished
-            </label>
+
+          <div className="lg:sticky lg:top-6 lg:self-start">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Pricing & availability
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Set the rent amount, cadence, and move-in details.
+                  </p>
+                </div>
+              </div>
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="price" className="text-sm font-medium text-slate-700">
+                    Price
+                  </label>
+                  <Input
+                    id="price"
+                    type="number"
+                    min={1}
+                    value={form.price ?? ""}
+                    onChange={(e) => handleChange("price", Number(e.target.value))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="currency" className="text-sm font-medium text-slate-700">
+                    Currency
+                  </label>
+                  <CurrencySelect
+                    id="currency"
+                    value={form.currency || "USD"}
+                    onChange={(value) => handleChange("currency", value)}
+                    placeholder="Search currency codes"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <span className="text-sm font-medium text-slate-700">Rent period</span>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300">
+                      <input
+                        type="radio"
+                        name="rent_period"
+                        value="monthly"
+                        className="h-4 w-4"
+                        checked={(form.rent_period ?? "monthly") === "monthly"}
+                        onChange={() => handleChange("rent_period", "monthly")}
+                      />
+                      Monthly
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300">
+                      <input
+                        type="radio"
+                        name="rent_period"
+                        value="yearly"
+                        className="h-4 w-4"
+                        checked={form.rent_period === "yearly"}
+                        onChange={() => handleChange("rent_period", "yearly")}
+                      />
+                      Yearly
+                    </label>
+                  </div>
+                  <p className="text-xs text-slate-500">How often is rent paid?</p>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="available-from" className="text-sm font-medium text-slate-700">
+                    Available from
+                  </label>
+                  <Input
+                    id="available-from"
+                    type="date"
+                    value={form.available_from || ""}
+                    onChange={(e) => handleChange("available_from", e.target.value)}
+                  />
+                  <p className="text-xs text-slate-500">Optional if the date is flexible.</p>
+                </div>
+                <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <input
+                    id="furnished"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-sky-600"
+                    checked={!!form.furnished}
+                    onChange={(e) => handleChange("furnished", e.target.checked)}
+                  />
+                  <label htmlFor="furnished" className="text-sm text-slate-700">
+                    Furnished
+                  </label>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       )}
 
       {stepIndex === 1 && (
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-3">
-              <label htmlFor="description" className="text-sm font-medium text-slate-700">
-                Description
-              </label>
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={handleAiDescription}
-                disabled={aiLoading}
-              >
-                {aiLoading ? "Generating..." : "Generate with AI"}
-              </Button>
-            </div>
-            <Textarea
-              id="description"
-              rows={5}
-              value={form.description || ""}
-              onChange={(e) => handleChange("description", e.target.value)}
-              placeholder="Share highlights, who it's great for, and availability."
-            />
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <div className="space-y-6">
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-slate-900">Property specs</h3>
+                <p className="text-xs text-slate-500">
+                  Essentials tenants expect at a glance.
+                </p>
+              </div>
+              <div className="mt-4 space-y-3">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="listing-type" className="text-sm font-medium text-slate-700">
+                      Listing type
+                    </label>
+                    <Select
+                      id="listing-type"
+                      value={form.listing_type ?? ""}
+                      onChange={(e) =>
+                        handleChange("listing_type", e.target.value || null)
+                      }
+                    >
+                      <option value="">Select type</option>
+                      {listingTypes.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="bathroom-type" className="text-sm font-medium text-slate-700">
+                      Bathroom privacy
+                    </label>
+                    <Select
+                      id="bathroom-type"
+                      value={form.bathroom_type ?? ""}
+                      onChange={(e) =>
+                        handleChange("bathroom_type", e.target.value || null)
+                      }
+                    >
+                      <option value="">Select privacy</option>
+                      {bathroomTypes.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    id="pets_allowed"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-sky-600"
+                    checked={!!form.pets_allowed}
+                    onChange={(e) => handleChange("pets_allowed", e.target.checked)}
+                  />
+                  <label htmlFor="pets_allowed" className="text-sm text-slate-700">
+                    Pets allowed
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-slate-900">Size & age</h3>
+                <p className="text-xs text-slate-500">
+                  Optional sizing details for comparison.
+                </p>
+              </div>
+              <div className="mt-4 grid gap-4 md:grid-cols-3">
+                <div className="space-y-2">
+                  <label htmlFor="size-value" className="text-sm font-medium text-slate-700">
+                    Size value
+                  </label>
+                  <Input
+                    id="size-value"
+                    type="number"
+                    min={0}
+                    step="0.1"
+                    value={form.size_value ?? ""}
+                    onChange={(e) =>
+                      handleChange(
+                        "size_value",
+                        e.target.value === "" ? null : Number(e.target.value)
+                      )
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="size-unit" className="text-sm font-medium text-slate-700">
+                    Size unit
+                  </label>
+                  <Select
+                    id="size-unit"
+                    value={form.size_unit ?? "sqm"}
+                    onChange={(e) => handleChange("size_unit", e.target.value as SizeUnit)}
+                  >
+                    {sizeUnits.map((unit) => (
+                      <option key={unit.value} value={unit.value}>
+                        {unit.label}
+                      </option>
+                    ))}
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="year-built" className="text-sm font-medium text-slate-700">
+                    Year built
+                  </label>
+                  <Input
+                    id="year-built"
+                    type="number"
+                    min={1800}
+                    max={maxYearBuilt}
+                    value={form.year_built ?? ""}
+                    onChange={(e) =>
+                      handleChange(
+                        "year_built",
+                        e.target.value === "" ? null : Number(e.target.value)
+                      )
+                    }
+                  />
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="space-y-1">
+                <h3 className="text-sm font-semibold text-slate-900">Deposit & rules</h3>
+                <p className="text-xs text-slate-500">
+                  Clearly set deposits and included utilities.
+                </p>
+              </div>
+              <div className="mt-4 space-y-3">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="deposit-amount" className="text-sm font-medium text-slate-700">
+                      Security deposit
+                    </label>
+                    <Input
+                      id="deposit-amount"
+                      type="number"
+                      min={0}
+                      value={form.deposit_amount ?? ""}
+                      onChange={(e) =>
+                        handleChange(
+                          "deposit_amount",
+                          e.target.value === "" ? null : Number(e.target.value)
+                        )
+                      }
+                    />
+                    <p className="text-xs text-slate-500">
+                      Optional; common is 1–2 months.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="deposit-currency" className="text-sm font-medium text-slate-700">
+                      Deposit currency
+                    </label>
+                    <CurrencySelect
+                      id="deposit-currency"
+                      value={form.deposit_currency ?? form.currency ?? "USD"}
+                      onChange={(value) => handleChange("deposit_currency", value)}
+                      placeholder="Search currency codes"
+                    />
+                    <p className="text-xs text-slate-500">Defaults to listing currency.</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    id="bills_included"
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-sky-600"
+                    checked={!!form.bills_included}
+                    onChange={(e) => handleChange("bills_included", e.target.checked)}
+                  />
+                  <label htmlFor="bills_included" className="text-sm text-slate-700">
+                    Bills included
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-slate-900">
+                    Description & features
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Add story, highlights, and compliance details.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleAiDescription}
+                  disabled={aiLoading}
+                >
+                  {aiLoading ? "Generating..." : "Generate with AI"}
+                </Button>
+              </div>
+              <div className="mt-4 space-y-4">
+                <div className="space-y-2">
+                  <label htmlFor="description" className="text-sm font-medium text-slate-700">
+                    Description
+                  </label>
+                  <Textarea
+                    id="description"
+                    rows={5}
+                    value={form.description || ""}
+                    onChange={(e) => handleChange("description", e.target.value)}
+                    placeholder="Share highlights, who it's great for, and availability."
+                  />
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <label htmlFor="features" className="text-sm font-medium text-slate-700">
+                      Features
+                    </label>
+                    <Input
+                      id="features"
+                      value={form.featuresText || ""}
+                      onChange={(e) => handleChange("featuresText", e.target.value)}
+                      placeholder="balcony, generator, lift"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="epc-rating" className="text-sm font-medium text-slate-700">
+                      EPC rating
+                    </label>
+                    <Input
+                      id="epc-rating"
+                      value={form.epc_rating || ""}
+                      onChange={(e) => handleChange("epc_rating", e.target.value)}
+                      placeholder="A, B, C"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="council-tax-band" className="text-sm font-medium text-slate-700">
+                      Council tax band
+                    </label>
+                    <Input
+                      id="council-tax-band"
+                      value={form.council_tax_band || ""}
+                      onChange={(e) => handleChange("council_tax_band", e.target.value)}
+                      placeholder="Band D"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="amenities" className="text-sm font-medium text-slate-700">
+                    Amenities
+                  </label>
+                  <Input
+                    id="amenities"
+                    value={form.amenitiesText || ""}
+                    onChange={(e) => handleChange("amenitiesText", e.target.value)}
+                    placeholder="wifi, parking, security, pool"
+                  />
+                </div>
+              </div>
+            </section>
           </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="space-y-2">
-              <label htmlFor="features" className="text-sm font-medium text-slate-700">
-                Features
-              </label>
-              <Input
-                id="features"
-                value={form.featuresText || ""}
-                onChange={(e) => handleChange("featuresText", e.target.value)}
-                placeholder="balcony, generator, lift"
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="epc-rating" className="text-sm font-medium text-slate-700">
-                EPC rating
-              </label>
-              <Input
-                id="epc-rating"
-                value={form.epc_rating || ""}
-                onChange={(e) => handleChange("epc_rating", e.target.value)}
-                placeholder="A, B, C"
-              />
-            </div>
-            <div className="space-y-2">
-              <label htmlFor="council-tax-band" className="text-sm font-medium text-slate-700">
-                Council tax band
-              </label>
-              <Input
-                id="council-tax-band"
-                value={form.council_tax_band || ""}
-                onChange={(e) => handleChange("council_tax_band", e.target.value)}
-                placeholder="Band D"
-              />
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <input
-              id="bills_included"
-              type="checkbox"
-              className="h-4 w-4 rounded border-slate-300 text-sky-600"
-              checked={!!form.bills_included}
-              onChange={(e) => handleChange("bills_included", e.target.checked)}
-            />
-            <label htmlFor="bills_included" className="text-sm text-slate-700">
-              Bills included
-            </label>
-          </div>
-          <div className="space-y-2">
-            <label htmlFor="amenities" className="text-sm font-medium text-slate-700">
-              Amenities
-            </label>
-            <Input
-              id="amenities"
-              value={form.amenitiesText || ""}
-              onChange={(e) => handleChange("amenitiesText", e.target.value)}
-              placeholder="wifi, parking, security, pool"
-            />
+
+          <div className="lg:sticky lg:top-6 lg:self-start">
+            <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+              <h3 className="text-sm font-semibold text-slate-900">Detail tips</h3>
+              <ul className="mt-3 space-y-2 text-xs text-slate-600">
+                <li>Deposit currency defaults to listing currency.</li>
+                <li>Size and year built are optional.</li>
+                <li>Add rules and utilities tenants should know.</li>
+              </ul>
+            </section>
           </div>
         </div>
       )}
@@ -808,12 +1331,23 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
               address: form.address || null,
               latitude: form.latitude || null,
               longitude: form.longitude || null,
+              listing_type: form.listing_type || null,
+              country: form.country || null,
+              state_region: form.state_region || null,
               rental_type: form.rental_type || "long_term",
               price: form.price || 0,
               currency: form.currency || "USD",
+              rent_period: form.rent_period || "monthly",
               bedrooms: form.bedrooms || 0,
               bathrooms: form.bathrooms || 0,
+              bathroom_type: form.bathroom_type || null,
               furnished: !!form.furnished,
+              size_value: form.size_value || null,
+              size_unit: form.size_unit || null,
+              year_built: form.year_built || null,
+              deposit_amount: form.deposit_amount || null,
+              deposit_currency: form.deposit_currency || null,
+              pets_allowed: !!form.pets_allowed,
               amenities:
                 payload.amenities && payload.amenities.length ? payload.amenities : null,
               images: imageUrls.map((url, index) => ({
@@ -853,13 +1387,19 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
         </div>
       )}
 
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" onClick={prev} disabled={stepIndex === 0}>
+      <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <Button
+          variant="ghost"
+          onClick={prev}
+          disabled={stepIndex === 0}
+          className="w-full sm:w-auto"
+        >
           Back
         </Button>
         <Button
           onClick={next}
           disabled={stepIndex >= steps.length - 1 || saving}
+          className="w-full sm:w-auto"
         >
           {stepIndex >= steps.length - 1 ? "Done" : "Next"}
         </Button>

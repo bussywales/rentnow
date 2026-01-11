@@ -5,6 +5,15 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Property } from "@/lib/types";
 import { cn } from "@/components/ui/cn";
+import {
+  formatCadence,
+  formatListingType,
+  formatLocationLabel,
+  formatPriceValue,
+  formatSizeLabel,
+} from "@/lib/property-discovery";
+import { TrustBadges } from "@/components/trust/TrustBadges";
+import type { TrustMarkerState } from "@/lib/trust-markers";
 
 const BedIcon = () => (
   <svg
@@ -48,15 +57,26 @@ type Props = {
   property: Property;
   href?: string;
   compact?: boolean;
+  trustMarkers?: TrustMarkerState | null;
 };
 
-export function PropertyCard({ property, href, compact }: Props) {
+export function PropertyCard({ property, href, compact, trustMarkers }: Props) {
   const fallbackImage =
     "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=80";
   const primaryImage = property.images?.[0]?.image_url || fallbackImage;
   const [imgSrc, setImgSrc] = useState(primaryImage);
   const blurDataURL =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
+  const locationLabel = formatLocationLabel(property.city, property.neighbourhood);
+  const priceValue = formatPriceValue(property.currency, property.price);
+  const cadence = formatCadence(property.rental_type, property.rent_period);
+  const listingTypeLabel = formatListingType(property.listing_type);
+  const sizeLabel = formatSizeLabel(property.size_value, property.size_unit);
+  const metaLine = [listingTypeLabel, sizeLabel].filter(Boolean).join(" \u00b7 ");
+  const description =
+    typeof property.description === "string" && property.description.trim().length > 0
+      ? property.description
+      : "No description provided yet.";
 
   const body = (
     <div
@@ -83,11 +103,13 @@ export function PropertyCard({ property, href, compact }: Props) {
       <div className="flex flex-1 flex-col gap-2 px-4 py-3">
         <div className="flex items-start justify-between gap-2">
           <div>
-            <p className="text-xs uppercase tracking-wide text-slate-500">
-              {property.city}
-            {property.neighbourhood ? ` - ${property.neighbourhood}` : ""}
+            <p className="text-xs font-semibold text-slate-500">
+              {locationLabel}
             </p>
-            <h3 className="text-base font-semibold text-slate-900">
+            {metaLine && (
+              <p className="text-xs text-slate-500">{metaLine}</p>
+            )}
+            <h3 className="text-base font-semibold text-slate-900 line-clamp-1">
               {property.title}
             </h3>
           </div>
@@ -95,15 +117,20 @@ export function PropertyCard({ property, href, compact }: Props) {
             {property.rental_type === "short_let" ? "Short-let" : "Long-term"}
           </span>
         </div>
-        <p className="text-sm text-slate-600 line-clamp-2">
-          {property.description}
+        <p className="min-h-[40px] text-sm text-slate-600 line-clamp-2">
+          {description}
         </p>
+        {trustMarkers && (
+          <TrustBadges markers={trustMarkers} compact />
+        )}
         <div className="flex items-center justify-between text-sm text-slate-800">
-          <div className="font-semibold">
-            {property.currency} {property.price.toLocaleString()}
-            <span className="text-xs font-normal text-slate-500">
-              {property.rental_type === "short_let" ? " / night" : " / month"}
-            </span>
+          <div className="font-semibold flex flex-wrap items-baseline gap-1">
+            {priceValue}
+            {cadence && (
+              <span className="text-xs font-normal text-slate-500 whitespace-nowrap">
+                {` / ${cadence}`}
+              </span>
+            )}
           </div>
           <div className="flex items-center gap-3 text-xs text-slate-600">
             <span className="flex items-center gap-1">
@@ -114,7 +141,7 @@ export function PropertyCard({ property, href, compact }: Props) {
               <BathIcon />
               {property.bathrooms}
             </span>
-            {property.furnished && <span>Furnished</span>}
+            <span>{property.furnished ? "Furnished" : "Unfurnished"}</span>
           </div>
         </div>
       </div>
@@ -131,4 +158,3 @@ export function PropertyCard({ property, href, compact }: Props) {
 
   return body;
 }
-

@@ -1,23 +1,42 @@
 import Link from "next/link";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { MessageThreadClient } from "@/components/messaging/MessageThreadClient";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
+import { TrustBadges } from "@/components/trust/TrustBadges";
+import { TrustReliability } from "@/components/trust/TrustReliability";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
+import { getProfile } from "@/lib/auth";
 import { DEV_MOCKS, getApiBaseUrl, getCanonicalBaseUrl, getEnvPresence } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
+import {
+  formatCadence,
+  formatListingType,
+  formatLocationLabel,
+  formatPriceValue,
+  formatSizeLabel,
+} from "@/lib/property-discovery";
+import { getListingCta } from "@/lib/role-access";
+import { normalizeRole } from "@/lib/roles";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import { getTenantPlanForTier } from "@/lib/plans";
-import type { Property } from "@/lib/types";
+import type { Profile, Property } from "@/lib/types";
+import type { TrustMarkerState } from "@/lib/trust-markers";
 
 export const dynamic = "force-dynamic";
 
 type Params = { id?: string };
-type Props = { params: Params | Promise<Params> };
+type SearchParams = Record<string, string | string[] | undefined>;
+type Props = {
+  params: Params | Promise<Params>;
+  searchParams?: SearchParams | Promise<SearchParams>;
+};
 
 function normalizeId(id: string) {
   return decodeURIComponent(id).trim();
@@ -30,6 +49,46 @@ function extractId(raw: Params | Promise<Params>): Promise<string | undefined> {
     return maybePromise.then((p) => p?.id);
   }
   return Promise.resolve((raw as Params)?.id);
+}
+
+function getSearchParamValue(
+  params: SearchParams | undefined,
+  key: string
+): string | undefined {
+  if (!params) return undefined;
+  const value = params[key];
+  if (Array.isArray(value)) return value[0];
+  return value;
+}
+
+function resolveBackHref(
+  params: SearchParams | undefined,
+  referer: string | null
+): string | null {
+  const rawBack = getSearchParamValue(params, "back");
+  if (rawBack) {
+    try {
+      const decoded = decodeURIComponent(rawBack);
+      if (decoded.startsWith("/properties")) {
+        return decoded;
+      }
+    } catch {
+      if (rawBack.startsWith("/properties")) {
+        return rawBack;
+      }
+    }
+  }
+
+  if (!referer) return null;
+  try {
+    const url = new URL(referer);
+    if (url.pathname === "/properties") {
+      return `${url.pathname}${url.search}`;
+    }
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 async function getProperty(
@@ -144,11 +203,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function PropertyDetail({ params }: Props) {
+export default async function PropertyDetail({ params, searchParams }: Props) {
   const envPresence = getEnvPresence();
   const supabaseReady = hasServerSupabaseEnv();
+  const profile = supabaseReady ? await getProfile() : null;
+  const listingCta = getListingCta(normalizeRole(profile?.role));
   const siteUrl = await getCanonicalBaseUrl();
   const id = await extractId(params);
+  const resolvedSearchParams =
+    searchParams &&
+    (typeof (searchParams as Promise<SearchParams>).then === "function"
+      ? await (searchParams as Promise<SearchParams>)
+      : (searchParams as SearchParams));
+  const headerList = await headers();
+  const backHref = resolveBackHref(resolvedSearchParams, headerList.get("referer"));
   let property: Property | null = null;
   let fetchError: string | null = null;
   let apiUrl: string | null = null;
@@ -165,6 +233,7 @@ export default async function PropertyDetail({ params }: Props) {
 
   if (!property) {
     const retryHref = id ? `/properties/${id}` : "/properties";
+    const showDiagnostics = process.env.NODE_ENV === "development";
 
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
@@ -181,18 +250,25 @@ export default async function PropertyDetail({ params }: Props) {
               <Link href="/properties" className="text-sky-700 font-semibold">
                 Back to browse
               </Link>
-              <Link href="/dashboard/properties/new" className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline">
-                List a property
+              <Link
+                href={listingCta.href}
+                className="text-sm font-semibold text-slate-700 underline-offset-4 hover:underline"
+              >
+                {listingCta.label}
               </Link>
             </>
           }
-          diagnostics={{
-            apiUrl,
-            id,
-            supabaseReady,
-            fetchError,
-            env: envPresence,
-          }}
+          diagnostics={
+            showDiagnostics
+              ? {
+                  apiUrl,
+                  id,
+                  supabaseReady,
+                  fetchError,
+                  env: envPresence,
+                }
+              : undefined
+          }
         />
       </div>
     );
@@ -201,94 +277,177 @@ export default async function PropertyDetail({ params }: Props) {
   let isSaved = false;
   let isTenant = false;
   let isTenantPro = false;
+  let currentUser: Profile | null = null;
+  let hostTrust: TrustMarkerState | null = null;
   let similar: Property[] = [];
   if (hasServerSupabaseEnv()) {
     try {
       const supabase = await createServerSupabaseClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-        isTenant = profile?.role === "tenant";
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          const { data: profile } = await supabase
+            .from("profiles")
+            .select("role, full_name")
+            .eq("id", user.id)
+            .maybeSingle();
+          isTenant = profile?.role === "tenant";
+          currentUser = {
+            id: user.id,
+            role: profile?.role ?? null,
+            full_name: profile?.full_name || user.email || "You",
+          };
 
-        const { data: planRow } = await supabase
-          .from("profile_plans")
-          .select("plan_tier, valid_until")
-          .eq("profile_id", user.id)
-          .maybeSingle();
-        const validUntil = planRow?.valid_until ?? null;
-        const expired =
-          !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
-        const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
-        isTenantPro = isTenant && tenantPlan.tier === "tenant_pro";
+          const { data: planRow } = await supabase
+            .from("profile_plans")
+            .select("plan_tier, valid_until")
+            .eq("profile_id", user.id)
+            .maybeSingle();
+          const validUntil = planRow?.valid_until ?? null;
+          const expired =
+            !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
+          const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+          isTenantPro = isTenant && tenantPlan.tier === "tenant_pro";
 
-        const { data } = await supabase
-          .from("saved_properties")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("property_id", property.id)
-          .maybeSingle();
-        isSaved = !!data;
-      }
+          const { data } = await supabase
+            .from("saved_properties")
+            .select("id")
+            .eq("user_id", user.id)
+            .eq("property_id", property.id)
+            .maybeSingle();
+          isSaved = !!data;
+        }
 
-      const priceFloor = property.price ? Math.max(0, property.price * 0.6) : null;
-      const priceCeil = property.price ? property.price * 1.4 : null;
-      const { data: similarRaw } = await supabase
-        .from("properties")
-        .select("*, property_images(id, image_url)")
-        .eq("city", property.city)
-        .eq("rental_type", property.rental_type)
-        .neq("id", property.id)
-        .order("created_at", { ascending: false })
-        .limit(8);
-
-      let similarResults: Array<
-        Property & { property_images?: Array<{ id: string; image_url: string }> }
-      > = [];
-
-      if (Array.isArray(similarRaw)) {
-        similarResults = similarRaw as typeof similarResults;
-      } else {
-        // fallback fetch without rental_type if no result
-        const { data: fallback } = await supabase
+        const priceFloor = property.price ? Math.max(0, property.price * 0.6) : null;
+        const priceCeil = property.price ? property.price * 1.4 : null;
+        const { data: similarRaw } = await supabase
           .from("properties")
           .select("*, property_images(id, image_url)")
           .eq("city", property.city)
+          .eq("rental_type", property.rental_type)
           .neq("id", property.id)
           .order("created_at", { ascending: false })
           .limit(8);
-        similarResults = (fallback as typeof similarResults) ?? [];
+
+        let similarResults: Array<
+          Property & { property_images?: Array<{ id: string; image_url: string }> }
+        > = [];
+
+        if (Array.isArray(similarRaw)) {
+          similarResults = similarRaw as typeof similarResults;
+        } else {
+          // fallback fetch without rental_type if no result
+          const { data: fallback } = await supabase
+            .from("properties")
+            .select("*, property_images(id, image_url)")
+            .eq("city", property.city)
+            .neq("id", property.id)
+            .order("created_at", { ascending: false })
+            .limit(8);
+          similarResults = (fallback as typeof similarResults) ?? [];
+        }
+
+        similarResults = similarResults
+          .filter((row) => row.id !== property.id)
+          .filter((row) => {
+            if (priceFloor === null || priceCeil === null || !row.price) return true;
+            return row.price >= priceFloor && row.price <= priceCeil;
+          })
+          .slice(0, 4);
+
+        similar =
+          similarResults?.map((row) => ({
+            ...row,
+            images: row.property_images?.map((img: { id: string; image_url: string }) => ({
+              id: img.id,
+              image_url: img.image_url,
+            })),
+          })) || [];
+      } catch (err) {
+        console.warn("[property-detail] personalization fetch failed", err);
+        isSaved = false;
+        similar = [];
       }
 
-      similarResults = similarResults
-        .filter((row) => row.id !== property.id)
-        .filter((row) => {
-          if (priceFloor === null || priceCeil === null || !row.price) return true;
-          return row.price >= priceFloor && row.price <= priceCeil;
-        })
-        .slice(0, 4);
-
-      similar =
-        similarResults?.map((row) => ({
-          ...row,
-          images: row.property_images?.map((img: { id: string; image_url: string }) => ({
-            id: img.id,
-            image_url: img.image_url,
-          })),
-        })) || [];
-    } catch {
+      try {
+        const trustMap = await fetchTrustPublicSnapshots(supabase, [property.owner_id]);
+        hostTrust = trustMap[property.owner_id] ?? null;
+      } catch (err) {
+        console.warn("[property-detail] trust snapshot fetch failed", err);
+        hostTrust = null;
+      }
+    } catch (err) {
+      console.warn("[property-detail] supabase client unavailable", err);
       isSaved = false;
       similar = [];
     }
   }
 
+  const locationLabel = formatLocationLabel(property.city, property.neighbourhood);
+  const priceValue = formatPriceValue(property.currency, property.price);
+  const cadence = formatCadence(property.rental_type, property.rent_period);
+  const listingTypeLabel = formatListingType(property.listing_type);
+  const sizeLabel =
+    typeof property.size_value === "number" && property.size_value > 0
+      ? formatSizeLabel(property.size_value, property.size_unit)
+      : null;
+  const depositLabel =
+    typeof property.deposit_amount === "number" && property.deposit_amount > 0
+      ? formatPriceValue(
+          property.deposit_currency || property.currency,
+          property.deposit_amount
+        )
+      : null;
+  const bathroomLabel =
+    property.bathroom_type === "private"
+      ? "Private bathroom"
+      : property.bathroom_type === "shared"
+        ? "Shared bathroom"
+        : null;
+  const petsLabel =
+    typeof property.pets_allowed === "boolean"
+      ? property.pets_allowed
+        ? "Pets allowed"
+        : "No pets"
+      : null;
+  const keyFacts = [
+    listingTypeLabel ? { label: "Listing type", value: listingTypeLabel } : null,
+    property.state_region ? { label: "State/Region", value: property.state_region } : null,
+    property.country ? { label: "Country", value: property.country } : null,
+    sizeLabel ? { label: "Size", value: sizeLabel } : null,
+    typeof property.year_built === "number"
+      ? { label: "Year built", value: String(property.year_built) }
+      : null,
+    bathroomLabel ? { label: "Bathroom", value: bathroomLabel } : null,
+    depositLabel ? { label: "Security deposit", value: depositLabel } : null,
+    petsLabel ? { label: "Pets", value: petsLabel } : null,
+  ].filter(Boolean) as Array<{ label: string; value: string }>;
+  const rentSubtext =
+    property.rental_type === "short_let"
+      ? "Short stay pricing"
+      : property.rent_period === "yearly"
+      ? "Annual rent"
+      : property.rent_period === "monthly"
+      ? "Monthly rent"
+      : "Rent";
+  const description =
+    typeof property.description === "string" && property.description.trim().length > 0
+      ? property.description
+      : "This listing doesn't have a description yet. Contact the host for details.";
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4">
+      {backHref && (
+        <Link
+          href={backHref}
+          className="inline-flex items-center gap-2 text-sm font-semibold text-slate-600 transition hover:text-sky-700"
+        >
+          <span aria-hidden>{"<-"}</span>
+          Back to results
+        </Link>
+      )}
       {property && (
         <script
           type="application/ld+json"
@@ -307,11 +466,11 @@ export default async function PropertyDetail({ params }: Props) {
               numberOfBathroomsTotal: property.bathrooms,
               address: {
                 "@type": "PostalAddress",
-                addressLocality: property.city,
-                addressRegion: property.neighbourhood || "",
-                streetAddress: property.address || "",
-                addressCountry: "NG",
-              },
+              addressLocality: property.city,
+              addressRegion: property.state_region || property.neighbourhood || "",
+              streetAddress: property.address || "",
+              addressCountry: property.country || "NG",
+            },
               geo:
                 typeof property.latitude === "number" && typeof property.longitude === "number"
                   ? { "@type": "GeoCoordinates", latitude: property.latitude, longitude: property.longitude }
@@ -335,18 +494,18 @@ export default async function PropertyDetail({ params }: Props) {
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
             {property.rental_type === "short_let" ? "Short-let" : "Long-term"}
           </p>
-          <h1 className="text-2xl font-semibold text-slate-900">
-            {property.title}
-          </h1>
-          <p className="text-sm text-slate-600">
-            {property.city}
-            {property.neighbourhood ? ` - ${property.neighbourhood}` : ""}
-          </p>
-          <div className="text-3xl font-semibold text-slate-900">
-            {property.currency} {property.price.toLocaleString()}
-            <span className="text-sm font-normal text-slate-500">
-              {property.rental_type === "short_let" ? " / night" : " / month"}
-            </span>
+          <h1 className="text-2xl font-semibold text-slate-900">{property.title}</h1>
+          <p className="text-sm text-slate-600">{locationLabel}</p>
+          <div className="rounded-xl bg-slate-50 px-3 py-2">
+            <p className="text-3xl font-semibold text-slate-900 flex flex-wrap items-baseline gap-1">
+              {priceValue}
+              {cadence && (
+                <span className="text-sm font-normal text-slate-500 whitespace-nowrap">
+                  {` / ${cadence}`}
+                </span>
+              )}
+            </p>
+            <p className="text-xs text-slate-500">{rentSubtext}</p>
           </div>
           <div className="flex items-center gap-3 text-sm text-slate-700">
             <span className="flex items-center gap-1">
@@ -365,7 +524,7 @@ export default async function PropertyDetail({ params }: Props) {
                 <path d="M20 21v-3" />
                 <path d="M4 15h16v-3a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2Z" />
               </svg>
-              {property.bedrooms}
+              {property.bedrooms} beds
             </span>
             <span className="flex items-center gap-1">
               <svg
@@ -385,9 +544,9 @@ export default async function PropertyDetail({ params }: Props) {
                 <path d="M15 4h1" />
                 <path d="M15 7h2" />
               </svg>
-              {property.bathrooms}
+              {property.bathrooms} baths
             </span>
-            {property.furnished && <span>Furnished</span>}
+            <span>{property.furnished ? "Furnished" : "Unfurnished"}</span>
           </div>
           <div className="flex flex-wrap gap-2">
             {(property.amenities || []).map((item) => (
@@ -406,7 +565,7 @@ export default async function PropertyDetail({ params }: Props) {
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900">About</h2>
-          <p className="text-slate-700 leading-7">{property.description}</p>
+          <p className="text-slate-700 leading-7">{description}</p>
           <PropertyMapToggle
             properties={[property]}
             height="320px"
@@ -416,6 +575,19 @@ export default async function PropertyDetail({ params }: Props) {
           />
         </div>
         <div className="space-y-4">
+          {keyFacts.length > 0 && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-lg font-semibold text-slate-900">Key facts</h3>
+              <dl className="mt-3 space-y-2 text-sm text-slate-700">
+                {keyFacts.map((fact) => (
+                  <div key={fact.label} className="flex items-start justify-between gap-3">
+                    <dt className="text-slate-500">{fact.label}</dt>
+                    <dd className="font-semibold text-slate-900">{fact.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-full bg-sky-100 text-sm font-semibold text-sky-700">
@@ -429,6 +601,20 @@ export default async function PropertyDetail({ params }: Props) {
                 <p className="text-xs text-slate-500">Based in {property.city}</p>
               </div>
             </div>
+            {hostTrust && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                  Verification
+                </p>
+                <TrustBadges markers={hostTrust} />
+                <TrustReliability markers={hostTrust} />
+                {hostTrust.trust_updated_at && (
+                  <p className="text-xs text-slate-500">
+                    Updated {new Date(hostTrust.trust_updated_at).toLocaleDateString()}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <h3 className="text-lg font-semibold text-slate-900">
@@ -458,6 +644,7 @@ export default async function PropertyDetail({ params }: Props) {
             <MessageThreadClient
               propertyId={property.id}
               recipientId={property.owner_id}
+              currentUser={currentUser}
             />
           </div>
         </div>
@@ -468,7 +655,11 @@ export default async function PropertyDetail({ params }: Props) {
           <h2 className="text-xl font-semibold text-slate-900">Similar listings</h2>
           <div className="grid gap-4 md:grid-cols-2">
             {similar.map((item) => (
-              <PropertyCard key={item.id} property={item} />
+              <PropertyCard
+                key={item.id}
+                property={item}
+                href={`/properties/${item.id}`}
+              />
             ))}
           </div>
         </div>

@@ -20,6 +20,9 @@ export async function GET() {
   const stripeTenantYearly = process.env.STRIPE_PRICE_TENANT_YEARLY;
   const resendApiKey = process.env.RESEND_API_KEY;
   const resendFrom = process.env.RESEND_FROM;
+  const vapidPublic = process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const vapidPrivate = process.env.VAPID_PRIVATE_KEY;
+  const vapidSubject = process.env.VAPID_SUBJECT;
 
   const hasEnvForMode = (key: string, mode: string) => {
     const suffix = `_${mode.toUpperCase()}`;
@@ -114,6 +117,12 @@ export async function GET() {
     email: {
       resendApiKey: !!resendApiKey,
       resendFrom: !!resendFrom,
+    },
+    push: {
+      vapidPublicKey: !!vapidPublic,
+      vapidPrivateKey: !!vapidPrivate,
+      vapidSubject: !!vapidSubject,
+      enabled: !!vapidPublic && !!vapidPrivate,
     },
     missing,
     runtime: process.env.VERCEL ? "vercel" : "local",

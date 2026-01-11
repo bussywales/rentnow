@@ -11,6 +11,7 @@ import { buildSupportSnapshot } from "@/lib/billing/support-snapshot";
 import { maskEmail, maskIdentifier } from "@/lib/billing/mask";
 import { getProviderModes } from "@/lib/billing/provider-settings";
 import { logProviderEventsViewed, logStripeEventsViewed } from "@/lib/observability";
+import { formatRoleLabel } from "@/lib/roles";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
@@ -847,7 +848,7 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
                     {snapshotResult.snapshot.email || "Email unavailable"}
                   </p>
                   <p className="text-xs text-slate-500">
-                    Profile: {maskIdentifier(snapshotResult.snapshot.profileId)} • Role: {snapshotResult.snapshot.role || "unknown"}
+                    Profile: {maskIdentifier(snapshotResult.snapshot.profileId)} • Role: {formatRoleLabel(snapshotResult.snapshot.role)}
                   </p>
                 </div>
                 {snapshotResult.snapshot.isExpired && (
@@ -1046,7 +1047,7 @@ export default async function AdminBillingPage({ searchParams }: { searchParams:
                     {account.email ? maskEmail(account.email) : maskIdentifier(account.profile_id)}
                   </p>
                   <p className="text-xs text-slate-500">
-                    Role: {account.role || "unknown"} • Plan: {account.plan_tier || "free"} • Source:{" "}
+                    Role: {formatRoleLabel(account.role)} • Plan: {account.plan_tier || "free"} • Source:{" "}
                     {account.billing_source || "manual"}
                   </p>
                   <p className="text-xs text-slate-500">

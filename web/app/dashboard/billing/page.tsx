@@ -10,6 +10,7 @@ import { getPaystackConfig } from "@/lib/billing/paystack";
 import { getFlutterwaveConfig } from "@/lib/billing/flutterwave";
 import { getStripePriceId } from "@/lib/billing/stripe-plans";
 import { getPlanUsage } from "@/lib/plan-enforcement";
+import { normalizeRole } from "@/lib/roles";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { normalizePlanTier, type PlanTier } from "@/lib/plans";
@@ -77,8 +78,12 @@ export default async function BillingPage() {
   if (!profile) {
     redirect("/auth/login?reason=auth");
   }
+  const normalizedRole = normalizeRole(profile.role);
+  if (!normalizedRole) {
+    redirect("/onboarding");
+  }
 
-  if (!["landlord", "agent", "tenant", "admin"].includes(profile.role)) {
+  if (!["landlord", "agent", "tenant", "admin"].includes(normalizedRole)) {
     redirect("/dashboard");
   }
 
@@ -109,7 +114,7 @@ export default async function BillingPage() {
   });
   const plan = usage.plan;
   const { count: savedSearchCount } =
-    profile.role === "tenant"
+    normalizedRole === "tenant"
       ? await supabase
           .from("saved_searches")
           .select("id", { count: "exact", head: true })
@@ -129,11 +134,11 @@ export default async function BillingPage() {
   const paystackConfig = await getPaystackConfig(providerModes.paystackMode);
   const flutterwaveConfig = await getFlutterwaveConfig(providerModes.flutterwaveMode);
   const paidTiers: PlanTier[] =
-    profile.role === "tenant" ? ["tenant_pro"] : ["starter", "pro"];
+    normalizedRole === "tenant" ? ["tenant_pro"] : ["starter", "pro"];
   const hasStripePrice = paidTiers.some((tier) =>
     (["monthly", "yearly"] as const).some((cadence) =>
       !!getStripePriceId({
-        role: profile.role,
+        role: normalizedRole,
         tier,
         cadence,
         mode: stripeConfig.mode,
@@ -165,7 +170,7 @@ export default async function BillingPage() {
       ? "bg-rose-100 text-rose-700"
       : "bg-slate-100 text-slate-600";
   const summaryCopy =
-    profile.role === "tenant"
+    normalizedRole === "tenant"
       ? "Your plan unlocks saved search alerts and early access."
       : "Your plan controls listing limits and approval priority.";
 
@@ -221,10 +226,10 @@ export default async function BillingPage() {
         </div>
       </div>
 
-      <PlansGrid
-        currentTier={planTier}
-        currentRole={profile.role}
-        billingSource={billingSource}
+          <PlansGrid
+            currentTier={planTier}
+            currentRole={normalizedRole}
+            billingSource={billingSource}
         stripeStatus={stripeStatus}
         stripePeriodEnd={stripePeriodEnd}
         stripeEnabled={stripeEnabled}

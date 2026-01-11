@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
+import { normalizeRole } from "@/lib/roles";
 import type { UserRole } from "@/lib/types";
 
 type SupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
@@ -54,7 +55,7 @@ export async function getUserRole(
     .select("role")
     .eq("id", userId)
     .maybeSingle();
-  return (profile?.role as UserRole) ?? null;
+  return normalizeRole(profile?.role) ?? null;
 }
 
 export async function requireUser({

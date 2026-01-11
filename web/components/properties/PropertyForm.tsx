@@ -2,10 +2,12 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { CurrencySelect } from "@/components/properties/CurrencySelect";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
+import { normalizeCountryCode } from "@/lib/countries";
 import {
   createBrowserSupabaseClient,
   hasBrowserSupabaseEnv,
@@ -37,6 +39,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
     currency: "USD",
     amenitiesText: initialData?.amenities?.join(", ") ?? "",
     ...initialData,
+    rent_period: initialData?.rent_period ?? "monthly",
   });
   const [aiLoading, setAiLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -97,11 +100,22 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const normalizeOptionalString = (value?: string | null) => {
+    if (!value) return null;
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  };
+
   const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
     const payload: FormState = {
       ...form,
+      country: normalizeOptionalString(form.country),
+      country_code: normalizeCountryCode(form.country_code),
+      state_region: normalizeOptionalString(form.state_region),
+      neighbourhood: normalizeOptionalString(form.neighbourhood),
+      address: normalizeOptionalString(form.address),
       amenities: form.amenitiesText
         ? form.amenitiesText.split(",").map((a) => a.trim()).filter(Boolean)
         : [],
@@ -282,6 +296,22 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           />
         </div>
         <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">Country / Region</label>
+          <Input
+            value={form.country || ""}
+            onChange={(e) => handleChange("country", e.target.value)}
+            placeholder="Nigeria"
+          />
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">State / Region</label>
+          <Input
+            value={form.state_region || ""}
+            onChange={(e) => handleChange("state_region", e.target.value)}
+            placeholder="Lagos State"
+          />
+        </div>
+        <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700">Address</label>
           <Input
             value={form.address || ""}
@@ -341,23 +371,49 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
             />
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid gap-3 md:grid-cols-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Price</label>
             <Input
               type="number"
-              min={0}
+              min={1}
               value={form.price ?? ""}
               onChange={(e) => handleChange("price", Number(e.target.value))}
             />
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Currency</label>
-            <Input
+            <CurrencySelect
               value={form.currency || "USD"}
-              onChange={(e) => handleChange("currency", e.target.value)}
-              placeholder="USD / NGN / KES / GHS"
+              onChange={(value) => handleChange("currency", value)}
+              placeholder="Search currency codes"
             />
+          </div>
+          <div className="space-y-2">
+            <span className="text-sm font-medium text-slate-700">Rent period</span>
+            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="rent_period"
+                  value="monthly"
+                  checked={(form.rent_period ?? "monthly") === "monthly"}
+                  onChange={() => handleChange("rent_period", "monthly")}
+                />
+                Monthly
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="radio"
+                  name="rent_period"
+                  value="yearly"
+                  checked={form.rent_period === "yearly"}
+                  onChange={() => handleChange("rent_period", "yearly")}
+                />
+                Yearly
+              </label>
+            </div>
+            <p className="text-xs text-slate-500">How often is rent paid?</p>
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Available from</label>

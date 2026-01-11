@@ -3,27 +3,49 @@ import { requireRole } from "@/lib/authz";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 const routeLabel = "/api/admin/users";
 
-export async function GET(request: Request) {
+type ListUsersResult = {
+  data: { users: unknown[] | null } | null;
+  error: { message: string } | null;
+};
+
+type AdminUsersDeps = {
+  hasServiceRoleEnv?: () => boolean;
+  requireRole?: typeof requireRole;
+  listUsers?: () => Promise<ListUsersResult>;
+};
+
+export async function getAdminUsersResponse(request: Request, deps: AdminUsersDeps = {}) {
   const startTime = Date.now();
-  if (!hasServiceRoleEnv()) {
+  const {
+    hasServiceRoleEnv: hasServiceRoleEnvImpl = hasServiceRoleEnv,
+    requireRole: requireRoleImpl = requireRole,
+    listUsers = async () => {
+      const adminClient = createServiceRoleClient();
+      return adminClient.auth.admin.listUsers({ perPage: 200 });
+    },
+  } = deps;
+  if (!hasServiceRoleEnvImpl()) {
     return NextResponse.json(
       { error: "Service role key missing; user admin API unavailable." },
       { status: 503 }
     );
   }
-  const auth = await requireRole({
+  const auth = await requireRoleImpl({
     request,
     route: routeLabel,
     startTime,
     roles: ["admin"],
   });
   if (!auth.ok) return auth.response;
-  const adminClient = createServiceRoleClient();
-  const { data, error } = await adminClient.auth.admin.listUsers({ perPage: 200 });
+  const { data, error } = await listUsers();
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ users: data.users || [] });
+  return NextResponse.json({ users: data?.users || [] });
+}
+
+export async function GET(request: Request) {
+  return getAdminUsersResponse(request);
 }
 
 export async function POST(request: Request) {

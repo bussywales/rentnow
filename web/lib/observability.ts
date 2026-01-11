@@ -166,6 +166,16 @@ type ProviderPlanUpdateLogInput = {
   validUntil?: string | null;
 };
 
+type AdminRoleChangeLogInput = {
+  request?: Request;
+  route: string;
+  actorId: string;
+  targetProfileId: string;
+  oldRole?: string | null;
+  newRole: string;
+  reasonProvided?: boolean;
+};
+
 function normalizeError(error: unknown) {
   if (!error) return undefined;
   if (error instanceof Error) {
@@ -584,4 +594,28 @@ export function logStripeReplayFetchFailure({
   };
 
   console.log(JSON.stringify(payload));
+}
+
+export function logAdminRoleChanged({
+  request,
+  route,
+  actorId,
+  targetProfileId,
+  oldRole,
+  newRole,
+  reasonProvided = false,
+}: AdminRoleChangeLogInput) {
+  console.log(
+    JSON.stringify({
+      level: "info",
+      event: "admin_role_changed",
+      route,
+      requestId: getRequestId(request),
+      actorId,
+      targetProfileId,
+      oldRole: oldRole || null,
+      newRole,
+      reasonProvided,
+    })
+  );
 }

@@ -55,7 +55,7 @@ export default async function FavouritesPage() {
     const { data, error } = await supabase
       .from("saved_properties")
       .select(
-        "property_id, properties(id, owner_id, title, description, city, neighbourhood, address, latitude, longitude, rental_type, price, currency, bedrooms, bathrooms, furnished, amenities, available_from, max_guests, is_approved, is_active, created_at, updated_at, property_images(image_url,id))"
+        "property_id, properties(id, owner_id, title, description, city, country, state_region, neighbourhood, address, latitude, longitude, listing_type, rental_type, price, currency, rent_period, bedrooms, bathrooms, bathroom_type, furnished, size_value, size_unit, year_built, deposit_amount, deposit_currency, pets_allowed, amenities, available_from, max_guests, is_approved, is_active, created_at, updated_at, property_images(image_url,id))"
       )
       .eq("user_id", user.id);
 

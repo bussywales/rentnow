@@ -8,23 +8,56 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { dispatchSavedSearchAlerts } from "@/lib/alerts/tenant-alerts";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
+import { getListingAccessResult } from "@/lib/role-access";
+import { normalizeRole } from "@/lib/roles";
+import { normalizeCountryForUpdate } from "@/lib/properties/country-normalize";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
+import {
+  getDedupeWindowStart,
+  isPrefetchRequest,
+  shouldRecordPropertyView,
+  shouldSkipInflightView,
+  shortenId,
+} from "@/lib/analytics/property-views";
 
 const routeLabel = "/api/properties/[id]";
+const CURRENT_YEAR = new Date().getFullYear();
 
 const updateSchema = z.object({
   title: z.string().min(3).optional(),
   description: z.string().optional().nullable(),
   city: z.string().min(2).optional(),
+  country: z.string().optional().nullable(),
+  country_code: z.string().optional().nullable(),
+  state_region: z.string().optional().nullable(),
   neighbourhood: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
+  listing_type: z
+    .enum(["apartment", "house", "duplex", "studio", "room", "shop", "office", "land"])
+    .optional()
+    .nullable(),
   rental_type: z.enum(["short_let", "long_term"]).optional(),
-  price: z.number().nonnegative().optional(),
+  price: z.number().positive().optional(),
   currency: z.string().min(2).optional(),
+  rent_period: z.enum(["monthly", "yearly"]).optional(),
   bedrooms: z.number().int().nonnegative().optional(),
   bathrooms: z.number().int().nonnegative().optional(),
+  bathroom_type: z.enum(["private", "shared"]).optional().nullable(),
   furnished: z.boolean().optional(),
+  size_value: z.number().positive().optional().nullable(),
+  size_unit: z.enum(["sqm", "sqft"]).optional().nullable(),
+  year_built: z
+    .number()
+    .int()
+    .min(1800)
+    .max(CURRENT_YEAR + 1)
+    .optional()
+    .nullable(),
+  deposit_amount: z.number().nonnegative().optional().nullable(),
+  deposit_currency: z.string().min(2).optional().nullable(),
+  pets_allowed: z.boolean().optional(),
   amenities: z.array(z.string()).optional().nullable(),
   available_from: z.string().optional().nullable(),
   max_guests: z.number().int().nullable().optional(),
@@ -44,6 +77,141 @@ const idParamSchema = z.object({
 
 const uuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveViewerContext(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>
+) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { viewerId: null, viewerRole: "anon" };
+  const role = await getUserRole(supabase, user.id);
+  return { viewerId: user.id, viewerRole: normalizeRole(role) ?? "anon" };
+}
+
+const logViewDecision = ({
+  recorded,
+  reason,
+  propertyId,
+  viewerId,
+  viewerRole,
+}: {
+  recorded: boolean;
+  reason: string;
+  propertyId: string;
+  viewerId?: string | null;
+  viewerRole: string;
+}) => {
+  console.info(
+    JSON.stringify({
+      event: "property_view",
+      recorded,
+      reason,
+      property_id: shortenId(propertyId),
+      viewer_id: shortenId(viewerId),
+      viewer_role: viewerRole,
+    })
+  );
+};
+
+async function recordPropertyView({
+  propertyId,
+  ownerId,
+  viewerId,
+  viewerRole,
+}: {
+  propertyId: string;
+  ownerId?: string | null;
+  viewerId?: string | null;
+  viewerRole: string;
+}) {
+  if (!hasServiceRoleEnv()) return;
+  if (viewerId && ownerId && viewerId === ownerId) {
+    logViewDecision({
+      recorded: false,
+      reason: "owner_skipped",
+      propertyId,
+      viewerId,
+      viewerRole,
+    });
+    return;
+  }
+  try {
+    const serviceClient = createServiceRoleClient();
+    const adminDb = serviceClient as unknown as UntypedAdminClient;
+    const now = new Date();
+    let lastViewedAt: string | null = null;
+
+    if (viewerId) {
+      const inflightKey = `${propertyId}:${viewerId}`;
+      if (shouldSkipInflightView({ key: inflightKey, nowMs: now.getTime() })) {
+        logViewDecision({
+          recorded: false,
+          reason: "deduped_inflight",
+          propertyId,
+          viewerId,
+          viewerRole,
+        });
+        return;
+      }
+      const windowStart = getDedupeWindowStart(now);
+      const { data, error } = await adminDb
+        .from<{ created_at: string }>("property_views")
+        .select("created_at")
+        .eq("property_id", propertyId)
+        .eq("viewer_id", viewerId)
+        .gte("created_at", windowStart)
+        .order("created_at", { ascending: false })
+        .range(0, 0);
+      if (error) {
+        console.warn("Property view dedupe lookup failed", {
+          route: routeLabel,
+          propertyId,
+          error: error.message ?? "unknown_error",
+        });
+      } else {
+        lastViewedAt = data?.[0]?.created_at ?? null;
+      }
+    }
+
+    if (
+      !shouldRecordPropertyView({
+        viewerId,
+        ownerId,
+        lastViewedAt,
+        now,
+      })
+    ) {
+      logViewDecision({
+        recorded: false,
+        reason: "deduped_60s",
+        propertyId,
+        viewerId,
+        viewerRole,
+      });
+      return;
+    }
+
+    await adminDb.from("property_views").insert({
+      property_id: propertyId,
+      viewer_id: viewerId ?? null,
+      viewer_role: viewerRole,
+    });
+    logViewDecision({
+      recorded: true,
+      reason: viewerId ? "recorded" : "anonymous",
+      propertyId,
+      viewerId,
+      viewerRole,
+    });
+  } catch (err) {
+    console.warn("Property view insert failed", {
+      route: routeLabel,
+      propertyId,
+      error: err instanceof Error ? err.message : "unknown_error",
+    });
+  }
+}
 
 const getAnonEnv = () => {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -187,6 +355,24 @@ export async function GET(
     }
   }
 
+  const { viewerId, viewerRole } = await resolveViewerContext(supabase);
+  if (isPrefetchRequest(request.headers)) {
+    logViewDecision({
+      recorded: false,
+      reason: "prefetch_skipped",
+      propertyId: data.id,
+      viewerId,
+      viewerRole,
+    });
+  } else {
+    void recordPropertyView({
+      propertyId: data.id,
+      ownerId: data.owner_id,
+      viewerId,
+      viewerRole,
+    });
+  }
+
   return NextResponse.json({ property: data });
 }
 
@@ -225,11 +411,34 @@ export async function PUT(
       supabase,
       accessToken: bearerToken,
     });
-    if (!auth.ok) return auth.response;
+    if (!auth.ok) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 401,
+        startTime,
+        error: "not_authenticated",
+      });
+      return NextResponse.json(
+        { error: "Please log in to manage listings.", code: "not_authenticated" },
+        { status: 401 }
+      );
+    }
 
     const role = await getUserRole(supabase, auth.user.id);
-    if (role && !["landlord", "agent", "admin"].includes(role)) {
-      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const access = getListingAccessResult(role, true);
+    if (!access.ok) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: access.status,
+        startTime,
+        error: new Error(access.message),
+      });
+      return NextResponse.json(
+        { error: access.message, code: access.code },
+        { status: access.status }
+      );
     }
 
     const missingStatus = (message?: string | null) =>
@@ -338,6 +547,36 @@ export async function PUT(
     const body = await request.json();
     const updates = updateSchema.parse(body);
     const { imageUrls = [], status, rejection_reason, ...rest } = updates;
+    const countryFields = normalizeCountryForUpdate({
+      country: rest.country,
+      country_code: rest.country_code,
+    });
+    const normalizedRest = {
+      ...rest,
+      listing_type: typeof rest.listing_type === "undefined" ? undefined : rest.listing_type,
+      country: countryFields.country,
+      country_code: countryFields.country_code,
+      state_region: typeof rest.state_region === "undefined" ? undefined : rest.state_region,
+      size_value: typeof rest.size_value === "undefined" ? undefined : rest.size_value,
+      size_unit:
+        typeof rest.size_value === "number"
+          ? rest.size_unit ?? "sqm"
+          : typeof rest.size_unit === "undefined"
+            ? undefined
+            : null,
+      year_built: typeof rest.year_built === "undefined" ? undefined : rest.year_built,
+      deposit_amount:
+        typeof rest.deposit_amount === "undefined" ? undefined : rest.deposit_amount,
+      deposit_currency:
+        typeof rest.deposit_amount === "number"
+          ? rest.deposit_currency ?? rest.currency ?? null
+          : typeof rest.deposit_currency === "undefined"
+            ? undefined
+            : null,
+      bathroom_type:
+        typeof rest.bathroom_type === "undefined" ? undefined : rest.bathroom_type,
+      pets_allowed: typeof rest.pets_allowed === "undefined" ? undefined : rest.pets_allowed,
+    };
     const now = new Date().toISOString();
     const isAdmin = role === "admin";
     let statusUpdate: Record<string, unknown> = {};
@@ -419,7 +658,7 @@ export async function PUT(
     const { error: updateError } = await supabase
       .from("properties")
       .update({
-        ...rest,
+        ...normalizedRest,
         amenities: rest.amenities ?? [],
         features: rest.features ?? [],
         updated_at: new Date().toISOString(),
@@ -534,7 +773,19 @@ export async function DELETE(
     startTime,
     supabase,
   });
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: 401,
+      startTime,
+      error: "not_authenticated",
+    });
+    return NextResponse.json(
+      { error: "Please log in to manage listings.", code: "not_authenticated" },
+      { status: 401 }
+    );
+  }
 
   const { data: existing, error: fetchError } = await supabase
     .from("properties")
@@ -554,6 +805,20 @@ export async function DELETE(
   }
 
   const role = await getUserRole(supabase, auth.user.id);
+  const access = getListingAccessResult(role, true);
+  if (!access.ok) {
+    logFailure({
+      request,
+      route: routeLabel,
+      status: access.status,
+      startTime,
+      error: new Error(access.message),
+    });
+    return NextResponse.json(
+      { error: access.message, code: access.code },
+      { status: access.status }
+    );
+  }
   const ownership = requireOwnership({
     request,
     route: routeLabel,

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { useCallback } from "react";
 import type { Session } from "@supabase/supabase-js";
+import { normalizeRole } from "@/lib/roles";
 
 type Props = {
   initialAuthed: boolean;
@@ -14,7 +15,7 @@ type Props = {
 
 export function NavAuthClient({ initialAuthed, initialRole = null }: Props) {
   const [isAuthed, setIsAuthed] = useState(initialAuthed);
-  const [role, setRole] = useState<string | null>(initialRole);
+  const [role, setRole] = useState<string | null>(normalizeRole(initialRole));
   const projectRef =
     process.env.NEXT_PUBLIC_SUPABASE_URL?.match(/https:\/\/(.*?)\.supabase\.co/)?.[1] ||
     "supabase";
@@ -46,7 +47,8 @@ export function NavAuthClient({ initialAuthed, initialRole = null }: Props) {
           .eq("id", session.user.id)
           .maybeSingle()
           .then(({ data: profile }: { data: { role?: string } | null }) => {
-            if (profile?.role) setRole(profile.role);
+            const normalizedRole = normalizeRole(profile?.role);
+            if (normalizedRole) setRole(normalizedRole);
           })
           .catch(() => undefined);
       }
@@ -68,7 +70,8 @@ export function NavAuthClient({ initialAuthed, initialRole = null }: Props) {
           .eq("id", session.user.id)
           .maybeSingle()
           .then(({ data: profile }: { data: { role?: string } | null }) => {
-            if (profile?.role) setRole(profile.role);
+            const normalizedRole = normalizeRole(profile?.role);
+            if (normalizedRole) setRole(normalizedRole);
           })
           .catch(() => undefined);
       } else {
@@ -101,7 +104,7 @@ export function NavAuthClient({ initialAuthed, initialRole = null }: Props) {
     }
   };
 
-  const canShowDashboard = isAuthed && role !== "tenant";
+  const canShowDashboard = isAuthed && !!role && role !== "tenant";
 
   if (isAuthed) {
     return (

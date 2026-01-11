@@ -2,11 +2,31 @@ export type UserRole = "tenant" | "landlord" | "agent" | "admin";
 
 export type RentalType = "short_let" | "long_term";
 
+export type RentPeriod = "monthly" | "yearly";
+
+export type ListingType =
+  | "apartment"
+  | "house"
+  | "duplex"
+  | "studio"
+  | "room"
+  | "shop"
+  | "office"
+  | "land";
+
+export type SizeUnit = "sqm" | "sqft";
+
+export type BathroomType = "private" | "shared";
+
 export type PropertyStatus = "draft" | "pending" | "live" | "rejected" | "paused";
+
+export type MessageDeliveryState = "sent" | "delivered" | "read";
 
 export interface Profile {
   id: string;
-  role: UserRole;
+  role: UserRole | null;
+  onboarding_completed?: boolean | null;
+  onboarding_completed_at?: string | null;
   full_name?: string | null;
   phone?: string | null;
   city?: string | null;
@@ -14,6 +34,13 @@ export interface Profile {
   business_name?: string | null;
   preferred_contact?: string | null;
   areas_served?: string[] | null;
+  email_verified?: boolean | null;
+  phone_verified?: boolean | null;
+  bank_verified?: boolean | null;
+  reliability_power?: string | null;
+  reliability_water?: string | null;
+  reliability_internet?: string | null;
+  trust_updated_at?: string | null;
   created_at?: string;
 }
 
@@ -29,16 +56,28 @@ export interface Property {
   title: string;
   description?: string | null;
   city: string;
+  country?: string | null;
+  country_code?: string | null;
+  state_region?: string | null;
   neighbourhood?: string | null;
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  listing_type?: ListingType | null;
   rental_type: RentalType;
   price: number;
   currency: string;
+  rent_period?: RentPeriod | null;
   bedrooms: number;
   bathrooms: number;
+  bathroom_type?: BathroomType | null;
   furnished: boolean;
+  size_value?: number | null;
+  size_unit?: SizeUnit | null;
+  year_built?: number | null;
+  deposit_amount?: number | null;
+  deposit_currency?: string | null;
+  pets_allowed?: boolean | null;
   amenities?: string[] | null;
   available_from?: string | null;
   max_guests?: number | null;
@@ -66,6 +105,7 @@ export interface Message {
   recipient_id: string;
   body: string;
   created_at?: string;
+  delivery_state?: MessageDeliveryState;
 }
 
 export interface ViewingRequest {
