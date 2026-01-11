@@ -7,6 +7,10 @@ For full details, see `web/docs/VERSIONS.md`.
 - [v1.7.55-main-merge-checkpoint](../../tags/v1.7.55-main-merge-checkpoint)
 - Merged `feat/r6.7` into `main` (R9–R12 analytics, telemetry, guardrails).
 
+## R13 — PWA Foundation (milestone)
+- [v1.7.58-r13-pwa-foundation](../../tags/v1.7.58-r13-pwa-foundation)
+- R13 PWA Foundation recognized as shipped; no code changes in this milestone.
+
 ## Analytics Foundation → Demand Funnels → Beta readiness
 **Tags**
 - [v1.7.48-r11-landlord-analytics](../../tags/v1.7.48-r11-landlord-analytics)
