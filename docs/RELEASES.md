@@ -3,6 +3,86 @@
 This file lists tagged releases in reverse chronological order (most recent first).
 For full details, see `web/docs/VERSIONS.md`.
 
+## R11 — Analytics Foundation (v1.7.48 → v1.7.51)
+**Status:** Shipped & validated  
+**Version range:** `v1.7.48 → v1.7.51`  
+**Theme:** Operational observability & marketplace truth  
+
+**Tags**
+- [v1.7.48-r11-landlord-analytics](../../tags/v1.7.48-r11-landlord-analytics)
+- [v1.7.49-r11.1-property-views-telemetry](../../tags/v1.7.49-r11.1-property-views-telemetry)
+- [v1.7.50-r11.2-property-views-guardrails](../../tags/v1.7.50-r11.2-property-views-guardrails)
+- [v1.7.51-r11.3-views-accuracy](../../tags/v1.7.51-r11.3-views-accuracy)
+
+### Overview
+With R11, **RentNow transitions from feature-complete to operationally observable**.
+
+This release establishes the first durable analytics layer across the marketplace, enabling:
+- Reliable demand visibility for landlords and agents
+- Read-only operational insight for admins
+- Explicit data coverage and gaps (no misleading metrics)
+- Guardrails that ensure accuracy before optimisation
+
+R11 deliberately prioritises **truth over polish** — surfacing what is known, what is unknown, and how fresh the data is.
+
+### What shipped
+#### R11.1 — Property Views Telemetry
+- Introduced `property_views` event table
+- Recorded views on property detail fetch
+- Wired views into:
+  - Admin marketplace analytics
+  - Landlord/agent dashboard analytics
+- Added verification SQL and ops checklist  
+**Outcome:** We can now reliably answer: *“Are listings being seen?”*
+
+#### R11.2 — Views Guardrails & Accuracy
+- Excluded owner self-views from analytics
+- Added 60s deduplication for authenticated viewers
+- Captured `viewer_id` where available
+- Preserved anonymous views (explicitly marked as non-deduped)
+- Documented assumptions and noise boundaries  
+**Outcome:** Metrics are **directionally correct and defensible**, even at low volume.
+
+#### R11.3 — Analytics Accuracy & Breakdown
+- Added total vs unique vs anonymous view breakdowns
+- Implemented inflight/prefetch dedupe to prevent double-counting
+- Unified analytics helpers across admin and landlord views
+- Introduced structured “Not available” fallbacks
+- Expanded test coverage for analytics integrity  
+**Outcome:** Analytics now explain themselves — no silent gaps, no false confidence.
+
+### Where analytics live
+#### Landlord / Agent
+`/dashboard/analytics`
+
+#### Admin
+`/admin/analytics` and `/admin/analytics/host/[id]`
+
+### Design principles (locked in)
+- Read-only by default — no actions without trust
+- No PII exposure — aggregates only
+- Explicit gaps — “Not available” beats misleading zeros
+- Guardrails before growth — accuracy first, optimisation later
+- Same truth, different lenses — admin vs landlord views share logic
+
+### Not included (by design)
+- No revenue or payment analytics
+- No tenant behavioural profiling
+- No alert-driven automation
+- No speculative metrics without data backing
+
+### Why this matters
+R11 gives RentNow operational credibility:
+- Verify marketplace health without logs or SQL
+- Onboard contributors with shared visibility
+- Add future analytics safely without rewrites
+- Speak confidently about demand, not just supply
+
+### Next directions
+- R12: Demand funnels & tenant-side signals
+- R13: Messaging → enquiry → response performance
+- R14: Monetisation analytics (featured listings, boosts)
+
 ## v1.7.33 series
 - v1.7.33-r7.7.3.2-airbnb-form-layout: Airbnb-style Basics layout with sticky pricing card.
 - v1.7.33-r7.7.3.1-form-bottom-row-layout: Bottom-row layout rebalance for basics fields.
