@@ -42,44 +42,88 @@ RentNow is a rental marketplace for African cities. It lets tenants discover and
 
 ## In-flight
 - Current line: R12 demand funnels shipped (tag v1.7.52-r12-demand-funnels).
-- No additional in-flight phases queued.
+- Next planned work begins with Phase 13 (Host SLA analytics).
 
-## Now / Next / Later (approved roadmap)
+## Future phases (12–17)
+These phases build on R9–R11 telemetry and R12 demand funnels to keep analytics truthful, operational, and host-safe.
 
-### Now — Phase 8: Stability, Access Hygiene & Browse Reliability
-- Fix pre-login browse/search reliability
-- Distinguish empty results vs fetch errors
-- Remove dev diagnostics from production UI
-- Enforce role hygiene:
-  - Tenants should not see landlord/agent-only CTAs
-  - Listing creation gated correctly by role
-- Fix redirect inconsistencies (Next.js redirect errors)
-- No new features, no schema changes
-
+### Phase 12 — Demand Funnels & Tenant-Side Signals (Shipped)
+What ships:
+- Tenant-side funnel coverage (views → saves → enquiries → viewing requests)
+- Explicit “Not available” handling for missing stages
+Why it exists:
+- Establishes truth about demand drop-offs without guesswork
+Metrics unlocked:
+- Funnel counts and conversion rates by listing, host, and marketplace
 Non-goals:
-- No new product features
-- No schema changes
+- No inferred or fuzzy metrics
+- No behavioural profiling or cohorting
 
-### Next — Phase 9: Listing Data Expansion (Trust & Structure)
-- Add structured listing attributes:
-  - Listing type (apartment, house, studio, etc.)
-  - Address breakdown (country, state/region)
-  - Property size (value + unit)
-  - Year built (optional)
-  - Security deposit (amount + currency)
-  - Bathroom privacy (private/shared)
-  - Pets allowed
-- Surface fields in:
-  - Listing create/edit (Details step)
-  - Property detail page (“Key facts”)
-- No new search filters or monetisation changes
-
+### Phase 13 — Host SLA Analytics (Per-host only)
+What ships:
+- SLA analytics computed per host (landlord/agent), not per listing
+- Read-only response rate and first-response timing summary
+Why it exists:
+- Highlights host responsiveness without exposing tenant details
+Metrics unlocked:
+- Response rate (per host)
+- Median time to first response (per host)
+- SLA compliance banding (per host)
 Non-goals:
-- No new search filters
-- No monetisation or billing changes
+- No per-listing SLA scoring
+- No message content exposure or PII
+- No penalties or automated enforcement
 
-### Later
-- No additional approved phases yet. Awaiting roadmap updates after Phase 9.
+### Phase 14 — Featured Listings (Flat-fee, time-based)
+What ships:
+- Flat-fee, time-based featured listing placement
+- Duration-bound visibility controls (start/end window)
+Why it exists:
+- Enables simple monetisation without performance pricing
+Metrics unlocked:
+- Featured slot utilisation
+- Featured listing view counts (where view telemetry exists)
+Non-goals:
+- No bidding or auction mechanics
+- No performance-based or subscription pricing
+- No ranking overhauls outside the featured slot
+
+### Phase 15 — Notifications & Trust Nudges (Ops-safe)
+What ships:
+- Reliability-focused notifications for saved searches and key listing status changes
+- Clear opt-in and delivery state transparency
+Why it exists:
+- Reduces silent failures and improves user trust
+Metrics unlocked:
+- Delivery success vs unavailable rates
+- Opt-in coverage
+Non-goals:
+- No new channels beyond existing web/email foundations
+- No marketing campaigns or growth automation
+
+### Phase 16 — PWA Reliability & Offline Resilience
+What ships:
+- Stability improvements for offline-safe shell
+- Clear offline messaging on critical flows
+Why it exists:
+- Ensures consistent baseline experience across low-connectivity contexts
+Metrics unlocked:
+- Offline page usage and cache hit ratios (where telemetry exists)
+Non-goals:
+- No push expansion or background sync features
+- No new client-side tracking
+
+### Phase 17 — Pricing Models (Explicitly deferred)
+What ships:
+- Decision to defer subscription and performance-based pricing
+Why it exists:
+- Keeps monetisation simple while demand signals mature
+Metrics unlocked:
+- None (strategic deferral)
+Non-goals:
+- No subscription tiers
+- No performance-based fees
+- No pay-per-lead or revenue-share models
 
 ## Key architectural and operational decisions
 - App lives in `web/` and is built with Next.js (App Router), Tailwind, and Supabase.
