@@ -1,5 +1,5 @@
 import webpush from "web-push";
-import { getPushConfigStatus, getVapidPublicKey } from "@/lib/push/config";
+import { getPushConfigStatus } from "@/lib/push/config";
 
 if (typeof window !== "undefined") {
   throw new Error("Push server helpers are server-only.");
