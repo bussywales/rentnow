@@ -1,5 +1,8 @@
 # Versions
 
+## 2026-01-11 — v1.7.53-r12.0.1-demand-funnels-build-fix
+- TypeScript build depth fix (no behavior change).
+
 ## 2026-01-11 — v1.7.52-r12-demand-funnels
 - Added tenant-side demand funnel aggregation with explicit coverage flags.
 - Surfaced funnel cards in landlord and admin analytics with drop-off highlights.
