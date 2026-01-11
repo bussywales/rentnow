@@ -7,6 +7,7 @@ import { CurrencySelect } from "@/components/properties/CurrencySelect";
 import { CountrySelect } from "@/components/properties/CountrySelect";
 import { normalizeCountryCode } from "@/lib/countries";
 import { Button } from "@/components/ui/Button";
+import InfoPopover from "@/components/ui/InfoPopover";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
@@ -68,6 +69,14 @@ const STORAGE_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "property-images";
 
 const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+const COORDINATES_HELP = {
+  title: "How to find coordinates",
+  bullets: [
+    "Google Maps (recommended): Search the address, right-click the pin, then click the numbers to copy.",
+    "On mobile: Drop a pin, swipe up, then copy the coordinates.",
+    "Tip: Latitude is like 51.50…, longitude is like -0.12….",
+  ],
+};
 
 const steps = [
   { id: "basics", label: "Basics" },
@@ -745,9 +754,16 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <label htmlFor="latitude" className="text-sm font-medium text-slate-700">
-                      Latitude
-                    </label>
+                    <div className="flex items-center gap-2">
+                      <label htmlFor="latitude" className="text-sm font-medium text-slate-700">
+                        Latitude
+                      </label>
+                      <InfoPopover
+                        ariaLabel="Latitude and longitude help"
+                        title={COORDINATES_HELP.title}
+                        bullets={COORDINATES_HELP.bullets}
+                      />
+                    </div>
                     <Input
                       id="latitude"
                       type="number"

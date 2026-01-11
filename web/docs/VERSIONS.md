@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-11 — v1.7.54-r12.1-latlong-help-tooltip
+- Added latitude/longitude helper tooltip in listing Basics step.
+- Documented Google Maps/mobile coordinate guidance with accessible popover.
+
 ## 2026-01-11 — v1.7.53-r12.0.1-demand-funnels-build-fix
 - TypeScript build depth fix (no behavior change).
 
