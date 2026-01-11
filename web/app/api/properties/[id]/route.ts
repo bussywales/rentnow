@@ -12,6 +12,7 @@ import { getListingAccessResult } from "@/lib/role-access";
 import { normalizeRole } from "@/lib/roles";
 import { normalizeCountryForUpdate } from "@/lib/properties/country-normalize";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
+import { getDedupeWindowStart, shouldRecordPropertyView } from "@/lib/analytics/property-views";
 
 const routeLabel = "/api/properties/[id]";
 const CURRENT_YEAR = new Date().getFullYear();
@@ -71,22 +72,71 @@ const idParamSchema = z.object({
 const uuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-async function resolveViewerRole(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>) {
+async function resolveViewerContext(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>
+) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return "anon";
+  if (!user) return { viewerId: null, viewerRole: "anon" };
   const role = await getUserRole(supabase, user.id);
-  return normalizeRole(role) ?? "anon";
+  return { viewerId: user.id, viewerRole: normalizeRole(role) ?? "anon" };
 }
 
-async function recordPropertyView(propertyId: string, viewerRole: string) {
+async function recordPropertyView({
+  propertyId,
+  ownerId,
+  viewerId,
+  viewerRole,
+}: {
+  propertyId: string;
+  ownerId?: string | null;
+  viewerId?: string | null;
+  viewerRole: string;
+}) {
   if (!hasServiceRoleEnv()) return;
+  if (viewerId && ownerId && viewerId === ownerId) return;
   try {
     const serviceClient = createServiceRoleClient();
     const adminDb = serviceClient as unknown as UntypedAdminClient;
+    const now = new Date();
+    let lastViewedAt: string | null = null;
+
+    if (viewerId) {
+      const windowStart = getDedupeWindowStart(now);
+      const { data, error } = await adminDb
+        .from<{ created_at: string }>("property_views")
+        .select("created_at")
+        .eq("property_id", propertyId)
+        .eq("viewer_id", viewerId)
+        .gte("created_at", windowStart)
+        .order("created_at", { ascending: false })
+        .range(0, 0);
+      if (error) {
+        console.warn("Property view dedupe lookup failed", {
+          route: routeLabel,
+          propertyId,
+          error: error.message ?? "unknown_error",
+        });
+      } else {
+        lastViewedAt = data?.[0]?.created_at ?? null;
+      }
+    }
+
+    if (
+      !shouldRecordPropertyView({
+        viewerId,
+        ownerId,
+        lastViewedAt,
+        now,
+      })
+    ) {
+      return;
+    }
+
     await adminDb.from("property_views").insert({
       property_id: propertyId,
+      viewer_id: viewerId ?? null,
       viewer_role: viewerRole,
     });
   } catch (err) {
@@ -240,8 +290,13 @@ export async function GET(
     }
   }
 
-  const viewerRole = await resolveViewerRole(supabase);
-  void recordPropertyView(data.id, viewerRole);
+  const { viewerId, viewerRole } = await resolveViewerContext(supabase);
+  void recordPropertyView({
+    propertyId: data.id,
+    ownerId: data.owner_id,
+    viewerId,
+    viewerRole,
+  });
 
   return NextResponse.json({ property: data });
 }

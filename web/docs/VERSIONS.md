@@ -326,3 +326,8 @@
 - Recorded listing views on property detail fetch with service-role inserts.
 - Wired views counts into admin and landlord analytics helpers.
 - Added unit coverage for view aggregation and migration guardrails.
+
+## 2026-01-11 — v1.7.50-r11.2-property-views-guardrails
+- Added `viewer_id` to property views with a dedupe-supporting index.
+- Skipped owner views and deduped repeat authenticated views within 60 seconds.
+- Added guardrail tests plus updated ops verification queries.

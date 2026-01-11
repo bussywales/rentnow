@@ -47,6 +47,7 @@ Apply SQL files in this order:
 40) `web/supabase/migrations/040_properties_country_code.sql`
 41) `web/supabase/migrations/041_backfill_properties_country_code.sql`
 42) `web/supabase/migrations/042_property_views.sql`
+43) `web/supabase/migrations/043_property_views_viewer_id.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -209,6 +210,32 @@ select to_regclass('public.property_views') as property_views;
 select conname, pg_get_constraintdef(oid)
 from pg_constraint
 where conname = 'property_views_viewer_role_check';
+
+select column_name
+from information_schema.columns
+where table_schema = 'public'
+  and table_name = 'property_views'
+order by ordinal_position;
+
+select count(*) as owner_views
+from public.property_views pv
+join public.properties p on p.id = pv.property_id
+where pv.viewer_id is not null
+  and pv.viewer_id = p.owner_id;
+
+select viewer_id, count(*) as views
+from public.property_views
+where viewer_id is not null
+group by viewer_id
+order by views desc
+limit 20;
+
+select property_id, viewer_id, created_at
+from public.property_views
+where property_id = '<PROPERTY_ID>'::uuid
+  and viewer_id = '<VIEWER_ID>'::uuid
+order by created_at desc
+limit 20;
 ```
 
 ### Trust markers verification
