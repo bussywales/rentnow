@@ -8,6 +8,7 @@ Project docs:
 - Roadmap: `docs/ROADMAP.md`
 - Releases: `docs/RELEASES.md` (see `web/docs/VERSIONS.md` for full detail)
 - Beta operations: `web/docs/BETA.md`
+- QA checklist: `web/docs/qa/checklist.md`
 
 Quick start:
 ```bash

@@ -106,6 +106,11 @@
 - Refresh a listing as an authenticated non-owner within 60 seconds and confirm only one view row is recorded.
 - Navigate back/forward to a listing and confirm views are not double-counted due to prefetch.
 
+## Migration verification
+- Run `npx supabase@latest migration list` and confirm recent versions are marked applied.
+- If CLI is used for validation, run `npx supabase@latest db push` and confirm there are no pending migrations.
+- Spot-check critical columns/functions via SQL if needed (e.g., `country_code` on `public.properties`).
+
 ## Stop-ship conditions
 - Listings cannot be created or saved for any host role.
 - Browse returns “Unable to load listings” for all users.

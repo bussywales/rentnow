@@ -24,6 +24,20 @@ It does not add new features; it documents what the product already does.
 ## Beta Smoke Checklist
 Use this alongside the full QA checklist at `web/docs/qa/checklist.md`.
 
+### Personas
+- Tenant (logged out)
+- Tenant (logged in)
+- Landlord/Agent (logged in)
+- Admin (logged in)
+
+### Key routes to verify
+- `/properties` (Browse)
+- `/properties/[id]`
+- `/dashboard`
+- `/dashboard/analytics`
+- `/admin/support`
+- `/admin/alerts`
+
 ### Listings (host flow)
 - Basics → Details → Photos → Preview → Submit works without silent failures.
 - If required Basics fields are missing, the stepper shows a clear message and blocks Next.
@@ -55,6 +69,8 @@ Use this alongside the full QA checklist at `web/docs/qa/checklist.md`.
 - Browse shows “Unable to load listings” for all users.
 - Photos upload fails for all hosts (not a single-user issue).
 - Admin support dashboards error consistently or show blank snapshots.
+- Migrations are mismatched (missing columns/functions) or schema drift breaks core flows.
+- Admin telemetry is missing for core tables (properties, property_images, messages, viewing_requests).
 
 ## Troubleshooting
 
@@ -71,6 +87,11 @@ Use this alongside the full QA checklist at `web/docs/qa/checklist.md`.
 - Verify session cookies are present for the domain.
 - Hard refresh the Photos step; it should remain authenticated.
 - If the problem persists, inspect `NEXT_PUBLIC_SITE_URL` and Supabase auth cookie domain settings.
+
+### How to verify migrations are applied
+- Run `npx supabase@latest migration list` and confirm recent versions are marked as applied.
+- If you must validate via CLI, run `npx supabase@latest db push` and confirm there are no pending migrations.
+- Spot-check critical columns/functions via SQL in Supabase if needed (e.g., `country_code` on `public.properties`).
 
 ### Save search blocked
 - Tenants only; landlord/agent/admin should receive `role_not_allowed` messaging.

@@ -3,8 +3,30 @@
 This file lists tagged releases in reverse chronological order (most recent first).
 For full details, see `web/docs/VERSIONS.md`.
 
-## R12 — Demand Funnels (v1.7.52-r12-demand-funnels)
-- [v1.7.52-r12-demand-funnels](../../tags/v1.7.52-r12-demand-funnels)
+## Main merge checkpoint
+- [v1.7.55-main-merge-checkpoint](../../tags/v1.7.55-main-merge-checkpoint)
+- Merged `feat/r6.7` into `main` (R9–R12 analytics, telemetry, guardrails).
+
+## Analytics Foundation → Demand Funnels → Beta readiness
+**Tags**
+- [v1.7.48-r11-landlord-analytics](../../tags/v1.7.48-r11-landlord-analytics)
+- [v1.7.49-r11.1-property-views-telemetry](../../tags/v1.7.49-r11.1-property-views-telemetry)
+- [v1.7.50-r11.2-property-views-guardrails](../../tags/v1.7.50-r11.2-property-views-guardrails)
+- [v1.7.51-r11.3-views-accuracy](../../tags/v1.7.51-r11.3-views-accuracy)
+- [v1.7.52-r12-demand-funnels](../../tags/v1.7.52-r12-demand-funnels) (superseded)
+- [v1.7.53-r12.0.1-demand-funnels-build-fix](../../tags/v1.7.53-r12.0.1-demand-funnels-build-fix)
+- [v1.7.54-r12.1-latlong-help-tooltip](../../tags/v1.7.54-r12.1-latlong-help-tooltip)
+
+**Narrative**
+- R11 establishes read-only analytics foundations (views telemetry + guardrails).
+- R12 adds tenant-side demand funnels and explicit coverage labels.
+- v1.7.52 is superseded by v1.7.53 due to a TypeScript build-depth fix (no behavior change).
+- R12.1 adds a small host-form helper tooltip to reduce listing input errors.
+
+## R12 — Demand Funnels (v1.7.52 → v1.7.54)
+- [v1.7.52-r12-demand-funnels](../../tags/v1.7.52-r12-demand-funnels) (superseded)
+- [v1.7.53-r12.0.1-demand-funnels-build-fix](../../tags/v1.7.53-r12.0.1-demand-funnels-build-fix)
+- [v1.7.54-r12.1-latlong-help-tooltip](../../tags/v1.7.54-r12.1-latlong-help-tooltip)
 - Added tenant-side demand funnel counts (views → saves → enquiries → viewing requests) with explicit coverage flags.
 - Wired funnel cards into landlord and admin analytics with drop-off highlights and “Not available” fallbacks.
 - Documented verification SQL and known blind spots for anonymous and missing signals.
