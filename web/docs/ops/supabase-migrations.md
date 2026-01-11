@@ -46,6 +46,7 @@ Apply SQL files in this order:
 39) `web/supabase/migrations/039_properties_listing_details.sql`
 40) `web/supabase/migrations/040_properties_country_code.sql`
 41) `web/supabase/migrations/041_backfill_properties_country_code.sql`
+42) `web/supabase/migrations/042_property_views.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -115,6 +116,7 @@ select to_regclass('public.role_change_audit') as role_change_audit;
 select to_regclass('public.messaging_throttle_events') as messaging_throttle_events;
 select to_regclass('public.push_subscriptions') as push_subscriptions;
 select to_regclass('public.message_thread_shares') as message_thread_shares;
+select to_regclass('public.property_views') as property_views;
 ```
 
 ### Rent period column
@@ -198,6 +200,15 @@ select to_regclass('public.push_subscriptions') as exists;
 ### Push alert retention verification
 ```sql
 select to_regprocedure('public.cleanup_push_alerts(integer)') as cleanup_push_alerts;
+```
+
+### Property views verification
+```sql
+select to_regclass('public.property_views') as property_views;
+
+select conname, pg_get_constraintdef(oid)
+from pg_constraint
+where conname = 'property_views_viewer_role_check';
 ```
 
 ### Trust markers verification

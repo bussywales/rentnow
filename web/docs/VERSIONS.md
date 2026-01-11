@@ -320,3 +320,9 @@
 - Updated country selection to persist both display name and ISO code.
 - Normalized country payloads on create/update with derived code/name fallbacks.
 - Added unit coverage for country normalization and migration presence.
+
+## 2026-01-11 — v1.7.49-r11.1-property-views-telemetry
+- Added `property_views` append-only telemetry table with role guardrails.
+- Recorded listing views on property detail fetch with service-role inserts.
+- Wired views counts into admin and landlord analytics helpers.
+- Added unit coverage for view aggregation and migration guardrails.

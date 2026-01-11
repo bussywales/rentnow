@@ -7,6 +7,7 @@ import { canManageListings } from "@/lib/role-access";
 import { normalizeRole } from "@/lib/roles";
 import { getLandlordAnalytics, resolveAnalyticsHostId, type AnalyticsRangeKey } from "@/lib/analytics/landlord-analytics";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -79,11 +80,13 @@ export default async function DashboardAnalyticsPage({ searchParams }: Analytics
     actingAs,
     canActAs,
   });
+  const viewsClient = hasServiceRoleEnv() ? createServiceRoleClient() : undefined;
 
   const snapshot = await getLandlordAnalytics({
     hostId: hostScope.hostId,
     rangeKey,
     supabase,
+    viewsClient,
   });
   const showDiagnostics = process.env.NODE_ENV === "development";
 

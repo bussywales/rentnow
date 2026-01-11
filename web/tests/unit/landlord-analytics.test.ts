@@ -2,7 +2,79 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { resolveAnalyticsHostId, resolveAnalyticsRange } from "@/lib/analytics/landlord-analytics";
+import { getLandlordAnalytics, resolveAnalyticsHostId, resolveAnalyticsRange } from "@/lib/analytics/landlord-analytics";
+
+type MockConfig = {
+  counts?: Record<string, number>;
+  errors?: Record<string, string>;
+  messages?: Array<{
+    property_id: string;
+    sender_id: string;
+    recipient_id: string | null;
+    created_at: string;
+    properties?: Array<{ owner_id: string }>;
+  }>;
+};
+
+class MockQuery {
+  private readonly table: string;
+  private readonly config: MockConfig;
+  private head = false;
+
+  constructor(table: string, config: MockConfig) {
+    this.table = table;
+    this.config = config;
+  }
+
+  select(_: string, options?: { count?: string; head?: boolean }) {
+    this.head = Boolean(options?.head);
+    return this;
+  }
+
+  eq() {
+    return this;
+  }
+
+  gte() {
+    return this;
+  }
+
+  lt() {
+    return this;
+  }
+
+  order() {
+    return this;
+  }
+
+  then(resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) {
+    return Promise.resolve(this.exec()).then(resolve, reject);
+  }
+
+  private exec() {
+    const errorMessage = this.config.errors?.[this.table];
+    if (errorMessage) {
+      return { count: null, data: null, error: { message: errorMessage } };
+    }
+    if (!this.head) {
+      if (this.table === "messages") {
+        return { data: this.config.messages ?? [], error: null };
+      }
+      return { data: [], error: null };
+    }
+    return { count: this.config.counts?.[this.table] ?? 0, error: null };
+  }
+}
+
+type SupabaseLike = {
+  from: (table: string) => MockQuery;
+};
+
+const createMockSupabase = (config: MockConfig): SupabaseLike => ({
+  from(table: string) {
+    return new MockQuery(table, config);
+  },
+});
 
 void test("dashboard analytics page guards non-listing roles", () => {
   const pagePath = path.join(process.cwd(), "app", "dashboard", "analytics", "page.tsx");
@@ -70,4 +142,51 @@ void test("resolveAnalyticsRange uses previous period offsets", () => {
 
   assert.equal(range.key, "last7");
   assert.ok(new Date(range.previousEnd).getTime() === new Date(range.start).getTime());
+});
+
+void test("property views telemetry migration enforces RLS without policies", () => {
+  const migrationPath = path.join(process.cwd(), "supabase", "migrations", "042_property_views.sql");
+  const contents = fs.readFileSync(migrationPath, "utf8");
+
+  assert.ok(
+    contents.includes("ENABLE ROW LEVEL SECURITY"),
+    "expected RLS enabled on property_views"
+  );
+  assert.ok(
+    !contents.includes("CREATE POLICY"),
+    "expected no public policies on property_views"
+  );
+});
+
+void test("property detail API records views via property_views insert", () => {
+  const routePath = path.join(process.cwd(), "app", "api", "properties", "[id]", "route.ts");
+  const contents = fs.readFileSync(routePath, "utf8");
+
+  assert.ok(contents.includes("property_views"), "expected property_views insert");
+  assert.ok(contents.includes("viewer_role"), "expected viewer_role capture");
+});
+
+void test("getLandlordAnalytics marks listing views unavailable when source errors", async () => {
+  const supabase = createMockSupabase({
+    counts: { properties: 3, saved_properties: 1, viewing_requests: 1 },
+    errors: { property_views: "relation does not exist" },
+    messages: [
+      {
+        property_id: "prop-1",
+        sender_id: "tenant-1",
+        recipient_id: "host-1",
+        created_at: "2026-01-11T10:00:00Z",
+        properties: [{ owner_id: "host-1" }],
+      },
+    ],
+  });
+
+  const snapshot = await getLandlordAnalytics({
+    hostId: "host-1",
+    supabase: supabase as unknown as SupabaseLike,
+    viewsClient: supabase as unknown as SupabaseLike,
+  });
+
+  assert.equal(snapshot.kpis.listingViews.available, false);
+  assert.equal(snapshot.kpis.listingViews.value, null);
 });

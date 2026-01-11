@@ -82,6 +82,7 @@ export default async function AdminHostAnalyticsPage({ params, searchParams }: H
     hostId: params.id,
     rangeKey,
     supabase: serviceClient,
+    viewsClient: serviceClient,
   });
   const showDiagnostics = process.env.NODE_ENV === "development";
 

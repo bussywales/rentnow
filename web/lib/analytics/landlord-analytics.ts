@@ -219,9 +219,11 @@ export async function getLandlordAnalytics(params: {
   hostId: string;
   rangeKey?: AnalyticsRangeKey | null;
   supabase: SupabaseClient;
+  viewsClient?: SupabaseClient;
 }): Promise<HostAnalyticsSnapshot> {
   const range = resolveAnalyticsRange(params.rangeKey);
   const notes: string[] = [];
+  const viewsSupabase = params.viewsClient ?? params.supabase;
 
   const totalListingsResult = await safeCount(
     params.supabase
@@ -287,7 +289,7 @@ export async function getLandlordAnalytics(params: {
   );
 
   const viewsCurrent = await safeCount(
-    params.supabase
+    viewsSupabase
       .from("property_views")
       .select("id, properties!inner(owner_id)", { count: "exact", head: true })
       .eq("properties.owner_id", params.hostId)
@@ -298,7 +300,7 @@ export async function getLandlordAnalytics(params: {
   );
 
   const viewsPrevious = await safeCount(
-    params.supabase
+    viewsSupabase
       .from("property_views")
       .select("id, properties!inner(owner_id)", { count: "exact", head: true })
       .eq("properties.owner_id", params.hostId)

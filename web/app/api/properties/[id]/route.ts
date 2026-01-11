@@ -9,7 +9,9 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { dispatchSavedSearchAlerts } from "@/lib/alerts/tenant-alerts";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
 import { getListingAccessResult } from "@/lib/role-access";
+import { normalizeRole } from "@/lib/roles";
 import { normalizeCountryForUpdate } from "@/lib/properties/country-normalize";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 const routeLabel = "/api/properties/[id]";
 const CURRENT_YEAR = new Date().getFullYear();
@@ -68,6 +70,33 @@ const idParamSchema = z.object({
 
 const uuidRegex =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function resolveViewerRole(supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>) {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return "anon";
+  const role = await getUserRole(supabase, user.id);
+  return normalizeRole(role) ?? "anon";
+}
+
+async function recordPropertyView(propertyId: string, viewerRole: string) {
+  if (!hasServiceRoleEnv()) return;
+  try {
+    const serviceClient = createServiceRoleClient();
+    const adminDb = serviceClient as unknown as UntypedAdminClient;
+    await adminDb.from("property_views").insert({
+      property_id: propertyId,
+      viewer_role: viewerRole,
+    });
+  } catch (err) {
+    console.warn("Property view insert failed", {
+      route: routeLabel,
+      propertyId,
+      error: err instanceof Error ? err.message : "unknown_error",
+    });
+  }
+}
 
 const getAnonEnv = () => {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -210,6 +239,9 @@ export async function GET(
       }
     }
   }
+
+  const viewerRole = await resolveViewerRole(supabase);
+  void recordPropertyView(data.id, viewerRole);
 
   return NextResponse.json({ property: data });
 }

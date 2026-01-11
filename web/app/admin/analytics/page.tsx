@@ -187,6 +187,12 @@ export default async function AdminAnalyticsPage() {
               <h2 className="text-lg font-semibold text-slate-900">Engagement</h2>
               <p className="text-sm text-slate-600">Derived ratios are shown when tracked.</p>
               <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                <li>
+                  Listing views (last 7d): {renderMetric(overview?.viewsLast7 ?? null)}
+                  {" · "}
+                  {formatDirection(trends?.listingViews.direction ?? "not_available")}{" "}
+                  {formatDelta(trends?.listingViews.delta ?? null)}
+                </li>
                 <li>Searches → results: {overview?.searchesToResults ?? "Not available"}</li>
                 <li>Views → enquiries: {overview?.viewsToEnquiries ?? "Not available"}</li>
               </ul>

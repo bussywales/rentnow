@@ -16,6 +16,7 @@ export type MarketplaceAnalyticsSnapshot = {
     live: number | null;
     pending: number | null;
     draft: number | null;
+    viewsLast7: number | null;
     withPhotosPct: number | null;
     withDescriptionPct: number | null;
     withTrustPct: number | null;
@@ -25,6 +26,7 @@ export type MarketplaceAnalyticsSnapshot = {
   trends: {
     listingsCreated: TrendDelta;
     liveListings: TrendDelta;
+    listingViews: TrendDelta;
   };
   errors: string[];
 };
@@ -69,6 +71,8 @@ export async function buildMarketplaceAnalytics(
     listingsCreatedPrev7,
     liveApprovedLast7,
     liveApprovedPrev7,
+    listingViewsLast7,
+    listingViewsPrev7,
   ] = await Promise.all([
     adminClient.from("properties").select("id", { count: "exact", head: true }),
     adminClient.from("properties").select("id", { count: "exact", head: true }).eq("status", "live"),
@@ -99,6 +103,15 @@ export async function buildMarketplaceAnalytics(
       .eq("status", "live")
       .gte("approved_at", prev7Start)
       .lt("approved_at", last7Start),
+    adminClient
+      .from("property_views")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", last7Start),
+    adminClient
+      .from("property_views")
+      .select("id", { count: "exact", head: true })
+      .gte("created_at", prev7Start)
+      .lt("created_at", last7Start),
   ]);
 
   collectError("totalListings", totalListings);
@@ -110,6 +123,8 @@ export async function buildMarketplaceAnalytics(
   collectError("listingsCreatedPrev7", listingsCreatedPrev7);
   collectError("liveApprovedLast7", liveApprovedLast7);
   collectError("liveApprovedPrev7", liveApprovedPrev7);
+  collectError("listingViewsLast7", listingViewsLast7);
+  collectError("listingViewsPrev7", listingViewsPrev7);
 
   let listingsWithTrust: CountResult = { count: null, error: null };
   try {
@@ -141,6 +156,7 @@ export async function buildMarketplaceAnalytics(
       live: toCount(liveListings),
       pending: toCount(pendingListings),
       draft: toCount(draftListings),
+      viewsLast7: toCount(listingViewsLast7),
       withPhotosPct: percent(withPhotosCount, total),
       withDescriptionPct: percent(toCount(listingsWithDescription), total),
       withTrustPct: percent(toCount(listingsWithTrust), total),
@@ -153,6 +169,7 @@ export async function buildMarketplaceAnalytics(
         toCount(listingsCreatedPrev7)
       ),
       liveListings: buildTrend(toCount(liveApprovedLast7), toCount(liveApprovedPrev7)),
+      listingViews: buildTrend(toCount(listingViewsLast7), toCount(listingViewsPrev7)),
     },
     errors,
   };

@@ -89,6 +89,10 @@
 - Admin can open `/admin/analytics/host/<host_id>` and see the same layout for a specific host.
 - When a metric source is missing, the UI shows “Not available” (no zero or crash).
 
+## Property views telemetry
+- Open a property detail page while logged out and confirm a row can be inserted into `public.property_views`.
+- Verify views aggregation surfaces in `/dashboard/analytics` and `/admin/analytics` once data exists.
+
 ## Stop-ship conditions
 - Listings cannot be created or saved for any host role.
 - Browse returns “Unable to load listings” for all users.
