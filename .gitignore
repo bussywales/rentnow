@@ -23,6 +23,8 @@ pnpm-debug.log*
 supabase/.branches
 supabase/.temp
 supabase/.env
+web/supabase/config.toml
+web/supabase/.gitignore
 
 # Playwright artifacts
 playwright-report/
