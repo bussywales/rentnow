@@ -361,3 +361,8 @@
 - Added admin host analytics index with search and read-only host list.
 - Included safe host labels, listings/threads/views columns, and “Not available” fallbacks.
 - Added unit tests and QA checklist steps for the index route.
+
+## 2026-01-12 — v1.7.63-r14.3-admin-push-test
+- Added an admin-only test push endpoint targeting the current admin subscriptions only.
+- Added a “Send test push” control on `/admin/support` with safe result states.
+- Documented admin test push verification in PWA ops and QA checklists.

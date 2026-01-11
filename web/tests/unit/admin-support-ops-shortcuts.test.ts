@@ -30,6 +30,10 @@ void test("admin support renders ops shortcuts and anchors", () => {
     contents.includes("href=\"/admin/support#beta-readiness\""),
     "expected beta readiness anchor link"
   );
+  assert.ok(
+    contents.includes("AdminPushTestButton"),
+    "expected admin push test button to render"
+  );
   assert.ok(contents.includes("id=\"data-quality\""), "expected data quality anchor id");
   assert.ok(contents.includes("id=\"beta-readiness\""), "expected beta readiness anchor id");
 });

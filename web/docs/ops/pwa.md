@@ -80,6 +80,11 @@ Admin support:
 - `/admin/support` shows “Push configured: Yes/No”.
 - Missing VAPID keys are listed only in dev mode or when `?debug=1` is supplied.
 
+Admin test push:
+- `/admin/support` includes “Send test push” for admins.
+- Test push targets only the current admin’s own subscriptions.
+- If no subscription exists, the API returns `code=no_subscriptions`.
+
 Retention cleanup (manual):
 ```sql
 select count(*) as candidate_rows

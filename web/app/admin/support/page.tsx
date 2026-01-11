@@ -38,6 +38,7 @@ import { formatRoleLabel } from "@/lib/roles";
 import { getMessagingPermissionMessage, MESSAGING_REASON_CODES } from "@/lib/messaging/permissions";
 import { getRateLimitSnapshot } from "@/lib/messaging/rate-limit";
 import { getPushConfigStatus } from "@/lib/push/config";
+import { AdminPushTestButton } from "@/components/admin/AdminPushTestButton";
 
 export const dynamic = "force-dynamic";
 
@@ -986,6 +987,7 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 ) : (
                   <p className="mt-2 text-sm text-slate-600">No push attempts in the recent sample.</p>
                 )}
+                <AdminPushTestButton debug={debug} />
                 {diag.pushTelemetry.error && (
                   <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     Errors: {diag.pushTelemetry.error}
