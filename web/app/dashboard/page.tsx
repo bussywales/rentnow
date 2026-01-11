@@ -289,6 +289,18 @@ export default async function DashboardHome() {
     return !!property.is_active;
   }).length;
   const listingLimitReached = isListingLimitReached(activeCount, plan);
+  const showErrorDetails = process.env.NODE_ENV === "development";
+  const normalizedFetchError = fetchError?.toLowerCase() ?? "";
+  const needsLogin =
+    normalizedFetchError.includes("unauthorized") ||
+    normalizedFetchError.includes("not authenticated");
+  const dashboardError = fetchError
+    ? normalizedFetchError.includes("supabase env vars missing")
+      ? "Dashboard data is unavailable right now. Please contact support."
+      : needsLogin
+        ? "Your session has expired. Please log in again."
+        : "We couldn't load your listings right now. Please try again."
+    : null;
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
@@ -400,9 +412,22 @@ export default async function DashboardHome() {
         </div>
       )}
       <div className="space-y-3">
-        {fetchError && (
+        {dashboardError && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            {fetchError}
+            <p>{dashboardError}</p>
+            {needsLogin && (
+              <Link
+                href="/auth/login?reason=auth&next=/dashboard"
+                className="mt-2 inline-flex text-sm font-semibold text-amber-900 underline-offset-4 hover:underline"
+              >
+                Log in again
+              </Link>
+            )}
+            {fetchError && showErrorDetails && (
+              <p className="mt-2 text-xs text-amber-900">
+                Details: {fetchError}
+              </p>
+            )}
           </div>
         )}
 

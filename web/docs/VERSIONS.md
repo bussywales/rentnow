@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-10 — v1.7.45-r9.3-beta-verification-guardrails
+- Added guardrail copy to prevent raw errors from surfacing in listing flows.
+- Documented beta smoke checklist, known limits, and troubleshooting notes.
+- Added unit coverage for guardrail messaging in listing and dashboard flows.
+
 ## 2026-01-10 — v1.7.44-r9.2-alerting
 - Added admin alerts inbox with push/messaging/data quality signals and runbook guidance.
 - Added admin-only alert dispatch webhook endpoint (disabled by default).

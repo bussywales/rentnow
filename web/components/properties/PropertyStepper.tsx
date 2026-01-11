@@ -539,6 +539,29 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
 
   const stepLabel = steps[stepIndex]?.label || "Basics";
   const maxYearBuilt = new Date().getFullYear() + 1;
+  const showErrorDetails = process.env.NODE_ENV === "development";
+  const resolveStepperError = (message: string, code: string | null) => {
+    if (code === "not_authenticated") {
+      return "Please log in to continue.";
+    }
+    if (code === "role_not_allowed") {
+      return "Your role can’t create listings.";
+    }
+    if (code === "plan_limit_reached") {
+      return message;
+    }
+    const normalized = message.toLowerCase();
+    if (normalized.includes("supabase environment variables are missing")) {
+      return "Listing saves are unavailable right now. Please contact support.";
+    }
+    if (normalized.includes("storage bucket is not configured")) {
+      return "Photo uploads are unavailable right now.";
+    }
+    return message;
+  };
+  const errorSummary = error ? resolveStepperError(error, errorCode) : null;
+  const errorDetails =
+    error && showErrorDetails && errorSummary !== error ? error : null;
 
   return (
     <div className="space-y-8">
@@ -576,9 +599,9 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       </div>
 
       <div className="min-h-[1.5rem]">
-        {error && (
+        {errorSummary && (
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            <p>{error}</p>
+            <p>{errorSummary}</p>
             <div className="mt-2 flex flex-wrap gap-3">
               {errorCode === "not_authenticated" && (
                 <Link href="/auth/login" className="text-sm font-semibold underline">
@@ -591,6 +614,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                 </Link>
               )}
             </div>
+            {errorDetails && (
+              <p className="mt-2 text-xs text-rose-700/80">
+                Details: {errorDetails}
+              </p>
+            )}
           </div>
         )}
       </div>

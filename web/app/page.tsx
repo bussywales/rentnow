@@ -200,7 +200,7 @@ export default async function Home() {
             </p>
             <p className="mt-1 text-sm text-amber-800">
               {fetchError
-                ? fetchError
+                ? "We couldn't load featured listings right now. Please try again."
                 : "Check back soon or browse the full catalogue."}
             </p>
             <div className="mt-3 flex flex-wrap items-center gap-2">
