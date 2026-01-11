@@ -1,5 +1,8 @@
 # Versions
 
+## 2026-01-12 — v1.7.61-r14.1-ops-shortcuts
+- Added ops shortcuts links on /admin/support for faster triage navigation.
+
 ## 2026-01-12 — v1.7.59-r14.0-push-optin-observability
 - Added shared push configuration helper with missing-key reporting (dev/debug only).
 - Clarified saved-search push opt-in states (unavailable, enable, finish setup) with tenant-only UI.

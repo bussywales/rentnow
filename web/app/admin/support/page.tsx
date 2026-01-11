@@ -669,6 +669,41 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
         <p className="text-sm text-slate-600">Only visible to admins. Quick checks and tools for debugging.</p>
       </div>
 
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="space-y-1">
+          <h3 className="text-lg font-semibold text-slate-900">Ops shortcuts</h3>
+          <p className="text-sm text-slate-600">
+            Jump to the key ops panels used for triage, monitoring, and verification.
+          </p>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Link
+            href="/admin/alerts"
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300"
+          >
+            Alerts inbox
+          </Link>
+          <Link
+            href="/admin/analytics"
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300"
+          >
+            Marketplace analytics
+          </Link>
+          <Link
+            href="/admin/support#data-quality"
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300"
+          >
+            Data quality
+          </Link>
+          <Link
+            href="/admin/support#beta-readiness"
+            className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300"
+          >
+            Beta readiness
+          </Link>
+        </div>
+      </div>
+
       {!diag.supabaseReady && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           Supabase is not configured; diagnostics are limited. Set the Supabase env vars in Vercel.
@@ -694,7 +729,10 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
             </div>
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div
+            id="beta-readiness"
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
             <h3 className="text-lg font-semibold text-slate-900">Beta readiness</h3>
             <p className="text-sm text-slate-600">
               Read-only snapshot of beta readiness signals. Use docs for migration verification.
@@ -1026,7 +1064,10 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
             )}
           </div>
 
-          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div
+            id="data-quality"
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          >
             <h3 className="text-lg font-semibold text-slate-900">Data quality</h3>
             {!diag.dataQuality?.ready && (
               <p className="text-sm text-slate-600">
