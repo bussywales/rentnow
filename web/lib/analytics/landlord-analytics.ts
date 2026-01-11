@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/types";
+import { getDemandFunnelSnapshot, type DemandFunnelSnapshot } from "@/lib/analytics/demand-funnel";
 
 export type AnalyticsRangeKey = "last7" | "last30" | "thisMonth";
 
@@ -42,6 +43,7 @@ export type HostAnalyticsSnapshot = {
   range: AnalyticsRange;
   totalListings: number | null;
   activeListings: number | null;
+  funnel: DemandFunnelSnapshot;
   viewsBreakdown: {
     total: number | null;
     uniqueAuthViewers: number | null;
@@ -248,7 +250,7 @@ export async function getLandlordAnalytics(params: {
 }): Promise<HostAnalyticsSnapshot> {
   const range = resolveAnalyticsRange(params.rangeKey);
   const notes: string[] = [];
-  const viewsSupabase = params.viewsClient ?? params.supabase;
+  const analyticsSupabase = params.viewsClient ?? params.supabase;
 
   const totalListingsResult = await safeCount(
     params.supabase
@@ -270,7 +272,7 @@ export async function getLandlordAnalytics(params: {
   );
 
   const savedCurrent = await safeCount(
-    params.supabase
+    analyticsSupabase
       .from("saved_properties")
       .select("id, properties!inner(owner_id)", { count: "exact", head: true })
       .eq("properties.owner_id", params.hostId)
@@ -281,7 +283,7 @@ export async function getLandlordAnalytics(params: {
   );
 
   const savedPrevious = await safeCount(
-    params.supabase
+    analyticsSupabase
       .from("saved_properties")
       .select("id, properties!inner(owner_id)", { count: "exact", head: true })
       .eq("properties.owner_id", params.hostId)
@@ -292,7 +294,7 @@ export async function getLandlordAnalytics(params: {
   );
 
   const viewingsCurrent = await safeCount(
-    params.supabase
+    analyticsSupabase
       .from("viewing_requests")
       .select("id, properties!inner(owner_id)", { count: "exact", head: true })
       .eq("properties.owner_id", params.hostId)
@@ -303,7 +305,7 @@ export async function getLandlordAnalytics(params: {
   );
 
   const viewingsPrevious = await safeCount(
-    params.supabase
+    analyticsSupabase
       .from("viewing_requests")
       .select("id, properties!inner(owner_id)", { count: "exact", head: true })
       .eq("properties.owner_id", params.hostId)
@@ -314,7 +316,7 @@ export async function getLandlordAnalytics(params: {
   );
 
   const viewsCurrent = await safeCount(
-    viewsSupabase
+    analyticsSupabase
       .from("property_views")
       .select("id, properties!inner(owner_id)", { count: "exact", head: true })
       .eq("properties.owner_id", params.hostId)
@@ -325,7 +327,7 @@ export async function getLandlordAnalytics(params: {
   );
 
   const viewsPrevious = await safeCount(
-    viewsSupabase
+    analyticsSupabase
       .from("property_views")
       .select("id, properties!inner(owner_id)", { count: "exact", head: true })
       .eq("properties.owner_id", params.hostId)
@@ -336,7 +338,7 @@ export async function getLandlordAnalytics(params: {
   );
 
   const viewsAuthCurrent = await safeDistinctCount(
-    viewsSupabase
+    analyticsSupabase
       .from("property_views")
       .select("viewer_id, properties!inner(owner_id)")
       .eq("properties.owner_id", params.hostId)
@@ -348,7 +350,7 @@ export async function getLandlordAnalytics(params: {
   );
 
   const viewsAuthPrevious = await safeDistinctCount(
-    viewsSupabase
+    analyticsSupabase
       .from("property_views")
       .select("viewer_id, properties!inner(owner_id)")
       .eq("properties.owner_id", params.hostId)
@@ -360,7 +362,7 @@ export async function getLandlordAnalytics(params: {
   );
 
   const viewsAnonCurrent = await safeCount(
-    viewsSupabase
+    analyticsSupabase
       .from("property_views")
       .select("id, properties!inner(owner_id)", { count: "exact", head: true })
       .eq("properties.owner_id", params.hostId)
@@ -372,7 +374,7 @@ export async function getLandlordAnalytics(params: {
   );
 
   const viewsAnonPrevious = await safeCount(
-    viewsSupabase
+    analyticsSupabase
       .from("property_views")
       .select("id, properties!inner(owner_id)", { count: "exact", head: true })
       .eq("properties.owner_id", params.hostId)
@@ -383,7 +385,7 @@ export async function getLandlordAnalytics(params: {
     notes
   );
 
-  const messageCurrent = await buildMessageMetrics(params.supabase, params.hostId, range, notes);
+  const messageCurrent = await buildMessageMetrics(analyticsSupabase, params.hostId, range, notes);
   const previousRange = {
     ...range,
     start: range.previousStart,
@@ -392,7 +394,7 @@ export async function getLandlordAnalytics(params: {
     previousEnd: range.previousEnd,
   };
   const messagePrevious = await buildMessageMetrics(
-    params.supabase,
+    analyticsSupabase,
     params.hostId,
     previousRange,
     notes
@@ -419,11 +421,19 @@ export async function getLandlordAnalytics(params: {
     responseTime: messageCurrent.available,
   };
 
+  const funnel = await getDemandFunnelSnapshot({
+    supabase: analyticsSupabase,
+    range,
+    scope: { hostId: params.hostId },
+  });
+  notes.push(...funnel.notes);
+
   return {
     hostId: params.hostId,
     range,
     totalListings: totalListingsResult.value,
     activeListings: activeListingsResult.value,
+    funnel,
     viewsBreakdown: {
       total: viewsCurrent.available ? viewsCurrent.value : null,
       uniqueAuthViewers: viewsAuthCurrent.available ? viewsAuthCurrent.value : null,

@@ -50,6 +50,10 @@ class MockQuery {
     return this;
   }
 
+  in() {
+    return this;
+  }
+
   order() {
     return this;
   }
@@ -140,6 +144,16 @@ void test("host analytics panel includes Not available fallback", () => {
   assert.ok(
     contents.includes("Not available"),
     "expected Not available fallback copy"
+  );
+});
+
+void test("host analytics panel includes demand funnel card", () => {
+  const panelPath = path.join(process.cwd(), "components", "analytics", "HostAnalyticsPanel.tsx");
+  const contents = fs.readFileSync(panelPath, "utf8");
+
+  assert.ok(
+    contents.includes("DemandFunnelCard"),
+    "expected demand funnel card component"
   );
 });
 

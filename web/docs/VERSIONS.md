@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-11 — v1.7.52-r12-demand-funnels
+- Added tenant-side demand funnel aggregation with explicit coverage flags.
+- Surfaced funnel cards in landlord and admin analytics with drop-off highlights.
+- Documented funnel verification SQL and “Not available” guardrails.
+
 ## 2026-01-11 — v1.7.48-r11-landlord-analytics
 - Added landlord/agent analytics dashboard with KPI cards, deltas, and coverage indicators.
 - Added admin host analytics view for read-only support checks.

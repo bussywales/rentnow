@@ -3,6 +3,12 @@
 This file lists tagged releases in reverse chronological order (most recent first).
 For full details, see `web/docs/VERSIONS.md`.
 
+## R12 — Demand Funnels (v1.7.52-r12-demand-funnels)
+- [v1.7.52-r12-demand-funnels](../../tags/v1.7.52-r12-demand-funnels)
+- Added tenant-side demand funnel counts (views → saves → enquiries → viewing requests) with explicit coverage flags.
+- Wired funnel cards into landlord and admin analytics with drop-off highlights and “Not available” fallbacks.
+- Documented verification SQL and known blind spots for anonymous and missing signals.
+
 ## R11 — Analytics Foundation (v1.7.48 → v1.7.51)
 **Status:** Shipped & validated  
 **Version range:** `v1.7.48 → v1.7.51`  

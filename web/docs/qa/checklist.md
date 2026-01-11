@@ -89,6 +89,16 @@
 - Admin can open `/admin/analytics/host/<host_id>` and see the same layout for a specific host.
 - When a metric source is missing, the UI shows “Not available” (no zero or crash).
 
+## Demand funnel verification (R12)
+- Landlord/Agent sees the demand funnel card with counts and drop-off highlight.
+- Admin sees the marketplace demand funnel with previous-period deltas.
+- If a stage is not tracked, the UI shows “Not available” (no misleading zeroes).
+- SQL spot checks (replace `<HOST_ID>`):
+- `select count(*) from public.property_views pv join public.properties p on p.id = pv.property_id where p.owner_id = '<HOST_ID>'::uuid and pv.viewer_role in ('tenant','anon');`
+- `select count(*) from public.saved_properties sp join public.properties p on p.id = sp.property_id where p.owner_id = '<HOST_ID>'::uuid;`
+- `select count(distinct (m.property_id::text || ':' || m.sender_id::text)) as enquiries from public.messages m join public.properties p on p.id = m.property_id where p.owner_id = '<HOST_ID>'::uuid and m.sender_id <> p.owner_id;`
+- `select count(*) from public.viewing_requests vr join public.properties p on p.id = vr.property_id where p.owner_id = '<HOST_ID>'::uuid;`
+
 ## Property views telemetry
 - Open a property detail page while logged out and confirm a row can be inserted into `public.property_views`.
 - Verify views aggregation surfaces in `/dashboard/analytics` and `/admin/analytics` once data exists.

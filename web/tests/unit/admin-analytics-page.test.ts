@@ -23,4 +23,8 @@ void test("admin analytics page includes admin guard and empty state copy", () =
     contents.includes("Not available"),
     "expected Not available fallback"
   );
+  assert.ok(
+    contents.includes("Marketplace demand funnel"),
+    "expected demand funnel section"
+  );
 });

@@ -42,11 +42,13 @@ Use this alongside the full QA checklist at `web/docs/qa/checklist.md`.
 ### Admin support
 - `/admin/support` and `/admin/alerts` render with read-only data.
 - “Not tracked / Not available” appears where durable metrics do not exist.
+- `/admin/analytics` shows the demand funnel card with clear drop-off copy.
 
 ## Known Beta Limitations
 - Some metrics (e.g., invalid share token attempts) are not tracked in the DB; use logs for visibility.
 - Missing-photos metrics depend on `public.property_images` joins; if unavailable, the UI reports “Not available”.
 - Push alerts require VAPID envs; without them, push is “Unavailable (not configured)”.
+- Demand funnel signals rely on `property_views`, `saved_properties`, `messages`, and `viewing_requests`; anonymous views are not deduped.
 
 ## Stop-Ship Conditions
 - Listings cannot be created or saved due to auth/session failures.

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DemandFunnelCard } from "@/components/analytics/DemandFunnelCard";
 import type { AnalyticsRangeKey, HostAnalyticsSnapshot, KpiMetric } from "@/lib/analytics/landlord-analytics";
 
 const RANGE_LABELS: Array<{ key: AnalyticsRangeKey; label: string }> = [
@@ -113,11 +114,7 @@ export function HostAnalyticsPanel({
         ))}
       </div>
 
-      {snapshot.kpis.anonymousViews.available && (
-        <p className="text-xs text-slate-500">
-          Anonymous views are recorded without per-viewer dedupe.
-        </p>
-      )}
+      <DemandFunnelCard funnel={snapshot.funnel} />
 
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

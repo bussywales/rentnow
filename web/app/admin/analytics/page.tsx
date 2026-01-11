@@ -2,6 +2,9 @@ import { redirect } from "next/navigation";
 import { buildDataQualitySnapshot, type DataQualitySnapshot } from "@/lib/admin/data-quality";
 import { buildBetaReadinessSnapshot } from "@/lib/admin/beta-readiness";
 import { buildMarketplaceAnalytics, type MarketplaceAnalyticsSnapshot } from "@/lib/admin/marketplace-analytics";
+import { DemandFunnelCard } from "@/components/analytics/DemandFunnelCard";
+import { getDemandFunnelSnapshot, type DemandFunnelSnapshot } from "@/lib/analytics/demand-funnel";
+import { resolveAnalyticsRange } from "@/lib/analytics/landlord-analytics";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getPushConfig } from "@/lib/push/server";
@@ -12,6 +15,7 @@ type AnalyticsDiagnostics = {
   supabaseReady: boolean;
   serviceRoleReady: boolean;
   analytics: MarketplaceAnalyticsSnapshot | null;
+  funnel: DemandFunnelSnapshot | null;
   dataQuality: DataQualitySnapshot | null;
   betaReadiness: ReturnType<typeof buildBetaReadinessSnapshot> | null;
   error: string | null;
@@ -23,6 +27,7 @@ async function getAnalyticsDiagnostics(): Promise<AnalyticsDiagnostics> {
       supabaseReady: false,
       serviceRoleReady: false,
       analytics: null,
+      funnel: null,
       dataQuality: null,
       betaReadiness: null,
       error: "Supabase env vars missing.",
@@ -59,6 +64,7 @@ async function getAnalyticsDiagnostics(): Promise<AnalyticsDiagnostics> {
       supabaseReady: true,
       serviceRoleReady,
       analytics: null,
+      funnel: null,
       dataQuality: null,
       betaReadiness,
       error: "Service role key missing; analytics unavailable.",
@@ -68,6 +74,11 @@ async function getAnalyticsDiagnostics(): Promise<AnalyticsDiagnostics> {
   const adminClient = createServiceRoleClient();
   const { snapshot, error: dataQualityError } = await buildDataQualitySnapshot(adminClient);
   const analytics = await buildMarketplaceAnalytics(adminClient, snapshot);
+  const funnelRange = resolveAnalyticsRange("last7");
+  const funnel = await getDemandFunnelSnapshot({
+    supabase: adminClient,
+    range: funnelRange,
+  });
   const betaReadiness = buildBetaReadinessSnapshot({
     supabaseReady: true,
     serviceRoleReady,
@@ -79,6 +90,7 @@ async function getAnalyticsDiagnostics(): Promise<AnalyticsDiagnostics> {
     supabaseReady: true,
     serviceRoleReady,
     analytics,
+    funnel,
     dataQuality: snapshot,
     betaReadiness,
     error: analytics.errors.length ? analytics.errors.join(" | ") : dataQualityError,
@@ -114,6 +126,7 @@ export default async function AdminAnalyticsPage() {
   const showDiagnostics = process.env.NODE_ENV === "development";
   const overview = diag.analytics?.overview ?? null;
   const trends = diag.analytics?.trends ?? null;
+  const funnel = diag.funnel;
   const totalListings = overview?.total ?? null;
   const showEmpty = totalListings === 0;
 
@@ -208,6 +221,29 @@ export default async function AdminAnalyticsPage() {
               </p>
             </div>
           </div>
+
+          {funnel && (
+            <div className="grid gap-4 md:grid-cols-2">
+              <DemandFunnelCard funnel={funnel} title="Marketplace demand funnel" showDelta />
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h2 className="text-lg font-semibold text-slate-900">Funnel coverage</h2>
+                <p className="text-sm text-slate-600">
+                  Stages are marked unavailable if a backing signal is missing.
+                </p>
+                <ul className="mt-3 space-y-2 text-sm text-slate-700">
+                  <li>Views: {funnel.availability.views ? "Available" : "Not available"}</li>
+                  <li>Saves: {funnel.availability.saves ? "Available" : "Not available"}</li>
+                  <li>Enquiries: {funnel.availability.enquiries ? "Available" : "Not available"}</li>
+                  <li>Viewing requests: {funnel.availability.viewings ? "Available" : "Not available"}</li>
+                </ul>
+                {funnel.notes.length > 0 && (
+                  <p className="mt-3 text-xs text-amber-700">
+                    Some stages are unavailable: {funnel.notes.join(" · ")}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
 
           <div className="grid gap-4 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
