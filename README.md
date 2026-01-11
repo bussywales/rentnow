@@ -7,6 +7,7 @@ The app lives in `web/`. See `web/README.md` for full setup steps, env vars, sch
 Project docs:
 - Roadmap: `docs/ROADMAP.md`
 - Releases: `docs/RELEASES.md` (see `web/docs/VERSIONS.md` for full detail)
+- Beta operations: `web/docs/BETA.md`
 
 Quick start:
 ```bash

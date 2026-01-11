@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-11 — v1.7.46-r9.4-beta-ops-readiness
+- Added admin support beta readiness snapshot with blocker vs non-blocker guidance.
+- Expanded beta ops docs with release discipline, rollback, and stop-ship conditions.
+- Added guardrail tests for new admin readiness section.
+
 ## 2026-01-10 — v1.7.45-r9.3-beta-verification-guardrails
 - Added guardrail copy to prevent raw errors from surfacing in listing flows.
 - Documented beta smoke checklist, known limits, and troubleshooting notes.

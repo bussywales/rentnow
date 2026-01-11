@@ -79,6 +79,17 @@
 - Logged-out user opening Photos step is redirected to `/auth/login?reason=auth&next=...`.
 - Expired session mid-flow shows a friendly login CTA (no raw errors).
 
+## Beta role-based smoke checks
+- Tenant: can browse and save searches; cannot create listings; receives role_not_allowed when attempting to list.
+- Landlord/Agent: can create/edit listings, upload photos, and submit for approval.
+- Admin: can access `/admin/support` and `/admin/alerts` (read-only).
+
+## Stop-ship conditions
+- Listings cannot be created or saved for any host role.
+- Browse returns “Unable to load listings” for all users.
+- Photo uploads fail for all hosts (not user-specific).
+- Admin support dashboards fail to load or show no data across the board.
+
 ## Country code backfill verification
 - Apply `041_backfill_properties_country_code.sql` in Supabase SQL editor.
 - Run the backfill coverage query and confirm missing_country_code trends down.
