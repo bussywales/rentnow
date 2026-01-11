@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-12 — v1.7.59-r14.0-push-optin-observability
+- Added shared push configuration helper with missing-key reporting (dev/debug only).
+- Clarified saved-search push opt-in states (unavailable, enable, finish setup) with tenant-only UI.
+- Added admin support visibility for push configuration and dev-only missing-key hints.
+
 ## 2026-01-11 — v1.7.54-r12.1-latlong-help-tooltip
 - Added latitude/longitude helper tooltip in listing Basics step.
 - Documented Google Maps/mobile coordinate guidance with accessible popover.

@@ -37,7 +37,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { formatRoleLabel } from "@/lib/roles";
 import { getMessagingPermissionMessage, MESSAGING_REASON_CODES } from "@/lib/messaging/permissions";
 import { getRateLimitSnapshot } from "@/lib/messaging/rate-limit";
-import { getPushConfig } from "@/lib/push/server";
+import { getPushConfigStatus } from "@/lib/push/config";
 
 export const dynamic = "force-dynamic";
 
@@ -78,6 +78,7 @@ type ThrottleTelemetryDiagnostics = {
 type PushTelemetryDiagnostics = {
   ready: boolean;
   configured: boolean;
+  missingKeys?: string[];
   counts: {
     total: number;
     active: number;
@@ -235,10 +236,11 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     error: null,
   };
 
-  const pushConfig = getPushConfig();
+  const pushConfig = getPushConfigStatus();
   let pushTelemetry: PushTelemetryDiagnostics = {
     ready: false,
     configured: pushConfig.configured,
+    missingKeys: pushConfig.missingKeys,
     counts: { total: 0, active: 0, last24h: 0, last7d: 0 },
     pruned: { last7d: 0, last30d: 0 },
     summary: null,
@@ -415,6 +417,7 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     pushTelemetry = {
       ready: true,
       configured: pushConfig.configured,
+      missingKeys: pushConfig.missingKeys,
       counts: {
         total: totalSubsResult.count ?? 0,
         active: activeSubsResult.count ?? 0,
@@ -549,6 +552,7 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     pushTelemetry = {
       ready: false,
       configured: pushConfig.configured,
+      missingKeys: pushConfig.missingKeys,
       counts: { total: 0, active: 0, last24h: 0, last7d: 0 },
       pruned: { last7d: 0, last30d: 0 },
       summary: null,
@@ -621,6 +625,8 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
   const diag = await getDiagnostics(throttleRange);
   const serviceRoleReady = hasServiceRoleEnv();
   const pushConfigured = diag.pushTelemetry?.configured ?? false;
+  const debug = getParamValue(params, "debug") === "1";
+  const showMissingPushKeys = debug || process.env.NODE_ENV !== "production";
   const missingPhotosAvailable =
     diag.dataQuality?.snapshot?.counts.missingPhotos !== null &&
     diag.affectedListings?.snapshot?.missingPhotosAvailable !== false;
@@ -882,6 +888,14 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 <p className="text-sm text-slate-600">
                   Push configured: {diag.pushTelemetry.configured ? "Yes" : "No"}
                 </p>
+                {!diag.pushTelemetry.configured &&
+                  showMissingPushKeys &&
+                  diag.pushTelemetry.missingKeys &&
+                  diag.pushTelemetry.missingKeys.length > 0 && (
+                    <p className="text-xs text-slate-500">
+                      Missing keys: {diag.pushTelemetry.missingKeys.join(", ")}
+                    </p>
+                  )}
                 <p className="text-sm text-slate-600">
                   Subscriptions: total {diag.pushTelemetry.counts.total} · active {diag.pushTelemetry.counts.active} · new 24h {diag.pushTelemetry.counts.last24h} · 7d {diag.pushTelemetry.counts.last7d}
                 </p>

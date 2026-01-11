@@ -47,6 +47,7 @@ Behavior:
 - Push only delivers alerts; no sensitive data is cached or stored in the service worker.
 - If VAPID keys are missing, push endpoints return a 503-style response.
 - Stale subscriptions are pruned automatically when the provider reports a permanent failure (404/410).
+ - Saved searches page shows a “Notifications currently unavailable” card when push is not configured.
 
 Verification:
 1) Ensure the VAPID keys are set in the environment.
@@ -72,6 +73,12 @@ Troubleshooting markers (saved_search_alerts.error):
 
 Tenant UX:
 - When a subscription is pruned, the Push badge shows “Notifications need to be re-enabled.”
+- If permission is granted but no active subscription exists, the CTA shows “Finish setup.”
+- If permission is not yet granted, the CTA shows “Enable notifications.”
+
+Admin support:
+- `/admin/support` shows “Push configured: Yes/No”.
+- Missing VAPID keys are listed only in dev mode or when `?debug=1` is supplied.
 
 Retention cleanup (manual):
 ```sql

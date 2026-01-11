@@ -1,4 +1,5 @@
 import webpush from "web-push";
+import { getPushConfigStatus, getVapidPublicKey } from "@/lib/push/config";
 
 if (typeof window !== "undefined") {
   throw new Error("Push server helpers are server-only.");
@@ -26,23 +27,13 @@ export type PushConfig = {
   subject: string;
 };
 
-export function getVapidPublicKey() {
-  return process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || process.env.VAPID_PUBLIC_KEY || null;
-}
-
 export function getPushConfig(): PushConfig {
-  const publicKey = getVapidPublicKey();
-  const privateKey = process.env.VAPID_PRIVATE_KEY || null;
-  const subject =
-    process.env.VAPID_SUBJECT ||
-    process.env.NEXT_PUBLIC_SITE_URL ||
-    process.env.SITE_URL ||
-    "https://www.rentnow.space";
+  const config = getPushConfigStatus();
   return {
-    configured: !!publicKey && !!privateKey,
-    publicKey,
-    privateKey,
-    subject,
+    configured: config.configured,
+    publicKey: config.publicKey,
+    privateKey: config.privateKey,
+    subject: config.subject,
   };
 }
 

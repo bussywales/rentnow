@@ -6,6 +6,7 @@ import { PushStatusBadge } from "@/components/dashboard/PushStatusBadge";
 import { getTenantPlanForTier, isPlanExpired } from "@/lib/plans";
 import { normalizeRole } from "@/lib/roles";
 import { shouldShowSavedSearchNav } from "@/lib/role-access";
+import { getPushConfigStatus } from "@/lib/push/config";
 import type { SavedSearch } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -82,6 +83,7 @@ export default async function SavedSearchesPage() {
     .order("sent_at", { ascending: false })
     .limit(1);
   const lastAlertSentAt = Array.isArray(alertRows) ? alertRows[0]?.sent_at ?? null : null;
+  const pushConfig = getPushConfigStatus();
 
   return (
     <div className="space-y-4">
@@ -98,7 +100,17 @@ export default async function SavedSearchesPage() {
             ? "Instant alerts are enabled for your saved searches."
             : "Upgrade to Tenant Pro to get instant alerts for new listings."}
         </p>
-        <PushStatusBadge />
+        {!pushConfig.configured ? (
+          <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
+            <p className="font-semibold">Notifications currently unavailable</p>
+            <p className="mt-1 text-amber-800">
+              Push notifications are not configured yet. Saved searches still work and
+              email alerts may deliver when available.
+            </p>
+          </div>
+        ) : (
+          <PushStatusBadge />
+        )}
         <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-600">
           <span>Active alerts: {searches.length}</span>
           <span>

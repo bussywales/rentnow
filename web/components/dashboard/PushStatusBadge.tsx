@@ -198,6 +198,7 @@ export function PushStatusBadge() {
     !state.active &&
     state.permission === "granted" &&
     state.subscriptionCount === 0;
+  const enableLabel = showReenableHint ? "Finish setup" : "Enable notifications";
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
@@ -211,7 +212,7 @@ export function PushStatusBadge() {
           onClick={enablePush}
           disabled={isEnabling}
         >
-          {isEnabling ? "Enabling..." : "Enable notifications"}
+          {isEnabling ? "Enabling..." : enableLabel}
         </button>
       )}
       {state.active && state.subscriptionCount > 0 && (
@@ -220,7 +221,9 @@ export function PushStatusBadge() {
         </span>
       )}
       {showReenableHint && (
-        <span className="text-xs text-slate-500">Notifications need to be re-enabled.</span>
+        <span className="text-xs text-slate-500">
+          Notifications are ready; finish setup to re-enable them.
+        </span>
       )}
       {state.error && (
         <span className="text-xs text-amber-600">{state.error}</span>
