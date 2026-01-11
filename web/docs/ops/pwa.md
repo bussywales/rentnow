@@ -79,6 +79,7 @@ Tenant UX:
 Admin support:
 - `/admin/support` shows “Push configured: Yes/No”.
 - Missing VAPID keys are listed only in dev mode or when `?debug=1` is supplied.
+- Delivery telemetry appears under “Recent delivery attempts” (admin-only).
 
 Admin test push:
 - `/admin/support` includes “Send test push” for admins.

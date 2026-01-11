@@ -38,6 +38,12 @@ import { formatRoleLabel } from "@/lib/roles";
 import { getMessagingPermissionMessage, MESSAGING_REASON_CODES } from "@/lib/messaging/permissions";
 import { getRateLimitSnapshot } from "@/lib/messaging/rate-limit";
 import { getPushConfigStatus } from "@/lib/push/config";
+import {
+  getPushDeliveryAttempts,
+  getPushDeliverySummary,
+  type PushDeliveryAttempt,
+  type PushDeliverySummary,
+} from "@/lib/push/delivery-telemetry";
 import { AdminPushTestButton } from "@/components/admin/AdminPushTestButton";
 
 export const dynamic = "force-dynamic";
@@ -92,6 +98,8 @@ type PushTelemetryDiagnostics = {
   };
   summary: PushTelemetrySummary | null;
   error: string | null;
+  deliverySummary: PushDeliverySummary;
+  deliveryAttempts: PushDeliveryAttempt[];
 };
 
 type ShareTelemetryDiagnostics = {
@@ -238,6 +246,8 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
   };
 
   const pushConfig = getPushConfigStatus();
+  const deliverySummary = getPushDeliverySummary(20);
+  const deliveryAttempts = getPushDeliveryAttempts(20);
   let pushTelemetry: PushTelemetryDiagnostics = {
     ready: false,
     configured: pushConfig.configured,
@@ -246,6 +256,8 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     pruned: { last7d: 0, last30d: 0 },
     summary: null,
     error: null,
+    deliverySummary,
+    deliveryAttempts,
   };
   let shareTelemetry: ShareTelemetryDiagnostics = {
     ready: false,
@@ -441,6 +453,8 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       ]
         .filter(Boolean)
         .join(" | ") || null,
+      deliverySummary,
+      deliveryAttempts,
     };
 
     const shareNowIso = new Date().toISOString();
@@ -558,6 +572,8 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       pruned: { last7d: 0, last30d: 0 },
       summary: null,
       error: "Service role key missing; push telemetry unavailable.",
+      deliverySummary,
+      deliveryAttempts,
     };
     shareTelemetry = {
       ready: false,
@@ -987,6 +1003,38 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 ) : (
                   <p className="mt-2 text-sm text-slate-600">No push attempts in the recent sample.</p>
                 )}
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                  <p className="text-xs font-semibold text-slate-700">Recent delivery attempts</p>
+                  <p className="mt-1 text-xs text-slate-600">
+                    Attempted {diag.pushTelemetry.deliverySummary.attempted} · Delivered{" "}
+                    {diag.pushTelemetry.deliverySummary.delivered} · Blocked{" "}
+                    {diag.pushTelemetry.deliverySummary.blocked} · Skipped{" "}
+                    {diag.pushTelemetry.deliverySummary.skipped} · Failed{" "}
+                    {diag.pushTelemetry.deliverySummary.failed}
+                  </p>
+                  {!diag.pushTelemetry.configured && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      Push is not configured; delivery attempts will be blocked.
+                    </p>
+                  )}
+                  {diag.pushTelemetry.deliveryAttempts.length ? (
+                    <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                      {diag.pushTelemetry.deliveryAttempts.map((attempt) => (
+                        <li key={attempt.id} className="flex flex-wrap items-center gap-2">
+                          <span className="text-slate-500">{formatDateLabel(attempt.createdAt)}</span>
+                          <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                            {attempt.outcome}
+                          </span>
+                          <span className="text-slate-600">{attempt.reason}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="mt-2 text-xs text-slate-600">
+                      No push delivery attempts recorded yet.
+                    </p>
+                  )}
+                </div>
                 <AdminPushTestButton debug={debug} />
                 {diag.pushTelemetry.error && (
                   <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">

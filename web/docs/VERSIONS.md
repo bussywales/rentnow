@@ -366,3 +366,8 @@
 - Added an admin-only test push endpoint targeting the current admin subscriptions only.
 - Added a “Send test push” control on `/admin/support` with safe result states.
 - Documented admin test push verification in PWA ops and QA checklists.
+
+## 2026-01-12 — v1.7.64-r14.4-push-delivery-telemetry
+- Added admin-only delivery telemetry for push test outcomes with safe summary counts.
+- Surface recent delivery attempts and zero-state copy under `/admin/support`.
+- Documented telemetry smoke checks for ops and QA.

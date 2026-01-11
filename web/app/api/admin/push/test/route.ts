@@ -5,6 +5,7 @@ import {
   sendPushNotification,
   type PushSubscriptionRow,
 } from "@/lib/push/server";
+import { recordPushDeliveryAttempt } from "@/lib/push/delivery-telemetry";
 
 const routeLabel = "/api/admin/push/test";
 
@@ -46,6 +47,12 @@ export async function postAdminPushTestResponse(
 
   const config = getConfig();
   if (!config.configured) {
+    recordPushDeliveryAttempt({
+      outcome: "blocked",
+      reason: "push_not_configured",
+      attempted: 0,
+      delivered: 0,
+    });
     logEvent({
       event: "admin_push_test",
       admin_id: auth.user.id,
@@ -81,6 +88,12 @@ export async function postAdminPushTestResponse(
 
   const subscriptions = (data ?? []) as PushSubscriptionRow[];
   if (subscriptions.length === 0) {
+    recordPushDeliveryAttempt({
+      outcome: "skipped",
+      reason: "no_subscriptions",
+      attempted: 0,
+      delivered: 0,
+    });
     logEvent({
       event: "admin_push_test",
       admin_id: auth.user.id,
@@ -109,6 +122,13 @@ export async function postAdminPushTestResponse(
   const attempted = subscriptions.length;
   const sent = attempted - failures;
   const outcome = failures === 0 ? "sent" : "send_failed";
+
+  recordPushDeliveryAttempt({
+    outcome: failures === 0 ? "delivered" : "failed",
+    reason: failures === 0 ? "send_succeeded" : "send_failed",
+    attempted,
+    delivered: sent,
+  });
 
   logEvent({
     event: "admin_push_test",
