@@ -23,6 +23,7 @@ import {
   buildTrustMarkerSummary,
   type TrustMarkerSummary,
 } from "@/lib/admin/trust-markers";
+import { buildBetaReadinessSnapshot } from "@/lib/admin/beta-readiness";
 import {
   buildAffectedListings,
   type AffectedListingsSnapshot,
@@ -623,14 +624,12 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
   const missingPhotosAvailable =
     diag.dataQuality?.snapshot?.counts.missingPhotos !== null &&
     diag.affectedListings?.snapshot?.missingPhotosAvailable !== false;
-  const betaBlockers = [
-    diag.supabaseReady ? null : "Supabase env vars missing (listings unavailable).",
-  ].filter(Boolean) as string[];
-  const betaWarnings = [
-    serviceRoleReady ? null : "Service role key missing (admin telemetry degraded).",
-    pushConfigured ? null : "Push is not configured (push alerts unavailable).",
-    missingPhotosAvailable ? null : "Missing photos metric not available (no DB source).",
-  ].filter(Boolean) as string[];
+  const betaReadiness = buildBetaReadinessSnapshot({
+    supabaseReady: diag.supabaseReady,
+    serviceRoleReady,
+    pushConfigured,
+    missingPhotosAvailable,
+  });
   const statusFilter = getParamValue(params, "status") || "all";
   const reasonFilter = getParamValue(params, "reason") || "all";
   const snapshot = diag.messaging?.snapshot;
@@ -696,17 +695,17 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
             </p>
             <ul className="mt-3 text-sm text-slate-700">
               <li>Supabase configured: {diag.supabaseReady ? "Yes" : "No"}</li>
-              <li>Service role available: {serviceRoleReady ? "Yes" : "No"}</li>
-              <li>Push configured: {pushConfigured ? "Yes" : "No"}</li>
+              <li>Service role available: {betaReadiness.flags.serviceRoleReady ? "Yes" : "No"}</li>
+              <li>Push configured: {betaReadiness.flags.pushConfigured ? "Yes" : "No"}</li>
             </ul>
             <div className="mt-3 space-y-3 text-sm">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Blocks beta
                 </p>
-                {betaBlockers.length ? (
+                {betaReadiness.blockers.length ? (
                   <ul className="mt-1 list-disc pl-5 text-slate-700">
-                    {betaBlockers.map((item) => (
+                    {betaReadiness.blockers.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
@@ -718,9 +717,9 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
                   Does not block beta
                 </p>
-                {betaWarnings.length ? (
+                {betaReadiness.warnings.length ? (
                   <ul className="mt-1 list-disc pl-5 text-slate-700">
-                    {betaWarnings.map((item) => (
+                    {betaReadiness.warnings.map((item) => (
                       <li key={item}>{item}</li>
                     ))}
                   </ul>
@@ -733,7 +732,7 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                   Manual checks
                 </p>
                 <ul className="mt-1 list-disc pl-5 text-slate-700">
-                  <li>Confirm beta migrations applied (see web/docs/ops/supabase-migrations.md).</li>
+                  <li>{betaReadiness.migrationStatus}</li>
                   <li>Verify listings flow via the beta smoke checklist.</li>
                 </ul>
               </div>

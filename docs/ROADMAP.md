@@ -34,7 +34,7 @@ RentNow is a rental marketplace for African cities. It lets tenants discover and
 
 ## In-flight
 - Current line: R7.7.x listing form polish series (latest tag v1.7.33-r7.7.3.2-airbnb-form-layout).
-- No additional in-flight phases beyond the approved roadmap below.
+- R10.1: Admin marketplace health analytics (in progress).
 
 ## Now / Next / Later (approved roadmap)
 

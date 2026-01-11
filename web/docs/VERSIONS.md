@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-11 — v1.7.47-r10.1-admin-analytics
+- Added admin-only marketplace analytics with KPIs, trends, and system health snapshot.
+- Reused data quality and beta readiness helpers with safe “Not available” fallbacks.
+- Documented R10.1 as in-progress on the roadmap.
+
 ## 2026-01-11 — v1.7.46-r9.4-beta-ops-readiness
 - Added admin support beta readiness snapshot with blocker vs non-blocker guidance.
 - Expanded beta ops docs with release discipline, rollback, and stop-ship conditions.
