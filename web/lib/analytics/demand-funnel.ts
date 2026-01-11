@@ -179,15 +179,20 @@ async function safeCount(
   return { value: result.count ?? null, available: true };
 }
 
-const applyScopeFilters = (query: any, scope: FunnelScope, ownerJoin?: boolean) => {
-  let updated = query;
+type ScopeFilter = {
+  in: (column: string, values: (string | number | boolean | null)[]) => unknown;
+  eq: (column: string, value: string) => unknown;
+};
+
+const applyScopeFilters = <T>(query: T, scope: FunnelScope, ownerJoin?: boolean) => {
+  let updated = query as unknown as ScopeFilter;
   if (scope.propertyIds && scope.propertyIds.length) {
-    updated = updated.in("property_id", scope.propertyIds);
+    updated = updated.in("property_id", scope.propertyIds) as ScopeFilter;
   }
   if (scope.hostId && ownerJoin) {
-    updated = updated.eq("properties.owner_id", scope.hostId);
+    updated = updated.eq("properties.owner_id", scope.hostId) as ScopeFilter;
   }
-  return updated;
+  return updated as unknown as T;
 };
 
 async function fetchEnquiries(
