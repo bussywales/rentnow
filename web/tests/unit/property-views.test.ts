@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { shouldRecordPropertyView } from "@/lib/analytics/property-views";
+import { isPrefetchRequest, shouldRecordPropertyView, shouldSkipInflightView } from "@/lib/analytics/property-views";
 
 void test("shouldRecordPropertyView skips owner views", () => {
   const now = new Date("2026-01-11T12:00:00Z");
@@ -51,4 +51,31 @@ void test("shouldRecordPropertyView allows anonymous views", () => {
   });
 
   assert.equal(result, true);
+});
+
+void test("shouldSkipInflightView prevents rapid duplicates", () => {
+  const store = new Map<string, number>();
+  const nowMs = Date.now();
+  const key = "prop-1:viewer-1";
+
+  const first = shouldSkipInflightView({ key, nowMs, store, scheduleCleanup: false });
+  const second = shouldSkipInflightView({ key, nowMs: nowMs + 500, store, scheduleCleanup: false });
+  const later = shouldSkipInflightView({ key, nowMs: nowMs + 2500, store, scheduleCleanup: false });
+
+  assert.equal(first, false);
+  assert.equal(second, true);
+  assert.equal(later, false);
+});
+
+void test("isPrefetchRequest detects prefetch headers", () => {
+  const headers = {
+    purpose: "prefetch",
+  };
+  const fallbackHeaders = {
+    "x-middleware-prefetch": "1",
+  };
+
+  assert.equal(isPrefetchRequest(headers), true);
+  assert.equal(isPrefetchRequest(fallbackHeaders), true);
+  assert.equal(isPrefetchRequest({}), false);
 });

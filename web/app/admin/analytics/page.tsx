@@ -193,9 +193,19 @@ export default async function AdminAnalyticsPage() {
                   {formatDirection(trends?.listingViews.direction ?? "not_available")}{" "}
                   {formatDelta(trends?.listingViews.delta ?? null)}
                 </li>
+                <li>
+                  Unique authenticated viewers (last 7d):{" "}
+                  {renderMetric(overview?.uniqueAuthViewersLast7 ?? null)}
+                </li>
+                <li>
+                  Anonymous views (last 7d): {renderMetric(overview?.anonymousViewsLast7 ?? null)}
+                </li>
                 <li>Searches → results: {overview?.searchesToResults ?? "Not available"}</li>
                 <li>Views → enquiries: {overview?.viewsToEnquiries ?? "Not available"}</li>
               </ul>
+              <p className="mt-3 text-xs text-slate-500">
+                Anonymous views are recorded without per-viewer dedupe.
+              </p>
             </div>
           </div>
 

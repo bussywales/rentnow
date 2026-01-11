@@ -42,8 +42,16 @@ export type HostAnalyticsSnapshot = {
   range: AnalyticsRange;
   totalListings: number | null;
   activeListings: number | null;
+  viewsBreakdown: {
+    total: number | null;
+    uniqueAuthViewers: number | null;
+    anonymousViews: number | null;
+    available: boolean;
+  };
   kpis: {
-    listingViews: KpiMetric;
+      listingViews: KpiMetric;
+      uniqueAuthViewers: KpiMetric;
+      anonymousViews: KpiMetric;
     savedByTenants: KpiMetric;
     enquiries: KpiMetric;
     viewingRequests: KpiMetric;
@@ -117,6 +125,7 @@ function buildTrend(current: number | null, previous: number | null): TrendDelta
 }
 
 type CountResult = { count: number | null; error: { message: string } | null };
+type DistinctResult<T> = { data: T[] | null; error: { message?: string } | null };
 
 async function safeCount(promise: PromiseLike<CountResult>, label: string, notes: string[]) {
   const result = await promise;
@@ -125,6 +134,22 @@ async function safeCount(promise: PromiseLike<CountResult>, label: string, notes
     return { value: null, available: false };
   }
   return { value: result.count ?? null, available: true };
+}
+
+async function safeDistinctCount<T extends { viewer_id?: string | null }>(
+  promise: PromiseLike<DistinctResult<T>>,
+  label: string,
+  notes: string[]
+) {
+  const result = await promise;
+  if (result.error) {
+    notes.push(`${label}: ${result.error.message ?? "query_failed"}`);
+    return { value: null, available: false };
+  }
+  const distinct = new Set(
+    (result.data ?? []).map((row) => row.viewer_id).filter((value) => value)
+  );
+  return { value: distinct.size, available: true };
 }
 
 function median(values: number[]) {
@@ -310,6 +335,54 @@ export async function getLandlordAnalytics(params: {
     notes
   );
 
+  const viewsAuthCurrent = await safeDistinctCount(
+    viewsSupabase
+      .from("property_views")
+      .select("viewer_id, properties!inner(owner_id)")
+      .eq("properties.owner_id", params.hostId)
+      .not("viewer_id", "is", null)
+      .gte("created_at", range.start)
+      .lt("created_at", range.end),
+    "viewsAuthCurrent",
+    notes
+  );
+
+  const viewsAuthPrevious = await safeDistinctCount(
+    viewsSupabase
+      .from("property_views")
+      .select("viewer_id, properties!inner(owner_id)")
+      .eq("properties.owner_id", params.hostId)
+      .not("viewer_id", "is", null)
+      .gte("created_at", range.previousStart)
+      .lt("created_at", range.previousEnd),
+    "viewsAuthPrevious",
+    notes
+  );
+
+  const viewsAnonCurrent = await safeCount(
+    viewsSupabase
+      .from("property_views")
+      .select("id, properties!inner(owner_id)", { count: "exact", head: true })
+      .eq("properties.owner_id", params.hostId)
+      .is("viewer_id", null)
+      .gte("created_at", range.start)
+      .lt("created_at", range.end),
+    "viewsAnonCurrent",
+    notes
+  );
+
+  const viewsAnonPrevious = await safeCount(
+    viewsSupabase
+      .from("property_views")
+      .select("id, properties!inner(owner_id)", { count: "exact", head: true })
+      .eq("properties.owner_id", params.hostId)
+      .is("viewer_id", null)
+      .gte("created_at", range.previousStart)
+      .lt("created_at", range.previousEnd),
+    "viewsAnonPrevious",
+    notes
+  );
+
   const messageCurrent = await buildMessageMetrics(params.supabase, params.hostId, range, notes);
   const previousRange = {
     ...range,
@@ -326,6 +399,8 @@ export async function getLandlordAnalytics(params: {
   );
 
   const viewsTrend = buildTrend(viewsCurrent.value, viewsPrevious.value);
+  const viewsAuthTrend = buildTrend(viewsAuthCurrent.value, viewsAuthPrevious.value);
+  const viewsAnonTrend = buildTrend(viewsAnonCurrent.value, viewsAnonPrevious.value);
   const savedTrend = buildTrend(savedCurrent.value, savedPrevious.value);
   const viewingsTrend = buildTrend(viewingsCurrent.value, viewingsPrevious.value);
   const enquiriesTrend = buildTrend(messageCurrent.enquiries, messagePrevious.enquiries);
@@ -349,14 +424,37 @@ export async function getLandlordAnalytics(params: {
     range,
     totalListings: totalListingsResult.value,
     activeListings: activeListingsResult.value,
+    viewsBreakdown: {
+      total: viewsCurrent.available ? viewsCurrent.value : null,
+      uniqueAuthViewers: viewsAuthCurrent.available ? viewsAuthCurrent.value : null,
+      anonymousViews: viewsAnonCurrent.available ? viewsAnonCurrent.value : null,
+      available:
+        viewsCurrent.available || viewsAuthCurrent.available || viewsAnonCurrent.available,
+    },
     kpis: {
       listingViews: {
-        label: "Listing views",
+        label: "Total listing views",
         value: viewsCurrent.value,
         delta: viewsTrend.delta,
         direction: viewsTrend.direction,
         unit: "count",
         available: viewsCurrent.available,
+      },
+      uniqueAuthViewers: {
+        label: "Unique authenticated viewers",
+        value: viewsAuthCurrent.value,
+        delta: viewsAuthTrend.delta,
+        direction: viewsAuthTrend.direction,
+        unit: "count",
+        available: viewsAuthCurrent.available,
+      },
+      anonymousViews: {
+        label: "Anonymous views",
+        value: viewsAnonCurrent.value,
+        delta: viewsAnonTrend.delta,
+        direction: viewsAnonTrend.direction,
+        unit: "count",
+        available: viewsAnonCurrent.available,
       },
       savedByTenants: {
         label: "Saved by tenants",

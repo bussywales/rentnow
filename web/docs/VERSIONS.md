@@ -331,3 +331,8 @@
 - Added `viewer_id` to property views with a dedupe-supporting index.
 - Skipped owner views and deduped repeat authenticated views within 60 seconds.
 - Added guardrail tests plus updated ops verification queries.
+
+## 2026-01-11 — v1.7.51-r11.3-views-accuracy
+- Skipped property view inserts on prefetch requests and added inflight dedupe.
+- Split listing views into total, unique authenticated, and anonymous counts.
+- Added guardrail tests plus analytics copy clarifying anonymous views.

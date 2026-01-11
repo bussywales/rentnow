@@ -113,6 +113,12 @@ export function HostAnalyticsPanel({
         ))}
       </div>
 
+      {snapshot.kpis.anonymousViews.available && (
+        <p className="text-xs text-slate-500">
+          Anonymous views are recorded without per-viewer dedupe.
+        </p>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
         <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-sm font-semibold text-slate-900">Data coverage</p>

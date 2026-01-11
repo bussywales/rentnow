@@ -94,6 +94,7 @@
 - Verify views aggregation surfaces in `/dashboard/analytics` and `/admin/analytics` once data exists.
 - View a listing as its owner and confirm no view row is inserted.
 - Refresh a listing as an authenticated non-owner within 60 seconds and confirm only one view row is recorded.
+- Navigate back/forward to a listing and confirm views are not double-counted due to prefetch.
 
 ## Stop-ship conditions
 - Listings cannot be created or saved for any host role.

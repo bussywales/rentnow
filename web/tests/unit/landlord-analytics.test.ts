@@ -6,6 +6,11 @@ import { getLandlordAnalytics, resolveAnalyticsHostId, resolveAnalyticsRange } f
 
 type MockConfig = {
   counts?: Record<string, number>;
+  propertyViewsCounts?: {
+    total?: number;
+    anonymous?: number;
+    auth?: number;
+  };
   errors?: Record<string, string>;
   messages?: Array<{
     property_id: string;
@@ -14,12 +19,14 @@ type MockConfig = {
     created_at: string;
     properties?: Array<{ owner_id: string }>;
   }>;
+  propertyViews?: Array<{ viewer_id: string | null }>;
 };
 
 class MockQuery {
   private readonly table: string;
   private readonly config: MockConfig;
   private head = false;
+  private viewerIdFilter: "null" | "not_null" | null = null;
 
   constructor(table: string, config: MockConfig) {
     this.table = table;
@@ -47,6 +54,16 @@ class MockQuery {
     return this;
   }
 
+  not() {
+    this.viewerIdFilter = "not_null";
+    return this;
+  }
+
+  is() {
+    this.viewerIdFilter = "null";
+    return this;
+  }
+
   then(resolve: (value: unknown) => void, reject?: (reason?: unknown) => void) {
     return Promise.resolve(this.exec()).then(resolve, reject);
   }
@@ -60,7 +77,19 @@ class MockQuery {
       if (this.table === "messages") {
         return { data: this.config.messages ?? [], error: null };
       }
+      if (this.table === "property_views") {
+        return { data: this.config.propertyViews ?? [], error: null };
+      }
       return { data: [], error: null };
+    }
+    if (this.table === "property_views") {
+      if (this.viewerIdFilter === "null") {
+        return { count: this.config.propertyViewsCounts?.anonymous ?? 0, error: null };
+      }
+      if (this.viewerIdFilter === "not_null") {
+        return { count: this.config.propertyViewsCounts?.auth ?? 0, error: null };
+      }
+      return { count: this.config.propertyViewsCounts?.total ?? 0, error: null };
     }
     return { count: this.config.counts?.[this.table] ?? 0, error: null };
   }
@@ -166,6 +195,30 @@ void test("property detail API records views via property_views insert", () => {
   assert.ok(contents.includes("viewer_role"), "expected viewer_role capture");
 });
 
+void test("getLandlordAnalytics returns total, unique, and anonymous view metrics", async () => {
+  const supabase = createMockSupabase({
+    counts: { properties: 2, saved_properties: 1, viewing_requests: 0 },
+    propertyViewsCounts: { total: 6, anonymous: 2, auth: 2 },
+    propertyViews: [
+      { viewer_id: "viewer-a" },
+      { viewer_id: "viewer-a" },
+      { viewer_id: "viewer-b" },
+      { viewer_id: null },
+    ],
+    messages: [],
+  });
+
+  const snapshot = await getLandlordAnalytics({
+    hostId: "host-1",
+    supabase: supabase as unknown as SupabaseLike,
+    viewsClient: supabase as unknown as SupabaseLike,
+  });
+
+  assert.equal(snapshot.kpis.listingViews.value, 6);
+  assert.equal(snapshot.kpis.uniqueAuthViewers.value, 2);
+  assert.equal(snapshot.kpis.anonymousViews.value, 2);
+});
+
 void test("getLandlordAnalytics marks listing views unavailable when source errors", async () => {
   const supabase = createMockSupabase({
     counts: { properties: 3, saved_properties: 1, viewing_requests: 1 },
@@ -188,5 +241,7 @@ void test("getLandlordAnalytics marks listing views unavailable when source erro
   });
 
   assert.equal(snapshot.kpis.listingViews.available, false);
+  assert.equal(snapshot.kpis.uniqueAuthViewers.available, false);
+  assert.equal(snapshot.kpis.anonymousViews.available, false);
   assert.equal(snapshot.kpis.listingViews.value, null);
 });

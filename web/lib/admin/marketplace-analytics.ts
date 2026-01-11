@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { DataQualitySnapshot } from "@/lib/admin/data-quality";
 
 type CountResult = { count: number | null; error: { message: string } | null };
+type DistinctResult<T> = { data: T[] | null; error: { message?: string } | null };
 
 type TrendDelta = {
   current: number | null;
@@ -17,6 +18,8 @@ export type MarketplaceAnalyticsSnapshot = {
     pending: number | null;
     draft: number | null;
     viewsLast7: number | null;
+    uniqueAuthViewersLast7: number | null;
+    anonymousViewsLast7: number | null;
     withPhotosPct: number | null;
     withDescriptionPct: number | null;
     withTrustPct: number | null;
@@ -45,6 +48,35 @@ const buildTrend = (current: number | null, previous: number | null): TrendDelta
   const delta = current - previous;
   const direction = delta === 0 ? "flat" : delta > 0 ? "up" : "down";
   return { current, previous, delta, direction };
+};
+
+const safeCount = async (
+  promise: PromiseLike<CountResult>,
+  label: string,
+  errors: string[]
+) => {
+  const result = await promise;
+  if (result.error) {
+    errors.push(`${label}: ${result.error.message}`);
+    return null;
+  }
+  return result.count ?? null;
+};
+
+const safeDistinctCount = async <T extends { viewer_id?: string | null }>(
+  promise: PromiseLike<DistinctResult<T>>,
+  label: string,
+  errors: string[]
+) => {
+  const result = await promise;
+  if (result.error) {
+    errors.push(`${label}: ${result.error.message ?? "query_failed"}`);
+    return null;
+  }
+  const distinct = new Set(
+    (result.data ?? []).map((row) => row.viewer_id).filter((value) => value)
+  );
+  return distinct.size;
 };
 
 export async function buildMarketplaceAnalytics(
@@ -126,6 +158,26 @@ export async function buildMarketplaceAnalytics(
   collectError("listingViewsLast7", listingViewsLast7);
   collectError("listingViewsPrev7", listingViewsPrev7);
 
+  const uniqueAuthViewersLast7 = await safeDistinctCount(
+    adminClient
+      .from("property_views")
+      .select("viewer_id")
+      .not("viewer_id", "is", null)
+      .gte("created_at", last7Start),
+    "uniqueAuthViewersLast7",
+    errors
+  );
+
+  const anonymousViewsLast7 = await safeCount(
+    adminClient
+      .from("property_views")
+      .select("id", { count: "exact", head: true })
+      .is("viewer_id", null)
+      .gte("created_at", last7Start),
+    "anonymousViewsLast7",
+    errors
+  );
+
   let listingsWithTrust: CountResult = { count: null, error: null };
   try {
     listingsWithTrust = await adminClient
@@ -157,6 +209,8 @@ export async function buildMarketplaceAnalytics(
       pending: toCount(pendingListings),
       draft: toCount(draftListings),
       viewsLast7: toCount(listingViewsLast7),
+      uniqueAuthViewersLast7,
+      anonymousViewsLast7,
       withPhotosPct: percent(withPhotosCount, total),
       withDescriptionPct: percent(toCount(listingsWithDescription), total),
       withTrustPct: percent(toCount(listingsWithTrust), total),

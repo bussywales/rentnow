@@ -12,7 +12,13 @@ import { getListingAccessResult } from "@/lib/role-access";
 import { normalizeRole } from "@/lib/roles";
 import { normalizeCountryForUpdate } from "@/lib/properties/country-normalize";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
-import { getDedupeWindowStart, shouldRecordPropertyView } from "@/lib/analytics/property-views";
+import {
+  getDedupeWindowStart,
+  isPrefetchRequest,
+  shouldRecordPropertyView,
+  shouldSkipInflightView,
+  shortenId,
+} from "@/lib/analytics/property-views";
 
 const routeLabel = "/api/properties/[id]";
 const CURRENT_YEAR = new Date().getFullYear();
@@ -83,6 +89,31 @@ async function resolveViewerContext(
   return { viewerId: user.id, viewerRole: normalizeRole(role) ?? "anon" };
 }
 
+const logViewDecision = ({
+  recorded,
+  reason,
+  propertyId,
+  viewerId,
+  viewerRole,
+}: {
+  recorded: boolean;
+  reason: string;
+  propertyId: string;
+  viewerId?: string | null;
+  viewerRole: string;
+}) => {
+  console.info(
+    JSON.stringify({
+      event: "property_view",
+      recorded,
+      reason,
+      property_id: shortenId(propertyId),
+      viewer_id: shortenId(viewerId),
+      viewer_role: viewerRole,
+    })
+  );
+};
+
 async function recordPropertyView({
   propertyId,
   ownerId,
@@ -95,7 +126,16 @@ async function recordPropertyView({
   viewerRole: string;
 }) {
   if (!hasServiceRoleEnv()) return;
-  if (viewerId && ownerId && viewerId === ownerId) return;
+  if (viewerId && ownerId && viewerId === ownerId) {
+    logViewDecision({
+      recorded: false,
+      reason: "owner_skipped",
+      propertyId,
+      viewerId,
+      viewerRole,
+    });
+    return;
+  }
   try {
     const serviceClient = createServiceRoleClient();
     const adminDb = serviceClient as unknown as UntypedAdminClient;
@@ -103,6 +143,17 @@ async function recordPropertyView({
     let lastViewedAt: string | null = null;
 
     if (viewerId) {
+      const inflightKey = `${propertyId}:${viewerId}`;
+      if (shouldSkipInflightView({ key: inflightKey, nowMs: now.getTime() })) {
+        logViewDecision({
+          recorded: false,
+          reason: "deduped_inflight",
+          propertyId,
+          viewerId,
+          viewerRole,
+        });
+        return;
+      }
       const windowStart = getDedupeWindowStart(now);
       const { data, error } = await adminDb
         .from<{ created_at: string }>("property_views")
@@ -131,6 +182,13 @@ async function recordPropertyView({
         now,
       })
     ) {
+      logViewDecision({
+        recorded: false,
+        reason: "deduped_60s",
+        propertyId,
+        viewerId,
+        viewerRole,
+      });
       return;
     }
 
@@ -138,6 +196,13 @@ async function recordPropertyView({
       property_id: propertyId,
       viewer_id: viewerId ?? null,
       viewer_role: viewerRole,
+    });
+    logViewDecision({
+      recorded: true,
+      reason: viewerId ? "recorded" : "anonymous",
+      propertyId,
+      viewerId,
+      viewerRole,
     });
   } catch (err) {
     console.warn("Property view insert failed", {
@@ -291,12 +356,22 @@ export async function GET(
   }
 
   const { viewerId, viewerRole } = await resolveViewerContext(supabase);
-  void recordPropertyView({
-    propertyId: data.id,
-    ownerId: data.owner_id,
-    viewerId,
-    viewerRole,
-  });
+  if (isPrefetchRequest(request.headers)) {
+    logViewDecision({
+      recorded: false,
+      reason: "prefetch_skipped",
+      propertyId: data.id,
+      viewerId,
+      viewerRole,
+    });
+  } else {
+    void recordPropertyView({
+      propertyId: data.id,
+      ownerId: data.owner_id,
+      viewerId,
+      viewerRole,
+    });
+  }
 
   return NextResponse.json({ property: data });
 }
