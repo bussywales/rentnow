@@ -160,6 +160,8 @@
 - Enable notifications and verify a row exists in `public.push_subscriptions`.
 - Trigger a saved search alert and confirm a push notification is delivered.
 - In `/admin/support`, confirm push subscription counts and alert sample metrics render.
+- In `/admin/support`, confirm the Push readiness checklist shows VAPID keys, permission state, and service worker availability.
+- If permission is default, use “Enable notifications”, then create a subscription when prompted.
 - In `/admin/support`, use “Send test push” and confirm it targets the current admin only.
 - In `/admin/support`, confirm “Recent delivery attempts” renders and updates after a test push.
 - If a push attempt fails, confirm `saved_search_alerts.error` includes a `push_unavailable:` or `push_failed:` marker.

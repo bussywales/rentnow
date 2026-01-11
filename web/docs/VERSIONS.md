@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-12 — v1.7.65-r14.5-push-readiness-subscription-capture
+- Added admin push readiness checklist with permission and service worker state.
+- Added admin-only subscription capture CTA with safe, non-blocking guardrails.
+- Documented readiness verification steps for operators.
+
 ## 2026-01-12 — v1.7.61-r14.1-ops-shortcuts
 - Added ops shortcuts links on /admin/support for faster triage navigation.
 

@@ -86,6 +86,13 @@ Admin test push:
 - Test push targets only the current admin’s own subscriptions.
 - If no subscription exists, the API returns `code=no_subscriptions`.
 
+R14.5 readiness checklist:
+1) Confirm VAPID keys are configured in the environment.
+2) Visit `/admin/support` and review the Push readiness rows.
+3) Enable notifications when permission is default.
+4) Create a subscription when permission is granted.
+5) Send a test push to confirm delivery and telemetry updates.
+
 Retention cleanup (manual):
 ```sql
 select count(*) as candidate_rows

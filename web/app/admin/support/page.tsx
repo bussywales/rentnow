@@ -38,6 +38,7 @@ import { formatRoleLabel } from "@/lib/roles";
 import { getMessagingPermissionMessage, MESSAGING_REASON_CODES } from "@/lib/messaging/permissions";
 import { getRateLimitSnapshot } from "@/lib/messaging/rate-limit";
 import { getPushConfigStatus } from "@/lib/push/config";
+import { getAdminPushSubscriptionStatus } from "@/lib/admin/push-readiness";
 import {
   getPushDeliveryAttempts,
   getPushDeliverySummary,
@@ -45,6 +46,7 @@ import {
   type PushDeliverySummary,
 } from "@/lib/push/delivery-telemetry";
 import { AdminPushTestButton } from "@/components/admin/AdminPushTestButton";
+import { AdminPushReadiness } from "@/components/admin/AdminPushReadiness";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +87,13 @@ type ThrottleTelemetryDiagnostics = {
 type PushTelemetryDiagnostics = {
   ready: boolean;
   configured: boolean;
+  publicKey: string | null;
+  publicKeyPresent: boolean;
+  privateKeyPresent: boolean;
   missingKeys?: string[];
+  currentAdminSubscriptionAvailable: boolean;
+  currentAdminSubscriptionCount: number;
+  currentAdminHasSubscription: boolean;
   counts: {
     total: number;
     active: number;
@@ -246,12 +254,22 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
   };
 
   const pushConfig = getPushConfigStatus();
+  const adminSubscriptionStatus = await getAdminPushSubscriptionStatus({
+    supabase,
+    userId: user.id,
+  });
   const deliverySummary = getPushDeliverySummary(20);
   const deliveryAttempts = getPushDeliveryAttempts(20);
   let pushTelemetry: PushTelemetryDiagnostics = {
     ready: false,
     configured: pushConfig.configured,
+    publicKey: pushConfig.publicKey,
+    publicKeyPresent: !!pushConfig.publicKey,
+    privateKeyPresent: !!pushConfig.privateKey,
     missingKeys: pushConfig.missingKeys,
+    currentAdminSubscriptionAvailable: adminSubscriptionStatus.available,
+    currentAdminSubscriptionCount: adminSubscriptionStatus.activeCount,
+    currentAdminHasSubscription: adminSubscriptionStatus.hasActiveSubscription,
     counts: { total: 0, active: 0, last24h: 0, last7d: 0 },
     pruned: { last7d: 0, last30d: 0 },
     summary: null,
@@ -430,7 +448,13 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     pushTelemetry = {
       ready: true,
       configured: pushConfig.configured,
+      publicKey: pushConfig.publicKey,
+      publicKeyPresent: !!pushConfig.publicKey,
+      privateKeyPresent: !!pushConfig.privateKey,
       missingKeys: pushConfig.missingKeys,
+      currentAdminSubscriptionAvailable: adminSubscriptionStatus.available,
+      currentAdminSubscriptionCount: adminSubscriptionStatus.activeCount,
+      currentAdminHasSubscription: adminSubscriptionStatus.hasActiveSubscription,
       counts: {
         total: totalSubsResult.count ?? 0,
         active: activeSubsResult.count ?? 0,
@@ -567,7 +591,13 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     pushTelemetry = {
       ready: false,
       configured: pushConfig.configured,
+      publicKey: pushConfig.publicKey,
+      publicKeyPresent: !!pushConfig.publicKey,
+      privateKeyPresent: !!pushConfig.privateKey,
       missingKeys: pushConfig.missingKeys,
+      currentAdminSubscriptionAvailable: adminSubscriptionStatus.available,
+      currentAdminSubscriptionCount: adminSubscriptionStatus.activeCount,
+      currentAdminHasSubscription: adminSubscriptionStatus.hasActiveSubscription,
       counts: { total: 0, active: 0, last24h: 0, last7d: 0 },
       pruned: { last7d: 0, last30d: 0 },
       summary: null,
@@ -1003,6 +1033,17 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 ) : (
                   <p className="mt-2 text-sm text-slate-600">No push attempts in the recent sample.</p>
                 )}
+                <AdminPushReadiness
+                  configured={diag.pushTelemetry.configured}
+                  publicKey={diag.pushTelemetry.publicKey}
+                  publicKeyPresent={diag.pushTelemetry.publicKeyPresent}
+                  privateKeyPresent={diag.pushTelemetry.privateKeyPresent}
+                  showMissingKeys={showMissingPushKeys}
+                  missingKeys={diag.pushTelemetry.missingKeys ?? []}
+                  adminSubscriptionAvailable={diag.pushTelemetry.currentAdminSubscriptionAvailable}
+                  adminSubscriptionCount={diag.pushTelemetry.currentAdminSubscriptionCount}
+                  debug={debug}
+                />
                 <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
                   <p className="text-xs font-semibold text-slate-700">Recent delivery attempts</p>
                   <p className="mt-1 text-xs text-slate-600">
