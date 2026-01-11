@@ -84,6 +84,11 @@
 - Landlord/Agent: can create/edit listings, upload photos, and submit for approval.
 - Admin: can access `/admin/support` and `/admin/alerts` (read-only).
 
+## Landlord analytics smoke
+- Landlord/Agent can open `/dashboard/analytics` and see KPI cards plus coverage indicators.
+- Admin can open `/admin/analytics/host/<host_id>` and see the same layout for a specific host.
+- When a metric source is missing, the UI shows “Not available” (no zero or crash).
+
 ## Stop-ship conditions
 - Listings cannot be created or saved for any host role.
 - Browse returns “Unable to load listings” for all users.

@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-11 — v1.7.48-r11-landlord-analytics
+- Added landlord/agent analytics dashboard with KPI cards, deltas, and coverage indicators.
+- Added admin host analytics view for read-only support checks.
+- How to verify: open `/dashboard/analytics` as landlord/agent and `/admin/analytics/host/<id>` as admin; confirm unsupported metrics show “Not available”.
+
 ## 2026-01-11 — v1.7.47-r10.1-admin-analytics
 - Added admin-only marketplace analytics with KPIs, trends, and system health snapshot.
 - Reused data quality and beta readiness helpers with safe “Not available” fallbacks.

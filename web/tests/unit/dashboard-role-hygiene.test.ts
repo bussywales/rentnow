@@ -15,4 +15,8 @@ void test("dashboard layout hides listing nav for non-listing roles", () => {
     contents.includes("showMyProperties"),
     "expected My properties link to be conditionally rendered"
   );
+  assert.ok(
+    contents.includes("/dashboard/analytics"),
+    "expected analytics link to be gated with listing roles"
+  );
 });

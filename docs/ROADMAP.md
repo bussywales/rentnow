@@ -11,6 +11,8 @@ RentNow is a rental marketplace for African cities. It lets tenants discover and
 - Admins review support snapshots, billing ops, and role management (server-only service role).
 
 ## Release history summary (major milestones by tags)
+- v1.7.48 (R11): Landlord/agent analytics dashboards (read-only, no PII).
+- v1.7.47 (R10.1): Admin marketplace health analytics (read-only).
 - v1.7.33 (R7.7): Pricing UX polish and form layout improvements for listing creation.
 - v1.7.32 (R7.6): Rent cadence (monthly/yearly) introduced across cards and detail pages.
 - v1.7.31 to v1.7.28 (R7.5): Trust snapshot RPC, browse reliability fixes, and currency UX.
@@ -22,6 +24,8 @@ RentNow is a rental marketplace for African cities. It lets tenants discover and
 - v1.6.x to v1.7.6 (R6.1 to R6.5): Billing ops, provider modes, and Stripe foundations.
 
 ## Shipped phases and epics
+- R10.1: Admin marketplace health analytics (read-only).
+- R11: Landlord/agent analytics dashboards (read-only, no PII).
 - R6.7: Messaging hardening, reason codes, cooldown UX, and telemetry.
 - R6.8: PWA foundation with offline-safe shell.
 - R6.9: Web push alerts, saved search gating, and push reliability tooling.
@@ -34,7 +38,10 @@ RentNow is a rental marketplace for African cities. It lets tenants discover and
 
 ## In-flight
 - Current line: R7.7.x listing form polish series (latest tag v1.7.33-r7.7.3.2-airbnb-form-layout).
-- R10.1: Admin marketplace health analytics (in progress).
+- No additional in-flight phases queued.
+
+## R11 follow-ups
+- Add a durable listing views event source (e.g., `property_views`) to enable the Listing views KPI.
 
 ## Now / Next / Later (approved roadmap)
 
