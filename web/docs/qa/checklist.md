@@ -87,6 +87,7 @@
 ## Landlord analytics smoke
 - Landlord/Agent can open `/dashboard/analytics` and see KPI cards plus coverage indicators.
 - Admin can open `/admin/analytics/host/<host_id>` and see the same layout for a specific host.
+- Admin can open `/admin/analytics/host`, search by host id/name, and click through to the detail view.
 - When a metric source is missing, the UI shows “Not available” (no zero or crash).
 
 ## Demand funnel verification (R12)

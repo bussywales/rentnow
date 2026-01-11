@@ -356,3 +356,8 @@
 - Skipped property view inserts on prefetch requests and added inflight dedupe.
 - Split listing views into total, unique authenticated, and anonymous counts.
 - Added guardrail tests plus analytics copy clarifying anonymous views.
+
+## 2026-01-12 — v1.7.62-r14.2-host-analytics-index
+- Added admin host analytics index with search and read-only host list.
+- Included safe host labels, listings/threads/views columns, and “Not available” fallbacks.
+- Added unit tests and QA checklist steps for the index route.
