@@ -121,7 +121,9 @@ export async function postAdminUsersResponse(request: Request, deps: AdminUsersD
       return NextResponse.json({ error: "Email required for reset link" }, { status: 400 });
     }
     const siteUrl = await getSiteUrl({ allowFallback: true });
-    const redirectTo = siteUrl ? `${siteUrl.replace(/\/$/, "")}/auth/reset` : "/auth/reset";
+    const redirectTo = siteUrl
+      ? `${siteUrl.replace(/\/$/, "")}/auth/reset?from=reset_email`
+      : "/auth/reset?from=reset_email";
     const { error } = await sendResetEmail(email, redirectTo);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });

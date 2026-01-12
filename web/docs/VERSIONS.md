@@ -406,3 +406,8 @@
 - Added durable `push_delivery_attempts` telemetry for admin push tests.
 - Wrote test push outcomes with reason codes and subscription pruning on 404/410.
 - Updated `/admin/support` to read durable delivery attempts with safe fallbacks.
+
+## 2026-01-13 — v1.7.71-r15.1.2-password-recovery-ui
+- Password reset links now open the set-password form for hash and PKCE flows.
+- Added recovery state handling and session events on `/auth/reset`.
+- Updated QA checklist to verify reset links land in recovery mode.

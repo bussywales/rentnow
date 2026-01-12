@@ -81,7 +81,7 @@
 
 ## Auth & search guardrails
 - Leave the app idle, then open `/admin/support` once; it should load without a second click.
-- Use “Forgot password?” on `/auth/login`, request a reset email, and complete the reset on `/auth/reset`.
+- Use “Forgot password?” on `/auth/login`, request a reset email, and confirm the reset link opens the set-password form on `/auth/reset`.
 - Home quick search should clamp negative numbers to 0 before submitting.
 
 ## Beta role-based smoke checks

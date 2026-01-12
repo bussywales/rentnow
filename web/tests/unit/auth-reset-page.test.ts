@@ -9,4 +9,9 @@ void test("reset page renders reset copy", () => {
 
   assert.ok(contents.includes("Reset your password"));
   assert.ok(contents.includes("resetPasswordForEmail"));
+  assert.ok(contents.includes("exchangeCodeForSession"));
+  assert.ok(contents.includes("setSession"));
+  assert.ok(contents.includes("onAuthStateChange"));
+  assert.ok(contents.includes("PASSWORD_RECOVERY"));
+  assert.ok(contents.includes("from=reset_email"));
 });

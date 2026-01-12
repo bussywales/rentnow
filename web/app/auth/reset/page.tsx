@@ -6,6 +6,7 @@ import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,7 @@ const getClient = () => {
 function ResetContent() {
   const searchParams = useSearchParams();
   const code = searchParams?.get("code");
+  const from = searchParams?.get("from");
   const supabase = useMemo(() => getClient(), []);
 
   const [mode, setMode] = useState<Mode>(() => (supabase ? "request" : "error"));
@@ -48,8 +50,9 @@ function ResetContent() {
     const params = new URLSearchParams(hash);
     const access_token = params.get("access_token");
     const refresh_token = params.get("refresh_token");
+    const type = params.get("type");
     if (access_token && refresh_token) {
-      return { access_token, refresh_token };
+      return { access_token, refresh_token, type };
     }
     return null;
   };
@@ -85,8 +88,11 @@ function ResetContent() {
       setMessage(null);
 
       const hashTokens = parseHashTokens();
-      if (hashTokens) {
-        await supabase.auth.setSession(hashTokens);
+      if (hashTokens?.access_token && hashTokens.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: hashTokens.access_token,
+          refresh_token: hashTokens.refresh_token,
+        });
         if (typeof window !== "undefined") {
           window.history.replaceState(null, "", window.location.pathname + window.location.search);
         }
@@ -95,14 +101,18 @@ function ResetContent() {
       if (code) {
         if (!hasStoredCodeVerifier()) {
           setMode("request");
-          setMessage("Reset link opened in a different browser. Request a new reset link.");
+          setMessage(
+            "Reset link opened in a different browser. Request a new reset link."
+          );
           return;
         }
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) {
           setMode("request");
           if (isMissingCodeVerifier(exchangeError.message)) {
-            setMessage("Reset link opened in a different browser. Request a new reset link.");
+            setMessage(
+              "Reset link opened in a different browser. Request a new reset link."
+            );
             return;
           }
           setError("Unable to process reset link. Request a new reset link.");
@@ -118,11 +128,30 @@ function ResetContent() {
         return;
       }
 
+      if (from === "reset_email" && !code && !hashTokens?.type) {
+        setMessage("Request a new reset link to continue.");
+      }
       setMode("request");
     };
 
     void run();
-  }, [code, supabase]);
+  }, [code, from, supabase]);
+
+  useEffect(() => {
+    if (!supabase) return;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(
+      (event: AuthChangeEvent, session: Session | null) => {
+        if (event === "PASSWORD_RECOVERY" || session?.user) {
+          setMode("update");
+        }
+      }
+    );
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   const handleRequest = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -138,7 +167,7 @@ function ResetContent() {
     setLoading(true);
     setError(null);
     setMessage(null);
-    const redirectTo = `${resolveSiteUrl()}/auth/reset`;
+    const redirectTo = `${resolveSiteUrl()}/auth/reset?from=reset_email`;
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(emailTrimmed, {
       redirectTo,
     });
@@ -176,6 +205,11 @@ function ResetContent() {
     }
     setMode("success");
     setLoading(false);
+    if (typeof window !== "undefined") {
+      window.setTimeout(() => {
+        window.location.assign("/auth/login?reset=success");
+      }, 1200);
+    }
   };
 
   return (
