@@ -54,6 +54,29 @@ function ResetContent() {
     return null;
   };
 
+  const hasStoredCodeVerifier = () => {
+    if (typeof window === "undefined") return false;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    if (!supabaseUrl) return false;
+    try {
+      const host = new URL(supabaseUrl).hostname;
+      const projectRef = host.split(".")[0];
+      const key = `sb-${projectRef}-auth-token-code-verifier`;
+      return Boolean(window.localStorage.getItem(key));
+    } catch {
+      return false;
+    }
+  };
+
+  const isMissingCodeVerifier = (message?: string | null) => {
+    if (!message) return false;
+    return (
+      message.includes("code verifier") ||
+      message.includes("code_verifier") ||
+      message.includes("auth code and code verifier")
+    );
+  };
+
   useEffect(() => {
     if (!supabase) return;
 
@@ -70,10 +93,19 @@ function ResetContent() {
       }
 
       if (code) {
+        if (!hasStoredCodeVerifier()) {
+          setMode("request");
+          setMessage("Reset link opened in a different browser. Request a new reset link.");
+          return;
+        }
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) {
           setMode("request");
-          setError(exchangeError.message || "Unable to process reset link.");
+          if (isMissingCodeVerifier(exchangeError.message)) {
+            setMessage("Reset link opened in a different browser. Request a new reset link.");
+            return;
+          }
+          setError("Unable to process reset link. Request a new reset link.");
           return;
         }
       }
