@@ -4,8 +4,9 @@ import { AdminUserActions } from "@/components/admin/AdminUserActions";
 import { isPlanExpired, normalizePlanTier } from "@/lib/plans";
 import { formatRoleStatus } from "@/lib/roles";
 import { getAdminAccessState, shouldShowProfileMissing } from "@/lib/admin/user-view";
+import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -38,10 +39,7 @@ async function requireAdmin() {
   if (!hasServerSupabaseEnv()) {
     redirect("/auth/required?redirect=/admin/users&reason=auth");
   }
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
   if (!user) redirect("/auth/required?redirect=/admin/users&reason=auth");
 
   const { data: profile } = await supabase

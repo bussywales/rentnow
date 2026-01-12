@@ -3,7 +3,8 @@ import { redirect } from "next/navigation";
 import { HostAnalyticsPanel } from "@/components/analytics/HostAnalyticsPanel";
 import { getLandlordAnalytics, type AnalyticsRangeKey } from "@/lib/analytics/landlord-analytics";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -35,10 +36,7 @@ export default async function AdminHostAnalyticsPage({ params, searchParams }: H
       ? (resolvedParams.range as AnalyticsRangeKey)
       : null;
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
 
   if (!user) {
     redirect(`/auth/required?redirect=/admin/analytics/host/${params.id}&reason=auth`);

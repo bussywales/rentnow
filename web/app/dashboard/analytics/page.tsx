@@ -6,7 +6,8 @@ import { readActingAsFromCookies } from "@/lib/acting-as.server";
 import { canManageListings } from "@/lib/role-access";
 import { normalizeRole } from "@/lib/roles";
 import { getLandlordAnalytics, resolveAnalyticsHostId, type AnalyticsRangeKey } from "@/lib/analytics/landlord-analytics";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -35,10 +36,7 @@ export default async function DashboardAnalyticsPage({ searchParams }: Analytics
       ? (resolvedParams.range as AnalyticsRangeKey)
       : null;
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
 
   if (!user) {
     redirect("/auth/login?reason=auth");

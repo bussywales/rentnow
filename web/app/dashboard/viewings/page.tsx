@@ -1,7 +1,8 @@
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { DEV_MOCKS } from "@/lib/env";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { ViewingRequest, UserRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -32,10 +33,7 @@ export default async function ViewingsPage() {
 
   if (supabaseReady) {
     try {
-      const supabase = await createServerSupabaseClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { supabase, user } = await getServerAuthUser();
 
       if (user) {
         currentUserId = user.id;

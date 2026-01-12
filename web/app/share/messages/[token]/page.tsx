@@ -4,7 +4,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { getShareStatusCopy, type ShareLinkStatus } from "@/lib/messaging/share";
 import { logShareAccess } from "@/lib/messaging/share-logging";
 import { mapDeliveryState } from "@/lib/messaging/status";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
 import type { Message } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -24,10 +24,7 @@ type SharePayload = {
 export default async function ShareMessagesPage({ params }: Props) {
   const { token } = await params;
   const sharePath = `/share/messages/${token}`;
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
 
   if (!user) {
     logShareAccess({ result: "unauthenticated" });

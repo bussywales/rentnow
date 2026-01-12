@@ -32,7 +32,8 @@ import {
   buildDataQualitySnapshot,
   type DataQualitySnapshot,
 } from "@/lib/admin/data-quality";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { formatRoleLabel } from "@/lib/roles";
 import { getMessagingPermissionMessage, MESSAGING_REASON_CODES } from "@/lib/messaging/permissions";
@@ -206,10 +207,7 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     return { supabaseReady: false };
   }
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
 
   if (!user) {
     redirect("/auth/required?redirect=/admin/support&reason=auth");

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { requireRole } from "@/lib/authz";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { getSiteUrl } from "@/lib/env";
 const routeLabel = "/api/admin/users";
 
 type ListUsersResult = {
@@ -12,6 +14,18 @@ type AdminUsersDeps = {
   hasServiceRoleEnv?: () => boolean;
   requireRole?: typeof requireRole;
   listUsers?: () => Promise<ListUsersResult>;
+  sendResetEmail?: (email: string, redirectTo: string) => Promise<{ error: { message: string } | null }>;
+  deleteUser?: (userId: string) => Promise<{ error: { message: string } | null }>;
+};
+
+const getPublicClient = () => {
+  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anonKey =
+    process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anonKey) return null;
+  return createClient(url, anonKey, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
 };
 
 export async function getAdminUsersResponse(request: Request, deps: AdminUsersDeps = {}) {
@@ -48,15 +62,33 @@ export async function GET(request: Request) {
   return getAdminUsersResponse(request);
 }
 
-export async function POST(request: Request) {
+export async function postAdminUsersResponse(request: Request, deps: AdminUsersDeps = {}) {
   const startTime = Date.now();
-  if (!hasServiceRoleEnv()) {
+  const {
+    hasServiceRoleEnv: hasServiceRoleEnvImpl = hasServiceRoleEnv,
+    requireRole: requireRoleImpl = requireRole,
+    sendResetEmail = async (email: string, redirectTo: string) => {
+      const client = getPublicClient();
+      if (!client) {
+        return { error: { message: "Supabase anon key missing; reset email unavailable." } };
+      }
+      const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
+      return { error: error ? { message: error.message } : null };
+    },
+    deleteUser = async (userId: string) => {
+      const adminClient = createServiceRoleClient();
+      const { error } = await adminClient.auth.admin.deleteUser(userId);
+      return { error: error ? { message: error.message } : null };
+    },
+  } = deps;
+
+  if (!hasServiceRoleEnvImpl()) {
     return NextResponse.json(
       { error: "Service role key missing; user admin API unavailable." },
       { status: 503 }
     );
   }
-  const auth = await requireRole({
+  const auth = await requireRoleImpl({
     request,
     route: routeLabel,
     startTime,
@@ -72,9 +104,8 @@ export async function POST(request: Request) {
   if (!action || !userId) {
     return NextResponse.json({ error: "Missing action or userId" }, { status: 400 });
   }
-  const adminClient = createServiceRoleClient();
   if (action === "delete") {
-    const { error } = await adminClient.auth.admin.deleteUser(userId);
+    const { error } = await deleteUser(userId);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
@@ -84,17 +115,17 @@ export async function POST(request: Request) {
     if (!email) {
       return NextResponse.json({ error: "Email required for reset link" }, { status: 400 });
     }
-    const { data, error } = await adminClient.auth.admin.generateLink({
-      type: "recovery",
-      email,
-    });
+    const siteUrl = await getSiteUrl({ allowFallback: true });
+    const redirectTo = siteUrl ? `${siteUrl.replace(/\/$/, "")}/auth/reset` : "/auth/reset";
+    const { error } = await sendResetEmail(email, redirectTo);
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
-    // Supabase returns properties + user; action link on properties if configured
-    const link = (data as unknown as { properties?: { action_link?: string } })?.properties
-      ?.action_link;
-    return NextResponse.json({ ok: true, link: link || null });
+    return NextResponse.json({ ok: true });
   }
   return NextResponse.json({ error: "Unsupported action" }, { status: 400 });
+}
+
+export async function POST(request: Request) {
+  return postAdminUsersResponse(request);
 }

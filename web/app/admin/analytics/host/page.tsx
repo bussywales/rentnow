@@ -2,7 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { buildHostAnalyticsIndex } from "@/lib/admin/host-analytics-index";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -29,10 +30,7 @@ export default async function AdminHostAnalyticsIndexPage({
     );
   }
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
 
   if (!user) {
     redirect("/auth/required?redirect=/admin/analytics/host&reason=auth");

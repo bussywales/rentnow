@@ -4,9 +4,8 @@ import Link from "next/link";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
+import { QuickSearchForm } from "@/components/search/QuickSearchForm";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { Select } from "@/components/ui/Select";
 import { getProfile } from "@/lib/auth";
 import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
 import { normalizeRole } from "@/lib/roles";
@@ -107,24 +106,7 @@ export default async function Home() {
                 PWA ready
               </span>
             </div>
-            <form className="space-y-3" action="/properties" method="get">
-              <Input name="city" placeholder="City or neighbourhood" />
-              <div className="grid grid-cols-2 gap-3">
-                <Input name="minPrice" type="number" placeholder="Min price" />
-                <Input name="maxPrice" type="number" placeholder="Max price" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Select name="rentalType" defaultValue="">
-                  <option value="">Any rental type</option>
-                  <option value="short_let">Short-let</option>
-                  <option value="long_term">Long-term</option>
-                </Select>
-                <Input name="bedrooms" type="number" placeholder="Bedrooms" />
-              </div>
-              <Button type="submit" className="w-full">
-                Search rentals
-              </Button>
-            </form>
+            <QuickSearchForm />
           </div>
         </div>
       </section>

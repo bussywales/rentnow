@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import Link from "next/link";
 import { SavedSearchManager } from "@/components/search/SavedSearchManager";
 import { PushStatusBadge } from "@/components/dashboard/PushStatusBadge";
@@ -23,10 +24,7 @@ export default async function SavedSearchesPage() {
     );
   }
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
 
   if (!user) {
     redirect("/auth/login?reason=auth");

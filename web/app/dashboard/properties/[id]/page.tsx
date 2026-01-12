@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { PropertyStepper } from "@/components/properties/PropertyStepper";
 import { getApiBaseUrl } from "@/lib/env";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 import { cookies } from "next/headers";
 
@@ -90,14 +91,14 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
   }
 
   try {
-    const supabase = await createServerSupabaseClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const { supabase, user } = await getServerAuthUser();
+    if (!user) {
+      return { property: null, error: "Unauthorized" };
+    }
     const { data: profile } = await supabase
       .from("profiles")
       .select("role")
-      .eq("id", user?.id ?? "")
+      .eq("id", user.id)
       .maybeSingle();
     const isAdmin = profile?.role === "admin";
 
@@ -107,7 +108,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
       .eq("id", cleanId);
 
     if (!isAdmin) {
-      query = query.eq("owner_id", user?.id ?? "");
+      query = query.eq("owner_id", user.id);
     }
 
     const { data, error } = await query.maybeSingle();

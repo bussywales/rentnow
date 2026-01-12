@@ -143,6 +143,11 @@ function LoginContent() {
             autoComplete="current-password"
             onChange={(e) => setPassword(e.target.value)}
           />
+          <div className="flex items-center justify-end">
+            <Link href="/auth/reset" className="text-xs font-semibold text-sky-700">
+              Forgot password?
+            </Link>
+          </div>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <Button className="w-full" type="submit" disabled={loading}>
             {loading ? "Logging in..." : "Log in"}

@@ -12,8 +12,9 @@ import { maskEmail, maskIdentifier } from "@/lib/billing/mask";
 import { getProviderModes } from "@/lib/billing/provider-settings";
 import { logProviderEventsViewed, logStripeEventsViewed } from "@/lib/observability";
 import { formatRoleLabel } from "@/lib/roles";
+import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 export const dynamic = "force-dynamic";
@@ -122,10 +123,7 @@ async function requireAdmin() {
     redirect("/auth/required?redirect=/admin/billing&reason=auth");
   }
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
   if (!user) redirect("/auth/required?redirect=/admin/billing&reason=auth");
 
   const { data: profile } = await supabase
@@ -566,10 +564,7 @@ async function loadProviderEvents(
 async function switchStripeToTest() {
   "use server";
   if (!hasServerSupabaseEnv()) return;
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
   if (!user) return;
 
   const { data: profile } = await supabase

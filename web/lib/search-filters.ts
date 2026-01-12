@@ -17,7 +17,8 @@ function parseNumber(value: string | string[] | undefined | null): number | null
   const raw = firstValue(value);
   if (raw === null || raw === "") return null;
   const num = Number(raw);
-  return Number.isFinite(num) ? num : null;
+  if (!Number.isFinite(num)) return null;
+  return num < 0 ? 0 : num;
 }
 
 function parseBoolean(value: string | string[] | undefined | null): boolean | null {
@@ -123,25 +124,26 @@ export function filtersToChips(filters: ParsedSearchFilters): FilterChip[] {
 }
 
 export function parseFiltersFromSavedSearch(params: Record<string, unknown>): ParsedSearchFilters {
+  const clampNumber = (value: number | null) => (value !== null && value < 0 ? 0 : value);
   const city = typeof params.city === "string" ? params.city : null;
   const minPrice =
     typeof params.minPrice === "number"
-      ? params.minPrice
+      ? clampNumber(params.minPrice)
       : params.minPrice
-      ? Number(params.minPrice)
+      ? clampNumber(Number(params.minPrice))
       : null;
   const maxPrice =
     typeof params.maxPrice === "number"
-      ? params.maxPrice
+      ? clampNumber(params.maxPrice)
       : params.maxPrice
-      ? Number(params.maxPrice)
+      ? clampNumber(Number(params.maxPrice))
       : null;
   const currency = typeof params.currency === "string" ? params.currency : null;
   const bedrooms =
     typeof params.bedrooms === "number"
-      ? params.bedrooms
+      ? clampNumber(params.bedrooms)
       : params.bedrooms
-      ? Number(params.bedrooms)
+      ? clampNumber(Number(params.bedrooms))
       : null;
   const rentalType =
     params.rentalType === "short_let" || params.rentalType === "long_term"

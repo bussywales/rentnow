@@ -15,7 +15,21 @@ export async function getSession() {
       console.error("Error fetching session user", error.message);
     }
 
-    const user = session?.user as User | null | undefined;
+    let user = session?.user as User | null | undefined;
+    if (!user) {
+      const {
+        data: { session: refreshed },
+      } = await supabase.auth.refreshSession();
+      user = refreshed?.user as User | null | undefined;
+    }
+
+    if (!user) {
+      const {
+        data: { user: fallbackUser },
+      } = await supabase.auth.getUser();
+      user = fallbackUser as User | null | undefined;
+    }
+
     return user ? ({ user } as { user: User }) : null;
   } catch (err) {
     console.warn("Session fetch failed; returning null", err);

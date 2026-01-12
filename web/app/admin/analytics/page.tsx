@@ -5,7 +5,8 @@ import { buildMarketplaceAnalytics, type MarketplaceAnalyticsSnapshot } from "@/
 import { DemandFunnelCard } from "@/components/analytics/DemandFunnelCard";
 import { getDemandFunnelSnapshot, type DemandFunnelSnapshot } from "@/lib/analytics/demand-funnel";
 import { resolveAnalyticsRange } from "@/lib/analytics/landlord-analytics";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getPushConfig } from "@/lib/push/server";
 
@@ -34,10 +35,7 @@ async function getAnalyticsDiagnostics(): Promise<AnalyticsDiagnostics> {
     };
   }
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
   if (!user) {
     redirect("/auth/required?redirect=/admin/analytics&reason=auth");
   }

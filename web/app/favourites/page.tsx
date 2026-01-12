@@ -1,15 +1,13 @@
 import Link from "next/link";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 export default async function FavouritesPage() {
-  const supabaseReady = hasServerSupabaseEnv();
-  const supabase = supabaseReady ? await createServerSupabaseClient() : null;
-
-  if (!supabase) {
+  if (!hasServerSupabaseEnv()) {
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
         <div>
@@ -25,14 +23,7 @@ export default async function FavouritesPage() {
     );
   }
 
-  let user = null;
-  try {
-    const { data, error } = await supabase.auth.getUser();
-    if (error) throw error;
-    user = data.user;
-  } catch (err) {
-    console.error("Failed to fetch user for favourites", err);
-  }
+  const { supabase, user } = await getServerAuthUser();
 
   if (!user) {
     return (

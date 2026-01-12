@@ -2,7 +2,8 @@ import { MessageThread } from "@/components/messaging/MessageThread";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { DEV_MOCKS } from "@/lib/env";
 import { MESSAGING_RULES } from "@/lib/messaging/permissions";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Message, Profile } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -26,10 +27,7 @@ export default async function MessagesPage() {
 
   if (supabaseReady) {
     try {
-      const supabase = await createServerSupabaseClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { supabase, user } = await getServerAuthUser();
 
       if (user) {
         currentUser = {

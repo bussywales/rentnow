@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-15 — v1.7.70-r15.1.1-auth-reset-search-hardening
+- Added server-side session refresh helper for admin/dashboard pages to avoid “second click” auth prompts.
+- Added `/auth/reset` password reset flow and admin reset email dispatch (server-only).
+- Clamped negative quick-search values client + server with guardrail tests.
+
 ## 2026-01-14 — v1.7.68-r14.7-push-telemetry-ui-fix
 - Fixed admin support push delivery summary to reflect durable telemetry counts (not stale zeros).
 - Ensured telemetry errors render as “Not available” and updated summary logic.

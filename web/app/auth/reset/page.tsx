@@ -1,0 +1,230 @@
+"use client";
+
+import { Suspense, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+
+export const dynamic = "force-dynamic";
+
+type Mode = "request" | "update" | "success" | "error";
+
+const getClient = () => {
+  try {
+    return createBrowserSupabaseClient();
+  } catch {
+    return null;
+  }
+};
+
+function ResetContent() {
+  const searchParams = useSearchParams();
+  const code = searchParams?.get("code");
+  const supabase = useMemo(() => getClient(), []);
+
+  const [mode, setMode] = useState<Mode>(() => (supabase ? "request" : "error"));
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() =>
+    supabase ? null : "Supabase environment variables are missing."
+  );
+  const [loading, setLoading] = useState(false);
+
+  const resolveSiteUrl = () => {
+    if (typeof window !== "undefined") {
+      return window.location.origin.replace(/\/$/, "");
+    }
+    return (process.env.NEXT_PUBLIC_SITE_URL || "https://www.rentnow.space").replace(/\/$/, "");
+  };
+
+  const parseHashTokens = () => {
+    if (typeof window === "undefined") return null;
+    const hash = window.location.hash?.replace(/^#/, "");
+    if (!hash) return null;
+    const params = new URLSearchParams(hash);
+    const access_token = params.get("access_token");
+    const refresh_token = params.get("refresh_token");
+    if (access_token && refresh_token) {
+      return { access_token, refresh_token };
+    }
+    return null;
+  };
+
+  useEffect(() => {
+    if (!supabase) return;
+
+    const run = async () => {
+      setError(null);
+      setMessage(null);
+
+      const hashTokens = parseHashTokens();
+      if (hashTokens) {
+        await supabase.auth.setSession(hashTokens);
+        if (typeof window !== "undefined") {
+          window.history.replaceState(null, "", window.location.pathname + window.location.search);
+        }
+      }
+
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          setMode("request");
+          setError(exchangeError.message || "Unable to process reset link.");
+          return;
+        }
+      }
+
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (session?.user) {
+        setMode("update");
+        return;
+      }
+
+      setMode("request");
+    };
+
+    void run();
+  }, [code, supabase]);
+
+  const handleRequest = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase) {
+      setError("Supabase environment variables are missing.");
+      return;
+    }
+    const emailTrimmed = email.trim();
+    if (!emailTrimmed) {
+      setError("Enter the email you used to sign up.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    setMessage(null);
+    const redirectTo = `${resolveSiteUrl()}/auth/reset`;
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(emailTrimmed, {
+      redirectTo,
+    });
+    if (resetError) {
+      setError(resetError.message || "Unable to send reset email.");
+    } else {
+      setMessage("Check your email for the reset link. It will bring you back here.");
+    }
+    setLoading(false);
+  };
+
+  const handleUpdate = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!supabase) {
+      setError("Supabase environment variables are missing.");
+      return;
+    }
+    const passwordTrimmed = password.trim();
+    const confirmTrimmed = confirm.trim();
+    if (!passwordTrimmed || !confirmTrimmed) {
+      setError("Enter and confirm your new password.");
+      return;
+    }
+    if (passwordTrimmed !== confirmTrimmed) {
+      setError("Passwords do not match.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    const { error: updateError } = await supabase.auth.updateUser({ password: passwordTrimmed });
+    if (updateError) {
+      setError(updateError.message || "Unable to update password.");
+      setLoading(false);
+      return;
+    }
+    setMode("success");
+    setLoading(false);
+  };
+
+  return (
+    <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <div>
+        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Password reset</p>
+        <h1 className="text-2xl font-semibold text-slate-900">
+          {mode === "update" ? "Set a new password" : "Reset your password"}
+        </h1>
+        <p className="text-sm text-slate-600">
+          {mode === "update"
+            ? "Choose a new password to continue."
+            : "We’ll email you a reset link to finish the process."}
+        </p>
+      </div>
+
+      {mode === "request" && (
+        <form className="space-y-4" onSubmit={handleRequest}>
+          <Input
+            type="email"
+            required
+            placeholder="you@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          {message && <p className="text-sm text-slate-700">{message}</p>}
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Sending..." : "Send reset link"}
+          </Button>
+        </form>
+      )}
+
+      {mode === "update" && (
+        <form className="space-y-4" onSubmit={handleUpdate}>
+          <Input
+            type="password"
+            required
+            placeholder="New password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <Input
+            type="password"
+            required
+            placeholder="Confirm new password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+          {error && <p className="text-sm text-red-600">{error}</p>}
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? "Updating..." : "Update password"}
+          </Button>
+        </form>
+      )}
+
+      {mode === "success" && (
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">Password updated</p>
+          <p>You can now log in with your new password.</p>
+          <Link href="/auth/login" className="text-sm font-semibold text-sky-700">
+            Go to login
+          </Link>
+        </div>
+      )}
+
+      {mode === "error" && (
+        <p className="text-sm text-red-600">{error || "Unable to load reset form."}</p>
+      )}
+
+      <p className="text-xs text-slate-500">
+        Need help? Make sure the reset link opens in the same browser where you started the request.
+      </p>
+    </div>
+  );
+}
+
+export default function ResetPage() {
+  return (
+    <Suspense fallback={null}>
+      <ResetContent />
+    </Suspense>
+  );
+}

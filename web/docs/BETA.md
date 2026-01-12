@@ -52,6 +52,11 @@ Use this alongside the full QA checklist at `web/docs/qa/checklist.md`.
 - Photos step while logged in stays authenticated on refresh and direct URL open.
 - Logged-out users are redirected to `/auth/login?reason=auth&next=...`.
 
+### Auth & session continuity
+- Leave the app idle, then open `/admin/support` once; it should load without a second click.
+- From `/auth/login`, “Forgot password?” opens `/auth/reset` and sends a reset email.
+- Reset links should return to `/auth/reset` and allow setting a new password.
+
 ### Browse → Detail → Save Search
 - Browse shows listings or a clean empty state (no diagnostics in production).
 - Detail page loads without raw errors; missing listings show a friendly message + CTA back to browse.
@@ -95,6 +100,10 @@ Use this alongside the full QA checklist at `web/docs/qa/checklist.md`.
 - Verify session cookies are present for the domain.
 - Hard refresh the Photos step; it should remain authenticated.
 - If the problem persists, inspect `NEXT_PUBLIC_SITE_URL` and Supabase auth cookie domain settings.
+
+### Password reset not working
+- Ensure Supabase Auth redirect URLs include `https://<site>/auth/reset`.
+- Confirm the reset email link opens in the same browser where the request was made.
 
 ### How to verify migrations are applied
 - Run `npx supabase@latest migration list` and confirm recent versions are marked as applied.

@@ -11,6 +11,7 @@ import { getFlutterwaveConfig } from "@/lib/billing/flutterwave";
 import { getStripePriceId } from "@/lib/billing/stripe-plans";
 import { getPlanUsage } from "@/lib/plan-enforcement";
 import { normalizeRole } from "@/lib/roles";
+import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { normalizePlanTier, type PlanTier } from "@/lib/plans";
@@ -29,10 +30,7 @@ type PlanRow = {
 async function requestUpgrade(formData: FormData) {
   "use server";
   if (!hasServerSupabaseEnv()) return;
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
   if (!user) return;
 
   const role = await getUserRole(supabase, user.id);

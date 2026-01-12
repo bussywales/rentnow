@@ -4,7 +4,8 @@ import {
   buildAdminAlerts,
   type AdminAlert,
 } from "@/lib/admin/alerting";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getPushConfig } from "@/lib/push/server";
 import { formatRoleLabel } from "@/lib/roles";
@@ -38,10 +39,7 @@ async function getAlertDiagnostics(): Promise<AlertDiagnostics> {
     };
   }
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
 
   if (!user) {
     redirect("/auth/required?redirect=/admin/alerts&reason=auth");

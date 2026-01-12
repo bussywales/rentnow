@@ -4,6 +4,7 @@ import { PropertyBulkActions } from "@/components/admin/PropertyBulkActions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { UpgradeRequestsQueue } from "@/components/admin/UpgradeRequestsQueue";
+import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { logApprovalAction } from "@/lib/observability";
@@ -99,10 +100,7 @@ async function updateStatus(
 ) {
   "use server";
   if (!hasServerSupabaseEnv()) return;
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
 
   if (!user) return;
 
@@ -158,10 +156,7 @@ async function updateStatus(
 async function bulkUpdate(formData: FormData) {
   "use server";
   if (!hasServerSupabaseEnv()) return;
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
   if (!user) return;
 
   const { data: profile } = await supabase
@@ -243,10 +238,7 @@ export default async function AdminPage({ searchParams }: Props) {
 
   if (supabaseReady) {
     try {
-      const supabase = await createServerSupabaseClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const { supabase, user } = await getServerAuthUser();
 
       if (!user) {
         redirect("/auth/required?redirect=/admin&reason=auth");

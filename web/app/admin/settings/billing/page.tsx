@@ -6,6 +6,7 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { PaymentModeBadge } from "@/components/billing/PaymentModeBadge";
 import { normalizeProviderMode } from "@/lib/billing/provider-settings";
 import { maskIdentifier } from "@/lib/billing/mask";
+import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -31,10 +32,7 @@ async function requireAdmin() {
     redirect("/auth/required?redirect=/admin/settings/billing&reason=auth");
   }
 
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
   if (!user) redirect("/auth/required?redirect=/admin/settings/billing&reason=auth");
 
   const { data: profile } = await supabase
@@ -66,10 +64,7 @@ async function loadSettings(): Promise<{ settings?: ProviderSettingsRow; error?:
 async function updateProviderSettings(formData: FormData) {
   "use server";
   if (!hasServerSupabaseEnv()) return;
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
   if (!user) return;
 
   const { data: profile } = await supabase

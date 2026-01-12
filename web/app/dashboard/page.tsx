@@ -7,7 +7,8 @@ import { readActingAsFromCookies } from "@/lib/acting-as.server";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { getPlanUsage } from "@/lib/plan-enforcement";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getServerAuthUser } from "@/lib/auth/server-session";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 import { getPlanForTier, isListingLimitReached } from "@/lib/plans";
 import { logPlanLimitHit } from "@/lib/observability";
@@ -40,10 +41,7 @@ function qualityScore(property: Property) {
 async function submitForApproval(id: string) {
   "use server";
   if (!hasServerSupabaseEnv()) return;
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
   if (!user) return;
 
   const role = await getUserRole(supabase, user.id);
@@ -108,10 +106,7 @@ async function submitForApproval(id: string) {
 async function requestUpgrade() {
   "use server";
   if (!hasServerSupabaseEnv()) return;
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { supabase, user } = await getServerAuthUser();
   if (!user) return;
 
   const role = await getUserRole(supabase, user.id);
@@ -158,12 +153,8 @@ export default async function DashboardHome() {
 
   if (supabaseReady) {
     try {
-      const supabase = await createServerSupabaseClient();
-      const {
-        data: { user },
-        error: authError,
-      } = await supabase.auth.getUser();
-      if (authError || !user) {
+      const { supabase, user } = await getServerAuthUser();
+      if (!user) {
         fetchError = "Unauthorized";
       } else {
         const { data: profile } = await supabase
