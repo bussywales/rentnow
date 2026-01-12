@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-14 — v1.7.68-r14.7-push-telemetry-ui-fix
+- Fixed admin support push delivery summary to reflect durable telemetry counts (not stale zeros).
+- Ensured telemetry errors render as “Not available” and updated summary logic.
+- Updated tests to cover telemetry summary behavior and “not available” copy.
+
 ## 2026-01-14 — v1.7.67-r15.0-tenant-saved-search-push
 - Added tenant saved-search push delivery with per-tenant per-property dedupe guardrails.
 - Removed search-name content from push payloads (safe title + city + link only).

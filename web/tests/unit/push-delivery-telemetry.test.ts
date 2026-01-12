@@ -60,8 +60,8 @@ void test("push delivery telemetry summarizes outcomes", () => {
 
   const summary = buildPushDeliverySummary(rows);
 
-  assert.equal(summary.attempted, 1);
-  assert.equal(summary.delivered, 1);
+  assert.equal(summary.attempted, 4);
+  assert.equal(summary.delivered, 2);
   assert.equal(summary.blocked, 0);
   assert.equal(summary.skipped, 1);
   assert.equal(summary.failed, 1);

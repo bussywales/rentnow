@@ -5,7 +5,13 @@ export type PushDeliveryAttemptRow = {
   created_at: string;
   actor_user_id: string | null;
   kind: string;
-  status: "attempted" | "delivered" | "failed" | "skipped" | "blocked";
+  status:
+    | "attempted"
+    | "delivered"
+    | "failed"
+    | "skipped"
+    | "blocked"
+    | "sent";
   reason_code: string | null;
   delivered_count: number;
   failed_count: number;
@@ -38,10 +44,28 @@ export type PushDeliveryInsert = {
 export function buildPushDeliverySummary(
   rows: PushDeliveryAttemptRow[]
 ): PushDeliverySummary {
+  const totals = rows.reduce<PushDeliverySummary>(
+    (acc, row) => {
+      acc.delivered += row.delivered_count ?? 0;
+      acc.failed += row.failed_count ?? 0;
+      acc.blocked += row.blocked_count ?? 0;
+      acc.skipped += row.skipped_count ?? 0;
+      return acc;
+    },
+    { attempted: 0, delivered: 0, blocked: 0, skipped: 0, failed: 0 }
+  );
+
+  const hasCounts = totals.delivered + totals.failed + totals.blocked + totals.skipped > 0;
+  if (hasCounts) {
+    totals.attempted =
+      totals.delivered + totals.failed + totals.blocked + totals.skipped;
+    return totals;
+  }
+
   return rows.reduce<PushDeliverySummary>(
     (acc, row) => {
       if (row.status === "attempted") acc.attempted += 1;
-      if (row.status === "delivered") acc.delivered += 1;
+      if (row.status === "delivered" || row.status === "sent") acc.delivered += 1;
       if (row.status === "blocked") acc.blocked += 1;
       if (row.status === "skipped") acc.skipped += 1;
       if (row.status === "failed") acc.failed += 1;

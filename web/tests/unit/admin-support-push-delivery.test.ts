@@ -25,4 +25,8 @@ void test("admin support includes push delivery telemetry copy", () => {
     contents.includes("No push delivery attempts recorded yet."),
     "expected delivery zero-state copy"
   );
+  assert.ok(
+    contents.includes("Delivery telemetry not available."),
+    "expected delivery not available copy"
+  );
 });
