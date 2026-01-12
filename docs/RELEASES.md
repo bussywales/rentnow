@@ -11,6 +11,11 @@ For full details, see `web/docs/VERSIONS.md`.
 - [v1.7.58-r13-pwa-foundation](../../tags/v1.7.58-r13-pwa-foundation)
 - R13 PWA Foundation recognized as shipped; no code changes in this milestone.
 
+## R14.6 — Admin push auth hotfix + telemetry
+- [v1.7.66-r14.6-admin-push-auth-telemetry](../../tags/v1.7.66-r14.6-admin-push-auth-telemetry)
+- Fixes admin test push auth cookie parsing (base64 + URL-encoded) without clearing tokens.
+- Supersedes `v1.7.66-r14.6-durable-push-telemetry` (durable telemetry retained).
+
 ## Analytics Foundation → Demand Funnels → Beta readiness
 **Tags**
 - [v1.7.48-r11-landlord-analytics](../../tags/v1.7.48-r11-landlord-analytics)

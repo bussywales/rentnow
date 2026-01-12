@@ -10,7 +10,7 @@ void test("admin push test denies non-admin access", async () => {
   const response = await postAdminPushTestResponse(
     new Request("http://localhost/api/admin/push/test", { method: "POST" }),
     {
-      requireRole: async () => ({
+      requireAdminRole: async () => ({
         ok: false,
         response: NextResponse.json({ error: "Forbidden" }, { status: 403 }),
       }),
@@ -41,7 +41,7 @@ void test("admin push test returns no_subscriptions when none exist", async () =
   const response = await postAdminPushTestResponse(
     new Request("http://localhost/api/admin/push/test", { method: "POST" }),
     {
-      requireRole: async () => ({
+      requireAdminRole: async () => ({
         ok: true,
         supabase,
         user: { id: "admin-1" },
@@ -68,7 +68,7 @@ void test("admin push test blocks when push is not configured", async () => {
   const response = await postAdminPushTestResponse(
     new Request("http://localhost/api/admin/push/test", { method: "POST" }),
     {
-      requireRole: async () => ({
+      requireAdminRole: async () => ({
         ok: true,
         supabase: {} as never,
         user: { id: "admin-2" },
@@ -115,7 +115,7 @@ void test("admin push test sends to current admin subscriptions", async () => {
   const response = await postAdminPushTestResponse(
     new Request("http://localhost/api/admin/push/test", { method: "POST" }),
     {
-      requireRole: async () => ({
+      requireAdminRole: async () => ({
         ok: true,
         supabase,
         user: { id: "admin-3" },

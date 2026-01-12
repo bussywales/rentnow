@@ -86,6 +86,7 @@ Admin test push:
 - `/admin/support` includes “Send test push” for admins.
 - Test push targets only the current admin’s own subscriptions.
 - If no subscription exists, the API returns `code=no_subscriptions`.
+- If the endpoint returns `Unauthorized`, re-authenticate and retry; the route no longer clears cookies on parse failures.
 
 R14.5 readiness checklist:
 1) Confirm VAPID keys are configured in the environment.

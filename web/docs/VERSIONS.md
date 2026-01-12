@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-14 — v1.7.66-r14.6-admin-push-auth-telemetry
+- Added a robust admin auth resolver for push test routes that supports base64 and URL-encoded Supabase cookies.
+- Prevented cookie clearing on parse failures and added a single refresh attempt before denying access.
+- Reused durable `push_delivery_attempts` telemetry with safe admin-only fallbacks.
+
 ## 2026-01-12 — v1.7.65-r14.5-push-readiness-subscription-capture
 - Added admin push readiness checklist with permission and service worker state.
 - Added admin-only subscription capture CTA with safe, non-blocking guardrails.

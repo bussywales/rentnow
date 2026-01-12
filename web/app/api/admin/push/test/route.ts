@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/authz";
+import { requireAdminRole } from "@/lib/auth/admin-session";
 import {
   getPushConfig,
   sendPushNotification,
@@ -14,7 +14,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 const routeLabel = "/api/admin/push/test";
 
 type PushTestDeps = {
-  requireRole?: typeof requireRole;
+  requireAdminRole?: typeof requireAdminRole;
   getPushConfig?: typeof getPushConfig;
   sendPushNotification?: typeof sendPushNotification;
   logEvent?: (payload: Record<string, unknown>) => void;
@@ -28,7 +28,7 @@ const defaultLogEvent = (payload: Record<string, unknown>) => {
 };
 
 const defaultDeps: PushTestDeps = {
-  requireRole,
+  requireAdminRole,
   getPushConfig,
   sendPushNotification,
   logEvent: defaultLogEvent,
@@ -41,13 +41,13 @@ export async function postAdminPushTestResponse(
   deps: PushTestDeps = defaultDeps
 ) {
   const startTime = Date.now();
-  const requireRoleFn = deps.requireRole ?? requireRole;
+  const requireAdminRoleFn = deps.requireAdminRole ?? requireAdminRole;
   const getConfig = deps.getPushConfig ?? getPushConfig;
   const sendPush = deps.sendPushNotification ?? sendPushNotification;
   const logEvent = deps.logEvent ?? defaultLogEvent;
   const hasServiceRole = (deps.hasServiceRoleEnv ?? hasServiceRoleEnv)();
 
-  const auth = await requireRoleFn({
+  const auth = await requireAdminRoleFn({
     request,
     route: routeLabel,
     startTime,
