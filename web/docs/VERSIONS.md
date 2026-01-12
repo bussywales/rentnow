@@ -376,3 +376,8 @@
 - Added admin-only delivery telemetry for push test outcomes with safe summary counts.
 - Surface recent delivery attempts and zero-state copy under `/admin/support`.
 - Documented telemetry smoke checks for ops and QA.
+
+## 2026-01-13 — v1.7.66-r14.6-durable-push-telemetry
+- Added durable `push_delivery_attempts` telemetry for admin push tests.
+- Wrote test push outcomes with reason codes and subscription pruning on 404/410.
+- Updated `/admin/support` to read durable delivery attempts with safe fallbacks.

@@ -2,40 +2,66 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  recordPushDeliveryAttempt,
-  getPushDeliverySummary,
-  resetPushDeliveryTelemetry,
-} from "../../lib/push/delivery-telemetry";
+  buildPushDeliverySummary,
+  type PushDeliveryAttemptRow,
+} from "../../lib/admin/push-delivery-telemetry";
 
 void test("push delivery telemetry summarizes outcomes", () => {
-  resetPushDeliveryTelemetry();
+  const rows: PushDeliveryAttemptRow[] = [
+    {
+      id: "attempt-1",
+      created_at: "2026-01-11T10:00:00.000Z",
+      actor_user_id: "admin-1",
+      kind: "admin_test",
+      status: "attempted",
+      reason_code: null,
+      delivered_count: 0,
+      failed_count: 0,
+      blocked_count: 0,
+      skipped_count: 0,
+    },
+    {
+      id: "attempt-2",
+      created_at: "2026-01-11T10:00:02.000Z",
+      actor_user_id: "admin-1",
+      kind: "admin_test",
+      status: "delivered",
+      reason_code: null,
+      delivered_count: 2,
+      failed_count: 0,
+      blocked_count: 0,
+      skipped_count: 0,
+    },
+    {
+      id: "attempt-3",
+      created_at: "2026-01-11T11:00:00.000Z",
+      actor_user_id: "admin-1",
+      kind: "admin_test",
+      status: "skipped",
+      reason_code: "no_subscriptions",
+      delivered_count: 0,
+      failed_count: 0,
+      blocked_count: 0,
+      skipped_count: 1,
+    },
+    {
+      id: "attempt-4",
+      created_at: "2026-01-11T12:00:00.000Z",
+      actor_user_id: "admin-1",
+      kind: "admin_test",
+      status: "failed",
+      reason_code: "unknown",
+      delivered_count: 0,
+      failed_count: 1,
+      blocked_count: 0,
+      skipped_count: 0,
+    },
+  ];
 
-  recordPushDeliveryAttempt({
-    outcome: "delivered",
-    reason: "send_succeeded",
-    attempted: 2,
-    delivered: 2,
-    createdAt: "2026-01-11T10:00:00.000Z",
-  });
-  recordPushDeliveryAttempt({
-    outcome: "skipped",
-    reason: "no_subscriptions",
-    attempted: 0,
-    delivered: 0,
-    createdAt: "2026-01-11T11:00:00.000Z",
-  });
-  recordPushDeliveryAttempt({
-    outcome: "failed",
-    reason: "send_failed",
-    attempted: 1,
-    delivered: 0,
-    createdAt: "2026-01-11T12:00:00.000Z",
-  });
+  const summary = buildPushDeliverySummary(rows);
 
-  const summary = getPushDeliverySummary(20);
-
-  assert.equal(summary.attempted, 3);
-  assert.equal(summary.delivered, 2);
+  assert.equal(summary.attempted, 1);
+  assert.equal(summary.delivered, 1);
   assert.equal(summary.blocked, 0);
   assert.equal(summary.skipped, 1);
   assert.equal(summary.failed, 1);

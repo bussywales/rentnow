@@ -164,6 +164,7 @@
 - If permission is default, use “Enable notifications”, then create a subscription when prompted.
 - In `/admin/support`, use “Send test push” and confirm it targets the current admin only.
 - In `/admin/support`, confirm “Recent delivery attempts” renders and updates after a test push.
+- In SQL editor, confirm a row exists in `public.push_delivery_attempts` for the test send.
 - If a push attempt fails, confirm `saved_search_alerts.error` includes a `push_unavailable:` or `push_failed:` marker.
 - If a push attempt returns a permanent failure (404/410), confirm the subscription row is removed and `saved_search_alerts.error` includes `push_pruned:gone`.
 - Run `select public.cleanup_push_alerts(60)` in the SQL editor and confirm old push alert rows are pruned.

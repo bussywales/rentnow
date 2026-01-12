@@ -4,7 +4,18 @@ type PushSubscriptionQueryResult = {
 };
 
 type SupabaseLike = {
-  from: (table: string) => any;
+  from: (
+    table: string
+  ) => {
+    select: (
+      columns: string,
+      options: { count: "exact"; head: true }
+    ) => {
+      eq: (column: string, value: string) => {
+        eq: (column: string, value: boolean) => Promise<PushSubscriptionQueryResult>;
+      };
+    };
+  };
 };
 
 export type AdminPushSubscriptionStatus = {
@@ -15,11 +26,12 @@ export type AdminPushSubscriptionStatus = {
 };
 
 export async function getAdminPushSubscriptionStatus(input: {
-  supabase: SupabaseLike;
+  supabase: unknown;
   userId: string;
 }): Promise<AdminPushSubscriptionStatus> {
   try {
-    const { count, error } = (await input.supabase
+    const supabase = input.supabase as SupabaseLike;
+    const { count, error } = (await supabase
       .from("push_subscriptions")
       .select("id", { count: "exact", head: true })
       .eq("profile_id", input.userId)

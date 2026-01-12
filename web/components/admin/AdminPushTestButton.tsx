@@ -26,10 +26,12 @@ type Props = {
 export function AdminPushTestButton({ debug = false }: Props) {
   const [status, setStatus] = useState<Status>("idle");
   const [debugPayload, setDebugPayload] = useState<string | null>(null);
+  const [debugCode, setDebugCode] = useState<string | null>(null);
 
   const handleClick = async () => {
     setStatus("sending");
     setDebugPayload(null);
+    setDebugCode(null);
 
     try {
       const response = await fetch("/api/admin/push/test", { method: "POST" });
@@ -44,6 +46,10 @@ export function AdminPushTestButton({ debug = false }: Props) {
       if (response.ok && payload?.ok) {
         setStatus("success");
         return;
+      }
+
+      if (payload?.code) {
+        setDebugCode(payload.code);
       }
 
       if (payload?.code === "no_subscriptions") {
@@ -62,8 +68,12 @@ export function AdminPushTestButton({ debug = false }: Props) {
     }
   };
 
-  const message =
+  const messageBase =
     status !== "idle" && status !== "sending" ? STATUS_COPY[status] : null;
+  const message =
+    messageBase && debug && status === "error" && debugCode
+      ? `${messageBase} (code: ${debugCode})`
+      : messageBase;
 
   return (
     <div className="mt-3 flex flex-col gap-2">

@@ -5,7 +5,11 @@ import {
   sendPushNotification,
   type PushSubscriptionRow,
 } from "@/lib/push/server";
-import { recordPushDeliveryAttempt } from "@/lib/push/delivery-telemetry";
+import {
+  insertPushDeliveryAttempt,
+  type PushDeliveryInsert,
+} from "@/lib/admin/push-delivery-telemetry";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 
 const routeLabel = "/api/admin/push/test";
 
@@ -14,6 +18,9 @@ type PushTestDeps = {
   getPushConfig?: typeof getPushConfig;
   sendPushNotification?: typeof sendPushNotification;
   logEvent?: (payload: Record<string, unknown>) => void;
+  recordTelemetry?: (input: PushDeliveryInsert) => Promise<void>;
+  hasServiceRoleEnv?: typeof hasServiceRoleEnv;
+  createServiceRoleClient?: typeof createServiceRoleClient;
 };
 
 const defaultLogEvent = (payload: Record<string, unknown>) => {
@@ -25,6 +32,8 @@ const defaultDeps: PushTestDeps = {
   getPushConfig,
   sendPushNotification,
   logEvent: defaultLogEvent,
+  hasServiceRoleEnv,
+  createServiceRoleClient,
 };
 
 export async function postAdminPushTestResponse(
@@ -36,6 +45,7 @@ export async function postAdminPushTestResponse(
   const getConfig = deps.getPushConfig ?? getPushConfig;
   const sendPush = deps.sendPushNotification ?? sendPushNotification;
   const logEvent = deps.logEvent ?? defaultLogEvent;
+  const hasServiceRole = (deps.hasServiceRoleEnv ?? hasServiceRoleEnv)();
 
   const auth = await requireRoleFn({
     request,
@@ -45,13 +55,36 @@ export async function postAdminPushTestResponse(
   });
   if (!auth.ok) return auth.response;
 
+  let adminDb: ReturnType<typeof createServiceRoleClient> | null = null;
+  if (hasServiceRole) {
+    try {
+      const createAdminDb = deps.createServiceRoleClient ?? createServiceRoleClient;
+      adminDb = createAdminDb();
+    } catch {
+      adminDb = null;
+    }
+  }
+
+  const recordTelemetry =
+    deps.recordTelemetry ??
+    (async (input: PushDeliveryInsert) => {
+      if (!adminDb) return;
+      try {
+        await insertPushDeliveryAttempt(adminDb, input);
+      } catch {
+        // Telemetry failure should never block the request.
+      }
+    });
+
   const config = getConfig();
   if (!config.configured) {
-    recordPushDeliveryAttempt({
-      outcome: "blocked",
-      reason: "push_not_configured",
-      attempted: 0,
-      delivered: 0,
+    await recordTelemetry({
+      actorUserId: auth.user.id,
+      kind: "admin_test",
+      status: "blocked",
+      reasonCode: "push_not_configured",
+      blockedCount: 1,
+      meta: { subscriptionCount: 0 },
     });
     logEvent({
       event: "admin_push_test",
@@ -75,6 +108,14 @@ export async function postAdminPushTestResponse(
     .eq("is_active", true);
 
   if (error) {
+    await recordTelemetry({
+      actorUserId: auth.user.id,
+      kind: "admin_test",
+      status: "failed",
+      reasonCode: "unknown",
+      failedCount: 1,
+      meta: { stage: "subscription_lookup" },
+    });
     logEvent({
       event: "admin_push_test",
       admin_id: auth.user.id,
@@ -88,11 +129,13 @@ export async function postAdminPushTestResponse(
 
   const subscriptions = (data ?? []) as PushSubscriptionRow[];
   if (subscriptions.length === 0) {
-    recordPushDeliveryAttempt({
-      outcome: "skipped",
-      reason: "no_subscriptions",
-      attempted: 0,
-      delivered: 0,
+    await recordTelemetry({
+      actorUserId: auth.user.id,
+      kind: "admin_test",
+      status: "skipped",
+      reasonCode: "no_subscriptions",
+      skippedCount: 1,
+      meta: { subscriptionCount: 0 },
     });
     logEvent({
       event: "admin_push_test",
@@ -105,7 +148,17 @@ export async function postAdminPushTestResponse(
     });
   }
 
+  await recordTelemetry({
+    actorUserId: auth.user.id,
+    kind: "admin_test",
+    status: "attempted",
+    meta: { subscriptionCount: subscriptions.length },
+  });
+
   let failures = 0;
+  let goneCount = 0;
+  let timeoutCount = 0;
+  const staleEndpoints: string[] = [];
   for (const subscription of subscriptions) {
     const result = await sendPush({
       subscription,
@@ -116,18 +169,40 @@ export async function postAdminPushTestResponse(
     });
     if (!result.ok) {
       failures += 1;
+      if (result.statusCode === 404 || result.statusCode === 410) {
+        goneCount += 1;
+        staleEndpoints.push(subscription.endpoint);
+      }
+      if (result.statusCode === 408 || result.statusCode === 504) {
+        timeoutCount += 1;
+      }
     }
   }
 
   const attempted = subscriptions.length;
   const sent = attempted - failures;
   const outcome = failures === 0 ? "sent" : "send_failed";
+  const reasonCode =
+    failures === 0
+      ? null
+      : goneCount > 0
+        ? "410_gone"
+        : timeoutCount > 0
+          ? "timeout"
+          : "unknown";
 
-  recordPushDeliveryAttempt({
-    outcome: failures === 0 ? "delivered" : "failed",
-    reason: failures === 0 ? "send_succeeded" : "send_failed",
-    attempted,
-    delivered: sent,
+  await recordTelemetry({
+    actorUserId: auth.user.id,
+    kind: "admin_test",
+    status: failures === 0 ? "delivered" : "failed",
+    reasonCode,
+    deliveredCount: sent,
+    failedCount: failures,
+    meta: {
+      subscriptionCount: attempted,
+      goneCount,
+      timeoutCount,
+    },
   });
 
   logEvent({
@@ -138,11 +213,19 @@ export async function postAdminPushTestResponse(
     outcome,
   });
 
+  if (staleEndpoints.length) {
+    await auth.supabase
+      .from("push_subscriptions")
+      .delete()
+      .eq("profile_id", auth.user.id)
+      .in("endpoint", staleEndpoints);
+  }
+
   if (failures > 0) {
     return NextResponse.json(
       {
         ok: false,
-        code: "unexpected_error",
+        code: reasonCode ?? "send_failed",
         attempted,
         sent,
       },

@@ -48,6 +48,7 @@ Apply SQL files in this order:
 41) `web/supabase/migrations/041_backfill_properties_country_code.sql`
 42) `web/supabase/migrations/042_property_views.sql`
 43) `web/supabase/migrations/043_property_views_viewer_id.sql`
+44) `web/supabase/migrations/044_push_delivery_attempts.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -118,6 +119,7 @@ select to_regclass('public.messaging_throttle_events') as messaging_throttle_eve
 select to_regclass('public.push_subscriptions') as push_subscriptions;
 select to_regclass('public.message_thread_shares') as message_thread_shares;
 select to_regclass('public.property_views') as property_views;
+select to_regclass('public.push_delivery_attempts') as push_delivery_attempts;
 ```
 
 ### Rent period column
@@ -201,6 +203,21 @@ select to_regclass('public.push_subscriptions') as exists;
 ### Push alert retention verification
 ```sql
 select to_regprocedure('public.cleanup_push_alerts(integer)') as cleanup_push_alerts;
+```
+
+### Push delivery attempts verification
+```sql
+select to_regclass('public.push_delivery_attempts') as exists;
+
+select status, reason_code, count(*) as total
+from public.push_delivery_attempts
+group by 1, 2
+order by total desc;
+
+select *
+from public.push_delivery_attempts
+order by created_at desc
+limit 20;
 ```
 
 ### Property views verification
