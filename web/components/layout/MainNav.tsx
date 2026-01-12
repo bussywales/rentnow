@@ -21,6 +21,7 @@ const links: Array<{
     requireAuth: true,
     requireRole: "tenant",
   },
+  { href: "/tenant", label: "Dashboard", requireAuth: true, requireRole: "tenant" },
   { href: "/dashboard", label: "Dashboard", requireAuth: true, denyRoles: ["tenant"] },
   { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
   { href: "/admin/support", label: "Support", requireAuth: true, requireRole: "admin" },

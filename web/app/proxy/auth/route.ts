@@ -7,6 +7,13 @@ import type { UserRole } from "@/lib/types";
 
 const DASHBOARD_ROLES: UserRole[] = ["landlord", "agent", "admin"];
 const ADMIN_ROLES: UserRole[] = ["admin"];
+const TENANT_DASHBOARD_ALLOWLIST = [
+  "/dashboard",
+  "/dashboard/saved-searches",
+  "/dashboard/messages",
+  "/dashboard/viewings",
+  "/dashboard/billing",
+];
 
 function buildRedirect(req: NextRequest, target: string, reason?: string) {
   const url = req.nextUrl.clone();
@@ -42,7 +49,9 @@ export async function GET(req: NextRequest) {
   const requiresAuth =
     pathname.startsWith("/dashboard") ||
     pathname.startsWith("/admin") ||
-    pathname.startsWith("/favourites");
+    pathname.startsWith("/favourites") ||
+    pathname.startsWith("/tenant") ||
+    pathname.startsWith("/host");
 
   if (!requiresAuth) return res;
 
@@ -69,11 +78,38 @@ export async function GET(req: NextRequest) {
     return buildRedirect(req, "/forbidden", "role");
   }
 
-  if (
-    pathname.startsWith("/dashboard") &&
-    !DASHBOARD_ROLES.includes(role ?? "tenant")
-  ) {
-    return buildRedirect(req, "/forbidden", "role");
+  if (pathname.startsWith("/tenant")) {
+    if (role !== "tenant") {
+      const target = role === "admin" ? "/admin/support" : "/host";
+      return buildRedirect(req, target, "role");
+    }
+    return res;
+  }
+
+  if (pathname.startsWith("/host")) {
+    if (role === "tenant") {
+      return buildRedirect(req, "/tenant", "role");
+    }
+    if (role === "admin") {
+      return buildRedirect(req, "/admin/support", "role");
+    }
+    return res;
+  }
+
+  if (pathname.startsWith("/dashboard")) {
+    if (role === "tenant") {
+      const allowed = TENANT_DASHBOARD_ALLOWLIST.some(
+        (allowedPath) =>
+          pathname === allowedPath || pathname.startsWith(`${allowedPath}/`)
+      );
+      if (!allowed) {
+        return buildRedirect(req, "/tenant", "role");
+      }
+      return res;
+    }
+    if (!DASHBOARD_ROLES.includes(role ?? "tenant")) {
+      return buildRedirect(req, "/forbidden", "role");
+    }
   }
 
   return res;

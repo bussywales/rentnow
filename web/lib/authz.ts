@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
-import { normalizeRole } from "@/lib/roles";
 import type { UserRole } from "@/lib/types";
+import { fetchUserRole } from "@/lib/auth/role";
 
 type SupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 
@@ -50,12 +50,7 @@ export async function getUserRole(
   supabase: SupabaseClient,
   userId: string
 ): Promise<UserRole | null> {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", userId)
-    .maybeSingle();
-  return normalizeRole(profile?.role) ?? null;
+  return fetchUserRole(supabase, userId);
 }
 
 export async function requireUser({

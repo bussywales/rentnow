@@ -9,6 +9,7 @@ import { getLandlordAnalytics, resolveAnalyticsHostId, type AnalyticsRangeKey } 
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { fetchUserRole } from "@/lib/auth/role";
 
 export const dynamic = "force-dynamic";
 
@@ -42,13 +43,14 @@ export default async function DashboardAnalyticsPage({ searchParams }: Analytics
     redirect("/auth/login?reason=auth");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  const normalizedRole = normalizeRole(profile?.role);
+  const role = await fetchUserRole(supabase, user.id);
+  const normalizedRole = normalizeRole(role);
+  if (normalizedRole === "tenant") {
+    redirect("/tenant");
+  }
+  if (normalizedRole === "admin") {
+    redirect("/admin/support");
+  }
   if (!canManageListings(normalizedRole)) {
     return (
       <div className="space-y-2">

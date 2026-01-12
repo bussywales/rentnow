@@ -1,8 +1,22 @@
+import { redirect } from "next/navigation";
 import { PropertyStepper } from "@/components/properties/PropertyStepper";
+import { resolveServerRole } from "@/lib/auth/role";
+import { canManageListings } from "@/lib/role-access";
 
 export const dynamic = "force-dynamic";
 
-export default function NewPropertyPage() {
+export default async function NewPropertyPage() {
+  const { user, role } = await resolveServerRole();
+  if (!user) {
+    redirect("/auth/login?reason=auth");
+  }
+  if (!role) {
+    redirect("/onboarding");
+  }
+  if (!canManageListings(role)) {
+    redirect("/tenant");
+  }
+
   return (
     <div className="space-y-4">
       <div>

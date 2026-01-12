@@ -85,6 +85,7 @@
 - Home quick search should clamp negative numbers to 0 before submitting.
 
 ## Beta role-based smoke checks
+- Tenant: lands on `/tenant` after login and sees saved searches/messages/viewings panels (no listing CTA).
 - Tenant: can browse and save searches; cannot create listings; receives role_not_allowed when attempting to list.
 - Landlord/Agent: can create/edit listings, upload photos, and submit for approval.
 - Admin: can access `/admin/support` and `/admin/alerts` (read-only).

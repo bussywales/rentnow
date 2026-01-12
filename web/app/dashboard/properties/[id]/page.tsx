@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { PropertyStepper } from "@/components/properties/PropertyStepper";
 import { getApiBaseUrl } from "@/lib/env";
 import { getServerAuthUser } from "@/lib/auth/server-session";
+import { resolveServerRole } from "@/lib/auth/role";
+import { canManageListings } from "@/lib/role-access";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 import { cookies } from "next/headers";
@@ -154,6 +157,17 @@ function resolveStep(searchParams?: Props["searchParams"]) {
 }
 
 export default async function EditPropertyPage({ params, searchParams }: Props) {
+  const { user, role } = await resolveServerRole();
+  if (!user) {
+    redirect("/auth/login?reason=auth");
+  }
+  if (!role) {
+    redirect("/onboarding");
+  }
+  if (!canManageListings(role)) {
+    redirect("/tenant");
+  }
+
   let property: Property | null = null;
   let fetchError: string | null = null;
   try {

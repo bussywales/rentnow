@@ -104,13 +104,15 @@ export function NavAuthClient({ initialAuthed, initialRole = null }: Props) {
     }
   };
 
-  const canShowDashboard = isAuthed && !!role && role !== "tenant";
+  const canShowDashboard =
+    isAuthed && !!role && role !== "admin";
+  const dashboardHref = role === "tenant" ? "/tenant" : "/dashboard";
 
   if (isAuthed) {
     return (
       <>
         {canShowDashboard && (
-          <Link href="/dashboard" className="hidden text-sm text-slate-700 md:block">
+          <Link href={dashboardHref} className="hidden text-sm text-slate-700 md:block">
             My dashboard
           </Link>
         )}

@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-16 — v1.7.72-r15.1.3-tenant-workspace-separation
+- Added `/tenant` workspace and role-based `/dashboard` redirects (tenant → /tenant, host → /host, admin → /admin/support).
+- Moved host landing to `/host` and updated dashboard navigation to hide listing tools for tenants.
+- Tightened proxy auth gating so tenants cannot access host listing routes server-side.
+
 ## 2026-01-15 — v1.7.70-r15.1.1-auth-reset-search-hardening
 - Added server-side session refresh helper for admin/dashboard pages to avoid “second click” auth prompts.
 - Added `/auth/reset` password reset flow and admin reset email dispatch (server-only).
