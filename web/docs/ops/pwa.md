@@ -47,13 +47,16 @@ Behavior:
 - Push only delivers alerts; no sensitive data is cached or stored in the service worker.
 - If VAPID keys are missing, push endpoints return a 503-style response.
 - Stale subscriptions are pruned automatically when the provider reports a permanent failure (404/410).
- - Saved searches page shows a “Notifications currently unavailable” card when push is not configured.
+- Saved searches page shows a “Notifications currently unavailable” card when push is not configured.
+- Tenant saved-search pushes include only a short title, city, and property link (no user or search names).
+- Per-tenant per-property push dedupe is enforced via `public.saved_search_push_dedup`.
 
 Verification:
 1) Ensure the VAPID keys are set in the environment.
 2) Visit `/dashboard/saved-searches` and use the Push badge to enable notifications.
 3) Confirm a row appears in `public.push_subscriptions`.
 4) Trigger a saved search alert; confirm a push notification appears and clicks through to the listing.
+5) Trigger the same property again and confirm the tenant does not receive a duplicate push.
 
 Push alert verification query (uses `user_id`):
 ```sql
@@ -80,6 +83,7 @@ Admin support:
 - `/admin/support` shows “Push configured: Yes/No”.
 - Missing VAPID keys are listed only in dev mode or when `?debug=1` is supplied.
 - Delivery telemetry appears under “Recent delivery attempts” (admin-only) and persists in `push_delivery_attempts`.
+- Tenant saved-search push attempts appear under “Tenant push (saved searches)” with last 24h/7d counts.
 - Debug-only reason codes are shown in dev or when `?debug=1` is supplied.
 
 Admin test push:

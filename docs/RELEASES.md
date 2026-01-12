@@ -16,6 +16,11 @@ For full details, see `web/docs/VERSIONS.md`.
 - Fixes admin test push auth cookie parsing (base64 + URL-encoded) without clearing tokens.
 - Supersedes `v1.7.66-r14.6-durable-push-telemetry` (durable telemetry retained).
 
+## R15.0 — Tenant saved-search push
+- [v1.7.67-r15.0-tenant-saved-search-push](../../tags/v1.7.67-r15.0-tenant-saved-search-push)
+- Added tenant push delivery for saved-search matches with per-tenant per-property dedupe.
+- Logged tenant push attempts to durable delivery telemetry and surfaced counts in `/admin/support`.
+
 ## Analytics Foundation → Demand Funnels → Beta readiness
 **Tags**
 - [v1.7.48-r11-landlord-analytics](../../tags/v1.7.48-r11-landlord-analytics)

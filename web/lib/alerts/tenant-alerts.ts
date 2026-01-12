@@ -3,6 +3,15 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { getSiteUrl } from "@/lib/env";
 import { getTenantPlanForTier } from "@/lib/plans";
 import {
+  buildSavedSearchPushPayload,
+  computeRecipients,
+  matchPropertyToSavedSearch,
+  SAVED_SEARCH_PUSH_REASON,
+  buildTenantPushDeliveryAttempt,
+  shouldAttemptSavedSearchPush,
+} from "@/lib/alerts/tenant-push-saved-search";
+import { insertPushDeliveryAttempt } from "@/lib/admin/push-delivery-telemetry";
+import {
   formatPushFailed,
   formatPushPruned,
   formatPushUnavailable,
@@ -14,7 +23,6 @@ import {
   type PushSendResult,
   type PushSubscriptionRow,
 } from "@/lib/push/server";
-import { parseFiltersFromSavedSearch, propertyMatchesFilters } from "@/lib/search-filters";
 import type { Property, SavedSearch } from "@/lib/types";
 
 type AlertDispatchResult = {
@@ -33,6 +41,28 @@ type EmailDispatchGuard = {
 };
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
+const PUSH_DEDUP_TABLE = "saved_search_push_dedup";
+
+async function insertSavedSearchPushDedup(input: {
+  adminDb: SupabaseClient;
+  tenantId: string;
+  propertyId: string;
+}): Promise<{ inserted: boolean; error?: string }> {
+  const { error } = await input.adminDb.from(PUSH_DEDUP_TABLE).insert({
+    tenant_id: input.tenantId,
+    property_id: input.propertyId,
+    reason_code: SAVED_SEARCH_PUSH_REASON,
+  });
+
+  if (error) {
+    if (error.code === "23505") {
+      return { inserted: false };
+    }
+    return { inserted: false, error: error.message };
+  }
+
+  return { inserted: true };
+}
 
 function isPlanExpired(validUntil: string | null) {
   if (!validUntil) return false;
@@ -110,6 +140,9 @@ export async function deliverPushNotifications(input: {
       attempted: false,
       status: "skipped",
       error: formatPushUnavailable("missing_subscription"),
+      attemptedCount: 0,
+      deliveredCount: 0,
+      failedCount: 0,
     };
   }
 
@@ -118,6 +151,7 @@ export async function deliverPushNotifications(input: {
   let lastError: string | null = null;
   let lastStatus: number | null = null;
   const staleEndpoints: string[] = [];
+  const attemptedCount = input.subscriptions.length;
 
   for (const subscription of input.subscriptions) {
     const result = await sendPush({
@@ -147,10 +181,14 @@ export async function deliverPushNotifications(input: {
   }
 
   if (successCount > 0) {
+    const failedCount = attemptedCount - successCount;
     return {
       attempted: true,
       status: "sent",
       error: prunedMarker ?? undefined,
+      attemptedCount,
+      deliveredCount: successCount,
+      failedCount,
     };
   }
 
@@ -173,6 +211,9 @@ export async function deliverPushNotifications(input: {
     error: prunedMarker
       ? `${formatPushFailed(failureReason)} | ${prunedMarker}`
       : formatPushFailed(failureReason),
+    attemptedCount,
+    deliveredCount: 0,
+    failedCount: attemptedCount,
   };
 }
 
@@ -250,7 +291,18 @@ export async function dispatchSavedSearchAlerts(
     return { ok: true, matched: 0, sent: 0, skipped: 0 };
   }
 
-  const userIds = Array.from(new Set(savedSearches.map((search) => search.user_id)));
+  const matchedSearches = savedSearches.filter((search) =>
+    matchPropertyToSavedSearch(property, search)
+  );
+  if (!matchedSearches.length) {
+    return { ok: true, matched: 0, sent: 0, skipped: 0 };
+  }
+
+  const recipients = computeRecipients({
+    property,
+    savedSearches: matchedSearches,
+  });
+  const userIds = Array.from(new Set(recipients.map((recipient) => recipient.tenantId)));
   const { data: planRows } = await adminClient
     .from("profile_plans")
     .select("profile_id, plan_tier, valid_until")
@@ -298,10 +350,10 @@ export async function dispatchSavedSearchAlerts(
   let matched = 0;
   let sent = 0;
   let skipped = 0;
+  const dedupedTenants = new Set<string>();
+  const pushPayload = buildSavedSearchPushPayload({ property, siteUrl });
 
-  for (const search of savedSearches) {
-    const filters = parseFiltersFromSavedSearch(search.query_params || {});
-    if (!propertyMatchesFilters(property, filters)) continue;
+  for (const search of matchedSearches) {
     matched += 1;
 
     const planRow = planMap.get(search.user_id);
@@ -364,6 +416,9 @@ export async function dispatchSavedSearchAlerts(
       attempted: false,
       status: "skipped",
       error: formatPushUnavailable("not_configured"),
+      attemptedCount: 0,
+      deliveredCount: 0,
+      failedCount: 0,
     };
 
     if (pushReady) {
@@ -372,19 +427,63 @@ export async function dispatchSavedSearchAlerts(
           attempted: false,
           status: "skipped",
           error: formatPushUnavailable("subscription_lookup_failed"),
+          attemptedCount: 0,
+          deliveredCount: 0,
+          failedCount: 0,
         };
       } else {
         const subscriptions = pushSubscriptions.get(search.user_id) ?? [];
-        pushOutcome = await deliverPushNotifications({
-          adminDb,
-          userId: search.user_id,
-          subscriptions,
-          payload: {
-            title: "New listing match",
-            body: `${property.title} matches "${search.name}".`,
-            url: `${siteUrl}/properties/${property.id}`,
-          },
+        const deduped = dedupedTenants.has(search.user_id);
+        const shouldAttempt = shouldAttemptSavedSearchPush({
+          pushReady,
+          subscriptionCount: subscriptions.length,
+          deduped,
         });
+
+        if (!shouldAttempt && subscriptions.length === 0) {
+          pushOutcome = {
+            attempted: false,
+            status: "skipped",
+            error: formatPushUnavailable("missing_subscription"),
+            attemptedCount: 0,
+            deliveredCount: 0,
+            failedCount: 0,
+          };
+        } else if (!shouldAttempt && deduped) {
+          pushOutcome = {
+            attempted: false,
+            status: "skipped",
+            error: formatPushUnavailable("deduped"),
+            attemptedCount: 0,
+            deliveredCount: 0,
+            failedCount: 0,
+          };
+        } else {
+          const dedupResult = await insertSavedSearchPushDedup({
+            adminDb,
+            tenantId: search.user_id,
+            propertyId: property.id,
+          });
+          if (!dedupResult.inserted) {
+            dedupedTenants.add(search.user_id);
+            pushOutcome = {
+              attempted: false,
+              status: "skipped",
+              error: formatPushUnavailable("deduped"),
+              attemptedCount: 0,
+              deliveredCount: 0,
+              failedCount: 0,
+            };
+          } else {
+            dedupedTenants.add(search.user_id);
+            pushOutcome = await deliverPushNotifications({
+              adminDb,
+              userId: search.user_id,
+              subscriptions,
+              payload: pushPayload,
+            });
+          }
+        }
       }
     }
 
@@ -417,6 +516,15 @@ export async function dispatchSavedSearchAlerts(
     } else {
       skipped += 1;
     }
+
+    await insertPushDeliveryAttempt(
+      adminDb,
+      buildTenantPushDeliveryAttempt({
+        outcome: pushOutcome,
+        propertyId: property.id,
+        subscriptionCount: (pushSubscriptions.get(search.user_id) ?? []).length,
+      })
+    );
 
     const updatePayload: Record<string, unknown> = {
       status: alertStatus,

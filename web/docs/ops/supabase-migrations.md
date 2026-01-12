@@ -49,6 +49,7 @@ Apply SQL files in this order:
 42) `web/supabase/migrations/042_property_views.sql`
 43) `web/supabase/migrations/043_property_views_viewer_id.sql`
 44) `web/supabase/migrations/044_push_delivery_attempts.sql`
+45) `web/supabase/migrations/045_saved_search_push_dedup.sql`
 
 Each migration is idempotent and can be re-run safely.
 If your environment already has workflow columns (e.g., `properties.status`),
@@ -120,6 +121,7 @@ select to_regclass('public.push_subscriptions') as push_subscriptions;
 select to_regclass('public.message_thread_shares') as message_thread_shares;
 select to_regclass('public.property_views') as property_views;
 select to_regclass('public.push_delivery_attempts') as push_delivery_attempts;
+select to_regclass('public.saved_search_push_dedup') as saved_search_push_dedup;
 ```
 
 ### Rent period column
@@ -179,6 +181,21 @@ select id, country, country_code
 from public.properties
 where country is not null and country_code is null
 order by updated_at desc nulls last
+limit 20;
+```
+
+### Saved search push dedupe verification
+```sql
+select to_regclass('public.saved_search_push_dedup') as saved_search_push_dedup;
+
+select tenant_id, property_id, reason_code, count(*) as total
+from public.saved_search_push_dedup
+group by 1, 2, 3
+having count(*) > 1;
+
+select *
+from public.saved_search_push_dedup
+order by created_at desc
 limit 20;
 ```
 

@@ -42,8 +42,10 @@ import { getAdminPushSubscriptionStatus } from "@/lib/admin/push-readiness";
 import {
   buildPushDeliverySummary,
   fetchPushDeliveryAttempts,
+  fetchTenantPushDeliverySummary,
   type PushDeliveryAttemptRow,
   type PushDeliverySummary,
+  type TenantPushDeliverySummary,
 } from "@/lib/admin/push-delivery-telemetry";
 import { AdminPushTestButton } from "@/components/admin/AdminPushTestButton";
 import { AdminPushReadiness } from "@/components/admin/AdminPushReadiness";
@@ -110,6 +112,7 @@ type PushTelemetryDiagnostics = {
   deliveryAttempts: PushDeliveryAttemptRow[];
   deliveryReady: boolean;
   deliveryError: string | null;
+  tenantPush: TenantPushDeliverySummary;
 };
 
 type ShareTelemetryDiagnostics = {
@@ -266,6 +269,14 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
   let deliveryError: string | null = hasServiceRoleEnv()
     ? "Push delivery telemetry unavailable."
     : "Service role not configured.";
+  let tenantPushSummary: TenantPushDeliverySummary = {
+    last24h: 0,
+    last7d: 0,
+    recent: [],
+    error: hasServiceRoleEnv()
+      ? "Tenant push telemetry unavailable."
+      : "Service role not configured.",
+  };
   let pushTelemetry: PushTelemetryDiagnostics = {
     ready: false,
     configured: pushConfig.configured,
@@ -284,6 +295,7 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
     deliveryAttempts,
     deliveryReady,
     deliveryError,
+    tenantPush: tenantPushSummary,
   };
   let shareTelemetry: ShareTelemetryDiagnostics = {
     ready: false,
@@ -321,6 +333,8 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       deliveryAttempts = deliveryResult.rows;
       deliverySummary = buildPushDeliverySummary(deliveryAttempts);
     }
+
+    tenantPushSummary = await fetchTenantPushDeliverySummary(adminClient, 10);
 
     const { data: messages, error: messagesError } = await adminClient
       .from("messages")
@@ -502,6 +516,7 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       deliveryAttempts,
       deliveryReady,
       deliveryError,
+      tenantPush: tenantPushSummary,
     };
 
     const shareNowIso = new Date().toISOString();
@@ -629,6 +644,7 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       deliveryAttempts,
       deliveryReady,
       deliveryError,
+      tenantPush: tenantPushSummary,
     };
     shareTelemetry = {
       ready: false,
@@ -1108,6 +1124,53 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                       ) : (
                         <p className="mt-2 text-xs text-slate-600">
                           No push delivery attempts recorded yet.
+                        </p>
+                      )}
+                    </>
+                  )}
+                </div>
+                <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+                  <p className="text-xs font-semibold text-slate-700">Tenant push (saved searches)</p>
+                  {diag.pushTelemetry.tenantPush.error ? (
+                    <p className="mt-2 text-xs text-slate-600">
+                      Tenant push telemetry not available.
+                      {showPushDebug ? ` (${diag.pushTelemetry.tenantPush.error})` : ""}
+                    </p>
+                  ) : (
+                    <>
+                      <p className="mt-1 text-xs text-slate-600">
+                        Last 24h {diag.pushTelemetry.tenantPush.last24h} · 7d{" "}
+                        {diag.pushTelemetry.tenantPush.last7d}
+                      </p>
+                      {diag.pushTelemetry.tenantPush.recent.length ? (
+                        <ul className="mt-2 space-y-1 text-xs text-slate-600">
+                          {diag.pushTelemetry.tenantPush.recent.map((attempt) => {
+                            const propertyId =
+                              attempt.meta && typeof attempt.meta.propertyId === "string"
+                                ? attempt.meta.propertyId
+                                : null;
+                            const shortProperty = propertyId
+                              ? `${propertyId.slice(0, 8)}…`
+                              : "—";
+                            return (
+                              <li key={attempt.id} className="flex flex-wrap items-center gap-2">
+                                <span className="text-slate-500">
+                                  {formatDateLabel(attempt.created_at)}
+                                </span>
+                                <span className="rounded-full bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                  {attempt.status}
+                                </span>
+                                <span className="text-slate-600">
+                                  {attempt.reason_code ?? "—"}
+                                </span>
+                                <span className="text-slate-500">property {shortProperty}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-600">
+                          No tenant push delivery attempts recorded yet.
                         </p>
                       )}
                     </>

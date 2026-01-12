@@ -2,6 +2,9 @@ export type PushDeliveryOutcome = {
   attempted: boolean;
   status: "sent" | "failed" | "skipped";
   error?: string;
+  attemptedCount?: number;
+  deliveredCount?: number;
+  failedCount?: number;
 };
 
 const PUSH_UNAVAILABLE_PREFIX = "push_unavailable:";

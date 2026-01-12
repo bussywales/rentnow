@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-14 — v1.7.67-r15.0-tenant-saved-search-push
+- Added tenant saved-search push delivery with per-tenant per-property dedupe guardrails.
+- Removed search-name content from push payloads (safe title + city + link only).
+- Logged tenant push attempts to durable delivery telemetry and surfaced counts in /admin/support.
+
 ## 2026-01-14 — v1.7.66-r14.6-admin-push-auth-telemetry
 - Added a robust admin auth resolver for push test routes that supports base64 and URL-encoded Supabase cookies.
 - Prevented cookie clearing on parse failures and added a single refresh attempt before denying access.

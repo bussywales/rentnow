@@ -11,6 +11,7 @@ export type PushDeliveryAttemptRow = {
   failed_count: number;
   blocked_count: number;
   skipped_count: number;
+  meta?: Record<string, unknown> | null;
 };
 
 export type PushDeliverySummary = {
@@ -75,7 +76,7 @@ export async function fetchPushDeliveryAttempts(
   const { data, error } = await adminDb
     .from("push_delivery_attempts")
     .select(
-      "id, created_at, actor_user_id, kind, status, reason_code, delivered_count, failed_count, blocked_count, skipped_count"
+      "id, created_at, actor_user_id, kind, status, reason_code, delivered_count, failed_count, blocked_count, skipped_count, meta"
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -85,4 +86,56 @@ export async function fetchPushDeliveryAttempts(
   }
 
   return { rows: (data as PushDeliveryAttemptRow[]) ?? [], error: null };
+}
+
+export type TenantPushDeliverySummary = {
+  last24h: number;
+  last7d: number;
+  recent: PushDeliveryAttemptRow[];
+  error: string | null;
+};
+
+export async function fetchTenantPushDeliverySummary(
+  adminDb: SupabaseClient,
+  limit = 10
+): Promise<TenantPushDeliverySummary> {
+  const now = Date.now();
+  const last24h = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+  const last7d = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+  const [last24hResult, last7dResult, recentResult] = await Promise.all([
+    adminDb
+      .from("push_delivery_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("kind", "tenant_saved_search")
+      .gte("created_at", last24h),
+    adminDb
+      .from("push_delivery_attempts")
+      .select("id", { count: "exact", head: true })
+      .eq("kind", "tenant_saved_search")
+      .gte("created_at", last7d),
+    adminDb
+      .from("push_delivery_attempts")
+      .select(
+        "id, created_at, actor_user_id, kind, status, reason_code, delivered_count, failed_count, blocked_count, skipped_count, meta"
+      )
+      .eq("kind", "tenant_saved_search")
+      .order("created_at", { ascending: false })
+      .limit(limit),
+  ]);
+
+  const error = [
+    last24hResult.error?.message,
+    last7dResult.error?.message,
+    recentResult.error?.message,
+  ]
+    .filter(Boolean)
+    .join(" | ") || null;
+
+  return {
+    last24h: last24hResult.count ?? 0,
+    last7d: last7dResult.count ?? 0,
+    recent: (recentResult.data as PushDeliveryAttemptRow[]) ?? [],
+    error,
+  };
 }

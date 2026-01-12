@@ -18,6 +18,10 @@ void test("admin support includes push delivery telemetry copy", () => {
     "expected delivery attempts section"
   );
   assert.ok(
+    contents.includes("Tenant push (saved searches)"),
+    "expected tenant push telemetry section"
+  );
+  assert.ok(
     contents.includes("No push delivery attempts recorded yet."),
     "expected delivery zero-state copy"
   );

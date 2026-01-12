@@ -159,7 +159,9 @@
 - With VAPID keys configured, confirm the Push badge shows status on `/dashboard/saved-searches`.
 - Enable notifications and verify a row exists in `public.push_subscriptions`.
 - Trigger a saved search alert and confirm a push notification is delivered.
+- Trigger a second publish of the same property and confirm the tenant does not receive a duplicate push (dedupe).
 - In `/admin/support`, confirm push subscription counts and alert sample metrics render.
+- In `/admin/support`, confirm “Tenant push (saved searches)” shows last 24h/7d counts and recent attempts.
 - In `/admin/support`, confirm the Push readiness checklist shows VAPID keys, permission state, and service worker availability.
 - If permission is default, use “Enable notifications”, then create a subscription when prompted.
 - In `/admin/support`, use “Send test push” and confirm it targets the current admin only.
