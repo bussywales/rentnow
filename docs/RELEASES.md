@@ -21,6 +21,10 @@ For full details, see `web/docs/VERSIONS.md`.
 - Added tenant push delivery for saved-search matches with per-tenant per-property dedupe.
 - Logged tenant push attempts to durable delivery telemetry and surfaced counts in `/admin/support`.
 
+## R15.1 — Tenant push observability
+- [v1.7.69-r15.1-tenant-observability](../../tags/v1.7.69-r15.1-tenant-observability)
+- Expanded admin support with tenant push totals, top reasons, and dedupe visibility (no PII).
+
 ## Analytics Foundation → Demand Funnels → Beta readiness
 **Tags**
 - [v1.7.48-r11-landlord-analytics](../../tags/v1.7.48-r11-landlord-analytics)

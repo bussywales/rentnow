@@ -42,11 +42,13 @@ import { getAdminPushSubscriptionStatus } from "@/lib/admin/push-readiness";
 import {
   buildPushDeliverySummary,
   fetchPushDeliveryAttempts,
-  fetchTenantPushDeliverySummary,
   type PushDeliveryAttemptRow,
   type PushDeliverySummary,
-  type TenantPushDeliverySummary,
 } from "@/lib/admin/push-delivery-telemetry";
+import {
+  fetchTenantPushObservability,
+  type TenantPushObservability,
+} from "@/lib/admin/tenant-push-observability";
 import { AdminPushTestButton } from "@/components/admin/AdminPushTestButton";
 import { AdminPushReadiness } from "@/components/admin/AdminPushReadiness";
 
@@ -112,7 +114,7 @@ type PushTelemetryDiagnostics = {
   deliveryAttempts: PushDeliveryAttemptRow[];
   deliveryReady: boolean;
   deliveryError: string | null;
-  tenantPush: TenantPushDeliverySummary;
+  tenantPush: TenantPushObservability;
 };
 
 type ShareTelemetryDiagnostics = {
@@ -269,13 +271,24 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
   let deliveryError: string | null = hasServiceRoleEnv()
     ? "Push delivery telemetry unavailable."
     : "Service role not configured.";
-  let tenantPushSummary: TenantPushDeliverySummary = {
-    last24h: 0,
-    last7d: 0,
-    recent: [],
+  let tenantPushSummary: TenantPushObservability = {
+    available: false,
     error: hasServiceRoleEnv()
       ? "Tenant push telemetry unavailable."
       : "Service role not configured.",
+    last24h: null,
+    last7d: null,
+    recent: [],
+    topReasons: [],
+    dedupe: {
+      available: false,
+      error: hasServiceRoleEnv()
+        ? "Dedupe telemetry unavailable."
+        : "Service role not configured.",
+      totalRows: 0,
+      uniquePairs: 0,
+      topReason: null,
+    },
   };
   let pushTelemetry: PushTelemetryDiagnostics = {
     ready: false,
@@ -334,7 +347,10 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
       deliverySummary = buildPushDeliverySummary(deliveryAttempts);
     }
 
-    tenantPushSummary = await fetchTenantPushDeliverySummary(adminClient, 10);
+    tenantPushSummary = await fetchTenantPushObservability(adminClient, {
+      recentLimit: 10,
+      reasonLimit: 5,
+    });
 
     const { data: messages, error: messagesError } = await adminClient
       .from("messages")
@@ -1131,17 +1147,69 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                 </div>
                 <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
                   <p className="text-xs font-semibold text-slate-700">Tenant push (saved searches)</p>
-                  {diag.pushTelemetry.tenantPush.error ? (
+                  {!diag.pushTelemetry.tenantPush.available ? (
                     <p className="mt-2 text-xs text-slate-600">
                       Tenant push telemetry not available.
-                      {showPushDebug ? ` (${diag.pushTelemetry.tenantPush.error})` : ""}
+                      {showPushDebug && diag.pushTelemetry.tenantPush.error
+                        ? ` (${diag.pushTelemetry.tenantPush.error})`
+                        : ""}
                     </p>
                   ) : (
                     <>
-                      <p className="mt-1 text-xs text-slate-600">
-                        Last 24h {diag.pushTelemetry.tenantPush.last24h} · 7d{" "}
-                        {diag.pushTelemetry.tenantPush.last7d}
-                      </p>
+                      {diag.pushTelemetry.tenantPush.last24h ? (
+                        <p className="mt-1 text-xs text-slate-600">
+                          Last 24h Attempted {diag.pushTelemetry.tenantPush.last24h.attempted} ·
+                          Delivered {diag.pushTelemetry.tenantPush.last24h.delivered} · Failed{" "}
+                          {diag.pushTelemetry.tenantPush.last24h.failed} · Blocked{" "}
+                          {diag.pushTelemetry.tenantPush.last24h.blocked} · Skipped{" "}
+                          {diag.pushTelemetry.tenantPush.last24h.skipped}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-slate-600">
+                          Last 24h: Not available.
+                        </p>
+                      )}
+                      {diag.pushTelemetry.tenantPush.last7d ? (
+                        <p className="mt-1 text-xs text-slate-600">
+                          Last 7d Attempted {diag.pushTelemetry.tenantPush.last7d.attempted} ·
+                          Delivered {diag.pushTelemetry.tenantPush.last7d.delivered} · Failed{" "}
+                          {diag.pushTelemetry.tenantPush.last7d.failed} · Blocked{" "}
+                          {diag.pushTelemetry.tenantPush.last7d.blocked} · Skipped{" "}
+                          {diag.pushTelemetry.tenantPush.last7d.skipped}
+                        </p>
+                      ) : (
+                        <p className="mt-1 text-xs text-slate-600">
+                          Last 7d: Not available.
+                        </p>
+                      )}
+                      {diag.pushTelemetry.tenantPush.topReasons.length ? (
+                        <div className="mt-2 text-xs text-slate-600">
+                          <p className="font-semibold text-slate-700">Top reasons (7d)</p>
+                          <ul className="mt-1 space-y-1">
+                            {diag.pushTelemetry.tenantPush.topReasons.map((entry) => (
+                              <li key={entry.reason}>
+                                {entry.reason} · {entry.count}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-600">Top reasons: none.</p>
+                      )}
+                      {diag.pushTelemetry.tenantPush.dedupe.available ? (
+                        <p className="mt-2 text-xs text-slate-600">
+                          Dedupe rows (7d) {diag.pushTelemetry.tenantPush.dedupe.totalRows} ·
+                          Unique pairs {diag.pushTelemetry.tenantPush.dedupe.uniquePairs} · Top reason{" "}
+                          {diag.pushTelemetry.tenantPush.dedupe.topReason ?? "—"}
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-600">
+                          Dedupe stats not available.
+                          {showPushDebug && diag.pushTelemetry.tenantPush.dedupe.error
+                            ? ` (${diag.pushTelemetry.tenantPush.dedupe.error})`
+                            : ""}
+                        </p>
+                      )}
                       {diag.pushTelemetry.tenantPush.recent.length ? (
                         <ul className="mt-2 space-y-1 text-xs text-slate-600">
                           {diag.pushTelemetry.tenantPush.recent.map((attempt) => {
@@ -1152,6 +1220,11 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                             const shortProperty = propertyId
                               ? `${propertyId.slice(0, 8)}…`
                               : "—";
+                            const targetCount =
+                              attempt.meta &&
+                              typeof attempt.meta.subscriptionCount === "number"
+                                ? attempt.meta.subscriptionCount
+                                : null;
                             return (
                               <li key={attempt.id} className="flex flex-wrap items-center gap-2">
                                 <span className="text-slate-500">
@@ -1163,6 +1236,11 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
                                 <span className="text-slate-600">
                                   {attempt.reason_code ?? "—"}
                                 </span>
+                                {targetCount !== null && (
+                                  <span className="text-slate-500">
+                                    targets {targetCount}
+                                  </span>
+                                )}
                                 <span className="text-slate-500">property {shortProperty}</span>
                               </li>
                             );

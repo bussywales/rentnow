@@ -5,6 +5,11 @@
 - Ensured telemetry errors render as “Not available” and updated summary logic.
 - Updated tests to cover telemetry summary behavior and “not available” copy.
 
+## 2026-01-14 — v1.7.69-r15.1-tenant-observability
+- Expanded admin support tenant push telemetry with last 24h/7d totals, top reasons, and dedupe stats.
+- Added safe fallbacks for missing telemetry sources (“Not available”) and zero-state copy.
+- Added unit coverage for tenant push observability helpers and UI copy.
+
 ## 2026-01-14 — v1.7.67-r15.0-tenant-saved-search-push
 - Added tenant saved-search push delivery with per-tenant per-property dedupe guardrails.
 - Removed search-name content from push payloads (safe title + city + link only).

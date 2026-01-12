@@ -162,6 +162,8 @@
 - Trigger a second publish of the same property and confirm the tenant does not receive a duplicate push (dedupe).
 - In `/admin/support`, confirm push subscription counts and alert sample metrics render.
 - In `/admin/support`, confirm “Tenant push (saved searches)” shows last 24h/7d counts and recent attempts.
+- In `/admin/support`, confirm tenant push totals include Attempted/Delivered/Failed/Blocked/Skipped and top reasons.
+- In `/admin/support`, confirm dedupe stats render (rows, unique pairs) or “Dedupe stats not available.”
 - In `/admin/support`, confirm the Push readiness checklist shows VAPID keys, permission state, and service worker availability.
 - If permission is default, use “Enable notifications”, then create a subscription when prompted.
 - In `/admin/support`, use “Send test push” and confirm it targets the current admin only.

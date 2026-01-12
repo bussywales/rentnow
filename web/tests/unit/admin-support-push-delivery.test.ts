@@ -22,6 +22,10 @@ void test("admin support includes push delivery telemetry copy", () => {
     "expected tenant push telemetry section"
   );
   assert.ok(
+    contents.includes("Dedupe stats not available."),
+    "expected dedupe fallback copy"
+  );
+  assert.ok(
     contents.includes("No push delivery attempts recorded yet."),
     "expected delivery zero-state copy"
   );
