@@ -1,8 +1,8 @@
 # Auth UI Ops
 
 ## Navigation sync after login
-The top navigation links are driven by the client auth state. After a successful login, the
-nav should update automatically without a hard refresh. If it does not:
+The top navigation links are rendered server-side based on the current session. After a
+successful login redirect, the nav should reflect the authenticated state. If it does not:
 1) Confirm the browser has an active Supabase session.
 2) Log out and log back in.
 3) Use the "Refresh session" action on `/onboarding` if the email confirmation banner persists.
@@ -21,5 +21,6 @@ Use this checklist when a logged-in user is bounced to `/auth/login` on the Phot
 5) If the issue persists, log out/in and retry the same URL to ensure the session refresh path works.
 
 ## Auth cookie persistence
-Auth cookies are written via `writeSupabaseAuthCookie` with canonical options (path `/`, SameSite=Lax,
-secure in prod, and the canonical domain). Only the explicit logout flow should clear auth cookies.
+Auth cookies are written server-side on `/auth/login` with canonical options (path `/`, SameSite=Lax,
+Secure in prod, HttpOnly, and the canonical domain). Middleware refreshes sessions without clearing
+cookies on failures; only the explicit logout flow clears auth cookies.

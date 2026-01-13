@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-19 — v1.7.77-auth-server-session-fix
+- Moved login to a server route that writes HttpOnly auth cookies with canonical options.
+- Middleware refreshes sessions without clearing cookies; logout clears domain + host-only cookies.
+- Removed manual client auth-cookie writes from nav and login.
+
 ## 2026-01-17 — v1.7.74-r15.3-auth-cookie-clear-fix
 - Prevented server/middleware auth paths from clearing Supabase auth cookies on parse failures.
 - Added robust auth cookie selection for base64 and URL-encoded formats in proxy auth gate.

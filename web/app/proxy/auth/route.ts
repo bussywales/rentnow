@@ -7,6 +7,12 @@ import {
   shouldLogCookieDebug,
 } from "@/lib/auth/cookie-guard";
 import { selectAuthCookieValueFromHeader } from "@/lib/auth/cookie-parser";
+import {
+  applyServerAuthCookieDefaults,
+  buildClientCookieOptions,
+  shouldMirrorClientCookie,
+} from "@/lib/auth/server-cookie";
+import { serializeCookie } from "@/lib/auth/cookie-serialize";
 import type { UserRole } from "@/lib/types";
 
 // Edge-friendly auth/role gate for protected paths, replacing the deprecated middleware pattern.
@@ -30,8 +36,10 @@ function buildRedirect(req: NextRequest, target: string, reason?: string) {
 }
 
 function getSupabase(req: NextRequest, res: NextResponse) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseKey) return null;
 
   const debug = shouldLogCookieDebug(
@@ -61,7 +69,22 @@ function getSupabase(req: NextRequest, res: NextResponse) {
           });
           return;
         }
-        res.cookies.set({ name, value, ...options });
+        const mergedOptions = applyServerAuthCookieDefaults(
+          name,
+          options,
+          req
+        );
+        res.cookies.set({ name, value, ...mergedOptions });
+        if (shouldMirrorClientCookie(name)) {
+          res.headers.append(
+            "set-cookie",
+            serializeCookie(
+              name,
+              value,
+              buildClientCookieOptions(mergedOptions)
+            )
+          );
+        }
       },
       remove(name: string, options: CookieOptions) {
         if (shouldSuppressAuthCookieClear(name, options, "")) {
@@ -73,7 +96,22 @@ function getSupabase(req: NextRequest, res: NextResponse) {
           });
           return;
         }
-        res.cookies.set({ name, value: "", ...options, maxAge: 0 });
+        const mergedOptions = applyServerAuthCookieDefaults(
+          name,
+          { ...options, maxAge: 0 },
+          req
+        );
+        res.cookies.set({ name, value: "", ...mergedOptions });
+        if (shouldMirrorClientCookie(name)) {
+          res.headers.append(
+            "set-cookie",
+            serializeCookie(
+              name,
+              "",
+              buildClientCookieOptions(mergedOptions)
+            )
+          );
+        }
       },
     },
   });

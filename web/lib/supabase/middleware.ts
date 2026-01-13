@@ -5,6 +5,12 @@ import {
   shouldSuppressAuthCookieClear,
   shouldLogCookieDebug,
 } from "@/lib/auth/cookie-guard";
+import {
+  applyServerAuthCookieDefaults,
+  buildClientCookieOptions,
+  shouldMirrorClientCookie,
+} from "@/lib/auth/server-cookie";
+import { serializeCookie } from "@/lib/auth/cookie-serialize";
 
 export async function updateSession(request: NextRequest) {
   const response = NextResponse.next({
@@ -12,9 +18,16 @@ export async function updateSession(request: NextRequest) {
       headers: request.headers,
     },
   });
+  const hostOnlyCookies: Array<{
+    name: string;
+    value: string;
+    options: ReturnType<typeof buildClientCookieOptions>;
+  }> = [];
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const supabaseUrl =
+    process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const supabaseAnonKey =
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnonKey) {
     return response;
   }
@@ -40,7 +53,19 @@ export async function updateSession(request: NextRequest) {
             });
             return;
           }
-          response.cookies.set(name, value, options);
+          const mergedOptions = applyServerAuthCookieDefaults(
+            name,
+            options,
+            request
+          );
+          response.cookies.set(name, value, mergedOptions);
+          if (shouldMirrorClientCookie(name)) {
+            hostOnlyCookies.push({
+              name,
+              value,
+              options: buildClientCookieOptions(mergedOptions),
+            });
+          }
         });
       },
     },
@@ -48,5 +73,11 @@ export async function updateSession(request: NextRequest) {
 
   // Refresh the session if needed and propagate cookies to the response
   await supabase.auth.getSession();
+  hostOnlyCookies.forEach(({ name, value, options }) => {
+    response.headers.append(
+      "set-cookie",
+      serializeCookie(name, value, options)
+    );
+  });
   return response;
 }

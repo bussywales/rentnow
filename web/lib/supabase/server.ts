@@ -5,6 +5,7 @@ import {
   logSuppressedAuthCookieClear,
   shouldSuppressAuthCookieClear,
 } from "@/lib/auth/cookie-guard";
+import { applyServerAuthCookieDefaults } from "@/lib/auth/server-cookie";
 
 function encodeBase64Url(value: string) {
   return Buffer.from(value, "utf-8")
@@ -57,21 +58,40 @@ export async function createServerSupabaseClient(options?: {
           );
           if (authCookies.length <= 1) return allCookies;
 
-          let session: ReturnType<typeof parseSupabaseAuthCookieValue> | null =
+          let bestCookie:
+            | (typeof authCookies)[number]
+            | null = null;
+          let bestSession: ReturnType<typeof parseSupabaseAuthCookieValue> | null =
             null;
-          const validAuthCookie = authCookies.find((cookie) => {
-            session = parseSupabaseAuthCookieValue(cookie.value);
-            return !!session;
-          });
-          if (!validAuthCookie || !session) return allCookies;
+          let bestExpiry = -Infinity;
+
+          for (const cookie of authCookies) {
+            const session = parseSupabaseAuthCookieValue(cookie.value);
+            if (!session) continue;
+            const expiresAt =
+              typeof session.expires_at === "number" ? session.expires_at : null;
+            if (!bestCookie) {
+              bestCookie = cookie;
+              bestSession = session;
+              bestExpiry = expiresAt ?? -Infinity;
+              continue;
+            }
+            if (typeof expiresAt === "number" && expiresAt > bestExpiry) {
+              bestCookie = cookie;
+              bestSession = session;
+              bestExpiry = expiresAt;
+            }
+          }
+
+          if (!bestCookie || !bestSession) return allCookies;
 
           return [
             ...allCookies.filter(
               (cookie) => !cookie.name.includes("auth-token")
             ),
             {
-              ...validAuthCookie,
-              value: `base64-${encodeBase64Url(JSON.stringify(session))}`,
+              ...bestCookie,
+              value: `base64-${encodeBase64Url(JSON.stringify(bestSession))}`,
             },
           ];
         } catch {
@@ -92,7 +112,8 @@ export async function createServerSupabaseClient(options?: {
               });
               return;
             }
-            cookieStore.set({ name, value, ...options });
+            const mergedOptions = applyServerAuthCookieDefaults(name, options);
+            cookieStore.set({ name, value, ...mergedOptions });
           });
         } catch {
           /* ignore write failures */

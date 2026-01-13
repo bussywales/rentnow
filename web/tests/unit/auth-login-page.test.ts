@@ -9,4 +9,6 @@ void test("login page includes forgot password link", () => {
 
   assert.ok(contents.includes("Forgot password?"));
   assert.ok(contents.includes("/auth/reset"));
+  assert.ok(contents.includes('action="/auth/login"'));
+  assert.ok(contents.includes('method="POST"'));
 });

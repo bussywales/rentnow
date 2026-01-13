@@ -92,8 +92,7 @@ export function getBrowserCookieOptions(): CookieOptionsWithName | undefined {
     return { sameSite: "lax", secure: false, path: "/" };
   }
 
-  const domain = host.startsWith("www.") ? host.slice(4) : host;
-  return { domain: `.${domain}`, sameSite: "lax", secure: true, path: "/" };
+  return { sameSite: "lax", secure: true, path: "/" };
 }
 
 export function createBrowserSupabaseClient() {
