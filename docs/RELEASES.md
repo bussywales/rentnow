@@ -3,6 +3,11 @@
 This file lists tagged releases in reverse chronological order (most recent first).
 For full details, see `web/docs/VERSIONS.md`.
 
+## R15.2 — Tenant push diagnostics
+- [v1.7.73-r15.2-tenant-push-diagnostics](../../tags/v1.7.73-r15.2-tenant-push-diagnostics)
+- Added tenant-facing diagnostics on `/dashboard/saved-searches` with readiness, counts, and safe telemetry.
+- Provided safe tenant-only actions to enable or re-subscribe (no notifications sent).
+
 ## Main merge checkpoint
 - [v1.7.55-main-merge-checkpoint](../../tags/v1.7.55-main-merge-checkpoint)
 - Merged `feat/r6.7` into `main` (R9–R12 analytics, telemetry, guardrails).

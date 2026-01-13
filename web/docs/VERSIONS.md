@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-17 — v1.7.73-r15.2-tenant-push-diagnostics
+- Added tenant notifications diagnostics on `/dashboard/saved-searches` (readiness, counts, attempts, dedupe).
+- Added tenant-scoped diagnostics API and helper with “Not available” fallbacks.
+- Added unit coverage for diagnostics UI, API, and aggregation helpers.
+
 ## 2026-01-16 — v1.7.72-r15.1.3-tenant-workspace-separation
 - Added `/tenant` workspace and role-based `/dashboard` redirects (tenant → /tenant, host → /host, admin → /admin/support).
 - Moved host landing to `/host` and updated dashboard navigation to hide listing tools for tenants.

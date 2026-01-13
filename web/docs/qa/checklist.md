@@ -164,6 +164,8 @@
 ## PWA push alerts
 - With VAPID keys configured, confirm the Push badge shows status on `/dashboard/saved-searches`.
 - Enable notifications and verify a row exists in `public.push_subscriptions`.
+- On `/dashboard/saved-searches`, confirm “Notifications diagnostics” renders with readiness and counts.
+- Use “Enable notifications” and “Re-subscribe on this device” as needed; confirm counts update without sending pushes.
 - Trigger a saved search alert and confirm a push notification is delivered.
 - Trigger a second publish of the same property and confirm the tenant does not receive a duplicate push (dedupe).
 - In `/admin/support`, confirm push subscription counts and alert sample metrics render.

@@ -4,6 +4,7 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import Link from "next/link";
 import { SavedSearchManager } from "@/components/search/SavedSearchManager";
 import { PushStatusBadge } from "@/components/dashboard/PushStatusBadge";
+import { TenantPushDiagnosticsPanel } from "@/components/dashboard/TenantPushDiagnosticsPanel";
 import { getTenantPlanForTier, isPlanExpired } from "@/lib/plans";
 import { normalizeRole } from "@/lib/roles";
 import { shouldShowSavedSearchNav } from "@/lib/role-access";
@@ -124,6 +125,7 @@ export default async function SavedSearchesPage() {
           </Link>
         )}
       </div>
+      <TenantPushDiagnosticsPanel />
       <SavedSearchManager initialSearches={searches} alertsEnabled={alertsEnabled} />
     </div>
   );

@@ -78,6 +78,10 @@ Tenant UX:
 - When a subscription is pruned, the Push badge shows “Notifications need to be re-enabled.”
 - If permission is granted but no active subscription exists, the CTA shows “Finish setup.”
 - If permission is not yet granted, the CTA shows “Enable notifications.”
+- `/dashboard/saved-searches` includes a tenant diagnostics panel showing device readiness,
+  subscription counts, and tenant-scoped delivery/dupe summaries (no PII).
+- Diagnostics can mark delivery attempts as “Not available” if tenant attribution is not recorded.
+- Tenant actions are safe and non-triggering (enable permission, create or re-subscribe only).
 
 Admin support:
 - `/admin/support` shows “Push configured: Yes/No”.
