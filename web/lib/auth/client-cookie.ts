@@ -10,7 +10,7 @@ export type AuthCookieOptions = {
   domain?: string;
   path?: string;
   secure?: boolean;
-  sameSite?: SameSitePolicy;
+  sameSite?: SameSitePolicy | boolean;
   maxAge?: number;
   format?: "base64" | "json";
 };
@@ -93,8 +93,14 @@ function buildCookieString(
   if (options.domain) {
     parts.push(`domain=${options.domain}`);
   }
-  const sameSite = options.sameSite ?? "lax";
-  parts.push(`samesite=${sameSite}`);
+  const sameSite = options.sameSite;
+  if (sameSite === true) {
+    parts.push("samesite=strict");
+  } else if (sameSite === false || typeof sameSite === "undefined") {
+    parts.push("samesite=lax");
+  } else {
+    parts.push(`samesite=${sameSite}`);
+  }
   if (secure) {
     parts.push("secure");
   }
