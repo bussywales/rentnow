@@ -16,3 +16,10 @@ void test("shouldSuppressAuthCookieClear ignores non-auth cookies", () => {
   });
   assert.equal(blocked, false);
 });
+
+void test("shouldSuppressAuthCookieClear blocks expired auth cookies", () => {
+  const blocked = shouldSuppressAuthCookieClear("sb-123-auth-token", {
+    expires: new Date(0),
+  });
+  assert.equal(blocked, true);
+});

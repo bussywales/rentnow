@@ -2,6 +2,14 @@ import { parseSupabaseAuthCookieValue } from "@/lib/auth/admin-session";
 
 type CookiePair = { name: string; value: string };
 
+function encodeBase64Url(value: string) {
+  return Buffer.from(value, "utf-8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
 function parseCookieHeader(header: string): CookiePair[] {
   return header
     .split(";")
@@ -27,7 +35,9 @@ export function selectAuthCookieValueFromHeader(
   for (const match of matches) {
     const session = parseSupabaseAuthCookieValue(match.value);
     if (session) {
-      const normalized = `base64-${Buffer.from(JSON.stringify(session)).toString("base64")}`;
+      const normalized = `base64-${encodeBase64Url(
+        JSON.stringify(session)
+      )}`;
       return normalized;
     }
   }

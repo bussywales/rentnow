@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   extractAuthSessionFromRequest,
   parseSupabaseAuthCookieValue,
+  requireAdminRole,
 } from "../../lib/auth/admin-session";
 
 const sampleSession = {
@@ -43,4 +44,30 @@ void test("extractAuthSessionFromRequest picks first valid auth cookie", () => {
   const result = extractAuthSessionFromRequest(request);
   assert.equal(result.session?.access_token, sampleSession.access_token);
   assert.equal(result.parseError, false);
+});
+
+void test("requireAdminRole does not clear cookies on parse error", async () => {
+  const prevUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const prevKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon";
+
+  const request = new Request("http://localhost/api/admin/push/test", {
+    headers: {
+      cookie: "sb-auth-token=invalid",
+    },
+  });
+  const result = await requireAdminRole({
+    request,
+    route: "/api/admin/push/test",
+    startTime: Date.now(),
+  });
+
+  assert.equal(result.ok, false);
+  if (!result.ok) {
+    assert.equal(result.response.headers.get("set-cookie"), null);
+  }
+
+  process.env.NEXT_PUBLIC_SUPABASE_URL = prevUrl;
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = prevKey;
 });

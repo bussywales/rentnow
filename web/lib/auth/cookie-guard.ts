@@ -13,6 +13,15 @@ export function isAuthCookieName(name: string) {
 function isCookieClear(options?: CookieOptions, value?: string) {
   if (options?.maxAge === 0) return true;
   if (value === "") return true;
+  if (options?.expires) {
+    const expires =
+      options.expires instanceof Date
+        ? options.expires
+        : new Date(options.expires);
+    if (!Number.isNaN(expires.getTime()) && expires.getTime() <= Date.now()) {
+      return true;
+    }
+  }
   return false;
 }
 

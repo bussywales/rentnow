@@ -4,9 +4,13 @@ import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import {
+  createBrowserSupabaseClient,
+  getBrowserCookieOptions,
+} from "@/lib/supabase/client";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { useRouter, useSearchParams } from "next/navigation";
+import { writeSupabaseAuthCookie } from "@/lib/auth/client-cookie";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +35,7 @@ function LoginContent() {
   );
   const [loading, setLoading] = useState(false);
   const [checkingSession, setCheckingSession] = useState(() => !!supabase);
+  const cookieOptions = useMemo(() => getBrowserCookieOptions(), []);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -60,6 +65,10 @@ function LoginContent() {
     } else {
       const session = data.session;
       if (session?.access_token && session.refresh_token) {
+        writeSupabaseAuthCookie(
+          { access_token: session.access_token, refresh_token: session.refresh_token },
+          cookieOptions
+        );
         // Ensure Supabase persists the session client-side
         try {
           await supabase.auth.setSession({
@@ -96,6 +105,12 @@ function LoginContent() {
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, session: Session | null) => {
         if (event === "SIGNED_IN" && session?.user) {
+          if (session.access_token && session.refresh_token) {
+            writeSupabaseAuthCookie(
+              { access_token: session.access_token, refresh_token: session.refresh_token },
+              cookieOptions
+            );
+          }
           router.replace(redirectTo);
         }
       }
@@ -104,7 +119,7 @@ function LoginContent() {
     return () => {
       authListener?.subscription.unsubscribe();
     };
-  }, [redirectTo, router, supabase]);
+  }, [redirectTo, router, supabase, cookieOptions]);
 
   return (
     <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

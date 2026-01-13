@@ -3,10 +3,14 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import {
+  createBrowserSupabaseClient,
+  getBrowserCookieOptions,
+} from "@/lib/supabase/client";
 import { useCallback } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { normalizeRole } from "@/lib/roles";
+import { writeSupabaseAuthCookie } from "@/lib/auth/client-cookie";
 
 type Props = {
   initialAuthed: boolean;
@@ -16,22 +20,20 @@ type Props = {
 export function NavAuthClient({ initialAuthed, initialRole = null }: Props) {
   const [isAuthed, setIsAuthed] = useState(initialAuthed);
   const [role, setRole] = useState<string | null>(normalizeRole(initialRole));
-  const projectRef =
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.match(/https:\/\/(.*?)\.supabase\.co/)?.[1] ||
-    "supabase";
-  const authCookieName = `sb-${projectRef}-auth-token`;
+  const cookieOptions = getBrowserCookieOptions();
 
   const syncAuthCookie = useCallback(
     (session: { access_token: string; refresh_token: string } | null) => {
-      if (!session) {
-        document.cookie = `${authCookieName}=; path=/; max-age=0; secure; samesite=lax`;
-        return;
-      }
-      const payload = encodeURIComponent(JSON.stringify(session));
-      // 7 days by default
-      document.cookie = `${authCookieName}=${payload}; path=/; max-age=${60 * 60 * 24 * 7}; secure; samesite=lax`;
+      if (!session?.access_token || !session?.refresh_token) return;
+      writeSupabaseAuthCookie(
+        {
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        },
+        cookieOptions
+      );
     },
-    [authCookieName]
+    [cookieOptions]
   );
 
   useEffect(() => {
@@ -82,8 +84,6 @@ export function NavAuthClient({ initialAuthed, initialRole = null }: Props) {
           access_token: session.access_token,
           refresh_token: session.refresh_token,
         });
-      } else {
-        syncAuthCookie(null);
       }
     });
     return () => {
@@ -95,7 +95,7 @@ export function NavAuthClient({ initialAuthed, initialRole = null }: Props) {
     try {
       const supabase = createBrowserSupabaseClient();
       await supabase.auth.signOut();
-      syncAuthCookie(null);
+      writeSupabaseAuthCookie(null, cookieOptions);
       await fetch("/auth/logout", { method: "POST" });
     } catch (err) {
       console.warn("Logout failed, forcing reload", err);

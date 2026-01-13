@@ -78,7 +78,7 @@ function createMockSupabaseClient() {
   return mockClient as ReturnType<typeof createBrowserClient>;
 }
 
-function getCookieOptions(): CookieOptionsWithName | undefined {
+export function getBrowserCookieOptions(): CookieOptionsWithName | undefined {
   if (typeof window === "undefined") return undefined;
   const host = window.location.hostname;
   const isLocalhost =
@@ -101,6 +101,6 @@ export function createBrowserSupabaseClient() {
     return createMockSupabaseClient();
   }
   return createBrowserClient(env.url, env.anonKey, {
-    cookieOptions: getCookieOptions(),
+    cookieOptions: getBrowserCookieOptions(),
   });
 }

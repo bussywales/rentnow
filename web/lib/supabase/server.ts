@@ -6,6 +6,14 @@ import {
   shouldSuppressAuthCookieClear,
 } from "@/lib/auth/cookie-guard";
 
+function encodeBase64Url(value: string) {
+  return Buffer.from(value, "utf-8")
+    .toString("base64")
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+}
+
 const getEnv = () => {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey =
@@ -63,9 +71,7 @@ export async function createServerSupabaseClient(options?: {
             ),
             {
               ...validAuthCookie,
-              value: `base64-${Buffer.from(JSON.stringify(session)).toString(
-                "base64"
-              )}`,
+              value: `base64-${encodeBase64Url(JSON.stringify(session))}`,
             },
           ];
         } catch {

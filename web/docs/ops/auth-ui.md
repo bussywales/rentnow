@@ -19,3 +19,7 @@ Use this checklist when a logged-in user is bounced to `/auth/login` on the Phot
 3) Confirm `SameSite=Lax` and that the browser is not blocking third-party cookies.
 4) Reload `/dashboard/properties/<id>?step=photos` and confirm the session persists.
 5) If the issue persists, log out/in and retry the same URL to ensure the session refresh path works.
+
+## Auth cookie persistence
+Auth cookies are written via `writeSupabaseAuthCookie` with canonical options (path `/`, SameSite=Lax,
+secure in prod, and the canonical domain). Only the explicit logout flow should clear auth cookies.
