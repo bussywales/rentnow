@@ -1,5 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import {
+  logSuppressedAuthCookieClear,
+  shouldSuppressAuthCookieClear,
+  shouldLogCookieDebug,
+} from "@/lib/auth/cookie-guard";
 
 export async function updateSession(request: NextRequest) {
   const response = NextResponse.next({
@@ -14,13 +19,27 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
+  const debug = shouldLogCookieDebug(
+    request.nextUrl.searchParams.get("debug") === "1"
+  );
+
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookieEncoding: "base64url",
     cookies: {
       getAll() {
         return request.cookies.getAll();
       },
       setAll(cookies) {
         cookies.forEach(({ name, value, options }) => {
+          if (shouldSuppressAuthCookieClear(name, options, value)) {
+            logSuppressedAuthCookieClear({
+              route: request.nextUrl.pathname,
+              cookieName: name,
+              source: "middleware-setAll",
+              debug,
+            });
+            return;
+          }
           response.cookies.set(name, value, options);
         });
       },

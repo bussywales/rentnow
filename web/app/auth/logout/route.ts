@@ -4,7 +4,10 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = await createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient({
+      allowCookieClear: true,
+      debugContext: { route: "/auth/logout" },
+    });
     await supabase.auth.signOut();
   } catch (err) {
     console.warn("Logout error", err);

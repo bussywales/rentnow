@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-17 — v1.7.74-r15.3-auth-cookie-clear-fix
+- Prevented server/middleware auth paths from clearing Supabase auth cookies on parse failures.
+- Added robust auth cookie selection for base64 and URL-encoded formats in proxy auth gate.
+- Added unit coverage for cookie clear suppression and auth cookie selection.
+
 ## 2026-01-17 — v1.7.73-r15.2-tenant-push-diagnostics
 - Added tenant notifications diagnostics on `/dashboard/saved-searches` (readiness, counts, attempts, dedupe).
 - Added tenant-scoped diagnostics API and helper with “Not available” fallbacks.

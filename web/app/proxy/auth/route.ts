@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import {
+  logSuppressedAuthCookieClear,
+  shouldSuppressAuthCookieClear,
+  shouldLogCookieDebug,
+} from "@/lib/auth/cookie-guard";
+import { selectAuthCookieValueFromHeader } from "@/lib/auth/cookie-parser";
 import type { UserRole } from "@/lib/types";
 
 // Edge-friendly auth/role gate for protected paths, replacing the deprecated middleware pattern.
@@ -28,15 +34,45 @@ function getSupabase(req: NextRequest, res: NextResponse) {
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseKey) return null;
 
+  const debug = shouldLogCookieDebug(
+    req.nextUrl.searchParams.get("debug") === "1"
+  );
+
   return createServerClient(supabaseUrl, supabaseKey, {
+    cookieEncoding: "base64url",
     cookies: {
       get(name: string) {
+        if (name.includes("auth-token")) {
+          const selected = selectAuthCookieValueFromHeader(
+            req.headers.get("cookie"),
+            name
+          );
+          if (selected) return selected;
+        }
         return req.cookies.get(name)?.value;
       },
       set(name: string, value: string, options: CookieOptions) {
+        if (shouldSuppressAuthCookieClear(name, options, value)) {
+          logSuppressedAuthCookieClear({
+            route: req.nextUrl.pathname,
+            cookieName: name,
+            source: "proxy-auth-set",
+            debug,
+          });
+          return;
+        }
         res.cookies.set({ name, value, ...options });
       },
       remove(name: string, options: CookieOptions) {
+        if (shouldSuppressAuthCookieClear(name, options, "")) {
+          logSuppressedAuthCookieClear({
+            route: req.nextUrl.pathname,
+            cookieName: name,
+            source: "proxy-auth-remove",
+            debug,
+          });
+          return;
+        }
         res.cookies.set({ name, value: "", ...options, maxAge: 0 });
       },
     },
