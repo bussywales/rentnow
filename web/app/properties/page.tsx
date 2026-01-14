@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
@@ -11,10 +12,10 @@ import { mockProperties } from "@/lib/mock";
 import { getTenantPlanForTier } from "@/lib/plans";
 import { getBrowseEmptyStateCtas } from "@/lib/property-discovery";
 import { normalizeRole } from "@/lib/roles";
-import { filtersToChips, parseFiltersFromParams } from "@/lib/search-filters";
+import { filtersToChips, parseFiltersFromParams, parseFiltersFromSavedSearch } from "@/lib/search-filters";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
-import type { ParsedSearchFilters, Property, UserRole } from "@/lib/types";
+import type { ParsedSearchFilters, Property, SavedSearch, UserRole } from "@/lib/types";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -49,6 +50,17 @@ function parsePage(params: SearchParams): number {
     return Number.isFinite(num) && num > 0 ? num : 1;
   }
   return 1;
+}
+
+function readParam(params: SearchParams, key: string): string | null {
+  const raw = params[key];
+  if (Array.isArray(raw)) {
+    return raw[0] ?? null;
+  }
+  if (typeof raw === "string") {
+    return raw;
+  }
+  return null;
 }
 
 function buildSearchParams(
@@ -100,25 +112,23 @@ function applyMockFilters(items: Property[], filters: ParsedSearchFilters): Prop
 
 export default async function PropertiesPage({ searchParams }: Props) {
   const resolvedSearchParams = await resolveSearchParams(searchParams);
-  const filters = parseFiltersFromParams(resolvedSearchParams);
-  const filterChips = filtersToChips(filters);
+  const savedSearchId = readParam(resolvedSearchParams, "savedSearchId");
   const page = parsePage(resolvedSearchParams);
-  const hasFilters = Object.values(filters).some((value) => {
-    if (Array.isArray(value)) return value.length > 0;
-    return value !== null && value !== undefined && value !== "";
-  });
   const supabaseReady = hasServerSupabaseEnv();
+  let supabase: Awaited<ReturnType<typeof createServerSupabaseClient>> | null = null;
+  let userId: string | null = null;
   let role: UserRole | null = null;
   let isTenantPro = false;
   let approvedBefore: string | null = null;
   const earlyAccessMinutes = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
   if (supabaseReady) {
     try {
-      const supabase = await createServerSupabaseClient();
+      supabase = await createServerSupabaseClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (user) {
+        userId = user.id;
         const { data: profile } = await supabase
           .from("profiles")
           .select("role")
@@ -148,6 +158,61 @@ export default async function PropertiesPage({ searchParams }: Props) {
     } catch {
       role = null;
     }
+  }
+
+  let filters = parseFiltersFromParams(resolvedSearchParams);
+  let savedSearch: SavedSearch | null = null;
+  let savedSearchError: string | null = null;
+
+  if (savedSearchId) {
+    if (!supabaseReady) {
+      savedSearchError = "Supabase is not configured.";
+    } else if (!supabase || !userId) {
+      const redirectParams = new URLSearchParams();
+      redirectParams.set("savedSearchId", savedSearchId);
+      redirectParams.set("source", "saved-search");
+      redirect(
+        `/auth/login?reason=auth&redirect=${encodeURIComponent(
+          `/properties?${redirectParams.toString()}`
+        )}`
+      );
+    } else {
+      const { data: savedSearchRow, error: savedSearchFetchError } = await supabase
+        .from("saved_searches")
+        .select("*")
+        .eq("id", savedSearchId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (savedSearchFetchError || !savedSearchRow) {
+        savedSearchError = "Saved search not found";
+      } else {
+        savedSearch = savedSearchRow as SavedSearch;
+        filters = parseFiltersFromSavedSearch(savedSearch.query_params || {});
+      }
+    }
+  }
+
+  const filterChips = filtersToChips(filters);
+  const hasFilters =
+    !!savedSearchId ||
+    Object.values(filters).some((value) => {
+      if (Array.isArray(value)) return value.length > 0;
+      return value !== null && value !== undefined && value !== "";
+    });
+  if (savedSearchId && savedSearchError) {
+    return (
+      <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
+        <ErrorState
+          title="Saved search not found"
+          description="We couldn't find that saved search. It may have been removed."
+          retryAction={
+            <Link href="/dashboard/saved-searches">
+              <Button size="sm">Back to saved searches</Button>
+            </Link>
+          }
+        />
+      </div>
+    );
   }
   const showListCta = role && role !== "tenant";
   const apiBaseUrl = await getApiBaseUrl();
@@ -269,6 +334,22 @@ export default async function PropertiesPage({ searchParams }: Props) {
   }
 
   if (!properties.length) {
+    if (savedSearchId && savedSearch) {
+      const editHref = `/dashboard/saved-searches?edit=${savedSearch.id}`;
+      return (
+        <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
+          <ErrorState
+            title="No matches yet for this search"
+            description="Try widening your filters."
+            retryAction={
+              <Link href={editHref}>
+                <Button size="sm">Edit saved search</Button>
+              </Link>
+            }
+          />
+        </div>
+      );
+    }
     const emptyDescription = hasFilters
       ? "No listings match your filters yet. Try clearing filters or browsing all listings."
       : "No listings are available right now. Check back soon or browse all listings.";
@@ -382,6 +463,21 @@ export default async function PropertiesPage({ searchParams }: Props) {
           </Link>
         )}
       </div>
+
+      {savedSearch && (
+        <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Saved search</p>
+          <p className="text-sm font-semibold text-slate-900">
+            Matches for "{savedSearch.name || "your saved search"}"
+          </p>
+          <p className="text-sm text-slate-600">
+            Showing homes that match your saved search.
+          </p>
+          <Link href="/dashboard/saved-searches" className="mt-2 inline-flex text-sm font-semibold text-sky-700">
+            Back to saved searches
+          </Link>
+        </div>
+      )}
 
       <SmartSearchBox mode="browse" />
 

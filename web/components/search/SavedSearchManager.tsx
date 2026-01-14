@@ -1,18 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import type { SavedSearch } from "@/lib/types";
+import { setToastQuery } from "@/lib/utils/toast";
 
 type Props = {
   initialSearches: SavedSearch[];
   alertsEnabled?: boolean;
-};
-
-type MatchResult = {
-  total: number;
-  sampleIds: string[];
 };
 
 function formatSummary(search: SavedSearch) {
@@ -32,11 +29,11 @@ function formatSummary(search: SavedSearch) {
 }
 
 export function SavedSearchManager({ initialSearches, alertsEnabled = false }: Props) {
+  const router = useRouter();
   const [searches, setSearches] = useState(initialSearches);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [nameDraft, setNameDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [matches, setMatches] = useState<Record<string, MatchResult>>({});
   const [checkingId, setCheckingId] = useState<string | null>(null);
 
   const startEdit = (search: SavedSearch) => {
@@ -90,15 +87,29 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
       setError(data?.error || "Unable to check matches.");
       return;
     }
-    const data = await res.json();
-    setMatches((prev) => ({ ...prev, [search.id]: data }));
+    const data = await res.json().catch(() => ({}));
+    const matchCount =
+      typeof data?.matchCount === "number" ? data.matchCount : null;
+    const savedSearchId =
+      typeof data?.savedSearchId === "string" ? data.savedSearchId : search.id;
+    const checkedAt =
+      typeof data?.checkedAt === "string" ? data.checkedAt : null;
     setSearches((prev) =>
       prev.map((item) =>
         item.id === search.id
-          ? { ...item, last_checked_at: new Date().toISOString() }
+          ? { ...item, last_checked_at: checkedAt ?? new Date().toISOString() }
           : item
       )
     );
+    const params = new URLSearchParams();
+    params.set("savedSearchId", savedSearchId);
+    params.set("source", "saved-search");
+    const message =
+      typeof matchCount === "number" && matchCount > 0
+        ? `Found ${matchCount} matches — showing them now`
+        : "No new matches — showing your saved results";
+    setToastQuery(params, message, matchCount && matchCount > 0 ? "success" : "info");
+    router.push(`/properties?${params.toString()}`);
   };
 
   if (!searches.length) {
@@ -115,72 +126,59 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
   return (
     <div className="space-y-3">
       {error && <p className="text-sm text-rose-600">{error}</p>}
-      {searches.map((search) => {
-        const result = matches[search.id];
-        return (
-          <div
-            key={search.id}
-            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold text-slate-900">
-                  {editingId === search.id ? (
-                    <Input
-                      value={nameDraft}
-                      onChange={(e) => setNameDraft(e.target.value)}
-                      className="h-8 w-56"
-                    />
-                  ) : (
-                    search.name
-                  )}
-                </p>
-                {alertsEnabled && (
-                  <p className="text-xs font-semibold text-emerald-600">Alerts enabled</p>
-                )}
-                <p className="text-xs text-slate-600">{formatSummary(search)}</p>
-                {search.last_checked_at && (
-                  <p className="text-xs text-slate-500">
-                    Last checked: {new Date(search.last_checked_at).toLocaleString()}
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
+      {searches.map((search) => (
+        <div
+          key={search.id}
+          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">
                 {editingId === search.id ? (
-                  <Button size="sm" onClick={() => saveName(search)}>
-                    Save name
-                  </Button>
+                  <Input
+                    value={nameDraft}
+                    onChange={(e) => setNameDraft(e.target.value)}
+                    className="h-8 w-56"
+                  />
                 ) : (
-                  <Button size="sm" variant="secondary" onClick={() => startEdit(search)}>
-                    Rename
-                  </Button>
+                  search.name
                 )}
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => checkMatches(search)}
-                  disabled={checkingId === search.id}
-                >
-                  {checkingId === search.id ? "Checking..." : "Check matches"}
-                </Button>
-                <Button size="sm" variant="ghost" onClick={() => deleteSearch(search)}>
-                  Delete
-                </Button>
-              </div>
+              </p>
+              {alertsEnabled && (
+                <p className="text-xs font-semibold text-emerald-600">Alerts enabled</p>
+              )}
+              <p className="text-xs text-slate-600">{formatSummary(search)}</p>
+              {search.last_checked_at && (
+                <p className="text-xs text-slate-500">
+                  Last checked: {new Date(search.last_checked_at).toLocaleString()}
+                </p>
+              )}
             </div>
-            {result && (
-              <div className="mt-3 rounded-xl bg-slate-50 p-3 text-xs text-slate-700">
-                <p className="font-semibold">Matches found: {result.total}</p>
-                {result.sampleIds?.length ? (
-                  <p className="mt-1">Sample IDs: {result.sampleIds.join(", ")}</p>
-                ) : (
-                  <p className="mt-1">No matching listings yet.</p>
-                )}
-              </div>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {editingId === search.id ? (
+                <Button size="sm" onClick={() => saveName(search)}>
+                  Save name
+                </Button>
+              ) : (
+                <Button size="sm" variant="secondary" onClick={() => startEdit(search)}>
+                  Rename
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => checkMatches(search)}
+                disabled={checkingId === search.id}
+              >
+                {checkingId === search.id ? "Checking..." : "Check matches"}
+              </Button>
+              <Button size="sm" variant="ghost" onClick={() => deleteSearch(search)}>
+                Delete
+              </Button>
+            </div>
           </div>
-        );
-      })}
+        </div>
+      ))}
     </div>
   );
 }

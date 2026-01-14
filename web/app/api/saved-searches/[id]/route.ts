@@ -91,25 +91,29 @@ export async function PATCH(
 
     const { data, error, count } = await searchProperties(filters, {
       page: 1,
-      pageSize: 3,
+      pageSize: 1,
       approvedBefore,
     });
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    const sampleIds = (data || [])
-      .map((item) => item.id)
-      .filter(Boolean)
-      .slice(0, 3);
+    const matchCount =
+      typeof count === "number" ? count : (data?.length ?? 0);
+    const checkedAt = new Date().toISOString();
 
     await supabase
       .from("saved_searches")
-      .update({ last_checked_at: new Date().toISOString() })
+      .update({ last_checked_at: checkedAt })
       .eq("id", id)
       .eq("user_id", auth.user.id);
 
-    return NextResponse.json({ total: count ?? sampleIds.length, sampleIds });
+    return NextResponse.json({
+      ok: true,
+      savedSearchId: id,
+      matchCount,
+      checkedAt,
+    });
   }
 
   const updates: Record<string, unknown> = {};
