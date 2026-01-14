@@ -328,7 +328,7 @@ export default async function TenantWorkspace() {
       : "No upcoming viewings yet";
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 sm:px-6 lg:px-8">
+    <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4">
       <div className="space-y-4">
         <TenantHero
           name={fullName}
@@ -345,7 +345,7 @@ export default async function TenantWorkspace() {
               <Link
                 key={action.href}
                 href={action.href}
-                className="inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200/70 transition hover:ring-slate-300"
+                className="inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200/70 transition hover:ring-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2"
               >
                 {action.label}
               </Link>
@@ -363,7 +363,7 @@ export default async function TenantWorkspace() {
           description={
             hasSavedSearches
               ? "Listings that match your saved searches."
-              : "Save a search to get alerts when new homes match your needs."
+              : "Save a search and we'll alert you when new homes match."
           }
           helper={hasSavedSearches ? "Matches found" : null}
           cta={{
@@ -377,7 +377,7 @@ export default async function TenantWorkspace() {
           description={
             hasMessages
               ? "Keep the conversation moving with hosts."
-              : "Messages will appear here once you contact a host."
+              : "Messages let you chat with hosts about availability and viewings."
           }
           helper={messageHelper}
           cta={{
@@ -391,7 +391,7 @@ export default async function TenantWorkspace() {
           description={
             hasViewings
               ? "Track upcoming viewing requests."
-              : "Request a viewing from any listing to schedule a tour."
+              : "Request a viewing to schedule tours and keep details here."
           }
           helper={viewingHelper}
           cta={{

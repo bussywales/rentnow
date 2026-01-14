@@ -34,7 +34,7 @@ export function SavedSearchPreview({ searches }: SavedSearchPreviewProps) {
         {!limited.length && (
           <div className="rounded-xl bg-slate-50/80 px-4 py-6 text-center ring-1 ring-dashed ring-slate-200/70">
             <p className="text-sm font-semibold text-slate-900">
-              Save a search to get alerts when new homes match your needs.
+              Save a search and we'll alert you when new homes match.
             </p>
             <Link
               href="/properties"

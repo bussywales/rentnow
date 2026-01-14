@@ -1,6 +1,6 @@
 export default function TenantWorkspaceLoading() {
   return (
-    <div className="mx-auto flex max-w-7xl animate-pulse flex-col gap-8 px-4 sm:px-6 lg:px-8">
+    <div className="mx-auto flex max-w-6xl animate-pulse flex-col gap-8 px-4">
       <div className="rounded-3xl bg-slate-900 px-6 py-6 text-white shadow-lg ring-1 ring-white/10">
         <div className="h-3 w-32 rounded-full bg-slate-700/80" />
         <div className="mt-3 h-6 w-56 rounded-full bg-slate-700/80" />

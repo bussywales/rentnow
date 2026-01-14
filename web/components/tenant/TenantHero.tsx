@@ -8,10 +8,10 @@ type TenantHeroProps = {
 };
 
 function getFirstName(value?: string | null) {
-  if (!value) return "there";
+  if (!value) return null;
   const trimmed = value.trim();
-  if (!trimmed) return "there";
-  return trimmed.split(/\s+/)[0] ?? "there";
+  if (!trimmed) return null;
+  return trimmed.split(/\s+/)[0] ?? null;
 }
 
 export function TenantHero({
@@ -21,6 +21,7 @@ export function TenantHero({
   secondaryCta,
 }: TenantHeroProps) {
   const firstName = getFirstName(name);
+  const headline = firstName ? `Welcome back, ${firstName}` : "Welcome back";
   const searchCopy =
     savedSearchCount > 0
       ? `${savedSearchCount} saved search${savedSearchCount === 1 ? "" : "es"} active`
@@ -31,9 +32,7 @@ export function TenantHero({
       <p className="text-xs uppercase tracking-[0.3em] text-cyan-200/90">
         Tenant workspace
       </p>
-      <h1 className="mt-2 text-2xl font-semibold">
-        Welcome, {firstName}
-      </h1>
+      <h1 className="mt-2 text-2xl font-semibold">{headline}</h1>
       <p className="mt-2 text-sm text-slate-200">
         Track matches, message hosts, and line up viewings from one calm hub.
       </p>
@@ -46,7 +45,7 @@ export function TenantHero({
         </Link>
         <Link
           href={secondaryCta.href}
-          className="inline-flex items-center justify-center rounded-lg border border-white/30 px-4 py-2 text-sm font-semibold text-white/90 transition hover:border-white hover:bg-white/10"
+          className="inline-flex items-center justify-center rounded-lg border border-white/30 px-4 py-2 text-sm font-semibold text-white/90 transition hover:border-white hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
         >
           {secondaryCta.label}
         </Link>

@@ -1,5 +1,8 @@
 # Versions
 
+## 2026-01-20 — v1.7.79-r15.3-tenant-ux-gold-pass
+- R15.3 — Tenant UX Gold Pass.
+
 ## 2026-01-19 — v1.7.77-auth-server-session-fix
 - Moved login to a server route that writes HttpOnly auth cookies with canonical options.
 - Middleware refreshes sessions without clearing cookies; logout clears domain + host-only cookies.
