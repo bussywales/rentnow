@@ -192,33 +192,50 @@ export default async function PropertiesPage({ searchParams }: Props) {
     }
   }
 
+  const savedSearchNotice =
+    savedSearchId && savedSearchError
+      ? savedSearchError === "Supabase is not configured."
+        ? {
+            title: "Saved searches unavailable",
+            description: "Saved searches are unavailable right now. You can still browse all homes.",
+          }
+        : {
+            title: "Saved search unavailable",
+            description:
+              "We couldn't load that saved search. It may have been deleted, expired, or belongs to another account.",
+          }
+      : null;
+
   const filterChips = filtersToChips(filters);
   const hasFilters =
-    !!savedSearchId ||
+    !!savedSearch ||
     Object.values(filters).some((value) => {
       if (Array.isArray(value)) return value.length > 0;
       return value !== null && value !== undefined && value !== "";
     });
-  if (savedSearchId && savedSearchError) {
-    return (
-      <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
-        <ErrorState
-          title="Saved search not found"
-          description="We couldn't find that saved search. It may have been removed."
-          retryAction={
-            <Link href="/tenant/saved-searches">
-              <Button size="sm">Back to saved searches</Button>
-            </Link>
-          }
-        />
+  const savedSearchNoticeNode = savedSearchNotice ? (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 shadow-sm">
+      <p className="font-semibold">{savedSearchNotice.title}</p>
+      <p className="mt-1 text-amber-800">{savedSearchNotice.description}</p>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <Link href="/dashboard/saved-searches">
+          <Button size="sm" variant="secondary">
+            Back to saved searches
+          </Button>
+        </Link>
+        <Link href="/properties">
+          <Button size="sm">View all homes</Button>
+        </Link>
       </div>
-    );
-  }
+    </div>
+  ) : null;
   const showListCta = role && role !== "tenant";
   const apiBaseUrl = await getApiBaseUrl();
   const listParams = buildSearchParams(resolvedSearchParams, {
     page: String(page),
     pageSize: String(PAGE_SIZE),
+    savedSearchId: null,
+    source: null,
   });
   const apiUrl = `${apiBaseUrl}/api/properties?${listParams.toString()}`;
   const envPresence = getEnvPresence();
@@ -335,9 +352,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
   if (!properties.length) {
     if (savedSearchId && savedSearch) {
-      const editHref = `/tenant/saved-searches?edit=${savedSearch.id}`;
+      const editHref = `/dashboard/saved-searches`;
       return (
         <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
+          {savedSearchNoticeNode}
           <ErrorState
             title="No matches yet for this search"
             description="No homes match yet — try widening your filters."
@@ -351,12 +369,12 @@ export default async function PropertiesPage({ searchParams }: Props) {
       );
     }
     const emptyDescription = hasFilters
-      ? "No listings match your filters yet. Try clearing filters or browsing all listings."
-      : "No listings are available right now. Check back soon or browse all listings.";
+      ? "No homes match your filters yet. Try clearing filters or browsing all homes."
+      : "No homes are available right now. Check back soon or browse all homes.";
     const isFetchError = !!fetchError;
-    const title = isFetchError ? "Unable to load listings" : "No properties found";
+    const title = isFetchError ? "Unable to load homes" : "No properties found";
     const description = isFetchError
-      ? "We couldn't load listings right now. Please try again."
+      ? "We couldn't load homes right now. Please try again."
       : emptyDescription;
     const retryParams = buildSearchParams(resolvedSearchParams, {});
     const retryHref = retryParams.toString()
@@ -396,6 +414,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
     return (
       <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
+        {savedSearchNoticeNode}
         <ErrorState
           title={title}
           description={description}
@@ -449,11 +468,12 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
+      {savedSearchNoticeNode}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Properties</h1>
           <p className="text-sm text-slate-600">
-            Showing {properties.length} of {total} listings
+            Showing {properties.length} of {total} homes
             {filters.city ? ` in ${filters.city}` : ""}.
           </p>
         </div>
@@ -471,11 +491,18 @@ export default async function PropertiesPage({ searchParams }: Props) {
             Matches for "{savedSearch.name || "your saved search"}"
           </p>
           <p className="text-sm text-slate-600">
-            Showing homes that match your saved search.
+            Filters applied from your saved search.
           </p>
-          <Link href="/tenant/saved-searches" className="mt-2 inline-flex text-sm font-semibold text-sky-700">
-            Back to saved searches
-          </Link>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Link href="/dashboard/saved-searches">
+              <Button size="sm" variant="secondary">
+                Edit saved search
+              </Button>
+            </Link>
+            <Link href="/properties">
+              <Button size="sm">Clear filters</Button>
+            </Link>
+          </div>
         </div>
       )}
 

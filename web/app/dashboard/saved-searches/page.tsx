@@ -91,7 +91,7 @@ export default async function SavedSearchesPage() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Saved searches</h1>
         <p className="text-sm text-slate-600">
-          Edit saved filters and check new matches.
+          Edit saved searches and check for new home matches.
         </p>
       </div>
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">

@@ -4,6 +4,7 @@ import { HAS_SUPABASE_ENV } from "./helpers/env";
 const EMAIL = process.env.E2E_EMAIL || "";
 const PASSWORD = process.env.E2E_PASSWORD || "";
 const HAS_CREDS = !!EMAIL && !!PASSWORD;
+const UUID_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 test.describe("Saved search matches", () => {
   test("check matches routes to properties", async ({ page }) => {
@@ -25,5 +26,7 @@ test.describe("Saved search matches", () => {
     await checkButtons.first().click();
     await page.waitForURL(/\/properties\?(.+&)?savedSearchId=/, { timeout: 15_000 });
     await expect(page.getByText(/Matches for/i)).toBeVisible();
+    const bodyText = (await page.textContent("body")) || "";
+    expect(bodyText).not.toMatch(UUID_REGEX);
   });
 });

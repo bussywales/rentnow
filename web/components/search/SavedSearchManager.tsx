@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import type { SavedSearch } from "@/lib/types";
@@ -12,6 +13,8 @@ type Props = {
   initialSearches: SavedSearch[];
   alertsEnabled?: boolean;
 };
+
+const UUID_REGEX = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi;
 
 function formatSummary(search: SavedSearch) {
   const params = search.query_params || {};
@@ -36,6 +39,18 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
   const [nameDraft, setNameDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [checkingId, setCheckingId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(null), 3500);
+    return () => clearTimeout(timer);
+  }, [notice]);
+
+  const sanitizeError = (message: string, fallback: string) => {
+    const cleaned = message.replace(UUID_REGEX, "").replace(/\s{2,}/g, " ").trim();
+    return cleaned || fallback;
+  };
 
   const startEdit = (search: SavedSearch) => {
     setEditingId(search.id);
@@ -51,7 +66,7 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data?.error || "Unable to rename search.");
+      setError(sanitizeError(data?.error || "", "Unable to rename search."));
       return;
     }
     const data = await res.json().catch(() => ({}));
@@ -68,7 +83,7 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
     });
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
-      setError(data?.error || "Unable to delete search.");
+      setError(sanitizeError(data?.error || "", "Unable to delete search."));
       return;
     }
     setSearches((prev) => prev.filter((item) => item.id !== search.id));
@@ -76,41 +91,47 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
 
   const checkMatches = async (search: SavedSearch) => {
     setError(null);
+    setNotice(null);
     setCheckingId(search.id);
-    const res = await fetch(`/api/saved-searches/${search.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "check" }),
-    });
-    setCheckingId(null);
-    if (!res.ok) {
+    try {
+      const res = await fetch(`/api/saved-searches/${search.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "check" }),
+      });
       const data = await res.json().catch(() => ({}));
-      setError(data?.error || "Unable to check matches.");
-      return;
+      if (!res.ok) {
+        setNotice("We couldn't check matches. Please try again.");
+        return;
+      }
+      const matchCount =
+        typeof data?.matchCount === "number" ? data.matchCount : null;
+      const savedSearchId =
+        typeof data?.savedSearchId === "string" ? data.savedSearchId : search.id;
+      const checkedAt =
+        typeof data?.checkedAt === "string" ? data.checkedAt : null;
+      setSearches((prev) =>
+        prev.map((item) =>
+          item.id === search.id
+            ? { ...item, last_checked_at: checkedAt ?? new Date().toISOString() }
+            : item
+        )
+      );
+      const params = new URLSearchParams();
+      params.set("savedSearchId", savedSearchId);
+      params.set("source", "saved-search");
+      const message =
+        typeof matchCount === "number" && matchCount > 0
+          ? `Found ${matchCount} matches — opening homes...`
+          : "No matches yet — we'll show your saved search filters.";
+      const shouldCelebrate = typeof matchCount === "number" && matchCount > 0;
+      setToastQuery(params, message, shouldCelebrate ? "success" : "info");
+      router.push(`/properties?${params.toString()}`);
+    } catch {
+      setNotice("We couldn't check matches. Please try again.");
+    } finally {
+      setCheckingId(null);
     }
-    const data = await res.json().catch(() => ({}));
-    const matchCount =
-      typeof data?.matchCount === "number" ? data.matchCount : null;
-    const savedSearchId =
-      typeof data?.savedSearchId === "string" ? data.savedSearchId : search.id;
-    const checkedAt =
-      typeof data?.checkedAt === "string" ? data.checkedAt : null;
-    setSearches((prev) =>
-      prev.map((item) =>
-        item.id === search.id
-          ? { ...item, last_checked_at: checkedAt ?? new Date().toISOString() }
-          : item
-      )
-    );
-    const params = new URLSearchParams();
-    params.set("savedSearchId", savedSearchId);
-    params.set("source", "saved-search");
-    const message =
-      typeof matchCount === "number" && matchCount > 0
-        ? `Found ${matchCount} matches — showing them now`
-        : "No new matches — showing your saved results";
-    setToastQuery(params, message, matchCount && matchCount > 0 ? "success" : "info");
-    router.push(`/properties?${params.toString()}`);
   };
 
   if (!searches.length) {
@@ -131,6 +152,14 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
 
   return (
     <div className="space-y-3">
+      {notice && (
+        <Alert
+          title="Heads up"
+          description={notice}
+          variant="warning"
+          className="text-left"
+        />
+      )}
       {error && <p className="text-sm text-rose-600">{error}</p>}
       {searches.map((search) => (
         <div
@@ -176,7 +205,17 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
                 onClick={() => checkMatches(search)}
                 disabled={checkingId === search.id}
               >
-                {checkingId === search.id ? "Checking..." : "Check matches"}
+                {checkingId === search.id ? (
+                  <span className="inline-flex items-center gap-2">
+                    <span
+                      className="h-3 w-3 animate-spin rounded-full border border-slate-300 border-t-slate-700"
+                      aria-hidden="true"
+                    />
+                    Checking...
+                  </span>
+                ) : (
+                  "Check matches"
+                )}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => deleteSearch(search)}>
                 Delete
