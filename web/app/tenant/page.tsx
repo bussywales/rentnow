@@ -71,7 +71,7 @@ function buildActivityItems(input: {
       title: "New match alert",
       description: `We found a match for ${searchName}.`,
       timestamp: input.latestAlert.created_at,
-      href: "/dashboard/saved-searches",
+      href: "/tenant/saved-searches",
     });
   }
 
@@ -82,7 +82,7 @@ function buildActivityItems(input: {
       title: isSender ? "You messaged a host" : "New message from a host",
       description: truncate(input.latestMessage.body, 90),
       timestamp: input.latestMessage.created_at,
-      href: "/dashboard/messages",
+      href: "/tenant/messages",
     });
   }
 
@@ -95,7 +95,7 @@ function buildActivityItems(input: {
       title: "Viewing request",
       description: `Request${date} (${input.latestViewing.status ?? "pending"})`,
       timestamp: input.latestViewing.created_at,
-      href: "/dashboard/viewings",
+      href: "/tenant/viewings",
     });
   }
 
@@ -105,7 +105,7 @@ function buildActivityItems(input: {
       title: "Saved search created",
       description: input.latestSearch.name,
       timestamp: input.latestSearch.created_at,
-      href: "/dashboard/saved-searches",
+      href: "/tenant/saved-searches",
     });
   }
 
@@ -257,13 +257,13 @@ export default async function TenantWorkspace() {
   const fallbackActivity: ActivityItem[] = [
     {
       id: "activity-search",
-      title: "Save a search to track new listings",
+      title: "Save a search to track new homes",
       description: "Browse homes and save your filters for automatic alerts.",
       href: "/properties",
     },
     {
       id: "activity-message",
-      title: "Message a host directly from a listing",
+      title: "Message a host directly from a home",
       description: "Ask about availability, pricing, and viewing times.",
       href: "/properties",
     },
@@ -271,19 +271,19 @@ export default async function TenantWorkspace() {
       id: "activity-viewing",
       title: "Request a viewing when you find a match",
       description: "Schedule tours and keep everything in one place.",
-      href: "/dashboard/viewings",
+      href: "/tenant/viewings",
     },
   ];
 
   const hasSavedSearches = savedSearchCount > 0;
   const primaryCta = hasSavedSearches
-    ? { href: "/dashboard/saved-searches", label: "View matching listings" }
+    ? { href: "/tenant/saved-searches", label: "View matching homes" }
     : { href: "/properties", label: "Create saved search" };
   const secondaryCta = { href: "/properties", label: "Browse homes" };
   const quickActions = [
     { href: "/properties", label: "Browse homes" },
-    { href: "/dashboard/saved-searches", label: "View saved searches" },
-    { href: "/dashboard/messages", label: "View messages" },
+    { href: "/tenant/saved-searches", label: "Saved searches" },
+    { href: "/tenant/messages", label: "Messages" },
   ];
 
   const progressSteps = [
@@ -320,15 +320,15 @@ export default async function TenantWorkspace() {
   const hasViewings = (viewingCount ?? 0) > 0 || !!upcomingViewing;
   const viewingValue = formatCount(upcomingViewing ? 1 : viewingCount);
   const viewingHelper = upcomingViewing?.preferred_date
-      ? `Next: ${upcomingViewing.preferred_date}${
-        upcomingViewing.preferred_time_window
-          ? ` | ${upcomingViewing.preferred_time_window}`
-          : ""
-      }`
-      : "No upcoming viewings yet";
+    ? `Next: ${upcomingViewing.preferred_date}${
+      upcomingViewing.preferred_time_window
+        ? ` | ${upcomingViewing.preferred_time_window}`
+        : ""
+    }`
+    : "No upcoming viewings yet";
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4">
+    <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 sm:px-6 lg:px-8">
       <div className="space-y-4">
         <TenantHero
           name={fullName}
@@ -336,16 +336,16 @@ export default async function TenantWorkspace() {
           primaryCta={primaryCta}
           secondaryCta={secondaryCta}
         />
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
             Quick actions
           </p>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-3">
             {quickActions.map((action) => (
               <Link
                 key={action.href}
                 href={action.href}
-                className="inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200/70 transition hover:ring-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2"
+                className="font-semibold text-sky-700 transition hover:text-sky-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2"
               >
                 {action.label}
               </Link>
@@ -362,13 +362,13 @@ export default async function TenantWorkspace() {
           value={hasSavedSearches ? formatCount(matchCount) : "-"}
           description={
             hasSavedSearches
-              ? "Listings that match your saved searches."
-              : "Save a search and we'll alert you when new homes match."
+              ? "Homes that match your saved searches."
+              : "No saved searches yet — save one to get instant match updates."
           }
           helper={hasSavedSearches ? "Matches found" : null}
           cta={{
-            href: hasSavedSearches ? "/dashboard/saved-searches" : "/properties",
-            label: hasSavedSearches ? "View saved searches" : "Create saved search",
+            href: hasSavedSearches ? "/tenant/saved-searches" : "/properties",
+            label: hasSavedSearches ? "Edit saved searches" : "Create saved search",
           }}
         />
         <SummaryCard
@@ -377,11 +377,11 @@ export default async function TenantWorkspace() {
           description={
             hasMessages
               ? "Keep the conversation moving with hosts."
-              : "Messages let you chat with hosts about availability and viewings."
+              : "No messages yet — you'll see conversations here after you contact a property owner."
           }
           helper={messageHelper}
           cta={{
-            href: hasMessages ? "/dashboard/messages" : "/properties",
+            href: hasMessages ? "/tenant/messages" : "/properties",
             label: hasMessages ? "View messages" : "Browse homes",
           }}
         />
@@ -391,11 +391,11 @@ export default async function TenantWorkspace() {
           description={
             hasViewings
               ? "Track upcoming viewing requests."
-              : "Request a viewing to schedule tours and keep details here."
+              : "No viewings yet — request a viewing from any home you like."
           }
           helper={viewingHelper}
           cta={{
-            href: hasViewings ? "/dashboard/viewings" : "/properties",
+            href: hasViewings ? "/tenant/viewings" : "/properties",
             label: hasViewings ? "Review viewings" : "Browse homes",
           }}
         />

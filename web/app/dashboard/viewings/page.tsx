@@ -88,7 +88,7 @@ export default async function ViewingsPage() {
         <ErrorState
           title="Viewing requests unavailable"
           description={fetchError}
-          retryHref="/dashboard/viewings"
+          retryHref="/tenant/viewings"
         />
       </div>
     );

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import type { SavedSearch } from "@/lib/types";
@@ -25,7 +26,7 @@ function formatSummary(search: SavedSearch) {
       `Price ${params.minPrice ?? "min"}-${params.maxPrice ?? "max"}`
     );
   }
-  return parts.length ? parts.join(" • ") : "All listings";
+  return parts.length ? parts.join(" • ") : "All homes";
 }
 
 export function SavedSearchManager({ initialSearches, alertsEnabled = false }: Props) {
@@ -115,10 +116,15 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
   if (!searches.length) {
     return (
       <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
-        <p className="text-base font-semibold text-slate-900">No saved searches yet</p>
-        <p className="mt-1 text-sm text-slate-600">
-          Save a search from the browse page to build alert foundations.
+        <p className="text-base font-semibold text-slate-900">
+          No saved searches yet — save one to get instant match updates.
         </p>
+        <Link
+          href="/properties"
+          className="mt-3 inline-flex text-sm font-semibold text-sky-700 transition hover:text-sky-800"
+        >
+          Browse homes
+        </Link>
       </div>
     );
   }

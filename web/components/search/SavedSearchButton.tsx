@@ -55,7 +55,7 @@ export function SavedSearchButton({ filters }: Props) {
         if (typeof data?.code === "string") setReasonCode(data.code);
         throw new Error(data?.error || "Unable to save search.");
       }
-      setSuccess("Saved! You can manage alerts in your dashboard.");
+      setSuccess("Saved! You can edit alerts in your saved searches.");
       setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save search.");
@@ -79,7 +79,7 @@ export function SavedSearchButton({ filters }: Props) {
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-slate-900">Save search</h3>
               <p className="text-sm text-slate-600">
-                Give this search a name so you can track new listings later.
+                Give this search a name so you can track new homes later.
               </p>
             </div>
             <div className="mt-4 space-y-2">
@@ -109,7 +109,7 @@ export function SavedSearchButton({ filters }: Props) {
                   </Link>
                 )}
                 {reasonCode === "limit_reached" && (
-                  <Link href="/dashboard/billing#plans" className="underline">
+                  <Link href="/tenant/billing#plans" className="underline">
                     Upgrade to Tenant Pro
                   </Link>
                 )}

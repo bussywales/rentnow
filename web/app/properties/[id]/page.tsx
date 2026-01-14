@@ -636,7 +636,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             {isTenant && !isTenantPro && (
               <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-900">
                 Upgrade to Tenant Pro for priority contact and instant alerts.{" "}
-                <Link href="/dashboard/billing#plans" className="font-semibold underline">
+                <Link href="/tenant/billing#plans" className="font-semibold underline">
                   View plans
                 </Link>
               </div>

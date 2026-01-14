@@ -65,7 +65,7 @@ export default async function MessagesPage() {
         <ErrorState
           title="Messages unavailable"
           description={fetchError}
-          retryHref="/dashboard/messages"
+          retryHref="/tenant/messages"
         />
       </div>
     );
@@ -76,7 +76,7 @@ export default async function MessagesPage() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Messages</h1>
         <p className="text-sm text-slate-600">
-          Chat with tenants about availability, pricing, and viewings.
+          Chat about availability, pricing, and viewings.
         </p>
         {demoMode && (
           <p className="mt-2 text-sm text-amber-700">

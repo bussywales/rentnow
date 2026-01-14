@@ -206,7 +206,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
           title="Saved search not found"
           description="We couldn't find that saved search. It may have been removed."
           retryAction={
-            <Link href="/dashboard/saved-searches">
+            <Link href="/tenant/saved-searches">
               <Button size="sm">Back to saved searches</Button>
             </Link>
           }
@@ -335,12 +335,12 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
   if (!properties.length) {
     if (savedSearchId && savedSearch) {
-      const editHref = `/dashboard/saved-searches?edit=${savedSearch.id}`;
+      const editHref = `/tenant/saved-searches?edit=${savedSearch.id}`;
       return (
         <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
           <ErrorState
             title="No matches yet for this search"
-            description="Try widening your filters."
+            description="No homes match yet — try widening your filters."
             retryAction={
               <Link href={editHref}>
                 <Button size="sm">Edit saved search</Button>
@@ -473,7 +473,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
           <p className="text-sm text-slate-600">
             Showing homes that match your saved search.
           </p>
-          <Link href="/dashboard/saved-searches" className="mt-2 inline-flex text-sm font-semibold text-sky-700">
+          <Link href="/tenant/saved-searches" className="mt-2 inline-flex text-sm font-semibold text-sky-700">
             Back to saved searches
           </Link>
         </div>
@@ -485,9 +485,9 @@ export default async function PropertiesPage({ searchParams }: Props) {
         <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-700">
           <p className="font-semibold text-slate-900">Upgrade for instant alerts</p>
           <p className="mt-1 text-sm text-slate-600">
-            Tenant Pro unlocks unlimited saved searches and faster access to new listings.
+            Tenant Pro unlocks unlimited saved searches and faster access to new homes.
           </p>
-          <Link href="/dashboard/billing#plans" className="mt-2 inline-flex text-sm font-semibold text-sky-700">
+          <Link href="/tenant/billing#plans" className="mt-2 inline-flex text-sm font-semibold text-sky-700">
             View Tenant Pro
           </Link>
         </div>

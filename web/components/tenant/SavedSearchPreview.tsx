@@ -16,7 +16,7 @@ function formatSummary(search: SavedSearch) {
   if (typeof params.minPrice === "number" || typeof params.maxPrice === "number") {
     parts.push(`Price ${params.minPrice ?? "min"}-${params.maxPrice ?? "max"}`);
   }
-  return parts.length ? parts.join(" - ") : "All listings";
+  return parts.length ? parts.join(" - ") : "All homes";
 }
 
 export function SavedSearchPreview({ searches }: SavedSearchPreviewProps) {
@@ -26,15 +26,15 @@ export function SavedSearchPreview({ searches }: SavedSearchPreviewProps) {
     <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-slate-900">Saved searches</p>
-        <Link href="/dashboard/saved-searches" className="text-xs font-semibold text-sky-700">
-          Manage
+        <Link href="/tenant/saved-searches" className="text-xs font-semibold text-sky-700">
+          Edit
         </Link>
       </div>
       <div className="mt-4 space-y-3">
         {!limited.length && (
           <div className="rounded-xl bg-slate-50/80 px-4 py-6 text-center ring-1 ring-dashed ring-slate-200/70">
             <p className="text-sm font-semibold text-slate-900">
-              Save a search and we'll alert you when new homes match.
+              No saved searches yet — save one to get instant match updates.
             </p>
             <Link
               href="/properties"
@@ -53,13 +53,13 @@ export function SavedSearchPreview({ searches }: SavedSearchPreviewProps) {
             <p className="text-xs text-slate-600">{formatSummary(search)}</p>
             <div className="mt-2 flex items-center gap-3 text-xs font-semibold text-slate-600">
               <Link
-                href={`/dashboard/saved-searches?edit=${search.id}`}
+                href={`/tenant/saved-searches?edit=${search.id}`}
                 className="transition hover:text-slate-800"
               >
                 Edit
               </Link>
               <Link
-                href={`/dashboard/saved-searches?pause=${search.id}`}
+                href={`/tenant/saved-searches?pause=${search.id}`}
                 className="transition hover:text-slate-800"
               >
                 Pause

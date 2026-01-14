@@ -16,7 +16,7 @@ const links: Array<{
   { href: "/properties", label: "Browse" },
   { href: "/favourites", label: "Saved", requireAuth: true },
   {
-    href: "/dashboard/saved-searches",
+    href: "/tenant/saved-searches",
     label: "Saved searches",
     requireAuth: true,
     requireRole: "tenant",

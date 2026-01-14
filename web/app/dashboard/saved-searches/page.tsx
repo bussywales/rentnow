@@ -46,11 +46,11 @@ export default async function SavedSearchesPage() {
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold text-slate-900">Saved searches</h1>
         <p className="text-sm text-slate-600">
-          Saved searches are available to tenants. Browse listings to find your next home.
+          Saved searches are available to tenants. Browse homes to find your next place.
         </p>
         <div className="flex flex-wrap items-center gap-3 text-sm">
           <Link href="/properties" className="font-semibold text-sky-700">
-            Browse listings
+            Browse homes
           </Link>
           <Link href="/dashboard" className="font-semibold text-slate-600">
             Back to dashboard
@@ -91,7 +91,7 @@ export default async function SavedSearchesPage() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Saved searches</h1>
         <p className="text-sm text-slate-600">
-          Manage saved filters and check new matches.
+          Edit saved filters and check new matches.
         </p>
       </div>
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -99,7 +99,7 @@ export default async function SavedSearchesPage() {
         <p className="text-xs text-slate-600">
           {alertsEnabled
             ? "Instant alerts are enabled for your saved searches."
-            : "Upgrade to Tenant Pro to get instant alerts for new listings."}
+            : "Upgrade to Tenant Pro to get instant alerts for new homes."}
         </p>
         {!pushConfig.configured ? (
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
@@ -120,7 +120,7 @@ export default async function SavedSearchesPage() {
         </div>
         {!alertsEnabled && (
           <Link
-            href="/dashboard/billing#plans"
+            href="/tenant/billing#plans"
             className="mt-3 inline-flex text-sm font-semibold text-sky-700"
           >
             View Tenant Pro
