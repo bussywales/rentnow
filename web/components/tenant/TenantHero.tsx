@@ -40,7 +40,7 @@ export function TenantHero({
       <div className="mt-5 flex flex-wrap items-center gap-3">
         <Link
           href={primaryCta.href}
-          className="inline-flex items-center justify-center rounded-lg bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm transition hover:bg-slate-100"
+          className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
         >
           {primaryCta.label}
         </Link>
