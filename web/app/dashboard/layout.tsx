@@ -5,6 +5,7 @@ import { getProfile, getSession } from "@/lib/auth";
 import { formatRoleLabel, normalizeRole } from "@/lib/roles";
 import { canManageListings, shouldShowSavedSearchNav } from "@/lib/role-access";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { ActingAsSelector } from "@/components/dashboard/ActingAsSelector";
@@ -19,6 +20,7 @@ export default async function DashboardLayout({
   if (supabaseReady) {
     const session = await getSession();
     if (!session) {
+      logAuthRedirect("/dashboard");
       redirect("/auth/login?reason=auth");
     }
     profile = await getProfile();

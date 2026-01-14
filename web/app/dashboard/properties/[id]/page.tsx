@@ -4,6 +4,7 @@ import { PropertyStepper } from "@/components/properties/PropertyStepper";
 import { getApiBaseUrl } from "@/lib/env";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { resolveServerRole } from "@/lib/auth/role";
+import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import { canManageListings } from "@/lib/role-access";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
@@ -159,6 +160,7 @@ function resolveStep(searchParams?: Props["searchParams"]) {
 export default async function EditPropertyPage({ params, searchParams }: Props) {
   const { user, role } = await resolveServerRole();
   if (!user) {
+    logAuthRedirect("/dashboard/properties/[id]");
     redirect("/auth/login?reason=auth");
   }
   if (!role) {

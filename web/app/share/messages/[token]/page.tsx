@@ -5,6 +5,7 @@ import { getShareStatusCopy, type ShareLinkStatus } from "@/lib/messaging/share"
 import { logShareAccess } from "@/lib/messaging/share-logging";
 import { mapDeliveryState } from "@/lib/messaging/status";
 import { getServerAuthUser } from "@/lib/auth/server-session";
+import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import type { Message } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +29,7 @@ export default async function ShareMessagesPage({ params }: Props) {
 
   if (!user) {
     logShareAccess({ result: "unauthenticated" });
+    logAuthRedirect(sharePath);
     redirect(`/auth/login?reason=auth&next=${encodeURIComponent(sharePath)}`);
   }
 

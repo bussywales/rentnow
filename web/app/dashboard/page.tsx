@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { resolveServerRole } from "@/lib/auth/role";
+import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ export default async function DashboardRouter() {
   const { user, role } = await resolveServerRole();
 
   if (!user) {
+    logAuthRedirect("/dashboard");
     redirect("/auth/login?reason=auth");
   }
 

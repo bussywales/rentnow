@@ -14,7 +14,7 @@
     "start": "next start",
     "lint": "eslint",
     "lint:ci": "node ./scripts/run-lint-ci.mjs",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "test": "tsx --test tests/unit/*.test.ts",
     "setup": "npm install && npx playwright install --with-deps",
     "test:e2e": "playwright test",

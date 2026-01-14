@@ -15,6 +15,7 @@ import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { normalizePlanTier, type PlanTier } from "@/lib/plans";
+import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 
 export const dynamic = "force-dynamic";
 
@@ -74,6 +75,7 @@ export default async function BillingPage() {
 
   const profile = await getProfile();
   if (!profile) {
+    logAuthRedirect("/dashboard/billing");
     redirect("/auth/login?reason=auth");
   }
   const normalizedRole = normalizeRole(profile.role);

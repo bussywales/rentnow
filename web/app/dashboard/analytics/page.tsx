@@ -10,6 +10,7 @@ import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { fetchUserRole } from "@/lib/auth/role";
+import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,7 @@ export default async function DashboardAnalyticsPage({ searchParams }: Analytics
   const { supabase, user } = await getServerAuthUser();
 
   if (!user) {
+    logAuthRedirect("/dashboard/analytics");
     redirect("/auth/login?reason=auth");
   }
 

@@ -17,7 +17,9 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       {
-        source: "/:path*",
+        // Do not remove; protects auth cookies across hostnames.
+        source:
+          "/:path((?!api|_next|favicon.ico|robots.txt|sitemap.xml).*)",
         has: [
           {
             type: "host",

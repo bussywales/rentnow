@@ -10,6 +10,7 @@ import { normalizeRole } from "@/lib/roles";
 import { shouldShowSavedSearchNav } from "@/lib/role-access";
 import { getPushConfigStatus } from "@/lib/push/config";
 import type { SavedSearch } from "@/lib/types";
+import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,7 @@ export default async function SavedSearchesPage() {
   const { supabase, user } = await getServerAuthUser();
 
   if (!user) {
+    logAuthRedirect("/dashboard/saved-searches");
     redirect("/auth/login?reason=auth");
   }
 

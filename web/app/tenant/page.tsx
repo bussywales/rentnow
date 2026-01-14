@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { resolveServerRole } from "@/lib/auth/role";
+import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { SavedSearch } from "@/lib/types";
 import { ActivityFeed } from "@/components/tenant/ActivityFeed";
@@ -132,6 +133,7 @@ export default async function TenantWorkspace() {
   const { supabase, user, role } = await resolveServerRole();
 
   if (!user) {
+    logAuthRedirect("/tenant");
     redirect("/auth/login?reason=auth");
   }
 
