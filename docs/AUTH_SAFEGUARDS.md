@@ -48,6 +48,15 @@ cd web
 npx playwright install --with-deps
 ```
 
+## GitHub Actions workflow
+
+Workflows must live at `.github/workflows/` in the repo root to be detected by GitHub Actions.
+
+Required secrets (GitHub repo → Settings → Secrets and variables → Actions):
+- `PLAYWRIGHT_BASE_URL`
+- `E2E_EMAIL`
+- `E2E_PASSWORD`
+
 ## Canonical domain redirect
 
 Apex requests (`https://rentnow.space`) redirect to `https://www.rentnow.space` for all
