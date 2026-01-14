@@ -32,6 +32,22 @@ If Playwright was just installed or updated, run `npx playwright install --with-
 
 If credentials are missing, the test skips with a clear message.
 
+## Local sanity checks
+
+CI runs Node 20.9.0. Before running builds/tests locally:
+
+```bash
+cd web
+npm run doctor
+```
+
+If Playwright browsers are missing, install them with:
+
+```bash
+cd web
+npx playwright install --with-deps
+```
+
 ## Canonical domain redirect
 
 Apex requests (`https://rentnow.space`) redirect to `https://www.rentnow.space` for all

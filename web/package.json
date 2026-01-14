@@ -15,6 +15,7 @@
     "lint": "eslint",
     "lint:ci": "node ./scripts/run-lint-ci.mjs",
     "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
+    "doctor": "node ./scripts/doctor.mjs",
     "test": "tsx --test tests/unit/*.test.ts",
     "setup": "npm install && npx playwright install --with-deps",
     "test:e2e": "playwright test",
