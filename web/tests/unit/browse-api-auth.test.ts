@@ -8,7 +8,7 @@ void test("browse API fetch forwards cookies when available", () => {
   const contents = fs.readFileSync(pagePath, "utf8");
 
   assert.ok(
-    contents.includes("cookies().toString()"),
+    contents.includes("await cookies()"),
     "expected browse page to build cookie header"
   );
   assert.ok(

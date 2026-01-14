@@ -44,7 +44,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
   try {
     const apiBaseUrl = await getApiBaseUrl();
     const listUrl = `${apiBaseUrl}/api/properties?scope=own`;
-    const cookieHeader = cookies().toString();
+    const cookieHeader = (await cookies()).toString();
     const listRes = await fetch(listUrl, {
       cache: "no-store",
       headers: cookieHeader ? { cookie: cookieHeader } : undefined,

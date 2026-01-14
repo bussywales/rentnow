@@ -289,7 +289,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     } else if (hasFilters) {
       fetchError = fetchError ?? "Supabase env vars missing; live filtering is unavailable.";
     } else {
-      const cookieHeader = cookies().toString();
+      const cookieHeader = (await cookies()).toString();
       const apiRes = await fetch(apiUrl, {
         ...(cookieHeader ? { cache: "no-store" } : { next: { revalidate: 60 } }),
         headers: cookieHeader ? { cookie: cookieHeader } : undefined,
