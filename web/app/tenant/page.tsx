@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { resolveServerRole } from "@/lib/auth/role";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
@@ -279,6 +280,11 @@ export default async function TenantWorkspace() {
     ? { href: "/dashboard/saved-searches", label: "View matching listings" }
     : { href: "/properties", label: "Create saved search" };
   const secondaryCta = { href: "/properties", label: "Browse homes" };
+  const quickActions = [
+    { href: "/properties", label: "Browse homes" },
+    { href: "/dashboard/saved-searches", label: "View saved searches" },
+    { href: "/dashboard/messages", label: "View messages" },
+  ];
 
   const progressSteps = [
     {
@@ -305,11 +311,13 @@ export default async function TenantWorkspace() {
     unreadCount !== null && unreadCount > 0
       ? formatCount(unreadCount)
       : formatCount(messageCount);
+  const hasMessages = (messageCount ?? 0) > 0;
   const messageHelper =
     unreadCount !== null && unreadCount > 0
       ? "Unread messages"
       : "Total conversations";
 
+  const hasViewings = (viewingCount ?? 0) > 0 || !!upcomingViewing;
   const viewingValue = formatCount(upcomingViewing ? 1 : viewingCount);
   const viewingHelper = upcomingViewing?.preferred_date
       ? `Next: ${upcomingViewing.preferred_date}${
@@ -317,27 +325,45 @@ export default async function TenantWorkspace() {
           ? ` | ${upcomingViewing.preferred_time_window}`
           : ""
       }`
-      : "No upcoming viewings scheduled";
+      : "No upcoming viewings yet";
 
   return (
-    <div className="space-y-6">
-      <TenantHero
-        name={fullName}
-        savedSearchCount={savedSearchCount}
-        primaryCta={primaryCta}
-        secondaryCta={secondaryCta}
-      />
+    <div className="mx-auto flex max-w-7xl flex-col gap-8 px-4 sm:px-6 lg:px-8">
+      <div className="space-y-4">
+        <TenantHero
+          name={fullName}
+          savedSearchCount={savedSearchCount}
+          primaryCta={primaryCta}
+          secondaryCta={secondaryCta}
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+            Quick actions
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {quickActions.map((action) => (
+              <Link
+                key={action.href}
+                href={action.href}
+                className="inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200/70 transition hover:ring-slate-300"
+              >
+                {action.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
 
       <TenantProgress steps={progressSteps} />
 
       <div className="grid gap-4 md:grid-cols-3">
         <SummaryCard
-          title="Saved searches"
+          title="New matches"
           value={hasSavedSearches ? formatCount(matchCount) : "-"}
           description={
             hasSavedSearches
-              ? "New matches from your saved searches."
-              : "Create a saved search to see matches."
+              ? "Listings that match your saved searches."
+              : "Save a search to get alerts when new homes match your needs."
           }
           helper={hasSavedSearches ? "Matches found" : null}
           cta={{
@@ -348,16 +374,30 @@ export default async function TenantWorkspace() {
         <SummaryCard
           title="Messages"
           value={messageValue}
-          description="Stay in touch with hosts."
+          description={
+            hasMessages
+              ? "Keep the conversation moving with hosts."
+              : "Messages will appear here once you contact a host."
+          }
           helper={messageHelper}
-          cta={{ href: "/dashboard/messages", label: "Open messages" }}
+          cta={{
+            href: hasMessages ? "/dashboard/messages" : "/properties",
+            label: hasMessages ? "View messages" : "Browse homes",
+          }}
         />
         <SummaryCard
           title="Viewings"
           value={viewingValue}
-          description="Track upcoming viewing requests."
+          description={
+            hasViewings
+              ? "Track upcoming viewing requests."
+              : "Request a viewing from any listing to schedule a tour."
+          }
           helper={viewingHelper}
-          cta={{ href: "/dashboard/viewings", label: "Review viewings" }}
+          cta={{
+            href: hasViewings ? "/dashboard/viewings" : "/properties",
+            label: hasViewings ? "Review viewings" : "Browse homes",
+          }}
         />
       </div>
 

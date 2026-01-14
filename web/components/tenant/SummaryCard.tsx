@@ -16,7 +16,7 @@ export function SummaryCard({
   cta,
 }: SummaryCardProps) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
       <p className="text-sm font-semibold text-slate-900">{title}</p>
       <p className="mt-2 text-3xl font-semibold text-slate-900">{value}</p>
       <p className="mt-1 text-sm text-slate-600">{description}</p>
@@ -24,7 +24,7 @@ export function SummaryCard({
       {cta && (
         <Link
           href={cta.href}
-          className="mt-3 inline-flex text-sm font-semibold text-sky-700"
+          className="mt-4 inline-flex text-sm font-semibold text-sky-700 transition hover:text-sky-800"
         >
           {cta.label}
         </Link>

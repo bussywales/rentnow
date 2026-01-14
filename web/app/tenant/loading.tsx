@@ -1,7 +1,7 @@
 export default function TenantWorkspaceLoading() {
   return (
-    <div className="space-y-6 animate-pulse">
-      <div className="rounded-3xl border border-slate-200 bg-slate-900 px-6 py-6 text-white shadow-lg">
+    <div className="mx-auto flex max-w-7xl animate-pulse flex-col gap-8 px-4 sm:px-6 lg:px-8">
+      <div className="rounded-3xl bg-slate-900 px-6 py-6 text-white shadow-lg ring-1 ring-white/10">
         <div className="h-3 w-32 rounded-full bg-slate-700/80" />
         <div className="mt-3 h-6 w-56 rounded-full bg-slate-700/80" />
         <div className="mt-2 h-4 w-72 rounded-full bg-slate-700/70" />
@@ -11,13 +11,13 @@ export default function TenantWorkspaceLoading() {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
         <div className="h-4 w-32 rounded-full bg-slate-200" />
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
             <div
               key={`progress-${index}`}
-              className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"
+              className="rounded-xl bg-slate-50/80 px-4 py-3 ring-1 ring-slate-200/60"
             >
               <div className="h-3 w-24 rounded-full bg-slate-200" />
               <div className="mt-2 h-2 w-32 rounded-full bg-slate-200" />
@@ -30,7 +30,7 @@ export default function TenantWorkspaceLoading() {
         {Array.from({ length: 3 }).map((_, index) => (
           <div
             key={`summary-${index}`}
-            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+            className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70"
           >
             <div className="h-3 w-28 rounded-full bg-slate-200" />
             <div className="mt-3 h-7 w-20 rounded-full bg-slate-200" />
@@ -41,13 +41,13 @@ export default function TenantWorkspaceLoading() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
           <div className="h-3 w-32 rounded-full bg-slate-200" />
           <div className="mt-3 space-y-3">
             {Array.from({ length: 3 }).map((_, index) => (
               <div
                 key={`activity-${index}`}
-                className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"
+                className="rounded-xl bg-slate-50/80 px-4 py-3 ring-1 ring-slate-200/60"
               >
                 <div className="h-3 w-40 rounded-full bg-slate-200" />
                 <div className="mt-2 h-2 w-48 rounded-full bg-slate-200" />
@@ -55,13 +55,13 @@ export default function TenantWorkspaceLoading() {
             ))}
           </div>
         </div>
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
           <div className="h-3 w-28 rounded-full bg-slate-200" />
           <div className="mt-3 space-y-3">
             {Array.from({ length: 2 }).map((_, index) => (
               <div
                 key={`search-${index}`}
-                className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"
+                className="rounded-xl bg-slate-50/80 px-4 py-3 ring-1 ring-slate-200/60"
               >
                 <div className="h-3 w-32 rounded-full bg-slate-200" />
                 <div className="mt-2 h-2 w-40 rounded-full bg-slate-200" />

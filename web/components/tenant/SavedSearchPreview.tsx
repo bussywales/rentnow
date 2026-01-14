@@ -23,40 +23,47 @@ export function SavedSearchPreview({ searches }: SavedSearchPreviewProps) {
   const limited = searches.slice(0, 3);
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-slate-900">Saved searches</p>
         <Link href="/dashboard/saved-searches" className="text-xs font-semibold text-sky-700">
           Manage
         </Link>
       </div>
-      <div className="mt-3 space-y-3">
+      <div className="mt-4 space-y-3">
         {!limited.length && (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
+          <div className="rounded-xl bg-slate-50/80 px-4 py-6 text-center ring-1 ring-dashed ring-slate-200/70">
             <p className="text-sm font-semibold text-slate-900">
-              Save a search to get match alerts
-            </p>
-            <p className="mt-1 text-xs text-slate-600">
-              Create your first saved search from the browse page.
+              Save a search to get alerts when new homes match your needs.
             </p>
             <Link
               href="/properties"
-              className="mt-3 inline-flex text-xs font-semibold text-sky-700"
+              className="mt-3 inline-flex text-sm font-semibold text-sky-700 transition hover:text-sky-800"
             >
-              Browse homes
+              Create saved search
             </Link>
           </div>
         )}
         {limited.map((search) => (
           <div
             key={search.id}
-            className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"
+            className="rounded-xl bg-slate-50/80 px-4 py-3 ring-1 ring-slate-200/60"
           >
             <p className="text-sm font-semibold text-slate-900">{search.name}</p>
             <p className="text-xs text-slate-600">{formatSummary(search)}</p>
             <div className="mt-2 flex items-center gap-3 text-xs font-semibold text-slate-600">
-              <Link href={`/dashboard/saved-searches?edit=${search.id}`}>Edit</Link>
-              <Link href={`/dashboard/saved-searches?pause=${search.id}`}>Pause</Link>
+              <Link
+                href={`/dashboard/saved-searches?edit=${search.id}`}
+                className="transition hover:text-slate-800"
+              >
+                Edit
+              </Link>
+              <Link
+                href={`/dashboard/saved-searches?pause=${search.id}`}
+                className="transition hover:text-slate-800"
+              >
+                Pause
+              </Link>
             </div>
           </div>
         ))}

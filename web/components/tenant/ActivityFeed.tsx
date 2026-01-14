@@ -26,20 +26,23 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
   const hasItems = items.length > 0;
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-slate-900">Recent activity</p>
         <span className="text-xs text-slate-500">Last 30 days</span>
       </div>
-      <div className="mt-3 space-y-3">
+      <div className="mt-4 space-y-3">
         {!hasItems && (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-center">
+          <div className="rounded-xl bg-slate-50/80 px-4 py-6 text-center ring-1 ring-dashed ring-slate-200/70">
             <p className="text-sm font-semibold text-slate-900">
-              No activity yet
+              Browse homes and save a search to start seeing activity.
             </p>
-            <p className="mt-1 text-xs text-slate-600">
-              Browse listings or save a search to get things moving.
-            </p>
+            <Link
+              href="/properties"
+              className="mt-3 inline-flex text-sm font-semibold text-sky-700 transition hover:text-sky-800"
+            >
+              Browse homes
+            </Link>
           </div>
         )}
         {items.map((item) => {
@@ -63,7 +66,7 @@ export function ActivityFeed({ items }: ActivityFeedProps) {
           return (
             <div
               key={item.id}
-              className="rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"
+              className="rounded-xl bg-slate-50/80 px-4 py-3 ring-1 ring-slate-200/60"
             >
               {item.href ? (
                 <Link href={item.href} className="block">

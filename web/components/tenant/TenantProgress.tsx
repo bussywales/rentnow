@@ -17,9 +17,9 @@ function resolveStatus(steps: ProgressStep[], index: number) {
 
 export function TenantProgress({ steps }: TenantProgressProps) {
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="rounded-2xl bg-white p-5 shadow-sm ring-1 ring-slate-200/70">
       <p className="text-sm font-semibold text-slate-900">Your progress</p>
-      <div className="mt-3 grid gap-3 md:grid-cols-3">
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
         {steps.map((step, index) => {
           const status = resolveStatus(steps, index);
           const badgeStyles =
@@ -38,7 +38,7 @@ export function TenantProgress({ steps }: TenantProgressProps) {
           return (
             <div
               key={step.label}
-              className="flex items-center justify-between rounded-xl border border-slate-100 bg-slate-50 px-4 py-3"
+              className="flex items-center justify-between rounded-xl bg-slate-50/80 px-4 py-3 ring-1 ring-slate-200/60"
             >
               <div>
                 <p className={`text-sm font-semibold ${titleStyles}`}>
