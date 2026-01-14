@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
-import ViewingsPage, { dynamic } from "../../dashboard/viewings/page";
+import ViewingsPage from "../../dashboard/viewings/page";
 import { resolveServerRole } from "@/lib/auth/role";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 
-export { dynamic };
+export const dynamic = "force-dynamic";
 
 export default async function TenantViewingsPage() {
   if (hasServerSupabaseEnv()) {

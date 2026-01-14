@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
-import MessagesPage, { dynamic } from "../../dashboard/messages/page";
+import MessagesPage from "../../dashboard/messages/page";
 import { resolveServerRole } from "@/lib/auth/role";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 
-export { dynamic };
+export const dynamic = "force-dynamic";
 
 export default async function TenantMessagesPage() {
   if (hasServerSupabaseEnv()) {

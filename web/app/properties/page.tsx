@@ -488,7 +488,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
         <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Saved search</p>
           <p className="text-sm font-semibold text-slate-900">
-            Matches for "{savedSearch.name || "your saved search"}"
+            Matches for &quot;{savedSearch.name || "your saved search"}&quot;
           </p>
           <p className="text-sm text-slate-600">
             Filters applied from your saved search.

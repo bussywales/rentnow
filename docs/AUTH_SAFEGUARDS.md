@@ -28,6 +28,8 @@ cd web
 E2E_EMAIL="you@example.com" E2E_PASSWORD="secret" npm run test:e2e -- tests/playwright/auth-smoke.spec.ts
 ```
 
+If Playwright was just installed or updated, run `npx playwright install --with-deps` first.
+
 If credentials are missing, the test skips with a clear message.
 
 ## Canonical domain redirect

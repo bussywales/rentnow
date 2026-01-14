@@ -16,7 +16,11 @@ void test("browse empty state does not treat zero results as error", () => {
     "expected diagnostics to be gated to development only"
   );
   assert.ok(
-    contents.includes("Unable to load listings"),
+    contents.includes("No properties found"),
+    "expected an empty-state title for zero results"
+  );
+  assert.ok(
+    contents.includes("Unable to load homes"),
     "expected a distinct fetch error title"
   );
 });
