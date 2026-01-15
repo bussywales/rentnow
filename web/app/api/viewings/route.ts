@@ -3,7 +3,10 @@ import { z } from "zod";
 import { requireOwnership, requireRole } from "@/lib/authz";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
-import { validatePreferredTimes } from "@/app/api/viewings/request/route";
+import {
+  handleViewingRequest,
+  validatePreferredTimes,
+} from "@/app/api/viewings/request/route";
 
 const routeLabel = "/api/viewings";
 
@@ -112,98 +115,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const startTime = Date.now();
-
-  if (!hasServerSupabaseEnv()) {
-    logFailure({
-      request,
-      route: routeLabel,
-      status: 503,
-      startTime,
-      error: "Supabase env vars missing",
-    });
-    return NextResponse.json(
-      { error: "Supabase is not configured; viewing requests are demo-only right now." },
-      { status: 503 }
-    );
-  }
-
-  const auth = await requireRole({
-    request,
-    route: routeLabel,
-    startTime,
-    roles: ["tenant"],
-  });
-  if (!auth.ok) return auth.response;
-
-  try {
-    const body = await request.json();
-    const payload = parseLegacyPayload(body);
-    const supabase = auth.supabase;
-
-    const { data: property, error: propertyError } = await supabase
-      .from("properties")
-      .select("id, is_approved, is_active")
-      .eq("id", payload.propertyId)
-      .maybeSingle();
-
-    if (propertyError || !property) {
-      logFailure({
-        request,
-        route: routeLabel,
-        status: 404,
-        startTime,
-        error: "Property not found",
-      });
-      return NextResponse.json({ error: "Property not found" }, { status: 404 });
-    }
-
-    if (!property.is_approved || !property.is_active) {
-      logFailure({
-        request,
-        route: routeLabel,
-        status: 403,
-        startTime,
-        error: "Property not published",
-      });
-      return NextResponse.json({ error: "Property not available for viewings." }, { status: 403 });
-    }
-
-    const { data, error } = await supabase
-      .from("viewing_requests")
-      .insert({
-        property_id: payload.propertyId,
-        preferred_times: payload.preferredTimes,
-        message: payload.message,
-        tenant_id: auth.user.id,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      logFailure({
-        request,
-        route: routeLabel,
-        status: 400,
-        startTime,
-        error: new Error(error.message),
-      });
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-
-    return NextResponse.json({ viewing: data });
-  } catch (err: unknown) {
-    const message =
-      err instanceof Error ? err.message : "Unable to create viewing request";
-    logFailure({
-      request,
-      route: routeLabel,
-      status: 500,
-      startTime,
-      error: err,
-    });
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
+  return handleViewingRequest(request, "legacy-alias");
 }
 
 export async function PATCH(request: Request) {

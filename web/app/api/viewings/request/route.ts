@@ -60,7 +60,7 @@ export function validatePreferredTimes(times: string[]): string[] {
   return parsed;
 }
 
-export async function POST(request: Request) {
+async function handleViewingRequest(request: Request, handlerLabel: "request" | "legacy-alias") {
   const startTime = Date.now();
 
   if (!hasServerSupabaseEnv()) {
@@ -86,13 +86,17 @@ export async function POST(request: Request) {
   if (!auth.ok) return auth.response;
 
   let payload: ReturnType<typeof parseRequestPayload>;
+  let receivedKeys: string[] | undefined;
   try {
-    payload = parseRequestPayload(await request.json());
+    const body = await request.json();
+    if (process.env.NODE_ENV !== "production" && body && typeof body === "object") {
+      receivedKeys = Object.keys(body as Record<string, unknown>).sort();
+    }
+    payload = parseRequestPayload(body);
   } catch {
-    return NextResponse.json(
-      { error: "Invalid request" },
-      { status: 400 }
-    );
+    const res = NextResponse.json({ error: "Invalid request" }, { status: 400 });
+    res.headers.set("x-viewings-handler", handlerLabel);
+    return res;
   }
 
   const supabase = auth.supabase;
@@ -110,10 +114,12 @@ export async function POST(request: Request) {
     }
 
     if (!property.is_approved || !property.is_active) {
-      return NextResponse.json(
+      const res = NextResponse.json(
         { error: "Property is not available for viewings" },
         { status: 403 }
       );
+      res.headers.set("x-viewings-handler", handlerLabel);
+      return res;
     }
 
     const { data, error } = await supabase
@@ -141,10 +147,15 @@ export async function POST(request: Request) {
       );
     }
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       ok: true,
       viewingRequestId: data.id,
+      ...(process.env.NODE_ENV !== "production" && receivedKeys
+        ? { receivedKeys }
+        : {}),
     });
+    res.headers.set("x-viewings-handler", handlerLabel);
+    return res;
   } catch (err) {
     logFailure({
       request,
@@ -153,9 +164,17 @@ export async function POST(request: Request) {
       startTime,
       error: err,
     });
-    return NextResponse.json(
+    const res = NextResponse.json(
       { error: "Unable to create viewing request" },
       { status: 500 }
     );
+    res.headers.set("x-viewings-handler", handlerLabel);
+    return res;
   }
 }
+
+export async function POST(request: Request) {
+  return handleViewingRequest(request, "request");
+}
+
+export { handleViewingRequest };
