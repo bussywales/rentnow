@@ -1,5 +1,8 @@
 # Versions
 
+## 2026-01-20 — vR16.1a-viewing-api
+- R16.1a — Viewing Requests data + API foundation: new viewing_requests table, tenant-only RLS, and tenant APIs for creating and fetching viewing requests with validation.
+
 ## 2026-01-20 — v1.7.79-r15.3-tenant-ux-gold-pass
 - R15.3 — Tenant UX Gold Pass.
 

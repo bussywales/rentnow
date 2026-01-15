@@ -367,43 +367,16 @@ CREATE POLICY "messages sender insert" ON public.messages
   FOR INSERT
   WITH CHECK (auth.uid() = sender_id);
 
--- viewing_requests: tenants create; tenants, owners, admins can read/update
-DROP POLICY IF EXISTS "viewings tenant/owner read" ON public.viewing_requests;
-CREATE POLICY "viewings tenant/owner read" ON public.viewing_requests
+-- viewing_requests: tenants create/read their own
+DROP POLICY IF EXISTS "viewings tenant select" ON public.viewing_requests;
+CREATE POLICY "viewings tenant select" ON public.viewing_requests
   FOR SELECT
-  USING (
-    auth.uid() = tenant_id
-    OR EXISTS (
-      SELECT 1 FROM public.properties pr
-      WHERE pr.id = property_id AND pr.owner_id = auth.uid()
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
+  USING (auth.uid() = tenant_id);
 
 DROP POLICY IF EXISTS "viewings tenant insert" ON public.viewing_requests;
 CREATE POLICY "viewings tenant insert" ON public.viewing_requests
   FOR INSERT
   WITH CHECK (auth.uid() = tenant_id);
-
-DROP POLICY IF EXISTS "viewings tenant/owner update" ON public.viewing_requests;
-CREATE POLICY "viewings tenant/owner update" ON public.viewing_requests
-  FOR UPDATE
-  USING (
-    auth.uid() = tenant_id
-    OR EXISTS (
-      SELECT 1 FROM public.properties pr
-      WHERE pr.id = property_id AND pr.owner_id = auth.uid()
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  )
-  WITH CHECK (
-    auth.uid() = tenant_id
-    OR EXISTS (
-      SELECT 1 FROM public.properties pr
-      WHERE pr.id = property_id AND pr.owner_id = auth.uid()
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
 
 CREATE OR REPLACE FUNCTION public.debug_rls_status()
 RETURNS JSONB

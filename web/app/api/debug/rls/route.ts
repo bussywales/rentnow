@@ -34,7 +34,7 @@ const requiredPolicies: Record<string, string[]> = {
     "saved search alerts select self",
   ],
   messages: ["messages participant/owner read", "messages sender insert"],
-  viewing_requests: ["viewings tenant insert", "viewings tenant/owner read", "viewings tenant/owner update"],
+  viewing_requests: ["viewings tenant insert", "viewings tenant select"],
   agent_delegations: [
     "agent delegations delete",
     "agent delegations insert",
