@@ -106,8 +106,8 @@ If you want, next high-impact moves would be:
 3. Trust signal strip ("Verified landlords - Secure messaging")
 
 ## Viewing requests: tenant flow
-- From a property detail page, tenants can open "Request a viewing", choose 1-3 preferred times, and add an optional note.
-- On success, show a confirmation and list the request on `/tenant/viewings` (status: Pending).
-- Empty state on `/tenant/viewings` should guide tenants to browse homes; error state should offer a retry.
-- Never surface raw IDs or backend errors; use tenant-friendly copy and keep spacing consistent with `/properties`.
-- Manual check: submit a request, confirm toast/banner, refresh `/tenant/viewings`, and verify the request is visible with preferred times and a pending badge.
+- Request modal offers pre-generated slots (1–3) in the property’s timezone (06:00–22:00) with 30/60 minute lengths.
+- Default message is polite and editable; submit disabled until a slot is chosen.
+- Helper text clarifies “Times shown in {City} time ({IANA timezone})”.
+- After success, CTA changes to “Viewing requested” with a link to “View my requests”.
+- Tenant viewings page shows slots formatted in property timezone with a clear empty state CTA to browse homes.

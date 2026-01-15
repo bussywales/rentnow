@@ -31,11 +31,11 @@ void test("viewing request validation rejects more than 3 preferred times", () =
   assert.throws(
     () =>
       validatePreferredTimes([
-        new Date().toISOString(),
-        new Date().toISOString(),
-        new Date().toISOString(),
-        new Date().toISOString(),
-      ]),
+        "2026-01-01T08:00:00Z",
+        "2026-01-02T09:00:00Z",
+        "2026-01-03T10:00:00Z",
+        "2026-01-04T11:00:00Z",
+      ], "Africa/Lagos"),
     /1 to 3/,
     "expected validation to reject more than three times"
   );
@@ -72,7 +72,7 @@ void test("legacy viewing payload bridges preferred_date/time window", () => {
 void test("legacy viewings API parser drops note from insert payload", () => {
   const body = {
     propertyId: "33333333-3333-4333-8333-333333333333",
-    preferredTimes: [new Date().toISOString()],
+    preferredTimes: ["2026-01-02T10:00:00Z"],
     note: "legacy note",
   };
   const parsed = parseLegacyPayload(body);
@@ -83,11 +83,25 @@ void test("legacy viewings API parser drops note from insert payload", () => {
 void test("insert payload is strictly whitelisted without legacy keys", () => {
   const parsed = parseRequestPayload({
     propertyId: "44444444-4444-4444-8444-444444444444",
-    preferredTimes: [new Date().toISOString()],
+    preferredTimes: ["2026-01-01T10:00:00Z"],
     note: "old",
   });
-  const insertPayload = buildViewingInsertPayload(parsed, "55555555-5555-4555-8555-555555555555");
+  const insertPayload = buildViewingInsertPayload(
+    parsed,
+    "55555555-5555-4555-8555-555555555555",
+    "Africa/Lagos"
+  );
   const keys = Object.keys(insertPayload).sort();
   assert.deepEqual(keys, ["message", "preferred_times", "property_id", "tenant_id"]);
   assert.ok(!("note" in (insertPayload as Record<string, unknown>)));
+});
+
+void test("validatePreferredTimes enforces time window by timezone", () => {
+  const valid = validatePreferredTimes(["2026-01-01T08:00:00Z"], "Africa/Lagos");
+  assert.equal(valid.length, 1);
+  assert.throws(
+    () => validatePreferredTimes(["2026-01-01T01:00:00Z"], "Africa/Lagos"),
+    /between 06:00 and 22:00/,
+    "times before 06:00 should be rejected"
+  );
 });

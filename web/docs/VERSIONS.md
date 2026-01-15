@@ -3,6 +3,9 @@
 ## 2026-01-22 — vR16.2-viewings-foundation
 - R16.2 — Viewing requests foundation: properties.timezone migration (default/backfill Africa/Lagos), unified viewings handler for both endpoints with strict whitelisted inserts and legacy normalization, handler marker headers + Playwright smoke, and property detail timezone helper.
 
+## 2026-01-22 — vR16.3-viewings-ux-overhaul
+- R16.3 — Viewing request UX overhaul: slot picker in property timezone (30/60m, 06:00–22:00), polite default message, timezone helper on property detail, server-side slot bounds validation, tenant viewings list formatted by property timezone, and guardrail tests + Playwright flow.
+
 ## 2026-01-22 — vR16.1b.1-viewing-request-message-fix
 - R16.1b.1 — Aligned viewing requests to the `message` column (accepts legacy `note` on input), preventing insert failures; if Supabase schema cache lags after migrations, run `NOTIFY pgrst, 'reload schema';`.
 

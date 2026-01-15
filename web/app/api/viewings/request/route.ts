@@ -25,7 +25,7 @@ export function parseRequestPayload(body: unknown) {
 
   let preferredTimes = parsed.preferredTimes;
   if ((!preferredTimes || preferredTimes.length === 0) && parsed.preferred_date) {
-    const normalizedDate = `${parsed.preferred_date}T12:00:00`;
+    const normalizedDate = `${parsed.preferred_date}T12:00:00Z`;
     preferredTimes = [normalizedDate];
   }
   if (!preferredTimes || preferredTimes.length === 0) {
@@ -46,24 +46,37 @@ export function parseRequestPayload(body: unknown) {
   };
 }
 
-export function buildViewingInsertPayload(
-  payload: ReturnType<typeof parseRequestPayload>,
-  tenantId: string
-) {
-  const preferredTimes = validatePreferredTimes(payload.preferredTimes);
-  return {
-    property_id: payload.propertyId,
-    tenant_id: tenantId,
-    preferred_times: preferredTimes,
-    message: payload.message ?? null,
-  };
+function validateTimeZone(timeZone: string) {
+  try {
+    // Throws on invalid timeZone
+    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
+  } catch {
+    throw new Error("Invalid timezone");
+  }
 }
 
-export function validatePreferredTimes(times: string[]): string[] {
+function formatHourInTimeZone(date: Date, timeZone: string): number {
+  const formatter = new Intl.DateTimeFormat("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone,
+  });
+  const formatted = formatter.format(date); // e.g. "06:00"
+  const hour = parseInt(formatted.split(":")[0] ?? "", 10);
+  return Number.isNaN(hour) ? -1 : hour;
+}
+
+export function validatePreferredTimes(times: string[], timeZone: string): string[] {
+  validateTimeZone(timeZone);
   const parsed = times.map((time) => {
     const date = new Date(time);
     if (Number.isNaN(date.getTime())) {
       throw new Error("Invalid preferred time");
+    }
+    const hourInTz = formatHourInTimeZone(date, timeZone);
+    if (hourInTz < 6 || hourInTz > 22) {
+      throw new Error("Preferred times must be between 06:00 and 22:00 local time");
     }
     return date.toISOString();
   });
@@ -71,6 +84,20 @@ export function validatePreferredTimes(times: string[]): string[] {
     throw new Error("Preferred times must include 1 to 3 entries");
   }
   return parsed;
+}
+
+export function buildViewingInsertPayload(
+  payload: ReturnType<typeof parseRequestPayload>,
+  tenantId: string,
+  propertyTimeZone: string
+) {
+  const preferredTimes = validatePreferredTimes(payload.preferredTimes, propertyTimeZone);
+  return {
+    property_id: payload.propertyId,
+    tenant_id: tenantId,
+    preferred_times: preferredTimes,
+    message: payload.message ?? null,
+  };
 }
 
 async function handleViewingRequest(request: Request, handlerLabel: "request" | "legacy-alias") {
@@ -116,7 +143,7 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
   try {
     const { data: property, error: propertyError } = await supabase
       .from("properties")
-      .select("id, is_approved, is_active")
+      .select("id, is_approved, is_active, timezone")
       .eq("id", payload.propertyId)
       .maybeSingle();
 
@@ -133,7 +160,8 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
       return res;
     }
 
-    const insertPayload = buildViewingInsertPayload(payload, auth.user.id);
+    const timeZone = property.timezone || "Africa/Lagos";
+    const insertPayload = buildViewingInsertPayload(payload, auth.user.id, timeZone);
 
     const { data, error } = await supabase
       .from("viewing_requests")

@@ -578,6 +578,8 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             {isTenant && (
               <RequestViewingButton
                 propertyId={property.id}
+                timezone={property.timezone}
+                city={property.city}
                 disabled={hasViewingRequest}
               />
             )}

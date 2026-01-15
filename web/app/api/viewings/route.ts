@@ -15,13 +15,13 @@ const updateSchema = z.object({
   status: z.enum(["pending", "accepted", "declined", "cancelled"]),
 });
 
-export function parseLegacyPayload(body: unknown) {
+export function parseLegacyPayload(body: unknown, timeZone = "Africa/Lagos") {
   const payload = body as Record<string, unknown>;
   const propertyId = payload.propertyId ?? payload.property_id;
   const preferredTimes =
     payload.preferredTimes ??
     payload.preferred_times ??
-    (payload.preferred_date ? [payload.preferred_date] : []);
+    (payload.preferred_date ? [`${payload.preferred_date}T12:00:00Z`] : []);
   const messageRaw = (payload.message ?? payload.note) as string | null | undefined;
 
   const propertyIdResult = z.string().uuid().safeParse(propertyId);
@@ -34,7 +34,8 @@ export function parseLegacyPayload(body: unknown) {
   }
 
   const validatedTimes = validatePreferredTimes(
-    preferredTimes.map((value) => String(value))
+    preferredTimes.map((value) => String(value)),
+    timeZone
   );
   const trimmed = typeof messageRaw === "string" ? messageRaw.trim() : null;
 

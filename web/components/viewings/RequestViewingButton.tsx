@@ -1,61 +1,124 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 
 type Props = {
   propertyId: string;
+  timezone?: string | null;
+  city?: string | null;
   disabled?: boolean;
 };
 
-type FormState = {
-  times: string[];
-  message: string;
-};
+type Slot = { iso: string; label: string };
 
 const MAX_TIMES = 3;
+const DEFAULT_MESSAGE =
+  "I’d like to request a viewing of this property at the selected time(s). Please let me know what works for you.";
+const DEFAULT_TIMEZONE = "Africa/Lagos";
 
-export function RequestViewingButton({ propertyId, disabled }: Props) {
+function formatLocalDate(timeZone: string) {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return formatter.format(new Date()); // YYYY-MM-DD
+}
+
+function getOffsetMinutes(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const lookup = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  const asUtc = Date.UTC(
+    Number(lookup.year),
+    Number(lookup.month) - 1,
+    Number(lookup.day),
+    Number(lookup.hour),
+    Number(lookup.minute),
+    Number(lookup.second)
+  );
+  return (asUtc - date.getTime()) / 60000;
+}
+
+function zonedTimeToUTCISO(dateStr: string, hour: number, minute: number, timeZone: string) {
+  const [year, month, day] = dateStr.split("-").map(Number);
+  const utcGuess = Date.UTC(year, (month ?? 1) - 1, day ?? 1, hour, minute);
+  const offsetMinutes = getOffsetMinutes(new Date(utcGuess), timeZone);
+  return new Date(utcGuess - offsetMinutes * 60000).toISOString();
+}
+
+function formatSlotLabel(iso: string, timeZone: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(iso));
+}
+
+function generateSlots(dateStr: string, durationMinutes: number, timeZone: string): Slot[] {
+  const slots: Slot[] = [];
+  const startMinutes = 6 * 60;
+  const endMinutes = 22 * 60;
+  for (let minutes = startMinutes; minutes <= endMinutes; minutes += durationMinutes) {
+    const hour = Math.floor(minutes / 60);
+    const minute = minutes % 60;
+    const iso = zonedTimeToUTCISO(dateStr, hour, minute, timeZone);
+    slots.push({
+      iso,
+      label: formatSlotLabel(iso, timeZone),
+    });
+  }
+  return slots;
+}
+
+export function RequestViewingButton({ propertyId, timezone, city, disabled }: Props) {
+  const timeZone = timezone || DEFAULT_TIMEZONE;
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [form, setForm] = useState<FormState>({
-    times: [""],
-    message: "",
-  });
+  const [selectedDate, setSelectedDate] = useState<string>(() => formatLocalDate(timeZone));
+  const [duration, setDuration] = useState<30 | 60>(60);
+  const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
+  const [message, setMessage] = useState(DEFAULT_MESSAGE);
 
-  const addTime = () => {
-    if (form.times.length >= MAX_TIMES) return;
-    setForm((prev) => ({ ...prev, times: [...prev.times, ""] }));
-  };
+  useEffect(() => {
+    // refresh date if timezone changes
+    setSelectedDate(formatLocalDate(timeZone));
+  }, [timeZone]);
 
-  const updateTime = (index: number, value: string) => {
-    setForm((prev) => {
-      const next = [...prev.times];
-      next[index] = value;
-      return { ...prev, times: next };
-    });
-  };
+  const slots = useMemo(
+    () => generateSlots(selectedDate, duration, timeZone),
+    [selectedDate, duration, timeZone]
+  );
 
-  const updateMessage = (value: string) => {
-    setForm((prev) => ({ ...prev, message: value.slice(0, 500) }));
-  };
-
-  const removeTime = (index: number) => {
-    setForm((prev) => {
-      const next = prev.times.filter((_, i) => i !== index);
-      return { ...prev, times: next.length ? next : [""] };
+  const toggleSlot = (iso: string) => {
+    setSelectedSlots((prev) => {
+      if (prev.includes(iso)) {
+        return prev.filter((item) => item !== iso);
+      }
+      if (prev.length >= MAX_TIMES) return prev;
+      return [...prev, iso];
     });
   };
 
   const handleSubmit = async () => {
     setError(null);
-    const times = form.times.filter((t) => t && t.trim().length > 0);
-    if (times.length === 0 || times.length > MAX_TIMES) {
-      setError("Add 1 to 3 preferred times.");
+    if (selectedSlots.length === 0 || selectedSlots.length > MAX_TIMES) {
+      setError("Select 1 to 3 preferred slots.");
       return;
     }
     setSubmitting(true);
@@ -65,8 +128,8 @@ export function RequestViewingButton({ propertyId, disabled }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           propertyId,
-          preferredTimes: times,
-          message: form.message || undefined,
+          preferredTimes: selectedSlots,
+          message: message?.trim() ? message.trim() : undefined,
         }),
       });
       if (!res.ok) {
@@ -85,25 +148,35 @@ export function RequestViewingButton({ propertyId, disabled }: Props) {
 
   return (
     <>
-      <Button
-        data-testid="request-viewing-button"
-        onClick={() => setOpen(true)}
-        disabled={disabled || success}
-      >
-        {success || disabled ? "Viewing requested" : "Request a viewing"}
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button
+          data-testid="request-viewing-button"
+          onClick={() => {
+            setOpen(true);
+            if (!message) setMessage(DEFAULT_MESSAGE);
+          }}
+          disabled={disabled || success}
+        >
+          {success || disabled ? "Viewing requested" : "Request a viewing"}
+        </Button>
+        {success && (
+          <Link href="/tenant/viewings" className="text-sm font-semibold text-sky-700 underline">
+            View my requests
+          </Link>
+        )}
+      </div>
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl outline outline-1 outline-slate-200">
+          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-xl outline outline-1 outline-slate-200">
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-lg font-semibold text-slate-900">Request a viewing</p>
                 <p className="text-sm text-slate-600">
-                  Share 1–3 times that work for you. We will send the host your request.
+                  Pick up to 3 slots. We’ll notify the host with your preferred times.
                 </p>
               </div>
               <button
@@ -116,47 +189,78 @@ export function RequestViewingButton({ propertyId, disabled }: Props) {
               </button>
             </div>
 
-            <div className="mt-4 space-y-3">
-              {form.times.map((value, idx) => (
-                <div key={idx} className="flex items-center gap-2">
-                  <div className="flex-1">
-                    <label className="text-xs font-semibold text-slate-700">
-                      Preferred time {idx + 1}
-                    </label>
-                    <Input
-                      type="datetime-local"
-                      value={value}
-                      onChange={(e) => updateTime(idx, e.target.value)}
-                      className="mt-1"
-                    />
-                  </div>
-                  {form.times.length > 1 && (
-                    <button
-                      type="button"
-                      className="rounded px-2 py-1 text-sm text-slate-600 hover:bg-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-400"
-                      onClick={() => removeTime(idx)}
-                    >
-                      Remove
-                    </button>
-                  )}
+            <div className="mt-4 space-y-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-semibold text-slate-700">Date</label>
+                  <Input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    data-testid="slot-date"
+                  />
                 </div>
-              ))}
-              {form.times.length < MAX_TIMES && (
-                <button
-                  type="button"
-                  className="text-sm font-semibold text-sky-700 hover:text-sky-800 focus:outline-none focus:ring-2 focus:ring-sky-400"
-                  onClick={addTime}
-                >
-                  + Add another time
-                </button>
-              )}
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-slate-600">Slot length</span>
+                  <div className="flex gap-2">
+                    {[30, 60].map((len) => (
+                      <button
+                        key={len}
+                        type="button"
+                        data-testid={`slot-duration-${len}`}
+                        className={`rounded-full border px-3 py-1 text-sm font-semibold transition focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                          duration === len
+                            ? "border-sky-600 bg-sky-50 text-sky-800"
+                            : "border-slate-200 text-slate-700 hover:border-slate-300"
+                        }`}
+                        onClick={() => setDuration(len as 30 | 60)}
+                      >
+                        {len}m
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold text-slate-800">
+                    Select slots (selected {selectedSlots.length}/3)
+                  </p>
+                  <p className="text-xs text-slate-600">
+                    Times shown in {city || "property"} time ({timeZone})
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2" data-testid="slot-picker">
+                  {slots.map((slot) => {
+                    const isSelected = selectedSlots.includes(slot.iso);
+                    return (
+                      <button
+                        key={slot.iso}
+                        type="button"
+                        data-testid="slot-option"
+                        className={`rounded-full border px-3 py-1 text-sm font-semibold transition focus:outline-none focus:ring-2 ${
+                          isSelected
+                            ? "border-sky-700 bg-sky-700 text-white focus:ring-sky-500"
+                            : "border-slate-200 text-slate-700 hover:border-slate-300 focus:ring-slate-400"
+                        }`}
+                        onClick={() => toggleSlot(slot.iso)}
+                        aria-pressed={isSelected}
+                      >
+                        {slot.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div>
                 <label className="text-xs font-semibold text-slate-700">
                   Message (optional)
                 </label>
                 <Textarea
-                  value={form.message}
-                  onChange={(e) => updateMessage(e.target.value)}
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value.slice(0, 500))}
                   className="mt-1"
                   rows={3}
                   maxLength={500}
@@ -164,6 +268,11 @@ export function RequestViewingButton({ propertyId, disabled }: Props) {
                 />
               </div>
               {error && <p className="text-sm text-rose-600">{error}</p>}
+              {process.env.NODE_ENV !== "production" && !timezone && (
+                <p className="text-xs text-amber-700">
+                  Warning: timezone missing; defaulting to Africa/Lagos.
+                </p>
+              )}
             </div>
 
             <div className="mt-5 flex items-center justify-end gap-2">
@@ -177,7 +286,7 @@ export function RequestViewingButton({ propertyId, disabled }: Props) {
               <Button
                 data-testid="submit-viewing-button"
                 onClick={handleSubmit}
-                disabled={submitting}
+                disabled={submitting || selectedSlots.length === 0}
               >
                 {submitting ? "Sending..." : "Send request"}
               </Button>

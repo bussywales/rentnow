@@ -6,17 +6,20 @@ export type ViewingRequestItem = {
   preferred_times: string[];
   message: string | null;
   created_at: string;
-  properties?: { title?: string | null; city?: string | null; neighbourhood?: string | null } | null;
+  properties?:
+    | { title?: string | null; city?: string | null; neighbourhood?: string | null; timezone?: string | null }
+    | null;
 };
 
 type Props = { request: ViewingRequestItem };
 
-function formatTimes(times: string[]): string {
+function formatTimes(times: string[], timeZone?: string | null): string {
   const formatter = new Intl.DateTimeFormat(undefined, {
     month: "short",
     day: "numeric",
     hour: "numeric",
     minute: "2-digit",
+    timeZone: timeZone || undefined,
   });
   return times.map((t) => formatter.format(new Date(t))).join(" • ");
 }
@@ -48,7 +51,7 @@ export function ViewingRequestCard({ request }: Props) {
         <p className="text-sm font-semibold text-slate-900">{title}</p>
         {location && <p className="text-sm text-slate-600">{location}</p>}
         <p className="text-sm text-slate-700">
-          Preferred: {formatTimes(request.preferred_times || [])}
+          Preferred: {formatTimes(request.preferred_times || [], request.properties?.timezone)}
         </p>
         <p className="text-xs text-slate-500">
           Requested {formatRequestedAt(request.created_at)}

@@ -34,12 +34,11 @@ test.describe("Viewing requests", () => {
     }
 
     await requestBtn.click();
-    const datetimeInputs = page.locator('input[type="datetime-local"]');
-    const now = new Date();
-    const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-    tomorrow.setHours(10, 0, 0, 0);
-    const isoLocal = tomorrow.toISOString().slice(0, 16);
-    await datetimeInputs.first().fill(isoLocal);
+    await page.getByTestId("slot-duration-60").click();
+    const slotOptions = page.getByTestId("slot-option");
+    await expect(slotOptions.first()).toBeVisible({ timeout: 5_000 });
+    await slotOptions.nth(0).click();
+    await slotOptions.nth(1).click();
 
     await page.getByTestId("submit-viewing-button").click();
     await expect(requestBtn).toHaveText(/requested/i, { timeout: 10_000 });
