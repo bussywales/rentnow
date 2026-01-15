@@ -1,5 +1,8 @@
 # Versions
 
+## 2026-01-22 — vR16.1b.1-viewing-request-message-fix
+- R16.1b.1 — Aligned viewing requests to the `message` column (accepts legacy `note` on input), preventing insert failures; if Supabase schema cache lags after migrations, run `NOTIFY pgrst, 'reload schema';`.
+
 ## 2026-01-21 — vR16.1b-viewing-ui
 - R16.1b — Tenant viewing requests UI: request modal on property detail, tenant viewings page, authed APIs wired, resilient Playwright flow, and tenant-friendly empty/error states.
 

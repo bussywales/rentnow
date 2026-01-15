@@ -10,7 +10,17 @@ const requestSchema = z.object({
   propertyId: z.string().uuid(),
   preferredTimes: z.array(z.string()).min(1).max(3),
   message: z.string().trim().max(1000).optional().nullable(),
+  note: z.string().trim().max(1000).optional().nullable(),
 });
+
+export function parseRequestPayload(body: unknown) {
+  const parsed = requestSchema.parse(body);
+  return {
+    propertyId: parsed.propertyId,
+    preferredTimes: parsed.preferredTimes,
+    message: parsed.message ?? parsed.note ?? null,
+  };
+}
 
 export function validatePreferredTimes(times: string[]): string[] {
   const parsed = times.map((time) => {
@@ -51,10 +61,9 @@ export async function POST(request: Request) {
   });
   if (!auth.ok) return auth.response;
 
-  let payload: z.infer<typeof requestSchema>;
+  let payload: ReturnType<typeof parseRequestPayload>;
   try {
-    const json = await request.json();
-    payload = requestSchema.parse(json);
+    payload = parseRequestPayload(await request.json());
   } catch {
     return NextResponse.json(
       { error: "Invalid request" },

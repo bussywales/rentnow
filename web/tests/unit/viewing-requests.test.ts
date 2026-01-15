@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { validatePreferredTimes } from "@/app/api/viewings/request/route";
+import { parseRequestPayload, validatePreferredTimes } from "@/app/api/viewings/request/route";
 
 void test("viewing_requests RLS is tenant-only", () => {
   const rlsPath = path.join(process.cwd(), "supabase", "rls_policies.sql");
@@ -34,4 +34,15 @@ void test("viewing request validation rejects more than 3 preferred times", () =
     /1 to 3/,
     "expected validation to reject more than three times"
   );
+});
+
+void test("viewing request payload maps note to message", () => {
+  const body = {
+    propertyId: "11111111-1111-4111-8111-111111111111",
+    preferredTimes: [new Date().toISOString()],
+    note: "please evening",
+  };
+
+  const parsed = parseRequestPayload(body);
+  assert.equal(parsed.message, "please evening");
 });

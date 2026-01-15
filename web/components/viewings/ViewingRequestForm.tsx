@@ -36,17 +36,23 @@ export function ViewingRequestForm({ propertyId }: Props) {
     }
 
     const form = new FormData(e.currentTarget);
-    const payload = {
-      property_id: propertyId,
-      preferred_date: form.get("preferred_date"),
-      preferred_time_window: form.get("preferred_time_window"),
-      note: form.get("note"),
-    };
+    const dateValue = form.get("preferred_date") as string | null;
+    const timeWindow = form.get("preferred_time_window") as string | null;
+    const note = form.get("note") as string | null;
+    const preferredTimes = dateValue ? [`${dateValue}T12:00:00`] : [];
+    const message = [note, timeWindow ? `Preferred window: ${timeWindow}` : null]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
 
-    const res = await fetch("/api/viewings", {
+    const res = await fetch("/api/viewings/request", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        propertyId,
+        preferredTimes,
+        message: message || undefined,
+      }),
     });
 
     if (!res.ok) {

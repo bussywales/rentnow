@@ -3,20 +3,44 @@ import { z } from "zod";
 import { requireOwnership, requireRole } from "@/lib/authz";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
+import { validatePreferredTimes } from "@/app/api/viewings/request/route";
 
 const routeLabel = "/api/viewings";
-
-const viewingSchema = z.object({
-  property_id: z.string().uuid(),
-  preferred_date: z.string(),
-  preferred_time_window: z.string().optional().nullable(),
-  note: z.string().optional().nullable(),
-});
 
 const updateSchema = z.object({
   id: z.string().uuid(),
   status: z.enum(["pending", "accepted", "declined", "cancelled"]),
 });
+
+function parseLegacyPayload(body: unknown) {
+  const payload = body as Record<string, unknown>;
+  const propertyId = payload.propertyId ?? payload.property_id;
+  const preferredTimes =
+    payload.preferredTimes ??
+    payload.preferred_times ??
+    (payload.preferred_date ? [payload.preferred_date] : []);
+  const messageRaw = (payload.message ?? payload.note) as string | null | undefined;
+
+  const propertyIdResult = z.string().uuid().safeParse(propertyId);
+  if (!propertyIdResult.success) {
+    throw new Error("Invalid property id");
+  }
+
+  if (!Array.isArray(preferredTimes) || preferredTimes.length === 0) {
+    throw new Error("Preferred times must include 1 to 3 entries");
+  }
+
+  const validatedTimes = validatePreferredTimes(
+    preferredTimes.map((value) => String(value))
+  );
+  const trimmed = typeof messageRaw === "string" ? messageRaw.trim() : null;
+
+  return {
+    propertyId: propertyIdResult.data,
+    preferredTimes: validatedTimes,
+    message: trimmed ? trimmed.slice(0, 1000) : null,
+  };
+}
 
 export async function GET(request: Request) {
   const startTime = Date.now();
@@ -114,13 +138,13 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json();
-    const payload = viewingSchema.parse(body);
+    const payload = parseLegacyPayload(body);
     const supabase = auth.supabase;
 
     const { data: property, error: propertyError } = await supabase
       .from("properties")
       .select("id, is_approved, is_active")
-      .eq("id", payload.property_id)
+      .eq("id", payload.propertyId)
       .maybeSingle();
 
     if (propertyError || !property) {
@@ -148,7 +172,9 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from("viewing_requests")
       .insert({
-        ...payload,
+        property_id: payload.propertyId,
+        preferred_times: payload.preferredTimes,
+        message: payload.message,
         tenant_id: auth.user.id,
       })
       .select()
