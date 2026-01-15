@@ -2,7 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { parseRequestPayload, validatePreferredTimes } from "@/app/api/viewings/request/route";
+import {
+  parseRequestPayload,
+  validatePreferredTimes,
+} from "@/app/api/viewings/request/route";
+import { parseLegacyPayload } from "@/app/api/viewings/route";
 
 void test("viewing_requests RLS is tenant-only", () => {
   const rlsPath = path.join(process.cwd(), "supabase", "rls_policies.sql");
@@ -45,4 +49,32 @@ void test("viewing request payload maps note to message", () => {
 
   const parsed = parseRequestPayload(body);
   assert.equal(parsed.message, "please evening");
+  assert.ok(!("note" in (parsed as Record<string, unknown>)));
+});
+
+void test("legacy viewing payload bridges preferred_date/time window", () => {
+  const body = {
+    property_id: "22222222-2222-4222-8222-222222222222",
+    preferred_date: "2026-01-16",
+    preferred_time_window: "2-4pm",
+    note: "",
+  };
+
+  const parsed = parseRequestPayload(body);
+  assert.equal(parsed.propertyId, body.property_id);
+  assert.equal(parsed.preferredTimes.length, 1);
+  assert.ok(parsed.preferredTimes[0].startsWith("2026-01-16"));
+  assert.equal(parsed.message, "Preferred window: 2-4pm");
+  assert.ok(!("note" in (parsed as Record<string, unknown>)));
+});
+
+void test("legacy viewings API parser drops note from insert payload", () => {
+  const body = {
+    propertyId: "33333333-3333-4333-8333-333333333333",
+    preferredTimes: [new Date().toISOString()],
+    note: "legacy note",
+  };
+  const parsed = parseLegacyPayload(body);
+  assert.equal(parsed.message, "legacy note");
+  assert.deepEqual(Object.keys(parsed).sort(), ["message", "preferredTimes", "propertyId"]);
 });

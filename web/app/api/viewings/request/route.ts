@@ -7,18 +7,42 @@ import { logFailure } from "@/lib/observability";
 const routeLabel = "/api/viewings/request";
 
 const requestSchema = z.object({
-  propertyId: z.string().uuid(),
-  preferredTimes: z.array(z.string()).min(1).max(3),
+  propertyId: z.string().uuid().optional(),
+  preferredTimes: z.array(z.string()).optional(),
   message: z.string().trim().max(1000).optional().nullable(),
   note: z.string().trim().max(1000).optional().nullable(),
+  property_id: z.string().uuid().optional(),
+  preferred_date: z.string().optional(),
+  preferred_time_window: z.string().optional(),
 });
 
 export function parseRequestPayload(body: unknown) {
   const parsed = requestSchema.parse(body);
+  const propertyId = parsed.propertyId ?? parsed.property_id;
+  if (!propertyId) {
+    throw new Error("Invalid property id");
+  }
+
+  let preferredTimes = parsed.preferredTimes;
+  if ((!preferredTimes || preferredTimes.length === 0) && parsed.preferred_date) {
+    const normalizedDate = `${parsed.preferred_date}T12:00:00`;
+    preferredTimes = [normalizedDate];
+  }
+  if (!preferredTimes || preferredTimes.length === 0) {
+    throw new Error("Preferred times must include 1 to 3 entries");
+  }
+
+  const timeWindow = parsed.preferred_time_window?.trim();
+  const baseMessage = parsed.message ?? parsed.note ?? null;
+  const message =
+    timeWindow && timeWindow.length > 0
+      ? [baseMessage, `Preferred window: ${timeWindow}`].filter(Boolean).join(" - ")
+      : baseMessage;
+
   return {
-    propertyId: parsed.propertyId,
-    preferredTimes: parsed.preferredTimes,
-    message: parsed.message ?? parsed.note ?? null,
+    propertyId,
+    preferredTimes,
+    message: message ?? null,
   };
 }
 

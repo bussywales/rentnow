@@ -12,7 +12,7 @@ const updateSchema = z.object({
   status: z.enum(["pending", "accepted", "declined", "cancelled"]),
 });
 
-function parseLegacyPayload(body: unknown) {
+export function parseLegacyPayload(body: unknown) {
   const payload = body as Record<string, unknown>;
   const propertyId = payload.propertyId ?? payload.property_id;
   const preferredTimes =
