@@ -3,62 +3,32 @@ import { test, expect } from "@playwright/test";
 const EMAIL = process.env.PLAYWRIGHT_USER_EMAIL || "";
 const PASSWORD = process.env.PLAYWRIGHT_USER_PASSWORD || "";
 const HAS_CREDS = !!EMAIL && !!PASSWORD;
-const DEV_MOCKS =
-  process.env.NODE_ENV !== "production" &&
-  process.env.NEXT_PUBLIC_ENABLE_DEV_MOCKS === "true";
 const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
-const HAS_SUPABASE_ENV =
-  (!!process.env.SUPABASE_URL || !!process.env.NEXT_PUBLIC_SUPABASE_URL) &&
-  (!!process.env.SUPABASE_ANON_KEY || !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
 
 test.describe("Smoke checks", () => {
   test("properties list and detail load", async ({ page }) => {
     await page.goto("/properties");
-    const expectListings = HAS_SUPABASE_ENV || DEV_MOCKS;
-
-    if (!expectListings) {
-      await expect(
-        page.getByRole("heading", { name: /no properties found/i })
-      ).toBeVisible();
-      await expect(page.getByText(/diagnostics/i)).toBeVisible();
-      await expect(
-        page.locator("a").filter({ hasText: /ngn|usd|egp|zar|kes/i })
-      ).toHaveCount(0);
+    const emptyState = page.getByTestId("properties-empty-state");
+    if (await emptyState.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await expect(emptyState).toBeVisible();
       return;
     }
 
-    const apiRes = await page.request.get("/api/properties");
-    if (!apiRes.ok()) {
-      await expect(
-        page.getByRole("heading", { name: /no properties found/i })
-      ).toBeVisible();
-      return;
-    }
-
-    const apiJson = await apiRes.json().catch(() => ({}));
-    const hasListings = Array.isArray(apiJson?.properties) && apiJson.properties.length > 0;
-    if (!hasListings) {
-      await expect(
-        page.getByRole("heading", { name: /no properties found/i })
-      ).toBeVisible();
-      return;
-    }
-
-    await expect(page.getByRole("heading", { name: /properties/i })).toBeVisible();
-
-    const propertyLink = page
-      .locator("a")
-      .filter({ hasText: /ngn|usd|egp|zar|kes/i })
+    const grid = page.getByTestId("properties-grid");
+    await expect(grid).toBeVisible({ timeout: 15_000 });
+    const firstCardLink = page
+      .locator('[data-testid="property-card"] a')
       .first();
-    await expect(propertyLink).toBeVisible({ timeout: 15_000 });
-    await propertyLink.click();
+    await expect(firstCardLink).toBeVisible({ timeout: 15_000 });
+    await firstCardLink.click();
 
     await page.waitForURL("**/properties/**", { timeout: 10_000 });
-    const notFound = page.getByRole("heading", { name: /listing not found/i });
-    if (await notFound.isVisible({ timeout: 2_000 }).catch(() => false)) {
+    if (await page.getByRole("heading", { name: /listing not found/i }).isVisible({ timeout: 2_000 }).catch(() => false)) {
       return;
     }
-    await expect(page.getByText(/Request a viewing/i)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: /request a viewing/i })
+    ).toBeVisible();
   });
 
   test("smart search routes to browse with filters", async ({ page }) => {

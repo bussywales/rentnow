@@ -353,8 +353,11 @@ export default async function PropertiesPage({ searchParams }: Props) {
   if (!properties.length) {
     if (savedSearchId && savedSearch) {
       const editHref = `/dashboard/saved-searches`;
-      return (
-        <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
+    return (
+      <div
+        className="mx-auto flex max-w-4xl flex-col gap-4 px-4"
+        data-testid="properties-empty-state"
+      >
           {savedSearchNoticeNode}
           <ErrorState
             title="No matches yet for this search"
@@ -413,7 +416,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
     };
 
     return (
-      <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4">
+      <div
+        className="mx-auto flex max-w-4xl flex-col gap-4 px-4"
+        data-testid="properties-empty-state"
+      >
         {savedSearchNoticeNode}
         <ErrorState
           title={title}
@@ -571,14 +577,18 @@ export default async function PropertiesPage({ searchParams }: Props) {
         </Link>
       </div>
 
-      <div className="grid gap-5 md:grid-cols-3">
+      <div
+        className="grid gap-5 md:grid-cols-3"
+        data-testid="properties-grid"
+      >
         {properties.map((property) => (
-          <PropertyCard
-            key={property.id}
-            property={property}
-            href={`/properties/${property.id}?back=${encodeURIComponent(backHref)}`}
-            trustMarkers={trustSnapshots[property.owner_id]}
-          />
+          <div key={property.id} className="h-full" data-testid="property-card">
+            <PropertyCard
+              property={property}
+              href={`/properties/${property.id}?back=${encodeURIComponent(backHref)}`}
+              trustMarkers={trustSnapshots[property.owner_id]}
+            />
+          </div>
         ))}
       </div>
 
