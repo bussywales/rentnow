@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import type { Metadata } from "next";
 import { headers } from "next/headers";
@@ -29,8 +31,6 @@ import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import { getTenantPlanForTier } from "@/lib/plans";
 import type { Profile, Property } from "@/lib/types";
 import type { TrustMarkerState } from "@/lib/trust-markers";
-
-export const dynamic = "force-dynamic";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;

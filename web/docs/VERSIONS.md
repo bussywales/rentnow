@@ -1,5 +1,8 @@
 # Versions
 
+## 2026-01-22 — vR16.3.1-property-force-dynamic
+- Forced dynamic rendering for property detail pages to prevent stale viewing UI from being served from cache.
+
 ## 2026-01-22 — vR16.2-viewings-foundation
 - R16.2 — Viewing requests foundation: properties.timezone migration (default/backfill Africa/Lagos), unified viewings handler for both endpoints with strict whitelisted inserts and legacy normalization, handler marker headers + Playwright smoke, and property detail timezone helper.
 
