@@ -6,6 +6,7 @@ import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
+import { RequestViewingButton } from "@/components/viewings/RequestViewingButton";
 import { TrustBadges } from "@/components/trust/TrustBadges";
 import { TrustReliability } from "@/components/trust/TrustReliability";
 import { Button } from "@/components/ui/Button";
@@ -277,6 +278,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   let isSaved = false;
   let isTenant = false;
   let isTenantPro = false;
+  let hasViewingRequest = false;
   let currentUser: Profile | null = null;
   let hostTrust: TrustMarkerState | null = null;
   let similar: Property[] = [];
@@ -318,6 +320,14 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             .eq("property_id", property.id)
             .maybeSingle();
           isSaved = !!data;
+
+          const { data: viewingRow } = await supabase
+            .from("viewing_requests")
+            .select("id")
+            .eq("tenant_id", user.id)
+            .eq("property_id", property.id)
+            .maybeSingle();
+          hasViewingRequest = !!viewingRow;
         }
 
         const priceFloor = property.price ? Math.max(0, property.price * 0.6) : null;
@@ -558,7 +568,15 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </span>
             ))}
           </div>
-          <SaveButton propertyId={property.id} initialSaved={isSaved} />
+          <div className="flex flex-wrap items-center gap-2">
+            <SaveButton propertyId={property.id} initialSaved={isSaved} />
+            {isTenant && (
+              <RequestViewingButton
+                propertyId={property.id}
+                disabled={hasViewingRequest}
+              />
+            )}
+          </div>
         </div>
       </div>
 

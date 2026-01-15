@@ -1,5 +1,8 @@
 # Versions
 
+## 2026-01-21 — vR16.1b-viewing-ui
+- R16.1b — Tenant viewing requests UI: request modal on property detail, tenant viewings page, authed APIs wired, resilient Playwright flow, and tenant-friendly empty/error states.
+
 ## 2026-01-20 — vR16.1a-viewing-api
 - R16.1a — Viewing Requests data + API foundation: new viewing_requests table, tenant-only RLS, and tenant APIs for creating and fetching viewing requests with validation.
 

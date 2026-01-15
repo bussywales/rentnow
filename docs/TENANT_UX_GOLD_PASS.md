@@ -104,3 +104,10 @@ If you want, next high-impact moves would be:
 1. Tenant onboarding micro-tour (3 steps, dismissible)
 2. Saved search "confidence" indicator ("We'll notify you instantly")
 3. Trust signal strip ("Verified landlords - Secure messaging")
+
+## Viewing requests: tenant flow
+- From a property detail page, tenants can open "Request a viewing", choose 1-3 preferred times, and add an optional note.
+- On success, show a confirmation and list the request on `/tenant/viewings` (status: Pending).
+- Empty state on `/tenant/viewings` should guide tenants to browse homes; error state should offer a retry.
+- Never surface raw IDs or backend errors; use tenant-friendly copy and keep spacing consistent with `/properties`.
+- Manual check: submit a request, confirm toast/banner, refresh `/tenant/viewings`, and verify the request is visible with preferred times and a pending badge.
