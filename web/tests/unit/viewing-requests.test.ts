@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  buildViewingInsertPayload,
   parseRequestPayload,
   validatePreferredTimes,
 } from "@/app/api/viewings/request/route";
@@ -77,4 +78,16 @@ void test("legacy viewings API parser drops note from insert payload", () => {
   const parsed = parseLegacyPayload(body);
   assert.equal(parsed.message, "legacy note");
   assert.deepEqual(Object.keys(parsed).sort(), ["message", "preferredTimes", "propertyId"]);
+});
+
+void test("insert payload is strictly whitelisted without legacy keys", () => {
+  const parsed = parseRequestPayload({
+    propertyId: "44444444-4444-4444-8444-444444444444",
+    preferredTimes: [new Date().toISOString()],
+    note: "old",
+  });
+  const insertPayload = buildViewingInsertPayload(parsed, "55555555-5555-4555-8555-555555555555");
+  const keys = Object.keys(insertPayload).sort();
+  assert.deepEqual(keys, ["message", "preferred_times", "property_id", "tenant_id"]);
+  assert.ok(!("note" in (insertPayload as Record<string, unknown>)));
 });

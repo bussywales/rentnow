@@ -446,6 +446,11 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
     typeof property.description === "string" && property.description.trim().length > 0
       ? property.description
       : "This listing doesn't have a description yet. Contact the host for details.";
+  const timezoneLabel = property.timezone || "Africa/Lagos";
+  const cityLabel =
+    typeof property.city === "string" && property.city.trim().length > 0
+      ? property.city
+      : "property local";
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4">
@@ -577,6 +582,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               />
             )}
           </div>
+          <p className="text-xs text-slate-600">
+            Times shown in {cityLabel} time ({timezoneLabel}).
+          </p>
         </div>
       </div>
 

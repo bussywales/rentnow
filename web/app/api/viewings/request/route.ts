@@ -46,6 +46,19 @@ export function parseRequestPayload(body: unknown) {
   };
 }
 
+export function buildViewingInsertPayload(
+  payload: ReturnType<typeof parseRequestPayload>,
+  tenantId: string
+) {
+  const preferredTimes = validatePreferredTimes(payload.preferredTimes);
+  return {
+    property_id: payload.propertyId,
+    tenant_id: tenantId,
+    preferred_times: preferredTimes,
+    message: payload.message ?? null,
+  };
+}
+
 export function validatePreferredTimes(times: string[]): string[] {
   const parsed = times.map((time) => {
     const date = new Date(time);
@@ -101,8 +114,6 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
 
   const supabase = auth.supabase;
   try {
-    const preferredTimes = validatePreferredTimes(payload.preferredTimes);
-
     const { data: property, error: propertyError } = await supabase
       .from("properties")
       .select("id, is_approved, is_active")
@@ -122,14 +133,11 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
       return res;
     }
 
+    const insertPayload = buildViewingInsertPayload(payload, auth.user.id);
+
     const { data, error } = await supabase
       .from("viewing_requests")
-      .insert({
-        property_id: payload.propertyId,
-        tenant_id: auth.user.id,
-        preferred_times: preferredTimes,
-        message: payload.message ?? null,
-      })
+      .insert(insertPayload)
       .select("id")
       .single();
 

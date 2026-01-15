@@ -56,6 +56,7 @@ export interface Property {
   title: string;
   description?: string | null;
   city: string;
+  timezone?: string | null;
   country?: string | null;
   country_code?: string | null;
   state_region?: string | null;

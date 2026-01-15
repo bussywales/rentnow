@@ -1,5 +1,8 @@
 # Versions
 
+## 2026-01-22 — vR16.2-viewings-foundation
+- R16.2 — Viewing requests foundation: properties.timezone migration (default/backfill Africa/Lagos), unified viewings handler for both endpoints with strict whitelisted inserts and legacy normalization, handler marker headers + Playwright smoke, and property detail timezone helper.
+
 ## 2026-01-22 — vR16.1b.1-viewing-request-message-fix
 - R16.1b.1 — Aligned viewing requests to the `message` column (accepts legacy `note` on input), preventing insert failures; if Supabase schema cache lags after migrations, run `NOTIFY pgrst, 'reload schema';`.
 
