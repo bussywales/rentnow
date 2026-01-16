@@ -48,18 +48,35 @@ export function ViewingRequestCard({ request }: Props) {
     .join(" • ");
   const tz = request.properties?.timezone;
 
+  const reasonMap: Record<string, string> = {
+    schedule_conflict: "Scheduling conflict",
+    property_unavailable: "Property unavailable at that time",
+    maintenance: "Maintenance or access issues",
+    already_booked: "Time already booked",
+    incomplete_request: "Request needs more details",
+    other: "Unable to accommodate at this time",
+  };
+
   const statusDetail =
     request.status === "approved"
       ? request.approved_time
-        ? `Approved: ${formatTimes([request.approved_time], tz)}`
+        ? `Viewing confirmed: ${formatTimes([request.approved_time], tz)}`
         : null
       : request.status === "proposed" && request.proposed_times?.length
-        ? `Proposed: ${formatTimes(request.proposed_times, tz)}`
+        ? `New times suggested: ${formatTimes(request.proposed_times, tz)}`
         : request.status === "declined"
           ? request.decline_reason_code
-            ? `Declined: ${request.decline_reason_code.replace(/_/g, " ")}`
-            : "Declined"
-          : null;
+            ? `Not available. Reason: ${reasonMap[request.decline_reason_code] || request.decline_reason_code}`
+            : "This viewing couldn't be scheduled."
+          : request.status === "cancelled"
+            ? "This viewing request was cancelled."
+            : request.status === "completed"
+              ? "This viewing has taken place."
+              : request.status === "no_show"
+                ? "No-show recorded by the host."
+                : request.status === "requested"
+                  ? "Waiting for the host to review your request."
+                  : null;
 
   return (
     <div

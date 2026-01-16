@@ -16,6 +16,10 @@
 - Added host respond and inbox APIs, decision audit logging, and tenant status display updates.
 - Added Playwright skip-safe host workflow smoke.
 
+## 2026-01-22 — vR16.4c-copy-integration
+- Updated viewing status badges and tenant/host copy for approve/propose/decline flows.
+- Added decline reason labels and property timezone helper text in viewings UI.
+
 ## 2026-01-22 — vR16.3.1-property-force-dynamic
 - Forced dynamic rendering for property detail pages to prevent stale viewing UI from being served from cache.
 

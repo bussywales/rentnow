@@ -16,10 +16,20 @@ const colorMap: Record<string, string> = {
   no_show: "bg-orange-100 text-orange-800 border-orange-200",
 };
 
+const labelMap: Record<string, string> = {
+  requested: "Requested",
+  approved: "Confirmed",
+  proposed: "New times suggested",
+  declined: "Not available",
+  cancelled: "Cancelled",
+  completed: "Completed",
+  no_show: "No-show recorded",
+};
+
 export function ViewingStatusBadge({ status }: Props) {
   const key = status?.toLowerCase() || "requested";
   const styles = colorMap[key] || colorMap.pending;
-  const label = key.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
+  const label = labelMap[key] || labelMap.requested;
   return (
     <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold", styles)}>
       {label}

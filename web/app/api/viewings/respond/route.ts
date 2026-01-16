@@ -50,12 +50,15 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Viewing request not found" }, { status: 404 });
   }
 
-  const ownerId = (reqRow as any).properties?.owner_id as string | undefined;
+  const ownerId = (reqRow as { properties?: { owner_id?: string | null } }).properties?.owner_id as
+    | string
+    | undefined;
   if (ownerId !== auth.user.id && auth.role !== "admin") {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const timeZone = ((reqRow as any).properties?.timezone as string | undefined) || "Africa/Lagos";
+  const timeZone =
+    (reqRow as { properties?: { timezone?: string | null } }).properties?.timezone || "Africa/Lagos";
 
   // Fetch availability for proposed/approved dates
   const supa = supabase;

@@ -128,29 +128,29 @@ export function HostViewingsList() {
 
           <div className="mt-3 space-y-2">
             <Input
-              placeholder="Host note (optional)"
+              placeholder="Host message (optional)"
               value={hostMessage[req.id] || ""}
               onChange={(e) => setHostMessage((prev) => ({ ...prev, [req.id]: e.target.value }))}
             />
             <Input
-              placeholder="Times (ISO, comma separated) or pick one to approve"
+              placeholder="Approved time (ISO) or proposed times, comma separated"
               value={proposedTimes[req.id] || ""}
               onChange={(e) => setProposedTimes((prev) => ({ ...prev, [req.id]: e.target.value }))}
             />
             <Input
-              placeholder="Decline reason code (schedule_conflict, etc.)"
+              placeholder="Decline reason (e.g., schedule_conflict)"
               value={declineReason[req.id] || ""}
               onChange={(e) => setDeclineReason((prev) => ({ ...prev, [req.id]: e.target.value }))}
             />
             <div className="flex flex-wrap gap-2">
               <Button size="sm" onClick={() => handleRespond(req.id, "approve")} disabled={actionState[req.id] === "saving"}>
-                Approve (use approvedTime field)
+                Confirm this time
               </Button>
               <Button size="sm" variant="secondary" onClick={() => handleRespond(req.id, "propose")} disabled={actionState[req.id] === "saving"}>
-                Propose new times
+                Suggest new times
               </Button>
               <Button size="sm" variant="ghost" onClick={() => handleRespond(req.id, "decline")} disabled={actionState[req.id] === "saving"}>
-                Decline
+                Decline request
               </Button>
               {actionState[req.id] === "error" && (
                 <span className="text-sm text-rose-600">Save failed</span>
@@ -161,7 +161,7 @@ export function HostViewingsList() {
             </div>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            Times shown in {req.properties?.timezone || "local property time"}.
+            Times are shown in the property’s local time zone.
           </p>
         </div>
       ))}
