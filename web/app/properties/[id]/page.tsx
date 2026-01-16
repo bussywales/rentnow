@@ -13,7 +13,6 @@ import { TrustBadges } from "@/components/trust/TrustBadges";
 import { TrustReliability } from "@/components/trust/TrustReliability";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { ViewingRequestForm } from "@/components/viewings/ViewingRequestForm";
 import { getProfile } from "@/lib/auth";
 import { DEV_MOCKS, getApiBaseUrl, getCanonicalBaseUrl, getEnvPresence } from "@/lib/env";
 import { mockProperties } from "@/lib/mock";
@@ -643,12 +642,6 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                 )}
               </div>
             )}
-          </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h3 className="text-lg font-semibold text-slate-900">
-              Request a viewing
-            </h3>
-            <ViewingRequestForm propertyId={property.id} />
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
