@@ -79,14 +79,17 @@ export async function GET(request: Request) {
       });
     }
 
+    const viewings = rows.map((row) => ({
+      ...row,
+      tenantReliability: row.tenant_id
+        ? reliabilityMap[row.tenant_id] || deriveReliability(0, 0)
+        : undefined,
+    }));
+
     return NextResponse.json({
       ok: true,
-      viewings: rows.map((row) => ({
-        ...row,
-        tenantReliability: row.tenant_id
-          ? reliabilityMap[row.tenant_id] || deriveReliability(0, 0)
-          : undefined,
-      })),
+      viewings,
+      items: viewings,
     });
   } catch (err) {
     logFailure({

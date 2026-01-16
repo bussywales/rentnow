@@ -5,6 +5,10 @@ import { logFailure } from "@/lib/observability";
 
 const routeLabel = "/api/viewings/tenant";
 
+export function buildTenantViewingsPayload(viewings: unknown[]) {
+  return { ok: true, viewings, items: viewings };
+}
+
 export async function GET(request: Request) {
   const startTime = Date.now();
 
@@ -53,7 +57,8 @@ export async function GET(request: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true, viewings: data || [] });
+    const payload = buildTenantViewingsPayload(data || []);
+    return NextResponse.json(payload);
   } catch (err) {
     logFailure({
       request,

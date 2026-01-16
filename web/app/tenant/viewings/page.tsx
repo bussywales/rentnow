@@ -39,8 +39,13 @@ export default async function TenantViewingsPage() {
       fetchError = "Couldn't load your viewing requests.";
     } else {
       const json = await res.json();
-      if (Array.isArray(json.viewings)) {
-        viewings = json.viewings;
+      const items = Array.isArray(json.viewings)
+        ? json.viewings
+        : Array.isArray(json.items)
+          ? json.items
+          : null;
+      if (items) {
+        viewings = items;
       } else {
         fetchError = "Couldn't load your viewing requests.";
       }
