@@ -472,3 +472,9 @@
 - Password reset links now open the set-password form for hash and PKCE flows.
 - Added recovery state handling and session events on `/auth/reset`.
 - Updated QA checklist to verify reset links land in recovery mode.
+
+## 2026-02-03 — vR16.5a-tenant-reliability-signal
+- Added host-reported no-show signal on viewing requests with approved-only, single-use guardrails.
+- Added `/api/viewings/:id/no-show` plus host/tenant responses that surface no-show markers safely.
+- Introduced 90-day reliability snapshot (Reliable / Mixed / Unknown) for hosts; tenant copy stays neutral.
+- Added trust documentation and host/tenant UI indicators; host workflow now includes “Mark as no-show”.

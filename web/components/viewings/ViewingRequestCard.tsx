@@ -9,6 +9,7 @@ export type ViewingRequestItem = {
   host_message?: string | null;
   decline_reason_code?: string | null;
   decided_at?: string | null;
+  no_show_reported_at?: string | null;
   message: string | null;
   created_at: string;
   properties?:
@@ -57,26 +58,25 @@ export function ViewingRequestCard({ request }: Props) {
     other: "Unable to accommodate at this time",
   };
 
+  const badgeStatus = request.no_show_reported_at ? "no_show" : request.status;
   const statusDetail =
-    request.status === "approved"
+    badgeStatus === "approved" || badgeStatus === "confirmed"
       ? request.approved_time
         ? `Viewing confirmed: ${formatTimes([request.approved_time], tz)}`
         : null
-      : request.status === "proposed" && request.proposed_times?.length
+      : badgeStatus === "proposed" && request.proposed_times?.length
         ? `New times suggested: ${formatTimes(request.proposed_times, tz)}`
-        : request.status === "declined"
+        : badgeStatus === "declined"
           ? request.decline_reason_code
             ? `Not available. Reason: ${reasonMap[request.decline_reason_code] || request.decline_reason_code}`
             : "This viewing couldn't be scheduled."
-          : request.status === "cancelled"
+          : badgeStatus === "cancelled"
             ? "This viewing request was cancelled."
-            : request.status === "completed"
+            : badgeStatus === "completed"
               ? "This viewing has taken place."
-              : request.status === "no_show"
-                ? "No-show recorded by the host."
-                : request.status === "requested"
-                  ? "Waiting for the host to review your request."
-                  : null;
+              : badgeStatus === "no_show"
+                ? "Marked as no-show by host."
+                : "Waiting for the host to review your request.";
 
   return (
     <div
@@ -89,6 +89,9 @@ export function ViewingRequestCard({ request }: Props) {
         <p className="text-sm text-slate-700">
           Preferred: {formatTimes(request.preferred_times || [], tz)}
         </p>
+        {request.no_show_reported_at && (
+          <p className="text-sm text-slate-700">Marked as no-show by host.</p>
+        )}
         <p className="text-xs text-slate-500">
           Requested {formatRequestedAt(request.created_at)}
         </p>
@@ -100,7 +103,7 @@ export function ViewingRequestCard({ request }: Props) {
           <p className="text-sm text-slate-700">Host note: {request.host_message}</p>
         )}
       </div>
-      <ViewingStatusBadge status={request.status} />
+      <ViewingStatusBadge status={badgeStatus} />
     </div>
   );
 }

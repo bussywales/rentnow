@@ -9,17 +9,12 @@ ALTER TABLE public.viewing_requests
   ADD COLUMN IF NOT EXISTS decided_at TIMESTAMPTZ,
   ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conname = 'viewing_requests_status_check'
-  ) THEN
-    ALTER TABLE public.viewing_requests
-      ADD CONSTRAINT viewing_requests_status_check
-      CHECK (status IN ('requested','approved','proposed','declined','cancelled','completed','no_show'));
-  END IF;
-END $$;
+ALTER TABLE public.viewing_requests
+  DROP CONSTRAINT IF EXISTS viewing_requests_status_check;
+
+ALTER TABLE public.viewing_requests
+  ADD CONSTRAINT viewing_requests_status_check
+  CHECK (status IN ('requested','approved','proposed','declined','cancelled','completed','no_show','pending','confirmed'));
 
 DO $$
 BEGIN

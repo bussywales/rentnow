@@ -18,7 +18,9 @@ const colorMap: Record<string, string> = {
 
 const labelMap: Record<string, string> = {
   requested: "Requested",
+  pending: "Requested",
   approved: "Confirmed",
+  confirmed: "Confirmed",
   proposed: "New times suggested",
   declined: "Not available",
   cancelled: "Cancelled",
