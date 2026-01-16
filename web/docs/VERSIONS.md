@@ -1,5 +1,11 @@
 # Versions
 
+## 2026-01-22 — vR16.4a-availability-windows
+- Added property availability rules/exceptions tables with owner-only RLS.
+- Added tenant slots API `/api/availability/slots` (30m slots in property timezone with exceptions).
+- Viewing requests now validate preferred times against generated availability.
+- Documented availability model and usage.
+
 ## 2026-01-22 — vR16.3.1-property-force-dynamic
 - Forced dynamic rendering for property detail pages to prevent stale viewing UI from being served from cache.
 

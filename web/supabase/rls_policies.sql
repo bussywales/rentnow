@@ -25,6 +25,12 @@ ALTER TABLE public.messages FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.viewing_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.viewing_requests FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.property_availability_rules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.property_availability_rules FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE public.property_availability_exceptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.property_availability_exceptions FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE public.agent_delegations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.agent_delegations FORCE ROW LEVEL SECURITY;
 
@@ -239,6 +245,43 @@ CREATE POLICY "properties owner/admin delete" ON public.properties
         AND d.status = 'active'
     )
     OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+  );
+
+-- availability rules/exceptions: owners only
+DROP POLICY IF EXISTS "availability rules owner manage" ON public.property_availability_rules;
+CREATE POLICY "availability rules owner manage" ON public.property_availability_rules
+  FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.properties p
+      WHERE p.id = property_id
+        AND p.owner_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.properties p
+      WHERE p.id = property_id
+        AND p.owner_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "availability exceptions owner manage" ON public.property_availability_exceptions;
+CREATE POLICY "availability exceptions owner manage" ON public.property_availability_exceptions
+  FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.properties p
+      WHERE p.id = property_id
+        AND p.owner_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.properties p
+      WHERE p.id = property_id
+        AND p.owner_id = auth.uid()
+    )
   );
 
 -- property_images: follow parent property permissions

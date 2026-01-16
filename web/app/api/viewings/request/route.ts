@@ -2,6 +2,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import {
+  assertPreferredTimesInAvailability,
+  isoToLocalDate,
+  type AvailabilityException,
+  type AvailabilityRule,
+} from "@/lib/availability/slots";
 import { logFailure } from "@/lib/observability";
 
 const routeLabel = "/api/viewings/request";
@@ -46,52 +52,32 @@ export function parseRequestPayload(body: unknown) {
   };
 }
 
-function validateTimeZone(timeZone: string) {
-  try {
-    // Throws on invalid timeZone
-    new Intl.DateTimeFormat("en-US", { timeZone }).format(new Date());
-  } catch {
-    throw new Error("Invalid timezone");
-  }
-}
-
-function formatHourInTimeZone(date: Date, timeZone: string): number {
-  const formatter = new Intl.DateTimeFormat("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
+export function validatePreferredTimesWithAvailability(
+  times: string[],
+  timeZone: string,
+  rules: AvailabilityRule[],
+  exceptions: AvailabilityException[]
+): string[] {
+  return assertPreferredTimesInAvailability({
+    preferredTimes: times,
     timeZone,
+    rules,
+    exceptions,
   });
-  const formatted = formatter.format(date); // e.g. "06:00"
-  const hour = parseInt(formatted.split(":")[0] ?? "", 10);
-  return Number.isNaN(hour) ? -1 : hour;
-}
-
-export function validatePreferredTimes(times: string[], timeZone: string): string[] {
-  validateTimeZone(timeZone);
-  const parsed = times.map((time) => {
-    const date = new Date(time);
-    if (Number.isNaN(date.getTime())) {
-      throw new Error("Invalid preferred time");
-    }
-    const hourInTz = formatHourInTimeZone(date, timeZone);
-    if (hourInTz < 6 || hourInTz > 22) {
-      throw new Error("Preferred times must be between 06:00 and 22:00 local time");
-    }
-    return date.toISOString();
-  });
-  if (parsed.length < 1 || parsed.length > 3) {
-    throw new Error("Preferred times must include 1 to 3 entries");
-  }
-  return parsed;
 }
 
 export function buildViewingInsertPayload(
   payload: ReturnType<typeof parseRequestPayload>,
   tenantId: string,
-  propertyTimeZone: string
+  propertyTimeZone: string,
+  options?: { rules?: AvailabilityRule[]; exceptions?: AvailabilityException[] }
 ) {
-  const preferredTimes = validatePreferredTimes(payload.preferredTimes, propertyTimeZone);
+  const preferredTimes = validatePreferredTimesWithAvailability(
+    payload.preferredTimes,
+    propertyTimeZone,
+    options?.rules ?? [],
+    options?.exceptions ?? []
+  );
   return {
     property_id: payload.propertyId,
     tenant_id: tenantId,
@@ -161,7 +147,41 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
     }
 
     const timeZone = property.timezone || "Africa/Lagos";
-    const insertPayload = buildViewingInsertPayload(payload, auth.user.id, timeZone);
+    const dates = Array.from(
+      new Set(payload.preferredTimes.map((iso) => isoToLocalDate(iso, timeZone)))
+    );
+
+    const [{ data: rules, error: rulesError }, { data: exceptions, error: exceptionsError }] =
+      await Promise.all([
+        supabase
+          .from("property_availability_rules")
+          .select("day_of_week, start_minute, end_minute")
+          .eq("property_id", payload.propertyId),
+        supabase
+          .from("property_availability_exceptions")
+          .select("local_date, exception_type, start_minute, end_minute")
+          .eq("property_id", payload.propertyId)
+          .in("local_date", dates),
+      ]);
+
+    if (rulesError || exceptionsError) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 400,
+        startTime,
+        error: new Error(rulesError?.message || exceptionsError?.message || "availability_fetch"),
+      });
+      return NextResponse.json(
+        { error: "Unable to load availability for this property" },
+        { status: 400 }
+      );
+    }
+
+    const insertPayload = buildViewingInsertPayload(payload, auth.user.id, timeZone, {
+      rules: rules ?? [],
+      exceptions: exceptions ?? [],
+    });
 
     const { data, error } = await supabase
       .from("viewing_requests")

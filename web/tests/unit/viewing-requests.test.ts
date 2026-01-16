@@ -5,7 +5,7 @@ import path from "node:path";
 import {
   buildViewingInsertPayload,
   parseRequestPayload,
-  validatePreferredTimes,
+  validatePreferredTimesWithAvailability,
 } from "@/app/api/viewings/request/route";
 import { parseLegacyPayload } from "@/app/api/viewings/route";
 
@@ -30,12 +30,12 @@ void test("viewing_requests RLS is tenant-only", () => {
 void test("viewing request validation rejects more than 3 preferred times", () => {
   assert.throws(
     () =>
-      validatePreferredTimes([
+      validatePreferredTimesWithAvailability([
         "2026-01-01T08:00:00Z",
         "2026-01-02T09:00:00Z",
         "2026-01-03T10:00:00Z",
         "2026-01-04T11:00:00Z",
-      ], "Africa/Lagos"),
+      ], "Africa/Lagos", [], []),
     /1 to 3/,
     "expected validation to reject more than three times"
   );
@@ -97,11 +97,36 @@ void test("insert payload is strictly whitelisted without legacy keys", () => {
 });
 
 void test("validatePreferredTimes enforces time window by timezone", () => {
-  const valid = validatePreferredTimes(["2026-01-01T08:00:00Z"], "Africa/Lagos");
+  const valid = validatePreferredTimesWithAvailability(
+    ["2026-01-01T08:00:00Z"],
+    "Africa/Lagos",
+    [],
+    []
+  );
   assert.equal(valid.length, 1);
   assert.throws(
-    () => validatePreferredTimes(["2026-01-01T01:00:00Z"], "Africa/Lagos"),
-    /between 06:00 and 22:00/,
-    "times before 06:00 should be rejected"
+    () =>
+      validatePreferredTimesWithAvailability(
+        ["2026-01-01T01:00:00Z"],
+        "Africa/Lagos",
+        [],
+        []
+      ),
+    /not available/,
+    "times before 06:00 should be rejected as unavailable"
+  );
+});
+
+void test("validatePreferredTimes rejects slots outside availability windows", () => {
+  assert.throws(
+    () =>
+      validatePreferredTimesWithAvailability(
+        ["2026-03-10T08:00:00Z"],
+        "Europe/London",
+        [{ day_of_week: 2, start_minute: 9 * 60, end_minute: 10 * 60 }],
+        []
+      ),
+    /not available/,
+    "times not matching generated slots should be rejected"
   );
 });

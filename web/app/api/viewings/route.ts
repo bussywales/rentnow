@@ -5,7 +5,7 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure } from "@/lib/observability";
 import {
   handleViewingRequest,
-  validatePreferredTimes,
+  validatePreferredTimesWithAvailability,
 } from "@/app/api/viewings/request/route";
 
 const routeLabel = "/api/viewings";
@@ -33,9 +33,11 @@ export function parseLegacyPayload(body: unknown, timeZone = "Africa/Lagos") {
     throw new Error("Preferred times must include 1 to 3 entries");
   }
 
-  const validatedTimes = validatePreferredTimes(
+  const validatedTimes = validatePreferredTimesWithAvailability(
     preferredTimes.map((value) => String(value)),
-    timeZone
+    timeZone,
+    [],
+    []
   );
   const trimmed = typeof messageRaw === "string" ? messageRaw.trim() : null;
 
