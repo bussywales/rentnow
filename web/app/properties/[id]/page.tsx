@@ -643,6 +643,24 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </div>
             )}
           </div>
+          {isTenant && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-semibold text-slate-900">Request a viewing</h3>
+              </div>
+              <p className="mt-1 text-sm text-slate-600">
+                Pick 1–3 time slots in {cityLabel} time ({timezoneLabel}) and add a short note.
+              </p>
+              <div className="mt-3">
+                <RequestViewingButton
+                  propertyId={property.id}
+                  timezone={property.timezone}
+                  city={property.city}
+                  disabled={hasViewingRequest}
+                />
+              </div>
+            </div>
+          )}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">
               <h3 className="text-lg font-semibold text-slate-900">
