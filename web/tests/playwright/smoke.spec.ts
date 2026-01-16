@@ -27,7 +27,6 @@ test.describe("Smoke checks", () => {
       return;
     }
     const heading = page.getByRole("heading", { name: /request a viewing/i });
-    const button = page.getByTestId("request-viewing-button");
     if (await heading.isVisible({ timeout: 2_000 }).catch(() => false)) {
       await expect(heading).toBeVisible();
     } else {

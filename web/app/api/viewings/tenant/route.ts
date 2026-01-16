@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     const { data, error } = await auth.supabase
       .from("viewing_requests")
       .select(
-        "id, status, preferred_times, message, created_at, properties:properties!inner(id, title, city, neighbourhood, timezone)"
+        "id, status, preferred_times, approved_time, proposed_times, host_message, decline_reason_code, created_at, decided_at, properties:properties!inner(id, title, city, neighbourhood, timezone)"
       )
       .eq("tenant_id", auth.user.id)
       .order("created_at", { ascending: false });

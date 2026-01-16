@@ -24,6 +24,7 @@ ALTER TABLE public.messages FORCE ROW LEVEL SECURITY;
 
 ALTER TABLE public.viewing_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.viewing_requests FORCE ROW LEVEL SECURITY;
+ALTER TABLE public.viewing_requests ENABLE ROW LEVEL SECURITY;
 
 ALTER TABLE public.property_availability_rules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.property_availability_rules FORCE ROW LEVEL SECURITY;
@@ -420,6 +421,38 @@ DROP POLICY IF EXISTS "viewings tenant insert" ON public.viewing_requests;
 CREATE POLICY "viewings tenant insert" ON public.viewing_requests
   FOR INSERT
   WITH CHECK (auth.uid() = tenant_id);
+
+DROP POLICY IF EXISTS "viewings host select owned" ON public.viewing_requests;
+CREATE POLICY "viewings host select owned" ON public.viewing_requests
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.properties p
+      WHERE p.id = property_id
+        AND p.owner_id = auth.uid()
+    )
+    OR EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = auth.uid() AND pr.role = 'admin')
+  );
+
+DROP POLICY IF EXISTS "viewings host update owned" ON public.viewing_requests;
+CREATE POLICY "viewings host update owned" ON public.viewing_requests
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.properties p
+      WHERE p.id = property_id
+        AND p.owner_id = auth.uid()
+    )
+    OR EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = auth.uid() AND pr.role = 'admin')
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.properties p
+      WHERE p.id = property_id
+        AND p.owner_id = auth.uid()
+    )
+    OR EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = auth.uid() AND pr.role = 'admin')
+  );
 
 CREATE OR REPLACE FUNCTION public.debug_rls_status()
 RETURNS JSONB

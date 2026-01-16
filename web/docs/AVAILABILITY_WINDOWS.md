@@ -32,3 +32,9 @@ Property availability is authored in local property time and exposed to tenants 
 - Exceptions: blackout or extra availability on specific dates (same window constraints).
 - Preview: uses `/api/availability/slots` to show tenant-facing slots in property timezone.
 - Seed: “Create default schedule” seeds Mon–Fri 09:00–17:00, Sat 10:00–14:00, Sun off.
+
+## Host decisions (R16.4c)
+- Host inbox: `/host/viewings` lists requests for owned properties.
+- Actions: approve (choose tenant slot), propose new slots (validated against availability), decline with reason.
+- Validation uses property availability slots (property timezone) to prevent invalid proposals.
+- Tenant UI reflects statuses (requested/approved/proposed/declined) without exposing raw IDs.

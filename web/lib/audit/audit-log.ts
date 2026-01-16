@@ -2,7 +2,9 @@ export type AuditEvent =
   | "availability.rules.upsert"
   | "availability.exceptions.create"
   | "availability.exceptions.delete"
-  | "availability.seed_default";
+  | "availability.seed_default"
+  | "viewings.host.respond"
+  | "viewings.host.inbox";
 
 type AuditContext = {
   route: string;

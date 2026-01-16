@@ -11,6 +11,11 @@
 - Write APIs for rules, exceptions, and default seeding with ownership checks and audit logging.
 - Playwright smoke for host availability (skip-safe without creds).
 
+## 2026-01-22 — vR16.4c-host-viewings-workflow
+- Host viewings inbox with approve/propose/decline workflow validated against availability slots.
+- Added host respond and inbox APIs, decision audit logging, and tenant status display updates.
+- Added Playwright skip-safe host workflow smoke.
+
 ## 2026-01-22 — vR16.3.1-property-force-dynamic
 - Forced dynamic rendering for property detail pages to prevent stale viewing UI from being served from cache.
 

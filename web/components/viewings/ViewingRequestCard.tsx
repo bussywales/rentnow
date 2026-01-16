@@ -4,6 +4,11 @@ export type ViewingRequestItem = {
   id: string;
   status: string;
   preferred_times: string[];
+  approved_time?: string | null;
+  proposed_times?: string[] | null;
+  host_message?: string | null;
+  decline_reason_code?: string | null;
+  decided_at?: string | null;
   message: string | null;
   created_at: string;
   properties?:
@@ -41,6 +46,20 @@ export function ViewingRequestCard({ request }: Props) {
   const location = [request.properties?.city, request.properties?.neighbourhood]
     .filter(Boolean)
     .join(" • ");
+  const tz = request.properties?.timezone;
+
+  const statusDetail =
+    request.status === "approved"
+      ? request.approved_time
+        ? `Approved: ${formatTimes([request.approved_time], tz)}`
+        : null
+      : request.status === "proposed" && request.proposed_times?.length
+        ? `Proposed: ${formatTimes(request.proposed_times, tz)}`
+        : request.status === "declined"
+          ? request.decline_reason_code
+            ? `Declined: ${request.decline_reason_code.replace(/_/g, " ")}`
+            : "Declined"
+          : null;
 
   return (
     <div
@@ -51,13 +70,17 @@ export function ViewingRequestCard({ request }: Props) {
         <p className="text-sm font-semibold text-slate-900">{title}</p>
         {location && <p className="text-sm text-slate-600">{location}</p>}
         <p className="text-sm text-slate-700">
-          Preferred: {formatTimes(request.preferred_times || [], request.properties?.timezone)}
+          Preferred: {formatTimes(request.preferred_times || [], tz)}
         </p>
         <p className="text-xs text-slate-500">
           Requested {formatRequestedAt(request.created_at)}
         </p>
+        {statusDetail && <p className="text-sm text-slate-700">{statusDetail}</p>}
         {request.message && (
           <p className="text-sm text-slate-600">Note: {request.message}</p>
+        )}
+        {request.host_message && (
+          <p className="text-sm text-slate-700">Host note: {request.host_message}</p>
         )}
       </div>
       <ViewingStatusBadge status={request.status} />
