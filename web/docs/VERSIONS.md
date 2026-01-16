@@ -6,6 +6,11 @@
 - Viewing requests now validate preferred times against generated availability.
 - Documented availability model and usage.
 
+## 2026-01-22 — vR16.4b-host-availability-editor
+- Host availability editor at `/host/properties/[id]/availability` (weekly rules, exceptions, preview).
+- Write APIs for rules, exceptions, and default seeding with ownership checks and audit logging.
+- Playwright smoke for host availability (skip-safe without creds).
+
 ## 2026-01-22 — vR16.3.1-property-force-dynamic
 - Forced dynamic rendering for property detail pages to prevent stale viewing UI from being served from cache.
 

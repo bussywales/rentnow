@@ -25,3 +25,10 @@ Property availability is authored in local property time and exposed to tenants 
 - Host UI to author rules/exceptions.
 - Booking/confirmation flow.
 - No-show/trust signals.
+
+## Host editor (R16.4b)
+- Host-only route: `/host/properties/[id]/availability`.
+- Weekly editor: per-day windows (06:00–22:00, up to 3 windows) with 30/60m slot length selector.
+- Exceptions: blackout or extra availability on specific dates (same window constraints).
+- Preview: uses `/api/availability/slots` to show tenant-facing slots in property timezone.
+- Seed: “Create default schedule” seeds Mon–Fri 09:00–17:00, Sat 10:00–14:00, Sun off.
