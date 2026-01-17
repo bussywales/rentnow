@@ -9,7 +9,7 @@ BEGIN
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'viewing_requests'
-      AND polname = 'viewings host select'
+      AND policyname = 'viewings host select'
   ) THEN
     EXECUTE $policy$
       CREATE POLICY "viewings host select"
@@ -35,7 +35,7 @@ BEGIN
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
       AND tablename = 'viewing_requests'
-      AND polname = 'viewings host update'
+      AND policyname = 'viewings host update'
   ) THEN
     EXECUTE $policy$
       CREATE POLICY "viewings host update"
