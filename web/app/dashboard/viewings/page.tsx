@@ -4,6 +4,8 @@ import { DEV_MOCKS } from "@/lib/env";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { ViewingRequest, UserRole } from "@/lib/types";
+import { getServerBaseUrl } from "@/lib/http/server-base-url";
+import { cookies } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,8 @@ export default async function ViewingsPage() {
   if (supabaseReady) {
     try {
       const { supabase, user } = await getServerAuthUser();
+      const cookieHeader = (await cookies()).toString();
+      const baseUrl = await getServerBaseUrl();
 
       if (user) {
         currentUserId = user.id;
@@ -44,30 +48,28 @@ export default async function ViewingsPage() {
           .maybeSingle();
         role = (profile?.role as UserRole) ?? null;
 
-        if (role === "tenant") {
-          const { data, error } = await supabase
-            .from("viewing_requests")
-            .select("*, properties(id, title)")
-            .eq("tenant_id", user.id)
-            .order("created_at", { ascending: false });
+        const endpoint =
+          role === "tenant" ? "/api/viewings/tenant" : "/api/viewings/host";
 
-          if (!error && data) {
-            requests = data as ViewingRequest[];
-          } else if (error && !DEV_MOCKS) {
+        const res = await fetch(`${baseUrl}${endpoint}`, {
+          headers: cookieHeader ? { cookie: cookieHeader } : undefined,
+          cache: "no-store",
+        });
+
+        if (res.ok) {
+          const json = await res.json();
+          const items = Array.isArray(json.viewings)
+            ? json.viewings
+            : Array.isArray(json.items)
+              ? json.items
+              : null;
+          if (items) {
+            requests = items as ViewingRequest[];
+          } else if (!DEV_MOCKS) {
             fetchError = "Unable to load viewing requests right now.";
           }
-        } else {
-          const { data, error } = await supabase
-            .from("viewing_requests")
-            .select("*, properties!inner(id, owner_id, title)")
-            .eq("properties.owner_id", user.id)
-            .order("created_at", { ascending: false });
-
-          if (!error && data) {
-            requests = data as ViewingRequest[];
-          } else if (error && !DEV_MOCKS) {
-            fetchError = "Unable to load viewing requests right now.";
-          }
+        } else if (!DEV_MOCKS) {
+          fetchError = "Unable to load viewing requests right now.";
         }
       }
     } catch {

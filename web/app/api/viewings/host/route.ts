@@ -28,6 +28,7 @@ export async function GET(request: Request) {
       .select(
         "id, property_id, tenant_id, status, preferred_times, approved_time, proposed_times, host_message, decline_reason_code, message, created_at, decided_at, no_show_reported_at, properties!inner(id, owner_id, title, city, neighbourhood, timezone)"
       )
+      .eq("properties.owner_id", auth.user.id)
       .order("created_at", { ascending: false });
 
     const rows =
@@ -86,11 +87,7 @@ export async function GET(request: Request) {
         : undefined,
     }));
 
-    return NextResponse.json({
-      ok: true,
-      viewings,
-      items: viewings,
-    });
+    return NextResponse.json(buildHostViewingsPayload(viewings));
   } catch (err) {
     logFailure({
       request,
@@ -101,4 +98,8 @@ export async function GET(request: Request) {
     });
     return NextResponse.json({ error: "Unable to load viewings" }, { status: 500 });
   }
+}
+
+export function buildHostViewingsPayload(viewings: unknown[]) {
+  return { ok: true, viewings, items: viewings };
 }
