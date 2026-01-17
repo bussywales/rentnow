@@ -8,6 +8,7 @@ export type ListingType =
   | "apartment"
   | "house"
   | "duplex"
+  | "bungalow"
   | "studio"
   | "room"
   | "shop"

@@ -48,6 +48,7 @@ const listingTypes: { label: string; value: ListingType }[] = [
   { label: "Apartment", value: "apartment" },
   { label: "House", value: "house" },
   { label: "Duplex", value: "duplex" },
+  { label: "Bungalow", value: "bungalow" },
   { label: "Studio", value: "studio" },
   { label: "Room", value: "room" },
   { label: "Shop", value: "shop" },
