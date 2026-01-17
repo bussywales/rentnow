@@ -60,6 +60,7 @@ const propertySchema = z.object({
   status: z.enum(["draft", "pending", "live", "rejected", "paused"]).optional(),
   is_active: z.boolean().optional(),
   imageUrls: z.array(z.string().url()).optional(),
+  cover_image_url: z.string().url().optional().nullable(),
 });
 
 export async function POST(request: Request) {
@@ -130,7 +131,7 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const data = propertySchema.parse(body);
-    const { imageUrls = [], status, ...rest } = data;
+    const { imageUrls = [], status, cover_image_url, ...rest } = data;
     const normalizedDepositCurrency =
       typeof rest.deposit_amount === "number"
         ? rest.deposit_currency ?? rest.currency
@@ -154,7 +155,14 @@ export async function POST(request: Request) {
       deposit_currency: normalizedDepositCurrency,
       bathroom_type: rest.bathroom_type ?? null,
       pets_allowed: typeof rest.pets_allowed === "boolean" ? rest.pets_allowed : false,
+      cover_image_url: cover_image_url ?? (imageUrls[0] ?? null),
     };
+    if (normalized.cover_image_url && imageUrls.length && !imageUrls.includes(normalized.cover_image_url)) {
+      return NextResponse.json(
+        { error: "Cover photo must be one of the uploaded photos." },
+        { status: 400 }
+      );
+    }
     const isAdmin = role === "admin";
     const normalizedStatus = isAdmin && status ? status : "draft";
     const isActive = normalizedStatus === "pending" || normalizedStatus === "live";

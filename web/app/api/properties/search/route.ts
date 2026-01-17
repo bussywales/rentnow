@@ -105,13 +105,28 @@ export async function GET(request: Request) {
     const typed = data as Array<
       Property & { property_images?: Array<{ id: string; image_url: string }> }
     >;
+    const orderImagesWithCover = (
+      images: Array<{ id: string; image_url: string }> | null | undefined,
+      coverImageUrl: string | null | undefined
+    ) => {
+      if (!images || !images.length) return [];
+      if (!coverImageUrl) return images;
+      const coverIndex = images.findIndex((img) => img.image_url === coverImageUrl);
+      if (coverIndex <= 0) return images;
+      const cover = images[coverIndex];
+      const remainder = images.filter((_, idx) => idx !== coverIndex);
+      return [cover, ...remainder];
+    };
     const properties =
       typed.map((row) => ({
         ...row,
-        images: row.property_images?.map((img) => ({
-          id: img.id,
-          image_url: img.image_url,
-        })),
+        images: orderImagesWithCover(
+          row.property_images?.map((img) => ({
+            id: img.id,
+            image_url: img.image_url,
+          })),
+          row.cover_image_url
+        ),
       })) || [];
 
     return NextResponse.json({ properties, page, pageSize, total: count ?? null });

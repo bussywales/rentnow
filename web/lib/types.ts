@@ -95,6 +95,7 @@ export interface Property {
   epc_rating?: string | null;
   council_tax_band?: string | null;
   features?: string[] | null;
+  cover_image_url?: string | null;
   created_at?: string;
   updated_at?: string;
   images?: PropertyImage[];

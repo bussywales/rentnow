@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-23 — vR16.5e-cover-photo
+- Added `cover_image_url` column and validation to ensure cover matches uploaded photos.
+- Listing photos step now supports choosing a cover photo with badges/actions and safer ordering/removal.
+- Property cards, search/detail pages, and previews use the cover image first with fallback to the first photo.
+
 ## 2026-01-22 — vR16.4a-availability-windows
 - Added property availability rules/exceptions tables with owner-only RLS.
 - Added tenant slots API `/api/availability/slots` (30m slots in property timezone with exceptions).

@@ -61,6 +61,19 @@ function getSearchParamValue(
   return value;
 }
 
+function orderImagesWithCover(
+  images: Array<{ id: string; image_url: string }> | null | undefined,
+  coverImageUrl: string | null | undefined
+) {
+  if (!images || !images.length) return [];
+  if (!coverImageUrl) return images;
+  const coverIndex = images.findIndex((img) => img.image_url === coverImageUrl);
+  if (coverIndex <= 0) return images;
+  const cover = images[coverIndex];
+  const remainder = images.filter((_, idx) => idx !== coverIndex);
+  return [cover, ...remainder];
+}
+
 function resolveBackHref(
   params: SearchParams | undefined,
   referer: string | null
@@ -134,10 +147,13 @@ async function getProperty(
         return {
           property: {
             ...data,
-            images: data.property_images?.map((img) => ({
-              id: img.id,
-              image_url: img.image_url,
-            })),
+            images: orderImagesWithCover(
+              data.property_images?.map((img) => ({
+                id: img.id,
+                image_url: img.image_url,
+              })),
+              data.cover_image_url
+            ),
           },
           error: null,
           apiUrl,
@@ -177,7 +193,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description =
     property.description ||
     `Discover ${property.title} in ${property.city}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${property.currency} ${property.price.toLocaleString()}.`;
-  const imageUrl = property.images?.[0]?.image_url;
+  const imageUrl = property.cover_image_url || property.images?.[0]?.image_url;
 
   const canonicalPath = `/properties/${property.id}`;
   const canonicalUrl = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;

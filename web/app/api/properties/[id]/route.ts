@@ -28,6 +28,18 @@ import {
 } from "@/lib/analytics/property-views";
 
 const routeLabel = "/api/properties/[id]";
+const orderImagesWithCover = (
+  images: Array<{ id: string; image_url: string }> | null | undefined,
+  coverImageUrl: string | null | undefined
+) => {
+  if (!images || !images.length) return images ?? [];
+  if (!coverImageUrl) return images;
+  const coverIndex = images.findIndex((img) => img.image_url === coverImageUrl);
+  if (coverIndex <= 0) return images;
+  const cover = images[coverIndex];
+  const rest = images.filter((_, idx) => idx !== coverIndex);
+  return [cover, ...rest];
+};
 const updateSchema = z.object({
   title: z.string().min(3).optional(),
   description: z.string().optional().nullable(),
@@ -68,6 +80,7 @@ const updateSchema = z.object({
   rejection_reason: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
   imageUrls: z.array(z.string().url()).optional(),
+  cover_image_url: z.string().url().optional().nullable(),
 });
 
 const idParamSchema = z.object({
@@ -372,7 +385,12 @@ export async function GET(
     });
   }
 
-  return NextResponse.json({ property: data });
+  const orderedImages = orderImagesWithCover(
+    (data as { property_images?: Array<{ id: string; image_url: string }> }).property_images,
+    (data as { cover_image_url?: string | null }).cover_image_url ?? null
+  );
+
+  return NextResponse.json({ property: { ...data, property_images: orderedImages } });
 }
 
 export async function PUT(
@@ -545,7 +563,7 @@ export async function PUT(
 
     const body = await request.json();
     const updates = updateSchema.parse(body);
-    const { imageUrls = [], status, rejection_reason, ...rest } = updates;
+    const { imageUrls = [], status, rejection_reason, cover_image_url, ...rest } = updates;
     const countryFields = normalizeCountryForUpdate({
       country: rest.country,
       country_code: rest.country_code,
@@ -575,7 +593,17 @@ export async function PUT(
       bathroom_type:
         typeof rest.bathroom_type === "undefined" ? undefined : rest.bathroom_type,
       pets_allowed: typeof rest.pets_allowed === "undefined" ? undefined : rest.pets_allowed,
+      cover_image_url:
+        typeof cover_image_url === "undefined"
+          ? undefined
+          : cover_image_url ?? (imageUrls[0] ?? null),
     };
+    if (typeof normalizedRest.cover_image_url === "string" && imageUrls.length && !imageUrls.includes(normalizedRest.cover_image_url)) {
+      return NextResponse.json(
+        { error: "Cover photo must be one of the uploaded photos." },
+        { status: 400 }
+      );
+    }
     const now = new Date().toISOString();
     const isAdmin = role === "admin";
     let statusUpdate: Record<string, unknown> = {};

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import NextImage from "next/image";
 import { CurrencySelect } from "@/components/properties/CurrencySelect";
 import { CountrySelect } from "@/components/properties/CountrySelect";
 import { normalizeCountryCode } from "@/lib/countries";
@@ -108,6 +109,44 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const [imageUrls, setImageUrls] = useState<string[]>(
     initialData?.images?.map((img) => img.image_url) || []
   );
+  const [coverImageUrl, setCoverImageUrl] = useState<string | null>(
+    initialData?.cover_image_url ??
+      initialData?.images?.[0]?.image_url ??
+      null
+  );
+  const syncCoverWithImages = useCallback((next: string[]) => {
+    setCoverImageUrl((prev) => {
+      if (!next.length) return null;
+      if (prev && next.includes(prev)) return prev;
+      return next[0];
+    });
+  }, []);
+  const updateImageUrls = useCallback(
+    (updater: ((prev: string[]) => string[]) | string[]) => {
+      if (typeof updater === "function") {
+        setImageUrls((prev) => {
+          const next = updater(prev);
+          syncCoverWithImages(next);
+          return next;
+        });
+      } else {
+        setImageUrls(updater);
+        syncCoverWithImages(updater);
+      }
+    },
+    [syncCoverWithImages]
+  );
+
+  useEffect(() => {
+    if (!imageUrls.length) {
+      setCoverImageUrl(null);
+      return;
+    }
+    setCoverImageUrl((prev) => {
+      if (prev && imageUrls.includes(prev)) return prev;
+      return imageUrls[0] ?? null;
+    });
+  }, [imageUrls]);
   const [form, setForm] = useState<FormState>({
     rental_type: initialData?.rental_type ?? "long_term",
     currency: initialData?.currency ?? "USD",
@@ -180,6 +219,19 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
         : [],
     };
   }, [form]);
+
+  const previewImages = useMemo(() => {
+    const mapped = imageUrls.map((url, index) => ({
+      id: `preview-${index}`,
+      image_url: url,
+    }));
+    if (!coverImageUrl) return mapped;
+    const coverIndex = mapped.findIndex((img) => img.image_url === coverImageUrl);
+    if (coverIndex <= 0) return mapped;
+    const cover = mapped[coverIndex];
+    const rest = mapped.filter((_, idx) => idx !== coverIndex);
+    return [cover, ...rest];
+  }, [coverImageUrl, imageUrls]);
 
   const resolveAuthUser = useCallback(async (supabase: ReturnType<typeof createBrowserSupabaseClient>) => {
     if (authResolveRef.current) {
@@ -269,6 +321,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     const requestBody = {
       ...restPayload,
       imageUrls,
+      cover_image_url: coverImageUrl ?? null,
       ...(shouldIncludeStatus
         ? { status, is_active: status === "pending" || status === "live" }
         : {}),
@@ -351,6 +404,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     canCreateDraft,
     getSupabase,
     imageUrls,
+    coverImageUrl,
     payload,
     propertyId,
     resolveAuthUser,
@@ -578,7 +632,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       }
       setFiles([]);
       const nextUrls = [...imageUrls, ...uploaded];
-      setImageUrls(nextUrls);
+      updateImageUrls(nextUrls);
       await saveDraft();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to upload photos.");
@@ -1344,6 +1398,9 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
             <label htmlFor="photo-upload" className="text-sm font-medium text-slate-700">
               Photos (Supabase Storage)
             </label>
+            <p className="text-xs text-slate-600">
+              Add at least 3 photos. Choose a cover photo — it&apos;s the image shown in search results and your listing preview.
+            </p>
             <input
               id="photo-upload"
               type="file"
@@ -1400,32 +1457,68 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
           </div>
 
           {imageUrls.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-700">Photo ordering</p>
-              <div className="space-y-2 text-xs text-slate-600">
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-slate-700">Photo gallery</p>
+                <p className="text-xs text-slate-500">
+                  Drag controls let you reorder; set a cover to choose the thumbnail.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {imageUrls.map((url, index) => (
-                  <div key={url} className="flex items-center justify-between gap-2">
-                    <span className="truncate">{url}</span>
-                    <div className="flex gap-2">
+                  <div
+                    key={url}
+                    className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                  >
+                    <div className="relative h-44 w-full">
+                      <NextImage
+                        src={url}
+                        alt={`Listing photo ${index + 1}`}
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-cover"
+                      />
+                    </div>
+                    <div className="absolute left-2 top-2 flex gap-2">
+                      {coverImageUrl === url ? (
+                        <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
+                          Cover
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow hover:bg-white"
+                          onClick={() => setCoverImageUrl(url)}
+                        >
+                          Set as cover
+                        </button>
+                      )}
+                    </div>
+                    <div className="absolute right-2 top-2 flex gap-2">
                       <button
                         type="button"
-                        className="text-slate-500 hover:text-slate-900"
-                        onClick={() => setImageUrls((prev) => moveItem(prev, index, -1))}
+                        className="rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-700 shadow hover:bg-white"
+                        onClick={() => updateImageUrls((prev) => moveItem(prev, index, -1))}
+                        aria-label="Move photo up"
                       >
-                        Up
+                        ↑
                       </button>
                       <button
                         type="button"
-                        className="text-slate-500 hover:text-slate-900"
-                        onClick={() => setImageUrls((prev) => moveItem(prev, index, 1))}
+                        className="rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-700 shadow hover:bg-white"
+                        onClick={() => updateImageUrls((prev) => moveItem(prev, index, 1))}
+                        aria-label="Move photo down"
                       >
-                        Down
+                        ↓
                       </button>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2 text-xs text-slate-700">
+                      <span className="truncate">Photo {index + 1}</span>
                       <button
                         type="button"
-                        className="text-rose-500 hover:text-rose-700"
+                        className="text-rose-600 hover:text-rose-800"
                         onClick={() =>
-                          setImageUrls((prev) => prev.filter((item) => item !== url))
+                          updateImageUrls((prev) => prev.filter((item) => item !== url))
                         }
                       >
                         Remove
@@ -1471,10 +1564,8 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
               pets_allowed: !!form.pets_allowed,
               amenities:
                 payload.amenities && payload.amenities.length ? payload.amenities : null,
-              images: imageUrls.map((url, index) => ({
-                id: `preview-${index}`,
-                image_url: url,
-              })),
+              cover_image_url: coverImageUrl ?? null,
+              images: previewImages,
             }}
           />
           <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
