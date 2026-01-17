@@ -277,7 +277,6 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   let isSaved = false;
   let isTenant = false;
   let isTenantPro = false;
-  let hasViewingRequest = false;
   let currentUser: Profile | null = null;
   let hostTrust: TrustMarkerState | null = null;
   let similar: Property[] = [];
@@ -319,14 +318,6 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             .eq("property_id", property.id)
             .maybeSingle();
           isSaved = !!data;
-
-          const { data: viewingRow } = await supabase
-            .from("viewing_requests")
-            .select("id")
-            .eq("tenant_id", user.id)
-            .eq("property_id", property.id)
-            .maybeSingle();
-          hasViewingRequest = !!viewingRow;
         }
 
         const priceFloor = property.price ? Math.max(0, property.price * 0.6) : null;
@@ -579,7 +570,6 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                 propertyId={property.id}
                 timezone={property.timezone}
                 city={property.city}
-                disabled={hasViewingRequest}
               />
             )}
           </div>
@@ -656,7 +646,6 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                   propertyId={property.id}
                   timezone={property.timezone}
                   city={property.city}
-                  disabled={hasViewingRequest}
                 />
               </div>
             </div>
