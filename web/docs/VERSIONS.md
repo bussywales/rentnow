@@ -483,3 +483,8 @@
 - Saved searches now available to all authenticated roles (tenant, landlord, agent) with private user scoping.
 - API no longer blocks non-tenant roles; tenant plan limits still apply when relevant.
 - Dashboard and navigation expose saved searches across roles; copy updated to neutral helper text.
+
+## 2026-02-04 — vR16.5x-listing-validation-ux-fix
+- Listing details validation now coerces optional numeric fields (year built, size, deposit) and keeps year built optional with bounds.
+- Zod validation errors are mapped to inline field messages; raw schema error objects no longer render in the UI.
+- Added bungalow to property API validation enum to match the UI options.

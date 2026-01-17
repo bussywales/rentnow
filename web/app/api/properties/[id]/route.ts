@@ -13,6 +13,13 @@ import { normalizeRole } from "@/lib/roles";
 import { normalizeCountryForUpdate } from "@/lib/properties/country-normalize";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import {
+  mapZodErrorToFieldErrors,
+  optionalIntNonnegative,
+  optionalNonnegativeNumber,
+  optionalPositiveNumber,
+  optionalYearBuilt,
+} from "@/lib/properties/validation";
+import {
   getDedupeWindowStart,
   isPrefetchRequest,
   shouldRecordPropertyView,
@@ -21,8 +28,6 @@ import {
 } from "@/lib/analytics/property-views";
 
 const routeLabel = "/api/properties/[id]";
-const CURRENT_YEAR = new Date().getFullYear();
-
 const updateSchema = z.object({
   title: z.string().min(3).optional(),
   description: z.string().optional().nullable(),
@@ -35,7 +40,7 @@ const updateSchema = z.object({
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
   listing_type: z
-    .enum(["apartment", "house", "duplex", "studio", "room", "shop", "office", "land"])
+    .enum(["apartment", "house", "duplex", "bungalow", "studio", "room", "shop", "office", "land"])
     .optional()
     .nullable(),
   rental_type: z.enum(["short_let", "long_term"]).optional(),
@@ -46,21 +51,15 @@ const updateSchema = z.object({
   bathrooms: z.number().int().nonnegative().optional(),
   bathroom_type: z.enum(["private", "shared"]).optional().nullable(),
   furnished: z.boolean().optional(),
-  size_value: z.number().positive().optional().nullable(),
+  size_value: optionalPositiveNumber(),
   size_unit: z.enum(["sqm", "sqft"]).optional().nullable(),
-  year_built: z
-    .number()
-    .int()
-    .min(1800)
-    .max(CURRENT_YEAR + 1)
-    .optional()
-    .nullable(),
-  deposit_amount: z.number().nonnegative().optional().nullable(),
+  year_built: optionalYearBuilt(),
+  deposit_amount: optionalNonnegativeNumber(),
   deposit_currency: z.string().min(2).optional().nullable(),
   pets_allowed: z.boolean().optional(),
   amenities: z.array(z.string()).optional().nullable(),
   available_from: z.string().optional().nullable(),
-  max_guests: z.number().int().nullable().optional(),
+  max_guests: optionalIntNonnegative(),
   bills_included: z.boolean().optional(),
   epc_rating: z.string().optional().nullable(),
   council_tax_band: z.string().optional().nullable(),
@@ -725,6 +724,13 @@ export async function PUT(
 
     return NextResponse.json({ id });
   } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      const fieldErrors = mapZodErrorToFieldErrors(error);
+      return NextResponse.json(
+        { error: "Please correct the highlighted fields.", fieldErrors },
+        { status: 400 }
+      );
+    }
     const message =
       error instanceof Error ? error.message : "Unable to update property";
     logFailure({

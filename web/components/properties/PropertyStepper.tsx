@@ -98,6 +98,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const [saving, startSaving] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -292,11 +293,24 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
 
     if (!res.ok) {
       const raw = await res.text().catch(() => "");
-      let data: { code?: string; maxListings?: number; error?: string } | null = null;
+      type ApiError = {
+        code?: string;
+        maxListings?: number;
+        error?: string;
+        fieldErrors?: Record<string, string>;
+      };
+      let data: ApiError | null = null;
       try {
-        data = raw ? (JSON.parse(raw) as { code?: string; maxListings?: number; error?: string }) : null;
+        data = raw ? (JSON.parse(raw) as ApiError) : null;
       } catch {
         data = null;
+      }
+      const validationErrors =
+        data && typeof data.fieldErrors === "object" && data.fieldErrors !== null
+          ? (data.fieldErrors as Record<string, string>)
+          : null;
+      if (validationErrors) {
+        setFieldErrors(validationErrors);
       }
       if (data?.code === "plan_limit_reached") {
         const limitMessage =
@@ -311,8 +325,13 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       } else {
         setErrorCode(null);
       }
-      throw new Error(data?.error || raw || "Unable to save draft.");
+      const fallbackMessage = validationErrors
+        ? "Please correct the highlighted fields."
+        : data?.error || raw || "Unable to save draft.";
+      throw new Error(fallbackMessage);
     }
+
+    setFieldErrors({});
 
     if (!propertyId) {
       const json = await res.json().catch(() => ({}));
@@ -356,6 +375,12 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     key: keyof FormState,
     value: string | number | boolean | null
   ) => {
+    setFieldErrors((prev) => {
+      if (!(key in prev)) return prev;
+      const next = { ...prev };
+      delete next[key as string];
+      return next;
+    });
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -550,7 +575,11 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const stepLabel = steps[stepIndex]?.label || "Basics";
   const maxYearBuilt = new Date().getFullYear() + 1;
   const showErrorDetails = process.env.NODE_ENV === "development";
+  const hasFieldErrors = Object.keys(fieldErrors).length > 0;
   const resolveStepperError = (message: string, code: string | null) => {
+    if (hasFieldErrors) {
+      return "Please correct the highlighted fields.";
+    }
     if (code === "not_authenticated") {
       return "Please log in to continue.";
     }
@@ -572,6 +601,10 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const errorSummary = error ? resolveStepperError(error, errorCode) : null;
   const errorDetails =
     error && showErrorDetails && errorSummary !== error ? error : null;
+  const renderFieldError = (key: keyof FormState) =>
+    fieldErrors[key as string] ? (
+      <p className="text-xs text-rose-600">{fieldErrors[key as string]}</p>
+    ) : null;
 
   return (
     <div className="space-y-8">
@@ -812,6 +845,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                     value={form.bedrooms ?? 0}
                     onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
                   />
+                  {renderFieldError("bedrooms")}
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
@@ -824,6 +858,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                     value={form.bathrooms ?? 0}
                     onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
                   />
+                  {renderFieldError("bathrooms")}
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="max-guests" className="text-sm font-medium text-slate-700">
@@ -866,6 +901,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                     value={form.price ?? ""}
                     onChange={(e) => handleChange("price", Number(e.target.value))}
                   />
+                  {renderFieldError("price")}
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="currency" className="text-sm font-medium text-slate-700">
@@ -1027,6 +1063,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                       )
                     }
                   />
+                  {renderFieldError("size_value")}
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="size-unit" className="text-sm font-medium text-slate-700">
@@ -1061,6 +1098,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                       )
                     }
                   />
+                  {renderFieldError("year_built")}
                 </div>
               </div>
             </section>
@@ -1081,19 +1119,20 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                     <Input
                       id="deposit-amount"
                       type="number"
-                      min={0}
-                      value={form.deposit_amount ?? ""}
-                      onChange={(e) =>
-                        handleChange(
-                          "deposit_amount",
-                          e.target.value === "" ? null : Number(e.target.value)
-                        )
-                      }
-                    />
-                    <p className="text-xs text-slate-500">
-                      Optional; common is 1–2 months.
-                    </p>
-                  </div>
+                    min={0}
+                    value={form.deposit_amount ?? ""}
+                    onChange={(e) =>
+                      handleChange(
+                        "deposit_amount",
+                        e.target.value === "" ? null : Number(e.target.value)
+                      )
+                    }
+                  />
+                  <p className="text-xs text-slate-500">
+                    Optional; common is 1–2 months.
+                  </p>
+                  {renderFieldError("deposit_amount")}
+                </div>
                   <div className="space-y-2">
                     <label htmlFor="deposit-currency" className="text-sm font-medium text-slate-700">
                       Deposit currency
