@@ -39,7 +39,7 @@ export default async function SavedSearchesPage() {
     .eq("id", user.id)
     .maybeSingle();
   const normalizedRole = normalizeRole(profile?.role);
-  const showSavedSearches = shouldShowSavedSearchNav(normalizedRole);
+  const showSavedSearches = shouldShowSavedSearchNav();
 
   if (!showSavedSearches) {
     return (

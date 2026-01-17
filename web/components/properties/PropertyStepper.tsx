@@ -312,12 +312,16 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
           : null;
       if (validationErrors) {
         setFieldErrors(validationErrors);
+        const firstKey = Object.keys(validationErrors)[0];
+        if (firstKey) {
+          scrollToField(firstKey);
+        }
       }
       if (data?.code === "plan_limit_reached") {
-        const limitMessage =
-          typeof data?.maxListings === "number"
-            ? ` Plan limit: ${data.maxListings}.`
-            : "";
+          const limitMessage =
+            typeof data?.maxListings === "number"
+              ? ` Plan limit: ${data.maxListings}.`
+              : "";
         setErrorCode(data.code);
         throw new Error(`Plan limit reached.${limitMessage} Upgrade to add more listings.`);
       }
@@ -385,11 +389,21 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
+  const scrollToField = (key: string) => {
+    const el = document.getElementById(`field-${key}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      const input = el.querySelector("input,select,textarea") as HTMLElement | null;
+      input?.focus();
+    }
+  };
+
   const next = () => {
     setError(null);
     if (stepIndex === 0 && !canCreateDraft) {
       const required: Array<keyof FormState> = [
         "title",
+        "country",
         "city",
         "rental_type",
         "price",
@@ -409,11 +423,8 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       if (Object.keys(missing).length) {
         setFieldErrors(missing);
         const firstKey = Object.keys(missing)[0];
-        const el = document.getElementById(`field-${firstKey}`);
-        if (el) {
-          el.scrollIntoView({ behavior: "smooth", block: "center" });
-          const input = el.querySelector("input,select,textarea") as HTMLElement | null;
-          input?.focus();
+        if (firstKey) {
+          scrollToField(firstKey);
         }
       }
       setError("Fix these to continue.");
@@ -747,14 +758,16 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                   />
                   {renderFieldError("title")}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2" id="field-rental_type">
                   <label htmlFor="rental-type" className="text-sm font-medium text-slate-700">
-                    Rental type
+                    Rental type <span className="text-rose-500">*</span>
                   </label>
                   <Select
                     id="rental-type"
                     value={form.rental_type}
                     onChange={(e) => handleChange("rental_type", e.target.value as RentalType)}
+                    aria-required="true"
+                    className={fieldErrors.rental_type ? "ring-2 ring-rose-400 border-rose-300" : ""}
                   >
                     {rentalTypes.map((type) => (
                       <option key={type.value} value={type.value}>
@@ -762,6 +775,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                       </option>
                     ))}
                   </Select>
+                  {renderFieldError("rental_type")}
                 </div>
               </div>
             </section>
@@ -894,9 +908,9 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                 </div>
               </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
+                <div className="space-y-2" id="field-bedrooms">
                   <label htmlFor="bedrooms" className="text-sm font-medium text-slate-700">
-                    Bedrooms
+                    Bedrooms <span className="text-rose-500">*</span>
                   </label>
                   <Input
                     id="bedrooms"
@@ -904,12 +918,14 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                     min={0}
                     value={form.bedrooms ?? 0}
                     onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
+                    aria-required="true"
+                    className={fieldErrors.bedrooms ? "ring-2 ring-rose-400 border-rose-300" : ""}
                   />
                   {renderFieldError("bedrooms")}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2" id="field-bathrooms">
                   <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
-                    Bathrooms
+                    Bathrooms <span className="text-rose-500">*</span>
                   </label>
                   <Input
                     id="bathrooms"
@@ -917,6 +933,8 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                     min={0}
                     value={form.bathrooms ?? 0}
                     onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
+                    aria-required="true"
+                    className={fieldErrors.bathrooms ? "ring-2 ring-rose-400 border-rose-300" : ""}
                   />
                   {renderFieldError("bathrooms")}
                 </div>
@@ -965,9 +983,9 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                   />
                   {renderFieldError("price")}
                 </div>
-                <div className="space-y-2">
+                <div className="space-y-2" id="field-currency">
                   <label htmlFor="currency" className="text-sm font-medium text-slate-700">
-                    Currency
+                    Currency <span className="text-rose-500">*</span>
                   </label>
                   <CurrencySelect
                     id="currency"
@@ -975,6 +993,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                     onChange={(value) => handleChange("currency", value)}
                     placeholder="Search currency codes"
                   />
+                  {renderFieldError("currency")}
                 </div>
                 <div className="space-y-2">
                   <span className="text-sm font-medium text-slate-700">Rent period</span>

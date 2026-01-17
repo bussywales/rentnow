@@ -30,7 +30,11 @@ export const optionalYearBuilt = () =>
       z.literal("").transform(() => undefined),
       z.literal(null).transform(() => undefined),
       z.undefined(),
-      z.coerce.number().int().min(1800).max(CURRENT_YEAR + 1),
+      z
+        .coerce.number()
+        .int()
+        .min(1800, { message: "Year built must be 1800 or later" })
+        .max(CURRENT_YEAR + 1),
     ])
     .optional();
 

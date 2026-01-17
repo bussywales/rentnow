@@ -33,7 +33,7 @@ export default async function DashboardLayout({
   const normalizedRole = normalizeRole(profile?.role);
   const roleLabel = formatRoleLabel(normalizedRole);
   const showMyProperties = canManageListings(normalizedRole);
-  const showSavedSearches = shouldShowSavedSearchNav(normalizedRole);
+  const showSavedSearches = shouldShowSavedSearchNav();
   const isTenant = normalizedRole === "tenant";
   if (normalizedRole === "admin") {
     redirect("/admin/support");

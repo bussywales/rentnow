@@ -113,7 +113,7 @@ export function getBrowseEmptyStateCtas(input: {
     ctas.push({ label: "Clear filters", href: "/properties", kind: "secondary" });
   }
   ctas.push({ label: "Browse all", href: "/properties", kind: "primary" });
-  if (shouldShowSavedSearchNav(input.role)) {
+  if (shouldShowSavedSearchNav()) {
     ctas.push({
       label: "Saved searches",
       href: "/dashboard/saved-searches",

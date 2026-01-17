@@ -20,8 +20,8 @@ export function canManageListings(role: UserRole | null): boolean {
   return !!role && LISTING_ROLES.includes(role);
 }
 
-export function shouldShowSavedSearchNav(role: UserRole | null): boolean {
-  return role !== null;
+export function shouldShowSavedSearchNav(): boolean {
+  return true;
 }
 
 export function getListingCta(role: UserRole | null): ListingCta {

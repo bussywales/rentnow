@@ -26,11 +26,11 @@ void test("listing CTA varies by role", () => {
   });
 });
 
-void test("saved searches nav is tenant-only", () => {
+void test("saved searches nav is available to all authenticated roles", () => {
   assert.equal(shouldShowSavedSearchNav("tenant"), true);
   assert.equal(shouldShowSavedSearchNav("landlord"), true);
   assert.equal(shouldShowSavedSearchNav("agent"), true);
-  assert.equal(shouldShowSavedSearchNav(null), false);
+  assert.equal(shouldShowSavedSearchNav(null), true);
 });
 
 void test("listing access rejects tenants and unauthenticated users", () => {
