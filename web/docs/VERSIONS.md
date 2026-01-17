@@ -488,3 +488,7 @@
 - Listing details validation now coerces optional numeric fields (year built, size, deposit) and keeps year built optional with bounds.
 - Zod validation errors are mapped to inline field messages; raw schema error objects no longer render in the UI.
 - Added bungalow to property API validation enum to match the UI options.
+
+## 2026-02-04 — vR16.5c.2-saved-searches-all-roles
+- Dashboard nav and saved searches page are available to all authenticated roles (tenant, landlord, agent).
+- Neutralized tenant-only copy; saving searches works for all roles with existing plan limits where applicable.
