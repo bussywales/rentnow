@@ -9,7 +9,6 @@ import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { RequestViewingCtaSection } from "@/components/viewings/RequestViewingCtaSection";
-import { RequestViewingStatus } from "@/components/viewings/RequestViewingStatus";
 import { TrustBadges } from "@/components/trust/TrustBadges";
 import { TrustReliability } from "@/components/trust/TrustReliability";
 import { Button } from "@/components/ui/Button";
@@ -563,15 +562,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </span>
             ))}
           </div>
-          {isTenant && (
-            <div className="mt-3 rounded-xl border border-slate-200 bg-white/70 p-3 shadow-sm">
-              <RequestViewingCtaSection
-                propertyId={property.id}
-                timezoneLabel={`Times shown in ${cityLabel} time.`}
-              />
-            </div>
-          )}
-          {!isTenant && <SaveButton propertyId={property.id} initialSaved={isSaved} />}
+          <div className="mt-3">
+            <SaveButton propertyId={property.id} initialSaved={isSaved} />
+          </div>
         </div>
       </div>
 
@@ -634,8 +627,11 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Viewing requests</h3>
               </div>
-              <div className="mt-2">
-                <RequestViewingStatus propertyId={property.id} />
+              <div className="mt-3">
+                <RequestViewingCtaSection
+                  propertyId={property.id}
+                  timezoneLabel={`Times shown in ${cityLabel} time.`}
+                />
               </div>
             </div>
           )}

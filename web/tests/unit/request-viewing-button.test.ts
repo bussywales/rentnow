@@ -9,5 +9,5 @@ void test("CTA enabled for declined latest", () => {
     created_at: "2026-01-01T00:00:00Z",
   });
   assert.equal(state.disabled, false);
-  assert.match(state.label.toLowerCase(), /choose new times/);
+  assert.match(state.label.toLowerCase(), /request viewing/);
 });

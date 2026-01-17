@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { RequestViewingButton } from "@/components/viewings/RequestViewingButton";
-import { SaveButton } from "@/components/properties/SaveButton";
 
 type LatestStatus = {
   id: string;
@@ -27,8 +26,14 @@ function mapContext(status: string | null): ContextCopy {
   const normalized = (status || "").toLowerCase();
   if (normalized === "declined") {
     return {
-      title: "Request declined",
+      title: "Request declined.",
       body: "Pick new times and we’ll ask the host again.",
+    };
+  }
+  if (normalized === "no_show") {
+    return {
+      title: "Last request was marked as no-show.",
+      body: "You can request another time.",
     };
   }
   if (normalized === "pending" || normalized === "requested") {
@@ -81,13 +86,10 @@ export function RequestViewingCtaSection({ propertyId, timezoneLabel }: Props) {
           href="/tenant/viewings"
           className="text-sm font-semibold text-sky-700 hover:underline"
         >
-          Track requests
+          Track viewings
         </Link>
       </div>
       {timezoneLabel && <p className="text-xs text-slate-500">{timezoneLabel}</p>}
-      <div className="pt-2">
-        <SaveButton propertyId={propertyId} />
-      </div>
     </div>
   );
 }

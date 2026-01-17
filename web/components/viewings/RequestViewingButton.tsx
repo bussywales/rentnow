@@ -29,17 +29,17 @@ type LatestStatus = {
 };
 
 export function deriveCtaState(latest: LatestStatus | null) {
-  if (!latest) return { label: "Request a viewing", disabled: false, note: null };
+  const baseLabel = "Request viewing";
+  if (!latest) return { label: baseLabel, disabled: false, note: null };
   const status = (latest.status || "").toLowerCase();
   if (status === "approved" || status === "confirmed")
-    return { label: "Viewing confirmed", disabled: true, note: null };
+    return { label: baseLabel, disabled: true, note: null };
   if (status === "pending" || status === "requested")
-    return { label: "Request sent", disabled: true, note: null };
-  if (status === "proposed")
-    return { label: "Review suggested times", disabled: false, note: null };
+    return { label: baseLabel, disabled: true, note: null };
+  if (status === "proposed") return { label: baseLabel, disabled: false, note: null };
   if (status === "declined" || latest.no_show_reported_at)
-    return { label: "Choose new times", disabled: false, note: null };
-  return { label: "Request a viewing", disabled: false, note: null };
+    return { label: baseLabel, disabled: false, note: null };
+  return { label: baseLabel, disabled: false, note: null };
 }
 
 function formatLocalDate(timeZone: string) {
