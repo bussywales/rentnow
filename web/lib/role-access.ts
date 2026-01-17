@@ -21,7 +21,7 @@ export function canManageListings(role: UserRole | null): boolean {
 }
 
 export function shouldShowSavedSearchNav(role: UserRole | null): boolean {
-  return role === "tenant";
+  return role !== null;
 }
 
 export function getListingCta(role: UserRole | null): ListingCta {

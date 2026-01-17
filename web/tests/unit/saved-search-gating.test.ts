@@ -113,11 +113,7 @@ void test("tenant exceeding limit is blocked with limit_reached", async () => {
 });
 
 void test("landlord is blocked from saving searches", async () => {
-  const supabase = {
-    from: () => {
-      throw new Error("Unexpected table query");
-    },
-  };
+  const { supabase, inserted } = createSupabaseStub({ count: 0 });
   const response = await postSavedSearchResponse(
     new Request("http://localhost/api/saved-searches", {
       method: "POST",
@@ -134,7 +130,8 @@ void test("landlord is blocked from saving searches", async () => {
     }
   );
 
-  assert.equal(response.status, 403);
+  assert.equal(response.status, 200);
   const body = await response.json();
-  assert.equal(body.code, "role_not_allowed");
+  assert.ok(body.search);
+  assert.equal(inserted[0]?.user_id, "user-1");
 });

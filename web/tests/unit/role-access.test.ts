@@ -28,8 +28,8 @@ void test("listing CTA varies by role", () => {
 
 void test("saved searches nav is tenant-only", () => {
   assert.equal(shouldShowSavedSearchNav("tenant"), true);
-  assert.equal(shouldShowSavedSearchNav("landlord"), false);
-  assert.equal(shouldShowSavedSearchNav("agent"), false);
+  assert.equal(shouldShowSavedSearchNav("landlord"), true);
+  assert.equal(shouldShowSavedSearchNav("agent"), true);
   assert.equal(shouldShowSavedSearchNav(null), false);
 });
 

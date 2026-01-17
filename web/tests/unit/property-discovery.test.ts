@@ -37,5 +37,8 @@ void test("empty state CTAs include saved searches for tenants", () => {
   );
 
   const landlordCtas = getBrowseEmptyStateCtas({ role: "landlord", hasFilters: true });
-  assert.deepEqual(landlordCtas.map((cta) => cta.label), ["Clear filters", "Browse all"]);
+  assert.deepEqual(
+    landlordCtas.map((cta) => cta.label),
+    ["Clear filters", "Browse all", "Saved searches"]
+  );
 });

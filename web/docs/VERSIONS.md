@@ -478,3 +478,8 @@
 - Added `/api/viewings/:id/no-show` plus host/tenant responses that surface no-show markers safely.
 - Introduced 90-day reliability snapshot (Reliable / Mixed / Unknown) for hosts; tenant copy stays neutral.
 - Added trust documentation and host/tenant UI indicators; host workflow now includes “Mark as no-show”.
+
+## 2026-02-03 — vR16.5c-saved-searches-all-roles
+- Saved searches now available to all authenticated roles (tenant, landlord, agent) with private user scoping.
+- API no longer blocks non-tenant roles; tenant plan limits still apply when relevant.
+- Dashboard and navigation expose saved searches across roles; copy updated to neutral helper text.

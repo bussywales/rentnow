@@ -109,66 +109,55 @@ export async function postSavedSearchResponse(
 
   try {
     const role = await getRole(supabase, auth.user.id);
-    if (role !== "tenant") {
-      logError({
-        request,
-        route: routeLabel,
-        status: 403,
-        startTime,
-        error: new Error("role_not_allowed"),
-      });
-      return NextResponse.json(
-        { error: "Saved searches are available to tenants.", code: "role_not_allowed" },
-        { status: 403 }
-      );
-    }
+    const enforcePlanLimit = role === "tenant";
+    if (enforcePlanLimit) {
+      const { data: planRow } = await supabase
+        .from("profile_plans")
+        .select("plan_tier, valid_until")
+        .eq("profile_id", auth.user.id)
+        .maybeSingle();
 
-    const { data: planRow } = await supabase
-      .from("profile_plans")
-      .select("plan_tier, valid_until")
-      .eq("profile_id", auth.user.id)
-      .maybeSingle();
+      const validUntil = planRow?.valid_until ?? null;
+      const expired =
+        !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
+      const tenantPlan = resolveTenantPlan(expired ? "free" : planRow?.plan_tier ?? "free");
 
-    const validUntil = planRow?.valid_until ?? null;
-    const expired =
-      !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
-    const tenantPlan = resolveTenantPlan(expired ? "free" : planRow?.plan_tier ?? "free");
+      const { count: searchCount, error: countError } = await supabase
+        .from("saved_searches")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", auth.user.id);
 
-    const { count: searchCount, error: countError } = await supabase
-      .from("saved_searches")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", auth.user.id);
+      if (countError) {
+        logError({
+          request,
+          route: routeLabel,
+          status: 400,
+          startTime,
+          error: new Error(countError.message),
+        });
+        return NextResponse.json({ error: countError.message }, { status: 400 });
+      }
 
-    if (countError) {
-      logError({
-        request,
-        route: routeLabel,
-        status: 400,
-        startTime,
-        error: new Error(countError.message),
-      });
-      return NextResponse.json({ error: countError.message }, { status: 400 });
-    }
-
-    if (isLimitReached(searchCount ?? 0, tenantPlan)) {
-      logLimitHit({
-        request,
-        route: routeLabel,
-        actorId: auth.user.id,
-        planTier: tenantPlan.tier,
-        maxSavedSearches: tenantPlan.maxSavedSearches,
-        searchCount: searchCount ?? 0,
-      });
-      return NextResponse.json(
-        {
-          error: "Saved search limit reached",
-          code: "limit_reached",
+      if (isLimitReached(searchCount ?? 0, tenantPlan)) {
+        logLimitHit({
+          request,
+          route: routeLabel,
+          actorId: auth.user.id,
+          planTier: tenantPlan.tier,
           maxSavedSearches: tenantPlan.maxSavedSearches,
           searchCount: searchCount ?? 0,
-          planTier: tenantPlan.tier,
-        },
-        { status: 409 }
-      );
+        });
+        return NextResponse.json(
+          {
+            error: "Saved search limit reached",
+            code: "limit_reached",
+            maxSavedSearches: tenantPlan.maxSavedSearches,
+            searchCount: searchCount ?? 0,
+            planTier: tenantPlan.tier,
+          },
+          { status: 409 }
+        );
+      }
     }
 
     const body = await request.json();

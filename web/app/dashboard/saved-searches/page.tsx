@@ -46,12 +46,9 @@ export default async function SavedSearchesPage() {
       <div className="space-y-3">
         <h1 className="text-2xl font-semibold text-slate-900">Saved searches</h1>
         <p className="text-sm text-slate-600">
-          Saved searches are available to tenants. Browse homes to find your next place.
+          Complete your profile to start saving searches for quick access later.
         </p>
         <div className="flex flex-wrap items-center gap-3 text-sm">
-          <Link href="/properties" className="font-semibold text-sky-700">
-            Browse homes
-          </Link>
           <Link href="/dashboard" className="font-semibold text-slate-600">
             Back to dashboard
           </Link>
@@ -76,6 +73,7 @@ export default async function SavedSearchesPage() {
   const expired = isPlanExpired(validUntil);
   const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
   const alertsEnabled = tenantPlan.instantAlerts;
+  const billingHref = normalizedRole === "tenant" ? "/tenant/billing#plans" : "/dashboard/billing";
 
   const { data: alertRows } = await supabase
     .from("saved_search_alerts")
@@ -99,7 +97,7 @@ export default async function SavedSearchesPage() {
         <p className="text-xs text-slate-600">
           {alertsEnabled
             ? "Instant alerts are enabled for your saved searches."
-            : "Upgrade to Tenant Pro to get instant alerts for new homes."}
+            : "Upgrade to Pro to get instant alerts for new listings."}
         </p>
         {!pushConfig.configured ? (
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
@@ -120,10 +118,10 @@ export default async function SavedSearchesPage() {
         </div>
         {!alertsEnabled && (
           <Link
-            href="/tenant/billing#plans"
+            href={billingHref}
             className="mt-3 inline-flex text-sm font-semibold text-sky-700"
           >
-            View Tenant Pro
+            View plans
           </Link>
         )}
       </div>
