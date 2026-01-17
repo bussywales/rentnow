@@ -28,20 +28,16 @@ type LatestStatus = {
   no_show_reported_at?: string | null;
 };
 
-export function deriveCtaState(latest: LatestStatus | null, hasSuccess: boolean) {
-  if (!latest) {
-    return { label: "Request a viewing", disabled: false, note: null };
-  }
+export function deriveCtaState(latest: LatestStatus | null) {
+  if (!latest) return { label: "Request a viewing", disabled: false, note: null };
   const status = (latest.status || "").toLowerCase();
-  if (status === "approved") return { label: "Viewing confirmed", disabled: true, note: null };
-  if (status === "pending" || status === "requested" || status === "confirmed")
+  if (status === "approved" || status === "confirmed")
+    return { label: "Viewing confirmed", disabled: true, note: null };
+  if (status === "pending" || status === "requested")
     return { label: "Request sent", disabled: true, note: null };
-  if (status === "proposed")
-    return { label: "Review suggested times", disabled: false, note: null };
-  if (status === "declined" || latest.no_show_reported_at) {
+  if (status === "proposed") return { label: "Review suggested times", disabled: false, note: null };
+  if (status === "declined" || latest.no_show_reported_at)
     return { label: "Request another viewing", disabled: false, note: null };
-  }
-  if (hasSuccess) return { label: "Viewing requested", disabled: true, note: null };
   return { label: "Request a viewing", disabled: false, note: null };
 }
 
@@ -113,7 +109,7 @@ export function RequestViewingButton({ propertyId, timezone, city, disabled }: P
   const timeZone = timezone || DEFAULT_TIMEZONE;
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [success] = useState(false);
   const [latest, setLatest] = useState<LatestStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => formatLocalDate(timeZone));
@@ -195,7 +191,6 @@ export function RequestViewingButton({ propertyId, timezone, city, disabled }: P
         setError("We couldn't send your request. Please try again.");
       } else {
         setLatest({ id: "pending", status: "pending", created_at: new Date().toISOString() });
-        setSuccess(true);
         setOpen(false);
       }
     } catch (err) {
@@ -215,9 +210,9 @@ export function RequestViewingButton({ propertyId, timezone, city, disabled }: P
             setOpen(true);
             if (!message) setMessage(DEFAULT_MESSAGE);
           }}
-          disabled={disabled || deriveCtaState(latest, success).disabled}
+          disabled={disabled || deriveCtaState(latest).disabled}
         >
-          {deriveCtaState(latest, success).label}
+          {deriveCtaState(latest).label}
         </Button>
         {(success || latest) && (
           <Link href="/tenant/viewings" className="text-sm font-semibold text-sky-700 underline">
