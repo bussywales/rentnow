@@ -38,7 +38,7 @@ export function deriveCtaState(latest: LatestStatus | null) {
   if (status === "proposed")
     return { label: "Review suggested times", disabled: false, note: null };
   if (status === "declined" || latest.no_show_reported_at)
-    return { label: "Suggest new times", disabled: false, note: null };
+    return { label: "Choose new times", disabled: false, note: null };
   return { label: "Request a viewing", disabled: false, note: null };
 }
 

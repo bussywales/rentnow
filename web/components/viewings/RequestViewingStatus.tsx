@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 type StatusPayload = {
   id: string;
@@ -71,11 +70,6 @@ export function RequestViewingStatus({ propertyId }: Props) {
     <div className="space-y-2">
       <p className="text-sm font-semibold text-slate-900">{message.title}</p>
       {message.body && <p className="text-sm text-slate-600">{message.body}</p>}
-      <div className="text-sm text-slate-600">
-        <Link href="/tenant/viewings" className="font-semibold text-sky-700 hover:underline">
-          View my requests
-        </Link>
-      </div>
     </div>
   );
 }

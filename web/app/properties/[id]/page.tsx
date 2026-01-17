@@ -437,7 +437,6 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
     typeof property.description === "string" && property.description.trim().length > 0
       ? property.description
       : "This listing doesn't have a description yet. Contact the host for details.";
-  const timezoneLabel = property.timezone || "Africa/Lagos";
   const cityLabel =
     typeof property.city === "string" && property.city.trim().length > 0
       ? property.city
@@ -568,7 +567,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             <div className="mt-3 rounded-xl border border-slate-200 bg-white/70 p-3 shadow-sm">
               <RequestViewingCtaSection
                 propertyId={property.id}
-                timezoneLabel={`Times shown in ${cityLabel} time (${timezoneLabel}).`}
+                timezoneLabel={`Times shown in ${cityLabel} time.`}
               />
             </div>
           )}

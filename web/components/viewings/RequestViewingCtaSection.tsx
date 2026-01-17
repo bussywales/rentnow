@@ -21,34 +21,30 @@ type Props = {
 type ContextCopy = {
   title: string;
   body?: string;
-  linkLabel: string;
 };
 
 function mapContext(status: string | null): ContextCopy {
   const normalized = (status || "").toLowerCase();
   if (normalized === "declined") {
     return {
-      title: "Your previous request was declined.",
-      body: "You can suggest new times that work for you.",
-      linkLabel: "View my requests",
+      title: "Request declined",
+      body: "Pick new times and we’ll ask the host again.",
     };
   }
   if (normalized === "pending" || normalized === "requested") {
     return {
       title: "Request sent — waiting for host.",
-      linkLabel: "View my requests",
     };
   }
   if (normalized === "approved" || normalized === "confirmed") {
-    return { title: "Viewing confirmed.", linkLabel: "View details" };
+    return { title: "Viewing confirmed." };
   }
   if (normalized === "proposed") {
-    return { title: "Host suggested new times.", linkLabel: "View my requests" };
+    return { title: "Host suggested new times." };
   }
   return {
     title: "Ready to view this home?",
     body: "Pick up to 3 time slots and we’ll notify the host.",
-    linkLabel: "View my requests",
   };
 }
 
@@ -85,7 +81,7 @@ export function RequestViewingCtaSection({ propertyId, timezoneLabel }: Props) {
           href="/tenant/viewings"
           className="text-sm font-semibold text-sky-700 hover:underline"
         >
-          {context.linkLabel}
+          Track requests
         </Link>
       </div>
       {timezoneLabel && <p className="text-xs text-slate-500">{timezoneLabel}</p>}
