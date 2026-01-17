@@ -1,4 +1,4 @@
-import { cookies, headers } from "next/headers";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -7,6 +7,7 @@ import { ViewingRequestCard, type ViewingRequestItem } from "@/components/viewin
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import { resolveServerRole } from "@/lib/auth/role";
+import { getServerBaseUrl } from "@/lib/http/server-base-url";
 
 export const dynamic = "force-dynamic";
 
@@ -26,10 +27,7 @@ export default async function TenantViewingsPage() {
   }
 
   const cookieHeader = (await cookies()).toString();
-  const hdrs = await headers();
-  const proto = hdrs.get("x-forwarded-proto") || "https";
-  const host = hdrs.get("x-forwarded-host") || hdrs.get("host") || "";
-  const baseUrl = host ? `${proto}://${host}` : "";
+  const baseUrl = await getServerBaseUrl();
   let viewings: ViewingRequestItem[] = [];
   let fetchError: string | null = null;
 
