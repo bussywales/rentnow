@@ -8,7 +8,8 @@ import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
-import { RequestViewingButton } from "@/components/viewings/RequestViewingButton";
+import { RequestViewingCtaSection } from "@/components/viewings/RequestViewingCtaSection";
+import { RequestViewingStatus } from "@/components/viewings/RequestViewingStatus";
 import { TrustBadges } from "@/components/trust/TrustBadges";
 import { TrustReliability } from "@/components/trust/TrustReliability";
 import { Button } from "@/components/ui/Button";
@@ -563,19 +564,15 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </span>
             ))}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <SaveButton propertyId={property.id} initialSaved={isSaved} />
-            {isTenant && (
-              <RequestViewingButton
+          {isTenant && (
+            <div className="mt-3 rounded-xl border border-slate-200 bg-white/70 p-3 shadow-sm">
+              <RequestViewingCtaSection
                 propertyId={property.id}
-                timezone={property.timezone}
-                city={property.city}
+                timezoneLabel={`Times shown in ${cityLabel} time (${timezoneLabel}).`}
               />
-            )}
-          </div>
-          <p className="text-xs text-slate-600">
-            Times shown in {cityLabel} time ({timezoneLabel}).
-          </p>
+            </div>
+          )}
+          {!isTenant && <SaveButton propertyId={property.id} initialSaved={isSaved} />}
         </div>
       </div>
 
@@ -636,17 +633,10 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           {isTenant && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
-                <h3 className="text-lg font-semibold text-slate-900">Request a viewing</h3>
+                <h3 className="text-lg font-semibold text-slate-900">Viewing requests</h3>
               </div>
-              <p className="mt-1 text-sm text-slate-600">
-                Pick 1–3 time slots in {cityLabel} time ({timezoneLabel}) and add a short note.
-              </p>
-              <div className="mt-3">
-                <RequestViewingButton
-                  propertyId={property.id}
-                  timezone={property.timezone}
-                  city={property.city}
-                />
+              <div className="mt-2">
+                <RequestViewingStatus propertyId={property.id} />
               </div>
             </div>
           )}

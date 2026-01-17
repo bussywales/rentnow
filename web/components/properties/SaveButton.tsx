@@ -71,7 +71,7 @@ export function SaveButton({ propertyId, initialSaved = false }: Props) {
   return (
     <div className="flex flex-col gap-1">
       <Button
-        variant={saved ? "secondary" : "primary"}
+        variant="secondary"
         size="sm"
         onClick={toggle}
         disabled={loading}

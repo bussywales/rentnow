@@ -8,5 +8,5 @@ void test("CTA allows re-request after decline", () => {
     false
   );
   assert.equal(state.disabled, false);
-  assert.match(state.label.toLowerCase(), /request another viewing/);
+  assert.match(state.label.toLowerCase(), /suggest new times/);
 });
