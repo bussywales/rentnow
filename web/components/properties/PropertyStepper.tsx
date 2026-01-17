@@ -88,6 +88,34 @@ const steps = [
   { id: "preview", label: "Preview" },
   { id: "submit", label: "Submit" },
 ];
+const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | "imageUrls" | "cover_image_url">> = {
+  basics: ["title", "rental_type", "country", "city", "price", "currency", "bedrooms", "bathrooms"],
+  details: [
+    "listing_type",
+    "state_region",
+    "neighbourhood",
+    "address",
+    "latitude",
+    "longitude",
+    "size_value",
+    "size_unit",
+    "year_built",
+    "bathroom_type",
+    "deposit_amount",
+    "deposit_currency",
+    "pets_allowed",
+    "furnished",
+    "bills_included",
+    "amenitiesText",
+    "featuresText",
+    "rent_period",
+    "available_from",
+    "max_guests",
+  ],
+  photos: ["imageUrls", "cover_image_url"],
+  preview: [],
+  submit: [],
+};
 
 export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const router = useRouter();
@@ -147,6 +175,14 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       return imageUrls[0] ?? null;
     });
   }, [imageUrls]);
+  const currentStepId = steps[stepIndex].id;
+  const currentFieldErrors = useMemo(() => {
+    const keys = STEP_FIELDS[currentStepId] ?? [];
+    const entries = Object.entries(fieldErrors).filter(([key]) =>
+      keys.includes(key as keyof FormState | "imageUrls" | "cover_image_url")
+    );
+    return Object.fromEntries(entries);
+  }, [currentStepId, fieldErrors]);
   const [form, setForm] = useState<FormState>({
     rental_type: initialData?.rental_type ?? "long_term",
     currency: initialData?.currency ?? "USD",
@@ -699,6 +735,10 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     fieldErrors[key as string] ? (
       <p className="text-xs text-rose-600">{fieldErrors[key as string]}</p>
     ) : null;
+  const hasFieldErrorsCurrent = Object.keys(currentFieldErrors).length > 0;
+  const hasAnyFieldErrors = Object.keys(fieldErrors).length > 0;
+  const shouldShowErrorSummary =
+    !!errorSummary && (hasFieldErrorsCurrent || !hasAnyFieldErrors);
 
   return (
     <div className="space-y-8">
@@ -736,12 +776,12 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       </div>
 
       <div className="min-h-[1.5rem]">
-        {errorSummary && (
+        {shouldShowErrorSummary && (
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
             <p className="font-semibold">Fix these to continue</p>
             <ul className="mt-1 list-disc pl-4">
-              {hasFieldErrors
-                ? Object.keys(fieldErrors).map((key) => (
+              {hasFieldErrorsCurrent
+                ? Object.keys(currentFieldErrors).map((key) => (
                     <li key={key}>
                       <button
                         type="button"
