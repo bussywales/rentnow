@@ -1,99 +1,21 @@
-import { Button } from "@/components/ui/Button";
-import { ErrorState } from "@/components/ui/ErrorState";
-import { DEV_MOCKS } from "@/lib/env";
+import { redirect } from "next/navigation";
+import { HostViewingsList } from "@/components/viewings/HostViewingsList";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
-import type { ViewingRequest, UserRole } from "@/lib/types";
-import { getServerBaseUrl } from "@/lib/http/server-base-url";
-import { cookies } from "next/headers";
+import { resolveServerRole } from "@/lib/auth/role";
 
 export const dynamic = "force-dynamic";
 
-const viewingRequests: ViewingRequest[] = [
-  {
-    id: "v1",
-    property_id: "mock-1",
-    tenant_id: "tenant-1",
-    preferred_date: "2025-01-06",
-    preferred_time_window: "10:00 - 12:00",
-    note: "Happy to do virtual if easier.",
-    status: "pending",
-    created_at: new Date().toISOString(),
-  },
-];
-
-type ViewingRequestRow = ViewingRequest & {
-  properties?: { title?: string | null } | null;
-};
-
 export default async function ViewingsPage() {
-  const supabaseReady = hasServerSupabaseEnv();
-  let currentUserId: string | null = null;
-  let role: UserRole | null = null;
-  let requests: ViewingRequest[] = DEV_MOCKS ? viewingRequests : [];
-  let fetchError: string | null = null;
-
-  if (supabaseReady) {
-    try {
-      const { supabase, user } = await getServerAuthUser();
-      const cookieHeader = (await cookies()).toString();
-      const baseUrl = await getServerBaseUrl();
-
-      if (user) {
-        currentUserId = user.id;
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-        role = (profile?.role as UserRole) ?? null;
-
-        const endpoint =
-          role === "tenant" ? "/api/viewings/tenant" : "/api/viewings/host";
-
-        const res = await fetch(`${baseUrl}${endpoint}`, {
-          headers: cookieHeader ? { cookie: cookieHeader } : undefined,
-          cache: "no-store",
-        });
-
-        if (res.ok) {
-          const json = await res.json();
-          const items = Array.isArray(json.viewings)
-            ? json.viewings
-            : Array.isArray(json.items)
-              ? json.items
-              : null;
-          if (items) {
-            requests = items as ViewingRequest[];
-          } else if (!DEV_MOCKS) {
-            fetchError = "Unable to load viewing requests right now.";
-          }
-        } else if (!DEV_MOCKS) {
-          fetchError = "Unable to load viewing requests right now.";
-        }
-      }
-    } catch {
-      if (!DEV_MOCKS) {
-        fetchError = "Unable to load viewing requests right now.";
-      }
-    }
-  } else if (!DEV_MOCKS) {
-    fetchError = "Supabase is not configured; viewing requests are unavailable.";
+  if (!hasServerSupabaseEnv()) {
+    return null;
   }
 
-  const demoMode = DEV_MOCKS && (!supabaseReady || !currentUserId);
-  const isTenant = role === "tenant";
+  const { supabase, user, role } = await resolveServerRole();
+  if (!user) redirect("/auth/login?reason=auth");
 
-  if (fetchError && !DEV_MOCKS) {
-    return (
-      <div className="space-y-4">
-        <ErrorState
-          title="Viewing requests unavailable"
-          description={fetchError}
-          retryHref="/tenant/viewings"
-        />
-      </div>
-    );
+  if (role === "tenant") {
+    redirect("/tenant/viewings");
   }
 
   return (
@@ -101,57 +23,10 @@ export default async function ViewingsPage() {
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Viewing requests</h1>
         <p className="text-sm text-slate-600">
-          {isTenant
-            ? "Your viewing requests and their status."
-            : "Coordinate tours and confirm availability on your listings."}
+          Coordinate tours and confirm availability on your listings. Times are shown in the property’s timezone.
         </p>
-        {demoMode && (
-          <p className="mt-2 text-sm text-amber-700">
-            Demo mode: connect Supabase and sign in to see your real viewing requests.
-          </p>
-        )}
       </div>
-
-      <div className="space-y-3">
-        {requests.map((req) => {
-          const propertyTitle =
-            (req as ViewingRequestRow).properties?.title || req.property_id;
-          return (
-            <div
-              key={req.id}
-              className="flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:flex-row md:items-center md:justify-between"
-            >
-              <div>
-                <p className="text-sm font-semibold text-slate-900">
-                  Property: {propertyTitle}
-                </p>
-                <p className="text-sm text-slate-600">
-                  {req.preferred_date}
-                  {req.preferred_time_window ? ` - ${req.preferred_time_window}` : ""}
-                </p>
-                {req.note && <p className="text-sm text-slate-600">{req.note}</p>}
-                <p className="text-xs uppercase tracking-wide text-slate-500">
-                  Status: {req.status}
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button size="sm">Accept</Button>
-                <Button size="sm" variant="secondary">
-                  Decline
-                </Button>
-              </div>
-            </div>
-          );
-        })}
-        {!requests.length && (
-          <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
-            <p className="text-base font-semibold text-slate-900">No viewings yet</p>
-            <p className="mt-1 text-sm text-slate-600">
-              Requests will appear here after tenants ask to view your listings.
-            </p>
-          </div>
-        )}
-      </div>
+      <HostViewingsList />
     </div>
   );
 }

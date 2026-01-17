@@ -41,6 +41,7 @@ export function HostViewingsList() {
   const [hostMessage, setHostMessage] = useState<Record<string, string>>({});
   const [declineReason, setDeclineReason] = useState<Record<string, string>>({});
   const [noShowPending, setNoShowPending] = useState<Record<string, boolean>>({});
+  const [successState, setSuccessState] = useState<Record<string, string>>({});
 
   useEffect(() => {
     (async () => {
@@ -95,37 +96,73 @@ export function HostViewingsList() {
     }
   };
 
-  const handleRespond = async (id: string, action: "approve" | "propose" | "decline") => {
+  const handleRespond = async (req: Viewing, action: "approve" | "propose" | "decline") => {
     const payload: Record<string, unknown> = {
-      viewingRequestId: id,
+      viewingRequestId: req.id,
       action,
-      hostMessage: hostMessage[id] || undefined,
+      hostMessage: hostMessage[req.id] || undefined,
     };
     if (action === "approve") {
-      payload.approvedTime = proposedTimes[id];
+      payload.approvedTime = proposedTimes[req.id] || req.preferred_times?.[0];
     } else if (action === "propose") {
-      payload.proposedTimes = (proposedTimes[id] || "")
+      payload.proposedTimes = (proposedTimes[req.id] || "")
         .split(",")
         .map((s) => s.trim())
         .filter(Boolean);
     } else if (action === "decline") {
-      payload.declineReasonCode = declineReason[id] || "other";
+      payload.declineReasonCode = declineReason[req.id] || "not_available";
     }
-    setActionState((prev) => ({ ...prev, [id]: "saving" }));
+    setActionState((prev) => ({ ...prev, [req.id]: "saving" }));
     try {
+      if (process.env.NODE_ENV !== "production") {
+        console.debug("[host-viewings] respond", { action, payload });
+      }
       const res = await fetch("/api/viewings/respond", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        setActionState((prev) => ({ ...prev, [id]: "error" }));
+        setActionState((prev) => ({ ...prev, [req.id]: "error" }));
       } else {
-        setActionState((prev) => ({ ...prev, [id]: "done" }));
+        const now = new Date().toISOString();
+        setActionState((prev) => ({ ...prev, [req.id]: "done" }));
+        setSuccessState((prev) => ({
+          ...prev,
+          [req.id]:
+            action === "approve"
+              ? "Viewing confirmed"
+              : action === "decline"
+                ? "Request declined"
+                : "Response sent",
+        }));
+        setViewings((prev) =>
+          prev.map((v) => {
+            if (v.id !== req.id) return v;
+            if (action === "approve") {
+              return {
+                ...v,
+                status: "approved",
+                approved_time:
+                  (payload.approvedTime as string) || v.preferred_times?.[0] || null,
+                decided_at: now,
+              };
+            }
+            if (action === "decline") {
+              return {
+                ...v,
+                status: "declined",
+                decline_reason_code: (payload.declineReasonCode as string) || "not_available",
+                decided_at: now,
+              };
+            }
+            return { ...v, status: "proposed", decided_at: now };
+          })
+        );
       }
     } catch (err) {
       console.error(err);
-      setActionState((prev) => ({ ...prev, [id]: "error" }));
+      setActionState((prev) => ({ ...prev, [req.id]: "error" }));
     }
   };
 
@@ -198,7 +235,7 @@ export function HostViewingsList() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
-                  onClick={() => handleRespond(req.id, "approve")}
+                  onClick={() => handleRespond(req, "approve")}
                   disabled={actionState[req.id] === "saving"}
                 >
                   Confirm this time
@@ -206,7 +243,7 @@ export function HostViewingsList() {
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => handleRespond(req.id, "propose")}
+                  onClick={() => handleRespond(req, "propose")}
                   disabled={actionState[req.id] === "saving"}
                 >
                   Suggest new times
@@ -214,7 +251,7 @@ export function HostViewingsList() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => handleRespond(req.id, "decline")}
+                  onClick={() => handleRespond(req, "decline")}
                   disabled={actionState[req.id] === "saving"}
                 >
                   Decline request
@@ -232,7 +269,9 @@ export function HostViewingsList() {
                   <span className="text-sm text-rose-600">Save failed</span>
                 )}
                 {actionState[req.id] === "done" && (
-                  <span className="text-sm text-emerald-700">Saved</span>
+                  <span className="text-sm text-emerald-700">
+                    {successState[req.id] || "Saved"}
+                  </span>
                 )}
               </div>
             </div>
