@@ -1,4 +1,4 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -26,11 +26,15 @@ export default async function TenantViewingsPage() {
   }
 
   const cookieHeader = (await cookies()).toString();
+  const hdrs = await headers();
+  const proto = hdrs.get("x-forwarded-proto") || "https";
+  const host = hdrs.get("x-forwarded-host") || hdrs.get("host") || "";
+  const baseUrl = host ? `${proto}://${host}` : "";
   let viewings: ViewingRequestItem[] = [];
   let fetchError: string | null = null;
 
   try {
-    const res = await fetch("/api/viewings/tenant", {
+    const res = await fetch(`${baseUrl}/api/viewings/tenant`, {
       headers: cookieHeader ? { cookie: cookieHeader } : undefined,
       cache: "no-store",
     });
