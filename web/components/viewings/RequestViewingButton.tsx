@@ -165,6 +165,21 @@ export function RequestViewingButton({ propertyId, timezone, city, disabled }: P
       setError("Select 1 to 3 preferred slots.");
       return;
     }
+    try {
+      const res = await fetch(`/api/viewings/tenant/latest?propertyId=${propertyId}`, {
+        cache: "no-store",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const latestStatus = json?.latest?.status?.toLowerCase?.();
+        if (latestStatus && ["pending", "approved", "proposed"].includes(latestStatus)) {
+          setError("You already have a pending/confirmed viewing for this home.");
+          return;
+        }
+      }
+    } catch {
+      // if guard fails, continue; API will enforce duplication rules
+    }
     setSubmitting(true);
     try {
       const res = await fetch("/api/viewings/request", {
