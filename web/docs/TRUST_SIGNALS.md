@@ -22,6 +22,7 @@ UI
 - Host can “Mark as no-show” with confirmation copy: “Only mark this if the tenant didn’t attend and didn’t notify you.”
 - Tenants see neutral text: “Marked as no-show by host.” No blamey language.
 - Host sees “Viewing reliability: <label> (<context>)” for the tenant on that request.
+- Tenants can re-request after a decline; property CTA is driven by the latest viewing status (declined/no-show unlocks the button).
 
 Notes
 - Signal is host-reported only; no automation or enforcement in this slice.

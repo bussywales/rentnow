@@ -20,6 +20,31 @@ const DEFAULT_MESSAGE =
   "I’d like to request a viewing of this property at the selected time(s). Please let me know what works for you.";
 const DEFAULT_TIMEZONE = "Africa/Lagos";
 
+type LatestStatus = {
+  id: string;
+  status: string;
+  created_at?: string | null;
+  decided_at?: string | null;
+  no_show_reported_at?: string | null;
+};
+
+export function deriveCtaState(latest: LatestStatus | null, hasSuccess: boolean) {
+  if (!latest) {
+    return { label: "Request a viewing", disabled: false, note: null };
+  }
+  const status = (latest.status || "").toLowerCase();
+  if (status === "approved") return { label: "Viewing confirmed", disabled: true, note: null };
+  if (status === "pending" || status === "requested" || status === "confirmed")
+    return { label: "Request sent", disabled: true, note: null };
+  if (status === "proposed")
+    return { label: "Review suggested times", disabled: false, note: null };
+  if (status === "declined" || latest.no_show_reported_at) {
+    return { label: "Request another viewing", disabled: false, note: null };
+  }
+  if (hasSuccess) return { label: "Viewing requested", disabled: true, note: null };
+  return { label: "Request a viewing", disabled: false, note: null };
+}
+
 function formatLocalDate(timeZone: string) {
   const formatter = new Intl.DateTimeFormat("en-CA", {
     timeZone,
@@ -89,11 +114,30 @@ export function RequestViewingButton({ propertyId, timezone, city, disabled }: P
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [latest, setLatest] = useState<LatestStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => formatLocalDate(timeZone));
   const [duration, setDuration] = useState<30 | 60>(60);
   const [selectedSlots, setSelectedSlots] = useState<string[]>([]);
   const [message, setMessage] = useState(DEFAULT_MESSAGE);
+
+  useEffect(() => {
+    const fetchLatest = async () => {
+      try {
+        const res = await fetch(`/api/viewings/tenant/latest?propertyId=${propertyId}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (json?.ok) {
+          setLatest(json.latest || null);
+        }
+      } catch {
+        // ignore; CTA will remain enabled
+      }
+    };
+    fetchLatest();
+  }, [propertyId]);
 
   useEffect(() => {
     // refresh date if timezone changes
@@ -135,6 +179,7 @@ export function RequestViewingButton({ propertyId, timezone, city, disabled }: P
       if (!res.ok) {
         setError("We couldn't send your request. Please try again.");
       } else {
+        setLatest({ id: "pending", status: "pending", created_at: new Date().toISOString() });
         setSuccess(true);
         setOpen(false);
       }
@@ -155,11 +200,11 @@ export function RequestViewingButton({ propertyId, timezone, city, disabled }: P
             setOpen(true);
             if (!message) setMessage(DEFAULT_MESSAGE);
           }}
-          disabled={disabled || success}
+          disabled={disabled || deriveCtaState(latest, success).disabled}
         >
-          {success || disabled ? "Viewing requested" : "Request a viewing"}
+          {deriveCtaState(latest, success).label}
         </Button>
-        {success && (
+        {(success || latest) && (
           <Link href="/tenant/viewings" className="text-sm font-semibold text-sky-700 underline">
             View my requests
           </Link>
