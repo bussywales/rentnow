@@ -25,6 +25,17 @@ void test("viewing_requests RLS is tenant-only", () => {
     !contents.includes("tenant/owner update"),
     "should not include owner/admin viewing updates"
   );
+
+  const hostPolicy = 'CREATE POLICY "viewings host select"';
+  const hostUpdatePolicy = 'CREATE POLICY "viewings host update"';
+  const hostPoliciesPresent = contents.includes(hostPolicy) && contents.includes(hostUpdatePolicy);
+
+  if (!hostPoliciesPresent) {
+    const migPath = path.join(process.cwd(), "supabase", "migrations", "051_viewing_requests_host_rls.sql");
+    const mig = fs.readFileSync(migPath, "utf8");
+    assert.ok(mig.includes("viewings host select"), "expected host select policy in migration");
+    assert.ok(mig.includes("viewings host update"), "expected host update policy in migration");
+  }
 });
 
 void test("viewing request validation rejects more than 3 preferred times", () => {
