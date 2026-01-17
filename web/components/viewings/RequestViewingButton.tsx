@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -110,7 +109,6 @@ export function RequestViewingButton({ propertyId, timezone, city, disabled }: P
   const timeZone = timezone || DEFAULT_TIMEZONE;
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [success] = useState(false);
   const [latest, setLatest] = useState<LatestStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState<string>(() => formatLocalDate(timeZone));
@@ -215,11 +213,6 @@ export function RequestViewingButton({ propertyId, timezone, city, disabled }: P
         >
           {deriveCtaState(latest).label}
         </Button>
-        {(success || latest) && (
-          <Link href="/tenant/viewings" className="text-sm font-semibold text-sky-700 underline">
-            View my requests
-          </Link>
-        )}
       </div>
       {open && (
         <div
