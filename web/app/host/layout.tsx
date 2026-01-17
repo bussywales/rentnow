@@ -3,7 +3,7 @@ export const dynamic = "force-dynamic";
 import Link from "next/link";
 import { getProfile, getSession } from "@/lib/auth";
 import { formatRoleLabel, normalizeRole } from "@/lib/roles";
-import { canManageListings } from "@/lib/role-access";
+import { getHostNavItems } from "@/lib/role-access";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import type { ReactNode } from "react";
@@ -38,13 +38,13 @@ export default async function DashboardLayout({
     redirect("/admin/support");
   }
   const roleLabel = formatRoleLabel(normalizedRole);
-  const showMyProperties = canManageListings(normalizedRole);
   const workspaceTitle = `${profile?.full_name || "Your"} workspace`;
   const workspaceCopy = `Role: ${roleLabel} - Manage listings, messages, and viewings.`;
   const profileIncomplete =
     normalizedRole === "landlord" || normalizedRole === "agent"
       ? !profile?.phone || !profile?.preferred_contact
       : false;
+  const navItems = getHostNavItems(normalizedRole);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -58,25 +58,17 @@ export default async function DashboardLayout({
             <p className="text-sm text-slate-200">{workspaceCopy}</p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            {showMyProperties && (
-              <Link href="/host" className="rounded-full bg-white/10 px-3 py-1">
-                My properties
-              </Link>
-            )}
-            {showMyProperties && (
-              <Link href="/dashboard/analytics" className="rounded-full bg-white/10 px-3 py-1">
-                Analytics
-              </Link>
-            )}
-            <Link href="/dashboard/billing" className="rounded-full bg-white/10 px-3 py-1">
-              Billing
-            </Link>
-            <Link href="/dashboard/messages" className="rounded-full bg-white/10 px-3 py-1">
-              Messages
-            </Link>
-            <Link href="/dashboard/viewings" className="rounded-full bg-white/10 px-3 py-1">
-              Viewings
-            </Link>
+            {navItems
+              .filter((item) => item.visible)
+              .map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="rounded-full bg-white/10 px-3 py-1"
+                >
+                  {item.label}
+                </Link>
+              ))}
           </div>
         </div>
       </div>
