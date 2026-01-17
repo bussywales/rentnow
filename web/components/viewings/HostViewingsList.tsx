@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
+import { cn } from "@/components/ui/cn";
 import { ViewingStatusBadge } from "@/components/viewings/ViewingStatusBadge";
 
 type Viewing = {
@@ -37,11 +37,18 @@ export function HostViewingsList() {
   const [viewings, setViewings] = useState<Viewing[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [actionState, setActionState] = useState<Record<string, string>>({});
-  const [proposedTimes, setProposedTimes] = useState<Record<string, string>>({});
-  const [hostMessage, setHostMessage] = useState<Record<string, string>>({});
-  const [declineReason, setDeclineReason] = useState<Record<string, string>>({});
+  const [proposedTimes] = useState<Record<string, string>>({});
+  const [hostMessage] = useState<Record<string, string>>({});
   const [noShowPending, setNoShowPending] = useState<Record<string, boolean>>({});
   const [successState, setSuccessState] = useState<Record<string, string>>({});
+  const [preferredSelection, setPreferredSelection] = useState<Record<string, string>>({});
+  const [activePropose, setActivePropose] = useState<string | null>(null);
+  const [proposeSlots, setProposeSlots] = useState<Record<string, string[]>>({});
+  const [proposeLoading, setProposeLoading] = useState<Record<string, boolean>>({});
+  const [proposeSelection, setProposeSelection] = useState<Record<string, Set<string>>>({});
+  const [declineOpen, setDeclineOpen] = useState<string | null>(null);
+  const [declineReason, setDeclineReason] = useState<Record<string, string>>({});
+  const [declineMessage, setDeclineMessage] = useState<Record<string, string>>({});
 
   useEffect(() => {
     (async () => {
@@ -103,14 +110,15 @@ export function HostViewingsList() {
       hostMessage: hostMessage[req.id] || undefined,
     };
     if (action === "approve") {
-      payload.approvedTime = proposedTimes[req.id] || req.preferred_times?.[0];
+      payload.approvedTime =
+        preferredSelection[req.id] || req.preferred_times?.[0] || proposedTimes[req.id];
     } else if (action === "propose") {
-      payload.proposedTimes = (proposedTimes[req.id] || "")
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean);
+      payload.proposedTimes = Array.from(proposeSelection[req.id] || []);
     } else if (action === "decline") {
       payload.declineReasonCode = declineReason[req.id] || "not_available";
+      if (declineMessage[req.id]) {
+        payload.hostMessage = declineMessage[req.id];
+      }
     }
     setActionState((prev) => ({ ...prev, [req.id]: "saving" }));
     try {
@@ -156,14 +164,62 @@ export function HostViewingsList() {
                 decided_at: now,
               };
             }
-            return { ...v, status: "proposed", decided_at: now };
+            return {
+              ...v,
+              status: "proposed",
+              proposed_times: (payload.proposedTimes as string[]) || [],
+              decided_at: now,
+            };
           })
         );
+        setActivePropose(null);
+        setDeclineOpen(null);
       }
     } catch (err) {
       console.error(err);
       setActionState((prev) => ({ ...prev, [req.id]: "error" }));
     }
+  };
+
+  const togglePreferred = (reqId: string, iso: string) => {
+    setPreferredSelection((prev) => ({ ...prev, [reqId]: iso }));
+  };
+
+  const openPropose = async (req: Viewing) => {
+    setActivePropose(req.id);
+    if (proposeSlots[req.id]?.length) return;
+    setProposeLoading((prev) => ({ ...prev, [req.id]: true }));
+    try {
+      const first = req.preferred_times?.[0];
+      const date = first ? new Date(first).toISOString().slice(0, 10) : "";
+      const res = await fetch(
+        `/api/availability/slots?propertyId=${req.property_id}&date=${date}`
+      );
+      const json = await res.json();
+      if (res.ok && Array.isArray(json.slots)) {
+        setProposeSlots((prev) => ({ ...prev, [req.id]: json.slots }));
+        setProposeSelection((prev) => ({ ...prev, [req.id]: new Set<string>() }));
+      } else {
+        setProposeSlots((prev) => ({ ...prev, [req.id]: req.preferred_times || [] }));
+      }
+    } catch (err) {
+      console.debug("availability slots fetch error", err);
+      setProposeSlots((prev) => ({ ...prev, [req.id]: req.preferred_times || [] }));
+    } finally {
+      setProposeLoading((prev) => ({ ...prev, [req.id]: false }));
+    }
+  };
+
+  const toggleProposeSlot = (reqId: string, iso: string) => {
+    setProposeSelection((prev) => {
+      const current = new Set(prev[reqId] || []);
+      if (current.has(iso)) {
+        current.delete(iso);
+      } else if (current.size < 3) {
+        current.add(iso);
+      }
+      return { ...prev, [reqId]: current };
+    });
   };
 
   if (loading) return <p className="text-sm text-slate-600">Loading viewings...</p>;
@@ -212,38 +268,45 @@ export function HostViewingsList() {
                 Approved: {formatTimes([req.approved_time], req.properties?.timezone)}
               </p>
             )}
+            {!req.approved_time && (req.preferred_times || []).length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {(req.preferred_times || []).map((iso) => (
+                  <button
+                    key={iso}
+                    type="button"
+                    data-testid="preferred-time-option"
+                    onClick={() => togglePreferred(req.id, iso)}
+                    className={cn(
+                      "rounded-full border px-3 py-1 text-xs",
+                      preferredSelection[req.id] === iso
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-700"
+                        : "border-slate-200 bg-slate-50 text-slate-700"
+                    )}
+                  >
+                    {formatTimes([iso], req.properties?.timezone)}
+                  </button>
+                ))}
+              </div>
+            )}
             <p className="text-sm text-slate-700">
               Viewing reliability: {reliabilityLabel} {reliabilityText}
             </p>
 
             <div className="mt-3 space-y-2">
-              <Input
-                placeholder="Host message (optional)"
-                value={hostMessage[req.id] || ""}
-                onChange={(e) => setHostMessage((prev) => ({ ...prev, [req.id]: e.target.value }))}
-              />
-              <Input
-                placeholder="Approved time (ISO) or proposed times, comma separated"
-                value={proposedTimes[req.id] || ""}
-                onChange={(e) => setProposedTimes((prev) => ({ ...prev, [req.id]: e.target.value }))}
-              />
-              <Input
-                placeholder="Decline reason (e.g., schedule_conflict)"
-                value={declineReason[req.id] || ""}
-                onChange={(e) => setDeclineReason((prev) => ({ ...prev, [req.id]: e.target.value }))}
-              />
               <div className="flex flex-wrap gap-2">
                 <Button
                   size="sm"
+                  data-testid="confirm-btn"
                   onClick={() => handleRespond(req, "approve")}
-                  disabled={actionState[req.id] === "saving"}
+                  disabled={actionState[req.id] === "saving" || !((preferredSelection[req.id] || req.preferred_times?.[0]))}
                 >
                   Confirm this time
                 </Button>
                 <Button
                   size="sm"
                   variant="secondary"
-                  onClick={() => handleRespond(req, "propose")}
+                  data-testid="suggest-btn"
+                  onClick={() => openPropose(req)}
                   disabled={actionState[req.id] === "saving"}
                 >
                   Suggest new times
@@ -251,7 +314,8 @@ export function HostViewingsList() {
                 <Button
                   size="sm"
                   variant="ghost"
-                  onClick={() => handleRespond(req, "decline")}
+                  data-testid="decline-btn"
+                  onClick={() => setDeclineOpen(req.id)}
                   disabled={actionState[req.id] === "saving"}
                 >
                   Decline request
@@ -274,6 +338,89 @@ export function HostViewingsList() {
                   </span>
                 )}
               </div>
+              {activePropose === req.id && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-sm font-semibold text-slate-900">Suggest new times</p>
+                  <p className="text-xs text-slate-600">Select up to 3 slots. Times shown in the property’s timezone.</p>
+                  {proposeLoading[req.id] ? (
+                    <p className="text-xs text-slate-600">Loading slots…</p>
+                  ) : (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {(proposeSlots[req.id] || []).map((iso) => (
+                        <button
+                          key={iso}
+                          type="button"
+                          data-testid="propose-slot-chip"
+                          onClick={() => toggleProposeSlot(req.id, iso)}
+                          className={cn(
+                            "rounded-full border px-3 py-1 text-xs",
+                            proposeSelection[req.id]?.has(iso)
+                              ? "border-sky-500 bg-sky-50 text-sky-700"
+                              : "border-slate-200 bg-white text-slate-700"
+                          )}
+                        >
+                          {formatTimes([iso], req.properties?.timezone)}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => handleRespond(req, "propose")}
+                      disabled={(proposeSelection[req.id]?.size || 0) === 0}
+                    >
+                      Send times
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setActivePropose(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+              {declineOpen === req.id && (
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-sm font-semibold text-slate-900">Decline request</p>
+                  <div className="mt-2 space-y-2">
+                    <label className="text-xs text-slate-600">
+                      Reason
+                      <select
+                        data-testid="decline-reason-select"
+                        className="mt-1 w-full rounded-md border border-slate-200 p-2 text-sm"
+                        value={declineReason[req.id] || "not_available"}
+                        onChange={(e) =>
+                          setDeclineReason((prev) => ({ ...prev, [req.id]: e.target.value }))
+                        }
+                      >
+                        <option value="not_available">Not available</option>
+                        <option value="schedule_conflict">Schedule conflict</option>
+                        <option value="maintenance">Maintenance or access issues</option>
+                        <option value="already_booked">Time already booked</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </label>
+                    <label className="text-xs text-slate-600">
+                      Message (optional)
+                      <textarea
+                        className="mt-1 w-full rounded-md border border-slate-200 p-2 text-sm"
+                        rows={2}
+                        value={declineMessage[req.id] || ""}
+                        onChange={(e) =>
+                          setDeclineMessage((prev) => ({ ...prev, [req.id]: e.target.value }))
+                        }
+                      />
+                    </label>
+                    <div className="mt-2 flex gap-2">
+                      <Button size="sm" onClick={() => handleRespond(req, "decline")}>
+                        Send decline
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setDeclineOpen(null)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <p className="mt-2 text-xs text-slate-500">
               Times are shown in the property’s local time zone.

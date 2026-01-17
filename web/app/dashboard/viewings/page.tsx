@@ -1,6 +1,5 @@
 import { redirect } from "next/navigation";
 import { HostViewingsList } from "@/components/viewings/HostViewingsList";
-import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { resolveServerRole } from "@/lib/auth/role";
 
@@ -11,7 +10,7 @@ export default async function ViewingsPage() {
     return null;
   }
 
-  const { supabase, user, role } = await resolveServerRole();
+  const { user, role } = await resolveServerRole();
   if (!user) redirect("/auth/login?reason=auth");
 
   if (role === "tenant") {
