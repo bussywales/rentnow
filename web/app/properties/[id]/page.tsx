@@ -440,6 +440,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
     typeof property.city === "string" && property.city.trim().length > 0
       ? property.city
       : "property local";
+  const timezoneText = `Times shown in ${cityLabel} time (${
+    property.timezone || "Africa/Lagos"
+  }).`;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4">
@@ -630,7 +633,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               <div className="mt-3">
                 <RequestViewingCtaSection
                   propertyId={property.id}
-                  timezoneLabel={`Times shown in ${cityLabel} time.`}
+                  timezoneLabel={timezoneText}
                 />
               </div>
             </div>
