@@ -26,6 +26,7 @@ import type {
   SizeUnit,
 } from "@/lib/types";
 import { setToastQuery } from "@/lib/utils/toast";
+import { labelForField } from "@/lib/forms/listing-errors";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
 type ResolvedAuth = {
@@ -387,7 +388,35 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const next = () => {
     setError(null);
     if (stepIndex === 0 && !canCreateDraft) {
-      setError("Please complete the required basics before continuing.");
+      const required: Array<keyof FormState> = [
+        "title",
+        "city",
+        "rental_type",
+        "price",
+        "currency",
+        "bedrooms",
+        "bathrooms",
+      ];
+      const missing: Record<string, string> = {};
+      required.forEach((key) => {
+        const val = form[key];
+        const isMissing =
+          val === null ||
+          typeof val === "undefined" ||
+          (typeof val === "string" && !val.trim());
+        if (isMissing) missing[key] = `${labelForField(key)} is required`;
+      });
+      if (Object.keys(missing).length) {
+        setFieldErrors(missing);
+        const firstKey = Object.keys(missing)[0];
+        const el = document.getElementById(`field-${firstKey}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          const input = el.querySelector("input,select,textarea") as HTMLElement | null;
+          input?.focus();
+        }
+      }
+      setError("Fix these to continue.");
       return;
     }
     startSaving(() => {
@@ -644,7 +673,31 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       <div className="min-h-[1.5rem]">
         {errorSummary && (
           <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-            <p>{errorSummary}</p>
+            <p className="font-semibold">Fix these to continue</p>
+            <ul className="mt-1 list-disc pl-4">
+              {hasFieldErrors
+                ? Object.keys(fieldErrors).map((key) => (
+                    <li key={key}>
+                      <button
+                        type="button"
+                        className="underline"
+                        onClick={() => {
+                          const el = document.getElementById(`field-${key}`);
+                          if (el) {
+                            el.scrollIntoView({ behavior: "smooth", block: "center" });
+                            const input = el.querySelector("input,select,textarea") as HTMLElement | null;
+                            input?.focus();
+                          }
+                        }}
+                      >
+                        {labelForField(key)}
+                      </button>
+                    </li>
+                  ))
+                : (
+                  <li>{errorSummary}</li>
+                )}
+            </ul>
             <div className="mt-2 flex flex-wrap gap-3">
               {errorCode === "not_authenticated" && (
                 <Link href="/auth/login" className="text-sm font-semibold underline">
@@ -679,17 +732,20 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                 </div>
               </div>
               <div className="mt-4 grid gap-4">
-                <div className="space-y-2">
+                <div className="space-y-2" id="field-title">
                   <label htmlFor="listing-title" className="text-sm font-medium text-slate-700">
-                    Listing title
+                    Listing title <span className="text-rose-500">*</span>
                   </label>
                   <Input
                     id="listing-title"
                     required
+                    aria-required="true"
                     value={form.title || ""}
                     onChange={(e) => handleChange("title", e.target.value)}
                     placeholder="e.g. Bright 2-bed in Lekki Phase 1"
+                    className={fieldErrors.title ? "ring-2 ring-rose-400 border-rose-300" : ""}
                   />
+                  {renderFieldError("title")}
                 </div>
                 <div className="space-y-2">
                   <label htmlFor="rental-type" className="text-sm font-medium text-slate-700">
@@ -721,9 +777,9 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
               </div>
               <div className="mt-4 space-y-4">
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
+                  <div className="space-y-2" id="field-country">
                     <label htmlFor="country" className="text-sm font-medium text-slate-700">
-                      Country
+                      Country <span className="text-rose-500">*</span>
                     </label>
                     <CountrySelect
                       id="country"
@@ -737,6 +793,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                       }}
                       placeholder="Search countries"
                     />
+                    {renderFieldError("country")}
                   </div>
                   <div className="space-y-2">
                     <label htmlFor="state-region" className="text-sm font-medium text-slate-700">
@@ -751,9 +808,9 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                   </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
+                  <div className="space-y-2" id="field-city">
                     <label htmlFor="city" className="text-sm font-medium text-slate-700">
-                      City
+                      City <span className="text-rose-500">*</span>
                     </label>
                     <Input
                       id="city"
@@ -761,7 +818,10 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                       value={form.city || ""}
                       onChange={(e) => handleChange("city", e.target.value)}
                       placeholder="Lagos, Nairobi, Accra..."
+                      aria-required="true"
+                      className={fieldErrors.city ? "ring-2 ring-rose-400 border-rose-300" : ""}
                     />
+                    {renderFieldError("city")}
                   </div>
                   <div className="space-y-2">
                     <label htmlFor="neighbourhood" className="text-sm font-medium text-slate-700">
@@ -890,9 +950,9 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                 </div>
               </div>
               <div className="mt-4 space-y-4">
-                <div className="space-y-2">
+                <div className="space-y-2" id="field-price">
                   <label htmlFor="price" className="text-sm font-medium text-slate-700">
-                    Price
+                    Price <span className="text-rose-500">*</span>
                   </label>
                   <Input
                     id="price"
@@ -900,6 +960,8 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                     min={1}
                     value={form.price ?? ""}
                     onChange={(e) => handleChange("price", Number(e.target.value))}
+                    aria-required="true"
+                    className={fieldErrors.price ? "ring-2 ring-rose-400 border-rose-300" : ""}
                   />
                   {renderFieldError("price")}
                 </div>

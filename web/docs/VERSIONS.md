@@ -492,3 +492,7 @@
 ## 2026-02-04 — vR16.5c.2-saved-searches-all-roles
 - Dashboard nav and saved searches page are available to all authenticated roles (tenant, landlord, agent).
 - Neutralized tenant-only copy; saving searches works for all roles with existing plan limits where applicable.
+
+## 2026-02-04 — vR16.5d-required-field-guidance
+- Listing wizard now marks required fields, highlights missing inputs inline, and provides a clickable “Fix these to continue” summary.
+- Added field error mapping helper; client-side missing basics now scroll and focus to the first invalid field.
