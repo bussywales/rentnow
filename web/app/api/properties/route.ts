@@ -21,7 +21,8 @@ import {
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
-const propertySchema = z.object({
+// Exported for tests to validate draft vs publish payloads.
+export const propertySchema = z.object({
   title: z.string().min(3),
   description: z.string().optional().nullable(),
   city: z.string().min(2),

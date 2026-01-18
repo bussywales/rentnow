@@ -501,3 +501,8 @@
 ## 2026-02-04 — vR16.5d-required-field-guidance
 - Listing wizard now marks required fields, highlights missing inputs inline, and provides a clickable “Fix these to continue” summary.
 - Added field error mapping helper; client-side missing basics now scroll and focus to the first invalid field.
+
+## 2026-02-04 — vR16.5d.2-draft-save-nan-fix
+- Draft saves now accept empty optional numeric fields without coercing them to NaN.
+- Payload builder omits optional numerics when blank; optional numeric helpers treat `undefined/null/""` as empty.
+- Added guardrail tests and incident doc to prevent regressions on draft validation.
