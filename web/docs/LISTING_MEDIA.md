@@ -8,3 +8,9 @@
   - Only owners/authorized agents can update order (RLS enforced).
   - Reads always sort by `position ASC, created_at ASC` as a fallback.
 - Recommended practice: keep the best horizontal image first for the strongest thumbnail.
+
+## Cover image
+- `properties.cover_image_url` stores an optional cover/featured photo URL.
+- Set via `PATCH /api/properties/[id]/cover` with `{ coverImageUrl: string | null }`.
+- The cover URL must belong to the property’s existing `property_images` rows; otherwise the API returns 400.
+- Owner/authorized agent only; reads are unchanged when no cover is set (ordering remains the fallback).

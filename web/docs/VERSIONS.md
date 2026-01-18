@@ -512,3 +512,8 @@
 - Reordering UI in the Photos step now saves order immediately; ordering uses `property_images.position`.
 - Tenant-facing cards and galleries continue to use the first ordered image as the primary photo.
 - Documented listing media ordering rules.
+
+## 2026-02-05 — vR16.6b.0-cover-api
+- Added `properties.cover_image_url` column for optional cover selection.
+- New cover API: `PATCH /api/properties/[id]/cover` validates the URL belongs to the property’s photos and allows owner/authorized agent updates.
+- Helper guards ensure cover must match existing images; docs updated in LISTING_MEDIA.md.
