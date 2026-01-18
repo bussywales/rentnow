@@ -149,21 +149,6 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       return next[0];
     });
   }, []);
-  const updateImageUrls = useCallback(
-    (updater: ((prev: string[]) => string[]) | string[]) => {
-      if (typeof updater === "function") {
-        setImageUrls((prev) => {
-          const next = updater(prev);
-          syncCoverWithImages(next);
-          return next;
-        });
-      } else {
-        setImageUrls(updater);
-        syncCoverWithImages(updater);
-      }
-    },
-    [syncCoverWithImages]
-  );
 
   useEffect(() => {
     if (!imageUrls.length) {
@@ -335,6 +320,51 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     }
     return createBrowserSupabaseClient();
   }, [setError]);
+
+  const persistImageOrder = useCallback(
+    async (order: string[]) => {
+      if (!propertyId) return;
+      const supabase = getSupabase();
+      if (!supabase) return;
+      const { accessToken, user } = await resolveAuthUser(supabase);
+      if (!user) {
+        setError("Please log in to save photo order.");
+        return;
+      }
+      const res = await fetch(`/api/properties/${propertyId}/media-order`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ order }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const message = data?.error || "Unable to update photo order.";
+        setError(message);
+      }
+    },
+    [getSupabase, propertyId, resolveAuthUser]
+  );
+
+  const updateImageUrls = useCallback(
+    (updater: ((prev: string[]) => string[]) | string[]) => {
+      let nextValue: string[] | null = null;
+      setImageUrls((prev) => {
+        const next = typeof updater === "function" ? updater(prev) : updater;
+        nextValue = next;
+        return next;
+      });
+      if (nextValue) {
+        syncCoverWithImages(nextValue);
+        if (propertyId) {
+          void persistImageOrder(nextValue);
+        }
+      }
+    },
+    [persistImageOrder, propertyId, syncCoverWithImages]
+  );
 
   const saveDraft = useCallback(async (statusOverride?: PropertyStatus) => {
     if (!canCreateDraft) return;

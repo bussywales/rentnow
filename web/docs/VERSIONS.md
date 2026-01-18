@@ -506,3 +506,9 @@
 - Draft saves now accept empty optional numeric fields without coercing them to NaN.
 - Payload builder omits optional numerics when blank; optional numeric helpers treat `undefined/null/""` as empty.
 - Added guardrail tests and incident doc to prevent regressions on draft validation.
+
+## 2026-02-05 — vR16.6a-photo-ordering
+- Added owner-only media order endpoint to persist photo ordering without full listing edits.
+- Reordering UI in the Photos step now saves order immediately; ordering uses `property_images.position`.
+- Tenant-facing cards and galleries continue to use the first ordered image as the primary photo.
+- Documented listing media ordering rules.
