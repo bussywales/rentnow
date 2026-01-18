@@ -3,6 +3,7 @@ import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import type { Property } from "@/lib/types";
+import { orderImagesWithCover } from "@/lib/properties/images";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +47,7 @@ export default async function FavouritesPage() {
     const { data, error } = await supabase
       .from("saved_properties")
       .select(
-        "property_id, properties(id, owner_id, title, description, city, country, state_region, neighbourhood, address, latitude, longitude, listing_type, rental_type, price, currency, rent_period, bedrooms, bathrooms, bathroom_type, furnished, size_value, size_unit, year_built, deposit_amount, deposit_currency, pets_allowed, amenities, available_from, max_guests, is_approved, is_active, created_at, updated_at, property_images(image_url,id))"
+        "property_id, properties(id, owner_id, title, description, city, country, state_region, neighbourhood, address, latitude, longitude, listing_type, rental_type, price, currency, rent_period, bedrooms, bathrooms, bathroom_type, furnished, size_value, size_unit, year_built, deposit_amount, deposit_currency, pets_allowed, amenities, available_from, max_guests, is_approved, is_active, created_at, updated_at, cover_image_url, property_images(image_url,id, position, created_at))"
       )
       .eq("user_id", user.id);
 
@@ -64,10 +65,12 @@ export default async function FavouritesPage() {
           const images =
             (prop as Property & { property_images?: Array<{ id: string; image_url: string }> })
               ?.property_images?.map((img) => ({
-                id: img.id,
+                id: img.id || img.image_url,
                 image_url: img.image_url,
+                position: (img as { position?: number }).position,
+                created_at: (img as { created_at?: string | null }).created_at ?? undefined,
               })) || [];
-          return [{ ...prop, images }];
+          return [{ ...prop, images: orderImagesWithCover(prop.cover_image_url, images) }];
         }) || [];
   } catch (err) {
     console.error("Failed to load favourites", err);

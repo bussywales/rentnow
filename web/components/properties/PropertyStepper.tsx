@@ -142,6 +142,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       initialData?.images?.[0]?.image_url ??
       null
   );
+  const [coverWarning, setCoverWarning] = useState(false);
   const syncCoverWithImages = useCallback((next: string[]) => {
     setCoverImageUrl((prev) => {
       if (!next.length) return null;
@@ -194,6 +195,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const lastAutoSaved = useRef<string>("");
   const autoSaveTimer = useRef<number | null>(null);
   const authResolveRef = useRef<Promise<ResolvedAuth> | null>(null);
+  const lastPersistedCover = useRef<string | null>(null);
 
   const normalizeOptionalString = (value?: string | null) => {
     if (!value) return null;
@@ -348,6 +350,35 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     [getSupabase, propertyId, resolveAuthUser]
   );
 
+  const persistCover = useCallback(
+    async (cover: string | null) => {
+      if (!propertyId) return;
+      const supabase = getSupabase();
+      if (!supabase) return;
+      const { accessToken, user } = await resolveAuthUser(supabase);
+      if (!user) {
+        setError("Please log in to save cover photo.");
+        return;
+      }
+      const res = await fetch(`/api/properties/${propertyId}/cover`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        body: JSON.stringify({ coverImageUrl: cover }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        const message = data?.error || "Unable to update cover photo.";
+        setError(message);
+      } else {
+        lastPersistedCover.current = cover;
+      }
+    },
+    [getSupabase, propertyId, resolveAuthUser]
+  );
+
   const updateImageUrls = useCallback(
     (updater: ((prev: string[]) => string[]) | string[]) => {
       let nextValue: string[] | null = null;
@@ -496,6 +527,29 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       }
     };
   }, [canCreateDraft, saveDraft, setError, startSaving]);
+
+  useEffect(() => {
+    if (!coverImageUrl) {
+      setCoverWarning(false);
+      return;
+    }
+    const img = new Image();
+    img.onload = () => {
+      const portrait = img.naturalHeight > img.naturalWidth;
+      const tooSmall = img.naturalWidth < 1600 || img.naturalHeight < 900;
+      setCoverWarning(portrait || tooSmall);
+    };
+    img.onerror = () => setCoverWarning(false);
+    img.src = coverImageUrl;
+  }, [coverImageUrl]);
+
+  useEffect(() => {
+    if (!propertyId) return;
+    const current = coverImageUrl ?? null;
+    if (lastPersistedCover.current === current) return;
+    lastPersistedCover.current = current;
+    void persistCover(current);
+  }, [coverImageUrl, persistCover, propertyId]);
 
   const handleChange = (
     key: keyof FormState,
@@ -1534,6 +1588,12 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                   Drag controls let you reorder; set a cover to choose the thumbnail.
                 </p>
               </div>
+              {coverWarning && (
+                <div className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                  <span className="font-semibold">Recommended cover</span>
+                  <span>Cover looks best at 1600×900+ (landscape).</span>
+                </div>
+              )}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                 {imageUrls.map((url, index) => (
                   <div

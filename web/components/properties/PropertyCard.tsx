@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import type { Property } from "@/lib/types";
 import { cn } from "@/components/ui/cn";
+import { getPrimaryImageUrl } from "@/lib/properties/images";
 import {
   formatCadence,
   formatListingType,
@@ -64,7 +65,7 @@ export function PropertyCard({ property, href, compact, trustMarkers }: Props) {
   const fallbackImage =
     "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=80";
   const primaryImage =
-    property.cover_image_url || property.images?.[0]?.image_url || fallbackImage;
+    getPrimaryImageUrl(property) || property.images?.[0]?.image_url || fallbackImage;
   const [imgSrc, setImgSrc] = useState(primaryImage);
   const blurDataURL =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";

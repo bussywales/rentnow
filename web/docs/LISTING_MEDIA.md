@@ -14,3 +14,5 @@
 - Set via `PATCH /api/properties/[id]/cover` with `{ coverImageUrl: string | null }`.
 - The cover URL must belong to the property’s existing `property_images` rows; otherwise the API returns 400.
 - Owner/authorized agent only; reads are unchanged when no cover is set (ordering remains the fallback).
+- Cover-first ordering: when present and valid, cover is promoted to the first slot in image arrays; otherwise ordering follows `position ASC, created_at ASC`.
+- Recommended cover: best at 1600×900+ landscape; UI shows a hint when the selected cover is portrait or smaller.

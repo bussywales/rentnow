@@ -8,6 +8,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { dispatchSavedSearchAlerts } from "@/lib/alerts/tenant-alerts";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
+import { orderImagesWithCover } from "@/lib/properties/images";
 import { getListingAccessResult } from "@/lib/role-access";
 import { normalizeRole } from "@/lib/roles";
 import { normalizeCountryForUpdate } from "@/lib/properties/country-normalize";
@@ -28,18 +29,6 @@ import {
 } from "@/lib/analytics/property-views";
 
 const routeLabel = "/api/properties/[id]";
-const orderImagesWithCover = (
-  images: Array<{ id: string; image_url: string }> | null | undefined,
-  coverImageUrl: string | null | undefined
-) => {
-  if (!images || !images.length) return images ?? [];
-  if (!coverImageUrl) return images;
-  const coverIndex = images.findIndex((img) => img.image_url === coverImageUrl);
-  if (coverIndex <= 0) return images;
-  const cover = images[coverIndex];
-  const rest = images.filter((_, idx) => idx !== coverIndex);
-  return [cover, ...rest];
-};
 const updateSchema = z.object({
   title: z.string().min(3).optional(),
   description: z.string().optional().nullable(),
@@ -386,8 +375,8 @@ export async function GET(
   }
 
   const orderedImages = orderImagesWithCover(
-    (data as { property_images?: Array<{ id: string; image_url: string }> }).property_images,
-    (data as { cover_image_url?: string | null }).cover_image_url ?? null
+    (data as { cover_image_url?: string | null }).cover_image_url ?? null,
+    (data as { property_images?: Array<{ id: string; image_url: string; position?: number; created_at?: string }> }).property_images
   );
 
   return NextResponse.json({ property: { ...data, property_images: orderedImages } });

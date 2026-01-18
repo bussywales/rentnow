@@ -517,3 +517,8 @@
 - Added `properties.cover_image_url` column for optional cover selection.
 - New cover API: `PATCH /api/properties/[id]/cover` validates the URL belongs to the property’s photos and allows owner/authorized agent updates.
 - Helper guards ensure cover must match existing images; docs updated in LISTING_MEDIA.md.
+
+## 2026-02-05 — vR16.6b-cover-order-hint
+- Cover-first ordering helper promoted cover to first image across cards/galleries (no duplicates).
+- Photos step now supports “Set as cover” with immediate persist when listing exists, and shows a recommended cover hint for portrait/small images.
+- Added cover Playwright smoke (skip-safe) and ordering/primary image unit tests; docs updated in LISTING_MEDIA.md.

@@ -16,6 +16,7 @@ import { filtersToChips, parseFiltersFromParams, parseFiltersFromSavedSearch } f
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property, SavedSearch, UserRole } from "@/lib/types";
+import { orderImagesWithCover } from "@/lib/properties/images";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -265,13 +266,19 @@ export default async function PropertiesPage({ searchParams }: Props) {
           Property & { property_images?: Array<{ id: string; image_url: string }> }
         >;
         properties =
-          typed?.map((row) => ({
-            ...row,
-            images: row.property_images?.map((img) => ({
-              id: img.id,
-              image_url: img.image_url,
-            })),
-          })) || [];
+          typed?.map((row) => {
+            const mappedImages =
+              row.property_images?.map((img) => ({
+                id: img.id || img.image_url,
+                image_url: img.image_url,
+                position: (img as { position?: number }).position,
+                created_at: (img as { created_at?: string | null }).created_at ?? undefined,
+              })) || [];
+            return {
+              ...row,
+              images: orderImagesWithCover(row.cover_image_url, mappedImages),
+            };
+          }) || [];
         totalCount = typeof count === "number" ? count : null;
         properties = properties.filter((p) => !!p.id);
         if (typed.length !== properties.length) {
@@ -303,13 +310,19 @@ export default async function PropertiesPage({ searchParams }: Props) {
             Property & { property_images?: Array<{ id: string; image_url: string }> }
           >) || [];
         properties =
-          typed.map((row) => ({
-            ...row,
-            images: row.property_images?.map((img) => ({
-              id: img.id,
-              image_url: img.image_url,
-            })),
-          })) || [];
+          typed.map((row) => {
+            const mappedImages =
+              row.property_images?.map((img) => ({
+                id: img.id || img.image_url,
+                image_url: img.image_url,
+                position: (img as { position?: number }).position,
+                created_at: (img as { created_at?: string | null }).created_at ?? undefined,
+              })) || [];
+            return {
+              ...row,
+              images: orderImagesWithCover(row.cover_image_url, mappedImages),
+            };
+          }) || [];
         totalCount = typeof json.total === "number" ? json.total : null;
         properties = properties.filter((p) => !!p.id);
         if (typed.length !== properties.length) {

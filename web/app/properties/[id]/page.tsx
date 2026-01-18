@@ -30,6 +30,7 @@ import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import { getTenantPlanForTier } from "@/lib/plans";
 import type { Profile, Property } from "@/lib/types";
 import type { TrustMarkerState } from "@/lib/trust-markers";
+import { orderImagesWithCover } from "@/lib/properties/images";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -59,19 +60,6 @@ function getSearchParamValue(
   const value = params[key];
   if (Array.isArray(value)) return value[0];
   return value;
-}
-
-function orderImagesWithCover(
-  images: Array<{ id: string; image_url: string }> | null | undefined,
-  coverImageUrl: string | null | undefined
-) {
-  if (!images || !images.length) return [];
-  if (!coverImageUrl) return images;
-  const coverIndex = images.findIndex((img) => img.image_url === coverImageUrl);
-  if (coverIndex <= 0) return images;
-  const cover = images[coverIndex];
-  const remainder = images.filter((_, idx) => idx !== coverIndex);
-  return [cover, ...remainder];
 }
 
 function resolveBackHref(
@@ -148,11 +136,13 @@ async function getProperty(
           property: {
             ...data,
             images: orderImagesWithCover(
+              data.cover_image_url,
               data.property_images?.map((img) => ({
-                id: img.id,
+                id: img.id || img.image_url,
                 image_url: img.image_url,
-              })),
-              data.cover_image_url
+                position: (img as { position?: number }).position,
+                created_at: (img as { created_at?: string | null }).created_at ?? undefined,
+              }))
             ),
           },
           error: null,
@@ -340,7 +330,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
         const priceCeil = property.price ? property.price * 1.4 : null;
         const { data: similarRaw } = await supabase
           .from("properties")
-          .select("*, property_images(id, image_url)")
+          .select("*, property_images(id, image_url, position, created_at)")
           .eq("city", property.city)
           .eq("rental_type", property.rental_type)
           .neq("id", property.id)
@@ -357,7 +347,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           // fallback fetch without rental_type if no result
           const { data: fallback } = await supabase
             .from("properties")
-            .select("*, property_images(id, image_url)")
+            .select("*, property_images(id, image_url, position, created_at)")
             .eq("city", property.city)
             .neq("id", property.id)
             .order("created_at", { ascending: false })
@@ -376,10 +366,15 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
         similar =
           similarResults?.map((row) => ({
             ...row,
-            images: row.property_images?.map((img: { id: string; image_url: string }) => ({
-              id: img.id,
-              image_url: img.image_url,
-            })),
+            images: orderImagesWithCover(
+              row.cover_image_url,
+              row.property_images?.map((img: { id: string; image_url: string; position?: number; created_at?: string }) => ({
+                id: img.id || img.image_url,
+                image_url: img.image_url,
+                position: img.position,
+                created_at: img.created_at ?? undefined,
+              }))
+            ),
           })) || [];
       } catch (err) {
         console.warn("[property-detail] personalization fetch failed", err);

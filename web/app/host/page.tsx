@@ -16,6 +16,7 @@ import { revalidatePath } from "next/cache";
 import { TrustBadges } from "@/components/trust/TrustBadges";
 import { TrustReliability } from "@/components/trust/TrustReliability";
 import type { TrustMarkerState } from "@/lib/trust-markers";
+import { orderImagesWithCover } from "@/lib/properties/images";
 
 export const dynamic = "force-dynamic";
 
@@ -231,10 +232,18 @@ export default async function DashboardHome() {
           const typed =
             (data as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) ||
             [];
-          properties =
+            properties =
             typed.map((row) => ({
               ...row,
-              images: row.property_images?.map((img) => ({ id: img.id, image_url: img.image_url })),
+              images: orderImagesWithCover(
+                row.cover_image_url,
+                row.property_images?.map((img) => ({
+                  id: img.id || img.image_url,
+                  image_url: img.image_url,
+                  position: (img as { position?: number }).position,
+                  created_at: (img as { created_at?: string | null }).created_at ?? undefined,
+                }))
+              ),
             })) || [];
         }
 

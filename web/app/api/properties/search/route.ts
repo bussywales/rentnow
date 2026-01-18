@@ -6,6 +6,7 @@ import { searchProperties } from "@/lib/search";
 import { parseFiltersFromSearchParams } from "@/lib/search-filters";
 import { getTenantPlanForTier } from "@/lib/plans";
 import type { Property } from "@/lib/types";
+import { orderImagesWithCover } from "@/lib/properties/images";
 
 function parsePagination(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -103,29 +104,20 @@ export async function GET(request: Request) {
     }
 
     const typed = data as Array<
-      Property & { property_images?: Array<{ id: string; image_url: string }> }
+      Property & {
+        property_images?: Array<{ id: string; image_url: string; position?: number; created_at?: string }>;
+      }
     >;
-    const orderImagesWithCover = (
-      images: Array<{ id: string; image_url: string }> | null | undefined,
-      coverImageUrl: string | null | undefined
-    ) => {
-      if (!images || !images.length) return [];
-      if (!coverImageUrl) return images;
-      const coverIndex = images.findIndex((img) => img.image_url === coverImageUrl);
-      if (coverIndex <= 0) return images;
-      const cover = images[coverIndex];
-      const remainder = images.filter((_, idx) => idx !== coverIndex);
-      return [cover, ...remainder];
-    };
     const properties =
       typed.map((row) => ({
         ...row,
         images: orderImagesWithCover(
+          row.cover_image_url,
           row.property_images?.map((img) => ({
-            id: img.id,
-            image_url: img.image_url,
-          })),
-          row.cover_image_url
+            ...img,
+            id: img.id || img.image_url,
+            created_at: (img as { created_at?: string | null }).created_at ?? undefined,
+          }))
         ),
       })) || [];
 
