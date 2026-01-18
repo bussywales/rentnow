@@ -89,7 +89,7 @@ const steps = [
   { id: "submit", label: "Submit" },
 ];
 const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | "imageUrls" | "cover_image_url">> = {
-  basics: ["title", "rental_type", "country", "city", "price", "currency", "bedrooms", "bathrooms"],
+  basics: ["title", "rental_type", "city", "price", "currency", "bedrooms", "bathrooms"],
   details: [
     "listing_type",
     "state_region",
@@ -493,7 +493,6 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     if (stepIndex === 0 && !canCreateDraft) {
       const required: Array<keyof FormState> = [
         "title",
-        "country",
         "city",
         "rental_type",
         "price",
