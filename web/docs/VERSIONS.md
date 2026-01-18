@@ -532,3 +532,6 @@
 - Hardened property_images metadata: bytes promoted to BIGINT with positive checks on width/height/bytes.
 - API sanitize ensures finite/clamped dimensions, non-negative bytes, lowercase formats, and persists blurhash when provided.
 - Added tests for sanitizeImageMeta (NaN/negative/higher than 32-bit) and updated docs accordingly.
+
+## 2026-02-06 — vR16.6c.3-schema-guard
+- Added schema drift guard test for property_images metadata: bytes must remain BIGINT and width/height/bytes checks must exist.
