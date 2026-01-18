@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { PaymentModeBadge } from "@/components/billing/PaymentModeBadge";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { normalizeProviderMode } from "@/lib/billing/provider-settings";
 import { maskIdentifier } from "@/lib/billing/mask";
 import { getServerAuthUser } from "@/lib/auth/server-session";
@@ -316,12 +317,11 @@ export default async function AdminBillingSettingsPage() {
               <div className="mt-3 grid gap-3">
                 <div>
                   <label className="text-xs text-slate-500">Test secret key</label>
-                  <input
+                  <PasswordInput
                     name="paystack_test_secret_key"
-                    type="password"
-                    autoComplete="off"
                     placeholder="ps_test_..."
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                    autoComplete="off"
+                    className="mt-1"
                   />
                   {paystackStored.testSecret && (
                     <p className="mt-1 text-xs text-slate-500">
@@ -331,12 +331,11 @@ export default async function AdminBillingSettingsPage() {
                 </div>
                 <div>
                   <label className="text-xs text-slate-500">Live secret key</label>
-                  <input
+                  <PasswordInput
                     name="paystack_live_secret_key"
-                    type="password"
-                    autoComplete="off"
                     placeholder="ps_live_..."
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                    autoComplete="off"
+                    className="mt-1"
                   />
                   {paystackStored.liveSecret && (
                     <p className="mt-1 text-xs text-slate-500">
@@ -382,12 +381,11 @@ export default async function AdminBillingSettingsPage() {
               <div className="mt-3 grid gap-3">
                 <div>
                   <label className="text-xs text-slate-500">Test secret key</label>
-                  <input
+                  <PasswordInput
                     name="flutterwave_test_secret_key"
-                    type="password"
-                    autoComplete="off"
                     placeholder="FLWSECK_TEST..."
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                    autoComplete="off"
+                    className="mt-1"
                   />
                   {flutterwaveStored.testSecret && (
                     <p className="mt-1 text-xs text-slate-500">
@@ -397,12 +395,11 @@ export default async function AdminBillingSettingsPage() {
                 </div>
                 <div>
                   <label className="text-xs text-slate-500">Live secret key</label>
-                  <input
+                  <PasswordInput
                     name="flutterwave_live_secret_key"
-                    type="password"
-                    autoComplete="off"
                     placeholder="FLWSECK_LIVE..."
-                    className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                    autoComplete="off"
+                    className="mt-1"
                   />
                   {flutterwaveStored.liveSecret && (
                     <p className="mt-1 text-xs text-slate-500">

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
@@ -97,19 +98,19 @@ export default function RegisterPage() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
           />
-          <Input
-            type="password"
+          <PasswordInput
             required
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
           />
-          <Input
-            type="password"
+          <PasswordInput
             required
             placeholder="Confirm password"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
+            autoComplete="new-password"
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
           <Button className="w-full" type="submit" disabled={loading}>

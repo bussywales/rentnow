@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { PasswordInput } from "@/components/ui/PasswordInput";
 import { getSession } from "@/lib/auth";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 
@@ -57,8 +58,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
           name="email"
           autoComplete="username"
         />
-        <Input
-          type="password"
+        <PasswordInput
           required
           placeholder="Password"
           name="password"
