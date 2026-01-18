@@ -193,7 +193,7 @@ export default async function DashboardHome() {
           message.includes("property_images");
         const buildQuery = (includePosition: boolean) => {
           const imageFields = includePosition
-            ? "image_url,id,position,created_at"
+            ? "image_url,id,position,created_at,width,height,bytes,format"
             : "image_url,id,created_at";
           let query = supabase
             .from("properties")
@@ -242,6 +242,10 @@ export default async function DashboardHome() {
                   image_url: img.image_url,
                   position: (img as { position?: number }).position,
                   created_at: (img as { created_at?: string | null }).created_at ?? undefined,
+                  width: (img as { width?: number | null }).width ?? null,
+                  height: (img as { height?: number | null }).height ?? null,
+                  bytes: (img as { bytes?: number | null }).bytes ?? null,
+                  format: (img as { format?: string | null }).format ?? null,
                 }))
               ),
             })) || [];

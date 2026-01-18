@@ -49,6 +49,11 @@ export interface PropertyImage {
   id: string;
   image_url: string;
   created_at?: string;
+  position?: number | null;
+  width?: number | null;
+  height?: number | null;
+  bytes?: number | null;
+  format?: string | null;
 }
 
 export interface Property {

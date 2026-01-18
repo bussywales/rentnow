@@ -29,6 +29,10 @@ import {
 } from "@/lib/analytics/property-views";
 
 const routeLabel = "/api/properties/[id]";
+type ImageMetaPayload = Record<
+  string,
+  { width?: number; height?: number; bytes?: number; format?: string | null }
+>;
 const updateSchema = z.object({
   title: z.string().min(3).optional(),
   description: z.string().optional().nullable(),
@@ -70,6 +74,17 @@ const updateSchema = z.object({
   is_active: z.boolean().optional(),
   imageUrls: z.array(z.string().url()).optional(),
   cover_image_url: z.string().url().optional().nullable(),
+  imageMeta: z
+    .record(
+      z.string(),
+      z.object({
+        width: z.number().int().positive().optional(),
+        height: z.number().int().positive().optional(),
+        bytes: z.number().int().nonnegative().optional(),
+        format: z.string().optional().nullable(),
+      })
+    )
+    .optional(),
 });
 
 const idParamSchema = z.object({
@@ -277,8 +292,8 @@ export async function GET(
 
   const buildQuery = (includePosition: boolean) => {
     const imageFields = includePosition
-      ? "id, image_url, position, created_at"
-      : "id, image_url, created_at";
+      ? "id, image_url, position, created_at, width, height, bytes, format"
+      : "id, image_url, created_at, width, height, bytes, format";
     let query = supabase
       .from("properties")
       .select(`*, property_images(${imageFields})`)
@@ -552,7 +567,14 @@ export async function PUT(
 
     const body = await request.json();
     const updates = updateSchema.parse(body);
-    const { imageUrls = [], status, rejection_reason, cover_image_url, ...rest } = updates;
+    const {
+      imageUrls = [],
+      status,
+      rejection_reason,
+      cover_image_url,
+      imageMeta = {} as ImageMetaPayload,
+      ...rest
+    } = updates;
     const countryFields = normalizeCountryForUpdate({
       country: rest.country,
       country_code: rest.country_code,
@@ -704,6 +726,10 @@ export async function PUT(
             property_id: id,
             image_url: url,
             position: index,
+            width: imageMeta?.[url]?.width,
+            height: imageMeta?.[url]?.height,
+            bytes: imageMeta?.[url]?.bytes,
+            format: imageMeta?.[url]?.format ?? null,
           }))
         );
       }

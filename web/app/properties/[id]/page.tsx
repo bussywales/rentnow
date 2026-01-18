@@ -142,6 +142,10 @@ async function getProperty(
                 image_url: img.image_url,
                 position: (img as { position?: number }).position,
                 created_at: (img as { created_at?: string | null }).created_at ?? undefined,
+                width: (img as { width?: number | null }).width ?? null,
+                height: (img as { height?: number | null }).height ?? null,
+                bytes: (img as { bytes?: number | null }).bytes ?? null,
+                format: (img as { format?: string | null }).format ?? null,
               }))
             ),
           },
@@ -373,6 +377,10 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                 image_url: img.image_url,
                 position: img.position,
                 created_at: img.created_at ?? undefined,
+                width: (img as { width?: number | null }).width ?? null,
+                height: (img as { height?: number | null }).height ?? null,
+                bytes: (img as { bytes?: number | null }).bytes ?? null,
+                format: (img as { format?: string | null }).format ?? null,
               }))
             ),
           })) || [];

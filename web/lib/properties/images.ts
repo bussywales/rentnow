@@ -6,6 +6,10 @@ type MinimalImage = {
   image_url: string;
   position?: number | null;
   created_at?: string;
+  width?: number | null;
+  height?: number | null;
+  bytes?: number | null;
+  format?: string | null;
 };
 
 export function orderImagesWithCover(

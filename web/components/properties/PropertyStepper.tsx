@@ -7,6 +7,7 @@ import NextImage from "next/image";
 import { CurrencySelect } from "@/components/properties/CurrencySelect";
 import { CountrySelect } from "@/components/properties/CountrySelect";
 import { normalizeCountryCode } from "@/lib/countries";
+import { classifyCoverHint, type ImageMeta as CoverMeta } from "@/lib/properties/cover-hint";
 import { Button } from "@/components/ui/Button";
 import InfoPopover from "@/components/ui/InfoPopover";
 import { Input } from "@/components/ui/Input";
@@ -35,6 +36,8 @@ type ResolvedAuth = {
   accessToken: string | null;
   error: Error | null | undefined;
 };
+
+type ImageMeta = CoverMeta & { bytes?: number | null; format?: string | null };
 
 type Props = {
   initialData?: Partial<Property>;
@@ -137,18 +140,72 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
   const [imageUrls, setImageUrls] = useState<string[]>(
     initialData?.images?.map((img) => img.image_url) || []
   );
+  const initialImageMeta = useMemo(() => {
+    const meta: Record<string, ImageMeta> = {};
+    initialData?.images?.forEach((img) => {
+      meta[img.image_url] = {
+        width: (img as { width?: number | null }).width ?? null,
+        height: (img as { height?: number | null }).height ?? null,
+        bytes: (img as { bytes?: number | null }).bytes ?? null,
+        format: (img as { format?: string | null }).format ?? null,
+      };
+    });
+    return meta;
+  }, [initialData?.images]);
+  const [imageMeta, setImageMeta] = useState<Record<string, ImageMeta>>(initialImageMeta);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(
     initialData?.cover_image_url ??
       initialData?.images?.[0]?.image_url ??
       null
   );
-  const [coverWarning, setCoverWarning] = useState(false);
+  const [coverWarning, setCoverWarning] = useState<{
+    tooSmall: boolean;
+    portrait: boolean;
+    unknown: boolean;
+  }>({
+    tooSmall: false,
+    portrait: false,
+    unknown: true,
+  });
   const syncCoverWithImages = useCallback((next: string[]) => {
     setCoverImageUrl((prev) => {
       if (!next.length) return null;
       if (prev && next.includes(prev)) return prev;
       return next[0];
     });
+    setImageMeta((prev) => {
+      const nextMeta: Record<string, ImageMeta> = {};
+      next.forEach((url) => {
+        if (prev[url]) nextMeta[url] = prev[url];
+      });
+      return nextMeta;
+    });
+  }, []);
+  const readImageMetaFromFile = useCallback(async (file: File): Promise<ImageMeta> => {
+    const meta: ImageMeta = {
+      bytes: file.size,
+      format: file.type || null,
+    };
+    try {
+      const objectUrl = URL.createObjectURL(file);
+      await new Promise<void>((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          meta.width = img.naturalWidth;
+          meta.height = img.naturalHeight;
+          URL.revokeObjectURL(objectUrl);
+          resolve();
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(objectUrl);
+          resolve();
+        };
+        img.src = objectUrl;
+      });
+    } catch {
+      // ignore failures, leave meta partial
+    }
+    return meta;
   }, []);
 
   useEffect(() => {
@@ -389,6 +446,13 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       });
       if (nextValue) {
         syncCoverWithImages(nextValue);
+        setImageMeta((prev) => {
+          const nextMeta: Record<string, ImageMeta> = {};
+          nextValue?.forEach((url) => {
+            if (prev[url]) nextMeta[url] = prev[url];
+          });
+          return nextMeta;
+        });
         if (propertyId) {
           void persistImageOrder(nextValue);
         }
@@ -420,6 +484,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       ...restPayload,
       imageUrls,
       cover_image_url: coverImageUrl ?? null,
+      imageMeta,
       ...(shouldIncludeStatus
         ? { status, is_active: status === "pending" || status === "live" }
         : {}),
@@ -503,6 +568,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     getSupabase,
     imageUrls,
     coverImageUrl,
+    imageMeta,
     payload,
     propertyId,
     resolveAuthUser,
@@ -530,18 +596,27 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
 
   useEffect(() => {
     if (!coverImageUrl) {
-      setCoverWarning(false);
+      setCoverWarning({ tooSmall: false, portrait: false, unknown: true });
+      return;
+    }
+    const meta = imageMeta[coverImageUrl];
+    const classification = classifyCoverHint(meta);
+    if (!classification.unknown) {
+      setCoverWarning(classification);
       return;
     }
     const img = new Image();
     img.onload = () => {
-      const portrait = img.naturalHeight > img.naturalWidth;
-      const tooSmall = img.naturalWidth < 1600 || img.naturalHeight < 900;
-      setCoverWarning(portrait || tooSmall);
+      const computedMeta: ImageMeta = {
+        width: img.naturalWidth,
+        height: img.naturalHeight,
+      };
+      setImageMeta((prev) => ({ ...prev, [coverImageUrl]: computedMeta }));
+      setCoverWarning(classifyCoverHint(computedMeta));
     };
-    img.onerror = () => setCoverWarning(false);
+    img.onerror = () => setCoverWarning({ tooSmall: false, portrait: false, unknown: false });
     img.src = coverImageUrl;
-  }, [coverImageUrl]);
+  }, [coverImageUrl, imageMeta]);
 
   useEffect(() => {
     if (!propertyId) return;
@@ -728,7 +803,9 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     setUploading(true);
     setUploadProgress(0);
     const uploaded: string[] = [];
+    let metas: ImageMeta[] = [];
     try {
+      metas = await Promise.all(files.map((file) => readImageMetaFromFile(file)));
       for (let i = 0; i < files.length; i += 1) {
         const file = files[i];
         if (file.size > MAX_UPLOAD_BYTES) {
@@ -747,7 +824,12 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
         const { data: publicUrl } = supabase.storage
           .from(STORAGE_BUCKET)
           .getPublicUrl(path);
-        uploaded.push(publicUrl.publicUrl);
+        const url = publicUrl.publicUrl;
+        uploaded.push(url);
+        const meta = metas[i];
+        if (meta) {
+          setImageMeta((prev) => ({ ...prev, [url]: meta }));
+        }
         setUploadProgress(Math.round(((i + 1) / files.length) * 100));
       }
       setFiles([]);
@@ -1588,10 +1670,13 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                   Drag controls let you reorder; set a cover to choose the thumbnail.
                 </p>
               </div>
-              {coverWarning && (
-                <div className="flex items-start gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              {(coverWarning.tooSmall || coverWarning.portrait) && (
+                <div className="flex flex-col gap-1 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
                   <span className="font-semibold">Recommended cover</span>
                   <span>Cover looks best at 1600×900+ (landscape).</span>
+                  {coverWarning.portrait && (
+                    <span>Landscape covers usually look better in search results.</span>
+                  )}
                 </div>
               )}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -69,6 +69,10 @@ export default async function FavouritesPage() {
                 image_url: img.image_url,
                 position: (img as { position?: number }).position,
                 created_at: (img as { created_at?: string | null }).created_at ?? undefined,
+                width: (img as { width?: number | null }).width ?? null,
+                height: (img as { height?: number | null }).height ?? null,
+                bytes: (img as { bytes?: number | null }).bytes ?? null,
+                format: (img as { format?: string | null }).format ?? null,
               })) || [];
           return [{ ...prop, images: orderImagesWithCover(prop.cover_image_url, images) }];
         }) || [];

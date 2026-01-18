@@ -21,6 +21,10 @@ import {
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
+type ImageMetaPayload = Record<
+  string,
+  { width?: number; height?: number; bytes?: number; format?: string | null }
+>;
 // Exported for tests to validate draft vs publish payloads.
 export const propertySchema = z.object({
   title: z.string().min(3),
@@ -62,6 +66,17 @@ export const propertySchema = z.object({
   is_active: z.boolean().optional(),
   imageUrls: z.array(z.string().url()).optional(),
   cover_image_url: z.string().url().optional().nullable(),
+  imageMeta: z
+    .record(
+      z.string(),
+      z.object({
+        width: z.number().int().positive().optional(),
+        height: z.number().int().positive().optional(),
+        bytes: z.number().int().nonnegative().optional(),
+        format: z.string().optional().nullable(),
+      })
+    )
+    .optional(),
 });
 
 export async function POST(request: Request) {
@@ -132,7 +147,13 @@ export async function POST(request: Request) {
 
     const body = await request.json();
     const data = propertySchema.parse(body);
-    const { imageUrls = [], status, cover_image_url, ...rest } = data;
+    const {
+      imageUrls = [],
+      status,
+      cover_image_url,
+      imageMeta = {} as ImageMetaPayload,
+      ...rest
+    } = data;
     const normalizedDepositCurrency =
       typeof rest.deposit_amount === "number"
         ? rest.deposit_currency ?? rest.currency
@@ -250,6 +271,10 @@ export async function POST(request: Request) {
           property_id: propertyId,
           image_url: url,
           position: index,
+          width: imageMeta?.[url]?.width,
+          height: imageMeta?.[url]?.height,
+          bytes: imageMeta?.[url]?.bytes,
+          format: imageMeta?.[url]?.format ?? null,
         }))
       );
     }
@@ -496,8 +521,8 @@ export async function GET(request: NextRequest) {
 
     const buildPublicQuery = (includePosition: boolean, cutoff: string | null) => {
       const imageFields = includePosition
-        ? "image_url,id,position,created_at"
-        : "image_url,id,created_at";
+        ? "image_url,id,position,created_at,width,height,bytes,format"
+        : "image_url,id,created_at,width,height,bytes,format";
       let query = supabase
         .from("properties")
         .select(`*, property_images(${imageFields})`, {

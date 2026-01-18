@@ -19,9 +19,9 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     message.includes("properties");
 
   const runQuery = async (includePosition: boolean, approvedBefore: string | null) => {
-    const imageFields = includePosition
-      ? "id,image_url,position,created_at"
-      : "id,image_url,created_at";
+  const imageFields = includePosition
+    ? "id,image_url,position,created_at,width,height,bytes,format"
+    : "id,image_url,created_at,width,height,bytes,format";
 
     let query = supabase
       .from("properties")

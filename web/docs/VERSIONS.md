@@ -522,3 +522,8 @@
 - Cover-first ordering helper promoted cover to first image across cards/galleries (no duplicates).
 - Photos step now supports “Set as cover” with immediate persist when listing exists, and shows a recommended cover hint for portrait/small images.
 - Added cover Playwright smoke (skip-safe) and ordering/primary image unit tests; docs updated in LISTING_MEDIA.md.
+
+## 2026-02-06 — vR16.6c.1-image-dimensions-metadata
+- Added width/height/bytes/format columns to property_images to support reliable cover hints.
+- Property create/update APIs accept optional imageMeta and persist dimensions; cover/order endpoints now return metadata.
+- Cover hint in Photos step uses stored dimensions and only probes images when metadata is missing; added classifier tests and a helper script to list rows needing backfill.
