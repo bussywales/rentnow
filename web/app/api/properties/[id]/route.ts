@@ -20,6 +20,7 @@ import {
   optionalPositiveNumber,
   optionalYearBuilt,
 } from "@/lib/properties/validation";
+import { sanitizeImageMeta } from "@/lib/properties/image-meta";
 import {
   getDedupeWindowStart,
   isPrefetchRequest,
@@ -726,10 +727,7 @@ export async function PUT(
             property_id: id,
             image_url: url,
             position: index,
-            width: imageMeta?.[url]?.width,
-            height: imageMeta?.[url]?.height,
-            bytes: imageMeta?.[url]?.bytes,
-            format: imageMeta?.[url]?.format ?? null,
+            ...sanitizeImageMeta(imageMeta?.[url]),
           }))
         );
       }

@@ -527,3 +527,8 @@
 - Added width/height/bytes/format columns to property_images to support reliable cover hints.
 - Property create/update APIs accept optional imageMeta and persist dimensions; cover/order endpoints now return metadata.
 - Cover hint in Photos step uses stored dimensions and only probes images when metadata is missing; added classifier tests and a helper script to list rows needing backfill.
+
+## 2026-02-06 — vR16.6c.2-image-metadata-hardening
+- Hardened property_images metadata: bytes promoted to BIGINT with positive checks on width/height/bytes.
+- API sanitize ensures finite/clamped dimensions, non-negative bytes, lowercase formats, and persists blurhash when provided.
+- Added tests for sanitizeImageMeta (NaN/negative/higher than 32-bit) and updated docs accordingly.

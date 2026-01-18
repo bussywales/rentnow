@@ -18,12 +18,13 @@ import {
   optionalPositiveNumber,
   optionalYearBuilt,
 } from "@/lib/properties/validation";
+import { sanitizeImageMeta } from "@/lib/properties/image-meta";
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
 type ImageMetaPayload = Record<
   string,
-  { width?: number; height?: number; bytes?: number; format?: string | null }
+  { width?: number; height?: number; bytes?: number; format?: string | null; blurhash?: string | null }
 >;
 // Exported for tests to validate draft vs publish payloads.
 export const propertySchema = z.object({
@@ -265,19 +266,16 @@ export async function POST(request: Request) {
 
     const propertyId = property?.id;
 
-    if (propertyId && imageUrls.length) {
-      await supabase.from("property_images").insert(
-        imageUrls.map((url, index) => ({
-          property_id: propertyId,
-          image_url: url,
-          position: index,
-          width: imageMeta?.[url]?.width,
-          height: imageMeta?.[url]?.height,
-          bytes: imageMeta?.[url]?.bytes,
-          format: imageMeta?.[url]?.format ?? null,
-        }))
-      );
-    }
+  if (propertyId && imageUrls.length) {
+    await supabase.from("property_images").insert(
+      imageUrls.map((url, index) => ({
+        property_id: propertyId,
+        image_url: url,
+        position: index,
+        ...sanitizeImageMeta(imageMeta?.[url]),
+      }))
+    );
+  }
 
     return NextResponse.json({ id: propertyId });
   } catch (error: unknown) {
