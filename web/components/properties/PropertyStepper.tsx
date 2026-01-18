@@ -8,6 +8,7 @@ import { CurrencySelect } from "@/components/properties/CurrencySelect";
 import { CountrySelect } from "@/components/properties/CountrySelect";
 import { normalizeCountryCode } from "@/lib/countries";
 import { classifyCoverHint, type ImageMeta as CoverMeta } from "@/lib/properties/cover-hint";
+import { pickRecommendedCover } from "@/lib/properties/recommended-cover";
 import { Button } from "@/components/ui/Button";
 import InfoPopover from "@/components/ui/InfoPopover";
 import { Input } from "@/components/ui/Input";
@@ -38,6 +39,18 @@ type ResolvedAuth = {
 };
 
 type ImageMeta = CoverMeta & { bytes?: number | null; format?: string | null };
+type RecommendedSuggestion = {
+  url: string | null;
+  reason: string;
+  isAlreadyCover?: boolean;
+  quality?: {
+    width?: number | null;
+    height?: number | null;
+    meets1600x900?: boolean | null;
+    isPortrait?: boolean | null;
+  };
+  source: "api" | "local";
+};
 
 type Props = {
   initialData?: Partial<Property>;
@@ -167,6 +180,8 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     portrait: false,
     unknown: true,
   });
+  const [recommended, setRecommended] = useState<RecommendedSuggestion | null>(null);
+  const [recommendedDismissed, setRecommendedDismissed] = useState(false);
   const syncCoverWithImages = useCallback((next: string[]) => {
     setCoverImageUrl((prev) => {
       if (!next.length) return null;
@@ -618,6 +633,86 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     img.src = coverImageUrl;
   }, [coverImageUrl, imageMeta]);
 
+  const buildLocalRecommendation = useCallback((): RecommendedSuggestion | null => {
+    if (!imageUrls.length) return null;
+    const candidates = imageUrls.map((url, index) => ({
+      image_url: url,
+      position: index,
+      created_at: null,
+      width: imageMeta[url]?.width ?? null,
+      height: imageMeta[url]?.height ?? null,
+    }));
+    const pick = pickRecommendedCover(candidates, imageUrls);
+    if (!pick.url) return null;
+    const meta = imageMeta[pick.url];
+    const width = meta?.width ?? null;
+    const height = meta?.height ?? null;
+    const quality = {
+      width,
+      height,
+      meets1600x900:
+        typeof width === "number" && typeof height === "number"
+          ? width >= 1600 && height >= 900
+          : null,
+      isPortrait:
+        typeof width === "number" && typeof height === "number" ? height > width : null,
+    };
+    return {
+      url: pick.url,
+      reason: pick.reason,
+      isAlreadyCover: pick.url === coverImageUrl,
+      quality,
+      source: "local",
+    };
+  }, [coverImageUrl, imageMeta, imageUrls]);
+
+  useEffect(() => {
+    setRecommendedDismissed(false);
+    if (!imageUrls.length) {
+      setRecommended(null);
+      return;
+    }
+    if (!propertyId) {
+      setRecommended(buildLocalRecommendation());
+      return;
+    }
+    const supabase = getSupabase();
+    if (!supabase) {
+      setRecommended(buildLocalRecommendation());
+      return;
+    }
+    void (async () => {
+      try {
+        const { accessToken, user } = await resolveAuthUser(supabase);
+        if (!user) {
+          setRecommended(buildLocalRecommendation());
+          return;
+        }
+        const res = await fetch(`/api/properties/${propertyId}/cover/recommended`, {
+          headers: {
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+        });
+        if (!res.ok) {
+          setRecommended(buildLocalRecommendation());
+          return;
+        }
+        const json = await res.json();
+        if (!json?.recommended) {
+          setRecommended(buildLocalRecommendation());
+          return;
+        }
+        const rec = json.recommended as RecommendedSuggestion;
+        setRecommended({
+          ...rec,
+          source: "api",
+        });
+      } catch {
+        setRecommended(buildLocalRecommendation());
+      }
+    })();
+  }, [buildLocalRecommendation, getSupabase, imageUrls, propertyId, resolveAuthUser]);
+
   useEffect(() => {
     if (!propertyId) return;
     const current = coverImageUrl ?? null;
@@ -841,6 +936,13 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     } finally {
       setUploading(false);
     }
+  };
+
+  const applyRecommended = async () => {
+    if (!recommended?.url) return;
+    setCoverImageUrl(recommended.url);
+    setRecommendedDismissed(true);
+    setDraftNotice(propertyId ? "Cover updated" : "Cover set for this listing");
   };
 
   const moveItem = <T,>(items: T[], index: number, direction: number) => {
@@ -1664,6 +1766,84 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
 
           {imageUrls.length > 0 && (
             <div className="space-y-3">
+              {!recommendedDismissed && (
+                <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-slate-900">Recommended cover</p>
+                      <p className="text-xs text-slate-600">
+                        {coverImageUrl
+                          ? "We found an image that may perform better than your current cover."
+                          : "We picked the image that looks best on listing cards and previews."}
+                      </p>
+                      {recommended?.reason && (
+                        <p className="text-xs text-slate-700">{recommended.reason}</p>
+                      )}
+                      {recommended?.quality &&
+                        recommended.quality.meets1600x900 === false && (
+                          <p className="text-xs text-amber-700">
+                            Cover images look best at 1600×900 or larger.
+                          </p>
+                        )}
+                      {!recommended?.url && (
+                        <p className="text-xs text-slate-600">
+                          None of these images meet the recommended cover size. You can still choose
+                          one, or upload a higher-resolution photo.
+                        </p>
+                      )}
+                    </div>
+                    {recommended?.url ? (
+                      <div className="flex items-center gap-3">
+                        <div className="relative h-16 w-24 overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                          <NextImage
+                            src={recommended.url}
+                            alt="Recommended cover preview"
+                            fill
+                            className="object-cover"
+                            sizes="120px"
+                          />
+                          {recommended?.url && recommended.url === coverImageUrl && (
+                            <span className="absolute left-1 top-1 rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-semibold text-white">
+                              Cover
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={applyRecommended}
+                            disabled={!recommended.url || recommended.url === coverImageUrl}
+                            aria-label="Use recommended cover image"
+                          >
+                            {coverImageUrl ? "Switch to recommended cover" : "Use recommended cover"}
+                          </Button>
+                          <button
+                            type="button"
+                            className="text-xs font-semibold text-slate-600 hover:text-slate-900"
+                            onClick={() => setRecommendedDismissed(true)}
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <Button type="button" size="sm" disabled>
+                          Use recommended cover
+                        </Button>
+                        <button
+                          type="button"
+                          className="text-xs font-semibold text-slate-600 hover:text-slate-900"
+                          onClick={() => setRecommendedDismissed(true)}
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="text-sm font-medium text-slate-700">Photo gallery</p>
                 <p className="text-xs text-slate-500">
@@ -1699,6 +1879,19 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                         <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
                           Cover
                         </span>
+                      ) : recommended?.url === url ? (
+                        <>
+                          <span className="rounded-full bg-sky-600 px-3 py-1 text-xs font-semibold text-white">
+                            Recommended
+                          </span>
+                          <button
+                            type="button"
+                            className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow hover:bg-white"
+                            onClick={() => setCoverImageUrl(url)}
+                          >
+                            Set as cover
+                          </button>
+                        </>
                       ) : (
                         <button
                           type="button"

@@ -535,3 +535,8 @@
 
 ## 2026-02-06 — vR16.6c.3-schema-guard
 - Added schema drift guard test for property_images metadata: bytes must remain BIGINT and width/height/bytes checks must exist.
+
+## 2026-02-06 — vR16.6d-smart-cover-suggestion
+- Added cover recommendation helper with metadata-first scoring and deterministic tie-breakers.
+- New API endpoint GET /api/properties/[id]/cover/recommended (read-only suggestion, auth/ownership enforced).
+- Photos step shows “Recommended cover” card with apply/dismiss, recommended badge, and quality hint; no auto-changes.

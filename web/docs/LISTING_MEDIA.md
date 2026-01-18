@@ -16,6 +16,11 @@
 - Owner/authorized agent only; reads are unchanged when no cover is set (ordering remains the fallback).
 - Cover-first ordering: when present and valid, cover is promoted to the first slot in image arrays; otherwise ordering follows `position ASC, created_at ASC`.
 - Recommended cover: best at 1600×900+ landscape; UI shows a hint when the selected cover is portrait or smaller (and notes that landscape covers look better).
+- Recommended cover suggestion:
+  - The Photos step suggests a cover but never applies it automatically.
+  - Uses stored image metadata (width/height); if missing, falls back to a lightweight probe on the suggested image only.
+  - Card copy: “Recommended cover” with buttons “Use recommended cover” (or “Switch to recommended cover” when a cover exists) and “Dismiss”.
+  - Quality hint shows “Cover images look best at 1600×900 or larger.” when applicable.
 
 ## Image metadata
 - `property_images` stores optional `width`, `height`, `bytes`, and `format` for each photo.
