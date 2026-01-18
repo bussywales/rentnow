@@ -21,6 +21,7 @@ import {
   optionalYearBuilt,
 } from "@/lib/properties/validation";
 import { sanitizeImageMeta } from "@/lib/properties/image-meta";
+import { sanitizeExifMeta } from "@/lib/properties/image-exif";
 import {
   getDedupeWindowStart,
   isPrefetchRequest,
@@ -32,7 +33,13 @@ import {
 const routeLabel = "/api/properties/[id]";
 type ImageMetaPayload = Record<
   string,
-  { width?: number; height?: number; bytes?: number; format?: string | null }
+  {
+    width?: number;
+    height?: number;
+    bytes?: number;
+    format?: string | null;
+    exif?: { hasGps?: boolean | null; capturedAt?: string | null };
+  }
 >;
 const updateSchema = z.object({
   title: z.string().min(3).optional(),
@@ -83,6 +90,12 @@ const updateSchema = z.object({
         height: z.number().int().positive().optional(),
         bytes: z.number().int().nonnegative().optional(),
         format: z.string().optional().nullable(),
+        exif: z
+          .object({
+            hasGps: z.boolean().optional().nullable(),
+            capturedAt: z.string().optional().nullable(),
+          })
+          .optional(),
       })
     )
     .optional(),
@@ -292,9 +305,11 @@ export async function GET(
     message.includes("property_images");
 
   const buildQuery = (includePosition: boolean) => {
+    const baseFields =
+      "id, image_url, created_at, width, height, bytes, format, blurhash, exif_has_gps, exif_captured_at";
     const imageFields = includePosition
-      ? "id, image_url, position, created_at, width, height, bytes, format"
-      : "id, image_url, created_at, width, height, bytes, format";
+      ? `position, ${baseFields}`
+      : baseFields;
     let query = supabase
       .from("properties")
       .select(`*, property_images(${imageFields})`)
@@ -723,12 +738,18 @@ export async function PUT(
       await supabase.from("property_images").delete().eq("property_id", id);
       if (imageUrls.length) {
         await supabase.from("property_images").insert(
-          imageUrls.map((url, index) => ({
-            property_id: id,
-            image_url: url,
-            position: index,
-            ...sanitizeImageMeta(imageMeta?.[url]),
-          }))
+          imageUrls.map((url, index) => {
+            const metaForUrl = imageMeta?.[url] as
+              | ({ exif?: { hasGps?: boolean | null; capturedAt?: string | null } } & object)
+              | undefined;
+            return {
+              property_id: id,
+              image_url: url,
+              position: index,
+              ...sanitizeImageMeta(imageMeta?.[url]),
+              ...sanitizeExifMeta(metaForUrl?.exif),
+            };
+          })
         );
       }
     }

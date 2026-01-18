@@ -38,7 +38,13 @@ type ResolvedAuth = {
   error: Error | null | undefined;
 };
 
-type ImageMeta = CoverMeta & { bytes?: number | null; format?: string | null };
+type ImageMeta = CoverMeta & {
+  bytes?: number | null;
+  format?: string | null;
+  exif_has_gps?: boolean | null;
+  exif_captured_at?: string | null;
+  exif?: { hasGps?: boolean | null; capturedAt?: string | null };
+};
 type RecommendedSuggestion = {
   url: string | null;
   reason: string;
@@ -161,6 +167,12 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
         height: (img as { height?: number | null }).height ?? null,
         bytes: (img as { bytes?: number | null }).bytes ?? null,
         format: (img as { format?: string | null }).format ?? null,
+        exif_has_gps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? null,
+        exif_captured_at: (img as { exif_captured_at?: string | null }).exif_captured_at ?? null,
+        exif: {
+          hasGps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? null,
+          capturedAt: (img as { exif_captured_at?: string | null }).exif_captured_at ?? null,
+        },
       };
     });
     return meta;
@@ -1860,30 +1872,52 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                 </div>
               )}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                {imageUrls.map((url, index) => (
-                  <div
-                    key={url}
-                    className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
-                  >
-                    <div className="relative h-44 w-full">
-                      <NextImage
-                        src={url}
-                        alt={`Listing photo ${index + 1}`}
-                        fill
-                        sizes="(max-width: 768px) 100vw, 33vw"
-                        className="object-cover"
-                      />
-                    </div>
-                    <div className="absolute left-2 top-2 flex gap-2">
-                      {coverImageUrl === url ? (
-                        <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
-                          Cover
-                        </span>
-                      ) : recommended?.url === url ? (
-                        <>
-                          <span className="rounded-full bg-sky-600 px-3 py-1 text-xs font-semibold text-white">
-                            Recommended
+                {imageUrls.map((url, index) => {
+                  const meta = imageMeta[url];
+                  const hasGps = meta?.exif_has_gps ?? meta?.exif?.hasGps ?? null;
+                  const capturedAt = meta?.exif_captured_at ?? meta?.exif?.capturedAt ?? null;
+                  const formattedCaptured =
+                    capturedAt && !Number.isNaN(Date.parse(capturedAt))
+                      ? new Date(capturedAt).toLocaleDateString(undefined, {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : null;
+
+                  return (
+                    <div
+                      key={url}
+                      className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                    >
+                      <div className="relative h-44 w-full">
+                        <NextImage
+                          src={url}
+                          alt={`Listing photo ${index + 1}`}
+                          fill
+                          sizes="(max-width: 768px) 100vw, 33vw"
+                          className="object-cover"
+                        />
+                      </div>
+                      <div className="absolute left-2 top-2 flex gap-2">
+                        {coverImageUrl === url ? (
+                          <span className="rounded-full bg-emerald-600 px-3 py-1 text-xs font-semibold text-white">
+                            Cover
                           </span>
+                        ) : recommended?.url === url ? (
+                          <>
+                            <span className="rounded-full bg-sky-600 px-3 py-1 text-xs font-semibold text-white">
+                              Recommended
+                            </span>
+                            <button
+                              type="button"
+                              className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow hover:bg-white"
+                              onClick={() => setCoverImageUrl(url)}
+                            >
+                              Set as cover
+                            </button>
+                          </>
+                        ) : (
                           <button
                             type="button"
                             className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow hover:bg-white"
@@ -1891,49 +1925,55 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                           >
                             Set as cover
                           </button>
-                        </>
-                      ) : (
+                        )}
+                      </div>
+                      {(hasGps || formattedCaptured) && (
+                        <div className="absolute left-2 bottom-16 flex flex-col gap-1 text-[11px] font-semibold text-white drop-shadow">
+                          {hasGps && (
+                            <span className="w-fit rounded bg-slate-900/70 px-2 py-0.5">
+                              Location data detected
+                            </span>
+                          )}
+                          {formattedCaptured && (
+                            <span className="w-fit rounded bg-slate-900/70 px-2 py-0.5">
+                              Taken {formattedCaptured}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      <div className="absolute right-2 top-2 flex gap-2">
                         <button
                           type="button"
-                          className="rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow hover:bg-white"
-                          onClick={() => setCoverImageUrl(url)}
+                          className="rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-700 shadow hover:bg-white"
+                          onClick={() => updateImageUrls((prev) => moveItem(prev, index, -1))}
+                          aria-label="Move photo up"
                         >
-                          Set as cover
+                          ↑
                         </button>
-                      )}
+                        <button
+                          type="button"
+                          className="rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-700 shadow hover:bg-white"
+                          onClick={() => updateImageUrls((prev) => moveItem(prev, index, 1))}
+                          aria-label="Move photo down"
+                        >
+                          ↓
+                        </button>
+                      </div>
+                      <div className="flex items-center justify-between px-3 py-2 text-xs text-slate-700">
+                        <span className="truncate">Photo {index + 1}</span>
+                        <button
+                          type="button"
+                          className="text-rose-600 hover:text-rose-800"
+                          onClick={() =>
+                            updateImageUrls((prev) => prev.filter((item) => item !== url))
+                          }
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
-                    <div className="absolute right-2 top-2 flex gap-2">
-                      <button
-                        type="button"
-                        className="rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-700 shadow hover:bg-white"
-                        onClick={() => updateImageUrls((prev) => moveItem(prev, index, -1))}
-                        aria-label="Move photo up"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-700 shadow hover:bg-white"
-                        onClick={() => updateImageUrls((prev) => moveItem(prev, index, 1))}
-                        aria-label="Move photo down"
-                      >
-                        ↓
-                      </button>
-                    </div>
-                    <div className="flex items-center justify-between px-3 py-2 text-xs text-slate-700">
-                      <span className="truncate">Photo {index + 1}</span>
-                      <button
-                        type="button"
-                        className="text-rose-600 hover:text-rose-800"
-                        onClick={() =>
-                          updateImageUrls((prev) => prev.filter((item) => item !== url))
-                        }
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

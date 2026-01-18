@@ -19,6 +19,7 @@ import {
   optionalYearBuilt,
 } from "@/lib/properties/validation";
 import { sanitizeImageMeta } from "@/lib/properties/image-meta";
+import { sanitizeExifMeta } from "@/lib/properties/image-exif";
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
@@ -75,6 +76,12 @@ export const propertySchema = z.object({
         height: z.number().int().positive().optional(),
         bytes: z.number().int().nonnegative().optional(),
         format: z.string().optional().nullable(),
+        exif: z
+          .object({
+            hasGps: z.boolean().optional().nullable(),
+            capturedAt: z.string().optional().nullable(),
+          })
+          .optional(),
       })
     )
     .optional(),
@@ -268,12 +275,18 @@ export async function POST(request: Request) {
 
   if (propertyId && imageUrls.length) {
     await supabase.from("property_images").insert(
-      imageUrls.map((url, index) => ({
-        property_id: propertyId,
-        image_url: url,
-        position: index,
-        ...sanitizeImageMeta(imageMeta?.[url]),
-      }))
+      imageUrls.map((url, index) => {
+        const metaForUrl = imageMeta?.[url] as
+          | ({ exif?: { hasGps?: boolean | null; capturedAt?: string | null } } & object)
+          | undefined;
+        return {
+          property_id: propertyId,
+          image_url: url,
+          position: index,
+          ...sanitizeImageMeta(imageMeta?.[url]),
+          ...sanitizeExifMeta(metaForUrl?.exif),
+        };
+      })
     );
   }
 
@@ -431,9 +444,11 @@ export async function GET(request: NextRequest) {
       }
 
       const buildOwnerQuery = (includePosition: boolean) => {
+        const baseFields =
+          "image_url,id,created_at,width,height,bytes,format,blurhash,exif_has_gps,exif_captured_at";
         const imageFields = includePosition
-          ? "image_url,id,position,created_at"
-          : "image_url,id,created_at";
+          ? `position,${baseFields}`
+          : baseFields;
         let query = supabase
           .from("properties")
           .select(`*, property_images(${imageFields})`)

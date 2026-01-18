@@ -540,3 +540,8 @@
 - Added cover recommendation helper with metadata-first scoring and deterministic tie-breakers.
 - New API endpoint GET /api/properties/[id]/cover/recommended (read-only suggestion, auth/ownership enforced).
 - Photos step shows “Recommended cover” card with apply/dismiss, recommended badge, and quality hint; no auto-changes.
+
+## 2026-02-06 — vR16.6e-image-exif-safe-metadata
+- Added EXIF-safe metadata columns (`exif_has_gps`, `exif_captured_at`) to property_images.
+- Sanitized EXIF input on create/update; ignores raw GPS coords and future/invalid timestamps.
+- Photos step now surfaces subtle badges when EXIF GPS or captured-at metadata exists.

@@ -27,3 +27,8 @@
 - The Photos step captures dimensions client-side during upload and sends `imageMeta` so cover hints can use real data; fallback probes only when metadata is missing.
 - Backfill helper: `scripts/list-missing-image-metadata.mjs` (requires service role) lists rows with null width/height for manual updating.
 - `bytes` is stored as BIGINT with sanity checks; width/height are checked > 0 when present; blurhash is accepted and persisted when provided.
+
+## EXIF-safe metadata
+- Stored per image: `exif_has_gps` and `exif_captured_at` (timestamps).
+- EXIF location coordinates are **not** stored; only a boolean “has GPS” flag is accepted.
+- `exif_captured_at` is accepted when valid and not in the far future; otherwise cleared.
