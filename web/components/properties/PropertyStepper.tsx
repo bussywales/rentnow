@@ -235,16 +235,16 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       city: normalizeOptionalString(form.city),
       neighbourhood: normalizeOptionalString(form.neighbourhood),
       address: normalizeOptionalString(form.address),
-      size_value: sizeValue,
-      size_unit: sizeValue ? form.size_unit ?? "sqm" : null,
+      size_value: sizeValue ?? undefined,
+      size_unit: sizeValue ? form.size_unit ?? "sqm" : undefined,
       year_built:
         typeof form.year_built === "number" && Number.isFinite(form.year_built)
           ? form.year_built
           : null,
-      deposit_amount: depositAmount,
+      deposit_amount: depositAmount ?? undefined,
       deposit_currency: depositAmount
         ? form.deposit_currency ?? form.currency ?? null
-        : null,
+        : undefined,
       bathroom_type: normalizeOptionalString(form.bathroom_type),
       pets_allowed: !!form.pets_allowed,
       amenities: form.amenitiesText
@@ -253,8 +253,9 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       features: form.featuresText
         ? form.featuresText.split(",").map((item) => item.trim()).filter(Boolean)
         : [],
+      cover_image_url: coverImageUrl ?? undefined,
     };
-  }, [form]);
+  }, [form, coverImageUrl]);
 
   const previewImages = useMemo(() => {
     const mapped = imageUrls.map((url, index) => ({

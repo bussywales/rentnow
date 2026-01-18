@@ -2,27 +2,24 @@ import { z } from "zod";
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-const preprocessOptionalNumber = (value: unknown) => {
-  if (value === "" || value === null || typeof value === "undefined") {
-    return undefined;
-  }
-  return value;
-};
+const optionalNumberUnion = (schema: z.ZodTypeAny) =>
+  z
+    .union([
+      z.undefined(),
+      z.literal("").transform(() => undefined),
+      z.null().transform(() => undefined),
+      schema,
+    ])
+    .optional();
 
 export const optionalPositiveNumber = () =>
-  z
-    .preprocess(preprocessOptionalNumber, z.coerce.number().positive())
-    .optional();
+  optionalNumberUnion(z.coerce.number().positive());
 
 export const optionalNonnegativeNumber = () =>
-  z
-    .preprocess(preprocessOptionalNumber, z.coerce.number().nonnegative())
-    .optional();
+  optionalNumberUnion(z.coerce.number().nonnegative());
 
 export const optionalIntNonnegative = () =>
-  z
-    .preprocess(preprocessOptionalNumber, z.coerce.number().int().nonnegative())
-    .optional();
+  optionalNumberUnion(z.coerce.number().int().nonnegative());
 
 export const optionalYearBuilt = () =>
   z
