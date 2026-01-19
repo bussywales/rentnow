@@ -545,3 +545,8 @@
 - Added EXIF-safe metadata columns (`exif_has_gps`, `exif_captured_at`) to property_images.
 - Sanitized EXIF input on create/update; ignores raw GPS coords and future/invalid timestamps.
 - Photos step now surfaces subtle badges when EXIF GPS or captured-at metadata exists.
+
+## 2026-02-06 — vR16.6f-photo-trust-signals
+- Added app_settings toggle for tenant photo trust signals (default off).
+- Tenant property detail can show location metadata presence and capture recency (no GPS coordinates).
+- Derived photo trust helper and EXIF-safe handling wired into property responses; added tests and skip-safe Playwright smoke.

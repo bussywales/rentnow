@@ -31,6 +31,8 @@ import { getTenantPlanForTier } from "@/lib/plans";
 import type { Profile, Property } from "@/lib/types";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { orderImagesWithCover } from "@/lib/properties/images";
+import { derivePhotoTrust } from "@/lib/properties/photo-trust";
+import { getAppSettingBool } from "@/lib/settings/app-settings";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -146,6 +148,9 @@ async function getProperty(
                 height: (img as { height?: number | null }).height ?? null,
                 bytes: (img as { bytes?: number | null }).bytes ?? null,
                 format: (img as { format?: string | null }).format ?? null,
+                exif_has_gps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? null,
+                exif_captured_at:
+                  (img as { exif_captured_at?: string | null }).exif_captured_at ?? null,
               }))
             ),
           },
@@ -381,6 +386,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                 height: (img as { height?: number | null }).height ?? null,
                 bytes: (img as { bytes?: number | null }).bytes ?? null,
                 format: (img as { format?: string | null }).format ?? null,
+                exif_has_gps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? null,
+                exif_captured_at:
+                  (img as { exif_captured_at?: string | null }).exif_captured_at ?? null,
               }))
             ),
           })) || [];
@@ -425,6 +433,17 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
       : property.bathroom_type === "shared"
         ? "Shared bathroom"
         : null;
+  const showTenantPhotoTrust = await getAppSettingBool(
+    "show_tenant_photo_trust_signals",
+    false
+  );
+  const photoTrust = showTenantPhotoTrust
+    ? derivePhotoTrust(
+        (property.images ?? []) as Array<
+          Partial<{ exif_has_gps: boolean | null; exif_captured_at: string | null }>
+        >
+      )
+    : { hasLocationMeta: false, recency: "unknown" as const };
   const petsLabel =
     typeof property.pets_allowed === "boolean"
       ? property.pets_allowed
@@ -654,6 +673,30 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                   propertyId={property.id}
                   timezoneLabel={timezoneText}
                 />
+              </div>
+            </div>
+          )}
+          {isTenant && showTenantPhotoTrust && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-lg font-semibold text-slate-900">Photo details</h3>
+              <p className="text-xs text-slate-500">From the photo&apos;s camera data.</p>
+              <div className="mt-3 space-y-2 text-sm text-slate-700">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-slate-500">Location metadata</span>
+                  <span className="font-semibold text-slate-900">
+                    {photoTrust.hasLocationMeta ? "Present" : "Not present"}
+                  </span>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-slate-500">Capture date</span>
+                  <span className="font-semibold text-slate-900">
+                    {photoTrust.recency === "recent"
+                      ? "Captured recently"
+                      : photoTrust.recency === "older"
+                        ? "Captured a while ago"
+                        : "Capture date unknown"}
+                  </span>
+                </div>
               </div>
             </div>
           )}
