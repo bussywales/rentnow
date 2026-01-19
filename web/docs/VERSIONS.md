@@ -556,7 +556,11 @@
 - Admin API GET/PATCH /api/admin/app-settings with audit logging for updates.
 - Validation tests for settings payload; docs updated with UI location.
 
-## 2026-02-?? — vR16.7a-location-picker-geocoding
+## 2026-02-07 — vR16.7a-location-picker-geocoding
 - Feature-flagged location picker with Mapbox geocoding and new non-sensitive location metadata fields.
 - vR16.7a.1-admin-dashboard-redirect-fix — Admins no longer get forced to /admin/support when visiting dashboard routes; dashboard layout allows admin access, root redirects to /admin.
 - vR16.7a.2-location-picker-ux — Improved location picker UX (clear labels, helper copy, error/empty states), admin nav link to settings, and /admin/settings layout spacing aligned.
+
+## 2026-02-07 — vR16.7c-location-pin-map-preview
+- Added static Mapbox preview for pinned areas in listing wizard (flagged).
+- Clearer inline errors when Mapbox is not configured; pin confirmation shows label and change action.

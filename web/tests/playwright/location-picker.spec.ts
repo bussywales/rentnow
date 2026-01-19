@@ -11,6 +11,6 @@ test.describe("Location picker", () => {
   test("new listing page renders location search", async ({ page }) => {
     await page.goto("/dashboard/properties/new");
     await expect(page.locator("h1", { hasText: "Create listing" })).toBeVisible();
-    await expect(page.getByLabel("Search location")).toBeVisible();
+    await expect(page.getByLabel("Search for an area")).toBeVisible();
   });
 });

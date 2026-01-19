@@ -1440,29 +1440,69 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                     )}
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
                       {form.latitude && form.longitude && form.location_label ? (
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="space-y-1">
-                            <p className="font-semibold">📍 Area pinned: {form.location_label}</p>
-                            <p className="text-xs text-slate-500">
-                              {form.latitude.toFixed(5)}, {form.longitude.toFixed(5)}
-                            </p>
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="space-y-1">
+                              <p className="text-sm font-semibold text-slate-900">Pinned area</p>
+                              <p className="text-xs text-slate-600">{form.location_label}</p>
+                              <p className="text-xs text-slate-500">
+                                {form.latitude.toFixed(5)}, {form.longitude.toFixed(5)}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              className="text-sm font-semibold text-sky-700"
+                              onClick={() => {
+                                handleChange("latitude", null);
+                                handleChange("longitude", null);
+                                handleChange("location_label", null);
+                                handleChange("location_place_id", null);
+                                handleChange("location_source", null);
+                                handleChange("location_precision", null);
+                                setAutoFillHints({});
+                                setLocationQuery("");
+                              }}
+                            >
+                              Change
+                            </button>
                           </div>
-                          <button
-                            type="button"
-                            className="text-sm font-semibold text-sky-700"
-                            onClick={() => {
-                              handleChange("latitude", null);
-                              handleChange("longitude", null);
-                              handleChange("location_label", null);
-                              handleChange("location_place_id", null);
-                              handleChange("location_source", null);
-                              handleChange("location_precision", null);
-                              setAutoFillHints({});
-                              setLocationQuery("");
-                            }}
-                          >
-                            Change
-                          </button>
+                          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                            {process.env.NEXT_PUBLIC_MAPBOX_TOKEN ? (
+                              (() => {
+                                const staticMapUrl = buildStaticMapUrl({
+                                  lat: form.latitude as number,
+                                  lng: form.longitude as number,
+                                });
+                                if (!staticMapUrl) {
+                                  return (
+                                    <div className="flex h-40 items-center justify-center text-xs text-slate-500">
+                                      Map preview unavailable
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={staticMapUrl}
+                                    alt="Pinned location map preview"
+                                    className="h-40 w-full object-cover"
+                                    onError={(e) => {
+                                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                                      const placeholder = document.createElement("div");
+                                      placeholder.className =
+                                        "flex h-40 w-full items-center justify-center text-xs text-slate-500";
+                                      placeholder.innerText = "Map preview unavailable";
+                                      e.currentTarget.parentElement?.appendChild(placeholder);
+                                    }}
+                                  />
+                                );
+                              })()
+                            ) : (
+                              <div className="flex h-40 items-center justify-center text-xs text-slate-500">
+                                Map preview isn&apos;t configured yet.
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <p className="text-xs text-slate-600">No pin selected yet.</p>
@@ -2379,3 +2419,4 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
     </div>
   );
 }
+import { buildStaticMapUrl } from "@/lib/geocode/staticMap";

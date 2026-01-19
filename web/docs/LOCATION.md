@@ -23,6 +23,7 @@ where key='enable_location_picker';
 ## Provider
 - Mapbox Geocoding API (server-side): requires `MAPBOX_TOKEN` (or `NEXT_PUBLIC_MAPBOX_TOKEN` for now).
 - Endpoint: `GET /api/geocode?q=` (auth: admin/agent/landlord). Returns top 5 sanitized results (city/region level).
+- Static map preview in the listing wizard uses `NEXT_PUBLIC_MAPBOX_TOKEN`. If missing, the UI shows “Map preview isn’t configured yet.”
 
 ## UI
 - Listing wizard shows address search + pin selection when flag enabled.
