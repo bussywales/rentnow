@@ -287,11 +287,24 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   });
   const [locationQuery, setLocationQuery] = useState(form.location_label || "");
   const [locationResults, setLocationResults] = useState<
-    Array<{ label: string; place_id: string; lat: number; lng: number }>
+    Array<{
+      label: string;
+      place_id: string;
+      lat: number;
+      lng: number;
+      region_name?: string | null;
+      place_name?: string | null;
+      neighborhood_name?: string | null;
+    }>
   >([]);
   const [locationSearching, setLocationSearching] = useState(false);
   const [showAdvancedLocation, setShowAdvancedLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [autoFillHints, setAutoFillHints] = useState<{
+    city?: boolean;
+    state?: boolean;
+    neighbourhood?: boolean;
+  }>({});
 
   useEffect(() => {
     if (!enableLocationPicker) return;
@@ -325,6 +338,9 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
           place_id: string;
           lat: number;
           lng: number;
+          region_name?: string | null;
+          place_name?: string | null;
+          neighborhood_name?: string | null;
         }>;
         setLocationResults(data || []);
         if (!data || data.length === 0) {
@@ -820,7 +836,17 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   );
 
   const applyLocationResult = useCallback(
-    (result: { label: string; place_id: string; lat: number; lng: number }) => {
+    (
+      result: {
+        label: string;
+        place_id: string;
+        lat: number;
+        lng: number;
+        region_name?: string | null;
+        place_name?: string | null;
+        neighborhood_name?: string | null;
+      }
+    ) => {
       handleChange("latitude", result.lat);
       handleChange("longitude", result.lng);
       handleChange("location_label", result.label);
@@ -829,8 +855,33 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       handleChange("location_precision", "approx");
       setLocationQuery(result.label);
       setLocationResults([]);
+
+      setAutoFillHints((prev) => {
+        const next = { ...prev };
+        const shouldFillCity =
+          (!form.city || !form.city.trim()) && result.place_name;
+        const shouldFillState =
+          (!form.state_region || !form.state_region.trim()) && result.region_name;
+        const shouldFillNeighbourhood =
+          (!form.neighbourhood || !form.neighbourhood.trim()) &&
+          result.neighborhood_name;
+
+        if (shouldFillCity) {
+          handleChange("city", result.place_name ?? "");
+          next.city = true;
+        }
+        if (shouldFillState) {
+          handleChange("state_region", result.region_name ?? "");
+          next.state = true;
+        }
+        if (shouldFillNeighbourhood) {
+          handleChange("neighbourhood", result.neighborhood_name ?? "");
+          next.neighbourhood = true;
+        }
+        return next;
+      });
     },
-    [handleChange]
+    [handleChange, form.city, form.state_region, form.neighbourhood]
   );
 
   const scrollToField = (key: string) => {
@@ -1280,6 +1331,9 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       onChange={(e) => handleChange("state_region", e.target.value)}
                       placeholder="Lagos State"
                     />
+                    {autoFillHints.state && (
+                      <p className="text-xs text-slate-500">Derived from search (editable)</p>
+                    )}
                   </div>
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
@@ -1296,6 +1350,9 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       aria-required="true"
                       className={fieldErrors.city ? "ring-2 ring-rose-400 border-rose-300" : ""}
                     />
+                    {autoFillHints.city && (
+                      <p className="text-xs text-slate-500">Derived from search (editable)</p>
+                    )}
                     {renderFieldError("city")}
                   </div>
                   <div className="space-y-2">
@@ -1308,6 +1365,9 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       onChange={(e) => handleChange("neighbourhood", e.target.value)}
                       placeholder="Lekki Phase 1"
                     />
+                    {autoFillHints.neighbourhood && (
+                      <p className="text-xs text-slate-500">Derived from search (editable)</p>
+                    )}
                   </div>
                 </div>
                     <div className="space-y-2">
@@ -1379,15 +1439,30 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       </div>
                     )}
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                      {form.latitude && form.longitude ? (
-                        <div className="space-y-1">
-                          <p className="font-semibold">Selected location</p>
-                          <p className="text-xs text-slate-600">
-                            {form.location_label || "Unnamed pin"}
-                          </p>
-                          <p className="text-xs text-slate-500">
-                            {form.latitude.toFixed(5)}, {form.longitude.toFixed(5)}
-                          </p>
+                      {form.latitude && form.longitude && form.location_label ? (
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="space-y-1">
+                            <p className="font-semibold">📍 Area pinned: {form.location_label}</p>
+                            <p className="text-xs text-slate-500">
+                              {form.latitude.toFixed(5)}, {form.longitude.toFixed(5)}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            className="text-sm font-semibold text-sky-700"
+                            onClick={() => {
+                              handleChange("latitude", null);
+                              handleChange("longitude", null);
+                              handleChange("location_label", null);
+                              handleChange("location_place_id", null);
+                              handleChange("location_source", null);
+                              handleChange("location_precision", null);
+                              setAutoFillHints({});
+                              setLocationQuery("");
+                            }}
+                          >
+                            Change
+                          </button>
                         </div>
                       ) : (
                         <p className="text-xs text-slate-600">No pin selected yet.</p>

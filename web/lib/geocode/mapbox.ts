@@ -6,6 +6,7 @@ type GeocodeResult = {
   lat: number;
   lng: number;
   bbox?: [number, number, number, number];
+  raw?: unknown;
 };
 
 const cache = new Map<string, { ts: number; results: GeocodeResult[] }>();
@@ -40,6 +41,7 @@ export async function geocodeMapbox(query: string, token: string): Promise<Geoco
       lng: f.center?.[0],
       lat: f.center?.[1],
       bbox: f.bbox,
+      raw: f,
     }))?.filter((f) => Number.isFinite(f.lat) && Number.isFinite(f.lng)) ?? [];
   cache.set(key, { ts: Date.now(), results });
   return results;

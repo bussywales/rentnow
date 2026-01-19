@@ -34,3 +34,5 @@ where key='enable_location_picker';
 - MAPBOX_TOKEN is required for location search (server-side).
 - If MAPBOX_TOKEN is missing, the UI will show 'Location search isn't configured yet'.
 - Use 'Search for an area' to set the map pin; the Address field does not drive search.
+- Auto-fill: Selecting a search result can prefill City/State/Neighbourhood when those fields are empty (editable).
+- 'Change' on the pin clears the pin only; it does not wipe City/State you already set.

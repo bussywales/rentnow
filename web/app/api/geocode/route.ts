@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { geocodeMapbox } from "@/lib/geocode/mapbox";
+import { parseMapboxFeature } from "@/lib/geocode/parse";
+import { sanitizeLabel } from "@/lib/geocode/mapbox";
 
 const routeLabel = "/api/geocode";
 const querySchema = z.object({
@@ -33,8 +35,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    const results = await geocodeMapbox(parsed.data.q, token);
-    return NextResponse.json(results);
+    const raw = await geocodeMapbox(parsed.data.q, token);
+    const structured = raw.map((item) => {
+      const parsed = parseMapboxFeature(item.raw as Record<string, unknown>, sanitizeLabel(item.label));
+      if (parsed) return parsed;
+      return item;
+    });
+    return NextResponse.json(structured);
   } catch (err) {
     console.warn("[geocode] error", err);
     return NextResponse.json({ error: "Unable to geocode" }, { status: 500 });
