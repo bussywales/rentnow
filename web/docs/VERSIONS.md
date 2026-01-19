@@ -564,3 +564,9 @@
 ## 2026-02-07 — vR16.7c-location-pin-map-preview
 - Added static Mapbox preview for pinned areas in listing wizard (flagged).
 - Clearer inline errors when Mapbox is not configured; pin confirmation shows label and change action.
+
+## 2026-02-07 — vR16.7d.1-checkin-foundation
+- Amended roadmap to include R16.7d Property Check-in Verification.
+- Added `property_checkins` append-only table with owner/agent/admin RLS, no raw GPS stored.
+- Added feature flag `show_tenant_checkin_badge` (default off) and check-in APIs for recording/clearing.
+- Property APIs now return a flag-gated `checkin_signal` derived from latest check-in.

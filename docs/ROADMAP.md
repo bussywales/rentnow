@@ -132,3 +132,8 @@ Non-goals:
 - Migrations are idempotent and applied in order (see `web/docs/ops/supabase-migrations.md`).
 - Node.js >= 20.9.0 is required for builds and linting.
 - Tags are immutable; releases are tracked in tags and `web/docs/VERSIONS.md`.
+
+## Trust & Verification (NOW)
+- R16.6x: Photo trust signals (metadata, tenant-visible badges behind admin toggle).
+- R16.7a–c: Location picker with geocoding, pinned-area map preview (flagged).
+- **R16.7d — Property Check-in Verification (On-site)**: privacy-safe host check-ins using property pin (no raw GPS stored), distance buckets only, feature-flagged tenant badge, admin clear action, append-only audit of check-ins.

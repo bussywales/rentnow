@@ -7,6 +7,8 @@ import { parseFiltersFromSearchParams } from "@/lib/search-filters";
 import { getTenantPlanForTier } from "@/lib/plans";
 import type { Property } from "@/lib/types";
 import { orderImagesWithCover } from "@/lib/properties/images";
+import { getAppSettingBool } from "@/lib/settings/app-settings";
+import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 
 function parsePagination(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -108,6 +110,10 @@ export async function GET(request: Request) {
         property_images?: Array<{ id: string; image_url: string; position?: number; created_at?: string }>;
       }
     >;
+    const propertyIds = typed.map((row) => row.id);
+    const flagEnabled = await getAppSettingBool("show_tenant_checkin_badge", false);
+    const latestCheckins = await fetchLatestCheckins(propertyIds);
+
     const properties =
       typed.map((row) => ({
         ...row,
@@ -123,6 +129,7 @@ export async function GET(request: Request) {
             format: (img as { format?: string | null }).format ?? null,
           }))
         ),
+        checkin_signal: buildCheckinSignal(latestCheckins.get(row.id) ?? null, { flagEnabled }),
       })) || [];
 
     return NextResponse.json({ properties, page, pageSize, total: count ?? null });

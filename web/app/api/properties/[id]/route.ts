@@ -29,6 +29,8 @@ import {
   shouldSkipInflightView,
   shortenId,
 } from "@/lib/analytics/property-views";
+import { getAppSettingBool } from "@/lib/settings/app-settings";
+import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 
 const routeLabel = "/api/properties/[id]";
 type ImageMetaPayload = Record<
@@ -414,7 +416,15 @@ export async function GET(
     (data as { property_images?: Array<{ id: string; image_url: string; position?: number; created_at?: string }> }).property_images
   );
 
-  return NextResponse.json({ property: { ...data, property_images: orderedImages } });
+  const flagEnabled = await getAppSettingBool("show_tenant_checkin_badge", false);
+  const latestCheckins = await fetchLatestCheckins([data.id]);
+  const checkinSignal = buildCheckinSignal(latestCheckins.get(data.id) ?? null, {
+    flagEnabled,
+  });
+
+  return NextResponse.json({
+    property: { ...data, property_images: orderedImages, checkin_signal: checkinSignal },
+  });
 }
 
 export async function PUT(
