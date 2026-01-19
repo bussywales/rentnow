@@ -3,13 +3,14 @@ import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { logAuditEvent } from "@/lib/audit/audit-log";
 
-const ALLOWED_KEY = "show_tenant_photo_trust_signals";
+const ALLOWED_KEYS = ["show_tenant_photo_trust_signals", "enable_location_picker"] as const;
 const routeLabel = "/api/admin/app-settings";
 
 export const patchSchema = z.object({
-  key: z.literal(ALLOWED_KEY),
+  key: z.enum(ALLOWED_KEYS),
   value: z.object({
     enabled: z.boolean(),
   }),
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
   const supabase = await createServerSupabaseClient();
   const { searchParams } = new URL(request.url);
   const key = searchParams.get("key");
-  if (key !== ALLOWED_KEY) {
+  if (!key || !ALLOWED_KEYS.includes(key as (typeof ALLOWED_KEYS)[number])) {
     return NextResponse.json({ error: "Unsupported key" }, { status: 400 });
   }
   const { data, error } = await supabase
@@ -55,7 +56,7 @@ export async function PATCH(request: Request) {
   if (!auth.ok) return auth.response;
 
   const body = patchSchema.parse(await request.json());
-  const adminClient = createServiceRoleClient() as any;
+  const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;
   const { data, error } = await adminClient
     .from("app_settings")
     .update({ value: body.value, updated_at: new Date().toISOString() })

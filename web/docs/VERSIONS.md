@@ -555,3 +555,6 @@
 - Added admin-only UI at /admin/settings to toggle tenant photo trust signals.
 - Admin API GET/PATCH /api/admin/app-settings with audit logging for updates.
 - Validation tests for settings payload; docs updated with UI location.
+
+## 2026-02-?? — vR16.7a-location-picker-geocoding
+- Feature-flagged location picker with Mapbox geocoding and new non-sensitive location metadata fields.

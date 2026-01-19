@@ -3,6 +3,7 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { getUserRole } from "@/lib/authz";
 import { normalizeRole } from "@/lib/roles";
 import AdminSettingsFeatureFlags from "@/components/admin/AdminSettingsFeatureFlags";
+import { parseAppSettingBool } from "@/lib/settings/app-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -21,20 +22,21 @@ export default async function AdminSettingsPage() {
   const { data } = await supabase
     .from("app_settings")
     .select("key, value, updated_at")
-    .eq("key", "show_tenant_photo_trust_signals")
-    .maybeSingle();
+    .in("key", ["show_tenant_photo_trust_signals", "enable_location_picker"]);
 
-  const enabled =
-    typeof data?.value === "object" && data.value !== null && "enabled" in data.value
-      ? (data.value as { enabled?: boolean }).enabled === true
-      : false;
+  const keys = ["show_tenant_photo_trust_signals", "enable_location_picker"] as const;
+  const settings = keys.map((key) => {
+    const row = data?.find((item) => item.key === key);
+    return {
+      key,
+      enabled: parseAppSettingBool(row?.value, false),
+      updatedAt: row?.updated_at ?? null,
+    };
+  });
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
-      <AdminSettingsFeatureFlags
-        initialEnabled={enabled}
-        updatedAt={data?.updated_at ?? null}
-      />
+      <AdminSettingsFeatureFlags settings={settings} />
     </div>
   );
 }

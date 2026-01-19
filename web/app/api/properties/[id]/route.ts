@@ -52,6 +52,10 @@ const updateSchema = z.object({
   address: z.string().optional().nullable(),
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
+  location_label: z.string().max(255).optional().nullable(),
+  location_place_id: z.string().max(255).optional().nullable(),
+  location_source: z.string().max(50).optional().nullable(),
+  location_precision: z.string().max(50).optional().nullable(),
   listing_type: z
     .enum(["apartment", "house", "duplex", "bungalow", "studio", "room", "shop", "office", "land"])
     .optional()
@@ -312,7 +316,7 @@ export async function GET(
       : baseFields;
     let query = supabase
       .from("properties")
-      .select(`*, property_images(${imageFields})`)
+    .select(`*, property_images(${imageFields})`)
       .eq("id", id);
     if (includePosition) {
       query = query
@@ -601,6 +605,18 @@ export async function PUT(
       country: countryFields.country,
       country_code: countryFields.country_code,
       state_region: typeof rest.state_region === "undefined" ? undefined : rest.state_region,
+      location_label:
+        typeof rest.location_label === "undefined" ? undefined : rest.location_label ?? null,
+      location_place_id:
+        typeof rest.location_place_id === "undefined"
+          ? undefined
+          : rest.location_place_id ?? null,
+      location_source:
+        typeof rest.location_source === "undefined" ? undefined : rest.location_source ?? null,
+      location_precision:
+        typeof rest.location_precision === "undefined"
+          ? undefined
+          : rest.location_precision ?? null,
       size_value: typeof rest.size_value === "undefined" ? undefined : rest.size_value,
       size_unit:
         typeof rest.size_value === "number"

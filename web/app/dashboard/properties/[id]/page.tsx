@@ -9,6 +9,7 @@ import { canManageListings } from "@/lib/role-access";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 import { cookies } from "next/headers";
+import { getAppSettingBool } from "@/lib/settings/app-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -169,6 +170,7 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
   if (!canManageListings(role)) {
     redirect("/tenant");
   }
+  const enableLocationPicker = await getAppSettingBool("enable_location_picker", false);
 
   let property: Property | null = null;
   let fetchError: string | null = null;
@@ -223,7 +225,11 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
           Update details, tweak pricing, or generate fresh AI copy.
         </p>
       </div>
-      <PropertyStepper initialData={property} initialStep={resolveStep(searchParams)} />
+      <PropertyStepper
+        initialData={property}
+        initialStep={resolveStep(searchParams)}
+        enableLocationPicker={enableLocationPicker}
+      />
     </div>
   );
 }

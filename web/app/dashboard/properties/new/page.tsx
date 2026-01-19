@@ -3,6 +3,7 @@ import { PropertyStepper } from "@/components/properties/PropertyStepper";
 import { resolveServerRole } from "@/lib/auth/role";
 import { canManageListings } from "@/lib/role-access";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
+import { getAppSettingBool } from "@/lib/settings/app-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +20,8 @@ export default async function NewPropertyPage() {
     redirect("/tenant");
   }
 
+  const enableLocationPicker = await getAppSettingBool("enable_location_picker", false);
+
   return (
     <div className="space-y-4">
       <div>
@@ -27,7 +30,7 @@ export default async function NewPropertyPage() {
           Add details, upload photos via Supabase Storage, and publish when ready.
         </p>
       </div>
-      <PropertyStepper />
+      <PropertyStepper enableLocationPicker={enableLocationPicker} />
     </div>
   );
 }

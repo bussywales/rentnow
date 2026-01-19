@@ -54,6 +54,8 @@ export interface PropertyImage {
   height?: number | null;
   bytes?: number | null;
   format?: string | null;
+  exif_has_gps?: boolean | null;
+  exif_captured_at?: string | null;
 }
 
 export interface Property {
@@ -70,6 +72,10 @@ export interface Property {
   address?: string | null;
   latitude?: number | null;
   longitude?: number | null;
+  location_label?: string | null;
+  location_place_id?: string | null;
+  location_source?: string | null;
+  location_precision?: string | null;
   listing_type?: ListingType | null;
   rental_type: RentalType;
   price: number;

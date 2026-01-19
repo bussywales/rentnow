@@ -61,6 +61,7 @@ type RecommendedSuggestion = {
 type Props = {
   initialData?: Partial<Property>;
   initialStep?: number;
+  enableLocationPicker?: boolean;
 };
 
 const rentalTypes: { label: string; value: RentalType }[] = [
@@ -119,6 +120,10 @@ const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | 
     "address",
     "latitude",
     "longitude",
+    "location_label",
+    "location_place_id",
+    "location_source",
+    "location_precision",
     "size_value",
     "size_unit",
     "year_built",
@@ -139,7 +144,7 @@ const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | 
   submit: [],
 };
 
-export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
+export function PropertyStepper({ initialData, initialStep = 0, enableLocationPicker = false }: Props) {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(
     Math.min(Math.max(initialStep, 0), steps.length - 1)
@@ -253,6 +258,7 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     );
     return Object.fromEntries(entries);
   }, [currentStepId, fieldErrors]);
+
   const [form, setForm] = useState<FormState>({
     rental_type: initialData?.rental_type ?? "long_term",
     currency: initialData?.currency ?? "USD",
@@ -272,9 +278,58 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     status: initialData?.status ?? "draft",
     amenitiesText: initialData?.amenities?.join(", ") ?? "",
     featuresText: initialData?.features?.join(", ") ?? "",
+    location_label: initialData?.location_label ?? null,
+    location_place_id: initialData?.location_place_id ?? null,
+    location_source: initialData?.location_source ?? null,
+    location_precision: initialData?.location_precision ?? null,
     ...initialData,
     rent_period: initialData?.rent_period ?? "monthly",
   });
+  const [locationQuery, setLocationQuery] = useState(form.location_label || "");
+  const [locationResults, setLocationResults] = useState<
+    Array<{ label: string; place_id: string; lat: number; lng: number }>
+  >([]);
+  const [locationSearching, setLocationSearching] = useState(false);
+  const [showAdvancedLocation, setShowAdvancedLocation] = useState(false);
+
+  useEffect(() => {
+    if (!enableLocationPicker) return;
+    const controller = new AbortController();
+    const query = locationQuery.trim();
+    if (query.length < 3) {
+      setLocationResults([]);
+      return () => controller.abort();
+    }
+    const timeout = window.setTimeout(async () => {
+      setLocationSearching(true);
+      try {
+        const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) {
+          setLocationResults([]);
+          return;
+        }
+        const data = (await res.json()) as Array<{
+          label: string;
+          place_id: string;
+          lat: number;
+          lng: number;
+        }>;
+        setLocationResults(data || []);
+      } catch (err) {
+        if (!(err instanceof DOMException && err.name === "AbortError")) {
+          console.warn("geocode search failed", err);
+        }
+      } finally {
+        setLocationSearching(false);
+      }
+    }, 400);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [enableLocationPicker, locationQuery]);
 
   const lastAutoSaved = useRef<string>("");
   const autoSaveTimer = useRef<number | null>(null);
@@ -306,6 +361,10 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
       city: normalizeOptionalString(form.city),
       neighbourhood: normalizeOptionalString(form.neighbourhood),
       address: normalizeOptionalString(form.address),
+      location_label: normalizeOptionalString(form.location_label),
+      location_place_id: normalizeOptionalString(form.location_place_id),
+      location_source: normalizeOptionalString(form.location_source),
+      location_precision: normalizeOptionalString(form.location_precision),
       size_value: sizeValue ?? undefined,
       size_unit: sizeValue ? form.size_unit ?? "sqm" : undefined,
       year_built:
@@ -733,18 +792,32 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
     void persistCover(current);
   }, [coverImageUrl, persistCover, propertyId]);
 
-  const handleChange = (
-    key: keyof FormState,
-    value: string | number | boolean | null
-  ) => {
-    setFieldErrors((prev) => {
-      if (!(key in prev)) return prev;
-      const next = { ...prev };
-      delete next[key as string];
-      return next;
-    });
-    setForm((prev) => ({ ...prev, [key]: value }));
-  };
+  const handleChange = useCallback(
+    (key: keyof FormState, value: string | number | boolean | null) => {
+      setFieldErrors((prev) => {
+        if (!(key in prev)) return prev;
+        const next = { ...prev };
+        delete next[key as string];
+        return next;
+      });
+      setForm((prev) => ({ ...prev, [key]: value }));
+    },
+    []
+  );
+
+  const applyLocationResult = useCallback(
+    (result: { label: string; place_id: string; lat: number; lng: number }) => {
+      handleChange("latitude", result.lat);
+      handleChange("longitude", result.lng);
+      handleChange("location_label", result.label);
+      handleChange("location_place_id", result.place_id);
+      handleChange("location_source", "geocode");
+      handleChange("location_precision", "approx");
+      setLocationQuery(result.label);
+      setLocationResults([]);
+    },
+    [handleChange]
+  );
 
   const scrollToField = (key: string) => {
     const el = document.getElementById(`field-${key}`);
@@ -1234,41 +1307,182 @@ export function PropertyStepper({ initialData, initialStep = 0 }: Props) {
                     placeholder="Street, building, house number"
                   />
                 </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <label htmlFor="latitude" className="text-sm font-medium text-slate-700">
-                        Latitude
+
+                {enableLocationPicker ? (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <label htmlFor="location-search" className="text-sm font-medium text-slate-700">
+                        Search location
                       </label>
-                      <InfoPopover
-                        ariaLabel="Latitude and longitude help"
-                        title={COORDINATES_HELP.title}
-                        bullets={COORDINATES_HELP.bullets}
+                      <Input
+                        id="location-search"
+                        value={locationQuery}
+                        onChange={(e) => setLocationQuery(e.target.value)}
+                        placeholder="Neighborhood or city"
+                      />
+                      <p className="text-xs text-slate-500">
+                        We show tenants an approximate area until you choose to share the exact
+                        location.
+                      </p>
+                    </div>
+                    {locationSearching && (
+                      <p className="text-xs text-slate-500">Searching...</p>
+                    )}
+                    {locationResults.length > 0 && (
+                      <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <ul className="divide-y divide-slate-200">
+                          {locationResults.map((result) => (
+                            <li key={result.place_id}>
+                              <button
+                                type="button"
+                                className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-slate-50"
+                                onClick={() => applyLocationResult(result)}
+                              >
+                                <div>
+                                  <p className="text-sm font-medium text-slate-900">
+                                    {result.label}
+                                  </p>
+                                  <p className="text-xs text-slate-500">
+                                    {result.lat.toFixed(4)}, {result.lng.toFixed(4)}
+                                  </p>
+                                </div>
+                                <span className="text-xs font-semibold text-sky-700">
+                                  Use
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                      {form.latitude && form.longitude ? (
+                        <div className="space-y-1">
+                          <p className="font-semibold">Selected location</p>
+                          <p className="text-xs text-slate-600">
+                            {form.location_label || "Unnamed pin"}
+                          </p>
+                          <p className="text-xs text-slate-500">
+                            {form.latitude.toFixed(5)}, {form.longitude.toFixed(5)}
+                          </p>
+                        </div>
+                      ) : (
+                        <p className="text-xs text-slate-600">No pin selected yet.</p>
+                      )}
+                    </div>
+                    <div className="space-y-1">
+                      <label htmlFor="location-label" className="text-sm font-medium text-slate-700">
+                        Location label (shown to tenants as area)
+                      </label>
+                      <Input
+                        id="location-label"
+                        value={form.location_label || ""}
+                        onChange={(e) => handleChange("location_label", e.target.value)}
+                        placeholder="e.g. Wuse Zone 2, Abuja"
                       />
                     </div>
-                    <Input
-                      id="latitude"
-                      type="number"
-                      step="0.000001"
-                      value={form.latitude ?? ""}
-                      onChange={(e) => handleChange("latitude", Number(e.target.value))}
-                      placeholder="6.5244"
-                    />
+                    <button
+                      type="button"
+                      className="text-sm font-semibold text-sky-700"
+                      onClick={() => setShowAdvancedLocation((prev) => !prev)}
+                    >
+                      {showAdvancedLocation ? "Hide advanced coordinates" : "Edit coordinates manually"}
+                    </button>
+                    {showAdvancedLocation && (
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <label htmlFor="latitude" className="text-sm font-medium text-slate-700">
+                              Latitude
+                            </label>
+                            <InfoPopover
+                              ariaLabel="Latitude and longitude help"
+                              title={COORDINATES_HELP.title}
+                              bullets={COORDINATES_HELP.bullets}
+                            />
+                          </div>
+                          <Input
+                            id="latitude"
+                            type="number"
+                            step="0.000001"
+                            value={form.latitude ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              handleChange("latitude", val === "" ? null : Number(val));
+                              handleChange("location_source", "manual");
+                              handleChange("location_precision", "approx");
+                            }}
+                            placeholder="6.5244"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label htmlFor="longitude" className="text-sm font-medium text-slate-700">
+                            Longitude
+                          </label>
+                          <Input
+                            id="longitude"
+                            type="number"
+                            step="0.000001"
+                            value={form.longitude ?? ""}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              handleChange("longitude", val === "" ? null : Number(val));
+                              handleChange("location_source", "manual");
+                              handleChange("location_precision", "approx");
+                            }}
+                            placeholder="3.3792"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-2">
-                    <label htmlFor="longitude" className="text-sm font-medium text-slate-700">
-                      Longitude
-                    </label>
-                    <Input
-                      id="longitude"
-                      type="number"
-                      step="0.000001"
-                      value={form.longitude ?? ""}
-                      onChange={(e) => handleChange("longitude", Number(e.target.value))}
-                      placeholder="3.3792"
-                    />
+                ) : (
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <label htmlFor="latitude" className="text-sm font-medium text-slate-700">
+                          Latitude
+                        </label>
+                        <InfoPopover
+                          ariaLabel="Latitude and longitude help"
+                          title={COORDINATES_HELP.title}
+                          bullets={COORDINATES_HELP.bullets}
+                        />
+                      </div>
+                      <Input
+                        id="latitude"
+                        type="number"
+                        step="0.000001"
+                        value={form.latitude ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          handleChange("latitude", val === "" ? null : Number(val));
+                          handleChange("location_source", "manual");
+                          handleChange("location_precision", "approx");
+                        }}
+                        placeholder="6.5244"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="longitude" className="text-sm font-medium text-slate-700">
+                        Longitude
+                      </label>
+                      <Input
+                        id="longitude"
+                        type="number"
+                        step="0.000001"
+                        value={form.longitude ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          handleChange("longitude", val === "" ? null : Number(val));
+                          handleChange("location_source", "manual");
+                          handleChange("location_precision", "approx");
+                        }}
+                        placeholder="3.3792"
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </section>
 

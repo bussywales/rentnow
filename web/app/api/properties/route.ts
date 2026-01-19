@@ -39,6 +39,10 @@ export const propertySchema = z.object({
   address: z.string().optional().nullable(),
   latitude: z.number().optional().nullable(),
   longitude: z.number().optional().nullable(),
+  location_label: z.string().max(255).optional().nullable(),
+  location_place_id: z.string().max(255).optional().nullable(),
+  location_source: z.string().max(50).optional().nullable(),
+  location_precision: z.string().max(50).optional().nullable(),
   listing_type: z
     .enum(["apartment", "house", "duplex", "bungalow", "studio", "room", "shop", "office", "land"])
     .optional()
@@ -174,6 +178,10 @@ export async function POST(request: Request) {
     });
     const normalized = {
       ...rest,
+      location_label: rest.location_label ?? null,
+      location_place_id: rest.location_place_id ?? null,
+      location_source: rest.location_source ?? null,
+      location_precision: rest.location_precision ?? null,
       listing_type: rest.listing_type ?? null,
       country,
       country_code,
