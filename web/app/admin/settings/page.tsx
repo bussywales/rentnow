@@ -34,8 +34,13 @@ export default async function AdminSettingsPage() {
     };
   });
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
+    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4">
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
+        <p className="text-sm text-slate-600">
+          Admin-only feature flags and configuration.
+        </p>
+      </div>
       <AdminSettingsFeatureFlags settings={settings} />
     </div>
   );

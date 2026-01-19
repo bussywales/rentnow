@@ -31,3 +31,6 @@ where key='enable_location_picker';
 ## Governance
 - Feature is behind a flag. Default is disabled.
 - Do not expose raw coordinates to tenants.
+- MAPBOX_TOKEN is required for location search (server-side).
+- If MAPBOX_TOKEN is missing, the UI will show 'Location search isn't configured yet'.
+- Use 'Search for an area' to set the map pin; the Address field does not drive search.

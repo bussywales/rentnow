@@ -25,6 +25,7 @@ const links: Array<{
   { href: "/dashboard", label: "Dashboard", requireAuth: true, denyRoles: ["tenant"] },
   { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
   { href: "/admin/support", label: "Support", requireAuth: true, requireRole: "admin" },
+  { href: "/admin/settings", label: "Settings", requireAuth: true, requireRole: "admin" },
 ];
 
 export async function MainNav() {

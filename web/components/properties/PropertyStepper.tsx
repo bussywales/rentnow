@@ -291,9 +291,11 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   >([]);
   const [locationSearching, setLocationSearching] = useState(false);
   const [showAdvancedLocation, setShowAdvancedLocation] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enableLocationPicker) return;
+    setLocationError(null);
     const controller = new AbortController();
     const query = locationQuery.trim();
     if (query.length < 3) {
@@ -307,6 +309,14 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
           signal: controller.signal,
         });
         if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (data?.code === "MAPBOX_NOT_CONFIGURED") {
+            setLocationError(
+              "Location search isn't configured yet (MAPBOX_TOKEN missing). Add it in env vars to enable search."
+            );
+          } else {
+            setLocationError("Location search failed. Try again.");
+          }
           setLocationResults([]);
           return;
         }
@@ -317,9 +327,13 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
           lng: number;
         }>;
         setLocationResults(data || []);
+        if (!data || data.length === 0) {
+          setLocationError("No matches. Try a nearby area or city.");
+        }
       } catch (err) {
         if (!(err instanceof DOMException && err.name === "AbortError")) {
           console.warn("geocode search failed", err);
+          setLocationError("Location search failed. Try again.");
         }
       } finally {
         setLocationSearching(false);
@@ -1296,23 +1310,26 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <label htmlFor="address" className="text-sm font-medium text-slate-700">
-                    Address
-                  </label>
-                  <Input
-                    id="address"
-                    value={form.address || ""}
-                    onChange={(e) => handleChange("address", e.target.value)}
-                    placeholder="Street, building, house number"
-                  />
-                </div>
+                    <div className="space-y-2">
+                      <label htmlFor="address" className="text-sm font-medium text-slate-700">
+                        Address
+                      </label>
+                      <Input
+                        id="address"
+                        value={form.address || ""}
+                        onChange={(e) => handleChange("address", e.target.value)}
+                        placeholder="Street, building, house number"
+                      />
+                      <p className="text-xs text-slate-500">
+                        Address is optional and not used for map search. Use “Search for an area” to set the map pin.
+                      </p>
+                    </div>
 
                 {enableLocationPicker ? (
                   <div className="space-y-3">
                     <div className="space-y-1">
                       <label htmlFor="location-search" className="text-sm font-medium text-slate-700">
-                        Search location
+                        Search for an area
                       </label>
                       <Input
                         id="location-search"
@@ -1321,12 +1338,18 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                         placeholder="Neighborhood or city"
                       />
                       <p className="text-xs text-slate-500">
+                        Start typing to search. Choose a result to pin an approximate location.
+                      </p>
+                      <p className="text-xs text-slate-500">
                         We show tenants an approximate area until you choose to share the exact
                         location.
                       </p>
                     </div>
                     {locationSearching && (
                       <p className="text-xs text-slate-500">Searching...</p>
+                    )}
+                    {locationError && (
+                      <p className="text-xs text-rose-600">{locationError}</p>
                     )}
                     {locationResults.length > 0 && (
                       <div className="rounded-lg border border-slate-200 bg-white shadow-sm">

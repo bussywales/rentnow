@@ -26,7 +26,10 @@ export async function GET(request: Request) {
 
   const token = process.env.MAPBOX_TOKEN || process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
   if (!token) {
-    return NextResponse.json({ error: "Geocoding not configured" }, { status: 503 });
+    return NextResponse.json(
+      { ok: false, code: "MAPBOX_NOT_CONFIGURED", message: "MAPBOX_TOKEN missing" },
+      { status: 501 }
+    );
   }
 
   try {
