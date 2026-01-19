@@ -558,3 +558,4 @@
 
 ## 2026-02-?? — vR16.7a-location-picker-geocoding
 - Feature-flagged location picker with Mapbox geocoding and new non-sensitive location metadata fields.
+- vR16.7a.1-admin-dashboard-redirect-fix — Admins no longer get forced to /admin/support when visiting dashboard routes; dashboard layout allows admin access, root redirects to /admin.

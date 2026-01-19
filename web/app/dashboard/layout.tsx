@@ -35,9 +35,6 @@ export default async function DashboardLayout({
   const showMyProperties = canManageListings(normalizedRole);
   const showSavedSearches = shouldShowSavedSearchNav();
   const isTenant = normalizedRole === "tenant";
-  if (normalizedRole === "admin") {
-    redirect("/admin/support");
-  }
   const workspaceTitle = isTenant
     ? "Tenant workspace"
     : `${profile?.full_name || "Your"} workspace`;

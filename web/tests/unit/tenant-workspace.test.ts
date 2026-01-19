@@ -16,8 +16,8 @@ void test("dashboard route redirects by role", () => {
     "expected host redirect"
   );
   assert.ok(
-    contents.includes('redirect("/admin/support")'),
-    "expected admin redirect"
+    contents.includes('redirect("/admin")'),
+    "expected admin redirect to admin console"
   );
 });
 
