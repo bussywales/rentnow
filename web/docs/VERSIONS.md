@@ -550,3 +550,8 @@
 - Added app_settings toggle for tenant photo trust signals (default off).
 - Tenant property detail can show location metadata presence and capture recency (no GPS coordinates).
 - Derived photo trust helper and EXIF-safe handling wired into property responses; added tests and skip-safe Playwright smoke.
+
+## 2026-02-06 — vR16.6g-admin-feature-flag-ui
+- Added admin-only UI at /admin/settings to toggle tenant photo trust signals.
+- Admin API GET/PATCH /api/admin/app-settings with audit logging for updates.
+- Validation tests for settings payload; docs updated with UI location.

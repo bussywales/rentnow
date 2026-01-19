@@ -42,3 +42,4 @@
 - SQL to toggle:
   - Enable: `update public.app_settings set value='{"enabled":true}'::jsonb, updated_at=now() where key='show_tenant_photo_trust_signals';`
   - Disable: `update public.app_settings set value='{"enabled":false}'::jsonb, updated_at=now() where key='show_tenant_photo_trust_signals';`
+- Admin UI: /admin/settings → Feature flags → Tenant photo details (admin-only toggle).

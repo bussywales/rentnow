@@ -5,7 +5,8 @@ export type AuditEvent =
   | "availability.seed_default"
   | "viewings.host.respond"
   | "viewings.host.inbox"
-  | "viewing_no_show_marked";
+  | "viewing_no_show_marked"
+  | "app_setting_updated";
 
 type AuditContext = {
   route: string;
