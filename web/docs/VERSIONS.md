@@ -585,3 +585,8 @@
 - Location picker UX: clearer pinned card, improved result subtitles, keyboard selection, and friendlier helpers.
 - Removed coordinate display from pinned card and tenant JSON-LD; tenant search responses omit lat/lng.
 - Strengthened pin validation (empty strings ignored) and kept publish guard/draft safety intact.
+
+## 2026-02-07 — vR16.7g-location-config-status
+- Admin settings includes a location configuration status card (flags + Mapbox token presence) and a “Test geocode” action.
+- Added admin-only config status API; no secrets exposed.
+- Mapbox setup instructions clarified for local and Vercel; expected error codes documented.

@@ -24,6 +24,20 @@ where key='enable_location_picker';
 - Mapbox Geocoding API (server-side): requires `MAPBOX_TOKEN` (or `NEXT_PUBLIC_MAPBOX_TOKEN` for now).
 - Endpoint: `GET /api/geocode?q=` (auth: admin/agent/landlord). Returns top 5 sanitized results (city/region level).
 - Static map preview in the listing wizard uses `NEXT_PUBLIC_MAPBOX_TOKEN`. If missing, the UI shows “Map preview isn’t configured yet.”
+- Setup:
+  - Get a Mapbox token from your Mapbox account → Tokens.
+  - For Vercel: add `MAPBOX_TOKEN` and `NEXT_PUBLIC_MAPBOX_TOKEN` to Production + Preview envs, then redeploy.
+  - For local: add both tokens to `.env.local`.
+- Feature flags:
+  - `enable_location_picker` (UI)
+  - `require_location_pin_for_publish` (publish gate, default off)
+- Expected errors:
+  - `/api/geocode` returns 501 `{ code: "MAPBOX_NOT_CONFIGURED" }` when the server token is missing.
+  - Static preview only works when `NEXT_PUBLIC_MAPBOX_TOKEN` is set.
+- Testing checklist:
+  - Turn on `enable_location_picker`.
+  - Confirm geocode results appear; if not configured, UI shows “Location search isn't configured yet.”
+  - Confirm static preview works with `NEXT_PUBLIC_MAPBOX_TOKEN`.
 
 ## UI
 - Listing wizard shows address search + pin selection when flag enabled.

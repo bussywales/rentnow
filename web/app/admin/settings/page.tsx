@@ -4,6 +4,7 @@ import { getUserRole } from "@/lib/authz";
 import { normalizeRole } from "@/lib/roles";
 import AdminSettingsFeatureFlags from "@/components/admin/AdminSettingsFeatureFlags";
 import { parseAppSettingBool } from "@/lib/settings/app-settings";
+import { AdminLocationConfigStatus } from "@/components/admin/AdminLocationConfigStatus";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,19 @@ export default async function AdminSettingsPage() {
         </p>
       </div>
       <AdminSettingsFeatureFlags settings={settings} />
+      <AdminLocationConfigStatus
+        flags={{
+          enable_location_picker: settings.find((s) => s.key === "enable_location_picker")?.enabled ?? false,
+          require_location_pin_for_publish:
+            settings.find((s) => s.key === "require_location_pin_for_publish")?.enabled ?? false,
+          show_tenant_checkin_badge:
+            settings.find((s) => s.key === "show_tenant_checkin_badge")?.enabled ?? false,
+        }}
+        env={{
+          mapboxServerConfigured: !!process.env.MAPBOX_TOKEN,
+          mapboxClientConfigured: !!process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
+        }}
+      />
     </div>
   );
 }
