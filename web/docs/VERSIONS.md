@@ -595,3 +595,8 @@
 - Location section reordered to start with “Search for an area” followed by pinned area and preview.
 - Updated helper copy, empty/error states, and clearer address guidance; manual coordinates remain available.
 - Privacy guardrails retained: no tenant-facing coordinates; publish guard and feature flags unchanged.
+
+## 2026-02-08 — vR16.7h.2-location-autofill-fixes
+- Improved Mapbox parsing to capture country, county/district, locality, and neighbourhood metadata.
+- Autofill now sets UK counties into State/Region, reliably sets Country, and fills neighbourhood when provided.
+- Added parser tests for UK context and missing neighbourhood fallback.

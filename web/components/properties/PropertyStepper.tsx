@@ -6,6 +6,7 @@ import Link from "next/link";
 import NextImage from "next/image";
 import { CurrencySelect } from "@/components/properties/CurrencySelect";
 import { CountrySelect } from "@/components/properties/CountrySelect";
+import { getCountryByCode, getCountryByName } from "@/lib/countries";
 import { normalizeCountryCode } from "@/lib/countries";
 import { classifyCoverHint, type ImageMeta as CoverMeta } from "@/lib/properties/cover-hint";
 import { pickRecommendedCover } from "@/lib/properties/recommended-cover";
@@ -295,14 +296,18 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       lng: number;
       region_name?: string | null;
       place_name?: string | null;
+      district_name?: string | null;
+      locality_name?: string | null;
       neighborhood_name?: string | null;
       country_code?: string | null;
+      country_name?: string | null;
     }>
   >([]);
   const [locationSearching, setLocationSearching] = useState(false);
   const [showAdvancedLocation, setShowAdvancedLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [autoFillHints, setAutoFillHints] = useState<{
+    country?: boolean;
     city?: boolean;
     state?: boolean;
     neighbourhood?: boolean;
@@ -361,8 +366,11 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
           lng: number;
           region_name?: string | null;
           place_name?: string | null;
+          district_name?: string | null;
+          locality_name?: string | null;
           neighborhood_name?: string | null;
           country_code?: string | null;
+          country_name?: string | null;
         }>;
         setLocationResults(data || []);
         if (!data || data.length === 0) {
@@ -873,9 +881,12 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       if (key === "neighbourhood" && autoFillHints.neighbourhood) {
         setAutoFillHints((prev) => ({ ...prev, neighbourhood: false }));
       }
+      if (key === "country" && autoFillHints.country) {
+        setAutoFillHints((prev) => ({ ...prev, country: false }));
+      }
       setForm((prev) => ({ ...prev, [key]: value }));
     },
-    [autoFillHints.city, autoFillHints.neighbourhood, autoFillHints.state]
+    [autoFillHints.city, autoFillHints.country, autoFillHints.neighbourhood, autoFillHints.state]
   );
 
   const applyLocationResult = useCallback(
@@ -886,8 +897,12 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
         lat: number;
         lng: number;
         region_name?: string | null;
+        district_name?: string | null;
         place_name?: string | null;
+        locality_name?: string | null;
         neighborhood_name?: string | null;
+        country_code?: string | null;
+        country_name?: string | null;
       }
     ) => {
       handleChange("latitude", result.lat);
@@ -901,30 +916,48 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
 
       setAutoFillHints((prev) => {
         const next = { ...prev };
+        const countryCode = result.country_code ? result.country_code.toUpperCase() : null;
+        const countryFromCode = countryCode ? getCountryByCode(countryCode) : null;
+        const countryFromName = !countryFromCode && result.country_name ? getCountryByName(result.country_name) : null;
+        const shouldFillCountry =
+          (!form.country || !form.country.trim()) && (countryFromCode || countryFromName);
+        if (shouldFillCountry) {
+          const option = countryFromCode || countryFromName;
+          if (option) {
+            handleChange("country", option.name);
+            handleChange("country_code", option.code);
+            next.country = true;
+          }
+        }
         const shouldFillCity =
           (!form.city || !form.city.trim()) && result.place_name;
         const shouldFillState =
-          (!form.state_region || !form.state_region.trim()) && result.region_name;
+          (!form.state_region || !form.state_region.trim()) &&
+          (result.district_name || result.region_name);
         const shouldFillNeighbourhood =
           (!form.neighbourhood || !form.neighbourhood.trim()) &&
-          result.neighborhood_name;
+          (result.neighborhood_name ||
+            (result.locality_name && result.locality_name !== result.place_name));
 
         if (shouldFillCity) {
           handleChange("city", result.place_name ?? "");
           next.city = true;
         }
         if (shouldFillState) {
-          handleChange("state_region", result.region_name ?? "");
+          handleChange("state_region", result.district_name ?? result.region_name ?? "");
           next.state = true;
         }
         if (shouldFillNeighbourhood) {
-          handleChange("neighbourhood", result.neighborhood_name ?? "");
+          handleChange(
+            "neighbourhood",
+            result.neighborhood_name ?? result.locality_name ?? ""
+          );
           next.neighbourhood = true;
         }
         return next;
       });
     },
-    [handleChange, form.city, form.state_region, form.neighbourhood]
+    [handleChange, form.city, form.country, form.state_region, form.neighbourhood]
   );
 
   const highlightMatch = useCallback(
@@ -1513,10 +1546,10 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                         <ul className="divide-y divide-slate-200">
                           {locationResults.map((result, idx) => {
                             const subtitle = [
-                              result.neighborhood_name,
+                              result.neighborhood_name || result.locality_name,
                               result.place_name,
-                              result.region_name,
-                              result.country_code,
+                              result.district_name || result.region_name,
+                              result.country_name || result.country_code,
                             ]
                               .filter(Boolean)
                               .join(" • ");
@@ -1668,6 +1701,11 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       }}
                       placeholder="Search countries"
                     />
+                    {autoFillHints.country && (
+                      <p className="text-xs text-slate-500">
+                        Derived from area search (you can edit this)
+                      </p>
+                    )}
                     {renderFieldError("country")}
                   </div>
                   <div className="space-y-2">

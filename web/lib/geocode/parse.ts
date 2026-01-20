@@ -4,8 +4,11 @@ export type ParsedFeature = {
   lat: number;
   lng: number;
   country_code?: string | null;
+  country_name?: string | null;
   region_name?: string | null;
+  district_name?: string | null;
   place_name?: string | null;
+  locality_name?: string | null;
   neighborhood_name?: string | null;
 };
 
@@ -38,8 +41,10 @@ export function parseMapboxFeature(
   const context = feature.context || [];
   const country = findContext(context, "country");
   const region = findContext(context, "region");
-  const place = findContext(context, "place") || findContext(context, "district");
-  const neighborhood = findContext(context, "neighborhood") || findContext(context, "locality");
+  const district = findContext(context, "district");
+  const place = findContext(context, "place");
+  const locality = findContext(context, "locality");
+  const neighborhood = findContext(context, "neighborhood");
 
   return {
     label: sanitizedLabel,
@@ -47,8 +52,11 @@ export function parseMapboxFeature(
     lat,
     lng,
     country_code: (country?.short_code || country?.id || "").split("-")[0] || null,
+    country_name: country?.text || null,
     region_name: region?.text || null,
+    district_name: district?.text || null,
     place_name: place?.text || null,
+    locality_name: locality?.text || null,
     neighborhood_name: neighborhood?.text || null,
   };
 }
