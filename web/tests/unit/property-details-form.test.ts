@@ -73,14 +73,14 @@ void test("property basics step includes location inputs", () => {
     "expected country input in basics"
   );
   assert.ok(
-    contents.includes("State / Region"),
-    "expected state/region input in basics"
+    contents.includes("State / Region / Province"),
+    "expected state/region/province input in basics"
   );
   assert.ok(contents.includes("City"), "expected city input in basics");
   assert.ok(contents.includes("Address"), "expected address input in basics");
 
   const countryCount = contents.match(/htmlFor="country"/g) || [];
-  const regionCount = contents.match(/State \/ Region/g) || [];
+  const regionCount = contents.match(/State \/ Region \/ Province/g) || [];
   assert.equal(
     countryCount.length,
     1,

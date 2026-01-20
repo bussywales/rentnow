@@ -67,7 +67,10 @@ export interface Property {
   timezone?: string | null;
   country?: string | null;
   country_code?: string | null;
+  admin_area_1?: string | null;
+  admin_area_2?: string | null;
   state_region?: string | null;
+  postal_code?: string | null;
   neighbourhood?: string | null;
   address?: string | null;
   latitude?: number | null;

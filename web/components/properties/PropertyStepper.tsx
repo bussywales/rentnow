@@ -302,6 +302,11 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       neighborhood_name?: string | null;
       country_code?: string | null;
       country_name?: string | null;
+      admin_area_1?: string | null;
+      admin_area_2?: string | null;
+      locality?: string | null;
+      sublocality?: string | null;
+      postal_code?: string | null;
     }>
   >([]);
   const [locationSearching, setLocationSearching] = useState(false);
@@ -312,6 +317,16 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
     city?: boolean;
     state?: boolean;
     neighbourhood?: boolean;
+    admin_area_2?: boolean;
+    postal_code?: boolean;
+  }>({});
+  const [userEdited, setUserEdited] = useState<{
+    country?: boolean;
+    city?: boolean;
+    state_region?: boolean;
+    neighbourhood?: boolean;
+    admin_area_2?: boolean;
+    postal_code?: boolean;
   }>({});
   const initialCheckinSignal = (initialData as Record<string, unknown>)?.checkin_signal as
     | { status?: string; bucket?: string | null; checkedInAt?: string | null }
@@ -419,6 +434,9 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       country: normalizeOptionalString(form.country),
       country_code: normalizeCountryCode(form.country_code),
       state_region: normalizeOptionalString(form.state_region),
+      admin_area_1: normalizeOptionalString(form.admin_area_1 ?? form.state_region),
+      admin_area_2: normalizeOptionalString(form.admin_area_2),
+      postal_code: normalizeOptionalString(form.postal_code),
       city: normalizeOptionalString(form.city),
       neighbourhood: normalizeOptionalString(form.neighbourhood),
       address: normalizeOptionalString(form.address),
@@ -875,19 +893,46 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       });
       if (key === "city" && autoFillHints.city) {
         setAutoFillHints((prev) => ({ ...prev, city: false }));
+        setUserEdited((prev) => ({ ...prev, city: true }));
       }
       if (key === "state_region" && autoFillHints.state) {
         setAutoFillHints((prev) => ({ ...prev, state: false }));
+        setUserEdited((prev) => ({ ...prev, state_region: true }));
       }
       if (key === "neighbourhood" && autoFillHints.neighbourhood) {
         setAutoFillHints((prev) => ({ ...prev, neighbourhood: false }));
+        setUserEdited((prev) => ({ ...prev, neighbourhood: true }));
       }
       if (key === "country" && autoFillHints.country) {
         setAutoFillHints((prev) => ({ ...prev, country: false }));
+        setUserEdited((prev) => ({ ...prev, country: true }));
+      }
+      if (key === "admin_area_2" && autoFillHints.admin_area_2) {
+        setAutoFillHints((prev) => ({ ...prev, admin_area_2: false }));
+        setUserEdited((prev) => ({ ...prev, admin_area_2: true }));
+      }
+      if (key === "postal_code" && autoFillHints.postal_code) {
+        setAutoFillHints((prev) => ({ ...prev, postal_code: false }));
+        setUserEdited((prev) => ({ ...prev, postal_code: true }));
+      }
+      if (key === "state_region") {
+        setForm((prev) => ({
+          ...prev,
+          state_region: value as string | null | undefined,
+          admin_area_1: typeof value === "string" ? value : prev.admin_area_1,
+        }));
+        return;
       }
       setForm((prev) => ({ ...prev, [key]: value }));
     },
-    [autoFillHints.city, autoFillHints.country, autoFillHints.neighbourhood, autoFillHints.state]
+    [
+      autoFillHints.admin_area_2,
+      autoFillHints.city,
+      autoFillHints.country,
+      autoFillHints.neighbourhood,
+      autoFillHints.postal_code,
+      autoFillHints.state,
+    ]
   );
 
   const applyLocationResult = useCallback(
@@ -904,6 +949,11 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
         neighborhood_name?: string | null;
         country_code?: string | null;
         country_name?: string | null;
+        admin_area_1?: string | null;
+        admin_area_2?: string | null;
+        locality?: string | null;
+        sublocality?: string | null;
+        postal_code?: string | null;
       }
     ) => {
       handleChange("latitude", result.lat);
@@ -931,34 +981,73 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
           }
         }
         const shouldFillCity =
-          (!form.city || !form.city.trim()) && result.place_name;
+          (!form.city || !form.city.trim()) &&
+          !userEdited.city &&
+          (result.place_name || result.locality || result.locality_name);
         const shouldFillState =
           (!form.state_region || !form.state_region.trim()) &&
-          (result.district_name || result.region_name);
+          !userEdited.state_region &&
+          (result.admin_area_1 || result.region_name || result.district_name);
+        const shouldFillAdminArea2 =
+          (!form.admin_area_2 || !form.admin_area_2.trim()) &&
+          !userEdited.admin_area_2 &&
+          (result.admin_area_2 || result.district_name);
         const shouldFillNeighbourhood =
           (!form.neighbourhood || !form.neighbourhood.trim()) &&
-          (result.neighborhood_name ||
+          !userEdited.neighbourhood &&
+          (result.sublocality ||
+            result.neighborhood_name ||
             (result.locality_name && result.locality_name !== result.place_name));
+        const shouldFillPostal =
+          (!form.postal_code || !form.postal_code.trim()) && !userEdited.postal_code && !!result.postal_code;
 
         if (shouldFillCity) {
-          handleChange("city", result.place_name ?? "");
+          handleChange("city", result.place_name ?? result.locality ?? result.locality_name ?? "");
           next.city = true;
         }
         if (shouldFillState) {
-          handleChange("state_region", result.district_name ?? result.region_name ?? "");
+          handleChange(
+            "state_region",
+            result.admin_area_1 ?? result.region_name ?? result.district_name ?? ""
+          );
           next.state = true;
+        }
+        if (shouldFillAdminArea2) {
+          handleChange("admin_area_2", result.admin_area_2 ?? result.district_name ?? "");
+          next.admin_area_2 = true;
         }
         if (shouldFillNeighbourhood) {
           handleChange(
             "neighbourhood",
-            result.neighborhood_name ?? result.locality_name ?? ""
+            result.sublocality ??
+              result.neighborhood_name ??
+              result.locality_name ??
+              result.place_name ??
+              ""
           );
           next.neighbourhood = true;
+        }
+        if (shouldFillPostal) {
+          handleChange("postal_code", result.postal_code ?? "");
+          next.postal_code = true;
         }
         return next;
       });
     },
-    [handleChange, form.city, form.country, form.state_region, form.neighbourhood]
+    [
+      handleChange,
+      form.admin_area_2,
+      form.city,
+      form.country,
+      form.neighbourhood,
+      form.postal_code,
+      form.state_region,
+      userEdited.admin_area_2,
+      userEdited.city,
+      userEdited.neighbourhood,
+      userEdited.postal_code,
+      userEdited.state_region,
+    ]
   );
 
   const highlightMatch = useCallback(
@@ -1709,7 +1798,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                   </div>
                   <div className="space-y-2">
                     <label htmlFor="state-region" className="text-sm font-medium text-slate-700">
-                      State / Region
+                      State / Region / Province
                     </label>
                     <Input
                       id="state-region"
@@ -1725,7 +1814,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2" id="field-city">
                     <label htmlFor="city" className="text-sm font-medium text-slate-700">
-                      City <span className="text-rose-500">*</span>
+                      City / Town <span className="text-rose-500">*</span>
                     </label>
                     <Input
                       id="city"
@@ -1743,7 +1832,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                   </div>
                   <div className="space-y-2">
                     <label htmlFor="neighbourhood" className="text-sm font-medium text-slate-700">
-                      Neighbourhood
+                      Neighbourhood / Area (optional)
                     </label>
                     <Input
                       id="neighbourhood"
@@ -1752,6 +1841,36 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       placeholder="Lekki Phase 1"
                     />
                     {autoFillHints.neighbourhood && (
+                      <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.fields.derived}</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <label htmlFor="admin-area-2" className="text-sm font-medium text-slate-700">
+                      County / District / LGA (optional)
+                    </label>
+                    <Input
+                      id="admin-area-2"
+                      value={form.admin_area_2 || ""}
+                      onChange={(e) => handleChange("admin_area_2", e.target.value)}
+                      placeholder="Staffordshire, Los Angeles County"
+                    />
+                    {autoFillHints.admin_area_2 && (
+                      <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.fields.derived}</p>
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="postal-code" className="text-sm font-medium text-slate-700">
+                      Postal code (optional)
+                    </label>
+                    <Input
+                      id="postal-code"
+                      value={form.postal_code || ""}
+                      onChange={(e) => handleChange("postal_code", e.target.value)}
+                      placeholder="ST4 7QB, 101233"
+                    />
+                    {autoFillHints.postal_code && (
                       <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.fields.derived}</p>
                     )}
                   </div>

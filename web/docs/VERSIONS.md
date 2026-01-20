@@ -1,5 +1,12 @@
 # Versions
 
+# Versions
+
+## 2026-01-23 — vR16.7i.0-location-normalization
+- Added normalized location columns on properties (`country_code`, `admin_area_1`, `admin_area_2`, `postal_code`) with a safe migration.
+- Mapbox normalization helper now extracts country/region/district/locality/postcode for GB/NG/US/CA; geocode responses include these fields.
+- Property create/update persist normalized fields (trimming empty strings) and UI auto-fills new fields when empty (postal code optional, county/district optional) while preserving privacy.
+
 ## 2026-01-23 — vR16.5e-cover-photo
 - Added `cover_image_url` column and validation to ensure cover matches uploaded photos.
 - Listing photos step now supports choosing a cover photo with badges/actions and safer ordering/removal.

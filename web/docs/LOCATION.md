@@ -6,6 +6,13 @@
 - `location_place_id` (provider id)
 - `location_source` (manual | geocode | pin)
 - `location_precision` (approx/none)
+- Normalized fields (additive, all nullable):
+  - `country_code`
+  - `admin_area_1` (state/region/province)
+  - `admin_area_2` (county/district/LGA)
+  - `postal_code`
+  - `city` (legacy) + `locality` equivalent
+  - `neighbourhood` (legacy) + `sublocality` equivalent
 
 ## Privacy
 - We do **not** show precise coordinates to tenants. Tenant-facing pages only show an approximate area.
@@ -40,8 +47,9 @@ where key='enable_location_picker';
   - Confirm static preview works with `NEXT_PUBLIC_MAPBOX_TOKEN`.
 
 ## UI
-- Listing wizard shows “Search for an area” first (results + pinned card + preview) when the flag is enabled. After pinning, fill Country/State/City/Neighbourhood, then Address, then advanced coordinates.
+- Listing wizard shows “Search for an area” first (results + pinned card + preview) when the flag is enabled. After pinning, fill Country → State/Region/Province → County/District/LGA (optional) → City/Town → Neighbourhood/Area → Postal code (optional), then Address, then advanced coordinates.
 - Manual latitude/longitude inputs remain under "Edit coordinates" for advanced users or when the picker is disabled.
+- Auto-fill is best-effort: we populate empty fields only. Derived hints disappear once edited. “Change” clears the pin but keeps your manual edits.
 
 ## Governance
 - Feature is behind a flag. Default is disabled.
@@ -54,3 +62,9 @@ where key='enable_location_picker';
 - Publish guard flag: `require_location_pin_for_publish` (default off). When enabled, listings need a pinned area (lat/lng or place_id + label) to publish; drafts still save, and admins bypass the guard.
 - Pinned definition: true when (latitude AND longitude) OR (location_place_id AND location_label) are present with non-empty values. Empty strings do not count.
 - Tenant privacy: tenant-facing pages and search APIs do not show lat/lng; only non-sensitive labels (city/region/neighbourhood) are rendered.
+
+## Normalized examples
+- UK: country_code=GB, admin_area_1=England, admin_area_2=Staffordshire (district/county), postal_code when selecting a postcode result.
+- Nigeria: country_code=NG, admin_area_1=Lagos, locality/ neighbourhood best-effort (e.g., Ikoyi).
+- US: country_code=US, admin_area_1=California (state), admin_area_2 can hold a county when provided.
+- Canada: country_code=CA, admin_area_1=Ontario (province), admin_area_2 optional when Mapbox returns a district/county.

@@ -32,6 +32,7 @@ import {
 } from "@/lib/analytics/property-views";
 import { getAppSettingBool } from "@/lib/settings/app-settings";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
+import { cleanNullableString } from "@/lib/strings";
 
 const routeLabel = "/api/properties/[id]";
 type ImageMetaPayload = Record<
@@ -51,6 +52,9 @@ const updateSchema = z.object({
   country: z.string().optional().nullable(),
   country_code: z.string().optional().nullable(),
   state_region: z.string().optional().nullable(),
+  admin_area_1: z.string().optional().nullable(),
+  admin_area_2: z.string().optional().nullable(),
+  postal_code: z.string().optional().nullable(),
   neighbourhood: z.string().optional().nullable(),
   address: z.string().optional().nullable(),
   latitude: z.number().optional().nullable(),
@@ -612,22 +616,19 @@ export async function PUT(
       country: rest.country,
       country_code: rest.country_code,
     });
-    const cleanString = (value: string | null | undefined) => {
-      if (typeof value === "undefined") return undefined;
-      if (value === null) return null;
-      const trimmed = value.trim();
-      return trimmed.length ? trimmed : null;
-    };
     const normalizedRest = {
       ...rest,
       listing_type: typeof rest.listing_type === "undefined" ? undefined : rest.listing_type,
       country: countryFields.country,
       country_code: countryFields.country_code,
       state_region: typeof rest.state_region === "undefined" ? undefined : rest.state_region,
-      location_label: cleanString(rest.location_label),
-      location_place_id: cleanString(rest.location_place_id),
-      location_source: cleanString(rest.location_source),
-      location_precision: cleanString(rest.location_precision),
+      admin_area_1: cleanNullableString(rest.admin_area_1),
+      admin_area_2: cleanNullableString(rest.admin_area_2),
+      postal_code: cleanNullableString(rest.postal_code),
+      location_label: cleanNullableString(rest.location_label),
+      location_place_id: cleanNullableString(rest.location_place_id),
+      location_source: cleanNullableString(rest.location_source),
+      location_precision: cleanNullableString(rest.location_precision),
       size_value: typeof rest.size_value === "undefined" ? undefined : rest.size_value,
       size_unit:
         typeof rest.size_value === "number"

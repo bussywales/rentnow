@@ -23,6 +23,7 @@ import {
 import { sanitizeImageMeta } from "@/lib/properties/image-meta";
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
+import { cleanNullableString } from "@/lib/strings";
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
@@ -75,6 +76,9 @@ export const propertySchema = z.object({
   is_active: z.boolean().optional(),
   imageUrls: z.array(z.string().url()).optional(),
   cover_image_url: z.string().url().optional().nullable(),
+  admin_area_1: z.string().optional().nullable(),
+  admin_area_2: z.string().optional().nullable(),
+  postal_code: z.string().optional().nullable(),
   imageMeta: z
     .record(
       z.string(),
@@ -179,21 +183,19 @@ export async function POST(request: Request) {
       country: rest.country,
       country_code: rest.country_code,
     });
-    const cleanString = (value?: string | null) => {
-      if (typeof value !== "string") return null;
-      const trimmed = value.trim();
-      return trimmed.length ? trimmed : null;
-    };
     const normalized = {
       ...rest,
-      location_label: cleanString(rest.location_label),
-      location_place_id: cleanString(rest.location_place_id),
-      location_source: cleanString(rest.location_source),
-      location_precision: cleanString(rest.location_precision),
+      location_label: cleanNullableString(rest.location_label, { allowUndefined: false }),
+      location_place_id: cleanNullableString(rest.location_place_id, { allowUndefined: false }),
+      location_source: cleanNullableString(rest.location_source, { allowUndefined: false }),
+      location_precision: cleanNullableString(rest.location_precision, { allowUndefined: false }),
       listing_type: rest.listing_type ?? null,
       country,
       country_code,
       state_region: rest.state_region ?? null,
+      admin_area_1: cleanNullableString(rest.admin_area_1, { allowUndefined: false }),
+      admin_area_2: cleanNullableString(rest.admin_area_2, { allowUndefined: false }),
+      postal_code: cleanNullableString(rest.postal_code, { allowUndefined: false }),
       size_value: typeof rest.size_value === "number" ? rest.size_value : null,
       size_unit: normalizedSizeUnit,
       year_built: typeof rest.year_built === "number" ? rest.year_built : null,

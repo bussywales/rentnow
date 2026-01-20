@@ -4,6 +4,7 @@ import { requireRole } from "@/lib/authz";
 import { geocodeMapbox } from "@/lib/geocode/mapbox";
 import { parseMapboxFeature } from "@/lib/geocode/parse";
 import { sanitizeLabel } from "@/lib/geocode/mapbox";
+import { normalizeMapboxFeature, type MapboxFeature } from "@/lib/geocode/normalize-location";
 
 const routeLabel = "/api/geocode";
 const querySchema = z.object({
@@ -37,9 +38,31 @@ export async function GET(request: Request) {
   try {
     const raw = await geocodeMapbox(parsed.data.q, token);
     const structured = raw.map((item) => {
-      const parsed = parseMapboxFeature(item.raw as Record<string, unknown>, sanitizeLabel(item.label));
-      if (parsed) return parsed;
-      return item;
+      const rawFeature = item.raw as MapboxFeature;
+      const normalized = normalizeMapboxFeature(rawFeature);
+      const parsed = parseMapboxFeature(rawFeature as Record<string, unknown>, sanitizeLabel(item.label));
+      if (parsed) {
+        return {
+          ...parsed,
+          admin_area_1: normalized.admin_area_1,
+          admin_area_2: normalized.admin_area_2,
+          postal_code: normalized.postal_code,
+          locality: normalized.locality,
+          sublocality: normalized.sublocality,
+        };
+      }
+      return {
+        label: sanitizeLabel(item.label),
+        place_id: normalized.place_id || item.place_id,
+        lat: rawFeature?.center?.[1] ?? null,
+        lng: rawFeature?.center?.[0] ?? null,
+        admin_area_1: normalized.admin_area_1,
+        admin_area_2: normalized.admin_area_2,
+        postal_code: normalized.postal_code,
+        locality: normalized.locality,
+        sublocality: normalized.sublocality,
+        country_code: normalized.country_code,
+      };
     });
     return NextResponse.json(structured);
   } catch (err) {
