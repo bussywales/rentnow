@@ -612,24 +612,22 @@ export async function PUT(
       country: rest.country,
       country_code: rest.country_code,
     });
+    const cleanString = (value: string | null | undefined) => {
+      if (typeof value === "undefined") return undefined;
+      if (value === null) return null;
+      const trimmed = value.trim();
+      return trimmed.length ? trimmed : null;
+    };
     const normalizedRest = {
       ...rest,
       listing_type: typeof rest.listing_type === "undefined" ? undefined : rest.listing_type,
       country: countryFields.country,
       country_code: countryFields.country_code,
       state_region: typeof rest.state_region === "undefined" ? undefined : rest.state_region,
-      location_label:
-        typeof rest.location_label === "undefined" ? undefined : rest.location_label ?? null,
-      location_place_id:
-        typeof rest.location_place_id === "undefined"
-          ? undefined
-          : rest.location_place_id ?? null,
-      location_source:
-        typeof rest.location_source === "undefined" ? undefined : rest.location_source ?? null,
-      location_precision:
-        typeof rest.location_precision === "undefined"
-          ? undefined
-          : rest.location_precision ?? null,
+      location_label: cleanString(rest.location_label),
+      location_place_id: cleanString(rest.location_place_id),
+      location_source: cleanString(rest.location_source),
+      location_precision: cleanString(rest.location_precision),
       size_value: typeof rest.size_value === "undefined" ? undefined : rest.size_value,
       size_unit:
         typeof rest.size_value === "number"

@@ -520,10 +520,6 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               streetAddress: property.address || "",
               addressCountry: property.country || "NG",
             },
-              geo:
-                typeof property.latitude === "number" && typeof property.longitude === "number"
-                  ? { "@type": "GeoCoordinates", latitude: property.latitude, longitude: property.longitude }
-                  : undefined,
               offers: {
                 "@type": "Offer",
                 price: property.price,

@@ -117,19 +117,21 @@ export async function GET(request: Request) {
     const properties =
       typed.map((row) => ({
         ...row,
-        images: orderImagesWithCover(
-          row.cover_image_url,
-          row.property_images?.map((img) => ({
-            ...img,
-            id: img.id || img.image_url,
-            created_at: (img as { created_at?: string | null }).created_at ?? undefined,
-            width: (img as { width?: number | null }).width ?? null,
-            height: (img as { height?: number | null }).height ?? null,
-            bytes: (img as { bytes?: number | null }).bytes ?? null,
-            format: (img as { format?: string | null }).format ?? null,
-          }))
-        ),
-        checkin_signal: buildCheckinSignal(latestCheckins.get(row.id) ?? null, { flagEnabled }),
+        latitude: undefined,
+        longitude: undefined,
+          images: orderImagesWithCover(
+            row.cover_image_url,
+            row.property_images?.map((img) => ({
+              ...img,
+              id: img.id || img.image_url,
+              created_at: (img as { created_at?: string | null }).created_at ?? undefined,
+              width: (img as { width?: number | null }).width ?? null,
+              height: (img as { height?: number | null }).height ?? null,
+              bytes: (img as { bytes?: number | null }).bytes ?? null,
+              format: (img as { format?: string | null }).format ?? null,
+            }))
+          ),
+          checkin_signal: buildCheckinSignal(latestCheckins.get(row.id) ?? null, { flagEnabled }),
       })) || [];
 
     return NextResponse.json({ properties, page, pageSize, total: count ?? null });

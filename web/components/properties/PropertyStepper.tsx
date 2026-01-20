@@ -30,6 +30,7 @@ import type {
 } from "@/lib/types";
 import { setToastQuery } from "@/lib/utils/toast";
 import { labelForField } from "@/lib/forms/listing-errors";
+import { hasPinnedLocation } from "@/lib/properties/validation";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
 type ResolvedAuth = {
@@ -323,6 +324,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [locationPublishError, setLocationPublishError] = useState(false);
   const locationSectionRef = useRef<HTMLDivElement | null>(null);
+  const [locationActiveIndex, setLocationActiveIndex] = useState(0);
 
   useEffect(() => {
     if (!enableLocationPicker) return;
@@ -860,9 +862,18 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
         delete next[key as string];
         return next;
       });
+      if (key === "city" && autoFillHints.city) {
+        setAutoFillHints((prev) => ({ ...prev, city: false }));
+      }
+      if (key === "state_region" && autoFillHints.state) {
+        setAutoFillHints((prev) => ({ ...prev, state: false }));
+      }
+      if (key === "neighbourhood" && autoFillHints.neighbourhood) {
+        setAutoFillHints((prev) => ({ ...prev, neighbourhood: false }));
+      }
       setForm((prev) => ({ ...prev, [key]: value }));
     },
-    []
+    [autoFillHints.city, autoFillHints.neighbourhood, autoFillHints.state]
   );
 
   const applyLocationResult = useCallback(
@@ -912,6 +923,25 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       });
     },
     [handleChange, form.city, form.state_region, form.neighbourhood]
+  );
+
+  const highlightMatch = useCallback(
+    (text: string) => {
+      const query = locationQuery.trim();
+      if (!query) return text;
+      const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const regex = new RegExp(`(${escaped})`, "ig");
+      return text.split(regex).map((part, idx) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <strong key={`${part}-${idx}`} className="text-slate-900">
+            {part}
+          </strong>
+        ) : (
+          <span key={`${part}-${idx}`}>{part}</span>
+        )
+      );
+    },
+    [locationQuery]
   );
 
   const formatBucketLabel = (bucket: string | null | undefined) => {
@@ -1525,7 +1555,24 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       <Input
                         id="location-search"
                         value={locationQuery}
-                        onChange={(e) => setLocationQuery(e.target.value)}
+                        onChange={(e) => {
+                          setLocationQuery(e.target.value);
+                          setLocationActiveIndex(0);
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && locationResults.length > 0) {
+                            e.preventDefault();
+                            applyLocationResult(locationResults[locationActiveIndex] || locationResults[0]);
+                          } else if (e.key === "ArrowDown") {
+                            e.preventDefault();
+                            setLocationActiveIndex((prev) =>
+                              Math.min(prev + 1, Math.max(locationResults.length - 1, 0))
+                            );
+                          } else if (e.key === "ArrowUp") {
+                            e.preventDefault();
+                            setLocationActiveIndex((prev) => Math.max(prev - 1, 0));
+                          }
+                        }}
                         placeholder="Neighborhood or city"
                       />
                       <p className="text-xs text-slate-500">
@@ -1545,43 +1592,71 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                     {locationResults.length > 0 && (
                       <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
                         <ul className="divide-y divide-slate-200">
-                          {locationResults.map((result) => (
-                            <li key={result.place_id}>
-                              <button
-                                type="button"
-                                className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-slate-50"
-                                onClick={() => applyLocationResult(result)}
-                              >
-                                <div>
-                                  <p className="text-sm font-medium text-slate-900">
-                                    {result.label}
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    {result.lat.toFixed(4)}, {result.lng.toFixed(4)}
-                                  </p>
-                                </div>
-                                <span className="text-xs font-semibold text-sky-700">
-                                  Use
-                                </span>
-                              </button>
-                            </li>
-                          ))}
+                          {locationResults.map((result, idx) => {
+                            const subtitle = [
+                              result.neighborhood_name,
+                              result.place_name,
+                              result.region_name,
+                            ]
+                              .filter(Boolean)
+                              .join(" • ");
+                            const isActive = idx === locationActiveIndex;
+                            return (
+                              <li key={result.place_id}>
+                                <button
+                                  type="button"
+                                  className={`flex w-full items-center justify-between px-3 py-2 text-left transition ${
+                                    isActive ? "bg-sky-50" : "hover:bg-slate-50"
+                                  }`}
+                                  onClick={() => applyLocationResult(result)}
+                                >
+                                  <div>
+                                    <p className="text-sm font-medium text-slate-900">
+                                      {highlightMatch(result.label)}
+                                    </p>
+                                    {subtitle && (
+                                      <p className="text-xs text-slate-500">{subtitle}</p>
+                                    )}
+                                  </div>
+                                  <span className="text-xs font-semibold text-sky-700">
+                                    Use
+                                  </span>
+                                </button>
+                              </li>
+                            );
+                          })}
                         </ul>
                       </div>
                     )}
+                    {locationResults.length === 0 &&
+                      !locationSearching &&
+                      !locationError &&
+                      locationQuery.trim().length >= 3 && (
+                        <p className="text-xs text-slate-500">
+                          No matches. Try a nearby area or city.
+                        </p>
+                      )}
                     <div
                       ref={locationSectionRef}
                       className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700"
                     >
-                      {form.latitude && form.longitude && form.location_label ? (
+                      {hasPinnedLocation({
+                        latitude: form.latitude ?? null,
+                        longitude: form.longitude ?? null,
+                        location_label: form.location_label ?? null,
+                        location_place_id: form.location_place_id ?? null,
+                      }) ? (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2">
                             <div className="space-y-1">
                               <p className="text-sm font-semibold text-slate-900">Pinned area</p>
                               <p className="text-xs text-slate-600">{form.location_label}</p>
-                              <p className="text-xs text-slate-500">
-                                {form.latitude.toFixed(5)}, {form.longitude.toFixed(5)}
-                              </p>
+                              {(form.location_source === "geocode" ||
+                                form.location_precision === "approx") && (
+                                <p className="text-xs text-slate-500">
+                                  Approximate area (from search)
+                                </p>
+                              )}
                             </div>
                             <button
                               type="button"
@@ -1600,43 +1675,49 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                               Change
                             </button>
                           </div>
-                          <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-                            {process.env.NEXT_PUBLIC_MAPBOX_TOKEN ? (
-                              (() => {
-                                const staticMapUrl = buildStaticMapUrl({
-                                  lat: form.latitude as number,
-                                  lng: form.longitude as number,
-                                });
-                                if (!staticMapUrl) {
+                          {form.latitude && form.longitude ? (
+                            <div className="overflow-hidden rounded-lg border border-slate-200 bg-white">
+                              {process.env.NEXT_PUBLIC_MAPBOX_TOKEN ? (
+                                (() => {
+                                  const staticMapUrl = buildStaticMapUrl({
+                                    lat: form.latitude as number,
+                                    lng: form.longitude as number,
+                                  });
+                                  if (!staticMapUrl) {
+                                    return (
+                                      <div className="flex h-40 items-center justify-center text-xs text-slate-500">
+                                        Map preview unavailable
+                                      </div>
+                                    );
+                                  }
                                   return (
-                                    <div className="flex h-40 items-center justify-center text-xs text-slate-500">
-                                      Map preview unavailable
-                                    </div>
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={staticMapUrl}
+                                      alt="Pinned location map preview"
+                                      className="h-40 w-full object-cover"
+                                      onError={(e) => {
+                                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                                        const placeholder = document.createElement("div");
+                                        placeholder.className =
+                                          "flex h-40 w-full items-center justify-center text-xs text-slate-500";
+                                        placeholder.innerText = "Map preview unavailable";
+                                        e.currentTarget.parentElement?.appendChild(placeholder);
+                                      }}
+                                    />
                                   );
-                                }
-                                return (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={staticMapUrl}
-                                    alt="Pinned location map preview"
-                                    className="h-40 w-full object-cover"
-                                    onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).style.display = "none";
-                                      const placeholder = document.createElement("div");
-                                      placeholder.className =
-                                        "flex h-40 w-full items-center justify-center text-xs text-slate-500";
-                                      placeholder.innerText = "Map preview unavailable";
-                                      e.currentTarget.parentElement?.appendChild(placeholder);
-                                    }}
-                                  />
-                                );
-                              })()
-                            ) : (
-                              <div className="flex h-40 items-center justify-center text-xs text-slate-500">
-                                Map preview isn&apos;t configured yet.
-                              </div>
-                            )}
-                          </div>
+                                })()
+                              ) : (
+                                <div className="flex h-40 items-center justify-center text-xs text-slate-500">
+                                  Map preview isn&apos;t configured yet.
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <p className="text-xs text-slate-500">
+                              Pin set. Map preview will appear when coordinates are available.
+                            </p>
+                          )}
                         </div>
                       ) : (
                         <p className="text-xs text-slate-600">No pin selected yet.</p>

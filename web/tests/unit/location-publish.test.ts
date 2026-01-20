@@ -16,4 +16,8 @@ test("hasPinnedLocation accepts place id + label", () => {
 test("hasPinnedLocation rejects missing", () => {
   assert.equal(hasPinnedLocation({}), false);
   assert.equal(hasPinnedLocation({ latitude: 1 }), false);
+  assert.equal(
+    hasPinnedLocation({ location_place_id: "", location_label: "   " }),
+    false
+  );
 });

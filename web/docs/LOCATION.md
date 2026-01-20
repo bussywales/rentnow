@@ -38,3 +38,5 @@ where key='enable_location_picker';
 - Auto-fill: Selecting a search result can prefill City/State/Neighbourhood when those fields are empty (editable).
 - 'Change' on the pin clears the pin only; it does not wipe City/State you already set.
 - Publish guard flag: `require_location_pin_for_publish` (default off). When enabled, listings need a pinned area (lat/lng or place_id + label) to publish; drafts still save, and admins bypass the guard.
+- Pinned definition: true when (latitude AND longitude) OR (location_place_id AND location_label) are present with non-empty values. Empty strings do not count.
+- Tenant privacy: tenant-facing pages and search APIs do not show lat/lng; only non-sensitive labels (city/region/neighbourhood) are rendered.

@@ -13,4 +13,15 @@ test.describe("Location picker", () => {
     await expect(page.locator("h1", { hasText: "Create listing" })).toBeVisible();
     await expect(page.getByLabel("Search for an area")).toBeVisible();
   });
+
+  test("shows not configured message when mapbox missing", async ({ page }) => {
+    if (process.env.E2E_EXPECT_MAPBOX_MISSING !== "true") {
+      test.skip(true, "MAPBOX missing check disabled");
+    }
+    await page.goto("/dashboard/properties/new");
+    await page.getByLabel("Search for an area").fill("Lagos");
+    await expect(
+      page.getByText("Location search isn't configured yet (MAPBOX_TOKEN missing). Add it in env vars to enable search.")
+    ).toBeVisible();
+  });
 });

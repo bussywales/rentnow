@@ -138,3 +138,4 @@ Non-goals:
 - R16.7a–c: Location picker with geocoding, pinned-area map preview (flagged).
 - **R16.7d — Property Check-in Verification (On-site)**: privacy-safe host check-ins using property pin (no raw GPS stored), distance buckets only, feature-flagged tenant badge, admin clear action, append-only audit of check-ins.
 - **R16.7e — Location required to publish (flagged)**: feature-flagged guard that blocks publish unless a pinned area exists (lat/lng or place id + label). Drafts always allowed; admin bypass; clear UX banner linking to location section.
+- **R16.7f — Pin privacy polish**: clearer pinned state, richer search results, stronger privacy guardrails (no coords shown to tenants), and better non-configured/flag-off messaging.

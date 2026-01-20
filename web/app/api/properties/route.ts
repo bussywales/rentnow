@@ -179,12 +179,17 @@ export async function POST(request: Request) {
       country: rest.country,
       country_code: rest.country_code,
     });
+    const cleanString = (value?: string | null) => {
+      if (typeof value !== "string") return null;
+      const trimmed = value.trim();
+      return trimmed.length ? trimmed : null;
+    };
     const normalized = {
       ...rest,
-      location_label: rest.location_label ?? null,
-      location_place_id: rest.location_place_id ?? null,
-      location_source: rest.location_source ?? null,
-      location_precision: rest.location_precision ?? null,
+      location_label: cleanString(rest.location_label),
+      location_place_id: cleanString(rest.location_place_id),
+      location_source: cleanString(rest.location_source),
+      location_precision: cleanString(rest.location_precision),
       listing_type: rest.listing_type ?? null,
       country,
       country_code,

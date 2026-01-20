@@ -55,11 +55,18 @@ export function hasPinnedLocation(input: {
   location_place_id?: string | null;
   location_label?: string | null;
 }) {
+  const cleanString = (value?: string | null) => {
+    if (typeof value !== "string") return null;
+    const trimmed = value.trim();
+    return trimmed.length ? trimmed : null;
+  };
   const hasLatLng =
     typeof input.latitude === "number" &&
     Number.isFinite(input.latitude) &&
     typeof input.longitude === "number" &&
     Number.isFinite(input.longitude);
-  const hasPlace = !!(input.location_place_id && input.location_label);
+  const placeId = cleanString(input.location_place_id);
+  const label = cleanString(input.location_label);
+  const hasPlace = !!(placeId && label);
   return hasLatLng || hasPlace;
 }

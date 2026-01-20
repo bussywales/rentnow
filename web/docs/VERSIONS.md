@@ -580,3 +580,8 @@
 - Added feature flag `require_location_pin_for_publish` (default off).
 - Admin settings exposes the toggle.
 - Publishing is blocked (drafts still allowed) when the flag is on and no pinned location is set; admin bypasses the guard.
+
+## 2026-02-07 — vR16.7f-pin-privacy-polish
+- Location picker UX: clearer pinned card, improved result subtitles, keyboard selection, and friendlier helpers.
+- Removed coordinate display from pinned card and tenant JSON-LD; tenant search responses omit lat/lng.
+- Strengthened pin validation (empty strings ignored) and kept publish guard/draft safety intact.
