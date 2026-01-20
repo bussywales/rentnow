@@ -9,6 +9,7 @@ import { getTenantPlanForTier } from "@/lib/plans";
 import { getListingAccessResult } from "@/lib/role-access";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getAppSettingBool } from "@/lib/settings/app-settings";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
 import { normalizeCountryForCreate } from "@/lib/properties/country-normalize";
 import {
@@ -17,6 +18,7 @@ import {
   optionalNonnegativeNumber,
   optionalPositiveNumber,
   optionalYearBuilt,
+  hasPinnedLocation,
 } from "@/lib/properties/validation";
 import { sanitizeImageMeta } from "@/lib/properties/image-meta";
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
@@ -208,6 +210,27 @@ export async function POST(request: Request) {
     const isApproved = normalizedStatus === "live";
     const submittedAt = normalizedStatus === "pending" ? new Date().toISOString() : null;
     const approvedAt = normalizedStatus === "live" ? new Date().toISOString() : null;
+    const willPublish = !isAdmin && isActive;
+
+    if (
+      willPublish &&
+      (await getAppSettingBool("require_location_pin_for_publish", false)) &&
+      !hasPinnedLocation({
+        latitude: normalized.latitude,
+        longitude: normalized.longitude,
+        location_label: normalized.location_label,
+        location_place_id: normalized.location_place_id,
+      })
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Pin a location to publish this listing.",
+          code: "LOCATION_PIN_REQUIRED",
+        },
+        { status: 400 }
+      );
+    }
 
     if (!isAdmin && isActive) {
       const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
@@ -282,22 +305,22 @@ export async function POST(request: Request) {
 
     const propertyId = property?.id;
 
-  if (propertyId && imageUrls.length) {
-    await supabase.from("property_images").insert(
-      imageUrls.map((url, index) => {
-        const metaForUrl = imageMeta?.[url] as
-          | ({ exif?: { hasGps?: boolean | null; capturedAt?: string | null } } & object)
-          | undefined;
-        return {
-          property_id: propertyId,
-          image_url: url,
-          position: index,
-          ...sanitizeImageMeta(imageMeta?.[url]),
-          ...sanitizeExifMeta(metaForUrl?.exif),
-        };
-      })
-    );
-  }
+    if (propertyId && imageUrls.length) {
+      await supabase.from("property_images").insert(
+        imageUrls.map((url, index) => {
+          const metaForUrl = imageMeta?.[url] as
+            | ({ exif?: { hasGps?: boolean | null; capturedAt?: string | null } } & object)
+            | undefined;
+          return {
+            property_id: propertyId,
+            image_url: url,
+            position: index,
+            ...sanitizeImageMeta(imageMeta?.[url]),
+            ...sanitizeExifMeta(metaForUrl?.exif),
+          };
+        })
+      );
+    }
 
     return NextResponse.json({ id: propertyId });
   } catch (error: unknown) {

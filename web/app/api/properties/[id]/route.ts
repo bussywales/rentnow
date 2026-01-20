@@ -19,6 +19,7 @@ import {
   optionalNonnegativeNumber,
   optionalPositiveNumber,
   optionalYearBuilt,
+  hasPinnedLocation,
 } from "@/lib/properties/validation";
 import { sanitizeImageMeta } from "@/lib/properties/image-meta";
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
@@ -599,7 +600,7 @@ export async function PUT(
 
     const body = await request.json();
     const updates = updateSchema.parse(body);
-    const {
+  const {
       imageUrls = [],
       status,
       rejection_reason,
@@ -662,6 +663,7 @@ export async function PUT(
     const now = new Date().toISOString();
     const isAdmin = role === "admin";
     let statusUpdate: Record<string, unknown> = {};
+    const statusTarget = status || (normalizedRest.is_active ? "pending" : undefined);
 
     if (status) {
       const allowed = isAdmin
@@ -694,6 +696,28 @@ export async function PUT(
           ? updates.is_active
           : wasActive;
     const willActivate = requestedActive && !wasActive;
+    const isPublishAttempt = statusTarget === "pending" || statusTarget === "live" || requestedActive;
+
+    if (
+      !isAdmin &&
+      isPublishAttempt &&
+      (await getAppSettingBool("require_location_pin_for_publish", false)) &&
+      !hasPinnedLocation({
+        latitude: normalizedRest.latitude,
+        longitude: normalizedRest.longitude,
+        location_label: normalizedRest.location_label as string | null | undefined,
+        location_place_id: normalizedRest.location_place_id as string | null | undefined,
+      })
+    ) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Pin a location to publish this listing.",
+          code: "LOCATION_PIN_REQUIRED",
+        },
+        { status: 400 }
+      );
+    }
 
     if (!isAdmin && willActivate) {
       const usage = await getPlanUsage({

@@ -37,3 +37,4 @@ where key='enable_location_picker';
 - Use 'Search for an area' to set the map pin; the Address field does not drive search.
 - Auto-fill: Selecting a search result can prefill City/State/Neighbourhood when those fields are empty (editable).
 - 'Change' on the pin clears the pin only; it does not wipe City/State you already set.
+- Publish guard flag: `require_location_pin_for_publish` (default off). When enabled, listings need a pinned area (lat/lng or place_id + label) to publish; drafts still save, and admins bypass the guard.

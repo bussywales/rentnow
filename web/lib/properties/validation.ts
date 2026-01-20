@@ -48,3 +48,18 @@ export const mapZodErrorToFieldErrors = (
   }
   return fieldErrors;
 };
+
+export function hasPinnedLocation(input: {
+  latitude?: number | null;
+  longitude?: number | null;
+  location_place_id?: string | null;
+  location_label?: string | null;
+}) {
+  const hasLatLng =
+    typeof input.latitude === "number" &&
+    Number.isFinite(input.latitude) &&
+    typeof input.longitude === "number" &&
+    Number.isFinite(input.longitude);
+  const hasPlace = !!(input.location_place_id && input.location_label);
+  return hasLatLng || hasPlace;
+}

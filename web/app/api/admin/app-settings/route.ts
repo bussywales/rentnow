@@ -10,6 +10,7 @@ const ALLOWED_KEYS = [
   "show_tenant_photo_trust_signals",
   "enable_location_picker",
   "show_tenant_checkin_badge",
+  "require_location_pin_for_publish",
 ] as const;
 const routeLabel = "/api/admin/app-settings";
 

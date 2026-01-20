@@ -321,6 +321,8 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   );
   const [checkinMessage, setCheckinMessage] = useState<string | null>(null);
   const [checkinLoading, setCheckinLoading] = useState(false);
+  const [locationPublishError, setLocationPublishError] = useState(false);
+  const locationSectionRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (!enableLocationPicker) return;
@@ -666,12 +668,24 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
         }
       }
       if (data?.code === "plan_limit_reached") {
-          const limitMessage =
-            typeof data?.maxListings === "number"
-              ? ` Plan limit: ${data.maxListings}.`
-              : "";
+        const limitMessage =
+          typeof data?.maxListings === "number"
+            ? ` Plan limit: ${data.maxListings}.`
+            : "";
         setErrorCode(data.code);
         throw new Error(`Plan limit reached.${limitMessage} Upgrade to add more listings.`);
+      }
+      if (data?.code === "LOCATION_PIN_REQUIRED") {
+        setLocationPublishError(true);
+        setErrorCode(data.code);
+        const message = data?.error || "Pin your listing location to publish.";
+        if (locationSectionRef.current) {
+          locationSectionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+          const focusable =
+            locationSectionRef.current.querySelector("input,textarea,button") ?? null;
+          (focusable as HTMLElement | null)?.focus();
+        }
+        throw new Error(message);
       }
       if (typeof data?.code === "string") {
         setErrorCode(data.code);
@@ -1205,6 +1219,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       return;
     }
     setError(null);
+    setLocationPublishError(false);
     startSaving(() => {
       saveDraft("pending")
         .then(() => {
@@ -1232,6 +1247,9 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
     }
     if (code === "plan_limit_reached") {
       return message;
+    }
+    if (code === "LOCATION_PIN_REQUIRED") {
+      return "Pin your listing location to publish.";
     }
     const normalized = message.toLowerCase();
     if (normalized.includes("supabase environment variables are missing")) {
@@ -1327,6 +1345,23 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                 <Link href="/properties" className="text-sm font-semibold underline">
                   Browse listings
                 </Link>
+              )}
+              {errorCode === "LOCATION_PIN_REQUIRED" && (
+                <button
+                  type="button"
+                  className="text-sm font-semibold underline"
+                  onClick={() => {
+                    locationSectionRef.current?.scrollIntoView({
+                      behavior: "smooth",
+                      block: "center",
+                    });
+                    const focusable =
+                      locationSectionRef.current?.querySelector("input,textarea,button") ?? null;
+                    (focusable as HTMLElement | null)?.focus();
+                  }}
+                >
+                  Go to location
+                </button>
               )}
             </div>
             {errorDetails && (
@@ -1534,7 +1569,10 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                         </ul>
                       </div>
                     )}
-                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+                    <div
+                      ref={locationSectionRef}
+                      className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700"
+                    >
                       {form.latitude && form.longitude && form.location_label ? (
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2">
@@ -1602,6 +1640,11 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                         </div>
                       ) : (
                         <p className="text-xs text-slate-600">No pin selected yet.</p>
+                      )}
+                      {locationPublishError && (
+                        <p className="mt-2 text-xs font-semibold text-rose-600">
+                          Location is required to publish.
+                        </p>
                       )}
                     </div>
                     {propertyId && (

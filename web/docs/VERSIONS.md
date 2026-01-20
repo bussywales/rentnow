@@ -575,3 +575,8 @@
 - Admin settings toggle for tenant check-in badge.
 - Host/agent listing editor shows “Check in at this property” card with privacy-safe geolocation flow.
 - Tenant property detail shows a subtle “Host checked in recently” badge when the flag is enabled.
+
+## 2026-02-07 — vR16.7e-location-required-publish
+- Added feature flag `require_location_pin_for_publish` (default off).
+- Admin settings exposes the toggle.
+- Publishing is blocked (drafts still allowed) when the flag is on and no pinned location is set; admin bypasses the guard.

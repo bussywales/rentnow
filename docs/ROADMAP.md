@@ -137,3 +137,4 @@ Non-goals:
 - R16.6x: Photo trust signals (metadata, tenant-visible badges behind admin toggle).
 - R16.7a–c: Location picker with geocoding, pinned-area map preview (flagged).
 - **R16.7d — Property Check-in Verification (On-site)**: privacy-safe host check-ins using property pin (no raw GPS stored), distance buckets only, feature-flagged tenant badge, admin clear action, append-only audit of check-ins.
+- **R16.7e — Location required to publish (flagged)**: feature-flagged guard that blocks publish unless a pinned area exists (lat/lng or place id + label). Drafts always allowed; admin bypass; clear UX banner linking to location section.

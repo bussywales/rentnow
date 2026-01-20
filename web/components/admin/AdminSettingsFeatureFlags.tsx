@@ -27,6 +27,11 @@ const DESCRIPTIONS: Record<string, { title: string; helper: string }> = {
     helper:
       "Show a small ‘checked in recently’ indicator to tenants. No GPS coordinates are shown.",
   },
+  require_location_pin_for_publish: {
+    title: "Location required to publish",
+    helper:
+      "When enabled, hosts must pin a general location before publishing. Drafts are still allowed.",
+  },
 };
 
 export default function AdminSettingsFeatureFlags({ settings }: Props) {

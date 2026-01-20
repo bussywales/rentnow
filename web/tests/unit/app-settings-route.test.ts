@@ -31,3 +31,11 @@ void test("patchSchema accepts check-in badge payload", () => {
   });
   assert.equal(parsed.key, "show_tenant_checkin_badge");
 });
+
+void test("patchSchema accepts require location pin payload", () => {
+  const parsed = patchSchema.parse({
+    key: "require_location_pin_for_publish",
+    value: { enabled: true },
+  });
+  assert.equal(parsed.key, "require_location_pin_for_publish");
+});

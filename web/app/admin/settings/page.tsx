@@ -26,12 +26,14 @@ export default async function AdminSettingsPage() {
       "show_tenant_photo_trust_signals",
       "enable_location_picker",
       "show_tenant_checkin_badge",
+      "require_location_pin_for_publish",
     ]);
 
   const keys = [
     "show_tenant_photo_trust_signals",
     "enable_location_picker",
     "show_tenant_checkin_badge",
+    "require_location_pin_for_publish",
   ] as const;
   const settings = keys.map((key) => {
     const row = data?.find((item) => item.key === key);
