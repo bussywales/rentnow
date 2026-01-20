@@ -22,9 +22,17 @@ export default async function AdminSettingsPage() {
   const { data } = await supabase
     .from("app_settings")
     .select("key, value, updated_at")
-    .in("key", ["show_tenant_photo_trust_signals", "enable_location_picker"]);
+    .in("key", [
+      "show_tenant_photo_trust_signals",
+      "enable_location_picker",
+      "show_tenant_checkin_badge",
+    ]);
 
-  const keys = ["show_tenant_photo_trust_signals", "enable_location_picker"] as const;
+  const keys = [
+    "show_tenant_photo_trust_signals",
+    "enable_location_picker",
+    "show_tenant_checkin_badge",
+  ] as const;
   const settings = keys.map((key) => {
     const row = data?.find((item) => item.key === key);
     return {

@@ -305,6 +305,22 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
     state?: boolean;
     neighbourhood?: boolean;
   }>({});
+  const initialCheckinSignal = (initialData as Record<string, unknown>)?.checkin_signal as
+    | { status?: string; bucket?: string | null; checkedInAt?: string | null }
+    | undefined;
+  const [checkinInfo, setCheckinInfo] = useState<{
+    bucket: string | null;
+    checkedInAt: string | null;
+  } | null>(
+    initialCheckinSignal && initialCheckinSignal.status && initialCheckinSignal.status !== "hidden"
+      ? {
+          bucket: initialCheckinSignal.bucket ?? null,
+          checkedInAt: initialCheckinSignal.checkedInAt ?? null,
+        }
+      : null
+  );
+  const [checkinMessage, setCheckinMessage] = useState<string | null>(null);
+  const [checkinLoading, setCheckinLoading] = useState(false);
 
   useEffect(() => {
     if (!enableLocationPicker) return;
@@ -883,6 +899,86 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
     },
     [handleChange, form.city, form.state_region, form.neighbourhood]
   );
+
+  const formatBucketLabel = (bucket: string | null | undefined) => {
+    switch (bucket) {
+      case "onsite":
+        return "On-site";
+      case "near":
+        return "Nearby";
+      case "far":
+        return "Far";
+      default:
+        return "Unknown";
+    }
+  };
+
+  const handleCheckIn = useCallback(() => {
+    if (!propertyId) {
+      setCheckinMessage("Add a pinned area first to enable check-in.");
+      return;
+    }
+    if (!form.latitude || !form.longitude) {
+      setCheckinMessage("Add a pinned area first to enable check-in.");
+      return;
+    }
+    const supabase = getSupabase();
+    if (!supabase) return;
+    if (!navigator.geolocation) {
+      setCheckinMessage("Location permission is required to check in.");
+      return;
+    }
+    setCheckinLoading(true);
+    setCheckinMessage(null);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const { accessToken, user } = await resolveAuthUser(supabase);
+          if (!user) {
+            setCheckinMessage("Please log in to check in.");
+            return;
+          }
+          const res = await fetch(`/api/properties/${propertyId}/check-in`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+            },
+            body: JSON.stringify({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+              accuracy_m: position.coords.accuracy,
+            }),
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            if (data?.code === "pin_required") {
+              setCheckinMessage("Add a pinned area first to enable check-in.");
+            } else if (res.status === 401 || res.status === 403) {
+              setCheckinMessage("Please log in to check in.");
+            } else {
+              setCheckinMessage("Couldn’t record check-in. Try again.");
+            }
+            return;
+          }
+          setCheckinInfo({
+            bucket: data?.bucket ?? null,
+            checkedInAt: data?.checkedInAt ?? new Date().toISOString(),
+          });
+          setCheckinMessage("Check-in recorded.");
+        } catch {
+          setCheckinMessage("Couldn’t record check-in. Try again.");
+        } finally {
+          setCheckinLoading(false);
+        }
+      },
+      () => {
+        setCheckinMessage("Location permission is required to check in.");
+        setCheckinLoading(false);
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 }
+    );
+  }, [form.latitude, form.longitude, getSupabase, propertyId, resolveAuthUser]);
 
   const scrollToField = (key: string) => {
     const el = document.getElementById(`field-${key}`);
@@ -1508,6 +1604,60 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                         <p className="text-xs text-slate-600">No pin selected yet.</p>
                       )}
                     </div>
+                    {propertyId && (
+                      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">
+                              Check in at this property
+                            </p>
+                            <p className="text-xs text-slate-600">
+                              Records a privacy-safe signal. We don&apos;t store GPS coordinates.
+                            </p>
+                          </div>
+                          <Button
+                            size="sm"
+                            disabled={
+                              checkinLoading || !form.latitude || !form.longitude || !propertyId
+                            }
+                            onClick={handleCheckIn}
+                          >
+                            {checkinLoading ? "Checking..." : "Check in now"}
+                          </Button>
+                        </div>
+                        {!form.latitude || !form.longitude ? (
+                          <p className="mt-2 text-xs text-amber-700">
+                            Add a pinned area first to enable check-in.
+                          </p>
+                        ) : (
+                          <div className="mt-2 space-y-1 text-xs text-slate-700">
+                            {checkinInfo ? (
+                              <p className="font-semibold">
+                                Check-in recorded: {formatBucketLabel(checkinInfo.bucket)}
+                                {checkinInfo.checkedInAt
+                                  ? ` • ${new Date(checkinInfo.checkedInAt).toLocaleString()}`
+                                  : ""}
+                              </p>
+                            ) : (
+                              <p className="text-slate-600">No check-ins yet.</p>
+                            )}
+                            {checkinMessage && (
+                              <p className="text-rose-600">{checkinMessage}</p>
+                            )}
+                            <details className="pt-1">
+                              <summary className="cursor-pointer text-sky-700">
+                                Learn what this does
+                              </summary>
+                              <p className="pt-1 text-slate-600">
+                                We compare your current location to the pinned area and store only
+                                a distance bucket (on-site, nearby, or far). No GPS coordinates are
+                                kept.
+                              </p>
+                            </details>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     <div className="space-y-1">
                       <label htmlFor="location-label" className="text-sm font-medium text-slate-700">
                         Location label (shown to tenants as area)

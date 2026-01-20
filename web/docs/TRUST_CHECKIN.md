@@ -25,6 +25,16 @@
 - Property responses include `checkin_signal` derived from the latest entry:
   - Status: `recent_checkin` / `stale_checkin` / `none` / `hidden`
   - Bucket and timestamp only; no coordinates.
+- Tenant UI shows a subtle badge (“Host checked in recently”) only when the flag is enabled and the latest check-in is recent.
+
+## Host/admin UI (R16.7d.2)
+- Listing edit page includes a “Check in at this property” card (landlord/agent/admin):
+  - Uses browser geolocation and calls `/api/properties/:id/check-in`.
+  - Disabled if no pinned area.
+  - Helper text: “Records a privacy-safe signal. We don’t store GPS coordinates.”
+- Admin settings UI (/admin/settings) includes toggle:
+  - Title: “Tenant check-in badge”
+  - Description: “Show a small ‘checked in recently’ indicator to tenants. No GPS coordinates are shown.”
 
 ## Privacy guarantees
 - No raw host coordinates persisted beyond the request lifetime.

@@ -570,3 +570,8 @@
 - Added `property_checkins` append-only table with owner/agent/admin RLS, no raw GPS stored.
 - Added feature flag `show_tenant_checkin_badge` (default off) and check-in APIs for recording/clearing.
 - Property APIs now return a flag-gated `checkin_signal` derived from latest check-in.
+
+## 2026-02-07 — vR16.7d.2-checkin-ui
+- Admin settings toggle for tenant check-in badge.
+- Host/agent listing editor shows “Check in at this property” card with privacy-safe geolocation flow.
+- Tenant property detail shows a subtle “Host checked in recently” badge when the flag is enabled.

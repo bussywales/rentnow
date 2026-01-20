@@ -6,7 +6,11 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { logAuditEvent } from "@/lib/audit/audit-log";
 
-const ALLOWED_KEYS = ["show_tenant_photo_trust_signals", "enable_location_picker"] as const;
+const ALLOWED_KEYS = [
+  "show_tenant_photo_trust_signals",
+  "enable_location_picker",
+  "show_tenant_checkin_badge",
+] as const;
 const routeLabel = "/api/admin/app-settings";
 
 export const patchSchema = z.object({

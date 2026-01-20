@@ -437,6 +437,10 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
     "show_tenant_photo_trust_signals",
     false
   );
+  const checkinSignal = (property as unknown as {
+    checkin_signal?: { status?: string; bucket?: string | null; checkedInAt?: string | null };
+  }).checkin_signal;
+  const showTenantCheckinBadge = checkinSignal?.status === "recent_checkin";
   const photoTrust = showTenantPhotoTrust
     ? derivePhotoTrust(
         (property.images ?? []) as Array<
@@ -663,6 +667,15 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </div>
             )}
           </div>
+          {isTenant && showTenantCheckinBadge && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-lg font-semibold text-slate-900">Host check-in</h3>
+              <p className="text-sm text-slate-700">Host checked in recently.</p>
+              <p className="text-xs text-slate-500">
+                Privacy-safe signal. No GPS coordinates are shown.
+              </p>
+            </div>
+          )}
           {isTenant && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">

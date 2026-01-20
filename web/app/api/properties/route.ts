@@ -20,6 +20,7 @@ import {
 } from "@/lib/properties/validation";
 import { sanitizeImageMeta } from "@/lib/properties/image-meta";
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
+import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
@@ -492,7 +493,15 @@ export async function GET(request: NextRequest) {
               { status: 400 }
             );
           }
-          return NextResponse.json({ properties: fallback.data || [] }, { status: 200 });
+          const latest = await fetchLatestCheckins(fallback.data?.map((row) => row.id) ?? []);
+          const mapped =
+            fallback.data?.map((row) => ({
+              ...row,
+              checkin_signal: buildCheckinSignal(latest.get(row.id) ?? null, {
+                flagEnabled: true,
+              }),
+            })) ?? [];
+          return NextResponse.json({ properties: mapped }, { status: 200 });
         }
         if (error) {
           logFailure({
@@ -504,7 +513,13 @@ export async function GET(request: NextRequest) {
           });
           return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
         }
-        return NextResponse.json({ properties: data || [] }, { status: 200 });
+        const latest = await fetchLatestCheckins(data?.map((row) => row.id) ?? []);
+        const mapped =
+          data?.map((row) => ({
+            ...row,
+            checkin_signal: buildCheckinSignal(latest.get(row.id) ?? null, { flagEnabled: true }),
+          })) ?? [];
+        return NextResponse.json({ properties: mapped }, { status: 200 });
       }
 
       const { data, error } = await buildOwnerQuery(true);
@@ -523,7 +538,13 @@ export async function GET(request: NextRequest) {
             { status: 400 }
           );
         }
-        return NextResponse.json({ properties: fallback.data || [] }, { status: 200 });
+        const latest = await fetchLatestCheckins(fallback.data?.map((row) => row.id) ?? []);
+        const mapped =
+          fallback.data?.map((row) => ({
+            ...row,
+            checkin_signal: buildCheckinSignal(latest.get(row.id) ?? null, { flagEnabled: true }),
+          })) ?? [];
+        return NextResponse.json({ properties: mapped }, { status: 200 });
       }
 
       if (error) {
@@ -537,7 +558,13 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
       }
 
-      return NextResponse.json({ properties: data || [] }, { status: 200 });
+      const latest = await fetchLatestCheckins(data?.map((row) => row.id) ?? []);
+      const mapped =
+        data?.map((row) => ({
+          ...row,
+          checkin_signal: buildCheckinSignal(latest.get(row.id) ?? null, { flagEnabled: true }),
+        })) ?? [];
+      return NextResponse.json({ properties: mapped }, { status: 200 });
     }
 
     const buildPublicQuery = (includePosition: boolean, cutoff: string | null) => {

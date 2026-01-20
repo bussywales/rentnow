@@ -23,3 +23,11 @@ void test("patchSchema accepts location picker payload", () => {
   });
   assert.equal(parsed.key, "enable_location_picker");
 });
+
+void test("patchSchema accepts check-in badge payload", () => {
+  const parsed = patchSchema.parse({
+    key: "show_tenant_checkin_badge",
+    value: { enabled: true },
+  });
+  assert.equal(parsed.key, "show_tenant_checkin_badge");
+});

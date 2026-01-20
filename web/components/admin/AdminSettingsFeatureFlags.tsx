@@ -22,6 +22,11 @@ const DESCRIPTIONS: Record<string, { title: string; helper: string }> = {
     title: "Location picker",
     helper: "Enable address search and map pin to capture approximate listing locations.",
   },
+  show_tenant_checkin_badge: {
+    title: "Tenant check-in badge",
+    helper:
+      "Show a small ‘checked in recently’ indicator to tenants. No GPS coordinates are shown.",
+  },
 };
 
 export default function AdminSettingsFeatureFlags({ settings }: Props) {
@@ -30,10 +35,12 @@ export default function AdminSettingsFeatureFlags({ settings }: Props) {
     () => Object.fromEntries(settings.map((s) => [s.key, s]))
   );
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const toggle = (settingKey: string, next: boolean) => {
     setError(null);
     startTransition(async () => {
+      setToast(null);
       const res = await fetch("/api/admin/app-settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -55,6 +62,12 @@ export default function AdminSettingsFeatureFlags({ settings }: Props) {
           updatedAt: data?.setting?.updated_at ?? new Date().toISOString(),
         },
       }));
+      const isBadge = settingKey === "show_tenant_checkin_badge";
+      if (isBadge) {
+        setToast(next ? "Tenant check-in badge enabled." : "Tenant check-in badge disabled.");
+      } else {
+        setToast("Updated.");
+      }
     });
   };
 
@@ -98,6 +111,7 @@ export default function AdminSettingsFeatureFlags({ settings }: Props) {
         );
       })}
       {error && <p className="text-xs text-rose-600">{error}</p>}
+      {toast && <p className="text-xs text-emerald-600">{toast}</p>}
     </div>
   );
 }

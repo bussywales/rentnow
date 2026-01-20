@@ -417,9 +417,11 @@ export async function GET(
   );
 
   const flagEnabled = await getAppSettingBool("show_tenant_checkin_badge", false);
+  const effectiveFlag =
+    flagEnabled || viewerRole === "admin" || viewerRole === "landlord" || viewerRole === "agent";
   const latestCheckins = await fetchLatestCheckins([data.id]);
   const checkinSignal = buildCheckinSignal(latestCheckins.get(data.id) ?? null, {
-    flagEnabled,
+    flagEnabled: effectiveFlag,
   });
 
   return NextResponse.json({
