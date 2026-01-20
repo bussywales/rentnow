@@ -32,6 +32,7 @@ import type {
 import { setToastQuery } from "@/lib/utils/toast";
 import { labelForField } from "@/lib/forms/listing-errors";
 import { hasPinnedLocation } from "@/lib/properties/validation";
+import { LOCATION_MICROCOPY } from "@/lib/location-microcopy";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
 type ResolvedAuth = {
@@ -1502,7 +1503,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                   <div className="space-y-3">
                     <div className="space-y-1">
                       <label htmlFor="location-search" className="text-sm font-medium text-slate-700">
-                        Search for an area
+                        {LOCATION_MICROCOPY.search.label}
                       </label>
                       <Input
                         id="location-search"
@@ -1525,18 +1526,13 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                             setLocationActiveIndex((prev) => Math.max(prev - 1, 0));
                           }
                         }}
-                        placeholder="Start typing a neighbourhood, estate, or city…"
+                        placeholder={LOCATION_MICROCOPY.search.placeholder}
                       />
-                      <p className="text-xs text-slate-500">
-                        Start here — choose the general area first. We&apos;ll pin an approximate
-                        location and auto-fill the fields below.
-                      </p>
-                      <p className="text-xs text-slate-500">
-                        Tenants see an approximate area until you choose to share the exact location.
-                      </p>
+                      <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.search.helper1}</p>
+                      <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.search.helper2}</p>
                     </div>
                     {locationSearching && (
-                      <p className="text-xs text-slate-500">Searching...</p>
+                      <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.search.loading}</p>
                     )}
                     {locationError && (
                       <p className="text-xs text-rose-600">{locationError}</p>
@@ -1572,7 +1568,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                                     )}
                                   </div>
                                   <span className="text-xs font-semibold text-sky-700">
-                                    Use
+                                    {LOCATION_MICROCOPY.search.action}
                                   </span>
                                 </button>
                               </li>
@@ -1585,9 +1581,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       !locationSearching &&
                       !locationError &&
                       locationQuery.trim().length >= 3 && (
-                        <p className="text-xs text-slate-500">
-                          No matches. Try a nearby area or city.
-                        </p>
+                        <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.search.empty}</p>
                       )}
                     <div
                       ref={locationSectionRef}
@@ -1602,14 +1596,19 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2">
                             <div className="space-y-1">
-                              <p className="text-sm font-semibold text-slate-900">Pinned area</p>
+                              <p className="text-sm font-semibold text-slate-900">
+                                {LOCATION_MICROCOPY.pinned.title}
+                              </p>
                               <p className="text-xs text-slate-600">{form.location_label}</p>
                               {(form.location_source === "geocode" ||
                                 form.location_precision === "approx") && (
                                 <p className="text-xs text-slate-500">
-                                  Approximate area (from search)
+                                  {LOCATION_MICROCOPY.pinned.secondary}
                                 </p>
                               )}
+                              <p className="text-xs text-slate-500">
+                                {LOCATION_MICROCOPY.pinned.helper}
+                              </p>
                             </div>
                             <button
                               type="button"
@@ -1662,7 +1661,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                                 })()
                               ) : (
                                 <div className="flex h-40 items-center justify-center text-xs text-slate-500">
-                                  Map preview isn&apos;t configured yet.
+                                  {LOCATION_MICROCOPY.pinned.mapMissing}
                                 </div>
                               )}
                             </div>
@@ -1673,13 +1672,13 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                           )}
                         </div>
                       ) : (
-                        <p className="text-xs text-slate-600">No pin selected yet.</p>
+                        <p className="text-xs text-slate-600">{LOCATION_MICROCOPY.pinned.noPin}</p>
                       )}
-                      {locationPublishError && (
-                        <p className="mt-2 text-xs font-semibold text-rose-600">
-                          Location is required to publish.
-                        </p>
-                      )}
+                    {locationPublishError && (
+                      <p className="mt-2 text-xs font-semibold text-rose-600">
+                        Location is required to publish.
+                      </p>
+                    )}
                     </div>
                   </div>
                 ) : null}
@@ -1703,7 +1702,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                     />
                     {autoFillHints.country && (
                       <p className="text-xs text-slate-500">
-                        Derived from area search (you can edit this)
+                        {LOCATION_MICROCOPY.fields.countryDerived}
                       </p>
                     )}
                     {renderFieldError("country")}
@@ -1719,7 +1718,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       placeholder="Lagos State"
                     />
                     {autoFillHints.state && (
-                      <p className="text-xs text-slate-500">Derived from search (editable)</p>
+                      <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.fields.derived}</p>
                     )}
                   </div>
                 </div>
@@ -1738,7 +1737,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       className={fieldErrors.city ? "ring-2 ring-rose-400 border-rose-300" : ""}
                     />
                     {autoFillHints.city && (
-                      <p className="text-xs text-slate-500">Derived from search (editable)</p>
+                      <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.fields.derived}</p>
                     )}
                     {renderFieldError("city")}
                   </div>
@@ -1753,7 +1752,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       placeholder="Lekki Phase 1"
                     />
                     {autoFillHints.neighbourhood && (
-                      <p className="text-xs text-slate-500">Derived from search (editable)</p>
+                      <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.fields.derived}</p>
                     )}
                   </div>
                 </div>
@@ -1767,7 +1766,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                     onChange={(e) => handleChange("address", e.target.value)}
                     placeholder="Street, building, house number"
                   />
-                  <p className="text-xs text-slate-500">Optional. Not used for map search.</p>
+                  <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.address.helper}</p>
                 </div>
                 {propertyId && enableLocationPicker && (
                   <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1840,7 +1839,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       className="text-sm font-semibold text-sky-700"
                       onClick={() => setShowAdvancedLocation((prev) => !prev)}
                     >
-                      {showAdvancedLocation ? "Hide advanced coordinates" : "Edit coordinates manually"}
+                      {showAdvancedLocation ? "Hide advanced coordinates" : LOCATION_MICROCOPY.advanced.toggle}
                     </button>
                     {showAdvancedLocation && (
                       <div className="grid gap-4 sm:grid-cols-2">
