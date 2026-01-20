@@ -40,8 +40,8 @@ where key='enable_location_picker';
   - Confirm static preview works with `NEXT_PUBLIC_MAPBOX_TOKEN`.
 
 ## UI
-- Listing wizard shows address search + pin selection when flag enabled.
-- Manual latitude/longitude inputs remain under "Edit coordinates" for advanced users.
+- Listing wizard shows “Search for an area” first (results + pinned card + preview) when the flag is enabled. After pinning, fill Country/State/City/Neighbourhood, then Address, then advanced coordinates.
+- Manual latitude/longitude inputs remain under "Edit coordinates" for advanced users or when the picker is disabled.
 
 ## Governance
 - Feature is behind a flag. Default is disabled.

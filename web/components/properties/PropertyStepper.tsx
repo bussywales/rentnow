@@ -296,6 +296,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       region_name?: string | null;
       place_name?: string | null;
       neighborhood_name?: string | null;
+      country_code?: string | null;
     }>
   >([]);
   const [locationSearching, setLocationSearching] = useState(false);
@@ -345,7 +346,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
           const data = await res.json().catch(() => ({}));
           if (data?.code === "MAPBOX_NOT_CONFIGURED") {
             setLocationError(
-              "Location search isn't configured yet (MAPBOX_TOKEN missing). Add it in env vars to enable search."
+              "Location search isn’t configured yet. You can still enter the details below or add coordinates manually."
             );
           } else {
             setLocationError("Location search failed. Try again.");
@@ -361,6 +362,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
           region_name?: string | null;
           place_name?: string | null;
           neighborhood_name?: string | null;
+          country_code?: string | null;
         }>;
         setLocationResults(data || []);
         if (!data || data.length === 0) {
@@ -1463,89 +1465,6 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                 </div>
               </div>
               <div className="mt-4 space-y-4">
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2" id="field-country">
-                    <label htmlFor="country" className="text-sm font-medium text-slate-700">
-                      Country <span className="text-rose-500">*</span>
-                    </label>
-                    <CountrySelect
-                      id="country"
-                      value={{
-                        code: form.country_code ?? null,
-                        name: form.country ?? null,
-                      }}
-                      onChange={(option) => {
-                        handleChange("country", option.name);
-                        handleChange("country_code", option.code);
-                      }}
-                      placeholder="Search countries"
-                    />
-                    {renderFieldError("country")}
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="state-region" className="text-sm font-medium text-slate-700">
-                      State / Region
-                    </label>
-                    <Input
-                      id="state-region"
-                      value={form.state_region || ""}
-                      onChange={(e) => handleChange("state_region", e.target.value)}
-                      placeholder="Lagos State"
-                    />
-                    {autoFillHints.state && (
-                      <p className="text-xs text-slate-500">Derived from search (editable)</p>
-                    )}
-                  </div>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2" id="field-city">
-                    <label htmlFor="city" className="text-sm font-medium text-slate-700">
-                      City <span className="text-rose-500">*</span>
-                    </label>
-                    <Input
-                      id="city"
-                      required
-                      value={form.city || ""}
-                      onChange={(e) => handleChange("city", e.target.value)}
-                      placeholder="Lagos, Nairobi, Accra..."
-                      aria-required="true"
-                      className={fieldErrors.city ? "ring-2 ring-rose-400 border-rose-300" : ""}
-                    />
-                    {autoFillHints.city && (
-                      <p className="text-xs text-slate-500">Derived from search (editable)</p>
-                    )}
-                    {renderFieldError("city")}
-                  </div>
-                  <div className="space-y-2">
-                    <label htmlFor="neighbourhood" className="text-sm font-medium text-slate-700">
-                      Neighbourhood
-                    </label>
-                    <Input
-                      id="neighbourhood"
-                      value={form.neighbourhood || ""}
-                      onChange={(e) => handleChange("neighbourhood", e.target.value)}
-                      placeholder="Lekki Phase 1"
-                    />
-                    {autoFillHints.neighbourhood && (
-                      <p className="text-xs text-slate-500">Derived from search (editable)</p>
-                    )}
-                  </div>
-                </div>
-                    <div className="space-y-2">
-                      <label htmlFor="address" className="text-sm font-medium text-slate-700">
-                        Address
-                      </label>
-                      <Input
-                        id="address"
-                        value={form.address || ""}
-                        onChange={(e) => handleChange("address", e.target.value)}
-                        placeholder="Street, building, house number"
-                      />
-                      <p className="text-xs text-slate-500">
-                        Address is optional and not used for map search. Use “Search for an area” to set the map pin.
-                      </p>
-                    </div>
-
                 {enableLocationPicker ? (
                   <div className="space-y-3">
                     <div className="space-y-1">
@@ -1573,14 +1492,14 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                             setLocationActiveIndex((prev) => Math.max(prev - 1, 0));
                           }
                         }}
-                        placeholder="Neighborhood or city"
+                        placeholder="Start typing a neighbourhood, estate, or city…"
                       />
                       <p className="text-xs text-slate-500">
-                        Start typing to search. Choose a result to pin an approximate location.
+                        Start here — choose the general area first. We&apos;ll pin an approximate
+                        location and auto-fill the fields below.
                       </p>
                       <p className="text-xs text-slate-500">
-                        We show tenants an approximate area until you choose to share the exact
-                        location.
+                        Tenants see an approximate area until you choose to share the exact location.
                       </p>
                     </div>
                     {locationSearching && (
@@ -1597,6 +1516,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                               result.neighborhood_name,
                               result.place_name,
                               result.region_name,
+                              result.country_code,
                             ]
                               .filter(Boolean)
                               .join(" • ");
@@ -1728,71 +1648,155 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                         </p>
                       )}
                     </div>
-                    {propertyId && (
-                      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <p className="text-sm font-semibold text-slate-900">
-                              Check in at this property
-                            </p>
-                            <p className="text-xs text-slate-600">
-                              Records a privacy-safe signal. We don&apos;t store GPS coordinates.
-                            </p>
-                          </div>
-                          <Button
-                            size="sm"
-                            disabled={
-                              checkinLoading || !form.latitude || !form.longitude || !propertyId
-                            }
-                            onClick={handleCheckIn}
-                          >
-                            {checkinLoading ? "Checking..." : "Check in now"}
-                          </Button>
-                        </div>
-                        {!form.latitude || !form.longitude ? (
-                          <p className="mt-2 text-xs text-amber-700">
-                            Add a pinned area first to enable check-in.
+                  </div>
+                ) : null}
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2" id="field-country">
+                    <label htmlFor="country" className="text-sm font-medium text-slate-700">
+                      Country <span className="text-rose-500">*</span>
+                    </label>
+                    <CountrySelect
+                      id="country"
+                      value={{
+                        code: form.country_code ?? null,
+                        name: form.country ?? null,
+                      }}
+                      onChange={(option) => {
+                        handleChange("country", option.name);
+                        handleChange("country_code", option.code);
+                      }}
+                      placeholder="Search countries"
+                    />
+                    {renderFieldError("country")}
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="state-region" className="text-sm font-medium text-slate-700">
+                      State / Region
+                    </label>
+                    <Input
+                      id="state-region"
+                      value={form.state_region || ""}
+                      onChange={(e) => handleChange("state_region", e.target.value)}
+                      placeholder="Lagos State"
+                    />
+                    {autoFillHints.state && (
+                      <p className="text-xs text-slate-500">Derived from search (editable)</p>
+                    )}
+                  </div>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2" id="field-city">
+                    <label htmlFor="city" className="text-sm font-medium text-slate-700">
+                      City <span className="text-rose-500">*</span>
+                    </label>
+                    <Input
+                      id="city"
+                      required
+                      value={form.city || ""}
+                      onChange={(e) => handleChange("city", e.target.value)}
+                      placeholder="Lagos, Nairobi, Accra..."
+                      aria-required="true"
+                      className={fieldErrors.city ? "ring-2 ring-rose-400 border-rose-300" : ""}
+                    />
+                    {autoFillHints.city && (
+                      <p className="text-xs text-slate-500">Derived from search (editable)</p>
+                    )}
+                    {renderFieldError("city")}
+                  </div>
+                  <div className="space-y-2">
+                    <label htmlFor="neighbourhood" className="text-sm font-medium text-slate-700">
+                      Neighbourhood
+                    </label>
+                    <Input
+                      id="neighbourhood"
+                      value={form.neighbourhood || ""}
+                      onChange={(e) => handleChange("neighbourhood", e.target.value)}
+                      placeholder="Lekki Phase 1"
+                    />
+                    {autoFillHints.neighbourhood && (
+                      <p className="text-xs text-slate-500">Derived from search (editable)</p>
+                    )}
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label htmlFor="address" className="text-sm font-medium text-slate-700">
+                    Address
+                  </label>
+                  <Input
+                    id="address"
+                    value={form.address || ""}
+                    onChange={(e) => handleChange("address", e.target.value)}
+                    placeholder="Street, building, house number"
+                  />
+                  <p className="text-xs text-slate-500">Optional. Not used for map search.</p>
+                </div>
+                {propertyId && enableLocationPicker && (
+                  <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">
+                          Check in at this property
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          Records a privacy-safe signal. We don&apos;t store GPS coordinates.
+                        </p>
+                      </div>
+                      <Button
+                        size="sm"
+                        disabled={
+                          checkinLoading || !form.latitude || !form.longitude || !propertyId
+                        }
+                        onClick={handleCheckIn}
+                      >
+                        {checkinLoading ? "Checking..." : "Check in now"}
+                      </Button>
+                    </div>
+                    {!form.latitude || !form.longitude ? (
+                      <p className="mt-2 text-xs text-amber-700">
+                        Add a pinned area first to enable check-in.
+                      </p>
+                    ) : (
+                      <div className="mt-2 space-y-1 text-xs text-slate-700">
+                        {checkinInfo ? (
+                          <p className="font-semibold">
+                            Check-in recorded: {formatBucketLabel(checkinInfo.bucket)}
+                            {checkinInfo.checkedInAt
+                              ? ` • ${new Date(checkinInfo.checkedInAt).toLocaleString()}`
+                              : ""}
                           </p>
                         ) : (
-                          <div className="mt-2 space-y-1 text-xs text-slate-700">
-                            {checkinInfo ? (
-                              <p className="font-semibold">
-                                Check-in recorded: {formatBucketLabel(checkinInfo.bucket)}
-                                {checkinInfo.checkedInAt
-                                  ? ` • ${new Date(checkinInfo.checkedInAt).toLocaleString()}`
-                                  : ""}
-                              </p>
-                            ) : (
-                              <p className="text-slate-600">No check-ins yet.</p>
-                            )}
-                            {checkinMessage && (
-                              <p className="text-rose-600">{checkinMessage}</p>
-                            )}
-                            <details className="pt-1">
-                              <summary className="cursor-pointer text-sky-700">
-                                Learn what this does
-                              </summary>
-                              <p className="pt-1 text-slate-600">
-                                We compare your current location to the pinned area and store only
-                                a distance bucket (on-site, nearby, or far). No GPS coordinates are
-                                kept.
-                              </p>
-                            </details>
-                          </div>
+                          <p className="text-slate-600">No check-ins yet.</p>
                         )}
+                        {checkinMessage && (
+                          <p className="text-rose-600">{checkinMessage}</p>
+                        )}
+                        <details className="pt-1">
+                          <summary className="cursor-pointer text-sky-700">
+                            Learn what this does
+                          </summary>
+                          <p className="pt-1 text-slate-600">
+                            We compare your current location to the pinned area and store only a
+                            distance bucket (on-site, nearby, or far). No GPS coordinates are kept.
+                          </p>
+                        </details>
                       </div>
                     )}
-                    <div className="space-y-1">
-                      <label htmlFor="location-label" className="text-sm font-medium text-slate-700">
-                        Location label (shown to tenants as area)
-                      </label>
-                      <Input
-                        id="location-label"
-                        value={form.location_label || ""}
-                        onChange={(e) => handleChange("location_label", e.target.value)}
-                        placeholder="e.g. Wuse Zone 2, Abuja"
-                      />
-                    </div>
+                  </div>
+                )}
+                <div className="space-y-1">
+                  <label htmlFor="location-label" className="text-sm font-medium text-slate-700">
+                    Location label (shown to tenants as area)
+                  </label>
+                  <Input
+                    id="location-label"
+                    value={form.location_label || ""}
+                    onChange={(e) => handleChange("location_label", e.target.value)}
+                    placeholder="e.g. Wuse Zone 2, Abuja"
+                  />
+                </div>
+                {enableLocationPicker ? (
+                  <>
                     <button
                       type="button"
                       className="text-sm font-semibold text-sky-700"
@@ -1847,53 +1851,64 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                         </div>
                       </div>
                     )}
-                  </div>
+                  </>
                 ) : (
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <label htmlFor="latitude" className="text-sm font-medium text-slate-700">
-                          Latitude
-                        </label>
-                        <InfoPopover
-                          ariaLabel="Latitude and longitude help"
-                          title={COORDINATES_HELP.title}
-                          bullets={COORDINATES_HELP.bullets}
+                  <>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                      Location search isn&apos;t configured yet. You can still enter the details below
+                      or add coordinates manually.
+                    </div>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <label htmlFor="latitude" className="text-sm font-medium text-slate-700">
+                            Latitude
+                          </label>
+                          <InfoPopover
+                            ariaLabel="Latitude and longitude help"
+                            title={COORDINATES_HELP.title}
+                            bullets={COORDINATES_HELP.bullets}
+                          />
+                        </div>
+                        <Input
+                          id="latitude"
+                          type="number"
+                          step="0.000001"
+                          value={form.latitude ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            handleChange("latitude", val === "" ? null : Number(val));
+                            handleChange("location_source", "manual");
+                            handleChange("location_precision", "approx");
+                          }}
+                          placeholder="6.5244"
                         />
                       </div>
-                      <Input
-                        id="latitude"
-                        type="number"
-                        step="0.000001"
-                        value={form.latitude ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          handleChange("latitude", val === "" ? null : Number(val));
-                          handleChange("location_source", "manual");
-                          handleChange("location_precision", "approx");
-                        }}
-                        placeholder="6.5244"
-                      />
+                      <div className="space-y-2">
+                        <label htmlFor="longitude" className="text-sm font-medium text-slate-700">
+                          Longitude
+                        </label>
+                        <Input
+                          id="longitude"
+                          type="number"
+                          step="0.000001"
+                          value={form.longitude ?? ""}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            handleChange("longitude", val === "" ? null : Number(val));
+                            handleChange("location_source", "manual");
+                            handleChange("location_precision", "approx");
+                          }}
+                          placeholder="3.3792"
+                        />
+                      </div>
                     </div>
-                    <div className="space-y-2">
-                      <label htmlFor="longitude" className="text-sm font-medium text-slate-700">
-                        Longitude
-                      </label>
-                      <Input
-                        id="longitude"
-                        type="number"
-                        step="0.000001"
-                        value={form.longitude ?? ""}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          handleChange("longitude", val === "" ? null : Number(val));
-                          handleChange("location_source", "manual");
-                          handleChange("location_precision", "approx");
-                        }}
-                        placeholder="3.3792"
-                      />
-                    </div>
-                  </div>
+                    {locationPublishError && (
+                      <p className="text-xs font-semibold text-rose-600">
+                        Location is required to publish.
+                      </p>
+                    )}
+                  </>
                 )}
               </div>
             </section>

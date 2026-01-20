@@ -590,3 +590,8 @@
 - Admin settings includes a location configuration status card (flags + Mapbox token presence) and a “Test geocode” action.
 - Added admin-only config status API; no secrets exposed.
 - Mapbox setup instructions clarified for local and Vercel; expected error codes documented.
+
+## 2026-02-07 — vR16.7h-location-search-first
+- Location section reordered to start with “Search for an area” followed by pinned area and preview.
+- Updated helper copy, empty/error states, and clearer address guidance; manual coordinates remain available.
+- Privacy guardrails retained: no tenant-facing coordinates; publish guard and feature flags unchanged.
