@@ -600,3 +600,6 @@
 - Improved Mapbox parsing to capture country, county/district, locality, and neighbourhood metadata.
 - Autofill now sets UK counties into State/Region, reliably sets Country, and fills neighbourhood when provided.
 - Added parser tests for UK context and missing neighbourhood fallback.
+
+## 2026-02-08 — vR16.7h.1-location-microcopy-pack
+- Documented the canonical Location microcopy pack covering search-first flow, pinned card, address helper, derived hints, and non-configured states.
