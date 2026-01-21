@@ -35,6 +35,7 @@ import { labelForField } from "@/lib/forms/listing-errors";
 import { hasPinnedLocation } from "@/lib/properties/validation";
 import { LOCATION_MICROCOPY } from "@/lib/location-microcopy";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
+import { sanitizePostalCode } from "@/lib/geocode/normalize-location";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
 type ResolvedAuth = {
@@ -446,7 +447,9 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       state_region: normalizeOptionalString(form.state_region),
       admin_area_1: normalizeOptionalString(form.admin_area_1 ?? form.state_region),
       admin_area_2: normalizeOptionalString(form.admin_area_2),
-      postal_code: normalizeOptionalString(form.postal_code),
+      postal_code: normalizeOptionalString(
+        sanitizePostalCode(form.country_code ?? null, form.postal_code ?? null)
+      ),
       city: normalizeOptionalString(form.city),
       neighbourhood: normalizeOptionalString(form.neighbourhood),
       address: normalizeOptionalString(form.address),
@@ -1006,21 +1009,18 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
         const next = { ...prev };
         const countryCode = result.country_code ? result.country_code.toUpperCase() : null;
         const countryFromCode = countryCode ? getCountryByCode(countryCode) : null;
-        const countryFromName = !countryFromCode && result.country_name ? getCountryByName(result.country_name) : null;
-        const shouldFillCountry =
-          (!form.country || !form.country.trim()) && (countryFromCode || countryFromName);
-        if (shouldFillCountry) {
-          const option = countryFromCode || countryFromName;
-          if (option) {
-            handleChange("country", option.name);
-            handleChange("country_code", option.code);
-            next.country = true;
-          }
+        const countryFromName =
+          !countryFromCode && result.country_name ? getCountryByName(result.country_name) : null;
+        const option = countryFromCode || countryFromName;
+        if (option) {
+          handleChange("country", option.name);
+          handleChange("country_code", option.code);
+          next.country = true;
         }
         const shouldFillCity =
           (!form.city || !form.city.trim()) &&
           !userEdited.city &&
-          (result.place_name || result.locality || result.locality_name);
+          (result.locality || result.place_name || result.locality_name || result.district_name);
         const shouldFillState =
           (!form.state_region || !form.state_region.trim()) &&
           !userEdited.state_region &&
@@ -1034,12 +1034,16 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
           !userEdited.neighbourhood &&
           (result.sublocality ||
             result.neighborhood_name ||
-            (result.locality_name && result.locality_name !== result.place_name));
+            result.locality_name ||
+            (result.place_name && result.place_name !== result.locality));
         const shouldFillPostal =
           (!form.postal_code || !form.postal_code.trim()) && !userEdited.postal_code && !!result.postal_code;
 
         if (shouldFillCity) {
-          handleChange("city", result.place_name ?? result.locality ?? result.locality_name ?? "");
+          handleChange(
+            "city",
+            result.locality ?? result.place_name ?? result.locality_name ?? result.district_name ?? ""
+          );
           next.city = true;
         }
         if (shouldFillState) {
@@ -1058,14 +1062,21 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
             "neighbourhood",
             result.sublocality ??
               result.neighborhood_name ??
-              result.locality_name ??
+              (result.locality_name && result.locality_name !== result.locality
+                ? result.locality_name
+                : null) ??
               result.place_name ??
+              result.district_name ??
               ""
           );
           next.neighbourhood = true;
         }
         if (shouldFillPostal) {
-          handleChange("postal_code", result.postal_code ?? "");
+          const sanitizedPostal = sanitizePostalCode(
+            countryCode || form.country_code || null,
+            result.postal_code ?? null
+          );
+          handleChange("postal_code", sanitizedPostal ?? "");
           next.postal_code = true;
         }
         return next;
@@ -1075,7 +1086,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       handleChange,
       form.admin_area_2,
       form.city,
-      form.country,
+      form.country_code,
       form.neighbourhood,
       form.postal_code,
       form.state_region,
@@ -1759,6 +1770,15 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                                 handleChange("location_source", null);
                                 handleChange("location_precision", null);
                                 setAutoFillHints({});
+                                setUserEdited((prev) => ({
+                                  ...prev,
+                                  country: false,
+                                  city: false,
+                                  state_region: false,
+                                  neighbourhood: false,
+                                  admin_area_2: false,
+                                  postal_code: false,
+                                }));
                                 setLocationQuery("");
                               }}
                             >

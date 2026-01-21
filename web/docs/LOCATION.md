@@ -76,6 +76,12 @@ where key='enable_location_picker';
 - Weak: everything else (including no pin).
 - Missing hints guide hosts: pin an area, add state/region, add county/district/LGA (optional), add postal code (optional).
 
+## Normalization rules (R16.7k.1)
+- Neighbourhood/Area priority: neighborhood > locality > place (only if smaller than city) > district; never duplicates city/admin areas or postcode text.
+- County/District/LGA priority: district > region (when unused by admin_area_1) > place if distinct from city; avoid UK-level labels like “United Kingdom”.
+- City/Town priority: place > locality > district.
+- Postal codes are sanitized per country (single token, trimmed; GB/CA uppercased with spacing, US keeps ZIP/ZIP+4).
+
 ## Normalized examples
 - UK: country_code=GB, admin_area_1=England, admin_area_2=Staffordshire (district/county), postal_code when selecting a postcode result.
 - Nigeria: country_code=NG, admin_area_1=Lagos, locality/ neighbourhood best-effort (e.g., Ikoyi).

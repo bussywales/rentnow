@@ -2,6 +2,11 @@
 
 # Versions
 
+## 2026-01-24 — vR16.7k.1-location-normalization-polish
+- Improved Mapbox normalization: neighbourhood prioritization (neighborhood > locality > place > district), UK-friendly county/district mapping, and city fallbacks.
+- Postal codes now sanitized (single token, country-aware casing/spacing) to avoid mixed values.
+- “Use” on search results hard-syncs country and keeps derived hints accurate; no tenant-facing changes or privacy regressions.
+
 ## 2026-01-24 — vR16.7k.0-location-quality-host
 - Added host-only “Location quality” indicator in the listing Location step with Strong/Medium/Weak guidance; non-blocking and no tenant surface changes.
 - Location quality uses existing normalized fields and pin presence (no new flags/migrations) and never exposes coordinates.

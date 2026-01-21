@@ -19,6 +19,7 @@ void test("normalizeMapboxFeature parses GB with district", () => {
   assert.equal(result.admin_area_1, "England");
   assert.equal(result.admin_area_2, "Staffordshire");
   assert.equal(result.locality, "Stoke-on-Trent");
+  assert.equal(result.sublocality, "Burslem");
   assert.equal(result.postal_code, "ST4 7QB");
 });
 
@@ -37,7 +38,7 @@ void test("normalizeMapboxFeature parses NG with state/city", () => {
   assert.equal(result.country_code, "NG");
   assert.equal(result.admin_area_1, "Lagos");
   assert.equal(result.locality, "Ikoyi");
-  assert.equal(result.sublocality, "Ikoyi");
+  assert.equal(result.sublocality, null);
 });
 
 void test("normalizeMapboxFeature parses US with state", () => {
