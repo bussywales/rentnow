@@ -36,7 +36,14 @@ import { hasPinnedLocation } from "@/lib/properties/validation";
 import { LOCATION_MICROCOPY } from "@/lib/location-microcopy";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
 import { sanitizePostalCode } from "@/lib/geocode/normalize-location";
-import { countryNameFromCode, looksLikePostalCode } from "@/lib/location/search-hints";
+import {
+  buildCountryHintKey,
+  classifyLocationQuery,
+  countryCodeFromQueryType,
+  countryNameFromCode,
+  inferCountryFromResults,
+  shouldShowCountryCta,
+} from "@/lib/location/search-hints";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
 type ResolvedAuth = {
@@ -354,6 +361,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   const locationSearchInputRef = useRef<HTMLInputElement | null>(null);
   const countryButtonRef = useRef<HTMLButtonElement | null>(null);
   const [locationActiveIndex, setLocationActiveIndex] = useState(0);
+  const [dismissedCountryHintKey, setDismissedCountryHintKey] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enableLocationPicker) return;
@@ -512,7 +520,18 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   );
   const searchCountryName =
     countryNameFromCode(form.country_code ?? null) || (form.country ?? null);
-  const postalKind = looksLikePostalCode(locationQuery);
+  const hasCountrySelected =
+    !!(form.country_code && form.country_code.trim()) ||
+    !!(form.country && form.country.trim());
+  const countryHint = useMemo(() => {
+    const queryType = classifyLocationQuery(locationQuery);
+    const fromQuery = countryCodeFromQueryType(queryType);
+    const fromResults = inferCountryFromResults(locationResults);
+    const countryCode = queryType !== "NONE" ? fromQuery ?? fromResults : null;
+    const countryName = countryNameFromCode(countryCode);
+    const key = queryType !== "NONE" ? buildCountryHintKey(queryType, countryCode) : null;
+    return { queryType, countryCode, countryName, key };
+  }, [locationQuery, locationResults]);
   const hasPin =
     hasPinnedLocation({
       latitude: form.latitude ?? null,
@@ -520,6 +539,32 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       location_label: form.location_label ?? null,
       location_place_id: form.location_place_id ?? null,
     }) || false;
+  const countryCtaMessage = useMemo(() => {
+    if (!countryHint.key) return null;
+    if (countryHint.countryCode === "GB") return LOCATION_MICROCOPY.cta.countryHint.uk;
+    if (countryHint.countryCode === "US") return LOCATION_MICROCOPY.cta.countryHint.us;
+    if (countryHint.countryCode === "CA") return LOCATION_MICROCOPY.cta.countryHint.ca;
+    if (countryHint.key === "GENERIC_POSTAL_LIKE") return LOCATION_MICROCOPY.cta.countryHint.generic;
+    return null;
+  }, [countryHint.countryCode, countryHint.key]);
+  const countryCtaButtonLabel = countryHint.countryName
+    ? `${LOCATION_MICROCOPY.cta.countryHint.buttonPrefix} ${countryHint.countryName}`
+    : "Set country";
+  const showCountryCta =
+    shouldShowCountryCta({
+      countrySelected: hasCountrySelected,
+      ctaKey: countryHint.key,
+      dismissedKey: dismissedCountryHintKey,
+    }) &&
+    !locationError &&
+    !locationSearching &&
+    !!countryHint.key &&
+    !!countryCtaMessage;
+  useEffect(() => {
+    if (!hasCountrySelected && dismissedCountryHintKey) {
+      setDismissedCountryHintKey(null);
+    }
+  }, [dismissedCountryHintKey, hasCountrySelected]);
 
   const previewImages = useMemo(() => {
     const mapped = imageUrls.map((url, index) => ({
@@ -993,6 +1038,32 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       autoFillHints.state,
     ]
   );
+
+  const handleApplyCountryFromHint = useCallback(() => {
+    if (!countryHint.key) return;
+    const option =
+      (countryHint.countryCode ? getCountryByCode(countryHint.countryCode) : null) ||
+      (countryHint.countryName ? getCountryByName(countryHint.countryName) : null);
+    if (option) {
+      handleChange("country", option.name);
+      handleChange("country_code", option.code);
+    } else {
+      if (countryHint.countryName) handleChange("country", countryHint.countryName);
+      if (countryHint.countryCode) handleChange("country_code", countryHint.countryCode);
+    }
+    setDismissedCountryHintKey(countryHint.key);
+    countryButtonRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "center",
+    });
+    countryButtonRef.current?.focus();
+    countryButtonRef.current?.click();
+  }, [
+    countryHint.countryCode,
+    countryHint.countryName,
+    countryHint.key,
+    handleChange,
+  ]);
 
   const clearPinnedLocation = useCallback(() => {
     handleChange("latitude", null);
@@ -1747,9 +1818,17 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                         {locationError}
                       </p>
                     )}
-                    {!locationError && !locationSearching && postalKind && !form.country_code && !form.country && (
-                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                        Looks like a postcode — choose a country to improve results.
+                    {showCountryCta && countryCtaMessage && (
+                      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        <span>{countryCtaMessage}</span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={handleApplyCountryFromHint}
+                        >
+                          {countryCtaButtonLabel}
+                        </Button>
                       </div>
                     )}
                     {!locationError && locationSearched && hasPin && (

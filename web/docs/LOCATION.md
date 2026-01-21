@@ -79,7 +79,7 @@ where key='enable_location_picker';
 ## Search clarity (host-only, picker enabled)
 - Banner shows the active bias: “Searching in {country}” or “Searching worldwide (pick a country for better results)” when no country is set.
 - “Why these results?” helper explains that we prioritise the selected country and proximity to the pin (if any).
-- Postcode hint appears when the query looks like a postcode but no country is selected: “Looks like a postcode — choose a country to improve results.”
+- Postcode CTA appears when the query looks like a postcode and no country is selected (UK/US/CA-specific when detected, generic otherwise) and lets hosts set the country in one click to re-run the search.
 - Pin bias tip appears when proximity is applied: “Tip: Your pinned area is influencing results. Clear the pin to search elsewhere.”
 - Empty results show a guided state with actions: Switch country, Clear pinned area (if set), and Try a broader search.
 - If Mapbox isn’t configured, the picker explains it and reminds hosts they can still enter fields manually.

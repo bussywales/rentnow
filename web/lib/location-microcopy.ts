@@ -35,6 +35,15 @@ export const LOCATION_MICROCOPY = {
     neighbourhoodLabel: "Neighbourhood",
     derived: "Derived from search (editable)",
   },
+  cta: {
+    countryHint: {
+      generic: "Looks like a postcode — set a country to improve results.",
+      uk: "Looks like a UK postcode — set country to United Kingdom",
+      us: "Looks like a US ZIP code — set country to United States",
+      ca: "Looks like a Canadian postal code — set country to Canada",
+      buttonPrefix: "Set country to",
+    },
+  },
   address: {
     label: "Address",
     placeholder: "Street, building, house number",

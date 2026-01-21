@@ -2,6 +2,11 @@
 
 # Versions
 
+## 2026-01-24 — vR16.7k.3-postcode-country-cta
+- Location picker now detects postcode/ZIP/FSA queries and shows a country-specific CTA (UK/US/CA) that sets the country in one click, re-searches with bias, and auto-hides after use.
+- When no country is set but search results clearly point to one country, the CTA prefers that country; the fallback remains a generic postcode prompt.
+- Playwright and unit guardrails cover postcode detection, country inference, CTA suppression with country selected, and auto-hide behaviour.
+
 ## 2026-01-24 — vR16.7k.2-location-search-clarity
 - Location picker now surfaces “Searching in {country}” with country-aware context and a “Why these results?” helper about country/pin bias.
 - Postcode-looking queries without a country show a hint to select a country; pin-biased searches show a clear pin influence tip with a one-click clear action.

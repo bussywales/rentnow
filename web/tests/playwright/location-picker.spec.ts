@@ -28,11 +28,17 @@ test.describe("Location picker", () => {
     ).toBeVisible();
   });
 
-  test("shows postcode hint when country not selected", async ({ page }) => {
+  test("postcode CTA sets country when none selected", async ({ page }) => {
     await page.goto("/dashboard/properties/new");
     await page.getByLabel("Search for an area").fill("ST6 3EG");
     await expect(
-      page.getByText("Looks like a postcode — choose a country to improve results.")
+      page.getByText("Looks like a UK postcode — set country to United Kingdom")
     ).toBeVisible();
+    await page.getByRole("button", { name: "Set country to United Kingdom" }).click();
+    await expect(page.getByRole("button", { name: /GB - United Kingdom/ })).toBeVisible();
+    await expect(page.getByText("Searching in United Kingdom")).toBeVisible();
+    await expect(
+      page.getByText("Looks like a UK postcode — set country to United Kingdom")
+    ).toHaveCount(0);
   });
 });
