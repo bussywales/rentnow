@@ -76,6 +76,14 @@ where key='enable_location_picker';
 - Weak: everything else (including no pin).
 - Missing hints guide hosts: pin an area, add state/region, add county/district/LGA (optional), add postal code (optional).
 
+## Search clarity (host-only, picker enabled)
+- Banner shows the active bias: “Searching in {country}” or “Searching worldwide (pick a country for better results)” when no country is set.
+- “Why these results?” helper explains that we prioritise the selected country and proximity to the pin (if any).
+- Postcode hint appears when the query looks like a postcode but no country is selected: “Looks like a postcode — choose a country to improve results.”
+- Pin bias tip appears when proximity is applied: “Tip: Your pinned area is influencing results. Clear the pin to search elsewhere.”
+- Empty results show a guided state with actions: Switch country, Clear pinned area (if set), and Try a broader search.
+- If Mapbox isn’t configured, the picker explains it and reminds hosts they can still enter fields manually.
+
 ## Normalization rules (R16.7k.1)
 - Neighbourhood/Area priority: neighborhood > locality > place (only if smaller than city) > district; never duplicates city/admin areas or postcode text.
 - County/District/LGA priority: district > region (when unused by admin_area_1) > place if distinct from city; avoid UK-level labels like “United Kingdom”.

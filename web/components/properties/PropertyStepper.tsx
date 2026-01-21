@@ -36,6 +36,7 @@ import { hasPinnedLocation } from "@/lib/properties/validation";
 import { LOCATION_MICROCOPY } from "@/lib/location-microcopy";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
 import { sanitizePostalCode } from "@/lib/geocode/normalize-location";
+import { countryNameFromCode, looksLikePostalCode } from "@/lib/location/search-hints";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
 type ResolvedAuth = {
@@ -313,6 +314,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
     }>
   >([]);
   const [locationSearching, setLocationSearching] = useState(false);
+  const [locationSearched, setLocationSearched] = useState(false);
   const [showAdvancedLocation, setShowAdvancedLocation] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [autoFillHints, setAutoFillHints] = useState<{
@@ -350,6 +352,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   const [locationPublishError, setLocationPublishError] = useState(false);
   const locationSectionRef = useRef<HTMLDivElement | null>(null);
   const locationSearchInputRef = useRef<HTMLInputElement | null>(null);
+  const countryButtonRef = useRef<HTMLButtonElement | null>(null);
   const [locationActiveIndex, setLocationActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -359,8 +362,10 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
     const query = locationQuery.trim();
     if (query.length < 3) {
       setLocationResults([]);
+      setLocationSearched(false);
       return () => controller.abort();
     }
+    setLocationSearched(false);
     const timeout = window.setTimeout(async () => {
       setLocationSearching(true);
       try {
@@ -378,12 +383,13 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
           const data = await res.json().catch(() => ({}));
           if (data?.code === "MAPBOX_NOT_CONFIGURED") {
             setLocationError(
-              "Location search isn’t configured yet. You can still enter the details below or add coordinates manually."
+              "Location search isn't configured yet (MAPBOX_TOKEN missing). You can still enter location fields manually below."
             );
           } else {
             setLocationError("Location search failed. Try again.");
           }
           setLocationResults([]);
+          setLocationSearched(false);
           return;
         }
         const data = (await res.json()) as Array<{
@@ -400,9 +406,8 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
           country_name?: string | null;
         }>;
         setLocationResults(data || []);
-        if (!data || data.length === 0) {
-          setLocationError("No matches. Try a nearby area or city.");
-        }
+        setLocationSearched(true);
+        setLocationError(null);
       } catch (err) {
         if (!(err instanceof DOMException && err.name === "AbortError")) {
           console.warn("geocode search failed", err);
@@ -505,6 +510,16 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       form.state_region,
     ]
   );
+  const searchCountryName =
+    countryNameFromCode(form.country_code ?? null) || (form.country ?? null);
+  const postalKind = looksLikePostalCode(locationQuery);
+  const hasPin =
+    hasPinnedLocation({
+      latitude: form.latitude ?? null,
+      longitude: form.longitude ?? null,
+      location_label: form.location_label ?? null,
+      location_place_id: form.location_place_id ?? null,
+    }) || false;
 
   const previewImages = useMemo(() => {
     const mapped = imageUrls.map((url, index) => ({
@@ -955,6 +970,10 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
         setAutoFillHints((prev) => ({ ...prev, postal_code: false }));
         setUserEdited((prev) => ({ ...prev, postal_code: true }));
       }
+      if (key === "country_code" && autoFillHints.country) {
+        setAutoFillHints((prev) => ({ ...prev, country: false }));
+        setUserEdited((prev) => ({ ...prev, country: true }));
+      }
       if (key === "state_region") {
         setForm((prev) => ({
           ...prev,
@@ -974,6 +993,26 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       autoFillHints.state,
     ]
   );
+
+  const clearPinnedLocation = useCallback(() => {
+    handleChange("latitude", null);
+    handleChange("longitude", null);
+    handleChange("location_label", null);
+    handleChange("location_place_id", null);
+    handleChange("location_source", null);
+    handleChange("location_precision", null);
+    setAutoFillHints({});
+    setUserEdited((prev) => ({
+      ...prev,
+      country: false,
+      city: false,
+      state_region: false,
+      neighbourhood: false,
+      admin_area_2: false,
+      postal_code: false,
+    }));
+    setLocationQuery("");
+  }, [handleChange]);
 
   const applyLocationResult = useCallback(
     (
@@ -1652,6 +1691,23 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
               <div className="mt-4 space-y-4" ref={locationSectionRef}>
                 {enableLocationPicker ? (
                   <div className="space-y-3">
+                    <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <div className="space-y-1">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {searchCountryName
+                            ? `Searching in ${searchCountryName}`
+                            : "Searching worldwide (pick a country for better results)"}
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          Country selection improves accuracy and matches nearby your pinned area.
+                        </p>
+                      </div>
+                      <InfoPopover
+                        ariaLabel="Why these results?"
+                        title="Why these results?"
+                        bullets={["We prioritise matches in your selected country and near your pinned area (if set)."]}
+                      />
+                    </div>
                     <div className="space-y-1">
                       <label htmlFor="location-search" className="text-sm font-medium text-slate-700">
                         {LOCATION_MICROCOPY.search.label}
@@ -1687,7 +1743,28 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.search.loading}</p>
                     )}
                     {locationError && (
-                      <p className="text-xs text-rose-600">{locationError}</p>
+                      <p className="text-xs text-rose-600 whitespace-pre-line">
+                        {locationError}
+                      </p>
+                    )}
+                    {!locationError && !locationSearching && postalKind && !form.country_code && !form.country && (
+                      <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                        Looks like a postcode — choose a country to improve results.
+                      </div>
+                    )}
+                    {!locationError && locationSearched && hasPin && (
+                      <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-800 flex items-center justify-between gap-2">
+                        <span>
+                          Tip: Your pinned area is influencing results. Clear the pin to search elsewhere.
+                        </span>
+                        <button
+                          type="button"
+                          className="text-sky-700 font-semibold"
+                          onClick={clearPinnedLocation}
+                        >
+                          Clear pinned area
+                        </button>
+                      </div>
                     )}
                     {locationResults.length > 0 && (
                       <div className="rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -1729,11 +1806,55 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                         </ul>
                       </div>
                     )}
-                    {locationResults.length === 0 &&
+                    {locationSearched &&
+                      locationResults.length === 0 &&
                       !locationSearching &&
-                      !locationError &&
-                      locationQuery.trim().length >= 3 && (
-                        <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.search.empty}</p>
+                      !locationError && (
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-800 shadow-sm space-y-2">
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">No matches found</p>
+                            <p className="text-xs text-slate-600">
+                              {searchCountryName
+                                ? "Try a nearby town/city, or switch country."
+                                : "Try adding a country to narrow results, or search for a larger area (city/state)."}
+                            </p>
+                          </div>
+                          <div className="flex flex-wrap gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                countryButtonRef.current?.scrollIntoView({
+                                  behavior: "smooth",
+                                  block: "center",
+                                });
+                                countryButtonRef.current?.focus();
+                                countryButtonRef.current?.click();
+                              }}
+                            >
+                              Switch country
+                            </Button>
+                            {hasPin && (
+                              <Button type="button" size="sm" variant="ghost" onClick={clearPinnedLocation}>
+                                Clear pinned area
+                              </Button>
+                            )}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              onClick={() => {
+                                setLocationQuery("");
+                                setLocationResults([]);
+                                setLocationSearched(false);
+                                locationSearchInputRef.current?.focus();
+                              }}
+                            >
+                              Try a broader search
+                            </Button>
+                          </div>
+                        </div>
                       )}
                     <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
                       {hasPinnedLocation({
@@ -1743,11 +1864,11 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                         location_place_id: form.location_place_id ?? null,
                       }) ? (
                         <div className="space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="space-y-1">
-                              <p className="text-sm font-semibold text-slate-900">
-                                {LOCATION_MICROCOPY.pinned.title}
-                              </p>
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="space-y-1">
+                            <p className="text-sm font-semibold text-slate-900">
+                              {LOCATION_MICROCOPY.pinned.title}
+                            </p>
                               <p className="text-xs text-slate-600">{form.location_label}</p>
                               {(form.location_source === "geocode" ||
                                 form.location_precision === "approx") && (
@@ -1762,25 +1883,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                             <button
                               type="button"
                               className="text-sm font-semibold text-sky-700"
-                              onClick={() => {
-                                handleChange("latitude", null);
-                                handleChange("longitude", null);
-                                handleChange("location_label", null);
-                                handleChange("location_place_id", null);
-                                handleChange("location_source", null);
-                                handleChange("location_precision", null);
-                                setAutoFillHints({});
-                                setUserEdited((prev) => ({
-                                  ...prev,
-                                  country: false,
-                                  city: false,
-                                  state_region: false,
-                                  neighbourhood: false,
-                                  admin_area_2: false,
-                                  postal_code: false,
-                                }));
-                                setLocationQuery("");
-                              }}
+                              onClick={clearPinnedLocation}
                             >
                               Change
                             </button>
@@ -1854,6 +1957,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                     </label>
                     <CountrySelect
                       id="country"
+                      buttonRef={countryButtonRef}
                       value={{
                         code: form.country_code ?? null,
                         name: form.country ?? null,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type Ref } from "react";
 import { Input } from "@/components/ui/Input";
 import {
   COUNTRIES,
@@ -16,9 +16,10 @@ type Props = {
   onChange: (value: CountryOption) => void;
   placeholder?: string;
   disabled?: boolean;
+  buttonRef?: Ref<HTMLButtonElement>;
 };
 
-export function CountrySelect({ id, value, onChange, placeholder, disabled }: Props) {
+export function CountrySelect({ id, value, onChange, placeholder, disabled, buttonRef }: Props) {
   const listId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -129,6 +130,7 @@ export function CountrySelect({ id, value, onChange, placeholder, disabled }: Pr
   return (
     <div ref={containerRef} className="relative space-y-2">
       <button
+        ref={buttonRef}
         type="button"
         id={id}
         className="flex w-full items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-left text-sm text-slate-900 shadow-sm transition focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:cursor-not-allowed disabled:bg-slate-100"

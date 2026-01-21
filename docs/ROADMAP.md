@@ -143,3 +143,4 @@ Non-goals:
 - **R16.7j — Location search ranking (Shipped)**: tenant search results score normalized location fields (postal prefix, admin areas, city, country) before existing ordering; host “Location quality” UI defers to R16.7j.1.
 - **R16.7k.0 — Host Location quality (Shipped)**: host-only Strong/Medium/Weak location completeness indicator with guidance; no tenant UI changes or new migrations.
 - **R16.7k.1 — Location normalization polish (Shipped)**: neighbourhood/admin area priorities tightened for UK/NG and postal code sanitization to avoid mixed values.
+- **R16.7k.2 — Location search clarity (Shipped)**: host picker now shows country-aware “Searching in …” banner, postcode hinting, pin-bias guidance, and empty-state actions without changing tenant privacy.

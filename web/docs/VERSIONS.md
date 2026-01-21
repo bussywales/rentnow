@@ -2,6 +2,11 @@
 
 # Versions
 
+## 2026-01-24 — vR16.7k.2-location-search-clarity
+- Location picker now surfaces “Searching in {country}” with country-aware context and a “Why these results?” helper about country/pin bias.
+- Postcode-looking queries without a country show a hint to select a country; pin-biased searches show a clear pin influence tip with a one-click clear action.
+- Empty search results render a guided state (Switch country, Clear pinned area, Try a broader search), and Mapbox-missing messaging now reminds hosts they can still fill fields manually.
+
 ## 2026-01-24 — vR16.7k.1-location-normalization-polish
 - Improved Mapbox normalization: neighbourhood prioritization (neighborhood > locality > place > district), UK-friendly county/district mapping, and city fallbacks.
 - Postal codes now sanitized (single token, country-aware casing/spacing) to avoid mixed values.
