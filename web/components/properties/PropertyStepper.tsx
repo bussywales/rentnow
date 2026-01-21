@@ -15,6 +15,7 @@ import InfoPopover from "@/components/ui/InfoPopover";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
+import { LocationQualityCard } from "@/components/properties/LocationQualityCard";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import {
   createBrowserSupabaseClient,
@@ -33,6 +34,7 @@ import { setToastQuery } from "@/lib/utils/toast";
 import { labelForField } from "@/lib/forms/listing-errors";
 import { hasPinnedLocation } from "@/lib/properties/validation";
 import { LOCATION_MICROCOPY } from "@/lib/location-microcopy";
+import { computeLocationQuality } from "@/lib/properties/location-quality";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
 type ResolvedAuth = {
@@ -346,6 +348,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   const [checkinLoading, setCheckinLoading] = useState(false);
   const [locationPublishError, setLocationPublishError] = useState(false);
   const locationSectionRef = useRef<HTMLDivElement | null>(null);
+  const locationSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [locationActiveIndex, setLocationActiveIndex] = useState(0);
 
   useEffect(() => {
@@ -472,6 +475,33 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       cover_image_url: coverImageUrl ?? undefined,
     };
   }, [form, coverImageUrl]);
+
+  const locationQuality = useMemo(
+    () =>
+      computeLocationQuality({
+        latitude: form.latitude ?? null,
+        longitude: form.longitude ?? null,
+        location_label: form.location_label ?? null,
+        location_place_id: form.location_place_id ?? null,
+        country_code: form.country_code ?? null,
+        admin_area_1: form.admin_area_1 ?? form.state_region ?? null,
+        admin_area_2: form.admin_area_2 ?? null,
+        postal_code: form.postal_code ?? null,
+        city: form.city ?? null,
+      }),
+    [
+      form.admin_area_1,
+      form.admin_area_2,
+      form.city,
+      form.country_code,
+      form.latitude,
+      form.location_label,
+      form.location_place_id,
+      form.longitude,
+      form.postal_code,
+      form.state_region,
+    ]
+  );
 
   const previewImages = useMemo(() => {
     const mapped = imageUrls.map((url, index) => ({
@@ -1156,6 +1186,20 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
     );
   }, [form.latitude, form.longitude, getSupabase, propertyId, resolveAuthUser]);
 
+  const handleImproveLocation = useCallback(() => {
+    const searchEl = locationSearchInputRef.current;
+    if (searchEl) {
+      searchEl.scrollIntoView({ behavior: "smooth", block: "center" });
+      searchEl.focus();
+      return;
+    }
+    if (locationSectionRef.current) {
+      locationSectionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+      const focusable = locationSectionRef.current.querySelector("input,textarea,button");
+      (focusable as HTMLElement | null)?.focus();
+    }
+  }, []);
+
   const scrollToField = (key: string) => {
     const el = document.getElementById(`field-${key}`);
     if (el) {
@@ -1594,7 +1638,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                   </p>
                 </div>
               </div>
-              <div className="mt-4 space-y-4">
+              <div className="mt-4 space-y-4" ref={locationSectionRef}>
                 {enableLocationPicker ? (
                   <div className="space-y-3">
                     <div className="space-y-1">
@@ -1602,6 +1646,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                         {LOCATION_MICROCOPY.search.label}
                       </label>
                       <Input
+                        ref={locationSearchInputRef}
                         id="location-search"
                         value={locationQuery}
                         onChange={(e) => {
@@ -1679,10 +1724,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                       locationQuery.trim().length >= 3 && (
                         <p className="text-xs text-slate-500">{LOCATION_MICROCOPY.search.empty}</p>
                       )}
-                    <div
-                      ref={locationSectionRef}
-                      className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700"
-                    >
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
                       {hasPinnedLocation({
                         latitude: form.latitude ?? null,
                         longitude: form.longitude ?? null,
@@ -1778,6 +1820,12 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
                     </div>
                   </div>
                 ) : null}
+
+                <LocationQualityCard
+                  quality={locationQuality.quality}
+                  missing={locationQuality.missing}
+                  onImproveLocation={handleImproveLocation}
+                />
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2" id="field-country">

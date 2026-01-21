@@ -69,6 +69,13 @@ where key='enable_location_picker';
 - Postal prefixes handled: GB outward codes (e.g., ST6), US ZIP prefixes (e.g., 94105/941), CA FSAs (e.g., M5V).
 - Filters remain hard gates; lat/lng never surface in tenant responses or JSON-LD.
 
+## Location quality (host-only)
+- Host-only indicator in the listing Location step; never shown to tenants or in JSON-LD.
+- Strong: pinned location + country_code + admin_area_1 + (postal_code or admin_area_2).
+- Medium: pinned + country_code + (admin_area_1 or city).
+- Weak: everything else (including no pin).
+- Missing hints guide hosts: pin an area, add state/region, add county/district/LGA (optional), add postal code (optional).
+
 ## Normalized examples
 - UK: country_code=GB, admin_area_1=England, admin_area_2=Staffordshire (district/county), postal_code when selecting a postcode result.
 - Nigeria: country_code=NG, admin_area_1=Lagos, locality/ neighbourhood best-effort (e.g., Ikoyi).

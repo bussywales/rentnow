@@ -2,6 +2,11 @@
 
 # Versions
 
+## 2026-01-24 — vR16.7k.0-location-quality-host
+- Added host-only “Location quality” indicator in the listing Location step with Strong/Medium/Weak guidance; non-blocking and no tenant surface changes.
+- Location quality uses existing normalized fields and pin presence (no new flags/migrations) and never exposes coordinates.
+- Includes “Improve location” scroll focus to the area search and helper popover on why it matters.
+
 ## 2026-01-24 — vR16.7j-location-search-ranking
 - Tenant search now scores normalized location fields (postal prefix, admin_area_2, admin_area_1, city, country_code tokens) before the existing created-at ordering for deterministic ranking.
 - Location parsing supports GB outward codes (e.g., ST6), US ZIP prefixes (e.g., 94105 or 941), and CA FSAs (e.g., M5V) with guardrail unit coverage for GB/NG/US/CA scenarios.
