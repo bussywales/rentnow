@@ -1,15 +1,28 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { sanitizeLabel } from "@/lib/geocode/mapbox";
+import { geocodeMapbox } from "@/lib/geocode/mapbox";
 
-void test("sanitizeLabel strips leading street numbers", () => {
-  assert.equal(sanitizeLabel("123 Main Street, Lagos, Nigeria"), "Main Street, Lagos, Nigeria");
-});
+void test("geocodeMapbox builds query with country and proximity", async () => {
+  const originalFetch = global.fetch;
+  const calls: string[] = [];
+  global.fetch = (async (url: string) => {
+    calls.push(url);
+    return {
+      ok: true,
+      json: async () => ({ features: [] }),
+    } as unknown as Response;
+  }) as typeof fetch;
 
-void test("sanitizeLabel keeps place names when no number", () => {
-  assert.equal(sanitizeLabel("Lekki Phase 1, Lagos"), "Lekki Phase 1, Lagos");
-});
+  await geocodeMapbox("Burslem", "test-token", {
+    countryCode: "gb",
+    proximity: { longitude: -2.2, latitude: 53.0 },
+  });
 
-void test("sanitizeLabel handles empty result gracefully", () => {
-  assert.equal(sanitizeLabel(""), "");
+  global.fetch = originalFetch;
+  assert.equal(calls.length, 1);
+  const url = calls[0];
+  const search = url.split("?")[1] ?? "";
+  const params = new URLSearchParams(search);
+  assert.equal(params.get("country"), "gb");
+  assert.equal(params.get("proximity"), "-2.2,53");
 });

@@ -360,7 +360,14 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
     const timeout = window.setTimeout(async () => {
       setLocationSearching(true);
       try {
-        const res = await fetch(`/api/geocode?q=${encodeURIComponent(query)}`, {
+        const params = new URLSearchParams({ q: query });
+        const countryBias = normalizeCountryCode(form.country_code);
+        if (countryBias) params.set("country_code", countryBias.toLowerCase());
+        if (form.latitude && form.longitude) {
+          params.set("pin_lat", String(form.latitude));
+          params.set("pin_lng", String(form.longitude));
+        }
+        const res = await fetch(`/api/geocode?${params.toString()}`, {
           signal: controller.signal,
         });
         if (!res.ok) {
@@ -405,7 +412,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [enableLocationPicker, locationQuery]);
+  }, [enableLocationPicker, form.country_code, form.latitude, form.longitude, locationQuery]);
 
   const lastAutoSaved = useRef<string>("");
   const autoSaveTimer = useRef<number | null>(null);

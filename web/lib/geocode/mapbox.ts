@@ -11,6 +11,11 @@ type GeocodeResult = {
 
 const cache = new Map<string, { ts: number; results: GeocodeResult[] }>();
 const CACHE_TTL_MS = 60_000;
+type GeocodeOptions = {
+  countryCode?: string | null;
+  proximity?: { longitude: number; latitude: number } | null;
+  bbox?: [number, number, number, number] | null;
+};
 
 export function sanitizeLabel(placeName: string): string {
   const noStreet = placeName.replace(/^[0-9]+\s*/i, "").trim();
@@ -18,12 +23,32 @@ export function sanitizeLabel(placeName: string): string {
   return cleaned.split(",").map((part) => part.trim()).filter(Boolean).join(", ");
 }
 
-export async function geocodeMapbox(query: string, token: string): Promise<GeocodeResult[]> {
-  const key = query.toLowerCase();
+export async function geocodeMapbox(
+  query: string,
+  token: string,
+  options: GeocodeOptions = {}
+): Promise<GeocodeResult[]> {
+  const keyBase = query.toLowerCase();
+  const key = `${keyBase}|${options.countryCode ?? ""}|${options.proximity ? `${options.proximity.longitude},${options.proximity.latitude}` : ""}`;
   const cached = cache.get(key);
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.results;
 
-  const url = `${MAPBOX_URL}/${encodeURIComponent(query)}.json?access_token=${token}&limit=5&types=place,locality,neighborhood`;
+  const params = new URLSearchParams({
+    access_token: token,
+    limit: "5",
+    types: "place,locality,neighborhood,postcode",
+  });
+  if (options.countryCode) {
+    params.set("country", options.countryCode.toLowerCase());
+  }
+  if (options.proximity) {
+    params.set("proximity", `${options.proximity.longitude},${options.proximity.latitude}`);
+  }
+  if (options.bbox) {
+    params.set("bbox", options.bbox.join(","));
+  }
+
+  const url = `${MAPBOX_URL}/${encodeURIComponent(query)}.json?${params.toString()}`;
   const res = await fetch(url);
   if (!res.ok) return [];
   const data = (await res.json()) as {

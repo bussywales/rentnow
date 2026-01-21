@@ -9,6 +9,9 @@ import { normalizeMapboxFeature, type MapboxFeature } from "@/lib/geocode/normal
 const routeLabel = "/api/geocode";
 const querySchema = z.object({
   q: z.string().min(2),
+  country_code: z.string().optional(),
+  pin_lat: z.coerce.number().optional(),
+  pin_lng: z.coerce.number().optional(),
 });
 
 export async function GET(request: Request) {
@@ -22,7 +25,12 @@ export async function GET(request: Request) {
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(request.url);
-  const parsed = querySchema.safeParse({ q: searchParams.get("q") });
+  const parsed = querySchema.safeParse({
+    q: searchParams.get("q"),
+    country_code: searchParams.get("country_code") ?? undefined,
+    pin_lat: searchParams.get("pin_lat") ?? undefined,
+    pin_lng: searchParams.get("pin_lng") ?? undefined,
+  });
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid query" }, { status: 400 });
   }
@@ -36,7 +44,13 @@ export async function GET(request: Request) {
   }
 
   try {
-    const raw = await geocodeMapbox(parsed.data.q, token);
+    const raw = await geocodeMapbox(parsed.data.q, token, {
+      countryCode: parsed.data.country_code || undefined,
+      proximity:
+        Number.isFinite(parsed.data.pin_lat) && Number.isFinite(parsed.data.pin_lng)
+          ? { latitude: parsed.data.pin_lat as number, longitude: parsed.data.pin_lng as number }
+          : undefined,
+    });
     const structured = raw.map((item) => {
       const rawFeature = item.raw as MapboxFeature;
       const normalized = normalizeMapboxFeature(rawFeature);
