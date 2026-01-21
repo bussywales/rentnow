@@ -140,3 +140,4 @@ Non-goals:
 - **R16.7e — Location required to publish (flagged)**: feature-flagged guard that blocks publish unless a pinned area exists (lat/lng or place id + label). Drafts always allowed; admin bypass; clear UX banner linking to location section.
 - **R16.7f — Pin privacy polish**: clearer pinned state, richer search results, stronger privacy guardrails (no coords shown to tenants), and better non-configured/flag-off messaging.
 - **R16.7h — Location search-first UX**: Location section starts with area search + pinned card/preview, then location fields; privacy guardrails and publish guard unchanged.
+- **R16.7j — Location search ranking (Shipped)**: tenant search results score normalized location fields (postal prefix, admin areas, city, country) before existing ordering; host “Location quality” UI defers to R16.7j.1.

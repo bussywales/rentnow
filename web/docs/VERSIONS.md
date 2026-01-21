@@ -2,6 +2,11 @@
 
 # Versions
 
+## 2026-01-24 — vR16.7j-location-search-ranking
+- Tenant search now scores normalized location fields (postal prefix, admin_area_2, admin_area_1, city, country_code tokens) before the existing created-at ordering for deterministic ranking.
+- Location parsing supports GB outward codes (e.g., ST6), US ZIP prefixes (e.g., 94105 or 941), and CA FSAs (e.g., M5V) with guardrail unit coverage for GB/NG/US/CA scenarios.
+- Tenant search responses continue to omit lat/lng and property JSON-LD stays address-only (no GeoCoordinates).
+
 ## 2026-01-23 — vR16.7i.0-location-normalization
 - Added normalized location columns on properties (`country_code`, `admin_area_1`, `admin_area_2`, `postal_code`) with a safe migration.
 - Mapbox normalization helper now extracts country/region/district/locality/postcode for GB/NG/US/CA; geocode responses include these fields.

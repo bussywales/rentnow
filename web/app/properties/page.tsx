@@ -17,6 +17,7 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property, SavedSearch, UserRole } from "@/lib/types";
 import { orderImagesWithCover } from "@/lib/properties/images";
+import { computeLocationScore, extractLocationQuery, type LocationQueryInfo } from "@/lib/properties/location-score";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -262,11 +263,26 @@ export default async function PropertiesPage({ searchParams }: Props) {
         fetchError = error.message;
       }
       if (!error && data) {
-        const typed = data as Array<
+        const typed = (data ?? []) as Array<
           Property & { property_images?: Array<{ id: string; image_url: string }> }
         >;
+        const queryInfo: LocationQueryInfo = filters.city
+          ? extractLocationQuery(filters.city)
+          : { tokens: [] };
+        const shouldScore = queryInfo.tokens.length > 0 || !!queryInfo.postalPrefix;
+        const orderedRows = typed
+          .map((row, index) => ({
+            row,
+            index,
+            score: shouldScore ? computeLocationScore(row, queryInfo) : 0,
+          }))
+          .sort((a, b) => {
+            if (b.score !== a.score) return b.score - a.score;
+            return a.index - b.index;
+          })
+          .map((item) => item.row);
         properties =
-          typed?.map((row) => {
+          orderedRows.map((row) => {
             const mappedImages =
               row.property_images?.map((img) => ({
                 id: img.id || img.image_url,
@@ -285,7 +301,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
           }) || [];
         totalCount = typeof count === "number" ? count : null;
         properties = properties.filter((p) => !!p.id);
-        if (typed.length !== properties.length) {
+        if (orderedRows.length !== properties.length) {
           console.warn("[properties] dropped filtered items without id", {
             total: typed.length,
             kept: properties.length,

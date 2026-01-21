@@ -63,6 +63,12 @@ where key='enable_location_picker';
 - Pinned definition: true when (latitude AND longitude) OR (location_place_id AND location_label) are present with non-empty values. Empty strings do not count.
 - Tenant privacy: tenant-facing pages and search APIs do not show lat/lng; only non-sensitive labels (city/region/neighbourhood) are rendered.
 
+## Search ranking uses normalized fields
+- Tenant search scores eligible listings using normalized location fields before the existing created-at ordering.
+- Signals (case-insensitive, punctuation-agnostic): postal prefix/outward code (+100), `admin_area_2` token match (+40), `admin_area_1` token match (+25), city token match (+20), `country_code` token match (+10).
+- Postal prefixes handled: GB outward codes (e.g., ST6), US ZIP prefixes (e.g., 94105/941), CA FSAs (e.g., M5V).
+- Filters remain hard gates; lat/lng never surface in tenant responses or JSON-LD.
+
 ## Normalized examples
 - UK: country_code=GB, admin_area_1=England, admin_area_2=Staffordshire (district/county), postal_code when selecting a postcode result.
 - Nigeria: country_code=NG, admin_area_1=Lagos, locality/ neighbourhood best-effort (e.g., Ikoyi).
