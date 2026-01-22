@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReadinessResult } from "@/lib/properties/listing-readiness";
+import { buildEditorUrl } from "@/lib/properties/host-dashboard";
 
 type Props = {
   readiness: ReadinessResult;
@@ -17,13 +18,10 @@ const LABELS: Record<string, string> = {
 };
 
 const hrefForIssue = (code: string, propertyId: string) => {
-  switch (code) {
-    case "LOCATION_WEAK":
-    case "LOCATION_MEDIUM":
-      return `/dashboard/properties/${propertyId}?focus=location`;
-    default:
-      return `/dashboard/properties/${propertyId}?step=photos`;
+  if (code === "LOCATION_WEAK" || code === "LOCATION_MEDIUM") {
+    return buildEditorUrl(propertyId, "LOCATION_WEAK");
   }
+  return buildEditorUrl(propertyId, undefined, { step: "photos" });
 };
 
 export function ListingQuickFixes({ readiness, propertyId }: Props) {

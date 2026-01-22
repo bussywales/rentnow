@@ -7,7 +7,6 @@ import { PropertyCard } from "@/components/properties/PropertyCard";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import {
   filterListings,
-  resumeSetupHref,
   searchListings,
   sortListings,
   summarizeListings,
@@ -20,7 +19,7 @@ import { HostDashboardSavedViews } from "@/components/host/HostDashboardSavedVie
 import { HOST_DASHBOARD_COPY, HOST_DASHBOARD_VIEWS } from "@/lib/host/host-dashboard-microcopy";
 import { useHostDashboardView } from "@/components/host/useHostDashboardView";
 import { formatRelativeTime } from "@/lib/date/relative-time";
-import { getLastUpdatedDate } from "@/lib/properties/host-dashboard";
+import { buildEditorUrl, getLastUpdatedDate } from "@/lib/properties/host-dashboard";
 import { ListingBulkActionsBar } from "@/components/host/ListingBulkActionsBar";
 import { HostBulkResumeSetupModal } from "@/components/host/HostBulkResumeSetupModal";
 import { buildEditorLink, exportListingsCsv } from "@/lib/host/bulk-triage";
@@ -77,9 +76,8 @@ export function HostDashboardContent({
   const clearSelection = () => setSelectedIds([]);
 
   const openUpToFive = () => {
-    const targets = selectedListings.slice(0, 5);
-    targets.forEach((listing) => {
-      const url = buildEditorLink(listing);
+    const urls = selectedListings.slice(0, 5).map((listing) => buildEditorLink(listing));
+    urls.forEach((url) => {
       window.open(url, "_blank", "noopener,noreferrer");
     });
   };
@@ -112,10 +110,10 @@ export function HostDashboardContent({
       {sorted.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {sorted.map((property) => {
-            const status = normalizeStatus(property);
-            const readiness = property.readiness;
-            const topIssueCode = readiness.issues[0]?.code;
-            const improveHref = resumeSetupHref(property.id, topIssueCode);
+          const status = normalizeStatus(property);
+          const readiness = property.readiness;
+          const topIssueCode = readiness.issues[0]?.code;
+          const improveHref = buildEditorUrl(property.id, topIssueCode);
             const hasPhotos = (property.images || []).length > 0;
             const needsResume =
               readiness.tier !== "Excellent" || readiness.score < 90 || readiness.issues.length > 0;

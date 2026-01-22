@@ -1,6 +1,6 @@
 import { HOST_DASHBOARD_COPY } from "@/lib/host/host-dashboard-microcopy";
 import type { DashboardListing } from "@/lib/properties/host-dashboard";
-import { getLastUpdatedDate, resumeSetupHref } from "@/lib/properties/host-dashboard";
+import { buildEditorUrl, getLastUpdatedDate } from "@/lib/properties/host-dashboard";
 
 const ISSUE_LABELS: Record<string, string> = {
   NO_PHOTOS: "Add photos",
@@ -14,7 +14,7 @@ const ISSUE_LABELS: Record<string, string> = {
 
 export function buildEditorLink(listing: DashboardListing): string {
   const topIssue = listing.readiness.issues[0]?.code;
-  return resumeSetupHref(listing.id, topIssue);
+  return buildEditorUrl(listing.id, topIssue);
 }
 
 export function topIssueLabel(listing: DashboardListing): string {

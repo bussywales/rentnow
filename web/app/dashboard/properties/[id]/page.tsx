@@ -141,20 +141,20 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
   return { property: null, error: "Unknown error" };
 }
 
-function resolveStep(searchParams?: Props["searchParams"]) {
+function resolveStep(searchParams?: Props["searchParams"]): "basics" | "details" | "photos" | "preview" | "submit" {
   const raw = searchParams?.step;
   const value = Array.isArray(raw) ? raw[0] : raw;
   switch (value) {
     case "details":
-      return 1;
+      return "details";
     case "photos":
-      return 2;
+      return "photos";
     case "preview":
-      return 3;
+      return "preview";
     case "submit":
-      return 4;
+      return "submit";
     default:
-      return 0;
+      return "basics";
   }
 }
 
@@ -178,6 +178,8 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
     redirect("/tenant");
   }
   const enableLocationPicker = await getAppSettingBool("enable_location_picker", false);
+  const initialStep = resolveStep(searchParams);
+  const initialFocus = resolveFocus(searchParams);
 
   let property: Property | null = null;
   let fetchError: string | null = null;
@@ -234,8 +236,8 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
       </div>
       <PropertyStepper
         initialData={property}
-        initialStep={resolveStep(searchParams)}
-        initialFocus={resolveFocus(searchParams)}
+        initialStep={initialStep}
+        initialFocus={initialFocus}
         enableLocationPicker={enableLocationPicker}
       />
     </div>

@@ -7,7 +7,35 @@ import { getAppSettingBool } from "@/lib/settings/app-settings";
 
 export const dynamic = "force-dynamic";
 
-export default async function NewPropertyPage() {
+type Props = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
+
+function resolveStep(searchParams?: Props["searchParams"]): "basics" | "details" | "photos" | "preview" | "submit" {
+  const raw = searchParams?.step;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  switch (value) {
+    case "details":
+      return "details";
+    case "photos":
+      return "photos";
+    case "preview":
+      return "preview";
+    case "submit":
+      return "submit";
+    default:
+      return "basics";
+  }
+}
+
+function resolveFocus(searchParams?: Props["searchParams"]): "location" | "photos" | null {
+  const raw = searchParams?.focus;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (value === "location" || value === "photos") return value;
+  return null;
+}
+
+export default async function NewPropertyPage({ searchParams }: Props) {
   const { user, role } = await resolveServerRole();
   if (!user) {
     logAuthRedirect("/dashboard/properties/new");
@@ -21,6 +49,8 @@ export default async function NewPropertyPage() {
   }
 
   const enableLocationPicker = await getAppSettingBool("enable_location_picker", false);
+  const initialStep = resolveStep(searchParams);
+  const initialFocus = resolveFocus(searchParams);
 
   return (
     <div className="space-y-4">
@@ -30,7 +60,7 @@ export default async function NewPropertyPage() {
           Add details, upload photos via Supabase Storage, and publish when ready.
         </p>
       </div>
-      <PropertyStepper enableLocationPicker={enableLocationPicker} />
+      <PropertyStepper enableLocationPicker={enableLocationPicker} initialStep={initialStep} initialFocus={initialFocus} />
     </div>
   );
 }

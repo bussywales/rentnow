@@ -80,9 +80,10 @@ type RecommendedSuggestion = {
   source: "api" | "local";
 };
 
+type StepId = (typeof steps)[number]["id"];
 type Props = {
   initialData?: Partial<Property>;
-  initialStep?: number;
+  initialStep?: number | StepId;
   enableLocationPicker?: boolean;
   initialFocus?: "location" | "photos" | null;
 };
@@ -169,9 +170,14 @@ const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | 
 
 export function PropertyStepper({ initialData, initialStep = 0, enableLocationPicker = false, initialFocus = null }: Props) {
   const router = useRouter();
-  const [stepIndex, setStepIndex] = useState(
-    Math.min(Math.max(initialStep, 0), steps.length - 1)
-  );
+  const initialStepIndex = useMemo(() => {
+    if (typeof initialStep === "string") {
+      const idx = steps.findIndex((step) => step.id === initialStep);
+      return idx >= 0 ? idx : 0;
+    }
+    return Math.min(Math.max(initialStep, 0), steps.length - 1);
+  }, [initialStep]);
+  const [stepIndex, setStepIndex] = useState(initialStepIndex);
   const [propertyId, setPropertyId] = useState<string | null>(
     initialData?.id || null
   );
@@ -222,6 +228,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   });
   const [recommended, setRecommended] = useState<RecommendedSuggestion | null>(null);
   const [recommendedDismissed, setRecommendedDismissed] = useState(false);
+  const hasAppliedInitialStep = useRef(false);
   const {
     status: saveStatus,
     setSaving: markSaving,
@@ -940,6 +947,12 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   useEffect(() => {
     setPrepublishDismissed(false);
   }, [propertyId]);
+
+  useEffect(() => {
+    if (hasAppliedInitialStep.current) return;
+    hasAppliedInitialStep.current = true;
+    setStepIndex(initialStepIndex);
+  }, [initialStepIndex]);
 
   useEffect(() => {
     if (hasAppliedInitialFocus.current) return;

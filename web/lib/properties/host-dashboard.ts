@@ -91,13 +91,34 @@ export function summarizeListings(listings: DashboardListing[]) {
 }
 
 export function resumeSetupHref(propertyId: string, topIssue?: ReadinessIssueCode) {
-  if (!topIssue) return `/dashboard/properties/${propertyId}`;
-  if (topIssue === "LOCATION_WEAK" || topIssue === "LOCATION_MEDIUM") {
-    return `/dashboard/properties/${propertyId}?focus=location`;
-  }
-  return `/dashboard/properties/${propertyId}?step=photos`;
+  return buildEditorUrl(propertyId, topIssue);
 }
 
 export function getLastUpdatedDate(listing: DashboardListing) {
   return listing.updated_at || listing.created_at || null;
+}
+
+export function buildEditorUrl(propertyId: string, topIssue?: ReadinessIssueCode, override?: { step?: string; focus?: string }) {
+  const base = `/dashboard/properties/${propertyId}`;
+  const params = new URLSearchParams();
+  const focus = override?.focus;
+  const step = override?.step;
+
+  if (step) {
+    params.set("step", step);
+  }
+  if (focus) {
+    params.set("focus", focus);
+  }
+
+  if (!step && !focus && topIssue) {
+    if (topIssue === "LOCATION_WEAK" || topIssue === "LOCATION_MEDIUM") {
+      params.set("focus", "location");
+    } else {
+      params.set("step", "photos");
+    }
+  }
+
+  const qs = params.toString();
+  return qs ? `${base}?${qs}` : base;
 }
