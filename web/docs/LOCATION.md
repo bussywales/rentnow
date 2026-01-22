@@ -76,6 +76,7 @@ where key='enable_location_picker';
 - Weak: everything else (including no pin).
 - Missing hints guide hosts: pin an area, add state/region, add county/district/LGA (optional), add postal code (optional).
 - Pre-publish checklist surfaces a reminder when location quality is Medium/Weak (host-only, dismissible).
+- Review & publish card on the Submit step highlights pin blockers (when the publish flag is on) and recommends improving location completeness with one-click fixes to the Location section.
 
 ## Search clarity (host-only, picker enabled)
 - Banner shows the active bias: “Searching in {country}” or “Searching worldwide (pick a country for better results)” when no country is set.

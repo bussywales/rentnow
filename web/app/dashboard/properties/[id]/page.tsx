@@ -167,6 +167,10 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
     redirect("/tenant");
   }
   const enableLocationPicker = await getAppSettingBool("enable_location_picker", false);
+  const requireLocationPinForPublish = await getAppSettingBool(
+    "require_location_pin_for_publish",
+    false
+  );
   const initialStep = resolveStep(searchParams);
   const initialFocus = resolveFocus(searchParams);
 
@@ -228,6 +232,7 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
         initialStep={initialStep}
         initialFocus={initialFocus}
         enableLocationPicker={enableLocationPicker}
+        requireLocationPinForPublish={requireLocationPinForPublish}
       />
     </div>
   );

@@ -154,3 +154,4 @@ Non-goals:
 - **R16.8g — Host bulk triage (Shipped)**: host dashboard supports multi-select with sticky bulk bar (Resume setup modal, Open up to 5 tabs, Export CSV) and view-scoped select-all; client-only, no backend changes.
 - **R16.8g.1 — Bulk open + deeplinks (Shipped)**: bulk “Open up to 5” opens all selected listings (capped at 5) and editor deep-links honour `step=photos`/`focus=location` for resume/quick actions.
 - **R16.8g.2 — Bulk open + deeplink guardrails (Shipped)**: editor now reliably starts on Photos/Location via query params and bulk open surfaces pop-up blocked warnings while attempting all tabs.
+- **R16.9 — Review & Publish (Shipped)**: submit step now shows a host-only review card with readiness, last updated, blockers (pin flag), and recommended fixes that deep-link to Photos/Location without changing publish rules.

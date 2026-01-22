@@ -52,6 +52,13 @@ import {
 import { SaveStatusPill } from "@/components/properties/SaveStatusPill";
 import { useSaveStatus } from "@/components/properties/useSaveStatus";
 import { SAVE_STATUS_COPY } from "@/lib/properties/save-status-microcopy";
+import { ReviewAndPublishCard } from "@/components/properties/ReviewAndPublishCard";
+import {
+  buildReviewAndPublishChecklist,
+  type ReviewActionTarget,
+} from "@/lib/properties/review-publish";
+import { formatRelativeTime } from "@/lib/date/relative-time";
+import { buildEditorUrl } from "@/lib/properties/host-dashboard";
 import { normalizeFocusParam, normalizeStepParam, STEP_IDS, type StepId } from "@/lib/properties/step-params";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
@@ -85,6 +92,7 @@ type Props = {
   initialStep?: number | StepId;
   enableLocationPicker?: boolean;
   initialFocus?: "location" | "photos" | null;
+  requireLocationPinForPublish?: boolean;
 };
 
 const rentalTypes: { label: string; value: RentalType }[] = [
@@ -167,7 +175,13 @@ const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | 
   submit: [],
 };
 
-export function PropertyStepper({ initialData, initialStep = 0, enableLocationPicker = false, initialFocus = null }: Props) {
+export function PropertyStepper({
+  initialData,
+  initialStep = 0,
+  enableLocationPicker = false,
+  initialFocus = null,
+  requireLocationPinForPublish = false,
+}: Props) {
   const router = useRouter();
   const normalizedInitialStepId: StepId = useMemo(() => {
     if (typeof initialStep === "string") {
@@ -399,6 +413,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   const [locationActiveIndex, setLocationActiveIndex] = useState(0);
   const [dismissedCountryHintKey, setDismissedCountryHintKey] = useState<string | null>(null);
   const [prepublishDismissed, setPrepublishDismissed] = useState(false);
+  const [reviewDismissed, setReviewDismissed] = useState(false);
   const hasAppliedInitialFocus = useRef(false);
   const resolvedInitialFocus = useMemo(() => {
     if (initialFocus) return initialFocus;
@@ -968,6 +983,10 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   }, [propertyId]);
 
   useEffect(() => {
+    setReviewDismissed(false);
+  }, [propertyId]);
+
+  useEffect(() => {
     if (hasAppliedInitialFocus.current) return;
     if (resolvedInitialFocus === "location" && locationSectionRef.current) {
       hasAppliedInitialFocus.current = true;
@@ -1058,6 +1077,64 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       }
     })();
   }, [buildLocalRecommendation, getSupabase, imageUrls, propertyId, resolveAuthUser]);
+
+  const reviewListing = useMemo(() => {
+    const images = imageUrls.map((url) => ({
+      id: url,
+      image_url: url,
+      width: imageMeta[url]?.width ?? null,
+      height: imageMeta[url]?.height ?? null,
+    }));
+    return {
+      id: propertyId ?? "new",
+      cover_image_url: coverImageUrl ?? null,
+      recommended_cover_url: recommended?.url ?? undefined,
+      images,
+      title: form.title || undefined,
+      updated_at: initialData?.updated_at ?? undefined,
+      created_at: initialData?.created_at ?? undefined,
+      country_code: form.country_code || undefined,
+      admin_area_1: form.state_region || undefined,
+      admin_area_2: form.admin_area_2 || undefined,
+      postal_code: form.postal_code || undefined,
+      city: form.city || undefined,
+      latitude: form.latitude ?? undefined,
+      longitude: form.longitude ?? undefined,
+      location_label: form.location_label || undefined,
+      location_place_id: form.location_place_id || undefined,
+    };
+  }, [
+    coverImageUrl,
+    form.admin_area_2,
+    form.city,
+    form.country_code,
+    form.latitude,
+    form.location_label,
+    form.location_place_id,
+    form.longitude,
+    form.postal_code,
+    form.state_region,
+    form.title,
+    imageMeta,
+    imageUrls,
+    initialData?.created_at,
+    initialData?.updated_at,
+    propertyId,
+    recommended?.url,
+  ]);
+
+  const reviewChecklist = useMemo(
+    () =>
+      buildReviewAndPublishChecklist(reviewListing, {
+        requireLocationPinForPublish,
+      }),
+    [reviewListing, requireLocationPinForPublish]
+  );
+
+  const lastUpdatedText = useMemo(
+    () => formatRelativeTime(initialData?.updated_at ?? initialData?.created_at ?? null),
+    [initialData?.created_at, initialData?.updated_at]
+  );
 
   useEffect(() => {
     if (!propertyId) return;
@@ -1429,6 +1506,26 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       }
     },
     [handleImproveLocation]
+  );
+
+  const handleReviewFix = useCallback(
+    (target: ReviewActionTarget) => {
+      if (target.step === "photos") {
+        setStepIndex(2);
+        if (propertyId) {
+          router.push(buildEditorUrl(propertyId, undefined, { step: "photos" }));
+        }
+        return;
+      }
+      if (target.focus === "location") {
+        setStepIndex(0);
+        handleImproveLocation();
+        if (propertyId) {
+          router.push(buildEditorUrl(propertyId, undefined, { focus: "location" }));
+        }
+      }
+    },
+    [handleImproveLocation, propertyId, router]
   );
 
   const scrollToField = (key: string) => {
@@ -3203,6 +3300,14 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
           <p className="text-sm text-slate-600">
             Submitting sends your listing for admin review. It will go live after approval.
           </p>
+          {!reviewDismissed && (
+            <ReviewAndPublishCard
+              checklist={reviewChecklist}
+              lastUpdatedLabel={lastUpdatedText}
+              onFix={handleReviewFix}
+              onDismiss={() => setReviewDismissed(true)}
+            />
+          )}
           {!prepublishDismissed && prepublishNudges.length > 0 && (
             <PrePublishNudgeCard
               items={prepublishNudges}

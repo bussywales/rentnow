@@ -38,6 +38,10 @@ export default async function NewPropertyPage({ searchParams }: Props) {
   }
 
   const enableLocationPicker = await getAppSettingBool("enable_location_picker", false);
+  const requireLocationPinForPublish = await getAppSettingBool(
+    "require_location_pin_for_publish",
+    false
+  );
   const initialStep = resolveStep(searchParams);
   const initialFocus = resolveFocus(searchParams);
 
@@ -49,7 +53,12 @@ export default async function NewPropertyPage({ searchParams }: Props) {
           Add details, upload photos via Supabase Storage, and publish when ready.
         </p>
       </div>
-      <PropertyStepper enableLocationPicker={enableLocationPicker} initialStep={initialStep} initialFocus={initialFocus} />
+      <PropertyStepper
+        enableLocationPicker={enableLocationPicker}
+        requireLocationPinForPublish={requireLocationPinForPublish}
+        initialStep={initialStep}
+        initialFocus={initialFocus}
+      />
     </div>
   );
 }
