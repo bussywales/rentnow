@@ -8,6 +8,10 @@
 - Listing wizard now shows debounced save status (Saving…, Saved, error with Retry, Submitting…, Submitted for approval) for draft saves and submit; per-listing and session-local.
 - Host dashboard cards show “Last updated” with relative time (falls back to created_at) using existing data; no tenant changes or publish rule updates.
 
+## 2026-01-24 — vR16.8g-host-bulk-triage
+- Host dashboard adds multi-select with sticky bulk bar (Resume setup modal, Open up to 5, Export CSV, Clear) and select-all checkbox per view; selection clears on view switch.
+- CSV export is client-only with id/title/status/readiness/top issue/last updated fields; no backend changes or tenant impact.
+
 ## 2026-01-24 — vR16.8e-host-dashboard-triage
 - Host dashboard now defaults to lowest-readiness sorting with filter chips (All, Needs attention, Ready to publish, Drafts), search, and summary counts.
 - Resume setup CTA jumps to the best next step based on top issue (location → focus=location, photos/cover → step=photos); host-only with no tenant or publish rule changes.

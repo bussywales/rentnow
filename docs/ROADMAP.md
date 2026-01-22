@@ -151,3 +151,4 @@ Non-goals:
 - **R16.8e — Host dashboard triage (Shipped)**: default lowest-readiness sorting with filter chips, search, and summary counts, plus Resume setup links based on top issue codes; host-only with no tenant changes.
 - **R16.8f — Host saved views (Shipped)**: URL-driven saved views (All/Needs attention/Drafts/Ready) with last-view memory, reset action, and locked microcopy on the host dashboard.
 - **R16.8i — Save status + Last updated (Shipped)**: listing wizard shows save/submit status with retry, and host dashboard cards surface “Last updated” relative time; no tenant changes.
+- **R16.8g — Host bulk triage (Shipped)**: host dashboard supports multi-select with sticky bulk bar (Resume setup modal, Open up to 5 tabs, Export CSV) and view-scoped select-all; client-only, no backend changes.

@@ -46,5 +46,20 @@ void test("host dashboard microcopy matches locked strings", () => {
     resetLabel: "Reset view",
     resetHelper: "Clears filters and returns to the default view.",
     lastUpdatedLabel: "Last updated",
+    bulkBar: {
+      selected: "{count} selected",
+      resume: "Resume setup",
+      openFive: "Open up to 5",
+      exportCsv: "Export CSV",
+      clear: "Clear",
+      helper: "Opens the first 5 to avoid tab overload.",
+    },
+    bulkModal: {
+      title: "Resume setup",
+      subtitle: "Open each listing where it needs attention.",
+      empty: "No listings selected.",
+      topIssue: "Top issue: {label}",
+      open: "Open",
+    },
   });
 });
