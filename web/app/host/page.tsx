@@ -1,25 +1,21 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
 import { getUserRole } from "@/lib/authz";
 import { readActingAsFromCookies } from "@/lib/acting-as.server";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
-import { getPlanUsage } from "@/lib/plan-enforcement";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 import { getPlanForTier, isListingLimitReached } from "@/lib/plans";
-import { logPlanLimitHit } from "@/lib/observability";
 import { revalidatePath } from "next/cache";
 import { TrustBadges } from "@/components/trust/TrustBadges";
 import { TrustReliability } from "@/components/trust/TrustReliability";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { orderImagesWithCover } from "@/lib/properties/images";
-import { ListingReadinessBadge } from "@/components/host/ListingReadinessBadge";
-import { computeListingReadiness } from "@/lib/properties/listing-readiness";
-import { ListingQuickFixes } from "@/components/host/ListingQuickFixes";
+import { computeDashboardListings } from "@/lib/properties/host-dashboard";
+import { HostDashboardContent } from "@/components/host/HostDashboardContent";
 
 export const dynamic = "force-dynamic";
 
@@ -30,71 +26,6 @@ function normalizeStatus(property: Property): PropertyStatus {
   if (property.is_approved && property.is_active) return "live";
   if (!property.is_approved && property.is_active) return "pending";
   return "draft";
-}
-
-async function submitForApproval(id: string) {
-  "use server";
-  if (!hasServerSupabaseEnv()) return;
-  const { supabase, user } = await getServerAuthUser();
-  if (!user) return;
-
-  const role = await getUserRole(supabase, user.id);
-  if (!role) return;
-
-  let ownerId = user.id;
-  if (role === "agent") {
-    const actingAs = await readActingAsFromCookies();
-    if (actingAs && actingAs !== user.id) {
-      const allowed = await hasActiveDelegation(supabase, user.id, actingAs);
-      if (!allowed) return;
-      ownerId = actingAs;
-    }
-  }
-
-  const { data: existing } = await supabase
-    .from("properties")
-    .select("owner_id, is_active")
-    .eq("id", id)
-    .maybeSingle();
-
-  if (!existing || existing.owner_id !== ownerId) return;
-
-  const willActivate = !existing.is_active;
-  if (willActivate && role !== "admin") {
-    const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
-    const usage = await getPlanUsage({
-      supabase,
-      ownerId,
-      serviceClient,
-      excludeId: id,
-    });
-    if (!usage.error && usage.activeCount >= usage.plan.maxListings) {
-      logPlanLimitHit({
-        route: "dashboard/submitForApproval",
-        actorId: user.id,
-        ownerId,
-        planTier: usage.plan.tier,
-        maxListings: usage.plan.maxListings,
-        activeCount: usage.activeCount,
-        propertyId: id,
-        source: usage.source,
-      });
-      return;
-    }
-  }
-
-  await supabase
-    .from("properties")
-    .update({
-      status: "pending",
-      is_active: true,
-      is_approved: false,
-      submitted_at: new Date().toISOString(),
-      rejection_reason: null,
-    })
-    .eq("id", id);
-
-  revalidatePath("/host");
 }
 
 async function requestUpgrade() {
@@ -285,6 +216,7 @@ export default async function DashboardHome() {
     role === "landlord" || role === "agent"
       ? getPlanForTier(expired ? "free" : planTier ?? "free", expired ? null : maxOverride)
       : null;
+  const dashboardListings = computeDashboardListings(properties);
   const activeCount = properties.filter((property) => {
     if (property.status) {
       return property.status === "pending" || property.status === "live";
@@ -434,90 +366,12 @@ export default async function DashboardHome() {
           </div>
         )}
 
-        {properties.length ? (
-          <div className="grid gap-4 md:grid-cols-2">
-            {properties.map((property) => {
-              const status = normalizeStatus(property);
-              const readiness = computeListingReadiness(property);
-              const hasPhotos = (property.images || []).length > 0;
-              const topAction = readiness.issues[0]?.action;
-              const improveHref =
-                topAction === "location"
-                  ? `/dashboard/properties/${property.id}?focus=location`
-                  : topAction === "photos"
-                    ? `/dashboard/properties/${property.id}?step=photos`
-                    : `/dashboard/properties/${property.id}`;
-              return (
-                <div
-                  key={property.id}
-                  className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                      {status}
-                    </span>
-                    {status === "draft" && (
-                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                        Continue draft
-                      </span>
-                    )}
-                  </div>
-                  <div className="mt-3">
-                    <PropertyCard
-                      property={property}
-                      compact
-                      href={`/dashboard/properties/${property.id}`}
-                      trustMarkers={trustMarkers}
-                    />
-                  </div>
-                  <div className="mt-3 flex items-center justify-between text-xs text-slate-600">
-                    <span>Readiness</span>
-                    <span className="font-semibold text-slate-900">
-                      {readiness.score} · {readiness.tier}
-                    </span>
-                  </div>
-                  <div className="mt-2">
-                    <ListingReadinessBadge readiness={readiness} improveHref={improveHref} />
-                  </div>
-                  {readiness.issues.length > 0 && readiness.tier !== "Excellent" && (
-                    <ListingQuickFixes readiness={readiness} propertyId={property.id} />
-                  )}
-                  {property.rejection_reason && status === "rejected" && (
-                    <p className="mt-2 text-xs text-rose-600">
-                      Rejection reason: {property.rejection_reason}
-                    </p>
-                  )}
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Link href={`/dashboard/properties/${property.id}`}>
-                      <Button size="sm" variant="secondary">
-                        Edit listing
-                      </Button>
-                    </Link>
-                    {!hasPhotos && (
-                      <Link href={`/dashboard/properties/${property.id}?step=photos`}>
-                        <Button size="sm" variant="secondary">
-                          Add photos
-                        </Button>
-                      </Link>
-                    )}
-                    {status === "draft" || status === "paused" || status === "rejected" ? (
-                      listingLimitReached ? (
-                        <Button size="sm" type="button" variant="secondary" disabled>
-                          Submit for approval
-                        </Button>
-                      ) : (
-                        <form action={submitForApproval.bind(null, property.id)}>
-                          <Button size="sm" type="submit">
-                            Submit for approval
-                          </Button>
-                        </form>
-                      )
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+        {dashboardListings.length ? (
+          <HostDashboardContent
+            listings={dashboardListings}
+            trustMarkers={trustMarkers}
+            listingLimitReached={listingLimitReached}
+          />
         ) : (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
             <p className="text-base font-semibold text-slate-900">No listings yet</p>

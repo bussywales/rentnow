@@ -1,14 +1,16 @@
 # Versions
 
-# Versions
-
-## 2026-01-24 — vR16.8c-host-readiness
-- Host dashboard now shows a “Readiness” badge per listing with score/tier and top missing items (location quality and photo coverage/cover hints) using existing data only.
-- “Improve” deep-links into the listing editor with focus on Location or Photos based on the top issue; no tenant changes or publish blocking.
+## 2026-01-24 — vR16.8e-host-dashboard-triage
+- Host dashboard now defaults to lowest-readiness sorting with filter chips (All, Needs attention, Ready to publish, Drafts), search, and summary counts.
+- Resume setup CTA jumps to the best next step based on top issue (location → focus=location, photos/cover → step=photos); host-only with no tenant or publish rule changes.
 
 ## 2026-01-24 — vR16.8d-host-dashboard-quick-fixes
 - Host dashboard listings now include “Quick fixes” actions when readiness issues exist (photos/cover/location). Buttons jump straight to the appropriate editor step (Photos or Location) using existing routing.
 - Quick fixes remain host-only, do not block publishing, and keep tenant surfaces untouched.
+
+## 2026-01-24 — vR16.8c-host-readiness
+- Host dashboard now shows a “Readiness” badge per listing with score/tier and top missing items (location quality and photo coverage/cover hints) using existing data only.
+- “Improve” deep-links into the listing editor with focus on Location or Photos based on the top issue; no tenant changes or publish blocking.
 
 ## 2026-01-24 — vR16.8b-prepublish-nudge
 - Added host-only “Before you publish” checklist on the Submit step that nudges Medium/Weak location quality and photo gaps (low count, no/weak cover, recommended cover not applied) without blocking publish.
