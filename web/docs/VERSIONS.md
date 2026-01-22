@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-24 — vR16.8f-host-saved-views
+- Host dashboard saved views with URL-driven state and last-view memory per host (All, Needs attention, Drafts, Ready); includes reset action and locked microcopy.
+- View selection updates the URL/back-forward history and restores the last view on reload without impacting tenant routes or publish rules.
+
 ## 2026-01-24 — vR16.8e-host-dashboard-triage
 - Host dashboard now defaults to lowest-readiness sorting with filter chips (All, Needs attention, Ready to publish, Drafts), search, and summary counts.
 - Resume setup CTA jumps to the best next step based on top issue (location → focus=location, photos/cover → step=photos); host-only with no tenant or publish rule changes.

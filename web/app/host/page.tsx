@@ -75,6 +75,7 @@ export default async function DashboardHome() {
   let validUntil: string | null = null;
   let pendingUpgrade = false;
   let trustMarkers: TrustMarkerState | null = null;
+  let hostUserId: string | null = null;
 
   if (supabaseReady) {
     try {
@@ -82,6 +83,7 @@ export default async function DashboardHome() {
       if (!user) {
         fetchError = "Unauthorized";
       } else {
+        hostUserId = user.id;
         const { data: profile } = await supabase
           .from("profiles")
           .select(
@@ -371,6 +373,7 @@ export default async function DashboardHome() {
             listings={dashboardListings}
             trustMarkers={trustMarkers}
             listingLimitReached={listingLimitReached}
+            hostUserId={hostUserId}
           />
         ) : (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">

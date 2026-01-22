@@ -149,3 +149,4 @@ Non-goals:
 - **R16.8c — Host readiness badge (Shipped)**: host dashboard shows readiness score/tier per listing with quick “Improve” links to location/photos; tenant surfaces unchanged.
 - **R16.8d — Host dashboard quick fixes (Shipped)**: readiness issues now surface inline Quick fixes on the host dashboard, deep-linking to the correct editor step; no tenant or publish changes.
 - **R16.8e — Host dashboard triage (Shipped)**: default lowest-readiness sorting with filter chips, search, and summary counts, plus Resume setup links based on top issue codes; host-only with no tenant changes.
+- **R16.8f — Host saved views (Shipped)**: URL-driven saved views (All/Needs attention/Drafts/Ready) with last-view memory, reset action, and locked microcopy on the host dashboard.
