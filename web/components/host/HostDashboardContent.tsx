@@ -22,7 +22,8 @@ import { formatRelativeTime } from "@/lib/date/relative-time";
 import { buildEditorUrl, getLastUpdatedDate } from "@/lib/properties/host-dashboard";
 import { ListingBulkActionsBar } from "@/components/host/ListingBulkActionsBar";
 import { HostBulkResumeSetupModal } from "@/components/host/HostBulkResumeSetupModal";
-import { buildEditorLink, exportListingsCsv } from "@/lib/host/bulk-triage";
+import { buildEditorLink, exportListingsCsv, openListings } from "@/lib/host/bulk-triage";
+import { Alert } from "@/components/ui/Alert";
 
 function normalizeStatus(property: { status?: string | null; is_active?: boolean | null; is_approved?: boolean | null }) {
   if (property.status) return property.status as typeof property.status;
@@ -46,6 +47,7 @@ export function HostDashboardContent({
   const { view, setView } = useHostDashboardView(hostUserId);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showResumeModal, setShowResumeModal] = useState(false);
+  const [popupBlockedCount, setPopupBlockedCount] = useState<number | null>(null);
 
   const summary = useMemo(() => summarizeListings(listings), [listings]);
   const filtered = useMemo(() => filterListings(listings, view), [view, listings]);
@@ -77,9 +79,13 @@ export function HostDashboardContent({
 
   const openUpToFive = () => {
     const urls = selectedListings.slice(0, 5).map((listing) => buildEditorLink(listing));
-    urls.forEach((url) => {
-      window.open(url, "_blank", "noopener,noreferrer");
-    });
+    const { blocked } = openListings(urls);
+    if (blocked > 0) {
+      setPopupBlockedCount(blocked);
+      window.setTimeout(() => setPopupBlockedCount(null), 4500);
+    } else {
+      setPopupBlockedCount(null);
+    }
   };
 
   const handleExport = () => {
@@ -233,6 +239,16 @@ export function HostDashboardContent({
         onClose={() => setShowResumeModal(false)}
         listings={selectedListings}
       />
+      {popupBlockedCount !== null && (
+        <div className="fixed bottom-24 right-4 z-40 max-w-sm">
+          <Alert
+            title="Pop-ups blocked"
+            description={`Your browser blocked ${popupBlockedCount} tab(s). Allow pop-ups for rentnow.space to open multiple listings.`}
+            variant="warning"
+            onClose={() => setPopupBlockedCount(null)}
+          />
+        </div>
+      )}
     </div>
   );
 }

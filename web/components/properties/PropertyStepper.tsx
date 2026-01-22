@@ -52,6 +52,7 @@ import {
 import { SaveStatusPill } from "@/components/properties/SaveStatusPill";
 import { useSaveStatus } from "@/components/properties/useSaveStatus";
 import { SAVE_STATUS_COPY } from "@/lib/properties/save-status-microcopy";
+import { normalizeFocusParam, normalizeStepParam, STEP_IDS, type StepId } from "@/lib/properties/step-params";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
 type ResolvedAuth = {
@@ -79,8 +80,6 @@ type RecommendedSuggestion = {
   };
   source: "api" | "local";
 };
-
-type StepId = (typeof steps)[number]["id"];
 type Props = {
   initialData?: Partial<Property>;
   initialStep?: number | StepId;
@@ -128,7 +127,7 @@ const COORDINATES_HELP = {
   ],
 };
 
-const steps = [
+const steps: Array<{ id: StepId; label: string }> = [
   { id: "basics", label: "Basics" },
   { id: "details", label: "Details" },
   { id: "photos", label: "Photos" },
@@ -170,14 +169,27 @@ const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | 
 
 export function PropertyStepper({ initialData, initialStep = 0, enableLocationPicker = false, initialFocus = null }: Props) {
   const router = useRouter();
-  const initialStepIndex = useMemo(() => {
+  const normalizedInitialStepId: StepId = useMemo(() => {
     if (typeof initialStep === "string") {
-      const idx = steps.findIndex((step) => step.id === initialStep);
-      return idx >= 0 ? idx : 0;
+      return normalizeStepParam(initialStep);
     }
-    return Math.min(Math.max(initialStep, 0), steps.length - 1);
+    if (typeof initialStep === "number") {
+      const clampedIndex = Math.min(Math.max(initialStep, 0), STEP_IDS.length - 1);
+      return normalizeStepParam(STEP_IDS[clampedIndex]);
+    }
+    if (typeof window !== "undefined") {
+      const fromQuery = new URLSearchParams(window.location.search).get("step");
+      return normalizeStepParam(fromQuery);
+    }
+    return "basics";
   }, [initialStep]);
-  const [stepIndex, setStepIndex] = useState(initialStepIndex);
+
+  const initialStepIndex = useMemo(() => {
+    const idx = steps.findIndex((step) => step.id === normalizedInitialStepId);
+    return idx >= 0 ? idx : 0;
+  }, [normalizedInitialStepId]);
+
+  const [stepIndex, setStepIndex] = useState(() => initialStepIndex);
   const [propertyId, setPropertyId] = useState<string | null>(
     initialData?.id || null
   );
@@ -228,7 +240,6 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   });
   const [recommended, setRecommended] = useState<RecommendedSuggestion | null>(null);
   const [recommendedDismissed, setRecommendedDismissed] = useState(false);
-  const hasAppliedInitialStep = useRef(false);
   const {
     status: saveStatus,
     setSaving: markSaving,
@@ -389,6 +400,14 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   const [dismissedCountryHintKey, setDismissedCountryHintKey] = useState<string | null>(null);
   const [prepublishDismissed, setPrepublishDismissed] = useState(false);
   const hasAppliedInitialFocus = useRef(false);
+  const resolvedInitialFocus = useMemo(() => {
+    if (initialFocus) return initialFocus;
+    if (typeof window !== "undefined") {
+      const fromQuery = new URLSearchParams(window.location.search).get("focus");
+      return normalizeFocusParam(fromQuery);
+    }
+    return null;
+  }, [initialFocus]);
 
   useEffect(() => {
     if (!enableLocationPicker) return;
@@ -949,14 +968,8 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   }, [propertyId]);
 
   useEffect(() => {
-    if (hasAppliedInitialStep.current) return;
-    hasAppliedInitialStep.current = true;
-    setStepIndex(initialStepIndex);
-  }, [initialStepIndex]);
-
-  useEffect(() => {
     if (hasAppliedInitialFocus.current) return;
-    if (initialFocus === "location" && locationSectionRef.current) {
+    if (resolvedInitialFocus === "location" && locationSectionRef.current) {
       hasAppliedInitialFocus.current = true;
       locationSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
       const searchEl = locationSearchInputRef.current;
@@ -964,7 +977,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
         searchEl.focus();
       }
     }
-  }, [initialFocus]);
+  }, [resolvedInitialFocus]);
 
   const buildLocalRecommendation = useCallback((): RecommendedSuggestion | null => {
     if (!imageUrls.length) return null;

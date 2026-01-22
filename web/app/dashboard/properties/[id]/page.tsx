@@ -10,6 +10,7 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 import { cookies } from "next/headers";
 import { getAppSettingBool } from "@/lib/settings/app-settings";
+import { normalizeFocusParam, normalizeStepParam, type StepId } from "@/lib/properties/step-params";
 
 export const dynamic = "force-dynamic";
 
@@ -141,28 +142,16 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
   return { property: null, error: "Unknown error" };
 }
 
-function resolveStep(searchParams?: Props["searchParams"]): "basics" | "details" | "photos" | "preview" | "submit" {
+function resolveStep(searchParams?: Props["searchParams"]): StepId {
   const raw = searchParams?.step;
   const value = Array.isArray(raw) ? raw[0] : raw;
-  switch (value) {
-    case "details":
-      return "details";
-    case "photos":
-      return "photos";
-    case "preview":
-      return "preview";
-    case "submit":
-      return "submit";
-    default:
-      return "basics";
-  }
+  return normalizeStepParam(value);
 }
 
 function resolveFocus(searchParams?: Props["searchParams"]): "location" | "photos" | null {
   const raw = searchParams?.focus;
   const value = Array.isArray(raw) ? raw[0] : raw;
-  if (value === "location" || value === "photos") return value;
-  return null;
+  return normalizeFocusParam(value);
 }
 
 export default async function EditPropertyPage({ params, searchParams }: Props) {

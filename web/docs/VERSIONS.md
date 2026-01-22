@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-24 — vR16.8g.2-host-bulk-open-deeplink-guardrails
+- Listing editor now honours `step=photos`/`focus=location` deterministically on first paint for both new and edit flows using shared step/focus normalizers.
+- Bulk “Open up to 5” opens all requested tabs synchronously and surfaces a clear pop-up blocked warning with counts when the browser blocks tabs.
+- Added guardrail tests for deep-link parsing and bulk open attempts; host-only with no tenant or publish rule changes.
+
 ## 2026-01-24 — vR16.8f-host-saved-views
 - Host dashboard saved views with URL-driven state and last-view memory per host (All, Needs attention, Drafts, Ready); includes reset action and locked microcopy.
 - View selection updates the URL/back-forward history and restores the last view on reload without impacting tenant routes or publish rules.

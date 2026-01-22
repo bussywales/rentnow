@@ -75,3 +75,25 @@ export function exportListingsCsv(listings: DashboardListing[]) {
 export function formatBulkSelected(count: number): string {
   return HOST_DASHBOARD_COPY.bulkBar.selected.replace("{count}", String(count));
 }
+
+export function openListings(urls: string[], opener?: (url: string, target?: string, features?: string) => Window | null) {
+  const openFn =
+    opener ||
+    (typeof window !== "undefined"
+      ? window.open.bind(window)
+      : undefined);
+  if (!openFn) {
+    return { opened: 0, blocked: urls.length };
+  }
+  let opened = 0;
+  let blocked = 0;
+  for (const url of urls) {
+    const result = openFn(url, "_blank", "noopener,noreferrer");
+    if (result === null) {
+      blocked += 1;
+    } else {
+      opened += 1;
+    }
+  }
+  return { opened, blocked };
+}
