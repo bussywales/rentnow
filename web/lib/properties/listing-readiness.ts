@@ -3,10 +3,19 @@ import type { Property, PropertyImage } from "@/lib/types";
 
 export type ReadinessIssueAction = "location" | "photos" | "details";
 
+export type ReadinessIssueCode =
+  | "LOCATION_MEDIUM"
+  | "LOCATION_WEAK"
+  | "NO_PHOTOS"
+  | "LOW_PHOTO_COUNT"
+  | "NO_COVER"
+  | "WEAK_COVER"
+  | "RECOMMENDED_COVER";
+
 export type ReadinessResult = {
   score: number;
   tier: "Excellent" | "Good" | "Needs work";
-  issues: { key: string; label: string; action?: ReadinessIssueAction }[];
+  issues: { key: string; code: ReadinessIssueCode; label: string; action?: ReadinessIssueAction }[];
 };
 
 type ReadinessInput = Property & {
@@ -35,6 +44,7 @@ export function computeListingReadiness(property: ReadinessInput): ReadinessResu
     score -= 10;
     issues.push({
       key: "location_medium",
+      code: "LOCATION_MEDIUM",
       label: "Location could be clearer (add region/postcode).",
       action: "location",
     });
@@ -42,6 +52,7 @@ export function computeListingReadiness(property: ReadinessInput): ReadinessResu
     score -= 20;
     issues.push({
       key: "location_weak",
+      code: "LOCATION_WEAK",
       label: "Pin location and add region/postcode.",
       action: "location",
     });
@@ -55,6 +66,7 @@ export function computeListingReadiness(property: ReadinessInput): ReadinessResu
     score -= 40;
     issues.push({
       key: "no_photos",
+      code: "NO_PHOTOS",
       label: "Add photos (cover + gallery).",
       action: "photos",
     });
@@ -62,6 +74,7 @@ export function computeListingReadiness(property: ReadinessInput): ReadinessResu
     score -= 15;
     issues.push({
       key: "few_photos",
+      code: "LOW_PHOTO_COUNT",
       label: "Add more photos (aim for 5+).",
       action: "photos",
     });
@@ -71,6 +84,7 @@ export function computeListingReadiness(property: ReadinessInput): ReadinessResu
     score -= 10;
     issues.push({
       key: "no_cover",
+      code: "NO_COVER",
       label: "Set a cover photo.",
       action: "photos",
     });
@@ -83,6 +97,7 @@ export function computeListingReadiness(property: ReadinessInput): ReadinessResu
         score -= 5;
         issues.push({
           key: "weak_cover",
+          code: "WEAK_COVER",
           label: "Cover looks better as 1600×900+ landscape.",
           action: "photos",
         });
@@ -95,6 +110,7 @@ export function computeListingReadiness(property: ReadinessInput): ReadinessResu
       score -= 5;
       issues.push({
         key: "recommended_cover",
+        code: "RECOMMENDED_COVER",
         label: "Apply the recommended cover.",
         action: "photos",
       });

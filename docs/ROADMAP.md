@@ -147,3 +147,4 @@ Non-goals:
 - **R16.7k.3 — Postcode country CTA (Shipped)**: postcode/ZIP/FSA queries suggest a country-specific CTA to set the country in one click, re-search with bias, and auto-hide once applied.
 - **R16.8b — Pre-publish nudge (Shipped)**: host-only checklist on submit highlights location quality and photo quick wins with dismissible guidance; no publish guards or tenant changes.
 - **R16.8c — Host readiness badge (Shipped)**: host dashboard shows readiness score/tier per listing with quick “Improve” links to location/photos; tenant surfaces unchanged.
+- **R16.8d — Host dashboard quick fixes (Shipped)**: readiness issues now surface inline Quick fixes on the host dashboard, deep-linking to the correct editor step; no tenant or publish changes.

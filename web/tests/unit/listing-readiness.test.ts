@@ -46,6 +46,7 @@ void test("excellent listing gets high score and no major issues", () => {
   });
   assert.ok(result.score >= 85);
   assert.equal(result.tier, "Excellent");
+  assert.equal(result.issues.length, 0);
 });
 
 void test("weak location and no photos surface issues and low score", () => {
@@ -62,6 +63,7 @@ void test("weak location and no photos surface issues and low score", () => {
   const labels = result.issues.map((i) => i.label).join(" ");
   assert.ok(labels.toLowerCase().includes("photos"));
   assert.ok(labels.toLowerCase().includes("location"));
+  assert.ok(result.issues[0].code === "NO_PHOTOS" || result.issues[0].code === "LOCATION_WEAK");
 });
 
 void test("medium location and low photos drop to good/needs work with ordered issues", () => {
@@ -83,4 +85,9 @@ void test("medium location and low photos drop to good/needs work with ordered i
   assert.ok(result.score < 85);
   assert.ok(result.issues.length > 0);
   assert.ok(result.issues[0].action === "photos" || result.issues[0].action === "location");
+  assert.ok(
+    result.issues[0].code === "LOW_PHOTO_COUNT" ||
+      result.issues[0].code === "WEAK_COVER" ||
+      result.issues[0].code === "LOCATION_MEDIUM"
+  );
 });

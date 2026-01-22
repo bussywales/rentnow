@@ -19,6 +19,7 @@ import type { TrustMarkerState } from "@/lib/trust-markers";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import { ListingReadinessBadge } from "@/components/host/ListingReadinessBadge";
 import { computeListingReadiness } from "@/lib/properties/listing-readiness";
+import { ListingQuickFixes } from "@/components/host/ListingQuickFixes";
 
 export const dynamic = "force-dynamic";
 
@@ -478,6 +479,9 @@ export default async function DashboardHome() {
                   <div className="mt-2">
                     <ListingReadinessBadge readiness={readiness} improveHref={improveHref} />
                   </div>
+                  {readiness.issues.length > 0 && readiness.tier !== "Excellent" && (
+                    <ListingQuickFixes readiness={readiness} propertyId={property.id} />
+                  )}
                   {property.rejection_reason && status === "rejected" && (
                     <p className="mt-2 text-xs text-rose-600">
                       Rejection reason: {property.rejection_reason}
