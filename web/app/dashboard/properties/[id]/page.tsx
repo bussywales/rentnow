@@ -158,6 +158,13 @@ function resolveStep(searchParams?: Props["searchParams"]) {
   }
 }
 
+function resolveFocus(searchParams?: Props["searchParams"]): "location" | "photos" | null {
+  const raw = searchParams?.focus;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (value === "location" || value === "photos") return value;
+  return null;
+}
+
 export default async function EditPropertyPage({ params, searchParams }: Props) {
   const { user, role } = await resolveServerRole();
   if (!user) {
@@ -228,6 +235,7 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
       <PropertyStepper
         initialData={property}
         initialStep={resolveStep(searchParams)}
+        initialFocus={resolveFocus(searchParams)}
         enableLocationPicker={enableLocationPicker}
       />
     </div>

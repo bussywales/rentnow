@@ -2,6 +2,10 @@
 
 # Versions
 
+## 2026-01-24 — vR16.8c-host-readiness
+- Host dashboard now shows a “Readiness” badge per listing with score/tier and top missing items (location quality and photo coverage/cover hints) using existing data only.
+- “Improve” deep-links into the listing editor with focus on Location or Photos based on the top issue; no tenant changes or publish blocking.
+
 ## 2026-01-24 — vR16.8b-prepublish-nudge
 - Added host-only “Before you publish” checklist on the Submit step that nudges Medium/Weak location quality and photo gaps (low count, no/weak cover, recommended cover not applied) without blocking publish.
 - Quick actions jump to Location or Photos; dismiss hides the nudge for the session/listing. Tenant surfaces unchanged.

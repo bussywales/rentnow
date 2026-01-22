@@ -81,6 +81,7 @@ type Props = {
   initialData?: Partial<Property>;
   initialStep?: number;
   enableLocationPicker?: boolean;
+  initialFocus?: "location" | "photos" | null;
 };
 
 const rentalTypes: { label: string; value: RentalType }[] = [
@@ -163,7 +164,7 @@ const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | 
   submit: [],
 };
 
-export function PropertyStepper({ initialData, initialStep = 0, enableLocationPicker = false }: Props) {
+export function PropertyStepper({ initialData, initialStep = 0, enableLocationPicker = false, initialFocus = null }: Props) {
   const router = useRouter();
   const [stepIndex, setStepIndex] = useState(
     Math.min(Math.max(initialStep, 0), steps.length - 1)
@@ -368,6 +369,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   const [locationActiveIndex, setLocationActiveIndex] = useState(0);
   const [dismissedCountryHintKey, setDismissedCountryHintKey] = useState<string | null>(null);
   const [prepublishDismissed, setPrepublishDismissed] = useState(false);
+  const hasAppliedInitialFocus = useRef(false);
 
   useEffect(() => {
     if (!enableLocationPicker) return;
@@ -916,6 +918,18 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   useEffect(() => {
     setPrepublishDismissed(false);
   }, [propertyId]);
+
+  useEffect(() => {
+    if (hasAppliedInitialFocus.current) return;
+    if (initialFocus === "location" && locationSectionRef.current) {
+      hasAppliedInitialFocus.current = true;
+      locationSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+      const searchEl = locationSearchInputRef.current;
+      if (searchEl) {
+        searchEl.focus();
+      }
+    }
+  }, [initialFocus]);
 
   const buildLocalRecommendation = useCallback((): RecommendedSuggestion | null => {
     if (!imageUrls.length) return null;

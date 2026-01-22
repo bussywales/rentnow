@@ -17,6 +17,8 @@ import { TrustBadges } from "@/components/trust/TrustBadges";
 import { TrustReliability } from "@/components/trust/TrustReliability";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { orderImagesWithCover } from "@/lib/properties/images";
+import { ListingReadinessBadge } from "@/components/host/ListingReadinessBadge";
+import { computeListingReadiness } from "@/lib/properties/listing-readiness";
 
 export const dynamic = "force-dynamic";
 
@@ -27,16 +29,6 @@ function normalizeStatus(property: Property): PropertyStatus {
   if (property.is_approved && property.is_active) return "live";
   if (!property.is_approved && property.is_active) return "pending";
   return "draft";
-}
-
-function qualityScore(property: Property) {
-  let score = 0;
-  if (property.title) score += 20;
-  if (property.price) score += 15;
-  if ((property.description || "").length >= 120) score += 25;
-  if ((property.images || []).length >= 3) score += 25;
-  if ((property.amenities || []).length >= 3) score += 15;
-  return Math.min(score, 100);
 }
 
 async function submitForApproval(id: string) {
@@ -445,8 +437,15 @@ export default async function DashboardHome() {
           <div className="grid gap-4 md:grid-cols-2">
             {properties.map((property) => {
               const status = normalizeStatus(property);
-              const score = qualityScore(property);
+              const readiness = computeListingReadiness(property);
               const hasPhotos = (property.images || []).length > 0;
+              const topAction = readiness.issues[0]?.action;
+              const improveHref =
+                topAction === "location"
+                  ? `/dashboard/properties/${property.id}?focus=location`
+                  : topAction === "photos"
+                    ? `/dashboard/properties/${property.id}?step=photos`
+                    : `/dashboard/properties/${property.id}`;
               return (
                 <div
                   key={property.id}
@@ -471,14 +470,13 @@ export default async function DashboardHome() {
                     />
                   </div>
                   <div className="mt-3 flex items-center justify-between text-xs text-slate-600">
-                    <span>Quality score</span>
-                    <span className="font-semibold text-slate-900">{score}%</span>
+                    <span>Readiness</span>
+                    <span className="font-semibold text-slate-900">
+                      {readiness.score} · {readiness.tier}
+                    </span>
                   </div>
-                  <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-slate-100">
-                    <div
-                      className="h-full bg-sky-500"
-                      style={{ width: `${score}%` }}
-                    />
+                  <div className="mt-2">
+                    <ListingReadinessBadge readiness={readiness} improveHref={improveHref} />
                   </div>
                   {property.rejection_reason && status === "rejected" && (
                     <p className="mt-2 text-xs text-rose-600">
