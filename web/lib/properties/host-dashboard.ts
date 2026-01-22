@@ -97,3 +97,7 @@ export function resumeSetupHref(propertyId: string, topIssue?: ReadinessIssueCod
   }
   return `/dashboard/properties/${propertyId}?step=photos`;
 }
+
+export function getLastUpdatedDate(listing: DashboardListing) {
+  return listing.updated_at || listing.created_at || null;
+}

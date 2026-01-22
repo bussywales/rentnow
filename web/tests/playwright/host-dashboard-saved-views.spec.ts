@@ -25,5 +25,6 @@ test.describe("Host dashboard saved views", () => {
 
     await page.goto("/host");
     await expect(page).toHaveURL(/view=drafts/);
+    await expect(page.getByText("Last updated", { exact: false })).toBeVisible();
   });
 });

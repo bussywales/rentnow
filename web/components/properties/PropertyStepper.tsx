@@ -49,6 +49,9 @@ import {
   buildPrePublishNudges,
   type PrePublishNudgeAction,
 } from "@/lib/properties/prepublish-nudge";
+import { SaveStatusPill } from "@/components/properties/SaveStatusPill";
+import { useSaveStatus } from "@/components/properties/useSaveStatus";
+import { SAVE_STATUS_COPY } from "@/lib/properties/save-status-microcopy";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
 type ResolvedAuth = {
@@ -219,6 +222,15 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   });
   const [recommended, setRecommended] = useState<RecommendedSuggestion | null>(null);
   const [recommendedDismissed, setRecommendedDismissed] = useState(false);
+  const {
+    status: saveStatus,
+    setSaving: markSaving,
+    setSaved: markSaved,
+    setError: markSaveError,
+    setSubmitting: markSubmitting,
+    setSubmitted: markSubmitted,
+    retry: retrySave,
+  } = useSaveStatus(propertyId);
   const syncCoverWithImages = useCallback((next: string[]) => {
     setCoverImageUrl((prev) => {
       if (!next.length) return null;
@@ -780,86 +792,93 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       return;
     }
 
+    markSaving(() => saveDraft(statusOverride));
     const url = propertyId ? `/api/properties/${propertyId}` : "/api/properties";
     const method = propertyId ? "PUT" : "POST";
 
-    const res = await fetch(url, {
-      method,
-      headers: {
-        "Content-Type": "application/json",
-        ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-      },
-      credentials: "include",
-      body: JSON.stringify(requestBody),
-    });
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify(requestBody),
+      });
 
-    if (!res.ok) {
-      const raw = await res.text().catch(() => "");
-      type ApiError = {
-        code?: string;
-        maxListings?: number;
-        error?: string;
-        fieldErrors?: Record<string, string>;
-      };
-      let data: ApiError | null = null;
-      try {
-        data = raw ? (JSON.parse(raw) as ApiError) : null;
-      } catch {
-        data = null;
+      if (!res.ok) {
+        const raw = await res.text().catch(() => "");
+        type ApiError = {
+          code?: string;
+          maxListings?: number;
+          error?: string;
+          fieldErrors?: Record<string, string>;
+        };
+        let data: ApiError | null = null;
+        try {
+          data = raw ? (JSON.parse(raw) as ApiError) : null;
+        } catch {
+          data = null;
+        }
+        const validationErrors =
+          data && typeof data.fieldErrors === "object" && data.fieldErrors !== null
+            ? (data.fieldErrors as Record<string, string>)
+            : null;
+        if (validationErrors) {
+          setFieldErrors(validationErrors);
+          const firstKey = Object.keys(validationErrors)[0];
+          if (firstKey) {
+            scrollToField(firstKey);
+          }
+        }
+        if (data?.code === "plan_limit_reached") {
+          const limitMessage =
+            typeof data?.maxListings === "number"
+              ? ` Plan limit: ${data.maxListings}.`
+              : "";
+          setErrorCode(data.code);
+          throw new Error(`Plan limit reached.${limitMessage} Upgrade to add more listings.`);
+        }
+        if (data?.code === "LOCATION_PIN_REQUIRED") {
+          setLocationPublishError(true);
+          setErrorCode(data.code);
+          const message = data?.error || "Pin your listing location to publish.";
+          if (locationSectionRef.current) {
+            locationSectionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+            const focusable =
+              locationSectionRef.current.querySelector("input,textarea,button") ?? null;
+            (focusable as HTMLElement | null)?.focus();
+          }
+          throw new Error(message);
+        }
+        if (typeof data?.code === "string") {
+          setErrorCode(data.code);
+        } else {
+          setErrorCode(null);
+        }
+        const fallbackMessage = validationErrors
+          ? "Please correct the highlighted fields."
+          : data?.error || raw || "Unable to save draft.";
+        throw new Error(fallbackMessage);
       }
-      const validationErrors =
-        data && typeof data.fieldErrors === "object" && data.fieldErrors !== null
-          ? (data.fieldErrors as Record<string, string>)
-          : null;
-      if (validationErrors) {
-        setFieldErrors(validationErrors);
-        const firstKey = Object.keys(validationErrors)[0];
-        if (firstKey) {
-          scrollToField(firstKey);
+
+      setFieldErrors({});
+
+      if (!propertyId) {
+        const json = await res.json().catch(() => ({}));
+        if (json?.id) {
+          setPropertyId(json.id);
         }
       }
-      if (data?.code === "plan_limit_reached") {
-        const limitMessage =
-          typeof data?.maxListings === "number"
-            ? ` Plan limit: ${data.maxListings}.`
-            : "";
-        setErrorCode(data.code);
-        throw new Error(`Plan limit reached.${limitMessage} Upgrade to add more listings.`);
-      }
-      if (data?.code === "LOCATION_PIN_REQUIRED") {
-        setLocationPublishError(true);
-        setErrorCode(data.code);
-        const message = data?.error || "Pin your listing location to publish.";
-        if (locationSectionRef.current) {
-          locationSectionRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
-          const focusable =
-            locationSectionRef.current.querySelector("input,textarea,button") ?? null;
-          (focusable as HTMLElement | null)?.focus();
-        }
-        throw new Error(message);
-      }
-      if (typeof data?.code === "string") {
-        setErrorCode(data.code);
-      } else {
-        setErrorCode(null);
-      }
-      const fallbackMessage = validationErrors
-        ? "Please correct the highlighted fields."
-        : data?.error || raw || "Unable to save draft.";
-      throw new Error(fallbackMessage);
+
+      lastAutoSaved.current = requestKey;
+      setDraftNotice(status === "draft" ? "Draft saved." : null);
+      markSaved();
+    } catch (err) {
+      markSaveError(() => saveDraft(statusOverride));
+      throw err;
     }
-
-    setFieldErrors({});
-
-    if (!propertyId) {
-      const json = await res.json().catch(() => ({}));
-      if (json?.id) {
-        setPropertyId(json.id);
-      }
-    }
-
-    lastAutoSaved.current = requestKey;
-    setDraftNotice(status === "draft" ? "Draft saved." : null);
   }, [
     canCreateDraft,
     getSupabase,
@@ -869,6 +888,9 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
     payload,
     propertyId,
     resolveAuthUser,
+    markSaveError,
+    markSaved,
+    markSaving,
     setDraftNotice,
     setError,
   ]);
@@ -1609,14 +1631,19 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
     }
     setError(null);
     setLocationPublishError(false);
+    markSubmitting();
     startSaving(() => {
       saveDraft("pending")
         .then(() => {
+          markSubmitted();
           const params = new URLSearchParams();
           setToastQuery(params, "Listing submitted for approval", "success");
           router.push(`/dashboard?${params.toString()}`);
         })
-        .catch((err) => setError(err instanceof Error ? err.message : "Unable to submit listing."));
+        .catch((err) => {
+          markSaveError(() => handleSubmitForApproval());
+          setError(err instanceof Error ? err.message : "Unable to submit listing.");
+        });
     });
   };
 
@@ -3157,9 +3184,16 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
               onAction={handleNudgeAction}
             />
           )}
-          <Button onClick={handleSubmitForApproval} disabled={saving || !propertyId}>
-            {saving ? "Submitting..." : "Submit for approval"}
-          </Button>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <Button onClick={handleSubmitForApproval} disabled={saving || !propertyId}>
+              {saving || saveStatus === "submitting"
+                ? SAVE_STATUS_COPY.submitting
+                : saveStatus === "submitted"
+                  ? SAVE_STATUS_COPY.submitted
+                  : "Submit for approval"}
+            </Button>
+            <SaveStatusPill status={saveStatus} onRetry={retrySave} />
+          </div>
         </div>
       )}
 
@@ -3179,6 +3213,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
         >
           {stepIndex >= steps.length - 1 ? "Done" : "Next"}
         </Button>
+        <SaveStatusPill status={saveStatus} onRetry={retrySave} />
       </div>
     </div>
   );

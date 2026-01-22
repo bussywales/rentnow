@@ -17,8 +17,10 @@ import { ListingReadinessBadge } from "@/components/host/ListingReadinessBadge";
 import { ListingQuickFixes } from "@/components/host/ListingQuickFixes";
 import { HostDashboardControls } from "@/components/host/HostDashboardControls";
 import { HostDashboardSavedViews } from "@/components/host/HostDashboardSavedViews";
-import { HOST_DASHBOARD_VIEWS } from "@/lib/host/host-dashboard-microcopy";
+import { HOST_DASHBOARD_COPY, HOST_DASHBOARD_VIEWS } from "@/lib/host/host-dashboard-microcopy";
 import { useHostDashboardView } from "@/components/host/useHostDashboardView";
+import { formatRelativeTime } from "@/lib/date/relative-time";
+import { getLastUpdatedDate } from "@/lib/properties/host-dashboard";
 
 function normalizeStatus(property: { status?: string | null; is_active?: boolean | null; is_approved?: boolean | null }) {
   if (property.status) return property.status as typeof property.status;
@@ -100,6 +102,10 @@ export function HostDashboardContent({
                   <span className="font-semibold text-slate-900">
                     {readiness.score} · {readiness.tier}
                   </span>
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  {HOST_DASHBOARD_COPY.lastUpdatedLabel}:{" "}
+                  {formatRelativeTime(getLastUpdatedDate(property))}
                 </div>
                 <div className="mt-2">
                   <ListingReadinessBadge readiness={readiness} improveHref={improveHref} />

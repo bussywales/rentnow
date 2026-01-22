@@ -25,4 +25,5 @@ export const HOST_DASHBOARD_COPY = {
   helper: "Quick ways to focus on what needs attention.",
   resetLabel: "Reset view",
   resetHelper: "Clears filters and returns to the default view.",
+  lastUpdatedLabel: "Last updated",
 };

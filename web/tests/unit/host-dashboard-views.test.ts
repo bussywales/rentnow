@@ -45,5 +45,6 @@ void test("host dashboard microcopy matches locked strings", () => {
     helper: "Quick ways to focus on what needs attention.",
     resetLabel: "Reset view",
     resetHelper: "Clears filters and returns to the default view.",
+    lastUpdatedLabel: "Last updated",
   });
 });
