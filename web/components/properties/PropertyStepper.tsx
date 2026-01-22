@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { LocationQualityCard } from "@/components/properties/LocationQualityCard";
+import { PrePublishNudgeCard } from "@/components/properties/PrePublishNudgeCard";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import {
   createBrowserSupabaseClient,
@@ -44,6 +45,10 @@ import {
   inferCountryFromResults,
   shouldShowCountryCta,
 } from "@/lib/location/search-hints";
+import {
+  buildPrePublishNudges,
+  type PrePublishNudgeAction,
+} from "@/lib/properties/prepublish-nudge";
 
 type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
 type ResolvedAuth = {
@@ -362,6 +367,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
   const countryButtonRef = useRef<HTMLButtonElement | null>(null);
   const [locationActiveIndex, setLocationActiveIndex] = useState(0);
   const [dismissedCountryHintKey, setDismissedCountryHintKey] = useState<string | null>(null);
+  const [prepublishDismissed, setPrepublishDismissed] = useState(false);
 
   useEffect(() => {
     if (!enableLocationPicker) return;
@@ -539,6 +545,18 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       location_label: form.location_label ?? null,
       location_place_id: form.location_place_id ?? null,
     }) || false;
+  const prepublishNudges = useMemo(
+    () =>
+      buildPrePublishNudges({
+        locationQuality,
+        photoCount: imageUrls.length,
+        coverImageUrl: coverImageUrl ?? null,
+        coverWarning,
+        recommendedCoverUrl: recommended?.url ?? null,
+        recommendedDismissed,
+      }),
+    [coverImageUrl, coverWarning, imageUrls.length, locationQuality, recommended?.url, recommendedDismissed]
+  );
   const countryCtaMessage = useMemo(() => {
     if (!countryHint.key) return null;
     if (countryHint.countryCode === "GB") return LOCATION_MICROCOPY.cta.countryHint.uk;
@@ -894,6 +912,10 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
     img.onerror = () => setCoverWarning({ tooSmall: false, portrait: false, unknown: false });
     img.src = coverImageUrl;
   }, [coverImageUrl, imageMeta]);
+
+  useEffect(() => {
+    setPrepublishDismissed(false);
+  }, [propertyId]);
 
   const buildLocalRecommendation = useCallback((): RecommendedSuggestion | null => {
     if (!imageUrls.length) return null;
@@ -1320,6 +1342,32 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       (focusable as HTMLElement | null)?.focus();
     }
   }, []);
+
+  const handleNudgeAction = useCallback(
+    (action: PrePublishNudgeAction) => {
+      if (action === "location") {
+        setStepIndex(0);
+        window.setTimeout(() => {
+          handleImproveLocation();
+        }, 250);
+        return;
+      }
+      if (action === "photos") {
+        setStepIndex(2);
+        window.setTimeout(() => {
+          const el = document.getElementById("photos-step");
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+            const focusable = el.querySelector("input,button,select") as HTMLElement | null;
+            focusable?.focus();
+          } else {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        }, 250);
+      }
+    },
+    [handleImproveLocation]
+  );
 
   const scrollToField = (key: string) => {
     const el = document.getElementById(`field-${key}`);
@@ -2768,7 +2816,7 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
       )}
 
       {stepIndex === 2 && (
-        <div className="space-y-4">
+        <div className="space-y-4" id="photos-step">
           <div className="space-y-2">
             <label htmlFor="photo-upload" className="text-sm font-medium text-slate-700">
               Photos (Supabase Storage)
@@ -3088,14 +3136,13 @@ export function PropertyStepper({ initialData, initialStep = 0, enableLocationPi
           <p className="text-sm text-slate-600">
             Submitting sends your listing for admin review. It will go live after approval.
           </p>
-          <div className="rounded-xl bg-slate-50 p-4 text-sm text-slate-700">
-            <p className="font-semibold">Before you submit:</p>
-            <ul className="mt-2 space-y-1">
-              <li>Ensure contact details are correct in your profile.</li>
-              <li>Upload at least one high-quality photo.</li>
-              <li>Provide a clear description and amenities.</li>
-            </ul>
-          </div>
+          {!prepublishDismissed && prepublishNudges.length > 0 && (
+            <PrePublishNudgeCard
+              items={prepublishNudges}
+              onDismiss={() => setPrepublishDismissed(true)}
+              onAction={handleNudgeAction}
+            />
+          )}
           <Button onClick={handleSubmitForApproval} disabled={saving || !propertyId}>
             {saving ? "Submitting..." : "Submit for approval"}
           </Button>

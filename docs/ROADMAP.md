@@ -145,3 +145,4 @@ Non-goals:
 - **R16.7k.1 — Location normalization polish (Shipped)**: neighbourhood/admin area priorities tightened for UK/NG and postal code sanitization to avoid mixed values.
 - **R16.7k.2 — Location search clarity (Shipped)**: host picker now shows country-aware “Searching in …” banner, postcode hinting, pin-bias guidance, and empty-state actions without changing tenant privacy.
 - **R16.7k.3 — Postcode country CTA (Shipped)**: postcode/ZIP/FSA queries suggest a country-specific CTA to set the country in one click, re-search with bias, and auto-hide once applied.
+- **R16.8b — Pre-publish nudge (Shipped)**: host-only checklist on submit highlights location quality and photo quick wins with dismissible guidance; no publish guards or tenant changes.

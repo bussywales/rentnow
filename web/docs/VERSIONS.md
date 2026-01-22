@@ -2,6 +2,10 @@
 
 # Versions
 
+## 2026-01-24 — vR16.8b-prepublish-nudge
+- Added host-only “Before you publish” checklist on the Submit step that nudges Medium/Weak location quality and photo gaps (low count, no/weak cover, recommended cover not applied) without blocking publish.
+- Quick actions jump to Location or Photos; dismiss hides the nudge for the session/listing. Tenant surfaces unchanged.
+
 ## 2026-01-24 — vR16.7k.3-postcode-country-cta
 - Location picker now detects postcode/ZIP/FSA queries and shows a country-specific CTA (UK/US/CA) that sets the country in one click, re-searches with bias, and auto-hides after use.
 - When no country is set but search results clearly point to one country, the CTA prefers that country; the fallback remains a generic postcode prompt.
