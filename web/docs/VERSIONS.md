@@ -5,6 +5,11 @@
 - Added signed URL endpoint with ownership checks, MP4-only enforcement retained, and clearer error codes; Photos step fetches/refreshes signed URLs for existing uploads.
 - Updated docs and tests (unit + skip-safe Playwright) to guard signed URL behavior and bucket config expectations.
 
+## 2026-01-24 — vR16.9b.1-admin-review-desk-skeleton
+- Added admin-only Review Desk page (/admin/review) with Airbnb-style layout: listings list on the left and a read-only review drawer on the right.
+- URL state preserves selected listing via `?id=...`, with back/forward support and session-safe defaults; no approve/reject mutations in this slice.
+- Introduced locked microcopy module and guardrail tests; added skip-safe Playwright smoke plus URL-state unit coverage.
+
 ## 2026-01-24 — vR16.9a.4-video-signed-upload
 - Video uploads now use a signed direct-to-Supabase flow (init → client PUT → commit) to avoid Vercel timeouts; no video bytes pass through the Next.js API.
 - Validation remains MP4-only (20MB max), with deterministic storage paths per property and bucket-missing errors surfaced as `STORAGE_BUCKET_NOT_FOUND`.
