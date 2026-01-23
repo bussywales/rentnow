@@ -5,6 +5,7 @@ import {
   MAX_VIDEO_BYTES,
   isAllowedVideoSize,
   isAllowedVideoType,
+  resolveVideoBucket,
   videoExtensionForType,
 } from "@/lib/properties/video";
 
@@ -25,4 +26,18 @@ void test("resolves file extension for video types", () => {
   assert.equal(videoExtensionForType("video/mp4"), "mp4");
   assert.equal(videoExtensionForType("video/quicktime"), "mov");
   assert.equal(videoExtensionForType(undefined), "mp4");
+});
+
+void test("resolves video bucket with server/client fallback", () => {
+  const originalServer = process.env.SUPABASE_VIDEO_STORAGE_BUCKET;
+  const originalClient = process.env.NEXT_PUBLIC_SUPABASE_VIDEO_STORAGE_BUCKET;
+  delete process.env.SUPABASE_VIDEO_STORAGE_BUCKET;
+  delete process.env.NEXT_PUBLIC_SUPABASE_VIDEO_STORAGE_BUCKET;
+  assert.equal(resolveVideoBucket(), "property-videos");
+  process.env.NEXT_PUBLIC_SUPABASE_VIDEO_STORAGE_BUCKET = "client-bucket";
+  assert.equal(resolveVideoBucket(), "client-bucket");
+  process.env.SUPABASE_VIDEO_STORAGE_BUCKET = "server-bucket";
+  assert.equal(resolveVideoBucket(), "server-bucket");
+  process.env.SUPABASE_VIDEO_STORAGE_BUCKET = originalServer;
+  process.env.NEXT_PUBLIC_SUPABASE_VIDEO_STORAGE_BUCKET = originalClient;
 });

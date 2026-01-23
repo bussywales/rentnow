@@ -5,7 +5,7 @@ import { requireUser, getUserRole } from "@/lib/authz";
 import { getListingAccessResult } from "@/lib/role-access";
 import { readActingAsFromRequest } from "@/lib/acting-as";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
-import { VIDEO_BUCKET, isAllowedVideoSize, isAllowedVideoType, videoExtensionForType, MAX_VIDEO_BYTES } from "@/lib/properties/video";
+import { VIDEO_STORAGE_BUCKET, isAllowedVideoSize, isAllowedVideoType, videoExtensionForType, MAX_VIDEO_BYTES } from "@/lib/properties/video";
 
 export const dynamic = "force-dynamic";
 
@@ -106,17 +106,27 @@ export async function POST(
   const path = `${id}/${randomUUID()}.${ext}`;
 
   const uploadResult = await supabase.storage
-    .from(VIDEO_BUCKET)
+    .from(VIDEO_STORAGE_BUCKET)
     .upload(path, file, {
       upsert: true,
       cacheControl: "3600",
       contentType: file.type,
     });
   if (uploadResult.error) {
-    return NextResponse.json({ error: uploadResult.error.message }, { status: 400 });
+    const message = uploadResult.error.message || "Unable to upload video.";
+    const bucketMissing = message.toLowerCase().includes("bucket not found");
+    return NextResponse.json(
+      {
+        error: bucketMissing
+          ? "Video storage isn't configured yet. Ask an admin to create the 'property-videos' bucket in Supabase Storage."
+          : message,
+        code: bucketMissing ? "STORAGE_BUCKET_NOT_FOUND" : "upload_failed",
+      },
+      { status: 400 }
+    );
   }
 
-  const { data: publicUrlData } = supabase.storage.from(VIDEO_BUCKET).getPublicUrl(path);
+  const { data: publicUrlData } = supabase.storage.from(VIDEO_STORAGE_BUCKET).getPublicUrl(path);
   const videoUrl = publicUrlData.publicUrl;
 
   const upsertRes = await supabase
@@ -139,7 +149,7 @@ export async function POST(
   }
 
   if (existing?.storage_path && existing.storage_path !== path) {
-    void supabase.storage.from(VIDEO_BUCKET).remove([existing.storage_path]);
+    void supabase.storage.from(VIDEO_STORAGE_BUCKET).remove([existing.storage_path]);
   }
 
   return NextResponse.json({
@@ -190,7 +200,20 @@ export async function DELETE(
     .maybeSingle();
 
   if (existing?.storage_path) {
-    void supabase.storage.from(VIDEO_BUCKET).remove([existing.storage_path]);
+    const removal = await supabase.storage.from(VIDEO_STORAGE_BUCKET).remove([existing.storage_path]);
+    if (removal.error) {
+      const message = removal.error.message || "Unable to delete video from storage.";
+      const bucketMissing = message.toLowerCase().includes("bucket not found");
+      return NextResponse.json(
+        {
+          error: bucketMissing
+            ? "Video storage isn't configured yet. Ask an admin to create the 'property-videos' bucket in Supabase Storage."
+            : message,
+          code: bucketMissing ? "STORAGE_BUCKET_NOT_FOUND" : "delete_failed",
+        },
+        { status: 400 }
+      );
+    }
   }
 
   const { error: deleteError } = await supabase.from("property_videos").delete().eq("property_id", id);

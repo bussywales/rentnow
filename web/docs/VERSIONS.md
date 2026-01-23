@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-24 — vR16.9a.1-video-bucket-config
+- Video storage now resolves bucket from `SUPABASE_VIDEO_STORAGE_BUCKET` (server) or `NEXT_PUBLIC_SUPABASE_VIDEO_STORAGE_BUCKET` (client) with fallback `property-videos`, and surfaces a clear error when the bucket is missing.
+- Video upload/delete API returns `STORAGE_BUCKET_NOT_FOUND` with user-friendly guidance; uploader shows the same message.
+- Added guardrail tests for bucket resolution and skip-safe Playwright mock for bucket-missing UI copy.
+
 ## 2026-01-24 — vR16.9a-host-video-mvp
 - Added `property_videos` table (one video per property) with owner/delegated agent/admin RLS and no tenant access.
 - New `/api/properties/[id]/video` POST/DELETE uploads MP4/MOV (20MB max) to the `property-videos` bucket with upsert semantics and clean deletion.

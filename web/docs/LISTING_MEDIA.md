@@ -31,10 +31,11 @@
 
 ## Video (host-only MVP)
 - `property_videos` stores one optional video per property: `id`, `property_id` (unique), `video_url`, `storage_path`, `bytes`, `format`, timestamps.
-- Bucket: `property-videos` (override with `NEXT_PUBLIC_SUPABASE_VIDEO_BUCKET`).
+- Bucket: `property-videos` (override with `SUPABASE_VIDEO_STORAGE_BUCKET` on server or `NEXT_PUBLIC_SUPABASE_VIDEO_STORAGE_BUCKET` on client; default `property-videos`). Bucket must exist in Supabase Storage before uploads will work.
 - Upload constraints: MP4 or MOV (`video/mp4`, `video/quicktime`), max 20MB. Stored under `${property_id}/{uuid}.{ext}` using Supabase Storage.
 - RLS mirrors photo policies: owner/active delegated agent/admin can read/write; tenants have no access.
 - UI lives in the Photos step: “Video (optional)” with upload/replace/remove; host dashboard/readiness scoring is unchanged for this MVP.
+- Error handling: when the bucket is missing, APIs return code `STORAGE_BUCKET_NOT_FOUND` and UI surfaces a clear “Video storage isn’t configured yet…” message.
 
 ## EXIF-safe metadata
 - Stored per image: `exif_has_gps` and `exif_captured_at` (timestamps).

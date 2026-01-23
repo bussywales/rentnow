@@ -53,7 +53,7 @@ import {
 import { SaveStatusPill } from "@/components/properties/SaveStatusPill";
 import { useSaveStatus } from "@/components/properties/useSaveStatus";
 import { SAVE_STATUS_COPY } from "@/lib/properties/save-status-microcopy";
-import { ALLOWED_VIDEO_TYPES, VIDEO_BUCKET, isAllowedVideoSize, isAllowedVideoType } from "@/lib/properties/video";
+import { ALLOWED_VIDEO_TYPES, VIDEO_STORAGE_BUCKET, isAllowedVideoSize, isAllowedVideoType } from "@/lib/properties/video";
 import { ReviewAndPublishCard } from "@/components/properties/ReviewAndPublishCard";
 import {
   buildReviewAndPublishChecklist,
@@ -229,14 +229,12 @@ export function PropertyStepper({
         height: (img as { height?: number | null }).height ?? undefined,
         bytes: (img as { bytes?: number | null }).bytes ?? undefined,
         format: (img as { format?: string | null }).format ?? undefined,
-        exif_has_gps:
-          (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? undefined,
+        exif_has_gps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? undefined,
         exif_captured_at:
           (img as { exif_captured_at?: string | null }).exif_captured_at ?? undefined,
         exif: {
           hasGps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? undefined,
-          capturedAt:
-            (img as { exif_captured_at?: string | null }).exif_captured_at ?? undefined,
+          capturedAt: (img as { exif_captured_at?: string | null }).exif_captured_at ?? undefined,
         },
       };
     });
@@ -826,7 +824,11 @@ export function PropertyStepper({
         });
         const data = await res.json().catch(() => null);
         if (!res.ok) {
-          const message = data?.error || "Video upload failed. Try again.";
+          const code = (data as { code?: string } | null)?.code;
+          const message =
+            code === "STORAGE_BUCKET_NOT_FOUND"
+              ? "Video storage isn't configured yet. Ask an admin to create the 'property-videos' bucket in Supabase Storage."
+              : data?.error || "Video upload failed. Try again.";
           setVideoError(message);
           return;
         }
@@ -866,7 +868,12 @@ export function PropertyStepper({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => null);
-        setVideoError(data?.error || "Unable to remove video.");
+        const code = (data as { code?: string } | null)?.code;
+        const message =
+          code === "STORAGE_BUCKET_NOT_FOUND"
+            ? "Video storage isn't configured yet. Ask an admin to create the 'property-videos' bucket in Supabase Storage."
+            : data?.error || "Unable to remove video.";
+        setVideoError(message);
         return;
       }
       setVideoUrl(null);
@@ -946,7 +953,8 @@ export function PropertyStepper({
         setImageMeta((prev) => {
           const nextMeta: Record<string, ImageMeta> = {};
           nextValue?.forEach((url) => {
-            if (prev[url]) nextMeta[url] = prev[url];
+            const maybeMeta = prev[url];
+            if (maybeMeta) nextMeta[url] = maybeMeta;
           });
           return nextMeta;
         });
@@ -3269,7 +3277,7 @@ export function PropertyStepper({
                   />
                 </div>
                 <p className="text-xs text-slate-600">
-                  {`Stored in the \`${VIDEO_BUCKET}\` bucket. Replace to upload a new one.`}
+                  {`Stored in the \`${VIDEO_STORAGE_BUCKET}\` bucket. Replace to upload a new one.`}
                 </p>
               </div>
             ) : (

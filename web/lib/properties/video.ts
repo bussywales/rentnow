@@ -1,5 +1,21 @@
-export const VIDEO_BUCKET =
-  process.env.NEXT_PUBLIC_SUPABASE_VIDEO_BUCKET || "property-videos";
+/**
+ * Resolve the video storage bucket name.
+ * Server can override with SUPABASE_VIDEO_STORAGE_BUCKET; client uses NEXT_PUBLIC_SUPABASE_VIDEO_STORAGE_BUCKET.
+ */
+export function resolveVideoBucket() {
+  if (typeof process !== "undefined") {
+    const server = (process.env as Record<string, string | undefined>).SUPABASE_VIDEO_STORAGE_BUCKET;
+    if (server) return server;
+  }
+  const client =
+    (typeof process !== "undefined"
+      ? (process.env as Record<string, string | undefined>)
+          .NEXT_PUBLIC_SUPABASE_VIDEO_STORAGE_BUCKET
+      : undefined) || "property-videos";
+  return client;
+}
+
+export const VIDEO_STORAGE_BUCKET = resolveVideoBucket();
 
 export const MAX_VIDEO_BYTES = 20 * 1024 * 1024;
 export const ALLOWED_VIDEO_TYPES = ["video/mp4", "video/quicktime"];
