@@ -21,6 +21,8 @@ export type ReadinessResult = {
 type ReadinessInput = Property & {
   images?: PropertyImage[] | null;
   recommended_cover_url?: string | null;
+  photo_count?: number | null;
+  has_cover?: boolean | null;
 };
 
 const clamp = (value: number, min = 0, max = 100) => Math.min(Math.max(value, min), max);
@@ -59,8 +61,10 @@ export function computeListingReadiness(property: ReadinessInput): ReadinessResu
   }
 
   const images = property.images || [];
-  const photoCount = images.length;
+  const photoCount =
+    typeof property.photo_count === "number" ? property.photo_count : images.length;
   const coverUrl = property.cover_image_url ?? null;
+  const hasCover = typeof property.has_cover === "boolean" ? property.has_cover : !!coverUrl;
 
   if (photoCount === 0) {
     score -= 40;
@@ -80,7 +84,7 @@ export function computeListingReadiness(property: ReadinessInput): ReadinessResu
     });
   }
 
-  if (!coverUrl) {
+  if (!hasCover) {
     score -= 10;
     issues.push({
       key: "no_cover",

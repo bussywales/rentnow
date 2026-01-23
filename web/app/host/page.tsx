@@ -161,6 +161,8 @@ export default async function DashboardHome() {
             properties =
             typed.map((row) => ({
               ...row,
+              photo_count: row.property_images?.length ?? 0,
+              has_cover: !!row.cover_image_url,
               images: orderImagesWithCover(
                 row.cover_image_url,
                 row.property_images?.map((img) => ({

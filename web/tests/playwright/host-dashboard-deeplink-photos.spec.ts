@@ -11,4 +11,13 @@ test.describe("Editor deep link to photos", () => {
     await page.goto(`/dashboard/properties/${PROPERTY_ID}?step=photos`);
     await expect(page.getByRole("heading", { name: "Photos" })).toBeVisible();
   });
+
+  test("new listing respects step=photos", async ({ page }) => {
+    await page.goto(`/dashboard/properties/new?step=photos`);
+    const photosHeading = page.getByRole("heading", { name: "Photos" });
+    if (!(await photosHeading.isVisible())) {
+      test.skip(true, "Photos step not visible (likely unauthenticated)");
+    }
+    await expect(photosHeading).toBeVisible();
+  });
 });

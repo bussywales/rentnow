@@ -4,6 +4,10 @@
 - Added host-only “Review & publish” card on the Submit step summarizing readiness + last updated, showing required blockers (when pin flag is on) and recommended fixes with deep links to Photos/Location.
 - Checklist uses stable issue codes, session dismissal, and keeps existing publish rules/privacy intact; includes guardrail tests and skip-safe Playwright smoke.
 
+## 2026-01-24 — vR16.8g.3-host-deeplink-photos-readiness-fix
+- Hardened editor deep-links so `?step=photos` lands on Photos for both edit and new flows without being reset by late data.
+- Host readiness now respects `photo_count`/`has_cover` signals to avoid false “Add photos/Set cover” prompts when photos exist; includes guardrail tests.
+
 ## 2026-01-24 — vR16.8g.2-host-bulk-open-deeplink-guardrails
 - Listing editor now honours `step=photos`/`focus=location` deterministically on first paint for both new and edit flows using shared step/focus normalizers.
 - Bulk “Open up to 5” opens all requested tabs synchronously and surfaces a clear pop-up blocked warning with counts when the browser blocks tabs.

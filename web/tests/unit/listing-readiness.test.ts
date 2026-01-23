@@ -91,3 +91,22 @@ void test("medium location and low photos drop to good/needs work with ordered i
       result.issues[0].code === "LOCATION_MEDIUM"
   );
 });
+
+void test("photo_count and has_cover prevent false missing-photo issues", () => {
+  const result = computeListingReadiness({
+    ...baseListing,
+    images: [],
+    photo_count: 6,
+    has_cover: true,
+    cover_image_url: "cover.jpg",
+    location_label: "Lagos",
+    location_place_id: "pid",
+    admin_area_1: "Lagos",
+    country_code: "NG",
+    latitude: 1,
+    longitude: 1,
+  });
+  const codes = result.issues.map((i) => i.code);
+  assert.ok(!codes.includes("NO_PHOTOS"));
+  assert.ok(!codes.includes("NO_COVER"));
+});
