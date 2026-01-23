@@ -255,9 +255,18 @@ export function PropertyStepper({
     portrait: false,
     unknown: true,
   });
-  const [videoUrl, setVideoUrl] = useState<string | null>(
-    initialData?.property_videos?.[0]?.video_url ?? null
-  );
+  const initialVideoPath =
+    initialData?.property_videos?.[0]?.storage_path ??
+    (() => {
+      const maybeUrl = initialData?.property_videos?.[0]?.video_url ?? null;
+      if (maybeUrl && maybeUrl.includes("/property-videos/")) {
+        const [, path] = maybeUrl.split("/property-videos/");
+        return path || null;
+      }
+      return null;
+    })();
+  const [videoPath, setVideoPath] = useState<string | null>(initialVideoPath);
+  const [videoSignedUrl, setVideoSignedUrl] = useState<string | null>(null);
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [recommended, setRecommended] = useState<RecommendedSuggestion | null>(null);
@@ -286,6 +295,7 @@ export function PropertyStepper({
       return nextMeta;
     });
   }, []);
+
   const readImageMetaFromFile = useCallback(async (file: File): Promise<ImageMeta> => {
     const meta: ImageMeta = {
       bytes: Number.isFinite(file.size) ? file.size : undefined,
@@ -481,6 +491,7 @@ export function PropertyStepper({
   const locationSearchInputRef = useRef<HTMLInputElement | null>(null);
   const countryButtonRef = useRef<HTMLButtonElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
+  const videoRefreshAttemptRef = useRef(0);
   const [locationActiveIndex, setLocationActiveIndex] = useState(0);
   const [dismissedCountryHintKey, setDismissedCountryHintKey] = useState<string | null>(null);
   const [prepublishDismissed, setPrepublishDismissed] = useState(false);
@@ -789,6 +800,59 @@ export function PropertyStepper({
     return createBrowserSupabaseClient();
   }, [setError]);
 
+  const fetchSignedVideoUrl = useCallback(
+    async (overridePath?: string) => {
+      const path = overridePath ?? videoPath;
+      if (!propertyId || !path) return;
+      const supabase = getSupabase();
+      if (!supabase) return;
+      const { user, accessToken } = await resolveAuthUser(supabase);
+      if (!user) {
+        setError("Please log in to load video.");
+        return;
+      }
+      try {
+        const res = await fetch(`/api/properties/${propertyId}/video/url`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+        });
+        const data = (await res.json().catch(() => null)) as { url?: string; code?: string; error?: string } | null;
+        if (!res.ok || !data?.url) {
+          const code = data?.code;
+          const message =
+            code === "VIDEO_BUCKET_NOT_CONFIGURED" || code === "STORAGE_BUCKET_NOT_FOUND"
+              ? "Video storage isn't configured yet. Ask an admin to create the 'property-videos' bucket in Supabase Storage."
+              : code === "VIDEO_NOT_ALLOWED"
+                ? "You don't have permission to view this video."
+                : code === "VIDEO_NOT_FOUND"
+                  ? "No video found for this listing."
+                  : data?.error || "Unable to load video.";
+          setVideoError(message);
+          setVideoSignedUrl(null);
+          return;
+        }
+        setVideoSignedUrl(data.url);
+        setVideoError(null);
+        videoRefreshAttemptRef.current = 0;
+      } catch (err) {
+        setVideoError(err instanceof Error ? err.message : "Unable to load video.");
+      }
+    },
+    [getSupabase, propertyId, resolveAuthUser, setError, videoPath]
+  );
+
+  useEffect(() => {
+    videoRefreshAttemptRef.current = 0;
+    if (videoPath) {
+      void fetchSignedVideoUrl(videoPath);
+    } else {
+      setVideoSignedUrl(null);
+    }
+  }, [fetchSignedVideoUrl, videoPath]);
+
   const handleVideoUpload = useCallback(
     async (file: File) => {
       if (!propertyId) {
@@ -872,7 +936,14 @@ export function PropertyStepper({
           setVideoError(message);
           return;
         }
-        setVideoUrl((commitData as { video_url?: string })?.video_url ?? null);
+        const nextPath =
+          (commitData as { storage_path?: string | null } | null)?.storage_path ?? initData.path ?? null;
+        setVideoPath(nextPath);
+        setVideoSignedUrl(null);
+        videoRefreshAttemptRef.current = 0;
+        if (nextPath) {
+          void fetchSignedVideoUrl(nextPath);
+        }
       } catch (err) {
         setVideoError(err instanceof Error ? err.message : "Video upload failed. Try again.");
       } finally {
@@ -882,12 +953,13 @@ export function PropertyStepper({
         }
       }
     },
-    [getSupabase, propertyId, resolveAuthUser, setError]
+    [fetchSignedVideoUrl, getSupabase, propertyId, resolveAuthUser, setError]
   );
 
   const handleVideoRemove = useCallback(async () => {
     if (!propertyId) {
-      setVideoUrl(null);
+      setVideoPath(null);
+      setVideoSignedUrl(null);
       return;
     }
     const supabase = getSupabase();
@@ -918,13 +990,21 @@ export function PropertyStepper({
         setVideoError(message);
         return;
       }
-      setVideoUrl(null);
+      setVideoPath(null);
+      setVideoSignedUrl(null);
     } catch (err) {
       setVideoError(err instanceof Error ? err.message : "Unable to remove video.");
     } finally {
       setVideoUploading(false);
     }
   }, [getSupabase, propertyId, resolveAuthUser, setError]);
+
+  const handleVideoPlaybackError = useCallback(() => {
+    if (!videoPath) return;
+    if (videoRefreshAttemptRef.current >= 1) return;
+    videoRefreshAttemptRef.current += 1;
+    void fetchSignedVideoUrl(videoPath);
+  }, [fetchSignedVideoUrl, videoPath]);
 
   const persistImageOrder = useCallback(
     async (order: string[]) => {
@@ -1293,10 +1373,6 @@ export function PropertyStepper({
       }
     })();
   }, [buildLocalRecommendation, getSupabase, imageUrls, propertyId, resolveAuthUser]);
-
-  useEffect(() => {
-    setVideoUrl(initialData?.property_videos?.[0]?.video_url ?? null);
-  }, [initialData?.property_videos]);
 
   const reviewListing = useMemo(() => {
     const images = imageUrls.map((url) => ({
@@ -3294,9 +3370,9 @@ export function PropertyStepper({
                   onClick={() => videoInputRef.current?.click()}
                   disabled={videoUploading || !propertyId}
                 >
-                  {videoUrl ? "Replace video" : "Upload video"}
+                  {videoPath ? "Replace video" : "Upload video"}
                 </Button>
-                {videoUrl && (
+                {videoPath && (
                   <Button
                     type="button"
                     size="sm"
@@ -3309,12 +3385,13 @@ export function PropertyStepper({
                 )}
               </div>
             </div>
-            {videoUrl ? (
+            {videoPath ? (
               <div className="mt-3 space-y-2">
                 <div className="overflow-hidden rounded-xl border border-slate-200">
                   <video
-                    src={videoUrl}
+                    src={videoSignedUrl ?? undefined}
                     controls
+                    onError={handleVideoPlaybackError}
                     className="h-56 w-full bg-slate-900 object-contain"
                   />
                 </div>

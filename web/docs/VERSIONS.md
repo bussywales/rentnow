@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-24 — vR16.9a.5-video-signed-read
+- Video playback now uses short-lived signed read URLs from a host-only API, keeping the `property-videos` bucket private and avoiding ORB/public URL issues; auto-refreshes once on playback error/expiry.
+- Added signed URL endpoint with ownership checks, MP4-only enforcement retained, and clearer error codes; Photos step fetches/refreshes signed URLs for existing uploads.
+- Updated docs and tests (unit + skip-safe Playwright) to guard signed URL behavior and bucket config expectations.
+
 ## 2026-01-24 — vR16.9a.4-video-signed-upload
 - Video uploads now use a signed direct-to-Supabase flow (init → client PUT → commit) to avoid Vercel timeouts; no video bytes pass through the Next.js API.
 - Validation remains MP4-only (20MB max), with deterministic storage paths per property and bucket-missing errors surfaced as `STORAGE_BUCKET_NOT_FOUND`.

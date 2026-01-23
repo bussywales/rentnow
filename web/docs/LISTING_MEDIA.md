@@ -35,8 +35,9 @@
 - Upload constraints: MP4 only (`video/mp4`), max 20MB. Stored under `${property_id}/{uuid}.mp4` using Supabase Storage.
 - RLS mirrors photo policies: owner/active delegated agent/admin can read/write; tenants have no access. Inserts are blocked when the property row is missing.
 - Uploads use a signed URL flow (init → client PUT to Supabase Storage → commit metadata) to avoid Vercel timeouts. Video bytes do not pass through the Next.js API.
+- Playback uses short-lived signed URLs fetched from a host-only API; the bucket can remain private. The UI auto-refreshes a signed URL once if playback fails (expiry).
 - UI lives in the Photos step: “Video (optional)” with upload/replace/remove; host dashboard/readiness scoring is unchanged for this MVP. Upload is disabled until the listing is saved (no `id` yet).
-- Error handling: when the bucket is missing, APIs return code `STORAGE_BUCKET_NOT_FOUND` and UI surfaces a clear “Video storage isn’t configured yet…” message.
+- Error handling: when the bucket is missing, APIs return code `STORAGE_BUCKET_NOT_FOUND` or `VIDEO_BUCKET_NOT_CONFIGURED` and UI surfaces a clear “Video storage isn’t configured yet…” message.
 
 ## EXIF-safe metadata
 - Stored per image: `exif_has_gps` and `exif_captured_at` (timestamps).

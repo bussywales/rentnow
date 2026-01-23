@@ -40,3 +40,5 @@ export function videoExtensionForType(): string {
 export function buildVideoPath(propertyId: string, uuid: string): string {
   return `${propertyId}/${uuid}.mp4`;
 }
+
+export const SIGNED_VIDEO_URL_TTL_SECONDS = 60 * 10;
