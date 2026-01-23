@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin/admin-review";
 import { AdminReviewDrawer } from "./AdminReviewDrawer";
 import { AdminReviewList } from "./AdminReviewList";
+import { useState } from "react";
 
 type Props = {
   listings: AdminReviewListItem[];
@@ -22,11 +23,12 @@ export function AdminReviewDesk({ listings, initialSelectedId, canonicalPath }: 
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [items, setItems] = useState<AdminReviewListItem[]>(listings);
   const selectedId = parseSelectedId(searchParams ?? {}) ?? initialSelectedId;
 
   const selectedListing = useMemo(
-    () => listings.find((item) => item.id === selectedId) || null,
-    [listings, selectedId]
+    () => items.find((item) => item.id === selectedId) || null,
+    [items, selectedId]
   );
 
   const handleSelect = useCallback(
@@ -40,6 +42,16 @@ export function AdminReviewDesk({ listings, initialSelectedId, canonicalPath }: 
     router.push(canonicalPath || pathname);
   }, [canonicalPath, pathname, router]);
 
+  const handleActionComplete = useCallback(
+    (id: string) => {
+      setItems((prev) => prev.filter((item) => item.id !== id));
+      if (selectedId === id) {
+        router.push(canonicalPath || pathname);
+      }
+    },
+    [canonicalPath, pathname, router, selectedId]
+  );
+
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -47,12 +59,12 @@ export function AdminReviewDesk({ listings, initialSelectedId, canonicalPath }: 
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.list.columns.title}</p>
-              <p className="text-xs text-slate-600">Showing {listings.length}</p>
+              <p className="text-xs text-slate-600">Showing {items.length}</p>
             </div>
           </div>
         </div>
-        <AdminReviewList listings={listings} onSelect={handleSelect} selectedId={selectedId} />
-        {listings.length === 0 && (
+        <AdminReviewList listings={items} onSelect={handleSelect} selectedId={selectedId} />
+        {items.length === 0 && (
           <div className="p-6 text-center text-sm text-slate-600">
             <p className="font-semibold text-slate-900">{ADMIN_REVIEW_COPY.list.emptyTitle}</p>
             <p className="text-slate-600">{ADMIN_REVIEW_COPY.list.emptyBody}</p>
@@ -64,6 +76,7 @@ export function AdminReviewDesk({ listings, initialSelectedId, canonicalPath }: 
         listing={selectedListing}
         onClose={handleClose}
         locationLine={selectedListing ? formatLocationLine(selectedListing) : ""}
+        onActionComplete={handleActionComplete}
       />
     </div>
   );

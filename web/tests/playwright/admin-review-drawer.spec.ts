@@ -22,4 +22,11 @@ test("admin review desk renders and drawer opens (skip-safe)", async ({ page }) 
   await listButtons.click();
   await expect(page).toHaveURL(/id=/);
   await expect(page.getByText("Overview")).toBeVisible();
+
+  const approveButton = page.getByRole("button", { name: /approve listing/i });
+  test.skip(!(await approveButton.isVisible()), "No actionable listing; skipping approve flow.");
+
+  await approveButton.click();
+  await expect(page).toHaveURL(/id=/);
+  await expect(page.getByText(/approved/i)).toBeVisible({ timeout: 2000 });
 });

@@ -10,6 +10,11 @@
 - URL state preserves selected listing via `?id=...`, with back/forward support and session-safe defaults; no approve/reject mutations in this slice.
 - Introduced locked microcopy module and guardrail tests; added skip-safe Playwright smoke plus URL-state unit coverage.
 
+## 2026-01-24 — vR16.9b.2-admin-review-actions-single
+- Added single-item approve/request-changes actions in the admin Review Desk drawer with validation and in-flight guardrails.
+- Admin-only API routes handle approve and request changes, updating property status and storing the admin message; pending list updates locally and removes processed items.
+- Added helper validation, action tests, skip-safe Playwright smoke, and ADMIN_REVIEW docs for statuses/actions.
+
 ## 2026-01-24 — vR16.9a.4-video-signed-upload
 - Video uploads now use a signed direct-to-Supabase flow (init → client PUT → commit) to avoid Vercel timeouts; no video bytes pass through the Next.js API.
 - Validation remains MP4-only (20MB max), with deterministic storage paths per property and bucket-missing errors surfaced as `STORAGE_BUCKET_NOT_FOUND`.

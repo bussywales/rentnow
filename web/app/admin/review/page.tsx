@@ -91,10 +91,11 @@ async function loadPendingListings(): Promise<AdminReviewListItem[]> {
         property_id: p.id,
         created_at: p.created_at || undefined,
       }));
-      const readiness = computeListingReadiness({
+      const readinessInput = {
         ...(p as RawProperty),
         images,
-      } as any);
+      } as Parameters<typeof computeListingReadiness>[0];
+      const readiness = computeListingReadiness(readinessInput);
       const locationQuality = computeLocationQuality({
         latitude: p.latitude ?? null,
         longitude: p.longitude ?? null,

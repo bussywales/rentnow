@@ -164,3 +164,4 @@ Non-goals:
 - **R16.9a.4 — Signed video upload (Shipped)**: MP4-only direct-to-Supabase signed upload (20MB), bucket config enforced with clear errors, ownership/RLS respected, and Vercel timeouts avoided.
 - **R16.9a.5 — Signed video playback (Shipped)**: video playback now uses short-lived signed URLs (private bucket friendly), auto-refreshes on expiry, and removes public URL usage to avoid ORB errors; host-only APIs with ownership checks.
 - **R16.9b.1 — Admin review desk skeleton (Shipped)**: new admin-only /admin/review with review cards and a read-only drawer scaffold, URL state for selection, and locked microcopy; approvals/rejections deferred to later slices.
+- **R16.9b.2 — Admin review desk actions (Shipped)**: admin drawer now supports approve and request-changes actions with validation, admin-only APIs, and pending list updates; no tenant changes or bulk actions yet.
