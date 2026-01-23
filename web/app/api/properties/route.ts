@@ -80,22 +80,26 @@ export const propertySchema = z.object({
   admin_area_2: z.string().optional().nullable(),
   postal_code: z.string().optional().nullable(),
   imageMeta: z
-    .record(
-      z.string(),
-      z.object({
-        width: z.number().int().positive().optional(),
-        height: z.number().int().positive().optional(),
-        bytes: z.number().int().nonnegative().optional(),
-        format: z.string().optional().nullable(),
-        exif: z
-          .object({
-            hasGps: z.boolean().optional().nullable(),
-            capturedAt: z.string().optional().nullable(),
+    .preprocess(
+      (val) => (val === null ? undefined : val),
+      z
+        .record(
+          z.string(),
+          z.object({
+            width: z.number().int().positive().optional(),
+            height: z.number().int().positive().optional(),
+            bytes: z.number().int().nonnegative().optional(),
+            format: z.string().optional().nullable(),
+            exif: z
+              .object({
+                hasGps: z.boolean().optional().nullable(),
+                capturedAt: z.string().optional().nullable(),
+              })
+              .optional(),
           })
-          .optional(),
-      })
-    )
-    .optional(),
+        )
+        .optional()
+    ),
 });
 
 export async function POST(request: Request) {

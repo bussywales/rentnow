@@ -45,7 +45,7 @@ type ImageMetaPayload = Record<
     exif?: { hasGps?: boolean | null; capturedAt?: string | null };
   }
 >;
-const updateSchema = z.object({
+export const updateSchema = z.object({
   title: z.string().min(3).optional(),
   description: z.string().optional().nullable(),
   city: z.string().min(2).optional(),
@@ -94,22 +94,26 @@ const updateSchema = z.object({
   imageUrls: z.array(z.string().url()).optional(),
   cover_image_url: z.string().url().optional().nullable(),
   imageMeta: z
-    .record(
-      z.string(),
-      z.object({
-        width: z.number().int().positive().optional(),
-        height: z.number().int().positive().optional(),
-        bytes: z.number().int().nonnegative().optional(),
-        format: z.string().optional().nullable(),
-        exif: z
-          .object({
-            hasGps: z.boolean().optional().nullable(),
-            capturedAt: z.string().optional().nullable(),
+    .preprocess(
+      (val) => (val === null ? undefined : val),
+      z
+        .record(
+          z.string(),
+          z.object({
+            width: z.number().int().positive().optional(),
+            height: z.number().int().positive().optional(),
+            bytes: z.number().int().nonnegative().optional(),
+            format: z.string().optional().nullable(),
+            exif: z
+              .object({
+                hasGps: z.boolean().optional().nullable(),
+                capturedAt: z.string().optional().nullable(),
+              })
+              .optional(),
           })
-          .optional(),
-      })
-    )
-    .optional(),
+        )
+        .optional()
+    ),
 });
 
 const idParamSchema = z.object({

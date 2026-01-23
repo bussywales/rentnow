@@ -225,15 +225,18 @@ export function PropertyStepper({
     const meta: Record<string, ImageMeta> = {};
     initialData?.images?.forEach((img) => {
       meta[img.image_url] = {
-        width: (img as { width?: number | null }).width ?? null,
-        height: (img as { height?: number | null }).height ?? null,
-        bytes: (img as { bytes?: number | null }).bytes ?? null,
-        format: (img as { format?: string | null }).format ?? null,
-        exif_has_gps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? null,
-        exif_captured_at: (img as { exif_captured_at?: string | null }).exif_captured_at ?? null,
+        width: (img as { width?: number | null }).width ?? undefined,
+        height: (img as { height?: number | null }).height ?? undefined,
+        bytes: (img as { bytes?: number | null }).bytes ?? undefined,
+        format: (img as { format?: string | null }).format ?? undefined,
+        exif_has_gps:
+          (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? undefined,
+        exif_captured_at:
+          (img as { exif_captured_at?: string | null }).exif_captured_at ?? undefined,
         exif: {
-          hasGps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? null,
-          capturedAt: (img as { exif_captured_at?: string | null }).exif_captured_at ?? null,
+          hasGps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? undefined,
+          capturedAt:
+            (img as { exif_captured_at?: string | null }).exif_captured_at ?? undefined,
         },
       };
     });
@@ -279,14 +282,15 @@ export function PropertyStepper({
     setImageMeta((prev) => {
       const nextMeta: Record<string, ImageMeta> = {};
       next.forEach((url) => {
-        if (prev[url]) nextMeta[url] = prev[url];
+        const maybeMeta = prev[url];
+        if (maybeMeta) nextMeta[url] = maybeMeta;
       });
       return nextMeta;
     });
   }, []);
   const readImageMetaFromFile = useCallback(async (file: File): Promise<ImageMeta> => {
     const meta: ImageMeta = {
-      bytes: file.size,
+      bytes: Number.isFinite(file.size) ? file.size : undefined,
       format: file.type || null,
     };
     try {
@@ -310,6 +314,67 @@ export function PropertyStepper({
     }
     return meta;
   }, []);
+
+  const buildImageMetaPayload = useCallback(
+    (meta: Record<string, ImageMeta>) => {
+      const cleaned: Record<
+        string,
+        {
+          width?: number;
+          height?: number;
+          bytes?: number;
+          format?: string | null;
+          exif?: { hasGps?: boolean | null; capturedAt?: string | null };
+        }
+      > = {};
+      Object.entries(meta).forEach(([url, value]) => {
+        if (!value) return;
+        const width =
+          typeof value.width === "number" && Number.isFinite(value.width)
+            ? value.width
+            : undefined;
+        const height =
+          typeof value.height === "number" && Number.isFinite(value.height)
+            ? value.height
+            : undefined;
+        const bytes =
+          typeof value.bytes === "number" && Number.isFinite(value.bytes)
+            ? value.bytes
+            : undefined;
+        const format = value.format ?? undefined;
+        const exifHasGps =
+          typeof value.exif_has_gps === "boolean"
+            ? value.exif_has_gps
+            : typeof value.exif?.hasGps === "boolean"
+              ? value.exif?.hasGps ?? undefined
+              : undefined;
+        const exifCaptured =
+          typeof value.exif_captured_at === "string" && value.exif_captured_at
+            ? value.exif_captured_at
+            : typeof value.exif?.capturedAt === "string" && value.exif?.capturedAt
+              ? value.exif?.capturedAt
+              : undefined;
+        const exif =
+          exifHasGps !== undefined || exifCaptured !== undefined
+            ? {
+                ...(exifHasGps !== undefined ? { hasGps: exifHasGps } : {}),
+                ...(exifCaptured !== undefined ? { capturedAt: exifCaptured } : {}),
+              }
+            : undefined;
+        if (width || height || bytes || format || exif) {
+          cleaned[url] = {
+            ...(width ? { width } : {}),
+            ...(height ? { height } : {}),
+            ...(bytes ? { bytes } : {}),
+            ...(format !== undefined ? { format } : {}),
+            ...(exif ? { exif } : {}),
+          };
+        }
+      });
+      return Object.keys(cleaned).length ? cleaned : undefined;
+    },
+    []
+  );
 
   useEffect(() => {
     if (!imageUrls.length) {
@@ -912,11 +977,12 @@ export function PropertyStepper({
     const status = statusOverride || (payload.status as PropertyStatus) || "draft";
     const shouldIncludeStatus =
       !propertyId || !!statusOverride || status === "draft" || status === "paused";
+    const imageMetaPayload = buildImageMetaPayload(imageMeta);
     const requestBody = {
       ...restPayload,
       imageUrls,
       cover_image_url: coverImageUrl ?? null,
-      imageMeta,
+      ...(imageMetaPayload ? { imageMeta: imageMetaPayload } : {}),
       ...(shouldIncludeStatus
         ? { status, is_active: status === "pending" || status === "live" }
         : {}),
@@ -1028,6 +1094,7 @@ export function PropertyStepper({
     markSaving,
     setDraftNotice,
     setError,
+    buildImageMetaPayload,
   ]);
 
   useEffect(() => {
