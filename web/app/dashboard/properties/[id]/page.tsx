@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PropertyStepper } from "@/components/properties/PropertyStepper";
+import { HostFixRequestPanel } from "@/components/host/HostFixRequestPanel";
 import { getApiBaseUrl } from "@/lib/env";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { resolveServerRole } from "@/lib/auth/role";
@@ -263,6 +264,15 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
           Update details, tweak pricing, or generate fresh AI copy.
         </p>
       </div>
+      {property.id && property.status === ("changes_requested" as Property["status"]) && (
+        <HostFixRequestPanel
+          key={`${property.id}-${(property as { rejection_reason?: string | null })?.rejection_reason ?? ""}`}
+          propertyId={property.id}
+          status={property.status}
+          rejectionReason={(property as { rejection_reason?: string | null })?.rejection_reason ?? null}
+          updatedAt={property.updated_at}
+        />
+      )}
       <PropertyStepper
         initialData={property}
         initialStep={initialStep}

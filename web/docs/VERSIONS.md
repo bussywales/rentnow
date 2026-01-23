@@ -25,6 +25,11 @@
 - Drawer shows preview/regenerate controls, uses locked reason microcopy, and validates at least one reason or message; legacy plain-text reasons still render.
 - Added helper utilities/tests for parsing/validation, updated admin API to accept reasons/message with clear error codes, and Playwright smoke for rubric UI.
 
+## 2026-01-24 — vR16.9b.5-host-fix-requests-panel
+- Added host-only “Fix requested” panel in the listing editor when status is `changes_requested`, parsing structured or legacy rejection reasons and showing admin message.
+- Includes deep links to Photos/Location/Details per reason code, session-only dismiss keyed to listing + payload, and locked microcopy with guardrail tests.
+- Docs/roadmap updated; skip-safe Playwright smoke ensures panel renders and deep links to Photos.
+
 ## 2026-01-24 — vR16.9a.4-video-signed-upload
 - Video uploads now use a signed direct-to-Supabase flow (init → client PUT → commit) to avoid Vercel timeouts; no video bytes pass through the Next.js API.
 - Validation remains MP4-only (20MB max), with deterministic storage paths per property and bucket-missing errors surfaced as `STORAGE_BUCKET_NOT_FOUND`.
