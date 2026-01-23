@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-24 — vR16.9a.3-video-rls-fix
+- property_videos RLS now mirrors property_images (owner, delegated agent, admin) and blocks inserts when the parent property is missing; new migration and rls snapshot updated.
+- Video upload API returns a friendly `VIDEO_NOT_ALLOWED` 403 instead of surfacing raw RLS errors, and the uploader surfaces permission/save-first guidance.
+- Playwright adds upload gating smoke (unsaved disabled, saved enabled); docs updated for ownership/save-first notes.
+
 ## 2026-01-24 — vR16.9a.2-video-mp4-only
 - Video MVP is now MP4-only: validation allows only `video/mp4` (20MB max) and rejects MOV/QuickTime.
 - UI copy and file picker updated to “Supported: MP4.”; bucket resolver and not-configured error handling remain unchanged.

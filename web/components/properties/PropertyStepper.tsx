@@ -796,7 +796,7 @@ export function PropertyStepper({
         return;
       }
       if (!isAllowedVideoType(file.type)) {
-        setVideoError("Upload an MP4 (or MOV).");
+        setVideoError("Upload an MP4.");
         return;
       }
       if (!isAllowedVideoSize(file.size)) {
@@ -828,6 +828,8 @@ export function PropertyStepper({
           const message =
             code === "STORAGE_BUCKET_NOT_FOUND"
               ? "Video storage isn't configured yet. Ask an admin to create the 'property-videos' bucket in Supabase Storage."
+              : code === "VIDEO_NOT_ALLOWED"
+                ? "You don't have permission to upload a video for this listing."
               : data?.error || "Video upload failed. Try again.";
           setVideoError(message);
           return;
@@ -872,6 +874,8 @@ export function PropertyStepper({
         const message =
           code === "STORAGE_BUCKET_NOT_FOUND"
             ? "Video storage isn't configured yet. Ask an admin to create the 'property-videos' bucket in Supabase Storage."
+            : code === "VIDEO_NOT_ALLOWED"
+              ? "You don't have permission to remove this video."
             : data?.error || "Unable to remove video.";
         setVideoError(message);
         return;

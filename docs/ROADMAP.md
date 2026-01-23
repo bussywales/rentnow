@@ -160,3 +160,4 @@ Non-goals:
 - **R16.9a — Host video MVP (Shipped)**: host-only single video upload (20MB MP4/MOV) stored in `property-videos` bucket via `/api/properties/[id]/video`, with Photos step preview/replace/remove; no tenant/readiness changes.
 - **R16.9a.1 — Video bucket config (Shipped)**: resolves video bucket from server/client env with fallback, clear error when bucket missing, and uploader surfaces the guidance; added guardrail tests.
 - **R16.9a.2 — MP4-only video (Shipped)**: tightened validation to MP4-only (20MB), updated UI copy/picker, and docs/tests; bucket resolver unchanged.
+- **R16.9a.3 — Video RLS fix (Shipped)**: property_videos RLS now mirrors property_images (owner/delegated agent/admin); API returns friendly permission errors; upload disabled until listing is saved.

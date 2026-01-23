@@ -80,7 +80,10 @@ export async function POST(
 
   const ownerCheck = await resolveOwnerId({ request, propertyId: id, supabase, userId: auth.user.id, role });
   if (!ownerCheck.ok) {
-    return NextResponse.json({ error: ownerCheck.message || "Forbidden" }, { status: ownerCheck.status });
+    return NextResponse.json(
+      { error: ownerCheck.message || "You don't have permission to upload a video for this listing.", code: "VIDEO_NOT_ALLOWED" },
+      { status: ownerCheck.status }
+    );
   }
 
   const formData = await request.formData();
