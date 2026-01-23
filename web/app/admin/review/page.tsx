@@ -40,7 +40,7 @@ type RawProperty = {
   location_place_id?: string | null;
 };
 
-async function loadPendingListings(): Promise<AdminReviewListItem[]> {
+async function loadReviewListings(): Promise<AdminReviewListItem[]> {
   if (!hasServerSupabaseEnv()) return [];
   try {
     const supabase = await createServerSupabaseClient();
@@ -64,7 +64,7 @@ async function loadPendingListings(): Promise<AdminReviewListItem[]> {
           "property_videos(id)",
         ].join(",")
       )
-      .eq("status", "pending")
+      .in("status", ["pending", "changes_requested", "live", "approved"])
       .order("updated_at", { ascending: false });
 
     const rawProperties = (properties as RawProperty[] | null) || [];
@@ -113,6 +113,7 @@ async function loadPendingListings(): Promise<AdminReviewListItem[]> {
         title: p.title || "Untitled",
         hostName: owners[p.owner_id || ""] || "Host",
         updatedAt: p.updated_at || p.created_at || null,
+        status: p.status ?? "pending",
         city: p.city ?? null,
         state_region: p.state_region ?? null,
         country_code: p.country_code ?? null,
@@ -142,7 +143,7 @@ export default async function AdminReviewPage({ searchParams }: Props) {
     redirect("/forbidden");
   }
 
-  const listings = await loadPendingListings();
+  const listings = await loadReviewListings();
   const initialSelectedId = (() => {
     const raw = searchParams?.id;
     const value = Array.isArray(raw) ? raw[0] : raw;
@@ -163,7 +164,7 @@ export default async function AdminReviewPage({ searchParams }: Props) {
           Back to Admin
         </Link>
       </div>
-      <AdminReviewDesk listings={listings} initialSelectedId={initialSelectedId} canonicalPath={pathname} />
+      <AdminReviewDesk listings={listings} initialSelectedId={initialSelectedId} />
       <link rel="canonical" href={canonicalUrl} />
     </div>
   );

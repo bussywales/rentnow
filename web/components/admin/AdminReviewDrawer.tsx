@@ -3,7 +3,7 @@
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import { formatRelativeTime } from "@/lib/date/relative-time";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { validateRequestNote } from "@/lib/admin/admin-review-actions";
 
 type Props = {
@@ -11,14 +11,31 @@ type Props = {
   onClose: () => void;
   locationLine: string;
   onActionComplete: (id: string) => void;
+  isHiddenByFilters: boolean;
+  onShowHidden: () => void;
+  filteredIds: string[];
+  onNavigate: (id: string) => void;
 };
 
-export function AdminReviewDrawer({ listing, onClose, locationLine, onActionComplete }: Props) {
+export function AdminReviewDrawer({
+  listing,
+  onClose,
+  locationLine,
+  onActionComplete,
+  isHiddenByFilters,
+  onShowHidden,
+  filteredIds,
+  onNavigate,
+}: Props) {
   const isOpen = !!listing;
   const [requestingChanges, setRequestingChanges] = useState(false);
   const [note, setNote] = useState("");
   const [submitting, setSubmitting] = useState<"approve" | "request" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const navIds = filteredIds;
+  const currentIndex = useMemo(() => (listing ? navIds.indexOf(listing.id) : -1), [listing, navIds]);
+  const prevId = currentIndex > 0 ? navIds[currentIndex - 1] : null;
+  const nextId = currentIndex >= 0 && currentIndex < navIds.length - 1 ? navIds[currentIndex + 1] : null;
   return (
     <div
       className={`rounded-2xl border border-slate-200 bg-white shadow-sm transition ${
@@ -49,6 +66,18 @@ export function AdminReviewDrawer({ listing, onClose, locationLine, onActionComp
           {message}
         </div>
       )}
+      {isHiddenByFilters && listing && (
+        <div className="mx-4 mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+          {ADMIN_REVIEW_COPY.list.hiddenNotice}{" "}
+          <button
+            type="button"
+            className="font-semibold underline underline-offset-2"
+            onClick={onShowHidden}
+          >
+            {ADMIN_REVIEW_COPY.list.showHidden}
+          </button>
+        </div>
+      )}
 
       <div className="divide-y divide-slate-200">
         <section className="p-4">
@@ -73,6 +102,24 @@ export function AdminReviewDrawer({ listing, onClose, locationLine, onActionComp
         </section>
         {listing && (
           <section className="flex flex-col gap-2 p-4">
+            <div className="flex items-center justify-between text-xs text-slate-600">
+              <button
+                type="button"
+                disabled={!prevId}
+                onClick={() => prevId && onNavigate(prevId)}
+                className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {ADMIN_REVIEW_COPY.drawer.previous}
+              </button>
+              <button
+                type="button"
+                disabled={!nextId}
+                onClick={() => nextId && onNavigate(nextId)}
+                className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
+              >
+                {ADMIN_REVIEW_COPY.drawer.next}
+              </button>
+            </div>
             <button
               type="button"
               disabled={submitting !== null}

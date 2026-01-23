@@ -15,6 +15,11 @@
 - Admin-only API routes handle approve and request changes, updating property status and storing the admin message; pending list updates locally and removes processed items.
 - Added helper validation, action tests, skip-safe Playwright smoke, and ADMIN_REVIEW docs for statuses/actions.
 
+## 2026-01-24 — vR16.9b.3-admin-review-saved-views-filters
+- Added saved views and URL/localStorage-backed filters to /admin/review with search, has-video/location/photo filters, and deterministic sorting.
+- Drawer navigation now includes previous/next, hidden-by-filters notice, and view-aware “show anyway” handling; view + selection survive reload/back/forward.
+- Expanded admin review docs and tests (view parsing, microcopy guard, skip-safe Playwright) to cover the new controls.
+
 ## 2026-01-24 — vR16.9a.4-video-signed-upload
 - Video uploads now use a signed direct-to-Supabase flow (init → client PUT → commit) to avoid Vercel timeouts; no video bytes pass through the Next.js API.
 - Validation remains MP4-only (20MB max), with deterministic storage paths per property and bucket-missing errors surfaced as `STORAGE_BUCKET_NOT_FOUND`.

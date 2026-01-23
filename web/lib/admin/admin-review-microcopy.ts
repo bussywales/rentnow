@@ -1,6 +1,25 @@
 export const ADMIN_REVIEW_COPY = {
   headerTitle: "Review desk",
   headerSubtitle: "Approve listings, fix issues, and keep quality high.",
+  savedViews: "Saved views",
+  views: {
+    pending: "Pending",
+    changes: "Changes requested",
+    approved: "Approved (recent)",
+    all: "All",
+    reset: "Reset",
+  },
+  searchPlaceholder: "Search by listing title or host…",
+  filters: {
+    hasVideo: "Has video",
+    needsLocation: "Needs location",
+    needsPhotos: "Needs photos",
+  },
+  sort: {
+    label: "Sort",
+    oldest: "Oldest first",
+    newest: "Newest first",
+  },
   list: {
     emptyTitle: "No listings to review",
     emptyBody: "New submissions will appear here when hosts send them for approval.",
@@ -15,6 +34,8 @@ export const ADMIN_REVIEW_COPY = {
     },
     reviewCta: "Review",
     openEditor: "Open editor",
+    hiddenNotice: "This listing is hidden by your current filters.",
+    showHidden: "Show it anyway",
   },
   drawer: {
     overview: "Overview",
@@ -23,6 +44,8 @@ export const ADMIN_REVIEW_COPY = {
     notes: "Notes",
     close: "Close",
     placeholder: "Details will appear here when you select a listing.",
+    previous: "Previous",
+    next: "Next",
   },
 };
 
