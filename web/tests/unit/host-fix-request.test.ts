@@ -5,6 +5,7 @@ import {
   buildFixRequestItems,
   mapReasonToItem,
   parseRejectionReason,
+  canResubmit,
   shouldShowFixRequestPanel,
 } from "@/lib/admin/host-fix-request";
 
@@ -49,4 +50,9 @@ void test("shouldShowFixRequestPanel respects status and dismissal", () => {
   assert.equal(shouldShowFixRequestPanel("pending", false), false);
   assert.equal(shouldShowFixRequestPanel("changes_requested", false), true);
   assert.equal(shouldShowFixRequestPanel("changes_requested", true), false);
+});
+
+void test("canResubmit only allows changes_requested", () => {
+  assert.equal(canResubmit("changes_requested"), true);
+  assert.equal(canResubmit("pending"), false);
 });

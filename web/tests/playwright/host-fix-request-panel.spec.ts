@@ -20,4 +20,7 @@ test("host fix request panel renders and links to photos (skip-safe)", async ({ 
   const goToPhotos = page.getByRole("button", { name: /go to photos/i });
   await goToPhotos.click();
   await expect(page).toHaveURL(/step=photos/);
+
+  const resubmit = page.getByRole("button", { name: /resubmit for approval/i });
+  await expect(resubmit).toBeVisible();
 });

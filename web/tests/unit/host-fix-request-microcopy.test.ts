@@ -6,6 +6,8 @@ import { REVIEW_REASONS } from "@/lib/admin/admin-review-rubric";
 void test("host fix request microcopy exposes required keys", () => {
   assert.ok(HOST_FIX_REQUEST_COPY.panel.title);
   assert.ok(HOST_FIX_REQUEST_COPY.panel.subtitle);
+  assert.ok(HOST_FIX_REQUEST_COPY.panel.resubmitButton);
+  assert.ok(HOST_FIX_REQUEST_COPY.panel.confirmTitle);
   assert.ok(HOST_FIX_REQUEST_COPY.actions.photos);
   assert.ok(HOST_FIX_REQUEST_COPY.reasons.fallback);
 });

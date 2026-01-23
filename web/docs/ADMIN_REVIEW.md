@@ -29,3 +29,8 @@
   - Drawer prev/next navigation follows the currently visible (filtered) list; a hidden-by-filters notice can clear filters and snap to the selected item.
 - Host experience:
   - When status is `changes_requested`, hosts see a “Fix requested” panel in the editor showing the admin reasons/message and deep links to Photos/Location/Details. Dismissal is session-only and keyed to the payload; legacy plain-text rejection reasons still display as message-only.
+  - Hosts can “Resubmit for approval” after fixing items; resubmit transitions `changes_requested` → `pending` and hides the fix panel locally.
+- Lifecycle:
+  - pending → admin approves (live) or requests changes (changes_requested)
+  - changes_requested → host resubmits → pending (returns to admin review desk)
+  - pending items appear in the admin Review desk Pending view; approved/rejected behavior unchanged.

@@ -87,3 +87,7 @@ export function shouldShowFixRequestPanel(status: string | null | undefined, dis
   if (!status || status !== "changes_requested") return false;
   return !dismissed;
 }
+
+export function canResubmit(status: string | null | undefined) {
+  return status === "changes_requested";
+}

@@ -55,7 +55,7 @@ async function getData(
   ownerId = ""
 ) {
   if (!hasServerSupabaseEnv()) {
-    return { properties: [], users: [], requests: [] };
+    return { properties: [], users: [], requests: [], pendingReviewCount: 0 };
   }
 
   try {
@@ -82,14 +82,20 @@ async function getData(
       .select("id, profile_id, requester_id, requested_plan_tier, status, notes, created_at")
       .order("created_at", { ascending: false });
 
+    const pendingCountQuery = await supabase
+      .from("properties")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending");
+
     return {
       properties: (properties as AdminProperty[]) || [],
       users: (users as AdminUser[]) || [],
       requests: (requests as UpgradeRequest[]) || [],
+      pendingReviewCount: pendingCountQuery.count ?? 0,
     };
   } catch (err) {
     console.warn("Admin data load failed; rendering empty state", err);
-    return { properties: [], users: [], requests: [] };
+    return { properties: [], users: [], requests: [], pendingReviewCount: 0 };
   }
 }
 
@@ -261,8 +267,8 @@ export default async function AdminPage({ searchParams }: Props) {
     }
   }
 
-  const { properties, users, requests } = await getData(statusFilter, searchParam, ownerParam);
-  const pendingCount = requests.filter((request) => request.status === "pending").length;
+  const { properties, users, requests, pendingReviewCount } = await getData(statusFilter, searchParam, ownerParam);
+  const upgradePendingCount = requests.filter((request) => request.status === "pending").length;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -287,9 +293,20 @@ export default async function AdminPage({ searchParams }: Props) {
           </Link>
           <Link href="/admin#upgrade-requests" className="inline-flex items-center gap-2 text-sm underline">
             Upgrade requests
-            {pendingCount > 0 && (
+            {upgradePendingCount > 0 && (
               <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs text-white">
-                {pendingCount}
+                {upgradePendingCount}
+              </span>
+            )}
+          </Link>
+          <Link
+            href="/admin/review"
+            className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
+          >
+            Review desk
+            {pendingReviewCount > 0 && (
+              <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs text-white">
+                {pendingReviewCount}
               </span>
             )}
           </Link>

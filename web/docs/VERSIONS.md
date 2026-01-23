@@ -30,6 +30,11 @@
 - Includes deep links to Photos/Location/Details per reason code, session-only dismiss keyed to listing + payload, and locked microcopy with guardrail tests.
 - Docs/roadmap updated; skip-safe Playwright smoke ensures panel renders and deep links to Photos.
 
+## 2026-01-24 — vR16.9b.6-host-resubmit-admin-link
+- Hosts can resubmit changes-requested listings via a confirm modal in the editor, calling a new resubmit API that returns the listing to the admin pending queue.
+- Admin control panel now surfaces a “Review desk” entrypoint with a pending-count badge; resubmit respects ownership/admin/delegation guards and only allows `changes_requested` → `pending`.
+- Added unit and skip-safe Playwright tests plus lifecycle docs updates.
+
 ## 2026-01-24 — vR16.9a.4-video-signed-upload
 - Video uploads now use a signed direct-to-Supabase flow (init → client PUT → commit) to avoid Vercel timeouts; no video bytes pass through the Next.js API.
 - Validation remains MP4-only (20MB max), with deterministic storage paths per property and bucket-missing errors surfaced as `STORAGE_BUCKET_NOT_FOUND`.
