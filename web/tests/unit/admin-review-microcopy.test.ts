@@ -11,4 +11,6 @@ void test("admin review microcopy exposes required keys", () => {
   assert.ok(ADMIN_REVIEW_COPY.drawer.media);
   assert.ok(ADMIN_REVIEW_COPY.drawer.location);
   assert.ok(ADMIN_REVIEW_COPY.drawer.notes);
+  assert.ok(ADMIN_REVIEW_COPY.reasons.needs_location);
+  assert.ok(ADMIN_REVIEW_COPY.reasons.needs_cover);
 });

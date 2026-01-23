@@ -31,6 +31,7 @@ type RawProperty = {
   has_cover?: boolean | null;
   property_images?: Array<{ image_url: string; width?: number | null; height?: number | null }>;
   property_videos?: Array<{ id: string }>;
+  rejection_reason?: string | null;
   admin_area_1?: string | null;
   admin_area_2?: string | null;
   postal_code?: string | null;
@@ -62,6 +63,7 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
           "has_cover",
           "property_images(id,image_url,width,height)",
           "property_videos(id)",
+          "rejection_reason",
         ].join(",")
       )
       .in("status", ["pending", "changes_requested", "live", "approved"])
@@ -114,6 +116,7 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
         hostName: owners[p.owner_id || ""] || "Host",
         updatedAt: p.updated_at || p.created_at || null,
         status: p.status ?? "pending",
+        rejectionReason: p.rejection_reason ?? null,
         city: p.city ?? null,
         state_region: p.state_region ?? null,
         country_code: p.country_code ?? null,

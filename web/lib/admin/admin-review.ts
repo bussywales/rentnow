@@ -13,6 +13,7 @@ export type AdminReviewListItem = {
   photoCount: number;
   hasVideo: boolean;
   status?: string | null;
+  rejectionReason?: string | null;
 };
 
 export function parseSelectedId(

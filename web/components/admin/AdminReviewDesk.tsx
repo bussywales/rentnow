@@ -198,6 +198,7 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
         }}
         filteredIds={visibleItems.map((i) => i.id)}
         onNavigate={(id) => handleSelect(id)}
+        hasListings={items.length > 0}
       />
     </div>
   );
