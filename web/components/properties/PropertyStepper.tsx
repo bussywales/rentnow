@@ -792,7 +792,7 @@ export function PropertyStepper({
   const handleVideoUpload = useCallback(
     async (file: File) => {
       if (!propertyId) {
-        setVideoError("Save the listing before uploading video.");
+        setVideoError("Save the listing before uploading a video.");
         return;
       }
       if (!isAllowedVideoType(file.type)) {
@@ -813,28 +813,66 @@ export function PropertyStepper({
       setVideoUploading(true);
       setVideoError(null);
       try {
-        const formData = new FormData();
-        formData.append("file", file);
-        const res = await fetch(`/api/properties/${propertyId}/video`, {
+        // Step 1: init signed upload
+        const initRes = await fetch(`/api/properties/${propertyId}/video/init`, {
           method: "POST",
           headers: {
+            "Content-Type": "application/json",
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
-          body: formData,
+          body: JSON.stringify({ bytes: file.size, contentType: file.type }),
         });
-        const data = await res.json().catch(() => null);
-        if (!res.ok) {
-          const code = (data as { code?: string } | null)?.code;
+        const initData = (await initRes.json().catch(() => null)) as
+          | { signedUrl?: string; token?: string; path?: string; bucket?: string; code?: string; error?: string }
+          | null;
+        if (!initRes.ok || !initData?.signedUrl || !initData?.token || !initData?.path) {
+          const code = initData?.code;
           const message =
             code === "STORAGE_BUCKET_NOT_FOUND"
               ? "Video storage isn't configured yet. Ask an admin to create the 'property-videos' bucket in Supabase Storage."
               : code === "VIDEO_NOT_ALLOWED"
                 ? "You don't have permission to upload a video for this listing."
-              : data?.error || "Video upload failed. Try again.";
+                : initData?.error || "Video upload failed. Try again.";
           setVideoError(message);
           return;
         }
-        setVideoUrl((data as { video_url?: string })?.video_url ?? null);
+
+        // Step 2: upload to signed URL via Supabase client helper
+        const bucket = initData.bucket || VIDEO_STORAGE_BUCKET;
+        const uploadResult = await supabase.storage
+          .from(bucket)
+          .uploadToSignedUrl(initData.path, initData.token, file, { contentType: file.type });
+        if (uploadResult.error) {
+          setVideoError("Video upload failed. Try again.");
+          return;
+        }
+
+        // Step 3: commit metadata
+        const commitRes = await fetch(`/api/properties/${propertyId}/video/commit`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: JSON.stringify({
+            path: initData.path,
+            bytes: file.size,
+            format: file.type,
+          }),
+        });
+        const commitData = await commitRes.json().catch(() => null);
+        if (!commitRes.ok) {
+          const code = (commitData as { code?: string } | null)?.code;
+          const message =
+            code === "STORAGE_BUCKET_NOT_FOUND"
+              ? "Video storage isn't configured yet. Ask an admin to create the 'property-videos' bucket in Supabase Storage."
+              : code === "VIDEO_NOT_ALLOWED"
+                ? "You don't have permission to upload a video for this listing."
+                : (commitData as { error?: string } | null)?.error || "Video upload failed. Try again.";
+          setVideoError(message);
+          return;
+        }
+        setVideoUrl((commitData as { video_url?: string })?.video_url ?? null);
       } catch (err) {
         setVideoError(err instanceof Error ? err.message : "Video upload failed. Try again.");
       } finally {

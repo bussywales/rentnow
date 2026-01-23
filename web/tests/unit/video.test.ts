@@ -7,6 +7,7 @@ import {
   isAllowedVideoType,
   resolveVideoBucket,
   videoExtensionForType,
+  buildVideoPath,
 } from "@/lib/properties/video";
 
 void test("accepts only allowed video mime types", () => {
@@ -14,6 +15,7 @@ void test("accepts only allowed video mime types", () => {
     assert.equal(isAllowedVideoType(type), true);
   }
   assert.equal(isAllowedVideoType("application/mp4"), true);
+  assert.equal(isAllowedVideoType("mp4"), true);
   assert.equal(isAllowedVideoType("video/quicktime"), false);
   assert.equal(isAllowedVideoType("video/avi"), false);
   assert.equal(isAllowedVideoType(null), false);
@@ -27,6 +29,11 @@ void test("enforces max video size of 20MB", () => {
 void test("resolves file extension for video types", () => {
   assert.equal(videoExtensionForType("video/mp4"), "mp4");
   assert.equal(videoExtensionForType(undefined), "mp4");
+});
+
+void test("buildVideoPath prefixes property id and mp4 extension", () => {
+  const path = buildVideoPath("abc-123", "uuid-123");
+  assert.equal(path, "abc-123/uuid-123.mp4");
 });
 
 void test("resolves video bucket with server/client fallback", () => {

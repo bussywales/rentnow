@@ -23,7 +23,10 @@ export const ALLOWED_VIDEO_TYPES = ["video/mp4"];
 export function isAllowedVideoType(type: string | null | undefined): boolean {
   if (!type) return false;
   const normalized = type.toLowerCase();
-  return ALLOWED_VIDEO_TYPES.includes(normalized) || normalized === "application/mp4";
+  if (ALLOWED_VIDEO_TYPES.includes(normalized) || normalized === "application/mp4") return true;
+  // Accept the bare extension to tolerate clients that send "mp4" instead of a full MIME type.
+  if (normalized === "mp4") return true;
+  return false;
 }
 
 export function isAllowedVideoSize(size: number): boolean {
@@ -32,4 +35,8 @@ export function isAllowedVideoSize(size: number): boolean {
 
 export function videoExtensionForType(): string {
   return "mp4";
+}
+
+export function buildVideoPath(propertyId: string, uuid: string): string {
+  return `${propertyId}/${uuid}.mp4`;
 }

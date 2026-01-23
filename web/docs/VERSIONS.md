@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-24 — vR16.9a.4-video-signed-upload
+- Video uploads now use a signed direct-to-Supabase flow (init → client PUT → commit) to avoid Vercel timeouts; no video bytes pass through the Next.js API.
+- Validation remains MP4-only (20MB max), with deterministic storage paths per property and bucket-missing errors surfaced as `STORAGE_BUCKET_NOT_FOUND`.
+- API and UI enforce ownership/save-first gating, mirror photo RLS, and provide clearer permission/configuration errors; docs updated for bucket/env requirements.
+
 ## 2026-01-24 — vR16.9a.3-video-rls-fix
 - property_videos RLS now mirrors property_images (owner, delegated agent, admin) and blocks inserts when the parent property is missing; new migration and rls snapshot updated.
 - Video upload API returns a friendly `VIDEO_NOT_ALLOWED` 403 instead of surfacing raw RLS errors, and the uploader surfaces permission/save-first guidance.

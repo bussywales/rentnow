@@ -27,7 +27,7 @@ test("shows bucket-not-configured message when video bucket missing (skip-safe)"
   await page.getByRole("button", { name: /next/i }).click();
   await expect(page).toHaveURL(/photos/);
 
-  await context.route("**/api/properties/**/video", async (route) => {
+  await context.route("**/api/properties/**/video/init", async (route) => {
     await route.fulfill({
       status: 400,
       contentType: "application/json",
