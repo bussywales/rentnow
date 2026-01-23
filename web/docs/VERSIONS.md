@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-24 — vR16.9a.2-video-mp4-only
+- Video MVP is now MP4-only: validation allows only `video/mp4` (20MB max) and rejects MOV/QuickTime.
+- UI copy and file picker updated to “Supported: MP4.”; bucket resolver and not-configured error handling remain unchanged.
+- Updated docs, unit tests for MIME rejection, and skip-safe Playwright mock to match MP4-only copy.
+
 ## 2026-01-24 — vR16.9a.1-video-bucket-config
 - Video storage now resolves bucket from `SUPABASE_VIDEO_STORAGE_BUCKET` (server) or `NEXT_PUBLIC_SUPABASE_VIDEO_STORAGE_BUCKET` (client) with fallback `property-videos`, and surfaces a clear error when the bucket is missing.
 - Video upload/delete API returns `STORAGE_BUCKET_NOT_FOUND` with user-friendly guidance; uploader shows the same message.

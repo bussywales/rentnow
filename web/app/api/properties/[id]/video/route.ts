@@ -90,7 +90,7 @@ export async function POST(
   }
 
   if (!isAllowedVideoType(file.type)) {
-    return NextResponse.json({ error: "Upload an MP4 (or MOV).", code: "unsupported" }, { status: 400 });
+    return NextResponse.json({ error: "Upload an MP4.", code: "unsupported" }, { status: 400 });
   }
   if (!isAllowedVideoSize(file.size)) {
     return NextResponse.json({ error: "Video must be 20MB or less.", code: "too_large", maxBytes: MAX_VIDEO_BYTES }, { status: 400 });
@@ -102,7 +102,7 @@ export async function POST(
     .eq("property_id", id)
     .maybeSingle();
 
-  const ext = videoExtensionForType(file.type);
+  const ext = videoExtensionForType();
   const path = `${id}/${randomUUID()}.${ext}`;
 
   const uploadResult = await supabase.storage

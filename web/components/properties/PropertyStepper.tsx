@@ -53,7 +53,7 @@ import {
 import { SaveStatusPill } from "@/components/properties/SaveStatusPill";
 import { useSaveStatus } from "@/components/properties/useSaveStatus";
 import { SAVE_STATUS_COPY } from "@/lib/properties/save-status-microcopy";
-import { ALLOWED_VIDEO_TYPES, VIDEO_STORAGE_BUCKET, isAllowedVideoSize, isAllowedVideoType } from "@/lib/properties/video";
+import { VIDEO_STORAGE_BUCKET, isAllowedVideoSize, isAllowedVideoType } from "@/lib/properties/video";
 import { ReviewAndPublishCard } from "@/components/properties/ReviewAndPublishCard";
 import {
   buildReviewAndPublishChecklist,
@@ -3225,7 +3225,7 @@ export function PropertyStepper({
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-slate-900">Video (optional)</p>
                 <p className="text-xs text-slate-600">
-                  Add a short walkthrough. Max 20MB. Supported: MP4 or MOV.
+                  Add a short walkthrough. Max 20MB. Supported: MP4.
                 </p>
                 {videoError && (
                   <p className="text-xs font-semibold text-rose-700">{videoError}</p>
@@ -3238,7 +3238,7 @@ export function PropertyStepper({
                 <input
                   ref={videoInputRef}
                   type="file"
-                  accept={ALLOWED_VIDEO_TYPES.join(",")}
+                  accept="video/mp4,.mp4"
                   className="hidden"
                   onChange={(e) => {
                     const file = e.target.files?.[0];

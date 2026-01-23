@@ -13,6 +13,8 @@ void test("accepts only allowed video mime types", () => {
   for (const type of ALLOWED_VIDEO_TYPES) {
     assert.equal(isAllowedVideoType(type), true);
   }
+  assert.equal(isAllowedVideoType("application/mp4"), true);
+  assert.equal(isAllowedVideoType("video/quicktime"), false);
   assert.equal(isAllowedVideoType("video/avi"), false);
   assert.equal(isAllowedVideoType(null), false);
 });
@@ -24,7 +26,6 @@ void test("enforces max video size of 20MB", () => {
 
 void test("resolves file extension for video types", () => {
   assert.equal(videoExtensionForType("video/mp4"), "mp4");
-  assert.equal(videoExtensionForType("video/quicktime"), "mov");
   assert.equal(videoExtensionForType(undefined), "mp4");
 });
 

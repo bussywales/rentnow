@@ -39,7 +39,7 @@ test("shows bucket-not-configured message when video bucket missing (skip-safe)"
     });
   });
 
-  const videoInput = page.locator('input[type="file"][accept*="video"]');
+  const videoInput = page.locator('input[type="file"][accept*="mp4"]');
   await videoInput.setInputFiles({
     name: "sample.mp4",
     mimeType: "video/mp4",
