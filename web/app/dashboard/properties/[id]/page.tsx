@@ -57,7 +57,25 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
       const found = all.find((p) => p.id === cleanId);
       if (found) {
         console.log("[dashboard edit] fetched via list", { id: cleanId, listUrl });
-        return { property: found, error: null };
+        const typed = found as Property & {
+          property_images?: Array<{ id: string; image_url: string }>;
+          property_videos?: Array<{
+            id: string;
+            video_url: string;
+            storage_path?: string | null;
+            bytes?: number | null;
+            format?: string | null;
+          }>;
+        };
+        const withImages: Property = {
+          ...typed,
+          images: typed.property_images?.map((img) => ({
+            id: img.id,
+            image_url: img.image_url,
+          })),
+          property_videos: typed.property_videos ?? null,
+        };
+        return { property: withImages, error: null };
       }
     } else {
       console.warn("[dashboard edit] list fetch failed", { status: listRes.status });
@@ -73,6 +91,13 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
       const json = await res.json();
       const data = json.property as Property & {
         property_images?: Array<{ id: string; image_url: string }>;
+        property_videos?: Array<{
+          id: string;
+          video_url: string;
+          storage_path?: string | null;
+          bytes?: number | null;
+          format?: string | null;
+        }>;
       };
       if (data) {
         console.log("[dashboard edit] fetched via detail API", { id: cleanId, detailUrl });
@@ -82,6 +107,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
             id: img.id,
             image_url: img.image_url,
           })),
+          property_videos: data.property_videos ?? null,
         };
         return { property: withImages, error: null };
       }
@@ -110,7 +136,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
 
     let query = supabase
       .from("properties")
-      .select("*, property_images(image_url,id)")
+      .select("*, property_images(image_url,id), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at)")
       .eq("id", cleanId);
 
     if (!isAdmin) {
@@ -121,6 +147,15 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
     if (!error && data) {
       const typed = data as Property & {
         property_images?: Array<{ id: string; image_url: string }>;
+        property_videos?: Array<{
+          id: string;
+          video_url: string;
+          storage_path?: string | null;
+          bytes?: number | null;
+          format?: string | null;
+          created_at?: string | null;
+          updated_at?: string | null;
+        }>;
       };
       const withImages: Property = {
         ...typed,
@@ -128,6 +163,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
           id: img.id,
           image_url: img.image_url,
         })),
+        property_videos: typed.property_videos ?? null,
       };
       return { property: withImages, error: null };
     }

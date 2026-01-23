@@ -37,6 +37,7 @@ import { hasPinnedLocation } from "@/lib/properties/validation";
 import { LOCATION_MICROCOPY } from "@/lib/location-microcopy";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
 import { sanitizePostalCode } from "@/lib/geocode/normalize-location";
+import { buildStaticMapUrl } from "@/lib/geocode/staticMap";
 import {
   buildCountryHintKey,
   classifyLocationQuery,
@@ -52,6 +53,7 @@ import {
 import { SaveStatusPill } from "@/components/properties/SaveStatusPill";
 import { useSaveStatus } from "@/components/properties/useSaveStatus";
 import { SAVE_STATUS_COPY } from "@/lib/properties/save-status-microcopy";
+import { ALLOWED_VIDEO_TYPES, VIDEO_BUCKET, isAllowedVideoSize, isAllowedVideoType } from "@/lib/properties/video";
 import { ReviewAndPublishCard } from "@/components/properties/ReviewAndPublishCard";
 import {
   buildReviewAndPublishChecklist,
@@ -252,6 +254,11 @@ export function PropertyStepper({
     portrait: false,
     unknown: true,
   });
+  const [videoUrl, setVideoUrl] = useState<string | null>(
+    initialData?.property_videos?.[0]?.video_url ?? null
+  );
+  const [videoUploading, setVideoUploading] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const [recommended, setRecommended] = useState<RecommendedSuggestion | null>(null);
   const [recommendedDismissed, setRecommendedDismissed] = useState(false);
   const {
@@ -410,6 +417,7 @@ export function PropertyStepper({
   const locationSectionRef = useRef<HTMLDivElement | null>(null);
   const locationSearchInputRef = useRef<HTMLInputElement | null>(null);
   const countryButtonRef = useRef<HTMLButtonElement | null>(null);
+  const videoInputRef = useRef<HTMLInputElement | null>(null);
   const [locationActiveIndex, setLocationActiveIndex] = useState(0);
   const [dismissedCountryHintKey, setDismissedCountryHintKey] = useState<string | null>(null);
   const [prepublishDismissed, setPrepublishDismissed] = useState(false);
@@ -717,6 +725,92 @@ export function PropertyStepper({
     }
     return createBrowserSupabaseClient();
   }, [setError]);
+
+  const handleVideoUpload = useCallback(
+    async (file: File) => {
+      if (!propertyId) {
+        setVideoError("Save the listing before uploading video.");
+        return;
+      }
+      if (!isAllowedVideoType(file.type)) {
+        setVideoError("Upload an MP4 (or MOV).");
+        return;
+      }
+      if (!isAllowedVideoSize(file.size)) {
+        setVideoError("Video must be 20MB or less.");
+        return;
+      }
+      const supabase = getSupabase();
+      if (!supabase) return;
+      const { user, accessToken } = await resolveAuthUser(supabase);
+      if (!user) {
+        setError("Please log in to upload video.");
+        return;
+      }
+      setVideoUploading(true);
+      setVideoError(null);
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+        const res = await fetch(`/api/properties/${propertyId}/video`, {
+          method: "POST",
+          headers: {
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: formData,
+        });
+        const data = await res.json().catch(() => null);
+        if (!res.ok) {
+          const message = data?.error || "Video upload failed. Try again.";
+          setVideoError(message);
+          return;
+        }
+        setVideoUrl((data as { video_url?: string })?.video_url ?? null);
+      } catch (err) {
+        setVideoError(err instanceof Error ? err.message : "Video upload failed. Try again.");
+      } finally {
+        setVideoUploading(false);
+        if (videoInputRef.current) {
+          videoInputRef.current.value = "";
+        }
+      }
+    },
+    [getSupabase, propertyId, resolveAuthUser, setError]
+  );
+
+  const handleVideoRemove = useCallback(async () => {
+    if (!propertyId) {
+      setVideoUrl(null);
+      return;
+    }
+    const supabase = getSupabase();
+    if (!supabase) return;
+    const { user, accessToken } = await resolveAuthUser(supabase);
+    if (!user) {
+      setError("Please log in to remove video.");
+      return;
+    }
+    setVideoUploading(true);
+    setVideoError(null);
+    try {
+      const res = await fetch(`/api/properties/${propertyId}/video`, {
+        method: "DELETE",
+        headers: {
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        setVideoError(data?.error || "Unable to remove video.");
+        return;
+      }
+      setVideoUrl(null);
+    } catch (err) {
+      setVideoError(err instanceof Error ? err.message : "Unable to remove video.");
+    } finally {
+      setVideoUploading(false);
+    }
+  }, [getSupabase, propertyId, resolveAuthUser, setError]);
 
   const persistImageOrder = useCallback(
     async (order: string[]) => {
@@ -1082,6 +1176,10 @@ export function PropertyStepper({
       }
     })();
   }, [buildLocalRecommendation, getSupabase, imageUrls, propertyId, resolveAuthUser]);
+
+  useEffect(() => {
+    setVideoUrl(initialData?.property_videos?.[0]?.video_url ?? null);
+  }, [initialData?.property_videos]);
 
   const reviewListing = useMemo(() => {
     const images = imageUrls.map((url) => ({
@@ -3047,6 +3145,72 @@ export function PropertyStepper({
               {uploading ? "Uploading..." : "Upload photos"}
             </Button>
           </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-semibold text-slate-900">Video (optional)</p>
+                <p className="text-xs text-slate-600">
+                  Add a short walkthrough. Max 20MB. Supported: MP4 or MOV.
+                </p>
+                {videoError && (
+                  <p className="text-xs font-semibold text-rose-700">{videoError}</p>
+                )}
+                {videoUploading && !videoError && (
+                  <p className="text-xs text-slate-600">Uploading...</p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  ref={videoInputRef}
+                  type="file"
+                  accept={ALLOWED_VIDEO_TYPES.join(",")}
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleVideoUpload(file);
+                  }}
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => videoInputRef.current?.click()}
+                  disabled={videoUploading || !propertyId}
+                >
+                  {videoUrl ? "Replace video" : "Upload video"}
+                </Button>
+                {videoUrl && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    onClick={handleVideoRemove}
+                    disabled={videoUploading}
+                  >
+                    Remove
+                  </Button>
+                )}
+              </div>
+            </div>
+            {videoUrl ? (
+              <div className="mt-3 space-y-2">
+                <div className="overflow-hidden rounded-xl border border-slate-200">
+                  <video
+                    src={videoUrl}
+                    controls
+                    className="h-56 w-full bg-slate-900 object-contain"
+                  />
+                </div>
+                <p className="text-xs text-slate-600">
+                  {`Stored in the \`${VIDEO_BUCKET}\` bucket. Replace to upload a new one.`}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-slate-600">
+                No video uploaded yet. Uploading requires saving the listing first.
+              </p>
+            )}
+          </div>
 
           {imageUrls.length > 0 && (
             <div className="space-y-3">
@@ -3354,4 +3518,3 @@ export function PropertyStepper({
     </div>
   );
 }
-import { buildStaticMapUrl } from "@/lib/geocode/staticMap";

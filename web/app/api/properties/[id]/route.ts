@@ -323,7 +323,9 @@ export async function GET(
       : baseFields;
     let query = supabase
       .from("properties")
-    .select(`*, property_images(${imageFields})`)
+      .select(
+        `*, property_images(${imageFields}), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at)`
+      )
       .eq("id", id);
     if (includePosition) {
       query = query
@@ -420,6 +422,18 @@ export async function GET(
     (data as { cover_image_url?: string | null }).cover_image_url ?? null,
     (data as { property_images?: Array<{ id: string; image_url: string; position?: number; created_at?: string }> }).property_images
   );
+  const propertyVideos =
+    (data as {
+      property_videos?: Array<{
+        id: string;
+        video_url: string;
+        storage_path?: string | null;
+        bytes?: number | null;
+        format?: string | null;
+        created_at?: string | null;
+        updated_at?: string | null;
+      }>;
+    }).property_videos ?? null;
 
   const flagEnabled = await getAppSettingBool("show_tenant_checkin_badge", false);
   const effectiveFlag =
@@ -430,7 +444,7 @@ export async function GET(
   });
 
   return NextResponse.json({
-    property: { ...data, property_images: orderedImages, checkin_signal: checkinSignal },
+    property: { ...data, property_images: orderedImages, property_videos: propertyVideos, checkin_signal: checkinSignal },
   });
 }
 

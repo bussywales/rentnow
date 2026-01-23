@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-24 — vR16.9a-host-video-mvp
+- Added `property_videos` table (one video per property) with owner/delegated agent/admin RLS and no tenant access.
+- New `/api/properties/[id]/video` POST/DELETE uploads MP4/MOV (20MB max) to the `property-videos` bucket with upsert semantics and clean deletion.
+- Photos step now includes a host-only “Video (optional)” section with upload/replace/remove and preview; readiness scoring unchanged.
+
 ## 2026-01-24 — vR16.9-review-and-publish
 - Added host-only “Review & publish” card on the Submit step summarizing readiness + last updated, showing required blockers (when pin flag is on) and recommended fixes with deep links to Photos/Location.
 - Checklist uses stable issue codes, session dismissal, and keeps existing publish rules/privacy intact; includes guardrail tests and skip-safe Playwright smoke.

@@ -29,6 +29,13 @@
 - Backfill helper: `scripts/list-missing-image-metadata.mjs` (requires service role) lists rows with null width/height for manual updating.
 - `bytes` is stored as BIGINT with sanity checks; width/height are checked > 0 when present; blurhash is accepted and persisted when provided.
 
+## Video (host-only MVP)
+- `property_videos` stores one optional video per property: `id`, `property_id` (unique), `video_url`, `storage_path`, `bytes`, `format`, timestamps.
+- Bucket: `property-videos` (override with `NEXT_PUBLIC_SUPABASE_VIDEO_BUCKET`).
+- Upload constraints: MP4 or MOV (`video/mp4`, `video/quicktime`), max 20MB. Stored under `${property_id}/{uuid}.{ext}` using Supabase Storage.
+- RLS mirrors photo policies: owner/active delegated agent/admin can read/write; tenants have no access.
+- UI lives in the Photos step: “Video (optional)” with upload/replace/remove; host dashboard/readiness scoring is unchanged for this MVP.
+
 ## EXIF-safe metadata
 - Stored per image: `exif_has_gps` and `exif_captured_at` (timestamps).
 - EXIF location coordinates are **not** stored; only a boolean “has GPS” flag is accepted.

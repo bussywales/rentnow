@@ -113,6 +113,15 @@ export interface Property {
   created_at?: string;
   updated_at?: string;
   images?: PropertyImage[];
+  property_videos?: Array<{
+    id: string;
+    video_url: string;
+    storage_path?: string | null;
+    bytes?: number | null;
+    format?: string | null;
+    created_at?: string | null;
+    updated_at?: string | null;
+  }> | null;
 }
 
 export interface Message {

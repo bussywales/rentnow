@@ -157,3 +157,4 @@ Non-goals:
 - **R16.8g.3 — Deep-link + readiness patch (Shipped)**: `?step=photos` now consistently lands on Photos for new/edit flows, and host readiness uses photo count/cover signals to avoid false “add photos” regressions.
 - **R16.8g.4 — Location focus scroll (Shipped)**: `?focus=location` deep-links scroll and focus the Location search input for new/edit flows without affecting tenants.
 - **R16.9 — Review & Publish (Shipped)**: submit step now shows a host-only review card with readiness, last updated, blockers (pin flag), and recommended fixes that deep-link to Photos/Location without changing publish rules.
+- **R16.9a — Host video MVP (Shipped)**: host-only single video upload (20MB MP4/MOV) stored in `property-videos` bucket via `/api/properties/[id]/video`, with Photos step preview/replace/remove; no tenant/readiness changes.
