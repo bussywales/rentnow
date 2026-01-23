@@ -990,10 +990,15 @@ export function PropertyStepper({
     if (hasAppliedInitialFocus.current) return;
     if (resolvedInitialFocus === "location" && locationSectionRef.current) {
       hasAppliedInitialFocus.current = true;
-      locationSectionRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
-      const searchEl = locationSearchInputRef.current;
+      const section = locationSectionRef.current;
+      section.scrollIntoView({ behavior: "smooth", block: "start" });
+      const searchEl =
+        locationSearchInputRef.current ||
+        (section.querySelector("input,textarea,select,button") as HTMLElement | null);
       if (searchEl) {
-        searchEl.focus();
+        window.setTimeout(() => {
+          searchEl.focus({ preventScroll: true });
+        }, 50);
       }
     }
   }, [resolvedInitialFocus]);

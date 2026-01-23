@@ -4,6 +4,9 @@
 - Added host-only “Review & publish” card on the Submit step summarizing readiness + last updated, showing required blockers (when pin flag is on) and recommended fixes with deep links to Photos/Location.
 - Checklist uses stable issue codes, session dismissal, and keeps existing publish rules/privacy intact; includes guardrail tests and skip-safe Playwright smoke.
 
+## 2026-01-24 — vR16.8g.4-location-focus-scroll
+- `?focus=location` now scrolls to and focuses the Location search input (or best available location field) on load for new and edit flows; host-only with skip-safe Playwright coverage.
+
 ## 2026-01-24 — vR16.8g.3-host-deeplink-photos-readiness-fix
 - Hardened editor deep-links so `?step=photos` lands on Photos for both edit and new flows without being reset by late data.
 - Host readiness now respects `photo_count`/`has_cover` signals to avoid false “Add photos/Set cover” prompts when photos exist; includes guardrail tests.
