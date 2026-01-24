@@ -1,7 +1,7 @@
 # Versions
 
 ## 2026-01-24 — vR16.9b.15-admin-review-or-clause-fix
-- Admin review OR clause tightened to explicit pending statuses + submitted_at (no wildcard), reducing PostgREST 400/404 risk; diagnostics now surface full service error details and raw query debug.
+- Admin review OR clause tightened to explicit pending statuses + submitted_at (no wildcard), reducing PostgREST 400/404 risk; diagnostics now surface full service error details, raw query debug, and raw REST body snippets for queue/simple selects.
 - Service client remains schema=public with session detection disabled; queue helper still prefers service and reports fallback reasons; docs updated for schema/url troubleshooting.
 
 ## 2026-01-24 — vR16.9a.5-video-signed-read

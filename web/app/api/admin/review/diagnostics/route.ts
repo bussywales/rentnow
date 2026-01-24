@@ -45,6 +45,9 @@ export async function GET(request: NextRequest) {
   const supabase = auth.supabase;
   const pendingStatuses = getStatusesForView("pending");
   const orFilter = buildReviewableOrClause();
+  const supabaseUrlRaw = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const normalizedUrl = normalizeSupabaseUrl(supabaseUrlRaw);
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 
   const { searchParams } = new URL(request.url);
   const lookupId = searchParams.get("id");
@@ -74,6 +77,23 @@ export async function GET(request: NextRequest) {
     ok: false,
     error: null,
   };
+  const rawQueueFetch: {
+    attempted: boolean;
+    status: number | null;
+    ok: boolean;
+    contentType: string | null;
+    bodySnippet: string | null;
+    urlUsed: string | null;
+    acceptProfile: boolean;
+  }[] = [];
+  const rawSimpleFetch: {
+    status: number | null;
+    ok: boolean;
+    contentType: string | null;
+    bodySnippet: string | null;
+    urlUsed: string | null;
+    acceptProfile: boolean;
+  }[] = [];
   if (auth.role === "admin" && serviceKeyPresent) {
     serviceBranchAttempted = true;
     try {
@@ -100,15 +120,13 @@ export async function GET(request: NextRequest) {
         note = "RLS or role may be blocking admin query";
       }
       // Raw PostgREST ping
-      const supabaseUrlRaw = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-      const normalizedUrl = normalizeSupabaseUrl(supabaseUrlRaw);
       if (normalizedUrl) {
         rawPostgrestPing.attempted = true;
         try {
           const resp = await fetch(`${normalizedUrl}/rest/v1/properties?select=id&limit=1`, {
             headers: {
-              apikey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
-              Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || ""}`,
+              apikey: serviceKey,
+              Authorization: `Bearer ${serviceKey}`,
               Prefer: "count=exact",
             },
           });
@@ -121,6 +139,72 @@ export async function GET(request: NextRequest) {
           rawPostgrestPing.status = null;
           rawPostgrestPing.ok = false;
           rawPostgrestPing.error = (pingErr as Error)?.message || "ping failed";
+        }
+        // Raw queue fetch with and without Accept-Profile
+        const queueUrl = `${normalizedUrl}/rest/v1/properties?select=id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active&or=(${encodeURIComponent(orFilter)})`;
+        for (const acceptProfile of [true, false]) {
+          const headers = {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+            Accept: "application/json",
+          } as Record<string, string>;
+          if (acceptProfile) headers["Accept-Profile"] = "public";
+          try {
+            const resp = await fetch(queueUrl, { headers });
+            const contentType = resp.headers.get("content-type");
+            const body = await resp.text();
+            rawQueueFetch.push({
+              attempted: true,
+              status: resp.status,
+              ok: resp.ok,
+              contentType,
+              bodySnippet: body.slice(0, 500),
+              urlUsed: queueUrl,
+              acceptProfile,
+            });
+          } catch (errFetch) {
+            rawQueueFetch.push({
+              attempted: true,
+              status: null,
+              ok: false,
+              contentType: null,
+              bodySnippet: (errFetch as Error)?.message?.slice(0, 500) || "fetch failed",
+              urlUsed: queueUrl,
+              acceptProfile,
+            });
+          }
+        }
+        // Raw simple select
+        const simpleUrl = `${normalizedUrl}/rest/v1/properties?select=id,status&limit=1`;
+        for (const acceptProfile of [true, false]) {
+          const headers = {
+            apikey: serviceKey,
+            Authorization: `Bearer ${serviceKey}`,
+            Accept: "application/json",
+          } as Record<string, string>;
+          if (acceptProfile) headers["Accept-Profile"] = "public";
+          try {
+            const resp = await fetch(simpleUrl, { headers });
+            const contentType = resp.headers.get("content-type");
+            const body = await resp.text();
+            rawSimpleFetch.push({
+              status: resp.status,
+              ok: resp.ok,
+              contentType,
+              bodySnippet: body.slice(0, 500),
+              urlUsed: simpleUrl,
+              acceptProfile,
+            });
+          } catch (errSimple) {
+            rawSimpleFetch.push({
+              status: null,
+              ok: false,
+              contentType: null,
+              bodySnippet: (errSimple as Error)?.message?.slice(0, 500) || "fetch failed",
+              urlUsed: simpleUrl,
+              acceptProfile,
+            });
+          }
         }
       }
     } catch (err: unknown) {
@@ -139,8 +223,6 @@ export async function GET(request: NextRequest) {
     note = "service role unavailable; cannot confirm if rows exist";
   }
 
-  const supabaseUrlRaw = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const normalizedUrl = normalizeSupabaseUrl(supabaseUrlRaw);
   const rawUrlPresent = !!supabaseUrlRaw;
   const rawUrlStartsWithHttp = supabaseUrlRaw.startsWith("http://") || supabaseUrlRaw.startsWith("https://");
   const urlHasScheme = !!normalizedUrl && (normalizedUrl.startsWith("http://") || normalizedUrl.startsWith("https://"));

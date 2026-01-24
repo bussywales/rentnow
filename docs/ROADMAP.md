@@ -11,7 +11,7 @@ RentNow is a rental marketplace for African cities. It lets tenants discover and
 - Admins review support snapshots, billing ops, and role management (server-only service role).
 
 ## Release history summary (major milestones by tags)
-- vR16.9b.15: Admin review OR clause + service schema/url fix with explicit pending statuses, raw PostgREST ping diagnostics, and service-role preference/fallback warnings.
+- vR16.9b.15: Admin review OR clause + service schema/url fix with explicit pending statuses, raw PostgREST ping diagnostics, and service-role preference/fallback warnings (includes raw REST body diagnostics for queue/simple selects).
 - v1.7.52 (R12): Tenant-side demand funnels across views, saves, enquiries, viewings.
 - v1.7.49 (R11.1): Listing views telemetry foundation for analytics.
 - v1.7.48 (R11): Landlord/agent analytics dashboards (read-only, no PII).

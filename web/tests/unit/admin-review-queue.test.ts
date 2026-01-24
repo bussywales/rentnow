@@ -61,6 +61,8 @@ void test("buildReviewableOrClause includes submitted_at fallback", () => {
   assert.ok(clause.includes("submitted_at.not.is.null"));
   assert.ok(clause.includes("status.eq.pending"));
   assert.equal(clause.includes("%"), false);
+  const expectedStatuses = ["pending", "pending_review", "pending_approval", "submitted"];
+  expectedStatuses.forEach((s) => assert.ok(clause.includes(`status.eq.${s}`)));
 });
 
 void test("reviewable row predicate allows submitted_at + active", () => {
