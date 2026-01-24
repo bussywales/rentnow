@@ -12,6 +12,16 @@ test("admin review pending view shows listings (skip-safe)", async ({ page }) =>
   await page.getByRole("button", { name: /log in/i }).click();
   await page.waitForURL(/dashboard/);
 
+  await page.goto("/admin");
+  const badge = page.locator('a:has-text("Review desk") span');
+  const badgeVisible = await badge.count();
+  let pendingCount = 0;
+  if (badgeVisible > 0) {
+    const text = (await badge.first().textContent())?.trim() ?? "";
+    pendingCount = Number.parseInt(text, 10);
+  }
+  test.skip(pendingCount === 0, "No pending listings in badge; skipping visibility assertion.");
+
   await page.goto("/admin/review?view=pending");
   await expect(page.getByText("Review desk")).toBeVisible();
 

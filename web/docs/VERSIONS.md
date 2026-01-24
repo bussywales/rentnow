@@ -749,3 +749,8 @@
 
 ## 2026-02-08 — vR16.7h.2-location-microcopy-enforced
 - Enforced Location microcopy pack in the listing wizard strings and added a guardrail unit test.
+
+## 2026-01-24 — vR16.9b.8-admin-review-pending-freshness
+- Forced `/admin` and `/admin/review` to no-store/dynamic data fetching so pending/resubmitted listings surface immediately.
+- Shared status constants drive both the admin badge count and Review Desk pending filters; added guardrail tests.
+- Added docs on caching requirements and pending source-of-truth to prevent divergence.

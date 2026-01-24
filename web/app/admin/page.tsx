@@ -9,9 +9,11 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { revalidatePath } from "next/cache";
 import { logApprovalAction } from "@/lib/observability";
 import { formatRoleLabel } from "@/lib/roles";
-import { getStatusesForView } from "@/lib/admin/admin-review-queue";
+import { PENDING_STATUS_LIST } from "@/lib/admin/admin-review-queue";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 type Props = {
   searchParams: Record<string, string | string[] | undefined>;
@@ -83,11 +85,10 @@ async function getData(
       .select("id, profile_id, requester_id, requested_plan_tier, status, notes, created_at")
       .order("created_at", { ascending: false });
 
-    const pendingStatuses = getStatusesForView("pending");
     const pendingCountQuery = await supabase
       .from("properties")
       .select("id", { count: "exact", head: true })
-      .in("status", pendingStatuses);
+      .in("status", PENDING_STATUS_LIST);
 
     return {
       properties: (properties as AdminProperty[]) || [],
