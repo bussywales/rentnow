@@ -4,10 +4,10 @@ const REVIEW_VIEW_STATUSES = {
   approved: ["live", "approved"],
 } as const;
 
-export const PENDING_STATUS_LIST = [...REVIEW_VIEW_STATUSES.pending];
-export const APPROVED_STATUS_LIST = [...REVIEW_VIEW_STATUSES.approved];
-export const CHANGES_STATUS_LIST = [...REVIEW_VIEW_STATUSES.changes];
-export const ALL_REVIEW_STATUSES = Array.from(
+export const PENDING_STATUS_LIST: string[] = [...REVIEW_VIEW_STATUSES.pending];
+export const APPROVED_STATUS_LIST: string[] = [...REVIEW_VIEW_STATUSES.approved];
+export const CHANGES_STATUS_LIST: string[] = [...REVIEW_VIEW_STATUSES.changes];
+export const ALL_REVIEW_STATUSES: string[] = Array.from(
   new Set([...PENDING_STATUS_LIST, ...CHANGES_STATUS_LIST, ...APPROVED_STATUS_LIST])
 );
 
