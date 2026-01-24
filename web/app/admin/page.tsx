@@ -9,7 +9,8 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { revalidatePath } from "next/cache";
 import { logApprovalAction } from "@/lib/observability";
 import { formatRoleLabel } from "@/lib/roles";
-import { buildStatusOrFilter, getStatusesForView } from "@/lib/admin/admin-review-queue";
+import { buildStatusOrFilter, getAdminReviewQueue, getStatusesForView } from "@/lib/admin/admin-review-queue";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -63,6 +64,14 @@ async function getData(
 
   try {
     const supabase = await createServerSupabaseClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    const { data: viewerProfile } = user
+      ? await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle()
+      : { data: null };
+    const viewerRole = viewerProfile?.role ?? null;
+    const serviceClient = viewerRole === "admin" && hasServiceRoleEnv() ? createServiceRoleClient() : null;
     let query = supabase
       .from("properties")
       .select("id, title, city, rental_type, is_approved, owner_id, status, rejection_reason")
@@ -85,21 +94,26 @@ async function getData(
       .select("id, profile_id, requester_id, requested_plan_tier, status, notes, created_at")
       .order("created_at", { ascending: false });
 
-    const pendingCountQuery = await supabase
-      .from("properties")
-      .select("id", { count: "exact", head: true })
-      .or(buildStatusOrFilter("pending"));
+    const pendingResult = await getAdminReviewQueue({
+      userClient: supabase,
+      serviceClient,
+      viewerRole,
+      mode: "reviewable",
+      select: "id",
+      limit: 5,
+    });
     console.log("[admin] pending status set", {
       view: "pending",
       statuses: getStatusesForView("pending"),
       or: buildStatusOrFilter("pending"),
+      usedServiceRole: pendingResult.usedServiceRole,
     });
 
     return {
       properties: (properties as AdminProperty[]) || [],
       users: (users as AdminUser[]) || [],
       requests: (requests as UpgradeRequest[]) || [],
-      pendingReviewCount: pendingCountQuery.count ?? 0,
+      pendingReviewCount: pendingResult.count ?? 0,
     };
   } catch (err) {
     console.warn("Admin data load failed; rendering empty state", err);

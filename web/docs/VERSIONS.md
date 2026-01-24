@@ -755,6 +755,10 @@
 - Shared status constants drive both the admin badge count and Review Desk pending filters; added guardrail tests.
 - Added docs on caching requirements and pending source-of-truth to prevent divergence.
 
+## 2026-01-24 — vR16.9b.10-admin-review-queue-visibility
+- Canonical reviewable predicate `(pending OR submitted_at) AND !is_approved AND approved_at/rejected_at null` shared across badge, Review Desk, and diagnostics; allows pending while active.
+- `/admin` and `/admin/review` queue reads can use service-role client for admins; warning shown if service key missing; diagnostics endpoint now returns user vs service counts, samples, grouped stats, and optional id lookup with RLS hint.
+- Added unit guardrails for predicate and filter clause; docs updated with troubleshooting.
 ## 2026-01-24 — vR16.9b.9-admin-review-diagnostics
 - Added admin-only diagnostics endpoint `/api/admin/review/diagnostics` exposing viewer, env host, pending status set, counts, and RLS hint; no-store by default.
 - Pending badge and Review Desk now log the exact status set used; status matching now normalizes prefixes and case.

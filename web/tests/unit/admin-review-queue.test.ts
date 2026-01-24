@@ -9,6 +9,8 @@ import {
   isStatusInView,
   normalizeStatus,
   buildStatusOrFilter,
+  isReviewableRow,
+  buildReviewableOrClause,
 } from "@/lib/admin/admin-review-queue";
 
 void test("pending statuses include pending", () => {
@@ -51,4 +53,22 @@ void test("buildStatusOrFilter builds supabase or clause", () => {
   const allClause = buildStatusOrFilter("all");
   assert.ok(allClause.includes("status.eq.live"));
   assert.ok(allClause.includes("status.eq.changes_requested"));
+});
+
+void test("buildReviewableOrClause includes submitted_at fallback", () => {
+  const clause = buildReviewableOrClause();
+  assert.ok(clause.includes("submitted_at.not.is.null"));
+  assert.ok(clause.includes("status.eq.pending"));
+});
+
+void test("reviewable row predicate allows submitted_at + active", () => {
+  const row = {
+    status: "pending",
+    submitted_at: "2024-01-01T00:00:00Z",
+    is_approved: false,
+    approved_at: null,
+    rejected_at: null,
+    is_active: true,
+  };
+  assert.equal(isReviewableRow(row), true);
 });

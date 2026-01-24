@@ -16,6 +16,34 @@ export function normalizeStatus(status: string | null | undefined): string | nul
   return status.toString().trim().toLowerCase();
 }
 
+export function buildReviewableOrClause(): string {
+  const pendingClauses = PENDING_STATUS_LIST.map((s) => `status.eq.${s}`);
+  pendingClauses.push("status.ilike.pending%");
+  pendingClauses.push("submitted_at.not.is.null");
+  return pendingClauses.join(",");
+}
+
+export type ReviewableRow = {
+  status?: string | null;
+  submitted_at?: string | null;
+  is_approved?: boolean | null;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+};
+
+export function isReviewableRow(row: ReviewableRow): boolean {
+  const normalized = normalizeStatus(row.status);
+  const isPendingStatus = normalized
+    ? normalized.startsWith("pending") || PENDING_STATUS_LIST.includes(normalized)
+    : false;
+  const hasSubmitted = !!row.submitted_at;
+  if (!(isPendingStatus || hasSubmitted)) return false;
+  if (row.is_approved === true) return false;
+  if (row.approved_at) return false;
+  if (row.rejected_at) return false;
+  return true;
+}
+
 export type ReviewViewKey = "pending" | "changes" | "approved" | "all";
 
 export function getStatusesForView(view: ReviewViewKey): string[] {
@@ -49,6 +77,48 @@ export function buildStatusOrFilter(view: ReviewViewKey): string {
   if (view === "approved" || view === "all") {
     clauses.push(...APPROVED_STATUS_LIST.map((s) => `status.eq.${s}`));
   }
-  // Supabase .or uses comma-separated conditions
   return clauses.join(",");
+}
+
+// Supabase types can be noisy in shared helpers; keep these helpers permissive.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type FilterBuilder = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyClient = any;
+
+export function applyReviewableFilters(query: FilterBuilder) {
+  return query
+    .or(buildReviewableOrClause())
+    .eq("is_approved", false)
+    .is("approved_at", null)
+    .is("rejected_at", null);
+}
+
+export async function getAdminReviewQueue<T extends string>({
+  userClient,
+  serviceClient,
+  viewerRole,
+  mode,
+  select,
+  limit,
+}: {
+  userClient: AnyClient;
+  serviceClient?: AnyClient | null;
+  viewerRole?: string | null;
+  mode: "reviewable" | "allStatuses";
+  select: T;
+  limit?: number;
+}) {
+  const useServiceRole = viewerRole === "admin" && !!serviceClient;
+  const client = useServiceRole && serviceClient ? serviceClient : userClient;
+  let query = client.from("properties").select(select, { count: "exact" });
+  query = mode === "reviewable" ? applyReviewableFilters(query) : query.or(buildStatusOrFilter("all"));
+  if (limit) query = query.limit(limit);
+  query = query.order("updated_at", { ascending: false });
+  const result = await query;
+  return {
+    ...result,
+    usedServiceRole: useServiceRole,
+    serviceRoleAvailable: !!serviceClient,
+  };
 }

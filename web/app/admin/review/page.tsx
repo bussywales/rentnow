@@ -9,7 +9,14 @@ import { computeLocationQuality } from "@/lib/properties/location-quality";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { formatRoleLabel } from "@/lib/roles";
-import { buildStatusOrFilter, getStatusesForView, normalizeStatus } from "@/lib/admin/admin-review-queue";
+import {
+  buildStatusOrFilter,
+  getAdminReviewQueue,
+  getStatusesForView,
+  isReviewableRow,
+  normalizeStatus,
+} from "@/lib/admin/admin-review-queue";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -29,6 +36,11 @@ type RawProperty = {
   created_at?: string | null;
   owner_id?: string | null;
   status?: string | null;
+  submitted_at?: string | null;
+  is_approved?: boolean | null;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+  is_active?: boolean | null;
   cover_image_url?: string | null;
   photo_count?: number | null;
   has_cover?: boolean | null;
@@ -48,29 +60,35 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
   if (!hasServerSupabaseEnv()) return [];
   try {
     const supabase = await createServerSupabaseClient();
-    const { data: properties } = await supabase
-      .from("properties")
-      .select(
-        [
-          "id",
-          "title",
-          "city",
-          "state_region",
-          "country_code",
-          "updated_at",
-          "created_at",
-          "owner_id",
-          "status",
-          "cover_image_url",
-          "photo_count",
-          "has_cover",
-          "property_images(id,image_url,width,height)",
-          "property_videos(id)",
-          "rejection_reason",
-        ].join(",")
-      )
-      .or(buildStatusOrFilter("all"))
-      .order("updated_at", { ascending: false });
+    const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
+    const { data: properties } = await getAdminReviewQueue({
+      userClient: supabase,
+      serviceClient,
+      viewerRole: "admin",
+      mode: "allStatuses",
+      select: [
+        "id",
+        "title",
+        "city",
+        "state_region",
+        "country_code",
+        "updated_at",
+        "created_at",
+        "owner_id",
+        "status",
+        "cover_image_url",
+        "photo_count",
+        "has_cover",
+        "submitted_at",
+        "is_approved",
+        "approved_at",
+        "rejected_at",
+        "is_active",
+        "property_images(id,image_url,width,height)",
+        "property_videos(id)",
+        "rejection_reason",
+      ].join(","),
+    });
     console.log("[admin/review] status set", {
       statuses: getStatusesForView("pending"),
       or: buildStatusOrFilter("pending"),
@@ -123,6 +141,11 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
         hostName: owners[p.owner_id || ""] || "Host",
         updatedAt: p.updated_at || p.created_at || null,
         status: normalizeStatus(p.status) ?? "pending",
+        submitted_at: p.submitted_at ?? null,
+        is_approved: p.is_approved ?? null,
+        approved_at: p.approved_at ?? null,
+        rejected_at: p.rejected_at ?? null,
+        is_active: p.is_active ?? null,
         rejectionReason: p.rejection_reason ?? null,
         city: p.city ?? null,
         state_region: p.state_region ?? null,
@@ -131,6 +154,13 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
         locationQuality: locationQuality.quality,
         photoCount: typeof p.photo_count === "number" ? p.photo_count : (p.property_images || []).length,
         hasVideo: Array.isArray(p.property_videos) && p.property_videos.length > 0,
+        reviewable: isReviewableRow({
+          status: p.status ?? null,
+          submitted_at: p.submitted_at ?? null,
+          is_approved: p.is_approved ?? null,
+          approved_at: p.approved_at ?? null,
+          rejected_at: p.rejected_at ?? null,
+        }),
       };
     });
   } catch (err) {
@@ -154,6 +184,7 @@ export default async function AdminReviewPage({ searchParams }: Props) {
   }
 
   const listings = await loadReviewListings();
+  const serviceRoleAvailable = hasServiceRoleEnv();
   const initialSelectedId = (() => {
     const raw = searchParams?.id;
     const value = Array.isArray(raw) ? raw[0] : raw;
@@ -174,6 +205,11 @@ export default async function AdminReviewPage({ searchParams }: Props) {
           Back to Admin
         </Link>
       </div>
+      {!serviceRoleAvailable && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Service role not configured; RLS may hide review queue. Set SUPABASE_SERVICE_ROLE_KEY in server env.
+        </div>
+      )}
       <AdminReviewDesk listings={listings} initialSelectedId={initialSelectedId} />
       <link rel="canonical" href={canonicalUrl} />
     </div>

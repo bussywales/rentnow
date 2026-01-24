@@ -33,6 +33,9 @@
 - Caching / freshness:
   - `/admin` and `/admin/review` are forced dynamic (`dynamic="force-dynamic"`, `revalidate=0`, `fetchCache="force-no-store"`); Supabase queries must not be cached so pending/resubmitted items appear immediately.
   - Any new admin data loaders should reuse the `admin-review-queue` status helpers and avoid fetch caching.
+- Source of truth (reviewable predicate):
+  - A listing is reviewable/pending if `(status in pending set OR submitted_at is not null)` AND `is_approved=false` AND `approved_at is null` AND `rejected_at is null`. `is_active` can be true while pending.
+  - Helpers: `isReviewableRow`, `buildReviewableOrClause`, and `applyReviewableFilters` in `admin-review-queue` are the single source; both `/admin` badge and `/admin/review` use them (with service role when available).
 - Lifecycle:
   - pending → admin approves (live) or requests changes (changes_requested)
   - changes_requested → host resubmits → pending (returns to admin review desk)
@@ -40,5 +43,7 @@
   - Pending source of truth: statuses considered pending for the Review Desk and /admin badge are defined in `admin-review-queue` (includes at least `pending`, plus legacy pending_* variants); both surfaces use the same helper to avoid divergence.
 - Troubleshooting when Pending looks empty:
   - Use `GET /api/admin/review/diagnostics` (admin-only, no-store) to inspect: viewer role, SUPABASE project host, pending status set used, counts, and whether a service-role check sees rows blocked by RLS.
+  - Diagnostics also exposes grouped status/is_active counts (last 50) and optional `?id=<property_id>` to inspect raw status/approval flags.
+  - If the service role key is missing, `/admin/review` shows a warning; configure `SUPABASE_SERVICE_ROLE_KEY` in server env to avoid RLS hiding the queue.
   - Confirm the property `status` matches one of the pending statuses (helper allows `pending`, `pending_review`, `pending_approval`, `submitted`, and `pending%` prefixes).
   - If badge > 0 but list is empty, verify filters/search and that the page is not cached; refresh relies on the forced dynamic settings above.
