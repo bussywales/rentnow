@@ -9,7 +9,7 @@ import { computeLocationQuality } from "@/lib/properties/location-quality";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { formatRoleLabel } from "@/lib/roles";
-import { ALL_REVIEW_STATUSES } from "@/lib/admin/admin-review-queue";
+import { buildStatusOrFilter, normalizeStatus } from "@/lib/admin/admin-review-queue";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -69,7 +69,7 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
           "rejection_reason",
         ].join(",")
       )
-      .in("status", ALL_REVIEW_STATUSES)
+      .or(buildStatusOrFilter("all"))
       .order("updated_at", { ascending: false });
 
     const rawProperties = (properties as RawProperty[] | null) || [];
@@ -118,7 +118,7 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
         title: p.title || "Untitled",
         hostName: owners[p.owner_id || ""] || "Host",
         updatedAt: p.updated_at || p.created_at || null,
-        status: p.status ?? "pending",
+        status: normalizeStatus(p.status) ?? "pending",
         rejectionReason: p.rejection_reason ?? null,
         city: p.city ?? null,
         state_region: p.state_region ?? null,
