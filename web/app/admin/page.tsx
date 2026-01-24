@@ -11,6 +11,7 @@ import { logApprovalAction } from "@/lib/observability";
 import { formatRoleLabel } from "@/lib/roles";
 import { buildStatusOrFilter, getAdminReviewQueue, getStatusesForView } from "@/lib/admin/admin-review-queue";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -98,9 +99,9 @@ async function getData(
       userClient: supabase,
       serviceClient,
       viewerRole,
-      mode: "reviewable",
       select: "id",
       limit: 5,
+      view: "pending",
     });
     console.log("[admin] pending status set", {
       view: "pending",
@@ -115,6 +116,7 @@ async function getData(
       requests: (requests as UpgradeRequest[]) || [],
       pendingReviewCount: pendingResult.count ?? 0,
       serviceRoleAvailable: !!serviceClient,
+      serviceRoleError: pendingResult.serviceRoleError ?? null,
     };
   } catch (err) {
     console.warn("Admin data load failed; rendering empty state", err);
@@ -290,7 +292,7 @@ export default async function AdminPage({ searchParams }: Props) {
     }
   }
 
-  const { properties, users, requests, pendingReviewCount, serviceRoleAvailable } = await getData(
+  const { properties, users, requests, pendingReviewCount, serviceRoleAvailable, serviceRoleError } = await getData(
     statusFilter,
     searchParam,
     ownerParam
@@ -371,7 +373,12 @@ export default async function AdminPage({ searchParams }: Props) {
         </div>
         {!serviceRoleAvailable && (
           <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-            Service role key not configured — admin queue may be incomplete under RLS.
+            {ADMIN_REVIEW_COPY.warnings.missingServiceRole}
+          </div>
+        )}
+        {serviceRoleError && (
+          <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            {ADMIN_REVIEW_COPY.warnings.serviceFetchFailed}
           </div>
         )}
       </div>

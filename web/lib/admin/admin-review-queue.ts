@@ -16,8 +16,8 @@ export function normalizeStatus(status: string | null | undefined): string | nul
   return status.toString().trim().toLowerCase();
 }
 
-export function buildReviewableOrClause(): string {
-  const pendingStatuses = PENDING_STATUS_LIST.map((s) => `status.eq.${s}`).join(",");
+export function buildReviewableOrClause(pendingSet: string[] = PENDING_STATUS_LIST): string {
+  const pendingStatuses = pendingSet.map((s) => `status.eq.${s}`).join(",");
   return `${pendingStatuses},status.ilike.pending%,submitted_at.not.is.null`;
 }
 
@@ -86,36 +86,37 @@ type FilterBuilder = any;
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyClient = any;
 
-export function applyReviewableFilters(query: FilterBuilder) {
+export function applyReviewableFilters(query: FilterBuilder, pendingSet: string[] = PENDING_STATUS_LIST) {
   return query
     .eq("is_approved", false)
     .is("approved_at", null)
     .is("rejected_at", null)
-    .or(buildReviewableOrClause());
+    .or(buildReviewableOrClause(pendingSet));
 }
 
 export async function getAdminReviewQueue<T extends string>({
   userClient,
   serviceClient,
   viewerRole,
-  mode,
   select,
   limit,
+  view = "pending",
 }: {
   userClient: AnyClient;
   serviceClient?: AnyClient | null;
   viewerRole?: string | null;
-  mode: "reviewable" | "allStatuses";
   select: T;
   limit?: number;
+  view?: ReviewViewKey;
 }) {
   const useServiceRole = viewerRole === "admin" && !!serviceClient;
   const client = useServiceRole && serviceClient ? serviceClient : userClient;
   let query = client.from("properties").select(select, { count: "exact" });
-  query =
-    mode === "reviewable"
-      ? applyReviewableFilters(query)
-      : query.eq("is_approved", false).is("approved_at", null).is("rejected_at", null).or(buildStatusOrFilter("all"));
+  if (view === "pending" || view === "all") {
+    query = applyReviewableFilters(query);
+  } else {
+    query = query.eq("is_approved", false).is("approved_at", null).is("rejected_at", null).or(buildStatusOrFilter(view));
+  }
   if (limit) query = query.limit(limit);
   query = query.order("updated_at", { ascending: false });
   const result = await query;
@@ -123,5 +124,6 @@ export async function getAdminReviewQueue<T extends string>({
     ...result,
     usedServiceRole: useServiceRole,
     serviceRoleAvailable: !!serviceClient,
+    serviceRoleError: useServiceRole ? result.error : null,
   };
 }

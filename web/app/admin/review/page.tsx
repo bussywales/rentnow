@@ -56,16 +56,19 @@ type RawProperty = {
   location_place_id?: string | null;
 };
 
-async function loadReviewListings(): Promise<AdminReviewListItem[]> {
-  if (!hasServerSupabaseEnv()) return [];
+async function loadReviewListings(): Promise<{
+  listings: AdminReviewListItem[];
+  serviceRoleAvailable: boolean;
+  serviceRoleError: unknown;
+}> {
+  if (!hasServerSupabaseEnv()) return { listings: [], serviceRoleAvailable: false, serviceRoleError: null };
   try {
     const supabase = await createServerSupabaseClient();
-      const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
-    const { data: properties } = await getAdminReviewQueue({
+    const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
+    const queueResult = await getAdminReviewQueue({
       userClient: supabase,
       serviceClient,
       viewerRole: "admin",
-      mode: "allStatuses",
       select: [
         "id",
         "title",
@@ -88,13 +91,14 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
         "property_videos(id)",
         "rejection_reason",
       ].join(","),
+      view: "pending",
     });
     console.log("[admin/review] status set", {
       statuses: getStatusesForView("pending"),
       or: buildStatusOrFilter("pending"),
     });
 
-    const rawProperties = (properties as RawProperty[] | null) || [];
+    const rawProperties = (queueResult.data as RawProperty[] | null) || [];
     const ownerIds = Array.from(new Set(rawProperties.map((p) => p.owner_id).filter(Boolean))) as string[];
     let owners: Record<string, string> = {};
     if (ownerIds.length) {
@@ -108,7 +112,7 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
       );
     }
 
-    return rawProperties.map((p) => {
+    const listings = rawProperties.map((p) => {
       const images: PropertyImage[] = (p.property_images || []).map((img, idx) => ({
         id: (img as { id?: string }).id || `img-${idx}`,
         image_url: img.image_url,
@@ -163,9 +167,14 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
         }),
       };
     });
+    return {
+      listings,
+      serviceRoleAvailable: !!serviceClient,
+      serviceRoleError: queueResult.error ?? queueResult.serviceRoleError,
+    };
   } catch (err) {
     console.warn("admin review desk fetch failed", err);
-    return [];
+    return { listings: [], serviceRoleAvailable: hasServiceRoleEnv(), serviceRoleError: err };
   }
 }
 
@@ -183,8 +192,7 @@ export default async function AdminReviewPage({ searchParams }: Props) {
     redirect("/forbidden");
   }
 
-  const listings = await loadReviewListings();
-  const serviceRoleAvailable = hasServiceRoleEnv();
+  const { listings, serviceRoleAvailable, serviceRoleError } = await loadReviewListings();
   const initialSelectedId = (() => {
     const raw = searchParams?.id;
     const value = Array.isArray(raw) ? raw[0] : raw;
@@ -207,9 +215,14 @@ export default async function AdminReviewPage({ searchParams }: Props) {
       </div>
       {!serviceRoleAvailable && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Service role not configured; RLS may hide review queue. Set SUPABASE_SERVICE_ROLE_KEY in server env.
+          {ADMIN_REVIEW_COPY.warnings.missingServiceRole}
         </div>
       )}
+      {serviceRoleError ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          {ADMIN_REVIEW_COPY.warnings.serviceFetchFailed}
+        </div>
+      ) : null}
       <AdminReviewDesk listings={listings} initialSelectedId={initialSelectedId} />
       <link rel="canonical" href={canonicalUrl} />
     </div>

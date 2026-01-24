@@ -759,6 +759,11 @@
 - Canonical reviewable predicate `(pending OR submitted_at) AND !is_approved AND approved_at/rejected_at null` shared across badge, Review Desk, and diagnostics; allows pending while active.
 - `/admin` and `/admin/review` queue reads can use service-role client for admins; warning shown if service key missing; diagnostics endpoint now returns user vs service counts, samples, grouped stats, and optional id lookup with RLS hint.
 - Added unit guardrails for predicate and filter clause; docs updated with troubleshooting.
+
+## 2026-01-24 — vR16.9b.12-admin-review-queue-service
+- Queue helper now always prefers service-role for admins; badge and Review Desk share the same reviewable query and no-store fetching.
+- Reviewable predicate and Supabase OR clause hardened (pending or submitted_at plus approval nulls; is_active not filtered).
+- Diagnostics now reports user/service counts as numbers, service branch attempt/errors, runtime/env hints, and lookup reasoning; banners show when service key missing or fetch fails.
 ## 2026-01-24 — vR16.9b.9-admin-review-diagnostics
 - Added admin-only diagnostics endpoint `/api/admin/review/diagnostics` exposing viewer, env host, pending status set, counts, and RLS hint; no-store by default.
 - Pending badge and Review Desk now log the exact status set used; status matching now normalizes prefixes and case.

@@ -7,6 +7,8 @@ import {
   buildReviewableOrClause,
   getStatusesForView,
   isReviewableRow,
+  PENDING_STATUS_LIST,
+  normalizeStatus,
 } from "@/lib/admin/admin-review-queue";
 
 export const dynamic = "force-dynamic";
@@ -57,14 +59,15 @@ export async function GET(request: NextRequest) {
     .limit(5);
   const userResult = await userQuery;
   const rows: QueueRow[] = (userResult.data ?? []) as QueueRow[];
-  const count = userResult.count;
+  const userCount = userResult.count ?? 0;
 
   let note = "ok";
   const serviceKeyPresent = hasServiceRoleEnv();
-  let serviceCount: number | null = null;
+  let serviceCount: number | null = serviceKeyPresent ? 0 : null;
   let serviceSample: { id: string; status: string | null; updated_at: string | null }[] = [];
   let serviceBranchAttempted = false;
-  let serviceError: { name: string; message: string } | null = null;
+  let serviceError: { name: string; message: string; details?: string } | null = null;
+  let serviceStatus: number | null = null;
   if (auth.role === "admin" && serviceKeyPresent) {
     serviceBranchAttempted = true;
     try {
@@ -78,19 +81,21 @@ export async function GET(request: NextRequest) {
         .order("updated_at", { ascending: false })
         .limit(5);
       const srResult = await serviceQuery;
+      serviceStatus = srResult.status ?? null;
       const srRows: QueueRow[] = (srResult.data ?? []) as QueueRow[];
-      const srCount = srResult.count;
-      serviceCount = srCount ?? null;
+      const srCount = srResult.count ?? 0;
+      serviceCount = srCount;
       serviceSample = srRows.map((r) => ({ id: r.id, status: r.status, updated_at: r.updated_at ?? null }));
-      if ((count ?? 0) === 0 && (srCount ?? 0) > 0) {
+      if (userCount === 0 && srCount > 0) {
         note = "RLS or role may be blocking admin query";
       }
     } catch (err: unknown) {
-      const e = err as { name?: string; message?: string };
-      serviceError = { name: e?.name || "Error", message: e?.message || "service role query failed" };
+      const e = err as { name?: string; message?: string; details?: string };
+      serviceError = { name: e?.name || "Error", message: e?.message || "service role query failed", details: e?.details };
       note = "service role check failed";
+      serviceCount = 0;
     }
-  } else if ((count ?? 0) === 0) {
+  } else if (userCount === 0) {
     note = "service role unavailable; cannot confirm if rows exist";
   }
 
@@ -137,7 +142,19 @@ export async function GET(request: NextRequest) {
     lookup = row ?? null;
   }
 
-  const rlsSuspected = (count ?? 0) === 0 && serviceKeyPresent && (serviceCount ?? 0) > 0;
+  const rlsSuspected = userCount === 0 && serviceKeyPresent && (serviceCount ?? 0) > 0;
+
+  const lookupReasoning = (() => {
+    if (!lookup) return null;
+    const row = lookup as QueueRow;
+    const normalized = normalizeStatus(row.status ?? null);
+    const matchedStatus = normalized ? normalized.startsWith("pending") || PENDING_STATUS_LIST.includes(normalized) : false;
+    const hasSubmittedAt = !!row.submitted_at;
+    const isApproved = row.is_approved === true;
+    const approvedAtNull = !row.approved_at;
+    const rejectedAtNull = !row.rejected_at;
+    return { matchedStatus, hasSubmittedAt, isApproved, approvedAtNull, rejectedAtNull };
+  })();
 
   return NextResponse.json({
     env: {
@@ -149,7 +166,7 @@ export async function GET(request: NextRequest) {
     viewer: { userId: auth.user.id, role: "admin" },
     pending: {
       statusSetUsed: pendingStatuses,
-      count: count ?? 0,
+      count: userCount,
       sample: (rows ?? []).map((r) => ({ id: r.id, status: r.status, updated_at: r.updated_at })),
       serviceCount,
       serviceSample,
@@ -160,6 +177,7 @@ export async function GET(request: NextRequest) {
       serviceKeyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length ?? 0,
       serviceBranchAttempted,
       serviceError,
+      serviceStatus,
       reviewableOrClauseUsed: orFilter,
     },
     lookup,
@@ -174,5 +192,7 @@ export async function GET(request: NextRequest) {
         rejected_at: r.rejected_at,
       }),
     })),
+    lookupIsReviewable: lookup ? isReviewableRow(lookup as QueueRow) : null,
+    lookupReasoning,
   });
 }

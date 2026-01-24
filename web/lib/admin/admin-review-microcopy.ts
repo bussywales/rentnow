@@ -66,6 +66,10 @@ export const ADMIN_REVIEW_COPY = {
     improve_copy: "Improve title or description",
     pricing_issue: "Pricing seems incorrect",
   },
+  warnings: {
+    missingServiceRole: "Admin queue is using user permissions; some submissions may be hidden.",
+    serviceFetchFailed: "Admin queue service fetch failed; see diagnostics.",
+  },
 };
 
 export type AdminReviewCopyKeys =
