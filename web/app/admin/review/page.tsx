@@ -9,6 +9,7 @@ import { computeLocationQuality } from "@/lib/properties/location-quality";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { formatRoleLabel } from "@/lib/roles";
+import { getStatusesForView } from "@/lib/admin/admin-review-queue";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
   if (!hasServerSupabaseEnv()) return [];
   try {
     const supabase = await createServerSupabaseClient();
+    const statuses = getStatusesForView("all");
     const { data: properties } = await supabase
       .from("properties")
       .select(
@@ -66,7 +68,7 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
           "rejection_reason",
         ].join(",")
       )
-      .in("status", ["pending", "changes_requested", "live", "approved"])
+      .in("status", statuses)
       .order("updated_at", { ascending: false });
 
     const rawProperties = (properties as RawProperty[] | null) || [];

@@ -34,3 +34,4 @@
   - pending → admin approves (live) or requests changes (changes_requested)
   - changes_requested → host resubmits → pending (returns to admin review desk)
   - pending items appear in the admin Review desk Pending view; approved/rejected behavior unchanged.
+  - Pending source of truth: statuses considered pending for the Review Desk and /admin badge are defined in `admin-review-queue` (includes at least `pending`, plus legacy pending_* variants); both surfaces use the same helper to avoid divergence.

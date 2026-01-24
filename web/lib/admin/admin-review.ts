@@ -1,4 +1,5 @@
 import type { ReadinessResult } from "@/lib/properties/listing-readiness";
+import { isStatusInView } from "./admin-review-queue";
 
 export type AdminReviewListItem = {
   id: string;
@@ -60,10 +61,8 @@ export function filterAndSortListings(
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
   const filtered = items.filter((item) => {
-    if (view === "pending" && item.status !== "pending") return false;
-    if (view === "changes" && item.status !== "changes_requested") return false;
-    const isApproved = item.status === "live" || item.status === "approved";
-    if (view === "approved" && !isApproved) return false;
+    if (view !== "all" && !isStatusInView(item.status ?? null, view)) return false;
+    if (view === "approved" && item.status && !isStatusInView(item.status, "approved")) return false;
     if (view === "approved" && item.updatedAt) {
       const updatedMs = new Date(item.updatedAt).getTime();
       if (Number.isFinite(updatedMs) && now - updatedMs > sevenDaysMs) return false;

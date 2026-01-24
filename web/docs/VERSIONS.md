@@ -35,6 +35,11 @@
 - Admin control panel now surfaces a “Review desk” entrypoint with a pending-count badge; resubmit respects ownership/admin/delegation guards and only allows `changes_requested` → `pending`.
 - Added unit and skip-safe Playwright tests plus lifecycle docs updates.
 
+## 2026-01-24 — vR16.9b.7-admin-review-pending-source-of-truth
+- Unified pending review logic across /admin badge and Review Desk via shared view/status helper; `status='pending'` always appears in the Pending view.
+- Added guardrail tests (unit + skip-safe Playwright) to ensure pending listings surface in /admin/review and badge filtering matches.
+- Updated admin review docs/roadmap to describe canonical view status mapping and pending source of truth.
+
 ## 2026-01-24 — vR16.9a.4-video-signed-upload
 - Video uploads now use a signed direct-to-Supabase flow (init → client PUT → commit) to avoid Vercel timeouts; no video bytes pass through the Next.js API.
 - Validation remains MP4-only (20MB max), with deterministic storage paths per property and bucket-missing errors surfaced as `STORAGE_BUCKET_NOT_FOUND`.
