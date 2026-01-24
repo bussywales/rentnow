@@ -136,9 +136,36 @@ void test("getAdminReviewQueue returns reviewable pending row with correct or cl
     userClient: client as unknown as { from: () => { select: () => MockBuilder } },
     serviceClient: null,
     viewerRole: "admin",
-    mode: "reviewable",
     select: "id",
   });
   assert.equal(result.count, 1);
   assert.equal(client.lastBuilder?.orClause, buildReviewableOrClause());
+  assert.equal(result.meta.source, "user");
+  assert.equal(result.meta.serviceAttempted, false);
+});
+
+void test("getAdminReviewQueue falls back to user on service error", async () => {
+  class ErrorBuilder extends MockBuilder {
+    order() {
+      return { data: null, count: 0, error: { message: "fail" }, status: 404 };
+    }
+  }
+  class ErrorClient extends MockClient {
+    from() {
+      return {
+        select: () => new ErrorBuilder([]),
+      };
+    }
+  }
+  const userClient = new MockClient([{ id: "1", status: "pending" }]);
+  const serviceClient = new ErrorClient([]);
+  const result = await getAdminReviewQueue({
+    userClient: userClient as unknown as { from: () => { select: () => MockBuilder } },
+    serviceClient: serviceClient as unknown as { from: () => { select: () => ErrorBuilder } },
+    viewerRole: "admin",
+    select: "id",
+  });
+  assert.equal(result.meta.source, "user");
+  assert.equal(result.meta.serviceAttempted, true);
+  assert.equal(result.meta.serviceOk, false);
 });

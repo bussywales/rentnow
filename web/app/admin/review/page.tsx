@@ -56,12 +56,31 @@ type RawProperty = {
   location_place_id?: string | null;
 };
 
-async function loadReviewListings(): Promise<{
+type ReviewLoadResult = {
   listings: AdminReviewListItem[];
   serviceRoleAvailable: boolean;
   serviceRoleError: unknown;
-}> {
-  if (!hasServerSupabaseEnv()) return { listings: [], serviceRoleAvailable: false, serviceRoleError: null };
+  queueSource: "service" | "user";
+  serviceRoleStatus: number | null;
+  meta?: {
+    source: "service" | "user";
+    serviceAttempted: boolean;
+    serviceOk: boolean;
+    serviceStatus: number | null;
+    serviceError?: string;
+  };
+};
+
+async function loadReviewListings(): Promise<ReviewLoadResult> {
+  if (!hasServerSupabaseEnv()) {
+    return {
+      listings: [],
+      serviceRoleAvailable: false,
+      serviceRoleError: null,
+      queueSource: "user",
+      serviceRoleStatus: null,
+    };
+  }
   try {
     const supabase = await createServerSupabaseClient();
     const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
@@ -170,11 +189,21 @@ async function loadReviewListings(): Promise<{
     return {
       listings,
       serviceRoleAvailable: !!serviceClient,
-      serviceRoleError: queueResult.error ?? queueResult.serviceRoleError,
+      serviceRoleError: queueResult.serviceRoleError,
+      queueSource: queueResult.meta.source,
+      serviceRoleStatus: queueResult.meta.serviceStatus ?? queueResult.serviceRoleStatus,
+      meta: queueResult.meta,
     };
   } catch (err) {
     console.warn("admin review desk fetch failed", err);
-    return { listings: [], serviceRoleAvailable: hasServiceRoleEnv(), serviceRoleError: err };
+    return {
+      listings: [],
+      serviceRoleAvailable: hasServiceRoleEnv(),
+      serviceRoleError: err,
+      queueSource: "user",
+      serviceRoleStatus: null,
+      meta: { source: "user", serviceAttempted: hasServiceRoleEnv(), serviceOk: false, serviceStatus: null, serviceError: "fetch failed" },
+    };
   }
 }
 
@@ -192,7 +221,7 @@ export default async function AdminReviewPage({ searchParams }: Props) {
     redirect("/forbidden");
   }
 
-  const { listings, serviceRoleAvailable, serviceRoleError } = await loadReviewListings();
+  const { listings, serviceRoleAvailable, serviceRoleError, queueSource, serviceRoleStatus, meta } = await loadReviewListings();
   const initialSelectedId = (() => {
     const raw = searchParams?.id;
     const value = Array.isArray(raw) ? raw[0] : raw;
@@ -223,6 +252,11 @@ export default async function AdminReviewPage({ searchParams }: Props) {
           {ADMIN_REVIEW_COPY.warnings.serviceFetchFailed}
         </div>
       ) : null}
+      {queueSource === "user" && meta?.serviceAttempted && meta?.serviceOk === false && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
+          Service fetch status: {meta?.serviceStatus ?? serviceRoleStatus}. See diagnostics.
+        </div>
+      )}
       <AdminReviewDesk listings={listings} initialSelectedId={initialSelectedId} />
       <link rel="canonical" href={canonicalUrl} />
     </div>

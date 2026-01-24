@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { createServiceRoleClient, hasServiceRoleEnv, normalizeSupabaseUrl } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/authz";
 import {
   applyReviewableFilters,
@@ -54,7 +54,6 @@ export async function GET(request: NextRequest) {
       .from("properties")
       .select("id,status,updated_at,submitted_at,is_approved,is_active,approved_at,rejected_at", { count: "exact" })
   )
-    .or(orFilter)
     .order("updated_at", { ascending: false })
     .limit(5);
   const userResult = await userQuery;
@@ -77,7 +76,6 @@ export async function GET(request: NextRequest) {
           .from("properties")
           .select("id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active", { count: "exact" })
       )
-        .or(orFilter)
         .order("updated_at", { ascending: false })
         .limit(5);
       const srResult = await serviceQuery;
@@ -99,15 +97,20 @@ export async function GET(request: NextRequest) {
     note = "service role unavailable; cannot confirm if rows exist";
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const projectRef = (() => {
+  const supabaseUrlRaw = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  const normalizedUrl = normalizeSupabaseUrl(supabaseUrlRaw);
+  const rawUrlPresent = !!supabaseUrlRaw;
+  const rawUrlStartsWithHttp = supabaseUrlRaw.startsWith("http://") || supabaseUrlRaw.startsWith("https://");
+  const urlHasScheme = !!normalizedUrl && (normalizedUrl.startsWith("http://") || normalizedUrl.startsWith("https://"));
+  const normalizedUrlHost = (() => {
     try {
-      const u = new URL(supabaseUrl);
-      return u.hostname;
+      const u = normalizedUrl ? new URL(normalizedUrl) : null;
+      return u?.hostname ?? "unknown";
     } catch {
       return "unknown";
     }
   })();
+  const projectRef = normalizedUrlHost;
 
   const statusCounts: Record<string, number> = {};
   const activeCounts: Record<string, number> = {};
@@ -162,6 +165,10 @@ export async function GET(request: NextRequest) {
       nodeEnv: process.env.NODE_ENV,
       vercelEnv: process.env.VERCEL_ENV ?? null,
       runtimeHint: (globalThis as { EdgeRuntime?: string }).EdgeRuntime ? "edge" : "node",
+      rawUrlPresent,
+      rawUrlStartsWithHttp,
+      urlHasScheme,
+      normalizedUrlHost,
     },
     viewer: { userId: auth.user.id, role: "admin" },
     pending: {
@@ -170,6 +177,7 @@ export async function GET(request: NextRequest) {
       sample: (rows ?? []).map((r) => ({ id: r.id, status: r.status, updated_at: r.updated_at })),
       serviceCount,
       serviceSample,
+      userSample: (rows ?? []).map((r) => ({ id: r.id, status: r.status, updated_at: r.updated_at })),
       statusCounts,
       activeCounts,
       rlsSuspected,
@@ -178,6 +186,7 @@ export async function GET(request: NextRequest) {
       serviceBranchAttempted,
       serviceError,
       serviceStatus,
+      serviceOk: serviceError === null && serviceStatus !== null ? serviceStatus < 400 : serviceError === null,
       reviewableOrClauseUsed: orFilter,
     },
     lookup,

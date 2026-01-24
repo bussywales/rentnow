@@ -109,21 +109,47 @@ export async function getAdminReviewQueue<T extends string>({
   limit?: number;
   view?: ReviewViewKey;
 }) {
-  const useServiceRole = viewerRole === "admin" && !!serviceClient;
-  const client = useServiceRole && serviceClient ? serviceClient : userClient;
-  let query = client.from("properties").select(select, { count: "exact" });
-  if (view === "pending" || view === "all") {
-    query = applyReviewableFilters(query);
-  } else {
-    query = query.eq("is_approved", false).is("approved_at", null).is("rejected_at", null).or(buildStatusOrFilter(view));
+  const canUseService = viewerRole === "admin" && !!serviceClient;
+  const runQuery = async (client: AnyClient, source: "service" | "user") => {
+    let query = client.from("properties").select(select, { count: "exact" });
+    if (view === "pending" || view === "all") {
+      query = applyReviewableFilters(query);
+    } else {
+      query = query.eq("is_approved", false).is("approved_at", null).is("rejected_at", null).or(buildStatusOrFilter(view));
+    }
+    if (limit) query = query.limit(limit);
+    query = query.order("updated_at", { ascending: false });
+    const result = await query;
+    return {
+      source,
+      data: result.data,
+      count: result.count,
+      error: result.error,
+      status: (result as { status?: number }).status ?? null,
+    };
+  };
+
+  const primary = await runQuery(canUseService ? serviceClient : userClient, canUseService ? "service" : "user");
+  let fallback: typeof primary | null = null;
+
+  if (primary.source === "service" && (primary.error || (primary.status && primary.status >= 400))) {
+    fallback = await runQuery(userClient, "user");
   }
-  if (limit) query = query.limit(limit);
-  query = query.order("updated_at", { ascending: false });
-  const result = await query;
+
+  const chosen = fallback ?? primary;
+
   return {
-    ...result,
-    usedServiceRole: useServiceRole,
-    serviceRoleAvailable: !!serviceClient,
-    serviceRoleError: useServiceRole ? result.error : null,
+    data: chosen.data,
+    count: chosen.count,
+    meta: {
+      source: chosen.source,
+      serviceAttempted: canUseService,
+      serviceOk: !primary.error && (!primary.status || primary.status < 400),
+      serviceStatus: primary.status,
+      serviceError: primary.error?.message,
+    },
+    serviceRoleAvailable: canUseService,
+    serviceRoleError: primary.source === "service" ? primary.error : null,
+    serviceRoleStatus: primary.status,
   };
 }

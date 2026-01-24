@@ -47,3 +47,4 @@
   - If the service role key is missing, `/admin/review` shows a warning; configure `SUPABASE_SERVICE_ROLE_KEY` in server env to avoid RLS hiding the queue.
   - Confirm the property `status` matches one of the pending statuses (helper allows `pending`, `pending_review`, `pending_approval`, `submitted`, and `pending%` prefixes).
   - If badge > 0 but list is empty, verify filters/search and that the page is not cached; refresh relies on the forced dynamic settings above.
+  - Service-role fetch uses a normalized Supabase URL (adds https:// when absent); if the service fetch fails or returns 404, UI falls back to user-scoped fetch and shows a warning with a link to diagnostics.

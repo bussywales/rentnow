@@ -107,20 +107,34 @@ async function getData(
       view: "pending",
       statuses: getStatusesForView("pending"),
       or: buildStatusOrFilter("pending"),
-      usedServiceRole: pendingResult.usedServiceRole,
+      source: pendingResult.meta.source,
+      status: pendingResult.meta.serviceStatus,
     });
 
     return {
       properties: (properties as AdminProperty[]) || [],
       users: (users as AdminUser[]) || [],
       requests: (requests as UpgradeRequest[]) || [],
-      pendingReviewCount: pendingResult.count ?? 0,
-      serviceRoleAvailable: !!serviceClient,
-      serviceRoleError: pendingResult.serviceRoleError ?? null,
+      pendingReviewCount: pendingResult.count ?? (Array.isArray(pendingResult.data) ? pendingResult.data.length : 0),
+      serviceRoleAvailable: pendingResult.serviceRoleAvailable,
+      serviceRoleError: pendingResult.serviceRoleError,
+      queueSource: pendingResult.meta.source,
+      serviceRoleStatus: pendingResult.meta.serviceStatus ?? pendingResult.serviceRoleStatus,
+      meta: pendingResult.meta,
     };
   } catch (err) {
     console.warn("Admin data load failed; rendering empty state", err);
-    return { properties: [], users: [], requests: [], pendingReviewCount: 0, serviceRoleAvailable: false };
+    return {
+      properties: [],
+      users: [],
+      requests: [],
+      pendingReviewCount: 0,
+      serviceRoleAvailable: false,
+      serviceRoleError: err,
+      queueSource: "user",
+      serviceRoleStatus: null,
+      meta: { source: "user", serviceAttempted: false, serviceOk: false, serviceStatus: null, serviceError: "fetch failed" },
+    };
   }
 }
 
@@ -292,7 +306,17 @@ export default async function AdminPage({ searchParams }: Props) {
     }
   }
 
-  const { properties, users, requests, pendingReviewCount, serviceRoleAvailable, serviceRoleError } = await getData(
+  const {
+    properties,
+    users,
+    requests,
+    pendingReviewCount,
+    serviceRoleAvailable,
+    serviceRoleError,
+    queueSource,
+    serviceRoleStatus,
+    meta,
+  } = await getData(
     statusFilter,
     searchParam,
     ownerParam
@@ -380,6 +404,11 @@ export default async function AdminPage({ searchParams }: Props) {
           <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
             {ADMIN_REVIEW_COPY.warnings.serviceFetchFailed}
           </div>
+        )}
+        {queueSource === "user" && meta?.serviceAttempted && meta?.serviceOk === false && (
+          <p className="mt-1 text-xs text-amber-200">
+            Service fetch status: {meta?.serviceStatus ?? serviceRoleStatus}. See diagnostics.
+          </p>
         )}
       </div>
 

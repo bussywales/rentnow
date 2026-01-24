@@ -764,6 +764,11 @@
 - Queue helper now always prefers service-role for admins; badge and Review Desk share the same reviewable query and no-store fetching.
 - Reviewable predicate and Supabase OR clause hardened (pending or submitted_at plus approval nulls; is_active not filtered).
 - Diagnostics now reports user/service counts as numbers, service branch attempt/errors, runtime/env hints, and lookup reasoning; banners show when service key missing or fetch fails.
+
+## 2026-01-24 — vR16.9b.13-admin-review-service-url-fix
+- Normalized Supabase service URL (adds https://) to stop 404s; service-role queue fetch is the source of truth with fallback to user client on error.
+- Diagnostics exposes URL/host normalization, service attempt status/error, and user/service samples so RLS vs URL issues are obvious.
+- /admin and /admin/review share the same queue helper and show a banner only when service fetch fails and fallback is used.
 ## 2026-01-24 — vR16.9b.9-admin-review-diagnostics
 - Added admin-only diagnostics endpoint `/api/admin/review/diagnostics` exposing viewer, env host, pending status set, counts, and RLS hint; no-store by default.
 - Pending badge and Review Desk now log the exact status set used; status matching now normalizes prefixes and case.
