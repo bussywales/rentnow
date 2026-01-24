@@ -2,6 +2,8 @@ import { createClient } from "@supabase/supabase-js";
 
 type AdminClient = ReturnType<typeof createClient>;
 
+let lastServiceClientOptions: Record<string, unknown> | null = null;
+
 if (typeof window !== "undefined") {
   throw new Error("Supabase admin client is server-only.");
 }
@@ -26,5 +28,14 @@ export function createServiceRoleClient(): AdminClient {
   if (!url || !serviceRole) {
     throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY or SUPABASE_URL");
   }
-  return createClient(url, serviceRole);
+  const options: Record<string, unknown> = {
+    db: { schema: "public" },
+    auth: { persistSession: false, autoRefreshToken: false },
+  };
+  lastServiceClientOptions = options;
+  return createClient(url, serviceRole, options);
+}
+
+export function getLastServiceClientOptions() {
+  return lastServiceClientOptions;
 }

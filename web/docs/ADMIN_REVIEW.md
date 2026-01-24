@@ -43,8 +43,8 @@
   - Pending source of truth: statuses considered pending for the Review Desk and /admin badge are defined in `admin-review-queue` (includes at least `pending`, plus legacy pending_* variants); both surfaces use the same helper to avoid divergence.
 - Troubleshooting when Pending looks empty:
   - Use `GET /api/admin/review/diagnostics` (admin-only, no-store) to inspect: viewer role, SUPABASE project host, pending status set used, counts, and whether a service-role check sees rows blocked by RLS.
-  - Diagnostics also exposes grouped status/is_active counts (last 50) and optional `?id=<property_id>` to inspect raw status/approval flags.
+  - Diagnostics also exposes grouped status/is_active counts (last 50), optional `?id=<property_id>` to inspect raw status/approval flags, and a raw PostgREST ping (service-role headers) to catch schema/url mismatches; schema is pinned to `public` for the admin client.
   - If the service role key is missing, `/admin/review` shows a warning; configure `SUPABASE_SERVICE_ROLE_KEY` in server env to avoid RLS hiding the queue.
   - Confirm the property `status` matches one of the pending statuses (helper allows `pending`, `pending_review`, `pending_approval`, `submitted`, and `pending%` prefixes).
   - If badge > 0 but list is empty, verify filters/search and that the page is not cached; refresh relies on the forced dynamic settings above.
-  - Service-role fetch uses a normalized Supabase URL (adds https:// when absent); if the service fetch fails or returns 404, UI falls back to user-scoped fetch and shows a warning with a link to diagnostics.
+  - Service-role fetch uses a normalized Supabase URL (adds https:// when absent) and schema pinning; if the service fetch fails or returns 404, UI falls back to user-scoped fetch and shows a warning with a link to diagnostics.

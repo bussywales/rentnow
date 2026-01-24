@@ -67,6 +67,12 @@ export async function GET(request: NextRequest) {
   let serviceBranchAttempted = false;
   let serviceError: { name: string; message: string; details?: string } | null = null;
   let serviceStatus: number | null = null;
+  const rawPostgrestPing: { attempted: boolean; status: number | null; ok: boolean; error: unknown } = {
+    attempted: false,
+    status: null,
+    ok: false,
+    error: null,
+  };
   if (auth.role === "admin" && serviceKeyPresent) {
     serviceBranchAttempted = true;
     try {
@@ -86,6 +92,30 @@ export async function GET(request: NextRequest) {
       serviceSample = srRows.map((r) => ({ id: r.id, status: r.status, updated_at: r.updated_at ?? null }));
       if (userCount === 0 && srCount > 0) {
         note = "RLS or role may be blocking admin query";
+      }
+      // Raw PostgREST ping
+      const supabaseUrlRaw = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+      const normalizedUrl = normalizeSupabaseUrl(supabaseUrlRaw);
+      if (normalizedUrl) {
+        rawPostgrestPing.attempted = true;
+        try {
+          const resp = await fetch(`${normalizedUrl}/rest/v1/properties?select=id&limit=1`, {
+            headers: {
+              apikey: process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+              Authorization: `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY || ""}`,
+              Prefer: "count=exact",
+            },
+          });
+          rawPostgrestPing.status = resp.status;
+          rawPostgrestPing.ok = resp.ok;
+          if (!resp.ok) {
+            rawPostgrestPing.error = await resp.text();
+          }
+        } catch (pingErr) {
+          rawPostgrestPing.status = null;
+          rawPostgrestPing.ok = false;
+          rawPostgrestPing.error = (pingErr as Error)?.message || "ping failed";
+        }
       }
     } catch (err: unknown) {
       const e = err as { name?: string; message?: string; details?: string };
@@ -188,6 +218,7 @@ export async function GET(request: NextRequest) {
       serviceStatus,
       serviceOk: serviceError === null && serviceStatus !== null ? serviceStatus < 400 : serviceError === null,
       reviewableOrClauseUsed: orFilter,
+      rawPostgrestPing,
     },
     lookup,
     notes: note,

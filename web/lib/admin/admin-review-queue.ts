@@ -110,6 +110,7 @@ export async function getAdminReviewQueue<T extends string>({
   view?: ReviewViewKey;
 }) {
   const canUseService = viewerRole === "admin" && !!serviceClient;
+  let fallbackReason: string | null = null;
   const runQuery = async (client: AnyClient, source: "service" | "user") => {
     let query = client.from("properties").select(select, { count: "exact" });
     if (view === "pending" || view === "all") {
@@ -133,6 +134,7 @@ export async function getAdminReviewQueue<T extends string>({
   let fallback: typeof primary | null = null;
 
   if (primary.source === "service" && (primary.error || (primary.status && primary.status >= 400))) {
+    fallbackReason = primary.error?.message || `service_status_${primary.status ?? "unknown"}`;
     fallback = await runQuery(userClient, "user");
   }
 
@@ -147,6 +149,7 @@ export async function getAdminReviewQueue<T extends string>({
       serviceOk: !primary.error && (!primary.status || primary.status < 400),
       serviceStatus: primary.status,
       serviceError: primary.error?.message,
+      fallbackReason,
     },
     serviceRoleAvailable: canUseService,
     serviceRoleError: primary.source === "service" ? primary.error : null,

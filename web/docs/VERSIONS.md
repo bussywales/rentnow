@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-24 — vR16.9b.14-admin-service-schema-fix
+- Admin/service Supabase client now pins schema=public and disables session persistence to prevent PostgREST 404s; diagnostics include a raw PostgREST ping with status/error for quick triage.
+- Review queue helper always prefers service-role fetch and only falls back with explicit warnings; docs updated for schema/URL troubleshooting.
+
 ## 2026-01-24 — vR16.9a.5-video-signed-read
 - Video playback now uses short-lived signed read URLs from a host-only API, keeping the `property-videos` bucket private and avoiding ORB/public URL issues; auto-refreshes once on playback error/expiry.
 - Added signed URL endpoint with ownership checks, MP4-only enforcement retained, and clearer error codes; Photos step fetches/refreshes signed URLs for existing uploads.
