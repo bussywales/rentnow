@@ -3,8 +3,7 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv, normalizeSupabaseUrl } from "@/lib/supabase/admin";
 import { requireRole } from "@/lib/authz";
 import {
-  applyReviewableFilters,
-  buildReviewableOrClause,
+  fetchReviewableUnion,
   getStatusesForView,
   isReviewableRow,
   PENDING_STATUS_LIST,
@@ -44,7 +43,6 @@ export async function GET(request: NextRequest) {
 
   const supabase = auth.supabase;
   const pendingStatuses = getStatusesForView("pending");
-  const orFilter = buildReviewableOrClause();
   const supabaseUrlRaw = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
   const normalizedUrl = normalizeSupabaseUrl(supabaseUrlRaw);
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
@@ -52,16 +50,12 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const lookupId = searchParams.get("id");
 
-  const userQuery = applyReviewableFilters(
-    supabase
-      .from("properties")
-      .select("id,status,updated_at,submitted_at,is_approved,is_active,approved_at,rejected_at", { count: "exact" })
-  )
-    .order("updated_at", { ascending: false })
-    .limit(5);
-  const userResult = await userQuery;
-  const rows: QueueRow[] = (userResult.data ?? []) as QueueRow[];
-  const userCount = userResult.count ?? 0;
+  const userUnion = await fetchReviewableUnion(
+    supabase,
+    "id,status,updated_at,submitted_at,is_approved,is_active,approved_at,rejected_at"
+  );
+  const rows: QueueRow[] = (userUnion.data ?? []) as QueueRow[];
+  const userCount = userUnion.count ?? 0;
 
   let note = "ok";
   const serviceKeyPresent = hasServiceRoleEnv();
@@ -98,24 +92,23 @@ export async function GET(request: NextRequest) {
     serviceBranchAttempted = true;
     try {
       const service = createServiceRoleClient();
-      const serviceQuery = applyReviewableFilters(
-        service
-          .from("properties")
-          .select("id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active", { count: "exact" })
-      )
-        .order("updated_at", { ascending: false })
-        .limit(5);
-      serviceQueryDebug = {
-        table: "properties",
-        select: "id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active",
-        orClause: orFilter,
-      };
-      const srResult = await serviceQuery;
-      serviceStatus = srResult.status ?? null;
-      const srRows: QueueRow[] = (srResult.data ?? []) as QueueRow[];
-      const srCount = srResult.count ?? 0;
+      const serviceUnion = await fetchReviewableUnion(
+        service,
+        "id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active"
+      );
+      serviceStatus = serviceUnion.debug.queryAStatus ?? serviceUnion.debug.queryBStatus ?? null;
+      const srRows: QueueRow[] = (serviceUnion.data ?? []) as QueueRow[];
+      const srCount = serviceUnion.count ?? 0;
       serviceCount = srCount;
       serviceSample = srRows.map((r) => ({ id: r.id, status: r.status, updated_at: r.updated_at ?? null }));
+      serviceQueryDebug = {
+        queryAStatus: serviceUnion.debug.queryAStatus,
+        queryBStatus: serviceUnion.debug.queryBStatus,
+        queryAError: serviceUnion.debug.queryAError,
+        queryBError: serviceUnion.debug.queryBError,
+        queryACount: serviceUnion.debug.queryACount,
+        queryBCount: serviceUnion.debug.queryBCount,
+      };
       if (userCount === 0 && srCount > 0) {
         note = "RLS or role may be blocking admin query";
       }
@@ -141,7 +134,7 @@ export async function GET(request: NextRequest) {
           rawPostgrestPing.error = (pingErr as Error)?.message || "ping failed";
         }
         // Raw queue fetch with and without Accept-Profile
-        const queueUrl = `${normalizedUrl}/rest/v1/properties?select=id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active&or=(${encodeURIComponent(orFilter)})`;
+        const queueUrl = `${normalizedUrl}/rest/v1/properties?select=id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active`;
         for (const acceptProfile of [true, false]) {
           const headers = {
             apikey: serviceKey,
@@ -294,6 +287,10 @@ export async function GET(request: NextRequest) {
       urlHasScheme,
       normalizedUrlHost,
     },
+    build: {
+      commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
+      ref: process.env.VERCEL_GIT_COMMIT_REF || null,
+    },
     viewer: { userId: auth.user.id, role: "admin" },
     pending: {
       statusSetUsed: pendingStatuses,
@@ -312,8 +309,17 @@ export async function GET(request: NextRequest) {
       serviceStatus,
       serviceOk: serviceError === null && serviceStatus !== null ? serviceStatus < 400 : serviceError === null,
       serviceQueryDebug,
-      reviewableOrClauseUsed: orFilter,
       rawPostgrestPing,
+      rawQueueFetch,
+      rawSimpleFetch,
+      serviceQueryAStatus: (serviceQueryDebug as { queryAStatus?: number | null })?.queryAStatus ?? null,
+      serviceQueryBStatus: (serviceQueryDebug as { queryBStatus?: number | null })?.queryBStatus ?? null,
+      serviceQueryAError: (serviceQueryDebug as { queryAError?: unknown })?.queryAError ?? null,
+      serviceQueryBError: (serviceQueryDebug as { queryBError?: unknown })?.queryBError ?? null,
+      serviceQueryACount: (serviceQueryDebug as { queryACount?: number })?.queryACount ?? null,
+      serviceQueryBCount: (serviceQueryDebug as { queryBCount?: number })?.queryBCount ?? null,
+      mergedCount: serviceSample.length || userCount,
+      reviewableOrClauseUsed: null,
     },
     lookup,
     notes: note,

@@ -94,6 +94,51 @@ export function applyReviewableFilters(query: FilterBuilder, pendingSet: string[
     .or(buildReviewableOrClause(pendingSet));
 }
 
+export async function fetchReviewableUnion<T extends string>(
+  client: AnyClient,
+  select: T,
+  pendingSet: string[] = PENDING_STATUS_LIST
+) {
+  const baseFilters = (q: FilterBuilder) => q.eq("is_approved", false).is("approved_at", null).is("rejected_at", null);
+  const queryA = baseFilters(client.from("properties").select(select, { count: "exact" })).in("status", pendingSet);
+  const queryB = baseFilters(
+    client.from("properties").select(select, { count: "exact" }).not("submitted_at", "is", null)
+  );
+
+  const [resA, resB] = await Promise.all([queryA, queryB]);
+  const rowsA = (resA.data as AnyClient[]) || [];
+  const rowsB = (resB.data as AnyClient[]) || [];
+
+  const merged = new Map<string, AnyClient>();
+  [...rowsA, ...rowsB].forEach((row: { id?: string }) => {
+    const id = row?.id;
+    if (!id) return;
+    if (!merged.has(id)) {
+      merged.set(id, row);
+    }
+  });
+
+  const mergedArray = Array.from(merged.values());
+  mergedArray.sort((a, b) => {
+    const aDate = a?.updated_at || a?.submitted_at || a?.created_at || "";
+    const bDate = b?.updated_at || b?.submitted_at || b?.created_at || "";
+    return new Date(bDate).getTime() - new Date(aDate).getTime();
+  });
+
+  return {
+    data: mergedArray,
+    count: mergedArray.length,
+    debug: {
+      queryAStatus: (resA as { status?: number }).status ?? null,
+      queryBStatus: (resB as { status?: number }).status ?? null,
+      queryAError: resA.error || null,
+      queryBError: resB.error || null,
+      queryACount: resA.count ?? rowsA.length,
+      queryBCount: resB.count ?? rowsB.length,
+    },
+  };
+}
+
 export async function getAdminReviewQueue<T extends string>({
   userClient,
   serviceClient,
@@ -111,33 +156,48 @@ export async function getAdminReviewQueue<T extends string>({
 }) {
   const canUseService = viewerRole === "admin" && !!serviceClient;
   let fallbackReason: string | null = null;
-  const runQuery = async (client: AnyClient, source: "service" | "user") => {
-    let query = client.from("properties").select(select, { count: "exact" });
-    const orClause = view === "pending" || view === "all" ? buildReviewableOrClause() : buildStatusOrFilter(view);
-    if (view === "pending" || view === "all") {
-      query = applyReviewableFilters(query, undefined);
-    } else {
+  const runUnion = async (client: AnyClient, source: "service" | "user") => {
+    if (view !== "pending" && view !== "all") {
+      // For non-pending views, keep existing filter
+      let query = client.from("properties").select(select, { count: "exact" });
+      const orClause = buildStatusOrFilter(view);
       query = query.eq("is_approved", false).is("approved_at", null).is("rejected_at", null).or(orClause);
+      if (limit) query = query.limit(limit);
+      query = query.order("updated_at", { ascending: false });
+      const result = await query;
+      return {
+        source,
+        data: result.data,
+        count: result.count,
+        error: result.error,
+        status: (result as { status?: number }).status ?? null,
+        debug: { orClause, select },
+      };
     }
-    if (limit) query = query.limit(limit);
-    query = query.order("updated_at", { ascending: false });
-    const result = await query;
+    const unionResult = await fetchReviewableUnion(client, select);
+    const trimmedData = limit ? unionResult.data.slice(0, limit) : unionResult.data;
     return {
       source,
-      data: result.data,
-      count: result.count,
-      error: result.error,
-      status: (result as { status?: number }).status ?? null,
-      debug: { orClause, select },
+      data: trimmedData,
+      count: unionResult.count,
+      error: unionResult.debug.queryAError || unionResult.debug.queryBError || null,
+      status: unionResult.debug.queryAStatus || unionResult.debug.queryBStatus || null,
+      debug: {
+        queryAStatus: unionResult.debug.queryAStatus,
+        queryBStatus: unionResult.debug.queryBStatus,
+        queryAError: unionResult.debug.queryAError,
+        queryBError: unionResult.debug.queryBError,
+        select,
+      },
     };
   };
 
-  const primary = await runQuery(canUseService ? serviceClient : userClient, canUseService ? "service" : "user");
+  const primary = await runUnion(canUseService ? serviceClient : userClient, canUseService ? "service" : "user");
   let fallback: typeof primary | null = null;
 
   if (primary.source === "service" && (primary.error || (primary.status && primary.status >= 400))) {
     fallbackReason = primary.error?.message || `service_status_${primary.status ?? "unknown"}`;
-    fallback = await runQuery(userClient, "user");
+    fallback = await runUnion(userClient, "user");
   }
 
   const chosen = fallback ?? primary;

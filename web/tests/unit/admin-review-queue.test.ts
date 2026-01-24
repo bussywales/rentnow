@@ -81,8 +81,12 @@ class MockBuilder {
   clauses: string[] = [];
   orClause: string | null = null;
   data: unknown[];
+  count: number;
+  error: unknown = null;
+  status: number | null = null;
   constructor(data: unknown[]) {
     this.data = data;
+    this.count = data.length;
   }
   eq(field: string, val: unknown) {
     this.clauses.push(`eq:${field}:${val}`);
@@ -90,6 +94,14 @@ class MockBuilder {
   }
   is(field: string, val: unknown) {
     this.clauses.push(`is:${field}:${val}`);
+    return this;
+  }
+  in(field: string, vals: unknown[]) {
+    this.clauses.push(`in:${field}:${vals.join("|")}`);
+    return this;
+  }
+  not(field: string, op: string, val: unknown) {
+    this.clauses.push(`not:${field}:${op}:${val}`);
     return this;
   }
   or(val: string) {
@@ -104,7 +116,7 @@ class MockBuilder {
     return this;
   }
   then(onFulfilled: (value: unknown) => unknown) {
-    const res = onFulfilled({ data: this.data, count: this.data.length });
+    const res = onFulfilled({ data: this.data, count: this.count, error: this.error, status: this.status });
     return Promise.resolve(res);
   }
 }
@@ -142,15 +154,17 @@ void test("getAdminReviewQueue returns reviewable pending row with correct or cl
     select: "id",
   });
   assert.equal(result.count, 1);
-  assert.equal(client.lastBuilder?.orClause, buildReviewableOrClause());
   assert.equal(result.meta.source, "user");
   assert.equal(result.meta.serviceAttempted, false);
+  assert.equal(result.data?.length, 1);
 });
 
 void test("getAdminReviewQueue falls back to user on service error", async () => {
   class ErrorBuilder extends MockBuilder {
-    order() {
-      return { data: null, count: 0, error: { message: "fail" }, status: 404 };
+    constructor(data: unknown[]) {
+      super(data);
+      this.error = { message: "fail" };
+      this.status = 500;
     }
   }
   class ErrorClient extends MockClient {
