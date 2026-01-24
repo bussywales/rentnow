@@ -60,7 +60,7 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
   if (!hasServerSupabaseEnv()) return [];
   try {
     const supabase = await createServerSupabaseClient();
-    const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
+      const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
     const { data: properties } = await getAdminReviewQueue({
       userClient: supabase,
       serviceClient,

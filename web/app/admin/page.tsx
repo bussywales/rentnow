@@ -13,8 +13,8 @@ import { buildStatusOrFilter, getAdminReviewQueue, getStatusesForView } from "@/
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
-export const revalidate = 0;
 export const fetchCache = "force-no-store";
+export const revalidate = 0;
 
 type Props = {
   searchParams: Record<string, string | string[] | undefined>;
@@ -59,7 +59,7 @@ async function getData(
   ownerId = ""
 ) {
   if (!hasServerSupabaseEnv()) {
-    return { properties: [], users: [], requests: [], pendingReviewCount: 0 };
+    return { properties: [], users: [], requests: [], pendingReviewCount: 0, serviceRoleAvailable: false };
   }
 
   try {
@@ -114,10 +114,11 @@ async function getData(
       users: (users as AdminUser[]) || [],
       requests: (requests as UpgradeRequest[]) || [],
       pendingReviewCount: pendingResult.count ?? 0,
+      serviceRoleAvailable: !!serviceClient,
     };
   } catch (err) {
     console.warn("Admin data load failed; rendering empty state", err);
-    return { properties: [], users: [], requests: [], pendingReviewCount: 0 };
+    return { properties: [], users: [], requests: [], pendingReviewCount: 0, serviceRoleAvailable: false };
   }
 }
 
@@ -289,7 +290,11 @@ export default async function AdminPage({ searchParams }: Props) {
     }
   }
 
-  const { properties, users, requests, pendingReviewCount } = await getData(statusFilter, searchParam, ownerParam);
+  const { properties, users, requests, pendingReviewCount, serviceRoleAvailable } = await getData(
+    statusFilter,
+    searchParam,
+    ownerParam
+  );
   const upgradePendingCount = requests.filter((request) => request.status === "pending").length;
 
   return (
@@ -364,6 +369,11 @@ export default async function AdminPage({ searchParams }: Props) {
             <p className="text-sm text-slate-600">No users found.</p>
           )}
         </div>
+        {!serviceRoleAvailable && (
+          <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+            Service role key not configured — admin queue may be incomplete under RLS.
+          </div>
+        )}
       </div>
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

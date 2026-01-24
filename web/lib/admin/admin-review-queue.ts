@@ -17,10 +17,8 @@ export function normalizeStatus(status: string | null | undefined): string | nul
 }
 
 export function buildReviewableOrClause(): string {
-  const pendingClauses = PENDING_STATUS_LIST.map((s) => `status.eq.${s}`);
-  pendingClauses.push("status.ilike.pending%");
-  pendingClauses.push("submitted_at.not.is.null");
-  return pendingClauses.join(",");
+  const pendingStatuses = PENDING_STATUS_LIST.map((s) => `status.eq.${s}`).join(",");
+  return `${pendingStatuses},status.ilike.pending%,submitted_at.not.is.null`;
 }
 
 export type ReviewableRow = {
@@ -29,6 +27,8 @@ export type ReviewableRow = {
   is_approved?: boolean | null;
   approved_at?: string | null;
   rejected_at?: string | null;
+  paused_at?: string | null;
+  is_active?: boolean | null;
 };
 
 export function isReviewableRow(row: ReviewableRow): boolean {
@@ -88,10 +88,10 @@ type AnyClient = any;
 
 export function applyReviewableFilters(query: FilterBuilder) {
   return query
-    .or(buildReviewableOrClause())
     .eq("is_approved", false)
     .is("approved_at", null)
-    .is("rejected_at", null);
+    .is("rejected_at", null)
+    .or(buildReviewableOrClause());
 }
 
 export async function getAdminReviewQueue<T extends string>({
@@ -112,7 +112,10 @@ export async function getAdminReviewQueue<T extends string>({
   const useServiceRole = viewerRole === "admin" && !!serviceClient;
   const client = useServiceRole && serviceClient ? serviceClient : userClient;
   let query = client.from("properties").select(select, { count: "exact" });
-  query = mode === "reviewable" ? applyReviewableFilters(query) : query.or(buildStatusOrFilter("all"));
+  query =
+    mode === "reviewable"
+      ? applyReviewableFilters(query)
+      : query.eq("is_approved", false).is("approved_at", null).is("rejected_at", null).or(buildStatusOrFilter("all"));
   if (limit) query = query.limit(limit);
   query = query.order("updated_at", { ascending: false });
   const result = await query;

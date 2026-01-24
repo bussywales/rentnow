@@ -11,6 +11,7 @@ import {
   buildStatusOrFilter,
   isReviewableRow,
   buildReviewableOrClause,
+  getAdminReviewQueue,
 } from "@/lib/admin/admin-review-queue";
 
 void test("pending statuses include pending", () => {
@@ -71,4 +72,73 @@ void test("reviewable row predicate allows submitted_at + active", () => {
     is_active: true,
   };
   assert.equal(isReviewableRow(row), true);
+});
+
+class MockBuilder {
+  clauses: string[] = [];
+  orClause: string | null = null;
+  data: unknown[];
+  constructor(data: unknown[]) {
+    this.data = data;
+  }
+  eq(field: string, val: unknown) {
+    this.clauses.push(`eq:${field}:${val}`);
+    return this;
+  }
+  is(field: string, val: unknown) {
+    this.clauses.push(`is:${field}:${val}`);
+    return this;
+  }
+  or(val: string) {
+    this.orClause = val;
+    this.clauses.push(`or:${val}`);
+    return this;
+  }
+  limit() {
+    return this;
+  }
+  order() {
+    return this;
+  }
+  then(onFulfilled: (value: unknown) => unknown) {
+    const res = onFulfilled({ data: this.data, count: this.data.length });
+    return Promise.resolve(res);
+  }
+}
+
+class MockClient {
+  lastBuilder: MockBuilder | null = null;
+  data: unknown[];
+  constructor(data: unknown[]) {
+    this.data = data;
+  }
+  from() {
+    return {
+      select: () => {
+        this.lastBuilder = new MockBuilder(this.data);
+        return this.lastBuilder;
+      },
+    };
+  }
+}
+
+void test("getAdminReviewQueue returns reviewable pending row with correct or clause", async () => {
+  const row = {
+    id: "1",
+    status: "pending",
+    submitted_at: "2024-01-01T00:00:00Z",
+    is_approved: false,
+    approved_at: null,
+    rejected_at: null,
+  };
+  const client = new MockClient([row]);
+  const result = await getAdminReviewQueue({
+    userClient: client as unknown as { from: () => { select: () => MockBuilder } },
+    serviceClient: null,
+    viewerRole: "admin",
+    mode: "reviewable",
+    select: "id",
+  });
+  assert.equal(result.count, 1);
+  assert.equal(client.lastBuilder?.orClause, buildReviewableOrClause());
 });

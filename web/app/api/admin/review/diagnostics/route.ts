@@ -12,6 +12,7 @@ import {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 export const fetchCache = "force-no-store";
+export const runtime = "nodejs";
 
 type QueueRow = {
   id: string;
@@ -59,9 +60,13 @@ export async function GET(request: NextRequest) {
   const count = userResult.count;
 
   let note = "ok";
+  const serviceKeyPresent = hasServiceRoleEnv();
   let serviceCount: number | null = null;
   let serviceSample: { id: string; status: string | null; updated_at: string | null }[] = [];
-  if (hasServiceRoleEnv()) {
+  let serviceBranchAttempted = false;
+  let serviceError: { name: string; message: string } | null = null;
+  if (auth.role === "admin" && serviceKeyPresent) {
+    serviceBranchAttempted = true;
     try {
       const service = createServiceRoleClient();
       const serviceQuery = applyReviewableFilters(
@@ -80,7 +85,9 @@ export async function GET(request: NextRequest) {
       if ((count ?? 0) === 0 && (srCount ?? 0) > 0) {
         note = "RLS or role may be blocking admin query";
       }
-    } catch {
+    } catch (err: unknown) {
+      const e = err as { name?: string; message?: string };
+      serviceError = { name: e?.name || "Error", message: e?.message || "service role query failed" };
       note = "service role check failed";
     }
   } else if ((count ?? 0) === 0) {
@@ -130,10 +137,15 @@ export async function GET(request: NextRequest) {
     lookup = row ?? null;
   }
 
-  const rlsSuspected = (count ?? 0) === 0 && (serviceCount ?? 0) > 0;
+  const rlsSuspected = (count ?? 0) === 0 && serviceKeyPresent && (serviceCount ?? 0) > 0;
 
   return NextResponse.json({
-    env: { supabase: projectRef, nodeEnv: process.env.NODE_ENV },
+    env: {
+      supabase: projectRef,
+      nodeEnv: process.env.NODE_ENV,
+      vercelEnv: process.env.VERCEL_ENV ?? null,
+      runtimeHint: (globalThis as { EdgeRuntime?: string }).EdgeRuntime ? "edge" : "node",
+    },
     viewer: { userId: auth.user.id, role: "admin" },
     pending: {
       statusSetUsed: pendingStatuses,
@@ -144,6 +156,11 @@ export async function GET(request: NextRequest) {
       statusCounts,
       activeCounts,
       rlsSuspected,
+      serviceKeyPresent,
+      serviceKeyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length ?? 0,
+      serviceBranchAttempted,
+      serviceError,
+      reviewableOrClauseUsed: orFilter,
     },
     lookup,
     notes: note,
