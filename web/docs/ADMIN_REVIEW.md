@@ -38,3 +38,7 @@
   - changes_requested → host resubmits → pending (returns to admin review desk)
   - pending items appear in the admin Review desk Pending view; approved/rejected behavior unchanged.
   - Pending source of truth: statuses considered pending for the Review Desk and /admin badge are defined in `admin-review-queue` (includes at least `pending`, plus legacy pending_* variants); both surfaces use the same helper to avoid divergence.
+- Troubleshooting when Pending looks empty:
+  - Use `GET /api/admin/review/diagnostics` (admin-only, no-store) to inspect: viewer role, SUPABASE project host, pending status set used, counts, and whether a service-role check sees rows blocked by RLS.
+  - Confirm the property `status` matches one of the pending statuses (helper allows `pending`, `pending_review`, `pending_approval`, `submitted`, and `pending%` prefixes).
+  - If badge > 0 but list is empty, verify filters/search and that the page is not cached; refresh relies on the forced dynamic settings above.

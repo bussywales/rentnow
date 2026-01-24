@@ -9,7 +9,7 @@ import { computeLocationQuality } from "@/lib/properties/location-quality";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { formatRoleLabel } from "@/lib/roles";
-import { buildStatusOrFilter, normalizeStatus } from "@/lib/admin/admin-review-queue";
+import { buildStatusOrFilter, getStatusesForView, normalizeStatus } from "@/lib/admin/admin-review-queue";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -71,6 +71,10 @@ async function loadReviewListings(): Promise<AdminReviewListItem[]> {
       )
       .or(buildStatusOrFilter("all"))
       .order("updated_at", { ascending: false });
+    console.log("[admin/review] status set", {
+      statuses: getStatusesForView("pending"),
+      or: buildStatusOrFilter("pending"),
+    });
 
     const rawProperties = (properties as RawProperty[] | null) || [];
     const ownerIds = Array.from(new Set(rawProperties.map((p) => p.owner_id).filter(Boolean))) as string[];

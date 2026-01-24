@@ -171,3 +171,4 @@ Non-goals:
 - **R16.9b.6 — Host resubmit + admin entrypoint (Shipped)**: hosts can resubmit changes-requested listings back to the pending review queue, and the admin control panel includes a Review desk link with pending count; ownership/admin guardrails enforced.
 - **R16.9b.7 — Admin review pending source of truth (Shipped)**: Pending view and /admin badge now share a single status helper (including `pending`) so queues stay consistent; guardrail tests and docs updated.
 - **R16.9b.8 — Admin review freshness (Shipped)**: /admin and /admin/review force dynamic/no-store data, reuse shared pending statuses for badge + queue, and add guardrails/tests so pending submissions never disappear from the desk.
+- **R16.9b.9 — Admin review diagnostics (Shipped)**: admin-only diagnostics endpoint surfaces env/role/pending counts (with service-role RLS hint), pending status matching normalized, and troubleshooting docs to keep badge and Review Desk aligned.

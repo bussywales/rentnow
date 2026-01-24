@@ -754,3 +754,8 @@
 - Forced `/admin` and `/admin/review` to no-store/dynamic data fetching so pending/resubmitted listings surface immediately.
 - Shared status constants drive both the admin badge count and Review Desk pending filters; added guardrail tests.
 - Added docs on caching requirements and pending source-of-truth to prevent divergence.
+
+## 2026-01-24 — vR16.9b.9-admin-review-diagnostics
+- Added admin-only diagnostics endpoint `/api/admin/review/diagnostics` exposing viewer, env host, pending status set, counts, and RLS hint; no-store by default.
+- Pending badge and Review Desk now log the exact status set used; status matching now normalizes prefixes and case.
+- Documentation updated with troubleshooting steps for empty pending views.
