@@ -18,7 +18,7 @@ export function normalizeStatus(status: string | null | undefined): string | nul
 
 export function buildReviewableOrClause(pendingSet: string[] = PENDING_STATUS_LIST): string {
   const pendingStatuses = pendingSet.map((s) => `status.eq.${s}`).join(",");
-  return `${pendingStatuses},status.ilike.pending%,submitted_at.not.is.null`;
+  return `${pendingStatuses},submitted_at.not.is.null`;
 }
 
 export type ReviewableRow = {
@@ -69,7 +69,7 @@ export function buildStatusOrFilter(view: ReviewViewKey): string {
   const clauses: string[] = [];
   if (view === "pending" || view === "all") {
     const basePending = PENDING_STATUS_LIST.map((s) => `status.eq.${s}`);
-    clauses.push(...basePending, "status.ilike.pending%");
+    clauses.push(...basePending);
   }
   if (view === "changes" || view === "all") {
     clauses.push(...CHANGES_STATUS_LIST.map((s) => `status.eq.${s}`));
@@ -113,10 +113,11 @@ export async function getAdminReviewQueue<T extends string>({
   let fallbackReason: string | null = null;
   const runQuery = async (client: AnyClient, source: "service" | "user") => {
     let query = client.from("properties").select(select, { count: "exact" });
+    const orClause = view === "pending" || view === "all" ? buildReviewableOrClause() : buildStatusOrFilter(view);
     if (view === "pending" || view === "all") {
-      query = applyReviewableFilters(query);
+      query = applyReviewableFilters(query, undefined);
     } else {
-      query = query.eq("is_approved", false).is("approved_at", null).is("rejected_at", null).or(buildStatusOrFilter(view));
+      query = query.eq("is_approved", false).is("approved_at", null).is("rejected_at", null).or(orClause);
     }
     if (limit) query = query.limit(limit);
     query = query.order("updated_at", { ascending: false });
@@ -127,6 +128,7 @@ export async function getAdminReviewQueue<T extends string>({
       count: result.count,
       error: result.error,
       status: (result as { status?: number }).status ?? null,
+      debug: { orClause, select },
     };
   };
 
@@ -149,6 +151,10 @@ export async function getAdminReviewQueue<T extends string>({
       serviceOk: !primary.error && (!primary.status || primary.status < 400),
       serviceStatus: primary.status,
       serviceError: primary.error?.message,
+      serviceErrorDetails: primary.error?.details,
+      serviceErrorHint: primary.error?.hint,
+      serviceErrorCode: (primary.error as { code?: string })?.code,
+      serviceDebug: primary.debug,
       fallbackReason,
     },
     serviceRoleAvailable: canUseService,

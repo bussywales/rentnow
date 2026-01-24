@@ -65,8 +65,9 @@ export async function GET(request: NextRequest) {
   let serviceCount: number | null = serviceKeyPresent ? 0 : null;
   let serviceSample: { id: string; status: string | null; updated_at: string | null }[] = [];
   let serviceBranchAttempted = false;
-  let serviceError: { name: string; message: string; details?: string } | null = null;
+  let serviceError: { name: string; message: string; details?: string; hint?: string; code?: string } | null = null;
   let serviceStatus: number | null = null;
+  let serviceQueryDebug: Record<string, unknown> | null = null;
   const rawPostgrestPing: { attempted: boolean; status: number | null; ok: boolean; error: unknown } = {
     attempted: false,
     status: null,
@@ -84,6 +85,11 @@ export async function GET(request: NextRequest) {
       )
         .order("updated_at", { ascending: false })
         .limit(5);
+      serviceQueryDebug = {
+        table: "properties",
+        select: "id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active",
+        orClause: orFilter,
+      };
       const srResult = await serviceQuery;
       serviceStatus = srResult.status ?? null;
       const srRows: QueueRow[] = (srResult.data ?? []) as QueueRow[];
@@ -118,8 +124,14 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (err: unknown) {
-      const e = err as { name?: string; message?: string; details?: string };
-      serviceError = { name: e?.name || "Error", message: e?.message || "service role query failed", details: e?.details };
+      const e = err as { name?: string; message?: string; details?: string; hint?: string; code?: string };
+      serviceError = {
+        name: e?.name || "Error",
+        message: e?.message || "service role query failed",
+        details: e?.details,
+        hint: e?.hint,
+        code: e?.code,
+      };
       note = "service role check failed";
       serviceCount = 0;
     }
@@ -217,6 +229,7 @@ export async function GET(request: NextRequest) {
       serviceError,
       serviceStatus,
       serviceOk: serviceError === null && serviceStatus !== null ? serviceStatus < 400 : serviceError === null,
+      serviceQueryDebug,
       reviewableOrClauseUsed: orFilter,
       rawPostgrestPing,
     },

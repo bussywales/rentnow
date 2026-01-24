@@ -50,7 +50,7 @@ void test("status lists stay in sync for all views", () => {
 void test("buildStatusOrFilter builds supabase or clause", () => {
   const pendingClause = buildStatusOrFilter("pending");
   assert.ok(pendingClause.includes("status.eq.pending"));
-  assert.ok(pendingClause.includes("status.ilike.pending%"));
+  assert.equal(pendingClause.includes("%"), false);
   const allClause = buildStatusOrFilter("all");
   assert.ok(allClause.includes("status.eq.live"));
   assert.ok(allClause.includes("status.eq.changes_requested"));
@@ -60,6 +60,7 @@ void test("buildReviewableOrClause includes submitted_at fallback", () => {
   const clause = buildReviewableOrClause();
   assert.ok(clause.includes("submitted_at.not.is.null"));
   assert.ok(clause.includes("status.eq.pending"));
+  assert.equal(clause.includes("%"), false);
 });
 
 void test("reviewable row predicate allows submitted_at + active", () => {

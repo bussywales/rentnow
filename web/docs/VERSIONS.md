@@ -1,8 +1,8 @@
 # Versions
 
-## 2026-01-24 — vR16.9b.14-admin-service-schema-fix
-- Admin/service Supabase client now pins schema=public and disables session persistence to prevent PostgREST 404s; diagnostics include a raw PostgREST ping with status/error for quick triage.
-- Review queue helper always prefers service-role fetch and only falls back with explicit warnings; docs updated for schema/URL troubleshooting.
+## 2026-01-24 — vR16.9b.15-admin-review-or-clause-fix
+- Admin review OR clause tightened to explicit pending statuses + submitted_at (no wildcard), reducing PostgREST 400/404 risk; diagnostics now surface full service error details and raw query debug.
+- Service client remains schema=public with session detection disabled; queue helper still prefers service and reports fallback reasons; docs updated for schema/url troubleshooting.
 
 ## 2026-01-24 — vR16.9a.5-video-signed-read
 - Video playback now uses short-lived signed read URLs from a host-only API, keeping the `property-videos` bucket private and avoiding ORB/public URL issues; auto-refreshes once on playback error/expiry.

@@ -25,5 +25,5 @@ void test("createServiceRoleClient pins schema to public", () => {
   const opts = getLastServiceClientOptions();
   assert.ok(opts);
   assert.deepEqual(opts?.db, { schema: "public" });
-  assert.deepEqual(opts?.auth, { persistSession: false, autoRefreshToken: false });
+  assert.deepEqual(opts?.auth, { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false });
 });

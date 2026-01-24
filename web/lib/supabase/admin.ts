@@ -30,7 +30,7 @@ export function createServiceRoleClient(): AdminClient {
   }
   const options: Record<string, unknown> = {
     db: { schema: "public" },
-    auth: { persistSession: false, autoRefreshToken: false },
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   };
   lastServiceClientOptions = options;
   return createClient(url, serviceRole, options);
