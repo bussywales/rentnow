@@ -1,5 +1,5 @@
 import type { ReadinessResult } from "@/lib/properties/listing-readiness";
-import { isReviewableRow, isStatusInView } from "./admin-review-queue";
+import { isStatusInView } from "./admin-review-queue";
 
 export type AdminReviewListItem = {
   id: string;
@@ -69,18 +69,7 @@ export function filterAndSortListings(
   const filtered = items.filter((item) => {
     if (view !== "pending" && view !== "all" && !isStatusInView(item.status ?? null, view)) return false;
     if (view === "approved" && item.status && !isStatusInView(item.status, "approved")) return false;
-    if (view === "pending") {
-      const reviewable =
-        item.reviewable ??
-        isReviewableRow({
-          status: item.status,
-          submitted_at: item.submitted_at,
-          is_approved: item.is_approved,
-          approved_at: item.approved_at,
-          rejected_at: item.rejected_at,
-        });
-      if (!reviewable) return false;
-    }
+    // For pending view, trust server-side reviewable checks.
     if (view === "approved" && item.updatedAt) {
       const updatedMs = new Date(item.updatedAt).getTime();
       if (Number.isFinite(updatedMs) && now - updatedMs > sevenDaysMs) return false;

@@ -106,7 +106,7 @@ async function loadReviewListings(): Promise<ReviewLoadResult> {
         "approved_at",
         "rejected_at",
         "is_active",
-        "property_images(id,image_url,width,height)",
+        "property_images(id,image_url)",
         "property_videos(id)",
         "rejection_reason",
       ].join(","),
@@ -221,7 +221,7 @@ export default async function AdminReviewPage({ searchParams }: Props) {
     redirect("/forbidden");
   }
 
-  const { listings, serviceRoleAvailable, serviceRoleError, queueSource, serviceRoleStatus, meta } = await loadReviewListings();
+  const { listings, serviceRoleAvailable, queueSource, serviceRoleStatus, meta } = await loadReviewListings();
   const initialSelectedId = (() => {
     const raw = searchParams?.id;
     const value = Array.isArray(raw) ? raw[0] : raw;
@@ -247,11 +247,6 @@ export default async function AdminReviewPage({ searchParams }: Props) {
           {ADMIN_REVIEW_COPY.warnings.missingServiceRole}
         </div>
       )}
-      {serviceRoleError ? (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {ADMIN_REVIEW_COPY.warnings.serviceFetchFailed}
-        </div>
-      ) : null}
       {queueSource === "user" && meta?.serviceAttempted && meta?.serviceOk === false && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
           Service fetch status: {meta?.serviceStatus ?? serviceRoleStatus}. See diagnostics.
