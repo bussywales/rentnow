@@ -56,6 +56,9 @@ export async function GET(request: NextRequest) {
   );
   const rows: QueueRow[] = (userUnion.data ?? []) as QueueRow[];
   const userCount = userUnion.count ?? 0;
+  const userPendingSetRequested = userUnion.debug?.pendingSetRequested ?? null;
+  const userPendingSetSanitized = userUnion.debug?.pendingSetSanitized ?? null;
+  const userDroppedStatuses = userUnion.debug?.droppedStatuses ?? null;
 
   let note = "ok";
   const serviceKeyPresent = hasServiceRoleEnv();
@@ -108,6 +111,9 @@ export async function GET(request: NextRequest) {
         queryBError: serviceUnion.debug.queryBError,
         queryACount: serviceUnion.debug.queryACount,
         queryBCount: serviceUnion.debug.queryBCount,
+        pendingSetRequested: serviceUnion.debug.pendingSetRequested,
+        pendingSetSanitized: serviceUnion.debug.pendingSetSanitized,
+        droppedStatuses: serviceUnion.debug.droppedStatuses,
       };
       if (userCount === 0 && srCount > 0) {
         note = "RLS or role may be blocking admin query";
@@ -268,7 +274,7 @@ export async function GET(request: NextRequest) {
     if (!lookup) return null;
     const row = lookup as QueueRow;
     const normalized = normalizeStatus(row.status ?? null);
-    const matchedStatus = normalized ? normalized.startsWith("pending") || PENDING_STATUS_LIST.includes(normalized) : false;
+    const matchedStatus = normalized ? PENDING_STATUS_LIST.includes(normalized) : false;
     const hasSubmittedAt = !!row.submitted_at;
     const isApproved = row.is_approved === true;
     const approvedAtNull = !row.approved_at;
@@ -294,6 +300,9 @@ export async function GET(request: NextRequest) {
     viewer: { userId: auth.user.id, role: "admin" },
     pending: {
       statusSetUsed: pendingStatuses,
+      pendingSetRequested: userPendingSetRequested,
+      pendingSetSanitized: userPendingSetSanitized,
+      droppedStatuses: userDroppedStatuses,
       count: userCount,
       sample: (rows ?? []).map((r) => ({ id: r.id, status: r.status, updated_at: r.updated_at })),
       serviceCount,
@@ -319,6 +328,9 @@ export async function GET(request: NextRequest) {
       serviceQueryACount: (serviceQueryDebug as { queryACount?: number })?.queryACount ?? null,
       serviceQueryBCount: (serviceQueryDebug as { queryBCount?: number })?.queryBCount ?? null,
       mergedCount: serviceSample.length || userCount,
+      servicePendingSetRequested: (serviceQueryDebug as { pendingSetRequested?: unknown })?.pendingSetRequested ?? null,
+      servicePendingSetSanitized: (serviceQueryDebug as { pendingSetSanitized?: unknown })?.pendingSetSanitized ?? null,
+      serviceDroppedStatuses: (serviceQueryDebug as { droppedStatuses?: unknown })?.droppedStatuses ?? null,
       reviewableOrClauseUsed: null,
     },
     lookup,

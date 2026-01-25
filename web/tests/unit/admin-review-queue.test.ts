@@ -5,6 +5,7 @@ import {
   CHANGES_STATUS_LIST,
   PENDING_STATUS_LIST,
   APPROVED_STATUS_LIST,
+  sanitizeStatusSet,
   getStatusesForView,
   isStatusInView,
   normalizeStatus,
@@ -12,11 +13,16 @@ import {
   isReviewableRow,
   buildReviewableOrClause,
   getAdminReviewQueue,
+  fetchReviewableUnion,
 } from "@/lib/admin/admin-review-queue";
 
 void test("pending statuses include pending", () => {
   assert.ok(PENDING_STATUS_LIST.includes("pending"));
   assert.deepEqual(new Set(PENDING_STATUS_LIST), new Set(getStatusesForView("pending")));
+});
+
+void test("pending status set is enum-safe", () => {
+  assert.deepEqual(PENDING_STATUS_LIST, ["pending"]);
 });
 
 void test("pending badge filter matches review filter", () => {
@@ -36,9 +42,9 @@ void test("normalizeStatus lowercases and trims", () => {
   assert.equal(normalizeStatus(null), null);
 });
 
-void test("pending allows prefix matches", () => {
-  assert.equal(isStatusInView("pending_review_extra", "pending"), true);
+void test("pending view requires enum-safe status", () => {
   assert.equal(isStatusInView("Pending", "pending"), true);
+  assert.equal(isStatusInView("pending_review_extra", "pending"), false);
 });
 
 void test("status lists stay in sync for all views", () => {
@@ -53,7 +59,7 @@ void test("buildStatusOrFilter builds supabase or clause", () => {
   assert.equal(pendingClause.includes("%"), false);
   const allClause = buildStatusOrFilter("all");
   assert.ok(allClause.includes("status.eq.live"));
-  assert.ok(allClause.includes("status.eq.changes_requested"));
+  assert.ok(allClause.includes("status.eq.pending"));
 });
 
 void test("buildReviewableOrClause includes submitted_at fallback", () => {
@@ -61,7 +67,7 @@ void test("buildReviewableOrClause includes submitted_at fallback", () => {
   assert.ok(clause.includes("submitted_at.not.is.null"));
   assert.ok(clause.includes("status.eq.pending"));
   assert.equal(clause.includes("%"), false);
-  const expectedStatuses = ["pending", "pending_review", "pending_approval", "submitted"];
+  const expectedStatuses = ["pending"];
   expectedStatuses.forEach((s) => assert.ok(clause.includes(`status.eq.${s}`)));
 });
 
@@ -152,11 +158,30 @@ void test("getAdminReviewQueue returns reviewable pending row with correct or cl
     serviceClient: null,
     viewerRole: "admin",
     select: "id",
+    pendingSet: ["pending", "pending_review"],
   });
   assert.equal(result.count, 1);
   assert.equal(result.meta.source, "user");
   assert.equal(result.meta.serviceAttempted, false);
   assert.equal(result.data?.length, 1);
+});
+
+void test("sanitizeStatusSet drops invalid statuses", () => {
+  const input = ["pending", "PENDING_REVIEW", " live ", "foo", "pending"];
+  const result = sanitizeStatusSet(input);
+  assert.deepEqual(result, ["pending", "live"]);
+});
+
+void test("fetchReviewableUnion uses sanitized pending set", async () => {
+  const row = { id: "1", status: "pending" };
+  const client = new MockClient([row]);
+  const result = await fetchReviewableUnion(client as unknown as { from: () => { select: () => MockBuilder } }, "id", [
+    "pending",
+    "pending_review",
+    "foo",
+  ]);
+  assert.deepEqual(result.debug.pendingSetSanitized, ["pending"]);
+  assert.ok(result.debug.droppedStatuses.includes("pending_review"));
 });
 
 void test("getAdminReviewQueue falls back to user on service error", async () => {

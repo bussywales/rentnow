@@ -1,5 +1,10 @@
 # Versions
 
+## 2026-01-24 — vR16.9b.18-admin-review-enum-safe-views
+- Admin review queue now sanitizes status sets to the enum (`draft`, `pending`, `live`, `rejected`, `paused`) to avoid PostgREST 22P02 errors; invalid requested statuses are reported in diagnostics (requested vs sanitized vs dropped).
+- Pending view uses the shared union helper end-to-end (no extra client-side status filtering), keeping `/admin` badge and `/admin/review` aligned; diagnostics expose pending set fields for faster debugging.
+- Docs updated to clarify enum-only statuses, submitted_at fallback, and sanitized status handling.
+
 ## 2026-01-24 — vR16.9b.15-admin-review-or-clause-fix
 - Admin review OR clause tightened to explicit pending statuses + submitted_at (no wildcard), reducing PostgREST 400/404 risk; diagnostics now surface full service error details, raw query debug, and raw REST body snippets for queue/simple selects.
 - Service client remains schema=public with session detection disabled; queue helper still prefers service and reports fallback reasons; docs updated for schema/url troubleshooting.

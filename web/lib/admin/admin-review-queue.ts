@@ -1,14 +1,17 @@
+export const ALLOWED_PROPERTY_STATUSES = ["draft", "pending", "live", "rejected", "paused"] as const;
 const REVIEW_VIEW_STATUSES = {
-  pending: ["pending", "pending_review", "pending_approval", "submitted"],
-  changes: ["changes_requested"],
-  approved: ["live", "approved"],
+  pending: ["pending"],
+  changes: ["draft"],
+  approved: ["live"],
+  rejected: ["rejected"],
 } as const;
 
 export const PENDING_STATUS_LIST: string[] = [...REVIEW_VIEW_STATUSES.pending];
 export const APPROVED_STATUS_LIST: string[] = [...REVIEW_VIEW_STATUSES.approved];
 export const CHANGES_STATUS_LIST: string[] = [...REVIEW_VIEW_STATUSES.changes];
+export const REJECTED_STATUS_LIST: string[] = [...REVIEW_VIEW_STATUSES.rejected];
 export const ALL_REVIEW_STATUSES: string[] = Array.from(
-  new Set([...PENDING_STATUS_LIST, ...CHANGES_STATUS_LIST, ...APPROVED_STATUS_LIST])
+  new Set([...PENDING_STATUS_LIST, ...CHANGES_STATUS_LIST, ...APPROVED_STATUS_LIST, ...REJECTED_STATUS_LIST])
 );
 
 export function normalizeStatus(status: string | null | undefined): string | null {
@@ -16,8 +19,16 @@ export function normalizeStatus(status: string | null | undefined): string | nul
   return status.toString().trim().toLowerCase();
 }
 
+export function sanitizeStatusSet(statuses: string[]): string[] {
+  const normalized = statuses
+    .map((s) => normalizeStatus(s))
+    .filter((s): s is string => !!s)
+    .filter((s) => (ALLOWED_PROPERTY_STATUSES as readonly string[]).includes(s));
+  return Array.from(new Set(normalized));
+}
+
 export function buildReviewableOrClause(pendingSet: string[] = PENDING_STATUS_LIST): string {
-  const pendingStatuses = pendingSet.map((s) => `status.eq.${s}`).join(",");
+  const pendingStatuses = sanitizeStatusSet(pendingSet).map((s) => `status.eq.${s}`).join(",");
   return `${pendingStatuses},submitted_at.not.is.null`;
 }
 
@@ -34,13 +45,29 @@ export type ReviewableRow = {
 export function isReviewableRow(row: ReviewableRow): boolean {
   const normalized = normalizeStatus(row.status);
   const isPendingStatus = normalized
-    ? normalized.startsWith("pending") || PENDING_STATUS_LIST.includes(normalized)
+    ? PENDING_STATUS_LIST.includes(normalized)
     : false;
   const hasSubmitted = !!row.submitted_at;
   if (!(isPendingStatus || hasSubmitted)) return false;
   if (row.is_approved === true) return false;
   if (row.approved_at) return false;
   if (row.rejected_at) return false;
+  return true;
+}
+
+export function isFixRequestRow(row: {
+  status?: string | null;
+  submitted_at?: string | null;
+  rejection_reason?: string | null;
+  is_approved?: boolean | null;
+  approved_at?: string | null;
+}): boolean {
+  const normalized = normalizeStatus(row.status);
+  if (normalized !== "draft") return false;
+  if (!row.submitted_at) return false;
+  if (!row.rejection_reason) return false;
+  if (row.is_approved === true) return false;
+  if (row.approved_at) return false;
   return true;
 }
 
@@ -56,10 +83,7 @@ export function getStatusesForView(view: ReviewViewKey): string[] {
 export function isStatusInView(status: string | null | undefined, view: ReviewViewKey) {
   const normalized = normalizeStatus(status);
   if (!normalized) return false;
-  if (view === "pending") {
-    if (normalized.startsWith("pending")) return true;
-    return PENDING_STATUS_LIST.includes(normalized);
-  }
+  if (view === "pending") return PENDING_STATUS_LIST.includes(normalized);
   if (view === "changes") return CHANGES_STATUS_LIST.includes(normalized);
   if (view === "approved") return APPROVED_STATUS_LIST.includes(normalized);
   return ALL_REVIEW_STATUSES.includes(normalized);
@@ -67,15 +91,18 @@ export function isStatusInView(status: string | null | undefined, view: ReviewVi
 
 export function buildStatusOrFilter(view: ReviewViewKey): string {
   const clauses: string[] = [];
+  const pendingStatuses = sanitizeStatusSet(PENDING_STATUS_LIST);
+  const changeStatuses = sanitizeStatusSet(CHANGES_STATUS_LIST);
+  const approvedStatuses = sanitizeStatusSet(APPROVED_STATUS_LIST);
   if (view === "pending" || view === "all") {
-    const basePending = PENDING_STATUS_LIST.map((s) => `status.eq.${s}`);
+    const basePending = pendingStatuses.map((s) => `status.eq.${s}`);
     clauses.push(...basePending);
   }
   if (view === "changes" || view === "all") {
-    clauses.push(...CHANGES_STATUS_LIST.map((s) => `status.eq.${s}`));
+    clauses.push(...changeStatuses.map((s) => `status.eq.${s}`));
   }
   if (view === "approved" || view === "all") {
-    clauses.push(...APPROVED_STATUS_LIST.map((s) => `status.eq.${s}`));
+    clauses.push(...approvedStatuses.map((s) => `status.eq.${s}`));
   }
   return clauses.join(",");
 }
@@ -99,8 +126,9 @@ export async function fetchReviewableUnion<T extends string>(
   select: T,
   pendingSet: string[] = PENDING_STATUS_LIST
 ) {
+  const sanitizedPendingSet = sanitizeStatusSet(pendingSet);
   const baseFilters = (q: FilterBuilder) => q.eq("is_approved", false).is("approved_at", null).is("rejected_at", null);
-  const queryA = baseFilters(client.from("properties").select(select, { count: "exact" })).in("status", pendingSet);
+  const queryA = baseFilters(client.from("properties").select(select, { count: "exact" })).in("status", sanitizedPendingSet);
   const queryB = baseFilters(
     client.from("properties").select(select, { count: "exact" }).not("submitted_at", "is", null)
   );
@@ -135,6 +163,9 @@ export async function fetchReviewableUnion<T extends string>(
       queryBError: resB.error || null,
       queryACount: resA.count ?? rowsA.length,
       queryBCount: resB.count ?? rowsB.length,
+      pendingSetRequested: pendingSet,
+      pendingSetSanitized: sanitizedPendingSet,
+      droppedStatuses: pendingSet.filter((s) => !sanitizedPendingSet.includes(normalizeStatus(s || "") || "")),
     },
   };
 }
@@ -146,6 +177,7 @@ export async function getAdminReviewQueue<T extends string>({
   select,
   limit,
   view = "pending",
+  pendingSet = PENDING_STATUS_LIST,
 }: {
   userClient: AnyClient;
   serviceClient?: AnyClient | null;
@@ -153,12 +185,34 @@ export async function getAdminReviewQueue<T extends string>({
   select: T;
   limit?: number;
   view?: ReviewViewKey;
+  pendingSet?: string[];
 }) {
   const canUseService = viewerRole === "admin" && !!serviceClient;
   let fallbackReason: string | null = null;
   const runUnion = async (client: AnyClient, source: "service" | "user") => {
+    if (view === "changes") {
+      const baseFilters = (q: FilterBuilder) =>
+        q.eq("is_approved", false).is("approved_at", null).is("rejected_at", null);
+      let query = baseFilters(client.from("properties").select(select, { count: "exact" })).eq("status", "draft").not(
+        "submitted_at",
+        "is",
+        null
+      );
+      query = query.not("rejection_reason", "is", null);
+      if (limit) query = query.limit(limit);
+      query = query.order("updated_at", { ascending: false });
+      const result = await query;
+      return {
+        source,
+        data: result.data,
+        count: result.count,
+        error: result.error,
+        status: (result as { status?: number }).status ?? null,
+        debug: { select, filter: "draft+submitted+rejection_reason" },
+      };
+    }
     if (view !== "pending" && view !== "all") {
-      // For non-pending views, keep existing filter
+      // For other views, keep existing filter
       let query = client.from("properties").select(select, { count: "exact" });
       const orClause = buildStatusOrFilter(view);
       query = query.eq("is_approved", false).is("approved_at", null).is("rejected_at", null).or(orClause);
@@ -174,7 +228,7 @@ export async function getAdminReviewQueue<T extends string>({
         debug: { orClause, select },
       };
     }
-    const unionResult = await fetchReviewableUnion(client, select);
+    const unionResult = await fetchReviewableUnion(client, select, pendingSet);
     const trimmedData = limit ? unionResult.data.slice(0, limit) : unionResult.data;
     return {
       source,
@@ -187,6 +241,9 @@ export async function getAdminReviewQueue<T extends string>({
         queryBStatus: unionResult.debug.queryBStatus,
         queryAError: unionResult.debug.queryAError,
         queryBError: unionResult.debug.queryBError,
+        pendingSetRequested: unionResult.debug.pendingSetRequested,
+        pendingSetSanitized: unionResult.debug.pendingSetSanitized,
+        droppedStatuses: unionResult.debug.droppedStatuses,
         select,
       },
     };

@@ -67,7 +67,7 @@ export function filterAndSortListings(
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
   const filtered = items.filter((item) => {
-    if (view !== "all" && !isStatusInView(item.status ?? null, view)) return false;
+    if (view !== "pending" && view !== "all" && !isStatusInView(item.status ?? null, view)) return false;
     if (view === "approved" && item.status && !isStatusInView(item.status, "approved")) return false;
     if (view === "pending") {
       const reviewable =
