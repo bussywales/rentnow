@@ -61,15 +61,28 @@ export function filterAndSortListings(
   view: "pending" | "changes" | "approved" | "all",
   filters: AdminReviewFilters
 ): AdminReviewListItem[] {
+  const sortListings = (list: AdminReviewListItem[], sortOrder: "oldest" | "newest") =>
+    [...list].sort((a, b) => {
+      const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
+      const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
+      if (sortOrder === "oldest") return dateA - dateB;
+      if (dateB !== dateA) return dateB - dateA;
+      return a.id.localeCompare(b.id);
+    });
+
+  // Pending view should trust the server queue and avoid client-side filtering.
+  if (view === "pending") {
+    return sortListings(items, filters.sort);
+  }
+
   const { search, hasVideo, needsLocation, needsPhotos, sort } = filters;
   const searchLower = search.trim().toLowerCase();
   const now = Date.now();
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
   const filtered = items.filter((item) => {
-    if (view !== "pending" && view !== "all" && !isStatusInView(item.status ?? null, view)) return false;
+    if (view !== "all" && !isStatusInView(item.status ?? null, view)) return false;
     if (view === "approved" && item.status && !isStatusInView(item.status, "approved")) return false;
-    // For pending view, trust server-side reviewable checks.
     if (view === "approved" && item.updatedAt) {
       const updatedMs = new Date(item.updatedAt).getTime();
       if (Number.isFinite(updatedMs) && now - updatedMs > sevenDaysMs) return false;
@@ -88,11 +101,5 @@ export function filterAndSortListings(
     return true;
   });
 
-  return filtered.sort((a, b) => {
-    const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0;
-    const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0;
-    if (sort === "oldest") return dateA - dateB;
-    if (dateB !== dateA) return dateB - dateA;
-    return a.id.localeCompare(b.id);
-  });
+  return sortListings(filtered, sort);
 }

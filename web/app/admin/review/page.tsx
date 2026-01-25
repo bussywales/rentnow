@@ -6,7 +6,7 @@ import { buildSelectedUrl, type AdminReviewListItem } from "@/lib/admin/admin-re
 import { computeListingReadiness } from "@/lib/properties/listing-readiness";
 import type { PropertyImage } from "@/lib/types";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { hasServerSupabaseEnv, type createServerSupabaseClient } from "@/lib/supabase/server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { formatRoleLabel } from "@/lib/roles";
 import {
@@ -71,7 +71,12 @@ type ReviewLoadResult = {
   };
 };
 
-async function loadReviewListings(): Promise<ReviewLoadResult> {
+type SupabaseServerClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
+
+async function loadReviewListings(
+  supabase: SupabaseServerClient,
+  viewerRole: string | null
+): Promise<ReviewLoadResult> {
   if (!hasServerSupabaseEnv()) {
     return {
       listings: [],
@@ -82,12 +87,11 @@ async function loadReviewListings(): Promise<ReviewLoadResult> {
     };
   }
   try {
-    const supabase = await createServerSupabaseClient();
-    const serviceClient = hasServiceRoleEnv() ? createServiceRoleClient() : null;
+    const serviceClient = viewerRole === "admin" && hasServiceRoleEnv() ? createServiceRoleClient() : null;
     const queueResult = await getAdminReviewQueue({
       userClient: supabase,
       serviceClient,
-      viewerRole: "admin",
+      viewerRole,
       select: [
         "id",
         "title",
@@ -221,7 +225,14 @@ export default async function AdminReviewPage({ searchParams }: Props) {
     redirect("/forbidden");
   }
 
-  const { listings, serviceRoleAvailable, queueSource, serviceRoleStatus, meta } = await loadReviewListings();
+  const {
+    listings,
+    serviceRoleAvailable,
+    serviceRoleStatus,
+    meta,
+  } = await loadReviewListings(supabase, profile?.role ?? null);
+  const serviceOk = meta?.serviceOk ?? true;
+  const showServiceWarning = serviceOk === false;
   const initialSelectedId = (() => {
     const raw = searchParams?.id;
     const value = Array.isArray(raw) ? raw[0] : raw;
@@ -242,12 +253,12 @@ export default async function AdminReviewPage({ searchParams }: Props) {
           Back to Admin
         </Link>
       </div>
-      {!serviceRoleAvailable && (
+      {showServiceWarning && !serviceRoleAvailable && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {ADMIN_REVIEW_COPY.warnings.missingServiceRole}
         </div>
       )}
-      {queueSource === "user" && meta?.serviceAttempted && meta?.serviceOk === false && (
+      {showServiceWarning && meta?.serviceAttempted && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
           Service fetch status: {meta?.serviceStatus ?? serviceRoleStatus}. See diagnostics.
         </div>
