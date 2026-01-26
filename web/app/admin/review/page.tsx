@@ -121,7 +121,8 @@ async function loadReviewListings(
       or: buildStatusOrFilter("pending"),
     });
 
-    const rawProperties = (queueResult.data as RawProperty[] | null) || [];
+    const queueRows = (queueResult as { rows?: RawProperty[] | null }).rows;
+    const rawProperties = (queueRows ?? (queueResult.data as RawProperty[] | null) ?? []) as RawProperty[];
     const ownerIds = Array.from(new Set(rawProperties.map((p) => p.owner_id).filter(Boolean))) as string[];
     let owners: Record<string, string> = {};
     if (ownerIds.length) {
