@@ -167,7 +167,8 @@ async function loadReviewListings(
       if (detailError) {
         console.warn("[admin/review] detail fetch error", detailStatus, detailError);
       }
-      detailMap = Object.fromEntries(((details ?? []) as RawProperty[]).map((row) => [row.id, row]));
+      const detailRows = Array.isArray(details) ? (details as unknown as RawProperty[]) : [];
+      detailMap = Object.fromEntries(detailRows.map((row) => [row.id, row]));
       console.log("[admin/review] detail rows", { count: details?.length ?? 0, status: detailStatus });
     }
 
