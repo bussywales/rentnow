@@ -258,10 +258,14 @@ export async function getAdminReviewQueue<T extends string>({
   }
 
   const chosen = fallback ?? primary;
+  const chosenRows = (chosen as { rows?: unknown[] | null }).rows ?? chosen.data;
+  const rows = Array.isArray(chosenRows) ? chosenRows : [];
+  const mergedCount = typeof chosen.count === "number" ? chosen.count : rows.length;
 
   return {
-    data: chosen.data,
-    count: chosen.count,
+    data: rows,
+    rows,
+    count: mergedCount,
     meta: {
       source: chosen.source,
       serviceAttempted: canUseService,

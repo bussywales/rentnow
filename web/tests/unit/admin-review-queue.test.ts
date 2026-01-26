@@ -164,6 +164,9 @@ void test("getAdminReviewQueue returns reviewable pending row with correct or cl
   assert.equal(result.meta.source, "user");
   assert.equal(result.meta.serviceAttempted, false);
   assert.equal(result.data?.length, 1);
+  assert.equal(result.rows?.length, 1);
+  assert.deepEqual(result.data, result.rows);
+  assert.equal(result.rows?.length, result.count);
 });
 
 void test("sanitizeStatusSet drops invalid statuses", () => {
@@ -182,6 +185,26 @@ void test("fetchReviewableUnion uses sanitized pending set", async () => {
   ]);
   assert.deepEqual(result.debug.pendingSetSanitized, ["pending"]);
   assert.ok(result.debug.droppedStatuses.includes("pending_review"));
+});
+
+void test("getAdminReviewQueue exposes merged rows on data and rows", async () => {
+  const rows = [
+    { id: "1", status: "pending", submitted_at: "2024-01-01T00:00:00Z" },
+    { id: "1", status: "pending", submitted_at: "2024-01-02T00:00:00Z" },
+    { id: "2", status: "pending", submitted_at: "2024-01-03T00:00:00Z" },
+  ];
+  const client = new MockClient(rows);
+  const result = await getAdminReviewQueue({
+    userClient: client as unknown as { from: () => { select: () => MockBuilder } },
+    serviceClient: null,
+    viewerRole: "admin",
+    select: "id",
+  });
+  assert.equal(result.count, 2);
+  assert.equal(result.data?.length, result.count);
+  assert.equal(result.rows?.length, result.count);
+  assert.deepEqual(result.rows, result.data);
+  assert.ok((result.data?.length ?? 0) > 0);
 });
 
 void test("getAdminReviewQueue falls back to user on service error", async () => {

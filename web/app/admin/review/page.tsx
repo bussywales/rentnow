@@ -121,9 +121,10 @@ async function loadReviewListings(
       or: buildStatusOrFilter("pending"),
     });
 
-    const queueRows = (queueResult as { rows?: RawProperty[] | null }).rows;
-    const rawProperties = (queueRows ?? (queueResult.data as RawProperty[] | null) ?? []) as RawProperty[];
-    const ownerIds = Array.from(new Set(rawProperties.map((p) => p.owner_id).filter(Boolean))) as string[];
+    const listings = (queueResult.data ?? []) as RawProperty[];
+    console.log("[admin/review] rows", listings.length);
+
+    const ownerIds = Array.from(new Set(listings.map((p) => p.owner_id).filter(Boolean))) as string[];
     let owners: Record<string, string> = {};
     if (ownerIds.length) {
       const { data: profiles } = await supabase
@@ -136,7 +137,7 @@ async function loadReviewListings(
       );
     }
 
-    const listings = rawProperties.map((p) => {
+    const mappedListings = listings.map((p) => {
       const images: PropertyImage[] = (p.property_images || []).map((img, idx) => ({
         id: (img as { id?: string }).id || `img-${idx}`,
         image_url: img.image_url,
@@ -192,7 +193,7 @@ async function loadReviewListings(
       };
     });
     return {
-      listings,
+      listings: mappedListings,
       serviceRoleAvailable: !!serviceClient,
       serviceRoleError: queueResult.serviceRoleError,
       queueSource: queueResult.meta.source,
@@ -232,8 +233,7 @@ export default async function AdminReviewPage({ searchParams }: Props) {
     serviceRoleStatus,
     meta,
   } = await loadReviewListings(supabase, profile?.role ?? null);
-  const serviceOk = meta?.serviceOk ?? true;
-  const showServiceWarning = serviceOk === false;
+  const showServiceWarning = (meta?.serviceAttempted ?? false) && meta?.serviceOk === false;
   const initialSelectedId = (() => {
     const raw = searchParams?.id;
     const value = Array.isArray(raw) ? raw[0] : raw;
