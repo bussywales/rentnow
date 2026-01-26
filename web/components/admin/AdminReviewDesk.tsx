@@ -25,6 +25,7 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
   const searchParams = useSearchParams();
   const { view, updateView, resetView } = useAdminReviewView();
   const [items, setItems] = useState<AdminReviewListItem[]>(listings);
+  console.log("[AdminReviewDesk] listings.length", listings.length);
   const defaultFilters: AdminReviewFilters = useMemo(
     () => ({
       search: "",
@@ -39,7 +40,12 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
   const selectedId = parseSelectedId(searchParams ?? {}) ?? initialSelectedId;
 
   const visibleItems = useMemo(
-    () => filterAndSortListings(items, view, filters),
+    () => {
+      if (view === "pending") {
+        return filterAndSortListings(items, "pending", { ...filters, search: "", hasVideo: null, needsLocation: false, needsPhotos: false });
+      }
+      return filterAndSortListings(items, view, filters);
+    },
     [filters, items, view]
   );
 
@@ -172,7 +178,7 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
           </div>
         </div>
         <AdminReviewList listings={visibleItems} onSelect={handleSelect} selectedId={selectedId} />
-        {visibleItems.length === 0 && (
+        {(view === "pending" ? items.length === 0 : visibleItems.length === 0) && (
           <div className="p-6 text-center text-sm text-slate-600">
             <p className="font-semibold text-slate-900">{ADMIN_REVIEW_COPY.list.emptyTitle}</p>
             <p className="text-slate-600">{ADMIN_REVIEW_COPY.list.emptyBody}</p>
