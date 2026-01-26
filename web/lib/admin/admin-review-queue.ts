@@ -258,13 +258,14 @@ export async function getAdminReviewQueue<T extends string>({
   }
 
   const chosen = fallback ?? primary;
-  const chosenRows = (chosen as { rows?: unknown[] | null }).rows ?? chosen.data;
-  const rows = Array.isArray(chosenRows) ? chosenRows : [];
-  const mergedCount = typeof chosen.count === "number" ? chosen.count : rows.length;
+  const chosenRowsValue = (chosen as { rows?: unknown[] | null }).rows;
+  const candidateRows = Array.isArray(chosenRowsValue) ? chosenRowsValue : chosen.data;
+  const mergedRows = Array.isArray(candidateRows) ? candidateRows : [];
+  const mergedCount = typeof chosen.count === "number" ? chosen.count : mergedRows.length;
 
   return {
-    data: rows,
-    rows,
+    data: mergedRows,
+    rows: mergedRows,
     count: mergedCount,
     meta: {
       source: chosen.source,

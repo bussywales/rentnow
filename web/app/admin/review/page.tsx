@@ -233,7 +233,7 @@ export default async function AdminReviewPage({ searchParams }: Props) {
     serviceRoleStatus,
     meta,
   } = await loadReviewListings(supabase, profile?.role ?? null);
-  const showServiceWarning = (meta?.serviceAttempted ?? false) && meta?.serviceOk === false;
+  const showServiceWarning = meta?.serviceAttempted === true && meta?.serviceOk === false;
   const initialSelectedId = (() => {
     const raw = searchParams?.id;
     const value = Array.isArray(raw) ? raw[0] : raw;
@@ -259,7 +259,7 @@ export default async function AdminReviewPage({ searchParams }: Props) {
           {ADMIN_REVIEW_COPY.warnings.missingServiceRole}
         </div>
       )}
-      {showServiceWarning && meta?.serviceAttempted && (
+      {showServiceWarning && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
           Service fetch status: {meta?.serviceStatus ?? serviceRoleStatus}. See diagnostics.
         </div>

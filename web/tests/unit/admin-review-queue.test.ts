@@ -230,6 +230,9 @@ void test("getAdminReviewQueue falls back to user on service error", async () =>
     viewerRole: "admin",
     select: "id",
   });
+  assert.equal(result.count, 1);
+  assert.equal(result.data?.length, result.count);
+  assert.deepEqual(result.data, result.rows);
   assert.equal(result.meta.source, "user");
   assert.equal(result.meta.serviceAttempted, true);
   assert.equal(result.meta.serviceOk, false);
