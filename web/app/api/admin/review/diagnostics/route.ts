@@ -9,7 +9,8 @@ import {
   PENDING_STATUS_LIST,
   normalizeStatus,
 } from "@/lib/admin/admin-review-queue";
-import { ADMIN_REVIEW_QUEUE_SELECT } from "@/lib/admin/admin-review-contracts";
+import { ADMIN_REVIEW_QUEUE_SELECT, normalizeSelect } from "@/lib/admin/admin-review-contracts";
+import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -51,7 +52,10 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const lookupId = searchParams.get("id");
 
-  const userUnion = await fetchReviewableUnion(supabase, ADMIN_REVIEW_QUEUE_SELECT);
+  const queueSelect = normalizeSelect(ADMIN_REVIEW_QUEUE_SELECT);
+  assertNoForbiddenColumns(queueSelect, "admin/review diagnostics queue");
+
+  const userUnion = await fetchReviewableUnion(supabase, queueSelect);
   const rows: QueueRow[] = (userUnion.data ?? []) as QueueRow[];
   const userCount = userUnion.count ?? 0;
   const userPendingSetRequested = userUnion.debug?.pendingSetRequested ?? null;
@@ -93,7 +97,7 @@ export async function GET(request: NextRequest) {
     serviceBranchAttempted = true;
     try {
       const service = createServiceRoleClient();
-      const serviceUnion = await fetchReviewableUnion(service, ADMIN_REVIEW_QUEUE_SELECT);
+      const serviceUnion = await fetchReviewableUnion(service, queueSelect);
       serviceStatus = serviceUnion.debug.queryAStatus ?? serviceUnion.debug.queryBStatus ?? null;
       const srRows: QueueRow[] = (serviceUnion.data ?? []) as QueueRow[];
       const srCount = serviceUnion.count ?? 0;
@@ -135,7 +139,7 @@ export async function GET(request: NextRequest) {
           rawPostgrestPing.error = (pingErr as Error)?.message || "ping failed";
         }
         // Raw queue fetch with and without Accept-Profile
-        const queueUrl = `${normalizedUrl}/rest/v1/properties?select=${encodeURIComponent(ADMIN_REVIEW_QUEUE_SELECT)}`;
+        const queueUrl = `${normalizedUrl}/rest/v1/properties?select=${encodeURIComponent(queueSelect)}`;
         for (const acceptProfile of [true, false]) {
           const headers = {
             apikey: serviceKey,
@@ -169,7 +173,7 @@ export async function GET(request: NextRequest) {
           }
         }
         // Raw simple select
-        const simpleUrl = `${normalizedUrl}/rest/v1/properties?select=${encodeURIComponent(ADMIN_REVIEW_QUEUE_SELECT)}&limit=1`;
+        const simpleUrl = `${normalizedUrl}/rest/v1/properties?select=${encodeURIComponent(queueSelect)}&limit=1`;
         for (const acceptProfile of [true, false]) {
           const headers = {
             apikey: serviceKey,

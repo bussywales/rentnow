@@ -11,7 +11,9 @@ import {
   ADMIN_REVIEW_IMAGE_SELECT,
   ADMIN_REVIEW_QUEUE_SELECT,
   ADMIN_REVIEW_VIDEO_SELECT,
+  normalizeSelect,
 } from "@/lib/admin/admin-review-contracts";
+import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
 import { hasServerSupabaseEnv, type createServerSupabaseClient } from "@/lib/supabase/server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { formatRoleLabel } from "@/lib/roles";
@@ -74,6 +76,38 @@ type ReviewLoadResult = {
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 
+function AdminReviewServiceErrorPanel({ meta, status }: { meta: ReviewLoadResult["meta"]; status: number | null }) {
+  return (
+    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+      <div className="font-semibold text-amber-900">Queue fetch failed</div>
+      <div className="mt-1">
+        Service fetch status: {meta?.serviceStatus ?? status}. See{" "}
+        <a className="underline" href="/api/admin/review/diagnostics" target="_blank" rel="noreferrer">
+          diagnostics
+        </a>
+        .
+      </div>
+      <details className="mt-2 rounded bg-white/70 p-2 text-xs text-amber-900">
+        <summary className="cursor-pointer text-amber-900">Debug meta</summary>
+        <pre className="mt-1 whitespace-pre-wrap">
+          {JSON.stringify(
+            {
+              serviceAttempted: meta?.serviceAttempted,
+              serviceOk: meta?.serviceOk,
+              serviceStatus: meta?.serviceStatus ?? status,
+              serviceError: meta?.serviceError,
+              serviceErrorDetails: (meta as { serviceErrorDetails?: string })?.serviceErrorDetails,
+              fallbackReason: (meta as { fallbackReason?: string })?.fallbackReason,
+            },
+            null,
+            2
+          )}
+        </pre>
+      </details>
+    </div>
+  );
+}
+
 async function loadReviewListings(
   supabase: SupabaseServerClient,
   viewerRole: string | null
@@ -89,6 +123,7 @@ async function loadReviewListings(
   }
   try {
     const serviceClient = viewerRole === "admin" && hasServiceRoleEnv() ? createServiceRoleClient() : null;
+    assertNoForbiddenColumns(normalizeSelect(ADMIN_REVIEW_QUEUE_SELECT), "admin/review queue");
     const queueResult = await getAdminReviewQueue({
       userClient: supabase,
       serviceClient,
@@ -131,16 +166,19 @@ async function loadReviewListings(
       or: buildStatusOrFilter("pending"),
     });
 
-    const listings = (queueResult.data ?? []) as RawProperty[];
+    const listings = (queueResult.rows ?? queueResult.data ?? []) as RawProperty[];
     console.log("[admin/review] rows", listings.length);
     const listingIds = Array.from(new Set(listings.map((p) => p.id).filter(Boolean)));
 
     let detailMap: Record<string, RawProperty> = {};
     if (listingIds.length) {
       const detailClient = serviceClient ?? supabase;
+      if (detailClient === serviceClient) {
+        assertNoForbiddenColumns(normalizeSelect(ADMIN_REVIEW_DETAIL_SELECT), "admin/review detail");
+      }
       const { data: details, error: detailError, status: detailStatus } = await detailClient
         .from("properties")
-        .select(ADMIN_REVIEW_DETAIL_SELECT)
+        .select(normalizeSelect(ADMIN_REVIEW_DETAIL_SELECT))
         .in("id", listingIds);
       if (detailError) {
         console.warn("[admin/review] detail fetch error", detailStatus, detailError);
@@ -153,9 +191,12 @@ async function loadReviewListings(
     let imageMap: Record<string, PropertyImage[]> = {};
     if (listingIds.length) {
       const mediaClient = serviceClient ?? supabase;
+      if (mediaClient === serviceClient) {
+        assertNoForbiddenColumns(normalizeSelect(ADMIN_REVIEW_IMAGE_SELECT), "admin/review images");
+      }
       const { data: images, error: imageError, status: imageStatus } = await mediaClient
         .from("property_images")
-        .select(ADMIN_REVIEW_IMAGE_SELECT)
+        .select(normalizeSelect(ADMIN_REVIEW_IMAGE_SELECT))
         .in("property_id", listingIds);
       if (imageError) {
         console.warn("[admin/review] property_images fetch error", imageStatus, imageError);
@@ -181,9 +222,12 @@ async function loadReviewListings(
     let videoCount: Record<string, number> = {};
     if (listingIds.length) {
       const mediaClient = serviceClient ?? supabase;
+      if (mediaClient === serviceClient) {
+        assertNoForbiddenColumns(normalizeSelect(ADMIN_REVIEW_VIDEO_SELECT), "admin/review videos");
+      }
       const { data: videos, error: videoError, status: videoStatus } = await mediaClient
         .from("property_videos")
-        .select(ADMIN_REVIEW_VIDEO_SELECT)
+        .select(normalizeSelect(ADMIN_REVIEW_VIDEO_SELECT))
         .in("property_id", listingIds);
       if (videoError) {
         console.warn("[admin/review] property_videos fetch error", videoStatus, videoError);
@@ -305,12 +349,10 @@ export default async function AdminReviewPage({ searchParams }: Props) {
 
   const {
     listings,
-    serviceRoleAvailable,
     serviceRoleStatus,
     meta,
   } = await loadReviewListings(supabase, profile?.role ?? null);
-  const showServiceWarning = meta?.serviceAttempted === true && meta?.serviceOk === false;
-  const queueError = showServiceWarning;
+  const queueError = meta?.serviceAttempted === true && meta?.serviceOk === false;
   const initialSelectedId = (() => {
     const raw = searchParams?.id;
     const value = Array.isArray(raw) ? raw[0] : raw;
@@ -319,8 +361,6 @@ export default async function AdminReviewPage({ searchParams }: Props) {
 
   const pathname = "/admin/review";
   const canonicalUrl = initialSelectedId ? buildSelectedUrl(pathname, initialSelectedId) : pathname;
-
-  const blockEmptyDesk = queueError && listings.length === 0;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -333,44 +373,10 @@ export default async function AdminReviewPage({ searchParams }: Props) {
           Back to Admin
         </Link>
       </div>
-      {showServiceWarning && !serviceRoleAvailable && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {ADMIN_REVIEW_COPY.warnings.missingServiceRole}
-        </div>
-      )}
       {queueError && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-          <div className="font-semibold">Queue fetch failed</div>
-          <div className="mt-1">
-            Service fetch status: {meta?.serviceStatus ?? serviceRoleStatus}. See{" "}
-            <a className="underline" href="/api/admin/review/diagnostics" target="_blank" rel="noreferrer">
-              diagnostics
-            </a>
-            .
-          </div>
-          <pre className="mt-2 max-h-40 overflow-auto rounded bg-white/60 p-2 text-[11px] text-slate-800">
-            {JSON.stringify(
-              {
-                serviceAttempted: meta?.serviceAttempted,
-                serviceOk: meta?.serviceOk,
-                serviceStatus: meta?.serviceStatus ?? serviceRoleStatus,
-                serviceError: meta?.serviceError,
-                serviceErrorDetails: (meta as { serviceErrorDetails?: string })?.serviceErrorDetails,
-                fallbackReason: (meta as { fallbackReason?: string })?.fallbackReason,
-              },
-              null,
-              2
-            )}
-          </pre>
-        </div>
+        <AdminReviewServiceErrorPanel meta={meta} status={serviceRoleStatus} />
       )}
-      {!blockEmptyDesk && <AdminReviewDesk listings={listings} initialSelectedId={initialSelectedId} />}
-      {blockEmptyDesk && (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
-          <p className="font-semibold text-amber-900">Queue fetch failed.</p>
-          <p className="mt-1">Fix the service query or service role env, then refresh.</p>
-        </div>
-      )}
+      {!queueError && <AdminReviewDesk listings={listings} initialSelectedId={initialSelectedId} />}
       <link rel="canonical" href={canonicalUrl} />
     </div>
   );

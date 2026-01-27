@@ -5,6 +5,8 @@ import {
   ADMIN_REVIEW_IMAGE_SELECT,
   ADMIN_REVIEW_QUEUE_SELECT,
   ADMIN_REVIEW_VIDEO_SELECT,
+  ADMIN_REVIEW_FORBIDDEN_FIELDS,
+  normalizeSelect,
 } from "@/lib/admin/admin-review-contracts";
 import {
   ADMIN_REVIEW_PROPERTIES_COLUMNS,
@@ -12,11 +14,10 @@ import {
   ADMIN_REVIEW_VIDEO_COLUMNS,
 } from "@/lib/admin/admin-review-schema-allowlist";
 
-const FORBIDDEN_QUEUE_TOKENS = ["photo_count", "has_cover", "cover_image_url", "property_images", "property_videos", "width", "height"];
 const REQUIRED_QUEUE_FIELDS = ["id", "status", "updated_at"];
 
 function parseColumns(select: string): string[] {
-  return select
+  return normalizeSelect(select)
     .split(",")
     .map((part) => part.replace(/\(.*\)/, "").trim())
     .filter(Boolean);
@@ -24,7 +25,7 @@ function parseColumns(select: string): string[] {
 
 void test("queue select excludes forbidden phantom columns", () => {
   const cols = parseColumns(ADMIN_REVIEW_QUEUE_SELECT);
-  FORBIDDEN_QUEUE_TOKENS.forEach((token) => {
+  ADMIN_REVIEW_FORBIDDEN_FIELDS.forEach((token) => {
     assert.equal(cols.includes(token), false, `Queue select should not include ${token}`);
   });
 });
@@ -52,4 +53,25 @@ void test("image select columns stay within property_images allowlist", () => {
 void test("video select columns stay within property_videos allowlist", () => {
   const cols = parseColumns(ADMIN_REVIEW_VIDEO_SELECT);
   cols.forEach((col) => assert.ok(ADMIN_REVIEW_VIDEO_COLUMNS.includes(col), `${col} not in allowlist`));
+});
+
+void test("queue select matches expected normalized contract", () => {
+  const expected = "id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active";
+  assert.equal(normalizeSelect(ADMIN_REVIEW_QUEUE_SELECT), expected);
+});
+
+void test("detail select matches expected normalized contract", () => {
+  const expected =
+    "id,title,owner_id,city,state_region,country_code,admin_area_1,admin_area_2,postal_code,latitude,longitude,location_label,location_place_id,created_at,updated_at,rejection_reason";
+  assert.equal(normalizeSelect(ADMIN_REVIEW_DETAIL_SELECT), expected);
+});
+
+void test("image select matches expected normalized contract", () => {
+  const expected = "id,image_url,property_id,created_at,width,height";
+  assert.equal(normalizeSelect(ADMIN_REVIEW_IMAGE_SELECT), expected);
+});
+
+void test("video select matches expected normalized contract", () => {
+  const expected = "id,video_url,property_id,created_at";
+  assert.equal(normalizeSelect(ADMIN_REVIEW_VIDEO_SELECT), expected);
 });

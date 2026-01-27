@@ -1,4 +1,5 @@
-import { ADMIN_REVIEW_QUEUE_SELECT } from "./admin-review-contracts";
+import { ADMIN_REVIEW_QUEUE_SELECT, normalizeSelect } from "./admin-review-contracts";
+import { assertNoForbiddenColumns } from "./admin-review-schema-allowlist";
 
 export const ALLOWED_PROPERTY_STATUSES = ["draft", "pending", "live", "rejected", "paused"] as const;
 const REVIEW_VIEW_STATUSES = {
@@ -189,13 +190,16 @@ export async function getAdminReviewQueue<T extends string>({
   view?: ReviewViewKey;
   pendingSet?: string[];
 }) {
+  const selectNormalized = normalizeSelect(select);
+  assertNoForbiddenColumns(selectNormalized, "getAdminReviewQueue");
+
   const canUseService = viewerRole === "admin" && !!serviceClient;
   let fallbackReason: string | null = null;
   const runUnion = async (client: AnyClient, source: "service" | "user") => {
     if (view === "changes") {
       const baseFilters = (q: FilterBuilder) =>
         q.eq("is_approved", false).is("approved_at", null).is("rejected_at", null);
-      let query = baseFilters(client.from("properties").select(select, { count: "exact" })).eq("status", "draft").not(
+      let query = baseFilters(client.from("properties").select(selectNormalized, { count: "exact" })).eq("status", "draft").not(
         "submitted_at",
         "is",
         null
@@ -210,12 +214,12 @@ export async function getAdminReviewQueue<T extends string>({
         count: result.count,
         error: result.error,
         status: (result as { status?: number }).status ?? null,
-        debug: { select, filter: "draft+submitted+rejection_reason" },
+        debug: { select: selectNormalized, filter: "draft+submitted+rejection_reason" },
       };
     }
     if (view !== "pending" && view !== "all") {
       // For other views, keep existing filter
-      let query = client.from("properties").select(select, { count: "exact" });
+      let query = client.from("properties").select(selectNormalized, { count: "exact" });
       const orClause = buildStatusOrFilter(view);
       query = query.eq("is_approved", false).is("approved_at", null).is("rejected_at", null).or(orClause);
       if (limit) query = query.limit(limit);
@@ -227,10 +231,10 @@ export async function getAdminReviewQueue<T extends string>({
         count: result.count,
         error: result.error,
         status: (result as { status?: number }).status ?? null,
-        debug: { orClause, select },
+        debug: { orClause, select: selectNormalized },
       };
     }
-    const unionResult = await fetchReviewableUnion(client, select, pendingSet);
+    const unionResult = await fetchReviewableUnion(client, selectNormalized, pendingSet);
     const trimmedData = limit ? unionResult.data.slice(0, limit) : unionResult.data;
     return {
       source,
@@ -246,7 +250,7 @@ export async function getAdminReviewQueue<T extends string>({
         pendingSetRequested: unionResult.debug.pendingSetRequested,
         pendingSetSanitized: unionResult.debug.pendingSetSanitized,
         droppedStatuses: unionResult.debug.droppedStatuses,
-        select,
+        select: selectNormalized,
       },
     };
   };

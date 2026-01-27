@@ -1,3 +1,5 @@
+import { ADMIN_REVIEW_FORBIDDEN_FIELDS } from "./admin-review-contracts";
+
 export const ADMIN_REVIEW_PROPERTIES_COLUMNS = [
   "id",
   "status",
@@ -26,3 +28,13 @@ export const ADMIN_REVIEW_PROPERTIES_COLUMNS = [
 export const ADMIN_REVIEW_IMAGE_COLUMNS = ["id", "image_url", "property_id", "created_at", "width", "height"];
 
 export const ADMIN_REVIEW_VIDEO_COLUMNS = ["id", "video_url", "property_id", "created_at"];
+
+export function assertNoForbiddenColumns(select: string, context: string) {
+  for (const field of ADMIN_REVIEW_FORBIDDEN_FIELDS) {
+    if (select.includes(field)) {
+      throw new Error(
+        `[AdminReviewContractViolation] "${field}" used in ${context}. This column does not exist in Supabase schema.`
+      );
+    }
+  }
+}

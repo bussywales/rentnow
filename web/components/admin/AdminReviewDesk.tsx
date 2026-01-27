@@ -25,7 +25,7 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
   const searchParams = useSearchParams();
   const { view, updateView, resetView } = useAdminReviewView();
   const [items, setItems] = useState<AdminReviewListItem[]>(listings);
-  console.log("[AdminReviewDesk] props.listings.length", listings.length);
+  console.log("[AdminReviewDesk] listings.length", listings.length);
   const defaultFilters: AdminReviewFilters = useMemo(
     () => ({
       search: "",
