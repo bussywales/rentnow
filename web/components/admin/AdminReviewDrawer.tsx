@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import { formatRelativeTime } from "@/lib/date/relative-time";
+import { z } from "zod";
 import {
   REVIEW_REASONS,
   buildRequestChangesMessage,
@@ -25,6 +26,46 @@ type Props = {
   hasListings: boolean;
 };
 
+const detailSchema = z.object({
+  listing: z.object({
+    id: z.string(),
+    title: z.string().nullable(),
+    status: z.string().nullable(),
+    updated_at: z.string().nullable(),
+    submitted_at: z.string().nullable(),
+    is_approved: z.boolean().nullable(),
+    approved_at: z.string().nullable(),
+    rejected_at: z.string().nullable(),
+    is_active: z.boolean().nullable(),
+    rejection_reason: z.string().nullable(),
+    city: z.string().nullable(),
+    state_region: z.string().nullable(),
+    country_code: z.string().nullable(),
+    location_label: z.string().nullable(),
+    location_place_id: z.string().nullable(),
+    latitude: z.number().nullable(),
+    longitude: z.number().nullable(),
+    photo_count: z.number().nullable(),
+    has_video: z.boolean().nullable(),
+    has_cover: z.boolean().nullable(),
+    cover_image_url: z.string().nullable(),
+  }),
+  images: z.array(
+    z.object({
+      id: z.string(),
+      image_url: z.string().nullable(),
+      width: z.number().nullable(),
+      height: z.number().nullable(),
+    })
+  ),
+  videos: z.array(
+    z.object({
+      id: z.string(),
+      video_url: z.string().nullable(),
+    })
+  ),
+});
+
 export function AdminReviewDrawer({
   listing,
   onClose,
@@ -40,8 +81,12 @@ export function AdminReviewDrawer({
   const [reasons, setReasons] = useState<ReviewReasonCode[]>([]);
   const [messageText, setMessageText] = useState("");
   const [messageEdited, setMessageEdited] = useState(false);
-  const [submitting, setSubmitting] = useState<"approve" | "request" | null>(null);
+  const [submitting, setSubmitting] = useState<"approve" | "request" | "reject" | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [selectedIdSnapshot, setSelectedIdSnapshot] = useState<string | null>(null);
+  const [detailData, setDetailData] = useState<z.infer<typeof detailSchema> | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
   const navIds = filteredIds;
   const currentIndex = useMemo(() => (listing ? navIds.indexOf(listing.id) : -1), [listing, navIds]);
   const prevId = currentIndex > 0 ? navIds[currentIndex - 1] : null;
@@ -53,8 +98,13 @@ export function AdminReviewDrawer({
       setMessageText("");
       setMessageEdited(false);
       setToast(null);
+      setSelectedIdSnapshot(null);
+      setDetailData(null);
+      setDetailError(null);
+      setDetailLoading(false);
       return;
     }
+    setSelectedIdSnapshot(listing.id);
     const parsed = parseRejectionReason(listing.rejectionReason);
     const normalized = normalizeReasons(parsed.reasons);
     const initialMessage = parsed.message || buildRequestChangesMessage(normalized);
@@ -65,10 +115,44 @@ export function AdminReviewDrawer({
     setToast(null);
   }, [listing]);
 
+  useEffect(() => {
+    const fetchDetail = async () => {
+      if (!listing?.id) return;
+      setDetailLoading(true);
+      setDetailError(null);
+      try {
+        const res = await fetch(`/api/admin/review/${listing.id}`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || "Failed to load details");
+        }
+        const json = await res.json();
+        const parsed = detailSchema.parse(json);
+        // Guard against race when selection changes mid-flight
+        if (listing.id === selectedIdSnapshot || !selectedIdSnapshot) {
+          setDetailData(parsed);
+        }
+      } catch (err) {
+        setDetailError(err instanceof Error ? err.message : "Failed to load details");
+        setDetailData(null);
+      } finally {
+        setDetailLoading(false);
+      }
+    };
+    fetchDetail().catch(() => {
+      setDetailError("Failed to load details");
+      setDetailLoading(false);
+    });
+  }, [listing?.id, selectedIdSnapshot]);
+
   const previewMessage = useMemo(() => {
     const trimmed = messageText.trim();
     return trimmed || buildRequestChangesMessage(reasons);
   }, [messageText, reasons]);
+
+  const detail = detailData ?? null;
+  const images = detail?.images ?? [];
+  const videos = detail?.videos ?? [];
 
   const toggleReason = (code: ReviewReasonCode) => {
     setReasons((prev) => {
@@ -130,6 +214,34 @@ export function AdminReviewDrawer({
     }
   };
 
+  const handleReject = async () => {
+    if (!listing) return;
+    const reason = messageText.trim();
+    if (!reason) {
+      setToast("Rejection reason is required");
+      return;
+    }
+    setSubmitting("reject");
+    setToast(null);
+    try {
+      const res = await fetch(`/api/admin/properties/${listing.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject", reason }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Unable to reject");
+      }
+      setToast("Listing rejected.");
+      onActionComplete(listing.id);
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Unable to reject");
+    } finally {
+      setSubmitting(null);
+    }
+  };
+
   if (!listing && !hasListings) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600 shadow-sm">
@@ -183,21 +295,87 @@ export function AdminReviewDrawer({
       )}
 
       <div className="divide-y divide-slate-200">
-        <section className="p-4">
-          <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.overview}</h3>
-          <p className="mt-2 text-sm text-slate-700">
-            {listing
-              ? `${listing.readiness.tier} (${listing.readiness.score}) · ${locationLine || "Location unknown"}`
-              : ADMIN_REVIEW_COPY.drawer.placeholder}
-          </p>
+        <section className="p-4 space-y-2">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.overview}</h3>
+              <p className="mt-1 text-sm text-slate-700">
+                {listing
+                  ? `${listing.readiness.tier} (${listing.readiness.score}) · ${locationLine || "Location unknown"}`
+                  : ADMIN_REVIEW_COPY.drawer.placeholder}
+              </p>
+            </div>
+            {detailLoading && <span className="text-xs text-slate-500">Loading…</span>}
+            {detailError && <span className="text-xs text-rose-600">{detailError}</span>}
+          </div>
+          {detail && (
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-700">
+              <dt className="font-semibold text-slate-900">Status</dt>
+              <dd className="capitalize">{detail.listing.status || "pending"}</dd>
+              <dt className="font-semibold text-slate-900">Submitted</dt>
+              <dd>{detail.listing.submitted_at || "—"}</dd>
+              <dt className="font-semibold text-slate-900">Photos</dt>
+              <dd>{detail.listing.photo_count ?? 0}</dd>
+              <dt className="font-semibold text-slate-900">Video</dt>
+              <dd>{detail.listing.has_video ? "Yes" : "No"}</dd>
+              <dt className="font-semibold text-slate-900">Cover</dt>
+              <dd>{detail.listing.cover_image_url ? "Set" : "Missing"}</dd>
+            </dl>
+          )}
         </section>
-        <section className="p-4">
+        <section className="p-4 space-y-3">
           <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.media}</h3>
-          <p className="mt-2 text-sm text-slate-600">Media previews will appear here.</p>
+          {images.length === 0 && videos.length === 0 && (
+            <p className="text-sm text-slate-600">No media found for this listing.</p>
+          )}
+          {images.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {images.map((img) => (
+                <div key={img.id} className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                  {img.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={img.image_url} alt="Listing photo" className="h-32 w-full object-cover" />
+                  ) : (
+                    <div className="h-32 w-full bg-slate-100" />
+                  )}
+                  <div className="px-2 py-1 text-[11px] text-slate-600">
+                    {img.width && img.height ? `${img.width}×${img.height}` : ""}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          {videos.length > 0 && (
+            <div className="space-y-2 text-xs text-slate-700">
+              {videos.map((vid) => (
+                <div key={vid.id} className="rounded border border-slate-200 bg-slate-50 p-2">
+                  <div className="font-semibold text-slate-900">Video</div>
+                  <div className="break-all text-slate-700">{vid.video_url || "(no url)"}</div>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
-        <section className="p-4">
+        <section className="p-4 space-y-2">
           <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.location}</h3>
-          <p className="mt-2 text-sm text-slate-600">Location details will appear here.</p>
+          {detail ? (
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-700">
+              <dt className="font-semibold text-slate-900">City</dt>
+              <dd>{detail.listing.city || "—"}</dd>
+              <dt className="font-semibold text-slate-900">State/Region</dt>
+              <dd>{detail.listing.state_region || "—"}</dd>
+              <dt className="font-semibold text-slate-900">Country</dt>
+              <dd>{detail.listing.country_code || "—"}</dd>
+              <dt className="font-semibold text-slate-900">Place ID</dt>
+              <dd>{detail.listing.location_place_id || "—"}</dd>
+              <dt className="font-semibold text-slate-900">Latitude</dt>
+              <dd>{detail.listing.latitude ?? "—"}</dd>
+              <dt className="font-semibold text-slate-900">Longitude</dt>
+              <dd>{detail.listing.longitude ?? "—"}</dd>
+            </dl>
+          ) : (
+            <p className="text-sm text-slate-600">Location details will appear here.</p>
+          )}
         </section>
         <section className="p-4">
           <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.notes}</h3>
@@ -232,6 +410,14 @@ export function AdminReviewDrawer({
               className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
             >
               {submitting === "approve" ? "Approving..." : "Approve listing"}
+            </button>
+            <button
+              type="button"
+              disabled={submitting !== null}
+              onClick={handleReject}
+              className="inline-flex items-center justify-center rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60"
+            >
+              {submitting === "reject" ? "Rejecting..." : "Reject listing"}
             </button>
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
               <div className="flex items-center justify-between">

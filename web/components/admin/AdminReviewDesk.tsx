@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useState } from "react";
+import { useMemo, useCallback, useState, useEffect } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import {
@@ -26,6 +26,7 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
   const { view, updateView, resetView } = useAdminReviewView();
   const [items, setItems] = useState<AdminReviewListItem[]>(listings);
   console.log("[AdminReviewDesk] listings.length", listings.length);
+
   const defaultFilters: AdminReviewFilters = useMemo(
     () => ({
       search: "",
@@ -38,22 +39,6 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
   );
   const [filters, setFilters] = useState<AdminReviewFilters>(defaultFilters);
   const selectedId = parseSelectedId(searchParams ?? {}) ?? initialSelectedId;
-
-  const visibleItems = useMemo(
-    () => {
-      if (view === "pending") {
-        return items;
-      }
-      return filterAndSortListings(items, view, filters);
-    },
-    [filters, items, view]
-  );
-
-  const selectedListing = useMemo(
-    () => items.find((item) => item.id === selectedId) || null,
-    [items, selectedId]
-  );
-  const selectedVisible = !!visibleItems.find((i) => i.id === selectedId);
 
   const buildUrlWithId = useCallback(
     (id: string | null) => {
@@ -89,6 +74,30 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
     },
     [buildUrlWithId, router, selectedId]
   );
+
+  const visibleItems = useMemo(
+    () => {
+      if (view === "pending") {
+        return items;
+      }
+      return filterAndSortListings(items, view, filters);
+    },
+    [filters, items, view]
+  );
+
+  const selectedListing = useMemo(
+    () => items.find((item) => item.id === selectedId) || null,
+    [items, selectedId]
+  );
+  const selectedVisible = !!visibleItems.find((i) => i.id === selectedId);
+
+  // Auto-select first item to keep drawer functional when arriving without id
+  const firstId = items[0]?.id || null;
+  useEffect(() => {
+    if (!selectedId && firstId) {
+      router.replace(buildUrlWithId(firstId));
+    }
+  }, [selectedId, firstId, buildUrlWithId, router]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">

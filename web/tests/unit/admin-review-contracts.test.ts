@@ -67,16 +67,17 @@ void test("queue select matches expected normalized contract", () => {
 });
 
 void test("detail select matches expected normalized contract", () => {
-  const expected = "id";
+  const expected =
+    "id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active,owner_id,title,city,state_region,country_code,admin_area_1,admin_area_2,postal_code,latitude,longitude,location_label,location_place_id,created_at,rejection_reason,photo_count,has_cover,cover_image_url,has_video,video_count";
   assert.equal(normalizeSelect(ADMIN_REVIEW_DETAIL_SELECT), expected);
 });
 
 void test("image select matches expected normalized contract", () => {
-  const expected = "id";
+  const expected = "id,image_url,property_id,created_at,width,height";
   assert.equal(normalizeSelect(ADMIN_REVIEW_IMAGE_SELECT), expected);
 });
 
 void test("video select matches expected normalized contract", () => {
-  const expected = "id";
+  const expected = "id,video_url,property_id,created_at";
   assert.equal(normalizeSelect(ADMIN_REVIEW_VIDEO_SELECT), expected);
 });

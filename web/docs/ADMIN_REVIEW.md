@@ -60,6 +60,16 @@
 - Guardrails: schema allowlist + contract tests (`lib/admin/admin-review-schema-allowlist.ts`, `tests/unit/admin-review-contracts.test.ts`).
 - Runbook: `docs/runbooks/admin-review-queue.md`. Postmortem: `docs/incidents/2026-01-admin-review-empty-queue.md`.
 
+## Using Review Desk (admins)
+- Open `/admin/review`; the first pending listing auto-selects.
+- Click any row to select it; the drawer highlights the current row and loads details/media/location via `/api/admin/review/:id`.
+- Buttons:
+  - **Approve listing** → `status=live`, `is_approved=true`, `approved_at` set, item removed from pending list.
+  - **Reject listing** → `status=rejected`, requires reason (textarea), removes from pending list.
+  - **Send request** → `status=changes_requested`, stores structured reasons + message, removes from pending list.
+- Drawer navigation: Previous/Next follow the currently visible list; a hidden-by-filters notice can reset filters and jump to the selection.
+- If service fetch fails (`serviceAttempted && !serviceOk`), the page shows the Service Error panel; no silent empty state.
+
 ## Design improvements (safe iterations)
 - Stronger list cards: title, location label, submitted time, readiness chips.
 - Sticky top filter/search bar.
