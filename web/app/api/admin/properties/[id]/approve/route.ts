@@ -40,5 +40,6 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "Unable to approve", code: "SERVER_ERROR" }, { status: 500 });
   }
 
+  console.log("[admin-review] approve", { propertyId: id, actorId: user.id, at: now });
   return NextResponse.json({ ok: true, id, status: "live" });
 }

@@ -64,5 +64,6 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "Unable to update", code: "SERVER_ERROR" }, { status: 500 });
   }
 
+  console.log("[admin-review] request_changes", { propertyId: id, actorId: user.id, at: now, reasons: rejection_reason });
   return NextResponse.json({ ok: true, id, status: "changes_requested" });
 }
