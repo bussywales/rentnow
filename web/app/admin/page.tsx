@@ -10,6 +10,7 @@ import { revalidatePath } from "next/cache";
 import { logApprovalAction } from "@/lib/observability";
 import { formatRoleLabel } from "@/lib/roles";
 import { buildStatusOrFilter, getAdminReviewQueue, getStatusesForView } from "@/lib/admin/admin-review-queue";
+import { ADMIN_REVIEW_QUEUE_SELECT } from "@/lib/admin/admin-review-contracts";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 
@@ -99,7 +100,7 @@ async function getData(
       userClient: supabase,
       serviceClient,
       viewerRole,
-      select: "id",
+      select: ADMIN_REVIEW_QUEUE_SELECT,
       limit: 5,
       view: "pending",
     });

@@ -1,5 +1,11 @@
 # Versions
 
+## 2026-01-27 — vR16.9b.24-admin-review-hardening
+- Locked admin review queue to contract constants (queue/detail/media).
+- Added runbook, postmortem, schema allowlists, and contract tests to block phantom columns.
+- Error panel replaces empty state on service fetch failures; diagnostics now shares the contract.
+- CI guard: lint, typecheck, test, build, Playwright cover the contracts.
+
 ## 2026-01-24 — vR16.9b.18-admin-review-enum-safe-views
 - Admin review queue now sanitizes status sets to the enum (`draft`, `pending`, `live`, `rejected`, `paused`) to avoid PostgREST 22P02 errors; invalid requested statuses are reported in diagnostics (requested vs sanitized vs dropped).
 - Pending view uses the shared union helper end-to-end (no extra client-side status filtering), keeping `/admin` badge and `/admin/review` aligned; diagnostics expose pending set fields for faster debugging.

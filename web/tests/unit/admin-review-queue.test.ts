@@ -15,6 +15,7 @@ import {
   getAdminReviewQueue,
   fetchReviewableUnion,
 } from "@/lib/admin/admin-review-queue";
+import { ADMIN_REVIEW_QUEUE_SELECT } from "@/lib/admin/admin-review-contracts";
 
 void test("pending statuses include pending", () => {
   assert.ok(PENDING_STATUS_LIST.includes("pending"));
@@ -157,7 +158,7 @@ void test("getAdminReviewQueue returns reviewable pending row with correct or cl
     userClient: client as unknown as { from: () => { select: () => MockBuilder } },
     serviceClient: null,
     viewerRole: "admin",
-    select: "id",
+    select: ADMIN_REVIEW_QUEUE_SELECT,
     pendingSet: ["pending", "pending_review"],
   });
   assert.equal(result.count, 1);
@@ -198,7 +199,7 @@ void test("getAdminReviewQueue exposes merged rows on data and rows", async () =
     userClient: client as unknown as { from: () => { select: () => MockBuilder } },
     serviceClient: null,
     viewerRole: "admin",
-    select: "id",
+    select: ADMIN_REVIEW_QUEUE_SELECT,
   });
   assert.equal(result.count, 2);
   assert.equal(result.data?.length, result.count);
@@ -228,7 +229,7 @@ void test("getAdminReviewQueue falls back to user on service error", async () =>
     userClient: userClient as unknown as { from: () => { select: () => MockBuilder } },
     serviceClient: serviceClient as unknown as { from: () => { select: () => ErrorBuilder } },
     viewerRole: "admin",
-    select: "id",
+    select: ADMIN_REVIEW_QUEUE_SELECT,
   });
   assert.equal(result.count, 1);
   assert.equal(result.data?.length, result.count);

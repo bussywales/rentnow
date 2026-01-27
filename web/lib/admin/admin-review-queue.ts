@@ -1,3 +1,5 @@
+import { ADMIN_REVIEW_QUEUE_SELECT } from "./admin-review-contracts";
+
 export const ALLOWED_PROPERTY_STATUSES = ["draft", "pending", "live", "rejected", "paused"] as const;
 const REVIEW_VIEW_STATUSES = {
   pending: ["pending"],
@@ -174,7 +176,7 @@ export async function getAdminReviewQueue<T extends string>({
   userClient,
   serviceClient,
   viewerRole,
-  select,
+  select = ADMIN_REVIEW_QUEUE_SELECT as T,
   limit,
   view = "pending",
   pendingSet = PENDING_STATUS_LIST,
@@ -252,7 +254,11 @@ export async function getAdminReviewQueue<T extends string>({
   const primary = await runUnion(canUseService ? serviceClient : userClient, canUseService ? "service" : "user");
   let fallback: typeof primary | null = null;
 
-  if (primary.source === "service" && (primary.error || (primary.status && primary.status >= 400))) {
+  const serviceFailed =
+    primary.source === "service" &&
+    (primary.error || (primary.status && primary.status >= 400) || primary.data === null);
+
+  if (serviceFailed) {
     fallbackReason = primary.error?.message || `service_status_${primary.status ?? "unknown"}`;
     fallback = await runUnion(userClient, "user");
   }
@@ -270,7 +276,7 @@ export async function getAdminReviewQueue<T extends string>({
     meta: {
       source: chosen.source,
       serviceAttempted: canUseService,
-      serviceOk: !primary.error && (!primary.status || primary.status < 400),
+      serviceOk: !serviceFailed,
       serviceStatus: primary.status,
       serviceError: primary.error?.message,
       serviceErrorDetails: primary.error?.details,

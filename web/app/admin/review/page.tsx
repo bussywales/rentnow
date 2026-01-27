@@ -6,6 +6,12 @@ import { buildSelectedUrl, type AdminReviewListItem } from "@/lib/admin/admin-re
 import { computeListingReadiness } from "@/lib/properties/listing-readiness";
 import type { PropertyImage } from "@/lib/types";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
+import {
+  ADMIN_REVIEW_DETAIL_SELECT,
+  ADMIN_REVIEW_IMAGE_SELECT,
+  ADMIN_REVIEW_QUEUE_SELECT,
+  ADMIN_REVIEW_VIDEO_SELECT,
+} from "@/lib/admin/admin-review-contracts";
 import { hasServerSupabaseEnv, type createServerSupabaseClient } from "@/lib/supabase/server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { formatRoleLabel } from "@/lib/roles";
@@ -83,39 +89,11 @@ async function loadReviewListings(
   }
   try {
     const serviceClient = viewerRole === "admin" && hasServiceRoleEnv() ? createServiceRoleClient() : null;
-    const queueSelect = [
-      "id",
-      "status",
-      "updated_at",
-      "submitted_at",
-      "is_approved",
-      "approved_at",
-      "rejected_at",
-      "is_active",
-    ].join(",");
-    const detailSelect = [
-      "id",
-      "title",
-      "owner_id",
-      "city",
-      "state_region",
-      "country_code",
-      "admin_area_1",
-      "admin_area_2",
-      "postal_code",
-      "latitude",
-      "longitude",
-      "location_label",
-      "location_place_id",
-      "created_at",
-      "updated_at",
-      "rejection_reason",
-    ].join(",");
     const queueResult = await getAdminReviewQueue({
       userClient: supabase,
       serviceClient,
       viewerRole,
-      select: queueSelect,
+      select: ADMIN_REVIEW_QUEUE_SELECT,
       view: "pending",
     });
     const dataIsArray = Array.isArray(queueResult.data);
@@ -162,7 +140,7 @@ async function loadReviewListings(
       const detailClient = serviceClient ?? supabase;
       const { data: details, error: detailError, status: detailStatus } = await detailClient
         .from("properties")
-        .select(detailSelect)
+        .select(ADMIN_REVIEW_DETAIL_SELECT)
         .in("id", listingIds);
       if (detailError) {
         console.warn("[admin/review] detail fetch error", detailStatus, detailError);
@@ -177,7 +155,7 @@ async function loadReviewListings(
       const mediaClient = serviceClient ?? supabase;
       const { data: images, error: imageError, status: imageStatus } = await mediaClient
         .from("property_images")
-        .select("id,image_url,width,height,property_id,created_at")
+        .select(ADMIN_REVIEW_IMAGE_SELECT)
         .in("property_id", listingIds);
       if (imageError) {
         console.warn("[admin/review] property_images fetch error", imageStatus, imageError);
@@ -205,7 +183,7 @@ async function loadReviewListings(
       const mediaClient = serviceClient ?? supabase;
       const { data: videos, error: videoError, status: videoStatus } = await mediaClient
         .from("property_videos")
-        .select("id,property_id")
+        .select(ADMIN_REVIEW_VIDEO_SELECT)
         .in("property_id", listingIds);
       if (videoError) {
         console.warn("[admin/review] property_videos fetch error", videoStatus, videoError);
@@ -332,6 +310,7 @@ export default async function AdminReviewPage({ searchParams }: Props) {
     meta,
   } = await loadReviewListings(supabase, profile?.role ?? null);
   const showServiceWarning = meta?.serviceAttempted === true && meta?.serviceOk === false;
+  const queueError = showServiceWarning;
   const initialSelectedId = (() => {
     const raw = searchParams?.id;
     const value = Array.isArray(raw) ? raw[0] : raw;
@@ -340,6 +319,8 @@ export default async function AdminReviewPage({ searchParams }: Props) {
 
   const pathname = "/admin/review";
   const canonicalUrl = initialSelectedId ? buildSelectedUrl(pathname, initialSelectedId) : pathname;
+
+  const blockEmptyDesk = queueError && listings.length === 0;
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -357,12 +338,39 @@ export default async function AdminReviewPage({ searchParams }: Props) {
           {ADMIN_REVIEW_COPY.warnings.missingServiceRole}
         </div>
       )}
-      {showServiceWarning && (
+      {queueError && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-800">
-          Service fetch status: {meta?.serviceStatus ?? serviceRoleStatus}. See diagnostics.
+          <div className="font-semibold">Queue fetch failed</div>
+          <div className="mt-1">
+            Service fetch status: {meta?.serviceStatus ?? serviceRoleStatus}. See{" "}
+            <a className="underline" href="/api/admin/review/diagnostics" target="_blank" rel="noreferrer">
+              diagnostics
+            </a>
+            .
+          </div>
+          <pre className="mt-2 max-h-40 overflow-auto rounded bg-white/60 p-2 text-[11px] text-slate-800">
+            {JSON.stringify(
+              {
+                serviceAttempted: meta?.serviceAttempted,
+                serviceOk: meta?.serviceOk,
+                serviceStatus: meta?.serviceStatus ?? serviceRoleStatus,
+                serviceError: meta?.serviceError,
+                serviceErrorDetails: (meta as { serviceErrorDetails?: string })?.serviceErrorDetails,
+                fallbackReason: (meta as { fallbackReason?: string })?.fallbackReason,
+              },
+              null,
+              2
+            )}
+          </pre>
         </div>
       )}
-      <AdminReviewDesk listings={listings} initialSelectedId={initialSelectedId} />
+      {!blockEmptyDesk && <AdminReviewDesk listings={listings} initialSelectedId={initialSelectedId} />}
+      {blockEmptyDesk && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
+          <p className="font-semibold text-amber-900">Queue fetch failed.</p>
+          <p className="mt-1">Fix the service query or service role env, then refresh.</p>
+        </div>
+      )}
       <link rel="canonical" href={canonicalUrl} />
     </div>
   );

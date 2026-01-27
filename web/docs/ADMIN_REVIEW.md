@@ -49,3 +49,21 @@
   - Confirm the property `status` matches one of the enum statuses (`draft`, `pending`, `live`, `rejected`, `paused`). Queue helpers sanitize any requested status set to avoid PostgREST 22P02 errors; diagnostics expose `pendingSetRequested`, `pendingSetSanitized`, and `droppedStatuses` when invalid values are passed.
   - If badge > 0 but list is empty, verify filters/search and that the page is not cached; refresh relies on the forced dynamic settings above.
   - Service-role fetch uses a normalized Supabase URL (adds https:// when absent) and schema pinning; if the service fetch fails or returns 404, UI falls back to user-scoped fetch and shows a warning with a link to diagnostics.
+
+## Contracts & guardrails
+- Queue, detail, image, and video selects are defined once in `lib/admin/admin-review-contracts.ts`. Do not inline select strings in pages/diagnostics/helpers.
+- Queue select (source of truth): `id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active`. No derived columns, no media relations.
+- Two-phase fetch is mandatory:
+  1) Queue fetch (service role preferred) using the contract select.
+  2) Detail + media fetch by IDs using their own contract selects.
+- A schema allowlist (`lib/admin/admin-review-schema-allowlist.ts`) and contract tests prevent phantom columns (e.g., `photo_count`, `has_cover`).
+- When `serviceAttempted && !serviceOk`, `/admin/review` shows an error panel instead of an empty list; use diagnostics to resolve before resuming approvals.
+- Runbook: `docs/runbooks/admin-review-queue.md` (5-minute triage). Postmortem: `docs/postmortems/2026-01-admin-review-empty-queue.md`.
+
+## Design improvements (safe iterations)
+- Stronger list cards: title, location label, submitted time, readiness chips.
+- Sticky top filter/search bar.
+- Keyboard navigation (j/k, enter to open).
+- Drawer hierarchy: Media, Location, Details, Notes, Actions.
+- Keep reason checklist + message generator; “Next pending” CTA after approve/request changes.
+- Persist view/search in URL + localStorage (already in place; verify per release).
