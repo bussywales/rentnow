@@ -1,8 +1,14 @@
 import { test, expect } from "@playwright/test";
 
-// Skip for now: requires seeded admin session and reviewable listings.
-test.skip("admin review desk shows selected listing details", async ({ page }) => {
-  await page.goto("/admin/review");
-  await expect(page.getByText("Review Desk")).toBeVisible();
-  await page.getByRole("button", { name: /Approve listing/i }).click();
+test("admin review desk allows selecting a listing and shows panel", async ({ page }) => {
+  await page.goto("/admin/review?view=pending");
+
+  const firstRow = page.locator("div.divide-y button").first();
+
+  const hasRows = await firstRow.isVisible().catch(() => false);
+  test.skip(!hasRows, "No pending listings available in test environment");
+
+  await firstRow.click();
+  await expect(page.getByText("Overview")).toBeVisible();
+  await expect(page.getByText("Media")).toBeVisible();
 });

@@ -8,10 +8,23 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 
 const routeLabel = "/api/admin/properties/[id]";
 
-const bodySchema = z.object({
-  action: z.enum(["approve", "reject"]),
-  reason: z.string().optional().nullable(),
-});
+export const bodySchema = z
+  .object({
+    action: z.enum(["approve", "reject"]),
+    reason: z.string().optional().nullable(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.action === "reject") {
+      const trimmed = (value.reason || "").trim();
+      if (!trimmed) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["reason"],
+          message: "Rejection reason is required",
+        });
+      }
+    }
+  });
 
 export async function PATCH(
   request: Request,

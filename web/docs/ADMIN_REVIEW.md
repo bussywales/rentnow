@@ -70,6 +70,22 @@
 - Drawer navigation: Previous/Next follow the currently visible list; a hidden-by-filters notice can reset filters and jump to the selection.
 - If service fetch fails (`serviceAttempted && !serviceOk`), the page shows the Service Error panel; no silent empty state.
 
+### How review works (end-to-end)
+1) Queue is fetched server-side from `public.admin_review_view` (service role when available).  
+2) On select, the client sets `?id=<uuid>` and fetches details/media via `/api/admin/review/:id` using the same contract.  
+3) Drawer renders Overview (status/readiness/location), Media (images/videos), Location (city/state/country/coords), Notes (rejection_reason).  
+4) Actions call admin APIs:
+   - Approve: `/api/admin/properties/[id]/approve`
+   - Reject: `/api/admin/properties/[id]` (PATCH action=reject, reason required)
+   - Request changes: `/api/admin/properties/[id]/request-changes`
+   After success, the item is removed from pending, router refreshed, next item auto-selects.
+
+### Troubleshooting click crash (“Error in input stream”)
+- Check console logs from `AdminReviewDesk select click` and `AdminReviewDrawer fetch detail` for id and status.
+- If detail fetch fails, an in-drawer error panel appears with a diagnostics link; run `/api/admin/review/diagnostics`.
+- Render errors are caught by DrawerErrorBoundary and surfaced with the selected id; retry button re-renders.
+- Common causes: invalid media URLs, unexpected nulls; the detail schema now coerces lat/long and guards missing fields.
+
 ## Design improvements (safe iterations)
 - Stronger list cards: title, location label, submitted time, readiness chips.
 - Sticky top filter/search bar.

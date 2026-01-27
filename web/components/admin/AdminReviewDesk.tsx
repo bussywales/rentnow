@@ -13,11 +13,50 @@ import {
 import { AdminReviewDrawer } from "./AdminReviewDrawer";
 import { AdminReviewList } from "./AdminReviewList";
 import { useAdminReviewView } from "@/lib/admin/admin-review-view";
+import React from "react";
 
 type Props = {
   listings: AdminReviewListItem[];
   initialSelectedId: string | null;
 };
+
+class DrawerErrorBoundary extends React.Component<
+  { selectedId: string | null; children: React.ReactNode },
+  { hasError: boolean; message: string | null }
+> {
+  constructor(props: { selectedId: string | null; children: React.ReactNode }) {
+    super(props);
+    this.state = { hasError: false, message: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, message: error?.message || "Failed to render drawer" };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("[AdminReviewDrawer] render error", { error, errorInfo, selectedId: this.props.selectedId });
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <div className="font-semibold text-amber-900">Failed to load selection</div>
+          <div className="mt-1">{this.state.message}</div>
+          <div className="mt-2 text-xs text-amber-700">Selected ID: {this.props.selectedId ?? "(none)"}</div>
+          <button
+            type="button"
+            className="mt-3 rounded bg-amber-600 px-3 py-2 text-xs font-semibold text-white"
+            onClick={() => this.setState({ hasError: false, message: null })}
+          >
+            Retry render
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
   const router = useRouter();
@@ -56,9 +95,10 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
 
   const handleSelect = useCallback(
     (id: string) => {
+      console.log("[AdminReviewDesk] select click", { id, pathname, view });
       router.push(buildUrlWithId(id));
     },
-    [buildUrlWithId, router]
+    [buildUrlWithId, router, pathname, view]
   );
 
   const handleClose = useCallback(() => {
@@ -71,6 +111,7 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
       if (selectedId === id) {
         router.push(buildUrlWithId(null));
       }
+      router.refresh();
     },
     [buildUrlWithId, router, selectedId]
   );
@@ -95,6 +136,7 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
   const firstId = items[0]?.id || null;
   useEffect(() => {
     if (!selectedId && firstId) {
+      console.log("[AdminReviewDesk] auto-select first", { firstId });
       router.replace(buildUrlWithId(firstId));
     }
   }, [selectedId, firstId, buildUrlWithId, router]);
@@ -195,26 +237,28 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
         )}
       </div>
 
-      <AdminReviewDrawer
-        listing={selectedListing}
-        onClose={handleClose}
-        locationLine={selectedListing ? formatLocationLine(selectedListing) : ""}
-        onActionComplete={handleActionComplete}
-        isHiddenByFilters={!!selectedId && !selectedVisible}
-        onShowHidden={() => {
-          setFilters(defaultFilters);
-          if (selectedListing?.status === "changes_requested") {
-            updateView("changes");
-          } else if (selectedListing?.status === "live" || selectedListing?.status === "approved") {
-            updateView("approved");
-          } else if (selectedListing) {
-            updateView("pending");
-          }
-        }}
-        filteredIds={visibleItems.map((i) => i.id)}
-        onNavigate={(id) => handleSelect(id)}
-        hasListings={items.length > 0}
-      />
+      <DrawerErrorBoundary selectedId={selectedListing?.id ?? null}>
+        <AdminReviewDrawer
+          listing={selectedListing}
+          onClose={handleClose}
+          locationLine={selectedListing ? formatLocationLine(selectedListing) : ""}
+          onActionComplete={handleActionComplete}
+          isHiddenByFilters={!!selectedId && !selectedVisible}
+          onShowHidden={() => {
+            setFilters(defaultFilters);
+            if (selectedListing?.status === "changes_requested") {
+              updateView("changes");
+            } else if (selectedListing?.status === "live" || selectedListing?.status === "approved") {
+              updateView("approved");
+            } else if (selectedListing) {
+              updateView("pending");
+            }
+          }}
+          filteredIds={visibleItems.map((i) => i.id)}
+          onNavigate={(id) => handleSelect(id)}
+          hasListings={items.length > 0}
+        />
+      </DrawerErrorBoundary>
     </div>
   );
 }

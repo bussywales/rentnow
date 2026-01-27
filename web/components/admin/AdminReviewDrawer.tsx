@@ -43,9 +43,9 @@ const detailSchema = z.object({
     country_code: z.string().nullable(),
     location_label: z.string().nullable(),
     location_place_id: z.string().nullable(),
-    latitude: z.number().nullable(),
-    longitude: z.number().nullable(),
-    photo_count: z.number().nullable(),
+    latitude: z.coerce.number().nullable().optional(),
+    longitude: z.coerce.number().nullable().optional(),
+    photo_count: z.coerce.number().nullable().optional(),
     has_video: z.boolean().nullable(),
     has_cover: z.boolean().nullable(),
     cover_image_url: z.string().nullable(),
@@ -54,8 +54,8 @@ const detailSchema = z.object({
     z.object({
       id: z.string(),
       image_url: z.string().nullable(),
-      width: z.number().nullable(),
-      height: z.number().nullable(),
+      width: z.coerce.number().nullable().optional(),
+      height: z.coerce.number().nullable().optional(),
     })
   ),
   videos: z.array(
@@ -121,6 +121,7 @@ export function AdminReviewDrawer({
       setDetailLoading(true);
       setDetailError(null);
       try {
+        console.log("[AdminReviewDrawer] fetch detail start", { id: listing.id });
         const res = await fetch(`/api/admin/review/${listing.id}`);
         if (!res.ok) {
           const data = await res.json().catch(() => null);
@@ -132,9 +133,11 @@ export function AdminReviewDrawer({
         if (listing.id === selectedIdSnapshot || !selectedIdSnapshot) {
           setDetailData(parsed);
         }
+        console.log("[AdminReviewDrawer] fetch detail success", { id: listing.id });
       } catch (err) {
         setDetailError(err instanceof Error ? err.message : "Failed to load details");
         setDetailData(null);
+        console.error("[AdminReviewDrawer] fetch detail error", { id: listing?.id, err });
       } finally {
         setDetailLoading(false);
       }
@@ -281,6 +284,14 @@ export function AdminReviewDrawer({
           {toast}
         </div>
       )}
+      {detailError && (
+        <div className="mx-4 mt-3 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+          Failed to load details: {detailError}.{" "}
+          <a className="font-semibold underline" href="/api/admin/review/diagnostics" target="_blank" rel="noreferrer">
+            Diagnostics
+          </a>
+        </div>
+      )}
       {isHiddenByFilters && listing && (
         <div className="mx-4 mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
           {ADMIN_REVIEW_COPY.list.hiddenNotice}{" "}
@@ -304,6 +315,11 @@ export function AdminReviewDrawer({
                   ? `${listing.readiness.tier} (${listing.readiness.score}) · ${locationLine || "Location unknown"}`
                   : ADMIN_REVIEW_COPY.drawer.placeholder}
               </p>
+              {listing && (
+                <p className="text-xs text-slate-600">
+                  Host: {listing.hostName} · Updated {listing.updatedAt ? formatRelativeTime(listing.updatedAt) : "—"}
+                </p>
+              )}
             </div>
             {detailLoading && <span className="text-xs text-slate-500">Loading…</span>}
             {detailError && <span className="text-xs text-rose-600">{detailError}</span>}
@@ -320,11 +336,20 @@ export function AdminReviewDrawer({
               <dd>{detail.listing.has_video ? "Yes" : "No"}</dd>
               <dt className="font-semibold text-slate-900">Cover</dt>
               <dd>{detail.listing.cover_image_url ? "Set" : "Missing"}</dd>
+              <dt className="font-semibold text-slate-900">Owner</dt>
+              <dd>{listing?.hostName || detail.listing.id}</dd>
             </dl>
           )}
         </section>
         <section className="p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.media}</h3>
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.media}</h3>
+            {detail && (
+              <span className="text-xs text-slate-600">
+                Photos: {detail.listing.photo_count ?? 0} · Videos: {detail.listing.has_video ? "Yes" : "No"}
+              </span>
+            )}
+          </div>
           {images.length === 0 && videos.length === 0 && (
             <p className="text-sm text-slate-600">No media found for this listing.</p>
           )}
@@ -372,6 +397,8 @@ export function AdminReviewDrawer({
               <dd>{detail.listing.latitude ?? "—"}</dd>
               <dt className="font-semibold text-slate-900">Longitude</dt>
               <dd>{detail.listing.longitude ?? "—"}</dd>
+              <dt className="font-semibold text-slate-900">Label</dt>
+              <dd>{detail.listing.location_label || "—"}</dd>
             </dl>
           ) : (
             <p className="text-sm text-slate-600">Location details will appear here.</p>

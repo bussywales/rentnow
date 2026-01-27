@@ -5,6 +5,11 @@
 2) No secondary media query for the list; the view supplies `photo_count`, `has_cover`, `cover_image_url`, `has_video`, `video_count`.  
 3) Drawer can fetch richer media if needed, but the queue/list is view-only.
 
+## Selecting a listing (details panel)
+- Click any row in the left list; URL stores `?id=<uuid>` so refresh preserves selection.
+- Drawer fetches details/media via `/api/admin/review/:id` using contract selects and guards; failures show an in-drawer error banner and diagnostics link.
+- If selection is hidden by filters, a banner offers “show hidden” to reset filters and snap to that listing.
+
 ## Source-of-truth select contracts
 - Table: `public.admin_review_view`
 - `ADMIN_REVIEW_QUEUE_SELECT` (normalized):  
