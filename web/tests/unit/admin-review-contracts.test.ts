@@ -7,6 +7,7 @@ import {
   ADMIN_REVIEW_VIDEO_SELECT,
   ADMIN_REVIEW_FORBIDDEN_FIELDS,
   normalizeSelect,
+  ADMIN_REVIEW_VIEW_TABLE,
 } from "@/lib/admin/admin-review-contracts";
 import {
   ADMIN_REVIEW_PROPERTIES_COLUMNS,
@@ -14,7 +15,7 @@ import {
   ADMIN_REVIEW_VIDEO_COLUMNS,
 } from "@/lib/admin/admin-review-schema-allowlist";
 
-const REQUIRED_QUEUE_FIELDS = ["id", "status", "updated_at"];
+const REQUIRED_QUEUE_FIELDS = ["id", "status", "updated_at", "photo_count", "has_cover", "cover_image_url", "has_video"];
 
 function parseColumns(select: string): string[] {
   return normalizeSelect(select)
@@ -55,23 +56,27 @@ void test("video select columns stay within property_videos allowlist", () => {
   cols.forEach((col) => assert.ok(ADMIN_REVIEW_VIDEO_COLUMNS.includes(col), `${col} not in allowlist`));
 });
 
+void test("queue uses admin review view table constant", () => {
+  assert.equal(ADMIN_REVIEW_VIEW_TABLE, "admin_review_view");
+});
+
 void test("queue select matches expected normalized contract", () => {
-  const expected = "id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active";
+  const expected =
+    "id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active,owner_id,title,city,state_region,country_code,admin_area_1,admin_area_2,postal_code,latitude,longitude,location_label,location_place_id,created_at,rejection_reason,photo_count,has_cover,cover_image_url,has_video,video_count";
   assert.equal(normalizeSelect(ADMIN_REVIEW_QUEUE_SELECT), expected);
 });
 
 void test("detail select matches expected normalized contract", () => {
-  const expected =
-    "id,title,owner_id,city,state_region,country_code,admin_area_1,admin_area_2,postal_code,latitude,longitude,location_label,location_place_id,created_at,updated_at,rejection_reason";
+  const expected = "id";
   assert.equal(normalizeSelect(ADMIN_REVIEW_DETAIL_SELECT), expected);
 });
 
 void test("image select matches expected normalized contract", () => {
-  const expected = "id,image_url,property_id,created_at,width,height";
+  const expected = "id";
   assert.equal(normalizeSelect(ADMIN_REVIEW_IMAGE_SELECT), expected);
 });
 
 void test("video select matches expected normalized contract", () => {
-  const expected = "id,video_url,property_id,created_at";
+  const expected = "id";
   assert.equal(normalizeSelect(ADMIN_REVIEW_VIDEO_SELECT), expected);
 });

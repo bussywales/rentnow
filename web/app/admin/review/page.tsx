@@ -6,13 +6,7 @@ import { buildSelectedUrl, type AdminReviewListItem } from "@/lib/admin/admin-re
 import { computeListingReadiness } from "@/lib/properties/listing-readiness";
 import type { PropertyImage } from "@/lib/types";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
-import {
-  ADMIN_REVIEW_DETAIL_SELECT,
-  ADMIN_REVIEW_IMAGE_SELECT,
-  ADMIN_REVIEW_QUEUE_SELECT,
-  ADMIN_REVIEW_VIDEO_SELECT,
-  normalizeSelect,
-} from "@/lib/admin/admin-review-contracts";
+import { ADMIN_REVIEW_QUEUE_SELECT, normalizeSelect } from "@/lib/admin/admin-review-contracts";
 import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
 import { hasServerSupabaseEnv, type createServerSupabaseClient } from "@/lib/supabase/server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
@@ -49,6 +43,11 @@ type RawProperty = {
   approved_at?: string | null;
   rejected_at?: string | null;
   is_active?: boolean | null;
+  photo_count?: number | null;
+  has_cover?: boolean | null;
+  cover_image_url?: string | null;
+  has_video?: boolean | null;
+  video_count?: number | null;
   rejection_reason?: string | null;
   admin_area_1?: string | null;
   admin_area_2?: string | null;
@@ -168,89 +167,8 @@ async function loadReviewListings(
 
     const listings = (queueResult.rows ?? queueResult.data ?? []) as RawProperty[];
     console.log("[admin/review] rows", listings.length);
-    const listingIds = Array.from(new Set(listings.map((p) => p.id).filter(Boolean)));
 
-    let detailMap: Record<string, RawProperty> = {};
-    if (listingIds.length) {
-      const detailClient = serviceClient ?? supabase;
-      if (detailClient === serviceClient) {
-        assertNoForbiddenColumns(normalizeSelect(ADMIN_REVIEW_DETAIL_SELECT), "admin/review detail");
-      }
-      const { data: details, error: detailError, status: detailStatus } = await detailClient
-        .from("properties")
-        .select(normalizeSelect(ADMIN_REVIEW_DETAIL_SELECT))
-        .in("id", listingIds);
-      if (detailError) {
-        console.warn("[admin/review] detail fetch error", detailStatus, detailError);
-      }
-      const detailRows = Array.isArray(details) ? (details as unknown as RawProperty[]) : [];
-      detailMap = Object.fromEntries(detailRows.map((row) => [row.id, row]));
-      console.log("[admin/review] detail rows", { count: details?.length ?? 0, status: detailStatus });
-    }
-
-    let imageMap: Record<string, PropertyImage[]> = {};
-    if (listingIds.length) {
-      const mediaClient = serviceClient ?? supabase;
-      if (mediaClient === serviceClient) {
-        assertNoForbiddenColumns(normalizeSelect(ADMIN_REVIEW_IMAGE_SELECT), "admin/review images");
-      }
-      const { data: images, error: imageError, status: imageStatus } = await mediaClient
-        .from("property_images")
-        .select(normalizeSelect(ADMIN_REVIEW_IMAGE_SELECT))
-        .in("property_id", listingIds);
-      if (imageError) {
-        console.warn("[admin/review] property_images fetch error", imageStatus, imageError);
-      }
-      imageMap = (images ?? []).reduce((acc, img, idx) => {
-        const propertyId = (img as { property_id?: string | null }).property_id;
-        if (!propertyId) return acc;
-        const list = acc[propertyId] || [];
-        list.push({
-          id: (img as { id?: string }).id || `img-${propertyId}-${list.length}-${idx}`,
-          image_url: (img as { image_url?: string }).image_url || "",
-          width: (img as { width?: number | null }).width ?? undefined,
-          height: (img as { height?: number | null }).height ?? undefined,
-          position: list.length,
-          created_at: (img as { created_at?: string | null }).created_at || undefined,
-        });
-        acc[propertyId] = list;
-        return acc;
-      }, {} as Record<string, PropertyImage[]>);
-      console.log("[admin/review] media rows", { images: images?.length ?? 0, status: imageStatus });
-    }
-
-    let videoCount: Record<string, number> = {};
-    if (listingIds.length) {
-      const mediaClient = serviceClient ?? supabase;
-      if (mediaClient === serviceClient) {
-        assertNoForbiddenColumns(normalizeSelect(ADMIN_REVIEW_VIDEO_SELECT), "admin/review videos");
-      }
-      const { data: videos, error: videoError, status: videoStatus } = await mediaClient
-        .from("property_videos")
-        .select(normalizeSelect(ADMIN_REVIEW_VIDEO_SELECT))
-        .in("property_id", listingIds);
-      if (videoError) {
-        console.warn("[admin/review] property_videos fetch error", videoStatus, videoError);
-      }
-      videoCount = (videos ?? []).reduce((acc, video) => {
-        const propertyId = (video as { property_id?: string | null }).property_id;
-        if (!propertyId) return acc;
-        acc[propertyId] = (acc[propertyId] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-      console.log("[admin/review] video rows", { videos: videos?.length ?? 0, status: videoStatus });
-    }
-
-    const ownerIds = Array.from(
-      new Set(
-        listings
-          .map((p) => {
-            const detail = detailMap[p.id];
-            return detail?.owner_id || p.owner_id;
-          })
-          .filter(Boolean)
-      )
-    ) as string[];
+    const ownerIds = Array.from(new Set(listings.map((p) => p.owner_id).filter(Boolean))) as string[];
     let owners: Record<string, string> = {};
     if (ownerIds.length) {
       const { data: profiles } = await supabase
@@ -264,9 +182,8 @@ async function loadReviewListings(
     }
 
     const mappedListings = listings.map((p) => {
-      const detail = detailMap[p.id] || {};
-      const merged = { ...detail, ...p, id: p.id } as RawProperty;
-      const images = imageMap[p.id] || [];
+      const merged = { ...p, id: p.id } as RawProperty;
+      const images: PropertyImage[] = [];
       const readinessInput = {
         ...merged,
         images,
@@ -301,8 +218,8 @@ async function loadReviewListings(
         country_code: merged.country_code ?? null,
         readiness,
         locationQuality: locationQuality.quality,
-        photoCount: images.length,
-        hasVideo: (videoCount[p.id] || 0) > 0,
+        photoCount: typeof merged.photo_count === "number" ? merged.photo_count : images.length,
+        hasVideo: merged.has_video ?? ((merged.video_count ?? 0) > 0),
         reviewable: isReviewableRow({
           status: merged.status ?? null,
           submitted_at: merged.submitted_at ?? null,

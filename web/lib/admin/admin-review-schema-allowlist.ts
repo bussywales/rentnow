@@ -9,6 +9,7 @@ export const ADMIN_REVIEW_PROPERTIES_COLUMNS = [
   "approved_at",
   "rejected_at",
   "is_active",
+  "owner_id",
   "title",
   "owner_id",
   "city",
@@ -23,6 +24,11 @@ export const ADMIN_REVIEW_PROPERTIES_COLUMNS = [
   "location_place_id",
   "created_at",
   "rejection_reason",
+  "photo_count",
+  "has_cover",
+  "cover_image_url",
+  "video_count",
+  "has_video",
 ];
 
 export const ADMIN_REVIEW_IMAGE_COLUMNS = ["id", "image_url", "property_id", "created_at", "width", "height"];

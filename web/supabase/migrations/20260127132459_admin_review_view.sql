@@ -1,4 +1,4 @@
--- Admin review view (mirror of migration)
+-- Create admin review view with computed media fields
 create or replace view public.admin_review_view as
 with img as (
   select
@@ -49,6 +49,8 @@ select
 from public.properties p
 left join img on img.property_id = p.id
 left join vid on vid.property_id = p.id;
+
+comment on view public.admin_review_view is 'Admin review queue view with stable, contract-approved columns.';
 
 grant select on public.admin_review_view to authenticated;
 grant select on public.admin_review_view to anon;

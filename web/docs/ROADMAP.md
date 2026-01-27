@@ -1,5 +1,5 @@
 # Roadmap (admin review hardening)
 
 - vR16.9b.24: Admin review contracts + CI guards + runbook/postmortem.
-- Next: optional `admin_review_queue_v` view to compute media counts safely in DB.
-- Later: materialized view or triggers for media counts if latency warrants.
+- vR16.9b.26: Admin review uses `public.admin_review_view` as single source (includes computed media fields).
+- Next: consider materialized view or triggers if latency warrants; optional richer media for drawer only.

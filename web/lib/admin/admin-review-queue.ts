@@ -1,4 +1,4 @@
-import { ADMIN_REVIEW_QUEUE_SELECT, normalizeSelect } from "./admin-review-contracts";
+import { ADMIN_REVIEW_QUEUE_SELECT, ADMIN_REVIEW_VIEW_TABLE, normalizeSelect } from "./admin-review-contracts";
 import { assertNoForbiddenColumns } from "./admin-review-schema-allowlist";
 
 export const ALLOWED_PROPERTY_STATUSES = ["draft", "pending", "live", "rejected", "paused"] as const;
@@ -127,13 +127,14 @@ export function applyReviewableFilters(query: FilterBuilder, pendingSet: string[
 export async function fetchReviewableUnion<T extends string>(
   client: AnyClient,
   select: T,
-  pendingSet: string[] = PENDING_STATUS_LIST
+  pendingSet: string[] = PENDING_STATUS_LIST,
+  tableName: string = ADMIN_REVIEW_VIEW_TABLE
 ) {
   const sanitizedPendingSet = sanitizeStatusSet(pendingSet);
   const baseFilters = (q: FilterBuilder) => q.eq("is_approved", false).is("approved_at", null).is("rejected_at", null);
-  const queryA = baseFilters(client.from("properties").select(select, { count: "exact" })).in("status", sanitizedPendingSet);
+  const queryA = baseFilters(client.from(tableName).select(select, { count: "exact" })).in("status", sanitizedPendingSet);
   const queryB = baseFilters(
-    client.from("properties").select(select, { count: "exact" }).not("submitted_at", "is", null)
+    client.from(tableName).select(select, { count: "exact" }).not("submitted_at", "is", null)
   );
 
   const [resA, resB] = await Promise.all([queryA, queryB]);
@@ -199,7 +200,9 @@ export async function getAdminReviewQueue<T extends string>({
     if (view === "changes") {
       const baseFilters = (q: FilterBuilder) =>
         q.eq("is_approved", false).is("approved_at", null).is("rejected_at", null);
-      let query = baseFilters(client.from("properties").select(selectNormalized, { count: "exact" })).eq("status", "draft").not(
+      let query = baseFilters(
+        client.from(ADMIN_REVIEW_VIEW_TABLE).select(selectNormalized, { count: "exact" })
+      ).eq("status", "draft").not(
         "submitted_at",
         "is",
         null
@@ -219,7 +222,7 @@ export async function getAdminReviewQueue<T extends string>({
     }
     if (view !== "pending" && view !== "all") {
       // For other views, keep existing filter
-      let query = client.from("properties").select(selectNormalized, { count: "exact" });
+      let query = client.from(ADMIN_REVIEW_VIEW_TABLE).select(selectNormalized, { count: "exact" });
       const orClause = buildStatusOrFilter(view);
       query = query.eq("is_approved", false).is("approved_at", null).is("rejected_at", null).or(orClause);
       if (limit) query = query.limit(limit);
@@ -234,7 +237,7 @@ export async function getAdminReviewQueue<T extends string>({
         debug: { orClause, select: selectNormalized },
       };
     }
-    const unionResult = await fetchReviewableUnion(client, selectNormalized, pendingSet);
+    const unionResult = await fetchReviewableUnion(client, selectNormalized, pendingSet, ADMIN_REVIEW_VIEW_TABLE);
     const trimmedData = limit ? unionResult.data.slice(0, limit) : unionResult.data;
     return {
       source,

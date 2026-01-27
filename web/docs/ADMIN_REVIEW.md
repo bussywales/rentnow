@@ -51,14 +51,14 @@
   - Service-role fetch uses a normalized Supabase URL (adds https:// when absent) and schema pinning; if the service fetch fails or returns 404, UI falls back to user-scoped fetch and shows a warning with a link to diagnostics.
 
 ## Contracts & guardrails
-- Queue, detail, image, and video selects are defined once in `lib/admin/admin-review-contracts.ts`. Do not inline select strings in pages/diagnostics/helpers.
-- Queue select (source of truth): `id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active`. No derived columns, no media relations.
-- Two-phase fetch is mandatory:
-  1) Queue fetch (service role preferred) using the contract select.
-  2) Detail + media fetch by IDs using their own contract selects.
-- A schema allowlist (`lib/admin/admin-review-schema-allowlist.ts`) and contract tests prevent phantom columns (e.g., `photo_count`, `has_cover`).
-- When `serviceAttempted && !serviceOk`, `/admin/review` shows an error panel instead of an empty list; use diagnostics to resolve before resuming approvals.
-- Runbook: `docs/runbooks/admin-review-queue.md` (5-minute triage). Postmortem: `docs/postmortems/2026-01-admin-review-empty-queue.md`.
+- Source of truth table/view: `public.admin_review_view` (see SQL in `supabase/migrations/*_admin_review_view.sql` and `docs/db/admin_review_view.sql`).
+- Queue select (`ADMIN_REVIEW_QUEUE_SELECT`):  
+  `id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active,owner_id,title,city,state_region,country_code,admin_area_1,admin_area_2,postal_code,latitude,longitude,location_label,location_place_id,created_at,rejection_reason,photo_count,has_cover,cover_image_url,has_video,video_count`
+- Forbidden in selects: raw relations like `property_images`, `property_videos` (enforced by runtime guard + tests).
+- Queue/list fetch is view-only; no secondary media fetch for pending list.
+- Error handling: if `serviceAttempted && !serviceOk`, `/admin/review` shows an error panel (not empty). Use `/api/admin/review/diagnostics`.
+- Guardrails: schema allowlist + contract tests (`lib/admin/admin-review-schema-allowlist.ts`, `tests/unit/admin-review-contracts.test.ts`).
+- Runbook: `docs/runbooks/admin-review-queue.md`. Postmortem: `docs/incidents/2026-01-admin-review-empty-queue.md`.
 
 ## Design improvements (safe iterations)
 - Stronger list cards: title, location label, submitted time, readiness chips.
