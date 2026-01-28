@@ -36,3 +36,26 @@ export function buildTabHref(
 }
 
 export const ADMIN_DEFAULT_TAB = DEFAULT_TAB;
+
+const ALLOWED_PARAM_KEYS = new Set([
+  "tab",
+  "view",
+  "id",
+  "status",
+  "priceMin",
+  "priceMax",
+  "propertyType",
+  "bedsMin",
+  "bathsMin",
+]);
+
+export function sanitizeAdminSearchParams(
+  params: Record<string, string | string[] | undefined>
+): Record<string, string | string[] | undefined> {
+  const cleaned: Record<string, string | string[] | undefined> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (!ALLOWED_PARAM_KEYS.has(key)) continue;
+    cleaned[key] = value;
+  }
+  return cleaned;
+}

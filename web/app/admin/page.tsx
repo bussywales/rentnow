@@ -17,7 +17,7 @@ import { computeLocationQuality } from "@/lib/properties/location-quality";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import AdminReviewPanelClient from "@/components/admin/AdminReviewPanelClient";
 import { headers } from "next/headers";
-import { ADMIN_DEFAULT_TAB, buildTabHref, normalizeTabParam } from "@/lib/admin/admin-tabs";
+import { ADMIN_DEFAULT_TAB, buildTabHref, normalizeTabParam, sanitizeAdminSearchParams } from "@/lib/admin/admin-tabs";
 import { AdminTabNav } from "@/components/admin/AdminTabNav";
 
 export const dynamic = "force-dynamic";
@@ -122,7 +122,8 @@ function parseStringParam(value: string | string[] | undefined): string | null {
   return Array.isArray(value) ? value[0] || null : value || null;
 }
 
-async function getData(searchParams: Record<string, string | string[] | undefined>) {
+async function getData(rawSearchParams: Record<string, string | string[] | undefined>) {
+  const searchParams = sanitizeAdminSearchParams(rawSearchParams);
   if (!hasServerSupabaseEnv()) {
     return {
       reviewListings: [],
@@ -428,7 +429,11 @@ async function bulkUpdate(formData: FormData) {
 }
 
 export default async function AdminPage({ searchParams }: Props) {
-  console.log("[/admin] render start");
+  const cleanedSearchParams = sanitizeAdminSearchParams(searchParams);
+  console.log("[/admin] render start", {
+    tab: cleanedSearchParams.tab,
+    view: cleanedSearchParams.view,
+  });
   const supabaseReady = hasServerSupabaseEnv();
   const requestHeaders = await headers();
   const requestId =
@@ -475,7 +480,7 @@ export default async function AdminPage({ searchParams }: Props) {
     queueSource,
     serviceRoleStatus,
     meta,
-  } = await getData(searchParams);
+  } = await getData(cleanedSearchParams);
   console.log("[/admin] before review panel", {
     count: reviewListings.length,
     serviceOk: meta?.serviceOk,
@@ -489,7 +494,7 @@ export default async function AdminPage({ searchParams }: Props) {
     serviceFailure,
   });
 
-  const activeTab = normalizeTabParam(searchParams.tab);
+  const activeTab = normalizeTabParam(cleanedSearchParams.tab);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">

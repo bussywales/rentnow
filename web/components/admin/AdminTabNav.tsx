@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo } from "react";
-import { buildTabHref, normalizeTabParam, type AdminTabKey } from "@/lib/admin/admin-tabs";
+import { buildTabHref, normalizeTabParam, sanitizeAdminSearchParams, type AdminTabKey } from "@/lib/admin/admin-tabs";
 
 type Props = {
   serverSearchParams: Record<string, string | string[] | undefined>;
@@ -14,14 +14,15 @@ type Props = {
 export function AdminTabNav({ serverSearchParams, countsPending, listingsCount }: Props) {
   const searchParams = useSearchParams();
 
-  const currentTab = normalizeTabParam(searchParams?.get("tab") ?? serverSearchParams.tab);
+  const currentTab = normalizeTabParam(
+    searchParams?.get("tab") ?? sanitizeAdminSearchParams(serverSearchParams).tab
+  );
 
   const mergedParams = useMemo(() => {
-    const obj: Record<string, string | string[] | undefined> = { ...serverSearchParams };
+    const obj: Record<string, string | string[] | undefined> = sanitizeAdminSearchParams(serverSearchParams);
     if (searchParams) {
       const entries = Array.from(searchParams.entries());
       for (const [key, value] of entries) {
-        // Keep multiple values
         const existing = obj[key];
         if (existing === undefined) {
           obj[key] = value;
@@ -32,7 +33,7 @@ export function AdminTabNav({ serverSearchParams, countsPending, listingsCount }
         }
       }
     }
-    return obj;
+    return sanitizeAdminSearchParams(obj);
   }, [searchParams, serverSearchParams]);
 
   const tabs: Array<{ key: AdminTabKey; label: string }> = [
