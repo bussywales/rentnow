@@ -55,7 +55,12 @@ export function sanitizeAdminSearchParams(
   const cleaned: Record<string, string | string[] | undefined> = {};
   for (const [key, value] of Object.entries(params)) {
     if (!ALLOWED_PARAM_KEYS.has(key)) continue;
-    cleaned[key] = value;
+    if (Array.isArray(value)) {
+      const last = value[value.length - 1];
+      if (last) cleaned[key] = last;
+    } else if (value) {
+      cleaned[key] = value;
+    }
   }
   return cleaned;
 }
