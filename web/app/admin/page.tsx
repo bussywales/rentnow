@@ -440,6 +440,7 @@ export default async function AdminPage({ searchParams }: Props) {
   });
   const upgradePendingCount = requests.filter((request) => request.status === "pending").length;
   const serviceFailure = meta?.serviceAttempted && meta?.serviceOk === false;
+  const contractDegraded = (meta as { contractDegraded?: boolean })?.contractDegraded;
   console.log("[/admin] after review panel props", {
     count: reviewListings.length,
     serviceFailure,
@@ -595,6 +596,17 @@ export default async function AdminPage({ searchParams }: Props) {
           <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
             <PropertyBulkActions action={bulkUpdate} />
           </div>
+          {contractDegraded && (
+            <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <div className="font-semibold text-amber-950">Database view is out of date</div>
+              <p className="mt-1">
+                admin_review_view missing expected columns (pricing). Apply migration 20260127132459_admin_review_view.sql.
+              </p>
+              <Link href="/api/admin/review/diagnostics" className="underline">
+                Open diagnostics
+              </Link>
+            </div>
+          )}
           {serviceFailure && (
             <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
               <div className="font-semibold text-amber-950">Review queue unavailable</div>

@@ -1,7 +1,7 @@
 // Admin Review – explicit data contracts
 // DO NOT add derived or computed columns here.
 
-export const ADMIN_REVIEW_QUEUE_SELECT = `
+export const ADMIN_REVIEW_VIEW_SELECT_MIN = `
   id,
   status,
   updated_at,
@@ -23,13 +23,6 @@ export const ADMIN_REVIEW_QUEUE_SELECT = `
   location_label,
   location_place_id,
   created_at,
-  price,
-  currency,
-  rent_period,
-  rental_type,
-  listing_type,
-  bedrooms,
-  bathrooms,
   rejection_reason,
   photo_count,
   has_cover,
@@ -38,41 +31,24 @@ export const ADMIN_REVIEW_QUEUE_SELECT = `
   video_count
 `;
 
-export const ADMIN_REVIEW_DETAIL_SELECT = `
-  id,
-  status,
-  updated_at,
-  submitted_at,
-  is_approved,
-  approved_at,
-  rejected_at,
-  is_active,
-  owner_id,
-  title,
-  city,
-  state_region,
-  country_code,
-  admin_area_1,
-  admin_area_2,
-  postal_code,
-  latitude,
-  longitude,
-  location_label,
-  location_place_id,
-  created_at,
+export const ADMIN_REVIEW_VIEW_SELECT_PRICING = `
   price,
   currency,
   rent_period,
   rental_type,
   listing_type,
   bedrooms,
-  bathrooms,
-  rejection_reason,
-  photo_count,
-  has_cover,
-  cover_image_url,
-  has_video,
-  video_count
+  bathrooms
+`;
+
+export const ADMIN_REVIEW_QUEUE_SELECT = `
+  ${ADMIN_REVIEW_VIEW_SELECT_MIN},
+  ${ADMIN_REVIEW_VIEW_SELECT_PRICING}
+`;
+
+export const ADMIN_REVIEW_DETAIL_SELECT = `
+  ${ADMIN_REVIEW_VIEW_SELECT_MIN},
+  ${ADMIN_REVIEW_VIEW_SELECT_PRICING}
 `;
 
 export const ADMIN_REVIEW_IMAGE_SELECT = `
@@ -103,3 +79,6 @@ export function normalizeSelect(select: string) {
 }
 
 export const ADMIN_REVIEW_VIEW_TABLE = "admin_review_view";
+
+export const ADMIN_REVIEW_VIEW_SELECT_MIN_NORMALIZED = normalizeSelect(ADMIN_REVIEW_VIEW_SELECT_MIN);
+export const ADMIN_REVIEW_VIEW_SELECT_PRICING_NORMALIZED = normalizeSelect(ADMIN_REVIEW_VIEW_SELECT_PRICING);

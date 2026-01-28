@@ -1,4 +1,9 @@
-import { ADMIN_REVIEW_QUEUE_SELECT, ADMIN_REVIEW_VIEW_TABLE, normalizeSelect } from "./admin-review-contracts";
+import {
+  ADMIN_REVIEW_QUEUE_SELECT,
+  ADMIN_REVIEW_VIEW_SELECT_MIN,
+  ADMIN_REVIEW_VIEW_TABLE,
+  normalizeSelect,
+} from "./admin-review-contracts";
 import { assertNoForbiddenColumns } from "./admin-review-schema-allowlist";
 
 export const ALLOWED_PROPERTY_STATUSES = ["draft", "pending", "live", "rejected", "paused"] as const;
@@ -194,17 +199,22 @@ export async function getAdminReviewQueue<T extends string>({
   view?: ReviewViewKey;
   pendingSet?: string[];
 }) {
-  const selectNormalized = normalizeSelect(select);
-  assertNoForbiddenColumns(selectNormalized, "getAdminReviewQueue");
+  const selectNormalizedFull = normalizeSelect(select);
+  const selectNormalizedMin = normalizeSelect(ADMIN_REVIEW_VIEW_SELECT_MIN);
+  assertNoForbiddenColumns(selectNormalizedFull, "getAdminReviewQueue");
 
   const canUseService = viewerRole === "admin" && !!serviceClient;
   let fallbackReason: string | null = null;
-  const runUnion = async (client: AnyClient, source: "service" | "user") => {
+  let contractDegraded = false;
+  let contractError: { code?: string; message?: string } | null = null;
+
+  const runUnion = async (client: AnyClient, source: "service" | "user", useMin = false) => {
+    const selectToUse = useMin ? selectNormalizedMin : selectNormalizedFull;
     if (view === "changes") {
       const baseFilters = (q: FilterBuilder) =>
         q.eq("is_approved", false).is("approved_at", null).is("rejected_at", null);
       let query = baseFilters(
-        client.from(ADMIN_REVIEW_VIEW_TABLE).select(selectNormalized, { count: "exact" })
+        client.from(ADMIN_REVIEW_VIEW_TABLE).select(selectToUse, { count: "exact" })
       ).eq("status", "draft").not(
         "submitted_at",
         "is",
@@ -220,12 +230,12 @@ export async function getAdminReviewQueue<T extends string>({
         count: result.count,
         error: result.error,
         status: (result as { status?: number }).status ?? null,
-        debug: { select: selectNormalized, filter: "draft+submitted+rejection_reason" },
+        debug: { select: selectToUse, filter: "draft+submitted+rejection_reason" },
       };
     }
     if (view !== "pending" && view !== "all") {
       // For other views, keep existing filter
-      let query = client.from(ADMIN_REVIEW_VIEW_TABLE).select(selectNormalized, { count: "exact" });
+      let query = client.from(ADMIN_REVIEW_VIEW_TABLE).select(selectToUse, { count: "exact" });
       const orClause = buildStatusOrFilter(view);
       query = query.eq("is_approved", false).is("approved_at", null).is("rejected_at", null).or(orClause);
       if (limit) query = query.limit(limit);
@@ -237,10 +247,10 @@ export async function getAdminReviewQueue<T extends string>({
         count: result.count,
         error: result.error,
         status: (result as { status?: number }).status ?? null,
-        debug: { orClause, select: selectNormalized },
+        debug: { orClause, select: selectToUse },
       };
     }
-    const unionResult = await fetchReviewableUnion(client, selectNormalized, pendingSet, ADMIN_REVIEW_VIEW_TABLE);
+    const unionResult = await fetchReviewableUnion(client, selectToUse, pendingSet, ADMIN_REVIEW_VIEW_TABLE);
     const trimmedData = limit ? unionResult.data.slice(0, limit) : unionResult.data;
     return {
       source,
@@ -256,21 +266,55 @@ export async function getAdminReviewQueue<T extends string>({
         pendingSetRequested: unionResult.debug.pendingSetRequested,
         pendingSetSanitized: unionResult.debug.pendingSetSanitized,
         droppedStatuses: unionResult.debug.droppedStatuses,
-        select: selectNormalized,
+        select: selectToUse,
       },
     };
   };
 
-  const primary = await runUnion(canUseService ? serviceClient : userClient, canUseService ? "service" : "user");
+  let primary: Awaited<ReturnType<typeof runUnion>>;
+  try {
+    primary = await runUnion(canUseService ? serviceClient : userClient, canUseService ? "service" : "user");
+  } catch (err) {
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      ((err as { code?: string }).code === "42703" ||
+        /does not exist/.test((err as { message?: string }).message ?? ""))
+    ) {
+      contractDegraded = true;
+      contractError = { code: (err as { code?: string }).code, message: (err as { message?: string }).message };
+      primary = await runUnion(
+        canUseService ? serviceClient : userClient,
+        canUseService ? "service" : "user",
+        true
+      );
+    } else {
+      throw err;
+    }
+  }
   let fallback: typeof primary | null = null;
+
+  const isColumnMissingError = (err: unknown) =>
+    typeof err === "object" &&
+    err !== null &&
+    ((err as { code?: string }).code === "42703" ||
+      /does not exist/.test((err as { message?: string }).message ?? ""));
 
   const serviceFailed =
     primary.source === "service" &&
     (primary.error || (primary.status && primary.status >= 400) || primary.data === null);
 
+  const needFallbackOnColumns =
+    isColumnMissingError(primary.error) ||
+    (Array.isArray(primary.error) && primary.error.some((e) => isColumnMissingError(e)));
+
   if (serviceFailed) {
     fallbackReason = primary.error?.message || `service_status_${primary.status ?? "unknown"}`;
-    fallback = await runUnion(userClient, "user");
+    fallback = await runUnion(userClient, "user", needFallbackOnColumns);
+  } else if (needFallbackOnColumns) {
+    contractDegraded = true;
+    contractError = { code: (primary.error as { code?: string })?.code, message: (primary.error as { message?: string })?.message };
+    fallback = await runUnion(canUseService ? serviceClient : userClient, canUseService ? "service" : "user", true);
   }
 
   const chosen = fallback ?? primary;
@@ -294,6 +338,8 @@ export async function getAdminReviewQueue<T extends string>({
       serviceErrorCode: (primary.error as { code?: string })?.code,
       serviceDebug: primary.debug,
       fallbackReason,
+      contractDegraded,
+      contractError,
     },
     serviceRoleAvailable: canUseService,
     serviceRoleError: primary.source === "service" ? primary.error : null,

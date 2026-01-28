@@ -10,6 +10,10 @@
 - Drawer fetches details/media via `/api/admin/review/:id` using contract selects and guards; failures show an in-drawer error banner and diagnostics link.
 - If selection is hidden by filters, a banner offers “show hidden” to reset filters and snap to that listing.
 - `/admin` embeds the same drawer via `AdminReviewShell` inside a client-only boundary; if the drawer fails to load, a fallback message appears but the page stays up. Use the diagnostics link or open `/admin/review` to continue reviewing.
+- If you see `column admin_review_view.price does not exist` (or similar):
+  1) Apply migration `20260127132459_admin_review_view.sql` in Supabase (or run the SQL in `docs/db/admin_review_view.sql`).  
+  2) Re-run `/api/admin/review/diagnostics` and confirm `adminReviewViewColumns` includes the pricing fields and `adminReviewViewHasPricingFields=true`.  
+  3) Refresh `/admin` and `/admin/review`; the “DB view is out of date” banner should disappear.
 
 ## Source-of-truth select contracts
 - Table: `public.admin_review_view`

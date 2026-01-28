@@ -70,6 +70,8 @@ type ReviewLoadResult = {
     serviceOk: boolean;
     serviceStatus: number | null;
     serviceError?: string;
+    contractDegraded?: boolean;
+    contractError?: { code?: string; message?: string } | null;
   };
 };
 
@@ -235,7 +237,11 @@ async function loadReviewListings(
       serviceRoleError: queueResult.serviceRoleError,
       queueSource: queueResult.meta.source,
       serviceRoleStatus: queueResult.meta.serviceStatus ?? queueResult.serviceRoleStatus,
-      meta: queueResult.meta,
+      meta: {
+        ...queueResult.meta,
+        contractDegraded: (queueResult.meta as { contractDegraded?: boolean })?.contractDegraded,
+        contractError: (queueResult.meta as { contractError?: { code?: string; message?: string } | null })?.contractError,
+      },
     };
   } catch (err) {
     console.warn("admin review desk fetch failed", err);
@@ -270,6 +276,7 @@ export default async function AdminReviewPage({ searchParams }: Props) {
     meta,
   } = await loadReviewListings(supabase, profile?.role ?? null);
   const queueError = meta?.serviceAttempted === true && meta?.serviceOk === false;
+  const contractDegraded = meta?.contractDegraded;
   const initialSelectedId = (() => {
     const raw = searchParams?.id;
     const value = Array.isArray(raw) ? raw[0] : raw;
@@ -290,6 +297,17 @@ export default async function AdminReviewPage({ searchParams }: Props) {
           Back to Admin
         </Link>
       </div>
+      {contractDegraded && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="font-semibold text-amber-950">Database view is out of date</div>
+          <p className="mt-1">
+            admin_review_view is missing expected columns (e.g., pricing fields). Apply migration 20260127132459_admin_review_view.sql then rerun diagnostics.
+          </p>
+          <Link href="/api/admin/review/diagnostics" className="underline">
+            Open diagnostics
+          </Link>
+        </div>
+      )}
       {queueError && (
         <AdminReviewServiceErrorPanel meta={meta} status={serviceRoleStatus} />
       )}

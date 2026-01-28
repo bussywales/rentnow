@@ -9,7 +9,13 @@ import {
   PENDING_STATUS_LIST,
   normalizeStatus,
 } from "@/lib/admin/admin-review-queue";
-import { ADMIN_REVIEW_QUEUE_SELECT, normalizeSelect } from "@/lib/admin/admin-review-contracts";
+import {
+  ADMIN_REVIEW_QUEUE_SELECT,
+  ADMIN_REVIEW_VIEW_SELECT_MIN_NORMALIZED,
+  ADMIN_REVIEW_VIEW_SELECT_PRICING_NORMALIZED,
+  ADMIN_REVIEW_VIEW_TABLE,
+  normalizeSelect,
+} from "@/lib/admin/admin-review-contracts";
 import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
 
 export const dynamic = "force-dynamic";
@@ -76,23 +82,10 @@ export async function GET(request: NextRequest) {
     ok: false,
     error: null,
   };
-  const rawQueueFetch: {
-    attempted: boolean;
-    status: number | null;
-    ok: boolean;
-    contentType: string | null;
-    bodySnippet: string | null;
-    urlUsed: string | null;
-    acceptProfile: boolean;
-  }[] = [];
-  const rawSimpleFetch: {
-    status: number | null;
-    ok: boolean;
-    contentType: string | null;
-    bodySnippet: string | null;
-    urlUsed: string | null;
-    acceptProfile: boolean;
-  }[] = [];
+  let adminReviewViewColumns: string[] = [];
+  let adminReviewViewHasPricingFields = false;
+  const expectedPricing = ["price", "currency", "rent_period", "rental_type", "listing_type", "bedrooms", "bathrooms"];
+  let missingExpectedColumns: string[] = [];
   if (auth.role === "admin" && serviceKeyPresent) {
     serviceBranchAttempted = true;
     try {
@@ -121,7 +114,7 @@ export async function GET(request: NextRequest) {
       if (normalizedUrl) {
         rawPostgrestPing.attempted = true;
         try {
-          const resp = await fetch(`${normalizedUrl}/rest/v1/properties?select=id&limit=1`, {
+          const resp = await fetch(`${normalizedUrl}/rest/v1/${ADMIN_REVIEW_VIEW_TABLE}?select=id&limit=1`, {
             headers: {
               apikey: serviceKey,
               Authorization: `Bearer ${serviceKey}`,
@@ -137,72 +130,6 @@ export async function GET(request: NextRequest) {
           rawPostgrestPing.status = null;
           rawPostgrestPing.ok = false;
           rawPostgrestPing.error = (pingErr as Error)?.message || "ping failed";
-        }
-        // Raw queue fetch with and without Accept-Profile
-        const queueUrl = `${normalizedUrl}/rest/v1/properties?select=${encodeURIComponent(queueSelect)}`;
-        for (const acceptProfile of [true, false]) {
-          const headers = {
-            apikey: serviceKey,
-            Authorization: `Bearer ${serviceKey}`,
-            Accept: "application/json",
-          } as Record<string, string>;
-          if (acceptProfile) headers["Accept-Profile"] = "public";
-          try {
-            const resp = await fetch(queueUrl, { headers });
-            const contentType = resp.headers.get("content-type");
-            const body = await resp.text();
-            rawQueueFetch.push({
-              attempted: true,
-              status: resp.status,
-              ok: resp.ok,
-              contentType,
-              bodySnippet: body.slice(0, 500),
-              urlUsed: queueUrl,
-              acceptProfile,
-            });
-          } catch (errFetch) {
-            rawQueueFetch.push({
-              attempted: true,
-              status: null,
-              ok: false,
-              contentType: null,
-              bodySnippet: (errFetch as Error)?.message?.slice(0, 500) || "fetch failed",
-              urlUsed: queueUrl,
-              acceptProfile,
-            });
-          }
-        }
-        // Raw simple select
-        const simpleUrl = `${normalizedUrl}/rest/v1/properties?select=${encodeURIComponent(queueSelect)}&limit=1`;
-        for (const acceptProfile of [true, false]) {
-          const headers = {
-            apikey: serviceKey,
-            Authorization: `Bearer ${serviceKey}`,
-            Accept: "application/json",
-          } as Record<string, string>;
-          if (acceptProfile) headers["Accept-Profile"] = "public";
-          try {
-            const resp = await fetch(simpleUrl, { headers });
-            const contentType = resp.headers.get("content-type");
-            const body = await resp.text();
-            rawSimpleFetch.push({
-              status: resp.status,
-              ok: resp.ok,
-              contentType,
-              bodySnippet: body.slice(0, 500),
-              urlUsed: simpleUrl,
-              acceptProfile,
-            });
-          } catch (errSimple) {
-            rawSimpleFetch.push({
-              status: null,
-              ok: false,
-              contentType: null,
-              bodySnippet: (errSimple as Error)?.message?.slice(0, 500) || "fetch failed",
-              urlUsed: simpleUrl,
-              acceptProfile,
-            });
-          }
         }
       }
     } catch (err: unknown) {
@@ -267,6 +194,29 @@ export async function GET(request: NextRequest) {
     lookup = row ?? null;
   }
 
+  // View column check (service role)
+  if (hasServiceRoleEnv()) {
+    try {
+      const service = createServiceRoleClient();
+      const { data: cols } = await service
+        .from("information_schema.columns")
+        .select("column_name")
+        .eq("table_schema", "public")
+        .eq("table_name", ADMIN_REVIEW_VIEW_TABLE);
+      adminReviewViewColumns = (cols ?? []).map((c) => (c as { column_name: string }).column_name).sort();
+      adminReviewViewHasPricingFields = expectedPricing.every((f) => adminReviewViewColumns.includes(f));
+      const expectedAll = normalizeSelect(`${ADMIN_REVIEW_VIEW_SELECT_MIN_NORMALIZED},${ADMIN_REVIEW_VIEW_SELECT_PRICING_NORMALIZED}`)
+        .split(",")
+        .map((c) => c.trim());
+      missingExpectedColumns = expectedAll.filter((c) => !adminReviewViewColumns.includes(c));
+    } catch (err) {
+      adminReviewViewColumns = [];
+      missingExpectedColumns = expectedPricing;
+      adminReviewViewHasPricingFields = false;
+      rawPostgrestPing.error = (err as Error)?.message || "view column check failed";
+    }
+  }
+
   const rlsSuspected = userCount === 0 && serviceKeyPresent && (serviceCount ?? 0) > 0;
 
   const lookupReasoning = (() => {
@@ -318,8 +268,6 @@ export async function GET(request: NextRequest) {
       serviceOk: serviceError === null && serviceStatus !== null ? serviceStatus < 400 : serviceError === null,
       serviceQueryDebug,
       rawPostgrestPing,
-      rawQueueFetch,
-      rawSimpleFetch,
       serviceQueryAStatus: (serviceQueryDebug as { queryAStatus?: number | null })?.queryAStatus ?? null,
       serviceQueryBStatus: (serviceQueryDebug as { queryBStatus?: number | null })?.queryBStatus ?? null,
       serviceQueryAError: (serviceQueryDebug as { queryAError?: unknown })?.queryAError ?? null,
@@ -333,6 +281,11 @@ export async function GET(request: NextRequest) {
       reviewableOrClauseUsed: null,
     },
     lookup,
+    viewColumns: {
+      adminReviewViewColumns,
+      adminReviewViewHasPricingFields,
+      missingExpectedColumns,
+    },
     notes: note,
     isReviewableSample: rows?.map((r: QueueRow) => ({
       id: r.id,

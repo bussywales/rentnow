@@ -78,6 +78,11 @@
   - `/dashboard` is the default workspace for all authenticated roles (including admins).
   - `/admin` is the admin console with Overview / Review queue / Listings tabs.
   - `/admin/review` remains the focused Review Desk view and shares the drawer/contract.
+- Drift detection & remediation:
+  - Diagnostics now lists `adminReviewViewColumns`, flags missing pricing fields, and reports `missingExpectedColumns`.
+  - Queue fetch falls back to a minimal select if PostgREST returns 42703 (missing column) and marks `contractDegraded=true`.
+  - UI surfaces a banner: “Database view is out of date… Apply migration 20260127132459_admin_review_view.sql”.
+  - If you see `column admin_review_view.price does not exist`, run the migration in Supabase, then re-check diagnostics (columns should include price/currency/rent_period/rental_type/listing_type/bedrooms/bathrooms).
 
 ### How review works (end-to-end)
 1) Queue is fetched server-side from `public.admin_review_view` (service role when available).  
