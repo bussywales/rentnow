@@ -9,6 +9,7 @@
 - Click any row in the left list; URL stores `?id=<uuid>` so refresh preserves selection.
 - Drawer fetches details/media via `/api/admin/review/:id` using contract selects and guards; failures show an in-drawer error banner and diagnostics link.
 - If selection is hidden by filters, a banner offers “show hidden” to reset filters and snap to that listing.
+- `/admin` embeds the same drawer via `AdminReviewShell`; clicking a property card there opens the shared review flow.
 
 ## Source-of-truth select contracts
 - Table: `public.admin_review_view`
@@ -49,3 +50,10 @@
 - Load `/admin/review?view=pending`; verify list count matches diagnostics `serviceCount` (or user count when service missing).
 - Approve/request changes on a pending item; ensure it disappears from list and badge decrements.
 - Run the contract tests locally: `npm test -- admin-review-contracts`.
+
+## Runbook quick fix path
+1) Check `/api/admin/review/diagnostics` → `serviceOk=true`.  
+2) Click a row in `/admin` or `/admin/review`; confirm URL gets `?id=`.  
+3) If drawer shows error, use diagnostics link and copy debug JSON from error boundary.  
+4) Verify contract strings (`admin-review-contracts.ts`) + allowlist tests.  
+5) Ensure `/api/admin/review/:id` returns data for selected id (service role env present).  

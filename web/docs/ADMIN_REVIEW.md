@@ -69,6 +69,7 @@
   - **Send request** → `status=changes_requested`, stores structured reasons + message, removes from pending list.
 - Drawer navigation: Previous/Next follow the currently visible list; a hidden-by-filters notice can reset filters and jump to the selection.
 - If service fetch fails (`serviceAttempted && !serviceOk`), the page shows the Service Error panel; no silent empty state.
+- `/admin` now embeds the same drawer and queue: clicking a property row opens the shared Review Drawer, using the same contracts, diagnostics, and error boundary. `/admin/review` remains a focused view but shares all logic.
 
 ### How review works (end-to-end)
 1) Queue is fetched server-side from `public.admin_review_view` (service role when available).  

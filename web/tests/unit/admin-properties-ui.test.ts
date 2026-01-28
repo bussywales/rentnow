@@ -10,7 +10,12 @@ void test("admin properties UI uses single bulk bar and checkbox column", () => 
     adminContents.includes("<PropertyBulkActions"),
     "expected bulk actions component on admin page"
   );
-  assert.ok(adminContents.includes("name=\"ids\""), "expected checkbox ids in rows");
+  const listPath = path.join(process.cwd(), "components", "admin", "AdminReviewListCards.tsx");
+  const listContents = fs.readFileSync(listPath, "utf8");
+  assert.ok(
+    adminContents.includes("name=\"ids\"") || listContents.includes("name=\"ids\""),
+    "expected checkbox ids in rows"
+  );
 
   const bulkPath = path.join(
     process.cwd(),

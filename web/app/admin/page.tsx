@@ -1,18 +1,22 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PropertyBulkActions } from "@/components/admin/PropertyBulkActions";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { UpgradeRequestsQueue } from "@/components/admin/UpgradeRequestsQueue";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { logApprovalAction } from "@/lib/observability";
 import { formatRoleLabel } from "@/lib/roles";
-import { buildStatusOrFilter, getAdminReviewQueue, getStatusesForView } from "@/lib/admin/admin-review-queue";
+import { buildStatusOrFilter, getAdminReviewQueue, getStatusesForView, isReviewableRow, normalizeStatus } from "@/lib/admin/admin-review-queue";
 import { ADMIN_REVIEW_QUEUE_SELECT } from "@/lib/admin/admin-review-contracts";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
+import { AdminReviewShell } from "@/components/admin/AdminReviewShell";
+import { AdminReviewListCards } from "@/components/admin/AdminReviewListCards";
+import { computeListingReadiness } from "@/lib/properties/listing-readiness";
+import type { PropertyImage } from "@/lib/types";
+import { computeLocationQuality } from "@/lib/properties/location-quality";
+import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -39,6 +43,28 @@ type AdminProperty = {
   owner_id?: string;
 };
 
+type RawReviewRow = AdminProperty & {
+  updated_at?: string | null;
+  created_at?: string | null;
+  state_region?: string | null;
+  country_code?: string | null;
+  admin_area_1?: string | null;
+  admin_area_2?: string | null;
+  postal_code?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  location_label?: string | null;
+  location_place_id?: string | null;
+  submitted_at?: string | null;
+  approved_at?: string | null;
+  rejected_at?: string | null;
+  is_active?: boolean | null;
+  photo_count?: number | null;
+  has_video?: boolean | null;
+  video_count?: number | null;
+  cover_image_url?: string | null;
+};
+
 type AdminUser = {
   id: string;
   role: string;
@@ -55,13 +81,9 @@ type UpgradeRequest = {
   created_at: string;
 };
 
-async function getData(
-  status: "all" | "draft" | "pending" | "live" | "rejected" | "paused" = "all",
-  search = "",
-  ownerId = ""
-) {
+async function getData() {
   if (!hasServerSupabaseEnv()) {
-    return { properties: [], users: [], requests: [], pendingReviewCount: 0, serviceRoleAvailable: false };
+    return { reviewListings: [], users: [], requests: [], pendingReviewCount: 0, serviceRoleAvailable: false, meta: null };
   }
 
   try {
@@ -74,19 +96,6 @@ async function getData(
       : { data: null };
     const viewerRole = viewerProfile?.role ?? null;
     const serviceClient = viewerRole === "admin" && hasServiceRoleEnv() ? createServiceRoleClient() : null;
-    let query = supabase
-      .from("properties")
-      .select("id, title, city, rental_type, is_approved, owner_id, status, rejection_reason")
-      .order("created_at", { ascending: false });
-
-    if (status !== "all") query = query.eq("status", status);
-    if (ownerId) query = query.eq("owner_id", ownerId);
-    if (search) {
-      query = query.ilike("title", `%${search}%`);
-    }
-
-    const { data: properties } = await query;
-
     const { data: users } = await supabase
       .from("profiles")
       .select("id, role, full_name");
@@ -101,7 +110,6 @@ async function getData(
       serviceClient,
       viewerRole,
       select: ADMIN_REVIEW_QUEUE_SELECT,
-      limit: 5,
       view: "pending",
     });
     console.log("[admin] pending status set", {
@@ -112,8 +120,59 @@ async function getData(
       status: pendingResult.meta.serviceStatus,
     });
 
+    const queueRows = (pendingResult.rows ?? pendingResult.data ?? []) as RawReviewRow[];
+    const ownerIds = Array.from(new Set(queueRows.map((p) => p.owner_id).filter(Boolean))) as string[];
+    const { data: ownerProfiles } = ownerIds.length
+      ? await supabase.from("profiles").select("id, full_name, role").in("id", ownerIds)
+      : { data: [] };
+    const owners = Object.fromEntries(
+      (ownerProfiles || []).map((p) => [p.id, p.full_name || formatRoleLabel(p.role) || "Host"])
+    );
+
+    const reviewListings: AdminReviewListItem[] = queueRows.map((p) => {
+      const readiness = computeListingReadiness({ ...(p as object), images: [] as PropertyImage[] } as unknown as Parameters<typeof computeListingReadiness>[0]);
+      const locationQuality = computeLocationQuality({
+        latitude: p.latitude ?? null,
+        longitude: p.longitude ?? null,
+        location_label: p.location_label ?? null,
+        location_place_id: p.location_place_id ?? null,
+        country_code: p.country_code ?? null,
+        admin_area_1: p.admin_area_1 ?? p.state_region ?? null,
+        admin_area_2: p.admin_area_2 ?? null,
+        postal_code: p.postal_code ?? null,
+        city: p.city ?? null,
+      });
+      return {
+        id: p.id,
+        title: p.title || "Untitled",
+        hostName: owners[p.owner_id || ""] || "Host",
+        updatedAt: p.updated_at || p.created_at || null,
+        city: p.city ?? null,
+        state_region: p.state_region ?? null,
+        country_code: p.country_code ?? null,
+        readiness,
+        locationQuality: locationQuality.quality,
+        photoCount: typeof p.photo_count === "number" ? p.photo_count : 0,
+        hasVideo: !!p.has_video || (p.video_count ?? 0) > 0,
+        status: normalizeStatus(p.status ?? null),
+        submitted_at: p.submitted_at ?? null,
+        is_approved: p.is_approved ?? null,
+        approved_at: p.approved_at ?? null,
+        rejected_at: p.rejected_at ?? null,
+        is_active: p.is_active ?? null,
+        rejectionReason: p.rejection_reason ?? null,
+        reviewable: isReviewableRow({
+          status: p.status ?? null,
+          submitted_at: p.submitted_at ?? null,
+          is_approved: p.is_approved ?? null,
+          approved_at: p.approved_at ?? null,
+          rejected_at: p.rejected_at ?? null,
+        }),
+      };
+    });
+
     return {
-      properties: (properties as AdminProperty[]) || [],
+      reviewListings,
       users: (users as AdminUser[]) || [],
       requests: (requests as UpgradeRequest[]) || [],
       pendingReviewCount: pendingResult.count ?? (Array.isArray(pendingResult.data) ? pendingResult.data.length : 0),
@@ -126,7 +185,7 @@ async function getData(
   } catch (err) {
     console.warn("Admin data load failed; rendering empty state", err);
     return {
-      properties: [],
+      reviewListings: [],
       users: [],
       requests: [],
       pendingReviewCount: 0,
@@ -137,66 +196,6 @@ async function getData(
       meta: { source: "user", serviceAttempted: false, serviceOk: false, serviceStatus: null, serviceError: "fetch failed" },
     };
   }
-}
-
-async function updateStatus(
-  id: string,
-  action: "approve" | "reject",
-  formData: FormData
-) {
-  "use server";
-  if (!hasServerSupabaseEnv()) return;
-  const { supabase, user } = await getServerAuthUser();
-
-  if (!user) return;
-
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (profile?.role !== "admin") return;
-
-  const rejectionReason = formData.get("reason");
-  const reason =
-    typeof rejectionReason === "string" ? rejectionReason.trim() : null;
-
-  if (action === "reject" && !reason) return;
-  const now = new Date().toISOString();
-
-  await supabase
-    .from("properties")
-    .update(
-      action === "approve"
-        ? {
-            status: "live",
-            is_approved: true,
-            is_active: true,
-            approved_at: now,
-            rejection_reason: null,
-            rejected_at: null,
-          }
-        : {
-            status: "rejected",
-            is_approved: false,
-            is_active: false,
-            rejected_at: now,
-            rejection_reason: reason,
-          }
-    )
-    .eq("id", id);
-
-  logApprovalAction({
-    route: "/admin",
-    actorId: user.id,
-    propertyId: id,
-    action,
-    reasonProvided: action === "reject",
-  });
-
-  revalidatePath("/admin");
-  revalidatePath("/dashboard");
 }
 
 async function bulkUpdate(formData: FormData) {
@@ -262,25 +261,6 @@ async function bulkUpdate(formData: FormData) {
 
 export default async function AdminPage({ searchParams }: Props) {
   const supabaseReady = hasServerSupabaseEnv();
-  const statusParam = searchParams.status
-    ? Array.isArray(searchParams.status)
-      ? searchParams.status[0]
-      : searchParams.status
-    : null;
-  const ownerParam = searchParams.owner
-    ? Array.isArray(searchParams.owner)
-      ? searchParams.owner[0]
-      : searchParams.owner
-    : "";
-  const searchParam = searchParams.q
-    ? Array.isArray(searchParams.q)
-      ? searchParams.q[0]
-      : searchParams.q
-    : "";
-  const statusFilter =
-    statusParam && ["draft", "pending", "live", "rejected", "paused"].includes(statusParam)
-      ? (statusParam as "draft" | "pending" | "live" | "rejected" | "paused")
-      : "all";
 
   if (supabaseReady) {
     try {
@@ -308,7 +288,7 @@ export default async function AdminPage({ searchParams }: Props) {
   }
 
   const {
-    properties,
+    reviewListings,
     users,
     requests,
     pendingReviewCount,
@@ -317,11 +297,7 @@ export default async function AdminPage({ searchParams }: Props) {
     queueSource,
     serviceRoleStatus,
     meta,
-  } = await getData(
-    statusFilter,
-    searchParam,
-    ownerParam
-  );
+  } = await getData();
   const upgradePendingCount = requests.filter((request) => request.status === "pending").length;
 
   return (
@@ -418,122 +394,29 @@ export default async function AdminPage({ searchParams }: Props) {
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Properties</h2>
             <p className="text-sm text-slate-600">
-              Approve or reject listings before they go live.
+              Approve or reject listings before they go live. Click a row to open the review drawer.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <form className="flex flex-wrap items-center gap-2" action="/admin" method="get">
-              <select
-                name="status"
-                defaultValue={statusFilter}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
-              >
-                <option value="all">All</option>
-                <option value="pending">Pending</option>
-                <option value="live">Live</option>
-                <option value="draft">Draft</option>
-                <option value="rejected">Rejected</option>
-                <option value="paused">Paused</option>
-              </select>
-              <select
-                name="owner"
-                defaultValue={ownerParam}
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
-              >
-                <option value="">All owners</option>
-                {users.map((user) => (
-                  <option key={user.id} value={user.id}>
-                    {user.full_name || user.id.slice(0, 6)}
-                  </option>
-                ))}
-              </select>
-              <Input
-                name="q"
-                defaultValue={searchParam}
-                placeholder="Search title"
-                className="h-9"
-              />
-              <Button size="sm" type="submit">
-                Filter
-              </Button>
-            </form>
-            <Link href="/dashboard/properties/new" className="text-sm text-sky-700">
-              Create listing
-            </Link>
-          </div>
+          <Link href="/dashboard/properties/new" className="text-sm text-sky-700">
+            Create listing
+          </Link>
         </div>
         <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
           <PropertyBulkActions action={bulkUpdate} />
         </div>
-        <div className="grid gap-3">
-          {properties.map((property) => (
-            <div
-              key={property.id}
-              className="grid gap-3 rounded-xl border border-slate-200 p-3 md:grid-cols-[32px_minmax(0,1fr)_auto] md:items-start"
-            >
-              <div className="flex items-start pt-1">
-                <input
-                  form="bulk-approvals"
-                  type="checkbox"
-                  name="ids"
-                  value={property.id}
-                  aria-label={`Select ${property.title}`}
-                  className="h-4 w-4 rounded border-slate-300"
-                />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-slate-900">
-                  {property.title}
-                </p>
-                <p className="text-xs text-slate-600">
-                  {property.city} - {property.rental_type}
-                </p>
-                <p className="text-xs">
-                  Status:{" "}
-                  <span className="text-slate-700">{property.status || "pending"}</span>
-                </p>
-                {property.rejection_reason && (
-                  <p className="text-xs text-rose-600">
-                    Reason: {property.rejection_reason}
-                  </p>
-                )}
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-                <form
-                  className="flex items-center"
-                  action={updateStatus.bind(null, property.id, "approve")}
-                >
-                  <Button size="sm" type="submit">
-                    Approve
-                  </Button>
-                </form>
-                <details className="group">
-                  <summary className="list-none cursor-pointer rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200">
-                    Reject
-                  </summary>
-                  <form
-                    className="mt-2 flex flex-wrap items-center gap-2"
-                    action={updateStatus.bind(null, property.id, "reject")}
-                  >
-                    <Input
-                      name="reason"
-                      placeholder="Reason for rejection"
-                      className="h-9 w-48"
-                      minLength={3}
-                      required
-                    />
-                    <Button size="sm" variant="secondary" type="submit">
-                      Confirm reject
-                    </Button>
-                  </form>
-                </details>
-              </div>
-            </div>
-          ))}
-          {!properties.length && (
-            <p className="text-sm text-slate-600">No properties found.</p>
+        <AdminReviewShell
+          listings={reviewListings}
+          initialSelectedId={
+            searchParams.id
+              ? Array.isArray(searchParams.id)
+                ? searchParams.id[0]
+                : searchParams.id
+              : null
+          }
+          renderList={({ items, selectedId, onSelect }) => (
+            <AdminReviewListCards items={items} selectedId={selectedId} onSelect={onSelect} />
           )}
-        </div>
+        />
       </div>
 
       <UpgradeRequestsQueue initialRequests={requests} users={users} />
