@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 import { logApprovalAction } from "@/lib/observability";
 import { formatRoleLabel } from "@/lib/roles";
 import { buildStatusOrFilter, getAdminReviewQueue, getStatusesForView, isReviewableRow, normalizeStatus, isStatusInView, isFixRequestRow } from "@/lib/admin/admin-review-queue";
-import { ADMIN_REVIEW_QUEUE_SELECT } from "@/lib/admin/admin-review-contracts";
+import { ADMIN_REVIEW_QUEUE_SELECT, ADMIN_REVIEW_VIEW_SELECT_MIN, ADMIN_REVIEW_VIEW_TABLE, normalizeSelect } from "@/lib/admin/admin-review-contracts";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import { computeListingReadiness } from "@/lib/properties/listing-readiness";
@@ -126,6 +126,7 @@ async function getData(searchParams: Record<string, string | string[] | undefine
       reviewListings: [],
       reviewListingsAll: [],
       listingsFiltered: [],
+      listingsAll: [],
       view: "pending",
       counts: { pending: 0, changes: 0, approved: 0, all: 0 },
       filters: {
@@ -256,7 +257,41 @@ async function getData(searchParams: Record<string, string | string[] | undefine
       return true;
     });
 
-    const listingsFiltered = reviewListingsAll.filter((item) => {
+    // Fetch all listings (not just reviewable) from the view to power the Listings tab.
+    let listingsAllRows: RawReviewRow[] = [];
+    let listingsContractDegraded = false;
+    const clientForListings = serviceClient ?? supabase;
+    const runListingsQuery = async (useMin = false) => {
+      const selectString = useMin ? ADMIN_REVIEW_VIEW_SELECT_MIN : ADMIN_REVIEW_QUEUE_SELECT;
+      let query = clientForListings
+        .from(ADMIN_REVIEW_VIEW_TABLE)
+        .select(normalizeSelect(selectString))
+        .order("updated_at", { ascending: false })
+        .limit(200);
+      if (filters.status) query = query.eq("status", filters.status);
+      if (filters.priceMin !== null) query = query.gte("price", filters.priceMin);
+      if (filters.priceMax !== null) query = query.lte("price", filters.priceMax);
+      if (filters.propertyType) query = query.eq("listing_type", filters.propertyType);
+      if (filters.bedsMin !== null) query = query.gte("bedrooms", filters.bedsMin);
+      if (filters.bathsMin !== null) query = query.gte("bathrooms", filters.bathsMin);
+      const res = await query;
+      if (res.error) throw res.error;
+      return Array.isArray(res.data) ? (res.data as unknown as RawReviewRow[]) : [];
+    };
+    try {
+      listingsAllRows = await runListingsQuery(false);
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      if (code === "42703" || /does not exist/i.test((err as { message?: string })?.message ?? "")) {
+        listingsContractDegraded = true;
+        listingsAllRows = await runListingsQuery(true);
+      } else {
+        throw err;
+      }
+    }
+    const listingsAll = listingsAllRows.map(mapRow);
+
+    const listingsFiltered = listingsAll.filter((item) => {
       if (filters.status && normalizeStatus(item.status ?? null) !== normalizeStatus(filters.status)) return false;
       if (filters.priceMin !== null && (item.price ?? 0) < filters.priceMin) return false;
       if (filters.priceMax !== null && (item.price ?? 0) > filters.priceMax) return false;
@@ -269,6 +304,7 @@ async function getData(searchParams: Record<string, string | string[] | undefine
     return {
       reviewListings,
       reviewListingsAll,
+      listingsAll,
       listingsFiltered,
       view,
       counts: {
@@ -293,7 +329,11 @@ async function getData(searchParams: Record<string, string | string[] | undefine
       serviceRoleError: queueResult.serviceRoleError,
       queueSource: queueResult.meta.source,
       serviceRoleStatus: queueResult.meta.serviceStatus ?? queueResult.serviceRoleStatus,
-      meta: queueResult.meta,
+      meta: {
+        ...queueResult.meta,
+        contractDegraded:
+          (queueResult.meta as { contractDegraded?: boolean })?.contractDegraded || listingsContractDegraded,
+      },
     };
   } catch (err) {
     console.warn("Admin data load failed; rendering empty state", err);
@@ -301,6 +341,7 @@ async function getData(searchParams: Record<string, string | string[] | undefine
       reviewListings: [],
       reviewListingsAll: [],
       listingsFiltered: [],
+      listingsAll: [],
       view: "pending",
       counts: { pending: 0, changes: 0, approved: 0, all: 0 },
       filters: {
@@ -419,8 +460,8 @@ export default async function AdminPage({ searchParams }: Props) {
 
   const {
     reviewListings,
-    reviewListingsAll,
     listingsFiltered,
+    listingsAll,
     view,
     counts,
     filters,
@@ -516,7 +557,7 @@ export default async function AdminPage({ searchParams }: Props) {
         {[
           { key: "overview", label: "Overview" },
           { key: "review", label: `Review queue (${counts.pending})` },
-          { key: "listings", label: `Listings (${reviewListingsAll.length})` },
+          { key: "listings", label: `Listings (${listingsAll.length})` },
         ].map((tab) => (
           <Link
             key={tab.key}
