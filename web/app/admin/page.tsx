@@ -18,6 +18,7 @@ import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import AdminReviewPanelClient from "@/components/admin/AdminReviewPanelClient";
 import { headers } from "next/headers";
 import { ADMIN_DEFAULT_TAB, buildTabHref, normalizeTabParam } from "@/lib/admin/admin-tabs";
+import { AdminTabNav } from "@/components/admin/AdminTabNav";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -538,28 +539,11 @@ export default async function AdminPage({ searchParams }: Props) {
         )}
       </div>
 
-      <nav className="flex flex-wrap gap-2" role="tablist" aria-label="Admin sections">
-        {[
-          { key: "overview", label: "Overview" },
-          { key: "review", label: `Review queue (${counts.pending})` },
-          { key: "listings", label: `Listings (${listingsAll.length})` },
-        ].map((tab) => (
-          <Link
-            key={tab.key}
-            href={buildTabHref(searchParams, tab.key as "overview" | "review" | "listings")}
-            className={`rounded-full border px-3 py-1 text-sm transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
-              activeTab === tab.key
-                ? "border-slate-900 bg-white text-slate-900 shadow-sm"
-                : "border-slate-200 bg-slate-100 text-slate-700 hover:border-slate-300 hover:bg-white"
-            }`}
-            role="tab"
-            aria-selected={activeTab === tab.key}
-            aria-current={activeTab === tab.key ? "page" : undefined}
-          >
-            {tab.label}
-          </Link>
-        ))}
-      </nav>
+      <AdminTabNav
+        serverSearchParams={searchParams}
+        countsPending={counts.pending}
+        listingsCount={listingsAll.length}
+      />
 
       {activeTab === "overview" && (
         <>
