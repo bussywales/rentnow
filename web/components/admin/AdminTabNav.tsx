@@ -50,6 +50,7 @@ export function AdminTabNav({ serverSearchParams, countsPending, listingsCount }
         const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
           event.preventDefault();
           router.push(href, { scroll: false });
+          router.refresh();
         };
         return (
           <Link
