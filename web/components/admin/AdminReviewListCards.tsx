@@ -41,7 +41,10 @@ export function AdminReviewListCards({ items, selectedId, onSelect }: Props) {
               >
                 {item.title}
               </button>
-              <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700">
+              <span
+                data-review-status={item.status || "pending"}
+                className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700"
+              >
                 {item.status || "pending"}
               </span>
             </div>

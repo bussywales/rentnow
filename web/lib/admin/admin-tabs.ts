@@ -1,6 +1,6 @@
 export type AdminTabKey = "overview" | "review" | "listings";
 
-const DEFAULT_TAB: AdminTabKey = "review";
+const DEFAULT_TAB: AdminTabKey = "overview";
 
 export function normalizeTabParam(
   tabParam: string | string[] | undefined
@@ -47,6 +47,12 @@ const ALLOWED_PARAM_KEYS = new Set([
   "propertyType",
   "bedsMin",
   "bathsMin",
+  "q",
+  "qMode",
+  "active",
+  "page",
+  "pageSize",
+  "sort",
 ]);
 
 export function sanitizeAdminSearchParams(

@@ -5,6 +5,7 @@ export type AdminReviewListItem = {
   id: string;
   title: string;
   hostName: string;
+  ownerId?: string | null;
   updatedAt: string | null;
   city?: string | null;
   state_region?: string | null;

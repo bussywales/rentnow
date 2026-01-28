@@ -77,13 +77,21 @@ type Props = {
   listings: AdminReviewListItem[];
   initialSelectedId: string | null;
   renderList: (args: RenderListArgs) => React.ReactNode;
+  autoSelect?: boolean;
+  removeOnAction?: boolean;
 };
 
 export function pickNextId(items: AdminReviewListItem[], removedId?: string | null) {
   return items.find((item) => item.id !== removedId)?.id ?? null;
 }
 
-export function AdminReviewShell({ listings, initialSelectedId, renderList }: Props) {
+export function AdminReviewShell({
+  listings,
+  initialSelectedId,
+  renderList,
+  autoSelect = true,
+  removeOnAction = true,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -91,6 +99,10 @@ export function AdminReviewShell({ listings, initialSelectedId, renderList }: Pr
 
   const [items, setItems] = useState<AdminReviewListItem[]>(listings);
   const selectedId = parseSelectedId(searchParams ?? {}) ?? initialSelectedId;
+
+  useEffect(() => {
+    setItems(listings);
+  }, [listings]);
 
   const buildUrlWithId = useCallback(
     (id: string | null) => {
@@ -114,6 +126,10 @@ export function AdminReviewShell({ listings, initialSelectedId, renderList }: Pr
   const handleActionComplete = useCallback(
     (id: string) => {
       setItems((prev) => {
+        if (!removeOnAction) {
+          router.refresh();
+          return prev;
+        }
         const nextItems = prev.filter((item) => item.id !== id);
         const nextId = pickNextId(nextItems);
         router.push(buildUrlWithId(nextId));
@@ -121,7 +137,7 @@ export function AdminReviewShell({ listings, initialSelectedId, renderList }: Pr
         return nextItems;
       });
     },
-    [buildUrlWithId, router]
+    [buildUrlWithId, removeOnAction, router]
   );
 
   const selectedListing = useMemo(
@@ -130,10 +146,11 @@ export function AdminReviewShell({ listings, initialSelectedId, renderList }: Pr
   );
 
   useEffect(() => {
+    if (!autoSelect) return;
     if (view === "pending" && !selectedId && items.length > 0) {
       router.replace(buildUrlWithId(items[0].id));
     }
-  }, [view, selectedId, items, router, buildUrlWithId]);
+  }, [autoSelect, view, selectedId, items, router, buildUrlWithId]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">

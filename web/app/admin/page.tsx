@@ -7,8 +7,10 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { revalidatePath } from "next/cache";
 import { logApprovalAction } from "@/lib/observability";
 import { formatRoleLabel } from "@/lib/roles";
-import { buildStatusOrFilter, getAdminReviewQueue, getStatusesForView, isReviewableRow, normalizeStatus, isStatusInView, isFixRequestRow } from "@/lib/admin/admin-review-queue";
-import { ADMIN_REVIEW_QUEUE_SELECT, ADMIN_REVIEW_VIEW_SELECT_MIN, ADMIN_REVIEW_VIEW_TABLE, normalizeSelect } from "@/lib/admin/admin-review-contracts";
+import { getAdminReviewQueue, isReviewableRow, normalizeStatus, isFixRequestRow, ALLOWED_PROPERTY_STATUSES } from "@/lib/admin/admin-review-queue";
+import { ADMIN_REVIEW_QUEUE_SELECT } from "@/lib/admin/admin-review-contracts";
+import { getAdminAllListings, getAdminListingStats, parseAdminListingsQuery } from "@/lib/admin/admin-listings";
+import type { AdminListingsQuery, ListingStats } from "@/lib/admin/admin-listings";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import { computeListingReadiness } from "@/lib/properties/listing-readiness";
@@ -16,8 +18,9 @@ import type { PropertyImage } from "@/lib/types";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import AdminReviewPanelClient from "@/components/admin/AdminReviewPanelClient";
+import AdminListingsPanelClient from "@/components/admin/AdminListingsPanelClient";
 import { headers } from "next/headers";
-import { ADMIN_DEFAULT_TAB, buildTabHref, normalizeTabParam, sanitizeAdminSearchParams } from "@/lib/admin/admin-tabs";
+import { normalizeTabParam, sanitizeAdminSearchParams } from "@/lib/admin/admin-tabs";
 import { AdminTabNav } from "@/components/admin/AdminTabNav";
 
 export const dynamic = "force-dynamic";
@@ -90,60 +93,69 @@ type UpgradeRequest = {
   created_at: string;
 };
 
-type ListingFilters = {
-  status: string | null;
-  priceMin: number | null;
-  priceMax: number | null;
-  propertyType: string | null;
-  bedsMin: number | null;
-  bathsMin: number | null;
+type AdminCounts = {
+  pending: number;
+  changes: number;
+  approved: number;
+  all: number;
 };
 
-const ALLOWED_VIEWS: Array<"pending" | "changes" | "approved" | "all"> = ["pending", "changes", "approved", "all"];
-function normalizeViewServer(value: string | null | undefined): "pending" | "changes" | "approved" | "all" {
-  if (!value) return "pending";
-  const lower = value.toLowerCase();
-  return (ALLOWED_VIEWS.includes(lower as typeof ALLOWED_VIEWS[number]) ? lower : "pending") as
-    | "pending"
-    | "changes"
-    | "approved"
-    | "all";
-}
+type AdminPageData = {
+  reviewListings: AdminReviewListItem[];
+  listings: AdminReviewListItem[];
+  recentListings: AdminReviewListItem[];
+  listingQuery: AdminListingsQuery;
+  listingCount: number;
+  listingPage: number;
+  listingPageSize: number;
+  listingTotalCount: number;
+  listingContractDegraded: boolean;
+  listingError: string | null;
+  listingStats: ListingStats<RawReviewRow>;
+  counts: AdminCounts;
+  users: AdminUser[];
+  requests: UpgradeRequest[];
+  pendingReviewCount: number;
+  serviceRoleAvailable: boolean;
+  serviceRoleError: unknown;
+  queueSource: string;
+  serviceRoleStatus: number | null;
+  meta: Record<string, unknown> | null;
+};
 
-function parseNumberParam(value: string | string[] | undefined): number | null {
-  if (!value) return null;
-  const raw = Array.isArray(value) ? value[0] : value;
-  const num = Number(raw);
-  return Number.isFinite(num) ? num : null;
-}
+const STATUS_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  ...ALLOWED_PROPERTY_STATUSES.map((status) => ({ value: status, label: status.toUpperCase() })),
+];
 
-function parseStringParam(value: string | string[] | undefined): string | null {
-  if (!value) return null;
-  return Array.isArray(value) ? value[0] || null : value || null;
-}
-
-async function getData(rawSearchParams: Record<string, string | string[] | undefined>) {
+async function getData(
+  rawSearchParams: Record<string, string | string[] | undefined>,
+  activeTab: "overview" | "review" | "listings"
+): Promise<AdminPageData> {
   const searchParams = sanitizeAdminSearchParams(rawSearchParams);
+  const listingQuery = parseAdminListingsQuery(searchParams);
+
   if (!hasServerSupabaseEnv()) {
     return {
       reviewListings: [],
-      reviewListingsAll: [],
-      listingsFiltered: [],
-      listingsAll: [],
-      view: "pending",
+      listings: [],
+      recentListings: [],
+      listingQuery,
+      listingCount: 0,
+      listingPage: listingQuery.page,
+      listingPageSize: listingQuery.pageSize,
+      listingTotalCount: 0,
+      listingContractDegraded: false,
+      listingError: null,
+      listingStats: { total: 0, statusCounts: {}, activeCounts: { active: 0, inactive: 0 }, recent: [], error: null },
       counts: { pending: 0, changes: 0, approved: 0, all: 0 },
-      filters: {
-        status: null,
-        priceMin: null,
-        priceMax: null,
-        propertyType: null,
-        bedsMin: null,
-        bathsMin: null,
-      },
       users: [],
       requests: [],
       pendingReviewCount: 0,
       serviceRoleAvailable: false,
+      serviceRoleError: null,
+      queueSource: "user",
+      serviceRoleStatus: null,
       meta: null,
     };
   }
@@ -158,44 +170,56 @@ async function getData(rawSearchParams: Record<string, string | string[] | undef
       : { data: null };
     const viewerRole = viewerProfile?.role ?? null;
     const serviceClient = viewerRole === "admin" && hasServiceRoleEnv() ? createServiceRoleClient() : null;
-    const { data: users } = await supabase
-      .from("profiles")
-      .select("id, role, full_name");
 
-    const { data: requests } = await supabase
-      .from("plan_upgrade_requests")
-      .select("id, profile_id, requester_id, requested_plan_tier, status, notes, created_at")
-      .order("created_at", { ascending: false });
+    const [usersResult, requestsResult] = await Promise.all([
+      supabase.from("profiles").select("id, role, full_name"),
+      supabase
+        .from("plan_upgrade_requests")
+        .select("id, profile_id, requester_id, requested_plan_tier, status, notes, created_at")
+        .order("created_at", { ascending: false }),
+    ]);
 
-    const viewParam = parseStringParam(searchParams.view);
-    const view = normalizeViewServer(viewParam);
-
-    const filters: ListingFilters = {
-      status: parseStringParam(searchParams.status),
-      priceMin: parseNumberParam(searchParams.priceMin),
-      priceMax: parseNumberParam(searchParams.priceMax),
-      propertyType: parseStringParam(searchParams.propertyType),
-      bedsMin: parseNumberParam(searchParams.bedsMin),
-      bathsMin: parseNumberParam(searchParams.bathsMin),
-    };
-
-    const queueResult = await getAdminReviewQueue({
-      userClient: supabase,
-      serviceClient,
-      viewerRole,
-      select: ADMIN_REVIEW_QUEUE_SELECT,
-      view: "all",
-    });
-    console.log("[admin] pending status set", {
-      view,
-      statuses: getStatusesForView(view),
-      or: buildStatusOrFilter(view),
-      source: queueResult.meta.source,
-      status: queueResult.meta.serviceStatus,
-    });
+    const clientForListings = serviceClient ?? supabase;
+    const [queueResult, listingStats] = await Promise.all([
+      getAdminReviewQueue({
+        userClient: supabase,
+        serviceClient,
+        viewerRole,
+        select: ADMIN_REVIEW_QUEUE_SELECT,
+        view: "pending",
+      }),
+      getAdminListingStats<RawReviewRow>({ client: clientForListings }),
+    ]);
 
     const queueRowsAll = (queueResult.rows ?? queueResult.data ?? []) as RawReviewRow[];
-    const ownerIds = Array.from(new Set(queueRowsAll.map((p) => p.owner_id).filter(Boolean))) as string[];
+    let listingsResult = {
+      rows: [] as RawReviewRow[],
+      count: listingStats.total,
+      page: listingQuery.page,
+      pageSize: listingQuery.pageSize,
+      contractDegraded: false,
+    };
+    let listingError: string | null = null;
+    if (activeTab === "listings") {
+      try {
+        listingsResult = await getAdminAllListings<RawReviewRow>({
+          client: clientForListings,
+          query: listingQuery,
+        });
+      } catch (err) {
+        listingError = (err as Error)?.message ?? "Failed to load listings";
+      }
+    }
+
+    const recentRows = (listingStats.recent ?? []) as RawReviewRow[];
+    const ownerIds = Array.from(
+      new Set(
+        [...queueRowsAll, ...listingsResult.rows, ...recentRows]
+          .map((p) => p.owner_id)
+          .filter(Boolean)
+      )
+    ) as string[];
+
     const { data: ownerProfiles } = ownerIds.length
       ? await supabase.from("profiles").select("id, full_name, role").in("id", ownerIds)
       : { data: [] };
@@ -204,7 +228,11 @@ async function getData(rawSearchParams: Record<string, string | string[] | undef
     );
 
     const mapRow = (p: RawReviewRow): AdminReviewListItem => {
-      const readiness = computeListingReadiness({ ...(p as object), images: [] as PropertyImage[] } as unknown as Parameters<typeof computeListingReadiness>[0]);
+      const readiness = computeListingReadiness(
+        { ...(p as object), images: [] as PropertyImage[] } as unknown as Parameters<
+          typeof computeListingReadiness
+        >[0]
+      );
       const locationQuality = computeLocationQuality({
         latitude: p.latitude ?? null,
         longitude: p.longitude ?? null,
@@ -220,6 +248,7 @@ async function getData(rawSearchParams: Record<string, string | string[] | undef
         id: p.id,
         title: p.title || "Untitled",
         hostName: owners[p.owner_id || ""] || "Host",
+        ownerId: p.owner_id ?? null,
         updatedAt: p.updated_at || p.created_at || null,
         city: p.city ?? null,
         state_region: p.state_region ?? null,
@@ -253,81 +282,60 @@ async function getData(rawSearchParams: Record<string, string | string[] | undef
     };
 
     const reviewListingsAll = queueRowsAll.map(mapRow);
-    const reviewListings = reviewListingsAll.filter((item) => {
-      if (view === "changes") return isFixRequestRow({ status: item.status, submitted_at: item.submitted_at, rejection_reason: item.rejectionReason, is_approved: item.is_approved, approved_at: item.approved_at });
-      if (view === "approved") return isStatusInView(item.status ?? null, "approved");
-      if (view === "pending") return isStatusInView(item.status ?? null, "pending") || item.reviewable;
-      return true;
-    });
+    const reviewListings = reviewListingsAll.filter(
+      (item) =>
+        isReviewableRow({
+          status: item.status ?? null,
+          submitted_at: item.submitted_at ?? null,
+          is_approved: item.is_approved ?? null,
+          approved_at: item.approved_at ?? null,
+          rejected_at: item.rejected_at ?? null,
+        }) ||
+        isFixRequestRow({
+          status: item.status ?? null,
+          submitted_at: item.submitted_at ?? null,
+          rejection_reason: item.rejectionReason ?? null,
+          is_approved: item.is_approved ?? null,
+          approved_at: item.approved_at ?? null,
+        })
+    );
 
-    // Fetch all listings (not just reviewable) from the view to power the Listings tab.
-    let listingsAllRows: RawReviewRow[] = [];
-    let listingsContractDegraded = false;
-    const clientForListings = serviceClient ?? supabase;
-    const runListingsQuery = async (useMin = false) => {
-      const selectString = useMin ? ADMIN_REVIEW_VIEW_SELECT_MIN : ADMIN_REVIEW_QUEUE_SELECT;
-      let query = clientForListings
-        .from(ADMIN_REVIEW_VIEW_TABLE)
-        .select(normalizeSelect(selectString))
-        .order("updated_at", { ascending: false })
-        .limit(200);
-      if (filters.status) query = query.eq("status", filters.status);
-      if (filters.priceMin !== null) query = query.gte("price", filters.priceMin);
-      if (filters.priceMax !== null) query = query.lte("price", filters.priceMax);
-      if (filters.propertyType) query = query.eq("listing_type", filters.propertyType);
-      if (filters.bedsMin !== null) query = query.gte("bedrooms", filters.bedsMin);
-      if (filters.bathsMin !== null) query = query.gte("bathrooms", filters.bathsMin);
-      const res = await query;
-      if (res.error) throw res.error;
-      return Array.isArray(res.data) ? (res.data as unknown as RawReviewRow[]) : [];
-    };
-    try {
-      listingsAllRows = await runListingsQuery(false);
-    } catch (err) {
-      const code = (err as { code?: string })?.code;
-      if (code === "42703" || /does not exist/i.test((err as { message?: string })?.message ?? "")) {
-        listingsContractDegraded = true;
-        listingsAllRows = await runListingsQuery(true);
-      } else {
-        throw err;
-      }
-    }
-    const listingsAll = listingsAllRows.map(mapRow);
+    const listings = listingsResult.rows.map(mapRow);
+    const recentListings = recentRows.map(mapRow);
 
-    const listingsFiltered = listingsAll.filter((item) => {
-      if (filters.status && normalizeStatus(item.status ?? null) !== normalizeStatus(filters.status)) return false;
-      if (filters.priceMin !== null && (item.price ?? 0) < filters.priceMin) return false;
-      if (filters.priceMax !== null && (item.price ?? 0) > filters.priceMax) return false;
-      if (filters.propertyType && item.listing_type !== filters.propertyType) return false;
-      if (filters.bedsMin !== null && (item.bedrooms ?? 0) < filters.bedsMin) return false;
-      if (filters.bathsMin !== null && (item.bathrooms ?? 0) < filters.bathsMin) return false;
-      return true;
-    });
+    const changesCount = reviewListingsAll.filter((item) =>
+      isFixRequestRow({
+        status: item.status ?? null,
+        submitted_at: item.submitted_at ?? null,
+        rejection_reason: item.rejectionReason ?? null,
+        is_approved: item.is_approved ?? null,
+        approved_at: item.approved_at ?? null,
+      })
+    ).length;
+
+    const pendingCount = reviewListingsAll.length - changesCount;
 
     return {
       reviewListings,
-      reviewListingsAll,
-      listingsAll,
-      listingsFiltered,
-      view,
+      listings,
+      recentListings,
+      listingQuery,
+      listingCount: listingsResult.count,
+      listingPage: listingsResult.page,
+      listingPageSize: listingsResult.pageSize,
+      listingTotalCount: listingStats.total,
+      listingContractDegraded: listingsResult.contractDegraded,
+      listingError,
+      listingStats,
+      users: (usersResult.data as AdminUser[]) || [],
+      requests: (requestsResult.data as UpgradeRequest[]) || [],
+      pendingReviewCount: queueResult.count ?? reviewListings.length,
       counts: {
-        pending: reviewListingsAll.filter((r) => isStatusInView(r.status ?? null, "pending") || r.reviewable).length,
-        changes: reviewListingsAll.filter((r) =>
-          isFixRequestRow({
-            status: r.status,
-            submitted_at: r.submitted_at,
-            rejection_reason: r.rejectionReason,
-            is_approved: r.is_approved,
-            approved_at: r.approved_at,
-          })
-        ).length,
-        approved: reviewListingsAll.filter((r) => isStatusInView(r.status ?? null, "approved")).length,
-        all: reviewListingsAll.length,
+        pending: pendingCount,
+        changes: changesCount,
+        approved: listingStats.statusCounts["live"] ?? 0,
+        all: listingStats.total,
       },
-      filters,
-      users: (users as AdminUser[]) || [],
-      requests: (requests as UpgradeRequest[]) || [],
-      pendingReviewCount: queueResult.count ?? (Array.isArray(queueResult.data) ? queueResult.data.length : 0),
       serviceRoleAvailable: queueResult.serviceRoleAvailable,
       serviceRoleError: queueResult.serviceRoleError,
       queueSource: queueResult.meta.source,
@@ -335,29 +343,28 @@ async function getData(rawSearchParams: Record<string, string | string[] | undef
       meta: {
         ...queueResult.meta,
         contractDegraded:
-          (queueResult.meta as { contractDegraded?: boolean })?.contractDegraded || listingsContractDegraded,
+          (queueResult.meta as { contractDegraded?: boolean })?.contractDegraded ||
+          listingsResult.contractDegraded,
       },
     };
   } catch (err) {
     console.warn("Admin data load failed; rendering empty state", err);
     return {
       reviewListings: [],
-      reviewListingsAll: [],
-      listingsFiltered: [],
-      listingsAll: [],
-      view: "pending",
-      counts: { pending: 0, changes: 0, approved: 0, all: 0 },
-      filters: {
-        status: null,
-        priceMin: null,
-        priceMax: null,
-        propertyType: null,
-        bedsMin: null,
-        bathsMin: null,
-      },
+      listings: [],
+      recentListings: [],
+      listingQuery,
+      listingCount: 0,
+      listingPage: listingQuery.page,
+      listingPageSize: listingQuery.pageSize,
+      listingTotalCount: 0,
+      listingContractDegraded: false,
+      listingError: (err as Error)?.message ?? null,
+      listingStats: { total: 0, statusCounts: {}, activeCounts: { active: 0, inactive: 0 }, recent: [], error: (err as Error)?.message ?? null },
       users: [],
       requests: [],
       pendingReviewCount: 0,
+      counts: { pending: 0, changes: 0, approved: 0, all: 0 },
       serviceRoleAvailable: false,
       serviceRoleError: err,
       queueSource: "user",
@@ -432,7 +439,6 @@ export default async function AdminPage({ searchParams }: Props) {
   const cleanedSearchParams = sanitizeAdminSearchParams(searchParams);
   console.log("[/admin] render start", {
     tab: cleanedSearchParams.tab,
-    view: cleanedSearchParams.view,
   });
   const supabaseReady = hasServerSupabaseEnv();
   const requestHeaders = await headers();
@@ -465,13 +471,38 @@ export default async function AdminPage({ searchParams }: Props) {
   }
   console.log("[/admin] after auth check");
 
+  const activeTab = normalizeTabParam(cleanedSearchParams.tab);
+
+  const buildListingsPageHref = (page: number) => {
+    const params = new URLSearchParams();
+    Object.entries(cleanedSearchParams).forEach(([key, value]) => {
+      if (key === "page") return;
+      if (Array.isArray(value)) {
+        if (value[0]) params.set(key, value[0]);
+      } else if (value) {
+        params.set(key, value);
+      }
+    });
+    params.set("tab", "listings");
+    params.set("page", String(page));
+    params.set("pageSize", String(listingPageSize));
+    const qs = params.toString();
+    return qs ? `/admin?${qs}` : "/admin?tab=listings";
+  };
+
   const {
     reviewListings,
-    listingsFiltered,
-    listingsAll,
-    view,
+    listings,
+    recentListings,
+    listingQuery,
+    listingCount,
+    listingPage,
+    listingPageSize,
+    listingTotalCount,
+    listingContractDegraded,
+    listingError,
+    listingStats,
     counts,
-    filters,
     users,
     requests,
     pendingReviewCount,
@@ -480,21 +511,21 @@ export default async function AdminPage({ searchParams }: Props) {
     queueSource,
     serviceRoleStatus,
     meta,
-  } = await getData(cleanedSearchParams);
+  } = await getData(cleanedSearchParams, activeTab);
   console.log("[/admin] before review panel", {
     count: reviewListings.length,
     serviceOk: meta?.serviceOk,
     source: meta?.source,
   });
   const upgradePendingCount = requests.filter((request) => request.status === "pending").length;
-  const serviceFailure = meta?.serviceAttempted && meta?.serviceOk === false;
+  const serviceAttempted = meta?.serviceAttempted === true;
+  const serviceOk = meta?.serviceOk === true;
+  const serviceFailure = serviceAttempted && !serviceOk;
   const contractDegraded = (meta as { contractDegraded?: boolean })?.contractDegraded;
   console.log("[/admin] after review panel props", {
     count: reviewListings.length,
     serviceFailure,
   });
-
-  const activeTab = normalizeTabParam(cleanedSearchParams.tab);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -547,11 +578,107 @@ export default async function AdminPage({ searchParams }: Props) {
       <AdminTabNav
         serverSearchParams={searchParams}
         countsPending={counts.pending}
-        listingsCount={listingsAll.length}
+        listingsCount={listingTotalCount}
       />
 
       {activeTab === "overview" && (
         <>
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Overview</h2>
+                <p className="text-sm text-slate-600">Operational snapshot of listings and review activity.</p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-sm">
+                <Link href="/admin?tab=review" className="rounded border border-slate-300 px-3 py-1">
+                  Go to Review queue
+                </Link>
+                <Link href="/admin?tab=listings" className="rounded border border-slate-300 px-3 py-1">
+                  Go to Listings
+                </Link>
+              </div>
+            </div>
+            {(serviceFailure || listingStats.error || serviceRoleError || listingError) && (
+              <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                <div className="font-semibold text-amber-950">Admin data may be incomplete</div>
+                <p className="mt-1">
+                  {listingError || "Service fetch reported an issue. Check diagnostics if counts look incorrect."}
+                </p>
+                <Link href="/api/admin/review/diagnostics" className="underline">
+                  Open diagnostics
+                </Link>
+              </div>
+            )}
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="rounded-xl border border-slate-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Pending review</p>
+                <p className="text-2xl font-semibold text-slate-900">{counts.pending}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Changes requested</p>
+                <p className="text-2xl font-semibold text-slate-900">{counts.changes}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Live</p>
+                <p className="text-2xl font-semibold text-slate-900">
+                  {listingStats.statusCounts["live"] ?? 0}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Draft</p>
+                <p className="text-2xl font-semibold text-slate-900">
+                  {listingStats.statusCounts["draft"] ?? 0}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Rejected</p>
+                <p className="text-2xl font-semibold text-slate-900">
+                  {listingStats.statusCounts["rejected"] ?? 0}
+                </p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Paused</p>
+                <p className="text-2xl font-semibold text-slate-900">
+                  {listingStats.statusCounts["paused"] ?? 0}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Active</p>
+                <p className="text-2xl font-semibold text-slate-900">{listingStats.activeCounts.active}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Inactive</p>
+                <p className="text-2xl font-semibold text-slate-900">{listingStats.activeCounts.inactive}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-semibold text-slate-900">Recently updated listings</h3>
+            <div className="mt-3 space-y-2 text-sm">
+              {recentListings.map((item) => (
+                <Link
+                  key={item.id}
+                  href={`/admin?tab=listings&id=${encodeURIComponent(item.id)}`}
+                  className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50"
+                >
+                  <div>
+                    <div className="font-semibold text-slate-900">{item.title}</div>
+                    <div className="text-xs text-slate-500">
+                      {item.city || "Unknown city"} · {item.status || "unknown"}
+                    </div>
+                  </div>
+                  <div className="text-xs text-slate-500">{item.updatedAt ?? "—"}</div>
+                </Link>
+              ))}
+              {!recentListings.length && (
+                <p className="text-sm text-slate-600">No recent listings found.</p>
+              )}
+            </div>
+          </div>
+
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <div>
@@ -581,14 +708,14 @@ export default async function AdminPage({ searchParams }: Props) {
                 {ADMIN_REVIEW_COPY.warnings.missingServiceRole}
               </div>
             )}
-            {serviceRoleError && (
+            {Boolean(serviceRoleError) && (
               <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                 {ADMIN_REVIEW_COPY.warnings.serviceFetchFailed}
               </div>
             )}
-            {queueSource === "user" && meta?.serviceAttempted && meta?.serviceOk === false && (
+            {queueSource === "user" && serviceFailure && (
               <p className="mt-1 text-xs text-amber-200">
-                Service fetch status: {meta?.serviceStatus ?? serviceRoleStatus}. See diagnostics.
+                Service fetch status: {String(meta?.serviceStatus ?? serviceRoleStatus ?? "unknown")}. See diagnostics.
               </p>
             )}
           </div>
@@ -606,7 +733,7 @@ export default async function AdminPage({ searchParams }: Props) {
                 Approve or reject listings before they go live. Click a row to open the review drawer.
               </p>
               <p className="text-xs text-slate-500">
-                Current view: {view} · pending ({counts.pending}) · changes requested ({counts.changes}) · approved recent ({counts.approved}) · all ({counts.all})
+                Pending ({counts.pending}) · changes requested ({counts.changes})
               </p>
             </div>
             <Link href="/dashboard/properties/new" className="text-sm text-sky-700">
@@ -631,7 +758,7 @@ export default async function AdminPage({ searchParams }: Props) {
             <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
               <div className="font-semibold text-amber-950">Review queue unavailable</div>
               <p className="mt-1">
-                Service fetch failed (status {meta?.serviceStatus ?? serviceRoleStatus ?? "unknown"}). The page is still usable without crashing.
+                Service fetch failed (status {String(meta?.serviceStatus ?? serviceRoleStatus ?? "unknown")}). The page is still usable without crashing.
               </p>
               {requestId && <p className="mt-1 text-xs text-amber-700">Request ID: {requestId}</p>}
               <div className="mt-2 flex flex-wrap gap-2 text-sm">
@@ -650,10 +777,10 @@ export default async function AdminPage({ searchParams }: Props) {
           <AdminReviewPanelClient
             listings={reviewListings}
             initialSelectedId={
-              searchParams.id
-                ? Array.isArray(searchParams.id)
-                  ? searchParams.id[0]
-                  : searchParams.id
+              cleanedSearchParams.id
+                ? Array.isArray(cleanedSearchParams.id)
+                  ? cleanedSearchParams.id[0]
+                  : cleanedSearchParams.id
                 : null
             }
           />
@@ -666,18 +793,18 @@ export default async function AdminPage({ searchParams }: Props) {
             <div>
               <h2 className="text-lg font-semibold text-slate-900">All listings</h2>
               <p className="text-sm text-slate-600">
-                Filter by status, price, type, beds, and baths. Uses the same admin_review_view contract (no phantom fields).
+                Search and filter across every listing. Uses the same admin_review_view contract (no phantom fields).
               </p>
             </div>
             <Link href="/dashboard/properties/new" className="text-sm text-sky-700">
               Create listing
             </Link>
           </div>
-          {(serviceFailure || contractDegraded || serviceRoleError) && (
+          {(serviceFailure || contractDegraded || listingContractDegraded || serviceRoleError || listingError) && (
             <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
               <div className="font-semibold text-amber-950">Listings may be partial</div>
               <p className="mt-1">
-                Queue/view fetch reported an issue. Check diagnostics and ensure admin_review_view matches the contract.
+                {listingError || "Queue/view fetch reported an issue. Check diagnostics and ensure admin_review_view matches the contract."}
               </p>
               <div className="mt-2 flex flex-wrap gap-2">
                 <Link href="/api/admin/review/diagnostics" className="underline">
@@ -692,35 +819,57 @@ export default async function AdminPage({ searchParams }: Props) {
           <form method="get" className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-2 lg:grid-cols-3">
             <input type="hidden" name="tab" value="listings" />
             <div className="flex flex-col">
-              <label className="text-xs text-slate-600">Status</label>
-              <select name="status" defaultValue={filters.status ?? ""} className="rounded border border-slate-300 px-2 py-1 text-sm">
-                <option value="">Any</option>
-                <option value="pending">Pending</option>
-                <option value="draft">Draft</option>
-                <option value="live">Live</option>
-                <option value="rejected">Rejected</option>
-                <option value="paused">Paused</option>
+              <label className="text-xs text-slate-600">Search</label>
+              <input
+                name="q"
+                type="text"
+                placeholder="Search title or paste ID"
+                defaultValue={listingQuery.q ?? ""}
+                className="rounded border border-slate-300 px-2 py-1 text-sm"
+              />
+            </div>
+            <div className="flex flex-col">
+              <label className="text-xs text-slate-600">Search mode</label>
+              <select name="qMode" defaultValue={listingQuery.qMode} className="rounded border border-slate-300 px-2 py-1 text-sm">
+                <option value="title">Title</option>
+                <option value="id">Listing ID</option>
+                <option value="owner">Owner ID</option>
               </select>
             </div>
             <div className="flex flex-col">
-              <label className="text-xs text-slate-600">Price min</label>
-              <input name="priceMin" type="number" defaultValue={filters.priceMin ?? ""} className="rounded border border-slate-300 px-2 py-1 text-sm" />
+              <label className="text-xs text-slate-600">Status</label>
+              <select name="status" defaultValue={listingQuery.status ?? "all"} className="rounded border border-slate-300 px-2 py-1 text-sm">
+                {STATUS_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex flex-col">
-              <label className="text-xs text-slate-600">Price max</label>
-              <input name="priceMax" type="number" defaultValue={filters.priceMax ?? ""} className="rounded border border-slate-300 px-2 py-1 text-sm" />
+              <label className="text-xs text-slate-600">Active</label>
+              <select name="active" defaultValue={listingQuery.active} className="rounded border border-slate-300 px-2 py-1 text-sm">
+                <option value="all">All</option>
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
             </div>
             <div className="flex flex-col">
-              <label className="text-xs text-slate-600">Property type</label>
-              <input name="propertyType" type="text" placeholder="apartment/house/..." defaultValue={filters.propertyType ?? ""} className="rounded border border-slate-300 px-2 py-1 text-sm" />
+              <label className="text-xs text-slate-600">Sort</label>
+              <select name="sort" defaultValue={listingQuery.sort} className="rounded border border-slate-300 px-2 py-1 text-sm">
+                <option value="updated_at.desc">Updated (newest)</option>
+                <option value="updated_at.asc">Updated (oldest)</option>
+              </select>
             </div>
             <div className="flex flex-col">
-              <label className="text-xs text-slate-600">Beds ≥</label>
-              <input name="bedsMin" type="number" defaultValue={filters.bedsMin ?? ""} className="rounded border border-slate-300 px-2 py-1 text-sm" />
-            </div>
-            <div className="flex flex-col">
-              <label className="text-xs text-slate-600">Baths ≥</label>
-              <input name="bathsMin" type="number" defaultValue={filters.bathsMin ?? ""} className="rounded border border-slate-300 px-2 py-1 text-sm" />
+              <label className="text-xs text-slate-600">Page size</label>
+              <select name="pageSize" defaultValue={listingPageSize} className="rounded border border-slate-300 px-2 py-1 text-sm">
+                {[25, 50, 100].map((size) => (
+                  <option key={size} value={size}>
+                    {size} per page
+                  </option>
+                ))}
+              </select>
             </div>
             <div className="flex items-end">
               <button type="submit" className="rounded bg-slate-900 px-3 py-2 text-sm text-white">
@@ -728,46 +877,40 @@ export default async function AdminPage({ searchParams }: Props) {
               </button>
             </div>
           </form>
-          <div className="space-y-3">
-            {listingsFiltered.map((item) => (
-              <div key={item.id} className="rounded-xl border border-slate-200 p-3">
-                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-slate-900">{item.title}</p>
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700">
-                        {item.status || "unknown"}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-600">
-                      {item.city || "Unknown city"} · Beds {item.bedrooms ?? "-"} · Baths {item.bathrooms ?? "-"} · Type {item.listing_type || "n/a"}
-                    </p>
-                    <p className="text-xs text-slate-600">
-                      Price: {item.currency || "NGN"} {item.price ?? 0}
-                    </p>
-                    <p className="text-[11px] text-slate-500 break-all">ID: {item.id}</p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Link
-                      href={`/admin?tab=review&id=${encodeURIComponent(item.id)}&view=all`}
-                      className="rounded border border-slate-300 px-3 py-1 text-sm text-slate-800"
-                    >
-                      Open drawer
-                    </Link>
-                    <Link
-                      href={`/dashboard/properties/${encodeURIComponent(item.id)}`}
-                      className="rounded border border-sky-300 px-3 py-1 text-sm text-sky-700"
-                    >
-                      Edit
-                    </Link>
-                  </div>
-                </div>
-              </div>
-            ))}
-            {!listingsFiltered.length && (
-              <p className="text-sm text-slate-600">No listings match these filters.</p>
-            )}
+          <div className="mb-3 text-sm text-slate-600">
+            Showing {listings.length} of {listingCount} listings.
           </div>
+          <AdminListingsPanelClient
+            listings={listings}
+            initialSelectedId={
+              cleanedSearchParams.id
+                ? Array.isArray(cleanedSearchParams.id)
+                  ? cleanedSearchParams.id[0]
+                  : cleanedSearchParams.id
+                : null
+            }
+          />
+          {listingCount > listingPageSize && (
+            <div className="mt-4 flex items-center justify-between text-sm">
+              <Link
+                href={buildListingsPageHref(Math.max(1, listingPage - 1))}
+                className={`rounded border border-slate-300 px-3 py-1 ${listingPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
+              >
+                Previous
+              </Link>
+              <span>
+                Page {listingPage} of {Math.max(1, Math.ceil(listingCount / listingPageSize))}
+              </span>
+              <Link
+                href={buildListingsPageHref(listingPage + 1)}
+                className={`rounded border border-slate-300 px-3 py-1 ${
+                  listingPage >= Math.ceil(listingCount / listingPageSize) ? "pointer-events-none opacity-50" : ""
+                }`}
+              >
+                Next
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </div>

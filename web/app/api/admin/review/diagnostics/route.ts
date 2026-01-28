@@ -17,6 +17,7 @@ import {
   normalizeSelect,
 } from "@/lib/admin/admin-review-contracts";
 import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
+import { getAdminListingStats } from "@/lib/admin/admin-listings";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -161,26 +162,20 @@ export async function GET(request: NextRequest) {
   })();
   const projectRef = normalizedUrlHost;
 
-  const statusCounts: Record<string, number> = {};
-  const activeCounts: Record<string, number> = {};
+  let statusCounts: Record<string, number> = {};
+  let activeCounts: Record<string, number> = {};
+  let listingTotal: number | null = null;
+  let listingStatsError: string | null = null;
   if (hasServiceRoleEnv()) {
     try {
       const service = createServiceRoleClient();
-      const recentResult = await service
-        .from("properties")
-        .select("status,is_active")
-        .order("updated_at", { ascending: false })
-        .limit(50);
-      const recent: { status: string | null; is_active: boolean | null }[] =
-        (recentResult.data as { status: string | null; is_active: boolean | null }[]) ?? [];
-      recent.forEach((r) => {
-        const key = r.status ?? "unknown";
-        statusCounts[key] = (statusCounts[key] || 0) + 1;
-        const activeKey = `${r.is_active ? "active" : "inactive"}`;
-        activeCounts[activeKey] = (activeCounts[activeKey] || 0) + 1;
-      });
-    } catch {
-      /* ignore */
+      const stats = await getAdminListingStats({ client: service, recentLimit: 5 });
+      statusCounts = stats.statusCounts;
+      activeCounts = stats.activeCounts;
+      listingTotal = stats.total;
+      listingStatsError = stats.error;
+    } catch (err) {
+      listingStatsError = (err as Error)?.message ?? "listing stats failed";
     }
   }
 
@@ -259,6 +254,8 @@ export async function GET(request: NextRequest) {
       userSample: (rows ?? []).map((r) => ({ id: r.id, status: r.status, updated_at: r.updated_at })),
       statusCounts,
       activeCounts,
+      listingTotal,
+      listingStatsError,
       rlsSuspected,
       serviceKeyPresent,
       serviceKeyLength: process.env.SUPABASE_SERVICE_ROLE_KEY?.length ?? 0,
