@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { buildTabHref, normalizeTabParam, sanitizeAdminSearchParams, type AdminTabKey } from "@/lib/admin/admin-tabs";
@@ -48,11 +47,9 @@ export function AdminTabNav({ serverSearchParams, countsPending, listingsCount }
         const href = buildTabHref(mergedParams, tab.key);
         const active = currentTab === tab.key;
         return (
-          <Link
+          <a
             key={tab.key}
             href={href}
-            prefetch={false}
-            reloadDocument
             className={`rounded-full border px-3 py-1 text-sm transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
               active
                 ? "border-slate-900 bg-white text-slate-900 shadow-sm"
@@ -63,7 +60,7 @@ export function AdminTabNav({ serverSearchParams, countsPending, listingsCount }
             aria-current={active ? "page" : undefined}
           >
             {tab.label}
-          </Link>
+          </a>
         );
       })}
     </nav>
