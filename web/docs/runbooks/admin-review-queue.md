@@ -9,7 +9,7 @@
 - Click any row in the left list; URL stores `?id=<uuid>` so refresh preserves selection.
 - Drawer fetches details/media via `/api/admin/review/:id` using contract selects and guards; failures show an in-drawer error banner and diagnostics link.
 - If selection is hidden by filters, a banner offers “show hidden” to reset filters and snap to that listing.
-- `/admin` embeds the same drawer via `AdminReviewShell`; clicking a property card there opens the shared review flow.
+- `/admin` embeds the same drawer via `AdminReviewShell` inside a client-only boundary; if the drawer fails to load, a fallback message appears but the page stays up. Use the diagnostics link or open `/admin/review` to continue reviewing.
 
 ## Source-of-truth select contracts
 - Table: `public.admin_review_view`

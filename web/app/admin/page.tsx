@@ -11,12 +11,12 @@ import { buildStatusOrFilter, getAdminReviewQueue, getStatusesForView, isReviewa
 import { ADMIN_REVIEW_QUEUE_SELECT } from "@/lib/admin/admin-review-contracts";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
-import { AdminReviewShell } from "@/components/admin/AdminReviewShell";
-import { AdminReviewListCards } from "@/components/admin/AdminReviewListCards";
 import { computeListingReadiness } from "@/lib/properties/listing-readiness";
 import type { PropertyImage } from "@/lib/types";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
+import AdminReviewPanelClient from "@/components/admin/AdminReviewPanelClient";
+import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -260,7 +260,11 @@ async function bulkUpdate(formData: FormData) {
 }
 
 export default async function AdminPage({ searchParams }: Props) {
+  console.log("[/admin] render start");
   const supabaseReady = hasServerSupabaseEnv();
+  const requestHeaders = await headers();
+  const requestId =
+    requestHeaders.get("x-vercel-id") ?? requestHeaders.get("x-request-id") ?? null;
 
   if (supabaseReady) {
     try {
@@ -286,6 +290,7 @@ export default async function AdminPage({ searchParams }: Props) {
       console.warn("Admin auth guard failed; showing demo state", err);
     }
   }
+  console.log("[/admin] after auth check");
 
   const {
     reviewListings,
@@ -298,7 +303,17 @@ export default async function AdminPage({ searchParams }: Props) {
     serviceRoleStatus,
     meta,
   } = await getData();
+  console.log("[/admin] before review panel", {
+    count: reviewListings.length,
+    serviceOk: meta?.serviceOk,
+    source: meta?.source,
+  });
   const upgradePendingCount = requests.filter((request) => request.status === "pending").length;
+  const serviceFailure = meta?.serviceAttempted && meta?.serviceOk === false;
+  console.log("[/admin] after review panel props", {
+    count: reviewListings.length,
+    serviceFailure,
+  });
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -404,7 +419,27 @@ export default async function AdminPage({ searchParams }: Props) {
         <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
           <PropertyBulkActions action={bulkUpdate} />
         </div>
-        <AdminReviewShell
+        {serviceFailure && (
+          <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <div className="font-semibold text-amber-950">Review queue unavailable</div>
+            <p className="mt-1">
+              Service fetch failed (status {meta?.serviceStatus ?? serviceRoleStatus ?? "unknown"}). The page is still usable without crashing.
+            </p>
+            {requestId && <p className="mt-1 text-xs text-amber-700">Request ID: {requestId}</p>}
+            <div className="mt-2 flex flex-wrap gap-2 text-sm">
+              <Link href="/api/admin/review/diagnostics" className="rounded border border-amber-300 px-3 py-1 underline">
+                Open diagnostics
+              </Link>
+              <Link href="/admin/review" className="rounded border border-amber-300 px-3 py-1 underline">
+                Open review desk
+              </Link>
+              <Link href="/admin" className="rounded border border-amber-300 px-3 py-1 underline">
+                Reload
+              </Link>
+            </div>
+          </div>
+        )}
+        <AdminReviewPanelClient
           listings={reviewListings}
           initialSelectedId={
             searchParams.id
@@ -413,9 +448,6 @@ export default async function AdminPage({ searchParams }: Props) {
                 : searchParams.id
               : null
           }
-          renderList={({ items, selectedId, onSelect }) => (
-            <AdminReviewListCards items={items} selectedId={selectedId} onSelect={onSelect} />
-          )}
         />
       </div>
 
