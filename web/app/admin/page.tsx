@@ -538,7 +538,7 @@ export default async function AdminPage({ searchParams }: Props) {
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <nav className="flex flex-wrap gap-2" role="tablist" aria-label="Admin sections">
         {[
           { key: "overview", label: "Overview" },
           { key: "review", label: `Review queue (${counts.pending})` },
@@ -547,17 +547,19 @@ export default async function AdminPage({ searchParams }: Props) {
           <Link
             key={tab.key}
             href={buildTabHref(searchParams, tab.key as "overview" | "review" | "listings")}
-            className={`rounded-full border px-3 py-1 text-sm transition ${
+            className={`rounded-full border px-3 py-1 text-sm transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
               activeTab === tab.key
-                ? "border-slate-900 bg-slate-900 text-white shadow-sm"
-                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                ? "border-slate-900 bg-white text-slate-900 shadow-sm"
+                : "border-slate-200 bg-slate-100 text-slate-700 hover:border-slate-300 hover:bg-white"
             }`}
+            role="tab"
+            aria-selected={activeTab === tab.key}
             aria-current={activeTab === tab.key ? "page" : undefined}
           >
             {tab.label}
           </Link>
         ))}
-      </div>
+      </nav>
 
       {activeTab === "overview" && (
         <>
