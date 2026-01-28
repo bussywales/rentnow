@@ -1,5 +1,6 @@
 -- Extend admin_review_view with listing attributes (pricing/type/beds/baths) while keeping media aggregates.
-create or replace view public.admin_review_view as
+drop view if exists public.admin_review_view;
+create view public.admin_review_view as
 with img as (
   select
     pi.property_id,
