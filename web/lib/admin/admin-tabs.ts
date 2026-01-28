@@ -1,0 +1,38 @@
+export type AdminTabKey = "overview" | "review" | "listings";
+
+const DEFAULT_TAB: AdminTabKey = "review";
+
+export function normalizeTabParam(
+  tabParam: string | string[] | undefined
+): AdminTabKey {
+  const value = Array.isArray(tabParam) ? tabParam[0] : tabParam;
+  if (value === "overview" || value === "review" || value === "listings") {
+    return value;
+  }
+  return DEFAULT_TAB;
+}
+
+export function buildTabHref(
+  searchParams: Record<string, string | string[] | undefined>,
+  tabKey: AdminTabKey
+): string {
+  const params = new URLSearchParams();
+  Object.entries(searchParams).forEach(([key, value]) => {
+    if (key === "tab") return;
+    if (Array.isArray(value)) {
+      value.forEach((v) => params.append(key, v));
+    } else if (value) {
+      params.set(key, value);
+    }
+  });
+
+  // Keep URL clean: omit tab param when it's the default tab.
+  if (tabKey !== DEFAULT_TAB) {
+    params.set("tab", tabKey);
+  }
+
+  const qs = params.toString();
+  return qs ? `/admin?${qs}` : "/admin";
+}
+
+export const ADMIN_DEFAULT_TAB = DEFAULT_TAB;

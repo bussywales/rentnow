@@ -17,6 +17,7 @@ import { computeLocationQuality } from "@/lib/properties/location-quality";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import AdminReviewPanelClient from "@/components/admin/AdminReviewPanelClient";
 import { headers } from "next/headers";
+import { ADMIN_DEFAULT_TAB, buildTabHref, normalizeTabParam } from "@/lib/admin/admin-tabs";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -487,23 +488,7 @@ export default async function AdminPage({ searchParams }: Props) {
     serviceFailure,
   });
 
-  const tabParam = Array.isArray(searchParams.tab) ? searchParams.tab[0] : searchParams.tab;
-  const activeTab = tabParam || "overview";
-
-  const buildTabHref = (tabKey: string) => {
-    const params = new URLSearchParams();
-    Object.entries(searchParams).forEach(([key, value]) => {
-      if (key === "tab") return;
-      if (Array.isArray(value)) {
-        value.forEach((v) => params.append(key, v));
-      } else if (value) {
-        params.set(key, value);
-      }
-    });
-    if (tabKey !== "overview") params.set("tab", tabKey);
-    const qs = params.toString();
-    return qs ? `/admin?${qs}` : "/admin";
-  };
+  const activeTab = normalizeTabParam(searchParams.tab);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -561,10 +546,13 @@ export default async function AdminPage({ searchParams }: Props) {
         ].map((tab) => (
           <Link
             key={tab.key}
-            href={buildTabHref(tab.key)}
-            className={`rounded-full px-3 py-1 text-sm ${
-              activeTab === tab.key ? "bg-slate-900 text-white" : "bg-slate-100 text-slate-700"
+            href={buildTabHref(searchParams, tab.key as "overview" | "review" | "listings")}
+            className={`rounded-full border px-3 py-1 text-sm transition ${
+              activeTab === tab.key
+                ? "border-slate-900 bg-slate-900 text-white shadow-sm"
+                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
             }`}
+            aria-current={activeTab === tab.key ? "page" : undefined}
           >
             {tab.label}
           </Link>
@@ -694,7 +682,24 @@ export default async function AdminPage({ searchParams }: Props) {
               Create listing
             </Link>
           </div>
+          {(serviceFailure || contractDegraded || serviceRoleError) && (
+            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+              <div className="font-semibold text-amber-950">Listings may be partial</div>
+              <p className="mt-1">
+                Queue/view fetch reported an issue. Check diagnostics and ensure admin_review_view matches the contract.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Link href="/api/admin/review/diagnostics" className="underline">
+                  Open diagnostics
+                </Link>
+                <Link href="/admin/review" className="underline">
+                  Review desk
+                </Link>
+              </div>
+            </div>
+          )}
           <form method="get" className="mb-4 grid gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 md:grid-cols-2 lg:grid-cols-3">
+            <input type="hidden" name="tab" value="listings" />
             <div className="flex flex-col">
               <label className="text-xs text-slate-600">Status</label>
               <select name="status" defaultValue={filters.status ?? ""} className="rounded border border-slate-300 px-2 py-1 text-sm">
