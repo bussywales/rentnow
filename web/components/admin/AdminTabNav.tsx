@@ -51,6 +51,7 @@ export function AdminTabNav({ serverSearchParams, countsPending, listingsCount }
             key={tab.key}
             href={href}
             prefetch={false}
+            reloadDocument
             className={`rounded-full border px-3 py-1 text-sm transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
               active
                 ? "border-slate-900 bg-white text-slate-900 shadow-sm"
