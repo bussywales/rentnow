@@ -1,4 +1,4 @@
--- Admin review view (mirror of migration)
+-- Extend admin_review_view with listing attributes (pricing/type/beds/baths) while keeping media aggregates.
 create or replace view public.admin_review_view as
 with img as (
   select
@@ -40,6 +40,7 @@ select
   p.location_label,
   p.location_place_id,
 
+  -- listing attributes
   p.price,
   p.currency,
   p.rent_period,
@@ -48,16 +49,21 @@ select
   p.bedrooms,
   p.bathrooms,
 
+  -- computed media fields
   coalesce(img.photo_count, 0) as photo_count,
   coalesce(p.cover_image_url, img.first_image_url) as cover_image_url,
   (coalesce(img.photo_count, 0) > 0 or p.cover_image_url is not null) as has_cover,
 
-coalesce(vid.video_count, 0) as video_count,
-(coalesce(vid.video_count, 0) > 0) as has_video
+  coalesce(vid.video_count, 0) as video_count,
+  (coalesce(vid.video_count, 0) > 0) as has_video
 from public.properties p
 left join img on img.property_id = p.id
 left join vid on vid.property_id = p.id;
 
+comment on view public.admin_review_view is 'Admin review queue view with stable, contract-approved columns including pricing/type/beds/baths.';
+
 grant select on public.admin_review_view to authenticated;
 grant select on public.admin_review_view to anon;
+
+-- Ask PostgREST to reload schema immediately.
 notify pgrst, 'reload schema';
