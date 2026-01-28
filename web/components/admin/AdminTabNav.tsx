@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import { useMemo } from "react";
-import { ADMIN_DEFAULT_TAB, buildTabHref, normalizeTabParam, type AdminTabKey } from "@/lib/admin/admin-tabs";
+import { buildTabHref, normalizeTabParam, type AdminTabKey } from "@/lib/admin/admin-tabs";
 
 type Props = {
   serverSearchParams: Record<string, string | string[] | undefined>;
@@ -12,7 +12,6 @@ type Props = {
 };
 
 export function AdminTabNav({ serverSearchParams, countsPending, listingsCount }: Props) {
-  const router = useRouter();
   const searchParams = useSearchParams();
 
   const currentTab = normalizeTabParam(searchParams?.get("tab") ?? serverSearchParams.tab);
@@ -47,16 +46,10 @@ export function AdminTabNav({ serverSearchParams, countsPending, listingsCount }
       {tabs.map((tab) => {
         const href = buildTabHref(mergedParams, tab.key);
         const active = currentTab === tab.key;
-        const handleClick = (event: React.MouseEvent<HTMLAnchorElement>) => {
-          event.preventDefault();
-          router.push(href, { scroll: false });
-          router.refresh();
-        };
         return (
           <Link
             key={tab.key}
             href={href}
-            onClick={handleClick}
             prefetch={false}
             className={`rounded-full border px-3 py-1 text-sm transition cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 ${
               active
