@@ -12,12 +12,12 @@ void test("dashboard route redirects by role", () => {
     "expected tenant redirect"
   );
   assert.ok(
-    contents.includes('redirect("/host")'),
-    "expected host redirect"
+    contents.includes('redirect("/dashboard/analytics")'),
+    "expected non-tenant redirect to analytics workspace"
   );
   assert.ok(
-    contents.includes('redirect("/admin")'),
-    "expected admin redirect to admin console"
+    !contents.includes('redirect("/admin")'),
+    "admin should stay on dashboard, not force-redirect to /admin"
   );
 });
 

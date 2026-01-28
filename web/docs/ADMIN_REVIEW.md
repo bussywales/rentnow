@@ -71,6 +71,13 @@
 - If service fetch fails (`serviceAttempted && !serviceOk`), the page shows the Service Error panel; no silent empty state.
 - `/admin` now embeds the same drawer and queue: clicking a property row opens the shared Review Drawer, using the same contracts, diagnostics, and error boundary. `/admin/review` remains a focused view but shares all logic.
 - `/admin` guards against crashes: the review panel is loaded via a client-only boundary with a fallback message that links to diagnostics and `/admin/review`, so the rest of the admin page stays available even when the drawer fails to load.
+- Review queue vs Listings:
+  - **Review queue tab**: pending/changes/approved/all filtered from `admin_review_view`, URL-driven selection `?id=` and `?view=`.
+  - **Listings tab**: all listings (same view/contract) with filters for status, price range, property type, beds, baths; rows can deep-link back to the Review drawer (`?tab=review&id=<uuid>`).
+- Intended routes:
+  - `/dashboard` is the default workspace for all authenticated roles (including admins).
+  - `/admin` is the admin console with Overview / Review queue / Listings tabs.
+  - `/admin/review` remains the focused Review Desk view and shares the drawer/contract.
 
 ### How review works (end-to-end)
 1) Queue is fetched server-side from `public.admin_review_view` (service role when available).  

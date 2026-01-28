@@ -21,6 +21,13 @@ export type AdminReviewListItem = {
   is_active?: boolean | null;
   rejectionReason?: string | null;
   reviewable?: boolean;
+  price?: number | null;
+  currency?: string | null;
+  rent_period?: string | null;
+  rental_type?: string | null;
+  listing_type?: string | null;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
 };
 
 export function parseSelectedId(

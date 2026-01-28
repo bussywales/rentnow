@@ -40,6 +40,14 @@ select
   p.location_label,
   p.location_place_id,
 
+  p.price,
+  p.currency,
+  p.rent_period,
+  p.rental_type,
+  p.listing_type,
+  p.bedrooms,
+  p.bathrooms,
+
   coalesce(img.photo_count, 0) as photo_count,
   coalesce(p.cover_image_url, img.first_image_url) as cover_image_url,
   (coalesce(img.photo_count, 0) > 0 or p.cover_image_url is not null) as has_cover,

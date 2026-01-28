@@ -107,6 +107,9 @@ export function buildStatusOrFilter(view: ReviewViewKey): string {
   if (view === "approved" || view === "all") {
     clauses.push(...approvedStatuses.map((s) => `status.eq.${s}`));
   }
+  if (view === "all") {
+    clauses.push(...sanitizeStatusSet(REJECTED_STATUS_LIST).map((s) => `status.eq.${s}`));
+  }
   return clauses.join(",");
 }
 
