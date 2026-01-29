@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import { z } from "zod";
@@ -514,6 +515,14 @@ export function AdminReviewDrawer({
             >
               {copiedId ? "Copied ID" : "Copy ID"}
             </button>
+            <Link
+              href={`/admin/listings/${encodeURIComponent(listing.id)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-sm"
+            >
+              Open inspector
+            </Link>
             <button
               type="button"
               className="rounded border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-sm"
