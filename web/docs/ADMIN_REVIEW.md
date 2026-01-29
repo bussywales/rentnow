@@ -65,6 +65,11 @@
 - Decision Desk layout is split-pane:
   - **Left**: saved views, filters, queue list (scrolls independently).
   - **Right**: inspector workspace (media + facts + checklist + actions).
+- Inspector above-the-fold contract:
+  - Sticky inspector header + media hero + key facts are visible without scrolling.
+  - Checklist stays collapsed by default with summary chips (expand on demand).
+  - Sticky decision bar is pinned to the bottom of the right pane.
+  - Left and right panes scroll independently; the page itself should not jump.
 - Click any row to select it; the drawer highlights the current row and loads details/media/location via `/api/admin/review/:id`.
 - Buttons:
   - **Approve listing** → `status=live`, `is_approved=true`, `approved_at` set, item removed from pending list.

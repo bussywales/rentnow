@@ -24,5 +24,6 @@ test("admin review desk renders and drawer opens (skip-safe)", async ({ page }) 
 
   await listButtons.click();
   await expect(page).toHaveURL(/id=/);
-  await expect(page.getByText("Overview")).toBeVisible();
+  await expect(page.getByText("Media")).toBeVisible();
+  await expect(page.locator("[data-admin-review-media-hero]")).toBeVisible();
 });

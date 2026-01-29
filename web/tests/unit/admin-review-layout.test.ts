@@ -20,4 +20,6 @@ void test("admin review decision desk renders split panes", () => {
     drawerContents.includes("Select a listing to review"),
     "expected empty state copy for right pane"
   );
+  assert.ok(drawerContents.includes("Media"), "expected media section marker in inspector");
+  assert.ok(drawerContents.includes("Key facts"), "expected key facts marker in inspector");
 });

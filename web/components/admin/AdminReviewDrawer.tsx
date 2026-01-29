@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import { z } from "zod";
@@ -237,6 +238,9 @@ export function AdminReviewDrawer({
   const canReview = listing?.reviewStage === "pending" || listing?.reviewStage === "changes" || listing?.reviewable === true;
   const checklistSummary = useMemo(() => getChecklistSummary(checklistState), [checklistState]);
   const missingLabels = formatChecklistMissingSections(checklistState);
+  const heroUrl = detail?.listing.cover_image_url ?? listing?.coverImageUrl ?? null;
+  const submittedAt = detail?.listing.submitted_at ?? listing?.submitted_at ?? null;
+  const updatedAt = detail?.listing.updated_at ?? listing?.updatedAt ?? null;
 
   const toggleReason = (code: ReviewReasonCode) => {
     setReasons((prev) => {
@@ -249,7 +253,7 @@ export function AdminReviewDrawer({
     });
   };
 
-  const handleSendRequest = async () => {
+  const handleSendRequest = useCallback(async () => {
     if (!listing) return;
     const validation = validateRequestChangesPayload(reasons, messageText);
     if (!validation.ok) {
@@ -277,9 +281,9 @@ export function AdminReviewDrawer({
     } finally {
       setSubmitting(null);
     }
-  };
+  }, [listing, messageText, onActionComplete, reasons]);
 
-  const handleApprove = async () => {
+  const handleApprove = useCallback(async () => {
     if (!listing) return;
     setSubmitting("approve");
     setToast(null);
@@ -296,9 +300,9 @@ export function AdminReviewDrawer({
     } finally {
       setSubmitting(null);
     }
-  };
+  }, [listing, onActionComplete]);
 
-  const handleReject = async () => {
+  const handleReject = useCallback(async () => {
     if (!listing) return;
     const reason = messageText.trim();
     if (!reason) {
@@ -324,7 +328,7 @@ export function AdminReviewDrawer({
     } finally {
       setSubmitting(null);
     }
-  };
+  }, [listing, messageText, onActionComplete]);
 
   useEffect(() => {
     if (!listing) return;
@@ -478,14 +482,21 @@ export function AdminReviewDrawer({
   return (
     <div className="flex h-full flex-col">
       <div className="sticky top-0 z-20 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <p className="text-lg font-semibold text-slate-900">{listing.title}</p>
-            <p className="text-sm text-slate-600">
-              {locationLine || "Location unknown"} · {listing.status || "pending"}
-            </p>
-            <p className="text-xs text-slate-500">Owner: {listing.hostName}</p>
-            {detailLoading && <p className="text-[11px] text-slate-500">Loading details…</p>}
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div className="min-w-[240px] flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="line-clamp-2 text-lg font-semibold text-slate-900">{listing.title}</p>
+              <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                {listing.status || "pending"}
+              </span>
+            </div>
+            <p className="text-sm text-slate-600">{locationLine || "Location unknown"}</p>
+            <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-500">
+              <span>Owner: {listing.hostName}</span>
+              {submittedAt && <span>Submitted: {submittedAt}</span>}
+              {updatedAt && <span>Updated: {updatedAt}</span>}
+              {detailLoading && <span>Loading details…</span>}
+            </div>
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-600">
             <button
@@ -554,7 +565,7 @@ export function AdminReviewDrawer({
         </div>
       )}
 
-      <div className="flex-1 divide-y divide-slate-100 pb-28">
+      <div className="flex-1 divide-y divide-slate-100 pb-32 pt-2">
         <section className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.media}</h3>
@@ -564,15 +575,28 @@ export function AdminReviewDrawer({
               </span>
             )}
           </div>
-          {detail?.listing.cover_image_url && (
-            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <div className="aspect-[16/9] w-full bg-slate-100">
-                <img src={detail.listing.cover_image_url} alt="Cover" className="h-full w-full object-cover" />
-              </div>
-              <div className="px-2 py-1 text-[11px] text-slate-600">Cover</div>
+          <div
+            className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
+            data-admin-review-media-hero
+          >
+            <div className="relative aspect-[16/9] w-full bg-slate-100">
+              {heroUrl ? (
+                <Image
+                  src={heroUrl}
+                  alt="Cover"
+                  fill
+                  sizes="(min-width: 1024px) 640px, 100vw"
+                  className="object-cover"
+                  priority
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
+                  No cover yet
+                </div>
+              )}
             </div>
-          )}
+            <div className="px-2 py-1 text-[11px] text-slate-600">Cover</div>
+          </div>
           {images.length === 0 && videos.length === 0 && (
             <p className="text-sm text-slate-600">No media found for this listing.</p>
           )}
@@ -581,12 +605,13 @@ export function AdminReviewDrawer({
               {images.map((img) => (
                 <div key={img.id} className="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                   {img.image_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <div className="aspect-[4/3] w-full bg-slate-100">
-                      <img
+                    <div className="relative aspect-[4/3] w-full bg-slate-100">
+                      <Image
                         src={img.image_url}
                         alt="Listing photo"
-                        className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                        fill
+                        sizes="(min-width: 1024px) 200px, 50vw"
+                        className="object-cover transition group-hover:scale-[1.02]"
                       />
                     </div>
                   ) : (
