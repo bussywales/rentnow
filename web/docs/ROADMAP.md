@@ -9,3 +9,6 @@
 - vR16.10.0: Admin UX blueprint complete — `/admin` overview cockpit, `/admin/review` decision desk, `/admin/listings` registry, `/admin/listings/[id]` inspector.
 - Next 1–2 releases: Saved searches in admin, sorting (relevance/newest/price/readiness), pagination + DB indexes, host/admin audit log filters.
 - Later (Airbnb+): Map-based search/radius, availability filters, quality-issues facets, consider materialized view or triggers if latency warrants; optional richer media for drawer only.
+
+## DevEx / CI hygiene
+- Baseline mapping warning is informational; ignore unless builds fail and revisit when upstream changes.

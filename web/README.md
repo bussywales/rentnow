@@ -21,6 +21,10 @@ AI-first rental platform for the African market. This MVP is a web-only PWA buil
 - If Node is below 20.9, `npm install` fails fast via `scripts/check-node.mjs` with a clear error.
 - CI-friendly validation: use `npm run lint:ci`, `npm run build:ci`, and `npm run test:e2e:ci` to skip execution with a clear message when Node <20.9.
 
+## Known build warnings
+- `[baseline-browser-mapping] The data in this module is over two months old…` is an upstream data freshness notice; we already pin the latest published version.
+- Ignore unless the build fails; only revisit if upstream releases change behavior.
+
 ## Project structure
 ```
 app/                # Routes (home, auth, onboarding, dashboard, admin, properties)
