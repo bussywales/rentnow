@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
-import { formatRelativeTime } from "@/lib/date/relative-time";
 import { z } from "zod";
 import { AdminReviewChecklistPanel } from "./AdminReviewChecklistPanel";
 import {
@@ -137,7 +136,6 @@ export function AdminReviewDrawer({
   canApprove = true,
   approveDisabledReason,
 }: Props) {
-  const isOpen = !!listing;
   const [reasons, setReasons] = useState<ReviewReasonCode[]>([]);
   const [messageText, setMessageText] = useState("");
   const [messageEdited, setMessageEdited] = useState(false);
