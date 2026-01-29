@@ -4,6 +4,7 @@ import {
   ADMIN_REVIEW_VIEW_TABLE,
   normalizeSelect,
 } from "@/lib/admin/admin-review-contracts";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
 import { ALLOWED_PROPERTY_STATUSES, normalizeStatus } from "@/lib/admin/admin-review-queue";
 
@@ -99,8 +100,10 @@ export function parseAdminListingsQuery(
   const missingCover = parseBool(readValue("missingCover"));
   const missingPhotos = parseBool(readValue("missingPhotos"));
   const missingLocation = parseBool(readValue("missingLocation"));
-  const priceMinRaw = Number(readValue("priceMin"));
-  const priceMaxRaw = Number(readValue("priceMax"));
+  const priceMinValue = readValue("priceMin");
+  const priceMaxValue = readValue("priceMax");
+  const priceMinRaw = priceMinValue ? Number(priceMinValue) : Number.NaN;
+  const priceMaxRaw = priceMaxValue ? Number(priceMaxValue) : Number.NaN;
   const priceMin = Number.isFinite(priceMinRaw) ? priceMinRaw : null;
   const priceMax = Number.isFinite(priceMaxRaw) ? priceMaxRaw : null;
 
@@ -124,14 +127,14 @@ export function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 }
 
-type AnyClient = any;
+type AdminListingsClient = SupabaseClient;
 
 export async function getAdminAllListings<Row>({
   client,
   query,
   select = ADMIN_REVIEW_QUEUE_SELECT,
 }: {
-  client: AnyClient;
+  client: AdminListingsClient;
   query: AdminListingsQuery;
   select?: string;
 }): Promise<AdminListingsResult<Row>> {
@@ -242,7 +245,7 @@ export async function getAdminListingStats<Row>({
   client,
   recentLimit = 10,
 }: {
-  client: AnyClient;
+  client: AdminListingsClient;
   recentLimit?: number;
 }): Promise<ListingStats<Row>> {
   const statusCounts: Record<string, number> = {};

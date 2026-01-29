@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { UpgradeRequestsQueue } from "@/components/admin/UpgradeRequestsQueue";
-import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { formatRoleLabel } from "@/lib/roles";
@@ -20,10 +19,6 @@ const STATUS_LABELS: Record<string, string> = {
   live: "Live",
   rejected: "Rejected",
   paused: "Paused",
-};
-
-type Props = {
-  searchParams: Record<string, string | string[] | undefined>;
 };
 
 type RawReviewRow = {
@@ -183,7 +178,7 @@ function formatStatusLabel(status: string | null | undefined) {
   return STATUS_LABELS[normalized] ?? normalized.toUpperCase();
 }
 
-export default async function AdminOverviewPage(_props: Props) {
+export default async function AdminOverviewPage() {
   const {
     stats,
     reviewCounts,

@@ -2,6 +2,7 @@
 
 import React from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 
 type Props = {
@@ -41,9 +42,15 @@ class ListingsPanelErrorBoundary extends React.Component<
           <div className="font-semibold text-amber-950">Listings temporarily unavailable</div>
           <p className="mt-1">Check diagnostics or reload the page.</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <a className="rounded border border-amber-300 px-3 py-1 underline" href="/api/admin/review/diagnostics">
+            <Link
+              className="rounded border border-amber-300 px-3 py-1 underline"
+              href="/api/admin/review/diagnostics"
+              target="_blank"
+              rel="noreferrer"
+              prefetch={false}
+            >
               Diagnostics
-            </a>
+            </Link>
             <button
               type="button"
               className="rounded border border-amber-300 px-3 py-1"
