@@ -5,6 +5,8 @@ import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import { formatRelativeTime } from "@/lib/date/relative-time";
 import { z } from "zod";
+import { AdminReviewChecklistPanel } from "./AdminReviewChecklistPanel";
+import { canApproveChecklist, type ReviewChecklist } from "@/lib/admin/admin-review-checklist";
 import {
   REVIEW_REASONS,
   buildRequestChangesMessage,
@@ -89,6 +91,28 @@ const detailSchema = z.object({
     .optional(),
 });
 
+const CHECKLIST_SECTIONS: { key: "media" | "location" | "pricing" | "content" | "policy"; label: string }[] = [
+  { key: "media", label: "Media" },
+  { key: "location", label: "Location" },
+  { key: "pricing", label: "Pricing" },
+  { key: "content", label: "Content" },
+  { key: "policy", label: "Policy" },
+];
+
+function ChecklistChip({ status }: { status: "pass" | "needs_fix" | "blocker" | null | undefined }) {
+  if (!status) {
+    return <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-500">Not set</span>;
+  }
+  const tone =
+    status === "pass"
+      ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+      : status === "blocker"
+        ? "border-rose-200 bg-rose-50 text-rose-700"
+        : "border-amber-200 bg-amber-50 text-amber-700";
+  const label = status === "needs_fix" ? "Needs fix" : status === "blocker" ? "Blocker" : "Pass";
+  return <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${tone}`}>{label}</span>;
+}
+
 export function AdminReviewDrawer({
   listing,
   onClose,
@@ -119,6 +143,11 @@ export function AdminReviewDrawer({
   const [templateName, setTemplateName] = useState("");
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [templateDeleting, setTemplateDeleting] = useState(false);
+  const [checklistState, setChecklistState] = useState<ReviewChecklist | null>(null);
+  const approveGuard = useMemo(() => canApproveChecklist(checklistState), [checklistState]);
+  const effectiveCanApprove = canApprove ?? approveGuard.ok;
+  const approveReason = approveDisabledReason ?? approveGuard.reason;
+  const [copiedId, setCopiedId] = useState(false);
   const navIds = filteredIds;
   const currentIndex = useMemo(() => (listing ? navIds.indexOf(listing.id) : -1), [listing, navIds]);
   const prevId = currentIndex > 0 ? navIds[currentIndex - 1] : null;
@@ -134,9 +163,11 @@ export function AdminReviewDrawer({
       setDetailData(null);
       setDetailError(null);
       setDetailLoading(false);
+      setChecklistState(null);
       return;
     }
     setSelectedIdSnapshot(listing.id);
+    setChecklistState(null);
     const parsed = parseRejectionReason(listing.rejectionReason);
     const normalized = normalizeReasons(parsed.reasons);
     const initialMessage = parsed.message || buildRequestChangesMessage(normalized);
@@ -404,38 +435,67 @@ export function AdminReviewDrawer({
     }
   };
 
-  if (!listing && !hasListings) {
+  if (!listing) {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-6 text-sm text-slate-600 shadow-sm">
-        <p className="font-semibold text-slate-900">{ADMIN_REVIEW_COPY.list.emptyTitle}</p>
-        <p>{ADMIN_REVIEW_COPY.list.emptyBody}</p>
+      <div className="flex h-full flex-col">
+        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3">
+          <div className="text-sm font-semibold text-slate-900">Review workspace</div>
+          <p className="text-xs text-slate-600">Select a listing to review</p>
+        </div>
+        <div className="flex flex-1 items-center justify-center px-6 text-center text-sm text-slate-600">
+          {hasListings ? (
+            <div>
+              <p className="font-semibold text-slate-900">Select a listing to review</p>
+              <p className="text-xs text-slate-600">Queue size: {filteredIds.length}</p>
+            </div>
+          ) : (
+            <div>
+              <p className="font-semibold text-slate-900">{ADMIN_REVIEW_COPY.list.emptyTitle}</p>
+              <p className="text-xs text-slate-600">{ADMIN_REVIEW_COPY.list.emptyBody}</p>
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div
-      className={`rounded-2xl border border-slate-200 bg-white shadow-sm transition ${
-        isOpen ? "opacity-100" : "opacity-60"
-      }`}
-    >
-      <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">
-            {listing?.title || ADMIN_REVIEW_COPY.list.noSelection}
-          </p>
-          {listing?.updatedAt && (
-            <p className="text-xs text-slate-600">Updated {formatRelativeTime(listing.updatedAt)}</p>
-          )}
+    <div className="flex h-full flex-col">
+      <div className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-slate-900">{listing.title}</p>
+            <p className="text-xs text-slate-600">
+              {locationLine || "Location unknown"} · {listing.status || "pending"}
+            </p>
+            <p className="text-[11px] text-slate-500">Owner: {listing.hostName}</p>
+            {detailLoading && <p className="text-[11px] text-slate-500">Loading details…</p>}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-slate-600">
+            <button
+              type="button"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard?.writeText(listing.id);
+                  setCopiedId(true);
+                  setTimeout(() => setCopiedId(false), 1500);
+                } catch {
+                  /* ignore */
+                }
+              }}
+              className="rounded border border-slate-200 px-2 py-1"
+            >
+              {copiedId ? "Copied ID" : "Copy ID"}
+            </button>
+            <button
+              type="button"
+              className="rounded border border-slate-200 px-2 py-1"
+              onClick={onClose}
+            >
+              {ADMIN_REVIEW_COPY.drawer.close}
+            </button>
+          </div>
         </div>
-        <button
-          type="button"
-          className="text-sm text-slate-500 hover:text-slate-800"
-          onClick={onClose}
-          disabled={!isOpen}
-        >
-          {ADMIN_REVIEW_COPY.drawer.close}
-        </button>
       </div>
 
       {toast && (
@@ -465,7 +525,7 @@ export function AdminReviewDrawer({
           </button>
         </div>
       )}
-      {isHiddenByFilters && listing && (
+      {isHiddenByFilters && (
         <div className="mx-4 mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
           {ADMIN_REVIEW_COPY.list.hiddenNotice}{" "}
           <button
@@ -478,77 +538,7 @@ export function AdminReviewDrawer({
         </div>
       )}
 
-      <div className="divide-y divide-slate-200">
-        <section className="p-4 space-y-2">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.overview}</h3>
-              <p className="mt-1 text-sm text-slate-700">
-                {listing
-                  ? `${listing.readiness.tier} (${listing.readiness.score}) · ${locationLine || "Location unknown"}`
-                  : ADMIN_REVIEW_COPY.drawer.placeholder}
-              </p>
-              {listing && (
-                <p className="text-xs text-slate-600">
-                  Host: {listing.hostName} · Updated {listing.updatedAt ? formatRelativeTime(listing.updatedAt) : "—"}
-                </p>
-              )}
-            </div>
-            {detailLoading && <span className="text-xs text-slate-500">Loading…</span>}
-            {detailError && <span className="text-xs text-rose-600">{detailError}</span>}
-          </div>
-          {detail && (
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-slate-700">
-              <dt className="font-semibold text-slate-900">Status</dt>
-              <dd className="capitalize">{detail.listing.status || "pending"}</dd>
-              <dt className="font-semibold text-slate-900">Submitted</dt>
-              <dd>{detail.listing.submitted_at || "—"}</dd>
-              <dt className="font-semibold text-slate-900">Photos</dt>
-              <dd>{detail.listing.photo_count ?? 0}</dd>
-              <dt className="font-semibold text-slate-900">Video</dt>
-              <dd>{detail.listing.has_video ? "Yes" : "No"}</dd>
-              <dt className="font-semibold text-slate-900">Cover</dt>
-              <dd>{detail.listing.cover_image_url ? "Set" : "Missing"}</dd>
-              <dt className="font-semibold text-slate-900">Owner</dt>
-              <dd>{listing?.hostName || detail.listing.id}</dd>
-              <dt className="font-semibold text-slate-900">Active</dt>
-              <dd>
-                {detail.listing.is_active === null || detail.listing.is_active === undefined
-                  ? "—"
-                  : detail.listing.is_active
-                    ? "Yes"
-                    : "No"}
-              </dd>
-              <dt className="font-semibold text-slate-900">Price</dt>
-              <dd>
-                {detail.listing.price === null || detail.listing.price === undefined
-                  ? "—"
-                  : `${detail.listing.currency || "NGN"} ${detail.listing.price}`}
-                {detail.listing.rent_period ? ` / ${detail.listing.rent_period}` : ""}
-              </dd>
-              <dt className="font-semibold text-slate-900">Type</dt>
-              <dd>{detail.listing.listing_type || detail.listing.rental_type || "—"}</dd>
-              <dt className="font-semibold text-slate-900">Beds/Baths</dt>
-              <dd>
-                {detail.listing.bedrooms ?? "—"} bd · {detail.listing.bathrooms ?? "—"} ba
-              </dd>
-            </dl>
-          )}
-          {listing && (
-            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
-              <div className="font-semibold text-slate-900">Risk flags</div>
-              <ul className="mt-1 list-disc pl-4">
-                {!listing.hasCover || listing.photoCount === 0 ? (
-                  <li>Missing cover or photos</li>
-                ) : null}
-                {listing.locationQuality !== "strong" ? <li>Location needs verification</li> : null}
-                {listing.price == null || !listing.currency ? <li>Pricing incomplete</li> : null}
-                {listing.title.length < 10 ? <li>Title is short</li> : null}
-                {listing.hasVideo ? null : <li>No video uploaded</li>}
-              </ul>
-            </div>
-          )}
-        </section>
+      <div className="flex-1 divide-y divide-slate-200 pb-24">
         <section className="p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.media}</h3>
@@ -561,7 +551,7 @@ export function AdminReviewDrawer({
           {detail?.listing.cover_image_url && (
             <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={detail.listing.cover_image_url} alt="Cover" className="h-40 w-full object-cover" />
+              <img src={detail.listing.cover_image_url} alt="Cover" className="h-48 w-full object-cover" />
               <div className="px-2 py-1 text-[11px] text-slate-600">Cover</div>
             </div>
           )}
@@ -596,9 +586,49 @@ export function AdminReviewDrawer({
             </div>
           )}
         </section>
-        <section className="p-4 space-y-2">
-          <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.location}</h3>
-          {detail ? (
+
+        <section className="p-4 space-y-3">
+          <h3 className="text-sm font-semibold text-slate-900">Key facts</h3>
+          <div className="grid gap-2 sm:grid-cols-2 text-xs text-slate-700">
+            <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+              Price:{" "}
+              {detail?.listing.price === null || detail?.listing.price === undefined
+                ? "—"
+                : `${detail.listing.currency || "NGN"} ${detail.listing.price}`}
+              {detail?.listing.rent_period ? ` / ${detail.listing.rent_period}` : ""}
+            </div>
+            <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+              Beds/Baths: {detail?.listing.bedrooms ?? "—"} bd · {detail?.listing.bathrooms ?? "—"} ba
+            </div>
+            <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+              Type: {detail?.listing.listing_type || detail?.listing.rental_type || "—"}
+            </div>
+            <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+              Active:{" "}
+              {detail?.listing.is_active === null || detail?.listing.is_active === undefined
+                ? "—"
+                : detail.listing.is_active
+                  ? "Yes"
+                  : "No"}
+            </div>
+            <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+              Submitted: {detail?.listing.submitted_at || "—"}
+            </div>
+            <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+              Updated: {detail?.listing.updated_at || "—"}
+            </div>
+          </div>
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+            <div className="font-semibold text-slate-900">Risk flags</div>
+            <ul className="mt-1 list-disc pl-4">
+              {!listing.hasCover || listing.photoCount === 0 ? <li>Missing cover or photos</li> : null}
+              {listing.locationQuality !== "strong" ? <li>Location needs verification</li> : null}
+              {listing.price == null || !listing.currency ? <li>Pricing incomplete</li> : null}
+              {listing.title.length < 10 ? <li>Title is short</li> : null}
+              {listing.hasVideo ? null : <li>No video uploaded</li>}
+            </ul>
+          </div>
+          {detail && (
             <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-700">
               <dt className="font-semibold text-slate-900">City</dt>
               <dd>{detail.listing.city || "—"}</dd>
@@ -615,25 +645,125 @@ export function AdminReviewDrawer({
               <dt className="font-semibold text-slate-900">Label</dt>
               <dd>{detail.listing.location_label || "—"}</dd>
             </dl>
-          ) : (
-            <p className="text-sm text-slate-600">Location details will appear here.</p>
           )}
         </section>
+
         <section className="p-4">
-          <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.notes}</h3>
-          <p className="mt-2 text-sm text-slate-600">
-            {listing ? "Internal notes (read-only in this slice)." : ADMIN_REVIEW_COPY.list.noSelection}
-          </p>
+          <details className="rounded-xl border border-slate-200 bg-white p-3">
+            <summary className="flex cursor-pointer flex-wrap items-center gap-3 text-sm font-semibold text-slate-900">
+              Review checklist
+              <div className="flex flex-wrap items-center gap-2 text-[11px] font-medium text-slate-600">
+                {CHECKLIST_SECTIONS.map((section) => (
+                  <span key={section.key} className="flex items-center gap-1">
+                    {section.label}
+                    <ChecklistChip status={checklistState?.sections?.[section.key] ?? null} />
+                  </span>
+                ))}
+              </div>
+            </summary>
+            <div className="mt-3">
+              <AdminReviewChecklistPanel listing={listing} onChecklistChange={setChecklistState} />
+            </div>
+          </details>
         </section>
+
+        <section className="p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.reasonsTitle}</h3>
+            <button
+              type="button"
+              className="text-xs text-slate-600 underline underline-offset-2"
+              onClick={() => {
+                setMessageText(buildRequestChangesMessage(reasons));
+                setMessageEdited(false);
+              }}
+            >
+              {ADMIN_REVIEW_COPY.drawer.regenerate}
+            </button>
+          </div>
+          <div className="grid grid-cols-1 gap-2 text-sm text-slate-700">
+            {REVIEW_REASONS.map((reason) => (
+              <label key={reason.code} className="flex items-start gap-2">
+                <input
+                  type="checkbox"
+                  className="mt-1"
+                  checked={reasons.includes(reason.code)}
+                  onChange={() => toggleReason(reason.code)}
+                />
+                <span>{reason.label}</span>
+              </label>
+            ))}
+          </div>
+          <div className="mt-3 space-y-1">
+            <label className="text-xs font-semibold text-slate-800">
+              {ADMIN_REVIEW_COPY.drawer.messageLabel}
+              <textarea
+                value={messageText}
+                onChange={(e) => {
+                  setMessageText(e.target.value);
+                  setMessageEdited(true);
+                }}
+                className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                rows={4}
+                placeholder={ADMIN_REVIEW_COPY.drawer.messageHelper}
+              />
+            </label>
+            <p className="text-xs text-slate-600">{ADMIN_REVIEW_COPY.drawer.messageHelper}</p>
+          </div>
+          <div className="mt-3 rounded-md border border-slate-200 bg-white p-2">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <label className="font-semibold text-slate-700">Templates</label>
+              <select
+                value={selectedTemplateId ?? ""}
+                onChange={(e) => applyTemplate(e.target.value)}
+                className="rounded border border-slate-200 px-2 py-1 text-xs"
+              >
+                <option value="">Select template</option>
+                {templates.map((template) => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+              {selectedTemplateId && (
+                <button
+                  type="button"
+                  onClick={deleteTemplate}
+                  disabled={templateDeleting}
+                  className="rounded border border-slate-300 px-2 py-1 text-xs text-rose-700"
+                >
+                  {templateDeleting ? "Deleting…" : "Delete"}
+                </button>
+              )}
+            </div>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="Template name"
+                className="rounded border border-slate-300 px-2 py-1 text-xs"
+              />
+              <button
+                type="button"
+                onClick={saveTemplate}
+                className="rounded border border-slate-300 px-2 py-1 text-xs"
+              >
+                Save as template
+              </button>
+            </div>
+          </div>
+          <div className="mt-3 rounded-md border border-slate-200 bg-white p-2">
+            <p className="text-xs font-semibold text-slate-800">{ADMIN_REVIEW_COPY.drawer.previewLabel}</p>
+            <pre className="whitespace-pre-wrap text-xs text-slate-700">{previewMessage}</pre>
+          </div>
+        </section>
+
         <section className="p-4 space-y-2">
           <h3 className="text-sm font-semibold text-slate-900">Activity</h3>
           <ul className="space-y-2 text-xs text-slate-700">
-            {detail?.listing?.submitted_at && (
-              <li>Submitted: {detail.listing.submitted_at}</li>
-            )}
-            {detail?.listing?.updated_at && (
-              <li>Updated: {detail.listing.updated_at}</li>
-            )}
+            {detail?.listing?.submitted_at && <li>Submitted: {detail.listing.submitted_at}</li>}
+            {detail?.listing?.updated_at && <li>Updated: {detail.listing.updated_at}</li>}
             {activity.map((item) => (
               <li key={item.id} className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
                 <div className="font-semibold text-slate-900">
@@ -652,162 +782,8 @@ export function AdminReviewDrawer({
             {!activity.length && <li>No review activity yet.</li>}
           </ul>
         </section>
-        {listing && actionsEnabled && (
-          <section className="sticky bottom-0 flex flex-col gap-3 border-t border-slate-200 bg-white p-4">
-            <div className="flex items-center justify-between text-xs text-slate-600">
-              <button
-                type="button"
-                disabled={!prevId}
-                onClick={() => prevId && onNavigate(prevId)}
-                className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
-              >
-                {ADMIN_REVIEW_COPY.drawer.previous}
-              </button>
-              <button
-                type="button"
-                disabled={!nextId}
-                onClick={() => nextId && onNavigate(nextId)}
-                className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
-              >
-                {ADMIN_REVIEW_COPY.drawer.next}
-              </button>
-            </div>
-            <button
-              type="button"
-              disabled={submitting !== null || !canApprove}
-              onClick={handleApprove}
-              className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
-            >
-                {submitting === "approve" ? "Approving..." : "Approve listing"}
-              </button>
-            {!canApprove && approveDisabledReason && (
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                {approveDisabledReason}
-              </div>
-            )}
-            <button
-              type="button"
-              disabled={submitting !== null}
-              onClick={handleReject}
-              className="inline-flex items-center justify-center rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60"
-            >
-              {submitting === "reject" ? "Rejecting..." : "Reject listing"}
-            </button>
-            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.reasonsTitle}</h4>
-                <button
-                  type="button"
-                  className="text-xs text-slate-600 underline underline-offset-2"
-                  onClick={() => {
-                    setMessageText(buildRequestChangesMessage(reasons));
-                    setMessageEdited(false);
-                  }}
-                >
-                  {ADMIN_REVIEW_COPY.drawer.regenerate}
-                </button>
-              </div>
-              <div className="mt-2 grid grid-cols-1 gap-2 text-sm text-slate-700">
-                {REVIEW_REASONS.map((reason) => (
-                  <label key={reason.code} className="flex items-start gap-2">
-                    <input
-                      type="checkbox"
-                      className="mt-1"
-                      checked={reasons.includes(reason.code)}
-                      onChange={() => toggleReason(reason.code)}
-                    />
-                    <span>{reason.label}</span>
-                  </label>
-                ))}
-              </div>
-              <div className="mt-3 space-y-1">
-                <label className="text-xs font-semibold text-slate-800">
-                  {ADMIN_REVIEW_COPY.drawer.messageLabel}
-                  <textarea
-                    value={messageText}
-                    onChange={(e) => {
-                      setMessageText(e.target.value);
-                      setMessageEdited(true);
-                    }}
-                    className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
-                    rows={4}
-                    placeholder={ADMIN_REVIEW_COPY.drawer.messageHelper}
-                  />
-                </label>
-                <p className="text-xs text-slate-600">{ADMIN_REVIEW_COPY.drawer.messageHelper}</p>
-              </div>
-              <div className="mt-3 rounded-md border border-slate-200 bg-white p-2">
-                <div className="flex flex-wrap items-center gap-2 text-xs">
-                  <label className="font-semibold text-slate-700">Templates</label>
-                  <select
-                    value={selectedTemplateId ?? ""}
-                    onChange={(e) => applyTemplate(e.target.value)}
-                    className="rounded border border-slate-200 px-2 py-1 text-xs"
-                  >
-                    <option value="">Select template</option>
-                    {templates.map((template) => (
-                      <option key={template.id} value={template.id}>
-                        {template.name}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedTemplateId && (
-                    <button
-                      type="button"
-                      onClick={deleteTemplate}
-                      disabled={templateDeleting}
-                      className="rounded border border-slate-300 px-2 py-1 text-xs text-rose-700"
-                    >
-                      {templateDeleting ? "Deleting…" : "Delete"}
-                    </button>
-                  )}
-                </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                  <input
-                    type="text"
-                    value={templateName}
-                    onChange={(e) => setTemplateName(e.target.value)}
-                    placeholder="Template name"
-                    className="rounded border border-slate-300 px-2 py-1 text-xs"
-                  />
-                  <button
-                    type="button"
-                    onClick={saveTemplate}
-                    className="rounded border border-slate-300 px-2 py-1 text-xs"
-                  >
-                    Save as template
-                  </button>
-                </div>
-              </div>
-              <div className="mt-3 rounded-md border border-slate-200 bg-white p-2">
-                <p className="text-xs font-semibold text-slate-800">{ADMIN_REVIEW_COPY.drawer.previewLabel}</p>
-                <pre className="whitespace-pre-wrap text-xs text-slate-700">{previewMessage}</pre>
-              </div>
-              <div className="mt-3 flex items-center gap-2">
-                <button
-                  type="button"
-                  disabled={submitting !== null}
-                  onClick={handleSendRequest}
-                  className="inline-flex items-center justify-center rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
-                >
-                {submitting === "request" ? "Sending..." : ADMIN_REVIEW_COPY.drawer.sendRequest}
-              </button>
-                <button
-                  type="button"
-                  className="text-xs text-slate-600 hover:text-slate-800"
-                  onClick={() => {
-                    setMessageEdited(false);
-                    setToast(null);
-                  }}
-                  disabled={submitting !== null}
-                >
-                  {ADMIN_REVIEW_COPY.drawer.cancelRequest}
-                </button>
-              </div>
-            </div>
-          </section>
-        )}
-        {listing && !actionsEnabled && (
+
+        {!actionsEnabled && (
           <section className="p-4">
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
               This listing is read-only in the Listings registry.{" "}
@@ -821,10 +797,61 @@ export function AdminReviewDrawer({
             </div>
           </section>
         )}
-        {!listing && hasListings && (
-          <section className="p-4 text-sm text-slate-600">{ADMIN_REVIEW_COPY.list.noSelection}</section>
-        )}
       </div>
+
+      {actionsEnabled && (
+        <section className="sticky bottom-0 z-20 border-t border-slate-200 bg-white p-4">
+          <div className="flex items-center justify-between text-xs text-slate-600">
+            <button
+              type="button"
+              disabled={!prevId}
+              onClick={() => prevId && onNavigate(prevId)}
+              className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {ADMIN_REVIEW_COPY.drawer.previous}
+            </button>
+            <button
+              type="button"
+              disabled={!nextId}
+              onClick={() => nextId && onNavigate(nextId)}
+              className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
+            >
+              {ADMIN_REVIEW_COPY.drawer.next}
+            </button>
+          </div>
+          <div className="mt-3 flex flex-col gap-2">
+            <button
+              type="button"
+              disabled={submitting !== null || !effectiveCanApprove}
+              onClick={handleApprove}
+              className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+            >
+              {submitting === "approve" ? "Approving..." : "Approve listing"}
+            </button>
+            {!effectiveCanApprove && approveReason && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {approveReason}
+              </div>
+            )}
+            <button
+              type="button"
+              disabled={submitting !== null}
+              onClick={handleSendRequest}
+              className="inline-flex items-center justify-center rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+            >
+              {submitting === "request" ? "Sending..." : ADMIN_REVIEW_COPY.drawer.sendRequest}
+            </button>
+            <button
+              type="button"
+              disabled={submitting !== null}
+              onClick={handleReject}
+              className="inline-flex items-center justify-center rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60"
+            >
+              {submitting === "reject" ? "Rejecting..." : "Reject listing"}
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }

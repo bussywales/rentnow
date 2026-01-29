@@ -62,6 +62,9 @@
 
 ## Using Review Desk (admins)
 - Open `/admin/review`; the first pending listing auto-selects.
+- Decision Desk layout is split-pane:
+  - **Left**: saved views, filters, queue list (scrolls independently).
+  - **Right**: inspector workspace (media + facts + checklist + actions).
 - Click any row to select it; the drawer highlights the current row and loads details/media/location via `/api/admin/review/:id`.
 - Buttons:
   - **Approve listing** → `status=live`, `is_approved=true`, `approved_at` set, item removed from pending list.

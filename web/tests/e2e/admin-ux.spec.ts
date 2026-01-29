@@ -21,6 +21,7 @@ test.describe("admin UX blueprint", () => {
       await expect(page).toHaveURL(/\/admin\/review\?id=/);
       await expect(page.getByRole("button", { name: /approve listing/i })).toBeVisible();
       await expect(page.getByText(/review checklist/i)).toBeVisible();
+      await expect(page.getByRole("heading", { name: /media/i })).toBeVisible();
       if ((await reviewRows.count()) > 1) {
         const currentUrl = page.url();
         await page.keyboard.press("j");

@@ -11,8 +11,7 @@ import {
   type AdminReviewFilters,
 } from "@/lib/admin/admin-review";
 import { AdminReviewDrawer } from "./AdminReviewDrawer";
-import { AdminReviewChecklistPanel } from "./AdminReviewChecklistPanel";
-import { canApproveChecklist, type ReviewChecklist } from "@/lib/admin/admin-review-checklist";
+import AdminSavedViews from "./AdminSavedViews";
 import { AdminReviewList } from "./AdminReviewList";
 import { useAdminReviewView, type AdminReviewView } from "@/lib/admin/admin-review-view";
 import { DrawerErrorBoundary } from "./AdminReviewShell";
@@ -78,7 +77,7 @@ export function AdminReviewDesk({
   const handleSelect = useCallback(
     (id: string) => {
       console.log("[AdminReviewDesk] select click", { id, pathname, view });
-      router.push(buildUrlWithId(id), { scroll: false });
+      router.replace(buildUrlWithId(id), { scroll: false });
     },
     [buildUrlWithId, router, pathname, view]
   );
@@ -113,8 +112,6 @@ export function AdminReviewDesk({
     () => items.find((item) => item.id === selectedId) || null,
     [items, selectedId]
   );
-  const [checklistState, setChecklistState] = useState<ReviewChecklist | null>(null);
-  const approveGuard = useMemo(() => canApproveChecklist(checklistState), [checklistState]);
   const selectedVisible = !!visibleItems.find((i) => i.id === selectedId);
 
   // Auto-select first item to keep drawer functional when arriving without id
@@ -133,22 +130,15 @@ export function AdminReviewDesk({
   }, [allowed, updateView, view]);
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="p-4">
-          <div className="hidden lg:block">
-            <AdminReviewChecklistPanel listing={selectedListing} onChecklistChange={setChecklistState} />
-          </div>
-          <div className="lg:hidden">
-            <details className="rounded-xl border border-slate-200 bg-white p-3">
-              <summary className="cursor-pointer text-sm font-semibold text-slate-900">Review checklist</summary>
-              <div className="mt-3">
-                <AdminReviewChecklistPanel listing={selectedListing} onChecklistChange={setChecklistState} />
-              </div>
-            </details>
-          </div>
-        </div>
-        <div className="border-b border-slate-200 px-4 py-3 space-y-2">
+    <div
+      className="flex h-[calc(100vh-140px)] flex-col gap-4 overflow-hidden lg:flex-row"
+      data-admin-review-layout="split"
+    >
+      <aside
+        className="w-full flex-shrink-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-sm lg:max-w-[420px]"
+        data-admin-review-pane="left"
+      >
+        <div className="border-b border-slate-200 px-4 py-4 space-y-3">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.savedViews}</p>
@@ -162,6 +152,7 @@ export function AdminReviewDesk({
               {ADMIN_REVIEW_COPY.views.reset}
             </button>
           </div>
+          <AdminSavedViews route="/admin/review" />
           <div className="flex flex-wrap gap-2">
             {(allowed as AdminReviewView[]).map((key) => {
               const fallbackLabel = ADMIN_REVIEW_COPY.views[key];
@@ -246,39 +237,42 @@ export function AdminReviewDesk({
             <p className="text-slate-600">{ADMIN_REVIEW_COPY.list.emptyBody}</p>
           </div>
         )}
-      </div>
+      </aside>
 
-      <DrawerErrorBoundary selectedId={selectedListing?.id ?? null}>
-        <AdminReviewDrawer
-          listing={selectedListing}
-          onClose={handleClose}
-          locationLine={selectedListing ? formatLocationLine(selectedListing) : ""}
-          onActionComplete={handleActionComplete}
-          isHiddenByFilters={!!selectedId && !selectedVisible}
-          onShowHidden={() => {
-            setFilters(defaultFilters);
-            let nextView: AdminReviewView | null = null;
-            if (selectedListing?.reviewStage === "changes") {
-              nextView = "changes";
-            } else if (selectedListing?.status === "live" || selectedListing?.status === "approved") {
-              nextView = "approved";
-            } else if (selectedListing) {
-              nextView = "pending";
-            }
-            if (nextView && allowed.includes(nextView)) {
-              updateView(nextView);
-            } else if (selectedListing && allowed.length) {
-              updateView(allowed[0]);
-            }
-          }}
-          filteredIds={visibleItems.map((i) => i.id)}
-          onNavigate={(id) => handleSelect(id)}
-          hasListings={items.length > 0}
-          actionsEnabled={actionsEnabled}
-          canApprove={approveGuard.ok}
-          approveDisabledReason={approveGuard.reason}
-        />
-      </DrawerErrorBoundary>
+      <section
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-sm"
+        data-admin-review-pane="right"
+      >
+        <DrawerErrorBoundary selectedId={selectedListing?.id ?? null}>
+          <AdminReviewDrawer
+            listing={selectedListing}
+            onClose={handleClose}
+            locationLine={selectedListing ? formatLocationLine(selectedListing) : ""}
+            onActionComplete={handleActionComplete}
+            isHiddenByFilters={!!selectedId && !selectedVisible}
+            onShowHidden={() => {
+              setFilters(defaultFilters);
+              let nextView: AdminReviewView | null = null;
+              if (selectedListing?.reviewStage === "changes") {
+                nextView = "changes";
+              } else if (selectedListing?.status === "live" || selectedListing?.status === "approved") {
+                nextView = "approved";
+              } else if (selectedListing) {
+                nextView = "pending";
+              }
+              if (nextView && allowed.includes(nextView)) {
+                updateView(nextView);
+              } else if (selectedListing && allowed.length) {
+                updateView(allowed[0]);
+              }
+            }}
+            filteredIds={visibleItems.map((i) => i.id)}
+            onNavigate={(id) => handleSelect(id)}
+            hasListings={items.length > 0}
+            actionsEnabled={actionsEnabled}
+          />
+        </DrawerErrorBoundary>
+      </section>
     </div>
   );
 }
