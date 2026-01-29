@@ -1,18 +1,20 @@
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import { parseAdminListingsQuery } from "@/lib/admin/admin-listings";
 
 describe("admin listings query parsing", () => {
-  test("defaults are applied when params missing", () => {
+  it("defaults are applied when params missing", () => {
     const parsed = parseAdminListingsQuery({});
-    expect(parsed.q).toBeNull();
-    expect(parsed.qMode).toBe("title");
-    expect(parsed.statuses).toEqual([]);
-    expect(parsed.active).toBe("all");
-    expect(parsed.page).toBe(1);
-    expect(parsed.pageSize).toBeGreaterThanOrEqual(10);
-    expect(parsed.sort).toBe("updated_desc");
+    assert.equal(parsed.q, null);
+    assert.equal(parsed.qMode, "title");
+    assert.deepEqual(parsed.statuses, []);
+    assert.equal(parsed.active, "all");
+    assert.equal(parsed.page, 1);
+    assert.ok(parsed.pageSize >= 10);
+    assert.equal(parsed.sort, "updated_desc");
   });
 
-  test("parses provided query params", () => {
+  it("parses provided query params", () => {
     const parsed = parseAdminListingsQuery({
       q: "Lagos",
       qMode: "title",
@@ -22,31 +24,32 @@ describe("admin listings query parsing", () => {
       pageSize: "25",
       sort: "updated_asc",
     });
-    expect(parsed.q).toBe("Lagos");
-    expect(parsed.qMode).toBe("title");
-    expect(parsed.statuses).toEqual(expect.arrayContaining(["live", "pending"]));
-    expect(parsed.active).toBe("true");
-    expect(parsed.page).toBe(2);
-    expect(parsed.pageSize).toBe(25);
-    expect(parsed.sort).toBe("updated_asc");
+    assert.equal(parsed.q, "Lagos");
+    assert.equal(parsed.qMode, "title");
+    assert.ok(parsed.statuses.includes("live"));
+    assert.ok(parsed.statuses.includes("pending"));
+    assert.equal(parsed.active, "true");
+    assert.equal(parsed.page, 2);
+    assert.equal(parsed.pageSize, 25);
+    assert.equal(parsed.sort, "updated_asc");
   });
 
-  test("detects uuid and defaults to id mode when qMode missing", () => {
+  it("detects uuid and defaults to id mode when qMode missing", () => {
     const parsed = parseAdminListingsQuery({
       q: "dad2bb26-fe36-4096-b81a-f86d230f9b3d",
     });
-    expect(parsed.q).toBe("dad2bb26-fe36-4096-b81a-f86d230f9b3d");
-    expect(parsed.qMode).toBe("id");
+    assert.equal(parsed.q, "dad2bb26-fe36-4096-b81a-f86d230f9b3d");
+    assert.equal(parsed.qMode, "id");
   });
 
-  test("invalid status and active fall back safely", () => {
+  it("invalid status and active fall back safely", () => {
     const parsed = parseAdminListingsQuery({
       status: "bogus",
       active: "nope",
       page: "-1",
     });
-    expect(parsed.statuses).toEqual([]);
-    expect(parsed.active).toBe("all");
-    expect(parsed.page).toBe(1);
+    assert.deepEqual(parsed.statuses, []);
+    assert.equal(parsed.active, "all");
+    assert.equal(parsed.page, 1);
   });
 });

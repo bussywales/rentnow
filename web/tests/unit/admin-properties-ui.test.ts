@@ -3,31 +3,26 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-void test("admin properties UI uses single bulk bar and checkbox column", () => {
+void test("admin overview + listings registry are wired to new workspaces", () => {
   const adminPath = path.join(process.cwd(), "app", "admin", "page.tsx");
   const adminContents = fs.readFileSync(adminPath, "utf8");
   assert.ok(
-    adminContents.includes("<PropertyBulkActions"),
-    "expected bulk actions component on admin page"
+    adminContents.includes("Control panel"),
+    "expected overview control panel heading"
   );
-  const listPath = path.join(process.cwd(), "components", "admin", "AdminReviewListCards.tsx");
-  const listContents = fs.readFileSync(listPath, "utf8");
   assert.ok(
-    adminContents.includes("name=\"ids\"") || listContents.includes("name=\"ids\""),
-    "expected checkbox ids in rows"
+    adminContents.includes("href=\"/admin/review\""),
+    "expected link to /admin/review in overview"
+  );
+  assert.ok(
+    adminContents.includes("href=\"/admin/listings\""),
+    "expected link to /admin/listings in overview"
   );
 
-  const bulkPath = path.join(
-    process.cwd(),
-    "components",
-    "admin",
-    "PropertyBulkActions.tsx"
+  const listingsPath = path.join(process.cwd(), "app", "admin", "listings", "page.tsx");
+  const listingsContents = fs.readFileSync(listingsPath, "utf8");
+  assert.ok(
+    listingsContents.includes("Listings registry"),
+    "expected listings registry heading"
   );
-  const bulkContents = fs.readFileSync(bulkPath, "utf8");
-
-  const bulkFormMatches = bulkContents.match(/id=\"bulk-approvals\"/g) ?? [];
-  assert.equal(bulkFormMatches.length, 1);
-
-  const bulkReasonMatches = bulkContents.match(/placeholder=\"Rejection reason\"/g) ?? [];
-  assert.equal(bulkReasonMatches.length, 1);
 });
