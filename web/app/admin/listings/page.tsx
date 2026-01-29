@@ -30,8 +30,10 @@ const STATUS_OPTIONS = ALLOWED_PROPERTY_STATUSES.map((status) => ({
   label: status.toUpperCase(),
 }));
 
+type SearchParams = Record<string, string | string[] | undefined>;
+
 type Props = {
-  searchParams: Record<string, string | string[] | undefined>;
+  searchParams?: SearchParams | Promise<SearchParams>;
 };
 
 type RawReviewRow = {
@@ -86,7 +88,17 @@ type ListingsPageData = {
   ownerSummary: { id: string; name: string; role: string | null } | null;
 };
 
-async function getListingsData(searchParams: Record<string, string | string[] | undefined>): Promise<ListingsPageData> {
+async function resolveSearchParams(raw?: SearchParams | Promise<SearchParams>) {
+  if (raw && typeof (raw as { then?: unknown }).then === "function") {
+    return (raw as Promise<SearchParams>);
+  }
+  return raw ?? {};
+}
+
+async function getListingsData(
+  rawSearchParams?: SearchParams | Promise<SearchParams>
+): Promise<ListingsPageData> {
+  const searchParams = await resolveSearchParams(rawSearchParams);
   const listingQuery = parseAdminListingsQuery(searchParams);
   const requestHeaders = await headers();
   const requestId =
