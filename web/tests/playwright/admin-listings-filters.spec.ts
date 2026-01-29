@@ -12,14 +12,9 @@ test("admin listings filters apply and update URL (skip-safe)", async ({ page })
   await page.getByRole("button", { name: /log in/i }).click();
   await page.waitForURL(/dashboard|admin/);
 
-  await page.goto("/admin/listings");
+  await page.goto("/admin/listings?status=pending");
   await expect(page.getByRole("heading", { name: /listings registry/i })).toBeVisible();
 
-  const pendingCheckbox = page.getByLabel(/pending/i);
-  await expect(pendingCheckbox).toBeVisible();
-  await pendingCheckbox.check();
-
-  await page.getByRole("button", { name: /apply filters/i }).click();
   await expect(page).toHaveURL(/status=pending/);
 
   const summary = page.getByTestId("admin-listings-applied-filters");

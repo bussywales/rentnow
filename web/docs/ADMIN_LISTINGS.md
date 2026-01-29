@@ -12,7 +12,7 @@ The registry is backed by `GET /api/admin/listings` and the server-side page use
   - `id`: exact match on listing id
   - `owner`: exact match on owner id
   - `title`: partial match across title, location_label, city/state
-- `status` — multi-select status filter (comma-separated or repeated)
+- `status` — multi-select status filter (comma-separated or repeated; normalized + deduped)
 - `active` — `all | true | false`
 - `page` — 1-based page number (default 1)
 - `pageSize` — 25/50/100
@@ -25,6 +25,11 @@ The registry is backed by `GET /api/admin/listings` and the server-side page use
 Example:
 ```
 /admin/listings?q=lagos&qMode=title&status=pending&status=live&active=all&page=1&pageSize=50&sort=updated_desc
+```
+
+Canonical status param:
+```
+/admin/listings?status=draft,pending
 ```
 
 ## Saved views
