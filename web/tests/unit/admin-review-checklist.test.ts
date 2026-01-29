@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { canApproveChecklist, deriveChecklistDefaults } from "@/lib/admin/admin-review-checklist";
+import {
+  canApproveChecklist,
+  deriveChecklistDefaults,
+  getChecklistSummary,
+  formatChecklistMissingSections,
+} from "@/lib/admin/admin-review-checklist";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 
 const baseListing: AdminReviewListItem = {
@@ -55,4 +60,36 @@ test("canApproveChecklist requires all sections pass", () => {
     warnings: [],
   });
   assert.equal(ok.ok, true);
+});
+
+test("checklist summary and missing sections reflect state", () => {
+  const summary = getChecklistSummary({
+    sections: {
+      media: "pass",
+      location: "needs_fix",
+      pricing: null,
+      content: "pass",
+      policy: "blocker",
+    },
+    internalNotes: "",
+    warnings: [],
+  });
+  const media = summary.find((s) => s.key === "media");
+  const policy = summary.find((s) => s.key === "policy");
+  assert.equal(media?.status, "pass");
+  assert.equal(policy?.status, "blocker");
+  const missing = formatChecklistMissingSections({
+    sections: {
+      media: "pass",
+      location: "needs_fix",
+      pricing: null,
+      content: "pass",
+      policy: "blocker",
+    },
+    internalNotes: "",
+    warnings: [],
+  });
+  assert.ok(missing?.includes("LOCATION"));
+  assert.ok(missing?.includes("PRICING"));
+  assert.ok(missing?.includes("POLICY/SAFETY"));
 });

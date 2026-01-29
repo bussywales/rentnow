@@ -59,6 +59,16 @@ export function formatLocationLine(item: Pick<AdminReviewListItem, "city" | "sta
   return parts.join(", ");
 }
 
+export function pickNextId(ids: string[], currentId: string | null): string | null {
+  if (!ids.length) return null;
+  if (!currentId) return ids[0] ?? null;
+  const index = ids.indexOf(currentId);
+  if (index === -1) return ids[0] ?? null;
+  if (index + 1 < ids.length) return ids[index + 1];
+  if (index - 1 >= 0) return ids[index - 1];
+  return null;
+}
+
 export type AdminReviewFilters = {
   search: string;
   hasVideo: boolean | null;

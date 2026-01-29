@@ -70,13 +70,14 @@
   - **Approve listing** → `status=live`, `is_approved=true`, `approved_at` set, item removed from pending list.
   - **Reject listing** → `status=rejected`, requires reason (textarea), removes from pending list.
   - **Send request** → `status=changes_requested`, stores structured reasons + message, removes from pending list.
-- Drawer navigation: Previous/Next follow the currently visible list; a hidden-by-filters notice can reset filters and jump to the selection.
+- Drawer navigation: Previous/Next follow the currently visible list; a hidden-by-filters notice can reset filters and jump to the selection. After approve/reject/request changes, the desk auto-advances to the next item in the current queue filter.
 - If service fetch fails (`serviceAttempted && !serviceOk`), the page shows the Service Error panel; no silent empty state.
 - Decision checklist:
-  - Checklist panel (Media / Location / Pricing / Content / Policy) lives in the left column on desktop and collapses on mobile.
+  - Checklist panel (Media / Location / Pricing / Content / Policy) lives inside the right inspector and is collapsed by default.
   - Approve is disabled until all sections are explicitly set to **Pass**.
   - Auto warnings pre-fill based on missing cover/photos, missing location, missing price/currency, or short title.
   - Checklist state persists in `admin_review_notes` (admin-only).
+  - Checklist is collapsed by default with summary chips; clicking a chip expands and jumps to that section.
 - Request changes templates:
   - Templates are saved per admin in `admin_message_templates`.
   - Use **Save as template** to reuse common messages; **Apply template** fills reasons + message.

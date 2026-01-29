@@ -9,6 +9,7 @@ import {
   formatLocationLine,
   filterAndSortListings,
   type AdminReviewFilters,
+  pickNextId,
 } from "@/lib/admin/admin-review";
 import { AdminReviewDrawer } from "./AdminReviewDrawer";
 import AdminSavedViews from "./AdminSavedViews";
@@ -95,13 +96,11 @@ export function AdminReviewDesk({
 
   const handleActionComplete = useCallback(
     (id: string) => {
+      const remainingVisible = visibleItems.filter((item) => item.id !== id);
+      const nextId = selectedId === id ? pickNextId(remainingVisible.map((item) => item.id), id) : selectedId;
       setItems((prev) => prev.filter((item) => item.id !== id));
       if (selectedId === id) {
-        const remaining = visibleItems.filter((item) => item.id !== id);
-        const currentIndex = visibleItems.findIndex((item) => item.id === id);
-        const nextId =
-          remaining[currentIndex] ? remaining[currentIndex].id : remaining[currentIndex - 1]?.id ?? remaining[0]?.id ?? null;
-        router.push(buildUrlWithId(nextId), { scroll: false });
+        router.replace(buildUrlWithId(nextId), { scroll: false });
       }
       router.refresh();
     },

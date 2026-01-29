@@ -27,13 +27,31 @@ const STATUS_LABELS: Record<ChecklistStatus, string> = {
 type Props = {
   listing: AdminReviewListItem | null;
   onChecklistChange?: (checklist: ReviewChecklist | null) => void;
+  scrollToSection?: ChecklistSectionKey | null;
+  onSectionScrolled?: () => void;
 };
 
-export function AdminReviewChecklistPanel({ listing, onChecklistChange }: Props) {
+export function AdminReviewChecklistPanel({
+  listing,
+  onChecklistChange,
+  scrollToSection,
+  onSectionScrolled,
+}: Props) {
   const [checklist, setChecklist] = useState<ReviewChecklist | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
+  const sectionRefs = useMemo(
+    () =>
+      ({
+        media: null,
+        location: null,
+        pricing: null,
+        content: null,
+        policy: null,
+      }) as Record<ChecklistSectionKey, HTMLDivElement | null>,
+    []
+  );
 
   const listingId = listing?.id ?? null;
 
@@ -75,6 +93,17 @@ export function AdminReviewChecklistPanel({ listing, onChecklistChange }: Props)
   useEffect(() => {
     onChecklistChange?.(checklist);
   }, [checklist, onChecklistChange]);
+
+  useEffect(() => {
+    if (!scrollToSection) return;
+    const target = sectionRefs[scrollToSection];
+    if (target) {
+      requestAnimationFrame(() => {
+        target.scrollIntoView({ behavior: "smooth", block: "start" });
+        onSectionScrolled?.();
+      });
+    }
+  }, [scrollToSection, sectionRefs, onSectionScrolled]);
 
   const updateSection = (section: ChecklistSectionKey, status: ChecklistStatus) => {
     setChecklist((prev) => {
@@ -152,7 +181,14 @@ export function AdminReviewChecklistPanel({ listing, onChecklistChange }: Props)
         const section = key as ChecklistSectionKey;
         const status = checklist?.sections?.[section] ?? null;
         return (
-          <div key={section} className="mb-3">
+          <div
+            key={section}
+            ref={(node) => {
+              sectionRefs[section] = node;
+            }}
+            data-checklist-section={section}
+            className="mb-3 scroll-mt-24"
+          >
             <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
               {SECTION_LABELS[section]}
             </div>

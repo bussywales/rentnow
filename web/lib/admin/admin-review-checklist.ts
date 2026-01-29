@@ -17,6 +17,14 @@ const DEFAULT_SECTIONS: Record<ChecklistSectionKey, ChecklistStatus | null> = {
   policy: null,
 };
 
+export const CHECKLIST_SECTION_LABELS: Record<ChecklistSectionKey, string> = {
+  media: "MEDIA",
+  location: "LOCATION",
+  pricing: "PRICING",
+  content: "CONTENT",
+  policy: "POLICY/SAFETY",
+};
+
 export function deriveChecklistDefaults(listing: AdminReviewListItem | null): ReviewChecklist {
   if (!listing) {
     return { sections: { ...DEFAULT_SECTIONS }, internalNotes: "", warnings: [] };
@@ -71,4 +79,28 @@ export function canApproveChecklist(checklist: ReviewChecklist | null): {
     return { ok: false, reason: "All checklist sections must be marked Pass." };
   }
   return { ok: true, reason: null };
+}
+
+export function getChecklistSummary(checklist: ReviewChecklist | null) {
+  return (Object.keys(DEFAULT_SECTIONS) as ChecklistSectionKey[]).map((key) => ({
+    key,
+    label: CHECKLIST_SECTION_LABELS[key],
+    status: checklist?.sections?.[key] ?? null,
+  }));
+}
+
+export function getChecklistMissingSections(checklist: ReviewChecklist | null) {
+  if (!checklist) return Object.keys(DEFAULT_SECTIONS) as ChecklistSectionKey[];
+  return (Object.keys(DEFAULT_SECTIONS) as ChecklistSectionKey[]).filter(
+    (key) => checklist.sections[key] !== "pass"
+  );
+}
+
+export function formatChecklistMissingSections(checklist: ReviewChecklist | null) {
+  const missing = getChecklistMissingSections(checklist);
+  if (!missing.length) return null;
+  const labels = missing.map((key) => CHECKLIST_SECTION_LABELS[key]);
+  if (labels.length === 1) return labels[0];
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(", ")}, and ${labels[labels.length - 1]}`;
 }
