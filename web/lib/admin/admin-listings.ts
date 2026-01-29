@@ -1,10 +1,10 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   ADMIN_REVIEW_QUEUE_SELECT,
   ADMIN_REVIEW_VIEW_SELECT_MIN,
   ADMIN_REVIEW_VIEW_TABLE,
   normalizeSelect,
 } from "@/lib/admin/admin-review-contracts";
-import type { SupabaseClient } from "@supabase/supabase-js";
 import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
 import { ALLOWED_PROPERTY_STATUSES, normalizeStatus } from "@/lib/admin/admin-review-queue";
 

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { UpgradeRequestsQueue } from "@/components/admin/UpgradeRequestsQueue";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
@@ -71,7 +72,7 @@ type OverviewData = {
   supabaseReady: boolean;
 };
 
-async function getReviewCounts(client: any): Promise<ReviewCounts> {
+async function getReviewCounts(client: SupabaseClient): Promise<ReviewCounts> {
   try {
     const reviewableResult = await client
       .from(ADMIN_REVIEW_VIEW_TABLE)
