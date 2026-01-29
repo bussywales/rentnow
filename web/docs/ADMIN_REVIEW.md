@@ -107,8 +107,8 @@
   - See `docs/ADMIN_LISTINGS.md` for registry query parameters and inspector usage.
   - **Listings search modes**: ID (exact), Owner ID (exact), Title/Location (partial match across title, location_label, city/state).
 - Intended routes:
-  - `/dashboard` is the default workspace for all authenticated roles (including admins).
-  - `/admin` is the admin overview console.
+  - `/dashboard` is the default workspace for tenant/host/agent roles.
+  - Admins land in `/admin` (overview console) instead of dashboard analytics.
   - `/admin/review` remains the canonical Review Desk.
   - `/admin/listings` is the canonical Listings registry.
 - Drift detection & remediation:

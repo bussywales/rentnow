@@ -16,8 +16,8 @@ void test("dashboard route redirects by role", () => {
     "expected non-tenant redirect to analytics workspace"
   );
   assert.ok(
-    !contents.includes('redirect("/admin")'),
-    "admin should stay on dashboard, not force-redirect to /admin"
+    contents.includes('redirect("/admin")'),
+    "expected admin redirect to admin console"
   );
 });
 

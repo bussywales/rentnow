@@ -24,6 +24,10 @@ export default async function DashboardRouter() {
   if (role === "tenant") {
     redirect("/tenant");
   }
+  if (role === "admin") {
+    // Keep admin dashboard navigation in the admin console.
+    redirect("/admin");
+  }
 
   redirect("/dashboard/analytics");
 }

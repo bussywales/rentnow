@@ -40,16 +40,20 @@ export function NavLinksClient({ links, initialAuthed, initialRole }: Props) {
           }
           return true;
         })
-        .map((link) => (
+        .map((link) => {
+          const effectiveHref =
+            link.label === "Dashboard" && role === "admin" ? "/admin" : link.href;
+          return (
           <Link
             key={link.href}
-            href={link.href}
+            href={effectiveHref}
             prefetch={link.requireAuth || link.requireRole ? false : undefined}
             className="transition hover:text-sky-600"
           >
             {link.label}
           </Link>
-        ))}
+        );
+        })}
     </>
   );
 }

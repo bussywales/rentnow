@@ -51,7 +51,8 @@ export default async function DashboardAnalyticsPage({ searchParams }: Analytics
     redirect("/tenant");
   }
   if (normalizedRole === "admin") {
-    redirect("/admin/support");
+    // Admins should land in the admin console; avoid support-only redirects from dashboard routes.
+    redirect("/admin");
   }
   if (!canManageListings(normalizedRole)) {
     return (

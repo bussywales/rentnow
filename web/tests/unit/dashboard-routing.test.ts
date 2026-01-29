@@ -3,11 +3,12 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-void test("dashboard keeps admin on dashboard", () => {
+void test("dashboard routes admin to admin console", () => {
   const dashboardPath = path.join(process.cwd(), "app", "dashboard", "page.tsx");
   const contents = fs.readFileSync(dashboardPath, "utf8");
-  assert.ok(!contents.includes('role === "admin"'), "admin redirect to /admin should be removed");
-  assert.ok(contents.includes("/dashboard/analytics"), "dashboard should route to analytics workspace");
+  assert.ok(contents.includes('role === "admin"'), "admin redirect should be explicit");
+  assert.ok(contents.includes('redirect("/admin")'), "admin dashboard should land in /admin");
+  assert.ok(contents.includes("/dashboard/analytics"), "dashboard should route non-admins to analytics workspace");
 });
 
 void test("admin route remains admin-only", () => {
