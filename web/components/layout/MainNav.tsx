@@ -6,7 +6,7 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
 
-const links: Array<{
+export const MAIN_NAV_LINKS: Array<{
   href: string;
   label: string;
   requireAuth?: boolean;
@@ -22,8 +22,8 @@ const links: Array<{
     requireRole: "tenant",
   },
   { href: "/tenant", label: "Dashboard", requireAuth: true, requireRole: "tenant" },
-  { href: "/dashboard", label: "Dashboard", requireAuth: true, denyRoles: ["tenant"] },
-  { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
+  { href: "/dashboard", label: "Dashboard", requireAuth: true, denyRoles: ["tenant", "admin"] },
+  { href: "/admin", label: "Admin Home", requireAuth: true, requireRole: "admin" },
   { href: "/admin/support", label: "Support", requireAuth: true, requireRole: "admin" },
   { href: "/admin/settings", label: "Settings", requireAuth: true, requireRole: "admin" },
 ];
@@ -68,7 +68,7 @@ export async function MainNav() {
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm text-slate-700 md:flex">
-          <NavLinksClient links={links} initialAuthed={initialAuthed} initialRole={role} />
+          <NavLinksClient links={MAIN_NAV_LINKS} initialAuthed={initialAuthed} initialRole={role} />
         </nav>
 
         <div className="flex items-center gap-2">

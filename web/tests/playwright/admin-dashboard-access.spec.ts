@@ -26,7 +26,7 @@ test("admin dashboard nav does not redirect to support (skip-safe)", async ({ pa
   await page.getByRole("button", { name: /log in/i }).click();
   await page.waitForURL(/dashboard|admin/);
 
-  await page.getByRole("link", { name: /^dashboard$/i }).click();
+  await page.getByRole("link", { name: /^admin home$/i }).click();
   await expect(page).not.toHaveURL(/\/admin\/support/);
   await expect(page).toHaveURL(/\/admin(\/)?$/);
 });
