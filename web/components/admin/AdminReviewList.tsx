@@ -10,6 +10,7 @@ type Props = {
   listings: AdminReviewListItem[];
   selectedId: string | null;
   onSelect: (id: string) => void;
+  density?: "comfortable" | "compact";
   showBulkSelect?: boolean;
   bulkFormId?: string;
 };
@@ -28,8 +29,16 @@ function ReadinessBadge({ tier, score }: { tier: string; score: number }) {
   );
 }
 
-export function AdminReviewList({ listings, selectedId, onSelect, showBulkSelect = false, bulkFormId = "bulk-approvals" }: Props) {
+export function AdminReviewList({
+  listings,
+  selectedId,
+  onSelect,
+  density = "comfortable",
+  showBulkSelect = false,
+  bulkFormId = "bulk-approvals",
+}: Props) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const isCompact = density === "compact";
 
   return (
     <div className="divide-y divide-slate-200">
@@ -41,6 +50,9 @@ export function AdminReviewList({ listings, selectedId, onSelect, showBulkSelect
             : item.reviewStage === "pending"
               ? "pending"
               : item.status || "pending";
+        const missingCover = item.hasCover === false;
+        const needsPhotos = item.photoCount === 0;
+        const needsLocation = item.locationQuality && item.locationQuality !== "strong";
         return (
           <div
             key={item.id}
@@ -53,9 +65,9 @@ export function AdminReviewList({ listings, selectedId, onSelect, showBulkSelect
                 onSelect(item.id);
               }
             }}
-            className={`group relative flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+            className={`group relative flex w-full cursor-pointer items-start gap-3 px-4 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
               selectedId === item.id ? "bg-sky-50/60" : "bg-white"
-            }`}
+            } ${isCompact ? "py-2" : "py-3"}`}
           >
             <span
               className={`absolute left-0 top-0 h-full w-1 rounded-r ${
@@ -84,11 +96,35 @@ export function AdminReviewList({ listings, selectedId, onSelect, showBulkSelect
                 >
                   {statusLabel}
                 </span>
-                <ReadinessBadge tier={item.readiness.tier} score={item.readiness.score} />
+                {!isCompact && <ReadinessBadge tier={item.readiness.tier} score={item.readiness.score} />}
+                <div className="flex flex-wrap items-center gap-1 text-[10px] text-slate-600">
+                  {missingCover && (
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-700">
+                      Missing cover
+                    </span>
+                  )}
+                  {needsPhotos && (
+                    <span className="rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-rose-700">
+                      Needs photos
+                    </span>
+                  )}
+                  {needsLocation && (
+                    <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-amber-700">
+                      Needs location
+                    </span>
+                  )}
+                  {item.hasVideo && (
+                    <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-emerald-700">
+                      Has video
+                    </span>
+                  )}
+                </div>
               </div>
-              <p className="text-xs text-slate-600">
-                {ADMIN_REVIEW_COPY.list.columns.host}: {item.hostName}
-              </p>
+              {!isCompact && (
+                <p className="text-xs text-slate-600">
+                  {ADMIN_REVIEW_COPY.list.columns.host}: {item.hostName}
+                </p>
+              )}
               <p className="text-xs text-slate-600">
                 {locationLine || "Location unknown"}
               </p>
@@ -100,25 +136,27 @@ export function AdminReviewList({ listings, selectedId, onSelect, showBulkSelect
                   {ADMIN_REVIEW_COPY.list.columns.video}: {item.hasVideo ? "Yes" : "No"}
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 break-all">
-                ID: {item.id}{" "}
-                <button
-                  type="button"
-                  className="underline"
-                  onClick={async (event) => {
-                    event.stopPropagation();
-                    try {
-                      await navigator.clipboard?.writeText(item.id);
-                      setCopiedId(item.id);
-                      setTimeout(() => setCopiedId(null), 2000);
-                    } catch {
-                      /* ignore */
-                    }
-                  }}
-                >
-                  {copiedId === item.id ? "Copied" : "Copy"}
-                </button>
-              </p>
+              {!isCompact && (
+                <p className="text-[11px] text-slate-500 break-all">
+                  ID: {item.id}{" "}
+                  <button
+                    type="button"
+                    className="underline"
+                    onClick={async (event) => {
+                      event.stopPropagation();
+                      try {
+                        await navigator.clipboard?.writeText(item.id);
+                        setCopiedId(item.id);
+                        setTimeout(() => setCopiedId(null), 2000);
+                      } catch {
+                        /* ignore */
+                      }
+                    }}
+                  >
+                    {copiedId === item.id ? "Copied" : "Copy"}
+                  </button>
+                </p>
+              )}
             </div>
             <div className="text-xs text-slate-500">{formatRelativeTime(item.updatedAt || null)}</div>
           </div>

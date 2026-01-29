@@ -577,7 +577,7 @@ export function AdminReviewDrawer({
           </div>
           <div
             className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50"
-            data-admin-review-media-hero
+            data-testid="admin-review-media-hero"
           >
             <div className="relative aspect-[16/9] w-full bg-slate-100">
               {heroUrl ? (
@@ -638,7 +638,7 @@ export function AdminReviewDrawer({
 
         <section className="p-4 space-y-3">
           <h3 className="text-base font-semibold text-slate-900">Key facts</h3>
-          <div className="flex flex-wrap gap-2 text-xs text-slate-700">
+          <div className="flex flex-wrap gap-2 text-xs text-slate-700" data-testid="admin-review-key-facts">
             <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
               {detail?.listing.price === null || detail?.listing.price === undefined
                 ? "Price: —"

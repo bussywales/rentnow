@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useCallback, useState, useEffect } from "react";
+import { useMemo, useCallback, useState, useEffect, useRef } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import {
@@ -16,6 +16,11 @@ import AdminSavedViews from "./AdminSavedViews";
 import { AdminReviewList } from "./AdminReviewList";
 import { useAdminReviewView, type AdminReviewView } from "@/lib/admin/admin-review-view";
 import { DrawerErrorBoundary } from "./AdminReviewShell";
+import {
+  type AdminReviewDensity,
+  loadReviewDensity,
+  saveReviewDensity,
+} from "@/lib/admin/admin-review-density";
 
 type Props = {
   listings: AdminReviewListItem[];
@@ -43,6 +48,10 @@ export function AdminReviewDesk({
   const searchParams = useSearchParams();
   const { view, updateView, resetView } = useAdminReviewView();
   const [items, setItems] = useState<AdminReviewListItem[]>(listings);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [density, setDensity] = useState<AdminReviewDensity>(() =>
+    loadReviewDensity(typeof window === "undefined" ? undefined : window.localStorage)
+  );
   console.log("[AdminReviewDesk] listings.length", listings.length);
   const allowed = allowedViews.length ? allowedViews : DEFAULT_ALLOWED_VIEWS;
   const effectiveView = allowed.includes(view) ? view : allowed[0];
@@ -50,6 +59,11 @@ export function AdminReviewDesk({
   useEffect(() => {
     setItems(listings);
   }, [listings]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    saveReviewDensity(window.localStorage, density);
+  }, [density]);
 
   const defaultFilters: AdminReviewFilters = useMemo(
     () => ({
@@ -128,6 +142,47 @@ export function AdminReviewDesk({
     }
   }, [allowed, updateView, view]);
 
+  useEffect(() => {
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!target || !(target instanceof HTMLElement)) return false;
+      const tag = target.tagName.toLowerCase();
+      return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
+    };
+    const handler = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isEditableTarget(event.target)) return;
+      const key = event.key.toLowerCase();
+      if (key === "/") {
+        event.preventDefault();
+        searchInputRef.current?.focus();
+        searchInputRef.current?.select();
+        return;
+      }
+      if (key === "escape") {
+        if (selectedId) {
+          event.preventDefault();
+          handleClose();
+        }
+        return;
+      }
+      if (key !== "j" && key !== "k") return;
+      const ids = visibleItems.map((item) => item.id);
+      if (!ids.length) return;
+      const currentIndex = selectedId ? ids.indexOf(selectedId) : -1;
+      let nextId: string | null = null;
+      if (key === "j") {
+        nextId = currentIndex === -1 ? ids[0] : ids[currentIndex + 1] ?? ids[currentIndex];
+      } else {
+        nextId = currentIndex === -1 ? ids[0] : ids[currentIndex - 1] ?? ids[currentIndex];
+      }
+      if (nextId && nextId !== selectedId) {
+        event.preventDefault();
+        router.replace(buildUrlWithId(nextId), { scroll: false });
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [buildUrlWithId, handleClose, router, selectedId, visibleItems]);
+
   return (
     <div
       className="flex h-[calc(100vh-140px)] flex-col gap-5 overflow-hidden lg:flex-row"
@@ -153,6 +208,24 @@ export function AdminReviewDesk({
           </div>
           <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3">
             <AdminSavedViews route="/admin/review" />
+          </div>
+          <div className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs text-slate-600">
+            <span className="font-semibold text-slate-700">Density</span>
+            <div className="inline-flex overflow-hidden rounded-full border border-slate-200 bg-slate-50">
+              {(["comfortable", "compact"] as AdminReviewDensity[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  aria-pressed={density === mode}
+                  onClick={() => setDensity(mode)}
+                  className={`px-3 py-1 text-[11px] font-semibold transition ${
+                    density === mode ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  {mode === "compact" ? "Compact" : "Comfortable"}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex flex-wrap gap-2">
             {(allowed as AdminReviewView[]).map((key) => {
@@ -182,6 +255,7 @@ export function AdminReviewDesk({
               type="search"
               value={filters.search}
               onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+              ref={searchInputRef}
               placeholder={ADMIN_REVIEW_COPY.searchPlaceholder}
               className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
             />
@@ -231,6 +305,7 @@ export function AdminReviewDesk({
           listings={visibleItems}
           onSelect={handleSelect}
           selectedId={selectedId}
+          density={density}
           showBulkSelect={showBulkSelect}
           bulkFormId={bulkFormId}
         />

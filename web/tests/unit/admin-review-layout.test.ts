@@ -21,8 +21,12 @@ void test("admin review decision desk renders split panes", () => {
     "expected empty state copy for right pane"
   );
   assert.ok(
-    drawerContents.includes("data-admin-review-media-hero"),
+    drawerContents.includes("admin-review-media-hero"),
     "expected media hero marker in inspector"
   );
   assert.ok(drawerContents.includes("Key facts"), "expected key facts marker in inspector");
+  assert.ok(
+    contents.includes("scroll: false"),
+    "expected scroll-safe navigation in review desk"
+  );
 });

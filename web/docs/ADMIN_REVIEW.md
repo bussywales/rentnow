@@ -88,6 +88,7 @@
   - Use **Save as template** to reuse common messages; **Apply template** fills reasons + message.
 - Keyboard shortcuts (when focus is not in inputs):
   - `J` / `K`: next / previous listing
+  - `/`: focus search input
   - `A`: approve
   - `C`: request changes
   - `R`: reject
@@ -140,3 +141,8 @@
 - Drawer hierarchy: Media, Location, Details, Notes, Actions.
 - Keep reason checklist + message generator; “Next pending” CTA after approve/request changes.
 - Persist view/search in URL + localStorage (already in place; verify per release).
+### Decision Desk Speed Pass
+- Density toggle (Comfortable / Compact) is stored per admin in `localStorage` under `admin.review.density`.
+- Above-the-fold contract: media hero + key facts are always visible when a listing is selected.
+- Checklist stays collapsed by default; summary chips expand and jump to sections.
+- Auto-advance: after approve/reject/request changes, the next item in the current filtered queue is selected.
