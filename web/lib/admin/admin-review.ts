@@ -14,6 +14,8 @@ export type AdminReviewListItem = {
   locationQuality: string;
   photoCount: number;
   hasVideo: boolean;
+  hasCover?: boolean | null;
+  coverImageUrl?: string | null;
   status?: string | null;
   submitted_at?: string | null;
   is_approved?: boolean | null;

@@ -11,6 +11,8 @@ import {
   type AdminReviewFilters,
 } from "@/lib/admin/admin-review";
 import { AdminReviewDrawer } from "./AdminReviewDrawer";
+import { AdminReviewChecklistPanel } from "./AdminReviewChecklistPanel";
+import { canApproveChecklist, type ReviewChecklist } from "@/lib/admin/admin-review-checklist";
 import { AdminReviewList } from "./AdminReviewList";
 import { useAdminReviewView, type AdminReviewView } from "@/lib/admin/admin-review-view";
 import { DrawerErrorBoundary } from "./AdminReviewShell";
@@ -111,6 +113,8 @@ export function AdminReviewDesk({
     () => items.find((item) => item.id === selectedId) || null,
     [items, selectedId]
   );
+  const [checklistState, setChecklistState] = useState<ReviewChecklist | null>(null);
+  const approveGuard = useMemo(() => canApproveChecklist(checklistState), [checklistState]);
   const selectedVisible = !!visibleItems.find((i) => i.id === selectedId);
 
   // Auto-select first item to keep drawer functional when arriving without id
@@ -131,6 +135,19 @@ export function AdminReviewDesk({
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="p-4">
+          <div className="hidden lg:block">
+            <AdminReviewChecklistPanel listing={selectedListing} onChecklistChange={setChecklistState} />
+          </div>
+          <div className="lg:hidden">
+            <details className="rounded-xl border border-slate-200 bg-white p-3">
+              <summary className="cursor-pointer text-sm font-semibold text-slate-900">Review checklist</summary>
+              <div className="mt-3">
+                <AdminReviewChecklistPanel listing={selectedListing} onChecklistChange={setChecklistState} />
+              </div>
+            </details>
+          </div>
+        </div>
         <div className="border-b border-slate-200 px-4 py-3 space-y-2">
           <div className="flex items-center justify-between">
             <div>
@@ -258,6 +275,8 @@ export function AdminReviewDesk({
           onNavigate={(id) => handleSelect(id)}
           hasListings={items.length > 0}
           actionsEnabled={actionsEnabled}
+          canApprove={approveGuard.ok}
+          approveDisabledReason={approveGuard.reason}
         />
       </DrawerErrorBoundary>
     </div>

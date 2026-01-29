@@ -139,6 +139,17 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  try {
+    await supabase.from("admin_actions_log").insert({
+      property_id: id,
+      action_type: action,
+      actor_id: auth.user.id,
+      payload_json: action === "reject" ? { reason: trimmedReason } : { status: "live" },
+    });
+  } catch {
+    /* ignore logging failures */
+  }
+
   logApprovalAction({
     request,
     route: routeLabel,

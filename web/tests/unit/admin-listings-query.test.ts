@@ -12,6 +12,11 @@ describe("admin listings query parsing", () => {
     assert.equal(parsed.page, 1);
     assert.ok(parsed.pageSize >= 10);
     assert.equal(parsed.sort, "updated_desc");
+    assert.equal(parsed.missingCover, false);
+    assert.equal(parsed.missingPhotos, false);
+    assert.equal(parsed.missingLocation, false);
+    assert.equal(parsed.priceMin, null);
+    assert.equal(parsed.priceMax, null);
   });
 
   it("parses provided query params", () => {
@@ -23,6 +28,11 @@ describe("admin listings query parsing", () => {
       page: "2",
       pageSize: "25",
       sort: "updated_asc",
+      missingCover: "true",
+      missingPhotos: "1",
+      missingLocation: "yes",
+      priceMin: "100",
+      priceMax: "999",
     });
     assert.equal(parsed.q, "Lagos");
     assert.equal(parsed.qMode, "title");
@@ -32,6 +42,11 @@ describe("admin listings query parsing", () => {
     assert.equal(parsed.page, 2);
     assert.equal(parsed.pageSize, 25);
     assert.equal(parsed.sort, "updated_asc");
+    assert.equal(parsed.missingCover, true);
+    assert.equal(parsed.missingPhotos, true);
+    assert.equal(parsed.missingLocation, true);
+    assert.equal(parsed.priceMin, 100);
+    assert.equal(parsed.priceMax, 999);
   });
 
   it("detects uuid and defaults to id mode when qMode missing", () => {

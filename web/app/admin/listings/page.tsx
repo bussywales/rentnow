@@ -9,8 +9,9 @@ import { computeLocationQuality } from "@/lib/properties/location-quality";
 import type { PropertyImage } from "@/lib/types";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import { normalizeStatus, isReviewableRow, isFixRequestRow, ALLOWED_PROPERTY_STATUSES } from "@/lib/admin/admin-review-queue";
-import { getAdminAllListings, parseAdminListingsQuery } from "@/lib/admin/admin-listings";
+import { getAdminAllListings, isUuid, parseAdminListingsQuery } from "@/lib/admin/admin-listings";
 import AdminListingsPanelClient from "@/components/admin/AdminListingsPanelClient";
+import AdminSavedViews from "@/components/admin/AdminSavedViews";
 
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
@@ -49,6 +50,8 @@ type RawReviewRow = {
   is_active?: boolean | null;
   owner_id?: string | null;
   photo_count?: number | null;
+  has_cover?: boolean | null;
+  cover_image_url?: string | null;
   has_video?: boolean | null;
   video_count?: number | null;
   price?: number | null;
@@ -72,6 +75,7 @@ type ListingsPageData = {
   contractDegraded: boolean;
   error: string | null;
   requestId: string | null;
+  ownerSummary: { id: string; name: string; role: string | null } | null;
 };
 
 async function getListingsData(searchParams: Record<string, string | string[] | undefined>): Promise<ListingsPageData> {
@@ -91,6 +95,7 @@ async function getListingsData(searchParams: Record<string, string | string[] | 
       contractDegraded: false,
       error: "Supabase env missing",
       requestId,
+      ownerSummary: null,
     };
   }
 
@@ -190,6 +195,8 @@ async function getListingsData(searchParams: Record<string, string | string[] | 
         locationQuality: locationQuality.quality,
         photoCount: typeof row.photo_count === "number" ? row.photo_count : 0,
         hasVideo: !!row.has_video || (row.video_count ?? 0) > 0,
+        hasCover: row.has_cover ?? (row.photo_count && row.photo_count > 0 ? true : null),
+        coverImageUrl: row.cover_image_url ?? null,
         status: normalizeStatus(row.status ?? null),
         submitted_at: row.submitted_at ?? null,
         is_approved: row.is_approved ?? null,
@@ -209,6 +216,22 @@ async function getListingsData(searchParams: Record<string, string | string[] | 
       };
     });
 
+    let ownerSummary: ListingsPageData["ownerSummary"] = null;
+    if (listingQuery.qMode === "owner" && listingQuery.q && isUuid(listingQuery.q)) {
+      const { data: ownerProfile } = await supabase
+        .from("profiles")
+        .select("id, full_name, role")
+        .eq("id", listingQuery.q)
+        .maybeSingle();
+      if (ownerProfile) {
+        ownerSummary = {
+          id: ownerProfile.id,
+          name: ownerProfile.full_name || formatRoleLabel(ownerProfile.role || undefined) || "Host",
+          role: ownerProfile.role ?? null,
+        };
+      }
+    }
+
     return {
       listings,
       listingQuery,
@@ -219,6 +242,7 @@ async function getListingsData(searchParams: Record<string, string | string[] | 
       contractDegraded: result.contractDegraded,
       error: null,
       requestId,
+      ownerSummary,
     };
   } catch (err) {
     return {
@@ -231,6 +255,7 @@ async function getListingsData(searchParams: Record<string, string | string[] | 
       contractDegraded: false,
       error: (err as Error)?.message ?? "Failed to load listings",
       requestId,
+      ownerSummary: null,
     };
   }
 }
@@ -246,6 +271,7 @@ export default async function AdminListingsPage({ searchParams }: Props) {
     contractDegraded,
     error,
     requestId,
+    ownerSummary,
   } = await getListingsData(searchParams);
 
   const listingStart = listingTotalCount > 0 ? (listingPage - 1) * listingPageSize + 1 : 0;
@@ -289,6 +315,9 @@ export default async function AdminListingsPage({ searchParams }: Props) {
           </div>
         </div>
         <p className="text-sm text-slate-600">Total listings: {listingTotalCount}</p>
+        <div className="mt-3">
+          <AdminSavedViews route="/admin/listings" />
+        </div>
       </div>
 
       {(error || contractDegraded) && (
@@ -303,6 +332,18 @@ export default async function AdminListingsPage({ searchParams }: Props) {
             <Link href="/admin/review" className="underline">
               Review desk
             </Link>
+          </div>
+        </div>
+      )}
+
+      {ownerSummary && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm shadow-sm">
+          <div className="text-xs uppercase tracking-[0.2em] text-slate-500">Owner drilldown</div>
+          <div className="mt-1 text-lg font-semibold text-slate-900">{ownerSummary.name}</div>
+          <div className="text-xs text-slate-600">ID: {ownerSummary.id}</div>
+          <div className="text-xs text-slate-600">Role: {ownerSummary.role || "Host"}</div>
+          <div className="mt-1 text-xs text-slate-600">
+            Listings found for owner: {listingTotalCount}
           </div>
         </div>
       )}
@@ -350,6 +391,43 @@ export default async function AdminListingsPage({ searchParams }: Props) {
               <option value="true">Active</option>
               <option value="false">Inactive</option>
             </select>
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-600">Ops filters</label>
+            <div className="flex flex-wrap gap-2 text-xs text-slate-700">
+              <label className="flex items-center gap-1">
+                <input type="checkbox" name="missingCover" value="true" defaultChecked={listingQuery.missingCover} />
+                Missing cover
+              </label>
+              <label className="flex items-center gap-1">
+                <input type="checkbox" name="missingPhotos" value="true" defaultChecked={listingQuery.missingPhotos} />
+                Missing photos
+              </label>
+              <label className="flex items-center gap-1">
+                <input type="checkbox" name="missingLocation" value="true" defaultChecked={listingQuery.missingLocation} />
+                Missing location
+              </label>
+            </div>
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-600">Price min</label>
+            <input
+              name="priceMin"
+              type="number"
+              step="1"
+              defaultValue={listingQuery.priceMin ?? ""}
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-600">Price max</label>
+            <input
+              name="priceMax"
+              type="number"
+              step="1"
+              defaultValue={listingQuery.priceMax ?? ""}
+              className="rounded border border-slate-300 px-2 py-1 text-sm"
+            />
           </div>
           <div className="flex flex-col">
             <label className="text-xs text-slate-600">Sort</label>

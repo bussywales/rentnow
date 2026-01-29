@@ -22,17 +22,17 @@ export function AdminListingsTable({ items, onSelect }: Props) {
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
             <tr>
-              <th className="px-4 py-3">Title</th>
-              <th className="px-4 py-3">Location</th>
-              <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Active</th>
-              <th className="px-4 py-3">Updated</th>
-              <th className="px-4 py-3">Owner</th>
-              <th className="px-4 py-3">Media</th>
-              <th className="px-4 py-3">Price</th>
-              <th className="px-4 py-3 text-right">Actions</th>
+              <th className="px-3 py-2">Title</th>
+              <th className="px-3 py-2">Location</th>
+              <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Active</th>
+              <th className="px-3 py-2">Updated</th>
+              <th className="px-3 py-2">Owner</th>
+              <th className="px-3 py-2">Media</th>
+              <th className="px-3 py-2">Price</th>
+              <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -50,7 +50,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                 role="button"
                 tabIndex={0}
               >
-                <td className="px-4 py-3">
+                <td className="px-3 py-2">
                   <button
                     type="button"
                     onClick={(event) => {
@@ -81,32 +81,32 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                     </button>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-slate-700">
+                <td className="px-3 py-2 text-slate-700">
                   {item.city || "—"} {item.state_region ? `· ${item.state_region}` : ""}{" "}
                   {item.country_code ? `(${item.country_code})` : ""}
                 </td>
-                <td className="px-4 py-3">
-                  <span className="rounded-full bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                <td className="px-3 py-2">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700">
                     {item.status || "unknown"}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="px-3 py-2 text-slate-600">
                   {item.is_active === null || item.is_active === undefined ? "—" : item.is_active ? "Yes" : "No"}
                 </td>
-                <td className="px-4 py-3 text-slate-600">{formatDate(item.updatedAt)}</td>
-                <td className="px-4 py-3 text-xs text-slate-600">
+                <td className="px-3 py-2 text-slate-600">{formatDate(item.updatedAt)}</td>
+                <td className="px-3 py-2 text-xs text-slate-600">
                   <div className="font-semibold text-slate-700">{item.hostName || "Host"}</div>
                   <div className="break-all">{item.ownerId || "—"}</div>
                 </td>
-                <td className="px-4 py-3 text-slate-600">
+                <td className="px-3 py-2 text-slate-600">
                   {item.photoCount} photos · {item.hasVideo ? "Video" : "No video"}
                 </td>
-                <td className="px-4 py-3 text-slate-700">
+                <td className="px-3 py-2 text-slate-700">
                   {item.price === null || item.price === undefined
                     ? "—"
                     : `${item.currency || "NGN"} ${item.price}`}
                 </td>
-                <td className="px-4 py-3 text-right">
+                <td className="px-3 py-2 text-right">
                   <button
                     type="button"
                     onClick={(event) => {
@@ -122,7 +122,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             ))}
             {!items.length && (
               <tr>
-                <td colSpan={9} className="px-4 py-6 text-center text-sm text-slate-600">
+                <td colSpan={9} className="px-3 py-6 text-center text-sm text-slate-600">
                   No listings found.
                 </td>
               </tr>

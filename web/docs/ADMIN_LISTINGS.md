@@ -17,11 +17,20 @@ The registry is backed by `GET /api/admin/listings` and the server-side page use
 - `page` — 1-based page number (default 1)
 - `pageSize` — 25/50/100
 - `sort` — `updated_desc | updated_asc | created_desc | created_asc`
+- `missingCover` — `true` to show listings without a cover
+- `missingPhotos` — `true` to show listings with photo_count=0
+- `missingLocation` — `true` to show listings without location label/coords
+- `priceMin` / `priceMax` — numeric price bounds (simple outlier filters)
 
 Example:
 ```
 /admin/listings?q=lagos&qMode=title&status=pending&status=live&active=all&page=1&pageSize=50&sort=updated_desc
 ```
+
+## Saved views
+- Saved views are stored per admin user (`admin_saved_views`).
+- Use the **Saved views** dropdown on `/admin/listings` to apply or delete.
+- Use **Save view** to persist the current search + filter state.
 
 ## Listing Inspector
 - Route: `/admin/listings/[id]`

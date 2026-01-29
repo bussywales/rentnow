@@ -257,6 +257,8 @@ async function loadReviewListings(
         locationQuality: locationQuality.quality,
         photoCount: typeof merged.photo_count === "number" ? merged.photo_count : images.length,
         hasVideo: merged.has_video ?? ((merged.video_count ?? 0) > 0),
+        hasCover: merged.has_cover ?? (merged.cover_image_url ? true : null),
+        coverImageUrl: merged.cover_image_url ?? null,
         reviewable,
         reviewStage,
       };

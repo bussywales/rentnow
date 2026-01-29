@@ -45,6 +45,8 @@ type RawReviewRow = {
   is_active?: boolean | null;
   owner_id?: string | null;
   photo_count?: number | null;
+  has_cover?: boolean | null;
+  cover_image_url?: string | null;
   has_video?: boolean | null;
   video_count?: number | null;
   price?: number | null;
@@ -182,6 +184,8 @@ export default async function AdminListingInspectorPage({ params }: Props) {
     locationQuality: locationQuality.quality,
     photoCount: typeof row.photo_count === "number" ? row.photo_count : 0,
     hasVideo: !!row.has_video || (row.video_count ?? 0) > 0,
+    hasCover: row.has_cover ?? (row.photo_count && row.photo_count > 0 ? true : null),
+    coverImageUrl: row.cover_image_url ?? null,
     status: normalizeStatus(row.status ?? null),
     submitted_at: row.submitted_at ?? null,
     is_approved: row.is_approved ?? null,

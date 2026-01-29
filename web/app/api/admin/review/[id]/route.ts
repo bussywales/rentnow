@@ -37,10 +37,16 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
   assertNoForbiddenColumns(imageSelect, "admin review images");
   assertNoForbiddenColumns(videoSelect, "admin review videos");
 
-  const [detailRes, imagesRes, videosRes] = await Promise.all([
+  const [detailRes, imagesRes, videosRes, activityRes] = await Promise.all([
     client.from(ADMIN_REVIEW_VIEW_TABLE).select(detailSelect).eq("id", id).maybeSingle(),
     client.from("property_images").select(imageSelect).eq("property_id", id).order("created_at", { ascending: true }),
     client.from("property_videos").select(videoSelect).eq("property_id", id).order("created_at", { ascending: true }),
+    client
+      .from("admin_actions_log")
+      .select("id,action_type,actor_id,created_at,payload_json")
+      .eq("property_id", id)
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
 
   if (detailRes.error) {
@@ -50,9 +56,25 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
+  const activityRows = Array.isArray(activityRes?.data) ? activityRes.data : [];
+  const actorIds = Array.from(
+    new Set(activityRows.map((row) => row.actor_id).filter(Boolean))
+  ) as string[];
+  const { data: actorProfiles } = actorIds.length
+    ? await client.from("profiles").select("id, full_name").in("id", actorIds)
+    : { data: [] };
+  const actorMap = Object.fromEntries(
+    (actorProfiles ?? []).map((profile) => [profile.id, profile.full_name])
+  );
+  const activity = activityRows.map((row) => ({
+    ...row,
+    actor_name: row.actor_id ? actorMap[row.actor_id] ?? null : null,
+  }));
+
   return NextResponse.json({
     listing: detailRes.data,
     images: imagesRes.data ?? [],
     videos: videosRes.data ?? [],
+    activity,
   });
 }

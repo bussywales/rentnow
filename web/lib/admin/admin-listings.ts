@@ -15,6 +15,11 @@ export type AdminListingsQuery = {
   page: number;
   pageSize: number;
   sort: "updated_desc" | "updated_asc" | "created_desc" | "created_asc";
+  missingCover: boolean;
+  missingPhotos: boolean;
+  missingLocation: boolean;
+  priceMin: number | null;
+  priceMax: number | null;
 };
 
 export type AdminListingsResult<Row> = {
@@ -86,7 +91,33 @@ export function parseAdminListingsQuery(
           ? "created_asc"
           : "updated_desc";
 
-  return { q, qMode, statuses, active, page, pageSize, sort };
+  const parseBool = (value: string | null) => {
+    if (!value) return false;
+    const normalized = value.toLowerCase();
+    return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on";
+  };
+  const missingCover = parseBool(readValue("missingCover"));
+  const missingPhotos = parseBool(readValue("missingPhotos"));
+  const missingLocation = parseBool(readValue("missingLocation"));
+  const priceMinRaw = Number(readValue("priceMin"));
+  const priceMaxRaw = Number(readValue("priceMax"));
+  const priceMin = Number.isFinite(priceMinRaw) ? priceMinRaw : null;
+  const priceMax = Number.isFinite(priceMaxRaw) ? priceMaxRaw : null;
+
+  return {
+    q,
+    qMode,
+    statuses,
+    active,
+    page,
+    pageSize,
+    sort,
+    missingCover,
+    missingPhotos,
+    missingLocation,
+    priceMin,
+    priceMax,
+  };
 }
 
 export function isUuid(value: string) {
@@ -121,6 +152,21 @@ export async function getAdminAllListings<Row>({
     }
     if (query.active === "false") {
       queryBuilder = queryBuilder.eq("is_active", false);
+    }
+    if (query.missingCover) {
+      queryBuilder = queryBuilder.or("has_cover.eq.false,cover_image_url.is.null");
+    }
+    if (query.missingPhotos) {
+      queryBuilder = queryBuilder.eq("photo_count", 0);
+    }
+    if (query.missingLocation) {
+      queryBuilder = queryBuilder.or("latitude.is.null,location_label.is.null");
+    }
+    if (query.priceMin !== null) {
+      queryBuilder = queryBuilder.gte("price", query.priceMin);
+    }
+    if (query.priceMax !== null) {
+      queryBuilder = queryBuilder.lte("price", query.priceMax);
     }
 
     if (query.q) {

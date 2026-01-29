@@ -25,6 +25,8 @@ type Props = {
   onNavigate: (id: string) => void;
   hasListings: boolean;
   actionsEnabled?: boolean;
+  canApprove?: boolean;
+  approveDisabledReason?: string | null;
 };
 
 const detailSchema = z.object({
@@ -73,6 +75,18 @@ const detailSchema = z.object({
       video_url: z.string().nullable(),
     })
   ),
+  activity: z
+    .array(
+      z.object({
+        id: z.string(),
+        action_type: z.string(),
+        actor_id: z.string().nullable().optional(),
+        actor_name: z.string().nullable().optional(),
+        created_at: z.string().nullable().optional(),
+        payload_json: z.unknown().optional(),
+      })
+    )
+    .optional(),
 });
 
 export function AdminReviewDrawer({
@@ -86,6 +100,8 @@ export function AdminReviewDrawer({
   onNavigate,
   hasListings,
   actionsEnabled = true,
+  canApprove = true,
+  approveDisabledReason,
 }: Props) {
   const isOpen = !!listing;
   const [reasons, setReasons] = useState<ReviewReasonCode[]>([]);
@@ -97,6 +113,12 @@ export function AdminReviewDrawer({
   const [detailData, setDetailData] = useState<z.infer<typeof detailSchema> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [templates, setTemplates] = useState<
+    { id: string; name: string; reasons?: ReviewReasonCode[]; message?: string }[]
+  >([]);
+  const [templateName, setTemplateName] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [templateDeleting, setTemplateDeleting] = useState(false);
   const navIds = filteredIds;
   const currentIndex = useMemo(() => (listing ? navIds.indexOf(listing.id) : -1), [listing, navIds]);
   const prevId = currentIndex > 0 ? navIds[currentIndex - 1] : null;
@@ -166,6 +188,7 @@ export function AdminReviewDrawer({
   const detail = detailData ?? null;
   const images = detail?.images ?? [];
   const videos = detail?.videos ?? [];
+  const activity = detail?.activity ?? [];
   const canReview = listing?.reviewStage === "pending" || listing?.reviewStage === "changes" || listing?.reviewable === true;
 
   const toggleReason = (code: ReviewReasonCode) => {
@@ -253,6 +276,131 @@ export function AdminReviewDrawer({
       setToast(err instanceof Error ? err.message : "Unable to reject");
     } finally {
       setSubmitting(null);
+    }
+  };
+
+  useEffect(() => {
+    if (!listing) return;
+    const isEditableTarget = (target: EventTarget | null) => {
+      if (!target || !(target instanceof HTMLElement)) return false;
+      const tag = target.tagName.toLowerCase();
+      return tag === "input" || tag === "textarea" || tag === "select" || target.isContentEditable;
+    };
+    const handler = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || isEditableTarget(event.target)) return;
+      const key = event.key.toLowerCase();
+      if (key === "j" && nextId) {
+        event.preventDefault();
+        onNavigate(nextId);
+        return;
+      }
+      if (key === "k" && prevId) {
+        event.preventDefault();
+        onNavigate(prevId);
+        return;
+      }
+      if (key === "escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      if (!actionsEnabled) return;
+      if (key === "a" && canApprove && submitting === null) {
+        event.preventDefault();
+        handleApprove();
+        return;
+      }
+      if (key === "c" && submitting === null) {
+        event.preventDefault();
+        handleSendRequest();
+        return;
+      }
+      if (key === "r" && submitting === null) {
+        event.preventDefault();
+        handleReject();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [
+    listing,
+    nextId,
+    prevId,
+    onNavigate,
+    onClose,
+    actionsEnabled,
+    canApprove,
+    submitting,
+    handleApprove,
+    handleSendRequest,
+    handleReject,
+  ]);
+
+  useEffect(() => {
+    const fetchTemplates = async () => {
+      try {
+        const res = await fetch("/api/admin/review/templates");
+        if (!res.ok) return;
+        const json = await res.json();
+        const templatesData = Array.isArray(json?.templates) ? json.templates : [];
+        setTemplates(templatesData);
+      } catch {
+        /* ignore */
+      }
+    };
+    fetchTemplates().catch(() => undefined);
+  }, []);
+
+  const applyTemplate = (templateId: string) => {
+    const template = templates.find((item) => item.id === templateId);
+    if (!template) return;
+    const templateReasons = normalizeReasons(template.reasons ?? []);
+    setReasons(templateReasons);
+    setMessageText(template.message || buildRequestChangesMessage(templateReasons));
+    setMessageEdited(true);
+    setSelectedTemplateId(templateId);
+  };
+
+  const saveTemplate = async () => {
+    if (!templateName.trim()) {
+      setToast("Template name is required");
+      return;
+    }
+    try {
+      const res = await fetch("/api/admin/review/templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: templateName.trim(), reasons, message: messageText }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Unable to save template");
+      }
+      const json = await res.json();
+      setTemplates((prev) => [json.template, ...prev]);
+      setTemplateName("");
+      setToast("Template saved");
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Unable to save template");
+    }
+  };
+
+  const deleteTemplate = async () => {
+    if (!selectedTemplateId) return;
+    setTemplateDeleting(true);
+    try {
+      const res = await fetch(`/api/admin/review/templates/${selectedTemplateId}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Unable to delete template");
+      }
+      setTemplates((prev) => prev.filter((tpl) => tpl.id !== selectedTemplateId));
+      setSelectedTemplateId(null);
+      setToast("Template deleted");
+    } catch (err) {
+      setToast(err instanceof Error ? err.message : "Unable to delete template");
+    } finally {
+      setTemplateDeleting(false);
     }
   };
 
@@ -386,6 +534,20 @@ export function AdminReviewDrawer({
               </dd>
             </dl>
           )}
+          {listing && (
+            <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+              <div className="font-semibold text-slate-900">Risk flags</div>
+              <ul className="mt-1 list-disc pl-4">
+                {!listing.hasCover || listing.photoCount === 0 ? (
+                  <li>Missing cover or photos</li>
+                ) : null}
+                {listing.locationQuality !== "strong" ? <li>Location needs verification</li> : null}
+                {listing.price == null || !listing.currency ? <li>Pricing incomplete</li> : null}
+                {listing.title.length < 10 ? <li>Title is short</li> : null}
+                {listing.hasVideo ? null : <li>No video uploaded</li>}
+              </ul>
+            </div>
+          )}
         </section>
         <section className="p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -463,8 +625,35 @@ export function AdminReviewDrawer({
             {listing ? "Internal notes (read-only in this slice)." : ADMIN_REVIEW_COPY.list.noSelection}
           </p>
         </section>
+        <section className="p-4 space-y-2">
+          <h3 className="text-sm font-semibold text-slate-900">Activity</h3>
+          <ul className="space-y-2 text-xs text-slate-700">
+            {detail?.listing?.submitted_at && (
+              <li>Submitted: {detail.listing.submitted_at}</li>
+            )}
+            {detail?.listing?.updated_at && (
+              <li>Updated: {detail.listing.updated_at}</li>
+            )}
+            {activity.map((item) => (
+              <li key={item.id} className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+                <div className="font-semibold text-slate-900">
+                  {item.action_type} by {item.actor_name || item.actor_id || "admin"}
+                </div>
+                <div className="text-xs text-slate-600">{item.created_at || ""}</div>
+                {typeof item.payload_json === "object" &&
+                  item.payload_json &&
+                  "message" in item.payload_json && (
+                    <div className="mt-1 text-[11px] text-slate-600">
+                      {String((item.payload_json as { message?: string }).message || "").slice(0, 140)}
+                    </div>
+                  )}
+              </li>
+            ))}
+            {!activity.length && <li>No review activity yet.</li>}
+          </ul>
+        </section>
         {listing && actionsEnabled && (
-          <section className="flex flex-col gap-3 p-4">
+          <section className="sticky bottom-0 flex flex-col gap-3 border-t border-slate-200 bg-white p-4">
             <div className="flex items-center justify-between text-xs text-slate-600">
               <button
                 type="button"
@@ -485,12 +674,17 @@ export function AdminReviewDrawer({
             </div>
             <button
               type="button"
-              disabled={submitting !== null}
+              disabled={submitting !== null || !canApprove}
               onClick={handleApprove}
               className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
             >
                 {submitting === "approve" ? "Approving..." : "Approve listing"}
               </button>
+            {!canApprove && approveDisabledReason && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {approveDisabledReason}
+              </div>
+            )}
             <button
               type="button"
               disabled={submitting !== null}
@@ -541,6 +735,49 @@ export function AdminReviewDrawer({
                   />
                 </label>
                 <p className="text-xs text-slate-600">{ADMIN_REVIEW_COPY.drawer.messageHelper}</p>
+              </div>
+              <div className="mt-3 rounded-md border border-slate-200 bg-white p-2">
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <label className="font-semibold text-slate-700">Templates</label>
+                  <select
+                    value={selectedTemplateId ?? ""}
+                    onChange={(e) => applyTemplate(e.target.value)}
+                    className="rounded border border-slate-200 px-2 py-1 text-xs"
+                  >
+                    <option value="">Select template</option>
+                    {templates.map((template) => (
+                      <option key={template.id} value={template.id}>
+                        {template.name}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedTemplateId && (
+                    <button
+                      type="button"
+                      onClick={deleteTemplate}
+                      disabled={templateDeleting}
+                      className="rounded border border-slate-300 px-2 py-1 text-xs text-rose-700"
+                    >
+                      {templateDeleting ? "Deleting…" : "Delete"}
+                    </button>
+                  )}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  <input
+                    type="text"
+                    value={templateName}
+                    onChange={(e) => setTemplateName(e.target.value)}
+                    placeholder="Template name"
+                    className="rounded border border-slate-300 px-2 py-1 text-xs"
+                  />
+                  <button
+                    type="button"
+                    onClick={saveTemplate}
+                    className="rounded border border-slate-300 px-2 py-1 text-xs"
+                  >
+                    Save as template
+                  </button>
+                </div>
               </div>
               <div className="mt-3 rounded-md border border-slate-200 bg-white p-2">
                 <p className="text-xs font-semibold text-slate-800">{ADMIN_REVIEW_COPY.drawer.previewLabel}</p>

@@ -69,6 +69,23 @@
   - **Send request** → `status=changes_requested`, stores structured reasons + message, removes from pending list.
 - Drawer navigation: Previous/Next follow the currently visible list; a hidden-by-filters notice can reset filters and jump to the selection.
 - If service fetch fails (`serviceAttempted && !serviceOk`), the page shows the Service Error panel; no silent empty state.
+- Decision checklist:
+  - Checklist panel (Media / Location / Pricing / Content / Policy) lives in the left column on desktop and collapses on mobile.
+  - Approve is disabled until all sections are explicitly set to **Pass**.
+  - Auto warnings pre-fill based on missing cover/photos, missing location, missing price/currency, or short title.
+  - Checklist state persists in `admin_review_notes` (admin-only).
+- Request changes templates:
+  - Templates are saved per admin in `admin_message_templates`.
+  - Use **Save as template** to reuse common messages; **Apply template** fills reasons + message.
+- Keyboard shortcuts (when focus is not in inputs):
+  - `J` / `K`: next / previous listing
+  - `A`: approve
+  - `C`: request changes
+  - `R`: reject
+  - `Esc`: close drawer
+- Audit timeline:
+  - Drawer shows a lightweight Activity timeline (submitted/updated + admin actions).
+  - Actions are logged to `admin_actions_log` with actor + timestamp.
 - Admin workspaces:
   - `/admin` is the **Overview cockpit** (monitor-only: KPIs + recent listings + alerts).
   - `/admin/review` is the **Review Desk** (decision mode: approve/reject/request changes).

@@ -20,10 +20,17 @@ test.describe("admin UX blueprint", () => {
       await reviewRows.first().click();
       await expect(page).toHaveURL(/\/admin\/review\?id=/);
       await expect(page.getByRole("button", { name: /approve listing/i })).toBeVisible();
+      await expect(page.getByText(/review checklist/i)).toBeVisible();
+      if ((await reviewRows.count()) > 1) {
+        const currentUrl = page.url();
+        await page.keyboard.press("j");
+        await expect(page).not.toHaveURL(currentUrl);
+      }
     }
 
-    await page.goto(`${base}/admin/listings`, { waitUntil: "networkidle" });
+    await page.goto(`${base}/admin/listings?missingPhotos=true`, { waitUntil: "networkidle" });
     await expect(page.getByRole("heading", { name: /listings registry/i })).toBeVisible();
+    await expect(page.getByLabel(/missing photos/i)).toBeChecked();
     const openButtons = page.getByRole("button", { name: /^open$/i });
     if (await openButtons.count()) {
       await openButtons.first().click();
