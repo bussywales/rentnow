@@ -1,7 +1,6 @@
 "use client";
 
-import { AdminReviewShell } from "@/components/admin/AdminReviewShell";
-import { AdminReviewListCards } from "@/components/admin/AdminReviewListCards";
+import { AdminReviewDesk } from "@/components/admin/AdminReviewDesk";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 
 type Props = {
@@ -11,12 +10,14 @@ type Props = {
 
 export default function AdminReviewPanelContent({ listings, initialSelectedId }: Props) {
   return (
-    <AdminReviewShell
+    <AdminReviewDesk
       listings={listings}
       initialSelectedId={initialSelectedId}
-      renderList={({ items, selectedId, onSelect }) => (
-        <AdminReviewListCards items={items} selectedId={selectedId} onSelect={onSelect} />
-      )}
+      allowedViews={["pending", "changes", "all"]}
+      viewLabels={{ all: "All reviewable" }}
+      showBulkSelect
+      bulkFormId="bulk-approvals"
+      actionsEnabled
     />
   );
 }

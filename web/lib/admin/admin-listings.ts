@@ -10,11 +10,11 @@ import { ALLOWED_PROPERTY_STATUSES, normalizeStatus } from "@/lib/admin/admin-re
 export type AdminListingsQuery = {
   q: string | null;
   qMode: "id" | "owner" | "title";
-  status: string | null;
-  active: "all" | "active" | "inactive";
+  statuses: string[];
+  active: "all" | "true" | "false";
   page: number;
   pageSize: number;
-  sort: "updated_at.desc" | "updated_at.asc";
+  sort: "updated_desc" | "updated_asc" | "created_desc" | "created_asc";
 };
 
 export type AdminListingsResult<Row> = {
@@ -45,16 +45,28 @@ export function parseAdminListingsQuery(
     qMode = "id";
   }
 
-  const statusRaw = readValue("status");
-  const normalizedStatus = statusRaw ? normalizeStatus(statusRaw) : null;
-  const status =
-    normalizedStatus && (ALLOWED_PROPERTY_STATUSES as readonly string[]).includes(normalizedStatus)
-      ? normalizedStatus
-      : null;
+  const statusParam = params["status"];
+  const statusValues = Array.isArray(statusParam)
+    ? statusParam
+    : typeof statusParam === "string" && statusParam.length
+      ? statusParam.split(",")
+      : [];
+  const statuses = Array.from(
+    new Set(
+      statusValues
+        .map((s) => normalizeStatus(s))
+        .filter((s): s is string => !!s)
+        .filter((s) => (ALLOWED_PROPERTY_STATUSES as readonly string[]).includes(s))
+    )
+  );
 
   const activeRaw = (readValue("active") ?? "").toLowerCase();
   const active: AdminListingsQuery["active"] =
-    activeRaw === "active" || activeRaw === "inactive" ? activeRaw : "all";
+    activeRaw === "true" || activeRaw === "active"
+      ? "true"
+      : activeRaw === "false" || activeRaw === "inactive"
+        ? "false"
+        : "all";
 
   const pageRaw = Number(readValue("page"));
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
@@ -66,9 +78,15 @@ export function parseAdminListingsQuery(
 
   const sortRaw = (readValue("sort") ?? "").toLowerCase();
   const sort: AdminListingsQuery["sort"] =
-    sortRaw === "updated_at.asc" ? "updated_at.asc" : "updated_at.desc";
+    sortRaw === "updated_asc" || sortRaw === "updated_at.asc"
+      ? "updated_asc"
+      : sortRaw === "created_desc"
+        ? "created_desc"
+        : sortRaw === "created_asc"
+          ? "created_asc"
+          : "updated_desc";
 
-  return { q, qMode, status, active, page, pageSize, sort };
+  return { q, qMode, statuses, active, page, pageSize, sort };
 }
 
 export function isUuid(value: string) {
@@ -95,13 +113,13 @@ export async function getAdminAllListings<Row>({
     const from = client.from(ADMIN_REVIEW_VIEW_TABLE).select(selectToUse, { count: "exact" });
     let queryBuilder = from;
 
-    if (query.status) {
-      queryBuilder = queryBuilder.eq("status", query.status);
+    if (query.statuses.length) {
+      queryBuilder = queryBuilder.in("status", query.statuses);
     }
-    if (query.active === "active") {
+    if (query.active === "true") {
       queryBuilder = queryBuilder.eq("is_active", true);
     }
-    if (query.active === "inactive") {
+    if (query.active === "false") {
       queryBuilder = queryBuilder.eq("is_active", false);
     }
 
@@ -112,12 +130,22 @@ export async function getAdminAllListings<Row>({
       } else if (query.qMode === "owner") {
         queryBuilder = queryBuilder.eq("owner_id", trimmed);
       } else if (query.qMode === "title") {
-        queryBuilder = queryBuilder.ilike("title", `%${trimmed}%`);
+        const escaped = trimmed.replace(/,/g, "\\,");
+        const pattern = `%${escaped}%`;
+        queryBuilder = queryBuilder.or(
+          `title.ilike.${pattern},location_label.ilike.${pattern},city.ilike.${pattern},state_region.ilike.${pattern}`
+        );
       }
     }
 
-    const [sortField, sortDirection] = query.sort.split(".");
-    queryBuilder = queryBuilder.order(sortField, { ascending: sortDirection === "asc" });
+    const sortMap: Record<AdminListingsQuery["sort"], { field: string; ascending: boolean }> = {
+      updated_desc: { field: "updated_at", ascending: false },
+      updated_asc: { field: "updated_at", ascending: true },
+      created_desc: { field: "created_at", ascending: false },
+      created_asc: { field: "created_at", ascending: true },
+    };
+    const sortConfig = sortMap[query.sort] ?? sortMap.updated_desc;
+    queryBuilder = queryBuilder.order(sortConfig.field, { ascending: sortConfig.ascending });
 
     const fromIndex = (query.page - 1) * query.pageSize;
     const toIndex = fromIndex + query.pageSize - 1;

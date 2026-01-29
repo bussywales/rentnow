@@ -12,21 +12,42 @@ import {
 } from "@/lib/admin/admin-review";
 import { AdminReviewDrawer } from "./AdminReviewDrawer";
 import { AdminReviewList } from "./AdminReviewList";
-import { useAdminReviewView } from "@/lib/admin/admin-review-view";
+import { useAdminReviewView, type AdminReviewView } from "@/lib/admin/admin-review-view";
 import { DrawerErrorBoundary } from "./AdminReviewShell";
 
 type Props = {
   listings: AdminReviewListItem[];
   initialSelectedId: string | null;
+  allowedViews?: AdminReviewView[];
+  viewLabels?: Partial<Record<AdminReviewView, string>>;
+  showBulkSelect?: boolean;
+  bulkFormId?: string;
+  actionsEnabled?: boolean;
 };
 
-export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
+const DEFAULT_ALLOWED_VIEWS: AdminReviewView[] = ["pending", "changes", "approved", "all"];
+
+export function AdminReviewDesk({
+  listings,
+  initialSelectedId,
+  allowedViews = DEFAULT_ALLOWED_VIEWS,
+  viewLabels,
+  showBulkSelect = false,
+  bulkFormId = "bulk-approvals",
+  actionsEnabled = true,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { view, updateView, resetView } = useAdminReviewView();
   const [items, setItems] = useState<AdminReviewListItem[]>(listings);
   console.log("[AdminReviewDesk] listings.length", listings.length);
+  const allowed = allowedViews.length ? allowedViews : DEFAULT_ALLOWED_VIEWS;
+  const effectiveView = allowed.includes(view) ? view : allowed[0];
+
+  useEffect(() => {
+    setItems(listings);
+  }, [listings]);
 
   const defaultFilters: AdminReviewFilters = useMemo(
     () => ({
@@ -44,11 +65,8 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
   const buildUrlWithId = useCallback(
     (id: string | null) => {
       const params = new URLSearchParams(searchParams?.toString());
-      if (id) {
-        params.set("id", id);
-      } else {
-        params.delete("id");
-      }
+      params.delete("id");
+      if (id) params.set("id", id);
       const qs = params.toString();
       return qs ? `${pathname}?${qs}` : pathname;
     },
@@ -58,34 +76,35 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
   const handleSelect = useCallback(
     (id: string) => {
       console.log("[AdminReviewDesk] select click", { id, pathname, view });
-      router.push(buildUrlWithId(id));
+      router.push(buildUrlWithId(id), { scroll: false });
     },
     [buildUrlWithId, router, pathname, view]
   );
 
   const handleClose = useCallback(() => {
-    router.push(buildUrlWithId(null));
+    router.push(buildUrlWithId(null), { scroll: false });
   }, [buildUrlWithId, router]);
+
+  const visibleItems = useMemo(
+    () => {
+      return filterAndSortListings(items, effectiveView, filters);
+    },
+    [filters, items, effectiveView]
+  );
 
   const handleActionComplete = useCallback(
     (id: string) => {
       setItems((prev) => prev.filter((item) => item.id !== id));
       if (selectedId === id) {
-        router.push(buildUrlWithId(null));
+        const remaining = visibleItems.filter((item) => item.id !== id);
+        const currentIndex = visibleItems.findIndex((item) => item.id === id);
+        const nextId =
+          remaining[currentIndex] ? remaining[currentIndex].id : remaining[currentIndex - 1]?.id ?? remaining[0]?.id ?? null;
+        router.push(buildUrlWithId(nextId), { scroll: false });
       }
       router.refresh();
     },
-    [buildUrlWithId, router, selectedId]
-  );
-
-  const visibleItems = useMemo(
-    () => {
-      if (view === "pending") {
-        return items;
-      }
-      return filterAndSortListings(items, view, filters);
-    },
-    [filters, items, view]
+    [buildUrlWithId, router, selectedId, visibleItems]
   );
 
   const selectedListing = useMemo(
@@ -95,13 +114,19 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
   const selectedVisible = !!visibleItems.find((i) => i.id === selectedId);
 
   // Auto-select first item to keep drawer functional when arriving without id
-  const firstId = items[0]?.id || null;
+  const firstId = visibleItems[0]?.id || null;
   useEffect(() => {
     if (!selectedId && firstId) {
       console.log("[AdminReviewDesk] auto-select first", { firstId });
-      router.replace(buildUrlWithId(firstId));
+      router.replace(buildUrlWithId(firstId), { scroll: false });
     }
   }, [selectedId, firstId, buildUrlWithId, router]);
+
+  useEffect(() => {
+    if (!allowed.includes(view)) {
+      updateView(allowed[0]);
+    }
+  }, [allowed, updateView, view]);
 
   return (
     <div className="grid gap-4 lg:grid-cols-[2fr,1fr]">
@@ -121,25 +146,26 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
             </button>
           </div>
           <div className="flex flex-wrap gap-2">
-            {([
-              { key: "pending", label: ADMIN_REVIEW_COPY.views.pending },
-              { key: "changes", label: ADMIN_REVIEW_COPY.views.changes },
-              { key: "approved", label: ADMIN_REVIEW_COPY.views.approved },
-              { key: "all", label: ADMIN_REVIEW_COPY.views.all },
-            ] as const).map((v) => (
+            {(allowed as AdminReviewView[]).map((key) => {
+              const fallbackLabel = ADMIN_REVIEW_COPY.views[key];
+              const label =
+                viewLabels?.[key] ??
+                (key === "all" && allowed.length <= 3 ? "All reviewable" : fallbackLabel);
+              return (
               <button
-                key={v.key}
+                key={key}
                 type="button"
-                onClick={() => updateView(v.key)}
+                onClick={() => updateView(key)}
                 className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
-                  view === v.key
+                  effectiveView === key
                     ? "border-sky-200 bg-sky-50 text-sky-700"
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 }`}
               >
-                {v.label}
+                {label}
               </button>
-            ))}
+              );
+            })}
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -190,8 +216,14 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
             </select>
           </div>
         </div>
-        <AdminReviewList listings={visibleItems} onSelect={handleSelect} selectedId={selectedId} />
-        {(view === "pending" ? items.length === 0 : visibleItems.length === 0) && (
+        <AdminReviewList
+          listings={visibleItems}
+          onSelect={handleSelect}
+          selectedId={selectedId}
+          showBulkSelect={showBulkSelect}
+          bulkFormId={bulkFormId}
+        />
+        {(effectiveView === "pending" ? items.length === 0 : visibleItems.length === 0) && (
           <div className="p-6 text-center text-sm text-slate-600">
             <p className="font-semibold text-slate-900">{ADMIN_REVIEW_COPY.list.emptyTitle}</p>
             <p className="text-slate-600">{ADMIN_REVIEW_COPY.list.emptyBody}</p>
@@ -208,17 +240,24 @@ export function AdminReviewDesk({ listings, initialSelectedId }: Props) {
           isHiddenByFilters={!!selectedId && !selectedVisible}
           onShowHidden={() => {
             setFilters(defaultFilters);
-            if (selectedListing?.status === "changes_requested") {
-              updateView("changes");
+            let nextView: AdminReviewView | null = null;
+            if (selectedListing?.reviewStage === "changes") {
+              nextView = "changes";
             } else if (selectedListing?.status === "live" || selectedListing?.status === "approved") {
-              updateView("approved");
+              nextView = "approved";
             } else if (selectedListing) {
-              updateView("pending");
+              nextView = "pending";
+            }
+            if (nextView && allowed.includes(nextView)) {
+              updateView(nextView);
+            } else if (selectedListing && allowed.length) {
+              updateView(allowed[0]);
             }
           }}
           filteredIds={visibleItems.map((i) => i.id)}
           onNavigate={(id) => handleSelect(id)}
           hasListings={items.length > 0}
+          actionsEnabled={actionsEnabled}
         />
       </DrawerErrorBoundary>
     </div>

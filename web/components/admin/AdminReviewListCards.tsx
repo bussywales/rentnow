@@ -74,7 +74,7 @@ export function AdminReviewListCards({ items, selectedId, onSelect }: Props) {
             </p>
           </div>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-            <Button size="sm" variant="secondary" onClick={() => onSelect(item.id)}>
+            <Button size="sm" variant="secondary" type="button" onClick={() => onSelect(item.id)}>
               Review
             </Button>
           </div>

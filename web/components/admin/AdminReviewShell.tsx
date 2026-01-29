@@ -79,6 +79,7 @@ type Props = {
   renderList: (args: RenderListArgs) => React.ReactNode;
   autoSelect?: boolean;
   removeOnAction?: boolean;
+  actionsEnabled?: boolean;
 };
 
 export function pickNextId(items: AdminReviewListItem[], removedId?: string | null) {
@@ -91,6 +92,7 @@ export function AdminReviewShell({
   renderList,
   autoSelect = true,
   removeOnAction = true,
+  actionsEnabled = true,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -107,8 +109,8 @@ export function AdminReviewShell({
   const buildUrlWithId = useCallback(
     (id: string | null) => {
       const params = new URLSearchParams(searchParams?.toString());
+      params.delete("id");
       if (id) params.set("id", id);
-      else params.delete("id");
       const qs = params.toString();
       return qs ? `${pathname}?${qs}` : pathname;
     },
@@ -118,7 +120,7 @@ export function AdminReviewShell({
   const handleSelect = useCallback(
     (id: string) => {
       console.debug("[AdminReviewShell] select", { id, view });
-      router.push(buildUrlWithId(id));
+      router.push(buildUrlWithId(id), { scroll: false });
     },
     [buildUrlWithId, router, view]
   );
@@ -132,7 +134,7 @@ export function AdminReviewShell({
         }
         const nextItems = prev.filter((item) => item.id !== id);
         const nextId = pickNextId(nextItems);
-        router.push(buildUrlWithId(nextId));
+        router.push(buildUrlWithId(nextId), { scroll: false });
         router.refresh();
         return nextItems;
       });
@@ -148,7 +150,7 @@ export function AdminReviewShell({
   useEffect(() => {
     if (!autoSelect) return;
     if (view === "pending" && !selectedId && items.length > 0) {
-      router.replace(buildUrlWithId(items[0].id));
+      router.replace(buildUrlWithId(items[0].id), { scroll: false });
     }
   }, [autoSelect, view, selectedId, items, router, buildUrlWithId]);
 
@@ -158,7 +160,7 @@ export function AdminReviewShell({
       <DrawerErrorBoundary selectedId={selectedListing?.id ?? null}>
         <AdminReviewDrawer
           listing={selectedListing}
-          onClose={() => router.push(buildUrlWithId(null))}
+          onClose={() => router.push(buildUrlWithId(null), { scroll: false })}
           locationLine={selectedListing ? formatLocationLine(selectedListing) : ""}
           onActionComplete={handleActionComplete}
           isHiddenByFilters={false}
@@ -166,6 +168,7 @@ export function AdminReviewShell({
           filteredIds={items.map((i) => i.id)}
           onNavigate={(id) => handleSelect(id)}
           hasListings={items.length > 0}
+          actionsEnabled={actionsEnabled}
         />
       </DrawerErrorBoundary>
     </div>

@@ -51,7 +51,7 @@ export function useAdminReviewView() {
       }
       const id = params.get("id");
       const qs = params.toString();
-      router.push(`${pathname}${qs ? `?${qs}` : ""}`);
+      router.push(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
       if (!id && typeof window !== "undefined") {
         window.history.replaceState({}, "", `${pathname}${qs ? `?${qs}` : ""}`);
       }
@@ -65,7 +65,7 @@ export function useAdminReviewView() {
     const params = new URLSearchParams(searchParams?.toString());
     params.delete("view");
     const qs = params.toString();
-    router.push(`${pathname}${qs ? `?${qs}` : ""}`);
+    router.push(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
   }, [pathname, router, searchParams]);
 
   return { view, updateView, resetView };

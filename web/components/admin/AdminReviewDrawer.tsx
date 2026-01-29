@@ -24,6 +24,7 @@ type Props = {
   filteredIds: string[];
   onNavigate: (id: string) => void;
   hasListings: boolean;
+  actionsEnabled?: boolean;
 };
 
 const detailSchema = z.object({
@@ -38,6 +39,7 @@ const detailSchema = z.object({
     rejected_at: z.string().nullable(),
     is_active: z.boolean().nullable(),
     rejection_reason: z.string().nullable(),
+    owner_id: z.string().nullable().optional(),
     city: z.string().nullable(),
     state_region: z.string().nullable(),
     country_code: z.string().nullable(),
@@ -49,6 +51,13 @@ const detailSchema = z.object({
     has_video: z.boolean().nullable(),
     has_cover: z.boolean().nullable(),
     cover_image_url: z.string().nullable(),
+    price: z.coerce.number().nullable().optional(),
+    currency: z.string().nullable().optional(),
+    rent_period: z.string().nullable().optional(),
+    rental_type: z.string().nullable().optional(),
+    listing_type: z.string().nullable().optional(),
+    bedrooms: z.coerce.number().nullable().optional(),
+    bathrooms: z.coerce.number().nullable().optional(),
   }),
   images: z.array(
     z.object({
@@ -76,6 +85,7 @@ export function AdminReviewDrawer({
   filteredIds,
   onNavigate,
   hasListings,
+  actionsEnabled = true,
 }: Props) {
   const isOpen = !!listing;
   const [reasons, setReasons] = useState<ReviewReasonCode[]>([]);
@@ -156,6 +166,7 @@ export function AdminReviewDrawer({
   const detail = detailData ?? null;
   const images = detail?.images ?? [];
   const videos = detail?.videos ?? [];
+  const canReview = listing?.reviewStage === "pending" || listing?.reviewStage === "changes" || listing?.reviewable === true;
 
   const toggleReason = (code: ReviewReasonCode) => {
     setReasons((prev) => {
@@ -290,6 +301,20 @@ export function AdminReviewDrawer({
           <a className="font-semibold underline" href="/api/admin/review/diagnostics" target="_blank" rel="noreferrer">
             Diagnostics
           </a>
+          <button
+            type="button"
+            className="ml-2 underline"
+            onClick={() => {
+              const debugJson = JSON.stringify({ listingId: listing?.id, error: detailError }, null, 2);
+              try {
+                void navigator.clipboard?.writeText(debugJson);
+              } catch {
+                /* ignore */
+              }
+            }}
+          >
+            Copy debug
+          </button>
         </div>
       )}
       {isHiddenByFilters && listing && (
@@ -338,6 +363,27 @@ export function AdminReviewDrawer({
               <dd>{detail.listing.cover_image_url ? "Set" : "Missing"}</dd>
               <dt className="font-semibold text-slate-900">Owner</dt>
               <dd>{listing?.hostName || detail.listing.id}</dd>
+              <dt className="font-semibold text-slate-900">Active</dt>
+              <dd>
+                {detail.listing.is_active === null || detail.listing.is_active === undefined
+                  ? "—"
+                  : detail.listing.is_active
+                    ? "Yes"
+                    : "No"}
+              </dd>
+              <dt className="font-semibold text-slate-900">Price</dt>
+              <dd>
+                {detail.listing.price === null || detail.listing.price === undefined
+                  ? "—"
+                  : `${detail.listing.currency || "NGN"} ${detail.listing.price}`}
+                {detail.listing.rent_period ? ` / ${detail.listing.rent_period}` : ""}
+              </dd>
+              <dt className="font-semibold text-slate-900">Type</dt>
+              <dd>{detail.listing.listing_type || detail.listing.rental_type || "—"}</dd>
+              <dt className="font-semibold text-slate-900">Beds/Baths</dt>
+              <dd>
+                {detail.listing.bedrooms ?? "—"} bd · {detail.listing.bathrooms ?? "—"} ba
+              </dd>
             </dl>
           )}
         </section>
@@ -350,6 +396,13 @@ export function AdminReviewDrawer({
               </span>
             )}
           </div>
+          {detail?.listing.cover_image_url && (
+            <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={detail.listing.cover_image_url} alt="Cover" className="h-40 w-full object-cover" />
+              <div className="px-2 py-1 text-[11px] text-slate-600">Cover</div>
+            </div>
+          )}
           {images.length === 0 && videos.length === 0 && (
             <p className="text-sm text-slate-600">No media found for this listing.</p>
           )}
@@ -410,7 +463,7 @@ export function AdminReviewDrawer({
             {listing ? "Internal notes (read-only in this slice)." : ADMIN_REVIEW_COPY.list.noSelection}
           </p>
         </section>
-        {listing && (
+        {listing && actionsEnabled && (
           <section className="flex flex-col gap-3 p-4">
             <div className="flex items-center justify-between text-xs text-slate-600">
               <button
@@ -436,8 +489,8 @@ export function AdminReviewDrawer({
               onClick={handleApprove}
               className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
             >
-              {submitting === "approve" ? "Approving..." : "Approve listing"}
-            </button>
+                {submitting === "approve" ? "Approving..." : "Approve listing"}
+              </button>
             <button
               type="button"
               disabled={submitting !== null}
@@ -500,8 +553,8 @@ export function AdminReviewDrawer({
                   onClick={handleSendRequest}
                   className="inline-flex items-center justify-center rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
                 >
-                  {submitting === "request" ? "Sending..." : ADMIN_REVIEW_COPY.drawer.sendRequest}
-                </button>
+                {submitting === "request" ? "Sending..." : ADMIN_REVIEW_COPY.drawer.sendRequest}
+              </button>
                 <button
                   type="button"
                   className="text-xs text-slate-600 hover:text-slate-800"
@@ -514,6 +567,20 @@ export function AdminReviewDrawer({
                   {ADMIN_REVIEW_COPY.drawer.cancelRequest}
                 </button>
               </div>
+            </div>
+          </section>
+        )}
+        {listing && !actionsEnabled && (
+          <section className="p-4">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+              This listing is read-only in the Listings registry.{" "}
+              {canReview ? (
+                <a className="font-semibold underline" href={`/admin/review?id=${encodeURIComponent(listing.id)}`}>
+                  Open in Review queue
+                </a>
+              ) : (
+                <span>Only reviewable listings can be approved or rejected.</span>
+              )}
             </div>
           </section>
         )}

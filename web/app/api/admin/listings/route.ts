@@ -18,7 +18,19 @@ export async function GET(request: NextRequest) {
   });
   if (!auth.ok) return auth.response;
 
-  const query = parseAdminListingsQuery(Object.fromEntries(new URL(request.url).searchParams.entries()));
+  const rawParams: Record<string, string | string[]> = {};
+  const params = new URL(request.url).searchParams;
+  for (const [key, value] of params.entries()) {
+    const existing = rawParams[key];
+    if (existing === undefined) {
+      rawParams[key] = value;
+    } else if (Array.isArray(existing)) {
+      rawParams[key] = [...existing, value];
+    } else {
+      rawParams[key] = [existing, value];
+    }
+  }
+  const query = parseAdminListingsQuery(rawParams);
   const client = hasServiceRoleEnv() ? createServiceRoleClient() : auth.supabase;
 
   try {
@@ -27,7 +39,9 @@ export async function GET(request: NextRequest) {
       query,
     });
     return NextResponse.json({
+      items: result.rows,
       data: result.rows,
+      total: result.count,
       count: result.count,
       page: result.page,
       pageSize: result.pageSize,

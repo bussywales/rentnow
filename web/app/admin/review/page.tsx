@@ -16,6 +16,7 @@ import {
   getAdminReviewQueue,
   getStatusesForView,
   isReviewableRow,
+  isFixRequestRow,
   normalizeStatus,
 } from "@/lib/admin/admin-review-queue";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
@@ -78,6 +79,18 @@ type ReviewLoadResult = {
 type SupabaseServerClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 
 function AdminReviewServiceErrorPanel({ meta, status }: { meta: ReviewLoadResult["meta"]; status: number | null }) {
+  const debugJson = JSON.stringify(
+    {
+      serviceAttempted: meta?.serviceAttempted,
+      serviceOk: meta?.serviceOk,
+      serviceStatus: meta?.serviceStatus ?? status,
+      serviceError: meta?.serviceError,
+      serviceErrorDetails: (meta as { serviceErrorDetails?: string })?.serviceErrorDetails,
+      fallbackReason: (meta as { fallbackReason?: string })?.fallbackReason,
+    },
+    null,
+    2
+  );
   return (
     <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
       <div className="font-semibold text-amber-900">Queue fetch failed</div>
@@ -90,21 +103,23 @@ function AdminReviewServiceErrorPanel({ meta, status }: { meta: ReviewLoadResult
       </div>
       <details className="mt-2 rounded bg-white/70 p-2 text-xs text-amber-900">
         <summary className="cursor-pointer text-amber-900">Debug meta</summary>
-        <pre className="mt-1 whitespace-pre-wrap">
-          {JSON.stringify(
-            {
-              serviceAttempted: meta?.serviceAttempted,
-              serviceOk: meta?.serviceOk,
-              serviceStatus: meta?.serviceStatus ?? status,
-              serviceError: meta?.serviceError,
-              serviceErrorDetails: (meta as { serviceErrorDetails?: string })?.serviceErrorDetails,
-              fallbackReason: (meta as { fallbackReason?: string })?.fallbackReason,
-            },
-            null,
-            2
-          )}
-        </pre>
+        <pre className="mt-1 whitespace-pre-wrap">{debugJson}</pre>
       </details>
+      <div className="mt-2 flex flex-wrap gap-2 text-xs">
+        <button
+          type="button"
+          className="rounded border border-amber-300 px-2 py-1"
+          onClick={() => {
+            try {
+              void navigator.clipboard?.writeText(debugJson);
+            } catch {
+              /* ignore */
+            }
+          }}
+        >
+          Copy debug JSON
+        </button>
+      </div>
     </div>
   );
 }
@@ -203,6 +218,26 @@ async function loadReviewListings(
         city: merged.city ?? null,
       });
 
+      const fixRequested = isFixRequestRow({
+        status: merged.status ?? null,
+        submitted_at: merged.submitted_at ?? null,
+        rejection_reason: merged.rejection_reason ?? null,
+        is_approved: merged.is_approved ?? null,
+        approved_at: merged.approved_at ?? null,
+      });
+      const reviewable = isReviewableRow({
+        status: merged.status ?? null,
+        submitted_at: merged.submitted_at ?? null,
+        is_approved: merged.is_approved ?? null,
+        approved_at: merged.approved_at ?? null,
+        rejected_at: merged.rejected_at ?? null,
+      });
+      const reviewStage: AdminReviewListItem["reviewStage"] = fixRequested
+        ? "changes"
+        : reviewable
+          ? "pending"
+          : null;
+
       return {
         id: p.id,
         title: merged.title || "Untitled",
@@ -222,13 +257,8 @@ async function loadReviewListings(
         locationQuality: locationQuality.quality,
         photoCount: typeof merged.photo_count === "number" ? merged.photo_count : images.length,
         hasVideo: merged.has_video ?? ((merged.video_count ?? 0) > 0),
-        reviewable: isReviewableRow({
-          status: merged.status ?? null,
-          submitted_at: merged.submitted_at ?? null,
-          is_approved: merged.is_approved ?? null,
-          approved_at: merged.approved_at ?? null,
-          rejected_at: merged.rejected_at ?? null,
-        }),
+        reviewable,
+        reviewStage,
       };
     });
     return {
@@ -311,7 +341,15 @@ export default async function AdminReviewPage({ searchParams }: Props) {
       {queueError && (
         <AdminReviewServiceErrorPanel meta={meta} status={serviceRoleStatus} />
       )}
-      {!queueError && <AdminReviewDesk listings={listings} initialSelectedId={initialSelectedId} />}
+      {!queueError && (
+        <AdminReviewDesk
+          listings={listings}
+          initialSelectedId={initialSelectedId}
+          allowedViews={["pending", "changes", "all"]}
+          viewLabels={{ all: "All reviewable" }}
+          actionsEnabled
+        />
+      )}
       <link rel="canonical" href={canonicalUrl} />
     </div>
   );

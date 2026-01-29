@@ -69,16 +69,22 @@
   - **Send request** → `status=changes_requested`, stores structured reasons + message, removes from pending list.
 - Drawer navigation: Previous/Next follow the currently visible list; a hidden-by-filters notice can reset filters and jump to the selection.
 - If service fetch fails (`serviceAttempted && !serviceOk`), the page shows the Service Error panel; no silent empty state.
-- `/admin` now embeds the same drawer and queue: clicking a property row opens the shared Review Drawer, using the same contracts, diagnostics, and error boundary. `/admin/review` remains a focused view but shares all logic.
-- `/admin` guards against crashes: the review panel is loaded via a client-only boundary with a fallback message that links to diagnostics and `/admin/review`, so the rest of the admin page stays available even when the drawer fails to load.
+- Admin workspaces:
+  - `/admin` is the **Overview cockpit** (monitor-only: KPIs + recent listings + alerts).
+  - `/admin/review` is the **Review Desk** (decision mode: approve/reject/request changes).
+  - `/admin/listings` is the **Listings registry** (all listings, search + filters).
+  - `/admin/listings/[id]` is the **Listing Inspector** (read-only details panel).
 - Review queue vs Listings:
-  - **Overview tab (default)**: counts by status + active/inactive, recent listings, and quick links to Review queue or Listings. URL-driven via `?tab=overview`.
-  - **Review queue tab**: only reviewable listings (pending + changes requested). Uses the review queue helper against `admin_review_view`. URL-driven selection `?tab=review&id=<uuid>`.
-  - **Listings tab**: all listings (same view/contract) with search + filters (q/qMode, status, active, sort). URL-driven selection `?tab=listings&id=<uuid>`.
+  - **Review Desk** (`/admin/review`): only reviewable listings (pending + changes requested). Filters: Pending / Changes requested / All reviewable. URL-driven selection `?id=<uuid>`.
+  - **Listings registry** (`/admin/listings`): all listings (same view/contract) with search + filters (q/qMode, status multi-select, active toggle, sort).
+  - **Listing Inspector** (`/admin/listings/[id]`): read-only detail view (no approve/reject).
+  - See `docs/ADMIN_LISTINGS.md` for registry query parameters and inspector usage.
+  - **Listings search modes**: ID (exact), Owner ID (exact), Title/Location (partial match across title, location_label, city/state).
 - Intended routes:
   - `/dashboard` is the default workspace for all authenticated roles (including admins).
-  - `/admin` is the admin console with Overview / Review queue / Listings tabs (`?tab=overview|review|listings`).
-  - `/admin/review` remains the focused Review Desk view and shares the drawer/contract.
+  - `/admin` is the admin overview console.
+  - `/admin/review` remains the canonical Review Desk.
+  - `/admin/listings` is the canonical Listings registry.
 - Drift detection & remediation:
   - Diagnostics now lists `adminReviewViewColumns`, flags missing pricing fields, and reports `missingExpectedColumns`.
   - Queue fetch falls back to a minimal select if PostgREST returns 42703 (missing column) and marks `contractDegraded=true`.

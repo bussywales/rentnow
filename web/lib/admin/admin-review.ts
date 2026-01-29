@@ -22,6 +22,7 @@ export type AdminReviewListItem = {
   is_active?: boolean | null;
   rejectionReason?: string | null;
   reviewable?: boolean;
+  reviewStage?: "pending" | "changes" | null;
   price?: number | null;
   currency?: string | null;
   rent_period?: string | null;
@@ -78,19 +79,24 @@ export function filterAndSortListings(
       return a.id.localeCompare(b.id);
     });
 
-  // Pending view should trust the server queue and avoid client-side filtering.
-  if (view === "pending") {
-    return sortListings(items, filters.sort);
-  }
-
   const { search, hasVideo, needsLocation, needsPhotos, sort } = filters;
   const searchLower = search.trim().toLowerCase();
   const now = Date.now();
   const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
 
   const filtered = items.filter((item) => {
-    if (view !== "all" && !isStatusInView(item.status ?? null, view)) return false;
-    if (view === "approved" && item.status && !isStatusInView(item.status, "approved")) return false;
+    const normalizedStatus = (item.status ?? "").toString().trim().toLowerCase();
+    const isChanges =
+      item.reviewStage === "changes" ||
+      (normalizedStatus === "draft" && !!item.rejectionReason);
+    if (view === "pending" && isChanges) return false;
+    if (view === "changes" && !isChanges) return false;
+    if (view === "approved" && !isStatusInView(item.status ?? null, "approved")) return false;
+    if (view === "all") {
+      // keep all reviewable items
+    } else if (view !== "pending" && view !== "changes" && !isStatusInView(item.status ?? null, view)) {
+      return false;
+    }
     if (view === "approved" && item.updatedAt) {
       const updatedMs = new Date(item.updatedAt).getTime();
       if (Number.isFinite(updatedMs) && now - updatedMs > sevenDaysMs) return false;

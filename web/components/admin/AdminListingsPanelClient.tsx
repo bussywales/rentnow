@@ -6,7 +6,6 @@ import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 
 type Props = {
   listings: AdminReviewListItem[];
-  initialSelectedId: string | null;
 };
 
 const LazyPanel = dynamic(() => import("./AdminListingsPanelContent"), {
@@ -60,11 +59,11 @@ class ListingsPanelErrorBoundary extends React.Component<
   }
 }
 
-export default function AdminListingsPanelClient({ listings, initialSelectedId }: Props) {
-  const debug = { listingCount: listings.length, initialSelectedId };
+export default function AdminListingsPanelClient({ listings }: Props) {
+  const debug = { listingCount: listings.length };
   return (
     <ListingsPanelErrorBoundary debug={debug}>
-      <LazyPanel listings={listings} initialSelectedId={initialSelectedId} />
+      <LazyPanel listings={listings} />
     </ListingsPanelErrorBoundary>
   );
 }

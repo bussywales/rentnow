@@ -5,6 +5,7 @@
 - vR16.9b.30: `/admin` embeds the Review Drawer + queue shell; single shared contracts/actions/tests across admin surfaces.
 - vR16.9b.31: `/admin` isolated shell to prevent crashes; resilient error UI.
 - vR16.9b.32: Restore `/dashboard` for all roles; Admin console tabs (Overview / Review queue / Listings) with minimal filters (price, type, beds, baths).
-- vR16.9b.35: `/admin` tabs are split by purpose (Overview / Review queue / Listings), URL-driven (`?tab=overview|review|listings`), with ops search/filter in Listings and review queue limited to pending/changes.
+- vR16.9b.35: Admin tabs split (legacy tabbed UX).
+- vR16.10.0: Admin UX blueprint complete — `/admin` overview cockpit, `/admin/review` decision desk, `/admin/listings` registry, `/admin/listings/[id]` inspector.
 - Next 1–2 releases: Saved searches in admin, sorting (relevance/newest/price/readiness), pagination + DB indexes, host/admin audit log filters.
 - Later (Airbnb+): Map-based search/radius, availability filters, quality-issues facets, consider materialized view or triggers if latency warrants; optional richer media for drawer only.
