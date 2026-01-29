@@ -1,6 +1,9 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { parseAdminListingsQuery } from "@/lib/admin/admin-listings";
+import {
+  parseAdminListingsQuery,
+  serializeAdminListingsQuery,
+} from "@/lib/admin/admin-listings-query";
 
 describe("admin listings query parsing", () => {
   it("defaults are applied when params missing", () => {
@@ -17,6 +20,11 @@ describe("admin listings query parsing", () => {
     assert.equal(parsed.missingLocation, false);
     assert.equal(parsed.priceMin, null);
     assert.equal(parsed.priceMax, null);
+    assert.equal(parsed.listing_type, null);
+    assert.equal(parsed.bedroomsMin, null);
+    assert.equal(parsed.bedroomsMax, null);
+    assert.equal(parsed.bathroomsMin, null);
+    assert.equal(parsed.bathroomsMax, null);
   });
 
   it("parses provided query params", () => {
@@ -33,6 +41,11 @@ describe("admin listings query parsing", () => {
       missingLocation: "yes",
       priceMin: "100",
       priceMax: "999",
+      listing_type: "apartment",
+      bedroomsMin: "2",
+      bedroomsMax: "4",
+      bathroomsMin: "1",
+      bathroomsMax: "3",
     });
     assert.equal(parsed.q, "Lagos");
     assert.equal(parsed.qMode, "title");
@@ -47,6 +60,11 @@ describe("admin listings query parsing", () => {
     assert.equal(parsed.missingLocation, true);
     assert.equal(parsed.priceMin, 100);
     assert.equal(parsed.priceMax, 999);
+    assert.equal(parsed.listing_type, "apartment");
+    assert.equal(parsed.bedroomsMin, 2);
+    assert.equal(parsed.bedroomsMax, 4);
+    assert.equal(parsed.bathroomsMin, 1);
+    assert.equal(parsed.bathroomsMax, 3);
   });
 
   it("detects uuid and defaults to id mode when qMode missing", () => {
@@ -66,5 +84,49 @@ describe("admin listings query parsing", () => {
     assert.deepEqual(parsed.statuses, []);
     assert.equal(parsed.active, "all");
     assert.equal(parsed.page, 1);
+  });
+
+  it("round-trips serialize -> parse for full filters", () => {
+    const original = parseAdminListingsQuery({
+      q: "Lagos",
+      qMode: "title",
+      status: ["pending", "live"],
+      active: "false",
+      missingCover: "true",
+      missingPhotos: "true",
+      missingLocation: "true",
+      priceMin: "500",
+      priceMax: "1500",
+      listing_type: "studio",
+      bedroomsMin: "1",
+      bedroomsMax: "2",
+      bathroomsMin: "1",
+      bathroomsMax: "2",
+      sort: "created_desc",
+      page: "3",
+      pageSize: "25",
+    });
+
+    const roundTrip = parseAdminListingsQuery(
+      serializeAdminListingsQuery(original)
+    );
+
+    assert.deepEqual(roundTrip.statuses.sort(), original.statuses.sort());
+    assert.equal(roundTrip.q, original.q);
+    assert.equal(roundTrip.qMode, original.qMode);
+    assert.equal(roundTrip.active, original.active);
+    assert.equal(roundTrip.missingCover, original.missingCover);
+    assert.equal(roundTrip.missingPhotos, original.missingPhotos);
+    assert.equal(roundTrip.missingLocation, original.missingLocation);
+    assert.equal(roundTrip.priceMin, original.priceMin);
+    assert.equal(roundTrip.priceMax, original.priceMax);
+    assert.equal(roundTrip.listing_type, original.listing_type);
+    assert.equal(roundTrip.bedroomsMin, original.bedroomsMin);
+    assert.equal(roundTrip.bedroomsMax, original.bedroomsMax);
+    assert.equal(roundTrip.bathroomsMin, original.bathroomsMin);
+    assert.equal(roundTrip.bathroomsMax, original.bathroomsMax);
+    assert.equal(roundTrip.sort, original.sort);
+    assert.equal(roundTrip.page, original.page);
+    assert.equal(roundTrip.pageSize, original.pageSize);
   });
 });

@@ -6,22 +6,16 @@ import {
   normalizeSelect,
 } from "@/lib/admin/admin-review-contracts";
 import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
-import { ALLOWED_PROPERTY_STATUSES, normalizeStatus } from "@/lib/admin/admin-review-queue";
-
-export type AdminListingsQuery = {
-  q: string | null;
-  qMode: "id" | "owner" | "title";
-  statuses: string[];
-  active: "all" | "true" | "false";
-  page: number;
-  pageSize: number;
-  sort: "updated_desc" | "updated_asc" | "created_desc" | "created_asc";
-  missingCover: boolean;
-  missingPhotos: boolean;
-  missingLocation: boolean;
-  priceMin: number | null;
-  priceMax: number | null;
-};
+import type { AdminListingsQuery } from "@/lib/admin/admin-listings-query";
+import {
+  parseAdminListingsQuery,
+  serializeAdminListingsQuery,
+  DEFAULT_ADMIN_LISTINGS_QUERY,
+  hasActiveAdminListingsFilters,
+  summarizeAdminListingsFilters,
+  isUuid,
+} from "@/lib/admin/admin-listings-query";
+import { ALLOWED_PROPERTY_STATUSES } from "@/lib/admin/admin-review-queue";
 
 export type AdminListingsResult<Row> = {
   rows: Row[];
@@ -30,102 +24,14 @@ export type AdminListingsResult<Row> = {
   pageSize: number;
   contractDegraded: boolean;
 };
-
-const DEFAULT_PAGE_SIZE = 50;
-const MAX_PAGE_SIZE = 100;
-
-export function parseAdminListingsQuery(
-  params: Record<string, string | string[] | undefined>
-): AdminListingsQuery {
-  const readValue = (key: string) => {
-    const value = params[key];
-    if (Array.isArray(value)) return value[value.length - 1] ?? null;
-    return value ?? null;
-  };
-
-  const q = (readValue("q") ?? "").trim() || null;
-  const qModeRaw = (readValue("qMode") ?? "").toLowerCase();
-  let qMode: AdminListingsQuery["qMode"] =
-    qModeRaw === "id" || qModeRaw === "owner" || qModeRaw === "title" ? qModeRaw : "title";
-  if (!qModeRaw && q && isUuid(q)) {
-    qMode = "id";
-  }
-
-  const statusParam = params["status"];
-  const statusValues = Array.isArray(statusParam)
-    ? statusParam
-    : typeof statusParam === "string" && statusParam.length
-      ? statusParam.split(",")
-      : [];
-  const statuses = Array.from(
-    new Set(
-      statusValues
-        .map((s) => normalizeStatus(s))
-        .filter((s): s is string => !!s)
-        .filter((s) => (ALLOWED_PROPERTY_STATUSES as readonly string[]).includes(s))
-    )
-  );
-
-  const activeRaw = (readValue("active") ?? "").toLowerCase();
-  const active: AdminListingsQuery["active"] =
-    activeRaw === "true" || activeRaw === "active"
-      ? "true"
-      : activeRaw === "false" || activeRaw === "inactive"
-        ? "false"
-        : "all";
-
-  const pageRaw = Number(readValue("page"));
-  const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
-
-  const pageSizeRaw = Number(readValue("pageSize"));
-  const pageSizeCandidate =
-    Number.isFinite(pageSizeRaw) && pageSizeRaw > 0 ? Math.floor(pageSizeRaw) : DEFAULT_PAGE_SIZE;
-  const pageSize = Math.min(Math.max(pageSizeCandidate, 10), MAX_PAGE_SIZE);
-
-  const sortRaw = (readValue("sort") ?? "").toLowerCase();
-  const sort: AdminListingsQuery["sort"] =
-    sortRaw === "updated_asc" || sortRaw === "updated_at.asc"
-      ? "updated_asc"
-      : sortRaw === "created_desc"
-        ? "created_desc"
-        : sortRaw === "created_asc"
-          ? "created_asc"
-          : "updated_desc";
-
-  const parseBool = (value: string | null) => {
-    if (!value) return false;
-    const normalized = value.toLowerCase();
-    return normalized === "true" || normalized === "1" || normalized === "yes" || normalized === "on";
-  };
-  const missingCover = parseBool(readValue("missingCover"));
-  const missingPhotos = parseBool(readValue("missingPhotos"));
-  const missingLocation = parseBool(readValue("missingLocation"));
-  const priceMinValue = readValue("priceMin");
-  const priceMaxValue = readValue("priceMax");
-  const priceMinRaw = priceMinValue ? Number(priceMinValue) : Number.NaN;
-  const priceMaxRaw = priceMaxValue ? Number(priceMaxValue) : Number.NaN;
-  const priceMin = Number.isFinite(priceMinRaw) ? priceMinRaw : null;
-  const priceMax = Number.isFinite(priceMaxRaw) ? priceMaxRaw : null;
-
-  return {
-    q,
-    qMode,
-    statuses,
-    active,
-    page,
-    pageSize,
-    sort,
-    missingCover,
-    missingPhotos,
-    missingLocation,
-    priceMin,
-    priceMax,
-  };
-}
-
-export function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
-}
+export {
+  parseAdminListingsQuery,
+  serializeAdminListingsQuery,
+  DEFAULT_ADMIN_LISTINGS_QUERY,
+  hasActiveAdminListingsFilters,
+  summarizeAdminListingsFilters,
+  isUuid,
+};
 
 type AdminListingsClient = SupabaseClient;
 
@@ -170,6 +76,21 @@ export async function getAdminAllListings<Row>({
     }
     if (query.priceMax !== null) {
       queryBuilder = queryBuilder.lte("price", query.priceMax);
+    }
+    if (query.listing_type) {
+      queryBuilder = queryBuilder.eq("listing_type", query.listing_type);
+    }
+    if (query.bedroomsMin !== null) {
+      queryBuilder = queryBuilder.gte("bedrooms", query.bedroomsMin);
+    }
+    if (query.bedroomsMax !== null) {
+      queryBuilder = queryBuilder.lte("bedrooms", query.bedroomsMax);
+    }
+    if (query.bathroomsMin !== null) {
+      queryBuilder = queryBuilder.gte("bathrooms", query.bathroomsMin);
+    }
+    if (query.bathroomsMax !== null) {
+      queryBuilder = queryBuilder.lte("bathrooms", query.bathroomsMax);
     }
 
     if (query.q) {

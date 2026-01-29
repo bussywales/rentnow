@@ -9,8 +9,16 @@ import { computeLocationQuality } from "@/lib/properties/location-quality";
 import type { PropertyImage } from "@/lib/types";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import { normalizeStatus, isReviewableRow, isFixRequestRow, ALLOWED_PROPERTY_STATUSES } from "@/lib/admin/admin-review-queue";
-import { getAdminAllListings, isUuid, parseAdminListingsQuery } from "@/lib/admin/admin-listings";
+import {
+  getAdminAllListings,
+  isUuid,
+  parseAdminListingsQuery,
+  serializeAdminListingsQuery,
+  hasActiveAdminListingsFilters,
+  summarizeAdminListingsFilters,
+} from "@/lib/admin/admin-listings";
 import AdminListingsPanelClient from "@/components/admin/AdminListingsPanelClient";
+import AdminListingsFiltersClient from "@/components/admin/AdminListingsFiltersClient";
 import AdminSavedViews from "@/components/admin/AdminSavedViews";
 
 export const dynamic = "force-dynamic";
@@ -278,18 +286,15 @@ export default async function AdminListingsPage({ searchParams }: Props) {
   const listingEnd =
     listingTotalCount > 0 ? Math.min(listingTotalCount, listingStart + listingCount - 1) : 0;
 
+  const hasActiveFilters = hasActiveAdminListingsFilters(listingQuery);
+  const appliedFilters = summarizeAdminListingsFilters(listingQuery);
+
   const buildPageHref = (page: number) => {
-    const params = new URLSearchParams();
-    Object.entries(searchParams).forEach(([key, value]) => {
-      if (key === "page") return;
-      if (Array.isArray(value)) {
-        value.forEach((v) => v && params.append(key, v));
-      } else if (value) {
-        params.set(key, value);
-      }
+    const params = serializeAdminListingsQuery({
+      ...listingQuery,
+      page,
+      pageSize: listingPageSize,
     });
-    params.set("page", String(page));
-    params.set("pageSize", String(listingPageSize));
     const qs = params.toString();
     return qs ? `/admin/listings?${qs}` : "/admin/listings";
   };
@@ -348,119 +353,58 @@ export default async function AdminListingsPage({ searchParams }: Props) {
         </div>
       )}
 
-      <form method="get" className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <div className="flex flex-col">
-            <label className="text-xs text-slate-600">Search</label>
-            <input
-              name="q"
-              type="text"
-              placeholder="Search title or paste ID"
-              defaultValue={listingQuery.q ?? ""}
-              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-            />
+      <AdminListingsFiltersClient
+        initialQuery={listingQuery}
+        statusOptions={STATUS_OPTIONS}
+        pageSizeOptions={[25, 50, 100]}
+      />
+
+      {hasActiveFilters && appliedFilters.length > 0 && (
+        <div
+          data-testid="admin-listings-applied-filters"
+          className="rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm"
+        >
+          <div className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">
+            Applied filters
           </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-slate-600">Search mode</label>
-            <select name="qMode" defaultValue={listingQuery.qMode} className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm">
-              <option value="title">Title / location</option>
-              <option value="id">Listing ID</option>
-              <option value="owner">Owner ID</option>
-            </select>
-          </div>
-          <fieldset className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-            <legend className="text-xs text-slate-600">Status (multi)</legend>
-            <div className="flex flex-wrap gap-2 text-xs text-slate-700">
-              {STATUS_OPTIONS.map((opt) => (
-                <label key={opt.value} className="flex items-center gap-1">
-                  <input
-                    type="checkbox"
-                    name="status"
-                    value={opt.value}
-                    defaultChecked={listingQuery.statuses.includes(opt.value)}
-                  />
-                  {opt.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <div className="flex flex-col">
-            <label className="text-xs text-slate-600">Active</label>
-            <select name="active" defaultValue={listingQuery.active} className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm">
-              <option value="all">All</option>
-              <option value="true">Active</option>
-              <option value="false">Inactive</option>
-            </select>
-          </div>
-          <div className="flex flex-col rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-            <label className="text-xs text-slate-600">Ops filters</label>
-            <div className="flex flex-wrap gap-2 text-xs text-slate-700">
-              <label className="flex items-center gap-1">
-                <input type="checkbox" name="missingCover" value="true" defaultChecked={listingQuery.missingCover} />
-                Missing cover
-              </label>
-              <label className="flex items-center gap-1">
-                <input type="checkbox" name="missingPhotos" value="true" defaultChecked={listingQuery.missingPhotos} />
-                Missing photos
-              </label>
-              <label className="flex items-center gap-1">
-                <input type="checkbox" name="missingLocation" value="true" defaultChecked={listingQuery.missingLocation} />
-                Missing location
-              </label>
-            </div>
-          </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-slate-600">Price min</label>
-            <input
-              name="priceMin"
-              type="number"
-              step="1"
-              defaultValue={listingQuery.priceMin ?? ""}
-              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-            />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-slate-600">Price max</label>
-            <input
-              name="priceMax"
-              type="number"
-              step="1"
-              defaultValue={listingQuery.priceMax ?? ""}
-              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-            />
-          </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-slate-600">Sort</label>
-            <select name="sort" defaultValue={listingQuery.sort} className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm">
-              <option value="updated_desc">Updated (newest)</option>
-              <option value="updated_asc">Updated (oldest)</option>
-              <option value="created_desc">Created (newest)</option>
-              <option value="created_asc">Created (oldest)</option>
-            </select>
-          </div>
-          <div className="flex flex-col">
-            <label className="text-xs text-slate-600">Page size</label>
-            <select name="pageSize" defaultValue={listingPageSize} className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm">
-              {[25, 50, 100].map((size) => (
-                <option key={size} value={size}>
-                  {size} per page
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-end">
-            <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-sm text-white shadow-sm">
-              Apply filters
-            </button>
+          <div className="flex flex-wrap gap-2">
+            {appliedFilters.map((label) => (
+              <span
+                key={label}
+                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700"
+              >
+                {label}
+              </span>
+            ))}
+            <Link href="/admin/listings" className="text-xs text-slate-600 underline">
+              Clear filters
+            </Link>
           </div>
         </div>
-      </form>
+      )}
 
       <div className="text-sm text-slate-600">
         Showing {listingStart}-{listingEnd} of {listingTotalCount} listings.
       </div>
 
-      <AdminListingsPanelClient listings={listings} />
+      {listingTotalCount === 0 && hasActiveFilters ? (
+        <div className="rounded-2xl border border-slate-100 bg-white p-6 text-sm text-slate-600 shadow-sm">
+          <div className="text-base font-semibold text-slate-900">
+            No listings match your filters.
+          </div>
+          <p className="mt-1">Try clearing filters or adjusting your criteria.</p>
+          <div className="mt-3">
+            <Link
+              href="/admin/listings"
+              className="rounded border border-slate-200 bg-white px-3 py-1 text-sm shadow-sm"
+            >
+              Clear filters
+            </Link>
+          </div>
+        </div>
+      ) : (
+        <AdminListingsPanelClient listings={listings} />
+      )}
 
       {listingTotalCount > listingPageSize && (
         <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm shadow-sm">
