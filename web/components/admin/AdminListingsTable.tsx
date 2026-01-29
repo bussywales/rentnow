@@ -22,7 +22,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
         <table className="min-w-full text-left text-sm">
-          <thead className="bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
+          <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-2">Title</th>
               <th className="px-3 py-2">Location</th>
@@ -57,7 +57,8 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                       event.stopPropagation();
                       onSelect(item.id);
                     }}
-                    className="text-left font-semibold text-slate-900 hover:underline"
+                    className="max-w-[240px] truncate text-left font-semibold text-slate-900 hover:underline"
+                    title={item.title}
                   >
                     {item.title}
                   </button>
@@ -82,8 +83,10 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                   </div>
                 </td>
                 <td className="px-3 py-2 text-slate-700">
-                  {item.city || "—"} {item.state_region ? `· ${item.state_region}` : ""}{" "}
-                  {item.country_code ? `(${item.country_code})` : ""}
+                  <div className="max-w-[180px] truncate" title={`${item.city || "—"} ${item.state_region || ""}`}>
+                    {item.city || "—"} {item.state_region ? `· ${item.state_region}` : ""}{" "}
+                    {item.country_code ? `(${item.country_code})` : ""}
+                  </div>
                 </td>
                 <td className="px-3 py-2">
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700">
@@ -93,15 +96,16 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                 <td className="px-3 py-2 text-slate-600">
                   {item.is_active === null || item.is_active === undefined ? "—" : item.is_active ? "Yes" : "No"}
                 </td>
-                <td className="px-3 py-2 text-slate-600">{formatDate(item.updatedAt)}</td>
+                <td className="px-3 py-2 text-slate-600 tabular-nums">{formatDate(item.updatedAt)}</td>
                 <td className="px-3 py-2 text-xs text-slate-600">
                   <div className="font-semibold text-slate-700">{item.hostName || "Host"}</div>
                   <div className="break-all">{item.ownerId || "—"}</div>
                 </td>
                 <td className="px-3 py-2 text-slate-600">
-                  {item.photoCount} photos · {item.hasVideo ? "Video" : "No video"}
+                  <span className="tabular-nums">{item.photoCount}</span> photos ·{" "}
+                  {item.hasVideo ? "Video" : "No video"}
                 </td>
-                <td className="px-3 py-2 text-slate-700">
+                <td className="px-3 py-2 text-slate-700 tabular-nums">
                   {item.price === null || item.price === undefined
                     ? "—"
                     : `${item.currency || "NGN"} ${item.price}`}

@@ -53,10 +53,15 @@ export function AdminReviewList({ listings, selectedId, onSelect, showBulkSelect
                 onSelect(item.id);
               }
             }}
-            className={`flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50 ${
-              selectedId === item.id ? "bg-slate-50" : "bg-white"
+            className={`group relative flex w-full cursor-pointer items-start gap-3 px-4 py-3 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
+              selectedId === item.id ? "bg-sky-50/60" : "bg-white"
             }`}
           >
+            <span
+              className={`absolute left-0 top-0 h-full w-1 rounded-r ${
+                selectedId === item.id ? "bg-sky-500" : "bg-transparent group-hover:bg-slate-200"
+              }`}
+            />
             {showBulkSelect && (
               <div className="pt-1">
                 <input
@@ -75,7 +80,7 @@ export function AdminReviewList({ listings, selectedId, onSelect, showBulkSelect
                 <p className="text-sm font-semibold text-slate-900">{item.title}</p>
                 <span
                   data-review-status={statusLabel}
-                  className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700"
+                  className="rounded-full bg-white px-2 py-0.5 text-[11px] text-slate-700 shadow-sm border border-slate-200"
                 >
                   {statusLabel}
                 </span>

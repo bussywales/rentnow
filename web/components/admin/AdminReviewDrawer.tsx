@@ -99,7 +99,12 @@ const detailSchema = z.object({
 
 function ChecklistChip({ status }: { status: "pass" | "needs_fix" | "blocker" | null | undefined }) {
   if (!status) {
-    return <span className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-500">Not set</span>;
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-500">
+        <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
+        Unset
+      </span>
+    );
   }
   const tone =
     status === "pass"
@@ -107,8 +112,15 @@ function ChecklistChip({ status }: { status: "pass" | "needs_fix" | "blocker" | 
       : status === "blocker"
         ? "border-rose-200 bg-rose-50 text-rose-700"
         : "border-amber-200 bg-amber-50 text-amber-700";
+  const dot =
+    status === "pass" ? "bg-emerald-500" : status === "blocker" ? "bg-rose-500" : "bg-amber-500";
   const label = status === "needs_fix" ? "Needs fix" : status === "blocker" ? "Blocker" : "Pass";
-  return <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${tone}`}>{label}</span>;
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${tone}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
+      {label}
+    </span>
+  );
 }
 
 export function AdminReviewDrawer({
@@ -444,7 +456,7 @@ export function AdminReviewDrawer({
   if (!listing) {
     return (
       <div className="flex h-full flex-col">
-        <div className="sticky top-0 z-10 border-b border-slate-200 bg-white px-4 py-3">
+        <div className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur">
           <div className="text-sm font-semibold text-slate-900">Review workspace</div>
           <p className="text-xs text-slate-600">Select a listing to review</p>
         </div>
@@ -467,14 +479,14 @@ export function AdminReviewDrawer({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="sticky top-0 z-20 border-b border-slate-200 bg-white px-4 py-3">
+      <div className="sticky top-0 z-20 border-b border-slate-100 bg-white/95 px-5 py-4 backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-slate-900">{listing.title}</p>
-            <p className="text-xs text-slate-600">
+            <p className="text-lg font-semibold text-slate-900">{listing.title}</p>
+            <p className="text-sm text-slate-600">
               {locationLine || "Location unknown"} · {listing.status || "pending"}
             </p>
-            <p className="text-[11px] text-slate-500">Owner: {listing.hostName}</p>
+            <p className="text-xs text-slate-500">Owner: {listing.hostName}</p>
             {detailLoading && <p className="text-[11px] text-slate-500">Loading details…</p>}
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-600">
@@ -489,13 +501,13 @@ export function AdminReviewDrawer({
                   /* ignore */
                 }
               }}
-              className="rounded border border-slate-200 px-2 py-1"
+              className="rounded border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-sm"
             >
               {copiedId ? "Copied ID" : "Copy ID"}
             </button>
             <button
               type="button"
-              className="rounded border border-slate-200 px-2 py-1"
+              className="rounded border border-slate-200 bg-white px-2.5 py-1.5 text-xs shadow-sm"
               onClick={onClose}
             >
               {ADMIN_REVIEW_COPY.drawer.close}
@@ -544,10 +556,10 @@ export function AdminReviewDrawer({
         </div>
       )}
 
-      <div className="flex-1 divide-y divide-slate-200 pb-24">
+      <div className="flex-1 divide-y divide-slate-100 pb-28">
         <section className="p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.media}</h3>
+            <h3 className="text-base font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.media}</h3>
             {detail && (
               <span className="text-xs text-slate-600">
                 Photos: {detail.listing.photo_count ?? 0} · Videos: {detail.listing.has_video ? "Yes" : "No"}
@@ -555,9 +567,11 @@ export function AdminReviewDrawer({
             )}
           </div>
           {detail?.listing.cover_image_url && (
-            <div className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={detail.listing.cover_image_url} alt="Cover" className="h-48 w-full object-cover" />
+              <div className="aspect-[16/9] w-full bg-slate-100">
+                <img src={detail.listing.cover_image_url} alt="Cover" className="h-full w-full object-cover" />
+              </div>
               <div className="px-2 py-1 text-[11px] text-slate-600">Cover</div>
             </div>
           )}
@@ -567,12 +581,18 @@ export function AdminReviewDrawer({
           {images.length > 0 && (
             <div className="grid grid-cols-2 gap-2">
               {images.map((img) => (
-                <div key={img.id} className="overflow-hidden rounded-lg border border-slate-200 bg-slate-50">
+                <div key={img.id} className="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                   {img.image_url ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={img.image_url} alt="Listing photo" className="h-32 w-full object-cover" />
+                    <div className="aspect-[4/3] w-full bg-slate-100">
+                      <img
+                        src={img.image_url}
+                        alt="Listing photo"
+                        className="h-full w-full object-cover transition group-hover:scale-[1.02]"
+                      />
+                    </div>
                   ) : (
-                    <div className="h-32 w-full bg-slate-100" />
+                    <div className="aspect-[4/3] w-full bg-slate-100" />
                   )}
                   <div className="px-2 py-1 text-[11px] text-slate-600">
                     {img.width && img.height ? `${img.width}×${img.height}` : ""}
@@ -594,37 +614,37 @@ export function AdminReviewDrawer({
         </section>
 
         <section className="p-4 space-y-3">
-          <h3 className="text-sm font-semibold text-slate-900">Key facts</h3>
-          <div className="grid gap-2 sm:grid-cols-2 text-xs text-slate-700">
-            <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
-              Price:{" "}
+          <h3 className="text-base font-semibold text-slate-900">Key facts</h3>
+          <div className="flex flex-wrap gap-2 text-xs text-slate-700">
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
               {detail?.listing.price === null || detail?.listing.price === undefined
-                ? "—"
-                : `${detail.listing.currency || "NGN"} ${detail.listing.price}`}
+                ? "Price: —"
+                : `Price: ${detail.listing.currency || "NGN"} ${detail.listing.price}`}
               {detail?.listing.rent_period ? ` / ${detail.listing.rent_period}` : ""}
-            </div>
-            <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
-              Beds/Baths: {detail?.listing.bedrooms ?? "—"} bd · {detail?.listing.bathrooms ?? "—"} ba
-            </div>
-            <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+            </span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+              Beds/Baths: {detail?.listing.bedrooms ?? "—"} · {detail?.listing.bathrooms ?? "—"}
+            </span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
               Type: {detail?.listing.listing_type || detail?.listing.rental_type || "—"}
-            </div>
-            <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
+            </span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+              Status: {detail?.listing.status || "pending"}
+            </span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
               Active:{" "}
               {detail?.listing.is_active === null || detail?.listing.is_active === undefined
                 ? "—"
                 : detail.listing.is_active
                   ? "Yes"
                   : "No"}
-            </div>
-            <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
-              Submitted: {detail?.listing.submitted_at || "—"}
-            </div>
-            <div className="rounded border border-slate-200 bg-slate-50 px-2 py-1">
-              Updated: {detail?.listing.updated_at || "—"}
-            </div>
+            </span>
+            <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+              {detail?.listing.city || "—"}, {detail?.listing.state_region || "—"}{" "}
+              {detail?.listing.country_code ? `(${detail.listing.country_code})` : ""}
+            </span>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 text-xs text-slate-700">
+          <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
             <div className="font-semibold text-slate-900">Risk flags</div>
             <ul className="mt-1 list-disc pl-4">
               {!listing.hasCover || listing.photoCount === 0 ? <li>Missing cover or photos</li> : null}
@@ -635,22 +655,25 @@ export function AdminReviewDrawer({
             </ul>
           </div>
           {detail && (
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-slate-700">
-              <dt className="font-semibold text-slate-900">City</dt>
-              <dd>{detail.listing.city || "—"}</dd>
-              <dt className="font-semibold text-slate-900">State/Region</dt>
-              <dd>{detail.listing.state_region || "—"}</dd>
-              <dt className="font-semibold text-slate-900">Country</dt>
-              <dd>{detail.listing.country_code || "—"}</dd>
-              <dt className="font-semibold text-slate-900">Place ID</dt>
-              <dd>{detail.listing.location_place_id || "—"}</dd>
-              <dt className="font-semibold text-slate-900">Latitude</dt>
-              <dd>{detail.listing.latitude ?? "—"}</dd>
-              <dt className="font-semibold text-slate-900">Longitude</dt>
-              <dd>{detail.listing.longitude ?? "—"}</dd>
-              <dt className="font-semibold text-slate-900">Label</dt>
-              <dd>{detail.listing.location_label || "—"}</dd>
-            </dl>
+            <div className="rounded-lg border border-slate-200 bg-white p-3 text-xs text-slate-700">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Location</div>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <dt className="font-semibold text-slate-900">City</dt>
+                <dd>{detail.listing.city || "—"}</dd>
+                <dt className="font-semibold text-slate-900">State/Region</dt>
+                <dd>{detail.listing.state_region || "—"}</dd>
+                <dt className="font-semibold text-slate-900">Country</dt>
+                <dd>{detail.listing.country_code || "—"}</dd>
+                <dt className="font-semibold text-slate-900">Place ID</dt>
+                <dd>{detail.listing.location_place_id || "—"}</dd>
+                <dt className="font-semibold text-slate-900">Latitude</dt>
+                <dd>{detail.listing.latitude ?? "—"}</dd>
+                <dt className="font-semibold text-slate-900">Longitude</dt>
+                <dd>{detail.listing.longitude ?? "—"}</dd>
+                <dt className="font-semibold text-slate-900">Label</dt>
+                <dd>{detail.listing.location_label || "—"}</dd>
+              </dl>
+            </div>
           )}
         </section>
 
@@ -665,7 +688,7 @@ export function AdminReviewDrawer({
                   setChecklistOpen(true);
                   setScrollTarget(section.key);
                 }}
-                className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50"
+                className="flex items-center gap-2 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
                 aria-label={`Checklist ${section.label}`}
               >
                 <span className="font-semibold">{section.label}</span>
@@ -678,7 +701,12 @@ export function AdminReviewDrawer({
             onToggle={(event) => setChecklistOpen((event.target as HTMLDetailsElement).open)}
             className="mt-3 rounded-xl border border-slate-200 bg-white p-3"
           >
-            <summary className="cursor-pointer text-sm font-semibold text-slate-900">Review checklist</summary>
+            <summary className="flex cursor-pointer items-center justify-between text-sm font-semibold text-slate-900">
+              <span>Review checklist</span>
+              <span className="text-xs font-medium text-slate-500">
+                {checklistOpen ? "Hide details" : "Show details"}
+              </span>
+            </summary>
             <div className="mt-3">
               <AdminReviewChecklistPanel
                 listing={listing}
@@ -690,9 +718,9 @@ export function AdminReviewDrawer({
           </details>
         </section>
 
-        <section className="p-4 space-y-2">
+        <section className="p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.reasonsTitle}</h3>
+            <h3 className="text-base font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.reasonsTitle}</h3>
             <button
               type="button"
               className="text-xs text-slate-600 underline underline-offset-2"
@@ -726,20 +754,20 @@ export function AdminReviewDrawer({
                   setMessageText(e.target.value);
                   setMessageEdited(true);
                 }}
-                className="mt-1 w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+                className="mt-1 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
                 rows={4}
                 placeholder={ADMIN_REVIEW_COPY.drawer.messageHelper}
               />
             </label>
             <p className="text-xs text-slate-600">{ADMIN_REVIEW_COPY.drawer.messageHelper}</p>
           </div>
-          <div className="mt-3 rounded-md border border-slate-200 bg-white p-2">
+          <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-2">
             <div className="flex flex-wrap items-center gap-2 text-xs">
               <label className="font-semibold text-slate-700">Templates</label>
               <select
                 value={selectedTemplateId ?? ""}
                 onChange={(e) => applyTemplate(e.target.value)}
-                className="rounded border border-slate-200 px-2 py-1 text-xs"
+                className="rounded border border-slate-200 bg-white px-2 py-1 text-xs"
               >
                 <option value="">Select template</option>
                 {templates.map((template) => (
@@ -765,7 +793,7 @@ export function AdminReviewDrawer({
                 value={templateName}
                 onChange={(e) => setTemplateName(e.target.value)}
                 placeholder="Template name"
-                className="rounded border border-slate-300 px-2 py-1 text-xs"
+                className="rounded border border-slate-300 bg-white px-2 py-1 text-xs"
               />
               <button
                 type="button"
@@ -783,7 +811,7 @@ export function AdminReviewDrawer({
         </section>
 
         <section className="p-4 space-y-2">
-          <h3 className="text-sm font-semibold text-slate-900">Activity</h3>
+          <h3 className="text-base font-semibold text-slate-900">Activity</h3>
           <ul className="space-y-2 text-xs text-slate-700">
             {detail?.listing?.submitted_at && <li>Submitted: {detail.listing.submitted_at}</li>}
             {detail?.listing?.updated_at && <li>Updated: {detail.listing.updated_at}</li>}
@@ -823,13 +851,13 @@ export function AdminReviewDrawer({
       </div>
 
       {actionsEnabled && (
-        <section className="sticky bottom-0 z-20 border-t border-slate-200 bg-white p-4">
+        <section className="sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 p-4 backdrop-blur">
           <div className="flex items-center justify-between text-xs text-slate-600">
             <button
               type="button"
               disabled={!prevId}
               onClick={() => prevId && onNavigate(prevId)}
-              className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
             >
               {ADMIN_REVIEW_COPY.drawer.previous}
             </button>
@@ -837,7 +865,7 @@ export function AdminReviewDrawer({
               type="button"
               disabled={!nextId}
               onClick={() => nextId && onNavigate(nextId)}
-              className="rounded border border-slate-200 px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
+              className="rounded border border-slate-200 bg-white px-2 py-1 hover:bg-slate-50 disabled:opacity-50"
             >
               {ADMIN_REVIEW_COPY.drawer.next}
             </button>
@@ -847,12 +875,12 @@ export function AdminReviewDrawer({
               type="button"
               disabled={submitting !== null || !effectiveCanApprove}
               onClick={handleApprove}
-              className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+              className="inline-flex items-center justify-center rounded-lg bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
             >
               {submitting === "approve" ? "Approving..." : "Approve listing"}
             </button>
             {!effectiveCanApprove && (
-              <div className="text-xs text-amber-700">
+              <div className="text-[11px] text-amber-700">
                 {missingLabels ? `Complete checklist: ${missingLabels}` : approveReason}
               </div>
             )}
@@ -860,7 +888,7 @@ export function AdminReviewDrawer({
               type="button"
               disabled={submitting !== null}
               onClick={handleSendRequest}
-              className="inline-flex items-center justify-center rounded-md bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+              className="inline-flex items-center justify-center rounded-md bg-slate-900 px-4 py-2.5 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
             >
               {submitting === "request" ? "Sending..." : ADMIN_REVIEW_COPY.drawer.sendRequest}
             </button>
@@ -868,7 +896,7 @@ export function AdminReviewDrawer({
               type="button"
               disabled={submitting !== null}
               onClick={handleReject}
-              className="inline-flex items-center justify-center rounded-lg bg-rose-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60"
+              className="inline-flex items-center justify-center rounded-lg bg-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-rose-700 disabled:opacity-60"
             >
               {submitting === "reject" ? "Rejecting..." : "Reject listing"}
             </button>

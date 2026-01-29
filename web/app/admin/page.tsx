@@ -202,16 +202,16 @@ export default async function AdminOverviewPage(_props: Props) {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
-      <div className="rounded-2xl bg-slate-900 px-5 py-4 text-white shadow-lg">
+      <div className="rounded-2xl bg-slate-900/95 px-6 py-5 text-white shadow-lg">
         <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Admin</p>
-        <p className="text-xl font-semibold">Control panel</p>
+        <p className="text-2xl font-semibold">Control panel</p>
         <p className="text-sm text-slate-200">
           Monitor listings and review activity. Restricted to role = admin.
         </p>
-        <div className="mt-3 flex flex-wrap gap-3 text-sm">
+        <div className="mt-4 flex flex-wrap gap-3 text-sm">
           <Link
             href="/admin/review"
-            className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
+            className="inline-flex items-center gap-2 rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
           >
             Review queue
             {reviewableCount > 0 && (
@@ -222,19 +222,19 @@ export default async function AdminOverviewPage(_props: Props) {
           </Link>
           <Link
             href="/admin/listings"
-            className="inline-flex items-center justify-center rounded-lg bg-white/15 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
+            className="inline-flex items-center justify-center rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
           >
             Listings registry
           </Link>
           <Link
             href="/admin/users"
-            className="inline-flex items-center justify-center rounded-lg bg-white/15 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
+            className="inline-flex items-center justify-center rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
           >
             User management
           </Link>
           <Link
             href="/admin/billing"
-            className="inline-flex items-center justify-center rounded-lg bg-white/15 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
+            className="inline-flex items-center justify-center rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
           >
             Billing events
           </Link>
@@ -268,39 +268,39 @@ export default async function AdminOverviewPage(_props: Props) {
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-slate-500">Pending review</p>
           <p className="text-2xl font-semibold text-slate-900">{pendingCount}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-slate-500">Changes requested</p>
           <p className="text-2xl font-semibold text-slate-900">{changesCount}</p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-slate-500">Live listings</p>
           <p className="text-2xl font-semibold text-slate-900">
             {stats.statusCounts["live"] ?? 0}
           </p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-slate-500">Drafts</p>
           <p className="text-2xl font-semibold text-slate-900">
             {stats.statusCounts["draft"] ?? 0}
           </p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-slate-500">Rejected</p>
           <p className="text-2xl font-semibold text-slate-900">
             {stats.statusCounts["rejected"] ?? 0}
           </p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-slate-500">Active</p>
           <p className="text-2xl font-semibold text-slate-900">
             {stats.activeCounts.active}
           </p>
         </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-wide text-slate-500">Inactive</p>
           <p className="text-2xl font-semibold text-slate-900">
             {stats.activeCounts.inactive}
@@ -308,7 +308,7 @@ export default async function AdminOverviewPage(_props: Props) {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-amber-200/60 bg-amber-50/60 p-5 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Attention needed</h2>
@@ -337,7 +337,7 @@ export default async function AdminOverviewPage(_props: Props) {
         </ul>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold text-slate-900">Recently updated listings</h2>
@@ -347,7 +347,7 @@ export default async function AdminOverviewPage(_props: Props) {
             Go to Listings
           </Link>
         </div>
-        <div className="space-y-2 text-sm">
+        <div className="divide-y divide-slate-100 text-sm">
           {recentListings.map((item) => {
             const reviewable =
               isFixRequestRow({
@@ -371,7 +371,7 @@ export default async function AdminOverviewPage(_props: Props) {
               <Link
                 key={item.id}
                 href={href}
-                className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50"
+                className="flex items-center justify-between px-3 py-3 hover:bg-slate-50"
               >
                 <div>
                   <div className="font-semibold text-slate-900">{item.title || "Untitled"}</div>
@@ -379,7 +379,7 @@ export default async function AdminOverviewPage(_props: Props) {
                     {item.city || "Unknown city"} · {formatStatusLabel(item.status ?? null)}
                   </div>
                 </div>
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-slate-500 tabular-nums">
                   {item.updated_at || item.created_at || "—"}
                 </div>
               </Link>

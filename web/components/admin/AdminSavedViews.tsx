@@ -142,9 +142,9 @@ export default function AdminSavedViews({ route }: Props) {
   };
 
   return (
-    <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+    <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm shadow-sm">
       <div className="flex flex-wrap items-center gap-2">
-        <label className="text-xs font-semibold uppercase tracking-wide text-slate-500">Saved views</label>
+        <label className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Saved views</label>
         <select
           value={selectedViewId}
           onChange={(event) => {
@@ -153,7 +153,7 @@ export default function AdminSavedViews({ route }: Props) {
             const view = views.find((item) => item.id === nextId);
             if (view) applyView(view);
           }}
-          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs"
+          className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs shadow-sm"
         >
           <option value="">Select saved view</option>
           {views.map((view) => (
@@ -165,7 +165,7 @@ export default function AdminSavedViews({ route }: Props) {
         <button
           type="button"
           onClick={() => router.push(pathname || route, { scroll: false })}
-          className="rounded border border-slate-300 px-2 py-1 text-xs"
+          className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs shadow-sm"
         >
           Reset
         </button>
@@ -173,7 +173,7 @@ export default function AdminSavedViews({ route }: Props) {
           <button
             type="button"
             onClick={handleDelete}
-            className="rounded border border-rose-300 px-2 py-1 text-xs text-rose-700"
+            className="rounded border border-rose-300 bg-white px-2.5 py-1 text-xs text-rose-700 shadow-sm"
           >
             Delete
           </button>
@@ -185,12 +185,12 @@ export default function AdminSavedViews({ route }: Props) {
           value={name}
           onChange={(event) => setName(event.target.value)}
           placeholder="Save current view as…"
-          className="rounded border border-slate-300 bg-white px-2 py-1 text-xs"
+          className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs shadow-sm"
         />
         <button
           type="button"
           onClick={handleSave}
-          className="rounded border border-slate-300 px-2 py-1 text-xs"
+          className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs shadow-sm"
         >
           Save view
         </button>

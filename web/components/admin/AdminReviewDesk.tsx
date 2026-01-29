@@ -130,28 +130,30 @@ export function AdminReviewDesk({
 
   return (
     <div
-      className="flex h-[calc(100vh-140px)] flex-col gap-4 overflow-hidden lg:flex-row"
+      className="flex h-[calc(100vh-140px)] flex-col gap-5 overflow-hidden lg:flex-row"
       data-admin-review-layout="split"
     >
       <aside
-        className="w-full flex-shrink-0 overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-sm lg:max-w-[420px]"
+        className="w-full flex-shrink-0 overflow-y-auto rounded-2xl border border-slate-100 bg-white shadow-sm lg:max-w-[420px]"
         data-admin-review-pane="left"
       >
-        <div className="border-b border-slate-200 px-4 py-4 space-y-3">
+        <div className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 px-4 py-4 backdrop-blur space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-semibold text-slate-900">{ADMIN_REVIEW_COPY.savedViews}</p>
-              <p className="text-xs text-slate-600">Showing {visibleItems.length}</p>
+              <p className="text-xs text-slate-500">Showing {visibleItems.length}</p>
             </div>
             <button
               type="button"
-              className="text-xs text-slate-500 hover:text-slate-800"
+              className="text-xs text-slate-500 hover:text-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
               onClick={resetView}
             >
               {ADMIN_REVIEW_COPY.views.reset}
             </button>
           </div>
-          <AdminSavedViews route="/admin/review" />
+          <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3">
+            <AdminSavedViews route="/admin/review" />
+          </div>
           <div className="flex flex-wrap gap-2">
             {(allowed as AdminReviewView[]).map((key) => {
               const fallbackLabel = ADMIN_REVIEW_COPY.views[key];
@@ -165,7 +167,7 @@ export function AdminReviewDesk({
                 onClick={() => updateView(key)}
                 className={`rounded-full border px-3 py-1 text-xs font-semibold transition ${
                   effectiveView === key
-                    ? "border-sky-200 bg-sky-50 text-sky-700"
+                    ? "border-sky-200 bg-sky-50 text-sky-700 shadow-sm"
                     : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                 }`}
               >
@@ -174,13 +176,14 @@ export function AdminReviewDesk({
               );
             })}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="rounded-xl border border-slate-100 bg-slate-50/80 p-3">
+            <div className="flex flex-wrap items-center gap-2">
             <input
               type="search"
               value={filters.search}
               onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
               placeholder={ADMIN_REVIEW_COPY.searchPlaceholder}
-              className="w-full rounded-md border border-slate-200 px-3 py-2 text-sm text-slate-900 focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100 sm:w-64"
+              className="w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm focus:border-sky-300 focus:outline-none focus:ring-2 focus:ring-sky-100"
             />
             <label className="flex items-center gap-1 text-xs text-slate-700">
               <input
@@ -216,11 +219,12 @@ export function AdminReviewDesk({
                   sort: e.target.value === "newest" ? "newest" : "oldest",
                 }))
               }
-              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800"
+              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-xs text-slate-800 shadow-sm"
             >
               <option value="oldest">{ADMIN_REVIEW_COPY.sort.oldest}</option>
               <option value="newest">{ADMIN_REVIEW_COPY.sort.newest}</option>
             </select>
+          </div>
           </div>
         </div>
         <AdminReviewList
@@ -239,7 +243,7 @@ export function AdminReviewDesk({
       </aside>
 
       <section
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-2xl border border-slate-200 bg-white shadow-sm"
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-2xl border border-slate-100 bg-white shadow-sm"
         data-admin-review-pane="right"
       >
         <DrawerErrorBoundary selectedId={selectedListing?.id ?? null}>

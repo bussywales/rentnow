@@ -150,7 +150,7 @@ export function AdminReviewChecklistPanel({
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
+    <div className="rounded-2xl border border-slate-100 bg-slate-50/60 p-4 text-sm text-slate-700">
       <div className="mb-3 flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Review checklist</p>
@@ -160,7 +160,7 @@ export function AdminReviewChecklistPanel({
           type="button"
           onClick={saveChecklist}
           disabled={loading}
-          className="rounded border border-slate-300 px-2 py-1 text-xs text-slate-700"
+          className="rounded border border-slate-300 bg-white px-2.5 py-1 text-xs text-slate-700 shadow-sm"
         >
           {loading ? "Saving…" : "Save"}
         </button>
@@ -222,7 +222,7 @@ export function AdminReviewChecklistPanel({
           <textarea
             value={checklist?.internalNotes ?? ""}
             onChange={(event) => updateNotes(event.target.value)}
-            className="mt-2 w-full rounded-md border border-slate-300 px-2 py-1 text-sm"
+            className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
             rows={3}
             placeholder="Notes for internal reviewers (not visible to hosts)"
           />

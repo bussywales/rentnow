@@ -296,20 +296,20 @@ export default async function AdminListingsPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="mb-3 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+      <div className="rounded-2xl border border-slate-100 bg-white p-6 shadow-sm">
+        <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Admin</p>
-            <h1 className="text-xl font-semibold text-slate-900">Listings registry</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">Listings registry</h1>
             <p className="text-sm text-slate-600">
               All listings, searchable and filterable. Read-only operations.
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-sm">
-            <Link href="/admin" className="rounded border border-slate-300 px-3 py-1">
+            <Link href="/admin" className="rounded border border-slate-200 bg-white px-3 py-1 shadow-sm">
               Back to overview
             </Link>
-            <Link href="/admin/review" className="rounded border border-slate-300 px-3 py-1">
+            <Link href="/admin/review" className="rounded border border-slate-200 bg-white px-3 py-1 shadow-sm">
               Review queue
             </Link>
           </div>
@@ -337,7 +337,7 @@ export default async function AdminListingsPage({ searchParams }: Props) {
       )}
 
       {ownerSummary && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm shadow-sm">
+        <div className="rounded-2xl border border-slate-100 bg-white p-4 text-sm shadow-sm">
           <div className="text-xs uppercase tracking-[0.2em] text-slate-500">Owner drilldown</div>
           <div className="mt-1 text-lg font-semibold text-slate-900">{ownerSummary.name}</div>
           <div className="text-xs text-slate-600">ID: {ownerSummary.id}</div>
@@ -348,8 +348,8 @@ export default async function AdminListingsPage({ searchParams }: Props) {
         </div>
       )}
 
-      <form method="get" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+      <form method="get" className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <div className="flex flex-col">
             <label className="text-xs text-slate-600">Search</label>
             <input
@@ -357,18 +357,18 @@ export default async function AdminListingsPage({ searchParams }: Props) {
               type="text"
               placeholder="Search title or paste ID"
               defaultValue={listingQuery.q ?? ""}
-              className="rounded border border-slate-300 px-2 py-1 text-sm"
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
             />
           </div>
           <div className="flex flex-col">
             <label className="text-xs text-slate-600">Search mode</label>
-            <select name="qMode" defaultValue={listingQuery.qMode} className="rounded border border-slate-300 px-2 py-1 text-sm">
+            <select name="qMode" defaultValue={listingQuery.qMode} className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm">
               <option value="title">Title / location</option>
               <option value="id">Listing ID</option>
               <option value="owner">Owner ID</option>
             </select>
           </div>
-          <fieldset className="flex flex-col gap-2">
+          <fieldset className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
             <legend className="text-xs text-slate-600">Status (multi)</legend>
             <div className="flex flex-wrap gap-2 text-xs text-slate-700">
               {STATUS_OPTIONS.map((opt) => (
@@ -386,13 +386,13 @@ export default async function AdminListingsPage({ searchParams }: Props) {
           </fieldset>
           <div className="flex flex-col">
             <label className="text-xs text-slate-600">Active</label>
-            <select name="active" defaultValue={listingQuery.active} className="rounded border border-slate-300 px-2 py-1 text-sm">
+            <select name="active" defaultValue={listingQuery.active} className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm">
               <option value="all">All</option>
               <option value="true">Active</option>
               <option value="false">Inactive</option>
             </select>
           </div>
-          <div className="flex flex-col">
+          <div className="flex flex-col rounded-xl border border-slate-100 bg-slate-50/70 p-3">
             <label className="text-xs text-slate-600">Ops filters</label>
             <div className="flex flex-wrap gap-2 text-xs text-slate-700">
               <label className="flex items-center gap-1">
@@ -416,7 +416,7 @@ export default async function AdminListingsPage({ searchParams }: Props) {
               type="number"
               step="1"
               defaultValue={listingQuery.priceMin ?? ""}
-              className="rounded border border-slate-300 px-2 py-1 text-sm"
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
             />
           </div>
           <div className="flex flex-col">
@@ -426,12 +426,12 @@ export default async function AdminListingsPage({ searchParams }: Props) {
               type="number"
               step="1"
               defaultValue={listingQuery.priceMax ?? ""}
-              className="rounded border border-slate-300 px-2 py-1 text-sm"
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
             />
           </div>
           <div className="flex flex-col">
             <label className="text-xs text-slate-600">Sort</label>
-            <select name="sort" defaultValue={listingQuery.sort} className="rounded border border-slate-300 px-2 py-1 text-sm">
+            <select name="sort" defaultValue={listingQuery.sort} className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm">
               <option value="updated_desc">Updated (newest)</option>
               <option value="updated_asc">Updated (oldest)</option>
               <option value="created_desc">Created (newest)</option>
@@ -440,7 +440,7 @@ export default async function AdminListingsPage({ searchParams }: Props) {
           </div>
           <div className="flex flex-col">
             <label className="text-xs text-slate-600">Page size</label>
-            <select name="pageSize" defaultValue={listingPageSize} className="rounded border border-slate-300 px-2 py-1 text-sm">
+            <select name="pageSize" defaultValue={listingPageSize} className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm">
               {[25, 50, 100].map((size) => (
                 <option key={size} value={size}>
                   {size} per page
@@ -449,7 +449,7 @@ export default async function AdminListingsPage({ searchParams }: Props) {
             </select>
           </div>
           <div className="flex items-end">
-            <button type="submit" className="rounded bg-slate-900 px-3 py-2 text-sm text-white">
+            <button type="submit" className="rounded bg-slate-900 px-4 py-2 text-sm text-white shadow-sm">
               Apply filters
             </button>
           </div>
@@ -463,10 +463,10 @@ export default async function AdminListingsPage({ searchParams }: Props) {
       <AdminListingsPanelClient listings={listings} />
 
       {listingTotalCount > listingPageSize && (
-        <div className="mt-4 flex items-center justify-between text-sm">
+        <div className="mt-4 flex items-center justify-between rounded-xl border border-slate-100 bg-white px-4 py-3 text-sm shadow-sm">
           <Link
             href={buildPageHref(Math.max(1, listingPage - 1))}
-            className={`rounded border border-slate-300 px-3 py-1 ${listingPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
+            className={`rounded border border-slate-200 bg-white px-3 py-1 shadow-sm ${listingPage <= 1 ? "pointer-events-none opacity-50" : ""}`}
           >
             Previous
           </Link>
@@ -475,7 +475,7 @@ export default async function AdminListingsPage({ searchParams }: Props) {
           </span>
           <Link
             href={buildPageHref(listingPage + 1)}
-            className={`rounded border border-slate-300 px-3 py-1 ${
+            className={`rounded border border-slate-200 bg-white px-3 py-1 shadow-sm ${
               listingPage >= Math.ceil(listingTotalCount / listingPageSize) ? "pointer-events-none opacity-50" : ""
             }`}
           >
