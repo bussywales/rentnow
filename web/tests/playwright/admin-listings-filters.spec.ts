@@ -29,7 +29,12 @@ test("admin listings filters apply and update URL (skip-safe)", async ({ page })
   if (await emptyState.isVisible()) {
     await expect(emptyState).toBeVisible();
   } else {
-    const firstRow = page.locator("tbody tr").first();
-    await expect(firstRow).toBeVisible();
+    const rows = page.locator("tbody tr");
+    await expect(rows.first()).toBeVisible();
+    const statusCells = page.locator("tbody tr td:nth-child(3) span");
+    const statusCount = await statusCells.count();
+    for (let i = 0; i < statusCount; i += 1) {
+      await expect(statusCells.nth(i)).toContainText(/pending/i);
+    }
   }
 });

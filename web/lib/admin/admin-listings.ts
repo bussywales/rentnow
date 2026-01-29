@@ -54,7 +54,12 @@ export async function getAdminAllListings<Row>({
     let queryBuilder = from;
 
     if (query.statuses.length) {
-      queryBuilder = queryBuilder.in("status", query.statuses);
+      const normalizedStatuses = Array.from(
+        new Set(query.statuses.map((status) => status.toLowerCase().trim()).filter(Boolean))
+      );
+      if (normalizedStatuses.length) {
+        queryBuilder = queryBuilder.in("status", normalizedStatuses);
+      }
     }
     if (query.active === "true") {
       queryBuilder = queryBuilder.eq("is_active", true);

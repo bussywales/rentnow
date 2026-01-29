@@ -70,9 +70,11 @@ const parseNullableNumber = (value: string | null) => {
 };
 
 const normalizeMulti = (value: string | string[] | undefined) => {
-  if (Array.isArray(value)) return value;
-  if (typeof value === "string" && value.length) return value.split(",");
-  return [];
+  const rawValues = Array.isArray(value) ? value : typeof value === "string" ? [value] : [];
+  return rawValues
+    .flatMap((entry) => entry.split(","))
+    .map((entry) => entry.trim())
+    .filter(Boolean);
 };
 
 export function parseAdminListingsQuery(
@@ -173,7 +175,19 @@ export function serializeAdminListingsQuery(query: AdminListingsQuery): URLSearc
     appendIf("qMode", query.qMode);
   }
 
-  query.statuses.forEach((status) => params.append("status", status));
+  if (query.statuses.length) {
+    const normalizedStatuses = Array.from(
+      new Set(
+        query.statuses
+          .map((status) => normalizeStatus(status))
+          .filter((status): status is string => !!status)
+          .filter((status) => (ALLOWED_PROPERTY_STATUSES as readonly string[]).includes(status))
+      )
+    ).sort();
+    if (normalizedStatuses.length) {
+      params.set("status", normalizedStatuses.join(","));
+    }
+  }
 
   if (query.active !== "all") {
     appendIf("active", query.active);

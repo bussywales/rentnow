@@ -67,6 +67,22 @@ describe("admin listings query parsing", () => {
     assert.equal(parsed.bathroomsMax, 3);
   });
 
+  it("parses status from single or comma-separated values", () => {
+    const single = parseAdminListingsQuery({ status: "draft" });
+    assert.deepEqual(single.statuses, ["draft"]);
+
+    const multi = parseAdminListingsQuery({ status: "draft,pending" });
+    assert.deepEqual(multi.statuses.sort(), ["draft", "pending"]);
+  });
+
+  it("ignores empty or invalid status values", () => {
+    const empty = parseAdminListingsQuery({ status: "" });
+    assert.deepEqual(empty.statuses, []);
+
+    const mixed = parseAdminListingsQuery({ status: "draft,NOPE" });
+    assert.deepEqual(mixed.statuses, ["draft"]);
+  });
+
   it("detects uuid and defaults to id mode when qMode missing", () => {
     const parsed = parseAdminListingsQuery({
       q: "dad2bb26-fe36-4096-b81a-f86d230f9b3d",

@@ -40,12 +40,17 @@ export default function AdminListingsFiltersClient({
       const next = prev.statuses.includes(value)
         ? prev.statuses.filter((status) => status !== value)
         : [...prev.statuses, value];
-      return { ...prev, statuses: next };
+      const deduped = Array.from(new Set(next)).sort();
+      return { ...prev, statuses: deduped };
     });
   };
 
   const handleApply = () => {
-    const nextQuery: AdminListingsQuery = { ...draft, page: 1 };
+    const nextQuery: AdminListingsQuery = {
+      ...draft,
+      statuses: Array.from(new Set(draft.statuses)).sort(),
+      page: 1,
+    };
     const params = serializeAdminListingsQuery(nextQuery);
     const qs = params.toString();
     router.replace(qs ? `${basePath}?${qs}` : basePath, { scroll: false });
