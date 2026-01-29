@@ -53,8 +53,9 @@ export async function getAdminAllListings<Row>({
     const from = client.from(ADMIN_REVIEW_VIEW_TABLE).select(selectToUse, { count: "exact" });
     let queryBuilder = from;
 
+    let normalizedStatuses: string[] = [];
     if (query.statuses.length) {
-      const normalizedStatuses = Array.from(
+      normalizedStatuses = Array.from(
         new Set(query.statuses.map((status) => status.toLowerCase().trim()).filter(Boolean))
       );
       if (normalizedStatuses.length) {
@@ -129,6 +130,18 @@ export async function getAdminAllListings<Row>({
     const result = await queryBuilder;
     if (result.error) throw result.error;
     const rows = Array.isArray(result.data) ? (result.data as Row[]) : [];
+    if (normalizedStatuses.length) {
+      const mismatched = rows.filter((row) => {
+        const status = (row as { status?: string | null })?.status;
+        if (!status) return true;
+        return !normalizedStatuses.includes(status.toLowerCase());
+      });
+      if (mismatched.length) {
+        throw new Error(
+          `Status filter mismatch: expected ${normalizedStatuses.join(", ")}`
+        );
+      }
+    }
     return { rows, count: result.count ?? rows.length };
   };
 

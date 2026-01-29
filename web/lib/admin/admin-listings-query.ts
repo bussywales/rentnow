@@ -104,7 +104,9 @@ export function parseAdminListingsQuery(
     qMode = "id";
   }
 
-  const statusValues = normalizeMulti(bag.status);
+  const statusValues = normalizeMulti(
+    bag.status ?? bag.statuses ?? (bag["status[]"] as string | string[] | undefined)
+  );
   const statuses = Array.from(
     new Set(
       statusValues

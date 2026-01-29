@@ -80,6 +80,11 @@ describe("admin listings query parsing", () => {
     assert.deepEqual(parsed.statuses.sort(), ["draft", "pending"]);
   });
 
+  it("parses status from alternate keys", () => {
+    const parsed = parseAdminListingsQuery({ statuses: "draft,pending" });
+    assert.deepEqual(parsed.statuses.sort(), ["draft", "pending"]);
+  });
+
   it("ignores empty or invalid status values", () => {
     const empty = parseAdminListingsQuery({ status: "" });
     assert.deepEqual(empty.statuses, []);
