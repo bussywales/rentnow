@@ -101,6 +101,14 @@ describe("admin listings query parsing", () => {
     assert.equal(parsed.qMode, "id");
   });
 
+  it("detects uuid even when qMode is title", () => {
+    const parsed = parseAdminListingsQuery({
+      q: "dad2bb26-fe36-4096-b81a-f86d230f9b3d",
+      qMode: "title",
+    });
+    assert.equal(parsed.qMode, "id");
+  });
+
   it("invalid status and active fall back safely", () => {
     const parsed = parseAdminListingsQuery({
       status: "bogus",

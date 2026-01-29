@@ -100,7 +100,7 @@ export function parseAdminListingsQuery(
   const qModeRaw = (readParam(bag, "qMode") ?? "").toLowerCase();
   let qMode: AdminListingsQuery["qMode"] =
     qModeRaw === "id" || qModeRaw === "owner" || qModeRaw === "title" ? qModeRaw : "title";
-  if (!qModeRaw && q && isUuid(q)) {
+  if (q && isUuid(q) && (qModeRaw === "" || qModeRaw === "title")) {
     qMode = "id";
   }
 
