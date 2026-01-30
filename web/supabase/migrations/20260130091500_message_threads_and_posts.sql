@@ -69,7 +69,7 @@ where m.property_id = mt.property_id
 
 -- Backfill sender_role for existing messages where possible.
 update public.messages m
-set sender_role = coalesce(pr.role, case when m.sender_id = p.owner_id then 'landlord' else 'tenant' end)
+set sender_role = coalesce(pr.role::text, case when m.sender_id = p.owner_id then 'landlord' else 'tenant' end)
 from public.profiles pr, public.properties p
 where m.sender_id = pr.id
   and p.id = m.property_id
