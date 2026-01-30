@@ -28,5 +28,11 @@ test.describe("Dashboard messages inbox", () => {
     await rows.first().click();
     await expect(page.getByRole("heading", { name: /conversation/i })).toBeVisible();
     await expect(page.getByRole("button", { name: /send message/i })).toBeVisible();
+
+    const unreadBadges = page.getByTestId("message-thread-unread");
+    if (await unreadBadges.count()) {
+      await unreadBadges.first().locator("xpath=ancestor::button[1]").click();
+      await expect(page.getByTestId("message-new-divider")).toBeVisible();
+    }
   });
 });

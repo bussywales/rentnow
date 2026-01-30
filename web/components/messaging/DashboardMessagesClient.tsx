@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { MessageThread } from "@/components/messaging/MessageThread";
 import type { Message, Profile, UserRole } from "@/lib/types";
@@ -45,18 +45,24 @@ export default function DashboardMessagesClient({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+  const [toast, setToast] = useState<string | null>(null);
+  const toastTimeout = useRef<number | null>(null);
 
-  useEffect(() => {
-    if (!threadId) {
-      setActiveThread(null);
-      return;
+  const showToast = useCallback((message: string) => {
+    setToast(message);
+    if (toastTimeout.current) {
+      window.clearTimeout(toastTimeout.current);
     }
-    if (activeThread?.thread.id === threadId) return;
+    toastTimeout.current = window.setTimeout(() => {
+      setToast(null);
+    }, 4000);
+  }, []);
 
-    const fetchThread = async () => {
+  const fetchThread = useCallback(
+    async (targetId: string) => {
       setLoading(true);
       try {
-        const res = await fetch(`/api/messages/thread/${threadId}`);
+        const res = await fetch(`/api/messages/thread/${targetId}`);
         if (!res.ok) {
           const data = await res.json().catch(() => null);
           setError(data?.error || "Unable to load conversation.");
@@ -72,12 +78,29 @@ export default function DashboardMessagesClient({
         setActiveThread(detail);
         setError(null);
 
-        fetch(`/api/messages/thread/${threadId}/read`, { method: "POST" }).catch(
-          () => null
-        );
+        fetch(`/api/messages/thread/${targetId}/read`, { method: "POST" })
+          .then(async (response) => {
+            if (!response.ok) return;
+            const payload = await response.json().catch(() => null);
+            const lastReadAt = payload?.last_read_at ?? null;
+            setActiveThread((prev) =>
+              prev
+                ? {
+                    ...prev,
+                    thread: {
+                      ...prev.thread,
+                      unread_count: 0,
+                      last_read_at: lastReadAt ?? prev.thread.last_read_at ?? null,
+                    },
+                  }
+                : prev
+            );
+          })
+          .catch(() => null);
+
         setThreads((prev) =>
           prev.map((thread) =>
-            thread.id === threadId ? { ...thread, unread_count: 0 } : thread
+            thread.id === targetId ? { ...thread, unread_count: 0 } : thread
           )
         );
       } catch {
@@ -85,10 +108,76 @@ export default function DashboardMessagesClient({
       } finally {
         setLoading(false);
       }
-    };
+    },
+    []
+  );
 
-    fetchThread();
-  }, [activeThread?.thread.id, threadId]);
+  useEffect(() => {
+    if (!threadId) {
+      setActiveThread(null);
+      return;
+    }
+    if (activeThread?.thread.id === threadId) return;
+    void fetchThread(threadId);
+  }, [activeThread?.thread.id, fetchThread, threadId]);
+
+  useEffect(() => {
+    const interval = window.setInterval(async () => {
+      try {
+        const res = await fetch("/api/messages/threads");
+        if (!res.ok) return;
+        const data = await res.json().catch(() => null);
+        if (!data?.threads) return;
+        setThreads((prev) => {
+          const prevMap = new Map(prev.map((thread) => [thread.id, thread]));
+          (data.threads as MessageThreadPreview[]).forEach((thread) => {
+            const previous = prevMap.get(thread.id);
+            if (!previous) return;
+            const prevTime = previous.last_message_at || previous.last_post_at || "";
+            const nextTime = thread.last_message_at || thread.last_post_at || "";
+            if (
+              thread.id !== threadId &&
+              nextTime &&
+              prevTime &&
+              new Date(nextTime).getTime() > new Date(prevTime).getTime() &&
+              thread.unread_count > 0
+            ) {
+              showToast(`New message in ${thread.title}`);
+            }
+          });
+          return data.threads as MessageThreadPreview[];
+        });
+
+        if (threadId) {
+          const current = (data.threads as MessageThreadPreview[]).find(
+            (thread) => thread.id === threadId
+          );
+          if (current) {
+            const prev = activeThread?.thread;
+            const prevTime = prev?.last_message_at || prev?.last_post_at || "";
+            const nextTime = current.last_message_at || current.last_post_at || "";
+            if (
+              nextTime &&
+              prevTime &&
+              new Date(nextTime).getTime() > new Date(prevTime).getTime()
+            ) {
+              void fetchThread(threadId);
+            }
+          }
+        }
+      } catch {
+        // ignore polling failures
+      }
+    }, 25000);
+
+    return () => window.clearInterval(interval);
+  }, [
+    activeThread?.thread.last_message_at,
+    activeThread?.thread.last_post_at,
+    fetchThread,
+    showToast,
+    threadId,
+  ]);
 
   const filteredThreads = useMemo(() => {
     const needle = search.trim().toLowerCase();
@@ -125,6 +214,12 @@ export default function DashboardMessagesClient({
           ? {
               ...prev,
               messages: [...prev.messages, withDeliveryState(data.message)],
+              thread: {
+                ...prev.thread,
+                last_message: data.message.body,
+                last_message_at: data.message.created_at ?? new Date().toISOString(),
+                last_post_at: data.message.created_at ?? new Date().toISOString(),
+              },
             }
           : prev
       );
@@ -181,11 +276,14 @@ export default function DashboardMessagesClient({
               >
                 <div className="flex items-center justify-between text-sm font-semibold">
                   <span className="truncate">{thread.title}</span>
-                  {thread.unread_count > 0 && (
-                    <span className="rounded-full bg-amber-500 px-2 py-0.5 text-xs text-white">
+                  {thread.unread_count > 0 ? (
+                    <span
+                      className="rounded-full bg-amber-500 px-2 py-0.5 text-xs text-white"
+                      data-testid="message-thread-unread"
+                    >
                       {thread.unread_count}
                     </span>
-                  )}
+                  ) : null}
                 </div>
                 <p className={`mt-1 line-clamp-2 text-xs ${isActive ? "text-slate-200" : "text-slate-500"}`}>
                   {thread.last_message || "No messages yet."}
@@ -201,6 +299,11 @@ export default function DashboardMessagesClient({
       </aside>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        {toast && (
+          <div className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900">
+            {toast}
+          </div>
+        )}
         {!threadId && (
           <div className="flex h-full flex-col items-center justify-center text-center text-sm text-slate-500">
             <p className="text-base font-semibold text-slate-800">Select a conversation</p>
@@ -227,8 +330,10 @@ export default function DashboardMessagesClient({
             )}
             <div className="mt-4">
               <MessageThread
+                threadId={threadId}
                 messages={activeThread?.messages ?? []}
                 currentUser={currentUser}
+                lastReadAt={activeThread?.thread.last_read_at ?? null}
                 onSend={canSend ? handleSend : undefined}
                 loading={loading}
                 canSend={canSend}

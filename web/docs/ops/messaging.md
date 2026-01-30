@@ -17,10 +17,12 @@ Messaging is now thread-based for the dashboard inbox:
 ### Core columns
 - message_threads: `property_id`, `tenant_id`, `host_id`, `subject`, `last_post_at`, `status`
 - messages: `thread_id`, `sender_id`, `recipient_id`, `sender_role`, `read_at`, `body`, `created_at`
+- message_thread_reads: `thread_id`, `user_id`, `last_read_at`
 
 ### RLS summary
 - Threads: tenant/host participants can read + update; admins can read.
 - Messages: participants can read; sender inserts; recipient updates `read_at`.
+- Thread reads: participants can read + update their own read rows.
 
 ## Reason codes (server source of truth)
 Messaging restrictions return one of these reason codes:

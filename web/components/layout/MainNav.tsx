@@ -23,7 +23,7 @@ export const MAIN_NAV_LINKS: Array<{
   },
   { href: "/tenant", label: "Dashboard", requireAuth: true, requireRole: "tenant" },
   { href: "/dashboard", label: "Dashboard", requireAuth: true, denyRoles: ["tenant", "admin"] },
-  { href: "/admin", label: "Admin Home", requireAuth: true, requireRole: "admin" },
+  { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
   { href: "/admin/support", label: "Support", requireAuth: true, requireRole: "admin" },
   { href: "/admin/settings", label: "Settings", requireAuth: true, requireRole: "admin" },
 ];

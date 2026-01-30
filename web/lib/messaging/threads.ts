@@ -21,6 +21,7 @@ export type MessageThreadPreview = MessageThreadRow & {
   last_message: string | null;
   last_message_at: string | null;
   unread_count: number;
+  last_read_at: string | null;
   participant_name: string | null;
   participant_role: UserRole | null;
 };
@@ -37,6 +38,22 @@ type ThreadListInput = {
 };
 
 type ThreadDetailInput = ThreadListInput & { threadId: string };
+
+export function computeUnreadCount(
+  messages: Message[],
+  userId: string,
+  lastReadAt: string | null
+) {
+  if (!messages.length) return 0;
+  const lastRead = lastReadAt ? new Date(lastReadAt).getTime() : null;
+  return messages.reduce((count, message) => {
+    if (message.sender_id === userId) return count;
+    if (!message.created_at) return count;
+    if (!lastRead) return count + 1;
+    const createdAt = new Date(message.created_at).getTime();
+    return createdAt > lastRead ? count + 1 : count;
+  }, 0);
+}
 
 export function buildThreadParticipantFilter(role: UserRole | null, userId: string) {
   if (role === "admin") return null;
@@ -69,6 +86,17 @@ export async function listThreadsForUser({
     return { threads: [], error: null };
   }
 
+  const { data: readRows } = await client
+    .from("message_thread_reads")
+    .select("thread_id, last_read_at")
+    .in("thread_id", threadIds)
+    .eq("user_id", userId);
+
+  const readMap = new Map<string, string | null>();
+  (readRows as { thread_id: string; last_read_at: string | null }[] | null | undefined)?.forEach(
+    (row) => readMap.set(row.thread_id, row.last_read_at)
+  );
+
   const { data: posts } = await client
     .from("messages")
     .select("id, thread_id, sender_id, recipient_id, body, created_at, read_at")
@@ -78,14 +106,19 @@ export async function listThreadsForUser({
   const latestByThread = new Map<string, Message>();
   const unreadCounts = new Map<string, number>();
   (posts as Message[] | null | undefined)?.forEach((post) => {
-    if (!latestByThread.has((post as Message & { thread_id?: string }).thread_id || "")) {
-      latestByThread.set((post as Message & { thread_id?: string }).thread_id || "", post);
+    const threadId = (post as Message & { thread_id?: string }).thread_id || "";
+    if (!latestByThread.has(threadId)) {
+      latestByThread.set(threadId, post);
     }
-    if (
-      post.recipient_id === userId &&
-      !("read_at" in post ? (post as Message & { read_at?: string | null }).read_at : null)
-    ) {
-      const threadId = (post as Message & { thread_id?: string }).thread_id || "";
+    if (post.sender_id === userId) return;
+    const lastReadAt = readMap.get(threadId) ?? null;
+    const createdAt = post.created_at ? new Date(post.created_at).getTime() : 0;
+    if (!lastReadAt) {
+      unreadCounts.set(threadId, (unreadCounts.get(threadId) ?? 0) + 1);
+      return;
+    }
+    const lastRead = new Date(lastReadAt).getTime();
+    if (createdAt > lastRead) {
       unreadCounts.set(threadId, (unreadCounts.get(threadId) ?? 0) + 1);
     }
   });
@@ -127,6 +160,7 @@ export async function listThreadsForUser({
       last_message: latest?.body ?? null,
       last_message_at: latest?.created_at ?? thread.last_post_at ?? null,
       unread_count: unreadCounts.get(thread.id) ?? 0,
+      last_read_at: readMap.get(thread.id) ?? null,
       participant_name: participant?.full_name ?? null,
       participant_role: normalizeRole(participant?.role ?? null),
     };
@@ -184,6 +218,13 @@ export async function getThreadDetail({
 
   const messageList = (posts as Message[] | null | undefined) ?? [];
   const lastMessage = messageList.at(-1) ?? null;
+  const { data: readRow } = await client
+    .from("message_thread_reads")
+    .select("last_read_at")
+    .eq("thread_id", threadId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  const lastReadAt = (readRow as { last_read_at?: string | null } | null | undefined)?.last_read_at ?? null;
 
   return {
     detail: {
@@ -192,7 +233,8 @@ export async function getThreadDetail({
         title,
         last_message: lastMessage?.body ?? null,
         last_message_at: lastMessage?.created_at ?? threadRow.last_post_at ?? null,
-        unread_count: 0,
+        unread_count: computeUnreadCount(messageList, userId, lastReadAt),
+        last_read_at: lastReadAt,
         participant_name: participantName,
         participant_role: participantRole,
       },

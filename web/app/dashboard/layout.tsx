@@ -4,11 +4,12 @@ import Link from "next/link";
 import { getProfile, getSession } from "@/lib/auth";
 import { formatRoleLabel, normalizeRole } from "@/lib/roles";
 import { canManageListings, shouldShowSavedSearchNav } from "@/lib/role-access";
-import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { ActingAsSelector } from "@/components/dashboard/ActingAsSelector";
+import { listThreadsForUser } from "@/lib/messaging/threads";
 
 export default async function DashboardLayout({
   children,
@@ -45,6 +46,20 @@ export default async function DashboardLayout({
     normalizedRole === "landlord" || normalizedRole === "agent"
       ? !profile?.phone || !profile?.preferred_contact
       : false;
+  let unreadMessages = 0;
+  if (supabaseReady && profile?.id) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const { threads } = await listThreadsForUser({
+        client: supabase,
+        userId: profile.id,
+        role: normalizedRole,
+      });
+      unreadMessages = threads.reduce((sum, thread) => sum + (thread.unread_count ?? 0), 0);
+    } catch {
+      unreadMessages = 0;
+    }
+  }
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -82,7 +97,14 @@ export default async function DashboardLayout({
               </Link>
             )}
             <Link href="/dashboard/messages" className="rounded-full bg-white/10 px-3 py-1">
-              Messages
+              <span className="inline-flex items-center gap-2">
+                Messages
+                {unreadMessages > 0 && (
+                  <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                    {unreadMessages}
+                  </span>
+                )}
+              </span>
             </Link>
             <Link href="/dashboard/viewings" className="rounded-full bg-white/10 px-3 py-1">
               Viewings

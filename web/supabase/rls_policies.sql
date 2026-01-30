@@ -538,6 +538,26 @@ CREATE POLICY "message threads participant update" ON public.message_threads
   USING (auth.uid() = tenant_id OR auth.uid() = host_id)
   WITH CHECK (auth.uid() = tenant_id OR auth.uid() = host_id);
 
+-- message_thread_reads: participants read/update their own read state
+DROP POLICY IF EXISTS "message thread reads self read" ON public.message_thread_reads;
+CREATE POLICY "message thread reads self read" ON public.message_thread_reads
+  FOR SELECT
+  USING (
+    auth.uid() = user_id
+    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+  );
+
+DROP POLICY IF EXISTS "message thread reads self upsert" ON public.message_thread_reads;
+CREATE POLICY "message thread reads self upsert" ON public.message_thread_reads
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "message thread reads self update" ON public.message_thread_reads;
+CREATE POLICY "message thread reads self update" ON public.message_thread_reads
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
 -- viewing_requests: tenants create/read their own
 DROP POLICY IF EXISTS "viewings tenant select" ON public.viewing_requests;
 CREATE POLICY "viewings tenant select" ON public.viewing_requests

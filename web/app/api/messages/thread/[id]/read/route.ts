@@ -26,16 +26,21 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
+  const now = new Date().toISOString();
   const { error } = await auth.supabase
-    .from("messages")
-    .update({ read_at: new Date().toISOString() })
-    .eq("thread_id", id)
-    .eq("recipient_id", auth.user.id)
-    .is("read_at", null);
+    .from("message_thread_reads")
+    .upsert(
+      {
+        thread_id: id,
+        user_id: auth.user.id,
+        last_read_at: now,
+      },
+      { onConflict: "thread_id,user_id" }
+    );
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, last_read_at: now });
 }

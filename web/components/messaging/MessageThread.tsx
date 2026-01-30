@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Textarea } from "@/components/ui/Textarea";
@@ -10,8 +10,10 @@ import { deriveDeliveryState, formatDeliveryState } from "@/lib/messaging/status
 import type { Message, Profile } from "@/lib/types";
 
 type Props = {
+  threadId?: string | null;
   messages: Message[];
   currentUser?: Profile | null;
+  lastReadAt?: string | null;
   onSend?: (body: string) => Promise<boolean | void> | boolean | void;
   loading?: boolean;
   canSend?: boolean;
@@ -28,8 +30,10 @@ type Props = {
 };
 
 export function MessageThread({
+  threadId,
   messages,
   currentUser,
+  lastReadAt,
   onSend,
   loading,
   canSend,
@@ -43,11 +47,79 @@ export function MessageThread({
   const [body, setBody] = useState("");
   const [sending, setSending] = useState(false);
   const [draftNotice, setDraftNotice] = useState(false);
+  const [showJump, setShowJump] = useState(false);
   const saveTimeout = useRef<number | null>(null);
+  const listRef = useRef<HTMLDivElement | null>(null);
+  const dividerRef = useRef<HTMLDivElement | null>(null);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const prevThreadId = useRef<string | null>(null);
+  const prevMessageCount = useRef<number>(messages.length);
   const sendAllowed = typeof canSend === "boolean" ? canSend : !!onSend;
   const showComposer = sendAllowed || !!cooldownMessage;
   const disableComposer = sending || !!sendDisabled;
   const replies = quickReplies ?? [];
+
+  const unreadIndex = useMemo(() => {
+    if (!messages.length) return -1;
+    const lastRead = lastReadAt ? new Date(lastReadAt).getTime() : null;
+    return messages.findIndex((message) => {
+      if (message.sender_id === currentUser?.id) return false;
+      if (!message.created_at) return false;
+      if (!lastRead) return true;
+      return new Date(message.created_at).getTime() > lastRead;
+    });
+  }, [currentUser?.id, lastReadAt, messages]);
+
+  const scrollToBottom = useCallback(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    setShowJump(false);
+  }, []);
+
+  const scrollToDivider = useCallback(() => {
+    dividerRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
+  useEffect(() => {
+    if (!threadId) return;
+    if (prevThreadId.current !== threadId) {
+      prevThreadId.current = threadId;
+      prevMessageCount.current = messages.length;
+      requestAnimationFrame(() => {
+        if (unreadIndex >= 0 && dividerRef.current) {
+          scrollToDivider();
+        } else {
+          scrollToBottom();
+        }
+      });
+    }
+  }, [scrollToBottom, scrollToDivider, threadId, unreadIndex]);
+
+  useEffect(() => {
+    if (messages.length === prevMessageCount.current) return;
+    const lastMessage = messages[messages.length - 1];
+    const atBottom = (() => {
+      const el = listRef.current;
+      if (!el) return true;
+      return el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+    })();
+    if (lastMessage?.sender_id === currentUser?.id) {
+      scrollToBottom();
+    } else if (!atBottom) {
+      setShowJump(true);
+    } else {
+      scrollToBottom();
+    }
+    prevMessageCount.current = messages.length;
+  }, [currentUser?.id, messages, scrollToBottom]);
+
+  const handleScroll = () => {
+    const el = listRef.current;
+    if (!el) return;
+    const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+    if (atBottom) {
+      setShowJump(false);
+    }
+  };
 
   useEffect(() => {
     if (!draftKey) return;
@@ -130,7 +202,11 @@ export function MessageThread({
 
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="space-y-3 max-h-64 overflow-y-auto">
+      <div
+        ref={listRef}
+        onScroll={handleScroll}
+        className="relative max-h-64 space-y-3 overflow-y-auto"
+      >
         {loading ? (
           <p className="text-sm text-slate-500">Loading messages...</p>
         ) : messages.length ? (
@@ -139,13 +215,30 @@ export function MessageThread({
               key={message.id}
               className={`flex ${message.sender_id === currentUser?.id ? "justify-end" : "justify-start"}`}
             >
-              <div
-                className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
-                  message.sender_id === currentUser?.id
-                    ? "bg-slate-900 text-white"
-                    : "bg-slate-50 text-slate-800"
-                }`}
-              >
+              <div className="max-w-[80%] space-y-2">
+                {unreadIndex >= 0 && messages[unreadIndex]?.id === message.id && (
+                  <div
+                    ref={dividerRef}
+                    data-testid="message-new-divider"
+                    className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-center text-[11px] font-semibold uppercase tracking-[0.2em] text-amber-700"
+                  >
+                    New messages
+                  </div>
+                )}
+                <div
+                  className={`rounded-xl px-3 py-2 text-sm ${
+                    message.sender_id === currentUser?.id
+                      ? "bg-slate-900 text-white"
+                      : "bg-slate-50 text-slate-800"
+                  } ${
+                    message.sender_id !== currentUser?.id &&
+                    lastReadAt &&
+                    message.created_at &&
+                    new Date(message.created_at).getTime() > new Date(lastReadAt).getTime()
+                      ? "ring-1 ring-amber-200 animate-pulse"
+                      : ""
+                  }`}
+                >
                 <p
                   className={`mb-1 text-xs ${
                     message.sender_id === currentUser?.id ? "text-slate-200" : "text-slate-500"
@@ -159,12 +252,23 @@ export function MessageThread({
                     </span>
                   )}
                 </p>
-                <p>{message.body}</p>
+                  <p>{message.body}</p>
+                </div>
               </div>
             </div>
           ))
         ) : (
           <p className="text-sm text-slate-500">No messages yet.</p>
+        )}
+        <div ref={bottomRef} />
+        {showJump && (
+          <button
+            type="button"
+            onClick={scrollToBottom}
+            className="sticky bottom-3 ml-auto mr-2 rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700 shadow-sm"
+          >
+            Jump to latest
+          </button>
         )}
       </div>
       <div className="space-y-2">

@@ -4,10 +4,10 @@ import assert from "node:assert/strict";
 import { MAIN_NAV_LINKS } from "@/components/layout/MainNav";
 import { resolveNavLinks } from "@/components/layout/NavLinksClient";
 
-test("admin nav shows Admin Home and hides Dashboard", () => {
+test("admin nav shows Admin and hides Dashboard", () => {
   const links = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "admin" });
   const labels = links.map((link) => link.label);
-  assert.ok(labels.includes("Admin Home"));
+  assert.ok(labels.includes("Admin"));
   assert.ok(!labels.includes("Dashboard"));
 });
 

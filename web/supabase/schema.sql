@@ -118,6 +118,17 @@ CREATE INDEX idx_message_threads_property ON public.message_threads (property_id
 CREATE INDEX idx_message_threads_host ON public.message_threads (host_id, last_post_at desc);
 CREATE INDEX idx_message_threads_tenant ON public.message_threads (tenant_id, last_post_at desc);
 
+-- MESSAGE THREAD READS
+CREATE TABLE public.message_thread_reads (
+  thread_id UUID NOT NULL REFERENCES public.message_threads (id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  last_read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (thread_id, user_id)
+);
+
+CREATE INDEX idx_message_thread_reads_user ON public.message_thread_reads (user_id);
+CREATE INDEX idx_message_thread_reads_thread ON public.message_thread_reads (thread_id);
+
 -- VIEWING REQUESTS
 CREATE TABLE public.viewing_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
