@@ -66,24 +66,24 @@ export function SmartSearchBox({ onFilters, mode = "home" }: Props) {
   };
 
   const isHome = mode === "home";
-  const submitLabel = isHome ? "Parse" : "Search";
+  const submitLabel = isHome ? "Search" : "Search";
   const placeholder = isHome
-    ? 'e.g. "Furnished 2-bed in Nairobi under 600 dollars with parking"'
-    : "Describe what you need (AI)";
+    ? "Furnished 2-bed in Nairobi under $600, parking included"
+    : "Describe what you need";
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">
-            Smart Search (AI)
+            Smart search
           </h3>
           <p className="text-sm text-slate-600">
-            Describe what you need and we convert it to structured filters.
+            Tell us what you’re looking for and we’ll turn it into precise results.
           </p>
         </div>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-          Powered by OpenAI
+          Powered by intelligent search
         </span>
       </div>
       <form
