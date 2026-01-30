@@ -2,6 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { NavAuthClient } from "@/components/layout/NavAuthClient";
 import { NavLinksClient } from "@/components/layout/NavLinksClient";
+import { NavMobileDrawerClient } from "@/components/layout/NavMobileDrawerClient";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
@@ -72,6 +73,7 @@ export async function MainNav() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <NavMobileDrawerClient links={MAIN_NAV_LINKS} initialAuthed={initialAuthed} initialRole={role} />
           <NavAuthClient initialAuthed={initialAuthed} initialRole={role} />
         </div>
       </div>

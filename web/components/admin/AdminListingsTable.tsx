@@ -37,7 +37,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <table className="min-w-full table-fixed text-left text-sm">
+        <table className="w-full min-w-[980px] table-fixed text-left text-sm">
           <colgroup>
             <col className="w-2" />
             <col className="w-[240px]" />

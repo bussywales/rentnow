@@ -23,6 +23,10 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     "expected listings row test id"
   );
   assert.ok(
+    tableContents.includes("<colgroup>"),
+    "expected colgroup for header/body alignment"
+  );
+  assert.ok(
     tableContents.includes('data-testid="admin-listings-header-spacer"'),
     "expected header spacer for status accent column"
   );

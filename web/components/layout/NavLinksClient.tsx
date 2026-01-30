@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { normalizeRole } from "@/lib/roles";
 import type { UserRole } from "@/lib/types";
 
-type NavLink = {
+export type NavLink = {
   href: string;
   label: string;
   requireAuth?: boolean;
@@ -46,7 +46,7 @@ export function resolveNavLinks(
   });
 }
 
-function isActiveHref(pathname: string, href: string) {
+export function isActiveHref(pathname: string, href: string) {
   if (href === "/admin") {
     if (pathname === "/admin") return true;
     if (!pathname.startsWith("/admin/")) return false;

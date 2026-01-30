@@ -168,7 +168,7 @@ export default function DashboardMessagesClient({
       } catch {
         // ignore polling failures
       }
-    }, 25000);
+    }, 15000);
 
     return () => window.clearInterval(interval);
   // Intentional: keep polling interval stable; depend on timestamps to avoid reset churn.
