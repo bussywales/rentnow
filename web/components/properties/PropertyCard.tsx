@@ -14,6 +14,7 @@ import {
   formatSizeLabel,
 } from "@/lib/property-discovery";
 import { TrustBadges } from "@/components/trust/TrustBadges";
+import { TrustIdentityPill } from "@/components/trust/TrustIdentityPill";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 
 const BedIcon = () => (
@@ -59,9 +60,16 @@ type Props = {
   href?: string;
   compact?: boolean;
   trustMarkers?: TrustMarkerState | null;
+  trustVariant?: "public" | "admin";
 };
 
-export function PropertyCard({ property, href, compact, trustMarkers }: Props) {
+export function PropertyCard({
+  property,
+  href,
+  compact,
+  trustMarkers,
+  trustVariant = "public",
+}: Props) {
   const fallbackImage =
     "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=80";
   const primaryImage =
@@ -122,9 +130,12 @@ export function PropertyCard({ property, href, compact, trustMarkers }: Props) {
         <p className="min-h-[40px] text-sm text-slate-600 line-clamp-2">
           {description}
         </p>
-        {trustMarkers && (
-          <TrustBadges markers={trustMarkers} compact />
-        )}
+        {trustMarkers &&
+          (trustVariant === "admin" ? (
+            <TrustBadges markers={trustMarkers} compact />
+          ) : (
+            <TrustIdentityPill markers={trustMarkers} />
+          ))}
         <div className="flex items-center justify-between text-sm text-slate-800">
           <div className="font-semibold flex flex-wrap items-baseline gap-1">
             {priceValue}

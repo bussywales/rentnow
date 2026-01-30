@@ -14,6 +14,17 @@ export type TrustBadgeItem = {
   verified: boolean;
 };
 
+export function isIdentityVerified(markers?: TrustMarkerState | null): boolean {
+  if (!markers) return false;
+  if (markers.bank_verified) return true;
+  if (markers.email_verified && markers.phone_verified) return true;
+  return false;
+}
+
+export function getIdentityTrustLabel(markers?: TrustMarkerState | null): string {
+  return isIdentityVerified(markers) ? "Identity verified" : "Identity pending";
+}
+
 const RELIABILITY_LEVELS = ["excellent", "good", "fair", "poor"] as const;
 type ReliabilityLevel = (typeof RELIABILITY_LEVELS)[number];
 

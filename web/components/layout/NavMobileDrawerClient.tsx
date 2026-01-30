@@ -140,14 +140,16 @@ export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Pro
           <button
             type="button"
             aria-label="Close menu"
-            className="absolute inset-0 bg-slate-900/40"
+            className="absolute inset-0 bg-slate-900/60"
+            data-testid="mobile-drawer-backdrop"
             onClick={() => setOpen(false)}
           />
           <div
             ref={drawerRef}
             role="dialog"
             aria-modal="true"
-            className="relative ml-auto flex h-full w-[80%] max-w-xs flex-col gap-4 bg-white px-4 py-5 shadow-xl"
+            data-testid="mobile-drawer-panel"
+            className="relative ml-auto flex h-full w-[80%] max-w-xs flex-col gap-4 border-l border-slate-200 bg-white px-4 py-5 shadow-2xl"
           >
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-slate-900">Menu</p>

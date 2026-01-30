@@ -156,6 +156,7 @@ export function HostDashboardContent({
                     compact
                     href={`/dashboard/properties/${property.id}`}
                     trustMarkers={trustMarkers}
+                    trustVariant="admin"
                   />
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs text-slate-600">
