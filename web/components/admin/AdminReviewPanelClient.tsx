@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useMemo } from "react";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 
@@ -43,9 +44,9 @@ class PanelErrorBoundary extends React.Component<
           <div className="font-semibold text-amber-950">Review temporarily unavailable</div>
           <p className="mt-1">Open the dedicated review desk or diagnostics while we retry.</p>
           <div className="mt-2 flex flex-wrap gap-2">
-            <a className="rounded border border-amber-300 px-3 py-1 underline" href="/admin/review">
+            <Link className="rounded border border-amber-300 px-3 py-1 underline" href="/admin/review">
               Open /admin/review
-            </a>
+            </Link>
             <a
               className="rounded border border-amber-300 px-3 py-1 underline"
               href="/api/admin/review/diagnostics"

@@ -5,7 +5,6 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getThreadDetail } from "@/lib/messaging/threads";
 import { getMessagingPermission } from "@/lib/messaging/permissions";
 import { normalizeRole } from "@/lib/roles";
-import type { UserRole } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

@@ -92,6 +92,8 @@ export function MessageThread({
         }
       });
     }
+  // Intentional: avoid re-running on every message length change; only respond to thread changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scrollToBottom, scrollToDivider, threadId, unreadIndex]);
 
   useEffect(() => {

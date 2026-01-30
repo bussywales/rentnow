@@ -171,6 +171,8 @@ export default function DashboardMessagesClient({
     }, 25000);
 
     return () => window.clearInterval(interval);
+  // Intentional: keep polling interval stable; depend on timestamps to avoid reset churn.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     activeThread?.thread.last_message_at,
     activeThread?.thread.last_post_at,
