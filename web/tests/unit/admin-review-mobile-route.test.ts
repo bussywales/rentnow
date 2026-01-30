@@ -15,4 +15,8 @@ void test("admin review mobile detail route renders inspector markers", () => {
     contents.includes("AdminReviewMobileDetailPanel"),
     "expected mobile detail panel usage"
   );
+  assert.ok(
+    contents.includes("listingId") && contents.includes("await params"),
+    "expected params to resolve listingId"
+  );
 });

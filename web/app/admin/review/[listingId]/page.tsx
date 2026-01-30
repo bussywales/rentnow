@@ -11,7 +11,7 @@ export const revalidate = 0;
 export const fetchCache = "force-no-store";
 
 type Props = {
-  params: { listingId: string };
+  params: Promise<{ listingId: string }>;
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
@@ -32,6 +32,7 @@ function buildBackHref(searchParams?: Record<string, string | string[] | undefin
 }
 
 export default async function AdminReviewDetailPage({ params, searchParams }: Props) {
+  const { listingId } = await params;
   const { supabase, user } = await getServerAuthUser();
   if (!user) {
     redirect("/auth/login?reason=auth");
@@ -48,12 +49,12 @@ export default async function AdminReviewDetailPage({ params, searchParams }: Pr
   const { listing: directListing } = await getReviewListingById(
     supabase,
     profile?.role ?? null,
-    params.listingId
+    listingId
   );
   let listing = directListing;
   if (!listing) {
     const { listings } = await loadReviewListings(supabase, profile?.role ?? null);
-    listing = listings.find((item) => item.id === params.listingId) ?? null;
+    listing = listings.find((item) => item.id === listingId) ?? null;
   }
   const backHref = buildBackHref(searchParams);
 
@@ -70,7 +71,7 @@ export default async function AdminReviewDetailPage({ params, searchParams }: Pr
           </Link>
         </div>
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          Listing not found in the review queue.
+          Listing not found.
         </div>
       </div>
     );
