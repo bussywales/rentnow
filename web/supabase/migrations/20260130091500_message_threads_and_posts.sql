@@ -59,8 +59,8 @@ upserted as (
 update public.messages m
 set thread_id = mt.id
 from public.message_threads mt
-join public.properties p on p.id = m.property_id
-where mt.property_id = m.property_id
+join public.properties p on p.id = mt.property_id
+where m.property_id = mt.property_id
   and mt.host_id = p.owner_id
   and mt.tenant_id = case
     when m.sender_id = p.owner_id then m.recipient_id
