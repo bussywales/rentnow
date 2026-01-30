@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { UserRole } from "@/lib/types";
@@ -84,7 +85,9 @@ export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Pro
     if (!open) return;
     previousFocusRef.current = document.activeElement as HTMLElement | null;
     closeButtonRef.current?.focus();
-    const originalOverflow = document.body.style.overflow;
+    const originalHtmlOverflow = document.documentElement.style.overflow;
+    const originalBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
     document.body.style.overflow = "hidden";
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -114,7 +117,8 @@ export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Pro
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => {
-      document.body.style.overflow = originalOverflow;
+      document.documentElement.style.overflow = originalHtmlOverflow;
+      document.body.style.overflow = originalBodyOverflow;
       document.removeEventListener("keydown", handleKeyDown);
       previousFocusRef.current?.focus();
     };
@@ -135,69 +139,75 @@ export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Pro
         </svg>
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex md:hidden">
-          <button
-            type="button"
-            aria-label="Close menu"
-            className="absolute inset-0 bg-slate-900/60"
-            data-testid="mobile-drawer-backdrop"
-            onClick={() => setOpen(false)}
-          />
-          <div
-            ref={drawerRef}
-            role="dialog"
-            aria-modal="true"
-            data-testid="mobile-drawer-panel"
-            className="relative ml-auto flex h-full w-[80%] max-w-xs flex-col gap-4 border-l border-slate-200 bg-white px-4 py-5 shadow-2xl"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-slate-900">Menu</p>
-              <button
-                ref={closeButtonRef}
-                type="button"
-                className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
-                onClick={() => setOpen(false)}
-              >
-                Close
-              </button>
-            </div>
-            <nav className="flex flex-col gap-2">
-              {drawerLinks.map((link) => {
-                const active = isActiveHref(pathname, link.href);
-                return (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
-                      active ? "bg-slate-100 font-semibold text-slate-900" : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                    onClick={() => setOpen(false)}
-                  >
-                    <span>{link.label}</span>
-                    {link.showUnread && unreadCount > 0 && (
-                      <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
-                        {unreadCount}
-                      </span>
-                    )}
-                  </Link>
-                );
-              })}
-            </nav>
-            <div className="mt-auto border-t border-slate-100 pt-4">
-              <form action="/auth/logout" method="POST">
+      {open &&
+        typeof document !== "undefined" &&
+        createPortal(
+          <div className="fixed inset-0 z-[10000] flex md:hidden">
+            <button
+              type="button"
+              aria-label="Close menu"
+              className="fixed inset-0 z-[10000] bg-black/50"
+              data-testid="mobile-nav-backdrop"
+              onClick={() => setOpen(false)}
+            />
+            <div
+              ref={drawerRef}
+              role="dialog"
+              aria-modal="true"
+              data-testid="mobile-nav-drawer"
+              className="fixed right-0 top-0 z-[10001] flex h-dvh w-[min(90vw,360px)] flex-col gap-4 bg-white px-4 py-5 shadow-2xl"
+            >
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold text-slate-900">Menu</p>
                 <button
-                  type="submit"
-                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  ref={closeButtonRef}
+                  type="button"
+                  data-testid="mobile-nav-close"
+                  className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
+                  onClick={() => setOpen(false)}
                 >
-                  Log out
+                  Close
                 </button>
-              </form>
+              </div>
+              <nav className="flex flex-col gap-2">
+                {drawerLinks.map((link) => {
+                  const active = isActiveHref(pathname, link.href);
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      aria-current={active ? "page" : undefined}
+                      className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
+                        active
+                          ? "bg-slate-100 font-semibold text-slate-900"
+                          : "text-slate-700 hover:bg-slate-50"
+                      }`}
+                      onClick={() => setOpen(false)}
+                    >
+                      <span>{link.label}</span>
+                      {link.showUnread && unreadCount > 0 && (
+                        <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                          {unreadCount}
+                        </span>
+                      )}
+                    </Link>
+                  );
+                })}
+              </nav>
+              <div className="mt-auto border-t border-slate-100 pt-4">
+                <form action="/auth/logout" method="POST">
+                  <button
+                    type="submit"
+                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                  >
+                    Log out
+                  </button>
+                </form>
+              </div>
             </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </>
   );
 }
