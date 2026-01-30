@@ -7,7 +7,7 @@
   },
   "engineStrict": true,
   "scripts": {
-    "preinstall": "node ./scripts/check-node.mjs",
+    "preinstall": "node ./scripts/check-node.js",
     "dev": "next dev",
     "build": "BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true next build",
     "build:ci": "node ./scripts/run-build-ci.mjs",

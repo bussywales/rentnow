@@ -18,7 +18,8 @@ AI-first rental platform for the African market. This MVP is a web-only PWA buil
 - Any Node 14/16 lint/build failures are non-actionable for this repo.
 - npm (uses `package-lock.json`).
 - Install/build: `npm install`, `npm run lint`, `npm run build`.
-- If Node is below 20.9, `npm install` fails fast via `scripts/check-node.mjs` with a clear error.
+- Use `nvm use` before installing deps to match the repo Node version.
+- If Node is below 20.9, `npm install` fails fast via `scripts/check-node.js` with a clear error.
 - CI-friendly validation: use `npm run lint:ci`, `npm run build:ci`, and `npm run test:e2e:ci` to skip execution with a clear message when Node <20.9.
 
 ## Known build warnings
@@ -39,6 +40,7 @@ supabase/schema.sql # DB + RLS starter script
 2) Install deps:
 ```bash
 cd web
+nvm use
 npm run setup
 ```
 If you don't need Playwright locally, you can run:
