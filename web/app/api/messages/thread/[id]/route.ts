@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser, getUserRole } from "@/lib/authz";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -16,9 +16,12 @@ const replySchema = z.object({
   body: z.string().min(1),
 });
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+export async function GET(request: NextRequest, { params }: RouteContext) {
+  const { id } = await params;
   const startTime = Date.now();
-  const routeLabel = `/api/messages/thread/${params.id}`;
+  const routeLabel = `/api/messages/thread/${id}`;
 
   if (!hasServerSupabaseEnv()) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
@@ -32,7 +35,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     client: auth.supabase,
     userId: auth.user.id,
     role,
-    threadId: params.id,
+    threadId: id,
   });
 
   if (error || !detail) {
@@ -48,10 +51,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: recipientProfile } = await auth.supabase
     .from("profiles")
     .select("role")
-    .eq(
-      "id",
-      role === "tenant" ? detail.thread.host_id : detail.thread.tenant_id
-    )
+    .eq("id", role === "tenant" ? detail.thread.host_id : detail.thread.tenant_id)
     .maybeSingle();
 
   const recipientRole = normalizeRole(recipientProfile?.role ?? null);
@@ -75,9 +75,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
   });
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest, { params }: RouteContext) {
+  const { id } = await params;
   const startTime = Date.now();
-  const routeLabel = `/api/messages/thread/${params.id}`;
+  const routeLabel = `/api/messages/thread/${id}`;
 
   if (!hasServerSupabaseEnv()) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
@@ -101,7 +102,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
     client: auth.supabase,
     userId: auth.user.id,
     role,
-    threadId: params.id,
+    threadId: id,
   });
   if (error || !detail) {
     return NextResponse.json({ error: error || "Thread not found" }, { status: 404 });

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { requireUser, getUserRole } from "@/lib/authz";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 
@@ -7,9 +7,12 @@ export const revalidate = 0;
 export const fetchCache = "force-no-store";
 export const runtime = "nodejs";
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+export async function POST(request: NextRequest, { params }: RouteContext) {
+  const { id } = await params;
   const startTime = Date.now();
-  const routeLabel = `/api/messages/thread/${params.id}/read`;
+  const routeLabel = `/api/messages/thread/${id}/read`;
 
   if (!hasServerSupabaseEnv()) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
@@ -26,7 +29,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { error } = await auth.supabase
     .from("messages")
     .update({ read_at: new Date().toISOString() })
-    .eq("thread_id", params.id)
+    .eq("thread_id", id)
     .eq("recipient_id", auth.user.id)
     .is("read_at", null);
 
