@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import { buildSelectedUrl } from "@/lib/admin/admin-review";
-import { loadReviewListings } from "@/lib/admin/admin-review-loader";
+import { getReviewListingById } from "@/lib/admin/admin-review-loader";
 import AdminReviewMobileDetailPanel from "@/components/admin/AdminReviewMobileDetailPanel";
 
 export const dynamic = "force-dynamic";
@@ -45,8 +45,11 @@ export default async function AdminReviewDetailPage({ params, searchParams }: Pr
     redirect("/forbidden");
   }
 
-  const { listings } = await loadReviewListings(supabase, profile?.role ?? null);
-  const listing = listings.find((item) => item.id === params.listingId) || null;
+  const { listing } = await getReviewListingById(
+    supabase,
+    profile?.role ?? null,
+    params.listingId
+  );
   const backHref = buildBackHref(searchParams);
 
   if (!listing) {
@@ -81,6 +84,11 @@ export default async function AdminReviewDetailPage({ params, searchParams }: Pr
           Back to queue
         </Link>
       </div>
+      {listing.reviewStage === null && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          Not currently in the review queue.
+        </div>
+      )}
       <AdminReviewMobileDetailPanel listing={listing} backHref={backHref} />
       <link rel="canonical" href={canonicalUrl} />
     </div>

@@ -68,6 +68,7 @@
 - Mobile list → detail:
   - On screens below `md`, `/admin/review` shows **only the queue list**.
   - Tapping a listing opens `/admin/review/[listingId]` (full-width inspector).
+  - The route param is the **listing id** (property id), not a queue row id.
   - Use **Back to queue** to return to the list (filters preserved via query string).
 - Inspector above-the-fold contract:
   - Sticky inspector header + media hero + key facts are visible without scrolling.

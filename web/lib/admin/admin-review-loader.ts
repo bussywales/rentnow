@@ -1,7 +1,13 @@
 import { computeListingReadiness } from "@/lib/properties/listing-readiness";
 import type { PropertyImage } from "@/lib/types";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
-import { ADMIN_REVIEW_QUEUE_SELECT, normalizeSelect } from "@/lib/admin/admin-review-contracts";
+import {
+  ADMIN_REVIEW_QUEUE_SELECT,
+  ADMIN_REVIEW_VIEW_SELECT_MIN,
+  ADMIN_REVIEW_VIEW_SELECT_MIN_NORMALIZED,
+  ADMIN_REVIEW_VIEW_TABLE,
+  normalizeSelect,
+} from "@/lib/admin/admin-review-contracts";
 import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
 import { hasServerSupabaseEnv, type createServerSupabaseClient } from "@/lib/supabase/server";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
@@ -62,6 +68,93 @@ export type ReviewLoadResult = {
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 
+type ReviewListingLookupResult = {
+  listing: AdminReviewListItem | null;
+  serviceRoleAvailable: boolean;
+  serviceRoleError: unknown;
+  meta?: ReviewLoadResult["meta"];
+};
+
+function mapReviewRowsToListings(rows: RawProperty[], owners: Record<string, string>) {
+  return rows.map((p) => {
+    const merged = { ...p, id: p.id } as RawProperty;
+    const images: PropertyImage[] = [];
+    const readinessInput = {
+      ...merged,
+      images,
+    } as Parameters<typeof computeListingReadiness>[0];
+    const readiness = computeListingReadiness(readinessInput);
+    const locationQuality = computeLocationQuality({
+      latitude: merged.latitude ?? null,
+      longitude: merged.longitude ?? null,
+      location_label: merged.location_label ?? null,
+      location_place_id: merged.location_place_id ?? null,
+      country_code: merged.country_code ?? null,
+      admin_area_1: merged.admin_area_1 ?? merged.state_region ?? null,
+      admin_area_2: merged.admin_area_2 ?? null,
+      postal_code: merged.postal_code ?? null,
+      city: merged.city ?? null,
+    });
+
+    const fixRequested = isFixRequestRow({
+      status: merged.status ?? null,
+      submitted_at: merged.submitted_at ?? null,
+      rejection_reason: merged.rejection_reason ?? null,
+      is_approved: merged.is_approved ?? null,
+      approved_at: merged.approved_at ?? null,
+    });
+    const reviewable = isReviewableRow({
+      status: merged.status ?? null,
+      submitted_at: merged.submitted_at ?? null,
+      is_approved: merged.is_approved ?? null,
+      approved_at: merged.approved_at ?? null,
+      rejected_at: merged.rejected_at ?? null,
+    });
+    const reviewStage: AdminReviewListItem["reviewStage"] = fixRequested
+      ? "changes"
+      : reviewable
+        ? "pending"
+        : null;
+
+    return {
+      id: p.id,
+      title: merged.title || "Untitled",
+      hostName: owners[merged.owner_id || ""] || "Host",
+      updatedAt: merged.updated_at || merged.created_at || null,
+      status: normalizeStatus(merged.status) ?? "pending",
+      submitted_at: merged.submitted_at ?? null,
+      is_approved: merged.is_approved ?? null,
+      approved_at: merged.approved_at ?? null,
+      rejected_at: merged.rejected_at ?? null,
+      is_active: merged.is_active ?? null,
+      rejectionReason: merged.rejection_reason ?? null,
+      city: merged.city ?? null,
+      state_region: merged.state_region ?? null,
+      country_code: merged.country_code ?? null,
+      readiness,
+      locationQuality: locationQuality.quality,
+      photoCount: typeof merged.photo_count === "number" ? merged.photo_count : images.length,
+      hasVideo: merged.has_video ?? ((merged.video_count ?? 0) > 0),
+      hasCover: merged.has_cover ?? (merged.cover_image_url ? true : null),
+      coverImageUrl: merged.cover_image_url ?? null,
+      reviewable,
+      reviewStage,
+    };
+  });
+}
+
+async function fetchOwnerLabels(
+  supabase: SupabaseServerClient,
+  ownerIds: string[]
+): Promise<Record<string, string>> {
+  if (!ownerIds.length) return {};
+  const { data: profiles } = await supabase.from("profiles").select("id, full_name").in("id", ownerIds);
+  return Object.fromEntries(
+    (profiles as { id: string; full_name?: string | null }[] | null | undefined)?.map((p) => [p.id, p.full_name || "Host"]) ??
+      []
+  );
+}
+
 export async function loadReviewListings(
   supabase: SupabaseServerClient,
   viewerRole: string | null
@@ -105,82 +198,8 @@ export async function loadReviewListings(
     });
     const listings = (queueResult.rows ?? queueResult.data ?? []) as RawProperty[];
     const ownerIds = Array.from(new Set(listings.map((p) => p.owner_id).filter(Boolean))) as string[];
-    let owners: Record<string, string> = {};
-    if (ownerIds.length) {
-      const { data: profiles } = await supabase
-        .from("profiles")
-        .select("id, full_name")
-        .in("id", ownerIds);
-      owners = Object.fromEntries(
-        (profiles as { id: string; full_name?: string | null }[] | null | undefined)?.map((p) => [p.id, p.full_name || "Host"]) ?? []
-      );
-    }
-
-    const mappedListings = listings.map((p) => {
-      const merged = { ...p, id: p.id } as RawProperty;
-      const images: PropertyImage[] = [];
-      const readinessInput = {
-        ...merged,
-        images,
-      } as Parameters<typeof computeListingReadiness>[0];
-      const readiness = computeListingReadiness(readinessInput);
-      const locationQuality = computeLocationQuality({
-        latitude: merged.latitude ?? null,
-        longitude: merged.longitude ?? null,
-        location_label: merged.location_label ?? null,
-        location_place_id: merged.location_place_id ?? null,
-        country_code: merged.country_code ?? null,
-        admin_area_1: merged.admin_area_1 ?? merged.state_region ?? null,
-        admin_area_2: merged.admin_area_2 ?? null,
-        postal_code: merged.postal_code ?? null,
-        city: merged.city ?? null,
-      });
-
-      const fixRequested = isFixRequestRow({
-        status: merged.status ?? null,
-        submitted_at: merged.submitted_at ?? null,
-        rejection_reason: merged.rejection_reason ?? null,
-        is_approved: merged.is_approved ?? null,
-        approved_at: merged.approved_at ?? null,
-      });
-      const reviewable = isReviewableRow({
-        status: merged.status ?? null,
-        submitted_at: merged.submitted_at ?? null,
-        is_approved: merged.is_approved ?? null,
-        approved_at: merged.approved_at ?? null,
-        rejected_at: merged.rejected_at ?? null,
-      });
-      const reviewStage: AdminReviewListItem["reviewStage"] = fixRequested
-        ? "changes"
-        : reviewable
-          ? "pending"
-          : null;
-
-      return {
-        id: p.id,
-        title: merged.title || "Untitled",
-        hostName: owners[merged.owner_id || ""] || "Host",
-        updatedAt: merged.updated_at || merged.created_at || null,
-        status: normalizeStatus(merged.status) ?? "pending",
-        submitted_at: merged.submitted_at ?? null,
-        is_approved: merged.is_approved ?? null,
-        approved_at: merged.approved_at ?? null,
-        rejected_at: merged.rejected_at ?? null,
-        is_active: merged.is_active ?? null,
-        rejectionReason: merged.rejection_reason ?? null,
-        city: merged.city ?? null,
-        state_region: merged.state_region ?? null,
-        country_code: merged.country_code ?? null,
-        readiness,
-        locationQuality: locationQuality.quality,
-        photoCount: typeof merged.photo_count === "number" ? merged.photo_count : images.length,
-        hasVideo: merged.has_video ?? ((merged.video_count ?? 0) > 0),
-        hasCover: merged.has_cover ?? (merged.cover_image_url ? true : null),
-        coverImageUrl: merged.cover_image_url ?? null,
-        reviewable,
-        reviewStage,
-      };
-    });
+    const owners = await fetchOwnerLabels(supabase, ownerIds);
+    const mappedListings = mapReviewRowsToListings(listings, owners);
     return {
       listings: mappedListings,
       serviceRoleAvailable: !!serviceClient,
@@ -202,6 +221,85 @@ export async function loadReviewListings(
       queueSource: "user",
       serviceRoleStatus: null,
       meta: { source: "user", serviceAttempted: hasServiceRoleEnv(), serviceOk: false, serviceStatus: null, serviceError: "fetch failed" },
+    };
+  }
+}
+
+export async function getReviewListingById(
+  supabase: SupabaseServerClient,
+  viewerRole: string | null,
+  listingId: string
+): Promise<ReviewListingLookupResult> {
+  if (!hasServerSupabaseEnv()) {
+    return {
+      listing: null,
+      serviceRoleAvailable: false,
+      serviceRoleError: null,
+    };
+  }
+  const serviceClient = viewerRole === "admin" && hasServiceRoleEnv() ? createServiceRoleClient() : null;
+  const client = serviceClient ?? supabase;
+  try {
+    assertNoForbiddenColumns(normalizeSelect(ADMIN_REVIEW_VIEW_SELECT_MIN), "admin/review listing lookup");
+    const { data, error, status } = await client
+      .from(ADMIN_REVIEW_VIEW_TABLE)
+      .select(ADMIN_REVIEW_VIEW_SELECT_MIN_NORMALIZED)
+      .eq("id", listingId)
+      .maybeSingle();
+    if (error) {
+      return {
+        listing: null,
+        serviceRoleAvailable: !!serviceClient,
+        serviceRoleError: error,
+        meta: {
+          source: serviceClient ? "service" : "user",
+          serviceAttempted: !!serviceClient,
+          serviceOk: false,
+          serviceStatus: status ?? null,
+          serviceError: error.message,
+        },
+      };
+    }
+    if (!data) {
+      return {
+        listing: null,
+        serviceRoleAvailable: !!serviceClient,
+        serviceRoleError: null,
+        meta: {
+          source: serviceClient ? "service" : "user",
+          serviceAttempted: !!serviceClient,
+          serviceOk: true,
+          serviceStatus: status ?? null,
+        },
+      };
+    }
+    const row = data as unknown as RawProperty;
+    const ownerIds = row?.owner_id ? [row.owner_id] : [];
+    const owners = await fetchOwnerLabels(supabase, ownerIds);
+    const mapped = mapReviewRowsToListings([row], owners);
+    return {
+      listing: mapped[0] ?? null,
+      serviceRoleAvailable: !!serviceClient,
+      serviceRoleError: null,
+      meta: {
+        source: serviceClient ? "service" : "user",
+        serviceAttempted: !!serviceClient,
+        serviceOk: true,
+        serviceStatus: status ?? null,
+      },
+    };
+  } catch (err) {
+    return {
+      listing: null,
+      serviceRoleAvailable: !!serviceClient,
+      serviceRoleError: err,
+      meta: {
+        source: serviceClient ? "service" : "user",
+        serviceAttempted: !!serviceClient,
+        serviceOk: false,
+        serviceStatus: null,
+        serviceError: "fetch failed",
+      },
     };
   }
 }
