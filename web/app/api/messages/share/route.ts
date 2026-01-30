@@ -125,12 +125,18 @@ export async function POST(request: Request) {
 
   const { data: threadMessage } = await supabase
     .from("messages")
-    .select("id")
+    .select("sender_id, sender_role")
     .eq("property_id", property_id)
     .or(`sender_id.eq.${resolvedTenantId},recipient_id.eq.${resolvedTenantId}`)
     .limit(1);
 
   const hasThread = Array.isArray(threadMessage) && threadMessage.length > 0;
+  const hasTenantMessage =
+    threadMessage?.some(
+      (row) =>
+        (row as { sender_role?: string | null }).sender_role === "tenant" ||
+        row.sender_id === resolvedTenantId
+    ) ?? false;
 
   const permission = getMessagingPermission({
     senderRole: role,
@@ -140,6 +146,7 @@ export async function POST(request: Request) {
     propertyPublished,
     isOwner: auth.user.id === ownerId,
     hasThread,
+    hasTenantMessage,
     recipientRole,
   });
 

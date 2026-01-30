@@ -46,10 +46,26 @@ void test("host cannot start a new thread", () => {
     propertyPublished: true,
     isOwner: true,
     hasThread: false,
+    hasTenantMessage: false,
   });
 
   assert.equal(result.allowed, false);
   assert.equal(result.code, "conversation_not_allowed");
+});
+
+void test("host can reply after tenant message", () => {
+  const result = getMessagingPermission({
+    senderRole: "landlord",
+    senderId: "host-1",
+    recipientId: "tenant-1",
+    propertyOwnerId: "host-1",
+    propertyPublished: false,
+    isOwner: true,
+    hasThread: true,
+    hasTenantMessage: true,
+  });
+
+  assert.equal(result.allowed, true);
 });
 
 void test("self messaging is blocked", () => {

@@ -22,4 +22,12 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     tableContents.includes('data-testid="admin-listings-row"'),
     "expected listings row test id"
   );
+  assert.ok(
+    tableContents.includes('data-testid="admin-listings-header-spacer"'),
+    "expected header spacer for status accent column"
+  );
+  assert.ok(
+    tableContents.includes('data-testid="admin-listings-row-spacer"'),
+    "expected row spacer for status accent column"
+  );
 });

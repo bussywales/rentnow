@@ -26,6 +26,7 @@ export type MessagingPermissionContext = {
   propertyPublished: boolean;
   isOwner: boolean;
   hasThread: boolean;
+  hasTenantMessage?: boolean;
   recipientRole?: UserRole | null;
 };
 
@@ -86,8 +87,10 @@ export function getMessagingPermission(
     propertyPublished,
     isOwner,
     hasThread,
+    hasTenantMessage,
     recipientRole,
   } = context;
+  const tenantHasMessaged = typeof hasTenantMessage === "boolean" ? hasTenantMessage : hasThread;
 
   if (!recipientId) {
     return buildMessagingPermission("property_not_accessible");
@@ -122,7 +125,7 @@ export function getMessagingPermission(
       return buildMessagingPermission("conversation_not_allowed");
     }
 
-    if (!hasThread) {
+    if (!tenantHasMessaged) {
       return buildMessagingPermission("conversation_not_allowed");
     }
 

@@ -239,9 +239,17 @@ export default function DashboardMessagesClient({
     return true;
   };
 
+  const hasTenantMessage =
+    activeThread?.messages?.some(
+      (message) =>
+        (message as Message & { sender_role?: string | null }).sender_role === "tenant" ||
+        (!!activeThread?.thread?.tenant_id && message.sender_id === activeThread.thread.tenant_id)
+    ) ?? false;
+
   const canSend =
     activeThread?.permission?.allowed === true &&
-    (role === "tenant" || role === "landlord" || role === "agent");
+    (role === "tenant" ||
+      ((role === "landlord" || role === "agent") && hasTenantMessage));
 
   return (
     <div className="grid gap-6 lg:grid-cols-[320px,1fr]">

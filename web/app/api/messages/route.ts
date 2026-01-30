@@ -189,6 +189,11 @@ export async function GET(request: Request) {
     }
 
     const hasThread = messages.length > 0;
+    const tenantHasMessaged = messages.some(
+      (message) =>
+        (message as Message & { sender_role?: string | null }).sender_role === "tenant" ||
+        (!!propertyOwnerId && message.sender_id !== propertyOwnerId)
+    );
     const permission = propertyOwnerId
       ? getMessagingPermission({
           senderRole: role,
@@ -198,6 +203,7 @@ export async function GET(request: Request) {
           propertyPublished,
           isOwner: auth.user.id === propertyOwnerId,
           hasThread,
+          hasTenantMessage: tenantHasMessaged,
         })
       : buildPermission("property_not_accessible");
 
@@ -281,17 +287,24 @@ export async function POST(request: Request) {
     const isOwner = auth.user.id === property.owner_id;
     const isPublished = property.is_approved === true && property.is_active === true;
     let hasThread = true;
+    let tenantHasMessaged = true;
 
     if (isOwner) {
       const { data: existingThread } = await supabase
         .from("messages")
-        .select("id")
+        .select("id, sender_id, sender_role")
         .eq("property_id", payload.property_id)
         .or(
           `and(sender_id.eq.${auth.user.id},recipient_id.eq.${payload.recipient_id}),and(sender_id.eq.${payload.recipient_id},recipient_id.eq.${auth.user.id})`
         )
         .limit(1);
       hasThread = !!existingThread?.length;
+      tenantHasMessaged =
+        existingThread?.some(
+          (row) =>
+            (row as { sender_role?: string | null }).sender_role === "tenant" ||
+            row.sender_id === payload.recipient_id
+        ) ?? false;
     }
 
     const permission = getMessagingPermission({
@@ -302,6 +315,7 @@ export async function POST(request: Request) {
       propertyPublished: isPublished,
       isOwner,
       hasThread,
+      hasTenantMessage: tenantHasMessaged,
     });
 
     if (!permission.allowed) {

@@ -10,12 +10,12 @@ type Props = {
 
 function statusAccent(status?: string | null) {
   const normalized = (status ?? "").toLowerCase();
-  if (normalized === "pending") return "before:bg-amber-400";
-  if (normalized === "live") return "before:bg-emerald-500";
-  if (normalized === "rejected") return "before:bg-red-500";
-  if (normalized === "paused") return "before:bg-slate-400";
-  if (normalized === "draft") return "before:bg-slate-300";
-  return "before:bg-slate-200";
+  if (normalized === "pending") return "bg-amber-400";
+  if (normalized === "live") return "bg-emerald-500";
+  if (normalized === "rejected") return "bg-red-500";
+  if (normalized === "paused") return "bg-slate-400";
+  if (normalized === "draft") return "bg-slate-300";
+  return "bg-slate-200";
 }
 
 function truncateId(value?: string | null) {
@@ -37,9 +37,26 @@ export function AdminListingsTable({ items, onSelect }: Props) {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <div className="overflow-x-auto">
-        <table className="min-w-full text-left text-sm">
+        <table className="min-w-full table-fixed text-left text-sm">
+          <colgroup>
+            <col className="w-2" />
+            <col className="w-[240px]" />
+            <col className="w-[180px]" />
+            <col className="w-[110px]" />
+            <col className="w-[80px]" />
+            <col className="w-[110px]" />
+            <col className="w-[160px]" />
+            <col className="w-[140px]" />
+            <col className="w-[120px]" />
+            <col className="w-[90px]" />
+          </colgroup>
           <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
             <tr>
+              <th
+                aria-hidden="true"
+                data-testid="admin-listings-header-spacer"
+                className="px-0"
+              />
               <th className="px-3 py-2">Title</th>
               <th className="px-3 py-2">Location</th>
               <th className="px-3 py-2">Status</th>
@@ -63,12 +80,19 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                   }
                 }}
                 data-testid="admin-listings-row"
-                className={`relative cursor-pointer bg-white hover:bg-slate-50 before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:content-[''] ${statusAccent(
-                  item.status
-                )}`}
+                className="relative cursor-pointer bg-white hover:bg-slate-50"
                 role="button"
                 tabIndex={0}
               >
+                <td
+                  className="px-0"
+                  data-testid="admin-listings-row-spacer"
+                  aria-hidden="true"
+                >
+                  <span
+                    className={`block h-full w-1 ${statusAccent(item.status)}`}
+                  />
+                </td>
                 <td className="px-3 py-2">
                   <button
                     type="button"
@@ -188,7 +212,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             ))}
             {!items.length && (
               <tr>
-                <td colSpan={9} className="px-3 py-6 text-center text-sm text-slate-600">
+                <td colSpan={10} className="px-3 py-6 text-center text-sm text-slate-600">
                   No listings found.
                 </td>
               </tr>

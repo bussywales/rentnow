@@ -18,6 +18,16 @@ const replySchema = z.object({
 
 type RouteContext = { params: Promise<{ id: string }> };
 
+function hasTenantMessage(
+  messages: Array<{ sender_role?: string | null; sender_id?: string | null }>,
+  tenantId: string | null
+) {
+  return messages.some(
+    (message) =>
+      message.sender_role === "tenant" || (!!tenantId && message.sender_id === tenantId)
+  );
+}
+
 export async function GET(request: NextRequest, { params }: RouteContext) {
   const { id } = await params;
   const startTime = Date.now();
@@ -55,6 +65,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     .maybeSingle();
 
   const recipientRole = normalizeRole(recipientProfile?.role ?? null);
+  const tenantHasMessaged = hasTenantMessage(detail.messages, detail.thread.tenant_id);
   const permission = property
     ? getMessagingPermission({
         senderRole: role,
@@ -64,6 +75,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         propertyPublished: property.is_approved === true && property.is_active === true,
         isOwner: auth.user.id === property.owner_id,
         hasThread: true,
+        hasTenantMessage: tenantHasMessaged,
         recipientRole,
       })
     : { allowed: false, code: "property_not_accessible", message: "Listing not found." };
@@ -125,6 +137,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     .eq("id", recipientId)
     .maybeSingle();
 
+  const tenantHasMessaged = hasTenantMessage(detail.messages, detail.thread.tenant_id);
   const permission = getMessagingPermission({
     senderRole: role,
     senderId: auth.user.id,
@@ -133,6 +146,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     propertyPublished: property.is_approved === true && property.is_active === true,
     isOwner: auth.user.id === property.owner_id,
     hasThread: true,
+    hasTenantMessage: tenantHasMessaged,
     recipientRole: normalizeRole(recipientProfile?.role ?? null),
   });
 

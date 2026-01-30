@@ -34,5 +34,16 @@ test.describe("Dashboard messages inbox", () => {
       await unreadBadges.first().locator("xpath=ancestor::button[1]").click();
       await expect(page.getByTestId("message-new-divider")).toBeVisible();
     }
+
+    const composer = page.getByPlaceholder(/ask about availability/i);
+    if (await composer.count()) {
+      await composer.fill("Host reply one");
+      await page.getByRole("button", { name: /send message/i }).click();
+      await expect(page.getByText("Host reply one")).toBeVisible();
+
+      await composer.fill("Host reply two");
+      await page.getByRole("button", { name: /send message/i }).click();
+      await expect(page.getByText("Host reply two")).toBeVisible();
+    }
   });
 });
