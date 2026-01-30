@@ -1,28 +1,32 @@
-import { MessageThread } from "@/components/messaging/MessageThread";
+import DashboardMessagesClient from "@/components/messaging/DashboardMessagesClient";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { DEV_MOCKS } from "@/lib/env";
-import { MESSAGING_RULES } from "@/lib/messaging/permissions";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
-import type { Message, Profile } from "@/lib/types";
+import type { Profile } from "@/lib/types";
+import { getUserRole } from "@/lib/authz";
+import { listThreadsForUser, getThreadDetail } from "@/lib/messaging/threads";
 
 export const dynamic = "force-dynamic";
 
-const demoMessages: Message[] = [
-  {
-    id: "m1",
-    property_id: "mock-1",
-    sender_id: "tenant-1",
-    recipient_id: "owner-1",
-    body: "Hello! Is the apartment pet-friendly? I'd like to schedule a viewing.",
-    created_at: new Date().toISOString(),
-  },
-];
+type SearchParams = Record<string, string | string[] | undefined>;
 
-export default async function MessagesPage() {
+async function resolveSearchParams(raw?: SearchParams | Promise<SearchParams>) {
+  if (raw && typeof (raw as { then?: unknown }).then === "function") {
+    return (raw as Promise<SearchParams>);
+  }
+  return raw ?? {};
+}
+
+export default async function MessagesPage({
+  searchParams,
+}: {
+  searchParams?: SearchParams | Promise<SearchParams>;
+}) {
   const supabaseReady = hasServerSupabaseEnv();
   let currentUser: Profile | null = null;
-  let messages: Message[] = DEV_MOCKS ? demoMessages : [];
+  let threads: Awaited<ReturnType<typeof listThreadsForUser>>["threads"] = [];
+  let initialThread: Awaited<ReturnType<typeof getThreadDetail>>["detail"] = null;
   let fetchError: string | null = null;
 
   if (supabaseReady) {
@@ -36,16 +40,43 @@ export default async function MessagesPage() {
           full_name: user.email || "You",
         };
 
-        const { data, error } = await supabase
-          .from("messages")
-          .select("*")
-          .or(`sender_id.eq.${user.id},recipient_id.eq.${user.id}`)
-          .order("created_at", { ascending: true });
+        const role = await getUserRole(supabase, user.id);
+        if (role) {
+          currentUser.role = role;
+        }
 
-        if (!error && data) {
-          messages = data as Message[];
-        } else if (error && !DEV_MOCKS) {
-          fetchError = "Unable to load messages right now.";
+        const threadResult = await listThreadsForUser({
+          client: supabase,
+          userId: user.id,
+          role,
+        });
+        threads = threadResult.threads;
+        if (threadResult.error && !DEV_MOCKS) {
+          fetchError = threadResult.error;
+        }
+
+        const params = await resolveSearchParams(searchParams);
+        const threadIdRaw = params?.thread;
+        const threadId = Array.isArray(threadIdRaw) ? threadIdRaw[0] : threadIdRaw;
+        if (threadId) {
+          const detailResult = await getThreadDetail({
+            client: supabase,
+            userId: user.id,
+            role,
+            threadId,
+          });
+          if (detailResult.detail) {
+            const lastMessage = detailResult.detail.messages.at(-1) ?? null;
+            initialThread = {
+              thread: {
+                ...detailResult.detail.thread,
+                last_message: lastMessage?.body ?? null,
+                last_message_at: lastMessage?.created_at ?? detailResult.detail.thread.last_post_at ?? null,
+                unread_count: 0,
+              },
+              messages: detailResult.detail.messages,
+            };
+          }
         }
       }
     } catch {
@@ -56,8 +87,6 @@ export default async function MessagesPage() {
   } else if (!DEV_MOCKS) {
     fetchError = "Supabase is not configured; messaging is unavailable.";
   }
-
-  const demoMode = DEV_MOCKS && (!supabaseReady || !currentUser);
 
   if (fetchError && !DEV_MOCKS) {
     return (
@@ -78,21 +107,12 @@ export default async function MessagesPage() {
         <p className="text-sm text-slate-600">
           Chat about availability, pricing, and viewings.
         </p>
-        {demoMode && (
-          <p className="mt-2 text-sm text-amber-700">
-            Demo mode: connect Supabase and sign in to sync your real conversations.
-          </p>
-        )}
       </div>
-      <MessageThread
-        messages={messages}
+      <DashboardMessagesClient
+        initialThreads={threads}
+        initialThread={initialThread}
         currentUser={currentUser}
-        canSend={false}
-        restriction={{
-          message: "Messaging is read-only here. Open a listing to contact the host.",
-          cta: { href: "/support", label: "Contact support" },
-        }}
-        rules={MESSAGING_RULES}
+        role={currentUser?.role ?? null}
       />
     </div>
   );

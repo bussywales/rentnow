@@ -137,18 +137,30 @@ export function MessageThread({
           messages.map((message) => (
             <div
               key={message.id}
-              className="rounded-xl bg-slate-50 px-3 py-2 text-sm text-slate-800"
+              className={`flex ${message.sender_id === currentUser?.id ? "justify-end" : "justify-start"}`}
             >
-              <p className="mb-1 text-xs text-slate-500">
-                {message.sender_id === currentUser?.id ? "You" : "Contact"} -{" "}
-                {new Date(message.created_at || "").toLocaleString()}
-                {message.sender_id === currentUser?.id && (
-                  <span className="ml-2 rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-slate-500">
-                    {formatDeliveryState(deriveDeliveryState(message))}
-                  </span>
-                )}
-              </p>
-              <p>{message.body}</p>
+              <div
+                className={`max-w-[80%] rounded-xl px-3 py-2 text-sm ${
+                  message.sender_id === currentUser?.id
+                    ? "bg-slate-900 text-white"
+                    : "bg-slate-50 text-slate-800"
+                }`}
+              >
+                <p
+                  className={`mb-1 text-xs ${
+                    message.sender_id === currentUser?.id ? "text-slate-200" : "text-slate-500"
+                  }`}
+                >
+                  {message.sender_id === currentUser?.id ? "You" : "Contact"} ·{" "}
+                  {new Date(message.created_at || "").toLocaleString()}
+                  {message.sender_id === currentUser?.id && (
+                    <span className="ml-2 rounded-full bg-white/20 px-2 py-0.5 text-[10px] font-semibold text-white/80">
+                      {formatDeliveryState(deriveDeliveryState(message))}
+                    </span>
+                  )}
+                </p>
+                <p>{message.body}</p>
+              </div>
             </div>
           ))
         ) : (

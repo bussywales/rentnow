@@ -33,7 +33,16 @@ const requiredPolicies: Record<string, string[]> = {
     "saved search alerts admin read",
     "saved search alerts select self",
   ],
-  messages: ["messages participant/owner read", "messages sender insert"],
+  messages: [
+    "messages participant/owner read",
+    "messages sender insert",
+    "messages recipient update read",
+  ],
+  message_threads: [
+    "message threads participant read",
+    "message threads participant insert",
+    "message threads participant update",
+  ],
   viewing_requests: ["viewings tenant insert", "viewings tenant select"],
   agent_delegations: [
     "agent delegations delete",
@@ -116,6 +125,7 @@ export async function GET(request: Request) {
       "saved_searches",
       "saved_search_alerts",
       "messages",
+      "message_threads",
       "viewing_requests",
       "agent_delegations",
       "profile_plans",

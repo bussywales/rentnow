@@ -87,14 +87,36 @@ CREATE INDEX idx_saved_properties_user ON public.saved_properties (user_id);
 CREATE TABLE public.messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   property_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
+  thread_id UUID REFERENCES public.message_threads (id) ON DELETE SET NULL,
   sender_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
   recipient_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
   body TEXT NOT NULL,
+  sender_role TEXT,
+  read_at TIMESTAMPTZ,
+  metadata JSONB,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 CREATE INDEX idx_messages_property ON public.messages (property_id);
 CREATE INDEX idx_messages_participants ON public.messages (sender_id, recipient_id);
+CREATE INDEX idx_messages_thread ON public.messages (thread_id, created_at desc);
+
+-- MESSAGE THREADS
+CREATE TABLE public.message_threads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
+  tenant_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  host_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  subject TEXT,
+  last_post_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  status TEXT NOT NULL DEFAULT 'open',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (property_id, tenant_id, host_id)
+);
+
+CREATE INDEX idx_message_threads_property ON public.message_threads (property_id);
+CREATE INDEX idx_message_threads_host ON public.message_threads (host_id, last_post_at desc);
+CREATE INDEX idx_message_threads_tenant ON public.message_threads (tenant_id, last_post_at desc);
 
 -- VIEWING REQUESTS
 CREATE TABLE public.viewing_requests (

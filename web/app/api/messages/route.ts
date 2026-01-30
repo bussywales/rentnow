@@ -142,7 +142,7 @@ export async function GET(request: Request) {
 
     const { data: property, error: propertyError } = await supabase
       .from("properties")
-      .select("id, owner_id, is_approved, is_active")
+      .select("id, owner_id, title, is_approved, is_active")
       .eq("id", propertyId)
       .maybeSingle();
 
@@ -263,7 +263,7 @@ export async function POST(request: Request) {
 
     const { data: property, error: propertyError } = await supabase
       .from("properties")
-      .select("id, owner_id, is_approved, is_active")
+      .select("id, owner_id, title, is_approved, is_active")
       .eq("id", payload.property_id)
       .maybeSingle();
 
@@ -374,11 +374,45 @@ export async function POST(request: Request) {
       });
     }
 
+    const tenantId = role === "tenant" ? auth.user.id : payload.recipient_id;
+    const hostId = property.owner_id;
+
+    const { data: threadRow, error: threadError } = await supabase
+      .from("message_threads")
+      .upsert(
+        {
+          property_id: payload.property_id,
+          tenant_id: tenantId,
+          host_id: hostId,
+          subject: property.title ?? null,
+          last_post_at: new Date().toISOString(),
+        },
+        { onConflict: "property_id,tenant_id,host_id" }
+      )
+      .select("id")
+      .single();
+
+    if (threadError || !threadRow) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 400,
+        startTime,
+        error: new Error(threadError?.message || "Unable to create thread"),
+      });
+      return NextResponse.json(
+        { error: threadError?.message || "Unable to create thread", code: "unknown" },
+        { status: 400 }
+      );
+    }
+
     const { data, error } = await supabase
       .from("messages")
       .insert({
         ...payload,
         sender_id: auth.user.id,
+        sender_role: role,
+        thread_id: threadRow.id,
       })
       .select()
       .single();
@@ -396,6 +430,10 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+    await supabase
+      .from("message_threads")
+      .update({ last_post_at: new Date().toISOString() })
+      .eq("id", threadRow.id);
     return NextResponse.json({ message: withDeliveryState(data) });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unable to send message";

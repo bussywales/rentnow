@@ -8,6 +8,20 @@ Messaging uses lightweight, derived states:
 
 Delivery means the message was persisted by the server. It does not imply push delivery or read acknowledgement.
 
+## Threaded inbox (dashboard replies)
+Messaging is now thread-based for the dashboard inbox:
+- `public.message_threads` stores the tenant ↔ host thread per listing.
+- `public.messages` remains the post table (each row = one message) and now includes `thread_id`, `sender_role`, and `read_at`.
+- Threads are created automatically on the first tenant message and updated on each reply.
+
+### Core columns
+- message_threads: `property_id`, `tenant_id`, `host_id`, `subject`, `last_post_at`, `status`
+- messages: `thread_id`, `sender_id`, `recipient_id`, `sender_role`, `read_at`, `body`, `created_at`
+
+### RLS summary
+- Threads: tenant/host participants can read + update; admins can read.
+- Messages: participants can read; sender inserts; recipient updates `read_at`.
+
 ## Reason codes (server source of truth)
 Messaging restrictions return one of these reason codes:
 - not_authenticated: user is signed out (send them to `/auth/login`).

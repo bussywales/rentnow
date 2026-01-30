@@ -127,11 +127,15 @@ export interface Property {
 export interface Message {
   id: string;
   property_id: string;
+  thread_id?: string | null;
   sender_id: string;
   recipient_id: string;
   body: string;
   created_at?: string;
   delivery_state?: MessageDeliveryState;
+  sender_role?: UserRole | null;
+  read_at?: string | null;
+  metadata?: Record<string, unknown> | null;
 }
 
 export interface ViewingRequest {
