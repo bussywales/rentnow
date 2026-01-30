@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import { buildSelectedUrl } from "@/lib/admin/admin-review";
-import { getReviewListingById } from "@/lib/admin/admin-review-loader";
+import { getReviewListingById, loadReviewListings } from "@/lib/admin/admin-review-loader";
 import AdminReviewMobileDetailPanel from "@/components/admin/AdminReviewMobileDetailPanel";
 
 export const dynamic = "force-dynamic";
@@ -45,11 +45,16 @@ export default async function AdminReviewDetailPage({ params, searchParams }: Pr
     redirect("/forbidden");
   }
 
-  const { listing } = await getReviewListingById(
+  const { listing: directListing } = await getReviewListingById(
     supabase,
     profile?.role ?? null,
     params.listingId
   );
+  let listing = directListing;
+  if (!listing) {
+    const { listings } = await loadReviewListings(supabase, profile?.role ?? null);
+    listing = listings.find((item) => item.id === params.listingId) ?? null;
+  }
   const backHref = buildBackHref(searchParams);
 
   if (!listing) {
