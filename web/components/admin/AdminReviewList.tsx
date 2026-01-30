@@ -65,6 +65,7 @@ export function AdminReviewList({
                 onSelect(item.id);
               }
             }}
+            data-testid="admin-review-queue-row"
             className={`group relative flex w-full cursor-pointer items-start gap-3 px-4 text-left transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 ${
               selectedId === item.id ? "bg-sky-50/60" : "bg-white"
             } ${isCompact ? "py-2" : "py-3"}`}

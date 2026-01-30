@@ -65,6 +65,10 @@
 - Decision Desk layout is split-pane:
   - **Left**: saved views, filters, queue list (scrolls independently).
   - **Right**: inspector workspace (media + facts + checklist + actions).
+- Mobile list → detail:
+  - On screens below `md`, `/admin/review` shows **only the queue list**.
+  - Tapping a listing opens `/admin/review/[listingId]` (full-width inspector).
+  - Use **Back to queue** to return to the list (filters preserved via query string).
 - Inspector above-the-fold contract:
   - Sticky inspector header + media hero + key facts are visible without scrolling.
   - Checklist stays collapsed by default with summary chips (expand on demand).

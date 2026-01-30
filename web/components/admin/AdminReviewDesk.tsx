@@ -49,6 +49,10 @@ export function AdminReviewDesk({
   const { view, updateView, resetView } = useAdminReviewView();
   const [items, setItems] = useState<AdminReviewListItem[]>(listings);
   const searchInputRef = useRef<HTMLInputElement | null>(null);
+  const [isDesktop, setIsDesktop] = useState(() => {
+    if (typeof window === "undefined") return true;
+    return window.innerWidth >= 768;
+  });
   const [density, setDensity] = useState<AdminReviewDensity>(() =>
     loadReviewDensity(typeof window === "undefined" ? undefined : window.localStorage)
   );
@@ -59,6 +63,14 @@ export function AdminReviewDesk({
   useEffect(() => {
     setItems(listings);
   }, [listings]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const handleResize = () => setIsDesktop(window.innerWidth >= 768);
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -92,9 +104,18 @@ export function AdminReviewDesk({
   const handleSelect = useCallback(
     (id: string) => {
       console.log("[AdminReviewDesk] select click", { id, pathname, view });
+      if (!isDesktop) {
+        const params = new URLSearchParams(searchParams?.toString());
+        params.delete("id");
+        const qs = params.toString();
+        router.push(`/admin/review/${encodeURIComponent(id)}${qs ? `?${qs}` : ""}`, {
+          scroll: false,
+        });
+        return;
+      }
       router.replace(buildUrlWithId(id), { scroll: false });
     },
-    [buildUrlWithId, router, pathname, view]
+    [buildUrlWithId, isDesktop, router, pathname, searchParams, view]
   );
 
   const handleClose = useCallback(() => {
@@ -130,11 +151,12 @@ export function AdminReviewDesk({
   // Auto-select first item to keep drawer functional when arriving without id
   const firstId = visibleItems[0]?.id || null;
   useEffect(() => {
+    if (!isDesktop) return;
     if (!selectedId && firstId) {
       console.log("[AdminReviewDesk] auto-select first", { firstId });
       router.replace(buildUrlWithId(firstId), { scroll: false });
     }
-  }, [selectedId, firstId, buildUrlWithId, router]);
+  }, [buildUrlWithId, firstId, isDesktop, router, selectedId]);
 
   useEffect(() => {
     if (!allowed.includes(view)) {
@@ -318,7 +340,7 @@ export function AdminReviewDesk({
       </aside>
 
       <section
-        className="flex min-h-0 flex-1 flex-col overflow-y-auto rounded-2xl border border-slate-100 bg-white shadow-sm"
+        className="hidden md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto rounded-2xl border border-slate-100 bg-white shadow-sm"
         data-admin-review-pane="right"
       >
         <DrawerErrorBoundary selectedId={selectedListing?.id ?? null}>
