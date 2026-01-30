@@ -65,9 +65,22 @@ export default function AdminListingsFiltersClient({
       JSON.stringify({ ...DEFAULT_ADMIN_LISTINGS_QUERY, page: 1, pageSize: DEFAULT_ADMIN_LISTINGS_QUERY.pageSize });
   }, [draft]);
 
+  const advancedFiltersCount = useMemo(() => {
+    let count = 0;
+    if (draft.missingCover) count += 1;
+    if (draft.missingPhotos) count += 1;
+    if (draft.missingLocation) count += 1;
+    if (draft.priceMin !== null || draft.priceMax !== null) count += 1;
+    if (draft.listing_type) count += 1;
+    if (draft.bedroomsMin !== null || draft.bedroomsMax !== null) count += 1;
+    if (draft.bathroomsMin !== null || draft.bathroomsMax !== null) count += 1;
+    if (draft.pageSize !== DEFAULT_ADMIN_LISTINGS_QUERY.pageSize) count += 1;
+    return count;
+  }, [draft]);
+
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 lg:grid-cols-[2fr,2fr,1fr,1fr,auto]">
         <div className="flex flex-col">
           <label className="text-xs text-slate-600">Search</label>
           <input
@@ -77,23 +90,6 @@ export default function AdminListingsFiltersClient({
             placeholder="Search title or paste ID"
             className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
           />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-600">Search mode</label>
-          <select
-            value={draft.qMode}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                qMode: event.target.value as AdminListingsQuery["qMode"],
-              }))
-            }
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-          >
-            <option value="title">Title / location</option>
-            <option value="id">Listing ID</option>
-            <option value="owner">Owner ID</option>
-          </select>
         </div>
         <fieldset className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
           <legend className="text-xs text-slate-600">Status (multi)</legend>
@@ -127,146 +123,6 @@ export default function AdminListingsFiltersClient({
             <option value="false">Inactive</option>
           </select>
         </div>
-        <div className="flex flex-col rounded-xl border border-slate-100 bg-slate-50/70 p-3">
-          <label className="text-xs text-slate-600">Ops filters</label>
-          <div className="flex flex-wrap gap-2 text-xs text-slate-700">
-            <label className="flex items-center gap-1">
-              <input
-                type="checkbox"
-                checked={draft.missingCover}
-                onChange={(event) =>
-                  setDraft((prev) => ({ ...prev, missingCover: event.target.checked }))
-                }
-              />
-              Missing cover
-            </label>
-            <label className="flex items-center gap-1">
-              <input
-                type="checkbox"
-                checked={draft.missingPhotos}
-                onChange={(event) =>
-                  setDraft((prev) => ({ ...prev, missingPhotos: event.target.checked }))
-                }
-              />
-              Missing photos
-            </label>
-            <label className="flex items-center gap-1">
-              <input
-                type="checkbox"
-                checked={draft.missingLocation}
-                onChange={(event) =>
-                  setDraft((prev) => ({ ...prev, missingLocation: event.target.checked }))
-                }
-              />
-              Missing location
-            </label>
-          </div>
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-600">Price min</label>
-          <input
-            type="number"
-            step="1"
-            value={draft.priceMin ?? ""}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                priceMin: event.target.value === "" ? null : Number(event.target.value),
-              }))
-            }
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-          />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-600">Price max</label>
-          <input
-            type="number"
-            step="1"
-            value={draft.priceMax ?? ""}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                priceMax: event.target.value === "" ? null : Number(event.target.value),
-              }))
-            }
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-          />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-600">Listing type</label>
-          <input
-            type="text"
-            value={draft.listing_type ?? ""}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                listing_type: event.target.value === "" ? null : event.target.value,
-              }))
-            }
-            placeholder="e.g. apartment"
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-          />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-600">Beds min</label>
-          <input
-            type="number"
-            step="1"
-            value={draft.bedroomsMin ?? ""}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                bedroomsMin: event.target.value === "" ? null : Number(event.target.value),
-              }))
-            }
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-          />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-600">Beds max</label>
-          <input
-            type="number"
-            step="1"
-            value={draft.bedroomsMax ?? ""}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                bedroomsMax: event.target.value === "" ? null : Number(event.target.value),
-              }))
-            }
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-          />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-600">Baths min</label>
-          <input
-            type="number"
-            step="1"
-            value={draft.bathroomsMin ?? ""}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                bathroomsMin: event.target.value === "" ? null : Number(event.target.value),
-              }))
-            }
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-          />
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-600">Baths max</label>
-          <input
-            type="number"
-            step="1"
-            value={draft.bathroomsMax ?? ""}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                bathroomsMax: event.target.value === "" ? null : Number(event.target.value),
-              }))
-            }
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-          />
-        </div>
         <div className="flex flex-col">
           <label className="text-xs text-slate-600">Sort</label>
           <select
@@ -283,25 +139,6 @@ export default function AdminListingsFiltersClient({
             <option value="updated_asc">Updated (oldest)</option>
             <option value="created_desc">Created (newest)</option>
             <option value="created_asc">Created (oldest)</option>
-          </select>
-        </div>
-        <div className="flex flex-col">
-          <label className="text-xs text-slate-600">Page size</label>
-          <select
-            value={draft.pageSize}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                pageSize: Number(event.target.value),
-              }))
-            }
-            className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
-          >
-            {pageSizeOptions.map((size) => (
-              <option key={size} value={size}>
-                {size} per page
-              </option>
-            ))}
           </select>
         </div>
         <div className="flex items-end gap-2">
@@ -322,6 +159,189 @@ export default function AdminListingsFiltersClient({
           </button>
         </div>
       </div>
+      <details className="mt-4 rounded-xl border border-slate-100 bg-slate-50/70 p-3">
+        <summary className="cursor-pointer text-sm font-medium text-slate-700">
+          Advanced filters ({advancedFiltersCount})
+        </summary>
+        <div className="mt-4 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-600">Search mode</label>
+            <select
+              value={draft.qMode}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  qMode: event.target.value as AdminListingsQuery["qMode"],
+                }))
+              }
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+            >
+              <option value="title">Title / location</option>
+              <option value="id">Listing ID</option>
+              <option value="owner">Owner ID</option>
+            </select>
+          </div>
+          <div className="flex flex-col rounded-xl border border-slate-100 bg-white p-3">
+            <label className="text-xs text-slate-600">Ops filters</label>
+            <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-700">
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={draft.missingCover}
+                  onChange={(event) =>
+                    setDraft((prev) => ({ ...prev, missingCover: event.target.checked }))
+                  }
+                />
+                Missing cover
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={draft.missingPhotos}
+                  onChange={(event) =>
+                    setDraft((prev) => ({ ...prev, missingPhotos: event.target.checked }))
+                  }
+                />
+                Missing photos
+              </label>
+              <label className="flex items-center gap-1">
+                <input
+                  type="checkbox"
+                  checked={draft.missingLocation}
+                  onChange={(event) =>
+                    setDraft((prev) => ({ ...prev, missingLocation: event.target.checked }))
+                  }
+                />
+                Missing location
+              </label>
+            </div>
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-600">Price min</label>
+            <input
+              type="number"
+              step="1"
+              value={draft.priceMin ?? ""}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  priceMin: event.target.value === "" ? null : Number(event.target.value),
+                }))
+              }
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-600">Price max</label>
+            <input
+              type="number"
+              step="1"
+              value={draft.priceMax ?? ""}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  priceMax: event.target.value === "" ? null : Number(event.target.value),
+                }))
+              }
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-600">Listing type</label>
+            <input
+              type="text"
+              value={draft.listing_type ?? ""}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  listing_type: event.target.value === "" ? null : event.target.value,
+                }))
+              }
+              placeholder="e.g. apartment"
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-600">Beds min</label>
+            <input
+              type="number"
+              step="1"
+              value={draft.bedroomsMin ?? ""}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  bedroomsMin: event.target.value === "" ? null : Number(event.target.value),
+                }))
+              }
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-600">Beds max</label>
+            <input
+              type="number"
+              step="1"
+              value={draft.bedroomsMax ?? ""}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  bedroomsMax: event.target.value === "" ? null : Number(event.target.value),
+                }))
+              }
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-600">Baths min</label>
+            <input
+              type="number"
+              step="1"
+              value={draft.bathroomsMin ?? ""}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  bathroomsMin: event.target.value === "" ? null : Number(event.target.value),
+                }))
+              }
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-600">Baths max</label>
+            <input
+              type="number"
+              step="1"
+              value={draft.bathroomsMax ?? ""}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  bathroomsMax: event.target.value === "" ? null : Number(event.target.value),
+                }))
+              }
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+            />
+          </div>
+          <div className="flex flex-col">
+            <label className="text-xs text-slate-600">Page size</label>
+            <select
+              value={draft.pageSize}
+              onChange={(event) =>
+                setDraft((prev) => ({
+                  ...prev,
+                  pageSize: Number(event.target.value),
+                }))
+              }
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm"
+            >
+              {pageSizeOptions.map((size) => (
+                <option key={size} value={size}>
+                  {size} per page
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      </details>
     </div>
   );
 }

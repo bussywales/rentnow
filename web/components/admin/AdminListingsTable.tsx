@@ -8,6 +8,22 @@ type Props = {
   onSelect: (id: string) => void;
 };
 
+function statusAccent(status?: string | null) {
+  const normalized = (status ?? "").toLowerCase();
+  if (normalized === "pending") return "before:bg-amber-400";
+  if (normalized === "live") return "before:bg-emerald-500";
+  if (normalized === "rejected") return "before:bg-red-500";
+  if (normalized === "paused") return "before:bg-slate-400";
+  if (normalized === "draft") return "before:bg-slate-300";
+  return "before:bg-slate-200";
+}
+
+function truncateId(value?: string | null) {
+  if (!value) return "—";
+  if (value.length <= 12) return value;
+  return `${value.slice(0, 6)}…${value.slice(-4)}`;
+}
+
 function formatDate(value: string | null) {
   if (!value) return "—";
   const date = new Date(value);
@@ -46,7 +62,10 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                     onSelect(item.id);
                   }
                 }}
-                className="cursor-pointer bg-white hover:bg-slate-50"
+                data-testid="admin-listings-row"
+                className={`relative cursor-pointer bg-white hover:bg-slate-50 before:absolute before:left-0 before:top-0 before:h-full before:w-1 before:content-[''] ${statusAccent(
+                  item.status
+                )}`}
                 role="button"
                 tabIndex={0}
               >
@@ -99,16 +118,59 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                 <td className="px-3 py-2 text-slate-600 tabular-nums">{formatDate(item.updatedAt)}</td>
                 <td className="px-3 py-2 text-xs text-slate-600">
                   <div className="font-semibold text-slate-700">{item.hostName || "Host"}</div>
-                  <div className="break-all">{item.ownerId || "—"}</div>
+                  <div className="flex items-center gap-2 text-[11px] text-slate-500">
+                    <span title={item.ownerId || ""}>{truncateId(item.ownerId)}</span>
+                    {item.ownerId && (
+                      <button
+                        type="button"
+                        className="rounded px-1 text-slate-500 underline hover:text-slate-700"
+                        onClick={async (event) => {
+                          event.stopPropagation();
+                          try {
+                            await navigator.clipboard?.writeText(item.ownerId || "");
+                            setCopiedId(item.ownerId || null);
+                            setTimeout(() => setCopiedId(null), 2000);
+                          } catch {
+                            /* ignore */
+                          }
+                        }}
+                      >
+                        {copiedId === item.ownerId ? "Copied" : "Copy"}
+                      </button>
+                    )}
+                  </div>
                 </td>
                 <td className="px-3 py-2 text-slate-600">
-                  <span className="tabular-nums">{item.photoCount}</span> photos ·{" "}
-                  {item.hasVideo ? "Video" : "No video"}
+                  <div className="font-semibold text-slate-700">
+                    <span className="tabular-nums">{item.photoCount}</span> photos
+                  </div>
+                  <div className="mt-1 flex flex-wrap gap-1 text-[11px] text-slate-500">
+                    {!item.hasCover && (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+                        Cover missing
+                      </span>
+                    )}
+                    {item.photoCount === 0 && (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-700">
+                        0 photos
+                      </span>
+                    )}
+                    {!item.hasVideo && (
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-slate-500">
+                        No video
+                      </span>
+                    )}
+                  </div>
                 </td>
                 <td className="px-3 py-2 text-slate-700 tabular-nums">
                   {item.price === null || item.price === undefined
                     ? "—"
-                    : `${item.currency || "NGN"} ${item.price}`}
+                    : (
+                        <span>
+                          <span className="mr-1 text-xs text-slate-500">{item.currency || "NGN"}</span>
+                          <span className="font-semibold">{item.price}</span>
+                        </span>
+                      )}
                 </td>
                 <td className="px-3 py-2 text-right">
                   <button

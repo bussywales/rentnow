@@ -15,10 +15,10 @@ import {
   parseAdminListingsQuery,
   serializeAdminListingsQuery,
   hasActiveAdminListingsFilters,
-  summarizeAdminListingsFilters,
 } from "@/lib/admin/admin-listings";
 import AdminListingsPanelClient from "@/components/admin/AdminListingsPanelClient";
 import AdminListingsFiltersClient from "@/components/admin/AdminListingsFiltersClient";
+import AdminListingsAppliedFiltersClient from "@/components/admin/AdminListingsAppliedFiltersClient";
 import AdminSavedViews from "@/components/admin/AdminSavedViews";
 
 export const dynamic = "force-dynamic";
@@ -299,8 +299,6 @@ export default async function AdminListingsPage({ searchParams }: Props) {
     listingTotalCount > 0 ? Math.min(listingTotalCount, listingStart + listingCount - 1) : 0;
 
   const hasActiveFilters = hasActiveAdminListingsFilters(listingQuery);
-  const appliedFilters = summarizeAdminListingsFilters(listingQuery);
-
   const buildPageHref = (page: number) => {
     const params = serializeAdminListingsQuery({
       ...listingQuery,
@@ -371,32 +369,11 @@ export default async function AdminListingsPage({ searchParams }: Props) {
         pageSizeOptions={[25, 50, 100]}
       />
 
-      {hasActiveFilters && appliedFilters.length > 0 && (
-        <div
-          data-testid="admin-listings-applied-filters"
-          className="rounded-2xl border border-slate-100 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm"
-        >
-          <div className="mb-2 text-xs uppercase tracking-[0.2em] text-slate-500">
-            Applied filters
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {appliedFilters.map((label) => (
-              <span
-                key={label}
-                className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs text-slate-700"
-              >
-                {label}
-              </span>
-            ))}
-            <Link href="/admin/listings" className="text-xs text-slate-600 underline">
-              Clear filters
-            </Link>
-          </div>
-        </div>
-      )}
+      <AdminListingsAppliedFiltersClient query={listingQuery} />
 
       <div className="text-sm text-slate-600">
-        Showing {listingStart}-{listingEnd} of {listingTotalCount} listings.
+        Showing {listingStart}-{listingEnd} of {listingTotalCount} listings
+        {hasActiveFilters ? " (filtered)" : ""}.
       </div>
 
       {listingTotalCount === 0 && hasActiveFilters ? (
