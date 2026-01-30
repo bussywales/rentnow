@@ -147,54 +147,65 @@ export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Pro
               type="button"
               aria-label="Close menu"
               className="fixed inset-0 z-[10000] bg-black/50"
-              data-testid="mobile-nav-backdrop"
+              data-testid="mobile-drawer-overlay"
               onClick={() => setOpen(false)}
             />
             <div
               ref={drawerRef}
               role="dialog"
               aria-modal="true"
-              data-testid="mobile-nav-drawer"
-              className="fixed right-0 top-0 z-[10001] flex h-dvh w-[min(90vw,360px)] flex-col gap-4 bg-white px-4 py-5 shadow-2xl"
+              data-testid="mobile-drawer-panel"
+              className="fixed right-0 top-0 z-[10001] flex h-[100dvh] w-[85vw] max-w-[420px] flex-col bg-white shadow-2xl"
             >
-              <div className="flex items-center justify-between">
+              <div
+                className="flex items-center justify-between px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)]"
+              >
                 <p className="text-sm font-semibold text-slate-900">Menu</p>
                 <button
                   ref={closeButtonRef}
                   type="button"
-                  data-testid="mobile-nav-close"
+                  data-testid="mobile-drawer-close"
+                  aria-label="Close menu"
                   className="rounded-full border border-slate-200 px-2 py-1 text-xs text-slate-600 hover:bg-slate-50"
                   onClick={() => setOpen(false)}
                 >
                   Close
                 </button>
               </div>
-              <nav className="flex flex-col gap-2">
-                {drawerLinks.map((link) => {
-                  const active = isActiveHref(pathname, link.href);
-                  return (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      aria-current={active ? "page" : undefined}
-                      className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
-                        active
-                          ? "bg-slate-100 font-semibold text-slate-900"
-                          : "text-slate-700 hover:bg-slate-50"
-                      }`}
-                      onClick={() => setOpen(false)}
-                    >
-                      <span>{link.label}</span>
-                      {link.showUnread && unreadCount > 0 && (
-                        <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
-                          {unreadCount}
-                        </span>
-                      )}
-                    </Link>
-                  );
-                })}
-              </nav>
-              <div className="mt-auto border-t border-slate-100 pt-4">
+              <div
+                data-testid="mobile-drawer-scroll"
+                className="flex-1 min-h-0 overflow-y-auto px-4 pb-4"
+              >
+                <nav className="flex flex-col gap-2">
+                  {drawerLinks.map((link) => {
+                    const active = isActiveHref(pathname, link.href);
+                    return (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        aria-current={active ? "page" : undefined}
+                        className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
+                          active
+                            ? "bg-slate-100 font-semibold text-slate-900"
+                            : "text-slate-700 hover:bg-slate-50"
+                        }`}
+                        onClick={() => setOpen(false)}
+                      >
+                        <span>{link.label}</span>
+                        {link.showUnread && unreadCount > 0 && (
+                          <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                            {unreadCount}
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </nav>
+              </div>
+              <div
+                data-testid="mobile-drawer-footer"
+                className="border-t border-slate-200 bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)]"
+              >
                 <form action="/auth/logout" method="POST">
                   <button
                     type="submit"

@@ -16,8 +16,10 @@ test("mobile drawer overlays content (skip-safe)", async ({ page }) => {
   await page.goto("/properties");
   await page.getByRole("button", { name: /open menu/i }).click();
 
-  const backdrop = page.getByTestId("mobile-nav-backdrop");
-  const drawer = page.getByTestId("mobile-nav-drawer");
+  const backdrop = page.getByTestId("mobile-drawer-overlay");
+  const drawer = page.getByTestId("mobile-drawer-panel");
+  const scrollRegion = page.getByTestId("mobile-drawer-scroll");
+  const footer = page.getByTestId("mobile-drawer-footer");
   await expect(backdrop).toBeVisible();
   await expect(drawer).toBeVisible();
 
@@ -25,6 +27,11 @@ test("mobile drawer overlays content (skip-safe)", async ({ page }) => {
   await page.mouse.wheel(0, 500);
   const afterScroll = await page.evaluate(() => window.scrollY);
   expect(afterScroll).toBe(scrollPosition);
+
+  await scrollRegion.evaluate((node) => {
+    node.scrollTop = node.scrollHeight;
+  });
+  await expect(footer.getByRole("button", { name: /log out/i })).toBeVisible();
 
   await backdrop.click();
   await expect(drawer).toBeHidden();
