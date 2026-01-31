@@ -7,6 +7,10 @@ import type { Message, Profile, UserRole } from "@/lib/types";
 import type { MessageThreadPreview } from "@/lib/messaging/threads";
 import type { MessagingPermission } from "@/lib/messaging/permissions";
 import { mapDeliveryState, withDeliveryState } from "@/lib/messaging/status";
+import {
+  CONTACT_EXCHANGE_BLOCK_CODE,
+  CONTACT_EXCHANGE_COMPOSER_NOTICE,
+} from "@/lib/messaging/contact-exchange";
 
 type ThreadDetail = {
   thread: MessageThreadPreview;
@@ -44,6 +48,7 @@ export default function DashboardMessagesClient({
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [composerError, setComposerError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [toast, setToast] = useState<string | null>(null);
   const toastTimeout = useRef<number | null>(null);
@@ -77,6 +82,7 @@ export default function DashboardMessagesClient({
         };
         setActiveThread(detail);
         setError(null);
+        setComposerError(null);
 
         fetch(`/api/messages/thread/${targetId}/read`, { method: "POST" })
           .then(async (response) => {
@@ -199,6 +205,7 @@ export default function DashboardMessagesClient({
   const handleSend = async (body: string) => {
     if (!activeThread) return false;
     setError(null);
+    setComposerError(null);
     const res = await fetch(`/api/messages/thread/${activeThread.thread.id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -206,6 +213,10 @@ export default function DashboardMessagesClient({
     });
     if (!res.ok) {
       const data = await res.json().catch(() => null);
+      if (data?.code === CONTACT_EXCHANGE_BLOCK_CODE) {
+        setComposerError(data?.message || "Contact details can’t be shared.");
+        return false;
+      }
       setError(data?.error || "Unable to send message.");
       return false;
     }
@@ -347,6 +358,8 @@ export default function DashboardMessagesClient({
                 onSend={canSend ? handleSend : undefined}
                 loading={loading}
                 canSend={canSend}
+                composerNotice={CONTACT_EXCHANGE_COMPOSER_NOTICE}
+                composerError={composerError}
                 restriction={
                   !canSend && activeThread?.permission?.message
                     ? { message: activeThread.permission.message }

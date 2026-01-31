@@ -5,6 +5,12 @@ import { hasServerSupabaseEnv, createServerSupabaseClient } from "@/lib/supabase
 import { logFailure } from "@/lib/observability";
 import { logAuditEvent } from "@/lib/audit/audit-log";
 import { assertPreferredTimesInAvailability } from "@/lib/availability/slots";
+import {
+  CONTACT_EXCHANGE_BLOCK_CODE,
+  CONTACT_EXCHANGE_BLOCK_MESSAGE,
+  sanitizeMessageContent,
+} from "@/lib/messaging/contact-exchange";
+import { getContactExchangeMode } from "@/lib/settings/app-settings";
 
 const routeLabel = "/api/viewings/respond";
 
@@ -38,6 +44,18 @@ export async function PATCH(request: Request) {
   }
 
   const supabase = await createServerSupabaseClient();
+  let hostMessage = body.hostMessage ?? null;
+  if (hostMessage) {
+    const contactMode = await getContactExchangeMode(supabase);
+    const sanitized = sanitizeMessageContent(hostMessage, contactMode);
+    if (sanitized.action === "block") {
+      return NextResponse.json(
+        { error: CONTACT_EXCHANGE_BLOCK_MESSAGE, code: CONTACT_EXCHANGE_BLOCK_CODE },
+        { status: 400 }
+      );
+    }
+    hostMessage = sanitized.text;
+  }
   const { data: reqRow, error: reqError } = await supabase
     .from("viewing_requests")
     .select(
@@ -119,7 +137,7 @@ export async function PATCH(request: Request) {
           approved_time: body.approvedTime,
           proposed_times: null,
           decline_reason_code: null,
-          host_message: body.hostMessage ?? null,
+          host_message: hostMessage,
           decided_at: new Date().toISOString(),
         })
         .eq("id", reqRow.id);
@@ -138,7 +156,7 @@ export async function PATCH(request: Request) {
           proposed_times: times,
           approved_time: null,
           decline_reason_code: null,
-          host_message: body.hostMessage ?? null,
+          host_message: hostMessage,
           decided_at: new Date().toISOString(),
         })
         .eq("id", reqRow.id);
@@ -153,7 +171,7 @@ export async function PATCH(request: Request) {
           decline_reason_code: body.declineReasonCode,
           approved_time: null,
           proposed_times: null,
-          host_message: body.hostMessage ?? null,
+          host_message: hostMessage,
           decided_at: new Date().toISOString(),
         })
         .eq("id", reqRow.id);

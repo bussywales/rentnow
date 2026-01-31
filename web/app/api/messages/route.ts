@@ -22,6 +22,12 @@ import {
   recordThrottleTelemetryEvent,
 } from "@/lib/messaging/throttle-telemetry";
 import { mapDeliveryState, withDeliveryState } from "@/lib/messaging/status";
+import {
+  CONTACT_EXCHANGE_BLOCK_CODE,
+  CONTACT_EXCHANGE_BLOCK_MESSAGE,
+  sanitizeMessageContent,
+} from "@/lib/messaging/contact-exchange";
+import { getContactExchangeMode } from "@/lib/settings/app-settings";
 import type { Message } from "@/lib/types";
 
 const messageSchema = z.object({
@@ -388,6 +394,15 @@ export async function POST(request: Request) {
       });
     }
 
+    const contactMode = await getContactExchangeMode(auth.supabase);
+    const sanitized = sanitizeMessageContent(payload.body, contactMode);
+    if (sanitized.action === "block") {
+      return NextResponse.json(
+        { error: CONTACT_EXCHANGE_BLOCK_MESSAGE, code: CONTACT_EXCHANGE_BLOCK_CODE },
+        { status: 400 }
+      );
+    }
+
     const tenantId = role === "tenant" ? auth.user.id : payload.recipient_id;
     const hostId = property.owner_id;
 
@@ -424,9 +439,11 @@ export async function POST(request: Request) {
       .from("messages")
       .insert({
         ...payload,
+        body: sanitized.text,
         sender_id: auth.user.id,
         sender_role: role,
         thread_id: threadRow.id,
+        metadata: sanitized.meta ? { moderation: sanitized.meta } : null,
       })
       .select()
       .single();

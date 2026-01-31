@@ -19,6 +19,9 @@ ALTER TABLE public.saved_properties FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_searches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_searches FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.app_settings FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages FORCE ROW LEVEL SECURITY;
 
@@ -66,6 +69,20 @@ CREATE POLICY "profiles update self" ON public.profiles
   FOR UPDATE
   USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
+
+-- app_settings: authenticated read, no mutation
+DROP POLICY IF EXISTS "app_settings_read" ON public.app_settings;
+CREATE POLICY "app_settings_read" ON public.app_settings
+  FOR SELECT
+  TO authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "app_settings_no_mutation_auth" ON public.app_settings;
+CREATE POLICY "app_settings_no_mutation_auth" ON public.app_settings
+  FOR ALL
+  TO authenticated
+  USING (false)
+  WITH CHECK (false);
 
 -- agent_delegations: agents/landlords can see their delegations
 DROP POLICY IF EXISTS "agent delegations select" ON public.agent_delegations;

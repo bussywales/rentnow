@@ -129,6 +129,13 @@ CREATE TABLE public.message_thread_reads (
 CREATE INDEX idx_message_thread_reads_user ON public.message_thread_reads (user_id);
 CREATE INDEX idx_message_thread_reads_thread ON public.message_thread_reads (thread_id);
 
+-- APP SETTINGS
+CREATE TABLE public.app_settings (
+  key TEXT PRIMARY KEY,
+  value JSONB NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 -- VIEWING REQUESTS
 CREATE TABLE public.viewing_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

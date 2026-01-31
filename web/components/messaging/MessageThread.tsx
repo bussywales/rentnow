@@ -21,6 +21,8 @@ type Props = {
   cooldownMessage?: string | null;
   draftKey?: string | null;
   quickReplies?: string[];
+  composerNotice?: string | null;
+  composerError?: string | null;
   restriction?: {
     message: string;
     detail?: string;
@@ -41,6 +43,8 @@ export function MessageThread({
   cooldownMessage,
   draftKey,
   quickReplies,
+  composerNotice,
+  composerError,
   restriction,
   rules,
 }: Props) {
@@ -212,7 +216,12 @@ export function MessageThread({
         {loading ? (
           <p className="text-sm text-slate-500">Loading messages...</p>
         ) : messages.length ? (
-          messages.map((message) => (
+          messages.map((message) => {
+            const moderation = (message.metadata as { moderation?: { redacted?: boolean } } | null | undefined)
+              ?.moderation;
+            const showRedactionNotice =
+              moderation?.redacted && message.sender_id === currentUser?.id;
+            return (
             <div
               key={message.id}
               className={`flex ${message.sender_id === currentUser?.id ? "justify-end" : "justify-start"}`}
@@ -255,10 +264,16 @@ export function MessageThread({
                   )}
                 </p>
                   <p>{message.body}</p>
+                  {showRedactionNotice && (
+                    <p className="mt-2 text-[11px] text-amber-200">
+                      Contact details removed for safety.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
-          ))
+          );
+          })
         ) : (
           <p className="text-sm text-slate-500">No messages yet.</p>
         )}
@@ -324,6 +339,12 @@ export function MessageThread({
             )}
             {cooldownMessage && (
               <p className="text-xs text-amber-800">{cooldownMessage}</p>
+            )}
+            {composerNotice && (
+              <p className="text-xs text-slate-500">{composerNotice}</p>
+            )}
+            {composerError && (
+              <p className="text-xs text-rose-600">{composerError}</p>
             )}
             <div className="flex justify-end">
               <Button onClick={handleSend} disabled={disableComposer}>

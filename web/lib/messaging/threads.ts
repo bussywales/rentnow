@@ -192,7 +192,9 @@ export async function getThreadDetail({
 
   const { data: posts } = await client
     .from("messages")
-    .select("id, thread_id, property_id, sender_id, recipient_id, body, created_at, sender_role, read_at")
+    .select(
+      "id, thread_id, property_id, sender_id, recipient_id, body, created_at, sender_role, read_at, metadata"
+    )
     .eq("thread_id", threadId)
     .order("created_at", { ascending: true });
 

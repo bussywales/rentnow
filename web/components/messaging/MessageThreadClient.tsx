@@ -18,6 +18,7 @@ import { QUICK_REPLIES } from "@/lib/messaging/quick-replies";
 import { mapDeliveryState, withDeliveryState } from "@/lib/messaging/status";
 import type { Message, Profile } from "@/lib/types";
 import { MessageShareButton } from "@/components/messaging/MessageShareButton";
+import { CONTACT_EXCHANGE_COMPOSER_NOTICE, CONTACT_EXCHANGE_BLOCK_CODE } from "@/lib/messaging/contact-exchange";
 
 type Props = {
   propertyId: string;
@@ -36,6 +37,7 @@ export function MessageThreadClient({
   const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
   const [cooldownRemaining, setCooldownRemaining] = useState<number>(0);
   const [loading, setLoading] = useState(true);
+  const [composerError, setComposerError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!cooldownUntil) {
@@ -134,14 +136,17 @@ export function MessageThreadClient({
   const handleSend = async (body: string) => {
     if (cooldownRemaining > 0) {
       setError(null);
+      setComposerError(null);
       return false;
     }
     if (!canSend) {
       setError(restriction?.message || "Messaging is unavailable.");
+      setComposerError(null);
       return false;
     }
 
     setError(null);
+    setComposerError(null);
 
     const res = await fetch("/api/messages", {
       method: "POST",
@@ -158,6 +163,10 @@ export function MessageThreadClient({
         setPermission(data.permission);
       }
       const permissionCode = data?.permission?.code ?? data?.code ?? null;
+      if (permissionCode === CONTACT_EXCHANGE_BLOCK_CODE) {
+        setComposerError(data?.message || "Contact details can’t be shared.");
+        return false;
+      }
       if (permissionCode === "rate_limited") {
         activateCooldown(data?.retry_after_seconds);
         setError(null);
@@ -193,6 +202,8 @@ export function MessageThreadClient({
         cooldownMessage={cooldownMessage}
         draftKey={draftKey}
         quickReplies={quickReplies}
+        composerNotice={CONTACT_EXCHANGE_COMPOSER_NOTICE}
+        composerError={composerError}
         restriction={restriction}
         rules={MESSAGING_RULES}
       />

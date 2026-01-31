@@ -3,8 +3,13 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { getUserRole } from "@/lib/authz";
 import { normalizeRole } from "@/lib/roles";
 import AdminSettingsFeatureFlags from "@/components/admin/AdminSettingsFeatureFlags";
-import { parseAppSettingBool } from "@/lib/settings/app-settings";
+import {
+  parseAppSettingBool,
+  parseContactExchangeMode,
+  type ContactExchangeMode,
+} from "@/lib/settings/app-settings";
 import { AdminLocationConfigStatus } from "@/components/admin/AdminLocationConfigStatus";
+import AdminSettingsContactExchange from "@/components/admin/AdminSettingsContactExchange";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +33,7 @@ export default async function AdminSettingsPage() {
       "enable_location_picker",
       "show_tenant_checkin_badge",
       "require_location_pin_for_publish",
+      "contact_exchange_mode",
     ]);
 
   const keys = [
@@ -44,6 +50,13 @@ export default async function AdminSettingsPage() {
       updatedAt: row?.updated_at ?? null,
     };
   });
+
+  const contactRow = data?.find((item) => item.key === "contact_exchange_mode");
+  const contactMode: ContactExchangeMode = parseContactExchangeMode(
+    contactRow?.value,
+    "redact"
+  );
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4">
       <div className="space-y-1">
@@ -53,6 +66,10 @@ export default async function AdminSettingsPage() {
         </p>
       </div>
       <AdminSettingsFeatureFlags settings={settings} />
+      <AdminSettingsContactExchange
+        mode={contactMode}
+        updatedAt={contactRow?.updated_at ?? null}
+      />
       <AdminLocationConfigStatus
         flags={{
           enable_location_picker: settings.find((s) => s.key === "enable_location_picker")?.enabled ?? false,

@@ -11,14 +11,21 @@ const ALLOWED_KEYS = [
   "enable_location_picker",
   "show_tenant_checkin_badge",
   "require_location_pin_for_publish",
+  "contact_exchange_mode",
 ] as const;
 const routeLabel = "/api/admin/app-settings";
 
+const enabledValueSchema = z.object({
+  enabled: z.boolean(),
+});
+
+const modeValueSchema = z.object({
+  mode: z.enum(["off", "redact", "block"]),
+});
+
 export const patchSchema = z.object({
   key: z.enum(ALLOWED_KEYS),
-  value: z.object({
-    enabled: z.boolean(),
-  }),
+  value: z.union([enabledValueSchema, modeValueSchema]),
 });
 
 export async function GET(request: Request) {
@@ -61,6 +68,13 @@ export async function PATCH(request: Request) {
   if (!auth.ok) return auth.response;
 
   const body = patchSchema.parse(await request.json());
+  const isModeSetting = body.key === "contact_exchange_mode";
+  if (isModeSetting && !("mode" in body.value)) {
+    return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
+  }
+  if (!isModeSetting && !("enabled" in body.value)) {
+    return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
+  }
   const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;
   const { data, error } = await adminClient
     .from("app_settings")
@@ -74,7 +88,10 @@ export async function PATCH(request: Request) {
     route: routeLabel,
     actorId: auth.user.id,
     outcome: "ok",
-    meta: { key: body.key, enabled: body.value.enabled },
+    meta: {
+      key: body.key,
+      value: body.value,
+    },
   });
 
   return NextResponse.json({ ok: true, setting: data });

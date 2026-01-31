@@ -9,6 +9,12 @@ import {
   type AvailabilityRule,
 } from "@/lib/availability/slots";
 import { logFailure } from "@/lib/observability";
+import {
+  CONTACT_EXCHANGE_BLOCK_CODE,
+  CONTACT_EXCHANGE_BLOCK_MESSAGE,
+  sanitizeMessageContent,
+} from "@/lib/messaging/contact-exchange";
+import { getContactExchangeMode } from "@/lib/settings/app-settings";
 
 const routeLabel = "/api/viewings/request";
 
@@ -126,6 +132,17 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
   }
 
   const supabase = auth.supabase;
+  if (payload.message) {
+    const contactMode = await getContactExchangeMode(supabase);
+    const sanitized = sanitizeMessageContent(payload.message, contactMode);
+    if (sanitized.action === "block") {
+      return NextResponse.json(
+        { error: CONTACT_EXCHANGE_BLOCK_MESSAGE, code: CONTACT_EXCHANGE_BLOCK_CODE },
+        { status: 400 }
+      );
+    }
+    payload = { ...payload, message: sanitized.text };
+  }
   try {
     const { data: property, error: propertyError } = await supabase
       .from("properties")

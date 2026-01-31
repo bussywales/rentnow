@@ -5,6 +5,12 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getThreadDetail } from "@/lib/messaging/threads";
 import { getMessagingPermission } from "@/lib/messaging/permissions";
 import { normalizeRole } from "@/lib/roles";
+import {
+  CONTACT_EXCHANGE_BLOCK_CODE,
+  CONTACT_EXCHANGE_BLOCK_MESSAGE,
+  sanitizeMessageContent,
+} from "@/lib/messaging/contact-exchange";
+import { getContactExchangeMode } from "@/lib/settings/app-settings";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -154,6 +160,14 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   }
 
   const now = new Date().toISOString();
+  const contactMode = await getContactExchangeMode(auth.supabase);
+  const sanitized = sanitizeMessageContent(parsed.data.body, contactMode);
+  if (sanitized.action === "block") {
+    return NextResponse.json(
+      { error: CONTACT_EXCHANGE_BLOCK_MESSAGE, code: CONTACT_EXCHANGE_BLOCK_CODE },
+      { status: 400 }
+    );
+  }
 
   const { data: message, error: insertError } = await auth.supabase
     .from("messages")
@@ -162,8 +176,9 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
       property_id: detail.thread.property_id,
       sender_id: auth.user.id,
       recipient_id: recipientId,
-      body: parsed.data.body,
+      body: sanitized.text,
       sender_role: role,
+      metadata: sanitized.meta ? { moderation: sanitized.meta } : null,
     })
     .select()
     .single();
