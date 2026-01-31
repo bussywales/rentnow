@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildPropertyShareToken, resolvePropertyShareStatus, canManagePropertyShare } from "@/lib/sharing/property-share";
+import {
+  buildPropertyShareToken,
+  resolvePropertyShareStatus,
+  canManagePropertyShare,
+  buildPropertyShareRedirect,
+} from "@/lib/sharing/property-share";
 
 void test("buildPropertyShareToken returns url-safe tokens", () => {
   const token = buildPropertyShareToken();
@@ -22,6 +27,11 @@ void test("resolvePropertyShareStatus handles revoked/expired", () => {
     resolvePropertyShareStatus({ expires_at: null, revoked_at: new Date().toISOString() }),
     "revoked"
   );
+});
+
+void test("buildPropertyShareRedirect targets property page for guests", () => {
+  const redirect = buildPropertyShareRedirect("property-123");
+  assert.equal(redirect, "/properties/property-123?shared=1");
 });
 
 void test("canManagePropertyShare enforces owner/admin", () => {

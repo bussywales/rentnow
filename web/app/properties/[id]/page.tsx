@@ -422,6 +422,13 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   const cadence = formatCadence(property.rental_type, property.rent_period);
   const listingTypeLabel = formatListingType(property.listing_type);
   const listingIntent = property.listing_intent ?? "rent";
+  const isGuest = !currentUser;
+  const showPublicActions = isGuest || isTenant;
+  const sharedFlag = getSearchParamValue(resolvedSearchParams, "shared");
+  const redirectPath = sharedFlag
+    ? `/properties/${property.id}?shared=${encodeURIComponent(sharedFlag)}`
+    : `/properties/${property.id}`;
+  const loginRedirect = `/auth/login?reason=auth&redirect=${encodeURIComponent(redirectPath)}`;
   const sizeLabel =
     typeof property.size_value === "number" && property.size_value > 0
       ? formatSizeLabel(property.size_value, property.size_unit)
@@ -681,30 +688,56 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </p>
             </div>
           )}
-          {isTenant && listingIntent !== "buy" && (
+          {showPublicActions && listingIntent !== "buy" && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Viewing requests</h3>
               </div>
               <div className="mt-3">
-                <RequestViewingCtaSection
-                  propertyId={property.id}
-                  timezoneLabel={timezoneText}
-                />
+                {isGuest ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-slate-900">
+                      Ready to view this home?
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      Log in to request a viewing and keep everything in one place.
+                    </p>
+                    <Link href={loginRedirect}>
+                      <Button>Request viewing</Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <RequestViewingCtaSection
+                    propertyId={property.id}
+                    timezoneLabel={timezoneText}
+                  />
+                )}
               </div>
             </div>
           )}
-          {isTenant && listingIntent === "buy" && (
+          {showPublicActions && listingIntent === "buy" && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Enquire to buy</h3>
               </div>
               <div className="mt-3">
-                <RequestViewingCtaSection
-                  propertyId={property.id}
-                  timezoneLabel={timezoneText}
-                  listingIntent="buy"
-                />
+                {isGuest ? (
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-slate-900">Ready to buy?</p>
+                    <p className="text-sm text-slate-600">
+                      Log in to send a verified enquiry to the host or agent.
+                    </p>
+                    <Link href={loginRedirect}>
+                      <Button>Enquire to buy</Button>
+                    </Link>
+                  </div>
+                ) : (
+                  <RequestViewingCtaSection
+                    propertyId={property.id}
+                    timezoneLabel={timezoneText}
+                    listingIntent="buy"
+                  />
+                )}
               </div>
             </div>
           )}

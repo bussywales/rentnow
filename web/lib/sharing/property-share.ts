@@ -40,3 +40,7 @@ export function formatPropertyShareExpiry(expiresAt?: string | null): string {
   if (Number.isNaN(parsed.getTime())) return "No expiry";
   return `Expires ${parsed.toLocaleString()}`;
 }
+
+export function buildPropertyShareRedirect(propertyId: string): string {
+  return `/properties/${encodeURIComponent(propertyId)}?shared=1`;
+}

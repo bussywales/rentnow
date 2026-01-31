@@ -1,10 +1,8 @@
 import { redirect } from "next/navigation";
 import { ErrorState } from "@/components/ui/ErrorState";
-import { getServerAuthUser } from "@/lib/auth/server-session";
-import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { resolvePropertyShareStatus } from "@/lib/sharing/property-share";
+import { buildPropertyShareRedirect, resolvePropertyShareStatus } from "@/lib/sharing/property-share";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +18,6 @@ type ShareRow = {
 
 export default async function SharePropertyPage({ params }: Props) {
   const { token } = await params;
-  const sharePath = `/share/property/${token}`;
 
   if (!hasServerSupabaseEnv()) {
     return (
@@ -31,12 +28,6 @@ export default async function SharePropertyPage({ params }: Props) {
         retryLabel="Contact support"
       />
     );
-  }
-
-  const { user } = await getServerAuthUser();
-  if (!user) {
-    logAuthRedirect(sharePath);
-    redirect(`/auth/login?reason=auth&redirect=${encodeURIComponent(sharePath)}`);
   }
 
   if (!hasServiceRoleEnv()) {
@@ -80,5 +71,5 @@ export default async function SharePropertyPage({ params }: Props) {
     );
   }
 
-  redirect(`/properties/${encodeURIComponent(row.property_id)}?shared=1`);
+  redirect(buildPropertyShareRedirect(row.property_id));
 }

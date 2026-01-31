@@ -15,7 +15,7 @@ async function login(page: Page, email: string, password: string) {
   await page.waitForURL(/\/dashboard|\/properties|\/favourites/, { timeout: 15_000 });
 }
 
-test("property share link redirects through auth (skip-safe)", async ({ browser }) => {
+test("property share link resolves for guests and gates actions (skip-safe)", async ({ browser }) => {
   test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping share link flow.");
   test.skip(!HAS_LANDLORD, "Set PLAYWRIGHT_LANDLORD_EMAIL/PASSWORD to run share link flow.");
   test.skip(!PROPERTY_ID, "Set PLAYWRIGHT_SHARE_PROPERTY_ID to run share link flow.");
@@ -35,11 +35,18 @@ test("property share link redirects through auth (skip-safe)", async ({ browser 
   const anonContext = await browser.newContext();
   const anonPage = await anonContext.newPage();
   await anonPage.goto(link);
-  await expect(anonPage).toHaveURL(/\/auth\/login\?[^#]*redirect=/);
-
-  await anonPage.getByPlaceholder("you@email.com").fill(LANDLORD_EMAIL);
-  await anonPage.getByPlaceholder("Password").fill(LANDLORD_PASSWORD);
-  await anonPage.getByRole("button", { name: /log in/i }).click();
   await anonPage.waitForURL(new RegExp(`/properties/${PROPERTY_ID}`));
-});
+  await expect(anonPage.getByText("Contact landlord/agent")).toBeVisible();
 
+  const requestViewing = anonPage.getByRole("button", { name: /request viewing/i });
+  const enquireToBuy = anonPage.getByRole("button", { name: /enquire to buy/i });
+  if (await requestViewing.isVisible().catch(() => false)) {
+    await requestViewing.click();
+  } else if (await enquireToBuy.isVisible().catch(() => false)) {
+    await enquireToBuy.click();
+  } else {
+    test.skip(true, "No public CTA found on shared listing.");
+  }
+
+  await expect(anonPage).toHaveURL(/\/auth\/login\?[^#]*redirect=/);
+});
