@@ -90,7 +90,7 @@ export async function PATCH(request: Request) {
     outcome: "ok",
     meta: {
       key: body.key,
-      value: body.value,
+      value: JSON.stringify(body.value),
     },
   });
 
