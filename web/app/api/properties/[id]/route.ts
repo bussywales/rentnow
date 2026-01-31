@@ -64,7 +64,19 @@ export const updateSchema = z.object({
   location_source: z.string().max(50).optional().nullable(),
   location_precision: z.string().max(50).optional().nullable(),
   listing_type: z
-    .enum(["apartment", "house", "duplex", "bungalow", "studio", "room", "shop", "office", "land"])
+    .enum([
+      "apartment",
+      "house",
+      "duplex",
+      "bungalow",
+      "studio",
+      "room",
+      "student",
+      "hostel",
+      "shop",
+      "office",
+      "land",
+    ])
     .optional()
     .nullable(),
   rental_type: z.enum(["short_let", "long_term"]).optional(),

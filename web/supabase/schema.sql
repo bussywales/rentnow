@@ -32,6 +32,7 @@ CREATE TABLE public.properties (
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
   rental_type rental_type NOT NULL,
+  listing_type TEXT,
   listing_intent TEXT NOT NULL DEFAULT 'rent',
   price NUMERIC(12,2) NOT NULL,
   currency TEXT NOT NULL DEFAULT 'USD',

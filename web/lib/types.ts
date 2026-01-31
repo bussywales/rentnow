@@ -13,6 +13,8 @@ export type ListingType =
   | "bungalow"
   | "studio"
   | "room"
+  | "student"
+  | "hostel"
   | "shop"
   | "office"
   | "land";

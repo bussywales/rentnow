@@ -20,6 +20,8 @@ const LISTING_TYPE_LABELS: Record<ListingType, string> = {
   bungalow: "Bungalow",
   studio: "Studio",
   room: "Room",
+  student: "Student",
+  hostel: "Hostel",
   shop: "Shop",
   office: "Office",
   land: "Land",

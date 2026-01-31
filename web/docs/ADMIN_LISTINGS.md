@@ -21,6 +21,7 @@ The registry is backed by `GET /api/admin/listings` and the server-side page use
 - `missingPhotos` — `true` to show listings with photo_count=0
 - `missingLocation` — `true` to show listings without location label/coords
 - `priceMin` / `priceMax` — numeric price bounds (simple outlier filters)
+- `listing_type` — listing type filter (apartment, house, duplex, bungalow, studio, room, student, hostel, shop, office, land)
 
 Example:
 ```
