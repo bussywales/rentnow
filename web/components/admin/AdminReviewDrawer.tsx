@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import { z } from "zod";
+import { isPhotoLowQuality } from "@/lib/properties/photo-quality";
 import { AdminReviewChecklistPanel } from "./AdminReviewChecklistPanel";
 import {
   canApproveChecklist,
@@ -233,9 +234,16 @@ export function AdminReviewDrawer({
   }, [messageText, reasons]);
 
   const detail = detailData ?? null;
-  const images = detail?.images ?? [];
-  const videos = detail?.videos ?? [];
-  const activity = detail?.activity ?? [];
+  const images = useMemo(() => detail?.images ?? [], [detail?.images]);
+  const videos = useMemo(() => detail?.videos ?? [], [detail?.videos]);
+  const activity = useMemo(() => detail?.activity ?? [], [detail?.activity]);
+  const lowQualityCount = useMemo(
+    () =>
+      images.filter((img) =>
+        isPhotoLowQuality({ width: img.width ?? null, height: img.height ?? null })
+      ).length,
+    [images]
+  );
   const canReview = listing?.reviewStage === "pending" || listing?.reviewStage === "changes" || listing?.reviewable === true;
   const checklistSummary = useMemo(() => getChecklistSummary(checklistState), [checklistState]);
   const missingLabels = formatChecklistMissingSections(checklistState);
@@ -579,9 +587,16 @@ export function AdminReviewDrawer({
           <div className="flex items-center justify-between">
             <h3 className="text-base font-semibold text-slate-900">{ADMIN_REVIEW_COPY.drawer.media}</h3>
             {detail && (
-              <span className="text-xs text-slate-600">
-                Photos: {detail.listing.photo_count ?? 0} · Videos: {detail.listing.has_video ? "Yes" : "No"}
-              </span>
+              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span>
+                  Photos: {detail.listing.photo_count ?? 0} · Videos: {detail.listing.has_video ? "Yes" : "No"}
+                </span>
+                {lowQualityCount > 0 && (
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                    Low quality photos
+                  </span>
+                )}
+              </div>
             )}
           </div>
           <div

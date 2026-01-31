@@ -101,6 +101,11 @@
 - Audit timeline:
   - Drawer shows a lightweight Activity timeline (submitted/updated + admin actions).
   - Actions are logged to `admin_actions_log` with actor + timestamp.
+- Photo quality rules:
+  - Allowed types: JPG/PNG/WebP, max 10MB each.
+  - Hard block: width < 900px or height < 600px.
+  - Warning: width < 1600px (still allowed).
+  - Admin Review drawer shows a “Low quality photos” badge when any image is below the warning threshold.
 - Admin workspaces:
   - `/admin` is the **Overview cockpit** (monitor-only: KPIs + recent listings + alerts).
   - `/admin/review` is the **Review Desk** (decision mode: approve/reject/request changes).

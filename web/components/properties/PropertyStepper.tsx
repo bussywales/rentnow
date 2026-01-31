@@ -10,6 +10,15 @@ import { getCountryByCode, getCountryByName } from "@/lib/countries";
 import { normalizeCountryCode } from "@/lib/countries";
 import { classifyCoverHint, type ImageMeta as CoverMeta } from "@/lib/properties/cover-hint";
 import { pickRecommendedCover } from "@/lib/properties/recommended-cover";
+import {
+  classifyPhotoQuality,
+  PHOTO_ALLOWED_MIME_TYPES,
+  PHOTO_BLOCK_MIN_HEIGHT,
+  PHOTO_BLOCK_MIN_WIDTH,
+  PHOTO_MAX_BYTES,
+  PHOTO_WARN_MIN_WIDTH,
+  type PhotoQualityResult,
+} from "@/lib/properties/photo-quality";
 import { Button } from "@/components/ui/Button";
 import InfoPopover from "@/components/ui/InfoPopover";
 import { Input } from "@/components/ui/Input";
@@ -134,7 +143,7 @@ const sizeUnits: { label: string; value: SizeUnit }[] = [
 const STORAGE_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "property-images";
 
-const MAX_UPLOAD_BYTES = 20 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = PHOTO_MAX_BYTES;
 const COORDINATES_HELP = {
   title: "How to find coordinates",
   bullets: [
@@ -222,6 +231,9 @@ export function PropertyStepper({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
   const [files, setFiles] = useState<File[]>([]);
+  const [fileChecks, setFileChecks] = useState<
+    Record<string, PhotoQualityResult & { meta?: ImageMeta }>
+  >({});
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [aiLoading, setAiLoading] = useState(false);
@@ -329,6 +341,38 @@ export function PropertyStepper({
     }
     return meta;
   }, []);
+
+  const getFileKey = useCallback((file: File) => {
+    return `${file.name}-${file.size}-${file.lastModified}`;
+  }, []);
+
+  const handleFilesSelected = useCallback(
+    async (incoming: File[]) => {
+      setFiles(incoming);
+      if (!incoming.length) {
+        setFileChecks({});
+        return;
+      }
+      const entries = await Promise.all(
+        incoming.map(async (file) => {
+          const meta = await readImageMetaFromFile(file);
+          const check = classifyPhotoQuality({
+            width: meta.width,
+            height: meta.height,
+            bytes: file.size,
+            type: file.type,
+          });
+          return [getFileKey(file), { ...check, meta }] as const;
+        })
+      );
+      const next: Record<string, PhotoQualityResult & { meta?: ImageMeta }> = {};
+      entries.forEach(([key, value]) => {
+        next[key] = value;
+      });
+      setFileChecks(next);
+    },
+    [getFileKey, readImageMetaFromFile]
+  );
 
   const buildImageMetaPayload = useCallback(
     (meta: Record<string, ImageMeta>) => {
@@ -1995,19 +2039,40 @@ export function PropertyStepper({
       return;
     }
 
+    const blockedFiles = files.filter((file) => fileChecks[getFileKey(file)]?.status === "block");
+    if (blockedFiles.length) {
+      setError("Some photos were not uploaded because they do not meet quality requirements.");
+    }
+
+    const allowedFiles = files.filter(
+      (file) => fileChecks[getFileKey(file)]?.status !== "block"
+    );
+    if (!allowedFiles.length) {
+      return;
+    }
+
     setUploading(true);
     setUploadProgress(0);
     const uploaded: string[] = [];
     let metas: ImageMeta[] = [];
     try {
-      metas = await Promise.all(files.map((file) => readImageMetaFromFile(file)));
-      for (let i = 0; i < files.length; i += 1) {
-        const file = files[i];
+      metas = await Promise.all(
+        allowedFiles.map(async (file) => {
+          const cached = fileChecks[getFileKey(file)]?.meta;
+          return cached ?? readImageMetaFromFile(file);
+        })
+      );
+      for (let i = 0; i < allowedFiles.length; i += 1) {
+        const file = allowedFiles[i];
         if (file.size > MAX_UPLOAD_BYTES) {
-          throw new Error(`File ${file.name} exceeds ${MAX_UPLOAD_BYTES / (1024 * 1024)}MB limit.`);
+          throw new Error(`File ${file.name} exceeds 10MB limit.`);
         }
-        if (!file.type.startsWith("image/")) {
-          throw new Error(`File ${file.name} is not an image.`);
+        if (
+          !PHOTO_ALLOWED_MIME_TYPES.includes(
+            file.type as (typeof PHOTO_ALLOWED_MIME_TYPES)[number]
+          )
+        ) {
+          throw new Error(`File ${file.name} is not a supported image type.`);
         }
         const toUpload = await compressImage(file);
         const path = `${user.id}/${Date.now()}-${toUpload.name}`;
@@ -2025,9 +2090,10 @@ export function PropertyStepper({
         if (meta) {
           setImageMeta((prev) => ({ ...prev, [url]: meta }));
         }
-        setUploadProgress(Math.round(((i + 1) / files.length) * 100));
+        setUploadProgress(Math.round(((i + 1) / allowedFiles.length) * 100));
       }
       setFiles([]);
+      setFileChecks({});
       const nextUrls = [...imageUrls, ...uploaded];
       updateImageUrls(nextUrls);
       await saveDraft();
@@ -3317,16 +3383,58 @@ export function PropertyStepper({
             <input
               id="photo-upload"
               type="file"
-              accept="image/*"
+              accept={PHOTO_ALLOWED_MIME_TYPES.join(",")}
               multiple
-              onChange={(e) => setFiles(Array.from(e.target.files || []))}
+              onChange={(e) => handleFilesSelected(Array.from(e.target.files || []))}
               className="w-full rounded-lg border border-dashed border-slate-300 bg-white px-4 py-3 text-sm text-slate-700"
             />
+            <div className="rounded-xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-xs text-slate-600">
+              <p className="text-xs font-semibold text-slate-900">Photo quality tips</p>
+              <ul className="mt-2 space-y-1">
+                <li>Use bright, well-lit photos</li>
+                <li>Avoid screenshots / WhatsApp compressed images</li>
+                <li>Minimum recommended: {PHOTO_WARN_MIN_WIDTH}px wide</li>
+                <li>JPG/PNG/WebP, max {Math.round(PHOTO_MAX_BYTES / (1024 * 1024))}MB each</li>
+                <li>Aim for landscape 4:3 or 16:9</li>
+              </ul>
+            </div>
             {files.length > 0 && (
               <div className="space-y-2 text-xs text-slate-600">
                 {files.map((file, index) => (
                   <div key={file.name} className="flex items-center justify-between gap-2">
-                    <span>{file.name}</span>
+                    <div className="space-y-1">
+                      <span>{file.name}</span>
+                      {fileChecks[getFileKey(file)] && (
+                        <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                          <span
+                            className={`inline-flex items-center gap-1 font-semibold ${
+                              fileChecks[getFileKey(file)]?.status === "great"
+                                ? "text-emerald-600"
+                                : fileChecks[getFileKey(file)]?.status === "warn"
+                                  ? "text-amber-600"
+                                  : "text-rose-600"
+                            }`}
+                          >
+                            {fileChecks[getFileKey(file)]?.status === "great"
+                              ? "✅"
+                              : fileChecks[getFileKey(file)]?.status === "warn"
+                                ? "⚠️"
+                                : "❌"}{" "}
+                            {fileChecks[getFileKey(file)]?.label}
+                          </span>
+                          {fileChecks[getFileKey(file)]?.detail && (
+                            <span className="text-slate-500">
+                              ({fileChecks[getFileKey(file)]?.detail})
+                            </span>
+                          )}
+                          {fileChecks[getFileKey(file)]?.reason && (
+                            <span className="text-slate-500">
+                              {fileChecks[getFileKey(file)]?.reason}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                     <div className="flex gap-2">
                       <button
                         type="button"
@@ -3348,7 +3456,7 @@ export function PropertyStepper({
               </div>
             )}
             <p className="text-xs text-slate-600">
-              Max 20MB per file (auto-compressed before upload). Uploads go to the `{STORAGE_BUCKET}` bucket.
+              Files under {PHOTO_BLOCK_MIN_WIDTH}×{PHOTO_BLOCK_MIN_HEIGHT}px are blocked. Uploads go to the `{STORAGE_BUCKET}` bucket.
             </p>
             {uploading && (
               <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">
