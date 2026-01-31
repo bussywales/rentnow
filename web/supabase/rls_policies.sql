@@ -25,6 +25,12 @@ ALTER TABLE public.app_settings FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.listing_leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.listing_leads FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.property_share_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.property_share_links FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE public.support_requests ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.support_requests FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages FORCE ROW LEVEL SECURITY;
 
@@ -103,6 +109,73 @@ CREATE POLICY "verification otps update self" ON public.verification_otps
   FOR UPDATE
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+-- property_share_links: owners/admins
+DROP POLICY IF EXISTS "property share links select owner" ON public.property_share_links;
+CREATE POLICY "property share links select owner" ON public.property_share_links
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.properties p
+      WHERE p.id = property_id
+        AND p.owner_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "property share links insert owner" ON public.property_share_links;
+CREATE POLICY "property share links insert owner" ON public.property_share_links
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.properties p
+      WHERE p.id = property_id
+        AND p.owner_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "property share links update owner" ON public.property_share_links;
+CREATE POLICY "property share links update owner" ON public.property_share_links
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.properties p
+      WHERE p.id = property_id
+        AND p.owner_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.properties p
+      WHERE p.id = property_id
+        AND p.owner_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "property share links admin read" ON public.property_share_links;
+CREATE POLICY "property share links admin read" ON public.property_share_links
+  FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+
+DROP POLICY IF EXISTS "property share links admin write" ON public.property_share_links;
+CREATE POLICY "property share links admin write" ON public.property_share_links
+  FOR ALL
+  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
+  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+
+-- support_requests: allow inserts; admins can read
+DROP POLICY IF EXISTS "support requests insert" ON public.support_requests;
+CREATE POLICY "support requests insert" ON public.support_requests
+  FOR INSERT
+  WITH CHECK (true);
+
+DROP POLICY IF EXISTS "support requests admin read" ON public.support_requests;
+CREATE POLICY "support requests admin read" ON public.support_requests
+  FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
 
 -- Helpers (inline): is_admin checks the caller's profile role
 -- EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')

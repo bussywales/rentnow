@@ -193,6 +193,22 @@ CREATE INDEX idx_listing_leads_owner ON public.listing_leads (owner_id, created_
 CREATE INDEX idx_listing_leads_buyer ON public.listing_leads (buyer_id, created_at desc);
 CREATE INDEX idx_listing_leads_status ON public.listing_leads (status);
 
+-- PROPERTY SHARE LINKS
+CREATE TABLE public.property_share_links (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
+  token TEXT NOT NULL UNIQUE,
+  created_by UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  expires_at TIMESTAMPTZ,
+  revoked_at TIMESTAMPTZ,
+  rotated_from UUID REFERENCES public.property_share_links (id)
+);
+
+CREATE INDEX property_share_links_property_idx ON public.property_share_links (property_id, created_at desc);
+CREATE INDEX property_share_links_token_idx ON public.property_share_links (token);
+CREATE INDEX property_share_links_created_by_idx ON public.property_share_links (created_by, created_at desc);
+
 -- VIEWING REQUESTS
 CREATE TABLE public.viewing_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -207,6 +223,21 @@ CREATE TABLE public.viewing_requests (
 
 CREATE INDEX idx_viewing_requests_property ON public.viewing_requests (property_id);
 CREATE INDEX idx_viewing_requests_tenant ON public.viewing_requests (tenant_id);
+
+-- SUPPORT REQUESTS
+CREATE TABLE public.support_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES public.profiles (id) ON DELETE SET NULL,
+  category TEXT NOT NULL DEFAULT 'general',
+  email TEXT,
+  name TEXT,
+  message TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'new',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX support_requests_created_at_idx ON public.support_requests (created_at desc);
+CREATE INDEX support_requests_status_idx ON public.support_requests (status, created_at desc);
 
 -- SAVED SEARCHES
 CREATE TABLE public.saved_searches (

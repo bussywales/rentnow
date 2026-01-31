@@ -23,7 +23,11 @@ function normalizeRedirect(
 }
 
 export default async function LoginPage({ searchParams }: PageProps) {
-  const redirectTo = normalizeRedirect(searchParams?.redirect);
+  const redirectCandidate =
+    (typeof searchParams?.redirect === "string" && searchParams.redirect) ||
+    (typeof searchParams?.next === "string" && searchParams.next) ||
+    undefined;
+  const redirectTo = normalizeRedirect(redirectCandidate);
   const reason = typeof searchParams?.reason === "string" ? searchParams.reason : null;
   const errorParam = typeof searchParams?.error === "string" ? searchParams.error : null;
   const envError = hasServerSupabaseEnv()
@@ -76,7 +80,10 @@ export default async function LoginPage({ searchParams }: PageProps) {
       </form>
       <p className="text-sm text-slate-600">
         New here?{" "}
-        <Link href="/auth/register" className="font-semibold text-sky-700">
+        <Link
+          href={`/auth/register?redirect=${encodeURIComponent(redirectTo)}`}
+          className="font-semibold text-sky-700"
+        >
           Create an account
         </Link>
       </p>

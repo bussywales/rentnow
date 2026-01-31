@@ -14,7 +14,11 @@ function ConfirmContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const code = searchParams?.get("code");
-  const redirectTarget = "/onboarding";
+  const rawRedirect = searchParams?.get("redirect");
+  const redirectTarget =
+    rawRedirect && rawRedirect.startsWith("/") && !rawRedirect.startsWith("//")
+      ? rawRedirect
+      : "/onboarding";
   const loginHref = `/auth/login?redirect=${encodeURIComponent(redirectTarget)}`;
 
   const [status, setStatus] = useState<Status>(code ? "exchanging" : "checking");

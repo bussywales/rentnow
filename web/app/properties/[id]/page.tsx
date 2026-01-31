@@ -10,6 +10,7 @@ import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { RequestViewingCtaSection } from "@/components/viewings/RequestViewingCtaSection";
 import { TrustIdentityPill } from "@/components/trust/TrustIdentityPill";
+import { PropertySharePanel } from "@/components/properties/PropertySharePanel";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getProfile } from "@/lib/auth";
@@ -291,6 +292,8 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   let isSaved = false;
   let isTenant = false;
   let isTenantPro = false;
+  let isAdmin = false;
+  let isHost = false;
   let currentUser: Profile | null = null;
   let hostTrust: TrustMarkerState | null = null;
   let similar: Property[] = [];
@@ -307,10 +310,13 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             .select("role, full_name")
             .eq("id", user.id)
             .maybeSingle();
-          isTenant = profile?.role === "tenant";
+          const role = normalizeRole(profile?.role ?? null);
+          isTenant = role === "tenant";
+          isAdmin = role === "admin";
+          isHost = role === "landlord" || role === "agent";
           currentUser = {
             id: user.id,
-            role: profile?.role ?? null,
+            role: role ?? null,
             full_name: profile?.full_name || user.email || "You",
           };
 
@@ -725,6 +731,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                 </div>
               </div>
             </div>
+          )}
+          {currentUser && (isAdmin || (isHost && currentUser.id === property.owner_id)) && (
+            <PropertySharePanel propertyId={property.id} />
           )}
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
             <div className="flex items-center justify-between gap-3">

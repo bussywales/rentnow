@@ -9,7 +9,21 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
 
-export default function RegisterPage() {
+type PageProps = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
+
+function normalizeRedirect(
+  value?: string | string[] | undefined,
+  fallback = "/onboarding"
+) {
+  if (typeof value !== "string") return fallback;
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return fallback;
+  return trimmed;
+}
+
+export default function RegisterPage({ searchParams }: PageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -25,6 +39,8 @@ export default function RegisterPage() {
       return null;
     }
   };
+
+  const redirectTo = normalizeRedirect(searchParams?.redirect);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -48,7 +64,7 @@ export default function RegisterPage() {
       email,
       password,
       options: {
-        emailRedirectTo: `${normalizedSite}/auth/confirm`,
+        emailRedirectTo: `${normalizedSite}/auth/confirm?redirect=${encodeURIComponent(redirectTo)}`,
       },
     });
     if (signUpError) {
@@ -73,18 +89,24 @@ export default function RegisterPage() {
           <p>{success}</p>
           <p className="text-xs text-slate-600">
             Tip: the verification link will bring you back to RentNow. If you&apos;ve already confirmed, just{" "}
-            <Link href="/auth/login" className="font-semibold text-sky-700">
+            <Link
+              href={`/auth/login?redirect=${encodeURIComponent(redirectTo)}`}
+              className="font-semibold text-sky-700"
+            >
               log in
             </Link>{" "}
             and you&apos;ll be redirected to choose your role.
           </p>
           <div className="flex flex-wrap gap-2">
-            <Link href="/auth/confirm">
+            <Link href={`/auth/confirm?redirect=${encodeURIComponent(redirectTo)}`}>
               <Button size="sm" variant="secondary">
                 I&apos;ve confirmed — continue
               </Button>
             </Link>
-            <Link href="/auth/login" className="text-sm font-semibold text-sky-700">
+            <Link
+              href={`/auth/login?redirect=${encodeURIComponent(redirectTo)}`}
+              className="text-sm font-semibold text-sky-700"
+            >
               Go to login
             </Link>
           </div>
@@ -120,7 +142,10 @@ export default function RegisterPage() {
       )}
       <p className="text-sm text-slate-600">
         Already have an account?{" "}
-        <Link href="/auth/login" className="font-semibold text-sky-700">
+        <Link
+          href={`/auth/login?redirect=${encodeURIComponent(redirectTo)}`}
+          className="font-semibold text-sky-700"
+        >
           Log in
         </Link>
       </p>
