@@ -68,6 +68,7 @@ type RawReviewRow = {
   currency?: string | null;
   rent_period?: string | null;
   rental_type?: string | null;
+  listing_intent?: string | null;
   listing_type?: string | null;
   bedrooms?: number | null;
   bathrooms?: number | null;
@@ -228,6 +229,7 @@ async function getListingsData(
         currency: row.currency ?? null,
         rent_period: row.rent_period ?? null,
         rental_type: row.rental_type ?? null,
+        listing_intent: row.listing_intent ?? null,
         listing_type: row.listing_type ?? null,
         bedrooms: row.bedrooms ?? null,
         bathrooms: row.bathrooms ?? null,

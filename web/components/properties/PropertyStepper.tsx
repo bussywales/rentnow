@@ -25,6 +25,7 @@ import {
 import type { User } from "@supabase/supabase-js";
 import type {
   BathroomType,
+  ListingIntent,
   ListingType,
   Property,
   PropertyStatus,
@@ -101,6 +102,10 @@ const rentalTypes: { label: string; value: RentalType }[] = [
   { label: "Short-let", value: "short_let" },
   { label: "Long-term", value: "long_term" },
 ];
+const listingIntents: { label: string; value: ListingIntent }[] = [
+  { label: "Rent", value: "rent" },
+  { label: "Buy", value: "buy" },
+];
 
 const listingTypes: { label: string; value: ListingType }[] = [
   { label: "Apartment", value: "apartment" },
@@ -145,7 +150,7 @@ const steps: Array<{ id: StepId; label: string }> = [
   { id: "submit", label: "Submit" },
 ];
 const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | "imageUrls" | "cover_image_url">> = {
-  basics: ["title", "rental_type", "city", "price", "currency", "bedrooms", "bathrooms"],
+  basics: ["title", "rental_type", "listing_intent", "city", "price", "currency", "bedrooms", "bathrooms"],
   details: [
     "listing_type",
     "state_region",
@@ -405,6 +410,7 @@ export function PropertyStepper({
 
   const [form, setForm] = useState<FormState>({
     rental_type: initialData?.rental_type ?? "long_term",
+    listing_intent: initialData?.listing_intent ?? "rent",
     currency: initialData?.currency ?? "USD",
     listing_type: initialData?.listing_type ?? null,
     country: initialData?.country ?? null,
@@ -785,6 +791,7 @@ export function PropertyStepper({
     !!payload.title &&
     !!payload.city &&
     !!payload.rental_type &&
+    !!payload.listing_intent &&
     payload.price !== undefined &&
     payload.price !== null &&
     payload.currency &&
@@ -1840,6 +1847,7 @@ export function PropertyStepper({
         "title",
         "city",
         "rental_type",
+        "listing_intent",
         "price",
         "currency",
         "bedrooms",
@@ -2254,6 +2262,26 @@ export function PropertyStepper({
                     ))}
                   </Select>
                   {renderFieldError("rental_type")}
+                </div>
+                <div className="space-y-2" id="field-listing_intent">
+                  <label htmlFor="listing-intent" className="text-sm font-medium text-slate-700">
+                    Listing intent <span className="text-rose-500">*</span>
+                  </label>
+                  <Select
+                    id="listing-intent"
+                    value={form.listing_intent ?? "rent"}
+                    onChange={(e) => handleChange("listing_intent", e.target.value as ListingIntent)}
+                    aria-required="true"
+                    className={fieldErrors.listing_intent ? "ring-2 ring-rose-400 border-rose-300" : ""}
+                  >
+                    {listingIntents.map((intent) => (
+                      <option key={intent.value} value={intent.value}>
+                        {intent.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="text-xs text-slate-500">Is this listing for renting or for buying?</p>
+                  {renderFieldError("listing_intent")}
                 </div>
               </div>
             </section>
@@ -3626,6 +3654,7 @@ export function PropertyStepper({
               listing_type: form.listing_type || null,
               country: form.country || null,
               state_region: form.state_region || null,
+              listing_intent: form.listing_intent || "rent",
               rental_type: form.rental_type || "long_term",
               price: form.price || 0,
               currency: form.currency || "USD",

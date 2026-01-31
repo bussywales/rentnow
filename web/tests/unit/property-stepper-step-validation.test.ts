@@ -14,7 +14,9 @@ void test("property stepper validates per-step fields only", () => {
 
   assert.ok(contents.includes("STEP_FIELDS"), "expected STEP_FIELDS map");
   assert.ok(
-    contents.includes('basics: ["title", "rental_type", "city", "price", "currency", "bedrooms", "bathrooms"]'),
+    contents.includes(
+      'basics: ["title", "rental_type", "listing_intent", "city", "price", "currency", "bedrooms", "bathrooms"]'
+    ),
     "expected basics step to only include core basics fields"
   );
   assert.ok(

@@ -31,6 +31,14 @@ function formatDate(value: string | null) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+function formatIntent(value?: string | null) {
+  if (!value) return "—";
+  const normalized = value.toLowerCase();
+  if (normalized === "buy") return "Buy";
+  if (normalized === "rent") return "Rent";
+  return value;
+}
+
 export function AdminListingsTable({ items, onSelect }: Props) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
@@ -43,6 +51,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             <col className="w-[240px]" />
             <col className="w-[180px]" />
             <col className="w-[110px]" />
+            <col className="w-[90px]" />
             <col className="w-[80px]" />
             <col className="w-[110px]" />
             <col className="w-[160px]" />
@@ -60,6 +69,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
               <th className="px-3 py-2">Title</th>
               <th className="px-3 py-2">Location</th>
               <th className="px-3 py-2">Status</th>
+              <th className="px-3 py-2">Intent</th>
               <th className="px-3 py-2">Active</th>
               <th className="px-3 py-2">Updated</th>
               <th className="px-3 py-2">Owner</th>
@@ -134,6 +144,11 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                 <td className="px-3 py-2">
                   <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700">
                     {item.status || "unknown"}
+                  </span>
+                </td>
+                <td className="px-3 py-2">
+                  <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-700">
+                    {formatIntent(item.listing_intent)}
                   </span>
                 </td>
                 <td className="px-3 py-2 text-slate-600">
@@ -212,7 +227,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             ))}
             {!items.length && (
               <tr>
-                <td colSpan={10} className="px-3 py-6 text-center text-sm text-slate-600">
+                <td colSpan={11} className="px-3 py-6 text-center text-sm text-slate-600">
                   No listings found.
                 </td>
               </tr>

@@ -2,6 +2,7 @@ const FIELD_LABELS: Record<string, string> = {
   title: "Listing title",
   city: "City",
   rental_type: "Rental type",
+  listing_intent: "Listing intent",
   price: "Price",
   currency: "Currency",
   bedrooms: "Bedrooms",

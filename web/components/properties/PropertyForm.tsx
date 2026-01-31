@@ -12,7 +12,7 @@ import {
   createBrowserSupabaseClient,
   hasBrowserSupabaseEnv,
 } from "@/lib/supabase/client";
-import type { Property, RentalType } from "@/lib/types";
+import type { ListingIntent, Property, RentalType } from "@/lib/types";
 import { setToastQuery } from "@/lib/utils/toast";
 
 type FormState = Partial<Property> & { amenitiesText?: string };
@@ -27,6 +27,10 @@ const rentalTypes: { label: string; value: RentalType }[] = [
   { label: "Short-let", value: "short_let" },
   { label: "Long-term", value: "long_term" },
 ];
+const listingIntents: { label: string; value: ListingIntent }[] = [
+  { label: "Rent", value: "rent" },
+  { label: "Buy", value: "buy" },
+];
 
 const STORAGE_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "property-images";
@@ -36,6 +40,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
   const router = useRouter();
   const [form, setForm] = useState<FormState>({
     rental_type: "long_term",
+    listing_intent: "rent",
     currency: "USD",
     amenitiesText: initialData?.amenities?.join(", ") ?? "",
     ...initialData,
@@ -277,6 +282,20 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
               </option>
             ))}
           </Select>
+        </div>
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-slate-700">Listing intent</label>
+          <Select
+            value={form.listing_intent ?? "rent"}
+            onChange={(e) => handleChange("listing_intent", e.target.value as ListingIntent)}
+          >
+            {listingIntents.map((intent) => (
+              <option key={intent.value} value={intent.value}>
+                {intent.label}
+              </option>
+            ))}
+          </Select>
+          <p className="text-xs text-slate-500">Is this listing for renting or for buying?</p>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700">City</label>
