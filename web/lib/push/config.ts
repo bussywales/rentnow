@@ -17,7 +17,7 @@ export function getPushConfigStatus(): PushConfigStatus {
     process.env.VAPID_SUBJECT ||
     process.env.NEXT_PUBLIC_SITE_URL ||
     process.env.SITE_URL ||
-    "https://www.rentnow.space";
+    "https://www.propatyhub.com";
 
   const missingKeys: string[] = [];
   if (!publicKey) {

@@ -75,7 +75,7 @@ export default async function Home() {
         <div className="relative grid items-center gap-8 md:grid-cols-2">
           <div className="space-y-4">
             <p className="inline-flex rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-cyan-100">
-              RentNow Beta
+              PropatyHub Beta
             </p>
             <h1 className="text-4xl font-semibold leading-tight md:text-5xl">
               Find the right place — faster and with confidence.

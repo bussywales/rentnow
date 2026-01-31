@@ -7,7 +7,7 @@
 - Added lightweight server logs: `[properties]...` and `[property detail]...` in Vercel logs show counts, ids, and API URLs to debug live data mismatches.
 
 ## Required actions after deploy
-1) Set `NEXT_PUBLIC_SITE_URL=https://www.rentnow.space` (and `SITE_URL` optionally) in Vercel Project → Environment Variables; redeploy.  
+1) Set `NEXT_PUBLIC_SITE_URL=https://www.propatyhub.com` (and `SITE_URL` optionally) in Vercel Project → Environment Variables; redeploy.  
 2) Hard refresh the live site; confirm `/api/properties` and `/api/properties/<id>` return the 8 seeded rows (titles: Skyline Loft in Victoria Island, Garden Townhouse in Lekki Phase 1, ...).  
 3) Check images: with `unoptimized: true` they should render directly from Unsplash. If stable, re-enable the optimizer by removing that flag.  
 4) Verify detail pages: open a couple of IDs from the API response; confirm no “Listing not found.” If it happens, check the log entries for the id/apiUrl.  

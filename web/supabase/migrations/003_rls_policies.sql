@@ -1,4 +1,4 @@
--- RentNow RLS policies and debug metadata helper (idempotent).
+-- PropatyHub RLS policies and debug metadata helper (idempotent).
 
 -- Enable and enforce RLS on all exposed tables
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

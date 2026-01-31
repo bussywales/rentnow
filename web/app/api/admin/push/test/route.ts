@@ -163,7 +163,7 @@ export async function postAdminPushTestResponse(
     const result = await sendPush({
       subscription,
       payload: {
-        title: "RentNow Test Notification",
+        title: "PropatyHub Test Notification",
         body: "Push notifications are configured correctly on this device.",
       },
     });

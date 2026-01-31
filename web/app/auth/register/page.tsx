@@ -58,7 +58,7 @@ export default function RegisterPage({ searchParams }: PageProps) {
     const siteUrl =
       (typeof window !== "undefined" ? window.location.origin : "") ||
       process.env.NEXT_PUBLIC_SITE_URL ||
-      "https://www.rentnow.space";
+      "https://www.propatyhub.com";
     const normalizedSite = siteUrl.replace(/\/$/, "");
     const { error: signUpError } = await supabase.auth.signUp({
       email,
@@ -88,7 +88,7 @@ export default function RegisterPage({ searchParams }: PageProps) {
           <p className="font-semibold text-slate-900">Check your email</p>
           <p>{success}</p>
           <p className="text-xs text-slate-600">
-            Tip: the verification link will bring you back to RentNow. If you&apos;ve already confirmed, just{" "}
+            Tip: the verification link will bring you back to PropatyHub. If you&apos;ve already confirmed, just{" "}
             <Link
               href={`/auth/login?redirect=${encodeURIComponent(redirectTo)}`}
               className="font-semibold text-sky-700"

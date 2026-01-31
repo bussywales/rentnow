@@ -182,7 +182,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const canonicalPath = `/properties/${id ?? ""}`;
     const canonicalUrl = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;
     return {
-      title: "Listing not found | RENTNOW",
+      title: "Listing not found | PropatyHub",
       description: "This listing is unavailable.",
       alternates: { canonical: canonicalUrl },
     };
@@ -206,7 +206,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       url: canonicalUrl,
       type: "article",
-      siteName: "RENTNOW",
+      siteName: "PropatyHub",
       images: imageUrl ? [{ url: imageUrl, alt: property.title }] : undefined,
     },
     twitter: {

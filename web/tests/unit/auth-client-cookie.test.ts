@@ -20,7 +20,7 @@ void test("writeSupabaseAuthCookie writes base64 cookie with options", () => {
     { access_token: "access", refresh_token: "refresh" },
     {
       name: "sb-test-auth-token",
-      domain: ".rentnow.space",
+      domain: ".propatyhub.com",
       path: "/",
       sameSite: "lax",
       secure: true,
@@ -30,7 +30,7 @@ void test("writeSupabaseAuthCookie writes base64 cookie with options", () => {
 
   const serialized = cookies[0] ?? "";
   assert.ok(serialized.includes("sb-test-auth-token=base64-"));
-  assert.ok(serialized.includes("domain=.rentnow.space"));
+  assert.ok(serialized.includes("domain=.propatyhub.com"));
   assert.ok(serialized.includes("path=/"));
   assert.ok(serialized.includes("samesite=lax"));
   assert.ok(serialized.includes("secure"));

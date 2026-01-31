@@ -98,8 +98,8 @@ export async function POST(request: Request) {
         },
         meta: metadata,
         customizations: {
-          title: "RentNow subscription",
-          description: "Upgrade your RentNow plan.",
+          title: "PropatyHub subscription",
+          description: "Upgrade your PropatyHub plan.",
         },
       }),
     });

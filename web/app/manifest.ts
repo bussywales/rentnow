@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
+import { BRAND } from "@/lib/brand";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "RentNow",
-    short_name: "RentNow",
-    description: "Search, list, and manage African rentals on RentNow.",
+    name: BRAND.name,
+    short_name: BRAND.shortName,
+    description: "Search, list, and manage African rentals on PropatyHub.",
     start_url: "/",
     scope: "/",
     display: "standalone",

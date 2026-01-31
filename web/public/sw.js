@@ -1,4 +1,4 @@
-const CACHE_NAME = "rentnow-shell-v1";
+const CACHE_NAME = "propatyhub-shell-v1";
 const OFFLINE_URL = "/offline";
 const PRECACHE_URLS = [
   OFFLINE_URL,
@@ -87,7 +87,7 @@ self.addEventListener("push", (event) => {
     payload = { body: event.data.text() };
   }
 
-  const title = payload.title || "RentNow";
+  const title = payload.title || "PropatyHub";
   const options = {
     body: payload.body || "You have a new alert.",
     icon: "/icons/icon-192.png",

@@ -61,14 +61,14 @@ async function sendOtpEmail(input: { to: string; code: string }) {
   }
 
   const siteUrl = await getSiteUrl();
-  const subject = "Your RentNow verification code";
+  const subject = "Your PropatyHub verification code";
   const html = `
     <div style="font-family: Arial, sans-serif; color: #0f172a;">
       <h2 style="margin: 0 0 8px;">Verify your phone</h2>
       <p style="margin: 0 0 12px;">Your verification code is:</p>
       <div style="font-size: 20px; font-weight: bold; letter-spacing: 2px;">${input.code}</div>
       <p style="margin: 12px 0 0;">If you didn’t request this, you can ignore this email.</p>
-      <p style="margin: 12px 0 0; color: #64748b;">RentNow • ${siteUrl}</p>
+      <p style="margin: 12px 0 0; color: #64748b;">PropatyHub • ${siteUrl}</p>
     </div>
   `;
 

@@ -12,7 +12,7 @@ type CookieOptions = {
   expires?: Date | string;
 };
 
-const RENTNOW_DOMAIN = "rentnow.space";
+const RENTNOW_DOMAIN = "propatyhub.com";
 
 type NormalizedCookieOptions = Omit<CookieOptions, "expires"> & {
   expires?: Date;

@@ -65,7 +65,7 @@ export async function getApiBaseUrl() {
   if (process.env.NODE_ENV === "production") {
     if (!loggedMissingPublicSiteUrl) {
       console.error(
-        "[env] NEXT_PUBLIC_SITE_URL is missing in production; set it to https://www.rentnow.space. Falling back to relative API URLs."
+        "[env] NEXT_PUBLIC_SITE_URL is missing in production; set it to https://www.propatyhub.com. Falling back to relative API URLs."
       );
       loggedMissingPublicSiteUrl = true;
     }
@@ -93,7 +93,7 @@ export async function getSiteUrl(options?: { allowFallback?: boolean }) {
   if (options?.allowFallback === false) return "";
 
   // Hard fallback to production host to avoid empty base URLs in server fetches.
-  return "https://www.rentnow.space";
+  return "https://www.propatyhub.com";
 }
 
 export async function getCanonicalBaseUrl() {

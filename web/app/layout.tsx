@@ -6,6 +6,7 @@ import { Footer } from "@/components/layout/Footer";
 import { ToastNotice } from "@/components/layout/ToastNotice";
 import { OfflineIndicator } from "@/components/layout/OfflineIndicator";
 import { PwaServiceWorker } from "@/components/layout/PwaServiceWorker";
+import { BRAND } from "@/lib/brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,9 +22,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "RENTNOW | Rentals across Africa",
+  title: `${BRAND.name} | Rentals across Africa`,
   description:
-    "Search, list, and manage African rentals with AI-assisted search and Supabase-powered dashboards.",
+    "Find and manage homes across Africa and beyond with verified listings and secure messaging.",
   icons: {
     icon: "/icons/icon-192.png",
     shortcut: "/icons/icon-192.png",

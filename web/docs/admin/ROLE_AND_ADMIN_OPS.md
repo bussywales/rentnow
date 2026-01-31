@@ -1,4 +1,4 @@
-# Role & Admin Ops (RentNow)
+# Role & Admin Ops (PropatyHub)
 
 ## Overview
 This runbook covers how to manage user roles safely, how roles are validated end-to-end, and how to recover from role-related issues.

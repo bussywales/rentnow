@@ -1579,7 +1579,7 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
           <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
             <h3 className="text-lg font-semibold text-slate-900">Canonical host</h3>
             <p className="text-sm text-slate-600">
-              Ensure magic links and cookies stay on https://www.rentnow.space. Apex redirects are configured in Next/Vercel.
+              Ensure magic links and cookies stay on https://www.propatyhub.com. Apex redirects are configured in Next/Vercel.
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Link href="/auth/confirm" className="text-sm font-semibold text-sky-700 underline">
@@ -1614,7 +1614,7 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <h3 className="text-lg font-semibold text-slate-900">Support</h3>
-        <p className="text-sm text-slate-600">Email: hello@rentnow.africa</p>
+        <p className="text-sm text-slate-600">Email: hello@propatyhub.com</p>
         <p className="text-sm text-slate-600">Ops: view Vercel deploys, Supabase health, and RLS debug links above.</p>
       </div>
     </div>

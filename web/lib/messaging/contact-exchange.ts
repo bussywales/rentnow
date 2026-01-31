@@ -2,7 +2,7 @@ import type { ContactExchangeMode } from "@/lib/settings/app-settings";
 
 export const CONTACT_EXCHANGE_BLOCK_CODE = "CONTACT_EXCHANGE_BLOCKED";
 export const CONTACT_EXCHANGE_BLOCK_MESSAGE =
-  "For your safety, contact details can't be shared in messages. Please keep communication in RentNow.";
+  "For your safety, contact details can't be shared in messages. Please keep communication in PropatyHub.";
 export const CONTACT_EXCHANGE_COMPOSER_NOTICE =
   "For your safety, contact details are hidden until booking is confirmed.";
 

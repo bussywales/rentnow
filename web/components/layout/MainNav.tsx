@@ -1,8 +1,7 @@
-import Image from "next/image";
-import Link from "next/link";
 import { NavAuthClient } from "@/components/layout/NavAuthClient";
 import { NavLinksClient } from "@/components/layout/NavLinksClient";
 import { NavMobileDrawerClient } from "@/components/layout/NavMobileDrawerClient";
+import { BrandLogo } from "@/components/BrandLogo";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
@@ -57,16 +56,7 @@ export async function MainNav() {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur-lg">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 font-semibold">
-          <Image
-            src="/logo.svg"
-            alt="RENTNOW"
-            width={28}
-            height={28}
-            priority
-          />
-          <span className="text-xl text-sky-600">RENTNOW</span>
-        </Link>
+        <BrandLogo />
 
         <nav className="hidden items-center gap-6 text-sm text-slate-700 md:flex">
           <NavLinksClient links={MAIN_NAV_LINKS} initialAuthed={initialAuthed} initialRole={role} />

@@ -244,7 +244,7 @@ export function HostDashboardContent({
         <div className="fixed bottom-24 right-4 z-40 max-w-sm">
           <Alert
             title="Pop-ups blocked"
-            description={`Your browser blocked ${popupBlockedCount} tab(s). Allow pop-ups for rentnow.space to open multiple listings.`}
+            description={`Your browser blocked ${popupBlockedCount} tab(s). Allow pop-ups for propatyhub.com to open multiple listings.`}
             variant="warning"
             onClose={() => setPopupBlockedCount(null)}
           />

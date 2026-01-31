@@ -5,7 +5,7 @@ import { buildDraftStorageKey, shouldPersistDraft } from "../../lib/messaging/dr
 
 void test("buildDraftStorageKey uses the required prefix", () => {
   const key = buildDraftStorageKey("thread-123");
-  assert.equal(key, "rentnow:msg:draft:thread-123");
+  assert.equal(key, "propatyhub:msg:draft:thread-123");
 });
 
 void test("shouldPersistDraft matches non-empty drafts", () => {

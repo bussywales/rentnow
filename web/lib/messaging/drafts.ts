@@ -1,4 +1,4 @@
-export const DRAFT_STORAGE_PREFIX = "rentnow:msg:draft:";
+export const DRAFT_STORAGE_PREFIX = "propatyhub:msg:draft:";
 
 export function buildDraftStorageKey(threadId: string): string {
   return `${DRAFT_STORAGE_PREFIX}${threadId}`;

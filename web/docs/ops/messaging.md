@@ -57,7 +57,7 @@ Quick replies:
 
 Drafts:
 - Drafts autosave per thread in localStorage.
-- Key format: `rentnow:msg:draft:<threadId>`.
+- Key format: `propatyhub:msg:draft:<threadId>`.
 - Drafts restore on load with a clear notice and can be cleared manually.
 - Drafts clear on successful send and reset if browser storage is cleared.
 

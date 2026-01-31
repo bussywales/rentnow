@@ -41,7 +41,7 @@ function ResetContent() {
     if (typeof window !== "undefined") {
       return window.location.origin.replace(/\/$/, "");
     }
-    return (process.env.NEXT_PUBLIC_SITE_URL || "https://www.rentnow.space").replace(/\/$/, "");
+    return (process.env.NEXT_PUBLIC_SITE_URL || "https://www.propatyhub.com").replace(/\/$/, "");
   };
 
   const parseHashTokens = () => {

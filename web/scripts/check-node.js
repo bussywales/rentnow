@@ -18,7 +18,7 @@ const isValid =
 
 if (!isValid) {
   console.error(
-    `Node ${version} detected. RentNow requires Node >=${REQUIRED_MAJOR}.${REQUIRED_MINOR}.0. ` +
+    `Node ${version} detected. PropatyHub requires Node >=${REQUIRED_MAJOR}.${REQUIRED_MINOR}.0. ` +
       "Please upgrade your local Node version (e.g. `nvm use 20.19.6`)."
   );
   process.exit(1);

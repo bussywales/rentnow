@@ -70,7 +70,7 @@ test.describe("Dashboard messages inbox", () => {
           body: JSON.stringify({
             code: "CONTACT_EXCHANGE_BLOCKED",
             message:
-              "For your safety, contact details can't be shared in messages. Please keep communication in RentNow.",
+              "For your safety, contact details can't be shared in messages. Please keep communication in PropatyHub.",
           }),
         });
         return;

@@ -1,6 +1,6 @@
 # Admin Ops Console
 
-RentNow admin operations are split into clear workspaces with URL-driven state and zero silent failures.
+PropatyHub admin operations are split into clear workspaces with URL-driven state and zero silent failures.
 
 ## Routes & purpose
 - `/admin` — **Overview cockpit** (monitor-only).

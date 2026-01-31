@@ -26,10 +26,10 @@ const nextConfig: NextConfig = {
         has: [
           {
             type: "host",
-            value: "rentnow.space",
+            value: "propatyhub.com",
           },
         ],
-        destination: "https://www.rentnow.space/:path*",
+        destination: "https://www.propatyhub.com/:path*",
         permanent: true,
       },
     ];

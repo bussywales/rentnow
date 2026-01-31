@@ -1,6 +1,6 @@
 # Security Access Matrix
 
-This doc summarizes data access rules for RENTNOW (API + RLS). "Published" means `is_approved = true` and `is_active = true`.
+This doc summarizes data access rules for PROPATYHUB (API + RLS). "Published" means `is_approved = true` and `is_active = true`.
 
 ## Data Model + API Touchpoints
 

@@ -1,4 +1,4 @@
-# RENTNOW (MVP)
+# PROPATYHUB (MVP)
 
 AI-first rental platform for the African market. This MVP is a web-only PWA built with Next.js (App Router), Supabase, Tailwind, OpenAI, and Leaflet.
 
@@ -49,8 +49,8 @@ npm install
 ```
 3) Env vars: copy `.env.local.example` -> `.env.local` and fill in (OpenAI is optional; AI routes return safe fallbacks if the key is missing):
 ```
-NEXT_PUBLIC_SITE_URL=https://www.rentnow.space
-SITE_URL=https://www.rentnow.space
+NEXT_PUBLIC_SITE_URL=https://www.propatyhub.com
+SITE_URL=https://www.propatyhub.com
 NEXT_PUBLIC_SUPABASE_URL=...
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SUPABASE_URL=...                # server-side use
@@ -96,7 +96,7 @@ Tables: `profiles`, `properties`, `property_images`, `saved_properties`, `messag
 - Vercel for the Next.js app (add env vars in project settings).
 - CI/Vercel uses Node 20+ via `package.json` engines and the `check-node.mjs` preinstall guard.
 - Required envs for prod: `NEXT_PUBLIC_SITE_URL`, `SITE_URL` (optional), Supabase URL/keys, and bucket name. Optional `OPENAI_API_KEY` for AI routes.
-- Supabase RLS: apply `supabase/rls_policies.sql` in the Supabase SQL editor after seeding schema; keep canonical host (`https://www.rentnow.space`) in Supabase Auth redirect URLs.
+- Supabase RLS: apply `supabase/rls_policies.sql` in the Supabase SQL editor after seeding schema; keep canonical host (`https://www.propatyhub.com`) in Supabase Auth redirect URLs.
 - Supabase for DB/Auth/Storage (free tier). Allow `*.vercel.app` origins in Auth settings.
 - Health: `/api/health` returns `{ ok, supabase, error? }` (use for uptime/alerting).
 - Releases: tag deployments as `vX.Y.Z` after merging to `main` and bump `package.json`/`package-lock.json`. Example: `git tag v0.2.3 && git push origin v0.2.3`.
@@ -112,4 +112,4 @@ Tables: `profiles`, `properties`, `property_images`, `saved_properties`, `messag
 ## Support
 - Status & release notes: `/support`
 - Runtime env check: `/api/debug/env`
-- Contact: hello@rentnow.africa
+- Contact: hello@propatyhub.com

@@ -1,4 +1,4 @@
--- RENTNOW schema (Supabase / Postgres)
+-- PROPATYHUB schema (Supabase / Postgres)
 
 -- ENUMS
 CREATE TYPE user_role AS ENUM ('tenant', 'landlord', 'agent', 'admin');

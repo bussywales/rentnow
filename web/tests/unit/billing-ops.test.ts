@@ -14,8 +14,8 @@ void test("maskIdentifier hides long identifiers and keeps short values", () => 
 
 void test("maskEmail hides local part and keeps domain", () => {
   assert.equal(maskEmail(null), "—");
-  assert.equal(maskEmail("a@rentnow.space"), "a***@rentnow.space");
-  assert.equal(maskEmail("support@rentnow.space"), "su***@rentnow.space");
+  assert.equal(maskEmail("a@propatyhub.com"), "a***@propatyhub.com");
+  assert.equal(maskEmail("support@propatyhub.com"), "su***@propatyhub.com");
 });
 
 void test("buildBillingSnapshot normalizes plan and masks Stripe fields", () => {
@@ -75,7 +75,7 @@ void test("validateUpgradeRequestAction enforces admin role and reject reason", 
 void test("buildSupportSnapshot masks ids and includes recent events", () => {
   const snapshot = buildBillingSnapshot({
     profileId: "11111111-1111-1111-1111-111111111111",
-    email: "support@rentnow.space",
+    email: "support@propatyhub.com",
     role: "tenant",
     fullName: "Support User",
     plan: {
@@ -107,7 +107,7 @@ void test("buildSupportSnapshot masks ids and includes recent events", () => {
     ],
   });
 
-  assert.equal(supportSnapshot.email, "su***@rentnow.space");
+  assert.equal(supportSnapshot.email, "su***@propatyhub.com");
   assert.equal(supportSnapshot.open_upgrade_requests, 2);
   assert.equal(supportSnapshot.recent_events.length, 1);
   assert.equal(supportSnapshot.recent_events[0].event_id, "evt_12...7890");
