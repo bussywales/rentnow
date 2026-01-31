@@ -9,8 +9,7 @@ import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { RequestViewingCtaSection } from "@/components/viewings/RequestViewingCtaSection";
-import { TrustBadges } from "@/components/trust/TrustBadges";
-import { TrustReliability } from "@/components/trust/TrustReliability";
+import { TrustIdentityPill } from "@/components/trust/TrustIdentityPill";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { getProfile } from "@/lib/auth";
@@ -658,8 +657,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
                   Verification
                 </p>
-                <TrustBadges markers={hostTrust} />
-                <TrustReliability markers={hostTrust} />
+                <TrustIdentityPill markers={hostTrust} />
                 {hostTrust.trust_updated_at && (
                   <p className="text-xs text-slate-500">
                     Updated {new Date(hostTrust.trust_updated_at).toLocaleDateString()}

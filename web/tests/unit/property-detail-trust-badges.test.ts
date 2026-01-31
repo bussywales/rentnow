@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-void test("property detail renders trust badges from snapshot", () => {
+void test("property detail renders identity trust pill from snapshot", () => {
   const pagePath = path.join(
     process.cwd(),
     "app",
@@ -13,10 +13,10 @@ void test("property detail renders trust badges from snapshot", () => {
   );
   const contents = fs.readFileSync(pagePath, "utf8");
 
-  assert.ok(contents.includes("TrustBadges"), "expected TrustBadges usage");
+  assert.ok(contents.includes("TrustIdentityPill"), "expected TrustIdentityPill usage");
   assert.ok(
     contents.includes("markers={hostTrust}"),
-    "expected TrustBadges to receive hostTrust"
+    "expected TrustIdentityPill to receive hostTrust"
   );
   assert.ok(
     contents.includes("fetchTrustPublicSnapshots"),
@@ -24,7 +24,7 @@ void test("property detail renders trust badges from snapshot", () => {
   );
 });
 
-void test("property detail hides trust badges when snapshot is missing", () => {
+void test("property detail hides trust pill when snapshot is missing", () => {
   const pagePath = path.join(
     process.cwd(),
     "app",
@@ -36,7 +36,7 @@ void test("property detail hides trust badges when snapshot is missing", () => {
 
   assert.ok(
     contents.includes("hostTrust &&"),
-    "expected trust badges to render only when hostTrust is present"
+    "expected trust pill to render only when hostTrust is present"
   );
 });
 

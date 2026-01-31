@@ -1,5 +1,9 @@
 # Versions
 
+## 2026-01-31 — vR16.10.x-trust-pill-property-detail
+- Public property detail host card now shows a single identity trust pill (verified/pending) instead of detailed verification chips.
+- Admin/host surfaces retain full TrustBadges; no verification logic changes.
+
 ## 2026-01-27 — vR16.9b.24-admin-review-hardening
 - Locked admin review queue to contract constants (queue/detail/media).
 - Added runbook, postmortem, schema allowlists, and contract tests to block phantom columns.
