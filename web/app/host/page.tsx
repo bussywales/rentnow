@@ -16,6 +16,7 @@ import type { TrustMarkerState } from "@/lib/trust-markers";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import { computeDashboardListings } from "@/lib/properties/host-dashboard";
 import { HostDashboardContent } from "@/components/host/HostDashboardContent";
+import { getVerificationStatus } from "@/lib/verification/status";
 
 export const dynamic = "force-dynamic";
 
@@ -92,7 +93,17 @@ export default async function DashboardHome() {
           .eq("id", user.id)
           .maybeSingle();
         role = profile?.role ?? null;
-        trustMarkers = (profile as TrustMarkerState | null) ?? null;
+        if (profile) {
+          const verification = await getVerificationStatus({ userId: user.id });
+          trustMarkers = {
+            ...(profile as TrustMarkerState),
+            email_verified: verification.email.verified,
+            phone_verified: verification.phone.verified,
+            bank_verified: verification.bank.verified,
+          };
+        } else {
+          trustMarkers = null;
+        }
         if (!role) {
           redirect("/onboarding");
         }

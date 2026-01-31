@@ -16,7 +16,6 @@ export type TrustBadgeItem = {
 
 export function isIdentityVerified(markers?: TrustMarkerState | null): boolean {
   if (!markers) return false;
-  if (markers.bank_verified) return true;
   if (markers.email_verified && markers.phone_verified) return true;
   return false;
 }

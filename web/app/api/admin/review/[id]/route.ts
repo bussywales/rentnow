@@ -10,6 +10,7 @@ import {
   normalizeSelect,
 } from "@/lib/admin/admin-review-contracts";
 import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
+import { getVerificationStatus } from "@/lib/verification/status";
 
 export const dynamic = "force-dynamic";
 
@@ -71,10 +72,23 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
     actor_name: row.actor_id ? actorMap[row.actor_id] ?? null : null,
   }));
 
+  const detailRow = detailRes.data as { owner_id?: string | null };
+  const ownerId = detailRow?.owner_id ?? null;
+  const ownerStatus = ownerId ? await getVerificationStatus({ userId: ownerId }) : null;
+  const ownerVerification = ownerStatus
+    ? {
+        overall: ownerStatus.overall,
+        email: ownerStatus.email,
+        phone: ownerStatus.phone,
+        bank: ownerStatus.bank,
+      }
+    : null;
+
   return NextResponse.json({
     listing: detailRes.data,
     images: imagesRes.data ?? [],
     videos: videosRes.data ?? [],
     activity,
+    owner_verification: ownerVerification,
   });
 }

@@ -97,6 +97,25 @@ const detailSchema = z.object({
       })
     )
     .optional(),
+  owner_verification: z
+    .object({
+      overall: z.enum(["verified", "pending"]),
+      email: z.object({
+        verified: z.boolean(),
+        verifiedAt: z.string().nullable().optional(),
+      }),
+      phone: z.object({
+        verified: z.boolean(),
+        verifiedAt: z.string().nullable().optional(),
+        phoneE164: z.string().nullable().optional(),
+      }),
+      bank: z.object({
+        verified: z.boolean(),
+        verifiedAt: z.string().nullable().optional(),
+        provider: z.string().nullable().optional(),
+      }),
+    })
+    .optional(),
 });
 
 function ChecklistChip({ status }: { status: "pass" | "needs_fix" | "blocker" | null | undefined }) {
@@ -148,6 +167,8 @@ export function AdminReviewDrawer({
   const [detailData, setDetailData] = useState<z.infer<typeof detailSchema> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [bankUpdating, setBankUpdating] = useState(false);
+  const [bankUpdateError, setBankUpdateError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<
     { id: string; name: string; reasons?: ReviewReasonCode[]; message?: string }[]
   >([]);
@@ -250,6 +271,8 @@ export function AdminReviewDrawer({
   const heroUrl = detail?.listing.cover_image_url ?? listing?.coverImageUrl ?? null;
   const submittedAt = detail?.listing.submitted_at ?? listing?.submitted_at ?? null;
   const updatedAt = detail?.listing.updated_at ?? listing?.updatedAt ?? null;
+  const ownerVerification = detail?.owner_verification ?? null;
+  const ownerId = detail?.listing.owner_id ?? listing?.ownerId ?? null;
 
   const toggleReason = (code: ReviewReasonCode) => {
     setReasons((prev) => {
@@ -261,6 +284,51 @@ export function AdminReviewDrawer({
       return next;
     });
   };
+
+  const handleToggleBankVerification = useCallback(async () => {
+    if (!ownerId || !ownerVerification) return;
+    setBankUpdateError(null);
+    setBankUpdating(true);
+    try {
+      const res = await fetch("/api/admin/verifications/bank/mark", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: ownerId,
+          verified: !ownerVerification.bank.verified,
+        }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setBankUpdateError(data?.error || "Unable to update bank verification.");
+        return;
+      }
+      setDetailData((prev) => {
+        if (!prev?.owner_verification) return prev;
+        const nextBankVerified = !prev.owner_verification.bank.verified;
+        return {
+          ...prev,
+          owner_verification: {
+            ...prev.owner_verification,
+            bank: {
+              ...prev.owner_verification.bank,
+              verified: nextBankVerified,
+              verifiedAt: nextBankVerified ? new Date().toISOString() : null,
+              provider: nextBankVerified ? "manual" : null,
+            },
+            overall:
+              prev.owner_verification.email.verified && prev.owner_verification.phone.verified
+                ? "verified"
+                : "pending",
+          },
+        };
+      });
+    } catch (err) {
+      setBankUpdateError(err instanceof Error ? err.message : "Unable to update bank verification.");
+    } finally {
+      setBankUpdating(false);
+    }
+  }, [ownerId, ownerVerification]);
 
   const handleSendRequest = useCallback(async () => {
     if (!listing) return;
@@ -506,6 +574,30 @@ export function AdminReviewDrawer({
               {updatedAt && <span>Updated: {updatedAt}</span>}
               {detailLoading && <span>Loading details…</span>}
             </div>
+            {ownerVerification && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-600">
+                <span className="rounded-full bg-slate-100 px-2 py-0.5">
+                  Email {ownerVerification.email.verified ? "✓" : "—"}
+                </span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5">
+                  Phone {ownerVerification.phone.verified ? "✓" : "—"}
+                </span>
+                <span className="rounded-full bg-slate-100 px-2 py-0.5">
+                  Bank {ownerVerification.bank.verified ? "✓" : "—"}
+                </span>
+                {ownerId && (
+                  <button
+                    type="button"
+                    onClick={handleToggleBankVerification}
+                    disabled={bankUpdating}
+                    className="rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600 hover:text-slate-900 disabled:opacity-50"
+                  >
+                    {ownerVerification.bank.verified ? "Mark bank unverified" : "Mark bank verified"}
+                  </button>
+                )}
+                {bankUpdateError && <span className="text-rose-600">{bankUpdateError}</span>}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2 text-xs text-slate-600">
             <button

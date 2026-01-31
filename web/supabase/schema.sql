@@ -131,6 +131,36 @@ CREATE TABLE public.message_thread_reads (
 CREATE INDEX idx_message_thread_reads_user ON public.message_thread_reads (user_id);
 CREATE INDEX idx_message_thread_reads_thread ON public.message_thread_reads (thread_id);
 
+-- USER VERIFICATIONS
+CREATE TABLE public.user_verifications (
+  user_id UUID PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
+  email_verified_at TIMESTAMPTZ,
+  phone_e164 TEXT,
+  phone_verified_at TIMESTAMPTZ,
+  bank_verified_at TIMESTAMPTZ,
+  bank_provider TEXT,
+  bank_metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_user_verifications_updated_at ON public.user_verifications (updated_at DESC);
+
+-- VERIFICATION OTPS
+CREATE TABLE public.verification_otps (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  kind TEXT NOT NULL CHECK (kind IN ('phone_email_fallback')),
+  target TEXT NOT NULL,
+  code_hash TEXT NOT NULL,
+  expires_at TIMESTAMPTZ NOT NULL,
+  consumed_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_verification_otps_user ON public.verification_otps (user_id, created_at DESC);
+CREATE INDEX idx_verification_otps_target ON public.verification_otps (target, created_at DESC);
+
 -- APP SETTINGS
 CREATE TABLE public.app_settings (
   key TEXT PRIMARY KEY,

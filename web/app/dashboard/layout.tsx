@@ -111,6 +111,14 @@ export default async function DashboardLayout({
                 Leads
               </Link>
             )}
+            {!isTenant && (
+              <Link
+                href="/dashboard/settings/verification"
+                className="rounded-full bg-white/10 px-3 py-1"
+              >
+                Verification
+              </Link>
+            )}
             <Link href="/dashboard/viewings" className="rounded-full bg-white/10 px-3 py-1">
               Viewings
             </Link>

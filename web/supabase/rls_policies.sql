@@ -31,6 +31,12 @@ ALTER TABLE public.messages FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.message_threads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.message_threads FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.user_verifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_verifications FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE public.verification_otps ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.verification_otps FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE public.viewing_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.viewing_requests FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.viewing_requests ENABLE ROW LEVEL SECURITY;
@@ -52,6 +58,51 @@ ALTER TABLE public.profile_billing_notes FORCE ROW LEVEL SECURITY;
 
 ALTER TABLE public.plan_upgrade_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plan_upgrade_requests FORCE ROW LEVEL SECURITY;
+
+-- user_verifications: users manage their own rows; admins can read/write
+DROP POLICY IF EXISTS "user verifications select self" ON public.user_verifications;
+CREATE POLICY "user verifications select self" ON public.user_verifications
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "user verifications insert self" ON public.user_verifications;
+CREATE POLICY "user verifications insert self" ON public.user_verifications
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "user verifications update self" ON public.user_verifications;
+CREATE POLICY "user verifications update self" ON public.user_verifications
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "user verifications admin read" ON public.user_verifications;
+CREATE POLICY "user verifications admin read" ON public.user_verifications
+  FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+
+DROP POLICY IF EXISTS "user verifications admin write" ON public.user_verifications;
+CREATE POLICY "user verifications admin write" ON public.user_verifications
+  FOR UPDATE
+  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
+  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+
+-- verification_otps: self-managed (server routes should be used)
+DROP POLICY IF EXISTS "verification otps insert self" ON public.verification_otps;
+CREATE POLICY "verification otps insert self" ON public.verification_otps
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "verification otps select self" ON public.verification_otps;
+CREATE POLICY "verification otps select self" ON public.verification_otps
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "verification otps update self" ON public.verification_otps;
+CREATE POLICY "verification otps update self" ON public.verification_otps
+  FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
 
 -- Helpers (inline): is_admin checks the caller's profile role
 -- EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')

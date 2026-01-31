@@ -12,7 +12,7 @@ void test("identity trust label reflects verified state", () => {
   );
   assert.equal(
     getIdentityTrustLabel({ bank_verified: true }),
-    "Identity verified"
+    "Identity pending"
   );
   assert.equal(
     getIdentityTrustLabel({ email_verified: true, phone_verified: false }),
