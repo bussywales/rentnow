@@ -83,6 +83,7 @@ export function PropertyCard({
   const listingTypeLabel = formatListingType(property.listing_type);
   const sizeLabel = formatSizeLabel(property.size_value, property.size_unit);
   const metaLine = [listingTypeLabel, sizeLabel].filter(Boolean).join(" \u00b7 ");
+  const listingIntent = property.listing_intent ?? "rent";
   const description =
     typeof property.description === "string" && property.description.trim().length > 0
       ? property.description
@@ -124,7 +125,11 @@ export function PropertyCard({
             </h3>
           </div>
           <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-slate-700 whitespace-nowrap shrink-0">
-            {property.rental_type === "short_let" ? "Short-let" : "Long-term"}
+            {listingIntent === "buy"
+              ? "FOR SALE"
+              : property.rental_type === "short_let"
+                ? "Short-let"
+                : "Long-term"}
           </span>
         </div>
         <p className="min-h-[40px] text-sm text-slate-600 line-clamp-2">

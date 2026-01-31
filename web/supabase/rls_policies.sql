@@ -22,6 +22,9 @@ ALTER TABLE public.saved_searches FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_settings FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.listing_leads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.listing_leads FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages FORCE ROW LEVEL SECURITY;
 
@@ -83,6 +86,41 @@ CREATE POLICY "app_settings_no_mutation_auth" ON public.app_settings
   TO authenticated
   USING (false)
   WITH CHECK (false);
+
+-- listing_leads: buyer/owner/admin read; buyer insert; owner/admin update
+DROP POLICY IF EXISTS "listing_leads_select" ON public.listing_leads;
+CREATE POLICY "listing_leads_select" ON public.listing_leads
+  FOR SELECT
+  USING (
+    auth.uid() = buyer_id
+    OR auth.uid() = owner_id
+    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+  );
+
+DROP POLICY IF EXISTS "listing_leads_insert" ON public.listing_leads;
+CREATE POLICY "listing_leads_insert" ON public.listing_leads
+  FOR INSERT
+  WITH CHECK (
+    auth.uid() = buyer_id
+    AND EXISTS (
+      SELECT 1 FROM public.properties p
+      WHERE p.id = property_id
+        AND p.is_approved = TRUE
+        AND p.is_active = TRUE
+    )
+  );
+
+DROP POLICY IF EXISTS "listing_leads_update" ON public.listing_leads;
+CREATE POLICY "listing_leads_update" ON public.listing_leads
+  FOR UPDATE
+  USING (
+    auth.uid() = owner_id
+    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+  )
+  WITH CHECK (
+    auth.uid() = owner_id
+    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+  );
 
 -- agent_delegations: agents/landlords can see their delegations
 DROP POLICY IF EXISTS "agent delegations select" ON public.agent_delegations;

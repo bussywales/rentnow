@@ -68,6 +68,7 @@ export const updateSchema = z.object({
     .optional()
     .nullable(),
   rental_type: z.enum(["short_let", "long_term"]).optional(),
+  listing_intent: z.enum(["rent", "buy"]).optional().nullable(),
   price: z.number().positive().optional(),
   currency: z.string().min(2).optional(),
   rent_period: z.enum(["monthly", "yearly"]).optional(),
@@ -636,6 +637,8 @@ export async function PUT(
     });
     const normalizedRest = {
       ...rest,
+      listing_intent:
+        typeof rest.listing_intent === "undefined" ? undefined : rest.listing_intent ?? "rent",
       listing_type: typeof rest.listing_type === "undefined" ? undefined : rest.listing_type,
       country: countryFields.country,
       country_code: countryFields.country_code,

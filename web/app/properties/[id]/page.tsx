@@ -416,6 +416,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   const priceValue = formatPriceValue(property.currency, property.price);
   const cadence = formatCadence(property.rental_type, property.rent_period);
   const listingTypeLabel = formatListingType(property.listing_type);
+  const listingIntent = property.listing_intent ?? "rent";
   const sizeLabel =
     typeof property.size_value === "number" && property.size_value > 0
       ? formatSizeLabel(property.size_value, property.size_unit)
@@ -537,7 +538,11 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
         </div>
         <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-            {property.rental_type === "short_let" ? "Short-let" : "Long-term"}
+            {listingIntent === "buy"
+              ? "For sale"
+              : property.rental_type === "short_let"
+                ? "Short-let"
+                : "Long-term"}
           </p>
           <h1 className="text-2xl font-semibold text-slate-900">{property.title}</h1>
           <p className="text-sm text-slate-600">{locationLabel}</p>
@@ -672,7 +677,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </p>
             </div>
           )}
-          {isTenant && (
+          {isTenant && listingIntent !== "buy" && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Viewing requests</h3>
@@ -681,6 +686,20 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                 <RequestViewingCtaSection
                   propertyId={property.id}
                   timezoneLabel={timezoneText}
+                />
+              </div>
+            </div>
+          )}
+          {isTenant && listingIntent === "buy" && (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-semibold text-slate-900">Enquire to buy</h3>
+              </div>
+              <div className="mt-3">
+                <RequestViewingCtaSection
+                  propertyId={property.id}
+                  timezoneLabel={timezoneText}
+                  listingIntent="buy"
                 />
               </div>
             </div>

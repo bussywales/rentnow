@@ -4,6 +4,8 @@ export type RentalType = "short_let" | "long_term";
 
 export type RentPeriod = "monthly" | "yearly";
 
+export type ListingIntent = "rent" | "buy";
+
 export type ListingType =
   | "apartment"
   | "house"
@@ -81,6 +83,7 @@ export interface Property {
   location_precision?: string | null;
   listing_type?: ListingType | null;
   rental_type: RentalType;
+  listing_intent?: ListingIntent | null;
   price: number;
   currency: string;
   rent_period?: RentPeriod | null;

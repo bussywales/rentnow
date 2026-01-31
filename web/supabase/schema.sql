@@ -32,6 +32,7 @@ CREATE TABLE public.properties (
   latitude DOUBLE PRECISION,
   longitude DOUBLE PRECISION,
   rental_type rental_type NOT NULL,
+  listing_intent TEXT NOT NULL DEFAULT 'rent',
   price NUMERIC(12,2) NOT NULL,
   currency TEXT NOT NULL DEFAULT 'USD',
   bedrooms INT NOT NULL DEFAULT 0,
@@ -135,6 +136,31 @@ CREATE TABLE public.app_settings (
   value JSONB NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- LISTING LEADS
+CREATE TABLE public.listing_leads (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
+  owner_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  buyer_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  thread_id UUID REFERENCES public.message_threads (id) ON DELETE SET NULL,
+  status TEXT NOT NULL DEFAULT 'NEW',
+  intent TEXT NOT NULL DEFAULT 'BUY',
+  budget_min NUMERIC,
+  budget_max NUMERIC,
+  financing_status TEXT,
+  timeline TEXT,
+  message TEXT NOT NULL,
+  message_original TEXT,
+  contact_exchange_flags JSONB,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_listing_leads_property ON public.listing_leads (property_id);
+CREATE INDEX idx_listing_leads_owner ON public.listing_leads (owner_id, created_at desc);
+CREATE INDEX idx_listing_leads_buyer ON public.listing_leads (buyer_id, created_at desc);
+CREATE INDEX idx_listing_leads_status ON public.listing_leads (status);
 
 -- VIEWING REQUESTS
 CREATE TABLE public.viewing_requests (

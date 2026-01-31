@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { RequestViewingButton } from "@/components/viewings/RequestViewingButton";
+import { EnquireToBuyButton } from "@/components/leads/EnquireToBuyButton";
 
 type LatestStatus = {
   id: string;
@@ -15,6 +16,7 @@ type LatestStatus = {
 type Props = {
   propertyId: string;
   timezoneLabel?: string;
+  listingIntent?: "rent" | "buy";
 };
 
 type ContextCopy = {
@@ -53,10 +55,15 @@ function mapContext(status: string | null): ContextCopy {
   };
 }
 
-export function RequestViewingCtaSection({ propertyId, timezoneLabel }: Props) {
+export function RequestViewingCtaSection({
+  propertyId,
+  timezoneLabel,
+  listingIntent = "rent",
+}: Props) {
   const [latest, setLatest] = useState<LatestStatus | null>(null);
 
   useEffect(() => {
+    if (listingIntent === "buy") return;
     const load = async () => {
       try {
         const res = await fetch(`/api/viewings/tenant/latest?propertyId=${propertyId}`, {
@@ -70,9 +77,12 @@ export function RequestViewingCtaSection({ propertyId, timezoneLabel }: Props) {
       }
     };
     load();
-  }, [propertyId]);
+  }, [listingIntent, propertyId]);
 
-  const context = mapContext(latest?.status ?? null);
+  const context =
+    listingIntent === "buy"
+      ? { title: "Ready to buy?", body: "Send a verified enquiry to the host or agent." }
+      : mapContext(latest?.status ?? null);
 
   return (
     <div className="space-y-3">
@@ -81,13 +91,19 @@ export function RequestViewingCtaSection({ propertyId, timezoneLabel }: Props) {
         {context.body && <p className="text-sm text-slate-600">{context.body}</p>}
       </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-        <RequestViewingButton propertyId={propertyId} />
-        <Link
-          href="/tenant/viewings"
-          className="text-sm font-semibold text-sky-700 hover:underline"
-        >
-          Track viewings
-        </Link>
+        {listingIntent === "buy" ? (
+          <EnquireToBuyButton propertyId={propertyId} />
+        ) : (
+          <>
+            <RequestViewingButton propertyId={propertyId} />
+            <Link
+              href="/tenant/viewings"
+              className="text-sm font-semibold text-sky-700 hover:underline"
+            >
+              Track viewings
+            </Link>
+          </>
+        )}
       </div>
       {timezoneLabel && <p className="text-xs text-slate-500">{timezoneLabel}</p>}
     </div>

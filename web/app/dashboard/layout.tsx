@@ -106,6 +106,11 @@ export default async function DashboardLayout({
                 )}
               </span>
             </Link>
+            {showMyProperties && (
+              <Link href="/dashboard/leads" className="rounded-full bg-white/10 px-3 py-1">
+                Leads
+              </Link>
+            )}
             <Link href="/dashboard/viewings" className="rounded-full bg-white/10 px-3 py-1">
               Viewings
             </Link>

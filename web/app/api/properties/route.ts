@@ -52,6 +52,7 @@ export const propertySchema = z.object({
     .optional()
     .nullable(),
   rental_type: z.enum(["short_let", "long_term"]),
+  listing_intent: z.enum(["rent", "buy"]).optional().nullable(),
   price: z.number().positive(),
   currency: z.string().min(2),
   rent_period: z.enum(["monthly", "yearly"]).optional(),
@@ -193,6 +194,7 @@ export async function POST(request: Request) {
       location_place_id: cleanNullableString(rest.location_place_id, { allowUndefined: false }),
       location_source: cleanNullableString(rest.location_source, { allowUndefined: false }),
       location_precision: cleanNullableString(rest.location_precision, { allowUndefined: false }),
+      listing_intent: rest.listing_intent ?? "rent",
       listing_type: rest.listing_type ?? null,
       country,
       country_code,

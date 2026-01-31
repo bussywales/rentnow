@@ -223,6 +223,12 @@ export default async function AdminOverviewPage() {
             Listings registry
           </Link>
           <Link
+            href="/admin/leads"
+            className="inline-flex items-center justify-center rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
+          >
+            Leads
+          </Link>
+          <Link
             href="/admin/users"
             className="inline-flex items-center justify-center rounded-lg bg-white/15 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-white/25"
           >
