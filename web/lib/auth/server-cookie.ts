@@ -52,7 +52,9 @@ export function getServerAuthCookieDefaults(request?: NextRequest | null) {
   const host = resolveHostFromRequest(request);
   const secure = process.env.NODE_ENV === "production" && !isLocalhost(host);
   const domain =
-    host && host.endsWith(RENTNOW_DOMAIN) ? `.${RENTNOW_DOMAIN}` : undefined;
+    process.env.NODE_ENV === "production" && host && host.endsWith(RENTNOW_DOMAIN)
+      ? `.${RENTNOW_DOMAIN}`
+      : undefined;
   return {
     path: "/",
     sameSite: "lax" as const,

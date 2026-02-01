@@ -1,5 +1,3 @@
-import { headers } from "next/headers";
-
 export const DEV_MOCKS =
   process.env.NODE_ENV !== "production" &&
   process.env.NEXT_PUBLIC_ENABLE_DEV_MOCKS === "true";
@@ -15,24 +13,6 @@ function normalizeBaseUrl(value?: string | null) {
 }
 
 let loggedMissingPublicSiteUrl = false;
-
-async function getHeaderBaseUrl() {
-  try {
-    const store = await headers();
-    const host = store?.get?.("x-forwarded-host") || store?.get?.("host");
-    const forwardedProto = store?.get?.("x-forwarded-proto");
-    const proto =
-      forwardedProto ||
-      (host && (host.startsWith("localhost") || host.startsWith("127.0.0.1"))
-        ? "http"
-        : "https");
-    if (host) return `${proto}://${host}`.replace(/\/$/, "");
-  } catch {
-    // headers() can throw during build-time execution; fall through to null.
-  }
-
-  return null;
-}
 
 export function getEnvPresence() {
   return {
@@ -58,50 +38,44 @@ export function getEnvPresence() {
   };
 }
 
+function resolveConfiguredSiteUrl() {
+  const siteUrl = normalizeBaseUrl(process.env.SITE_URL);
+  if (siteUrl) return siteUrl;
+  const publicUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_SITE_URL);
+  if (publicUrl) return publicUrl;
+  const vercelUrl = process.env.VERCEL_URL
+    ? normalizeBaseUrl(`https://${process.env.VERCEL_URL}`)
+    : null;
+  if (vercelUrl) return vercelUrl;
+  return null;
+}
+
 export async function getApiBaseUrl() {
-  const envUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_SITE_URL);
+  const envUrl = resolveConfiguredSiteUrl();
   if (envUrl) return envUrl;
 
   if (process.env.NODE_ENV === "production") {
     if (!loggedMissingPublicSiteUrl) {
       console.error(
-        "[env] NEXT_PUBLIC_SITE_URL is missing in production; set it to https://www.propatyhub.com. Falling back to relative API URLs."
+        "[env] SITE_URL is missing in production; set it to https://www.propatyhub.com. Falling back to relative API URLs."
       );
       loggedMissingPublicSiteUrl = true;
     }
-    return "";
+    return "http://localhost:3000";
   }
 
-  return (
-    normalizeBaseUrl(process.env.SITE_URL) ||
-    normalizeBaseUrl(process.env.VERCEL_URL) ||
-    (await getHeaderBaseUrl()) ||
-    ""
-  );
+  return "http://localhost:3000";
 }
 
 export async function getSiteUrl(options?: { allowFallback?: boolean }) {
-  const envUrl =
-    normalizeBaseUrl(process.env.NEXT_PUBLIC_SITE_URL) ||
-    normalizeBaseUrl(process.env.SITE_URL) ||
-    normalizeBaseUrl(process.env.VERCEL_URL);
+  const envUrl = resolveConfiguredSiteUrl();
   if (envUrl) return envUrl;
-
-  const headerUrl = await getHeaderBaseUrl();
-  if (headerUrl) return headerUrl;
 
   if (options?.allowFallback === false) return "";
 
-  // Hard fallback to production host to avoid empty base URLs in server fetches.
-  return "https://www.propatyhub.com";
+  return "http://localhost:3000";
 }
 
 export async function getCanonicalBaseUrl() {
-  const envUrl = normalizeBaseUrl(process.env.NEXT_PUBLIC_SITE_URL);
-  if (envUrl) return envUrl;
-
-  const headerUrl = await getHeaderBaseUrl();
-  if (headerUrl) return headerUrl;
-
-  return "";
+  return getSiteUrl();
 }
