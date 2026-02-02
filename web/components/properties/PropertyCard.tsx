@@ -168,7 +168,7 @@ export function PropertyCard({
 
   if (href) {
     return (
-      <Link href={href} className="block h-full">
+      <Link href={href} className="block h-full scroll-mt-16">
         {body}
       </Link>
     );

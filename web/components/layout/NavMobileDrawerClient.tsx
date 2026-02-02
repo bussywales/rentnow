@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
 import { resolveNavLinks, type NavLink, isActiveHref } from "@/components/layout/NavLinksClient";
+import { BrandLogo } from "@/components/branding/BrandLogo";
 
 type Props = {
   links: NavLink[];
@@ -160,7 +161,7 @@ export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Pro
               <div
                 className="flex items-center justify-between px-4 pb-4 pt-[calc(env(safe-area-inset-top)+1rem)]"
               >
-                <p className="text-sm font-semibold text-slate-900">Menu</p>
+                <BrandLogo variant="header" size="sm" />
                 <button
                   ref={closeButtonRef}
                   type="button"

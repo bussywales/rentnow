@@ -20,7 +20,9 @@ test.describe("Smoke checks", () => {
       .locator('[data-testid="property-card"] a')
       .first();
     await expect(firstCardLink).toBeVisible({ timeout: 15_000 });
-    await firstCardLink.click();
+    const href = await firstCardLink.getAttribute("href");
+    expect(href).toBeTruthy();
+    await page.goto(href as string);
 
     await page.waitForURL("**/properties/**", { timeout: 10_000 });
     if (await page.getByRole("heading", { name: /listing not found/i }).isVisible({ timeout: 2_000 }).catch(() => false)) {

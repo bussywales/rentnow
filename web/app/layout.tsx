@@ -6,7 +6,11 @@ import { Footer } from "@/components/layout/Footer";
 import { ToastNotice } from "@/components/layout/ToastNotice";
 import { OfflineIndicator } from "@/components/layout/OfflineIndicator";
 import { PwaServiceWorker } from "@/components/layout/PwaServiceWorker";
-import { BRAND } from "@/lib/brand";
+import {
+  BRAND,
+  BRAND_NAME,
+  BRAND_OG_IMAGE,
+} from "@/lib/brand";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -21,14 +25,44 @@ const geistMono = Geist_Mono({
   preload: false,
 });
 
+const metadataDescription =
+  "Find, list, and manage rentals across Africa with verified listings and secure messaging.";
+
 export const metadata: Metadata = {
-  title: `${BRAND.name} | Rentals across Africa`,
-  description:
-    "Find and manage homes across Africa and beyond with verified listings and secure messaging.",
+  metadataBase: new URL(BRAND.siteUrl),
+  title: {
+    default: BRAND_NAME,
+    template: `%s | ${BRAND_NAME}`,
+  },
+  description: metadataDescription,
+  openGraph: {
+    type: "website",
+    siteName: BRAND_NAME,
+    title: BRAND_NAME,
+    description: metadataDescription,
+    url: BRAND.siteUrl,
+    images: [
+      {
+        url: BRAND_OG_IMAGE,
+        width: 1200,
+        height: 630,
+        alt: `${BRAND_NAME} preview`,
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: BRAND_NAME,
+    description: metadataDescription,
+    images: [BRAND_OG_IMAGE],
+  },
   icons: {
-    icon: "/icons/icon-192.png",
-    shortcut: "/icons/icon-192.png",
-    apple: "/icons/icon-192.png",
+    icon: [
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
   },
   manifest: "/manifest.webmanifest",
 };

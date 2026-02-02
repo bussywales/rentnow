@@ -1,6 +1,4 @@
-import Image from "next/image";
-import Link from "next/link";
-import { BRAND } from "@/lib/brand";
+import { BrandLogo as NewBrandLogo } from "@/components/branding/BrandLogo";
 
 type Props = {
   href?: string;
@@ -9,6 +7,13 @@ type Props = {
   className?: string;
 };
 
+function mapSize(size?: number) {
+  if (!size) return "md";
+  if (size <= 24) return "sm";
+  if (size >= 36) return "lg";
+  return "md";
+}
+
 export function BrandLogo({
   href = "/",
   size = 28,
@@ -16,17 +21,11 @@ export function BrandLogo({
   className,
 }: Props) {
   return (
-    <Link href={href} className={className ?? "flex items-center gap-2 font-semibold"}>
-      <Image
-        src={BRAND.logo.light}
-        alt={BRAND.name}
-        width={size}
-        height={size}
-        priority
-      />
-      {showWordmark && (
-        <span className="text-xl text-sky-600">{BRAND.shortName}</span>
-      )}
-    </Link>
+    <NewBrandLogo
+      href={href}
+      size={mapSize(size)}
+      variant={showWordmark ? "header" : "minimal"}
+      className={className}
+    />
   );
 }
