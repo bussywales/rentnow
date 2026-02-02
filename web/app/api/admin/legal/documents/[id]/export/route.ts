@@ -88,7 +88,8 @@ export async function GET(request: Request, { params }: RouteContext) {
       ? "inline"
       : "attachment";
 
-  return new Response(buffer, {
+  const body = new Uint8Array(buffer);
+  return new Response(body, {
     headers: {
       "Content-Type": contentType,
       "Content-Disposition": `${disposition}; filename=\"${fileName}\"`,
