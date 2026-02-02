@@ -35,6 +35,9 @@ export interface Profile {
   full_name?: string | null;
   phone?: string | null;
   city?: string | null;
+  country?: string | null;
+  country_code?: string | null;
+  jurisdiction?: string | null;
   avatar_url?: string | null;
   business_name?: string | null;
   preferred_contact?: string | null;
