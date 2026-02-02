@@ -65,8 +65,8 @@ export function HostAnalyticsPanel({
               href={`${baseHref}?range=${option.key}`}
               className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                 rangeKey === option.key
-                  ? "bg-slate-900 text-white"
-                  : "border border-slate-200 text-slate-600 hover:border-slate-300"
+                  ? "bg-slate-900 !text-white shadow-sm ring-1 ring-slate-900/60"
+                  : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:border-slate-300"
               }`}
             >
               {option.label}
