@@ -76,6 +76,19 @@ void test("pdf export returns a buffer for non-empty content", async () => {
   assert.ok(buffer.length > 0);
 });
 
+void test("pdf export sanitizes unicode punctuation", async () => {
+  const buffer = await renderLegalPdf({
+    title: "Test ⸻ Export",
+    version: 3,
+    jurisdiction: "NG",
+    audience: "MASTER",
+    content_md: "Section ⸻ with unicode punctuation should still render.",
+  });
+
+  assert.ok(Buffer.isBuffer(buffer));
+  assert.ok(buffer.length > 0);
+});
+
 void test("legal acceptance inserts rows for required documents", async () => {
   let upsertPayload: Record<string, unknown>[] | null = null;
   let upsertOnConflict: string | null = null;

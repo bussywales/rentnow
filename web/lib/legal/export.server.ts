@@ -45,8 +45,70 @@ const PAGE_MARGIN = 50;
 const BODY_FONT_SIZE = 11;
 const LINE_HEIGHT_FACTOR = 1.25;
 
+type PdfSanitizeStats = {
+  replacedCount: number;
+  replacedChars: Set<string>;
+};
+
 function sanitizeMarkdownForPdf(markdown: string): string {
   return markdown.replace(/\[(.+?)\]\((.+?)\)/g, "$1 ($2)");
+}
+
+function sanitizePdfText(
+  text: string,
+  font: PDFFont,
+  stats: PdfSanitizeStats,
+  cache: Map<string, boolean>
+): string {
+  let next = text;
+
+  const replaceAndCount = (pattern: RegExp, replacement: string) => {
+    let replaced = 0;
+    next = next.replace(pattern, (match) => {
+      replaced += 1;
+      stats.replacedChars.add(match);
+      return replacement;
+    });
+    stats.replacedCount += replaced;
+  };
+
+  replaceAndCount(/[⸻—–―−]/g, "-");
+  replaceAndCount(/[“”]/g, "\"");
+  replaceAndCount(/[‘’]/g, "'");
+  replaceAndCount(/[•‣]/g, "-");
+  replaceAndCount(/…/g, "...");
+  replaceAndCount(/\u00A0/g, " ");
+
+  if (!next) return next;
+
+  let output = "";
+  for (const char of next) {
+    if (char === "\n" || char === "\r") {
+      output += char;
+      continue;
+    }
+    const cached = cache.get(char);
+    let encodable = cached;
+    if (encodable === undefined) {
+      try {
+        font.encodeText(char);
+        encodable = true;
+      } catch {
+        encodable = false;
+      }
+      cache.set(char, encodable);
+    }
+
+    if (encodable) {
+      output += char;
+    } else {
+      stats.replacedCount += 1;
+      stats.replacedChars.add(char);
+      output += "?";
+    }
+  }
+
+  return output;
 }
 
 function breakLongWord(
@@ -198,14 +260,21 @@ export async function renderLegalPdf(input: LegalExportInput): Promise<Buffer> {
   const doc = await PDFDocument.create();
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  const sanitizeStats: PdfSanitizeStats = {
+    replacedCount: 0,
+    replacedChars: new Set(),
+  };
+  const encodeCache = new Map<string, boolean>();
+  const sanitize = (value: string, targetFont: PDFFont) =>
+    sanitizePdfText(value, targetFont, sanitizeStats, encodeCache);
   let layout = addPage(doc);
   const effectiveLabel = formatEffectiveDate(input.effective_at);
 
-  layout = drawCenteredLine(doc, layout, input.title, fontBold, 20);
+  layout = drawCenteredLine(doc, layout, sanitize(input.title, fontBold), fontBold, 20);
   layout = drawCenteredLine(
     doc,
     layout,
-    `Version ${input.version}`,
+    sanitize(`Version ${input.version}`, font),
     font,
     BODY_FONT_SIZE
   );
@@ -213,7 +282,7 @@ export async function renderLegalPdf(input: LegalExportInput): Promise<Buffer> {
     layout = drawCenteredLine(
       doc,
       layout,
-      `Effective ${effectiveLabel}`,
+      sanitize(`Effective ${effectiveLabel}`, font),
       font,
       BODY_FONT_SIZE
     );
@@ -225,21 +294,34 @@ export async function renderLegalPdf(input: LegalExportInput): Promise<Buffer> {
   blocks.forEach((block) => {
     if (block.type === "heading") {
       const size = block.level === 1 ? 14 : block.level === 2 ? 12 : BODY_FONT_SIZE;
-      layout = drawParagraph(doc, layout, block.text, fontBold, size);
+      layout = drawParagraph(doc, layout, sanitize(block.text, fontBold), fontBold, size);
       return;
     }
 
     if (block.type === "list") {
       block.items.forEach((item) => {
-        layout = drawParagraph(doc, layout, `• ${item}`, font, BODY_FONT_SIZE, 8);
+        layout = drawParagraph(
+          doc,
+          layout,
+          sanitize(`• ${item}`, font),
+          font,
+          BODY_FONT_SIZE,
+          8
+        );
       });
       return;
     }
 
-    layout = drawParagraph(doc, layout, block.text, font, BODY_FONT_SIZE);
+    layout = drawParagraph(doc, layout, sanitize(block.text, font), font, BODY_FONT_SIZE);
   });
 
   const pdfBytes = await doc.save();
+  if (sanitizeStats.replacedCount > 0) {
+    console.debug("Legal PDF sanitizer replaced characters", {
+      count: sanitizeStats.replacedCount,
+      samples: Array.from(sanitizeStats.replacedChars).slice(0, 5),
+    });
+  }
   return Buffer.from(pdfBytes);
 }
 
