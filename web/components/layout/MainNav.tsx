@@ -57,7 +57,10 @@ export async function MainNav() {
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur-lg">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <BrandLogo variant="header" size="md" />
+        <div className="flex items-center">
+          <BrandLogo variant="minimal" size="sm" className="sm:hidden" />
+          <BrandLogo variant="header" size="md" className="hidden sm:inline-flex" />
+        </div>
 
         <nav className="hidden items-center gap-6 text-sm text-slate-700 md:flex">
           <NavLinksClient links={MAIN_NAV_LINKS} initialAuthed={initialAuthed} initialRole={role} />

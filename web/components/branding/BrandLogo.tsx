@@ -8,7 +8,7 @@ import {
 } from "@/lib/brand";
 
 type BrandLogoVariant = "header" | "footer" | "auth" | "minimal";
-type BrandLogoSize = "sm" | "md" | "lg";
+type BrandLogoSize = "xs" | "sm" | "md" | "lg";
 
 type Props = {
   variant?: BrandLogoVariant;
@@ -18,18 +18,21 @@ type Props = {
 };
 
 const sizeMap: Record<BrandLogoSize, number> = {
+  xs: 20,
   sm: 24,
-  md: 28,
+  md: 32,
   lg: 40,
 };
 
 const textSizeMap: Record<BrandLogoSize, string> = {
+  xs: "text-sm",
   sm: "text-base",
-  md: "text-xl",
+  md: "text-lg",
   lg: "text-xl",
 };
 
 const gapMap: Record<BrandLogoSize, string> = {
+  xs: "gap-1.5",
   sm: "gap-2",
   md: "gap-2.5",
   lg: "gap-3",
@@ -80,7 +83,9 @@ export function BrandLogo({
           className="hidden h-auto w-auto dark:block"
         />
       )}
-      {showWordmark && <span className={cn(textSize, "tracking-tight")}>{BRAND_NAME}</span>}
+      {showWordmark && (
+        <span className={cn(textSize, "tracking-tight leading-none")}>{BRAND_NAME}</span>
+      )}
     </Link>
   );
 }
