@@ -96,7 +96,12 @@ export function PropertyCard({
         compact && "flex"
       )}
     >
-      <div className={cn("relative", compact ? "h-32 w-32 flex-none" : "h-52")}>
+      <div
+        className={cn(
+          "relative",
+          compact ? "h-32 w-32 flex-none" : "aspect-[4/3] w-full"
+        )}
+      >
         <Image
           src={imgSrc}
           alt={property.title}
@@ -124,15 +129,15 @@ export function PropertyCard({
               {property.title}
             </h3>
           </div>
-          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium uppercase tracking-wide text-slate-700 whitespace-nowrap shrink-0">
+          <span className="rounded-full border border-slate-200/70 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-slate-600 whitespace-nowrap shrink-0">
             {listingIntent === "buy"
-              ? "FOR SALE"
+              ? "For sale"
               : property.rental_type === "short_let"
                 ? "Short-let"
                 : "Long-term"}
           </span>
         </div>
-        <p className="min-h-[40px] text-sm text-slate-600 line-clamp-2">
+        <p className="min-h-[40px] text-sm text-slate-500 line-clamp-2">
           {description}
         </p>
         {trustMarkers &&
@@ -141,8 +146,8 @@ export function PropertyCard({
           ) : (
             <TrustIdentityPill markers={trustMarkers} />
           ))}
-        <div className="flex items-center justify-between text-sm text-slate-800">
-          <div className="font-semibold flex flex-wrap items-baseline gap-1">
+        <div className="flex items-center justify-between text-sm text-slate-700">
+          <div className="flex flex-wrap items-baseline gap-1 text-base font-semibold text-slate-900">
             {priceValue}
             {cadence && (
               <span className="text-xs font-normal text-slate-500 whitespace-nowrap">
@@ -150,7 +155,7 @@ export function PropertyCard({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3 text-xs text-slate-600">
+          <div className="flex items-center gap-3 text-xs text-slate-500">
             <span className="flex items-center gap-1">
               <BedIcon />
               {property.bedrooms}

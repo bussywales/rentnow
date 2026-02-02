@@ -10,8 +10,8 @@ type Props = {
 function mapSize(size?: number) {
   if (!size) return "md";
   if (size <= 20) return "xs";
-  if (size <= 24) return "sm";
-  if (size >= 36) return "lg";
+  if (size <= 26) return "sm";
+  if (size >= 34) return "lg";
   return "md";
 }
 

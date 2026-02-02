@@ -19,16 +19,16 @@ type Props = {
 
 const sizeMap: Record<BrandLogoSize, number> = {
   xs: 20,
-  sm: 24,
-  md: 32,
-  lg: 40,
+  sm: 26,
+  md: 28,
+  lg: 36,
 };
 
 const textSizeMap: Record<BrandLogoSize, string> = {
-  xs: "text-sm",
-  sm: "text-base",
-  md: "text-base",
-  lg: "text-lg",
+  xs: "text-xs",
+  sm: "text-[16px]",
+  md: "text-[18px]",
+  lg: "text-[20px]",
 };
 
 const gapMap: Record<BrandLogoSize, string> = {
@@ -46,10 +46,10 @@ const toneMap: Record<BrandLogoVariant, string> = {
 };
 
 const imageSizeClassMap: Record<BrandLogoSize, string> = {
-  xs: "h-5 w-5",
-  sm: "h-6 w-6",
-  md: "h-8 w-8",
-  lg: "h-10 w-10",
+  xs: "h-5 w-5 max-h-5 max-w-5",
+  sm: "h-[26px] w-[26px] max-h-[26px] max-w-[26px]",
+  md: "h-[28px] w-[28px] max-h-[28px] max-w-[28px]",
+  lg: "h-9 w-9 max-h-9 max-w-9",
 };
 
 export function BrandLogo({
@@ -79,7 +79,11 @@ export function BrandLogo({
         width={dimension}
         height={dimension}
         priority={priority}
-        className={cn(imageSizeClass, "shrink-0", hasDarkLogo && "dark:hidden")}
+        className={cn(
+          imageSizeClass,
+          "shrink-0 object-contain",
+          hasDarkLogo && "dark:hidden"
+        )}
       />
       {hasDarkLogo && (
         <Image
@@ -88,7 +92,7 @@ export function BrandLogo({
           width={dimension}
           height={dimension}
           priority={priority}
-          className={cn("hidden shrink-0 dark:block", imageSizeClass)}
+          className={cn("hidden shrink-0 object-contain dark:block", imageSizeClass)}
         />
       )}
       {showWordmark && (

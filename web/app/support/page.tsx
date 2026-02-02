@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { appVersion, releaseDate, releaseNotes } from "@/lib/version";
 import SupportContactForm from "@/components/support/SupportContactForm";
+import { SupportFaqAccordion } from "@/components/support/SupportFaqAccordion";
 import { getProfile } from "@/lib/auth";
 import { normalizeRole } from "@/lib/roles";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -30,29 +31,105 @@ const commonTopics = [
   "Report a listing",
 ];
 
+const popularTopics = [
+  {
+    title: "Account access",
+    description: "Reset a password, update your email, or verify your profile.",
+  },
+  {
+    title: "Viewing requests",
+    description: "Reschedule a visit or troubleshoot viewing confirmations.",
+  },
+  {
+    title: "Listing quality",
+    description: "Report inaccurate details or flag duplicate listings fast.",
+  },
+  {
+    title: "Payments & plans",
+    description: "Questions about subscriptions, receipts, or billing updates.",
+  },
+  {
+    title: "Saved searches",
+    description: "Adjust alerts, pause notifications, or change filters.",
+  },
+  {
+    title: "Safety help",
+    description: "Report safety concerns and get next-step guidance.",
+  },
+];
+
+const faqItems = [
+  {
+    question: "How soon will I hear back?",
+    answer: "Most requests receive a response within 24 hours on business days.",
+  },
+  {
+    question: "What details help support resolve my issue fastest?",
+    answer: "Include the listing link, city, dates, screenshots, and the email on your account.",
+  },
+  {
+    question: "How do I report a listing?",
+    answer: "Share the listing link and what looks wrong so the team can investigate quickly.",
+  },
+  {
+    question: "Where can I manage saved searches?",
+    answer: "Open your dashboard saved searches to edit alerts or pause notifications.",
+  },
+  {
+    question: "Can I change or cancel a viewing?",
+    answer: "Update the viewing request if available, or message support with the preferred times.",
+  },
+  {
+    question: "How do I reach a host?",
+    answer: "Use the in-app message thread to keep conversations secure and logged.",
+  },
+];
+
 export default async function SupportPage() {
   const profile = hasServerSupabaseEnv() ? await getProfile() : null;
   const normalizedRole = normalizeRole(profile?.role);
   const isAdmin = normalizedRole === "admin";
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-8">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4 py-8">
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Support</p>
         <h1 className="text-3xl font-semibold text-slate-900">We’re here to help</h1>
-        <p className="text-sm text-slate-600">
+        <p className="text-sm text-slate-500">
           Tell us what you need and we’ll get back to you with next steps.
         </p>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-base font-semibold text-slate-900">Contact support</h2>
-          <p className="text-sm text-slate-600">
-            Choose a category so we can route your request quickly.
-          </p>
-          <div className="mt-4">
-            <SupportContactForm />
+        <div className="space-y-6">
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-base font-semibold text-slate-900">Popular topics</h2>
+            <p className="text-sm text-slate-500">
+              Start with a common request and we’ll route you to the right help.
+            </p>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {popularTopics.map((topic) => (
+                <div
+                  key={topic.title}
+                  className="rounded-xl border border-slate-200 bg-slate-50 p-3"
+                >
+                  <p className="text-sm font-semibold text-slate-900">{topic.title}</p>
+                  <p className="text-sm text-slate-500">{topic.description}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <SupportFaqAccordion items={faqItems} />
+
+          <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h2 className="text-base font-semibold text-slate-900">Contact support</h2>
+            <p className="text-sm text-slate-500">
+              Share a few details so we can route your request quickly.
+            </p>
+            <div className="mt-4">
+              <SupportContactForm />
+            </div>
           </div>
         </div>
 
@@ -87,7 +164,7 @@ export default async function SupportPage() {
               data-testid="support-quick-help"
             >
               <h2 className="text-base font-semibold text-slate-900">Quick help</h2>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-slate-500">
                 Start here for the most common questions.
               </p>
               <div className="mt-4 grid gap-3">
@@ -112,7 +189,7 @@ export default async function SupportPage() {
                 {commonTopics.map((topic) => (
                   <span
                     key={topic}
-                    className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700"
+                    className="rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-[11px] font-semibold text-slate-700"
                   >
                     {topic}
                   </span>

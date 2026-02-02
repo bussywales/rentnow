@@ -55,8 +55,8 @@ export async function MainNav() {
   }
 
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/90 backdrop-blur-lg">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+    <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/95 backdrop-blur-lg shadow-[0_1px_10px_rgba(15,23,42,0.06)]">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:h-16">
         <div className="flex items-center">
           <BrandLogo variant="minimal" size="sm" className="sm:hidden" />
           <BrandLogo variant="header" size="md" className="hidden sm:inline-flex" />

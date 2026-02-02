@@ -72,17 +72,17 @@ export function SmartSearchBox({ onFilters, mode = "home" }: Props) {
     : "Describe what you need";
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white/80 p-4 shadow-sm">
+    <div className="rounded-2xl border border-slate-200/80 bg-white/85 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-lg font-semibold text-slate-900">
+          <h3 className="text-base font-semibold text-slate-900">
             Smart search
           </h3>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-500">
             Tell us what you’re looking for and we’ll turn it into precise results.
           </p>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600">
           Powered by intelligent search
         </span>
       </div>
@@ -94,8 +94,13 @@ export function SmartSearchBox({ onFilters, mode = "home" }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
+          className="rounded-full border-slate-200/80 bg-white px-5 py-3 text-sm shadow-[0_6px_20px_rgba(15,23,42,0.08)] focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
         />
-        <Button type="submit" disabled={loading}>
+        <Button
+          type="submit"
+          disabled={loading}
+          className="rounded-full px-6 shadow-[0_6px_16px_rgba(14,165,233,0.2)]"
+        >
           {loading ? "Thinking..." : submitLabel}
         </Button>
       </form>
@@ -110,7 +115,7 @@ export function SmartSearchBox({ onFilters, mode = "home" }: Props) {
               chips.map((chip) => (
                 <span
                   key={`${chip.label}-${chip.value}`}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-semibold text-slate-700"
+                  className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700"
                 >
                   {chip.label}: {chip.value}
                 </span>

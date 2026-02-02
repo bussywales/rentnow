@@ -512,12 +512,12 @@ export default async function PropertiesPage({ searchParams }: Props) {
       : null;
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
+    <div className="mx-auto w-full max-w-6xl space-y-6 px-4">
       {savedSearchNoticeNode}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Properties</h1>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-500">
             Showing {properties.length} of {total} homes
             {filters.city ? ` in ${filters.city}` : ""}.
           </p>
@@ -531,11 +531,11 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
       {savedSearch && (
         <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Saved search</p>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Saved search</p>
           <p className="text-sm font-semibold text-slate-900">
             Matches for &quot;{savedSearch.name || "your saved search"}&quot;
           </p>
-          <p className="text-sm text-slate-600">
+          <p className="text-sm text-slate-500">
             Filters applied from your saved search.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -556,7 +556,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
       {role === "tenant" && !isTenantPro && (
         <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-700">
           <p className="font-semibold text-slate-900">Upgrade for instant alerts</p>
-          <p className="mt-1 text-sm text-slate-600">
+          <p className="mt-1 text-sm text-slate-500">
             Tenant Pro unlocks unlimited saved searches and faster access to new homes.
           </p>
           <Link href="/tenant/billing#plans" className="mt-2 inline-flex text-sm font-semibold text-sky-700">
@@ -566,21 +566,21 @@ export default async function PropertiesPage({ searchParams }: Props) {
       )}
 
       {filterChips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 p-3 text-xs text-slate-700 shadow-sm">
-          <p className="font-semibold uppercase tracking-[0.2em] text-slate-500">
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 p-2.5 text-xs text-slate-700 shadow-sm">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
             Active filters
           </p>
           {filterChips.map((chip) => (
             <span
               key={`${chip.label}-${chip.value}`}
-              className="rounded-full border border-slate-200 bg-white px-3 py-1 font-semibold text-slate-700"
+              className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700"
             >
               {chip.label}: {chip.value}
             </span>
           ))}
           <Link
             href="/properties"
-            className="rounded-full border border-slate-100 px-3 py-1 font-semibold text-slate-600 transition hover:border-sky-100"
+            className="rounded-full border border-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 transition hover:border-sky-100"
           >
             Clear
           </Link>
@@ -589,28 +589,28 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Saved searches</p>
-          <p className="text-sm text-slate-600">Save this filter set for alerts later.</p>
+          <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Saved searches</p>
+          <p className="text-sm text-slate-500">Save this filter set for alerts later.</p>
         </div>
         <SavedSearchButton filters={filters} />
       </div>
 
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">
-        <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+      <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/80 p-2.5 shadow-sm">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
           Popular hubs
         </p>
         {hubs.map((hub) => (
           <Link
             key={hub.city}
             href={`/properties?city=${encodeURIComponent(hub.city)}`}
-            className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700"
+            className="rounded-full border border-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700"
           >
             {hub.label}
           </Link>
         ))}
         <Link
           href="/properties"
-          className="rounded-full border border-slate-100 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-sky-100"
+          className="rounded-full border border-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 transition hover:border-sky-100"
         >
           Clear
         </Link>
@@ -639,24 +639,24 @@ export default async function PropertiesPage({ searchParams }: Props) {
           {prevPage ? (
             <Link
               href={prevPage}
-              className="rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700"
+              className="rounded-full border border-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700"
             >
               Previous
             </Link>
           ) : (
-            <span className="cursor-not-allowed rounded-full border border-slate-100 px-3 py-1 font-semibold text-slate-400">
+            <span className="cursor-not-allowed rounded-full border border-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-400">
               Previous
             </span>
           )}
           {nextPage ? (
             <Link
               href={nextPage}
-              className="rounded-full border border-slate-200 px-3 py-1 font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700"
+              className="rounded-full border border-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700"
             >
               Next
             </Link>
           ) : (
-            <span className="cursor-not-allowed rounded-full border border-slate-100 px-3 py-1 font-semibold text-slate-400">
+            <span className="cursor-not-allowed rounded-full border border-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-400">
               Next
             </span>
           )}
