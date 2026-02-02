@@ -25,23 +25,27 @@ export type LegalDocumentSummary = {
 export type LegalAcceptanceStatus = {
   jurisdiction: string;
   role: UserRole | null;
+  roles: UserRole[];
   requiredAudiences: LegalAudience[];
   documents: LegalDocumentSummary[];
   acceptedAudiences: LegalAudience[];
+  pendingAudiences: LegalAudience[];
   missingAudiences: LegalAudience[];
   isComplete: boolean;
 };
 
 export async function getLegalAcceptanceStatus(input: {
   userId: string;
-  role: UserRole | null;
+  role: UserRole | UserRole[] | null;
   jurisdiction?: string | null;
   supabase?: SupabaseClient;
 }): Promise<LegalAcceptanceStatus> {
   const jurisdiction = input.jurisdiction || DEFAULT_JURISDICTION;
-  const role = input.role;
-  const requiredAudiences = getRequiredLegalAudiences(role);
+  const roles = Array.isArray(input.role) ? input.role : input.role ? [input.role] : [];
+  const role = roles[0] ?? (input.role && !Array.isArray(input.role) ? input.role : null);
+  const requiredAudiences = getRequiredLegalAudiences(input.role);
   const supabase = input.supabase ?? (await createServerSupabaseClient());
+  const now = new Date().toISOString();
 
   const { data: docs, error: docsError } = await supabase
     .from("legal_documents")
@@ -50,15 +54,19 @@ export async function getLegalAcceptanceStatus(input: {
     )
     .eq("jurisdiction", jurisdiction)
     .eq("status", "published")
-    .in("audience", requiredAudiences);
+    .lte("effective_at", now)
+    .in("audience", requiredAudiences)
+    .order("version", { ascending: false });
 
   if (docsError) {
     return {
       jurisdiction,
       role,
+      roles,
       requiredAudiences,
       documents: [],
       acceptedAudiences: [],
+      pendingAudiences: requiredAudiences,
       missingAudiences: requiredAudiences,
       isComplete: false,
     };
@@ -76,11 +84,15 @@ export async function getLegalAcceptanceStatus(input: {
   );
   const docsByAudience = new Map<LegalAudience, LegalDocumentSummary>();
   (docs || []).forEach((doc) => {
-    docsByAudience.set(doc.audience as LegalAudience, doc as LegalDocumentSummary);
+    const audience = doc.audience as LegalAudience;
+    if (!docsByAudience.has(audience)) {
+      docsByAudience.set(audience, doc as LegalDocumentSummary);
+    }
   });
 
   const documents: LegalDocumentSummary[] = [];
   const acceptedAudiences: LegalAudience[] = [];
+  const pendingAudiences: LegalAudience[] = [];
   const missingAudiences: LegalAudience[] = [];
 
   requiredAudiences.forEach((audience) => {
@@ -90,7 +102,7 @@ export async function getLegalAcceptanceStatus(input: {
       if (acceptanceSet.has(`${audience}:${doc.version}`)) {
         acceptedAudiences.push(audience);
       } else {
-        missingAudiences.push(audience);
+        pendingAudiences.push(audience);
       }
     } else {
       missingAudiences.push(audience);
@@ -100,10 +112,12 @@ export async function getLegalAcceptanceStatus(input: {
   return {
     jurisdiction,
     role,
+    roles,
     requiredAudiences,
     documents,
     acceptedAudiences,
+    pendingAudiences,
     missingAudiences,
-    isComplete: missingAudiences.length === 0,
+    isComplete: missingAudiences.length === 0 && pendingAudiences.length === 0,
   };
 }

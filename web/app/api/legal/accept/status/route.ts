@@ -40,7 +40,9 @@ export async function GET(request: Request) {
     jurisdiction: status.jurisdiction,
     required_audiences: status.requiredAudiences,
     accepted_audiences: status.acceptedAudiences,
-    missing_audiences: status.missingAudiences,
+    pending_audiences: status.pendingAudiences,
+    missing_documents: status.missingAudiences,
+    missing_audiences: [...status.missingAudiences, ...status.pendingAudiences],
     is_complete: status.isComplete,
   });
 }

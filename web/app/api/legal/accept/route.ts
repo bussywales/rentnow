@@ -23,18 +23,28 @@ function resolveIp(request: Request): string | null {
   return request.headers.get("x-real-ip");
 }
 
-export async function POST(request: Request) {
+type AcceptDeps = {
+  hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
+  requireUser: typeof requireUser;
+  getUserRole: typeof getUserRole;
+  getLegalAcceptanceStatus: typeof getLegalAcceptanceStatus;
+};
+
+export async function postLegalAcceptResponse(
+  request: Request,
+  deps: AcceptDeps
+): Promise<NextResponse> {
   const startTime = Date.now();
   const routeLabel = "/api/legal/accept";
 
-  if (!hasServerSupabaseEnv()) {
+  if (!deps.hasServerSupabaseEnv()) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   }
 
-  const auth = await requireUser({ request, route: routeLabel, startTime });
+  const auth = await deps.requireUser({ request, route: routeLabel, startTime });
   if (!auth.ok) return auth.response;
 
-  const role = await getUserRole(auth.supabase, auth.user.id);
+  const role = await deps.getUserRole(auth.supabase, auth.user.id);
   if (!role) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
@@ -46,7 +56,7 @@ export async function POST(request: Request) {
 
   const jurisdiction = (body.data.jurisdiction || DEFAULT_JURISDICTION).toUpperCase();
 
-  const status = await getLegalAcceptanceStatus({
+  const status = await deps.getLegalAcceptanceStatus({
     userId: auth.user.id,
     role,
     jurisdiction,
@@ -96,4 +106,13 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ ok: true, accepted_at: now, jurisdiction });
+}
+
+export async function POST(request: Request) {
+  return postLegalAcceptResponse(request, {
+    hasServerSupabaseEnv,
+    requireUser,
+    getUserRole,
+    getLegalAcceptanceStatus,
+  });
 }

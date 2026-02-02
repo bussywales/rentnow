@@ -29,7 +29,11 @@ export function LegalAcceptanceForm({ jurisdiction, redirectTo }: Props) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        setError(data?.error || "Unable to record acceptance");
+        const missing = Array.isArray(data?.missing_audiences)
+          ? data.missing_audiences.join(", ")
+          : null;
+        const message = data?.error || "Unable to record acceptance";
+        setError(missing ? `${message} (Missing: ${missing})` : message);
         return;
       }
       router.replace(redirectTo || "/dashboard");

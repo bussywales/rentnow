@@ -78,6 +78,8 @@ export default async function LegalAcceptPage({ searchParams }: PageProps) {
     );
   }
 
+  const missingDocs = status.missingAudiences;
+
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-6">
       <div className="space-y-2">
@@ -85,6 +87,11 @@ export default async function LegalAcceptPage({ searchParams }: PageProps) {
         <p className="text-sm text-slate-600">
           You must accept the latest terms for your role before continuing.
         </p>
+        {missingDocs.length > 0 && (
+          <p className="text-sm text-rose-600">
+            Missing published terms: {missingDocs.join(", ")}.
+          </p>
+        )}
       </div>
       <div className="space-y-6">
         {status.documents.map((doc) => (
