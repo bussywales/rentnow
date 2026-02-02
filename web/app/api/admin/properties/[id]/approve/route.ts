@@ -1,6 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
+import { buildLiveApprovalUpdate } from "@/lib/properties/expiry";
+import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 
 export const dynamic = "force-dynamic";
 
@@ -23,17 +25,12 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     return NextResponse.json({ error: "Not found", code: "NOT_FOUND" }, { status: 404 });
   }
 
-  const now = new Date().toISOString();
+  const now = new Date();
+  const expiryDays = await getListingExpiryDays();
+  const updates = buildLiveApprovalUpdate({ now, expiryDays });
   const { error } = await supabase
     .from("properties")
-    .update({
-      status: "live",
-      is_approved: true,
-      is_active: true,
-      approved_at: now,
-      rejection_reason: null,
-      rejected_at: null,
-    })
+    .update(updates)
     .eq("id", id);
 
   if (error) {
@@ -51,6 +48,6 @@ export async function POST(_req: NextRequest, context: { params: Promise<{ id: s
     /* ignore logging failures */
   }
 
-  console.log("[admin-review] approve", { propertyId: id, actorId: user.id, at: now });
+  console.log("[admin-review] approve", { propertyId: id, actorId: user.id, at: now.toISOString() });
   return NextResponse.json({ ok: true, id, status: "live" });
 }

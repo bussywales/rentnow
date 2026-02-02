@@ -10,7 +10,7 @@ import {
   CONTACT_EXCHANGE_BLOCK_MESSAGE,
   sanitizeMessageContent,
 } from "@/lib/messaging/contact-exchange";
-import { getContactExchangeMode } from "@/lib/settings/app-settings";
+import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
 
 const routeLabel = "/api/viewings/respond";
 

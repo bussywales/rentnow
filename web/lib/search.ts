@@ -17,17 +17,30 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     typeof message === "string" &&
     message.includes("approved_at") &&
     message.includes("properties");
+  const missingExpiresAt = (message?: string | null) =>
+    typeof message === "string" &&
+    message.includes("expires_at") &&
+    message.includes("properties");
 
-  const runQuery = async (includePosition: boolean, approvedBefore: string | null) => {
-  const imageFields = includePosition
-    ? "id,image_url,position,created_at,width,height,bytes,format"
-    : "id,image_url,created_at,width,height,bytes,format";
+  const runQuery = async (
+    includePosition: boolean,
+    approvedBefore: string | null,
+    includeExpiryFilter: boolean = true
+  ) => {
+    const imageFields = includePosition
+      ? "id,image_url,position,created_at,width,height,bytes,format"
+      : "id,image_url,created_at,width,height,bytes,format";
 
+    const nowIso = new Date().toISOString();
     let query = supabase
       .from("properties")
       .select(`*, property_images(${imageFields})`, { count: "exact" })
       .eq("is_approved", true)
-      .eq("is_active", true);
+      .eq("is_active", true)
+      .eq("status", "live");
+    if (includeExpiryFilter) {
+      query = query.or(`expires_at.is.null,expires_at.gte.${nowIso}`);
+    }
 
     if (approvedBefore) {
       query = query.or(`approved_at.is.null,approved_at.lte.${approvedBefore}`);
@@ -80,9 +93,15 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
   };
 
   const attempt = async (includePosition: boolean, approvedBefore: string | null) => {
-    const result = await runQuery(includePosition, approvedBefore);
+    let result = await runQuery(includePosition, approvedBefore);
     if (missingApprovedAt(result.error?.message) && approvedBefore) {
-      return runQuery(includePosition, null);
+      result = await runQuery(includePosition, null);
+    }
+    if (missingExpiresAt(result.error?.message)) {
+      result = await runQuery(includePosition, approvedBefore, false);
+      if (missingApprovedAt(result.error?.message) && approvedBefore) {
+        result = await runQuery(includePosition, null, false);
+      }
     }
     return result;
   };

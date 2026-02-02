@@ -24,6 +24,7 @@ export const ADMIN_REVIEW_VIEW_SELECT_MIN = `
   location_place_id,
   created_at,
   rejection_reason,
+  expires_at,
   photo_count,
   has_cover,
   cover_image_url,

@@ -6,10 +6,13 @@ import AdminSettingsFeatureFlags from "@/components/admin/AdminSettingsFeatureFl
 import {
   parseAppSettingBool,
   parseContactExchangeMode,
+  parseAppSettingInt,
   type ContactExchangeMode,
 } from "@/lib/settings/app-settings";
 import { AdminLocationConfigStatus } from "@/components/admin/AdminLocationConfigStatus";
 import AdminSettingsContactExchange from "@/components/admin/AdminSettingsContactExchange";
+import AdminSettingsListingExpiry from "@/components/admin/AdminSettingsListingExpiry";
+import { DEFAULT_LISTING_EXPIRY_DAYS } from "@/lib/properties/expiry";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +37,8 @@ export default async function AdminSettingsPage() {
       "show_tenant_checkin_badge",
       "require_location_pin_for_publish",
       "contact_exchange_mode",
+      "listing_expiry_days",
+      "show_expired_listings_public",
     ]);
 
   const keys = [
@@ -56,6 +61,10 @@ export default async function AdminSettingsPage() {
     contactRow?.value,
     "redact"
   );
+  const expiryRow = data?.find((item) => item.key === "listing_expiry_days");
+  const expiryDays = parseAppSettingInt(expiryRow?.value, DEFAULT_LISTING_EXPIRY_DAYS);
+  const showExpiredRow = data?.find((item) => item.key === "show_expired_listings_public");
+  const showExpiredPublic = parseAppSettingBool(showExpiredRow?.value, false);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4">
@@ -69,6 +78,12 @@ export default async function AdminSettingsPage() {
       <AdminSettingsContactExchange
         mode={contactMode}
         updatedAt={contactRow?.updated_at ?? null}
+      />
+      <AdminSettingsListingExpiry
+        expiryDays={expiryDays}
+        expiryUpdatedAt={expiryRow?.updated_at ?? null}
+        showExpiredPublic={showExpiredPublic}
+        showExpiredUpdatedAt={showExpiredRow?.updated_at ?? null}
       />
       <AdminLocationConfigStatus
         flags={{

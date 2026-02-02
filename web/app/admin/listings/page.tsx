@@ -56,6 +56,7 @@ type RawReviewRow = {
   is_approved?: boolean | null;
   approved_at?: string | null;
   rejected_at?: string | null;
+  expires_at?: string | null;
   rejection_reason?: string | null;
   is_active?: boolean | null;
   owner_id?: string | null;
@@ -225,6 +226,7 @@ async function getListingsData(
         rejected_at: row.rejected_at ?? null,
         is_active: row.is_active ?? null,
         rejectionReason: row.rejection_reason ?? null,
+        expiresAt: row.expires_at ?? null,
         price: row.price ?? null,
         currency: row.currency ?? null,
         rent_period: row.rent_period ?? null,

@@ -6,7 +6,7 @@ import {
 } from "./admin-review-contracts";
 import { assertNoForbiddenColumns } from "./admin-review-schema-allowlist";
 
-export const ALLOWED_PROPERTY_STATUSES = ["draft", "pending", "live", "rejected", "paused"] as const;
+export const ALLOWED_PROPERTY_STATUSES = ["draft", "pending", "live", "expired", "rejected", "paused"] as const;
 const REVIEW_VIEW_STATUSES = {
   pending: ["pending"],
   changes: ["draft"],

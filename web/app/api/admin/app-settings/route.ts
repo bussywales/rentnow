@@ -12,6 +12,8 @@ const ALLOWED_KEYS = [
   "show_tenant_checkin_badge",
   "require_location_pin_for_publish",
   "contact_exchange_mode",
+  "listing_expiry_days",
+  "show_expired_listings_public",
 ] as const;
 const routeLabel = "/api/admin/app-settings";
 
@@ -23,9 +25,13 @@ const modeValueSchema = z.object({
   mode: z.enum(["off", "redact", "block"]),
 });
 
+const daysValueSchema = z.object({
+  days: z.number().int().min(7).max(365),
+});
+
 export const patchSchema = z.object({
   key: z.enum(ALLOWED_KEYS),
-  value: z.union([enabledValueSchema, modeValueSchema]),
+  value: z.union([enabledValueSchema, modeValueSchema, daysValueSchema]),
 });
 
 export async function GET(request: Request) {
@@ -69,10 +75,14 @@ export async function PATCH(request: Request) {
 
   const body = patchSchema.parse(await request.json());
   const isModeSetting = body.key === "contact_exchange_mode";
+  const isExpirySetting = body.key === "listing_expiry_days";
   if (isModeSetting && !("mode" in body.value)) {
     return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
   }
-  if (!isModeSetting && !("enabled" in body.value)) {
+  if (isExpirySetting && !("days" in body.value)) {
+    return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
+  }
+  if (!isModeSetting && !isExpirySetting && !("enabled" in body.value)) {
     return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
   }
   const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;

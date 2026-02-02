@@ -27,8 +27,9 @@ import {
   CONTACT_EXCHANGE_BLOCK_MESSAGE,
   sanitizeMessageContent,
 } from "@/lib/messaging/contact-exchange";
-import { getContactExchangeMode } from "@/lib/settings/app-settings";
+import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
 import type { Message } from "@/lib/types";
+import { isListingPubliclyVisible } from "@/lib/properties/expiry";
 
 const messageSchema = z.object({
   property_id: z.string().uuid(),
@@ -148,7 +149,7 @@ export async function GET(request: Request) {
 
     const { data: property, error: propertyError } = await supabase
       .from("properties")
-      .select("id, owner_id, title, is_approved, is_active")
+      .select("id, owner_id, title, status, is_approved, is_active, expires_at")
       .eq("id", propertyId)
       .maybeSingle();
 
@@ -162,7 +163,7 @@ export async function GET(request: Request) {
       });
     } else if (property) {
       propertyOwnerId = property.owner_id;
-      propertyPublished = property.is_approved === true && property.is_active === true;
+      propertyPublished = isListingPubliclyVisible(property);
     }
 
     let query = supabase
@@ -275,7 +276,7 @@ export async function POST(request: Request) {
 
     const { data: property, error: propertyError } = await supabase
       .from("properties")
-      .select("id, owner_id, title, is_approved, is_active")
+      .select("id, owner_id, title, status, is_approved, is_active, expires_at")
       .eq("id", payload.property_id)
       .maybeSingle();
 
@@ -291,7 +292,7 @@ export async function POST(request: Request) {
     }
 
     const isOwner = auth.user.id === property.owner_id;
-    const isPublished = property.is_approved === true && property.is_active === true;
+    const isPublished = isListingPubliclyVisible(property);
     let hasThread = true;
     let tenantHasMessaged = true;
 

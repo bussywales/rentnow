@@ -15,14 +15,20 @@ import { TrustReliability } from "@/components/trust/TrustReliability";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import { computeDashboardListings } from "@/lib/properties/host-dashboard";
+import { isListingExpired } from "@/lib/properties/expiry";
 import { HostDashboardContent } from "@/components/host/HostDashboardContent";
 import { getVerificationStatus } from "@/lib/verification/status";
 
 export const dynamic = "force-dynamic";
 
-type PropertyStatus = "draft" | "pending" | "live" | "rejected" | "paused";
+type PropertyStatus = "draft" | "pending" | "live" | "expired" | "rejected" | "paused";
 
 function normalizeStatus(property: Property): PropertyStatus {
+  const normalized = property.status ? property.status.toString().trim().toLowerCase() : null;
+  if (normalized === "live" && property.expires_at) {
+    const expiresMs = Date.parse(property.expires_at);
+    if (Number.isFinite(expiresMs) && expiresMs < Date.now()) return "expired";
+  }
   if (property.status) return property.status as PropertyStatus;
   if (property.is_approved && property.is_active) return "live";
   if (!property.is_approved && property.is_active) return "pending";
@@ -137,14 +143,15 @@ export default async function DashboardHome() {
             .select(`*, property_images(${imageFields})`)
             .order("created_at", { ascending: false });
           if (includePosition) {
-            query = query.order("position", {
-              foreignTable: "property_images",
-              ascending: true,
-            })
-            .order("created_at", {
-              foreignTable: "property_images",
-              ascending: true,
-            });
+            query = query
+              .order("position", {
+                foreignTable: "property_images",
+                ascending: true,
+              })
+              .order("created_at", {
+                foreignTable: "property_images",
+                ascending: true,
+              });
           } else {
             query = query.order("created_at", {
               foreignTable: "property_images",
@@ -169,7 +176,7 @@ export default async function DashboardHome() {
           const typed =
             (data as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) ||
             [];
-            properties =
+          properties =
             typed.map((row) => ({
               ...row,
               photo_count: row.property_images?.length ?? 0,
@@ -233,6 +240,7 @@ export default async function DashboardHome() {
       : null;
   const dashboardListings = computeDashboardListings(properties);
   const activeCount = properties.filter((property) => {
+    if (isListingExpired(property)) return false;
     if (property.status) {
       return property.status === "pending" || property.status === "live";
     }

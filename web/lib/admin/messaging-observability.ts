@@ -6,6 +6,7 @@ import {
 } from "@/lib/messaging/permissions";
 import { deriveDeliveryState } from "@/lib/messaging/status";
 import type { MessageDeliveryState, UserRole } from "@/lib/types";
+import { isListingPubliclyVisible } from "@/lib/properties/expiry";
 
 type MessagingProfile = {
   id: string;
@@ -24,8 +25,10 @@ type MessagingMessage = {
 type MessagingProperty = {
   id: string;
   owner_id: string;
+  status?: string | null;
   is_approved?: boolean | null;
   is_active?: boolean | null;
+  expires_at?: string | null;
 };
 
 export type MessagingUserCount = {
@@ -226,7 +229,7 @@ export function buildMessagingAdminSnapshot(input: {
       senderId: message.sender_id,
       recipientId: message.recipient_id,
       propertyOwnerId: hostId,
-      propertyPublished: property.is_approved === true && property.is_active === true,
+      propertyPublished: isListingPubliclyVisible(property),
       isOwner: message.sender_id === hostId,
       hasThread,
       recipientRole,

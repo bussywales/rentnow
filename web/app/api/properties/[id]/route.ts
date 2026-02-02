@@ -30,9 +30,15 @@ import {
   shouldSkipInflightView,
   shortenId,
 } from "@/lib/analytics/property-views";
-import { getAppSettingBool } from "@/lib/settings/app-settings";
+import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 import { cleanNullableString } from "@/lib/strings";
+import {
+  canShowExpiredListingPublic,
+  computeExpiryAt,
+  isListingPubliclyVisible,
+} from "@/lib/properties/expiry";
+import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 
 const routeLabel = "/api/properties/[id]";
 type ImageMetaPayload = Record<
@@ -386,7 +392,11 @@ export async function GET(
     return NextResponse.json({ error: "Property not found" }, { status: 404 });
   }
 
-  const isPublic = data.is_approved === true && data.is_active === true;
+  const now = new Date();
+  const showExpiredPublic = await getAppSettingBool("show_expired_listings_public", false);
+  const isPublicActive = isListingPubliclyVisible(data, now);
+  const allowExpiredPublic = canShowExpiredListingPublic(data, showExpiredPublic, now);
+  const isPublic = isPublicActive || allowExpiredPublic;
 
   if (ownerOnly || !isPublic) {
     const auth = await requireUser({
@@ -635,7 +645,7 @@ export async function PUT(
 
     const body = await request.json();
     const updates = updateSchema.parse(body);
-  const {
+    const {
       imageUrls = [],
       status,
       rejection_reason,
@@ -692,7 +702,8 @@ export async function PUT(
         { status: 400 }
       );
     }
-    const now = new Date().toISOString();
+    const now = new Date();
+    const nowIso = now.toISOString();
     const isAdmin = role === "admin";
     let statusUpdate: Record<string, unknown> = {};
     const statusTarget = status || (normalizedRest.is_active ? "pending" : undefined);
@@ -709,13 +720,21 @@ export async function PUT(
         status,
         rejection_reason:
           status === "rejected" ? rejection_reason || "Rejected by admin" : null,
-        submitted_at: status === "pending" ? now : null,
-        approved_at: status === "live" ? now : null,
-        rejected_at: status === "rejected" ? now : null,
-        paused_at: status === "paused" ? now : null,
+        submitted_at: status === "pending" ? nowIso : null,
+        approved_at: status === "live" ? nowIso : null,
+        rejected_at: status === "rejected" ? nowIso : null,
+        paused_at: status === "paused" ? nowIso : null,
         is_active: status === "pending" || status === "live",
         is_approved: status === "live",
       };
+      if (status === "live") {
+        const expiryDays = await getListingExpiryDays();
+        statusUpdate = {
+          ...statusUpdate,
+          expires_at: computeExpiryAt(now, expiryDays),
+          expired_at: null,
+        };
+      }
     } else if (typeof rejection_reason !== "undefined" && isAdmin) {
       statusUpdate = { rejection_reason };
     }

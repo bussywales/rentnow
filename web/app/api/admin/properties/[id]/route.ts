@@ -5,6 +5,8 @@ import { getPlanUsage } from "@/lib/plan-enforcement";
 import { dispatchSavedSearchAlerts } from "@/lib/alerts/tenant-alerts";
 import { logApprovalAction, logFailure, logPlanLimitHit } from "@/lib/observability";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { buildLiveApprovalUpdate } from "@/lib/properties/expiry";
+import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 
 const routeLabel = "/api/admin/properties/[id]";
 
@@ -44,7 +46,8 @@ export async function PATCH(
   const body = await request.json();
   const { action, reason } = bodySchema.parse(body);
   const isApproved = action === "approve";
-  const now = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
   const trimmedReason = typeof reason === "string" ? reason.trim() : "";
 
   if (!isApproved && !trimmedReason) {
@@ -113,27 +116,20 @@ export async function PATCH(
     }
   }
 
-  const { error } = await supabase
-    .from("properties")
-    .update(
-      isApproved
-        ? {
-            status: "live",
-            is_approved: true,
-            is_active: true,
-            approved_at: now,
-            rejection_reason: null,
-            rejected_at: null,
-          }
-        : {
-            status: "rejected",
-            is_approved: false,
-            is_active: false,
-            rejected_at: now,
-            rejection_reason: trimmedReason,
-          }
-    )
-    .eq("id", id);
+  const approvalUpdate = isApproved
+    ? buildLiveApprovalUpdate({
+        now,
+        expiryDays: await getListingExpiryDays(),
+      })
+    : {
+        status: "rejected",
+        is_approved: false,
+        is_active: false,
+        rejected_at: nowIso,
+        rejection_reason: trimmedReason,
+      };
+
+  const { error } = await supabase.from("properties").update(approvalUpdate).eq("id", id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });

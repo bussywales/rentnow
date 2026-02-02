@@ -92,6 +92,7 @@ export async function buildMarketplaceAnalytics(
   const now = Date.now();
   const last7Start = new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString();
   const prev7Start = new Date(now - 14 * 24 * 60 * 60 * 1000).toISOString();
+  const nowIso = new Date(now).toISOString();
 
   const [
     totalListings,
@@ -107,7 +108,11 @@ export async function buildMarketplaceAnalytics(
     listingViewsPrev7,
   ] = await Promise.all([
     adminClient.from("properties").select("id", { count: "exact", head: true }),
-    adminClient.from("properties").select("id", { count: "exact", head: true }).eq("status", "live"),
+    adminClient
+      .from("properties")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "live")
+      .or(`expires_at.is.null,expires_at.gte.${nowIso}`),
     adminClient.from("properties").select("id", { count: "exact", head: true }).eq("status", "pending"),
     adminClient.from("properties").select("id", { count: "exact", head: true }).eq("status", "draft"),
     adminClient
@@ -128,11 +133,13 @@ export async function buildMarketplaceAnalytics(
       .from("properties")
       .select("id", { count: "exact", head: true })
       .eq("status", "live")
+      .or(`expires_at.is.null,expires_at.gte.${nowIso}`)
       .gte("approved_at", last7Start),
     adminClient
       .from("properties")
       .select("id", { count: "exact", head: true })
       .eq("status", "live")
+      .or(`expires_at.is.null,expires_at.gte.${nowIso}`)
       .gte("approved_at", prev7Start)
       .lt("approved_at", last7Start),
     adminClient

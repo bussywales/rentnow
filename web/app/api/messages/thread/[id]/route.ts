@@ -10,7 +10,8 @@ import {
   CONTACT_EXCHANGE_BLOCK_MESSAGE,
   sanitizeMessageContent,
 } from "@/lib/messaging/contact-exchange";
-import { getContactExchangeMode } from "@/lib/settings/app-settings";
+import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
+import { isListingPubliclyVisible } from "@/lib/properties/expiry";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -59,7 +60,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 
   const { data: property } = await auth.supabase
     .from("properties")
-    .select("id, owner_id, is_approved, is_active")
+    .select("id, owner_id, status, is_approved, is_active, expires_at")
     .eq("id", detail.thread.property_id)
     .maybeSingle();
 
@@ -77,7 +78,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
         senderId: auth.user.id,
         recipientId: role === "tenant" ? detail.thread.host_id : detail.thread.tenant_id,
         propertyOwnerId: property.owner_id,
-        propertyPublished: property.is_approved === true && property.is_active === true,
+        propertyPublished: isListingPubliclyVisible(property),
         isOwner: auth.user.id === property.owner_id,
         hasThread: true,
         hasTenantMessage: tenantHasMessaged,
@@ -127,7 +128,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
 
   const { data: property } = await auth.supabase
     .from("properties")
-    .select("id, owner_id, is_approved, is_active")
+    .select("id, owner_id, status, is_approved, is_active, expires_at")
     .eq("id", detail.thread.property_id)
     .maybeSingle();
 
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     senderId: auth.user.id,
     recipientId,
     propertyOwnerId: property.owner_id,
-    propertyPublished: property.is_approved === true && property.is_active === true,
+    propertyPublished: isListingPubliclyVisible(property),
     isOwner: auth.user.id === property.owner_id,
     hasThread: true,
     hasTenantMessage: tenantHasMessaged,

@@ -32,7 +32,8 @@ import type { Profile, Property } from "@/lib/types";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import { derivePhotoTrust } from "@/lib/properties/photo-trust";
-import { getAppSettingBool } from "@/lib/settings/app-settings";
+import { getAppSettingBool } from "@/lib/settings/app-settings.server";
+import { isListingExpired } from "@/lib/properties/expiry";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -342,11 +343,14 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
 
         const priceFloor = property.price ? Math.max(0, property.price * 0.6) : null;
         const priceCeil = property.price ? property.price * 1.4 : null;
+        const nowIso = new Date().toISOString();
         const { data: similarRaw } = await supabase
           .from("properties")
           .select("*, property_images(id, image_url, position, created_at)")
           .eq("city", property.city)
           .eq("rental_type", property.rental_type)
+          .eq("status", "live")
+          .or(`expires_at.is.null,expires_at.gte.${nowIso}`)
           .neq("id", property.id)
           .order("created_at", { ascending: false })
           .limit(8);
@@ -363,6 +367,8 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             .from("properties")
             .select("*, property_images(id, image_url, position, created_at)")
             .eq("city", property.city)
+            .eq("status", "live")
+            .or(`expires_at.is.null,expires_at.gte.${nowIso}`)
             .neq("id", property.id)
             .order("created_at", { ascending: false })
             .limit(8);
@@ -424,6 +430,14 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   const listingIntent = property.listing_intent ?? "rent";
   const isGuest = !currentUser;
   const showPublicActions = isGuest || isTenant;
+  const isExpired = isListingExpired(property);
+  const showExpiredPublic = await getAppSettingBool(
+    "show_expired_listings_public",
+    false
+  );
+  const viewerCanBypassExpired =
+    isAdmin || (isHost && currentUser?.id === property.owner_id);
+  const expiredReadOnly = isExpired && !viewerCanBypassExpired;
   const sharedFlag = getSearchParamValue(resolvedSearchParams, "shared");
   const redirectPath = sharedFlag
     ? `/properties/${property.id}?shared=${encodeURIComponent(sharedFlag)}`
@@ -509,6 +523,12 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           <span aria-hidden>{"<-"}</span>
           Back to results
         </Link>
+      )}
+      {expiredReadOnly && showExpiredPublic && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">This listing has expired and is no longer available.</p>
+          <p className="mt-1 text-amber-800">Details are view-only. Contact and enquiry actions are disabled.</p>
+        </div>
       )}
       {property && (
         <script
@@ -688,7 +708,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </p>
             </div>
           )}
-          {showPublicActions && listingIntent !== "buy" && (
+          {showPublicActions && !expiredReadOnly && listingIntent !== "buy" && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Viewing requests</h3>
@@ -715,7 +735,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </div>
             </div>
           )}
-          {showPublicActions && listingIntent === "buy" && (
+          {showPublicActions && !expiredReadOnly && listingIntent === "buy" && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Enquire to buy</h3>
@@ -768,31 +788,40 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           {currentUser && (isAdmin || (isHost && currentUser.id === property.owner_id)) && (
             <PropertySharePanel propertyId={property.id} />
           )}
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-            <div className="flex items-center justify-between gap-3">
-              <h3 className="text-lg font-semibold text-slate-900">
-                Contact landlord/agent
-              </h3>
-              {isTenantPro && (
-                <Button size="sm" variant="secondary">
-                  Priority contact
-                </Button>
-              )}
-            </div>
-            {isTenant && !isTenantPro && (
-              <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-900">
-                Upgrade to Tenant Pro for priority contact and instant alerts.{" "}
-                <Link href="/tenant/billing#plans" className="font-semibold underline">
-                  View plans
-                </Link>
+          {!expiredReadOnly ? (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-lg font-semibold text-slate-900">
+                  Contact landlord/agent
+                </h3>
+                {isTenantPro && (
+                  <Button size="sm" variant="secondary">
+                    Priority contact
+                  </Button>
+                )}
               </div>
-            )}
-            <MessageThreadClient
-              propertyId={property.id}
-              recipientId={property.owner_id}
-              currentUser={currentUser}
-            />
-          </div>
+              {isTenant && !isTenantPro && (
+                <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-2 text-xs text-sky-900">
+                  Upgrade to Tenant Pro for priority contact and instant alerts.{" "}
+                  <Link href="/tenant/billing#plans" className="font-semibold underline">
+                    View plans
+                  </Link>
+                </div>
+              )}
+              <MessageThreadClient
+                propertyId={property.id}
+                recipientId={property.owner_id}
+                currentUser={currentUser}
+              />
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-lg font-semibold text-slate-900">Contact landlord/agent</h3>
+              <p className="mt-1 text-sm text-slate-600">
+                This listing has expired, so contact and enquiry actions are disabled.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

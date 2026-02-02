@@ -3,7 +3,7 @@ import { PropertyStepper } from "@/components/properties/PropertyStepper";
 import { resolveServerRole } from "@/lib/auth/role";
 import { canManageListings } from "@/lib/role-access";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
-import { getAppSettingBool } from "@/lib/settings/app-settings";
+import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { normalizeFocusParam, normalizeStepParam, type StepId } from "@/lib/properties/step-params";
 
 export const dynamic = "force-dynamic";

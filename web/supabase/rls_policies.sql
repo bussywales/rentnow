@@ -197,11 +197,11 @@ CREATE POLICY "profiles update self" ON public.profiles
   USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
--- app_settings: authenticated read, no mutation
+-- app_settings: read-only flags/config for authenticated + anon
 DROP POLICY IF EXISTS "app_settings_read" ON public.app_settings;
 CREATE POLICY "app_settings_read" ON public.app_settings
   FOR SELECT
-  TO authenticated
+  TO authenticated, anon
   USING (true);
 
 DROP POLICY IF EXISTS "app_settings_no_mutation_auth" ON public.app_settings;
@@ -362,7 +362,26 @@ CREATE POLICY "upgrade requests delete admin" ON public.plan_upgrade_requests
 DROP POLICY IF EXISTS "properties public read" ON public.properties;
 CREATE POLICY "properties public read" ON public.properties
   FOR SELECT
-  USING (is_approved = TRUE AND is_active = TRUE);
+  USING (
+    (
+      is_approved = TRUE
+      AND is_active = TRUE
+      AND status = 'live'
+      AND (expires_at IS NULL OR expires_at >= now())
+    )
+    OR (
+      is_approved = TRUE
+      AND (
+        status = 'expired'
+        OR (status = 'live' AND expires_at IS NOT NULL AND expires_at < now())
+      )
+      AND EXISTS (
+        SELECT 1 FROM public.app_settings s
+        WHERE s.key = 'show_expired_listings_public'
+          AND COALESCE((s.value->>'enabled')::boolean, false) = TRUE
+      )
+    )
+  );
 
 DROP POLICY IF EXISTS "properties owner/admin read" ON public.properties;
 CREATE POLICY "properties owner/admin read" ON public.properties

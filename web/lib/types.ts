@@ -23,7 +23,7 @@ export type SizeUnit = "sqm" | "sqft";
 
 export type BathroomType = "private" | "shared";
 
-export type PropertyStatus = "draft" | "pending" | "live" | "rejected" | "paused";
+export type PropertyStatus = "draft" | "pending" | "live" | "expired" | "rejected" | "paused";
 
 export type MessageDeliveryState = "sent" | "delivered" | "read";
 
@@ -110,6 +110,9 @@ export interface Property {
   approved_at?: string | null;
   rejected_at?: string | null;
   paused_at?: string | null;
+  expires_at?: string | null;
+  expired_at?: string | null;
+  renewed_at?: string | null;
   bills_included?: boolean | null;
   epc_rating?: string | null;
   council_tax_band?: string | null;

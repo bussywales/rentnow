@@ -12,6 +12,7 @@ function statusAccent(status?: string | null) {
   const normalized = (status ?? "").toLowerCase();
   if (normalized === "pending") return "bg-amber-400";
   if (normalized === "live") return "bg-emerald-500";
+  if (normalized === "expired") return "bg-amber-500";
   if (normalized === "rejected") return "bg-red-500";
   if (normalized === "paused") return "bg-slate-400";
   if (normalized === "draft") return "bg-slate-300";
@@ -54,6 +55,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             <col className="w-[90px]" />
             <col className="w-[80px]" />
             <col className="w-[110px]" />
+            <col className="w-[110px]" />
             <col className="w-[160px]" />
             <col className="w-[140px]" />
             <col className="w-[120px]" />
@@ -72,6 +74,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
               <th className="px-3 py-2">Intent</th>
               <th className="px-3 py-2">Active</th>
               <th className="px-3 py-2">Updated</th>
+              <th className="px-3 py-2">Expires</th>
               <th className="px-3 py-2">Owner</th>
               <th className="px-3 py-2">Media</th>
               <th className="px-3 py-2">Price</th>
@@ -155,6 +158,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                   {item.is_active === null || item.is_active === undefined ? "—" : item.is_active ? "Yes" : "No"}
                 </td>
                 <td className="px-3 py-2 text-slate-600 tabular-nums">{formatDate(item.updatedAt)}</td>
+                <td className="px-3 py-2 text-slate-600 tabular-nums">{formatDate(item.expiresAt ?? null)}</td>
                 <td className="px-3 py-2 text-xs text-slate-600">
                   <div className="font-semibold text-slate-700">{item.hostName || "Host"}</div>
                   <div className="flex items-center gap-2 text-[11px] text-slate-500">
@@ -227,7 +231,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             ))}
             {!items.length && (
               <tr>
-                <td colSpan={11} className="px-3 py-6 text-center text-sm text-slate-600">
+                <td colSpan={12} className="px-3 py-6 text-center text-sm text-slate-600">
                   No listings found.
                 </td>
               </tr>

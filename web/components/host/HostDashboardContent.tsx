@@ -24,8 +24,19 @@ import { ListingBulkActionsBar } from "@/components/host/ListingBulkActionsBar";
 import { HostBulkResumeSetupModal } from "@/components/host/HostBulkResumeSetupModal";
 import { buildEditorLink, exportListingsCsv, openListings } from "@/lib/host/bulk-triage";
 import { Alert } from "@/components/ui/Alert";
+import { RenewListingButton } from "@/components/host/RenewListingButton";
 
-function normalizeStatus(property: { status?: string | null; is_active?: boolean | null; is_approved?: boolean | null }) {
+function normalizeStatus(property: {
+  status?: string | null;
+  is_active?: boolean | null;
+  is_approved?: boolean | null;
+  expires_at?: string | null;
+}) {
+  const normalized = property.status ? property.status.toString().trim().toLowerCase() : null;
+  if (normalized === "live" && property.expires_at) {
+    const expiresMs = Date.parse(property.expires_at);
+    if (Number.isFinite(expiresMs) && expiresMs < Date.now()) return "expired";
+  }
   if (property.status) return property.status as typeof property.status;
   if (property.is_approved && property.is_active) return "live";
   if (!property.is_approved && property.is_active) return "pending";
@@ -116,10 +127,11 @@ export function HostDashboardContent({
       {sorted.length ? (
         <div className="grid gap-4 md:grid-cols-2">
           {sorted.map((property) => {
-          const status = normalizeStatus(property);
-          const readiness = property.readiness;
-          const topIssueCode = readiness.issues[0]?.code;
-          const improveHref = buildEditorUrl(property.id, topIssueCode);
+            const status = normalizeStatus(property);
+            const readiness = property.readiness;
+            const topIssueCode = readiness.issues[0]?.code;
+            const improveHref = buildEditorUrl(property.id, topIssueCode);
+            const isExpired = status === "expired";
             const hasPhotos = (property.images || []).length > 0;
             const needsResume =
               readiness.tier !== "Excellent" || readiness.score < 90 || readiness.issues.length > 0;
@@ -147,6 +159,11 @@ export function HostDashboardContent({
                   {status === "draft" && (
                     <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
                       Continue draft
+                    </span>
+                  )}
+                  {isExpired && (
+                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
+                      Expired
                     </span>
                   )}
                 </div>
@@ -201,6 +218,9 @@ export function HostDashboardContent({
                         Add photos
                       </Button>
                     </Link>
+                  )}
+                  {isExpired && (
+                    <RenewListingButton propertyId={property.id} size="sm" />
                   )}
                   {status === "draft" || status === "paused" || status === "rejected" ? (
                     listingLimitReached ? (

@@ -251,6 +251,7 @@ export async function getLandlordAnalytics(params: {
   const range = resolveAnalyticsRange(params.rangeKey);
   const notes: string[] = [];
   const analyticsSupabase = params.viewsClient ?? params.supabase;
+  const nowIso = new Date().toISOString();
 
   const totalListingsResult = await safeCount(
     params.supabase
@@ -261,15 +262,36 @@ export async function getLandlordAnalytics(params: {
     notes
   );
 
-  const activeListingsResult = await safeCount(
+  const activeListingsNullExpiry = await safeCount(
     params.supabase
       .from("properties")
       .select("id", { count: "exact", head: true })
       .eq("owner_id", params.hostId)
-      .eq("status", "live"),
-    "activeListings",
+      .eq("status", "live")
+      .is("expires_at", null),
+    "activeListingsNullExpiry",
     notes
   );
+
+  const activeListingsFutureExpiry = await safeCount(
+    params.supabase
+      .from("properties")
+      .select("id", { count: "exact", head: true })
+      .eq("owner_id", params.hostId)
+      .eq("status", "live")
+      .gte("expires_at", nowIso),
+    "activeListingsFutureExpiry",
+    notes
+  );
+
+  const activeListingsAvailable =
+    activeListingsNullExpiry.available && activeListingsFutureExpiry.available;
+  const activeListingsResult = {
+    value: activeListingsAvailable
+      ? (activeListingsNullExpiry.value ?? 0) + (activeListingsFutureExpiry.value ?? 0)
+      : null,
+    available: activeListingsAvailable,
+  };
 
   const savedCurrent = await safeCount(
     analyticsSupabase

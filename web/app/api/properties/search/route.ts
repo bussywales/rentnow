@@ -8,7 +8,7 @@ import { getTenantPlanForTier } from "@/lib/plans";
 import type { Property } from "@/lib/types";
 import { computeLocationScore, extractLocationQuery, type LocationQueryInfo } from "@/lib/properties/location-score";
 import { orderImagesWithCover } from "@/lib/properties/images";
-import { getAppSettingBool } from "@/lib/settings/app-settings";
+import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 
 function parsePagination(request: Request) {

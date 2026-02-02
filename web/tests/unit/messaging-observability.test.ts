@@ -46,7 +46,14 @@ void test("messaging observability flags restricted cases", () => {
       { id: "agent-3", role: "agent" },
     ],
     properties: [
-      { id: "p1", owner_id: "host-1", is_approved: true, is_active: true },
+      {
+        id: "p1",
+        owner_id: "host-1",
+        status: "live",
+        is_approved: true,
+        is_active: true,
+        expires_at: null,
+      },
     ],
   });
 

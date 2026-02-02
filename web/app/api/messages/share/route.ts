@@ -8,6 +8,7 @@ import { buildShareToken, buildThreadId } from "@/lib/messaging/share";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { normalizeRole } from "@/lib/roles";
 import type { UserRole } from "@/lib/types";
+import { isListingPubliclyVisible } from "@/lib/properties/expiry";
 
 const shareSchema = z.object({
   property_id: z.string().uuid(),
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
 
   const { data: property } = await supabase
     .from("properties")
-    .select("id, owner_id, is_approved, is_active")
+    .select("id, owner_id, status, is_approved, is_active, expires_at")
     .eq("id", property_id)
     .maybeSingle();
 
@@ -73,7 +74,7 @@ export async function POST(request: Request) {
   }
 
   const ownerId = property.owner_id;
-  const propertyPublished = property.is_approved === true && property.is_active === true;
+  const propertyPublished = isListingPubliclyVisible(property);
 
   let resolvedTenantId: string | null = null;
   let recipientId: string | null = null;

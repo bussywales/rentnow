@@ -20,6 +20,7 @@ import { orderImagesWithCover } from "@/lib/properties/images";
 import { computeLocationScore, extractLocationQuery, type LocationQueryInfo } from "@/lib/properties/location-score";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
+import { isListingPubliclyVisible } from "@/lib/properties/expiry";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
   searchParams?: SearchParams | Promise<SearchParams>;
@@ -91,6 +92,7 @@ function buildSearchParams(
 
 function applyMockFilters(items: Property[], filters: ParsedSearchFilters): Property[] {
   return items.filter((property) => {
+    if (!isListingPubliclyVisible(property)) return false;
     if (filters.city) {
       const cityMatch = property.city.toLowerCase().includes(filters.city.toLowerCase());
       if (!cityMatch) return false;

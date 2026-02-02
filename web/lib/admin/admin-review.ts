@@ -23,6 +23,7 @@ export type AdminReviewListItem = {
   rejected_at?: string | null;
   is_active?: boolean | null;
   rejectionReason?: string | null;
+  expiresAt?: string | null;
   reviewable?: boolean;
   reviewStage?: "pending" | "changes" | null;
   price?: number | null;

@@ -382,7 +382,7 @@ async function getDiagnostics(throttleRange: ThrottleRange) {
         propertyIds.length
           ? adminClient
               .from("properties")
-              .select("id, owner_id, is_approved, is_active")
+              .select("id, owner_id, status, is_approved, is_active, expires_at")
               .in("id", propertyIds)
           : Promise.resolve({
               data: [] as MessagingPropertyRow[],

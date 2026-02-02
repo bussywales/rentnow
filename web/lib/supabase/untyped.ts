@@ -18,6 +18,8 @@ export type UntypedQuery<T = Record<string, unknown>> = {
   eq: (column: string, value: Primitive) => UntypedQuery<T>;
   in: (column: string, values: Primitive[]) => UntypedQuery<T>;
   gte: (column: string, value: Primitive) => UntypedQuery<T>;
+  lt: (column: string, value: Primitive) => UntypedQuery<T>;
+  not: (column: string, operator: string, value: Primitive) => UntypedQuery<T>;
   ilike: (column: string, pattern: string) => UntypedQuery<T>;
   order: (column: string, options?: { ascending?: boolean }) => UntypedQuery<T>;
   range: (from: number, to: number) => UntypedQuery<T>;

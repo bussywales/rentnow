@@ -23,6 +23,7 @@ export const ADMIN_REVIEW_PROPERTIES_COLUMNS = [
   "location_label",
   "location_place_id",
   "created_at",
+  "expires_at",
   "price",
   "currency",
   "rent_period",

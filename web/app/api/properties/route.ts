@@ -9,7 +9,7 @@ import { getTenantPlanForTier } from "@/lib/plans";
 import { getListingAccessResult } from "@/lib/role-access";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { getAppSettingBool } from "@/lib/settings/app-settings";
+import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
 import { normalizeCountryForCreate } from "@/lib/properties/country-normalize";
 import {
@@ -24,6 +24,8 @@ import { sanitizeImageMeta } from "@/lib/properties/image-meta";
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 import { cleanNullableString } from "@/lib/strings";
+import { computeExpiryAt } from "@/lib/properties/expiry";
+import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
@@ -233,8 +235,16 @@ export async function POST(request: Request) {
     const normalizedStatus = isAdmin && status ? status : "draft";
     const isActive = normalizedStatus === "pending" || normalizedStatus === "live";
     const isApproved = normalizedStatus === "live";
-    const submittedAt = normalizedStatus === "pending" ? new Date().toISOString() : null;
-    const approvedAt = normalizedStatus === "live" ? new Date().toISOString() : null;
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const submittedAt = normalizedStatus === "pending" ? nowIso : null;
+    const approvedAt = normalizedStatus === "live" ? nowIso : null;
+    const expiryDays =
+      normalizedStatus === "live" ? await getListingExpiryDays() : null;
+    const expiresAt =
+      normalizedStatus === "live" && expiryDays
+        ? computeExpiryAt(now, expiryDays)
+        : null;
     const willPublish = !isAdmin && isActive;
 
     if (
@@ -309,6 +319,8 @@ export async function POST(request: Request) {
         is_approved: isApproved,
         submitted_at: submittedAt,
         approved_at: approvedAt,
+        expires_at: expiresAt,
+        expired_at: null,
         owner_id: ownerId,
       })
       .select("id")
@@ -615,7 +627,16 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ properties: mapped }, { status: 200 });
     }
 
-    const buildPublicQuery = (includePosition: boolean, cutoff: string | null) => {
+    const nowIso = new Date().toISOString();
+    const missingExpiresAt = (message?: string | null) =>
+      typeof message === "string" &&
+      message.includes("expires_at") &&
+      message.includes("properties");
+    const buildPublicQuery = (
+      includePosition: boolean,
+      cutoff: string | null,
+      includeExpiryFilter: boolean = true
+    ) => {
       const imageFields = includePosition
         ? "image_url,id,position,created_at,width,height,bytes,format"
         : "image_url,id,created_at,width,height,bytes,format";
@@ -626,7 +647,11 @@ export async function GET(request: NextRequest) {
         })
         .eq("is_approved", true)
         .eq("is_active", true)
+        .eq("status", "live")
         .order("created_at", { ascending: false });
+      if (includeExpiryFilter) {
+        query = query.or(`expires_at.is.null,expires_at.gte.${nowIso}`);
+      }
       if (cutoff) {
         query = query.or(`approved_at.is.null,approved_at.lte.${cutoff}`);
       }
@@ -647,9 +672,15 @@ export async function GET(request: NextRequest) {
       const from = (safePage - 1) * safePageSize;
       const to = from + safePageSize - 1;
       const runQuery = async (includePosition: boolean, cutoff: string | null) => {
-        const result = await buildPublicQuery(includePosition, cutoff).range(from, to);
+        let result = await buildPublicQuery(includePosition, cutoff).range(from, to);
         if (result.error && missingApprovedAt(result.error.message) && cutoff) {
-          return buildPublicQuery(includePosition, null).range(from, to);
+          result = await buildPublicQuery(includePosition, null).range(from, to);
+        }
+        if (result.error && missingExpiresAt(result.error.message)) {
+          result = await buildPublicQuery(includePosition, cutoff, false).range(from, to);
+          if (result.error && missingApprovedAt(result.error.message) && cutoff) {
+            result = await buildPublicQuery(includePosition, null, false).range(from, to);
+          }
         }
         return result;
       };
@@ -693,9 +724,15 @@ export async function GET(request: NextRequest) {
       );
     }
     const runQuery = async (includePosition: boolean, cutoff: string | null) => {
-      const result = await buildPublicQuery(includePosition, cutoff);
+      let result = await buildPublicQuery(includePosition, cutoff);
       if (result.error && missingApprovedAt(result.error.message) && cutoff) {
-        return buildPublicQuery(includePosition, null);
+        result = await buildPublicQuery(includePosition, null);
+      }
+      if (result.error && missingExpiresAt(result.error.message)) {
+        result = await buildPublicQuery(includePosition, cutoff, false);
+        if (result.error && missingApprovedAt(result.error.message) && cutoff) {
+          result = await buildPublicQuery(includePosition, null, false);
+        }
       }
       return result;
     };

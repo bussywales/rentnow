@@ -1,8 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-
-type AppSettingRow = { key: string; value: unknown };
-
 export const CONTACT_EXCHANGE_MODES = ["off", "redact", "block"] as const;
 export type ContactExchangeMode = (typeof CONTACT_EXCHANGE_MODES)[number];
 
@@ -11,6 +6,26 @@ export function parseAppSettingBool(value: unknown, defaultValue: boolean) {
   if (typeof value === "object" && value !== null && "enabled" in value) {
     const enabled = (value as { enabled?: unknown }).enabled;
     if (typeof enabled === "boolean") return enabled;
+  }
+  return defaultValue;
+}
+
+export function parseAppSettingInt(value: unknown, defaultValue: number) {
+  if (typeof value === "number" && Number.isFinite(value)) return Math.trunc(value);
+  if (typeof value === "string" && value.trim() !== "") {
+    const num = Number(value);
+    if (Number.isFinite(num)) return Math.trunc(num);
+  }
+  if (typeof value === "object" && value !== null) {
+    const record = value as Record<string, unknown>;
+    const candidates = [record.days, record.value];
+    for (const candidate of candidates) {
+      if (typeof candidate === "number" && Number.isFinite(candidate)) return Math.trunc(candidate);
+      if (typeof candidate === "string" && candidate.trim() !== "") {
+        const num = Number(candidate);
+        if (Number.isFinite(num)) return Math.trunc(num);
+      }
+    }
   }
   return defaultValue;
 }
@@ -29,47 +44,4 @@ export function parseContactExchangeMode(
     }
   }
   return defaultValue;
-}
-
-export async function getAppSettingBool(key: string, defaultValue: boolean): Promise<boolean> {
-  if (!hasServerSupabaseEnv()) return defaultValue;
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data, error } = await supabase
-      .from("app_settings")
-      .select("key, value")
-      .eq("key", key)
-      .maybeSingle<AppSettingRow>();
-    if (error || !data) return defaultValue;
-    return parseAppSettingBool(data.value, defaultValue);
-  } catch {
-    return defaultValue;
-  }
-}
-
-export async function getAppSettingMode(
-  key: string,
-  defaultValue: ContactExchangeMode,
-  client?: SupabaseClient
-): Promise<ContactExchangeMode> {
-  if (!hasServerSupabaseEnv()) return defaultValue;
-  try {
-    const supabase = client ?? (await createServerSupabaseClient());
-    const { data, error } = await supabase
-      .from("app_settings")
-      .select("key, value")
-      .eq("key", key)
-      .maybeSingle<AppSettingRow>();
-    if (error || !data) return defaultValue;
-    return parseContactExchangeMode(data.value, defaultValue);
-  } catch {
-    return defaultValue;
-  }
-}
-
-export async function getContactExchangeMode(
-  client?: SupabaseClient,
-  defaultValue: ContactExchangeMode = "redact"
-): Promise<ContactExchangeMode> {
-  return getAppSettingMode("contact_exchange_mode", defaultValue, client);
 }

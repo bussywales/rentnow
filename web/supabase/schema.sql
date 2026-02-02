@@ -4,7 +4,7 @@
 CREATE TYPE user_role AS ENUM ('tenant', 'landlord', 'agent', 'admin');
 CREATE TYPE rental_type AS ENUM ('short_let', 'long_term');
 CREATE TYPE viewing_status AS ENUM ('pending', 'accepted', 'declined', 'cancelled');
-CREATE TYPE property_status AS ENUM ('draft', 'pending', 'live', 'rejected', 'paused');
+CREATE TYPE property_status AS ENUM ('draft', 'pending', 'live', 'expired', 'rejected', 'paused');
 
 -- PROFILES
 CREATE TABLE public.profiles (
@@ -50,6 +50,9 @@ CREATE TABLE public.properties (
   approved_at TIMESTAMPTZ,
   rejected_at TIMESTAMPTZ,
   paused_at TIMESTAMPTZ,
+  expires_at TIMESTAMPTZ,
+  expired_at TIMESTAMPTZ,
+  renewed_at TIMESTAMPTZ,
   bills_included BOOLEAN NOT NULL DEFAULT FALSE,
   epc_rating TEXT,
   council_tax_band TEXT,

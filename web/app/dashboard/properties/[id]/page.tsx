@@ -10,8 +10,10 @@ import { canManageListings } from "@/lib/role-access";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { Property } from "@/lib/types";
 import { cookies } from "next/headers";
-import { getAppSettingBool } from "@/lib/settings/app-settings";
+import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { normalizeFocusParam, normalizeStepParam, type StepId } from "@/lib/properties/step-params";
+import { isListingExpired } from "@/lib/properties/expiry";
+import { RenewListingButton } from "@/components/host/RenewListingButton";
 
 export const dynamic = "force-dynamic";
 
@@ -254,6 +256,8 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
     );
   }
 
+  const isExpired = isListingExpired(property);
+
   return (
     <div className="space-y-4">
       <div>
@@ -264,6 +268,15 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
           Update details, tweak pricing, or generate fresh AI copy.
         </p>
       </div>
+      {isExpired && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div>
+            <p className="font-semibold">This listing has expired.</p>
+            <p className="mt-1">This listing has expired and is no longer visible to tenants.</p>
+          </div>
+          {property.id && <RenewListingButton propertyId={property.id} size="sm" />}
+        </div>
+      )}
       {property.id && property.status === ("changes_requested" as Property["status"]) && (
         <HostFixRequestPanel
           key={`${property.id}-${(property as { rejection_reason?: string | null })?.rejection_reason ?? ""}`}
