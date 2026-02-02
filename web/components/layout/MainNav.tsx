@@ -25,6 +25,7 @@ export const MAIN_NAV_LINKS: Array<{
   { href: "/dashboard", label: "Dashboard", requireAuth: true, denyRoles: ["tenant", "admin"] },
   { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
   { href: "/admin/support", label: "Support", requireAuth: true, requireRole: "admin" },
+  { href: "/admin/legal", label: "Legal", requireAuth: true, requireRole: "admin" },
   { href: "/admin/settings", label: "Settings", requireAuth: true, requireRole: "admin" },
 ];
 

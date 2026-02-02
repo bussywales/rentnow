@@ -4,11 +4,13 @@ import Link from "next/link";
 import { getProfile, getSession } from "@/lib/auth";
 import { formatRoleLabel, normalizeRole } from "@/lib/roles";
 import { getHostNavItems } from "@/lib/role-access";
-import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { ActingAsSelector } from "@/components/dashboard/ActingAsSelector";
+import { LegalAcceptanceGate } from "@/components/legal/LegalAcceptanceGate";
+import { getLegalAcceptanceStatus } from "@/lib/legal/acceptance.server";
 
 export default async function DashboardLayout({
   children,
@@ -37,6 +39,26 @@ export default async function DashboardLayout({
   if (normalizedRole === "admin") {
     redirect("/admin/support");
   }
+
+  let requireLegalAcceptance = false;
+  if (supabaseReady && profile?.id && normalizedRole) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const acceptance = await getLegalAcceptanceStatus({
+        userId: profile.id,
+        role: normalizedRole,
+        supabase,
+      });
+      requireLegalAcceptance = !acceptance.isComplete;
+    } catch {
+      // ignore acceptance errors to avoid blocking hosts on transient failures
+    }
+  }
+
+  if (requireLegalAcceptance) {
+    return <LegalAcceptanceGate />;
+  }
+
   const roleLabel = formatRoleLabel(normalizedRole);
   const workspaceTitle = `${profile?.full_name || "Your"} workspace`;
   const workspaceCopy = `Role: ${roleLabel} - Manage listings, messages, and viewings.`;

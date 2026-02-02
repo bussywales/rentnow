@@ -22,6 +22,12 @@ ALTER TABLE public.saved_searches FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.app_settings FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.legal_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.legal_documents FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE public.legal_acceptances ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.legal_acceptances FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE public.listing_leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.listing_leads FORCE ROW LEVEL SECURITY;
 
@@ -210,6 +216,35 @@ CREATE POLICY "app_settings_no_mutation_auth" ON public.app_settings
   TO authenticated
   USING (false)
   WITH CHECK (false);
+
+-- legal_documents: published read for all; admin full access
+DROP POLICY IF EXISTS "legal documents published read" ON public.legal_documents;
+CREATE POLICY "legal documents published read" ON public.legal_documents
+  FOR SELECT
+  TO authenticated, anon
+  USING (status = 'published');
+
+DROP POLICY IF EXISTS "legal documents admin write" ON public.legal_documents;
+CREATE POLICY "legal documents admin write" ON public.legal_documents
+  FOR ALL
+  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
+  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+
+-- legal_acceptances: users manage their own; admins can read
+DROP POLICY IF EXISTS "legal acceptances select self" ON public.legal_acceptances;
+CREATE POLICY "legal acceptances select self" ON public.legal_acceptances
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "legal acceptances insert self" ON public.legal_acceptances;
+CREATE POLICY "legal acceptances insert self" ON public.legal_acceptances
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "legal acceptances admin read" ON public.legal_acceptances;
+CREATE POLICY "legal acceptances admin read" ON public.legal_acceptances
+  FOR SELECT
+  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
 
 -- listing_leads: buyer/owner/admin read; buyer insert; owner/admin update
 DROP POLICY IF EXISTS "listing_leads_select" ON public.listing_leads;

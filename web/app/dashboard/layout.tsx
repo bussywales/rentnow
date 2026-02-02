@@ -10,6 +10,8 @@ import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 import { ActingAsSelector } from "@/components/dashboard/ActingAsSelector";
 import { listThreadsForUser } from "@/lib/messaging/threads";
+import { LegalAcceptanceGate } from "@/components/legal/LegalAcceptanceGate";
+import { getLegalAcceptanceStatus } from "@/lib/legal/acceptance.server";
 
 export default async function DashboardLayout({
   children,
@@ -47,18 +49,36 @@ export default async function DashboardLayout({
       ? !profile?.phone || !profile?.preferred_contact
       : false;
   let unreadMessages = 0;
+  let requireLegalAcceptance = false;
+  let supabase = null as Awaited<ReturnType<typeof createServerSupabaseClient>> | null;
+
   if (supabaseReady && profile?.id) {
     try {
-      const supabase = await createServerSupabaseClient();
-      const { threads } = await listThreadsForUser({
-        client: supabase,
-        userId: profile.id,
-        role: normalizedRole,
-      });
-      unreadMessages = threads.reduce((sum, thread) => sum + (thread.unread_count ?? 0), 0);
+      supabase = await createServerSupabaseClient();
+      if (normalizedRole) {
+        const acceptance = await getLegalAcceptanceStatus({
+          userId: profile.id,
+          role: normalizedRole,
+          supabase,
+        });
+        requireLegalAcceptance = !acceptance.isComplete;
+      }
+
+      if (!requireLegalAcceptance) {
+        const { threads } = await listThreadsForUser({
+          client: supabase,
+          userId: profile.id,
+          role: normalizedRole,
+        });
+        unreadMessages = threads.reduce((sum, thread) => sum + (thread.unread_count ?? 0), 0);
+      }
     } catch {
       unreadMessages = 0;
     }
+  }
+
+  if (requireLegalAcceptance) {
+    return <LegalAcceptanceGate />;
   }
 
   return (

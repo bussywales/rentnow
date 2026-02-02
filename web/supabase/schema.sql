@@ -171,6 +171,47 @@ CREATE TABLE public.app_settings (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+-- LEGAL DOCUMENTS
+CREATE TABLE public.legal_documents (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  jurisdiction TEXT NOT NULL,
+  audience TEXT NOT NULL,
+  version INT NOT NULL DEFAULT 1,
+  status TEXT NOT NULL DEFAULT 'draft',
+  title TEXT NOT NULL,
+  content_md TEXT NOT NULL,
+  effective_at TIMESTAMPTZ,
+  published_at TIMESTAMPTZ,
+  published_by UUID REFERENCES public.profiles (id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  change_log TEXT,
+  CONSTRAINT legal_documents_status_check CHECK (status IN ('draft', 'published', 'archived')),
+  CONSTRAINT legal_documents_audience_check CHECK (audience IN ('MASTER', 'TENANT', 'LANDLORD_AGENT', 'ADMIN_OPS', 'AUP'))
+);
+
+CREATE UNIQUE INDEX legal_documents_unique_version ON public.legal_documents (jurisdiction, audience, version);
+CREATE UNIQUE INDEX legal_documents_published_unique ON public.legal_documents (jurisdiction, audience)
+  WHERE status = 'published';
+CREATE INDEX legal_documents_status_idx ON public.legal_documents (jurisdiction, audience, status, version desc);
+
+-- LEGAL ACCEPTANCES
+CREATE TABLE public.legal_acceptances (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  document_id UUID NOT NULL REFERENCES public.legal_documents (id) ON DELETE CASCADE,
+  jurisdiction TEXT NOT NULL,
+  audience TEXT NOT NULL,
+  version INT NOT NULL,
+  accepted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  ip TEXT,
+  user_agent TEXT,
+  CONSTRAINT legal_acceptances_audience_check CHECK (audience IN ('MASTER', 'TENANT', 'LANDLORD_AGENT', 'ADMIN_OPS', 'AUP'))
+);
+
+CREATE UNIQUE INDEX legal_acceptances_unique_user_doc ON public.legal_acceptances (user_id, jurisdiction, audience, version);
+CREATE INDEX legal_acceptances_user_idx ON public.legal_acceptances (user_id, accepted_at desc);
+
 -- LISTING LEADS
 CREATE TABLE public.listing_leads (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
