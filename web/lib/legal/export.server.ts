@@ -35,10 +35,6 @@ function formatEffectiveDate(value: string | null | undefined): string | null {
 }
 
 export async function renderLegalPdf(input: LegalExportInput): Promise<Buffer> {
-  if (isLegalContentEmpty(input.content_md)) {
-    throw new Error("Legal document content is empty");
-  }
-
   const doc = new PDFDocument({ size: "A4", margin: 50 });
   const chunks: Buffer[] = [];
   const done = new Promise<Buffer>((resolve, reject) => {
@@ -59,7 +55,9 @@ export async function renderLegalPdf(input: LegalExportInput): Promise<Buffer> {
   }
   doc.moveDown();
 
-  const blocks = parseMarkdownToBlocks(input.content_md);
+  const blocks = isLegalContentEmpty(input.content_md)
+    ? []
+    : parseMarkdownToBlocks(input.content_md);
   blocks.forEach((block) => {
     if (block.type === "heading") {
       const size = block.level === 1 ? 16 : block.level === 2 ? 14 : 12;

@@ -43,7 +43,7 @@ export async function GET(request: Request, { params }: RouteContext) {
   const { data: doc, error } = await query.maybeSingle();
 
   if (error) {
-    console.error("Legal export fetch failed", { id, error });
+    console.error("LEGAL_EXPORT_FAILED admin fetch", { id, error });
     return NextResponse.json(
       { error: "Legal export failed", code: "LEGAL_EXPORT_FAILED" },
       { status: 500 }
@@ -52,7 +52,7 @@ export async function GET(request: Request, { params }: RouteContext) {
   if (!doc) {
     return NextResponse.json({ error: "Document not found" }, { status: 404 });
   }
-  if (isLegalContentEmpty(doc.content_md)) {
+  if (format === "docx" && isLegalContentEmpty(doc.content_md)) {
     return NextResponse.json({ error: "Legal document content is empty" }, { status: 400 });
   }
 
@@ -70,7 +70,11 @@ export async function GET(request: Request, { params }: RouteContext) {
     buffer =
       format === "pdf" ? await renderLegalPdf(payload) : await renderLegalDocx(payload);
   } catch (renderError) {
-    console.error("Legal export render failed", { id, format, error: renderError });
+    console.error("LEGAL_EXPORT_FAILED admin render", {
+      id,
+      format,
+      error: renderError,
+    });
     return NextResponse.json(
       { error: "Legal export failed", code: "LEGAL_EXPORT_FAILED" },
       { status: 500 }

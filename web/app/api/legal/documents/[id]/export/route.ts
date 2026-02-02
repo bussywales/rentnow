@@ -96,13 +96,13 @@ export async function getPublicLegalExportResponse(
       : await defaultFetchLegalDocument(supabase, id, nowIso);
 
     if (error) {
-      console.error("Legal export fetch failed", { id, error });
+      console.error("LEGAL_EXPORT_FAILED public fetch", { id, error });
       return exportFailedResponse();
     }
 
     doc = data ?? null;
   } catch (error) {
-    console.error("Legal export fetch error", { id, error });
+    console.error("LEGAL_EXPORT_FAILED public fetch", { id, error });
     return exportFailedResponse();
   }
 
@@ -110,7 +110,7 @@ export async function getPublicLegalExportResponse(
     return NextResponse.json({ error: "Document not found" }, { status: 404 });
   }
 
-  if (isLegalContentEmpty(doc.content_md)) {
+  if (format === "docx" && isLegalContentEmpty(doc.content_md)) {
     return NextResponse.json({ error: "Legal document content is empty" }, { status: 400 });
   }
 
@@ -130,7 +130,7 @@ export async function getPublicLegalExportResponse(
         ? await deps.renderLegalPdf(payload)
         : await deps.renderLegalDocx(payload);
   } catch (error) {
-    console.error("Legal export render failed", { id, format, error });
+    console.error("LEGAL_EXPORT_FAILED public render", { id, format, error });
     return exportFailedResponse();
   }
 

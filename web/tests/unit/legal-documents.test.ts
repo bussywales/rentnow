@@ -38,7 +38,7 @@ void test("published documents are immutable", () => {
   assert.equal(canEditLegalDocument("draft"), true);
 });
 
-void test("exports reject empty content", async () => {
+void test("docx export rejects empty content", async () => {
   const base = {
     title: "Test",
     version: 1,
@@ -47,8 +47,20 @@ void test("exports reject empty content", async () => {
     content_md: "",
   };
 
-  await assert.rejects(() => renderLegalPdf(base), /empty/i);
   await assert.rejects(() => renderLegalDocx(base), /empty/i);
+});
+
+void test("pdf export returns a buffer for empty content", async () => {
+  const buffer = await renderLegalPdf({
+    title: "Test",
+    version: 1,
+    jurisdiction: "NG",
+    audience: "MASTER",
+    content_md: "",
+  });
+
+  assert.ok(Buffer.isBuffer(buffer));
+  assert.ok(buffer.length > 0);
 });
 
 void test("legal acceptance inserts rows for required documents", async () => {
