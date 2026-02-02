@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { DEFAULT_JURISDICTION, isLegalAudience } from "@/lib/legal/constants";
+import { isLegalAudience } from "@/lib/legal/constants";
+import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -13,12 +14,13 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const jurisdiction = (searchParams.get("jurisdiction") || DEFAULT_JURISDICTION).toUpperCase();
+  const jurisdiction = await resolveJurisdiction({ searchParams });
   const audienceParam = searchParams.get("audience");
   if (!isLegalAudience(audienceParam)) {
     return NextResponse.json({ error: "Missing or invalid audience" }, { status: 400 });
   }
 
+  const nowIso = new Date().toISOString();
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("legal_documents")
@@ -26,6 +28,7 @@ export async function GET(request: Request) {
     .eq("jurisdiction", jurisdiction)
     .eq("audience", audienceParam)
     .eq("status", "published")
+    .or(`effective_at.is.null,effective_at.lte.${nowIso}`)
     .maybeSingle();
 
   if (error) {

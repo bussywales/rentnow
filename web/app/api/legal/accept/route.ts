@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireUser, getUserRole } from "@/lib/authz";
-import { DEFAULT_JURISDICTION } from "@/lib/legal/constants";
 import { getLegalAcceptanceStatus } from "@/lib/legal/acceptance.server";
 import { isLegalContentEmpty } from "@/lib/legal/markdown";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -54,7 +54,13 @@ export async function postLegalAcceptResponse(
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
   }
 
-  const jurisdiction = (body.data.jurisdiction || DEFAULT_JURISDICTION).toUpperCase();
+  const url = new URL(request.url);
+  const jurisdiction = await resolveJurisdiction({
+    searchParams: url.searchParams,
+    explicitJurisdiction: body.data.jurisdiction ?? null,
+    userId: auth.user.id,
+    supabase: auth.supabase,
+  });
 
   const status = await deps.getLegalAcceptanceStatus({
     userId: auth.user.id,

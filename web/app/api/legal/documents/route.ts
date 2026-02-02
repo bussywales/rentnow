@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { resolveServerRole } from "@/lib/auth/role";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { DEFAULT_JURISDICTION, isLegalAudience } from "@/lib/legal/constants";
+import { isLegalAudience } from "@/lib/legal/constants";
+import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -14,11 +15,15 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const jurisdiction = (searchParams.get("jurisdiction") || DEFAULT_JURISDICTION).toUpperCase();
+  const { supabase, role, user } = await resolveServerRole();
+  const jurisdiction = await resolveJurisdiction({
+    searchParams,
+    userId: user?.id ?? null,
+    supabase,
+  });
   const audienceParam = searchParams.get("audience");
   const audience = isLegalAudience(audienceParam) ? audienceParam : null;
 
-  const { supabase, role } = await resolveServerRole();
   const client = supabase ?? (await createServerSupabaseClient());
 
   let query = client
@@ -31,7 +36,8 @@ export async function GET(request: Request) {
   }
 
   if (role !== "admin") {
-    query = query.eq("status", "published");
+    const nowIso = new Date().toISOString();
+    query = query.eq("status", "published").or(`effective_at.is.null,effective_at.lte.${nowIso}`);
   }
 
   const { data, error } = await query.order("audience", { ascending: true }).order("version", { ascending: false });

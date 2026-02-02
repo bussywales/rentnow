@@ -2,7 +2,8 @@ import { redirect } from "next/navigation";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { resolveServerRole } from "@/lib/auth/role";
 import { getLegalAcceptanceStatus } from "@/lib/legal/acceptance.server";
-import { DEFAULT_JURISDICTION, LEGAL_AUDIENCE_LABELS } from "@/lib/legal/constants";
+import { LEGAL_AUDIENCE_LABELS } from "@/lib/legal/constants";
+import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
 import { LegalMarkdown } from "@/components/legal/LegalMarkdown";
 import { LegalAcceptanceForm } from "@/components/legal/LegalAcceptanceForm";
 import type { UserRole } from "@/lib/types";
@@ -41,11 +42,6 @@ export default async function LegalAcceptPage({ searchParams }: PageProps) {
   }
 
   const redirectParam = normalizeRedirect(searchParams?.redirect, "/dashboard");
-  const jurisdiction =
-    typeof searchParams?.jurisdiction === "string"
-      ? searchParams.jurisdiction.toUpperCase()
-      : DEFAULT_JURISDICTION;
-
   const { supabase, user, role } = await resolveServerRole();
 
   if (!user) {
@@ -55,6 +51,12 @@ export default async function LegalAcceptPage({ searchParams }: PageProps) {
   if (!role) {
     redirect("/onboarding");
   }
+
+  const jurisdiction = await resolveJurisdiction({
+    searchParams,
+    userId: user.id,
+    supabase,
+  });
 
   const status = await getLegalAcceptanceStatus({
     userId: user.id,

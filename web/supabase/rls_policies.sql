@@ -222,7 +222,7 @@ DROP POLICY IF EXISTS "legal documents published read" ON public.legal_documents
 CREATE POLICY "legal documents published read" ON public.legal_documents
   FOR SELECT
   TO authenticated, anon
-  USING (status = 'published');
+  USING (status = 'published' AND (effective_at IS NULL OR effective_at <= now()));
 
 DROP POLICY IF EXISTS "legal documents admin write" ON public.legal_documents;
 CREATE POLICY "legal documents admin write" ON public.legal_documents

@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireUser, getUserRole } from "@/lib/authz";
-import { DEFAULT_JURISDICTION } from "@/lib/legal/constants";
 import { getLegalAcceptanceStatus } from "@/lib/legal/acceptance.server";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -26,7 +26,11 @@ export async function GET(request: Request) {
   }
 
   const { searchParams } = new URL(request.url);
-  const jurisdiction = (searchParams.get("jurisdiction") || DEFAULT_JURISDICTION).toUpperCase();
+  const jurisdiction = await resolveJurisdiction({
+    searchParams,
+    userId: auth.user.id,
+    supabase: auth.supabase,
+  });
 
   const status = await getLegalAcceptanceStatus({
     userId: auth.user.id,

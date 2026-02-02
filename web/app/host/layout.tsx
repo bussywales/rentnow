@@ -11,6 +11,7 @@ import { redirect } from "next/navigation";
 import { ActingAsSelector } from "@/components/dashboard/ActingAsSelector";
 import { LegalAcceptanceGate } from "@/components/legal/LegalAcceptanceGate";
 import { getLegalAcceptanceStatus } from "@/lib/legal/acceptance.server";
+import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
 
 export default async function DashboardLayout({
   children,
@@ -44,9 +45,15 @@ export default async function DashboardLayout({
   if (supabaseReady && profile?.id && normalizedRole) {
     try {
       const supabase = await createServerSupabaseClient();
+      const jurisdiction = await resolveJurisdiction({
+        profile,
+        userId: profile.id,
+        supabase,
+      });
       const acceptance = await getLegalAcceptanceStatus({
         userId: profile.id,
         role: normalizedRole,
+        jurisdiction,
         supabase,
       });
       requireLegalAcceptance = !acceptance.isComplete;

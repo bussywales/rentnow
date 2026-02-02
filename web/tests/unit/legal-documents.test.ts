@@ -6,6 +6,9 @@ import { getRequiredLegalAudiences } from "@/lib/legal/requirements";
 import { canEditLegalDocument } from "@/lib/legal/workflow";
 import { renderLegalDocx, renderLegalPdf } from "@/lib/legal/export.server";
 import { postLegalAcceptResponse } from "@/app/api/legal/accept/route";
+import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
+import { getPublicLegalDocuments } from "@/lib/legal/public-documents.server";
+import { DEFAULT_JURISDICTION } from "@/lib/legal/constants";
 
 type SupabaseStub = {
   from: (table: string) => {
@@ -185,5 +188,79 @@ void test("legal migration enforces published uniqueness and acceptance uniquene
   assert.ok(
     contents.includes("legal_acceptances_unique_user_doc"),
     "expected acceptance uniqueness constraint"
+  );
+});
+
+void test("public legal page selects latest published documents for NG", async () => {
+  const docs = [
+    {
+      id: "doc-1",
+      jurisdiction: "NG",
+      audience: "MASTER",
+      version: 2,
+      status: "published",
+      title: "Master v2",
+      effective_at: "2026-01-01T00:00:00.000Z",
+    },
+    {
+      id: "doc-2",
+      jurisdiction: "NG",
+      audience: "MASTER",
+      version: 1,
+      status: "published",
+      title: "Master v1",
+      effective_at: "2025-01-01T00:00:00.000Z",
+    },
+    {
+      id: "doc-3",
+      jurisdiction: "NG",
+      audience: "AUP",
+      version: 1,
+      status: "published",
+      title: "AUP v1",
+      effective_at: "2026-01-01T00:00:00.000Z",
+    },
+  ];
+
+  const result = await getPublicLegalDocuments({
+    jurisdiction: "NG",
+    fetchPublishedDocs: async () => ({ data: docs, error: null }),
+  });
+
+  assert.equal(result.length, 2);
+  assert.equal(
+    result.find((doc) => doc.audience === "MASTER")?.version,
+    2
+  );
+});
+
+void test("resolveJurisdiction falls back to app setting then default", async () => {
+  const fromSetting = await resolveJurisdiction(
+    {},
+    { getAppSettingString: async () => "GH" }
+  );
+  assert.equal(fromSetting, "GH");
+
+  const fromDefault = await resolveJurisdiction(
+    {},
+    { getAppSettingString: async () => "" }
+  );
+  assert.equal(fromDefault, DEFAULT_JURISDICTION);
+});
+
+void test("anon read policy allows published legal docs", () => {
+  const policyPath = path.join(process.cwd(), "supabase", "rls_policies.sql");
+  const contents = fs.readFileSync(policyPath, "utf8");
+  assert.ok(
+    contents.includes('CREATE POLICY "legal documents published read"'),
+    "expected legal documents published read policy"
+  );
+  assert.ok(
+    contents.includes("TO authenticated, anon"),
+    "expected anon access in legal documents published read policy"
+  );
+  assert.ok(
+    contents.includes("status = 'published'"),
+    "expected published status guard in legal documents policy"
   );
 });

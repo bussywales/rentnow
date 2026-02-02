@@ -54,7 +54,7 @@ export async function getLegalAcceptanceStatus(input: {
     )
     .eq("jurisdiction", jurisdiction)
     .eq("status", "published")
-    .lte("effective_at", now)
+    .or(`effective_at.is.null,effective_at.lte.${now}`)
     .in("audience", requiredAudiences)
     .order("version", { ascending: false });
 

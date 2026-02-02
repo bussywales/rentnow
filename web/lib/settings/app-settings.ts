@@ -45,3 +45,17 @@ export function parseContactExchangeMode(
   }
   return defaultValue;
 }
+
+export function parseAppSettingString(value: unknown, defaultValue: string) {
+  if (typeof value === "string" && value.trim()) return value.trim();
+  if (typeof value === "object" && value !== null) {
+    const record = value as Record<string, unknown>;
+    const candidates = [record.value, record.code, record.jurisdiction];
+    for (const candidate of candidates) {
+      if (typeof candidate === "string" && candidate.trim()) {
+        return candidate.trim();
+      }
+    }
+  }
+  return defaultValue;
+}

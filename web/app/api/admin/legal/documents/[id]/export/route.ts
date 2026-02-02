@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/authz";
 import { renderLegalDocx, renderLegalPdf } from "@/lib/legal/export.server";
 import { isLegalContentEmpty } from "@/lib/legal/markdown";
-import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { resolveServerRole } from "@/lib/auth/role";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -12,16 +12,11 @@ export const runtime = "nodejs";
 type RouteContext = { params: Promise<{ id: string }> };
 
 export async function GET(request: Request, { params }: RouteContext) {
-  const startTime = Date.now();
   const { id } = await params;
-  const routeLabel = `/api/admin/legal/documents/${id}/export`;
 
   if (!hasServerSupabaseEnv()) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
   }
-
-  const auth = await requireRole({ request, route: routeLabel, startTime, roles: ["admin"] });
-  if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(request.url);
   const format = searchParams.get("format");
@@ -29,11 +24,23 @@ export async function GET(request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "Invalid format" }, { status: 400 });
   }
 
-  const { data: doc, error } = await auth.supabase
+  const { supabase, role } = await resolveServerRole();
+  const isAdmin = role === "admin";
+  const client = supabase ?? (await createServerSupabaseClient());
+  const nowIso = new Date().toISOString();
+
+  let query = client
     .from("legal_documents")
-    .select("id, jurisdiction, audience, version, title, content_md, effective_at")
-    .eq("id", id)
-    .maybeSingle();
+    .select("id, jurisdiction, audience, version, title, content_md, effective_at, status")
+    .eq("id", id);
+
+  if (!isAdmin) {
+    query = query
+      .eq("status", "published")
+      .or(`effective_at.is.null,effective_at.lte.${nowIso}`);
+  }
+
+  const { data: doc, error } = await query.maybeSingle();
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
@@ -64,11 +71,15 @@ export async function GET(request: Request, { params }: RouteContext) {
     format === "pdf"
       ? "application/pdf"
       : "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+  const disposition =
+    format === "pdf" && searchParams.get("disposition") === "inline"
+      ? "inline"
+      : "attachment";
 
   return new NextResponse(body, {
     headers: {
       "Content-Type": contentType,
-      "Content-Disposition": `attachment; filename=\"${fileName}\"`,
+      "Content-Disposition": `${disposition}; filename=\"${fileName}\"`,
     },
   });
 }
