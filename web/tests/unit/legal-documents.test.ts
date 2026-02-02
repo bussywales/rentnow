@@ -63,6 +63,19 @@ void test("pdf export returns a buffer for empty content", async () => {
   assert.ok(buffer.length > 0);
 });
 
+void test("pdf export returns a buffer for non-empty content", async () => {
+  const buffer = await renderLegalPdf({
+    title: "Test",
+    version: 2,
+    jurisdiction: "NG",
+    audience: "MASTER",
+    content_md: "# Heading\n\nThis is a test paragraph with a [link](https://example.com).",
+  });
+
+  assert.ok(Buffer.isBuffer(buffer));
+  assert.ok(buffer.length > 0);
+});
+
 void test("legal acceptance inserts rows for required documents", async () => {
   let upsertPayload: Record<string, unknown>[] | null = null;
   let upsertOnConflict: string | null = null;
@@ -305,6 +318,34 @@ void test("public legal export returns 404 for draft documents", async () => {
           version: 1,
           status: "draft",
           title: "Draft",
+          content_md: "Terms",
+          effective_at: new Date().toISOString(),
+        },
+        error: null,
+      }),
+    }
+  );
+
+  assert.equal(response.status, 404);
+});
+
+void test("public legal export returns 404 for archived documents", async () => {
+  const response = await getPublicLegalExportResponse(
+    new Request("http://localhost/api/legal/documents/doc-4/export?format=pdf"),
+    { params: Promise.resolve({ id: "doc-4" }) },
+    {
+      hasServerSupabaseEnv: () => true,
+      createServerSupabaseClient: async () => ({} as never),
+      renderLegalPdf: async () => Buffer.from("pdf"),
+      renderLegalDocx: async () => Buffer.from("docx"),
+      fetchLegalDocument: async () => ({
+        data: {
+          id: "doc-4",
+          jurisdiction: "NG",
+          audience: "MASTER",
+          version: 1,
+          status: "archived",
+          title: "Archived",
           content_md: "Terms",
           effective_at: new Date().toISOString(),
         },

@@ -1,4 +1,3 @@
-import PDFDocument from "pdfkit";
 import {
   AlignmentType,
   Document,
@@ -7,6 +6,14 @@ import {
   Paragraph,
   TextRun,
 } from "docx";
+import {
+  PDFDocument,
+  PageSizes,
+  StandardFonts,
+  rgb,
+  type PDFFont,
+  type PDFPage,
+} from "pdf-lib";
 import { parseMarkdownToBlocks, isLegalContentEmpty } from "@/lib/legal/markdown";
 import type { LegalAudience } from "@/lib/legal/constants";
 
@@ -34,57 +41,206 @@ function formatEffectiveDate(value: string | null | undefined): string | null {
   });
 }
 
-export async function renderLegalPdf(input: LegalExportInput): Promise<Buffer> {
-  const doc = new PDFDocument({ size: "A4", margin: 50 });
-  const chunks: Buffer[] = [];
-  const done = new Promise<Buffer>((resolve, reject) => {
-    doc.on("data", (chunk) => {
-      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-    });
-    doc.on("end", () => resolve(Buffer.concat(chunks)));
-    doc.on("error", (err) => reject(err));
-  });
+const PAGE_MARGIN = 50;
+const BODY_FONT_SIZE = 11;
+const LINE_HEIGHT_FACTOR = 1.25;
 
+function sanitizeMarkdownForPdf(markdown: string): string {
+  return markdown.replace(/\[(.+?)\]\((.+?)\)/g, "$1 ($2)");
+}
+
+function breakLongWord(
+  word: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number
+): string[] {
+  const segments: string[] = [];
+  let current = "";
+
+  for (const char of word) {
+    const next = current + char;
+    if (font.widthOfTextAtSize(next, size) <= maxWidth || current.length === 0) {
+      current = next;
+      continue;
+    }
+    segments.push(current);
+    current = char;
+  }
+
+  if (current) {
+    segments.push(current);
+  }
+
+  return segments;
+}
+
+function wrapText(
+  text: string,
+  font: PDFFont,
+  size: number,
+  maxWidth: number
+): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = "";
+
+  for (const word of words) {
+    if (!line) {
+      if (font.widthOfTextAtSize(word, size) <= maxWidth) {
+        line = word;
+      } else {
+        lines.push(...breakLongWord(word, font, size, maxWidth));
+      }
+      continue;
+    }
+
+    const candidate = `${line} ${word}`;
+    if (font.widthOfTextAtSize(candidate, size) <= maxWidth) {
+      line = candidate;
+      continue;
+    }
+
+    lines.push(line);
+
+    if (font.widthOfTextAtSize(word, size) <= maxWidth) {
+      line = word;
+    } else {
+      const segments = breakLongWord(word, font, size, maxWidth);
+      lines.push(...segments.slice(0, -1));
+      line = segments[segments.length - 1] ?? "";
+    }
+  }
+
+  if (line) {
+    lines.push(line);
+  }
+
+  return lines;
+}
+
+type PdfLayoutState = {
+  page: PDFPage;
+  cursorY: number;
+};
+
+function addPage(doc: PDFDocument): PdfLayoutState {
+  const page = doc.addPage(PageSizes.A4);
+  return { page, cursorY: page.getHeight() - PAGE_MARGIN };
+}
+
+function ensureSpace(
+  doc: PDFDocument,
+  state: PdfLayoutState,
+  requiredHeight: number
+): PdfLayoutState {
+  if (state.cursorY - requiredHeight < PAGE_MARGIN) {
+    return addPage(doc);
+  }
+  return state;
+}
+
+function drawLine(
+  doc: PDFDocument,
+  state: PdfLayoutState,
+  text: string,
+  font: PDFFont,
+  size: number,
+  x: number
+): PdfLayoutState {
+  const nextState = ensureSpace(doc, state, size);
+  nextState.page.drawText(text, {
+    x,
+    y: nextState.cursorY - size,
+    size,
+    font,
+    color: rgb(0, 0, 0),
+  });
+  nextState.cursorY -= size * LINE_HEIGHT_FACTOR;
+  return nextState;
+}
+
+function drawCenteredLine(
+  doc: PDFDocument,
+  state: PdfLayoutState,
+  text: string,
+  font: PDFFont,
+  size: number
+): PdfLayoutState {
+  const pageWidth = state.page.getWidth();
+  const textWidth = font.widthOfTextAtSize(text, size);
+  const x = Math.max(PAGE_MARGIN, (pageWidth - textWidth) / 2);
+  return drawLine(doc, state, text, font, size, x);
+}
+
+function drawParagraph(
+  doc: PDFDocument,
+  state: PdfLayoutState,
+  text: string,
+  font: PDFFont,
+  size: number,
+  indent = 0
+): PdfLayoutState {
+  const pageWidth = state.page.getWidth();
+  const maxWidth = pageWidth - PAGE_MARGIN * 2 - indent;
+  const lines = wrapText(text, font, size, maxWidth);
+  let nextState = state;
+
+  for (const line of lines) {
+    nextState = drawLine(doc, nextState, line, font, size, PAGE_MARGIN + indent);
+  }
+
+  nextState.cursorY -= size * 0.4;
+  return nextState;
+}
+
+export async function renderLegalPdf(input: LegalExportInput): Promise<Buffer> {
+  const doc = await PDFDocument.create();
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  const fontBold = await doc.embedFont(StandardFonts.HelveticaBold);
+  let layout = addPage(doc);
   const effectiveLabel = formatEffectiveDate(input.effective_at);
 
-  doc.font("Helvetica-Bold").fontSize(20).text(input.title, { align: "center" });
-  doc.moveDown(0.3);
-  doc.font("Helvetica").fontSize(11).text(`Version ${input.version}`, { align: "center" });
+  layout = drawCenteredLine(doc, layout, input.title, fontBold, 20);
+  layout = drawCenteredLine(
+    doc,
+    layout,
+    `Version ${input.version}`,
+    font,
+    BODY_FONT_SIZE
+  );
   if (effectiveLabel) {
-    doc.text(`Effective ${effectiveLabel}`, { align: "center" });
+    layout = drawCenteredLine(
+      doc,
+      layout,
+      `Effective ${effectiveLabel}`,
+      font,
+      BODY_FONT_SIZE
+    );
   }
-  doc.moveDown();
+  layout.cursorY -= BODY_FONT_SIZE * 0.6;
 
-  const blocks = isLegalContentEmpty(input.content_md)
-    ? []
-    : parseMarkdownToBlocks(input.content_md);
+  const markdown = sanitizeMarkdownForPdf(input.content_md ?? "");
+  const blocks = isLegalContentEmpty(markdown) ? [] : parseMarkdownToBlocks(markdown);
   blocks.forEach((block) => {
     if (block.type === "heading") {
-      const size = block.level === 1 ? 16 : block.level === 2 ? 14 : 12;
-      doc.moveDown(0.4);
-      doc.font("Helvetica-Bold").fontSize(size).text(block.text, { align: "left" });
-      doc.moveDown(0.2);
-      doc.font("Helvetica").fontSize(11);
+      const size = block.level === 1 ? 14 : block.level === 2 ? 12 : BODY_FONT_SIZE;
+      layout = drawParagraph(doc, layout, block.text, fontBold, size);
       return;
     }
 
     if (block.type === "list") {
       block.items.forEach((item) => {
-        doc.font("Helvetica").fontSize(11).text(`• ${item}`, {
-          indent: 12,
-          align: "left",
-        });
+        layout = drawParagraph(doc, layout, `• ${item}`, font, BODY_FONT_SIZE, 8);
       });
-      doc.moveDown(0.4);
       return;
     }
 
-    doc.font("Helvetica").fontSize(11).text(block.text, { align: "left" });
-    doc.moveDown(0.4);
+    layout = drawParagraph(doc, layout, block.text, font, BODY_FONT_SIZE);
   });
 
-  doc.end();
-  return done;
+  const pdfBytes = await doc.save();
+  return Buffer.from(pdfBytes);
 }
 
 export async function renderLegalDocx(input: LegalExportInput): Promise<Buffer> {
