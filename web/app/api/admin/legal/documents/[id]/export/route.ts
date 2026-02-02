@@ -43,7 +43,11 @@ export async function GET(request: Request, { params }: RouteContext) {
   const { data: doc, error } = await query.maybeSingle();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
+    console.error("Legal export fetch failed", { id, error });
+    return NextResponse.json(
+      { error: "Legal export failed", code: "LEGAL_EXPORT_FAILED" },
+      { status: 500 }
+    );
   }
   if (!doc) {
     return NextResponse.json({ error: "Document not found" }, { status: 404 });
@@ -61,9 +65,17 @@ export async function GET(request: Request, { params }: RouteContext) {
     content_md: doc.content_md,
   };
 
-  const buffer =
-    format === "pdf" ? await renderLegalPdf(payload) : await renderLegalDocx(payload);
-  const body = new Uint8Array(buffer);
+  let buffer: Buffer;
+  try {
+    buffer =
+      format === "pdf" ? await renderLegalPdf(payload) : await renderLegalDocx(payload);
+  } catch (renderError) {
+    console.error("Legal export render failed", { id, format, error: renderError });
+    return NextResponse.json(
+      { error: "Legal export failed", code: "LEGAL_EXPORT_FAILED" },
+      { status: 500 }
+    );
+  }
 
   const safeAudience = String(doc.audience).toLowerCase();
   const fileName = `legal-${doc.jurisdiction}-${safeAudience}-v${doc.version}.${format}`;
@@ -76,7 +88,7 @@ export async function GET(request: Request, { params }: RouteContext) {
       ? "inline"
       : "attachment";
 
-  return new NextResponse(body, {
+  return new Response(buffer, {
     headers: {
       "Content-Type": contentType,
       "Content-Disposition": `${disposition}; filename=\"${fileName}\"`,

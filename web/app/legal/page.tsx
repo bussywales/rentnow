@@ -3,6 +3,7 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
 import { getPublicLegalDocuments } from "@/lib/legal/public-documents.server";
 import { LEGAL_AUDIENCE_LABELS } from "@/lib/legal/constants";
+import { buildPublicLegalExportLinks } from "@/lib/legal/export-links";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -56,10 +57,8 @@ export default async function LegalPage({ searchParams }: PageProps) {
             const effectiveLabel = doc.effective_at
               ? new Date(doc.effective_at).toLocaleDateString()
               : "Effective immediately";
-            const exportBase = `/api/admin/legal/documents/${doc.id}/export`;
-            const pdfView = `${exportBase}?format=pdf&disposition=inline`;
-            const pdfDownload = `${exportBase}?format=pdf`;
-            const docxDownload = `${exportBase}?format=docx`;
+            const { pdfView, pdfDownload, docxDownload } =
+              buildPublicLegalExportLinks(doc.id);
             return (
               <section
                 key={doc.id}

@@ -16,7 +16,12 @@ const HAS_TENANT = !!tenantEmail && !!tenantPassword;
 let adminClient: SupabaseClient | null = null;
 let setupError: string | null = null;
 let tenantId: string | null = null;
-let originalDocs: Array<{ id: string; status: string; published_at: string | null }> = [];
+let originalDocs: Array<{
+  id: string;
+  status: string;
+  published_at: string | null;
+  effective_at: string | null;
+}> = [];
 
 const audiences = ["MASTER", "TENANT", "LANDLORD_AGENT", "ADMIN_OPS", "AUP"];
 
@@ -45,7 +50,7 @@ test.describe.serial("Legal terms management", () => {
 
     const { data: docs, error } = await adminClient
       .from("legal_documents")
-      .select("id, audience, status, published_at, version")
+      .select("id, audience, status, published_at, effective_at, version")
       .eq("jurisdiction", "NG")
       .in("audience", audiences)
       .order("version", { ascending: false });
@@ -55,7 +60,10 @@ test.describe.serial("Legal terms management", () => {
       return;
     }
 
-    const latestByAudience = new Map<string, { id: string; status: string; published_at: string | null }>();
+    const latestByAudience = new Map<
+      string,
+      { id: string; status: string; published_at: string | null; effective_at: string | null }
+    >();
     docs.forEach((doc) => {
       if (!latestByAudience.has(doc.audience)) {
         latestByAudience.set(doc.audience, doc);
@@ -64,11 +72,14 @@ test.describe.serial("Legal terms management", () => {
 
     originalDocs = Array.from(latestByAudience.values());
 
+    const nowIso = new Date().toISOString();
+
     await adminClient
       .from("legal_documents")
       .update({
         status: "published",
-        published_at: new Date().toISOString(),
+        published_at: nowIso,
+        effective_at: nowIso,
       })
       .in(
         "id",
@@ -90,7 +101,11 @@ test.describe.serial("Legal terms management", () => {
         originalDocs.map((doc) =>
           adminClient
             .from("legal_documents")
-            .update({ status: doc.status, published_at: doc.published_at })
+            .update({
+              status: doc.status,
+              published_at: doc.published_at,
+              effective_at: doc.effective_at,
+            })
             .eq("id", doc.id)
         )
       );
@@ -126,6 +141,26 @@ test.describe.serial("Legal terms management", () => {
     const docs = Array.isArray(body?.documents) ? body.documents : [];
     const hasDraft = docs.some((doc: { status?: string }) => doc.status === "draft");
     expect(hasDraft).toBeFalsy();
+  });
+
+  test("public legal View PDF returns a PDF response", async ({ page }) => {
+    test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping legal export test.");
+    test.skip(!serviceRoleKey, "Service role key missing; skipping legal export test.");
+    test.skip(!HAS_TENANT, "Tenant credentials missing; skipping legal export test.");
+    test.skip(!!setupError, setupError || "Setup failed.");
+
+    await page.goto("/legal");
+    const viewLink = page.getByRole("link", { name: /view pdf/i }).first();
+    await expect(viewLink).toBeVisible();
+
+    const [popup] = await Promise.all([page.waitForEvent("popup"), viewLink.click()]);
+    const response = await popup.waitForResponse((resp) =>
+      resp.url().includes("/api/legal/documents/") && resp.status() === 200
+    );
+
+    expect(response.status()).toBe(200);
+    const contentType = response.headers()["content-type"] || "";
+    expect(contentType).toContain("application/pdf");
   });
 
   test("acceptance gate redirects and returns to original route", async ({ page }) => {

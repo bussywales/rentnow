@@ -6,9 +6,11 @@ import { getRequiredLegalAudiences } from "@/lib/legal/requirements";
 import { canEditLegalDocument } from "@/lib/legal/workflow";
 import { renderLegalDocx, renderLegalPdf } from "@/lib/legal/export.server";
 import { postLegalAcceptResponse } from "@/app/api/legal/accept/route";
+import { getPublicLegalExportResponse } from "@/app/api/legal/documents/[id]/export/route";
 import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
 import { getPublicLegalDocuments } from "@/lib/legal/public-documents.server";
 import { DEFAULT_JURISDICTION } from "@/lib/legal/constants";
+import { buildPublicLegalExportLinks } from "@/lib/legal/export-links";
 
 type SupabaseStub = {
   from: (table: string) => {
@@ -232,6 +234,102 @@ void test("public legal page selects latest published documents for NG", async (
     result.find((doc) => doc.audience === "MASTER")?.version,
     2
   );
+});
+
+void test("public legal page uses public export links", () => {
+  const links = buildPublicLegalExportLinks("doc-123");
+  assert.ok(links.pdfView.includes("/api/legal/documents/doc-123/export"));
+  assert.ok(!links.pdfView.includes("/api/admin"));
+  assert.ok(links.pdfDownload.includes("/api/legal/documents/doc-123/export"));
+  assert.ok(links.docxDownload.includes("/api/legal/documents/doc-123/export"));
+});
+
+void test("public legal export returns PDF for published effective documents", async () => {
+  const response = await getPublicLegalExportResponse(
+    new Request(
+      "http://localhost/api/legal/documents/doc-1/export?format=pdf&disposition=inline"
+    ),
+    { params: Promise.resolve({ id: "doc-1" }) },
+    {
+      hasServerSupabaseEnv: () => true,
+      createServerSupabaseClient: async () => ({} as never),
+      renderLegalPdf: async () => Buffer.from("pdf"),
+      renderLegalDocx: async () => Buffer.from("docx"),
+      fetchLegalDocument: async () => ({
+        data: {
+          id: "doc-1",
+          jurisdiction: "NG",
+          audience: "MASTER",
+          version: 1,
+          status: "published",
+          title: "Master",
+          content_md: "Terms",
+          effective_at: new Date().toISOString(),
+        },
+        error: null,
+      }),
+    }
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("Content-Type"), "application/pdf");
+  assert.ok(response.headers.get("Content-Disposition")?.startsWith("inline"));
+});
+
+void test("public legal export returns 404 for draft documents", async () => {
+  const response = await getPublicLegalExportResponse(
+    new Request("http://localhost/api/legal/documents/doc-2/export?format=pdf"),
+    { params: Promise.resolve({ id: "doc-2" }) },
+    {
+      hasServerSupabaseEnv: () => true,
+      createServerSupabaseClient: async () => ({} as never),
+      renderLegalPdf: async () => Buffer.from("pdf"),
+      renderLegalDocx: async () => Buffer.from("docx"),
+      fetchLegalDocument: async () => ({
+        data: {
+          id: "doc-2",
+          jurisdiction: "NG",
+          audience: "MASTER",
+          version: 1,
+          status: "draft",
+          title: "Draft",
+          content_md: "Terms",
+          effective_at: new Date().toISOString(),
+        },
+        error: null,
+      }),
+    }
+  );
+
+  assert.equal(response.status, 404);
+});
+
+void test("public legal export returns 404 for not-effective documents", async () => {
+  const response = await getPublicLegalExportResponse(
+    new Request("http://localhost/api/legal/documents/doc-3/export?format=pdf"),
+    { params: Promise.resolve({ id: "doc-3" }) },
+    {
+      hasServerSupabaseEnv: () => true,
+      createServerSupabaseClient: async () => ({} as never),
+      renderLegalPdf: async () => Buffer.from("pdf"),
+      renderLegalDocx: async () => Buffer.from("docx"),
+      fetchLegalDocument: async () => ({
+        data: {
+          id: "doc-3",
+          jurisdiction: "NG",
+          audience: "MASTER",
+          version: 1,
+          status: "published",
+          title: "Future",
+          content_md: "Terms",
+          effective_at: "2099-01-01T00:00:00.000Z",
+        },
+        error: null,
+      }),
+    }
+  );
+
+  assert.equal(response.status, 404);
 });
 
 void test("resolveJurisdiction falls back to app setting then default", async () => {
