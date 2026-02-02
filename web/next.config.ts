@@ -34,6 +34,10 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  outputFileTracingIncludes: {
+    "/api/legal/documents/[id]/export": ["./node_modules/pdfkit/js/data/**"],
+    "/api/admin/legal/documents/[id]/export": ["./node_modules/pdfkit/js/data/**"],
+  },
 };
 
 export default nextConfig;
