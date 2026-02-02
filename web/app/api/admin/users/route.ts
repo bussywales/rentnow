@@ -13,7 +13,7 @@ type ListUsersResult = {
 type AdminUsersDeps = {
   hasServiceRoleEnv?: () => boolean;
   requireRole?: typeof requireRole;
-  listUsers?: () => Promise<ListUsersResult>;
+  listUsers?: (options?: { page?: number; perPage?: number }) => Promise<ListUsersResult>;
   sendResetEmail?: (email: string, redirectTo: string) => Promise<{ error: { message: string } | null }>;
   deleteUser?: (userId: string) => Promise<{ error: { message: string } | null }>;
 };
@@ -38,9 +38,9 @@ export async function getAdminUsersResponse(request: Request, deps: AdminUsersDe
   const {
     hasServiceRoleEnv: hasServiceRoleEnvImpl = hasServiceRoleEnv,
     requireRole: requireRoleImpl = requireRole,
-    listUsers = async () => {
+    listUsers = async (options?: { page?: number; perPage?: number }) => {
       const adminClient = createServiceRoleClient();
-      return adminClient.auth.admin.listUsers({ perPage: 200 });
+      return adminClient.auth.admin.listUsers({ perPage: 200, ...options });
     },
   } = deps;
   if (!hasServiceRoleEnvImpl()) {
@@ -56,11 +56,26 @@ export async function getAdminUsersResponse(request: Request, deps: AdminUsersDe
     roles: ["admin"],
   });
   if (!auth.ok) return auth.response;
-  const { data, error } = await listUsers();
+  const url = new URL(request.url);
+  const pageParam = Number.parseInt(url.searchParams.get("page") || "1", 10);
+  const perPageParam = Number.parseInt(url.searchParams.get("perPage") || "200", 10);
+  const page = Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1;
+  const perPage =
+    Number.isFinite(perPageParam) && perPageParam > 0
+      ? Math.min(perPageParam, 200)
+      : 200;
+
+  const { data, error } = await listUsers({ page, perPage });
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-  return NextResponse.json({ users: data?.users || [] });
+  const users = data?.users || [];
+  return NextResponse.json({
+    users,
+    page,
+    perPage,
+    hasNextPage: users.length === perPage,
+  });
 }
 
 export async function GET(request: Request) {
