@@ -21,6 +21,15 @@ export default function SupportContactForm() {
   const [error, setError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
 
+  const logSupportEvent = (event: string, payload?: Record<string, unknown>) => {
+    if (typeof window === "undefined") return;
+    try {
+      console.info("[support]", event, payload ?? {});
+    } catch {
+      // ignore logging failures
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setSubmitting(true);
@@ -35,12 +44,22 @@ export default function SupportContactForm() {
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         setError(data?.error || "Unable to submit request.");
+        logSupportEvent("submit_error", {
+          category,
+          status: res.status,
+          error: data?.error || "Unable to submit request.",
+        });
         return;
       }
       setSuccessId(data?.id ?? null);
       setMessage("");
+      logSupportEvent("submit_success", { category, id: data?.id ?? null });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to submit request.");
+      logSupportEvent("submit_error", {
+        category,
+        error: err instanceof Error ? err.message : "Unable to submit request.",
+      });
     } finally {
       setSubmitting(false);
     }
@@ -67,7 +86,11 @@ export default function SupportContactForm() {
         <label className="text-xs font-semibold text-slate-600">Category</label>
         <select
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={(e) => {
+            const value = e.target.value;
+            setCategory(value);
+            logSupportEvent("category_selected", { category: value });
+          }}
           className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
         >
           {categories.map((item) => (
