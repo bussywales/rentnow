@@ -27,15 +27,15 @@ const sizeMap: Record<BrandLogoSize, number> = {
 const textSizeMap: Record<BrandLogoSize, string> = {
   xs: "text-sm",
   sm: "text-base",
-  md: "text-lg",
-  lg: "text-xl",
+  md: "text-base",
+  lg: "text-lg",
 };
 
 const gapMap: Record<BrandLogoSize, string> = {
   xs: "gap-1.5",
   sm: "gap-2",
-  md: "gap-2.5",
-  lg: "gap-3",
+  md: "gap-2",
+  lg: "gap-2.5",
 };
 
 const toneMap: Record<BrandLogoVariant, string> = {
@@ -43,6 +43,13 @@ const toneMap: Record<BrandLogoVariant, string> = {
   footer: "text-slate-600",
   auth: "text-slate-900",
   minimal: "text-slate-900",
+};
+
+const imageSizeClassMap: Record<BrandLogoSize, string> = {
+  xs: "h-5 w-5",
+  sm: "h-6 w-6",
+  md: "h-8 w-8",
+  lg: "h-10 w-10",
 };
 
 export function BrandLogo({
@@ -56,13 +63,14 @@ export function BrandLogo({
   const textSize = textSizeMap[size];
   const gap = gapMap[size];
   const tone = toneMap[variant];
+  const imageSizeClass = imageSizeClassMap[size];
   const hasDarkLogo = String(BRAND_LOGO_DARK) !== String(BRAND_LOGO_LIGHT);
   const priority = variant === "header" || variant === "auth";
 
   return (
     <Link
       href={href}
-      className={cn("inline-flex items-center font-semibold", gap, tone, className)}
+      className={cn("inline-flex items-center font-semibold leading-none", gap, tone, className)}
       aria-label={BRAND_NAME}
     >
       <Image
@@ -71,7 +79,7 @@ export function BrandLogo({
         width={dimension}
         height={dimension}
         priority={priority}
-        className={cn("h-auto w-auto", hasDarkLogo && "dark:hidden")}
+        className={cn(imageSizeClass, "shrink-0", hasDarkLogo && "dark:hidden")}
       />
       {hasDarkLogo && (
         <Image
@@ -80,7 +88,7 @@ export function BrandLogo({
           width={dimension}
           height={dimension}
           priority={priority}
-          className="hidden h-auto w-auto dark:block"
+          className={cn("hidden shrink-0 dark:block", imageSizeClass)}
         />
       )}
       {showWordmark && (
