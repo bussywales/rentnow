@@ -132,17 +132,26 @@ export async function postSavedPropertiesResponse(
     }
 
     const response = NextResponse.json({ ok: true });
-    const role = await getUserRole(supabase, auth.user.id);
+    let role = null;
+    try {
+      role = await getUserRole(supabase, auth.user.id);
+    } catch {
+      role = null;
+    }
     const sessionKey = ensureSessionCookie(request, response);
-    void logPropertyEvent({
-      supabase,
-      propertyId: property_id,
-      eventType: "save_toggle",
-      actorUserId: auth.user.id,
-      actorRole: role,
-      sessionKey,
-      meta: { action: "save" },
-    });
+    try {
+      void logPropertyEvent({
+        supabase,
+        propertyId: property_id,
+        eventType: "save_toggle",
+        actorUserId: auth.user.id,
+        actorRole: role,
+        sessionKey,
+        meta: { action: "save" },
+      });
+    } catch {
+      // ignore telemetry failures
+    }
     return response;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unable to save property";

@@ -101,14 +101,15 @@ export default async function HostPerformancePage() {
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-2 px-4 py-10">
         <h1 className="text-2xl font-semibold text-slate-900">Performance</h1>
-        <p className="text-sm text-slate-600">We couldn't load performance data right now.</p>
+        <p className="text-sm text-slate-600">We couldn&apos;t load performance data right now.</p>
       </div>
     );
   }
 
   const listings = properties ?? [];
   const propertyIds = listings.map((listing) => listing.id).filter(isUuid);
-  const last7Start = new Date(Date.now() - 7 * DAY_MS).toISOString();
+  const now = new Date();
+  const last7Start = new Date(now.getTime() - 7 * DAY_MS).toISOString();
 
   let summaryMap = new Map();
   let eventsByProperty = new Map();

@@ -34,8 +34,9 @@ export default function AdminFeaturedInventoryPanel({
   expiringCount,
   expiredCount,
 }: Props) {
-  const now = Date.now();
-  const expiringCutoff = now + 7 * 24 * 60 * 60 * 1000;
+  const now = new Date();
+  const nowMs = now.getTime();
+  const expiringCutoff = nowMs + 7 * 24 * 60 * 60 * 1000;
   return (
     <section
       className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm"
@@ -77,7 +78,7 @@ export default function AdminFeaturedInventoryPanel({
             {items.map((item) => {
               const untilMs = item.featured_until ? Date.parse(item.featured_until) : null;
               const expiringSoon =
-                untilMs !== null && Number.isFinite(untilMs) && untilMs > now && untilMs <= expiringCutoff;
+                untilMs !== null && Number.isFinite(untilMs) && untilMs > nowMs && untilMs <= expiringCutoff;
               const impressions = item.featured_impressions_7d ?? 0;
               const clicks = item.featured_clicks_7d ?? 0;
               const leads = item.featured_leads_7d ?? 0;

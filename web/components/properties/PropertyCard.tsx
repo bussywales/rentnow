@@ -102,9 +102,10 @@ export function PropertyCard({
     typeof property.description === "string" && property.description.trim().length > 0
       ? property.description
       : "No description provided yet.";
+  const nowMs = new Date().getTime();
   const isFeaturedActive =
     !!property.is_featured &&
-    (!property.featured_until || Date.parse(property.featured_until) > Date.now());
+    (!property.featured_until || Date.parse(property.featured_until) > nowMs);
   const ctaLabel = listingIntent === "buy" ? "Enquire to buy" : "Request viewing";
   const cardHref = href || `/properties/${property.id}`;
   const trustCues = buildTrustCues({

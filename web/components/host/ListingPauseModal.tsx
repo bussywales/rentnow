@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 
 const PAUSE_OPTIONS = [
@@ -32,19 +32,21 @@ type Props = {
   error?: string | null;
 };
 
-export function ListingPauseModal({ open, listingTitle, onClose, onConfirm, submitting, error }: Props) {
+export function ListingPauseModal(props: Props) {
+  if (!props.open) return null;
+  return <ListingPauseModalInner {...props} />;
+}
+
+function ListingPauseModalInner({
+  listingTitle,
+  onClose,
+  onConfirm,
+  submitting,
+  error,
+}: Props) {
   const [reason, setReason] = useState<PauseOption>("occupied");
   const [customReason, setCustomReason] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setReason("occupied");
-    setCustomReason("");
-    setLocalError(null);
-  }, [open]);
-
-  if (!open) return null;
 
   const isOther = reason === "other";
   const status = reason === "occupied" ? "paused_occupied" : "paused_owner";

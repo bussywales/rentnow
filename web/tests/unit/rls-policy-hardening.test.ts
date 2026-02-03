@@ -30,4 +30,9 @@ void test("rls policies use admin helper and hardened checks", () => {
       contents.includes("auth.role() = 'anon'"),
     "expected explicit role check for app_settings_read"
   );
+
+  assert.ok(
+    contents.includes('CREATE POLICY "property events admin select"'),
+    "expected property_events admin select policy"
+  );
 });

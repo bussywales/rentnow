@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { filtersToChips } from "@/lib/search-filters";
@@ -11,20 +11,18 @@ import {
 } from "@/lib/search/last-search";
 
 export function ContinueSearchCard() {
-  const [lastSearch, setLastSearch] = useState<LastSearchState | null>(null);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
+  const [lastSearch, setLastSearch] = useState<LastSearchState | null>(() => {
+    if (typeof window === "undefined") return null;
     try {
       const raw = window.localStorage.getItem(LAST_SEARCH_STORAGE_KEY);
-      if (!raw) return;
+      if (!raw) return null;
       const parsed = JSON.parse(raw) as LastSearchState;
-      if (!parsed?.filters) return;
-      setLastSearch(parsed);
+      if (!parsed?.filters) return null;
+      return parsed;
     } catch {
-      // ignore malformed storage
+      return null;
     }
-  }, []);
+  });
 
   if (!lastSearch) return null;
 
