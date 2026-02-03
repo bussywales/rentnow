@@ -7,6 +7,9 @@ void test("host nav includes saved searches for landlord", () => {
   const saved = items.find((item) => item.label === "Saved searches");
   assert.ok(saved, "expected saved searches nav item");
   assert.equal(saved?.visible, true);
+  const help = items.find((item) => item.label === "Help / Performance");
+  assert.ok(help, "expected host performance help nav item");
+  assert.equal(help?.visible, true);
 });
 
 void test("host nav includes saved searches for agent", () => {
@@ -14,4 +17,7 @@ void test("host nav includes saved searches for agent", () => {
   const saved = items.find((item) => item.label === "Saved searches");
   assert.ok(saved, "expected saved searches nav item");
   assert.equal(saved?.visible, true);
+  const help = items.find((item) => item.label === "Help / Performance");
+  assert.ok(help, "expected host performance help nav item");
+  assert.equal(help?.visible, true);
 });

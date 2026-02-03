@@ -292,6 +292,9 @@ export default async function DashboardHome() {
               <Button>New listing</Button>
             </Link>
           )}
+          <Link href="/help/host/performance">
+            <Button variant="ghost">Performance guide</Button>
+          </Link>
         </div>
       </div>
 
