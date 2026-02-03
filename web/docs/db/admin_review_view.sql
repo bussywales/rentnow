@@ -59,6 +59,8 @@ from public.properties p
 left join img on img.property_id = p.id
 left join vid on vid.property_id = p.id;
 
+alter view public.admin_review_view set (security_invoker = true);
+
 grant select on public.admin_review_view to authenticated;
 grant select on public.admin_review_view to anon;
 notify pgrst, 'reload schema';
