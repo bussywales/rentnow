@@ -98,7 +98,7 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
 
     if (options.featuredOnly) {
       ordered = ordered
-        .order("featured_rank", { ascending: false })
+        .order("featured_rank", { ascending: true, nullsFirst: false })
         .order("updated_at", { ascending: false });
     } else {
       ordered = ordered.order("created_at", { ascending: false });

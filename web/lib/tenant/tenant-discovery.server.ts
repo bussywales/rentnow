@@ -52,8 +52,10 @@ function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
   }));
 }
 
+type QueryBuilder = ReturnType<ReturnType<SupabaseClient["from"]>["select"]>;
+
 function applyVisibilityFilters(
-  query: ReturnType<SupabaseClient["from"]> | any,
+  query: QueryBuilder,
   nowIso: string,
   approvedBefore: string | null
 ) {
@@ -137,7 +139,7 @@ export async function getFeaturedHomes({
   query = applyVisibilityFilters(query, nowIso, ctx.approvedBefore)
     .eq("is_featured", true)
     .or(`featured_until.is.null,featured_until.gt.${nowIso}`)
-    .order("featured_rank", { ascending: false })
+    .order("featured_rank", { ascending: true, nullsFirst: false })
     .order("updated_at", { ascending: false })
     .limit(limit);
 

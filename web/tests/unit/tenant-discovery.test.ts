@@ -98,10 +98,32 @@ void test("featured homes query respects featured_until", async () => {
     ),
     "expected featured_until filter"
   );
+  assert.ok(
+    orCalls.some(
+      (call) =>
+        typeof call.args[0] === "string" &&
+        (call.args[0] as string).includes("featured_until.gt")
+    ),
+    "expected featured_until gt filter"
+  );
   const eqCalls = query.calls.filter((call) => call.method === "eq");
   assert.ok(
     eqCalls.some((call) => call.args[0] === "is_featured" && call.args[1] === true),
     "expected is_featured filter"
+  );
+  const orderCalls = query.calls.filter((call) => call.method === "order");
+  assert.ok(
+    orderCalls.some(
+      (call) =>
+        call.args[0] === "featured_rank" &&
+        typeof call.args[1] === "object" &&
+        (call.args[1] as { ascending?: boolean }).ascending === true
+    ),
+    "expected featured_rank ascending order"
+  );
+  assert.ok(
+    orderCalls.some((call) => call.args[0] === "updated_at"),
+    "expected updated_at order"
   );
 });
 

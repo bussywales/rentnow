@@ -54,8 +54,10 @@ CREATE TABLE public.properties (
   reactivated_at TIMESTAMPTZ,
   status_updated_at TIMESTAMPTZ DEFAULT NOW(),
   is_featured BOOLEAN NOT NULL DEFAULT FALSE,
-  featured_rank INT NOT NULL DEFAULT 0,
+  featured_rank INT,
   featured_until TIMESTAMPTZ,
+  featured_at TIMESTAMPTZ,
+  featured_by UUID REFERENCES public.profiles (id) ON DELETE SET NULL,
   expires_at TIMESTAMPTZ,
   expired_at TIMESTAMPTZ,
   renewed_at TIMESTAMPTZ,
@@ -74,8 +76,8 @@ CREATE INDEX idx_properties_owner ON public.properties (owner_id);
 CREATE INDEX idx_properties_status ON public.properties (status);
 CREATE INDEX idx_properties_owner_status ON public.properties (owner_id, status);
 CREATE INDEX idx_properties_status_updated_at ON public.properties (status, updated_at);
-CREATE INDEX idx_properties_featured_status ON public.properties (is_featured, featured_until, status);
-CREATE INDEX idx_properties_featured_live ON public.properties (featured_rank DESC, updated_at DESC)
+CREATE INDEX idx_properties_featured_control ON public.properties (is_featured, featured_rank, featured_until);
+CREATE INDEX idx_properties_featured_live ON public.properties (featured_rank ASC, updated_at DESC)
   WHERE is_featured = true AND status = 'live';
 
 -- PROPERTY IMAGES

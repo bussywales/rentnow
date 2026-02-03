@@ -144,6 +144,23 @@ function ChecklistChip({ status }: { status: "pass" | "needs_fix" | "blocker" | 
   );
 }
 
+function toDateTimeLocal(value?: string | null) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const pad = (input: number) => String(input).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
+    date.getMinutes()
+  )}`;
+}
+
+function formatDateLabel(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+
 export function AdminReviewDrawer({
   listing,
   onClose,
@@ -169,6 +186,14 @@ export function AdminReviewDrawer({
   const [detailError, setDetailError] = useState<string | null>(null);
   const [bankUpdating, setBankUpdating] = useState(false);
   const [bankUpdateError, setBankUpdateError] = useState<string | null>(null);
+  const [featuredForm, setFeaturedForm] = useState({
+    is_featured: false,
+    featured_rank: "",
+    featured_until: "",
+  });
+  const [featuredLoading, setFeaturedLoading] = useState(false);
+  const [featuredSaving, setFeaturedSaving] = useState(false);
+  const [featuredError, setFeaturedError] = useState<string | null>(null);
   const [templates, setTemplates] = useState<
     { id: string; name: string; reasons?: ReviewReasonCode[]; message?: string }[]
   >([]);
@@ -200,6 +225,10 @@ export function AdminReviewDrawer({
       setChecklistState(null);
       setChecklistOpen(false);
       setScrollTarget(null);
+      setFeaturedForm({ is_featured: false, featured_rank: "", featured_until: "" });
+      setFeaturedLoading(false);
+      setFeaturedSaving(false);
+      setFeaturedError(null);
       return;
     }
     setSelectedIdSnapshot(listing.id);
@@ -214,6 +243,8 @@ export function AdminReviewDrawer({
     setMessageEdited(false);
     setSubmitting(null);
     setToast(null);
+    setFeaturedError(null);
+    setFeaturedSaving(false);
   }, [listing]);
 
   useEffect(() => {
@@ -249,6 +280,46 @@ export function AdminReviewDrawer({
     });
   }, [listing?.id, selectedIdSnapshot]);
 
+  useEffect(() => {
+    let active = true;
+    const fetchFeatured = async () => {
+      if (!listing?.id) return;
+      setFeaturedLoading(true);
+      setFeaturedError(null);
+      try {
+        const res = await fetch(`/api/admin/properties/${listing.id}/featured`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || "Failed to load featured settings");
+        }
+        const data = await res.json();
+        if (!active) return;
+        setFeaturedForm({
+          is_featured: !!data?.is_featured,
+          featured_rank:
+            data?.featured_rank === null || data?.featured_rank === undefined
+              ? ""
+              : String(data.featured_rank),
+          featured_until: toDateTimeLocal(data?.featured_until),
+        });
+      } catch (err) {
+        if (!active) return;
+        setFeaturedError(err instanceof Error ? err.message : "Failed to load featured settings");
+      } finally {
+        if (!active) return;
+        setFeaturedLoading(false);
+      }
+    };
+    fetchFeatured().catch(() => {
+      if (!active) return;
+      setFeaturedError("Failed to load featured settings");
+      setFeaturedLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [listing?.id]);
+
   const previewMessage = useMemo(() => {
     const trimmed = messageText.trim();
     return trimmed || buildRequestChangesMessage(reasons);
@@ -258,6 +329,69 @@ export function AdminReviewDrawer({
   const images = useMemo(() => detail?.images ?? [], [detail?.images]);
   const videos = useMemo(() => detail?.videos ?? [], [detail?.videos]);
   const activity = useMemo(() => detail?.activity ?? [], [detail?.activity]);
+  const featuredRankValue =
+    featuredForm.featured_rank.trim() === "" ? null : Number(featuredForm.featured_rank);
+  const featuredRankInvalid =
+    featuredRankValue !== null && (!Number.isFinite(featuredRankValue) || featuredRankValue < 0);
+  const featuredUntilDate =
+    featuredForm.featured_until.trim() === "" ? null : new Date(featuredForm.featured_until);
+  const featuredUntilInvalid =
+    featuredForm.is_featured &&
+    !!featuredUntilDate &&
+    (Number.isNaN(featuredUntilDate.getTime()) || featuredUntilDate.getTime() <= Date.now());
+  const featuredUntilLabel = featuredForm.featured_until
+    ? formatDateLabel(featuredForm.featured_until)
+    : null;
+
+  const handleFeaturedSave = useCallback(async () => {
+    if (!listing?.id) return;
+    if (featuredRankInvalid || featuredUntilInvalid) {
+      setFeaturedError("Fix invalid featured inputs before saving.");
+      return;
+    }
+    setFeaturedSaving(true);
+    setFeaturedError(null);
+    try {
+      const payload = {
+        is_featured: featuredForm.is_featured,
+        featured_rank: featuredForm.is_featured ? featuredRankValue : null,
+        featured_until:
+          featuredForm.is_featured && featuredForm.featured_until
+            ? new Date(featuredForm.featured_until).toISOString()
+            : null,
+      };
+      const res = await fetch(`/api/admin/properties/${listing.id}/featured`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Unable to update featured settings");
+      }
+      const data = await res.json();
+      setFeaturedForm({
+        is_featured: !!data?.is_featured,
+        featured_rank:
+          data?.featured_rank === null || data?.featured_rank === undefined
+            ? ""
+            : String(data.featured_rank),
+        featured_until: toDateTimeLocal(data?.featured_until),
+      });
+      setToast("Featured settings saved.");
+    } catch (err) {
+      setFeaturedError(err instanceof Error ? err.message : "Unable to update featured settings");
+    } finally {
+      setFeaturedSaving(false);
+    }
+  }, [
+    featuredForm.featured_until,
+    featuredForm.is_featured,
+    featuredRankInvalid,
+    featuredRankValue,
+    featuredUntilInvalid,
+    listing?.id,
+  ]);
   const lowQualityCount = useMemo(
     () =>
       images.filter((img) =>
@@ -566,6 +700,14 @@ export function AdminReviewDrawer({
               <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                 {listing.status || "pending"}
               </span>
+              {featuredForm.is_featured && (
+                <span
+                  className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-700"
+                  data-testid="admin-featured-chip"
+                >
+                  Featured{featuredUntilLabel ? ` · Until ${featuredUntilLabel}` : ""}
+                </span>
+              )}
             </div>
             <p className="text-sm text-slate-600">{locationLine || "Location unknown"}</p>
             <div className="mt-1 flex flex-wrap gap-3 text-xs text-slate-500">
@@ -749,6 +891,103 @@ export function AdminReviewDrawer({
                 </div>
               ))}
             </div>
+          )}
+        </section>
+
+        <section className="p-4 space-y-3" data-testid="admin-featured-panel">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900">Featured placement</h3>
+              <p className="text-xs text-slate-600">
+                Highlight listings on tenant discovery. Lower rank means higher priority.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 text-xs font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-slate-900"
+                checked={featuredForm.is_featured}
+                onChange={(event) =>
+                  setFeaturedForm((prev) => ({
+                    ...prev,
+                    is_featured: event.target.checked,
+                    featured_rank: event.target.checked ? prev.featured_rank || "1" : "",
+                    featured_until: event.target.checked ? prev.featured_until : "",
+                  }))
+                }
+                data-testid="admin-featured-toggle"
+              />
+              Featured
+            </label>
+          </div>
+
+          {featuredLoading ? (
+            <p className="text-xs text-slate-500">Loading featured settings…</p>
+          ) : (
+            <>
+              {featuredForm.is_featured && (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <label className="space-y-1 text-xs text-slate-600">
+                    <span className="font-semibold text-slate-700">Rank</span>
+                    <input
+                      type="number"
+                      min={0}
+                      inputMode="numeric"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+                      value={featuredForm.featured_rank}
+                      onChange={(event) =>
+                        setFeaturedForm((prev) => ({
+                          ...prev,
+                          featured_rank: event.target.value,
+                        }))
+                      }
+                      placeholder="1"
+                      data-testid="admin-featured-rank"
+                    />
+                  </label>
+                  <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                    <span className="font-semibold text-slate-700">Featured until (optional)</span>
+                    <input
+                      type="datetime-local"
+                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+                      value={featuredForm.featured_until}
+                      onChange={(event) =>
+                        setFeaturedForm((prev) => ({
+                          ...prev,
+                          featured_until: event.target.value,
+                        }))
+                      }
+                      data-testid="admin-featured-until"
+                    />
+                  </label>
+                </div>
+              )}
+              {featuredRankInvalid && (
+                <p className="text-xs text-rose-600">Rank must be 0 or higher.</p>
+              )}
+              {featuredUntilInvalid && (
+                <p className="text-xs text-rose-600">Featured until must be a future date.</p>
+              )}
+              {featuredError && (
+                <p className="text-xs text-rose-600">{featuredError}</p>
+              )}
+              <div className="flex flex-wrap items-center gap-3 text-xs text-slate-600">
+                <button
+                  type="button"
+                  className="rounded border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 shadow-sm disabled:opacity-60"
+                  onClick={handleFeaturedSave}
+                  disabled={featuredSaving || featuredLoading || featuredRankInvalid || featuredUntilInvalid}
+                  data-testid="admin-featured-save"
+                >
+                  {featuredSaving ? "Saving…" : "Save featured"}
+                </button>
+                {featuredForm.is_featured && featuredUntilLabel && (
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                    Until {featuredUntilLabel}
+                  </span>
+                )}
+              </div>
+            </>
           )}
         </section>
 

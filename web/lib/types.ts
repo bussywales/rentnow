@@ -128,6 +128,8 @@ export interface Property {
   is_featured?: boolean | null;
   featured_rank?: number | null;
   featured_until?: string | null;
+  featured_at?: string | null;
+  featured_by?: string | null;
   expires_at?: string | null;
   expired_at?: string | null;
   renewed_at?: string | null;
