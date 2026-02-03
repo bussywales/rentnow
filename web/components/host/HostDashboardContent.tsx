@@ -28,6 +28,7 @@ import { RenewListingButton } from "@/components/host/RenewListingButton";
 import { ListingPauseModal } from "@/components/host/ListingPauseModal";
 import { ListingReactivateModal } from "@/components/host/ListingReactivateModal";
 import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
+import type { PropertyStatus } from "@/lib/types";
 
 function normalizeStatus(property: {
   status?: string | null;
@@ -56,6 +57,11 @@ type StatusResponse = {
   is_approved?: boolean | null;
   expires_at?: string | null;
   error?: string;
+};
+
+type StatusUpdatePayload = {
+  status: "live" | "paused_owner" | "paused_occupied";
+  paused_reason?: string | null;
 };
 
 export function HostDashboardContent({
@@ -196,22 +202,22 @@ export function HostDashboardContent({
 
   const submitStatusChange = async (
     listing: DashboardListing,
-    payload: { status: string; paused_reason?: string | null }
+    payload: StatusUpdatePayload
   ) => {
     const listingId = listing.id;
     const previousListings = localListings;
     const nowIso = new Date().toISOString();
-    const optimisticPatch =
+    const optimisticPatch: Partial<DashboardListing> =
       payload.status === "live"
         ? {
-            status: "live",
+            status: "live" as PropertyStatus,
             is_active: true,
             is_approved: true,
             reactivated_at: nowIso,
             status_updated_at: nowIso,
           }
         : {
-            status: payload.status,
+            status: payload.status as PropertyStatus,
             is_active: false,
             paused_at: nowIso,
             paused_reason: payload.paused_reason ?? null,
