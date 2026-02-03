@@ -24,6 +24,13 @@ test("product updates drawer overlays admin users", async ({ page }) => {
   await expect(page.getByTestId("updates-drawer")).toBeVisible();
   await expect(page.getByTestId("updates-backdrop")).toBeVisible();
 
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("updates-drawer")).toHaveCount(0);
+  await expect(page.getByTestId("updates-bell")).toBeFocused();
+
+  await page.getByTestId("updates-bell").click();
+  await expect(page.getByTestId("updates-drawer")).toBeVisible();
+
   const firstRow = page.getByTestId("admin-user-row").first();
   const box = await firstRow.boundingBox();
   if (!box) {

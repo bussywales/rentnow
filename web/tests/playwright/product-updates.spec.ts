@@ -54,6 +54,30 @@ test("product updates bell reflects published updates", async ({ page }) => {
   await expect(page.getByTestId("updates-drawer")).toBeVisible();
   await expect(page.getByText(updateTitle)).toBeVisible();
 
-  await page.getByTestId("updates-mark-all").click();
+  const updateItem = page
+    .locator("[data-testid^='updates-item-']")
+    .filter({ hasText: updateTitle })
+    .first();
+  await expect(updateItem).toBeVisible();
+  await expect(updateItem.getByTestId("update-unread-dot")).toHaveAttribute(
+    "data-state",
+    "unread"
+  );
+
+  const now = new Date();
+  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  await expect(page.getByTestId(`updates-month-${monthKey}`)).toBeVisible();
+
+  await updateItem.click();
+  await expect(updateItem.getByTestId("update-unread-dot")).toHaveAttribute(
+    "data-state",
+    "read"
+  );
+  await expect(updateItem.getByTestId("update-read")).toHaveCount(1);
+
+  const markAll = page.getByTestId("updates-mark-all");
+  if (await markAll.isEnabled()) {
+    await markAll.click();
+  }
   await expect(page.getByTestId("updates-badge")).toHaveCount(0);
 });

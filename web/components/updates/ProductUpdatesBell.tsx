@@ -32,6 +32,20 @@ function formatDate(value?: string | null) {
   });
 }
 
+function getMonthKey(value?: string | null) {
+  if (!value) return "unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "unknown";
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function formatMonthLabel(value?: string | null) {
+  if (!value) return "Updates";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Updates";
+  return date.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+}
+
 function truncateSummary(summary: string) {
   const trimmed = summary.trim();
   if (trimmed.length <= SUMMARY_LIMIT) return trimmed;
@@ -57,6 +71,39 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
     () => updates.filter((update) => !update.is_read).length,
     [updates]
   );
+
+  const groupedUpdates = useMemo(() => {
+    const sorted = [...updates].sort((a, b) => {
+      const aTime = a.published_at ? new Date(a.published_at).getTime() : 0;
+      const bTime = b.published_at ? new Date(b.published_at).getTime() : 0;
+      return bTime - aTime;
+    });
+
+    const groups: Array<{
+      key: string;
+      label: string;
+      items: ProductUpdateFeedItem[];
+    }> = [];
+    const index = new Map<string, number>();
+
+    sorted.forEach((update) => {
+      const key = getMonthKey(update.published_at);
+      if (!index.has(key)) {
+        index.set(key, groups.length);
+        groups.push({
+          key,
+          label: formatMonthLabel(update.published_at),
+          items: [],
+        });
+      }
+      const groupIndex = index.get(key);
+      if (groupIndex !== undefined) {
+        groups[groupIndex].items.push(update);
+      }
+    });
+
+    return groups;
+  }, [updates]);
 
   const closeDrawer = useCallback(() => {
     setOpen(false);
@@ -267,22 +314,7 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
                         </h2>
                         <p className="text-xs text-slate-500">What’s new on PropatyHub</p>
                       </div>
-                      <Button
-                        ref={closeButtonRef}
-                        variant="secondary"
-                        size="sm"
-                        onClick={closeDrawer}
-                        data-testid="updates-close"
-                      >
-                        Close
-                      </Button>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto px-6 py-5">
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                          Latest updates
-                        </p>
+                      <div className="flex items-center gap-2">
                         <Button
                           size="sm"
                           variant="secondary"
@@ -292,89 +324,151 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
                         >
                           Mark all as read
                         </Button>
+                        <Button
+                          ref={closeButtonRef}
+                          variant="secondary"
+                          size="sm"
+                          onClick={closeDrawer}
+                          data-testid="updates-close"
+                        >
+                          Close
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto">
+                      <div className="sticky top-0 z-10 border-b border-slate-100 bg-white/95 px-6 py-3 backdrop-blur">
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                          Latest updates
+                        </p>
                       </div>
 
-                      {loading && (
-                        <div className="mt-4 space-y-3">
-                          <div className="h-20 rounded-2xl bg-slate-100" />
-                          <div className="h-20 rounded-2xl bg-slate-100" />
-                        </div>
-                      )}
-
-                      {!loading && error && (
-                        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                          {error}
-                        </div>
-                      )}
-
-                      {!loading && !error && updates.length === 0 && (
-                        <div className="mt-6 rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
-                          No updates yet. Check back soon.
-                        </div>
-                      )}
-
-                      <div className="mt-4 space-y-3">
-                        {updates.map((update) => (
-                          <div
-                            key={update.id}
-                            className={cn(
-                              "rounded-2xl border px-4 py-4 text-left transition",
-                              update.is_read
-                                ? "border-slate-200 bg-white"
-                                : "border-emerald-200 bg-emerald-50/60"
-                            )}
-                            data-testid={`updates-item-${update.id}`}
-                            onClick={() => markRead(update.id)}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter") {
-                                markRead(update.id);
-                              }
-                            }}
-                            role="button"
-                            tabIndex={0}
-                          >
-                            <div className="flex items-start justify-between gap-3">
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-2">
-                                  {!update.is_read && (
-                                    <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                                      New
-                                    </span>
-                                  )}
-                                  <h3 className="text-sm font-semibold text-slate-900">
-                                    {update.title}
-                                  </h3>
-                                </div>
-                                <p className="mt-2 text-sm text-slate-600">
-                                  {truncateSummary(update.summary)}
-                                </p>
-                              </div>
-                              {update.published_at && (
-                                <p className="text-xs text-slate-400">
-                                  {formatDate(update.published_at)}
-                                </p>
-                              )}
-                            </div>
-                            {update.image_url && (
-                              <button
-                                type="button"
-                                className="mt-3 block w-full overflow-hidden rounded-xl border border-slate-200"
-                                onClick={(event) => {
-                                  event.stopPropagation();
-                                  setLightboxUrl(update.image_url || null);
-                                  void markRead(update.id);
-                                }}
-                              >
-                                <img
-                                  src={update.image_url}
-                                  alt="Update screenshot"
-                                  className="h-36 w-full object-cover"
-                                  loading="lazy"
-                                />
-                              </button>
-                            )}
+                      <div className="px-6 py-5">
+                        {loading && (
+                          <div className="mt-4 space-y-3">
+                            <div className="h-20 rounded-2xl bg-slate-100" />
+                            <div className="h-20 rounded-2xl bg-slate-100" />
                           </div>
-                        ))}
+                        )}
+
+                        {!loading && error && (
+                          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                            {error}
+                          </div>
+                        )}
+
+                        {!loading && !error && updates.length === 0 && (
+                          <div className="mt-6 rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
+                            No updates yet. Check back soon.
+                          </div>
+                        )}
+
+                        {!loading &&
+                          !error &&
+                          groupedUpdates.map((group, index) => (
+                            <div key={group.key} className={index === 0 ? "" : "mt-6"}>
+                              <p
+                                className="text-xs uppercase tracking-[0.2em] text-slate-400"
+                                data-testid={`updates-month-${group.key}`}
+                              >
+                                {group.label}
+                              </p>
+                              <div className="mt-3 space-y-3">
+                                {group.items.map((update) => (
+                                  <div
+                                    key={update.id}
+                                    className={cn(
+                                      "rounded-2xl border px-4 py-4 text-left transition-colors duration-150 motion-reduce:transition-none",
+                                      update.is_read
+                                        ? "border-slate-200 bg-white"
+                                        : "border-emerald-200 bg-emerald-50/60"
+                                    )}
+                                    data-testid={`updates-item-${update.id}`}
+                                    data-state={update.is_read ? "read" : "unread"}
+                                    onClick={() => markRead(update.id)}
+                                    onKeyDown={(event) => {
+                                      if (event.key === "Enter") {
+                                        markRead(update.id);
+                                      }
+                                    }}
+                                    role="button"
+                                    tabIndex={0}
+                                  >
+                                    <div className="flex items-start justify-between gap-3">
+                                      <div className="min-w-0">
+                                        <div className="flex items-center gap-2">
+                                          {!update.is_read && (
+                                            <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                                              New
+                                            </span>
+                                          )}
+                                          <h3 className="text-sm font-semibold text-slate-900">
+                                            {update.title}
+                                          </h3>
+                                        </div>
+                                        <p className="mt-2 text-sm text-slate-600">
+                                          {truncateSummary(update.summary)}
+                                        </p>
+                                      </div>
+                                      <div className="flex flex-col items-end gap-2">
+                                        {update.published_at && (
+                                          <p className="text-xs text-slate-400">
+                                            {formatDate(update.published_at)}
+                                          </p>
+                                        )}
+                                        <span
+                                          aria-hidden="true"
+                                          data-testid="update-unread-dot"
+                                          data-state={update.is_read ? "read" : "unread"}
+                                          className={cn(
+                                            "h-2.5 w-2.5 rounded-full bg-emerald-500 transition-all duration-150 motion-reduce:transition-none",
+                                            update.is_read ? "scale-75 opacity-0" : "scale-100 opacity-100"
+                                          )}
+                                        />
+                                      </div>
+                                    </div>
+                                    {update.is_read && (
+                                      <span className="sr-only" data-testid="update-read">
+                                        Read
+                                      </span>
+                                    )}
+                                    {!update.is_read && (
+                                      <div className="mt-3 flex items-center justify-end">
+                                        <button
+                                          type="button"
+                                          className="text-xs font-semibold text-slate-600 transition hover:text-slate-900"
+                                          onClick={(event) => {
+                                            event.stopPropagation();
+                                            void markRead(update.id);
+                                          }}
+                                        >
+                                          Mark as read
+                                        </button>
+                                      </div>
+                                    )}
+                                    {update.image_url && (
+                                      <button
+                                        type="button"
+                                        className="mt-3 block w-full overflow-hidden rounded-xl border border-slate-200"
+                                        onClick={(event) => {
+                                          event.stopPropagation();
+                                          setLightboxUrl(update.image_url || null);
+                                          void markRead(update.id);
+                                        }}
+                                      >
+                                        <img
+                                          src={update.image_url}
+                                          alt="Update screenshot"
+                                          className="h-36 w-full object-cover"
+                                          loading="lazy"
+                                        />
+                                      </button>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
                       </div>
                     </div>
                   </div>
