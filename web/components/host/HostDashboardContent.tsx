@@ -225,7 +225,7 @@ export function HostDashboardContent({
     setStatusErrors((prev) => ({ ...prev, [listingId]: null }));
 
     try {
-      const res = await fetch(`/api/properties/${listingId}/status`, {
+      const res = await fetch(`/api/listings/${listingId}/status`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

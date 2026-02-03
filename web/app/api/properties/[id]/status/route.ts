@@ -245,6 +245,8 @@ export async function postPropertyStatusResponse(
     updates.reactivated_at = nowIso;
     updates.is_active = true;
     updates.is_approved = true;
+    updates.paused_at = null;
+    updates.paused_reason = null;
     updates.expired_at = null;
     updates.expires_at = computeExpiryAt(now, expiryDays);
   }

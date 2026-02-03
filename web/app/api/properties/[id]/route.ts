@@ -145,6 +145,7 @@ export const updateSchema = z.object({
         )
         .optional()
     ),
+  paused_reason: z.string().optional().nullable(),
 });
 
 const idParamSchema = z.object({
@@ -662,6 +663,7 @@ export async function PUT(
       imageUrls = [],
       status,
       rejection_reason,
+      paused_reason,
       cover_image_url,
       imageMeta = {} as ImageMetaPayload,
       ...rest
@@ -752,6 +754,7 @@ export async function PUT(
         approved_at: status === "live" ? nowIso : isPausedStatus ? existing?.approved_at ?? null : null,
         rejected_at: status === "rejected" ? nowIso : null,
         paused_at: isPausedStatus ? nowIso : null,
+        paused_reason: isPausedStatus ? cleanNullableString(paused_reason, { allowUndefined: false }) : null,
         is_active: status === "pending" || status === "live",
         is_approved: isPausedStatus ? existing?.is_approved ?? false : status === "live",
       };

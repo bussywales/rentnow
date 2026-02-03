@@ -62,10 +62,10 @@ test.describe("Smoke checks", () => {
     await page.getByRole("button", { name: /log in/i }).click();
 
     await page.waitForURL("**/dashboard", { timeout: 15_000 });
-    await expect(page.getByText(/My properties/i)).toBeVisible();
+    await expect(page.getByText(/My listings/i)).toBeVisible();
 
     await page.reload();
     await page.waitForURL("**/dashboard", { timeout: 10_000 });
-    await expect(page.getByText(/My properties/i)).toBeVisible();
+    await expect(page.getByText(/My listings/i)).toBeVisible();
   });
 });

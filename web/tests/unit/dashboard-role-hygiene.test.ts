@@ -9,11 +9,11 @@ void test("dashboard layout hides listing nav for non-listing roles", () => {
 
   assert.ok(
     contents.includes("canManageListings"),
-    "expected dashboard layout to use canManageListings for My properties"
+    "expected dashboard layout to use canManageListings for My listings"
   );
   assert.ok(
     contents.includes("showMyProperties"),
-    "expected My properties link to be conditionally rendered"
+    "expected My listings link to be conditionally rendered"
   );
   assert.ok(
     contents.includes("/dashboard/analytics"),

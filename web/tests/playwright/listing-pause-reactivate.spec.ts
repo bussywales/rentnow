@@ -92,7 +92,7 @@ test.describe.serial("Listing pause/reactivate", () => {
     const landlordPage = await landlordContext.newPage();
     await login(landlordPage, landlordEmail, landlordPassword);
 
-    await landlordPage.goto("/host");
+    await landlordPage.goto("/host/listings");
     await landlordPage.getByPlaceholder("Search by title or area").fill(propertyTitle);
     await expect(landlordPage.getByText(propertyTitle)).toBeVisible();
 

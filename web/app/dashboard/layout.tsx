@@ -102,7 +102,7 @@ export default async function DashboardLayout({
           <div className="flex flex-wrap items-center gap-3 text-sm">
             {showMyProperties && (
               <Link href="/host" className="rounded-full bg-white/10 px-3 py-1">
-                My properties
+                My listings
               </Link>
             )}
             {showMyProperties && (

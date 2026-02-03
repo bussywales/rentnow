@@ -13,7 +13,7 @@ import { revalidatePath } from "next/cache";
 import { TrustBadges } from "@/components/trust/TrustBadges";
 import { TrustReliability } from "@/components/trust/TrustReliability";
 import type { TrustMarkerState } from "@/lib/trust-markers";
-import { orderImagesWithCover } from "@/lib/properties/images";
+import { fetchOwnerListings } from "@/lib/properties/owner-listings";
 import { computeDashboardListings } from "@/lib/properties/host-dashboard";
 import { isListingExpired } from "@/lib/properties/expiry";
 import { HostDashboardContent } from "@/components/host/HostDashboardContent";
@@ -139,71 +139,15 @@ export default async function DashboardHome() {
             }
           }
         }
-        const missingPosition = (message?: string | null) =>
-          typeof message === "string" &&
-          message.includes("position") &&
-          message.includes("property_images");
-        const buildQuery = (includePosition: boolean) => {
-          const imageFields = includePosition
-            ? "image_url,id,position,created_at,width,height,bytes,format"
-            : "image_url,id,created_at";
-          let query = supabase
-            .from("properties")
-            .select(`*, property_images(${imageFields})`)
-            .order("created_at", { ascending: false });
-          if (includePosition) {
-            query = query
-              .order("position", {
-                foreignTable: "property_images",
-                ascending: true,
-              })
-              .order("created_at", {
-                foreignTable: "property_images",
-                ascending: true,
-              });
-          } else {
-            query = query.order("created_at", {
-              foreignTable: "property_images",
-              ascending: true,
-            });
-          }
-          if (!isAdmin) {
-            query = query.eq("owner_id", ownerId);
-          }
-          return query;
-        };
-
-        let { data, error } = await buildQuery(true);
-        if (error && missingPosition(error.message)) {
-          const fallback = await buildQuery(false);
-          data = fallback.data;
-          error = fallback.error;
-        }
+        const { data, error } = await fetchOwnerListings({
+          supabase,
+          ownerId,
+          isAdmin,
+        });
         if (error) {
-          fetchError = error.message;
+          fetchError = error;
         } else {
-          const typed =
-            (data as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) ||
-            [];
-          properties =
-            typed.map((row) => ({
-              ...row,
-              photo_count: row.property_images?.length ?? 0,
-              has_cover: !!row.cover_image_url,
-              images: orderImagesWithCover(
-                row.cover_image_url,
-                row.property_images?.map((img) => ({
-                  id: img.id || img.image_url,
-                  image_url: img.image_url,
-                  position: (img as { position?: number }).position,
-                  created_at: (img as { created_at?: string | null }).created_at ?? undefined,
-                  width: (img as { width?: number | null }).width ?? null,
-                  height: (img as { height?: number | null }).height ?? null,
-                  bytes: (img as { bytes?: number | null }).bytes ?? null,
-                  format: (img as { format?: string | null }).format ?? null,
-                }))
-              ),
-            })) || [];
+          properties = data as Property[];
         }
 
         if (role === "landlord" || role === "agent") {
@@ -272,7 +216,7 @@ export default async function DashboardHome() {
     <div className="space-y-4">
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="text-xl font-semibold text-slate-900">My properties</h2>
+          <h2 className="text-xl font-semibold text-slate-900">My listings</h2>
           <p className="text-sm text-slate-600">
             Listings you own. Approvals required for public visibility.
           </p>

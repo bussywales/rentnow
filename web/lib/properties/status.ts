@@ -19,7 +19,7 @@ export function mapStatusLabel(status?: string | null): string {
     case "live":
       return "Live";
     case "pending":
-      return "Pending";
+      return "Under review";
     case "draft":
       return "Draft";
     case "rejected":
@@ -27,9 +27,9 @@ export function mapStatusLabel(status?: string | null): string {
     case "expired":
       return "Expired";
     case "paused_owner":
-      return "Paused - Owner hold";
+      return "Paused (Owner hold)";
     case "paused_occupied":
-      return "Paused - Occupied";
+      return "Paused (Occupied)";
     case "paused":
       return "Paused";
     case "changes_requested":

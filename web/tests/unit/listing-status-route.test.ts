@@ -145,6 +145,8 @@ void test("owner can reactivate listing", async () => {
   assert.equal(capture.updatePayload?.status, "live");
   assert.equal(capture.updatePayload?.is_active, true);
   assert.equal(capture.updatePayload?.is_approved, true);
+  assert.equal(capture.updatePayload?.paused_at, null);
+  assert.equal(capture.updatePayload?.paused_reason, null);
   assert.ok(typeof capture.updatePayload?.reactivated_at === "string");
   assert.ok(typeof capture.updatePayload?.expires_at === "string");
 });
