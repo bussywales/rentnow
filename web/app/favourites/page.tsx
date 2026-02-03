@@ -2,8 +2,9 @@ import Link from "next/link";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { PropertyCard } from "@/components/properties/PropertyCard";
-import type { Property } from "@/lib/types";
+import type { Property, UserRole } from "@/lib/types";
 import { orderImagesWithCover } from "@/lib/properties/images";
+import { normalizeRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default async function FavouritesPage() {
   }
 
   const { supabase, user } = await getServerAuthUser();
+  let role: UserRole | null = null;
 
   if (!user) {
     return (
@@ -44,6 +46,13 @@ export default async function FavouritesPage() {
 
   let properties: Property[] = [];
   try {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    role = normalizeRole(profile?.role ?? null);
+
     const { data, error } = await supabase
       .from("saved_properties")
       .select(
@@ -108,6 +117,10 @@ export default async function FavouritesPage() {
               key={property.id}
               property={property}
               href={`/properties/${property.id}`}
+              showSave
+              initialSaved
+              showCta
+              viewerRole={role}
             />
           ))}
         </div>

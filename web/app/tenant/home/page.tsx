@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { PropertyCard } from "@/components/properties/PropertyCard";
+import { ContinueSearchCard } from "@/components/tenant/ContinueSearchCard";
 import { Button } from "@/components/ui/Button";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import { resolveServerRole } from "@/lib/auth/role";
@@ -18,8 +19,13 @@ import {
   getNewHomes,
   getPopularHomes,
   getTenantDiscoveryContext,
+  getSavedHomes,
 } from "@/lib/tenant/tenant-discovery.server";
 import type { Property } from "@/lib/types";
+import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
+import { getFastResponderByHostIds } from "@/lib/trust/fast-responder.server";
+import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
+import type { TrustMarkerState } from "@/lib/trust-markers";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +66,19 @@ function SectionHeader({ title, description, href, hrefLabel = "View all" }: Sec
   );
 }
 
-function PropertyRow({ items, testId }: { items: Property[]; testId?: string }) {
+function PropertyRow({
+  items,
+  testId,
+  savedIds,
+  fastResponderByHost,
+  trustSnapshots,
+}: {
+  items: Property[];
+  testId?: string;
+  savedIds?: Set<string>;
+  fastResponderByHost?: Record<string, boolean>;
+  trustSnapshots?: Record<string, TrustMarkerState>;
+}) {
   return (
     <div
       data-testid={testId}
@@ -72,7 +90,16 @@ function PropertyRow({ items, testId }: { items: Property[]; testId?: string }) 
           data-testid="tenant-home-card"
           className="min-w-[260px] max-w-[280px] flex-1"
         >
-          <PropertyCard property={property} href={`/properties/${property.id}`} />
+          <PropertyCard
+            property={property}
+            href={`/properties/${property.id}`}
+            showSave
+            initialSaved={savedIds?.has(property.id)}
+            showCta
+            viewerRole="tenant"
+            fastResponder={fastResponderByHost?.[property.owner_id]}
+            trustMarkers={trustSnapshots?.[property.owner_id]}
+          />
         </div>
       ))}
     </div>
@@ -145,10 +172,11 @@ export default async function TenantHomePage() {
       ? `Popular in ${jurisdictionName}`
       : "Popular homes";
 
-  const [featuredHomes, popularHomes, newHomes] = await Promise.all([
+  const [featuredHomes, popularHomes, newHomes, savedHomes] = await Promise.all([
     getFeaturedHomes({ limit: MODULE_LIMIT, context }),
     getPopularHomes({ city: popularCity, limit: MODULE_LIMIT, context }),
     getNewHomes({ days: 7, limit: MODULE_LIMIT, context }),
+    getSavedHomes({ limit: 8, context }),
   ]);
 
   const modules = buildTenantDiscoveryModules({ featuredHomes, popularHomes, newHomes });
@@ -156,6 +184,37 @@ export default async function TenantHomePage() {
   let fallbackHomes: Property[] = [];
   if (!modules.hasModules) {
     fallbackHomes = await getFallbackHomes({ limit: 9, context });
+  }
+
+  const allHomes = [
+    ...featuredHomes,
+    ...popularHomes,
+    ...newHomes,
+    ...fallbackHomes,
+    ...savedHomes,
+  ];
+  const savedIds = await fetchSavedPropertyIds({
+    supabase: context.supabase,
+    userId: user.id,
+    propertyIds: allHomes.map((property) => property.id),
+  });
+  let fastResponderByHost: Record<string, boolean> = {};
+  let trustSnapshots: Record<string, TrustMarkerState> = {};
+  try {
+    const ownerIds = Array.from(
+      new Set(allHomes.map((property) => property.owner_id).filter(Boolean))
+    );
+    if (ownerIds.length) {
+      fastResponderByHost = await getFastResponderByHostIds({
+        supabase: context.supabase,
+        hostIds: ownerIds,
+      });
+      trustSnapshots = await fetchTrustPublicSnapshots(context.supabase, ownerIds);
+    }
+  } catch (err) {
+    console.warn("[tenant-home] fast responder lookup failed", err);
+    fastResponderByHost = {};
+    trustSnapshots = {};
   }
 
   if (DEV_MOCKS) {
@@ -200,6 +259,26 @@ export default async function TenantHomePage() {
         </div>
       </section>
 
+      <ContinueSearchCard />
+
+      {savedHomes.length > 0 && (
+        <section className="space-y-4" data-testid="tenant-home-saved">
+          <SectionHeader
+            title="Saved homes"
+            description="Pick up your favourites and keep the conversation going."
+            href="/tenant/saved"
+            hrefLabel="View saved"
+          />
+          <PropertyRow
+            items={savedHomes}
+            testId="tenant-home-saved-row"
+            savedIds={savedIds}
+            fastResponderByHost={fastResponderByHost}
+            trustSnapshots={trustSnapshots}
+          />
+        </section>
+      )}
+
       {modules.hasFeatured && (
         <section className="space-y-4" data-testid="tenant-home-featured">
           <SectionHeader
@@ -207,7 +286,13 @@ export default async function TenantHomePage() {
             description="Premium placement from verified hosts and agents."
             href="/properties?featured=true"
           />
-          <PropertyRow items={featuredHomes} testId="tenant-home-featured-row" />
+          <PropertyRow
+            items={featuredHomes}
+            testId="tenant-home-featured-row"
+            savedIds={savedIds}
+            fastResponderByHost={fastResponderByHost}
+            trustSnapshots={trustSnapshots}
+          />
         </section>
       )}
 
@@ -218,7 +303,13 @@ export default async function TenantHomePage() {
             description="Homes tenants are engaging with right now."
             href={popularCity ? `/properties?city=${encodeURIComponent(popularCity)}` : "/properties"}
           />
-          <PropertyRow items={popularHomes} testId="tenant-home-popular-row" />
+          <PropertyRow
+            items={popularHomes}
+            testId="tenant-home-popular-row"
+            savedIds={savedIds}
+            fastResponderByHost={fastResponderByHost}
+            trustSnapshots={trustSnapshots}
+          />
         </section>
       )}
 
@@ -229,14 +320,20 @@ export default async function TenantHomePage() {
             description="Fresh listings added in the last 7 days."
             href="/properties?recent=7"
           />
-          <PropertyRow items={newHomes} testId="tenant-home-new-row" />
+          <PropertyRow
+            items={newHomes}
+            testId="tenant-home-new-row"
+            savedIds={savedIds}
+            fastResponderByHost={fastResponderByHost}
+            trustSnapshots={trustSnapshots}
+          />
         </section>
       )}
 
       {cityCollections.length > 0 && (
         <section className="space-y-4" data-testid="tenant-home-cities">
           <SectionHeader
-            title="Explore by city"
+            title="Popular cities"
             description="Browse curated neighbourhoods and popular districts."
           />
           <CityTiles cities={cityCollections} />
@@ -257,6 +354,12 @@ export default async function TenantHomePage() {
                   <PropertyCard
                     property={property}
                     href={`/properties/${property.id}`}
+                    showSave
+                    initialSaved={savedIds.has(property.id)}
+                    showCta
+                    viewerRole="tenant"
+                    fastResponder={fastResponderByHost[property.owner_id]}
+                    trustMarkers={trustSnapshots[property.owner_id]}
                   />
                 </div>
               ))}

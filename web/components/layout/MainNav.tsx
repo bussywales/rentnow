@@ -14,7 +14,8 @@ export const MAIN_NAV_LINKS: Array<{
   denyRoles?: UserRole[];
 }> = [
   { href: "/properties", label: "Browse" },
-  { href: "/favourites", label: "Saved", requireAuth: true },
+  { href: "/tenant/saved", label: "Saved", requireAuth: true, requireRole: "tenant" },
+  { href: "/favourites", label: "Saved", requireAuth: true, denyRoles: ["tenant"] },
   { href: "/tenant/home", label: "Home", requireAuth: true, requireRole: "tenant" },
   {
     href: "/tenant/saved-searches",

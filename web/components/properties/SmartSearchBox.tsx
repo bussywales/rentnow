@@ -4,8 +4,9 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { filtersToChips, filtersToSearchParams } from "@/lib/search-filters";
+import { filtersToChips } from "@/lib/search-filters";
 import type { ParsedSearchFilters } from "@/lib/types";
+import { buildSearchHref, LAST_SEARCH_STORAGE_KEY } from "@/lib/search/last-search";
 
 type Props = {
   mode?: "home" | "browse";
@@ -33,11 +34,7 @@ export function SmartSearchBox({ onFilters, mode = "home" }: Props) {
 
   const chips = useMemo(() => (result ? filtersToChips(result) : []), [result]);
 
-  const buildBrowseUrl = (filters: ParsedSearchFilters) => {
-    const params = filtersToSearchParams(filters);
-    const queryString = params.toString();
-    return queryString ? `/properties?${queryString}` : "/properties";
-  };
+  const buildBrowseUrl = (filters: ParsedSearchFilters) => buildSearchHref(filters);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -54,6 +51,20 @@ export function SmartSearchBox({ onFilters, mode = "home" }: Props) {
       const filters = data?.filters ?? emptyFilters;
       setResult(filters);
       onFilters?.(filters);
+      if (typeof window !== "undefined") {
+        try {
+          window.localStorage.setItem(
+            LAST_SEARCH_STORAGE_KEY,
+            JSON.stringify({
+              query,
+              filters,
+              updatedAt: new Date().toISOString(),
+            })
+          );
+        } catch {
+          // ignore storage write failures
+        }
+      }
       if (mode === "browse") {
         router.push(buildBrowseUrl(filters));
       }

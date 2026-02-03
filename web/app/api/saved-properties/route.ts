@@ -10,11 +10,26 @@ const saveSchema = z.object({
   property_id: z.string(),
 });
 
-export async function GET(request: Request) {
+export type SavedPropertiesDeps = {
+  hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
+  requireUser: typeof requireUser;
+  logFailure: typeof logFailure;
+};
+
+const defaultDeps: SavedPropertiesDeps = {
+  hasServerSupabaseEnv,
+  requireUser,
+  logFailure,
+};
+
+export async function getSavedPropertiesResponse(
+  request: Request,
+  deps: SavedPropertiesDeps = defaultDeps
+) {
   const startTime = Date.now();
 
-  if (!hasServerSupabaseEnv()) {
-    logFailure({
+  if (!deps.hasServerSupabaseEnv()) {
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 503,
@@ -27,7 +42,7 @@ export async function GET(request: Request) {
     );
   }
 
-  const auth = await requireUser({ request, route: routeLabel, startTime });
+  const auth = await deps.requireUser({ request, route: routeLabel, startTime });
   if (!auth.ok) return auth.response;
   const supabase = auth.supabase;
 
@@ -37,7 +52,7 @@ export async function GET(request: Request) {
     .eq("user_id", auth.user.id);
 
   if (error) {
-    logFailure({
+    deps.logFailure({
       request: new Request(routeLabel),
       route: routeLabel,
       status: 400,
@@ -50,11 +65,14 @@ export async function GET(request: Request) {
   return NextResponse.json({ saved: data || [] });
 }
 
-export async function POST(request: Request) {
+export async function postSavedPropertiesResponse(
+  request: Request,
+  deps: SavedPropertiesDeps = defaultDeps
+) {
   const startTime = Date.now();
 
-  if (!hasServerSupabaseEnv()) {
-    logFailure({
+  if (!deps.hasServerSupabaseEnv()) {
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 503,
@@ -68,7 +86,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const auth = await requireUser({ request, route: routeLabel, startTime });
+    const auth = await deps.requireUser({ request, route: routeLabel, startTime });
     if (!auth.ok) return auth.response;
     const supabase = auth.supabase;
 
@@ -101,7 +119,7 @@ export async function POST(request: Request) {
       .upsert({ user_id: auth.user.id, property_id });
 
     if (error) {
-      logFailure({
+      deps.logFailure({
         request,
         route: routeLabel,
         status: 400,
@@ -114,7 +132,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unable to save property";
-    logFailure({
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 400,
@@ -125,11 +143,14 @@ export async function POST(request: Request) {
   }
 }
 
-export async function DELETE(request: Request) {
+export async function deleteSavedPropertiesResponse(
+  request: Request,
+  deps: SavedPropertiesDeps = defaultDeps
+) {
   const startTime = Date.now();
 
-  if (!hasServerSupabaseEnv()) {
-    logFailure({
+  if (!deps.hasServerSupabaseEnv()) {
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 503,
@@ -142,7 +163,7 @@ export async function DELETE(request: Request) {
     );
   }
 
-  const auth = await requireUser({ request, route: routeLabel, startTime });
+  const auth = await deps.requireUser({ request, route: routeLabel, startTime });
   if (!auth.ok) return auth.response;
   const supabase = auth.supabase;
 
@@ -160,7 +181,7 @@ export async function DELETE(request: Request) {
     .eq("property_id", propertyId);
 
   if (error) {
-    logFailure({
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 400,
@@ -171,4 +192,16 @@ export async function DELETE(request: Request) {
   }
 
   return NextResponse.json({ ok: true });
+}
+
+export async function GET(request: Request) {
+  return getSavedPropertiesResponse(request);
+}
+
+export async function POST(request: Request) {
+  return postSavedPropertiesResponse(request);
+}
+
+export async function DELETE(request: Request) {
+  return deleteSavedPropertiesResponse(request);
 }

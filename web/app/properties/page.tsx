@@ -21,6 +21,8 @@ import { computeLocationScore, extractLocationQuery, type LocationQueryInfo } fr
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import { isListingPubliclyVisible } from "@/lib/properties/expiry";
+import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
+import { getFastResponderByHostIds } from "@/lib/trust/fast-responder.server";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
   searchParams?: SearchParams | Promise<SearchParams>;
@@ -282,6 +284,8 @@ export default async function PropertiesPage({ searchParams }: Props) {
   let totalCount: number | null = null;
   let fetchError: string | null = null;
   let trustSnapshots: Record<string, TrustMarkerState> = {};
+  let savedIds = new Set<string>();
+  let fastResponderByHost: Record<string, boolean> = {};
   const hubs = [
     { city: "Lagos", label: "Lagos Island" },
     { city: "Nairobi", label: "Nairobi" },
@@ -422,9 +426,25 @@ export default async function PropertiesPage({ searchParams }: Props) {
       const supabase = await createServerSupabaseClient();
       const ownerIds = properties.map((property) => property.owner_id);
       trustSnapshots = await fetchTrustPublicSnapshots(supabase, ownerIds);
+      if (userId) {
+        savedIds = await fetchSavedPropertyIds({
+          supabase,
+          userId,
+          propertyIds: properties.map((property) => property.id),
+        });
+      }
+      const uniqueOwners = Array.from(new Set(ownerIds.filter(Boolean)));
+      if (uniqueOwners.length) {
+        fastResponderByHost = await getFastResponderByHostIds({
+          supabase,
+          hostIds: uniqueOwners,
+        });
+      }
     } catch (err) {
       console.warn("[properties] trust snapshot fetch failed", err);
       trustSnapshots = {};
+      savedIds = new Set<string>();
+      fastResponderByHost = {};
     }
   }
 
@@ -669,6 +689,11 @@ export default async function PropertiesPage({ searchParams }: Props) {
               property={property}
               href={`/properties/${property.id}?back=${encodeURIComponent(backHref)}`}
               trustMarkers={trustSnapshots[property.owner_id]}
+              showSave
+              initialSaved={savedIds.has(property.id)}
+              showCta={!role || role === "tenant"}
+              viewerRole={role}
+              fastResponder={fastResponderByHost[property.owner_id]}
             />
           </div>
         ))}

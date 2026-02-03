@@ -10,9 +10,10 @@ import { getProfile } from "@/lib/auth";
 import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
 import { normalizeRole } from "@/lib/roles";
 import { getListingCta } from "@/lib/role-access";
-import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
+import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
 
 export default async function Home() {
   let featured: Property[] = [];
@@ -21,11 +22,13 @@ export default async function Home() {
   const supabaseReady = hasServerSupabaseEnv();
   const envPresence = getEnvPresence();
   let role = null;
+  let profileId: string | null = null;
   let fetchError: string | null = null;
 
   if (supabaseReady) {
     const profile = await getProfile();
     role = normalizeRole(profile?.role);
+    profileId = profile?.id ?? null;
   }
   const listingCta = getListingCta(role);
 
@@ -60,6 +63,21 @@ export default async function Home() {
 
   if (DEV_MOCKS && (!supabaseReady || !featured.length)) {
     featured = mockProperties.slice(0, 3);
+  }
+
+  let savedIds = new Set<string>();
+  if (supabaseReady && profileId && featured.length) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      savedIds = await fetchSavedPropertyIds({
+        supabase,
+        userId: profileId,
+        propertyIds: featured.map((property) => property.id),
+      });
+    } catch (err) {
+      console.warn("[home] saved property lookup failed", err);
+      savedIds = new Set<string>();
+    }
   }
 
   const hubs = [
@@ -177,6 +195,10 @@ export default async function Home() {
                 key={property.id}
                 property={property}
                 href={`/properties/${property.id}`}
+                showSave
+                initialSaved={savedIds.has(property.id)}
+                showCta={!role || role === "tenant"}
+                viewerRole={role}
               />
             ))}
           </div>

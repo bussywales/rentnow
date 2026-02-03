@@ -5,6 +5,7 @@ import { getTenantPlanForTier } from "@/lib/plans";
 import { normalizeRole } from "@/lib/roles";
 import type { Property, UserRole } from "@/lib/types";
 import { orderImagesWithCover } from "@/lib/properties/images";
+import { fetchSavedProperties } from "@/lib/saved-properties.server";
 
 type PropertyImageRow = {
   id: string;
@@ -210,6 +211,22 @@ export async function getFallbackHomes({
 
   const { data } = await query.limit(limit);
   return mapPropertyRows(data as PropertyRow[]);
+}
+
+export async function getSavedHomes({
+  limit = 8,
+  context,
+}: {
+  limit?: number;
+  context?: DiscoveryContext;
+}) {
+  const ctx = context ?? (await getTenantDiscoveryContext());
+  if (!ctx.userId) return [];
+  return fetchSavedProperties({
+    supabase: ctx.supabase,
+    userId: ctx.userId,
+    limit,
+  });
 }
 
 export function getCityCollections() {

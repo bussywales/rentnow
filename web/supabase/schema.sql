@@ -102,6 +102,7 @@ CREATE TABLE public.saved_properties (
 
 CREATE INDEX idx_saved_properties_user ON public.saved_properties (user_id);
 CREATE INDEX idx_saved_properties_property_id ON public.saved_properties (property_id);
+CREATE INDEX idx_saved_properties_user_created_at ON public.saved_properties (user_id, created_at DESC);
 
 -- MESSAGES
 CREATE TABLE public.messages (

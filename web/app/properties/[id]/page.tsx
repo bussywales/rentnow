@@ -8,6 +8,7 @@ import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
+import { PropertyTrustCues } from "@/components/properties/PropertyTrustCues";
 import { RequestViewingCtaSection } from "@/components/viewings/RequestViewingCtaSection";
 import { TrustIdentityPill } from "@/components/trust/TrustIdentityPill";
 import { PropertySharePanel } from "@/components/properties/PropertySharePanel";
@@ -27,6 +28,8 @@ import { getListingCta } from "@/lib/role-access";
 import { normalizeRole } from "@/lib/roles";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
+import { getFastResponderByHostIds } from "@/lib/trust/fast-responder.server";
+import { buildTrustCues } from "@/lib/trust-cues";
 import { getTenantPlanForTier } from "@/lib/plans";
 import type { Profile, Property } from "@/lib/types";
 import type { TrustMarkerState } from "@/lib/trust-markers";
@@ -297,6 +300,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   let isHost = false;
   let currentUser: Profile | null = null;
   let hostTrust: TrustMarkerState | null = null;
+  let fastResponder = false;
   let similar: Property[] = [];
   if (hasServerSupabaseEnv()) {
     try {
@@ -416,6 +420,16 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
         console.warn("[property-detail] trust snapshot fetch failed", err);
         hostTrust = null;
       }
+      try {
+        const fastMap = await getFastResponderByHostIds({
+          supabase,
+          hostIds: [property.owner_id],
+        });
+        fastResponder = fastMap[property.owner_id] ?? false;
+      } catch (err) {
+        console.warn("[property-detail] fast responder lookup failed", err);
+        fastResponder = false;
+      }
     } catch (err) {
       console.warn("[property-detail] supabase client unavailable", err);
       isSaved = false;
@@ -428,6 +442,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   const cadence = formatCadence(property.rental_type, property.rent_period);
   const listingTypeLabel = formatListingType(property.listing_type);
   const listingIntent = property.listing_intent ?? "rent";
+  const isFeaturedActive =
+    !!property.is_featured &&
+    (!property.featured_until || Date.parse(property.featured_until) > Date.now());
   const isGuest = !currentUser;
   const showPublicActions = isGuest || isTenant;
   const isExpired = isListingExpired(property);
@@ -512,6 +529,12 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   const timezoneText = `Times shown in ${cityLabel} time (${
     property.timezone || "Africa/Lagos"
   }).`;
+  const hostTrustCues = buildTrustCues({
+    markers: hostTrust,
+    fastResponder,
+    createdAt: property.created_at,
+  });
+  const showTrustSignals = !!hostTrust || hostTrustCues.length > 0;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4">
@@ -576,6 +599,11 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                 ? "Short-let"
                 : "Long-term"}
           </p>
+          {isFeaturedActive && (
+            <div className="inline-flex w-fit items-center rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">
+              Featured by PropatyHub
+            </div>
+          )}
           <h1 className="text-2xl font-semibold text-slate-900">{property.title}</h1>
           <p className="text-sm text-slate-600">{locationLabel}</p>
           <div className="rounded-xl bg-slate-50 px-3 py-2">
@@ -685,13 +713,20 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                 <p className="text-xs text-slate-500">Based in {property.city}</p>
               </div>
             </div>
-            {hostTrust && (
+            {showTrustSignals && (
               <div className="mt-3 space-y-2">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                  Verification
+                  Trust signals
                 </p>
-                <TrustIdentityPill markers={hostTrust} />
-                {hostTrust.trust_updated_at && (
+                {hostTrust && <TrustIdentityPill markers={hostTrust} />}
+                {hostTrustCues.length > 0 && (
+                  <PropertyTrustCues
+                    markers={hostTrust}
+                    fastResponder={fastResponder}
+                    createdAt={property.created_at}
+                  />
+                )}
+                {hostTrust?.trust_updated_at && (
                   <p className="text-xs text-slate-500">
                     Updated {new Date(hostTrust.trust_updated_at).toLocaleDateString()}
                   </p>
@@ -709,7 +744,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             </div>
           )}
           {showPublicActions && !expiredReadOnly && listingIntent !== "buy" && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div id="cta" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Viewing requests</h3>
               </div>
@@ -736,7 +771,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             </div>
           )}
           {showPublicActions && !expiredReadOnly && listingIntent === "buy" && (
-            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div id="cta" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Enquire to buy</h3>
               </div>
