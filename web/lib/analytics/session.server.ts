@@ -20,8 +20,9 @@ export function hashSessionKey(raw: string): string {
   return createHash("sha256").update(raw).digest("hex");
 }
 
-export function getSessionKeyFromCookies(): string | null {
-  const value = cookies().get(SESSION_COOKIE_NAME)?.value;
+export async function getSessionKeyFromCookies(): Promise<string | null> {
+  const store = await cookies();
+  const value = store.get(SESSION_COOKIE_NAME)?.value;
   return value ? hashSessionKey(value) : null;
 }
 

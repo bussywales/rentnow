@@ -80,7 +80,7 @@ export default async function SharePropertyPage({ params }: Props) {
       eventType: "share_open",
       actorUserId: null,
       actorRole: "anon",
-      sessionKey: getSessionKeyFromCookies(),
+      sessionKey: await getSessionKeyFromCookies(),
       meta: { source: "share_link" },
     });
   } catch (err) {

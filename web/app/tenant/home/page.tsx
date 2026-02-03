@@ -187,8 +187,8 @@ export default async function TenantHomePage() {
     getSavedHomes({ limit: 8, context }),
   ]);
 
-  const sessionKey =
-    getSessionKeyFromCookies() ?? getSessionKeyFromUser(user.id);
+  const cookieSessionKey = await getSessionKeyFromCookies();
+  const sessionKey = cookieSessionKey ?? getSessionKeyFromUser(user.id);
   if (featuredHomes.length && sessionKey) {
     try {
       await logPropertyEventsBulk({
