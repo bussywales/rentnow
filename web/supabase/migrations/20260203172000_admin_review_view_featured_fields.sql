@@ -1,5 +1,6 @@
 -- Add featured fields to admin_review_view for ops visibility.
-create or replace view public.admin_review_view as
+drop view if exists public.admin_review_view;
+create view public.admin_review_view as
 with img as (
   select
     pi.property_id,
