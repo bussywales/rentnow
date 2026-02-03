@@ -21,7 +21,16 @@ import { getVerificationStatus } from "@/lib/verification/status";
 
 export const dynamic = "force-dynamic";
 
-type PropertyStatus = "draft" | "pending" | "live" | "expired" | "rejected" | "paused";
+type PropertyStatus =
+  | "draft"
+  | "pending"
+  | "live"
+  | "expired"
+  | "rejected"
+  | "paused"
+  | "paused_owner"
+  | "paused_occupied"
+  | "changes_requested";
 
 function normalizeStatus(property: Property): PropertyStatus {
   const normalized = property.status ? property.status.toString().trim().toLowerCase() : null;

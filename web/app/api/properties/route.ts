@@ -87,7 +87,19 @@ export const propertySchema = z.object({
   epc_rating: z.string().optional().nullable(),
   council_tax_band: z.string().optional().nullable(),
   features: z.array(z.string()).optional().nullable(),
-  status: z.enum(["draft", "pending", "live", "rejected", "paused"]).optional(),
+  status: z
+    .enum([
+      "draft",
+      "pending",
+      "live",
+      "rejected",
+      "paused",
+      "paused_owner",
+      "paused_occupied",
+      "expired",
+      "changes_requested",
+    ])
+    .optional(),
   is_active: z.boolean().optional(),
   imageUrls: z.array(z.string().url()).optional(),
   cover_image_url: z.string().url().optional().nullable(),

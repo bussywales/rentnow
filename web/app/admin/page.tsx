@@ -20,6 +20,10 @@ const STATUS_LABELS: Record<string, string> = {
   live: "Live",
   rejected: "Rejected",
   paused: "Paused",
+  paused_owner: "Paused - Owner hold",
+  paused_occupied: "Paused - Occupied",
+  changes_requested: "Changes requested",
+  expired: "Expired",
 };
 
 type RawReviewRow = {

@@ -1159,7 +1159,7 @@ export function PropertyStepper({
     delete restPayload.is_active;
     const status = statusOverride || (payload.status as PropertyStatus) || "draft";
     const shouldIncludeStatus =
-      !propertyId || !!statusOverride || status === "draft" || status === "paused";
+      !propertyId || !!statusOverride || status === "draft" || status.startsWith("paused");
     const imageMetaPayload = buildImageMetaPayload(imageMeta);
     const requestBody = {
       ...restPayload,

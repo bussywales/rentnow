@@ -43,6 +43,19 @@ void test("public listing visibility excludes expired status or past expires_at"
   assert.equal(isListingPubliclyVisible(expiredStatus, now), false);
 });
 
+void test("public listing visibility excludes paused statuses", () => {
+  const now = new Date("2024-01-10T00:00:00.000Z");
+  const base = {
+    status: "paused_owner",
+    is_active: true,
+    is_approved: true,
+    expires_at: "2024-02-10T00:00:00.000Z",
+  };
+  assert.equal(isListingPubliclyVisible(base, now), false);
+  assert.equal(isListingPubliclyVisible({ ...base, status: "paused_occupied" }, now), false);
+  assert.equal(isListingPubliclyVisible({ ...base, status: "paused" }, now), false);
+});
+
 void test("renewal update sets status live and recalculates expiry", () => {
   const now = new Date("2024-02-01T00:00:00.000Z");
   const update = buildRenewalUpdate({ now, expiryDays: 15 });

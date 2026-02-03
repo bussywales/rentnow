@@ -56,6 +56,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
       is_approved: false,
       is_active: false,
       rejected_at: now,
+      status_updated_at: now,
       rejection_reason,
     })
     .eq("id", id);

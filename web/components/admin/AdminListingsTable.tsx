@@ -14,7 +14,10 @@ function statusAccent(status?: string | null) {
   if (normalized === "live") return "bg-emerald-500";
   if (normalized === "expired") return "bg-amber-500";
   if (normalized === "rejected") return "bg-red-500";
-  if (normalized === "paused") return "bg-slate-400";
+  if (normalized === "paused" || normalized === "paused_owner" || normalized === "paused_occupied") {
+    return "bg-slate-400";
+  }
+  if (normalized === "changes_requested") return "bg-orange-400";
   if (normalized === "draft") return "bg-slate-300";
   return "bg-slate-200";
 }

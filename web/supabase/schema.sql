@@ -4,7 +4,7 @@
 CREATE TYPE user_role AS ENUM ('tenant', 'landlord', 'agent', 'admin');
 CREATE TYPE rental_type AS ENUM ('short_let', 'long_term');
 CREATE TYPE viewing_status AS ENUM ('pending', 'accepted', 'declined', 'cancelled');
-CREATE TYPE property_status AS ENUM ('draft', 'pending', 'live', 'expired', 'rejected', 'paused');
+CREATE TYPE property_status AS ENUM ('draft', 'pending', 'live', 'expired', 'rejected', 'paused', 'paused_owner', 'paused_occupied', 'changes_requested');
 
 -- PROFILES
 CREATE TABLE public.profiles (
@@ -50,6 +50,9 @@ CREATE TABLE public.properties (
   approved_at TIMESTAMPTZ,
   rejected_at TIMESTAMPTZ,
   paused_at TIMESTAMPTZ,
+  paused_reason TEXT,
+  reactivated_at TIMESTAMPTZ,
+  status_updated_at TIMESTAMPTZ DEFAULT NOW(),
   expires_at TIMESTAMPTZ,
   expired_at TIMESTAMPTZ,
   renewed_at TIMESTAMPTZ,
@@ -65,6 +68,9 @@ CREATE INDEX idx_properties_city ON public.properties (city);
 CREATE INDEX idx_properties_rental_type ON public.properties (rental_type);
 CREATE INDEX idx_properties_price ON public.properties (price);
 CREATE INDEX idx_properties_owner ON public.properties (owner_id);
+CREATE INDEX idx_properties_status ON public.properties (status);
+CREATE INDEX idx_properties_owner_status ON public.properties (owner_id, status);
+CREATE INDEX idx_properties_status_updated_at ON public.properties (status, updated_at);
 
 -- PROPERTY IMAGES
 CREATE TABLE public.property_images (

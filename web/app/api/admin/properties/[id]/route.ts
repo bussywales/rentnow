@@ -126,6 +126,7 @@ export async function PATCH(
         is_approved: false,
         is_active: false,
         rejected_at: nowIso,
+        status_updated_at: nowIso,
         rejection_reason: trimmedReason,
       };
 

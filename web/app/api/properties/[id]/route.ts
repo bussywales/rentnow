@@ -107,7 +107,19 @@ export const updateSchema = z.object({
   epc_rating: z.string().optional().nullable(),
   council_tax_band: z.string().optional().nullable(),
   features: z.array(z.string()).optional().nullable(),
-  status: z.enum(["draft", "pending", "live", "rejected", "paused"]).optional(),
+  status: z
+    .enum([
+      "draft",
+      "pending",
+      "live",
+      "rejected",
+      "paused",
+      "paused_owner",
+      "paused_occupied",
+      "expired",
+      "changes_requested",
+    ])
+    .optional(),
   rejection_reason: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
   imageUrls: z.array(z.string().url()).optional(),
@@ -549,6 +561,7 @@ export async function PUT(
       status?: string | null;
       is_active?: boolean | null;
       is_approved?: boolean | null;
+      approved_at?: string | null;
     } | null = null;
     let fetchError: { message: string } | null = null;
     let statusMissing = false;
@@ -556,14 +569,14 @@ export async function PUT(
     if (adminClient) {
       const initial = await adminClient
         .from("properties")
-        .select("owner_id, status, is_active, is_approved")
+        .select("owner_id, status, is_active, is_approved, approved_at")
         .eq("id", id)
         .maybeSingle();
       if (initial.error && missingStatus(initial.error.message)) {
         statusMissing = true;
         const fallback = await adminClient
           .from("properties")
-          .select("owner_id, is_active, is_approved")
+          .select("owner_id, is_active, is_approved, approved_at")
           .eq("id", id)
           .maybeSingle();
         existing = fallback.data ?? null;
@@ -575,14 +588,14 @@ export async function PUT(
     } else {
       const initial = await supabase
         .from("properties")
-        .select("owner_id, status, is_active, is_approved")
+        .select("owner_id, status, is_active, is_approved, approved_at")
         .eq("id", id)
         .maybeSingle();
       if (initial.error && missingStatus(initial.error.message)) {
         statusMissing = true;
         const fallback = await supabase
           .from("properties")
-          .select("owner_id, is_active, is_approved")
+          .select("owner_id, is_active, is_approved, approved_at")
           .eq("id", id)
           .maybeSingle();
         existing = fallback.data ?? null;
@@ -710,23 +723,41 @@ export async function PUT(
 
     if (status) {
       const allowed = isAdmin
-        ? ["draft", "pending", "live", "rejected", "paused"]
-        : ["draft", "pending", "paused"];
+        ? [
+            "draft",
+            "pending",
+            "live",
+            "rejected",
+            "paused",
+            "paused_owner",
+            "paused_occupied",
+            "expired",
+            "changes_requested",
+          ]
+        : ["draft", "pending", "paused", "paused_owner", "paused_occupied"];
       if (!allowed.includes(status)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 });
       }
 
+      const isPausedStatus = ["paused", "paused_owner", "paused_occupied"].includes(status);
+      const wasPausedStatus = ["paused", "paused_owner", "paused_occupied"].includes(
+        (existing?.status ?? "").toString().toLowerCase()
+      );
       statusUpdate = {
         status,
+        status_updated_at: nowIso,
         rejection_reason:
           status === "rejected" ? rejection_reason || "Rejected by admin" : null,
         submitted_at: status === "pending" ? nowIso : null,
-        approved_at: status === "live" ? nowIso : null,
+        approved_at: status === "live" ? nowIso : isPausedStatus ? existing?.approved_at ?? null : null,
         rejected_at: status === "rejected" ? nowIso : null,
-        paused_at: status === "paused" ? nowIso : null,
+        paused_at: isPausedStatus ? nowIso : null,
         is_active: status === "pending" || status === "live",
-        is_approved: status === "live",
+        is_approved: isPausedStatus ? existing?.is_approved ?? false : status === "live",
       };
+      if (status === "live" && wasPausedStatus) {
+        statusUpdate = { ...statusUpdate, reactivated_at: nowIso };
+      }
       if (status === "live") {
         const expiryDays = await getListingExpiryDays();
         statusUpdate = {

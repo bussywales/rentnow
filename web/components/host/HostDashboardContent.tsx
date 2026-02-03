@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { PropertyCard } from "@/components/properties/PropertyCard";
@@ -25,6 +25,9 @@ import { HostBulkResumeSetupModal } from "@/components/host/HostBulkResumeSetupM
 import { buildEditorLink, exportListingsCsv, openListings } from "@/lib/host/bulk-triage";
 import { Alert } from "@/components/ui/Alert";
 import { RenewListingButton } from "@/components/host/RenewListingButton";
+import { ListingPauseModal } from "@/components/host/ListingPauseModal";
+import { ListingReactivateModal } from "@/components/host/ListingReactivateModal";
+import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 
 function normalizeStatus(property: {
   status?: string | null;
@@ -43,6 +46,18 @@ function normalizeStatus(property: {
   return "draft";
 }
 
+type StatusResponse = {
+  status?: string | null;
+  paused_at?: string | null;
+  reactivated_at?: string | null;
+  status_updated_at?: string | null;
+  paused_reason?: string | null;
+  is_active?: boolean | null;
+  is_approved?: boolean | null;
+  expires_at?: string | null;
+  error?: string;
+};
+
 export function HostDashboardContent({
   listings,
   trustMarkers,
@@ -59,9 +74,18 @@ export function HostDashboardContent({
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [showResumeModal, setShowResumeModal] = useState(false);
   const [popupBlockedCount, setPopupBlockedCount] = useState<number | null>(null);
+  const [localListings, setLocalListings] = useState(listings);
+  const [pauseTarget, setPauseTarget] = useState<DashboardListing | null>(null);
+  const [reactivateTarget, setReactivateTarget] = useState<DashboardListing | null>(null);
+  const [statusPending, setStatusPending] = useState<Record<string, boolean>>({});
+  const [statusErrors, setStatusErrors] = useState<Record<string, string | null>>({});
 
-  const summary = useMemo(() => summarizeListings(listings), [listings]);
-  const filtered = useMemo(() => filterListings(listings, view), [view, listings]);
+  useEffect(() => {
+    setLocalListings(listings);
+  }, [listings]);
+
+  const summary = useMemo(() => summarizeListings(localListings), [localListings]);
+  const filtered = useMemo(() => filterListings(localListings, view), [view, localListings]);
   const searched = useMemo(() => searchListings(filtered, search), [filtered, search]);
   const sorted = useMemo(() => sortListings(searched), [searched]);
   const viewCopy = HOST_DASHBOARD_VIEWS[view];
@@ -109,6 +133,137 @@ export function HostDashboardContent({
     setView(nextView);
   };
 
+  const statusChipClass = (value: string | null) => {
+    const normalized = normalizePropertyStatus(value);
+    switch (normalized) {
+      case "live":
+        return "bg-emerald-100 text-emerald-700";
+      case "pending":
+        return "bg-amber-100 text-amber-700";
+      case "draft":
+        return "bg-slate-100 text-slate-600";
+      case "rejected":
+        return "bg-rose-100 text-rose-700";
+      case "expired":
+        return "bg-amber-100 text-amber-700";
+      case "paused":
+      case "paused_owner":
+      case "paused_occupied":
+        return "bg-slate-200 text-slate-700";
+      case "changes_requested":
+        return "bg-orange-100 text-orange-700";
+      default:
+        return "bg-slate-100 text-slate-600";
+    }
+  };
+
+  const formatPausedReason = (value?: string | null) => {
+    if (!value) return null;
+    const normalized = value.toLowerCase().trim();
+    if (normalized === "owner_hold") return "Owner hold";
+    if (normalized === "occupied") return "Tenant moved in";
+    return value;
+  };
+
+  const openPauseModal = (listing: DashboardListing) => {
+    setStatusErrors((prev) => ({ ...prev, [listing.id]: null }));
+    setPauseTarget(listing);
+  };
+
+  const openReactivateModal = (listing: DashboardListing) => {
+    setStatusErrors((prev) => ({ ...prev, [listing.id]: null }));
+    setReactivateTarget(listing);
+  };
+
+  const mergeValue = <T,>(value: T | undefined, fallback: T): T =>
+    typeof value === "undefined" ? fallback : value;
+
+  const applyStatusResponse = (listing: DashboardListing, payload: StatusResponse) => {
+    const nowIso = new Date().toISOString();
+    return {
+      ...listing,
+      status: mergeValue(payload.status, listing.status),
+      paused_at: mergeValue(payload.paused_at, listing.paused_at ?? null),
+      reactivated_at: mergeValue(payload.reactivated_at, listing.reactivated_at ?? null),
+      status_updated_at: mergeValue(payload.status_updated_at, listing.status_updated_at ?? null),
+      paused_reason: mergeValue(payload.paused_reason, listing.paused_reason ?? null),
+      is_active: mergeValue(payload.is_active, listing.is_active ?? null),
+      is_approved: mergeValue(payload.is_approved, listing.is_approved ?? null),
+      expires_at: mergeValue(payload.expires_at, listing.expires_at ?? null),
+      updated_at: nowIso,
+    };
+  };
+
+  const submitStatusChange = async (
+    listing: DashboardListing,
+    payload: { status: string; paused_reason?: string | null }
+  ) => {
+    const listingId = listing.id;
+    const previousListings = localListings;
+    const nowIso = new Date().toISOString();
+    const optimisticPatch =
+      payload.status === "live"
+        ? {
+            status: "live",
+            is_active: true,
+            is_approved: true,
+            reactivated_at: nowIso,
+            status_updated_at: nowIso,
+          }
+        : {
+            status: payload.status,
+            is_active: false,
+            paused_at: nowIso,
+            paused_reason: payload.paused_reason ?? null,
+            status_updated_at: nowIso,
+          };
+
+    setLocalListings((prev) =>
+      prev.map((item) => (item.id === listingId ? { ...item, ...optimisticPatch } : item))
+    );
+    setStatusPending((prev) => ({ ...prev, [listingId]: true }));
+    setStatusErrors((prev) => ({ ...prev, [listingId]: null }));
+
+    try {
+      const res = await fetch(`/api/properties/${listingId}/status`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(payload),
+      });
+      const data = (await res.json().catch(() => ({}))) as StatusResponse;
+      if (!res.ok) {
+        throw new Error(data?.error || `Request failed (${res.status})`);
+      }
+      setLocalListings((prev) =>
+        prev.map((item) => (item.id === listingId ? applyStatusResponse(item, data) : item))
+      );
+      return { ok: true as const };
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unable to update listing status";
+      setLocalListings(previousListings);
+      setStatusErrors((prev) => ({ ...prev, [listingId]: message }));
+      return { ok: false as const, error: message };
+    } finally {
+      setStatusPending((prev) => ({ ...prev, [listingId]: false }));
+    }
+  };
+
+  const handlePauseConfirm = async (payload: {
+    status: "paused_owner" | "paused_occupied";
+    paused_reason: string;
+  }) => {
+    if (!pauseTarget) return;
+    const result = await submitStatusChange(pauseTarget, payload);
+    if (result.ok) setPauseTarget(null);
+  };
+
+  const handleReactivateConfirm = async () => {
+    if (!reactivateTarget) return;
+    const result = await submitStatusChange(reactivateTarget, { status: "live" });
+    if (result.ok) setReactivateTarget(null);
+  };
+
   return (
     <div className="space-y-3">
       <HostDashboardSavedViews
@@ -128,18 +283,28 @@ export function HostDashboardContent({
         <div className="grid gap-4 md:grid-cols-2">
           {sorted.map((property) => {
             const status = normalizeStatus(property);
+            const normalizedStatus = normalizePropertyStatus(status) ?? status;
             const readiness = property.readiness;
             const topIssueCode = readiness.issues[0]?.code;
             const improveHref = buildEditorUrl(property.id, topIssueCode);
             const isExpired = status === "expired";
+            const isPaused = isPausedStatus(normalizedStatus);
+            const isLive = normalizedStatus === "live";
             const hasPhotos = (property.images || []).length > 0;
             const needsResume =
               readiness.tier !== "Excellent" || readiness.score < 90 || readiness.issues.length > 0;
+            const canSubmit = ["draft", "rejected", "changes_requested"].includes(
+              normalizedStatus ?? ""
+            );
+            const pausedReasonLabel = isPaused ? formatPausedReason(property.paused_reason) : null;
+            const isUpdatingStatus = statusPending[property.id] ?? false;
+            const statusError = statusErrors[property.id] ?? null;
 
             return (
               <div
                 key={property.id}
                 className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                data-testid={`host-listing-card-${property.id}`}
               >
                 <div className="mb-2">
                   <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-700">
@@ -153,20 +318,19 @@ export function HostDashboardContent({
                   </label>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-xs uppercase tracking-[0.2em] text-slate-500">
-                    {status}
+                  <span
+                    className={`rounded-full px-3 py-1 text-[11px] font-semibold ${statusChipClass(normalizedStatus)}`}
+                    data-testid={`listing-status-${property.id}`}
+                  >
+                    {mapStatusLabel(status)}
                   </span>
-                  {status === "draft" && (
-                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                      Continue draft
-                    </span>
-                  )}
-                  {isExpired && (
-                    <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
-                      Expired
-                    </span>
+                  {isUpdatingStatus && (
+                    <span className="text-[11px] text-slate-500">Updating...</span>
                   )}
                 </div>
+                {pausedReasonLabel && (
+                  <p className="mt-2 text-xs text-slate-500">Paused reason: {pausedReasonLabel}</p>
+                )}
                 <div className="mt-3">
                   <PropertyCard
                     property={property}
@@ -222,7 +386,29 @@ export function HostDashboardContent({
                   {isExpired && (
                     <RenewListingButton propertyId={property.id} size="sm" />
                   )}
-                  {status === "draft" || status === "paused" || status === "rejected" ? (
+                  {isLive && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => openPauseModal(property)}
+                      disabled={isUpdatingStatus}
+                      data-testid={`listing-pause-${property.id}`}
+                    >
+                      {isUpdatingStatus ? "Pausing..." : "Pause"}
+                    </Button>
+                  )}
+                  {isPaused && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => openReactivateModal(property)}
+                      disabled={isUpdatingStatus}
+                      data-testid={`listing-reactivate-${property.id}`}
+                    >
+                      {isUpdatingStatus ? "Reactivating..." : "Reactivate"}
+                    </Button>
+                  )}
+                  {canSubmit ? (
                     listingLimitReached ? (
                       <Button size="sm" type="button" variant="secondary" disabled>
                         Submit for approval
@@ -236,6 +422,7 @@ export function HostDashboardContent({
                     )
                   ) : null}
                 </div>
+                {statusError && <p className="mt-2 text-xs text-rose-600">{statusError}</p>}
               </div>
             );
           })}
@@ -259,6 +446,22 @@ export function HostDashboardContent({
         open={showResumeModal}
         onClose={() => setShowResumeModal(false)}
         listings={selectedListings}
+      />
+      <ListingPauseModal
+        open={!!pauseTarget}
+        listingTitle={pauseTarget?.title}
+        onClose={() => setPauseTarget(null)}
+        onConfirm={handlePauseConfirm}
+        submitting={pauseTarget ? statusPending[pauseTarget.id] ?? false : false}
+        error={pauseTarget ? statusErrors[pauseTarget.id] ?? null : null}
+      />
+      <ListingReactivateModal
+        open={!!reactivateTarget}
+        listingTitle={reactivateTarget?.title}
+        onClose={() => setReactivateTarget(null)}
+        onConfirm={handleReactivateConfirm}
+        submitting={reactivateTarget ? statusPending[reactivateTarget.id] ?? false : false}
+        error={reactivateTarget ? statusErrors[reactivateTarget.id] ?? null : null}
       />
       {popupBlockedCount !== null && (
         <div className="fixed bottom-24 right-4 z-40 max-w-sm">

@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       status: "expired",
       expired_at: nowIso,
       is_active: false,
+      status_updated_at: nowIso,
       updated_at: nowIso,
     })
     .eq("status", "live")
