@@ -20,6 +20,23 @@ test("product updates drawer overlays admin users", async ({ page }) => {
   await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await page.goto("/admin/users");
 
+  await expect(page.getByTestId("help-open")).toBeVisible();
+  await page.getByTestId("help-open").click();
+  await expect(page.getByTestId("help-drawer")).toBeVisible();
+  await expect(page.getByTestId("help-backdrop")).toBeVisible();
+
+  const firstRow = page.getByTestId("admin-user-row").first();
+  const helpBox = await firstRow.boundingBox();
+  if (!helpBox) {
+    test.skip(true, "No admin user rows available.");
+  }
+  await page.mouse.click(helpBox!.x + helpBox!.width / 2, helpBox!.y + helpBox!.height / 2);
+  await expect(page.getByTestId("admin-user-drawer")).toHaveCount(0);
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("help-drawer")).toHaveCount(0);
+  await expect(page.getByTestId("help-open")).toBeFocused();
+
   await page.getByTestId("updates-bell").click();
   await expect(page.getByTestId("updates-drawer")).toBeVisible();
   await expect(page.getByTestId("updates-backdrop")).toBeVisible();
@@ -31,7 +48,6 @@ test("product updates drawer overlays admin users", async ({ page }) => {
   await page.getByTestId("updates-bell").click();
   await expect(page.getByTestId("updates-drawer")).toBeVisible();
 
-  const firstRow = page.getByTestId("admin-user-row").first();
   const box = await firstRow.boundingBox();
   if (!box) {
     test.skip(true, "No admin user rows available.");

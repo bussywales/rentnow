@@ -2,8 +2,16 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
+import {
+  HELP_DRAWER_OPEN_EVENT,
+  HELP_DRAWER_CLOSE_EVENT,
+  UPDATES_DRAWER_OPEN_EVENT,
+  UPDATES_DRAWER_CLOSE_EVENT,
+  dispatchOverlayEvent,
+} from "@/lib/ui/overlay-events";
 
 export type ProductUpdateFeedItem = {
   id: string;
@@ -13,6 +21,17 @@ export type ProductUpdateFeedItem = {
   published_at?: string | null;
   audience?: string | null;
   is_read: boolean;
+};
+
+type UpdatesSinceLastVisit = {
+  since: string | null;
+  count_new_since_last_visit: number;
+  latest: Array<{
+    id: string;
+    title: string;
+    published_at?: string | null;
+    image_url?: string | null;
+  }>;
 };
 
 type Props = {
@@ -58,12 +77,15 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
   const [unreadCount, setUnreadCount] = useState<number>(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sinceLastVisit, setSinceLastVisit] = useState<UpdatesSinceLastVisit | null>(null);
+  const [sinceLoading, setSinceLoading] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
   const bellButtonRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousActiveRef = useRef<HTMLElement | null>(null);
   const bodyOverflowRef = useRef<string>("");
+  const seenSentRef = useRef(false);
 
   const hasUpdates = updates.length > 0;
 
@@ -117,6 +139,7 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
         previousActiveRef.current = active;
       }
     }
+    dispatchOverlayEvent(HELP_DRAWER_CLOSE_EVENT);
     setOpen(true);
   }, []);
 
@@ -156,15 +179,75 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
     }
   }, [initialAuthed]);
 
+  const refreshSinceLastVisit = useCallback(async () => {
+    if (!initialAuthed) return;
+    setSinceLoading(true);
+    try {
+      const res = await fetch("/api/product-updates/since-last-visit");
+      const data = (await res.json().catch(() => ({}))) as UpdatesSinceLastVisit;
+      if (!res.ok) {
+        setSinceLastVisit(null);
+        return;
+      }
+      setSinceLastVisit({
+        since: data.since ?? null,
+        count_new_since_last_visit: data.count_new_since_last_visit ?? 0,
+        latest: Array.isArray(data.latest) ? data.latest : [],
+      });
+    } catch {
+      setSinceLastVisit(null);
+    } finally {
+      setSinceLoading(false);
+    }
+  }, [initialAuthed]);
+
+  const markSeen = useCallback(async () => {
+    if (!initialAuthed) return;
+    try {
+      await fetch("/api/me/seen", { method: "POST" });
+    } catch {
+      // ignore
+    }
+  }, [initialAuthed]);
+
   useEffect(() => {
     if (!initialAuthed) return;
     void refreshUnreadCount();
   }, [initialAuthed, refreshUnreadCount]);
 
   useEffect(() => {
+    if (!initialAuthed || seenSentRef.current) return;
+    seenSentRef.current = true;
+    void (async () => {
+      await refreshSinceLastVisit();
+      await markSeen();
+    })();
+  }, [initialAuthed, markSeen, refreshSinceLastVisit]);
+
+  useEffect(() => {
     if (!open) return;
     void refreshUpdates();
   }, [open, refreshUpdates]);
+
+  useEffect(() => {
+    if (!open || sinceLastVisit || sinceLoading) return;
+    void refreshSinceLastVisit();
+  }, [open, refreshSinceLastVisit, sinceLastVisit, sinceLoading]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return undefined;
+    const handleOpen = () => openDrawer();
+    const handleClose = () => closeDrawer();
+    const handleHelpOpen = () => closeDrawer();
+    window.addEventListener(UPDATES_DRAWER_OPEN_EVENT, handleOpen);
+    window.addEventListener(UPDATES_DRAWER_CLOSE_EVENT, handleClose);
+    window.addEventListener(HELP_DRAWER_OPEN_EVENT, handleHelpOpen);
+    return () => {
+      window.removeEventListener(UPDATES_DRAWER_OPEN_EVENT, handleOpen);
+      window.removeEventListener(UPDATES_DRAWER_CLOSE_EVENT, handleClose);
+      window.removeEventListener(HELP_DRAWER_OPEN_EVENT, handleHelpOpen);
+    };
+  }, [closeDrawer, openDrawer]);
 
   useEffect(() => {
     if (!open || typeof document === "undefined") return undefined;
@@ -341,6 +424,16 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
                         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
                           Latest updates
                         </p>
+                        {sinceLastVisit && (
+                          <p
+                            className="mt-1 text-xs text-slate-500"
+                            data-testid="updates-since-last-visit"
+                          >
+                            {sinceLastVisit.count_new_since_last_visit > 0
+                              ? `New since your last visit: ${sinceLastVisit.count_new_since_last_visit}`
+                              : "You’re all caught up since last visit"}
+                          </p>
+                        )}
                       </div>
 
                       <div className="px-6 py-5">
@@ -456,12 +549,15 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
                                           void markRead(update.id);
                                         }}
                                       >
-                                        <img
-                                          src={update.image_url}
-                                          alt="Update screenshot"
-                                          className="h-36 w-full object-cover"
-                                          loading="lazy"
-                                        />
+                                        <div className="relative h-36 w-full">
+                                          <Image
+                                            src={update.image_url}
+                                            alt="Update screenshot"
+                                            fill
+                                            sizes="(max-width: 640px) 100vw, 420px"
+                                            className="object-cover"
+                                          />
+                                        </div>
                                       </button>
                                     )}
                                   </div>
@@ -484,10 +580,13 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
                 onClick={() => setLightboxUrl(null)}
               >
                 <div className="relative max-w-3xl" onClick={(event) => event.stopPropagation()}>
-                  <img
+                  <Image
                     src={lightboxUrl}
                     alt="Update screenshot"
-                    className="max-h-[80vh] rounded-2xl object-contain"
+                    width={1200}
+                    height={800}
+                    sizes="90vw"
+                    className="h-auto max-h-[80vh] w-auto rounded-2xl object-contain"
                   />
                   <button
                     type="button"

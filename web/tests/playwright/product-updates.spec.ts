@@ -47,11 +47,16 @@ test("product updates bell reflects published updates", async ({ page }) => {
   await page.waitForURL(/auth\/login|auth\/register|auth\/required|properties|tenant/i, { timeout: 15_000 });
 
   await login(page, TENANT_EMAIL, TENANT_PASSWORD);
+  await page.goto("/tenant/home");
   await expect(page.getByTestId("updates-bell")).toBeVisible();
   await expect(page.getByTestId("updates-badge")).toBeVisible();
 
-  await page.getByTestId("updates-bell").click();
+  await expect(page.getByTestId("updates-onboarding")).toBeVisible();
+  await page.getByTestId("updates-onboarding-open").click();
   await expect(page.getByTestId("updates-drawer")).toBeVisible();
+  await expect(page.getByTestId("updates-since-last-visit")).toContainText(
+    "New since your last visit"
+  );
   await expect(page.getByText(updateTitle)).toBeVisible();
 
   const updateItem = page

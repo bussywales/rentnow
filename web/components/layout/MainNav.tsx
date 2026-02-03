@@ -1,8 +1,11 @@
 import { NavAuthClient } from "@/components/layout/NavAuthClient";
 import { NavLinksClient } from "@/components/layout/NavLinksClient";
 import { NavMobileDrawerClient } from "@/components/layout/NavMobileDrawerClient";
+import { NavHamburgerMenu } from "@/components/layout/NavHamburgerMenu";
 import { BrandLogo } from "@/components/branding/BrandLogo";
+import { AdminHelpDrawer } from "@/components/help/AdminHelpDrawer";
 import { ProductUpdatesBell } from "@/components/updates/ProductUpdatesBell";
+import { ProductUpdatesOnboarding } from "@/components/updates/ProductUpdatesOnboarding";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
@@ -71,11 +74,14 @@ export async function MainNav() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <AdminHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
           <ProductUpdatesBell initialAuthed={initialAuthed} />
+          <NavHamburgerMenu initialAuthed={initialAuthed} initialRole={role} />
           <NavMobileDrawerClient links={MAIN_NAV_LINKS} initialAuthed={initialAuthed} initialRole={role} />
           <NavAuthClient initialAuthed={initialAuthed} initialRole={role} />
         </div>
       </div>
+      <ProductUpdatesOnboarding initialAuthed={initialAuthed} />
     </header>
   );
 }

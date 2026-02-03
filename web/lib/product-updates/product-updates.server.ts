@@ -18,6 +18,15 @@ export type ProductUpdateRow = {
 };
 
 export type ProductUpdateFeedItem = ProductUpdateRow & { is_read: boolean };
+export type ProductUpdatesSinceItem = Pick<
+  ProductUpdateRow,
+  "id" | "title" | "published_at" | "image_url"
+>;
+export type ProductUpdatesSinceResult = {
+  since: string | null;
+  count: number;
+  latest: ProductUpdatesSinceItem[];
+};
 
 export async function fetchPublishedProductUpdates({
   client,
@@ -113,4 +122,50 @@ export async function buildProductUpdatesFeed({
     ...update,
     is_read: readIds.has(update.id),
   }));
+}
+
+export async function fetchProductUpdatesSinceLastVisit({
+  client,
+  role,
+  userId,
+  limit = 3,
+}: {
+  client: SupabaseClient;
+  role: UserRole | null;
+  userId: string;
+  limit?: number;
+}): Promise<ProductUpdatesSinceResult> {
+  const { data: profile, error: profileError } = await client
+    .from("profiles")
+    .select("last_seen_at")
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (profileError) throw profileError;
+
+  const since = profile?.last_seen_at ?? null;
+  const audiences = getAllowedProductUpdateAudiences(role);
+
+  let query = client
+    .from("product_updates")
+    .select("id,title,published_at,image_url,audience", { count: "exact" })
+    .not("published_at", "is", null)
+    .order("published_at", { ascending: false });
+
+  if (audiences.length) {
+    query = query.in("audience", audiences);
+  }
+
+  if (since) {
+    query = query.gt("published_at", since);
+  }
+
+  const { data, error, count } = await query.limit(limit);
+  if (error) throw error;
+
+  return {
+    since,
+    count: count ?? (data?.length ?? 0),
+    latest: (data as ProductUpdatesSinceItem[]) ?? [],
+  };
 }

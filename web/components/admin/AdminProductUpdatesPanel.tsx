@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -233,10 +234,12 @@ function AdminProductUpdateEditor({
             <p className="text-xs text-slate-500">Uploading screenshot…</p>
           )}
           {imageUrl && (
-            <img
+            <Image
               src={imageUrl}
               alt="Update preview"
-              className="mt-2 h-32 rounded-xl border border-slate-200 object-cover"
+              width={320}
+              height={180}
+              className="mt-2 h-32 w-auto rounded-xl border border-slate-200 object-cover"
               data-testid="admin-update-image-preview"
             />
           )}

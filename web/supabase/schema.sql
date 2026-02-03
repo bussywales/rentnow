@@ -17,6 +17,8 @@ CREATE TABLE public.profiles (
   business_name TEXT,
   preferred_contact TEXT,
   areas_served TEXT[],
+  last_seen_at TIMESTAMPTZ,
+  onboarding_dismissed_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
