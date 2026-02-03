@@ -71,11 +71,28 @@ ALTER TABLE public.profile_billing_notes FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.plan_upgrade_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.plan_upgrade_requests FORCE ROW LEVEL SECURITY;
 
+-- Helpers: admin role check
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SET search_path = public, pg_catalog
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.profiles p
+    WHERE p.id = auth.uid()
+      AND p.role = 'admin'
+  );
+$$;
+
+GRANT EXECUTE ON FUNCTION public.is_admin() TO anon, authenticated;
+
 -- user_verifications: users manage their own rows; admins can read/write
 DROP POLICY IF EXISTS "user verifications select self" ON public.user_verifications;
 CREATE POLICY "user verifications select self" ON public.user_verifications
   FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "user verifications insert self" ON public.user_verifications;
 CREATE POLICY "user verifications insert self" ON public.user_verifications
@@ -85,19 +102,11 @@ CREATE POLICY "user verifications insert self" ON public.user_verifications
 DROP POLICY IF EXISTS "user verifications update self" ON public.user_verifications;
 CREATE POLICY "user verifications update self" ON public.user_verifications
   FOR UPDATE
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR public.is_admin())
+  WITH CHECK (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "user verifications admin read" ON public.user_verifications;
-CREATE POLICY "user verifications admin read" ON public.user_verifications
-  FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
-
 DROP POLICY IF EXISTS "user verifications admin write" ON public.user_verifications;
-CREATE POLICY "user verifications admin write" ON public.user_verifications
-  FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
-  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
 
 -- verification_otps: self-managed (server routes should be used)
 DROP POLICY IF EXISTS "verification otps insert self" ON public.verification_otps;
@@ -127,6 +136,7 @@ CREATE POLICY "property share links select owner" ON public.property_share_links
       WHERE p.id = property_id
         AND p.owner_id = auth.uid()
     )
+    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "property share links insert owner" ON public.property_share_links;
@@ -162,29 +172,22 @@ CREATE POLICY "property share links update owner" ON public.property_share_links
   );
 
 DROP POLICY IF EXISTS "property share links admin read" ON public.property_share_links;
-CREATE POLICY "property share links admin read" ON public.property_share_links
-  FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
-
 DROP POLICY IF EXISTS "property share links admin write" ON public.property_share_links;
 CREATE POLICY "property share links admin write" ON public.property_share_links
   FOR ALL
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
-  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- support_requests: allow inserts; admins can read
 DROP POLICY IF EXISTS "support requests insert" ON public.support_requests;
 CREATE POLICY "support requests insert" ON public.support_requests
   FOR INSERT
-  WITH CHECK (true);
+  WITH CHECK (user_id IS NULL OR auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "support requests admin read" ON public.support_requests;
 CREATE POLICY "support requests admin read" ON public.support_requests
   FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
-
--- Helpers (inline): is_admin checks the caller's profile role
--- EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+  USING (public.is_admin());
 
 -- profiles: users manage their own row
 DROP POLICY IF EXISTS "profiles select self" ON public.profiles;
@@ -208,7 +211,7 @@ DROP POLICY IF EXISTS "app_settings_read" ON public.app_settings;
 CREATE POLICY "app_settings_read" ON public.app_settings
   FOR SELECT
   TO authenticated, anon
-  USING (true);
+  USING (auth.role() = 'authenticated' OR auth.role() = 'anon');
 
 DROP POLICY IF EXISTS "app_settings_no_mutation_auth" ON public.app_settings;
 CREATE POLICY "app_settings_no_mutation_auth" ON public.app_settings
@@ -227,14 +230,14 @@ CREATE POLICY "legal documents published read" ON public.legal_documents
 DROP POLICY IF EXISTS "legal documents admin write" ON public.legal_documents;
 CREATE POLICY "legal documents admin write" ON public.legal_documents
   FOR ALL
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
-  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- legal_acceptances: users manage their own; admins can read
 DROP POLICY IF EXISTS "legal acceptances select self" ON public.legal_acceptances;
 CREATE POLICY "legal acceptances select self" ON public.legal_acceptances
   FOR SELECT
-  USING (auth.uid() = user_id);
+  USING (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "legal acceptances insert self" ON public.legal_acceptances;
 CREATE POLICY "legal acceptances insert self" ON public.legal_acceptances
@@ -242,9 +245,6 @@ CREATE POLICY "legal acceptances insert self" ON public.legal_acceptances
   WITH CHECK (auth.uid() = user_id);
 
 DROP POLICY IF EXISTS "legal acceptances admin read" ON public.legal_acceptances;
-CREATE POLICY "legal acceptances admin read" ON public.legal_acceptances
-  FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
 
 -- listing_leads: buyer/owner/admin read; buyer insert; owner/admin update
 DROP POLICY IF EXISTS "listing_leads_select" ON public.listing_leads;
@@ -253,7 +253,7 @@ CREATE POLICY "listing_leads_select" ON public.listing_leads
   USING (
     auth.uid() = buyer_id
     OR auth.uid() = owner_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "listing_leads_insert" ON public.listing_leads;
@@ -274,11 +274,11 @@ CREATE POLICY "listing_leads_update" ON public.listing_leads
   FOR UPDATE
   USING (
     auth.uid() = owner_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   )
   WITH CHECK (
     auth.uid() = owner_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 -- agent_delegations: agents/landlords can see their delegations
@@ -288,7 +288,7 @@ CREATE POLICY "agent delegations select" ON public.agent_delegations
   USING (
     auth.uid() = agent_id
     OR auth.uid() = landlord_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "agent delegations insert" ON public.agent_delegations;
@@ -303,7 +303,7 @@ CREATE POLICY "agent delegations insert" ON public.agent_delegations
       auth.uid() = landlord_id
       AND status IN ('pending', 'active')
     )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "agent delegations update" ON public.agent_delegations;
@@ -311,11 +311,11 @@ CREATE POLICY "agent delegations update" ON public.agent_delegations
   FOR UPDATE
   USING (
     auth.uid() = landlord_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   )
   WITH CHECK (
     auth.uid() = landlord_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "agent delegations delete" ON public.agent_delegations;
@@ -324,7 +324,7 @@ CREATE POLICY "agent delegations delete" ON public.agent_delegations
   USING (
     auth.uid() = agent_id
     OR auth.uid() = landlord_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 -- profile_plans: users can read their own plan rows
@@ -346,13 +346,13 @@ CREATE POLICY "profile plans insert self" ON public.profile_plans
 DROP POLICY IF EXISTS "billing notes admin read" ON public.profile_billing_notes;
 CREATE POLICY "billing notes admin read" ON public.profile_billing_notes
   FOR SELECT
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  USING (public.is_admin());
 
 DROP POLICY IF EXISTS "billing notes admin write" ON public.profile_billing_notes;
 CREATE POLICY "billing notes admin write" ON public.profile_billing_notes
   FOR ALL
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
-  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- plan_upgrade_requests: users can request upgrades, admins can manage
 DROP POLICY IF EXISTS "upgrade requests select self" ON public.plan_upgrade_requests;
@@ -361,7 +361,7 @@ CREATE POLICY "upgrade requests select self" ON public.plan_upgrade_requests
   USING (
     auth.uid() = requester_id
     OR auth.uid() = profile_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "upgrade requests insert self" ON public.plan_upgrade_requests;
@@ -385,13 +385,13 @@ CREATE POLICY "upgrade requests insert self" ON public.plan_upgrade_requests
 DROP POLICY IF EXISTS "upgrade requests update admin" ON public.plan_upgrade_requests;
 CREATE POLICY "upgrade requests update admin" ON public.plan_upgrade_requests
   FOR UPDATE
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'))
-  WITH CHECK (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 DROP POLICY IF EXISTS "upgrade requests delete admin" ON public.plan_upgrade_requests;
 CREATE POLICY "upgrade requests delete admin" ON public.plan_upgrade_requests
   FOR DELETE
-  USING (EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin'));
+  USING (public.is_admin());
 
 -- properties: public can read approved/active; owners/admins can manage their own
 DROP POLICY IF EXISTS "properties public read" ON public.properties;
@@ -416,21 +416,19 @@ CREATE POLICY "properties public read" ON public.properties
           AND COALESCE((s.value->>'enabled')::boolean, false) = TRUE
       )
     )
+    OR (
+      auth.uid() = owner_id
+      OR EXISTS (
+        SELECT 1 FROM public.agent_delegations d
+        WHERE d.agent_id = auth.uid()
+          AND d.landlord_id = owner_id
+          AND d.status = 'active'
+      )
+      OR public.is_admin()
+    )
   );
 
 DROP POLICY IF EXISTS "properties owner/admin read" ON public.properties;
-CREATE POLICY "properties owner/admin read" ON public.properties
-  FOR SELECT
-  USING (
-    auth.uid() = owner_id
-    OR EXISTS (
-      SELECT 1 FROM public.agent_delegations d
-      WHERE d.agent_id = auth.uid()
-        AND d.landlord_id = owner_id
-        AND d.status = 'active'
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
-  );
 
 DROP POLICY IF EXISTS "properties owner/admin insert" ON public.properties;
 CREATE POLICY "properties owner/admin insert" ON public.properties
@@ -443,7 +441,7 @@ CREATE POLICY "properties owner/admin insert" ON public.properties
         AND d.landlord_id = owner_id
         AND d.status = 'active'
     )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "properties owner/admin update" ON public.properties;
@@ -457,7 +455,7 @@ CREATE POLICY "properties owner/admin update" ON public.properties
         AND d.landlord_id = owner_id
         AND d.status = 'active'
     )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   )
   WITH CHECK (
     auth.uid() = owner_id
@@ -467,7 +465,7 @@ CREATE POLICY "properties owner/admin update" ON public.properties
         AND d.landlord_id = owner_id
         AND d.status = 'active'
     )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "properties owner/admin delete" ON public.properties;
@@ -481,7 +479,7 @@ CREATE POLICY "properties owner/admin delete" ON public.properties
         AND d.landlord_id = owner_id
         AND d.status = 'active'
     )
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 -- availability rules/exceptions: owners only
@@ -532,13 +530,7 @@ CREATE POLICY "images public read approved" ON public.property_images
         AND pr.is_approved = TRUE
         AND pr.is_active = TRUE
     )
-  );
-
-DROP POLICY IF EXISTS "images owner/admin read" ON public.property_images;
-CREATE POLICY "images owner/admin read" ON public.property_images
-  FOR SELECT
-  USING (
-    EXISTS (
+    OR EXISTS (
       SELECT 1 FROM public.properties pr
       WHERE pr.id = property_id
         AND (
@@ -549,10 +541,12 @@ CREATE POLICY "images owner/admin read" ON public.property_images
               AND d.landlord_id = pr.owner_id
               AND d.status = 'active'
           )
-          OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+          OR public.is_admin()
         )
     )
   );
+
+DROP POLICY IF EXISTS "images owner/admin read" ON public.property_images;
 
 DROP POLICY IF EXISTS "images owner/admin insert" ON public.property_images;
 CREATE POLICY "images owner/admin insert" ON public.property_images
@@ -569,7 +563,7 @@ CREATE POLICY "images owner/admin insert" ON public.property_images
               AND d.landlord_id = pr.owner_id
               AND d.status = 'active'
           )
-          OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+          OR public.is_admin()
         )
     )
   );
@@ -589,7 +583,7 @@ CREATE POLICY "images owner/admin delete" ON public.property_images
               AND d.landlord_id = pr.owner_id
               AND d.status = 'active'
           )
-          OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+          OR public.is_admin()
         )
     )
   );
@@ -610,7 +604,7 @@ CREATE POLICY "videos owner/admin read" ON public.property_videos
               AND d.landlord_id = pr.owner_id
               AND d.status = 'active'
           )
-          OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+          OR public.is_admin()
         )
     )
   );
@@ -630,7 +624,7 @@ CREATE POLICY "videos owner/admin insert" ON public.property_videos
               AND d.landlord_id = pr.owner_id
               AND d.status = 'active'
           )
-          OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+          OR public.is_admin()
         )
     )
   );
@@ -650,7 +644,7 @@ CREATE POLICY "videos owner/admin update" ON public.property_videos
               AND d.landlord_id = pr.owner_id
               AND d.status = 'active'
           )
-          OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+          OR public.is_admin()
         )
     )
   )
@@ -666,7 +660,7 @@ CREATE POLICY "videos owner/admin update" ON public.property_videos
               AND d.landlord_id = pr.owner_id
               AND d.status = 'active'
           )
-          OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+          OR public.is_admin()
         )
     )
   );
@@ -686,7 +680,7 @@ CREATE POLICY "videos owner/admin delete" ON public.property_videos
               AND d.landlord_id = pr.owner_id
               AND d.status = 'active'
           )
-          OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+          OR public.is_admin()
         )
     )
   );
@@ -736,7 +730,7 @@ CREATE POLICY "messages participant/owner read" ON public.messages
   USING (
     auth.uid() = sender_id
     OR auth.uid() = recipient_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "messages sender insert" ON public.messages;
@@ -757,7 +751,7 @@ CREATE POLICY "message threads participant read" ON public.message_threads
   USING (
     auth.uid() = tenant_id
     OR auth.uid() = host_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "message threads participant insert" ON public.message_threads;
@@ -777,7 +771,7 @@ CREATE POLICY "message thread reads self read" ON public.message_thread_reads
   FOR SELECT
   USING (
     auth.uid() = user_id
-    OR EXISTS (SELECT 1 FROM public.profiles p WHERE p.id = auth.uid() AND p.role = 'admin')
+    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "message thread reads self upsert" ON public.message_thread_reads;
@@ -795,7 +789,15 @@ CREATE POLICY "message thread reads self update" ON public.message_thread_reads
 DROP POLICY IF EXISTS "viewings tenant select" ON public.viewing_requests;
 CREATE POLICY "viewings tenant select" ON public.viewing_requests
   FOR SELECT
-  USING (auth.uid() = tenant_id);
+  USING (
+    auth.uid() = tenant_id
+    OR EXISTS (
+      SELECT 1 FROM public.properties p
+      WHERE p.id = property_id
+        AND p.owner_id = auth.uid()
+    )
+    OR public.is_admin()
+  );
 
 DROP POLICY IF EXISTS "viewings tenant insert" ON public.viewing_requests;
 CREATE POLICY "viewings tenant insert" ON public.viewing_requests
@@ -803,16 +805,6 @@ CREATE POLICY "viewings tenant insert" ON public.viewing_requests
   WITH CHECK (auth.uid() = tenant_id);
 
 DROP POLICY IF EXISTS "viewings host select owned" ON public.viewing_requests;
-CREATE POLICY "viewings host select owned" ON public.viewing_requests
-  FOR SELECT
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.properties p
-      WHERE p.id = property_id
-        AND p.owner_id = auth.uid()
-    )
-    OR EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = auth.uid() AND pr.role = 'admin')
-  );
 
 DROP POLICY IF EXISTS "viewings host update owned" ON public.viewing_requests;
 CREATE POLICY "viewings host update owned" ON public.viewing_requests
@@ -823,7 +815,7 @@ CREATE POLICY "viewings host update owned" ON public.viewing_requests
       WHERE p.id = property_id
         AND p.owner_id = auth.uid()
     )
-    OR EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = auth.uid() AND pr.role = 'admin')
+    OR public.is_admin()
   )
   WITH CHECK (
     EXISTS (
@@ -831,7 +823,7 @@ CREATE POLICY "viewings host update owned" ON public.viewing_requests
       WHERE p.id = property_id
         AND p.owner_id = auth.uid()
     )
-    OR EXISTS (SELECT 1 FROM public.profiles pr WHERE pr.id = auth.uid() AND pr.role = 'admin')
+    OR public.is_admin()
   );
 
 CREATE OR REPLACE FUNCTION public.debug_rls_status()

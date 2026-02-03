@@ -87,6 +87,7 @@ CREATE TABLE public.saved_properties (
 );
 
 CREATE INDEX idx_saved_properties_user ON public.saved_properties (user_id);
+CREATE INDEX idx_saved_properties_property_id ON public.saved_properties (property_id);
 
 -- MESSAGES
 CREATE TABLE public.messages (
@@ -105,6 +106,7 @@ CREATE TABLE public.messages (
 CREATE INDEX idx_messages_property ON public.messages (property_id);
 CREATE INDEX idx_messages_participants ON public.messages (sender_id, recipient_id);
 CREATE INDEX idx_messages_thread ON public.messages (thread_id, created_at desc);
+CREATE INDEX idx_messages_recipient_id ON public.messages (recipient_id);
 
 -- MESSAGE THREADS
 CREATE TABLE public.message_threads (
@@ -194,6 +196,7 @@ CREATE UNIQUE INDEX legal_documents_unique_version ON public.legal_documents (ju
 CREATE UNIQUE INDEX legal_documents_published_unique ON public.legal_documents (jurisdiction, audience)
   WHERE status = 'published';
 CREATE INDEX legal_documents_status_idx ON public.legal_documents (jurisdiction, audience, status, version desc);
+CREATE INDEX idx_legal_documents_published_by ON public.legal_documents (published_by);
 
 -- LEGAL ACCEPTANCES
 CREATE TABLE public.legal_acceptances (
@@ -211,6 +214,7 @@ CREATE TABLE public.legal_acceptances (
 
 CREATE UNIQUE INDEX legal_acceptances_unique_user_doc ON public.legal_acceptances (user_id, jurisdiction, audience, version);
 CREATE INDEX legal_acceptances_user_idx ON public.legal_acceptances (user_id, accepted_at desc);
+CREATE INDEX idx_legal_acceptances_document_id ON public.legal_acceptances (document_id);
 
 -- LISTING LEADS
 CREATE TABLE public.listing_leads (
@@ -236,6 +240,7 @@ CREATE INDEX idx_listing_leads_property ON public.listing_leads (property_id);
 CREATE INDEX idx_listing_leads_owner ON public.listing_leads (owner_id, created_at desc);
 CREATE INDEX idx_listing_leads_buyer ON public.listing_leads (buyer_id, created_at desc);
 CREATE INDEX idx_listing_leads_status ON public.listing_leads (status);
+CREATE INDEX idx_listing_leads_thread_id ON public.listing_leads (thread_id);
 
 -- PROPERTY SHARE LINKS
 CREATE TABLE public.property_share_links (
@@ -252,6 +257,7 @@ CREATE TABLE public.property_share_links (
 CREATE INDEX property_share_links_property_idx ON public.property_share_links (property_id, created_at desc);
 CREATE INDEX property_share_links_token_idx ON public.property_share_links (token);
 CREATE INDEX property_share_links_created_by_idx ON public.property_share_links (created_by, created_at desc);
+CREATE INDEX idx_property_share_links_rotated_from ON public.property_share_links (rotated_from);
 
 -- VIEWING REQUESTS
 CREATE TABLE public.viewing_requests (
@@ -282,6 +288,7 @@ CREATE TABLE public.support_requests (
 
 CREATE INDEX support_requests_created_at_idx ON public.support_requests (created_at desc);
 CREATE INDEX support_requests_status_idx ON public.support_requests (status, created_at desc);
+CREATE INDEX idx_support_requests_user_id ON public.support_requests (user_id);
 
 -- SAVED SEARCHES
 CREATE TABLE public.saved_searches (
