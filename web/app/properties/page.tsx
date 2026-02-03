@@ -55,6 +55,22 @@ function parsePage(params: SearchParams): number {
   return 1;
 }
 
+function parseBooleanParam(params: SearchParams, key: string): boolean {
+  const raw = params[key];
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (typeof value !== "string") return false;
+  return value === "true" || value === "1" || value.toLowerCase() === "yes";
+}
+
+function parseRecentDays(params: SearchParams): number | null {
+  const raw = params.recent;
+  const value = Array.isArray(raw) ? raw[0] : raw;
+  if (!value) return null;
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return Math.min(num, 90);
+}
+
 function readParam(params: SearchParams, key: string): string | null {
   const raw = params[key];
   if (Array.isArray(raw)) {
@@ -90,9 +106,20 @@ function buildSearchParams(
   return next;
 }
 
-function applyMockFilters(items: Property[], filters: ParsedSearchFilters): Property[] {
+function applyMockFilters(
+  items: Property[],
+  filters: ParsedSearchFilters,
+  options: { featuredOnly?: boolean; createdAfter?: string | null } = {}
+): Property[] {
   return items.filter((property) => {
     if (!isListingPubliclyVisible(property)) return false;
+    if (options.featuredOnly && !property.is_featured) return false;
+    if (options.createdAfter && property.created_at) {
+      const created = Date.parse(property.created_at);
+      if (!Number.isNaN(created) && created < Date.parse(options.createdAfter)) {
+        return false;
+      }
+    }
     if (filters.city) {
       const cityMatch = property.city.toLowerCase().includes(filters.city.toLowerCase());
       if (!cityMatch) return false;
@@ -118,6 +145,12 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const resolvedSearchParams = await resolveSearchParams(searchParams);
   const savedSearchId = readParam(resolvedSearchParams, "savedSearchId");
   const page = parsePage(resolvedSearchParams);
+  const featuredOnly = parseBooleanParam(resolvedSearchParams, "featured");
+  const recentDays = parseRecentDays(resolvedSearchParams);
+  const createdAfter =
+    recentDays && recentDays > 0
+      ? new Date(Date.now() - recentDays * 24 * 60 * 60 * 1000).toISOString()
+      : null;
   const supabaseReady = hasServerSupabaseEnv();
   let supabase: Awaited<ReturnType<typeof createServerSupabaseClient>> | null = null;
   let userId: string | null = null;
@@ -213,6 +246,8 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const filterChips = filtersToChips(filters);
   const hasFilters =
     !!savedSearch ||
+    featuredOnly ||
+    !!createdAfter ||
     Object.values(filters).some((value) => {
       if (Array.isArray(value)) return value.length > 0;
       return value !== null && value !== undefined && value !== "";
@@ -260,6 +295,8 @@ export default async function PropertiesPage({ searchParams }: Props) {
         page,
         pageSize: PAGE_SIZE,
         approvedBefore,
+        featuredOnly,
+        createdAfter,
       });
       if (error) {
         fetchError = error.message;
@@ -371,7 +408,9 @@ export default async function PropertiesPage({ searchParams }: Props) {
   }
 
   if (DEV_MOCKS && !properties.length) {
-    const fallback = hasFilters ? applyMockFilters(mockProperties, filters) : mockProperties;
+    const fallback = hasFilters
+      ? applyMockFilters(mockProperties, filters, { featuredOnly, createdAfter })
+      : mockProperties;
     if (fallback.length) {
       properties = fallback;
       fetchError = null;

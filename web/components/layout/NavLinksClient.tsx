@@ -47,6 +47,12 @@ export function resolveNavLinks(
 }
 
 export function isActiveHref(pathname: string, href: string) {
+  if (href === "/tenant") {
+    return pathname === "/tenant";
+  }
+  if (href === "/tenant/home") {
+    return pathname === "/tenant/home";
+  }
   if (href === "/admin") {
     if (pathname === "/admin") return true;
     if (!pathname.startsWith("/admin/")) return false;

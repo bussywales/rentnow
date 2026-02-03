@@ -14,7 +14,7 @@ async function login(page: Page, email: string, password: string) {
   await page.getByPlaceholder("you@email.com").fill(email);
   await page.getByPlaceholder("Password").fill(password);
   await page.getByRole("button", { name: /log in/i }).click();
-  await page.waitForURL(/\/(dashboard|favourites)/, { timeout: 15_000 });
+  await page.waitForURL(/\/(dashboard|favourites|tenant)/, { timeout: 15_000 });
 }
 
 test("landlord can submit and admin can reject with reason", async ({ browser }) => {

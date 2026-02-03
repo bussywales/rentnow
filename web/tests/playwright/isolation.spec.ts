@@ -14,8 +14,8 @@ test.describe("Role isolation (tenant)", () => {
     await page.getByPlaceholder("Password").fill(TENANT_PASSWORD);
     await page.getByRole("button", { name: "Log in" }).click();
 
-    await page.waitForURL("**/favourites", { timeout: 15_000 });
-    await expect(page).toHaveURL(/\/favourites/);
+    await page.waitForURL(/\/(tenant\/home|favourites)/, { timeout: 15_000 });
+    await expect(page.url()).toMatch(/\/(tenant\/home|favourites)/);
 
     // Browse page should not show the list CTA for tenants
     await page.goto("/properties");
@@ -24,6 +24,6 @@ test.describe("Role isolation (tenant)", () => {
     // Tenant hitting owner route should be redirected away
     await page.goto("/dashboard/properties/new");
     await expect(page).not.toHaveURL(/\/dashboard\/properties\/new/);
-    await expect(page.url()).toMatch(/favourites|auth\/login|forbidden/i);
+    await expect(page.url()).toMatch(/tenant\/home|favourites|auth\/login|forbidden/i);
   });
 });

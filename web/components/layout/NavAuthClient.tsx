@@ -10,14 +10,15 @@ type Props = {
 export function NavAuthClient({ initialAuthed, initialRole = null }: Props) {
   const role = normalizeRole(initialRole);
   const canShowDashboard = initialAuthed && !!role && role !== "admin";
-  const dashboardHref = role === "tenant" ? "/tenant" : "/dashboard";
+  const dashboardHref = role === "tenant" ? "/tenant/home" : "/dashboard";
+  const dashboardLabel = role === "tenant" ? "Home" : "My dashboard";
 
   if (initialAuthed) {
     return (
       <>
         {canShowDashboard && (
           <Link href={dashboardHref} className="hidden text-sm text-slate-700 md:block">
-            My dashboard
+            {dashboardLabel}
           </Link>
         )}
         <form action="/auth/logout" method="POST">

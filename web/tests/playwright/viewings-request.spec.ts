@@ -12,7 +12,7 @@ test.describe("Viewing requests", () => {
     await page.getByPlaceholder("you@email.com").fill(EMAIL);
     await page.getByPlaceholder("Password").fill(PASSWORD);
     await page.getByRole("button", { name: /log in/i }).click();
-    await page.waitForURL("**/dashboard", { timeout: 15_000 });
+    await page.waitForURL(/\/(dashboard|tenant\/home|host)/, { timeout: 15_000 });
 
     await page.goto("/properties");
     const empty = page.getByTestId("properties-empty-state");

@@ -61,11 +61,21 @@ test.describe("Smoke checks", () => {
     await page.getByPlaceholder("Password").fill(PASSWORD);
     await page.getByRole("button", { name: /log in/i }).click();
 
-    await page.waitForURL("**/dashboard", { timeout: 15_000 });
-    await expect(page.getByText(/My listings/i)).toBeVisible();
+    await page.waitForURL(/\/(dashboard|tenant\/home|host)/, { timeout: 15_000 });
+    const landingUrl = page.url();
+    if (landingUrl.includes("/tenant/home")) {
+      await expect(page.getByRole("heading", { name: /find your next home/i })).toBeVisible();
+    } else {
+      await expect(page.getByText(/My listings/i)).toBeVisible();
+    }
 
     await page.reload();
-    await page.waitForURL("**/dashboard", { timeout: 10_000 });
-    await expect(page.getByText(/My listings/i)).toBeVisible();
+    await page.waitForURL(/\/(dashboard|tenant\/home|host)/, { timeout: 10_000 });
+    const reloadUrl = page.url();
+    if (reloadUrl.includes("/tenant/home")) {
+      await expect(page.getByRole("heading", { name: /find your next home/i })).toBeVisible();
+    } else {
+      await expect(page.getByText(/My listings/i)).toBeVisible();
+    }
   });
 });

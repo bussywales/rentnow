@@ -203,7 +203,7 @@ export default async function EditPropertyPage({ params, searchParams }: Props) 
     redirect("/onboarding");
   }
   if (!canManageListings(role)) {
-    redirect("/tenant");
+    redirect("/tenant/home");
   }
   const enableLocationPicker = await getAppSettingBool("enable_location_picker", false);
   const requireLocationPinForPublish = await getAppSettingBool(

@@ -48,7 +48,7 @@ export default async function DashboardAnalyticsPage({ searchParams }: Analytics
   const role = await fetchUserRole(supabase, user.id);
   const normalizedRole = normalizeRole(role);
   if (normalizedRole === "tenant") {
-    redirect("/tenant");
+    redirect("/tenant/home");
   }
   if (normalizedRole === "admin") {
     // Admins should land in the admin console; avoid support-only redirects from dashboard routes.

@@ -8,7 +8,7 @@ void test("dashboard route redirects by role", () => {
   const contents = fs.readFileSync(pagePath, "utf8");
 
   assert.ok(
-    contents.includes('redirect("/tenant")'),
+    contents.includes('redirect("/tenant/home")'),
     "expected tenant redirect"
   );
   assert.ok(
@@ -52,7 +52,7 @@ void test("host workspace redirects tenants and admins", () => {
   const contents = fs.readFileSync(pagePath, "utf8");
 
   assert.ok(
-    contents.includes('redirect("/tenant")'),
+    contents.includes('redirect("/tenant/home")'),
     "expected tenant redirect from host workspace"
   );
   assert.ok(

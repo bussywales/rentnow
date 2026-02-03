@@ -125,6 +125,9 @@ export interface Property {
   paused_reason?: string | null;
   reactivated_at?: string | null;
   status_updated_at?: string | null;
+  is_featured?: boolean | null;
+  featured_rank?: number | null;
+  featured_until?: string | null;
   expires_at?: string | null;
   expired_at?: string | null;
   renewed_at?: string | null;

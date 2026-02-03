@@ -22,7 +22,7 @@ export default async function DashboardRouter() {
   }
 
   if (role === "tenant") {
-    redirect("/tenant");
+    redirect("/tenant/home");
   }
   if (role === "admin") {
     // Keep admin dashboard navigation in the admin console.

@@ -162,7 +162,7 @@ export async function GET(req: NextRequest) {
 
   if (pathname.startsWith("/host")) {
     if (role === "tenant") {
-      return buildRedirect(req, "/tenant", "role");
+      return buildRedirect(req, "/tenant/home", "role");
     }
     if (role === "admin") {
       return buildRedirect(req, "/admin/support", "role");
@@ -177,7 +177,7 @@ export async function GET(req: NextRequest) {
           pathname === allowedPath || pathname.startsWith(`${allowedPath}/`)
       );
       if (!allowed) {
-        return buildRedirect(req, "/tenant", "role");
+        return buildRedirect(req, "/tenant/home", "role");
       }
       return res;
     }

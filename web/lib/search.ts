@@ -5,6 +5,8 @@ type SearchOptions = {
   page?: number;
   pageSize?: number;
   approvedBefore?: string | null;
+  featuredOnly?: boolean;
+  createdAfter?: string | null;
 };
 
 export async function searchProperties(filters: ParsedSearchFilters, options: SearchOptions = {}) {
@@ -44,6 +46,14 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
 
     if (approvedBefore) {
       query = query.or(`approved_at.is.null,approved_at.lte.${approvedBefore}`);
+    }
+    if (options.featuredOnly) {
+      query = query
+        .eq("is_featured", true)
+        .or(`featured_until.is.null,featured_until.gt.${nowIso}`);
+    }
+    if (options.createdAfter) {
+      query = query.gte("created_at", options.createdAfter);
     }
     if (filters.city) {
       query = query.ilike("city", `%${filters.city}%`);
@@ -86,9 +96,15 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
       });
     }
 
-    const { data, error, count } = await ordered
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    if (options.featuredOnly) {
+      ordered = ordered
+        .order("featured_rank", { ascending: false })
+        .order("updated_at", { ascending: false });
+    } else {
+      ordered = ordered.order("created_at", { ascending: false });
+    }
+
+    const { data, error, count } = await ordered.range(from, to);
     return { data, error, count };
   };
 

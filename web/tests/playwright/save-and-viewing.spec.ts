@@ -19,11 +19,20 @@ test.describe("Save property and viewing request", () => {
     await page.getByPlaceholder("Password").fill(PASSWORD);
     await page.getByRole("button", { name: "Log in" }).click();
 
-    await page.waitForURL("**/dashboard", { timeout: 15_000 });
-    await expect(page.getByText(/workspace/i)).toBeVisible();
-
-    const propertyLink = page.locator("a").filter({ hasText: /ngn|usd|egp|zar|kes/i }).first();
-    await propertyLink.click();
+    await page.waitForURL(/\/(dashboard|tenant\/home|host)/, { timeout: 15_000 });
+    const landingUrl = page.url();
+    if (landingUrl.includes("/tenant/home")) {
+      await expect(page.getByRole("heading", { name: /find your next home/i })).toBeVisible();
+      const card = page.getByTestId("tenant-home-card").first();
+      if (!(await card.isVisible().catch(() => false))) {
+        test.skip(true, "No listings available on tenant home to continue.");
+      }
+      await card.getByRole("link").click();
+    } else {
+      await expect(page.getByText(/workspace/i)).toBeVisible();
+      const propertyLink = page.locator("a").filter({ hasText: /ngn|usd|egp|zar|kes/i }).first();
+      await propertyLink.click();
+    }
     await page.waitForURL("**/properties/**", { timeout: 10_000 });
 
     const saveButton = page.getByRole("button", { name: /save property|saved/i }).first();

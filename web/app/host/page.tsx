@@ -123,7 +123,7 @@ export default async function DashboardHome() {
           redirect("/onboarding");
         }
         if (role === "tenant") {
-          redirect("/tenant");
+          redirect("/tenant/home");
         }
         if (role === "admin") {
           redirect("/admin/support");

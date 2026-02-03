@@ -22,12 +22,30 @@ function parsePagination(request: Request) {
   };
 }
 
+function parseBooleanParam(value: string | null) {
+  if (!value) return false;
+  return value === "true" || value === "1" || value.toLowerCase() === "yes";
+}
+
+function parseRecentDays(value: string | null) {
+  if (!value) return null;
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return null;
+  return Math.min(num, 90);
+}
+
 export async function GET(request: Request) {
   const startTime = Date.now();
   const routeLabel = "/api/properties/search";
   const { searchParams } = new URL(request.url);
   const filters = parseFiltersFromSearchParams(searchParams);
   const { page, pageSize } = parsePagination(request);
+  const featuredOnly = parseBooleanParam(searchParams.get("featured"));
+  const recentDays = parseRecentDays(searchParams.get("recent"));
+  const createdAfter =
+    recentDays && recentDays > 0
+      ? new Date(Date.now() - recentDays * 24 * 60 * 60 * 1000).toISOString()
+      : null;
   const earlyAccessMinutes = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
 
   if (!hasServerSupabaseEnv()) {
@@ -94,6 +112,8 @@ export async function GET(request: Request) {
       page,
       pageSize,
       approvedBefore,
+      featuredOnly,
+      createdAfter,
     });
     if (error) {
       logFailure({

@@ -35,7 +35,7 @@ export default async function DashboardLayout({
 
   const normalizedRole = normalizeRole(profile?.role);
   if (normalizedRole === "tenant") {
-    redirect("/tenant");
+    redirect("/tenant/home");
   }
   if (normalizedRole === "admin") {
     redirect("/admin/support");

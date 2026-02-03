@@ -24,7 +24,7 @@ function normalizeRedirect(value?: string | string[] | undefined, fallback = "/d
 }
 
 function defaultRedirect(role: UserRole | null) {
-  if (role === "tenant") return "/tenant";
+  if (role === "tenant") return "/tenant/home";
   if (role === "admin") return "/admin";
   return "/dashboard";
 }
