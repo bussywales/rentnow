@@ -184,7 +184,10 @@ export function HostDashboardContent({
   const mergeValue = <T,>(value: T | undefined, fallback: T): T =>
     typeof value === "undefined" ? fallback : value;
 
-  const applyStatusResponse = (listing: DashboardListing, payload: StatusResponse) => {
+  const applyStatusResponse = (
+    listing: DashboardListing,
+    payload: StatusResponse
+  ): DashboardListing => {
     const nowIso = new Date().toISOString();
     return {
       ...listing,
@@ -193,8 +196,8 @@ export function HostDashboardContent({
       reactivated_at: mergeValue(payload.reactivated_at, listing.reactivated_at ?? null),
       status_updated_at: mergeValue(payload.status_updated_at, listing.status_updated_at ?? null),
       paused_reason: mergeValue(payload.paused_reason, listing.paused_reason ?? null),
-      is_active: mergeValue(payload.is_active, listing.is_active ?? null),
-      is_approved: mergeValue(payload.is_approved, listing.is_approved ?? null),
+      is_active: mergeValue(payload.is_active, listing.is_active ?? false),
+      is_approved: mergeValue(payload.is_approved, listing.is_approved ?? false),
       expires_at: mergeValue(payload.expires_at, listing.expires_at ?? null),
       updated_at: nowIso,
     };
