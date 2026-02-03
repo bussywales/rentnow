@@ -48,7 +48,7 @@ function normalizeStatus(property: {
 }
 
 type StatusResponse = {
-  status?: string | null;
+  status?: PropertyStatus | null;
   paused_at?: string | null;
   reactivated_at?: string | null;
   status_updated_at?: string | null;
