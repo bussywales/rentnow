@@ -130,6 +130,36 @@ CREATE INDEX idx_property_events_property_type ON public.property_events (proper
 CREATE INDEX idx_property_events_property_view ON public.property_events (property_id, occurred_at DESC)
   WHERE event_type = 'property_view';
 
+-- PRODUCT UPDATES
+CREATE TABLE public.product_updates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  title TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  body TEXT,
+  image_url TEXT,
+  audience TEXT NOT NULL DEFAULT 'all',
+  published_at TIMESTAMPTZ,
+  created_by UUID REFERENCES public.profiles (id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT product_updates_audience_check CHECK (audience IN ('all', 'tenant', 'host', 'admin'))
+);
+
+CREATE INDEX idx_product_updates_published_at ON public.product_updates (published_at DESC);
+CREATE INDEX idx_product_updates_audience_published_at ON public.product_updates (audience, published_at DESC);
+CREATE INDEX idx_product_updates_created_at ON public.product_updates (created_at DESC);
+
+-- PRODUCT UPDATE READS
+CREATE TABLE public.product_update_reads (
+  user_id UUID NOT NULL REFERENCES public.profiles (id) ON DELETE CASCADE,
+  update_id UUID NOT NULL REFERENCES public.product_updates (id) ON DELETE CASCADE,
+  read_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (user_id, update_id)
+);
+
+CREATE INDEX idx_product_update_reads_user_read_at ON public.product_update_reads (user_id, read_at DESC);
+CREATE INDEX idx_product_update_reads_update_id ON public.product_update_reads (update_id);
+
 -- MESSAGES
 CREATE TABLE public.messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

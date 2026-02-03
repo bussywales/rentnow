@@ -2,6 +2,7 @@ import { NavAuthClient } from "@/components/layout/NavAuthClient";
 import { NavLinksClient } from "@/components/layout/NavLinksClient";
 import { NavMobileDrawerClient } from "@/components/layout/NavMobileDrawerClient";
 import { BrandLogo } from "@/components/branding/BrandLogo";
+import { ProductUpdatesBell } from "@/components/updates/ProductUpdatesBell";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
@@ -26,6 +27,7 @@ export const MAIN_NAV_LINKS: Array<{
   { href: "/tenant", label: "Dashboard", requireAuth: true, requireRole: "tenant" },
   { href: "/dashboard", label: "Dashboard", requireAuth: true, denyRoles: ["tenant", "admin"] },
   { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
+  { href: "/admin/product-updates", label: "Updates", requireAuth: true, requireRole: "admin" },
   { href: "/admin/support", label: "Support", requireAuth: true, requireRole: "admin" },
   { href: "/admin/legal", label: "Legal", requireAuth: true, requireRole: "admin" },
   { href: "/admin/settings", label: "Settings", requireAuth: true, requireRole: "admin" },
@@ -69,6 +71,7 @@ export async function MainNav() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <ProductUpdatesBell initialAuthed={initialAuthed} />
           <NavMobileDrawerClient links={MAIN_NAV_LINKS} initialAuthed={initialAuthed} initialRole={role} />
           <NavAuthClient initialAuthed={initialAuthed} initialRole={role} />
         </div>

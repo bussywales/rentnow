@@ -19,6 +19,12 @@ ALTER TABLE public.saved_properties FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.property_events ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.property_events FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.product_updates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_updates FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE public.product_update_reads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.product_update_reads FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE public.saved_searches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_searches FORCE ROW LEVEL SECURITY;
 
@@ -191,6 +197,74 @@ DROP POLICY IF EXISTS "support requests admin read" ON public.support_requests;
 CREATE POLICY "support requests admin read" ON public.support_requests
   FOR SELECT
   USING (public.is_admin());
+
+-- product_updates: published visibility per audience; admin can manage
+DROP POLICY IF EXISTS "product updates select" ON public.product_updates;
+CREATE POLICY "product updates select" ON public.product_updates
+  FOR SELECT
+  USING (
+    published_at IS NOT NULL
+    AND (
+      audience = 'all'
+      OR (
+        audience = 'tenant'
+        AND EXISTS (
+          SELECT 1 FROM public.profiles p
+          WHERE p.id = auth.uid()
+            AND p.role = 'tenant'
+        )
+      )
+      OR (
+        audience = 'host'
+        AND EXISTS (
+          SELECT 1 FROM public.profiles p
+          WHERE p.id = auth.uid()
+            AND p.role IN ('landlord', 'agent')
+        )
+      )
+      OR (
+        audience = 'admin'
+        AND EXISTS (
+          SELECT 1 FROM public.profiles p
+          WHERE p.id = auth.uid()
+            AND p.role = 'admin'
+        )
+      )
+    )
+    OR public.is_admin()
+  );
+
+DROP POLICY IF EXISTS "product updates insert admin" ON public.product_updates;
+CREATE POLICY "product updates insert admin" ON public.product_updates
+  FOR INSERT
+  WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "product updates update admin" ON public.product_updates;
+CREATE POLICY "product updates update admin" ON public.product_updates
+  FOR UPDATE
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "product updates delete admin" ON public.product_updates;
+CREATE POLICY "product updates delete admin" ON public.product_updates
+  FOR DELETE
+  USING (public.is_admin());
+
+-- product_update_reads: user-owned read markers
+DROP POLICY IF EXISTS "product update reads select self" ON public.product_update_reads;
+CREATE POLICY "product update reads select self" ON public.product_update_reads
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "product update reads insert self" ON public.product_update_reads;
+CREATE POLICY "product update reads insert self" ON public.product_update_reads
+  FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "product update reads delete self" ON public.product_update_reads;
+CREATE POLICY "product update reads delete self" ON public.product_update_reads
+  FOR DELETE
+  USING (auth.uid() = user_id);
 
 -- profiles: users manage their own row
 DROP POLICY IF EXISTS "profiles select self" ON public.profiles;
