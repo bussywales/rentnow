@@ -4,6 +4,7 @@ import {
   getFeaturedHomes,
   getPopularHomes,
   getNewHomes,
+  buildTenantDiscoveryModules,
   type DiscoveryContext,
 } from "@/lib/tenant/tenant-discovery.server";
 
@@ -137,4 +138,16 @@ void test("new homes query constrains created_at", async () => {
     gteCalls.some((call) => call.args[0] === "created_at"),
     "expected created_at window filter"
   );
+});
+
+void test("tenant discovery falls back when no modules are available", () => {
+  const modules = buildTenantDiscoveryModules({
+    featuredHomes: [],
+    popularHomes: [],
+    newHomes: [],
+  });
+  assert.equal(modules.hasModules, false);
+  assert.equal(modules.hasFeatured, false);
+  assert.equal(modules.hasPopular, false);
+  assert.equal(modules.hasNew, false);
 });

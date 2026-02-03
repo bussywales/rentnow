@@ -449,9 +449,13 @@ export default async function PropertiesPage({ searchParams }: Props) {
         </div>
       );
     }
-    const emptyDescription = hasFilters
-      ? "No homes match your filters yet. Try clearing filters or browsing all homes."
-      : "No homes are available right now. Check back soon or browse all homes.";
+    const featuredEmptyDescription =
+      "No featured homes are available right now. Browse all listings or check back soon.";
+    const emptyDescription = featuredOnly
+      ? featuredEmptyDescription
+      : hasFilters
+        ? "No homes match your filters yet. Try clearing filters or browsing all homes."
+        : "No homes are available right now. Check back soon or browse all homes.";
     const isFetchError = !!fetchError;
     const title = isFetchError ? "Unable to load homes" : "No properties found";
     const description = isFetchError

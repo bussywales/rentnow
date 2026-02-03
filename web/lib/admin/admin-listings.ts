@@ -99,6 +99,23 @@ export async function getAdminAllListings<Row>({
       queryBuilder = queryBuilder.lte("bathrooms", query.bathroomsMax);
     }
 
+    if (query.featured !== "all") {
+      const nowIso = new Date().toISOString();
+      if (query.featured === "active") {
+        queryBuilder = queryBuilder
+          .eq("is_featured", true)
+          .or(`featured_until.is.null,featured_until.gt.${nowIso}`);
+      } else if (query.featured === "expiring") {
+        const soonIso = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+        queryBuilder = queryBuilder
+          .eq("is_featured", true)
+          .gt("featured_until", nowIso)
+          .lte("featured_until", soonIso);
+      } else if (query.featured === "expired") {
+        queryBuilder = queryBuilder.eq("is_featured", true).lte("featured_until", nowIso);
+      }
+    }
+
     if (query.q) {
       const trimmed = query.q.trim();
       if (query.qMode === "id") {

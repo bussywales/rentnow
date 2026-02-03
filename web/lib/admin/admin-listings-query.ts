@@ -5,6 +5,7 @@ export type AdminListingsQuery = {
   qMode: "id" | "owner" | "title";
   statuses: string[];
   active: "all" | "true" | "false";
+  featured: "all" | "active" | "expiring" | "expired";
   page: number;
   pageSize: number;
   sort: "updated_desc" | "updated_asc" | "created_desc" | "created_asc";
@@ -28,6 +29,7 @@ export const DEFAULT_ADMIN_LISTINGS_QUERY: AdminListingsQuery = {
   qMode: "title",
   statuses: [],
   active: "all",
+  featured: "all",
   page: 1,
   pageSize: DEFAULT_PAGE_SIZE,
   sort: "updated_desc",
@@ -124,6 +126,17 @@ export function parseAdminListingsQuery(
         ? "false"
         : "all";
 
+  const featuredActive = parseBool(readParam(bag, "featured"));
+  const featuredExpiring = parseBool(readParam(bag, "expiring"));
+  const featuredExpired = parseBool(readParam(bag, "expired"));
+  const featured: AdminListingsQuery["featured"] = featuredExpiring
+    ? "expiring"
+    : featuredExpired
+      ? "expired"
+      : featuredActive
+        ? "active"
+        : "all";
+
   const pageRaw = Number(readParam(bag, "page"));
   const page = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
 
@@ -149,6 +162,7 @@ export function parseAdminListingsQuery(
     qMode,
     statuses,
     active,
+    featured,
     page,
     pageSize,
     sort,
@@ -195,6 +209,14 @@ export function serializeAdminListingsQuery(query: AdminListingsQuery): URLSearc
     appendIf("active", query.active);
   }
 
+  if (query.featured === "active") {
+    appendIf("featured", 1);
+  } else if (query.featured === "expiring") {
+    appendIf("expiring", 1);
+  } else if (query.featured === "expired") {
+    appendIf("expired", 1);
+  }
+
   if (query.missingCover) params.set("missingCover", "true");
   if (query.missingPhotos) params.set("missingPhotos", "true");
   if (query.missingLocation) params.set("missingLocation", "true");
@@ -225,6 +247,7 @@ export function hasActiveAdminListingsFilters(query: AdminListingsQuery) {
     query.q ||
       query.statuses.length ||
       query.active !== "all" ||
+      query.featured !== "all" ||
       query.missingCover ||
       query.missingPhotos ||
       query.missingLocation ||
@@ -248,6 +271,15 @@ export function summarizeAdminListingsFilters(query: AdminListingsQuery): string
   }
   if (query.active !== "all") {
     summary.push(`Active: ${query.active === "true" ? "yes" : "no"}`);
+  }
+  if (query.featured !== "all") {
+    const label =
+      query.featured === "active"
+        ? "Featured only"
+        : query.featured === "expiring"
+          ? "Featured expiring soon"
+          : "Featured expired";
+    summary.push(label);
   }
   if (query.missingCover) summary.push("Missing cover");
   if (query.missingPhotos) summary.push("Missing photos");

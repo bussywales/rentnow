@@ -16,9 +16,11 @@ import {
   serializeAdminListingsQuery,
   hasActiveAdminListingsFilters,
 } from "@/lib/admin/admin-listings";
+import { getFeaturedInventorySummary, type FeaturedInventorySummary } from "@/lib/admin/featured-inventory";
 import AdminListingsPanelClient from "@/components/admin/AdminListingsPanelClient";
 import AdminListingsFiltersClient from "@/components/admin/AdminListingsFiltersClient";
 import AdminListingsAppliedFiltersClient from "@/components/admin/AdminListingsAppliedFiltersClient";
+import AdminFeaturedInventoryPanel from "@/components/admin/AdminFeaturedInventoryPanel";
 import AdminSavedViews from "@/components/admin/AdminSavedViews";
 
 export const dynamic = "force-dynamic";
@@ -88,6 +90,8 @@ type ListingsPageData = {
   error: string | null;
   requestId: string | null;
   ownerSummary: { id: string; name: string; role: string | null } | null;
+  featuredSummary: FeaturedInventorySummary | null;
+  featuredError: string | null;
 };
 
 async function resolveSearchParams(raw?: SearchParams | Promise<SearchParams>) {
@@ -101,6 +105,11 @@ async function getListingsData(
   rawSearchParams?: SearchParams | Promise<SearchParams>
 ): Promise<ListingsPageData> {
   const searchParams = await resolveSearchParams(rawSearchParams);
+  const propertyParam = searchParams?.property;
+  const propertyId = Array.isArray(propertyParam) ? propertyParam[0] : propertyParam;
+  if (propertyId && isUuid(propertyId)) {
+    redirect(`/admin/listings/${encodeURIComponent(propertyId)}`);
+  }
   const listingQuery = parseAdminListingsQuery(searchParams);
   const requestHeaders = await headers();
   const requestId =
@@ -118,6 +127,8 @@ async function getListingsData(
       error: "Supabase env missing",
       requestId,
       ownerSummary: null,
+      featuredSummary: null,
+      featuredError: null,
     };
   }
 
@@ -256,6 +267,14 @@ async function getListingsData(
       }
     }
 
+    let featuredSummary: FeaturedInventorySummary | null = null;
+    let featuredError: string | null = null;
+    try {
+      featuredSummary = await getFeaturedInventorySummary({ client });
+    } catch (error) {
+      featuredError = (error as Error)?.message ?? "Failed to load featured inventory.";
+    }
+
     return {
       listings,
       listingQuery,
@@ -267,6 +286,8 @@ async function getListingsData(
       error: null,
       requestId,
       ownerSummary,
+      featuredSummary,
+      featuredError,
     };
   } catch (err) {
     return {
@@ -280,6 +301,8 @@ async function getListingsData(
       error: (err as Error)?.message ?? "Failed to load listings",
       requestId,
       ownerSummary: null,
+      featuredSummary: null,
+      featuredError: null,
     };
   }
 }
@@ -296,6 +319,8 @@ export default async function AdminListingsPage({ searchParams }: Props) {
     error,
     requestId,
     ownerSummary,
+    featuredSummary,
+    featuredError,
   } = await getListingsData(searchParams);
 
   const listingStart = listingTotalCount > 0 ? (listingPage - 1) * listingPageSize + 1 : 0;
@@ -364,6 +389,21 @@ export default async function AdminListingsPage({ searchParams }: Props) {
           <div className="mt-1 text-xs text-slate-600">
             Listings found for owner: {listingTotalCount}
           </div>
+        </div>
+      )}
+
+      {featuredSummary && (
+        <AdminFeaturedInventoryPanel
+          items={featuredSummary.featuredActive}
+          expiringCount={featuredSummary.featuredExpiringSoon.length}
+          expiredCount={featuredSummary.featuredExpired.length}
+        />
+      )}
+
+      {featuredError && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="font-semibold text-amber-950">Featured inventory unavailable</div>
+          <p className="mt-1">{featuredError}</p>
         </div>
       )}
 

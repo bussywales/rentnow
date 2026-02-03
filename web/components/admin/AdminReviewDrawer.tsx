@@ -23,6 +23,11 @@ import {
   validateRequestChangesPayload,
   type ReviewReasonCode,
 } from "@/lib/admin/admin-review-rubric";
+import {
+  DEFAULT_FEATURED_DURATION_DAYS,
+  FEATURED_CITY_WARNING_THRESHOLD,
+  FEATURED_PRESET_DAYS,
+} from "@/lib/admin/featured-inventory";
 
 type Props = {
   listing: AdminReviewListItem | null;
@@ -154,6 +159,19 @@ function toDateTimeLocal(value?: string | null) {
   )}`;
 }
 
+function formatDateTimeLocal(date: Date) {
+  const pad = (input: number) => String(input).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(
+    date.getMinutes()
+  )}`;
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
 function formatDateLabel(value?: string | null) {
   if (!value) return null;
   const date = new Date(value);
@@ -194,6 +212,10 @@ export function AdminReviewDrawer({
   const [featuredLoading, setFeaturedLoading] = useState(false);
   const [featuredSaving, setFeaturedSaving] = useState(false);
   const [featuredError, setFeaturedError] = useState<string | null>(null);
+  const [featuredCityCount, setFeaturedCityCount] = useState<number | null>(null);
+  const [featuredCityLoading, setFeaturedCityLoading] = useState(false);
+  const [featuredCityError, setFeaturedCityError] = useState<string | null>(null);
+  const [featuredDefaulted, setFeaturedDefaulted] = useState(false);
   const [templates, setTemplates] = useState<
     { id: string; name: string; reasons?: ReviewReasonCode[]; message?: string }[]
   >([]);
@@ -229,12 +251,17 @@ export function AdminReviewDrawer({
       setFeaturedLoading(false);
       setFeaturedSaving(false);
       setFeaturedError(null);
+      setFeaturedCityCount(null);
+      setFeaturedCityLoading(false);
+      setFeaturedCityError(null);
+      setFeaturedDefaulted(false);
       return;
     }
     setSelectedIdSnapshot(listing.id);
     setChecklistState(null);
     setChecklistOpen(false);
     setScrollTarget(null);
+    setFeaturedDefaulted(false);
     const parsed = parseRejectionReason(listing.rejectionReason);
     const normalized = normalizeReasons(parsed.reasons);
     const initialMessage = parsed.message || buildRequestChangesMessage(normalized);
@@ -320,6 +347,47 @@ export function AdminReviewDrawer({
     };
   }, [listing?.id]);
 
+  useEffect(() => {
+    let active = true;
+    const city = listing?.city?.trim();
+    if (!city || !featuredForm.is_featured) {
+      setFeaturedCityCount(null);
+      setFeaturedCityLoading(false);
+      setFeaturedCityError(null);
+      return () => {
+        active = false;
+      };
+    }
+    const fetchCityCount = async () => {
+      setFeaturedCityLoading(true);
+      setFeaturedCityError(null);
+      try {
+        const res = await fetch(`/api/admin/featured/summary?city=${encodeURIComponent(city)}`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || "Failed to load city counts");
+        }
+        const data = await res.json();
+        if (!active) return;
+        setFeaturedCityCount(typeof data?.count === "number" ? data.count : null);
+      } catch (err) {
+        if (!active) return;
+        setFeaturedCityError(err instanceof Error ? err.message : "Failed to load city counts");
+      } finally {
+        if (!active) return;
+        setFeaturedCityLoading(false);
+      }
+    };
+    fetchCityCount().catch(() => {
+      if (!active) return;
+      setFeaturedCityError("Failed to load city counts");
+      setFeaturedCityLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [featuredForm.is_featured, listing?.city]);
+
   const previewMessage = useMemo(() => {
     const trimmed = messageText.trim();
     return trimmed || buildRequestChangesMessage(reasons);
@@ -339,6 +407,13 @@ export function AdminReviewDrawer({
     featuredForm.is_featured &&
     !!featuredUntilDate &&
     (Number.isNaN(featuredUntilDate.getTime()) || featuredUntilDate.getTime() <= Date.now());
+  const featuredUntilMissing = featuredForm.is_featured && !featuredForm.featured_until.trim();
+  const listingStatus = (listing?.status ?? "").toLowerCase();
+  const listingIsLive = listingStatus === "live";
+  const cityFeaturedWarning =
+    featuredForm.is_featured &&
+    typeof featuredCityCount === "number" &&
+    featuredCityCount >= FEATURED_CITY_WARNING_THRESHOLD;
   const featuredUntilLabel = featuredForm.featured_until
     ? formatDateLabel(featuredForm.featured_until)
     : null;
@@ -349,6 +424,14 @@ export function AdminReviewDrawer({
       setFeaturedError("Fix invalid featured inputs before saving.");
       return;
     }
+    let resolvedFeaturedUntil = featuredForm.featured_until.trim();
+    if (featuredForm.is_featured && !resolvedFeaturedUntil) {
+      resolvedFeaturedUntil = formatDateTimeLocal(
+        addDays(new Date(), DEFAULT_FEATURED_DURATION_DAYS)
+      );
+      setFeaturedDefaulted(true);
+      setFeaturedForm((prev) => ({ ...prev, featured_until: resolvedFeaturedUntil }));
+    }
     setFeaturedSaving(true);
     setFeaturedError(null);
     try {
@@ -356,8 +439,8 @@ export function AdminReviewDrawer({
         is_featured: featuredForm.is_featured,
         featured_rank: featuredForm.is_featured ? featuredRankValue : null,
         featured_until:
-          featuredForm.is_featured && featuredForm.featured_until
-            ? new Date(featuredForm.featured_until).toISOString()
+          featuredForm.is_featured && resolvedFeaturedUntil
+            ? new Date(resolvedFeaturedUntil).toISOString()
             : null,
       };
       const res = await fetch(`/api/admin/properties/${listing.id}/featured`, {
@@ -907,14 +990,32 @@ export function AdminReviewDrawer({
                 type="checkbox"
                 className="h-4 w-4 rounded border-slate-300 text-slate-900"
                 checked={featuredForm.is_featured}
-                onChange={(event) =>
-                  setFeaturedForm((prev) => ({
-                    ...prev,
-                    is_featured: event.target.checked,
-                    featured_rank: event.target.checked ? prev.featured_rank || "1" : "",
-                    featured_until: event.target.checked ? prev.featured_until : "",
-                  }))
-                }
+                onChange={(event) => {
+                  const checked = event.target.checked;
+                  if (!checked) {
+                    setFeaturedDefaulted(false);
+                  }
+                  setFeaturedForm((prev) => {
+                    if (!checked) {
+                      return {
+                        ...prev,
+                        is_featured: false,
+                        featured_rank: "",
+                        featured_until: "",
+                      };
+                    }
+                    const nextUntil =
+                      prev.featured_until ||
+                      formatDateTimeLocal(addDays(new Date(), DEFAULT_FEATURED_DURATION_DAYS));
+                    setFeaturedDefaulted(!prev.featured_until);
+                    return {
+                      ...prev,
+                      is_featured: true,
+                      featured_rank: prev.featured_rank || "1",
+                      featured_until: nextUntil,
+                    };
+                  });
+                }}
                 data-testid="admin-featured-toggle"
               />
               Featured
@@ -926,40 +1027,64 @@ export function AdminReviewDrawer({
           ) : (
             <>
               {featuredForm.is_featured && (
-                <div className="grid gap-3 sm:grid-cols-3">
-                  <label className="space-y-1 text-xs text-slate-600">
-                    <span className="font-semibold text-slate-700">Rank</span>
-                    <input
-                      type="number"
-                      min={0}
-                      inputMode="numeric"
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
-                      value={featuredForm.featured_rank}
-                      onChange={(event) =>
-                        setFeaturedForm((prev) => ({
-                          ...prev,
-                          featured_rank: event.target.value,
-                        }))
-                      }
-                      placeholder="1"
-                      data-testid="admin-featured-rank"
-                    />
-                  </label>
-                  <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
-                    <span className="font-semibold text-slate-700">Featured until (optional)</span>
-                    <input
-                      type="datetime-local"
-                      className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
-                      value={featuredForm.featured_until}
-                      onChange={(event) =>
-                        setFeaturedForm((prev) => ({
-                          ...prev,
-                          featured_until: event.target.value,
-                        }))
-                      }
-                      data-testid="admin-featured-until"
-                    />
-                  </label>
+                <div className="space-y-3">
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <label className="space-y-1 text-xs text-slate-600">
+                      <span className="font-semibold text-slate-700">Rank</span>
+                      <input
+                        type="number"
+                        min={0}
+                        inputMode="numeric"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+                        value={featuredForm.featured_rank}
+                        onChange={(event) =>
+                          setFeaturedForm((prev) => ({
+                            ...prev,
+                            featured_rank: event.target.value,
+                          }))
+                        }
+                        placeholder="1"
+                        data-testid="admin-featured-rank"
+                      />
+                    </label>
+                    <label className="space-y-1 text-xs text-slate-600 sm:col-span-2">
+                      <span className="font-semibold text-slate-700">Featured until (optional)</span>
+                      <input
+                        type="datetime-local"
+                        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900"
+                        value={featuredForm.featured_until}
+                        onChange={(event) => {
+                          setFeaturedDefaulted(false);
+                          setFeaturedForm((prev) => ({
+                            ...prev,
+                            featured_until: event.target.value,
+                          }));
+                        }}
+                        data-testid="admin-featured-until"
+                      />
+                    </label>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                    <span className="font-semibold text-slate-700">Presets:</span>
+                    {FEATURED_PRESET_DAYS.map((days) => (
+                      <button
+                        key={days}
+                        type="button"
+                        data-testid={`admin-featured-preset-${days}`}
+                        className="rounded-full border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 hover:border-slate-300"
+                        onClick={() => {
+                          const nextDate = formatDateTimeLocal(addDays(new Date(), days));
+                          setFeaturedDefaulted(false);
+                          setFeaturedForm((prev) => ({
+                            ...prev,
+                            featured_until: nextDate,
+                          }));
+                        }}
+                      >
+                        {days} days
+                      </button>
+                    ))}
+                  </div>
                 </div>
               )}
               {featuredRankInvalid && (
@@ -967,6 +1092,32 @@ export function AdminReviewDrawer({
               )}
               {featuredUntilInvalid && (
                 <p className="text-xs text-rose-600">Featured until must be a future date.</p>
+              )}
+              {featuredUntilMissing && (
+                <p className="text-xs text-slate-500">
+                  No end date set yet — we’ll default to {DEFAULT_FEATURED_DURATION_DAYS} days.
+                </p>
+              )}
+              {featuredForm.is_featured && featuredDefaulted && (
+                <p className="text-xs text-slate-500">
+                  Featured until defaulted to {DEFAULT_FEATURED_DURATION_DAYS} days.
+                </p>
+              )}
+              {!listingIsLive && featuredForm.is_featured && (
+                <p className="text-xs text-amber-600">
+                  This listing isn’t live yet. It can be featured, but it won’t appear publicly until it goes live.
+                </p>
+              )}
+              {featuredForm.is_featured && featuredCityLoading && (
+                <p className="text-xs text-slate-500">Checking featured inventory for this city…</p>
+              )}
+              {featuredForm.is_featured && featuredCityError && (
+                <p className="text-xs text-slate-500">{featuredCityError}</p>
+              )}
+              {featuredForm.is_featured && cityFeaturedWarning && (
+                <p className="text-xs text-amber-600">
+                  This city already has {featuredCityCount} featured listings.
+                </p>
               )}
               {featuredError && (
                 <p className="text-xs text-rose-600">{featuredError}</p>

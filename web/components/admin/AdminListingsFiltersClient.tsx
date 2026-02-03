@@ -78,9 +78,16 @@ export default function AdminListingsFiltersClient({
     return count;
   }, [draft]);
 
+  const setFeaturedFilter = (next: AdminListingsQuery["featured"]) => {
+    setDraft((prev) => ({
+      ...prev,
+      featured: prev.featured === next ? "all" : next,
+    }));
+  };
+
   return (
     <div className="rounded-2xl border border-slate-100 bg-white p-5 shadow-sm">
-      <div className="grid gap-4 lg:grid-cols-[2fr,2fr,1fr,1fr,auto]">
+      <div className="grid gap-4 lg:grid-cols-[2fr,2fr,1fr,1fr,1.2fr,auto]">
         <div className="flex flex-col">
           <label className="text-xs text-slate-600">Search</label>
           <input
@@ -141,6 +148,50 @@ export default function AdminListingsFiltersClient({
             <option value="created_asc">Created (oldest)</option>
           </select>
         </div>
+        <fieldset
+          className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3"
+          data-testid="admin-featured-filters"
+        >
+          <legend className="text-xs text-slate-600">Featured</legend>
+          <div className="flex flex-wrap gap-2 text-xs text-slate-700">
+            <button
+              type="button"
+              onClick={() => setFeaturedFilter("active")}
+              data-testid="admin-featured-filter-active"
+              className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                draft.featured === "active"
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700"
+              }`}
+            >
+              Featured only
+            </button>
+            <button
+              type="button"
+              onClick={() => setFeaturedFilter("expiring")}
+              data-testid="admin-featured-filter-expiring"
+              className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                draft.featured === "expiring"
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700"
+              }`}
+            >
+              Expiring soon
+            </button>
+            <button
+              type="button"
+              onClick={() => setFeaturedFilter("expired")}
+              data-testid="admin-featured-filter-expired"
+              className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                draft.featured === "expired"
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700"
+              }`}
+            >
+              Expired featured
+            </button>
+          </div>
+        </fieldset>
         <div className="flex items-end gap-2">
           <button
             type="button"

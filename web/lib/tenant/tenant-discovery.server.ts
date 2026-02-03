@@ -223,4 +223,20 @@ export function getCityCollections() {
   ];
 }
 
+export function buildTenantDiscoveryModules(input: {
+  featuredHomes: Property[];
+  popularHomes: Property[];
+  newHomes: Property[];
+}) {
+  const hasFeatured = input.featuredHomes.length > 0;
+  const hasPopular = input.popularHomes.length > 0;
+  const hasNew = input.newHomes.length > 0;
+  return {
+    hasFeatured,
+    hasPopular,
+    hasNew,
+    hasModules: hasFeatured || hasPopular || hasNew,
+  };
+}
+
 export type { DiscoveryContext };

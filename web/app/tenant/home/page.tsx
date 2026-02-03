@@ -12,6 +12,7 @@ import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import {
   getCityCollections,
+  buildTenantDiscoveryModules,
   getFallbackHomes,
   getFeaturedHomes,
   getNewHomes,
@@ -150,11 +151,10 @@ export default async function TenantHomePage() {
     getNewHomes({ days: 7, limit: MODULE_LIMIT, context }),
   ]);
 
-  let fallbackHomes: Property[] = [];
-  const hasModules =
-    featuredHomes.length > 0 || popularHomes.length > 0 || newHomes.length > 0;
+  const modules = buildTenantDiscoveryModules({ featuredHomes, popularHomes, newHomes });
 
-  if (!hasModules) {
+  let fallbackHomes: Property[] = [];
+  if (!modules.hasModules) {
     fallbackHomes = await getFallbackHomes({ limit: 9, context });
   }
 
@@ -168,7 +168,7 @@ export default async function TenantHomePage() {
     if (!newHomes.length) {
       newHomes.push(...mockProperties.slice(2, 6));
     }
-    if (!fallbackHomes.length && !hasModules) {
+    if (!fallbackHomes.length && !modules.hasModules) {
       fallbackHomes = mockProperties.slice(0, 6);
     }
   }
@@ -200,7 +200,7 @@ export default async function TenantHomePage() {
         </div>
       </section>
 
-      {featuredHomes.length > 0 && (
+      {modules.hasFeatured && (
         <section className="space-y-4" data-testid="tenant-home-featured">
           <SectionHeader
             title="Featured homes"
@@ -211,7 +211,7 @@ export default async function TenantHomePage() {
         </section>
       )}
 
-      {popularHomes.length > 0 && (
+      {modules.hasPopular && (
         <section className="space-y-4" data-testid="tenant-home-popular">
           <SectionHeader
             title={popularHeading}
@@ -222,7 +222,7 @@ export default async function TenantHomePage() {
         </section>
       )}
 
-      {newHomes.length > 0 && (
+      {modules.hasNew && (
         <section className="space-y-4" data-testid="tenant-home-new">
           <SectionHeader
             title="New this week"
@@ -243,7 +243,7 @@ export default async function TenantHomePage() {
         </section>
       )}
 
-      {!hasModules && (
+      {!modules.hasModules && (
         <section className="space-y-4" data-testid="tenant-home-fallback">
           <SectionHeader
             title="Browse all homes"

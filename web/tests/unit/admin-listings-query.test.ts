@@ -12,6 +12,7 @@ describe("admin listings query parsing", () => {
     assert.equal(parsed.qMode, "title");
     assert.deepEqual(parsed.statuses, []);
     assert.equal(parsed.active, "all");
+    assert.equal(parsed.featured, "all");
     assert.equal(parsed.page, 1);
     assert.ok(parsed.pageSize >= 10);
     assert.equal(parsed.sort, "updated_desc");
@@ -33,6 +34,7 @@ describe("admin listings query parsing", () => {
       qMode: "title",
       status: "live,pending",
       active: "true",
+      featured: "1",
       page: "2",
       pageSize: "25",
       sort: "updated_asc",
@@ -52,6 +54,7 @@ describe("admin listings query parsing", () => {
     assert.ok(parsed.statuses.includes("live"));
     assert.ok(parsed.statuses.includes("pending"));
     assert.equal(parsed.active, "true");
+    assert.equal(parsed.featured, "active");
     assert.equal(parsed.page, 2);
     assert.equal(parsed.pageSize, 25);
     assert.equal(parsed.sort, "updated_asc");
@@ -83,6 +86,17 @@ describe("admin listings query parsing", () => {
   it("parses status from alternate keys", () => {
     const parsed = parseAdminListingsQuery({ statuses: "draft,pending" });
     assert.deepEqual(parsed.statuses.sort(), ["draft", "pending"]);
+  });
+
+  it("parses featured filters", () => {
+    const featured = parseAdminListingsQuery({ featured: "1" });
+    assert.equal(featured.featured, "active");
+
+    const expiring = parseAdminListingsQuery({ expiring: "1" });
+    assert.equal(expiring.featured, "expiring");
+
+    const expired = parseAdminListingsQuery({ expired: "1" });
+    assert.equal(expired.featured, "expired");
   });
 
   it("ignores empty or invalid status values", () => {
@@ -126,6 +140,7 @@ describe("admin listings query parsing", () => {
       qMode: "title",
       status: ["pending", "live"],
       active: "false",
+      featured: "1",
       missingCover: "true",
       missingPhotos: "true",
       missingLocation: "true",
@@ -149,6 +164,7 @@ describe("admin listings query parsing", () => {
     assert.equal(roundTrip.q, original.q);
     assert.equal(roundTrip.qMode, original.qMode);
     assert.equal(roundTrip.active, original.active);
+    assert.equal(roundTrip.featured, original.featured);
     assert.equal(roundTrip.missingCover, original.missingCover);
     assert.equal(roundTrip.missingPhotos, original.missingPhotos);
     assert.equal(roundTrip.missingLocation, original.missingLocation);

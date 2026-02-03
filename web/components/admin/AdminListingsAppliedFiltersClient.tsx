@@ -72,6 +72,16 @@ export default function AdminListingsAppliedFiltersClient({
       );
     }
 
+    if (query.featured !== "all") {
+      const label =
+        query.featured === "active"
+          ? "Featured only"
+          : query.featured === "expiring"
+            ? "Featured expiring soon"
+            : "Featured expired";
+      pushChip("featured", label, { ...query, featured: DEFAULT_ADMIN_LISTINGS_QUERY.featured });
+    }
+
     if (query.missingCover) {
       pushChip("missingCover", "Missing cover", { ...query, missingCover: false });
     }

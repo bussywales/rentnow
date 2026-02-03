@@ -21,6 +21,15 @@ test("tenant lands on discovery home and can open a listing", async ({ page }) =
 
   await expect(page.getByRole("heading", { name: /find your next home/i })).toBeVisible();
 
+  const featuredSection = page.getByTestId("tenant-home-featured");
+  if ((await featuredSection.count()) > 0) {
+    const featuredCards = featuredSection.getByTestId("tenant-home-card");
+    const featuredCount = await featuredCards.count();
+    expect(featuredCount).toBeGreaterThan(0);
+  } else {
+    await expect(page.getByText(/Featured homes/i)).toHaveCount(0);
+  }
+
   const cards = page.getByTestId("tenant-home-card");
   if (!(await cards.first().isVisible().catch(() => false))) {
     test.skip(true, "No listings available on tenant home to validate navigation.");

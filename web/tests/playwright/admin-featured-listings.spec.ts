@@ -5,13 +5,6 @@ const ADMIN_EMAIL = process.env.PLAYWRIGHT_ADMIN_EMAIL || "";
 const ADMIN_PASSWORD = process.env.PLAYWRIGHT_ADMIN_PASSWORD || "";
 const HAS_ADMIN = !!ADMIN_EMAIL && !!ADMIN_PASSWORD;
 
-function formatDateTimeLocal(date: Date) {
-  const pad = (value: number) => String(value).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
-    date.getHours()
-  )}:${pad(date.getMinutes())}`;
-}
-
 async function login(page: Page, email: string, password: string) {
   await page.goto("/auth/login");
   await page.getByPlaceholder("you@email.com").fill(email);
@@ -62,11 +55,17 @@ test("admin can feature listings with scheduling", async ({ page }) => {
   }
 
   await page.getByTestId("admin-featured-rank").fill("1");
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  await page.getByTestId("admin-featured-until").fill(formatDateTimeLocal(tomorrow));
+  await page.getByTestId("admin-featured-preset-7").click();
   await page.getByTestId("admin-featured-save").click();
   await expect(page.getByText(/Featured settings saved/i)).toBeVisible();
+
+  await page.goto("/admin/listings");
+  await expect(page.getByTestId("admin-featured-inventory-panel")).toBeVisible();
+  await expect(page.getByTestId("admin-featured-row").filter({ hasText: listingTitle })).toBeVisible();
+
+  await page.getByTestId("admin-featured-filter-active").click();
+  await page.getByRole("button", { name: /apply filters/i }).click();
+  await expect(page.getByTestId("admin-listings-row").filter({ hasText: listingTitle })).toBeVisible();
 
   await page.goto("/properties?featured=true");
   const featuredCard = page
