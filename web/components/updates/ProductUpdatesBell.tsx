@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
 
@@ -44,6 +45,11 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const bellButtonRef = useRef<HTMLButtonElement | null>(null);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
+  const closeButtonRef = useRef<HTMLButtonElement | null>(null);
+  const previousActiveRef = useRef<HTMLElement | null>(null);
+  const bodyOverflowRef = useRef<string>("");
 
   const hasUpdates = updates.length > 0;
 
@@ -51,6 +57,21 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
     () => updates.filter((update) => !update.is_read).length,
     [updates]
   );
+
+  const closeDrawer = useCallback(() => {
+    setOpen(false);
+    setLightboxUrl(null);
+  }, []);
+
+  const openDrawer = useCallback(() => {
+    if (typeof document !== "undefined") {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) {
+        previousActiveRef.current = active;
+      }
+    }
+    setOpen(true);
+  }, []);
 
   const refreshUnreadCount = useCallback(async () => {
     if (!initialAuthed) return;
@@ -98,6 +119,56 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
     void refreshUpdates();
   }, [open, refreshUpdates]);
 
+  useEffect(() => {
+    if (!open || typeof document === "undefined") return undefined;
+    const body = document.body;
+    bodyOverflowRef.current = body.style.overflow;
+    body.style.overflow = "hidden";
+
+    const focusTarget = closeButtonRef.current ?? drawerRef.current;
+    focusTarget?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeDrawer();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      const container = drawerRef.current;
+      if (!container) return;
+      const focusable = Array.from(
+        container.querySelectorAll<HTMLElement>(
+          "a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex='-1'])"
+        )
+      ).filter((node) => !node.hasAttribute("disabled"));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      body.style.overflow = bodyOverflowRef.current;
+    };
+  }, [closeDrawer, open]);
+
+  useEffect(() => {
+    if (open) return;
+    const target = previousActiveRef.current ?? bellButtonRef.current;
+    target?.focus();
+  }, [open]);
+
   const markAllRead = async () => {
     if (!initialAuthed) return;
     const res = await fetch("/api/product-updates/read-all", { method: "POST" });
@@ -128,14 +199,17 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
 
   if (!initialAuthed) return null;
 
+  const portalTarget = typeof document !== "undefined" ? document.body : null;
+
   return (
     <div className="relative">
       <button
         type="button"
+        ref={bellButtonRef}
         className="relative inline-flex h-9 w-9 items-center justify-center rounded-full text-slate-600 transition hover:bg-slate-100"
         aria-label="Product updates"
         aria-expanded={open}
-        onClick={() => setOpen(true)}
+        onClick={openDrawer}
         data-testid="updates-bell"
       >
         <svg
@@ -163,167 +237,177 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
         )}
       </button>
 
-      <div
-        className={cn(
-          "fixed inset-0 z-40",
-          open ? "pointer-events-auto" : "pointer-events-none"
-        )}
-        aria-hidden={!open}
-      >
-        <button
-          type="button"
-          className={cn(
-            "absolute inset-0 bg-slate-900/30 transition-opacity",
-            open ? "opacity-100" : "opacity-0"
-          )}
-          onClick={() => setOpen(false)}
-          aria-label="Close product updates"
-        />
-        <aside
-          className={cn(
-            "absolute right-0 top-0 h-full w-full max-w-md translate-x-full border-l border-slate-200 bg-white shadow-2xl transition-transform",
-            open && "translate-x-0"
-          )}
-          data-testid="updates-drawer"
-        >
-          <div className="flex h-full flex-col">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Inbox</p>
-                <h2 className="text-lg font-semibold text-slate-900">Product updates</h2>
-                <p className="text-xs text-slate-500">What’s new on PropatyHub</p>
-              </div>
-              <Button variant="secondary" size="sm" onClick={() => setOpen(false)}>
-                Close
-              </Button>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-6 py-5">
-              <div className="flex items-center justify-between">
-                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
-                  Latest updates
-                </p>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={markAllRead}
-                  disabled={!hasUpdates || unreadUpdates === 0}
-                  data-testid="updates-mark-all"
+      {portalTarget &&
+        createPortal(
+          <>
+            {open && (
+              <div className="fixed inset-0 z-[1000]" aria-hidden={!open}>
+                <button
+                  type="button"
+                  className="fixed inset-0 bg-slate-900/40"
+                  onClick={closeDrawer}
+                  aria-label="Close product updates"
+                  data-testid="updates-backdrop"
+                />
+                <aside
+                  ref={drawerRef}
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="product-updates-title"
+                  tabIndex={-1}
+                  className="fixed right-0 top-0 z-[1001] h-dvh w-full max-w-full border-l border-slate-200 bg-white shadow-2xl sm:w-[420px]"
+                  data-testid="updates-drawer"
                 >
-                  Mark all as read
-                </Button>
-              </div>
-
-              {loading && (
-                <div className="mt-4 space-y-3">
-                  <div className="h-20 rounded-2xl bg-slate-100" />
-                  <div className="h-20 rounded-2xl bg-slate-100" />
-                </div>
-              )}
-
-              {!loading && error && (
-                <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
-                  {error}
-                </div>
-              )}
-
-              {!loading && !error && updates.length === 0 && (
-                <div className="mt-6 rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
-                  No updates yet. Check back soon.
-                </div>
-              )}
-
-              <div className="mt-4 space-y-3">
-                {updates.map((update) => (
-                  <div
-                    key={update.id}
-                    className={cn(
-                      "rounded-2xl border px-4 py-4 text-left transition",
-                      update.is_read
-                        ? "border-slate-200 bg-white"
-                        : "border-emerald-200 bg-emerald-50/60"
-                    )}
-                    data-testid={`updates-item-${update.id}`}
-                    onClick={() => markRead(update.id)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        markRead(update.id);
-                      }
-                    }}
-                    role="button"
-                    tabIndex={0}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          {!update.is_read && (
-                            <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                              New
-                            </span>
-                          )}
-                          <h3 className="text-sm font-semibold text-slate-900">
-                            {update.title}
-                          </h3>
-                        </div>
-                        <p className="mt-2 text-sm text-slate-600">
-                          {truncateSummary(update.summary)}
-                        </p>
+                  <div className="flex h-full flex-col">
+                    <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Inbox</p>
+                        <h2 id="product-updates-title" className="text-lg font-semibold text-slate-900">
+                          Product updates
+                        </h2>
+                        <p className="text-xs text-slate-500">What’s new on PropatyHub</p>
                       </div>
-                      {update.published_at && (
-                        <p className="text-xs text-slate-400">
-                          {formatDate(update.published_at)}
-                        </p>
-                      )}
-                    </div>
-                    {update.image_url && (
-                      <button
-                        type="button"
-                        className="mt-3 block w-full overflow-hidden rounded-xl border border-slate-200"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setLightboxUrl(update.image_url || null);
-                          void markRead(update.id);
-                        }}
+                      <Button
+                        ref={closeButtonRef}
+                        variant="secondary"
+                        size="sm"
+                        onClick={closeDrawer}
+                        data-testid="updates-close"
                       >
-                        <img
-                          src={update.image_url}
-                          alt="Update screenshot"
-                          className="h-36 w-full object-cover"
-                          loading="lazy"
-                        />
-                      </button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </aside>
-      </div>
+                        Close
+                      </Button>
+                    </div>
 
-      {lightboxUrl && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/70 px-4"
-          role="dialog"
-          aria-modal="true"
-          onClick={() => setLightboxUrl(null)}
-        >
-          <div className="relative max-w-3xl" onClick={(event) => event.stopPropagation()}>
-            <img
-              src={lightboxUrl}
-              alt="Update screenshot"
-              className="max-h-[80vh] rounded-2xl object-contain"
-            />
-            <button
-              type="button"
-              className="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-700"
-              onClick={() => setLightboxUrl(null)}
-            >
-              Close
-            </button>
-          </div>
-        </div>
-      )}
+                    <div className="flex-1 overflow-y-auto px-6 py-5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                          Latest updates
+                        </p>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={markAllRead}
+                          disabled={!hasUpdates || unreadUpdates === 0}
+                          data-testid="updates-mark-all"
+                        >
+                          Mark all as read
+                        </Button>
+                      </div>
+
+                      {loading && (
+                        <div className="mt-4 space-y-3">
+                          <div className="h-20 rounded-2xl bg-slate-100" />
+                          <div className="h-20 rounded-2xl bg-slate-100" />
+                        </div>
+                      )}
+
+                      {!loading && error && (
+                        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                          {error}
+                        </div>
+                      )}
+
+                      {!loading && !error && updates.length === 0 && (
+                        <div className="mt-6 rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">
+                          No updates yet. Check back soon.
+                        </div>
+                      )}
+
+                      <div className="mt-4 space-y-3">
+                        {updates.map((update) => (
+                          <div
+                            key={update.id}
+                            className={cn(
+                              "rounded-2xl border px-4 py-4 text-left transition",
+                              update.is_read
+                                ? "border-slate-200 bg-white"
+                                : "border-emerald-200 bg-emerald-50/60"
+                            )}
+                            data-testid={`updates-item-${update.id}`}
+                            onClick={() => markRead(update.id)}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter") {
+                                markRead(update.id);
+                              }
+                            }}
+                            role="button"
+                            tabIndex={0}
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-2">
+                                  {!update.is_read && (
+                                    <span className="rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                                      New
+                                    </span>
+                                  )}
+                                  <h3 className="text-sm font-semibold text-slate-900">
+                                    {update.title}
+                                  </h3>
+                                </div>
+                                <p className="mt-2 text-sm text-slate-600">
+                                  {truncateSummary(update.summary)}
+                                </p>
+                              </div>
+                              {update.published_at && (
+                                <p className="text-xs text-slate-400">
+                                  {formatDate(update.published_at)}
+                                </p>
+                              )}
+                            </div>
+                            {update.image_url && (
+                              <button
+                                type="button"
+                                className="mt-3 block w-full overflow-hidden rounded-xl border border-slate-200"
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  setLightboxUrl(update.image_url || null);
+                                  void markRead(update.id);
+                                }}
+                              >
+                                <img
+                                  src={update.image_url}
+                                  alt="Update screenshot"
+                                  className="h-36 w-full object-cover"
+                                  loading="lazy"
+                                />
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </aside>
+              </div>
+            )}
+
+            {lightboxUrl && (
+              <div
+                className="fixed inset-0 z-[1100] flex items-center justify-center bg-slate-900/70 px-4"
+                role="dialog"
+                aria-modal="true"
+                onClick={() => setLightboxUrl(null)}
+              >
+                <div className="relative max-w-3xl" onClick={(event) => event.stopPropagation()}>
+                  <img
+                    src={lightboxUrl}
+                    alt="Update screenshot"
+                    className="max-h-[80vh] rounded-2xl object-contain"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-700"
+                    onClick={() => setLightboxUrl(null)}
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            )}
+          </>,
+          portalTarget
+        )}
     </div>
   );
 }
