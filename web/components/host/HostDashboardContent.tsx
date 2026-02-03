@@ -181,8 +181,8 @@ export function HostDashboardContent({
     setReactivateTarget(listing);
   };
 
-  const mergeValue = <T,>(value: T | undefined, fallback: T): T =>
-    typeof value === "undefined" ? fallback : value;
+  const mergeValue = <T,>(value: T | null | undefined, fallback: T): T =>
+    value === null || typeof value === "undefined" ? fallback : value;
 
   const applyStatusResponse = (
     listing: DashboardListing,
