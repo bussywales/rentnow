@@ -39,6 +39,7 @@ export default function SupportContactForm({
   const [error, setError] = useState<string | null>(null);
   const [successId, setSuccessId] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; message?: string }>({});
 
   const showListingField = category === "listing" || category === "safety";
   const helperCopy = helperText || SUPPORT_CATEGORY_HELP[category];
@@ -69,10 +70,24 @@ export default function SupportContactForm({
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setSubmitting(true);
     setError(null);
     setSuccessId(null);
     setSuccess(false);
+    const trimmedMessage = message.trim();
+    const trimmedEmail = email.trim();
+    const nextErrors: { email?: string; message?: string } = {};
+    if (trimmedMessage.length < 10) {
+      nextErrors.message = "Please add a few more details (10+ characters).";
+    }
+    if (trimmedEmail && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(trimmedEmail)) {
+      nextErrors.email = "Enter a valid email address.";
+    }
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      return;
+    }
+    setFieldErrors({});
+    setSubmitting(true);
     try {
       const res = await fetch("/api/support/contact", {
         method: "POST",
@@ -113,8 +128,11 @@ export default function SupportContactForm({
     <form onSubmit={handleSubmit} className="space-y-4" data-testid="support-form">
       <div className="grid gap-4 md:grid-cols-2">
         <div className="space-y-1">
-          <label className="text-[11px] font-semibold text-slate-500">Name</label>
+          <label htmlFor="support-name" className="text-[11px] font-semibold text-slate-500">
+            Name (optional)
+          </label>
           <Input
+            id="support-name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="Your name"
@@ -123,20 +141,38 @@ export default function SupportContactForm({
           />
         </div>
         <div className="space-y-1">
-          <label className="text-[11px] font-semibold text-slate-500">Email</label>
+          <label htmlFor="support-email" className="text-[11px] font-semibold text-slate-500">
+            Email (optional)
+          </label>
           <Input
+            id="support-email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              if (fieldErrors.email) {
+                setFieldErrors((prev) => ({ ...prev, email: undefined }));
+              }
+            }}
             placeholder="you@email.com"
             type="email"
             autoComplete="email"
+            aria-invalid={fieldErrors.email ? "true" : "false"}
+            aria-describedby={fieldErrors.email ? "support-email-error" : undefined}
             data-testid="support-email"
           />
+          {fieldErrors.email && (
+            <p id="support-email-error" className="text-xs text-rose-600">
+              {fieldErrors.email}
+            </p>
+          )}
         </div>
       </div>
       <div className="space-y-1">
-        <label className="text-[11px] font-semibold text-slate-500">Topic</label>
+        <label htmlFor="support-category" className="text-[11px] font-semibold text-slate-500">
+          Topic
+        </label>
         <select
+          id="support-category"
           value={category}
           onChange={(e) => {
             const value = e.target.value;
@@ -157,10 +193,11 @@ export default function SupportContactForm({
       <div className="grid gap-4 md:grid-cols-2">
         {showListingField && (
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold text-slate-500">
+            <label htmlFor="support-listing-ref" className="text-[11px] font-semibold text-slate-500">
               Listing link or ID (optional)
             </label>
             <Input
+              id="support-listing-ref"
               value={listingRef}
               onChange={(e) => setListingRef(e.target.value)}
               placeholder="https://propatyhub.com/properties/..."
@@ -169,8 +206,11 @@ export default function SupportContactForm({
           </div>
         )}
         <div className="space-y-1">
-          <label className="text-[11px] font-semibold text-slate-500">Urgency</label>
+          <label htmlFor="support-urgency" className="text-[11px] font-semibold text-slate-500">
+            Urgency
+          </label>
           <select
+            id="support-urgency"
             value={urgency}
             onChange={(e) => setUrgency(e.target.value)}
             className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
@@ -185,17 +225,32 @@ export default function SupportContactForm({
         </div>
       </div>
       <div className="space-y-1">
-        <label className="text-[11px] font-semibold text-slate-500">Details</label>
+        <label htmlFor="support-message" className="text-[11px] font-semibold text-slate-500">
+          How can we help?
+        </label>
         <textarea
+          id="support-message"
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => {
+            setMessage(e.target.value);
+            if (fieldErrors.message) {
+              setFieldErrors((prev) => ({ ...prev, message: undefined }));
+            }
+          }}
           rows={5}
           required
           minLength={10}
           className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm transition focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200"
           placeholder="Share the key details so we can help fast."
+          aria-invalid={fieldErrors.message ? "true" : "false"}
+          aria-describedby={fieldErrors.message ? "support-message-error" : undefined}
           data-testid="support-message"
         />
+        {fieldErrors.message && (
+          <p id="support-message-error" className="text-xs text-rose-600">
+            {fieldErrors.message}
+          </p>
+        )}
       </div>
       {error && <p className="text-sm text-rose-600">{error}</p>}
       {success && (

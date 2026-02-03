@@ -26,10 +26,10 @@ test.describe("Support page visibility", () => {
     await expect(page.getByTestId("support-topic-tiles")).toBeVisible();
     await expect(page.getByTestId("support-topic-tile").first()).toBeVisible();
 
-    const faqItem = page.getByTestId("support-faq-item-contact-host");
+    const faqItem = page.getByTestId("support-faq-item-viewing-request");
     await expect(faqItem).toBeVisible();
-    await faqItem.getByText("How do I contact a host?").click();
-    await expect(faqItem.getByText(/contact host button/i)).toBeVisible();
+    await faqItem.getByText("How do I request a viewing?").click();
+    await expect(faqItem.getByText(/request viewing/i)).toBeVisible();
 
     await page.getByTestId("support-message").fill("Need help with a listing.");
     await page.getByTestId("support-form").getByRole("button", { name: /send to support/i }).click();

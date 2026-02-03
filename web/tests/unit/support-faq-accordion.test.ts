@@ -6,8 +6,12 @@ void test("support FAQ includes required questions", () => {
   const questions = SUPPORT_FAQ_ITEMS.map((item) => item.question);
 
   assert.ok(
-    questions.includes("How do I contact a host?"),
-    "expected FAQ to cover contacting hosts"
+    questions.includes("How do I request a viewing?"),
+    "expected FAQ to cover viewing requests"
+  );
+  assert.ok(
+    questions.includes("Can I reschedule or cancel a viewing?"),
+    "expected FAQ to cover viewing changes"
   );
   assert.ok(
     questions.includes("How do I report a listing?"),
@@ -18,12 +22,8 @@ void test("support FAQ includes required questions", () => {
     "expected FAQ to cover listing disappearance"
   );
   assert.ok(
-    questions.includes("How do I reset my password?"),
-    "expected FAQ to cover password reset guidance"
-  );
-  assert.ok(
-    questions.includes("How do saved searches work?"),
-    "expected FAQ to cover saved searches"
+    questions.includes("How do payments work?"),
+    "expected FAQ to cover payments"
   );
   assert.ok(
     questions.includes("What are key safety tips?"),

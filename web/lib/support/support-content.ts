@@ -4,7 +4,7 @@ export type SupportTopicTile = {
   id: string;
   title: string;
   description: string;
-  icon: "account" | "saved" | "contact" | "report" | "safety" | "other";
+  icon: "account" | "viewings" | "listing" | "payments" | "safety" | "other";
   category: SupportCategory;
   faqId?: string;
   helperText?: string;
@@ -17,66 +17,61 @@ export type SupportFaqItem = {
 };
 
 export const SUPPORT_CATEGORY_OPTIONS: Array<{ value: SupportCategory; label: string }> = [
-  { value: "general", label: "General help" },
-  { value: "account", label: "Account & login" },
-  { value: "listing", label: "Listing & reporting" },
-  { value: "safety", label: "Safety & scams" },
-  { value: "billing", label: "Billing & plans" },
+  { value: "general", label: "Other" },
+  { value: "account", label: "Account" },
+  { value: "listing", label: "Listings & viewings" },
+  { value: "billing", label: "Payments & billing" },
+  { value: "safety", label: "Safety" },
 ];
 
 export const SUPPORT_CATEGORY_HELP: Record<SupportCategory, string> = {
-  general: "Tell us the basics and we'll point you to the right answer.",
-  account: "Share the email on the account and what you're trying to fix.",
-  listing: "Include the listing link or ID so we can investigate quickly.",
-  safety: "Let us know what happened and we'll guide next steps.",
-  billing: "Include your plan tier and any receipt details if available.",
+  general: "Share a quick summary and we will guide you from there.",
+  account: "Tell us the email on your account and what you want to fix.",
+  listing: "Include the listing link or ID so we can investigate faster.",
+  safety: "Let us know what happened and we will guide next steps.",
+  billing: "Include the plan or receipt details if available.",
 };
 
 export const SUPPORT_TOPIC_TILES: SupportTopicTile[] = [
   {
-    id: "account-login",
-    title: "Account & login",
-    description: "Reset passwords, update email, or verify your profile.",
+    id: "account",
+    title: "Account",
+    description: "Login issues, profile updates, or verification.",
     icon: "account",
     category: "account",
     faqId: "reset-password",
-    helperText: "We can help with access issues and account recovery.",
   },
   {
-    id: "saved-alerts",
-    title: "Saved & alerts",
-    description: "Manage saved searches, alerts, and matching notifications.",
-    icon: "saved",
-    category: "general",
-    faqId: "saved-searches",
-    helperText: "Let us know which saved search or alert you need help with.",
-  },
-  {
-    id: "contact-hosts",
-    title: "Contacting hosts",
-    description: "Reach a host safely using in-app messaging.",
-    icon: "contact",
+    id: "viewings",
+    title: "Booking & viewings",
+    description: "Request, reschedule, or cancel a viewing.",
+    icon: "viewings",
     category: "listing",
-    faqId: "contact-host",
-    helperText: "Share the listing you're trying to contact a host about.",
+    faqId: "viewing-request",
   },
   {
-    id: "report-listing",
-    title: "Report a listing",
-    description: "Flag inaccurate details or duplicate listings.",
-    icon: "report",
+    id: "listings",
+    title: "Listings",
+    description: "Report incorrect details or missing listings.",
+    icon: "listing",
     category: "listing",
     faqId: "report-listing",
-    helperText: "Add the listing link or ID so we can review quickly.",
   },
   {
-    id: "safety-scams",
-    title: "Safety & scams",
-    description: "Get help if something feels off.",
+    id: "payments",
+    title: "Payments",
+    description: "Billing questions, refunds, or plan changes.",
+    icon: "payments",
+    category: "billing",
+    faqId: "payments",
+  },
+  {
+    id: "safety",
+    title: "Safety",
+    description: "Scam concerns or urgent safety issues.",
     icon: "safety",
     category: "safety",
     faqId: "safety-guidance",
-    helperText: "We'll help you stay safe and take the right next step.",
   },
   {
     id: "other",
@@ -85,62 +80,62 @@ export const SUPPORT_TOPIC_TILES: SupportTopicTile[] = [
     icon: "other",
     category: "general",
     faqId: "response-time",
-    helperText: "Share a quick summary and we'll take it from there.",
   },
 ];
 
 export const SUPPORT_FAQ_ITEMS: SupportFaqItem[] = [
   {
+    id: "viewing-request",
+    question: "How do I request a viewing?",
+    answer:
+      "Open the listing and choose Request viewing. Pick a time window and submit.",
+  },
+  {
+    id: "viewing-change",
+    question: "Can I reschedule or cancel a viewing?",
+    answer:
+      "Yes. Update the request in your dashboard or message support with your new times.",
+  },
+  {
     id: "contact-host",
     question: "How do I contact a host?",
     answer:
-      "Open the listing and use the Contact host button so your messages stay secure and in-app.",
+      "Use the in-app Contact host button so your messages stay secure and tracked.",
   },
   {
     id: "report-listing",
     question: "How do I report a listing?",
     answer:
-      "Send the listing link and what looks wrong. We review reports quickly and follow up if needed.",
+      "Send the listing link and what looks wrong. We review reports quickly.",
   },
   {
     id: "listing-disappeared",
     question: "Why did a listing disappear?",
     answer:
-      "Listings can expire, be paused by the host, or be removed if they don't meet our standards.",
+      "Listings can expire, be paused by the host, or be removed if they break policies.",
   },
   {
-    id: "reset-password",
-    question: "How do I reset my password?",
+    id: "payments",
+    question: "How do payments work?",
     answer:
-      "Use 'Forgot password' on the login page. If the email doesn't arrive, contact support and we'll assist.",
+      "Payments and billing details appear in-app. Never pay outside the platform.",
   },
   {
     id: "saved-searches",
     question: "How do saved searches work?",
     answer:
-      "Saved searches watch your filters and alert you when new homes match.",
+      "Saved searches watch your filters and notify you when new homes match.",
   },
   {
     id: "safety-guidance",
     question: "What are key safety tips?",
     answer:
-      "Never pay outside the platform and avoid cash deposits before a verified viewing.",
+      "Avoid cash deposits, keep communication in-app, and report anything suspicious.",
   },
   {
-    id: "viewing-change",
-    question: "Can I change or cancel a viewing?",
+    id: "reset-password",
+    question: "How do I reset my password?",
     answer:
-      "Update the viewing request if available, or message support with your preferred times.",
-  },
-  {
-    id: "response-time",
-    question: "How soon will I hear back?",
-    answer: "Most requests receive a response within 24 hours on business days.",
-  },
-  {
-    id: "account-details",
-    question: "Can I update my account details?",
-    answer:
-      "Yes. Update your profile details from your dashboard, or ask support for help.",
+      "Use Forgot password on the login screen. If the email does not arrive, contact support.",
   },
 ];

@@ -63,10 +63,10 @@ export default function SupportPageClient({
       <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Support</p>
         <h1 className="mt-2 text-3xl font-semibold text-slate-900">
-          Contact support
+          How can we help?
         </h1>
         <p className="mt-2 text-sm text-slate-500">
-          We&apos;re here to help. Start with a topic or send us a message.
+          We&apos;re here for you. Start with a topic or send us a message anytime.
         </p>
         <p className="mt-4 text-xs text-slate-400">
           Version {appVersion} • Released {releaseDate}
@@ -75,9 +75,9 @@ export default function SupportPageClient({
 
       <section className="space-y-3" data-testid="support-topic-section">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">Quick help</h2>
+          <h2 className="text-base font-semibold text-slate-900">Browse topics</h2>
           <p className="text-sm text-slate-500">
-            Pick a topic and we&apos;ll guide you to the right answer.
+            Choose a topic and we&apos;ll guide you to the right answer.
           </p>
         </div>
         <SupportTopicTiles

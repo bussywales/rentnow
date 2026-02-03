@@ -26,7 +26,7 @@ const iconMap: Record<SupportTopicTile["icon"], ReactNode> = {
       <path d="M4 20a8 8 0 0 1 16 0" />
     </svg>
   ),
-  saved: (
+  viewings: (
     <svg
       aria-hidden
       className="h-5 w-5 text-sky-600"
@@ -37,10 +37,14 @@ const iconMap: Record<SupportTopicTile["icon"], ReactNode> = {
       strokeLinejoin="round"
       viewBox="0 0 24 24"
     >
-      <path d="M5 4h14a1 1 0 0 1 1 1v15l-8-4-8 4V5a1 1 0 0 1 1-1Z" />
+      <path d="M8 4v3" />
+      <path d="M16 4v3" />
+      <rect x="3" y="6" width="18" height="15" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M8 14h4" />
     </svg>
   ),
-  contact: (
+  listing: (
     <svg
       aria-hidden
       className="h-5 w-5 text-sky-600"
@@ -51,12 +55,12 @@ const iconMap: Record<SupportTopicTile["icon"], ReactNode> = {
       strokeLinejoin="round"
       viewBox="0 0 24 24"
     >
-      <path d="M21 15a4 4 0 0 1-4 4H7l-4 3V7a4 4 0 0 1 4-4h8" />
-      <path d="M16 3h5v5" />
-      <path d="M21 3 12 12" />
+      <path d="M3 10.5 12 4l9 6.5" />
+      <path d="M5 9.5V20h14V9.5" />
+      <path d="M9 20v-6h6v6" />
     </svg>
   ),
-  report: (
+  payments: (
     <svg
       aria-hidden
       className="h-5 w-5 text-sky-600"
@@ -67,8 +71,9 @@ const iconMap: Record<SupportTopicTile["icon"], ReactNode> = {
       strokeLinejoin="round"
       viewBox="0 0 24 24"
     >
-      <path d="M5 4v16" />
-      <path d="M5 4h10l-2 4 2 4H5" />
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M3 10h18" />
+      <path d="M7 14h4" />
     </svg>
   ),
   safety: (
