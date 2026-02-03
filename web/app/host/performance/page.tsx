@@ -159,7 +159,7 @@ export default async function HostPerformancePage() {
         <div className="divide-y divide-slate-100">
           {listings.map((listing) => {
             const status = isListingExpired(listing) ? "expired" : listing.status;
-            const normalizedStatus = normalizePropertyStatus(status) ?? status;
+            const normalizedStatus = normalizePropertyStatus(status ?? null) ?? status ?? null;
             const summary = summaryMap.get(listing.id);
             const views = summary?.views ?? 0;
             const saves = Math.max(summary?.netSaves ?? 0, 0);
