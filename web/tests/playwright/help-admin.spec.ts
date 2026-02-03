@@ -45,6 +45,18 @@ test("admin can view listings statuses", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /Paused \(Occupied/i })).toBeVisible();
 });
 
+test("admin can view featured listings guide", async ({ page }) => {
+  test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping admin featured guide test.");
+  test.skip(!HAS_ADMIN, "Set PLAYWRIGHT_ADMIN_EMAIL/PASSWORD to run this test.");
+
+  await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+
+  await page.goto("/help/admin/listings/featured");
+  await expect(page.getByRole("heading", { name: /Featured listings/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /What featured listings are/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Featured ranking logic/i })).toBeVisible();
+});
+
 test("non-admin is blocked from admin help", async ({ page }) => {
   test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping non-admin help check.");
   test.skip(!HAS_TENANT, "Set PLAYWRIGHT_USER_EMAIL/PASSWORD to run this test.");
