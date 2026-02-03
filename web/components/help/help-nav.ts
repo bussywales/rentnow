@@ -37,6 +37,18 @@ export const HELP_ADMIN_NAV: HelpNavSection[] = [
   },
   {
     title: "Support",
-    items: [{ label: "Support playbooks", href: "/help/admin/support-playbooks" }],
+    items: [
+      { label: "Support playbooks", href: "/help/admin/support-playbooks" },
+      { label: "Intake & triage", href: "/help/admin/support-playbooks/intake-triage" },
+      { label: "Login & access", href: "/help/admin/support-playbooks/login-access" },
+      { label: "Listings", href: "/help/admin/support-playbooks/listings" },
+      { label: "Messaging", href: "/help/admin/support-playbooks/messaging" },
+      { label: "Sharing", href: "/help/admin/support-playbooks/sharing" },
+      { label: "Verification", href: "/help/admin/support-playbooks/verification" },
+      { label: "Legal & terms", href: "/help/admin/support-playbooks/legal" },
+      { label: "Product updates", href: "/help/admin/support-playbooks/product-updates" },
+      { label: "Analytics & events", href: "/help/admin/support-playbooks/analytics" },
+      { label: "Featured scheduling", href: "/help/admin/support-playbooks/featured" },
+    ],
   },
 ];
