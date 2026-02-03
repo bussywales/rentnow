@@ -6,6 +6,7 @@ import { Footer } from "@/components/layout/Footer";
 import { ToastNotice } from "@/components/layout/ToastNotice";
 import { OfflineIndicator } from "@/components/layout/OfflineIndicator";
 import { PwaServiceWorker } from "@/components/layout/PwaServiceWorker";
+import { SessionBootstrap } from "@/components/analytics/SessionBootstrap";
 import {
   BRAND,
   BRAND_NAME,
@@ -82,6 +83,7 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased text-slate-900`}
       >
         <MainNav />
+        <SessionBootstrap />
         <Suspense fallback={null}>
           <ToastNotice />
         </Suspense>

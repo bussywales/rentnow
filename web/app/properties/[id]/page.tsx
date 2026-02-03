@@ -99,7 +99,8 @@ function resolveBackHref(
 }
 
 async function getProperty(
-  id: string | undefined
+  id: string | undefined,
+  options?: { source?: string | null; requestHeaders?: Headers }
 ): Promise<{ property: Property | null; error: string | null; apiUrl: string | null }> {
   if (!id) {
     return { property: null, error: "Invalid property id", apiUrl: null };
@@ -110,10 +111,15 @@ async function getProperty(
   }
   const apiBaseUrl = await getApiBaseUrl();
   const apiUrl = `${apiBaseUrl}/api/properties/${cleanId}`;
+  const requestUrl = new URL(apiUrl);
+  if (options?.source) {
+    requestUrl.searchParams.set("source", options.source);
+  }
   let apiError: string | null = null;
 
   try {
-    const res = await fetch(apiUrl, {
+    const res = await fetch(requestUrl.toString(), {
+      headers: options?.requestHeaders,
       next: { revalidate: 60 },
     });
     if (!res.ok) {
@@ -136,7 +142,7 @@ async function getProperty(
         console.log("[property detail] fetched via API", {
           id: cleanId,
           title: data.title,
-          apiUrl,
+          apiUrl: requestUrl.toString(),
         });
         return {
           property: {
@@ -159,7 +165,7 @@ async function getProperty(
             ),
           },
           error: null,
-          apiUrl,
+          apiUrl: requestUrl.toString(),
         };
       }
     }
@@ -170,11 +176,11 @@ async function getProperty(
   if (DEV_MOCKS) {
     const fallback = mockProperties.find((item) => item.id === cleanId) ?? null;
     if (fallback) {
-      return { property: fallback, error: null, apiUrl };
+      return { property: fallback, error: null, apiUrl: requestUrl.toString() };
     }
   }
 
-  return { property: null, error: apiError ?? "Listing not found", apiUrl };
+  return { property: null, error: apiError ?? "Listing not found", apiUrl: requestUrl.toString() };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -236,11 +242,22 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
       : (searchParams as SearchParams));
   const headerList = await headers();
   const backHref = resolveBackHref(resolvedSearchParams, headerList.get("referer"));
+  const sourceParam = getSearchParamValue(resolvedSearchParams, "source") ?? null;
+  const forwardedHeaders = new Headers();
+  const cookieHeader = headerList.get("cookie");
+  const userAgentHeader = headerList.get("user-agent");
+  const forwardedFor = headerList.get("x-forwarded-for");
+  if (cookieHeader) forwardedHeaders.set("cookie", cookieHeader);
+  if (userAgentHeader) forwardedHeaders.set("user-agent", userAgentHeader);
+  if (forwardedFor) forwardedHeaders.set("x-forwarded-for", forwardedFor);
   let property: Property | null = null;
   let fetchError: string | null = null;
   let apiUrl: string | null = null;
   try {
-    const result = await getProperty(id);
+    const result = await getProperty(id, {
+      source: sourceParam,
+      requestHeaders: forwardedHeaders,
+    });
     property = result.property;
     fetchError = result.error;
     apiUrl = result.apiUrl;

@@ -30,6 +30,7 @@ import {
   shouldSkipInflightView,
   shortenId,
 } from "@/lib/analytics/property-views";
+import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 import { cleanNullableString } from "@/lib/strings";
@@ -344,6 +345,7 @@ export async function GET(
   const supabase = await createServerSupabaseClient();
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get("scope");
+  const source = searchParams.get("source") || searchParams.get("from");
   const ownerOnly = scope === "own";
 
   const missingPosition = (message?: string | null) =>
@@ -456,6 +458,18 @@ export async function GET(
       viewerId,
       viewerRole,
     });
+    if (!viewerId || viewerId !== data.owner_id) {
+      const sessionKey = resolveEventSessionKey({ request, userId: viewerId });
+      void logPropertyEvent({
+        supabase,
+        propertyId: data.id,
+        eventType: "property_view",
+        actorUserId: viewerId ?? null,
+        actorRole: viewerRole,
+        sessionKey,
+        meta: source ? { source } : null,
+      });
+    }
   }
 
   const orderedImages = orderImagesWithCover(

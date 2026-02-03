@@ -3,6 +3,8 @@ import { ErrorState } from "@/components/ui/ErrorState";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { buildPropertyShareRedirect, resolvePropertyShareStatus } from "@/lib/sharing/property-share";
+import { logPropertyEvent } from "@/lib/analytics/property-events.server";
+import { getSessionKeyFromCookies } from "@/lib/analytics/session.server";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +71,20 @@ export default async function SharePropertyPage({ params }: Props) {
         retryLabel="Contact support"
       />
     );
+  }
+
+  try {
+    await logPropertyEvent({
+      supabase: client,
+      propertyId: row.property_id,
+      eventType: "share_open",
+      actorUserId: null,
+      actorRole: "anon",
+      sessionKey: getSessionKeyFromCookies(),
+      meta: { source: "share_link" },
+    });
+  } catch (err) {
+    console.warn("[share-property] event log failed", err);
   }
 
   redirect(buildPropertyShareRedirect(row.property_id));

@@ -16,7 +16,8 @@ import {
   serializeAdminListingsQuery,
   hasActiveAdminListingsFilters,
 } from "@/lib/admin/admin-listings";
-import { getFeaturedInventorySummary, type FeaturedInventorySummary } from "@/lib/admin/featured-inventory";
+import { type FeaturedInventorySummary } from "@/lib/admin/featured-inventory";
+import { getFeaturedInventorySummary } from "@/lib/admin/featured-inventory.server";
 import AdminListingsPanelClient from "@/components/admin/AdminListingsPanelClient";
 import AdminListingsFiltersClient from "@/components/admin/AdminListingsFiltersClient";
 import AdminListingsAppliedFiltersClient from "@/components/admin/AdminListingsAppliedFiltersClient";

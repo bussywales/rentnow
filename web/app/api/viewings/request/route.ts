@@ -15,6 +15,8 @@ import {
   sanitizeMessageContent,
 } from "@/lib/messaging/contact-exchange";
 import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
+import { ensureSessionCookie } from "@/lib/analytics/session.server";
+import { logPropertyEvent } from "@/lib/analytics/property-events.server";
 
 const routeLabel = "/api/viewings/request";
 
@@ -228,6 +230,16 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
         : {}),
     });
     res.headers.set("x-viewings-handler", handlerLabel);
+    const sessionKey = ensureSessionCookie(request, res);
+    void logPropertyEvent({
+      supabase,
+      propertyId: payload.propertyId,
+      eventType: "viewing_requested",
+      actorUserId: auth.user.id,
+      actorRole: auth.role,
+      sessionKey,
+      meta: { source: "viewing_request" },
+    });
     return res;
   } catch (err) {
     logFailure({

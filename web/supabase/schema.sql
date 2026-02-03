@@ -104,6 +104,32 @@ CREATE INDEX idx_saved_properties_user ON public.saved_properties (user_id);
 CREATE INDEX idx_saved_properties_property_id ON public.saved_properties (property_id);
 CREATE INDEX idx_saved_properties_user_created_at ON public.saved_properties (user_id, created_at DESC);
 
+-- PROPERTY EVENTS
+CREATE TABLE public.property_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  property_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
+  event_type TEXT NOT NULL,
+  actor_user_id UUID REFERENCES public.profiles (id) ON DELETE SET NULL,
+  actor_role TEXT,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  session_key TEXT,
+  meta JSONB NOT NULL DEFAULT '{}'::jsonb,
+  CONSTRAINT property_events_event_type_check CHECK (event_type IN (
+    'property_view',
+    'save_toggle',
+    'lead_created',
+    'viewing_requested',
+    'share_open',
+    'featured_impression'
+  ))
+);
+
+CREATE INDEX idx_property_events_property ON public.property_events (property_id, occurred_at DESC);
+CREATE INDEX idx_property_events_event_type ON public.property_events (event_type, occurred_at DESC);
+CREATE INDEX idx_property_events_property_type ON public.property_events (property_id, event_type, occurred_at DESC);
+CREATE INDEX idx_property_events_property_view ON public.property_events (property_id, occurred_at DESC)
+  WHERE event_type = 'property_view';
+
 -- MESSAGES
 CREATE TABLE public.messages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

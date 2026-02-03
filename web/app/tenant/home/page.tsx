@@ -26,6 +26,8 @@ import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
 import { getFastResponderByHostIds } from "@/lib/trust/fast-responder.server";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import type { TrustMarkerState } from "@/lib/trust-markers";
+import { logPropertyEventsBulk, isUuid } from "@/lib/analytics/property-events.server";
+import { getSessionKeyFromCookies, getSessionKeyFromUser } from "@/lib/analytics/session.server";
 
 export const dynamic = "force-dynamic";
 
@@ -72,12 +74,14 @@ function PropertyRow({
   savedIds,
   fastResponderByHost,
   trustSnapshots,
+  source,
 }: {
   items: Property[];
   testId?: string;
   savedIds?: Set<string>;
   fastResponderByHost?: Record<string, boolean>;
   trustSnapshots?: Record<string, TrustMarkerState>;
+  source?: string;
 }) {
   return (
     <div
@@ -92,7 +96,11 @@ function PropertyRow({
         >
           <PropertyCard
             property={property}
-            href={`/properties/${property.id}`}
+            href={
+              source
+                ? `/properties/${property.id}?source=${encodeURIComponent(source)}`
+                : `/properties/${property.id}`
+            }
             showSave
             initialSaved={savedIds?.has(property.id)}
             showCta
@@ -178,6 +186,24 @@ export default async function TenantHomePage() {
     getNewHomes({ days: 7, limit: MODULE_LIMIT, context }),
     getSavedHomes({ limit: 8, context }),
   ]);
+
+  const sessionKey =
+    getSessionKeyFromCookies() ?? getSessionKeyFromUser(user.id);
+  if (featuredHomes.length && sessionKey) {
+    try {
+      await logPropertyEventsBulk({
+        supabase: context.supabase,
+        propertyIds: featuredHomes.map((property) => property.id).filter(isUuid),
+        eventType: "featured_impression",
+        actorUserId: user.id,
+        actorRole: role,
+        sessionKey,
+        meta: { source: "tenant_home" },
+      });
+    } catch (err) {
+      console.warn("[tenant-home] featured impressions failed", err);
+    }
+  }
 
   const modules = buildTenantDiscoveryModules({ featuredHomes, popularHomes, newHomes });
 
@@ -292,6 +318,7 @@ export default async function TenantHomePage() {
             savedIds={savedIds}
             fastResponderByHost={fastResponderByHost}
             trustSnapshots={trustSnapshots}
+            source="featured"
           />
         </section>
       )}

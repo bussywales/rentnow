@@ -18,6 +18,14 @@ import { computeDashboardListings } from "@/lib/properties/host-dashboard";
 import { isListingExpired } from "@/lib/properties/expiry";
 import { HostDashboardContent } from "@/components/host/HostDashboardContent";
 import { getVerificationStatus } from "@/lib/verification/status";
+import {
+  buildSummaryByProperty,
+  fetchPropertyEvents,
+  filterRowsSince,
+  groupEventsByProperty,
+  isUuid,
+} from "@/lib/analytics/property-events.server";
+import { estimateMissedDemand } from "@/lib/analytics/property-events";
 
 export const dynamic = "force-dynamic";
 
@@ -212,6 +220,59 @@ export default async function DashboardHome() {
         ? "Your session has expired. Please log in again."
         : "We couldn't load your listings right now. Please try again."
     : null;
+  let performanceById: Record<
+    string,
+    {
+      views: number;
+      saves: number;
+      leads: number;
+      missedDemand: ReturnType<typeof estimateMissedDemand> | null;
+    }
+  > = {};
+
+  if (supabaseReady && properties.length) {
+    try {
+      const propertyIds = properties.map((property) => property.id).filter(isUuid);
+      const { rows, error: eventError } = await fetchPropertyEvents({
+        propertyIds,
+        sinceDays: 60,
+      });
+      if (!eventError) {
+        const eventsByProperty = groupEventsByProperty(rows);
+        const last7Start = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const last7Rows = filterRowsSince(rows, last7Start);
+        const summaryMap = buildSummaryByProperty(last7Rows);
+        performanceById = Object.fromEntries(
+          properties.map((property) => {
+            const summary = summaryMap.get(property.id);
+            const views = summary?.views ?? 0;
+            const saves = Math.max(summary?.netSaves ?? 0, 0);
+            const leads =
+              (property.listing_intent ?? "rent") === "buy"
+                ? summary?.enquiries ?? 0
+                : summary?.viewingRequests ?? 0;
+            const missedDemand = estimateMissedDemand({
+              listing: property,
+              events: eventsByProperty.get(property.id) ?? [],
+            });
+            return [
+              property.id,
+              {
+                views,
+                saves,
+                leads,
+                missedDemand,
+              },
+            ];
+          })
+        );
+      }
+    } catch (err) {
+      console.warn("[host-dashboard] performance lookup failed", err);
+      performanceById = {};
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
@@ -343,12 +404,13 @@ export default async function DashboardHome() {
         )}
 
         {dashboardListings.length ? (
-          <HostDashboardContent
-            listings={dashboardListings}
-            trustMarkers={trustMarkers}
-            listingLimitReached={listingLimitReached}
-            hostUserId={hostUserId}
-          />
+      <HostDashboardContent
+        listings={dashboardListings}
+        trustMarkers={trustMarkers}
+        listingLimitReached={listingLimitReached}
+        hostUserId={hostUserId}
+        performanceById={performanceById}
+      />
         ) : (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
             <p className="text-base font-semibold text-slate-900">No listings yet</p>

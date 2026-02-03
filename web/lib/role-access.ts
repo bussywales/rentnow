@@ -30,6 +30,7 @@ export function getHostNavItems(role: UserRole | null): HostNavItem[] {
   const canManage = canManageListings(role);
   return [
     { label: "My listings", href: "/host", visible: canManage },
+    { label: "Performance", href: "/host/performance", visible: canManage },
     { label: "Analytics", href: "/dashboard/analytics", visible: canManage },
     { label: "Billing", href: "/dashboard/billing", visible: true },
     { label: "Saved searches", href: "/dashboard/saved-searches", visible: shouldShowSavedSearchNav() },

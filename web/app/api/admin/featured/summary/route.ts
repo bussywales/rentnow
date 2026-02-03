@@ -4,8 +4,8 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import {
   FEATURED_CITY_WARNING_THRESHOLD,
   FEATURED_EXPIRING_WINDOW_DAYS,
-  getFeaturedInventorySummary,
 } from "@/lib/admin/featured-inventory";
+import { getFeaturedInventorySummary } from "@/lib/admin/featured-inventory.server";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;

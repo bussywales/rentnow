@@ -29,6 +29,7 @@ import { ListingPauseModal } from "@/components/host/ListingPauseModal";
 import { ListingReactivateModal } from "@/components/host/ListingReactivateModal";
 import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import type { PropertyStatus } from "@/lib/types";
+import type { MissedDemandEstimate } from "@/lib/analytics/property-events";
 
 function normalizeStatus(property: {
   status?: string | null;
@@ -64,16 +65,25 @@ type StatusUpdatePayload = {
   paused_reason?: string | null;
 };
 
+type ListingPerformance = {
+  views: number;
+  saves: number;
+  leads: number;
+  missedDemand?: MissedDemandEstimate | null;
+};
+
 export function HostDashboardContent({
   listings,
   trustMarkers,
   listingLimitReached,
   hostUserId,
+  performanceById = {},
 }: {
   listings: DashboardListing[];
   trustMarkers: TrustMarkerState | null;
   listingLimitReached: boolean;
   hostUserId?: string | null;
+  performanceById?: Record<string, ListingPerformance>;
 }) {
   const [search, setSearch] = useState("");
   const { view, setView } = useHostDashboardView(hostUserId);
@@ -169,6 +179,13 @@ export function HostDashboardContent({
     if (normalized === "owner_hold") return "Owner hold";
     if (normalized === "occupied") return "Tenant moved in";
     return value;
+  };
+
+  const formatMissedDemand = (estimate?: MissedDemandEstimate | null) => {
+    if (!estimate || estimate.state === "not_applicable") return null;
+    if (estimate.state === "no_history") return "Missed demand: no live history yet.";
+    if (estimate.state === "not_enough_data") return "Missed demand: not enough data yet.";
+    return `Missed demand est. ${estimate.missed}`;
   };
 
   const openPauseModal = (listing: DashboardListing) => {
@@ -308,6 +325,8 @@ export function HostDashboardContent({
             const pausedReasonLabel = isPaused ? formatPausedReason(property.paused_reason) : null;
             const isUpdatingStatus = statusPending[property.id] ?? false;
             const statusError = statusErrors[property.id] ?? null;
+            const performance = performanceById[property.id];
+            const missedDemandLabel = formatMissedDemand(performance?.missedDemand);
 
             return (
               <div
@@ -359,6 +378,17 @@ export function HostDashboardContent({
                   {HOST_DASHBOARD_COPY.lastUpdatedLabel}:{" "}
                   {formatRelativeTime(getLastUpdatedDate(property))}
                 </div>
+                {performance && (
+                  <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    <div className="font-semibold text-slate-700">Demand last 7d</div>
+                    <div className="mt-1 text-[11px] text-slate-600">
+                      Views {performance.views} · Saves {performance.saves} · Leads {performance.leads}
+                    </div>
+                    {(isPaused || isExpired) && missedDemandLabel && (
+                      <div className="mt-1 text-[11px] text-slate-500">{missedDemandLabel}</div>
+                    )}
+                  </div>
+                )}
                 <div className="mt-2">
                   <ListingReadinessBadge readiness={readiness} improveHref={improveHref} />
                 </div>
@@ -457,6 +487,7 @@ export function HostDashboardContent({
         listings={selectedListings}
       />
       <ListingPauseModal
+        key={pauseTarget?.id ?? "pause-closed"}
         open={!!pauseTarget}
         listingTitle={pauseTarget?.title}
         onClose={() => setPauseTarget(null)}

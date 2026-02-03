@@ -1,5 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 export type FeaturedInventoryItem = {
   id: string;
   title: string | null;
@@ -8,6 +6,10 @@ export type FeaturedInventoryItem = {
   featured_rank: number | null;
   featured_until: string | null;
   updated_at: string | null;
+  featured_impressions_7d?: number;
+  featured_clicks_7d?: number;
+  featured_leads_7d?: number;
+  featured_ctr_7d?: number | null;
 };
 
 export type FeaturedInventorySummary = {
@@ -75,28 +77,6 @@ export function buildFeaturedInventorySummary(
   }
 
   return { featuredActive, featuredExpiringSoon, featuredExpired, countsByCity };
-}
-
-export async function getFeaturedInventorySummary({
-  client,
-  expiringWindowDays = 7,
-}: {
-  client: SupabaseClient;
-  expiringWindowDays?: number;
-}): Promise<FeaturedInventorySummary> {
-  const { data, error } = await client
-    .from("properties")
-    .select(
-      "id,title,city,status,featured_rank,featured_until,updated_at"
-    )
-    .eq("is_featured", true);
-
-  if (error) {
-    throw error;
-  }
-
-  const rows = (data as FeaturedInventoryItem[]) ?? [];
-  return buildFeaturedInventorySummary(rows, new Date(), expiringWindowDays);
 }
 
 export const FEATURED_EXPIRING_WINDOW_DAYS = 7;

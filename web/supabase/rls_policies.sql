@@ -16,6 +16,9 @@ ALTER TABLE public.property_images FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_properties FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.property_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.property_events FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE public.saved_searches ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.saved_searches FORCE ROW LEVEL SECURITY;
 
@@ -701,6 +704,17 @@ CREATE POLICY "saved self delete" ON public.saved_properties
   FOR DELETE
   USING (auth.uid() = user_id);
 
+-- property_events: admin-only raw access
+DROP POLICY IF EXISTS "property events admin select" ON public.property_events;
+CREATE POLICY "property events admin select" ON public.property_events
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.id = auth.uid() AND p.role = 'admin'
+    )
+  );
+
 -- saved_searches: user-owned saved searches
 DROP POLICY IF EXISTS "saved searches select self" ON public.saved_searches;
 CREATE POLICY "saved searches select self" ON public.saved_searches
@@ -865,6 +879,10 @@ BEGIN
       'enabled', COALESCE((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.saved_properties')), false),
       'forced', COALESCE((SELECT relforcerowsecurity FROM pg_class WHERE oid = to_regclass('public.saved_properties')), false)
     ),
+    'property_events', jsonb_build_object(
+      'enabled', COALESCE((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.property_events')), false),
+      'forced', COALESCE((SELECT relforcerowsecurity FROM pg_class WHERE oid = to_regclass('public.property_events')), false)
+    ),
     'saved_searches', jsonb_build_object(
       'enabled', COALESCE((SELECT relrowsecurity FROM pg_class WHERE oid = to_regclass('public.saved_searches')), false),
       'forced', COALESCE((SELECT relforcerowsecurity FROM pg_class WHERE oid = to_regclass('public.saved_searches')), false)
@@ -918,6 +936,12 @@ BEGIN
       (SELECT jsonb_agg(policyname ORDER BY policyname)
        FROM pg_policies
        WHERE schemaname = 'public' AND tablename = 'saved_properties'),
+      '[]'::jsonb
+    ),
+    'property_events', COALESCE(
+      (SELECT jsonb_agg(policyname ORDER BY policyname)
+       FROM pg_policies
+       WHERE schemaname = 'public' AND tablename = 'property_events'),
       '[]'::jsonb
     ),
     'saved_searches', COALESCE(
@@ -1016,6 +1040,16 @@ BEGIN
       'property_id', EXISTS (
         SELECT 1 FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = 'saved_properties' AND column_name = 'property_id'
+      )
+    ),
+    'property_events', jsonb_build_object(
+      'property_id', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'property_events' AND column_name = 'property_id'
+      ),
+      'event_type', EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'property_events' AND column_name = 'event_type'
       )
     ),
     'saved_searches', jsonb_build_object(

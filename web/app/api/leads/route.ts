@@ -11,6 +11,8 @@ import {
 import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
 import { logFailure } from "@/lib/observability";
 import { withDeliveryState } from "@/lib/messaging/status";
+import { ensureSessionCookie } from "@/lib/analytics/session.server";
+import { logPropertyEvent } from "@/lib/analytics/property-events.server";
 
 const routeLabel = "/api/leads";
 
@@ -188,9 +190,20 @@ export async function POST(request: Request) {
       .eq("id", threadRow.id);
   }
 
-  return NextResponse.json({
+  const response = NextResponse.json({
     lead,
     thread_id: threadRow.id,
     message: posted ? withDeliveryState(posted) : null,
   });
+  const sessionKey = ensureSessionCookie(request, response);
+  void logPropertyEvent({
+    supabase,
+    propertyId: property.id,
+    eventType: "lead_created",
+    actorUserId: auth.user.id,
+    actorRole: role,
+    sessionKey,
+    meta: { intent: parsed.data.intent ?? "BUY" },
+  });
+  return response;
 }

@@ -1,8 +1,10 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { requireUser } from "@/lib/authz";
+import { getUserRole, requireUser } from "@/lib/authz";
 import { logFailure } from "@/lib/observability";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { ensureSessionCookie } from "@/lib/analytics/session.server";
+import { logPropertyEvent } from "@/lib/analytics/property-events.server";
 
 const routeLabel = "/api/saved-properties";
 
@@ -129,7 +131,19 @@ export async function postSavedPropertiesResponse(
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ ok: true });
+    const response = NextResponse.json({ ok: true });
+    const role = await getUserRole(supabase, auth.user.id);
+    const sessionKey = ensureSessionCookie(request, response);
+    void logPropertyEvent({
+      supabase,
+      propertyId: property_id,
+      eventType: "save_toggle",
+      actorUserId: auth.user.id,
+      actorRole: role,
+      sessionKey,
+      meta: { action: "save" },
+    });
+    return response;
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unable to save property";
     deps.logFailure({
@@ -191,7 +205,19 @@ export async function deleteSavedPropertiesResponse(
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: true });
+  const response = NextResponse.json({ ok: true });
+  const role = await getUserRole(supabase, auth.user.id);
+  const sessionKey = ensureSessionCookie(request, response);
+  void logPropertyEvent({
+    supabase,
+    propertyId,
+    eventType: "save_toggle",
+    actorUserId: auth.user.id,
+    actorRole: role,
+    sessionKey,
+    meta: { action: "unsave" },
+  });
+  return response;
 }
 
 export async function GET(request: Request) {
