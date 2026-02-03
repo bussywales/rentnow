@@ -13,21 +13,36 @@ async function login(page: Page, email: string, password: string) {
 }
 
 test.describe("Support page visibility", () => {
-  test("tenant-facing support shows help content and hides release notes", async ({ page }) => {
+  test("tenant-facing support shows tiles, FAQ, and form", async ({ page }) => {
+    await page.route("**/api/support/contact", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ ok: true, id: "req_123" }),
+      });
+    });
+
     await page.goto("/support");
-    await expect(page.getByTestId("support-quick-help")).toBeVisible();
-    await expect(page.getByTestId("support-common-topics")).toBeVisible();
-    await expect(page.getByTestId("support-response-time")).toBeVisible();
-    await expect(page.getByTestId("support-admin-status")).toHaveCount(0);
-    await expect(page.getByTestId("support-release-notes")).toHaveCount(0);
+    await expect(page.getByTestId("support-topic-tiles")).toBeVisible();
+    await expect(page.getByTestId("support-topic-tile").first()).toBeVisible();
+
+    const faqItem = page.getByTestId("support-faq-item-contact-host");
+    await expect(faqItem).toBeVisible();
+    await faqItem.getByText("How do I contact a host?").click();
+    await expect(faqItem.getByText(/contact host button/i)).toBeVisible();
+
+    await page.getByTestId("support-message").fill("Need help with a listing.");
+    await page.getByTestId("support-form").getByRole("button", { name: /send to support/i }).click();
+    await expect(page.getByText(/We've received your message/i)).toBeVisible();
+
+    await expect(page.getByTestId("support-developer-info")).toHaveCount(0);
   });
 
   test("admin support view includes release notes", async ({ page }) => {
     test.skip(!HAS_ADMIN, "Set PLAYWRIGHT_ADMIN_EMAIL/PASSWORD to run admin support checks.");
     await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
     await page.goto("/support");
-    await expect(page.getByTestId("support-admin-status")).toBeVisible();
     await expect(page.getByTestId("support-release-notes")).toBeVisible();
-    await expect(page.getByTestId("support-quick-help")).toHaveCount(0);
+    await expect(page.getByTestId("support-developer-info")).toBeVisible();
   });
 });

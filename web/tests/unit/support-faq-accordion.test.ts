@@ -1,23 +1,32 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import fs from "node:fs";
-import path from "node:path";
+import { SUPPORT_FAQ_ITEMS } from "../../lib/support/support-content";
 
-void test("support FAQ accordion uses details elements for each item", () => {
-  const filePath = path.join(
-    process.cwd(),
-    "components",
-    "support",
-    "SupportFaqAccordion.tsx"
-  );
-  const contents = fs.readFileSync(filePath, "utf8");
+void test("support FAQ includes required questions", () => {
+  const questions = SUPPORT_FAQ_ITEMS.map((item) => item.question);
 
   assert.ok(
-    contents.includes("<details"),
-    "expected SupportFaqAccordion to render details elements"
+    questions.includes("How do I contact a host?"),
+    "expected FAQ to cover contacting hosts"
   );
   assert.ok(
-    contents.includes('data-testid="support-faq"'),
-    "expected support FAQ wrapper to expose data-testid"
+    questions.includes("How do I report a listing?"),
+    "expected FAQ to cover reporting listings"
+  );
+  assert.ok(
+    questions.includes("Why did a listing disappear?"),
+    "expected FAQ to cover listing disappearance"
+  );
+  assert.ok(
+    questions.includes("How do I reset my password?"),
+    "expected FAQ to cover password reset guidance"
+  );
+  assert.ok(
+    questions.includes("How do saved searches work?"),
+    "expected FAQ to cover saved searches"
+  );
+  assert.ok(
+    questions.includes("What are key safety tips?"),
+    "expected FAQ to cover safety guidance"
   );
 });
