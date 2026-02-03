@@ -3,24 +3,23 @@ import { HelpPageShell } from "@/components/help/HelpPageShell";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminListingsHelpPage() {
+export default function ListingsStatusesHelpPage() {
   return (
     <HelpPageShell
-      title="Listings hub"
-      subtitle="Shortcuts and references for listings review, status handling, and featured ops."
+      title="Listings statuses"
+      subtitle="Definitions and allowed transitions for each listing status."
       breadcrumbs={[
         { label: "Help Centre", href: "/help" },
-        { label: "Listings" },
+        { label: "Listings", href: "/help/admin/listings" },
+        { label: "Statuses" },
       ]}
     >
       <HelpComingSoon
-        title="Listings documentation is expanding"
-        description="We are building a full listings handbook. For now, use the review workflow and status references below."
+        title="Statuses reference coming soon"
+        description="We are documenting each status, what it means to tenants, and the safe transitions."
         links={[
           { label: "Review workflow", href: "/help/admin/listings/review-workflow" },
           { label: "Listings overview", href: "/help/admin/listings/overview" },
-          { label: "Statuses", href: "/help/admin/listings/statuses" },
-          { label: "Featured listings", href: "/help/admin/listings/featured" },
         ]}
       />
     </HelpPageShell>
