@@ -319,7 +319,7 @@ CREATE POLICY "legal acceptances select self" ON public.legal_acceptances
 DROP POLICY IF EXISTS "legal acceptances insert self" ON public.legal_acceptances;
 CREATE POLICY "legal acceptances insert self" ON public.legal_acceptances
   FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
+  WITH CHECK (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "legal acceptances admin read" ON public.legal_acceptances;
 
