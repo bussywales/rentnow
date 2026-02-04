@@ -2,9 +2,11 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { InsightsRangeKey } from "@/lib/admin/insights";
 import { buildAdminInsights, resolveInsightsRange } from "@/lib/admin/insights";
+import { buildInsightsDrilldowns } from "@/lib/admin/insights-drilldowns";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import InsightsListingHealthClient from "@/components/admin/InsightsListingHealthClient";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,7 @@ type InsightsDiagnostics = {
   supabaseReady: boolean;
   serviceRoleReady: boolean;
   insights: Awaited<ReturnType<typeof buildAdminInsights>> | null;
+  drilldowns: Awaited<ReturnType<typeof buildInsightsDrilldowns>> | null;
   error: string | null;
 };
 
@@ -50,6 +53,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
       supabaseReady: false,
       serviceRoleReady: false,
       insights: null,
+      drilldowns: null,
       error: "Supabase env vars missing.",
     };
   }
@@ -74,6 +78,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
       supabaseReady: true,
       serviceRoleReady,
       insights: null,
+      drilldowns: null,
       error: "Service role key missing; insights unavailable.",
     };
   }
@@ -81,11 +86,13 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
   const adminClient = createServiceRoleClient();
   const range = resolveInsightsRange(rangeKey);
   const insights = await buildAdminInsights(adminClient, range);
+  const drilldowns = await buildInsightsDrilldowns(adminClient, range);
 
   return {
     supabaseReady: true,
     serviceRoleReady,
     insights,
+    drilldowns,
     error: insights.notes.length ? insights.notes.join(" | ") : null,
   };
 }
@@ -122,8 +129,12 @@ function FunnelRow({ label, value, max }: { label: string; value: number | null;
 export default async function AdminInsightsPage({ searchParams }: { searchParams?: SearchParams }) {
   const resolvedParams = searchParams ? await searchParams : {};
   const rangeKey = parseParam(resolvedParams, "range");
+  const statusParam = parseParam(resolvedParams, "status");
+  const flagParam = parseParam(resolvedParams, "flag");
+  const queryParam = parseParam(resolvedParams, "q");
   const diag = await getInsightsDiagnostics(rangeKey);
   const insights = diag.insights;
+  const drilldowns = diag.drilldowns;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8">
@@ -166,7 +177,7 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
         </div>
       )}
 
-      {diag.supabaseReady && diag.serviceRoleReady && insights && (
+      {diag.supabaseReady && diag.serviceRoleReady && insights && drilldowns && (
         <>
           <section className="space-y-4" data-testid="insights-growth">
             <h2 className="text-xl font-semibold text-slate-900">Top-line growth</h2>
@@ -292,6 +303,211 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
                 value={formatNumber(insights.revenue.reactivations)}
                 hint="Listings reactivated in this period."
               />
+            </div>
+          </section>
+
+          <section className="space-y-4" data-testid="insights-alerts">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">Alerts & Opportunities</h2>
+                <p className="text-sm text-slate-600">
+                  Actionable items derived from the selected range.
+                </p>
+              </div>
+            </div>
+            {drilldowns.alerts.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">
+                No alerts triggered for this range.
+              </div>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2">
+                {drilldowns.alerts.map((alert) => (
+                  <Link
+                    key={alert.id}
+                    href={alert.href}
+                    data-testid={`insights-alert-${alert.id}`}
+                    className="rounded-2xl border border-slate-200 bg-white p-4 text-sm shadow-sm transition hover:border-slate-300"
+                  >
+                    <div className="flex items-center justify-between">
+                      <p className="font-semibold text-slate-900">{alert.title}</p>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                          alert.severity === "critical"
+                            ? "bg-rose-100 text-rose-700"
+                            : alert.severity === "warn"
+                              ? "bg-amber-100 text-amber-700"
+                              : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {alert.severity}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-600">{alert.description}</p>
+                    <p className="mt-3 text-xs font-semibold text-slate-900">{alert.count} affected</p>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </section>
+
+          <section className="space-y-4" id="markets" data-testid="insights-markets">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">Markets performance</h2>
+                <p className="text-sm text-slate-600">
+                  Top cities by visitors, views, and enquiries.
+                </p>
+              </div>
+              <a href="#markets-all" className="text-xs font-semibold text-slate-600 hover:text-slate-900">
+                View all
+              </a>
+            </div>
+            <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold">Market</th>
+                      <th className="px-4 py-3 text-right font-semibold">Visitors</th>
+                      <th className="px-4 py-3 text-right font-semibold">Views</th>
+                      <th className="px-4 py-3 text-right font-semibold">Enquiries</th>
+                      <th className="px-4 py-3 text-right font-semibold">Views → Leads</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {drilldowns.markets.top.map((row) => (
+                      <tr key={row.city}>
+                        <td className="px-4 py-3 font-semibold text-slate-900">{row.city}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(row.visitors)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(row.views)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(row.enquiries)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatPercent(row.conversion)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-sm font-semibold text-slate-900">Emerging markets</h3>
+              <p className="text-xs text-slate-600">Fastest growth versus the previous period.</p>
+              <div className="mt-3 grid gap-3 md:grid-cols-3">
+                {drilldowns.markets.emerging.map((row) => (
+                  <div key={row.city} className="rounded-xl border border-slate-200 px-3 py-3">
+                    <p className="text-sm font-semibold text-slate-900">{row.city}</p>
+                    <p className="text-xs text-slate-600">
+                      Views growth: {formatPercent(row.viewsGrowthPct ?? null)} · Leads growth:{" "}
+                      {formatPercent(row.enquiriesGrowthPct ?? null)}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <details id="markets-all" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <summary className="cursor-pointer text-sm font-semibold text-slate-700">All markets</summary>
+              <div className="mt-3 overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold">Market</th>
+                      <th className="px-4 py-3 text-right font-semibold">Visitors</th>
+                      <th className="px-4 py-3 text-right font-semibold">Views</th>
+                      <th className="px-4 py-3 text-right font-semibold">Enquiries</th>
+                      <th className="px-4 py-3 text-right font-semibold">Views → Leads</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {drilldowns.markets.all.map((row) => (
+                      <tr key={`all-${row.city}`}>
+                        <td className="px-4 py-3 font-semibold text-slate-900">{row.city}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(row.visitors)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(row.views)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(row.enquiries)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatPercent(row.conversion)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </section>
+
+          <section className="space-y-4" id="listing-health" data-testid="insights-listing-health">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">Listing health scoreboard</h2>
+              <p className="text-sm text-slate-600">Operational listing flags and quick actions.</p>
+            </div>
+            <InsightsListingHealthClient
+              initialRows={drilldowns.listingHealth}
+              initialStatus={statusParam}
+              initialFlag={flagParam}
+              initialQuery={queryParam}
+            />
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-2" data-testid="insights-cohorts">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">Tenant activation cohorts</h2>
+              <p className="text-sm text-slate-600">Signup → view → save → enquiry.</p>
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold">Cohort</th>
+                      <th className="px-4 py-3 text-right font-semibold">Signed up</th>
+                      <th className="px-4 py-3 text-right font-semibold">Viewed</th>
+                      <th className="px-4 py-3 text-right font-semibold">Saved</th>
+                      <th className="px-4 py-3 text-right font-semibold">Enquired</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {drilldowns.tenantCohorts.map((bucket) => (
+                      <tr key={bucket.label}>
+                        <td className="px-4 py-3 font-semibold text-slate-900">{bucket.label}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(bucket.signedUp)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(bucket.viewed)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(bucket.saved)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(bucket.enquired)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <h2 className="text-lg font-semibold text-slate-900">Host activation cohorts</h2>
+              <p className="text-sm text-slate-600">Signup → create → submit → live → first lead.</p>
+              <div className="mt-4 overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-semibold">Cohort</th>
+                      <th className="px-4 py-3 text-right font-semibold">Signed up</th>
+                      <th className="px-4 py-3 text-right font-semibold">Created</th>
+                      <th className="px-4 py-3 text-right font-semibold">Submitted</th>
+                      <th className="px-4 py-3 text-right font-semibold">Live</th>
+                      <th className="px-4 py-3 text-right font-semibold">First view</th>
+                      <th className="px-4 py-3 text-right font-semibold">First lead</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {drilldowns.hostCohorts.map((bucket) => (
+                      <tr key={bucket.label}>
+                        <td className="px-4 py-3 font-semibold text-slate-900">{bucket.label}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(bucket.signedUp)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(bucket.createdListing ?? null)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(bucket.submittedReview ?? null)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(bucket.listingLive ?? null)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(bucket.firstView ?? null)}</td>
+                        <td className="px-4 py-3 text-right text-slate-700">{formatNumber(bucket.receivedLead ?? null)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </section>
 

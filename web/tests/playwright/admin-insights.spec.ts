@@ -26,6 +26,13 @@ test("admin can view insights dashboard", async ({ page }) => {
 
   await expect(page.getByRole("heading", { name: /Insights/i })).toBeVisible();
   await expect(page.getByTestId("insights-growth")).toBeVisible();
+  await expect(page.getByTestId("insights-alerts")).toBeVisible();
+
+  const alert = page.getByTestId("insights-alert-zero-views");
+  if (await alert.isVisible()) {
+    await alert.click();
+    await expect(page.getByTestId("listing-health-table")).toBeVisible();
+  }
 });
 
 test("non-admin is blocked from insights", async ({ page }) => {
