@@ -90,7 +90,7 @@ export const updateSchema = z.object({
   listing_intent: z.enum(["rent", "buy"]).optional().nullable(),
   price: z.number().positive().optional(),
   currency: z.string().min(2).optional(),
-  rent_period: z.enum(["monthly", "yearly"]).optional(),
+  rent_period: z.enum(["monthly", "yearly"]).optional().nullable(),
   bedrooms: z.number().int().nonnegative().optional(),
   bathrooms: z.number().int().nonnegative().optional(),
   bathroom_type: z.enum(["private", "shared"]).optional().nullable(),

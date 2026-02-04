@@ -69,7 +69,7 @@ export const propertySchema = z.object({
   listing_intent: z.enum(["rent", "buy"]).optional().nullable(),
   price: z.number().positive(),
   currency: z.string().min(2),
-  rent_period: z.enum(["monthly", "yearly"]).optional(),
+  rent_period: z.enum(["monthly", "yearly"]).optional().nullable(),
   bedrooms: z.number().int().nonnegative(),
   bathrooms: z.number().int().nonnegative(),
   bathroom_type: z.enum(["private", "shared"]).optional().nullable(),
