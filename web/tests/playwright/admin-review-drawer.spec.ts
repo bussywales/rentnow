@@ -26,6 +26,7 @@ test("admin review desk renders and drawer opens (skip-safe)", async ({ page }) 
   await expect(page).toHaveURL(/id=/);
   await expect(page.getByText("Media")).toBeVisible();
   await expect(page.locator("[data-testid=\"admin-review-media-hero\"]")).toBeVisible();
+  await expect(page.getByTestId("admin-listing-performance")).toBeVisible();
 
   await page.keyboard.press("/");
   await expect(page.locator("input[type=\"search\"]")).toBeFocused();

@@ -123,6 +123,22 @@ const detailSchema = z.object({
     .optional(),
 });
 
+const performanceSchema = z.object({
+  id: z.string(),
+  rangeDays: z.number(),
+  views: z.number(),
+  saves: z.number(),
+  enquiries: z.number(),
+  lead_rate: z.number(),
+  days_live: z.number(),
+  series: z.array(
+    z.object({
+      date: z.string(),
+      views: z.number(),
+    })
+  ),
+});
+
 function ChecklistChip({ status }: { status: "pass" | "needs_fix" | "blocker" | null | undefined }) {
   if (!status) {
     return (
@@ -202,6 +218,11 @@ export function AdminReviewDrawer({
   const [detailData, setDetailData] = useState<z.infer<typeof detailSchema> | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [performanceData, setPerformanceData] = useState<z.infer<typeof performanceSchema> | null>(
+    null
+  );
+  const [performanceLoading, setPerformanceLoading] = useState(false);
+  const [performanceError, setPerformanceError] = useState<string | null>(null);
   const [bankUpdating, setBankUpdating] = useState(false);
   const [bankUpdateError, setBankUpdateError] = useState<string | null>(null);
   const [featuredForm, setFeaturedForm] = useState({
@@ -244,6 +265,9 @@ export function AdminReviewDrawer({
       setDetailData(null);
       setDetailError(null);
       setDetailLoading(false);
+      setPerformanceData(null);
+      setPerformanceError(null);
+      setPerformanceLoading(false);
       setChecklistState(null);
       setChecklistOpen(false);
       setScrollTarget(null);
@@ -306,6 +330,41 @@ export function AdminReviewDrawer({
       setDetailLoading(false);
     });
   }, [listing?.id, selectedIdSnapshot]);
+
+  useEffect(() => {
+    let active = true;
+    const fetchPerformance = async () => {
+      if (!listing?.id) return;
+      setPerformanceLoading(true);
+      setPerformanceError(null);
+      try {
+        const res = await fetch(`/api/admin/properties/${listing.id}/performance?range=30`);
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          throw new Error(data?.error || "Failed to load performance");
+        }
+        const json = await res.json();
+        const parsed = performanceSchema.parse(json);
+        if (!active) return;
+        setPerformanceData(parsed);
+      } catch (err) {
+        if (!active) return;
+        setPerformanceError(err instanceof Error ? err.message : "Failed to load performance");
+        setPerformanceData(null);
+      } finally {
+        if (!active) return;
+        setPerformanceLoading(false);
+      }
+    };
+    fetchPerformance().catch(() => {
+      if (!active) return;
+      setPerformanceError("Failed to load performance");
+      setPerformanceLoading(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [listing?.id]);
 
   useEffect(() => {
     let active = true;
@@ -490,6 +549,10 @@ export function AdminReviewDrawer({
   const updatedAt = detail?.listing.updated_at ?? listing?.updatedAt ?? null;
   const ownerVerification = detail?.owner_verification ?? null;
   const ownerId = detail?.listing.owner_id ?? listing?.ownerId ?? null;
+  const performance = performanceData ?? null;
+  const performanceRangeLabel = performance?.rangeDays ? `Last ${performance.rangeDays} days` : "Last 30 days";
+  const performanceMax =
+    performance?.series?.reduce((max, item) => Math.max(max, item.views), 0) ?? 0;
 
   const toggleReason = (code: ReviewReasonCode) => {
     setReasons((prev) => {
@@ -1139,6 +1202,84 @@ export function AdminReviewDrawer({
                 )}
               </div>
             </>
+          )}
+        </section>
+
+        <section className="p-4 space-y-3" data-testid="admin-listing-performance">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900">Performance</h3>
+              <p className="text-xs text-slate-600">{performanceRangeLabel}</p>
+            </div>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Read-only
+            </span>
+          </div>
+          {performanceLoading && (
+            <p className="text-xs text-slate-500">Loading performance…</p>
+          )}
+          {performanceError && (
+            <p className="text-xs text-rose-600">{performanceError}</p>
+          )}
+          {!performanceLoading && !performanceError && !performance && (
+            <p className="text-xs text-slate-500">No performance data yet.</p>
+          )}
+          {!performanceLoading && !performanceError && performance && (
+            <div className="space-y-3">
+              <div className="grid gap-2 sm:grid-cols-5">
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Views</div>
+                  <div className="mt-1 text-base font-semibold text-slate-900" data-testid="admin-performance-views">
+                    {performance.views}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Saves</div>
+                  <div className="mt-1 text-base font-semibold text-slate-900" data-testid="admin-performance-saves">
+                    {performance.saves}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Enquiries</div>
+                  <div className="mt-1 text-base font-semibold text-slate-900" data-testid="admin-performance-enquiries">
+                    {performance.enquiries}
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Lead rate</div>
+                  <div className="mt-1 text-base font-semibold text-slate-900" data-testid="admin-performance-rate">
+                    {(performance.lead_rate * 100).toFixed(1)}%
+                  </div>
+                </div>
+                <div className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs">
+                  <div className="text-[11px] uppercase tracking-wide text-slate-500">Days live</div>
+                  <div className="mt-1 text-base font-semibold text-slate-900" data-testid="admin-performance-days">
+                    {performance.days_live}
+                  </div>
+                </div>
+              </div>
+              {performance.series.length > 0 && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                  <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                    Views trend
+                  </div>
+                  <div className="flex items-end gap-1" data-testid="admin-performance-sparkline">
+                    {performance.series.map((point) => {
+                      const height =
+                        performanceMax > 0 ? Math.max(4, Math.round((point.views / performanceMax) * 36)) : 4;
+                      return (
+                        <div
+                          key={point.date}
+                          className="flex-1 rounded-sm bg-slate-300"
+                          style={{ height }}
+                          title={`${point.date}: ${point.views}`}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </section>
 
