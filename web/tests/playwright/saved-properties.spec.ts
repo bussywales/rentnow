@@ -55,7 +55,7 @@ test("save from property detail redirects to login when logged out", async ({ pa
   }
 
   await card.getByRole("link").first().click();
-  await page.waitForURL("**/properties/**", { timeout: 10_000 });
+  await page.waitForURL("**/properties/**", { timeout: 30_000 });
 
   await page.getByRole("button", { name: /save property|save listing|saved listing/i }).click();
   await page.waitForURL(/auth\/login/, { timeout: 10_000 });

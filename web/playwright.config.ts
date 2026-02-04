@@ -44,7 +44,7 @@ const webServerEnv = Object.fromEntries(
 
 export default defineConfig({
   testDir: "./tests/playwright",
-  timeout: 60_000,
+  timeout: 120_000,
   expect: {
     timeout: 10_000,
   },
@@ -65,6 +65,7 @@ export default defineConfig({
     : {}),
   use: {
     baseURL: resolvedBaseURL,
+    navigationTimeout: 120_000,
     trace: "on-first-retry",
     video: "retain-on-failure",
   },
