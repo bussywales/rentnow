@@ -4,6 +4,7 @@ import type { InsightsRangeKey } from "@/lib/admin/insights";
 import { buildAdminInsights, resolveInsightsRange } from "@/lib/admin/insights";
 import { buildInsightsActions } from "@/lib/admin/insights-actions.server";
 import { buildInsightsDrilldowns } from "@/lib/admin/insights-drilldowns";
+import { buildRevenueSignals } from "@/lib/admin/revenue-signals.server";
 import { getSupplyHealth } from "@/lib/admin/supply-health.server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
@@ -21,6 +22,7 @@ type InsightsDiagnostics = {
   serviceRoleReady: boolean;
   insights: Awaited<ReturnType<typeof buildAdminInsights>> | null;
   actions: Awaited<ReturnType<typeof buildInsightsActions>> | null;
+  revenueSignals: Awaited<ReturnType<typeof buildRevenueSignals>> | null;
   drilldowns: Awaited<ReturnType<typeof buildInsightsDrilldowns>> | null;
   supplyHealth: Awaited<ReturnType<typeof getSupplyHealth>> | null;
   error: string | null;
@@ -60,6 +62,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
       serviceRoleReady: false,
       insights: null,
       actions: null,
+      revenueSignals: null,
       drilldowns: null,
       supplyHealth: null,
       error: "Supabase env vars missing.",
@@ -87,6 +90,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
       serviceRoleReady,
       insights: null,
       actions: null,
+      revenueSignals: null,
       drilldowns: null,
       supplyHealth: null,
       error: "Service role key missing; insights unavailable.",
@@ -97,6 +101,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
   const range = resolveInsightsRange(rangeKey);
   const insights = await buildAdminInsights(adminClient, range);
   const actions = await buildInsightsActions({ client: adminClient, range });
+  const revenueSignals = await buildRevenueSignals({ client: adminClient, range });
   const drilldowns = await buildInsightsDrilldowns(adminClient, range);
   const supplyHealth = await getSupplyHealth({ client: adminClient, rangeDays: range.days });
 
@@ -105,6 +110,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
     serviceRoleReady,
     insights,
     actions,
+    revenueSignals,
     drilldowns,
     supplyHealth,
     error: insights.notes.length ? insights.notes.join(" | ") : null,
@@ -149,6 +155,7 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
   const diag = await getInsightsDiagnostics(rangeKey);
   const insights = diag.insights;
   const actions = diag.actions;
+  const revenueSignals = diag.revenueSignals;
   const drilldowns = diag.drilldowns;
   const supplyHealth = diag.supplyHealth;
 
@@ -193,9 +200,71 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
         </div>
       )}
 
-      {diag.supabaseReady && diag.serviceRoleReady && insights && drilldowns && supplyHealth && actions && (
+      {diag.supabaseReady &&
+        diag.serviceRoleReady &&
+        insights &&
+        drilldowns &&
+        supplyHealth &&
+        actions &&
+        revenueSignals && (
         <>
           <AdminInsightsActions actions={actions} />
+          <section className="space-y-4" data-testid="insights-revenue-readiness">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">Revenue readiness</h2>
+              <p className="text-sm text-slate-600">
+                Monetisation opportunities derived from demand, featured performance, and paused
+                listings.
+              </p>
+            </div>
+            {revenueSignals.signals.length === 0 ? (
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600 shadow-sm">
+                No revenue opportunities detected in this range.
+              </div>
+            ) : (
+              <div className="grid gap-4 lg:grid-cols-3">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Opportunities</p>
+                  <p className="mt-2 text-2xl font-semibold text-slate-900">
+                    {formatNumber(revenueSignals.totals.opportunities)}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    Listings with signals: {formatNumber(revenueSignals.totals.listings)}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Top listings</p>
+                  <div className="mt-3 space-y-2">
+                    {revenueSignals.listing.slice(0, 5).map((listing) => (
+                      <div key={listing.listing_id} className="text-sm">
+                        <p className="font-semibold text-slate-900">
+                          {listing.title || "Untitled listing"}
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          {listing.city || "Unknown"} · {listing.types.join(", ").toLowerCase()}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Top hosts</p>
+                  <div className="mt-3 space-y-2">
+                    {revenueSignals.host.slice(0, 3).map((host) => (
+                      <div key={host.host_id} className="text-sm">
+                        <p className="font-semibold text-slate-900">
+                          {host.host_name || host.host_id}
+                        </p>
+                        <p className="text-xs text-slate-600">
+                          {host.count} signals · {host.listings} listings
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
           <section className="space-y-4" data-testid="insights-growth">
             <h2 className="text-xl font-semibold text-slate-900">Top-line growth</h2>
             <div className="grid gap-4 md:grid-cols-3">
