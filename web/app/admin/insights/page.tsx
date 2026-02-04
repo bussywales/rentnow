@@ -3,10 +3,12 @@ import { redirect } from "next/navigation";
 import type { InsightsRangeKey } from "@/lib/admin/insights";
 import { buildAdminInsights, resolveInsightsRange } from "@/lib/admin/insights";
 import { buildInsightsDrilldowns } from "@/lib/admin/insights-drilldowns";
+import { getSupplyHealth } from "@/lib/admin/supply-health.server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import InsightsListingHealthClient from "@/components/admin/InsightsListingHealthClient";
+import InsightsSupplyHealthClient from "@/components/admin/InsightsSupplyHealthClient";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,7 @@ type InsightsDiagnostics = {
   serviceRoleReady: boolean;
   insights: Awaited<ReturnType<typeof buildAdminInsights>> | null;
   drilldowns: Awaited<ReturnType<typeof buildInsightsDrilldowns>> | null;
+  supplyHealth: Awaited<ReturnType<typeof getSupplyHealth>> | null;
   error: string | null;
 };
 
@@ -54,6 +57,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
       serviceRoleReady: false,
       insights: null,
       drilldowns: null,
+      supplyHealth: null,
       error: "Supabase env vars missing.",
     };
   }
@@ -79,6 +83,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
       serviceRoleReady,
       insights: null,
       drilldowns: null,
+      supplyHealth: null,
       error: "Service role key missing; insights unavailable.",
     };
   }
@@ -87,12 +92,14 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
   const range = resolveInsightsRange(rangeKey);
   const insights = await buildAdminInsights(adminClient, range);
   const drilldowns = await buildInsightsDrilldowns(adminClient, range);
+  const supplyHealth = await getSupplyHealth({ client: adminClient, rangeDays: range.days });
 
   return {
     supabaseReady: true,
     serviceRoleReady,
     insights,
     drilldowns,
+    supplyHealth,
     error: insights.notes.length ? insights.notes.join(" | ") : null,
   };
 }
@@ -135,6 +142,7 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
   const diag = await getInsightsDiagnostics(rangeKey);
   const insights = diag.insights;
   const drilldowns = diag.drilldowns;
+  const supplyHealth = diag.supplyHealth;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8">
@@ -177,7 +185,7 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
         </div>
       )}
 
-      {diag.supabaseReady && diag.serviceRoleReady && insights && drilldowns && (
+      {diag.supabaseReady && diag.serviceRoleReady && insights && drilldowns && supplyHealth && (
         <>
           <section className="space-y-4" data-testid="insights-growth">
             <h2 className="text-xl font-semibold text-slate-900">Top-line growth</h2>
@@ -445,6 +453,16 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
               initialFlag={flagParam}
               initialQuery={queryParam}
             />
+          </section>
+
+          <section className="space-y-4" id="supply-health" data-testid="insights-supply-health">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">Supply health</h2>
+              <p className="text-sm text-slate-600">
+                Quality scoring highlights listings that need basic improvements.
+              </p>
+            </div>
+            <InsightsSupplyHealthClient initialRows={supplyHealth.rows} />
           </section>
 
           <section className="grid gap-4 lg:grid-cols-2" data-testid="insights-cohorts">
