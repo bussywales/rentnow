@@ -28,10 +28,18 @@ test("admin can view insights dashboard", async ({ page }) => {
   await page.goto("/admin/insights");
 
   await expect(page.getByRole("heading", { name: /Insights/i })).toBeVisible();
+  await expect(page.getByTestId("insights-actions")).toBeVisible();
   await expect(page.getByTestId("insights-growth")).toBeVisible();
   await expect(page.getByTestId("insights-alerts")).toBeVisible();
   await expect(page.getByTestId("insights-supply-health")).toBeVisible();
   await expect(page.getByTestId("supply-health-filter-score")).toBeVisible();
+
+  const actionCards = page.getByTestId("insights-action-card");
+  if ((await actionCards.count()) === 0) {
+    await expect(page.getByTestId("insights-actions-empty")).toBeVisible();
+  } else {
+    await expect(actionCards.first()).toBeVisible();
+  }
 
   const alert = page.getByTestId("insights-alert-zero-views");
   if (await alert.isVisible()) {
@@ -51,4 +59,7 @@ test("non-admin is blocked from insights", async ({ page }) => {
   await page.goto("/admin/insights");
 
   await expect(page).toHaveURL(/forbidden|auth\/required/i);
+
+  const response = await page.request.get("/api/admin/insights/actions");
+  expect([401, 403]).toContain(response.status());
 });

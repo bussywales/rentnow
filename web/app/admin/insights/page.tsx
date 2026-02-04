@@ -2,11 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import type { InsightsRangeKey } from "@/lib/admin/insights";
 import { buildAdminInsights, resolveInsightsRange } from "@/lib/admin/insights";
+import { buildInsightsActions } from "@/lib/admin/insights-actions.server";
 import { buildInsightsDrilldowns } from "@/lib/admin/insights-drilldowns";
 import { getSupplyHealth } from "@/lib/admin/supply-health.server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import AdminInsightsActions from "@/components/admin/AdminInsightsActions";
 import InsightsListingHealthClient from "@/components/admin/InsightsListingHealthClient";
 import InsightsSupplyHealthClient from "@/components/admin/InsightsSupplyHealthClient";
 
@@ -18,6 +20,7 @@ type InsightsDiagnostics = {
   supabaseReady: boolean;
   serviceRoleReady: boolean;
   insights: Awaited<ReturnType<typeof buildAdminInsights>> | null;
+  actions: Awaited<ReturnType<typeof buildInsightsActions>> | null;
   drilldowns: Awaited<ReturnType<typeof buildInsightsDrilldowns>> | null;
   supplyHealth: Awaited<ReturnType<typeof getSupplyHealth>> | null;
   error: string | null;
@@ -56,6 +59,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
       supabaseReady: false,
       serviceRoleReady: false,
       insights: null,
+      actions: null,
       drilldowns: null,
       supplyHealth: null,
       error: "Supabase env vars missing.",
@@ -82,6 +86,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
       supabaseReady: true,
       serviceRoleReady,
       insights: null,
+      actions: null,
       drilldowns: null,
       supplyHealth: null,
       error: "Service role key missing; insights unavailable.",
@@ -91,6 +96,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
   const adminClient = createServiceRoleClient();
   const range = resolveInsightsRange(rangeKey);
   const insights = await buildAdminInsights(adminClient, range);
+  const actions = await buildInsightsActions({ client: adminClient, range });
   const drilldowns = await buildInsightsDrilldowns(adminClient, range);
   const supplyHealth = await getSupplyHealth({ client: adminClient, rangeDays: range.days });
 
@@ -98,6 +104,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
     supabaseReady: true,
     serviceRoleReady,
     insights,
+    actions,
     drilldowns,
     supplyHealth,
     error: insights.notes.length ? insights.notes.join(" | ") : null,
@@ -141,6 +148,7 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
   const queryParam = parseParam(resolvedParams, "q");
   const diag = await getInsightsDiagnostics(rangeKey);
   const insights = diag.insights;
+  const actions = diag.actions;
   const drilldowns = diag.drilldowns;
   const supplyHealth = diag.supplyHealth;
 
@@ -185,8 +193,9 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
         </div>
       )}
 
-      {diag.supabaseReady && diag.serviceRoleReady && insights && drilldowns && supplyHealth && (
+      {diag.supabaseReady && diag.serviceRoleReady && insights && drilldowns && supplyHealth && actions && (
         <>
+          <AdminInsightsActions actions={actions} />
           <section className="space-y-4" data-testid="insights-growth">
             <h2 className="text-xl font-semibold text-slate-900">Top-line growth</h2>
             <div className="grid gap-4 md:grid-cols-3">
