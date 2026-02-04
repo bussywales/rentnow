@@ -78,15 +78,19 @@ export async function MainNav() {
         </div>
 
         <nav className="hidden items-center gap-6 text-sm text-slate-700 md:flex">
-          <NavLinksClient links={MAIN_NAV_LINKS} initialAuthed={initialAuthed} initialRole={role} />
+          <NavLinksClient
+            links={MAIN_NAV_LINKS.filter((link) => link.href !== "/admin/insights")}
+            initialAuthed={initialAuthed}
+            initialRole={role}
+          />
         </nav>
 
         <div className="flex items-center gap-2">
           <AdminHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
           <ProductUpdatesBell initialAuthed={initialAuthed} />
+          <NavAuthClient initialAuthed={initialAuthed} />
           <NavHamburgerMenu initialAuthed={initialAuthed} initialRole={role} />
           <NavMobileDrawerClient links={MAIN_NAV_LINKS} initialAuthed={initialAuthed} initialRole={role} />
-          <NavAuthClient initialAuthed={initialAuthed} initialRole={role} />
         </div>
       </div>
       <ProductUpdatesOnboarding initialAuthed={initialAuthed} />

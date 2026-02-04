@@ -9,6 +9,10 @@ const TENANT_EMAIL = process.env.PLAYWRIGHT_USER_EMAIL || "";
 const TENANT_PASSWORD = process.env.PLAYWRIGHT_USER_PASSWORD || "";
 const HAS_TENANT = !!TENANT_EMAIL && !!TENANT_PASSWORD;
 
+const LANDLORD_EMAIL = process.env.PLAYWRIGHT_LANDLORD_EMAIL || "";
+const LANDLORD_PASSWORD = process.env.PLAYWRIGHT_LANDLORD_PASSWORD || "";
+const HAS_LANDLORD = !!LANDLORD_EMAIL && !!LANDLORD_PASSWORD;
+
 async function login(page: Page, email: string, password: string) {
   await page.goto("/auth/login");
   await page.getByPlaceholder("you@email.com").fill(email);
@@ -19,6 +23,13 @@ async function login(page: Page, email: string, password: string) {
 
 test("hamburger menu shows logged-out items", async ({ page }) => {
   await page.goto("/");
+  const cta = page.getByRole("banner").getByRole("button", { name: /get started/i });
+  const hamburger = page.getByTestId("hamburger-menu");
+  const ctaBox = await cta.boundingBox();
+  const hamburgerBox = await hamburger.boundingBox();
+  if (ctaBox && hamburgerBox) {
+    expect(ctaBox.x).toBeLessThan(hamburgerBox.x);
+  }
   await page.getByTestId("hamburger-menu").click();
   await expect(page.getByTestId("menu-item-help")).toBeVisible();
   await expect(page.getByTestId("menu-item-become-host")).toBeVisible();
@@ -47,7 +58,18 @@ test("hamburger menu hides admin insights for tenant", async ({ page }) => {
   test.skip(!HAS_TENANT, "Set PLAYWRIGHT_USER_EMAIL/PASSWORD to run this test.");
 
   await login(page, TENANT_EMAIL, TENANT_PASSWORD);
+  const topHomeLinks = page.locator("header nav a", { hasText: "Home" });
+  await expect(topHomeLinks).toHaveCount(1);
   await page.getByTestId("hamburger-menu").click();
 
   await expect(page.getByTestId("hamburger-admin-insights")).toHaveCount(0);
+  await expect(page.getByTestId("menu-item-home")).toBeVisible();
+});
+
+test("host header has no My dashboard action", async ({ page }) => {
+  test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping host menu check.");
+  test.skip(!HAS_LANDLORD, "Set PLAYWRIGHT_LANDLORD_EMAIL/PASSWORD to run this test.");
+
+  await login(page, LANDLORD_EMAIL, LANDLORD_PASSWORD);
+  await expect(page.getByRole("link", { name: "My dashboard" })).toHaveCount(0);
 });

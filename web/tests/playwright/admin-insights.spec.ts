@@ -23,7 +23,7 @@ test("admin can view insights dashboard", async ({ page }) => {
 
   await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await page.goto("/");
-  await expect(page.getByTestId("nav-admin-insights")).toBeVisible();
+  await expect(page.getByTestId("nav-admin-insights")).toHaveCount(0);
 
   await page.goto("/admin/insights");
 

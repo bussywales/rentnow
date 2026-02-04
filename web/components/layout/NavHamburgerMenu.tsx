@@ -37,6 +37,7 @@ export function NavHamburgerMenu({ initialAuthed, initialRole = null }: Props) {
 
     if (role === "tenant") {
       return [
+        { label: "Home", href: "/tenant/home", testId: "menu-item-home" },
         { label: "Browse", href: "/properties", testId: "menu-item-browse" },
         { label: "Saved", href: "/tenant/saved", testId: "menu-item-saved" },
         { label: "Help Centre", href: "/help", testId: "menu-item-help" },
@@ -55,7 +56,7 @@ export function NavHamburgerMenu({ initialAuthed, initialRole = null }: Props) {
     }
 
     return [
-      { label: "Host dashboard", href: "/host", testId: "menu-item-dashboard" },
+      { label: "Dashboard", href: "/host", testId: "menu-item-dashboard" },
       { label: "My listings", href: "/host/listings", testId: "menu-item-listings" },
       { label: "Help Centre", href: "/help", testId: "menu-item-help" },
       { label: "Settings", href: "/dashboard/settings/verification", testId: "menu-item-settings" },
