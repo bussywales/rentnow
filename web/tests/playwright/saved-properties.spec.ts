@@ -54,8 +54,15 @@ test("save from property detail redirects to login when logged out", async ({ pa
     test.skip(true, "No listings available to open property detail.");
   }
 
-  await card.getByRole("link").first().click();
-  await page.waitForURL("**/properties/**", { timeout: 30_000 });
+  const detailLink = card.getByRole("link").first();
+  const href = await detailLink.getAttribute("href");
+  const fallbackPattern = /\/properties\/.+/;
+  const targetPattern = href ? new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) : fallbackPattern;
+
+  await Promise.all([
+    page.waitForURL(targetPattern, { timeout: 45_000 }),
+    detailLink.click(),
+  ]);
 
   await page.getByRole("button", { name: /save property|save listing|saved listing/i }).click();
   await page.waitForURL(/auth\/login/, { timeout: 10_000 });

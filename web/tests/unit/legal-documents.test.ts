@@ -428,3 +428,17 @@ void test("anon read policy allows published legal docs", () => {
     "expected published status guard in legal documents policy"
   );
 });
+
+void test("legal acceptances update policy allows self updates", () => {
+  const policyPath = path.join(process.cwd(), "supabase", "rls_policies.sql");
+  const contents = fs.readFileSync(policyPath, "utf8");
+
+  assert.ok(
+    contents.includes('CREATE POLICY "legal acceptances update self"'),
+    "expected legal acceptances update policy"
+  );
+  assert.ok(
+    contents.includes("FOR UPDATE"),
+    "expected update policy for legal acceptances"
+  );
+});
