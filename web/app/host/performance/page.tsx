@@ -5,21 +5,14 @@ import { readActingAsFromCookies } from "@/lib/acting-as.server";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { fetchOwnerListings } from "@/lib/properties/owner-listings";
-import { isListingExpired } from "@/lib/properties/expiry";
-import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
+import { mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import {
-  buildSummaryByProperty,
-  fetchPropertyEvents,
-  filterRowsSince,
-  groupEventsByProperty,
-  isUuid,
-} from "@/lib/analytics/property-events.server";
-import { estimateMissedDemand } from "@/lib/analytics/property-events";
+  fetchHostPerformanceRows,
+  resolveHostPerformanceRange,
+  HOST_PERFORMANCE_RANGES,
+} from "@/lib/analytics/host-performance.server";
 
 export const dynamic = "force-dynamic";
-
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 function statusChipClass(value: string | null) {
   const normalized = normalizePropertyStatus(value);
@@ -45,14 +38,11 @@ function statusChipClass(value: string | null) {
   }
 }
 
-function formatMissedDemand(estimate: ReturnType<typeof estimateMissedDemand>) {
-  if (estimate.state === "no_history") return "No live history yet";
-  if (estimate.state === "not_enough_data") return "Not enough data yet";
-  if (estimate.state === "ok") return `Est. ${estimate.missed}`;
-  return "—";
-}
-
-export default async function HostPerformancePage() {
+export default async function HostPerformancePage({
+  searchParams,
+}: {
+  searchParams?: { range?: string };
+}) {
   if (!hasServerSupabaseEnv()) {
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-2 px-4 py-10">
@@ -82,6 +72,7 @@ export default async function HostPerformancePage() {
     redirect("/admin/support");
   }
 
+  const rangeDays = resolveHostPerformanceRange(searchParams?.range ?? null);
   let ownerId = user.id;
   if (role === "agent") {
     const actingAs = await readActingAsFromCookies();
@@ -91,10 +82,10 @@ export default async function HostPerformancePage() {
     }
   }
 
-  const { data: properties, error } = await fetchOwnerListings({
+  const { rows, error } = await fetchHostPerformanceRows({
     supabase,
     ownerId,
-    isAdmin: false,
+    rangeDays,
   });
 
   if (error) {
@@ -106,22 +97,7 @@ export default async function HostPerformancePage() {
     );
   }
 
-  const listings = properties ?? [];
-  const propertyIds = listings.map((listing) => listing.id).filter(isUuid);
-  const now = new Date();
-  const last7Start = new Date(now.getTime() - 7 * DAY_MS).toISOString();
-
-  let summaryMap = new Map();
-  let eventsByProperty = new Map();
-
-  if (propertyIds.length) {
-    const { rows } = await fetchPropertyEvents({ propertyIds, sinceDays: 60 });
-    eventsByProperty = groupEventsByProperty(rows);
-    const last7Rows = filterRowsSince(rows, last7Start);
-    summaryMap = buildSummaryByProperty(last7Rows);
-  }
-
-  if (!listings.length) {
+  if (!rows.length) {
     return (
       <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-10">
         <h1 className="text-2xl font-semibold text-slate-900">Performance</h1>
@@ -131,68 +107,78 @@ export default async function HostPerformancePage() {
         >
           No listings yet. Publish a listing to start tracking demand.
         </div>
+        <div className="text-center">
+          <Link href="/dashboard/properties/new" className="text-sm font-semibold text-sky-700">
+            Create a listing
+          </Link>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold text-slate-900">Performance</h1>
-        <p className="text-sm text-slate-600">
-          Demand signals for your listings over the last 7 days.
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Performance</h1>
+          <p className="text-sm text-slate-600">
+            Demand signals for your listings over the last {rangeDays} days.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 text-sm">
+          {HOST_PERFORMANCE_RANGES.map((range) => {
+            const active = range === rangeDays;
+            const href = range === 30 ? "/host/performance" : `/host/performance?range=${range}`;
+            return (
+              <Link
+                key={range}
+                href={href}
+                data-testid={`host-performance-range-${range}`}
+                className={`rounded-full border px-3 py-1 text-xs font-semibold ${
+                  active
+                    ? "border-slate-900 bg-slate-900 text-white"
+                    : "border-slate-200 text-slate-600 hover:bg-slate-50"
+                }`}
+              >
+                {range} days
+              </Link>
+            );
+          })}
+        </div>
       </div>
 
       <section
         className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
         data-testid="host-performance-table"
       >
-        <div className="grid grid-cols-[2.2fr_1fr_0.8fr_0.8fr_0.9fr_1.4fr_1fr] gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+        <div className="grid grid-cols-[2.2fr_0.9fr_0.8fr_0.8fr_0.9fr_0.9fr_0.9fr] gap-3 border-b border-slate-100 bg-slate-50 px-4 py-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
           <span>Listing</span>
           <span>Status</span>
           <span>Views</span>
           <span>Saves</span>
-          <span>Leads</span>
-          <span>Featured 7d</span>
-          <span>Missed demand</span>
+          <span>Enquiries</span>
+          <span>Days live</span>
+          <span>Lead rate</span>
         </div>
         <div className="divide-y divide-slate-100">
-          {listings.map((listing) => {
-            const status = isListingExpired(listing) ? "expired" : listing.status;
-            const normalizedStatus = normalizePropertyStatus(status ?? null) ?? status ?? null;
-            const summary = summaryMap.get(listing.id);
-            const views = summary?.views ?? 0;
-            const saves = Math.max(summary?.netSaves ?? 0, 0);
-            const leads =
-              (listing.listing_intent ?? "rent") === "buy"
-                ? summary?.enquiries ?? 0
-                : summary?.viewingRequests ?? 0;
-            const impressions = summary?.featuredImpressions ?? 0;
-            const clicks = summary?.featuredClicks ?? 0;
-            const featuredLeads = summary?.featuredLeads ?? 0;
-            const ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(1) : null;
-            const missedDemand = estimateMissedDemand({
-              listing,
-              events: eventsByProperty.get(listing.id) ?? [],
-            });
-            const showMissed = isPausedStatus(normalizedStatus) || normalizedStatus === "expired";
-
+          {rows.map((row) => {
+            const normalizedStatus = normalizePropertyStatus(row.status) ?? row.status ?? null;
+            const leadRate = row.leadRate > 0 ? `${(row.leadRate * 100).toFixed(1)}%` : "—";
             return (
               <div
-                key={listing.id}
-                data-testid={`host-performance-row-${listing.id}`}
-                className="grid grid-cols-[2.2fr_1fr_0.8fr_0.8fr_0.9fr_1.4fr_1fr] items-center gap-3 px-4 py-3 text-sm"
+                key={row.id}
+                data-testid={`host-performance-row-${row.id}`}
+                className="grid grid-cols-[2.2fr_0.9fr_0.8fr_0.8fr_0.9fr_0.9fr_0.9fr] items-center gap-3 px-4 py-3 text-sm"
               >
                 <div className="min-w-0">
                   <Link
-                    href={`/dashboard/properties/${listing.id}`}
+                    href={`/dashboard/properties/${row.id}`}
                     className="block truncate font-semibold text-slate-900"
                   >
-                    {listing.title || "Untitled listing"}
+                    {row.title}
                   </Link>
                   <div className="text-xs text-slate-500">
-                    {listing.city || "Unknown city"}
+                    {row.city}
                   </div>
                 </div>
                 <div>
@@ -201,30 +187,23 @@ export default async function HostPerformancePage() {
                       normalizedStatus
                     )}`}
                   >
-                    {mapStatusLabel(status)}
+                    {mapStatusLabel(row.status)}
                   </span>
                 </div>
-                <div className="text-slate-700 tabular-nums" data-testid={`host-performance-views-${listing.id}`}>
-                  {views}
+                <div className="text-slate-700 tabular-nums" data-testid={`host-performance-views-${row.id}`}>
+                  {row.views}
                 </div>
-                <div className="text-slate-700 tabular-nums" data-testid={`host-performance-saves-${listing.id}`}>
-                  {saves}
+                <div className="text-slate-700 tabular-nums" data-testid={`host-performance-saves-${row.id}`}>
+                  {row.saves}
                 </div>
-                <div className="text-slate-700 tabular-nums" data-testid={`host-performance-leads-${listing.id}`}>
-                  {leads}
+                <div className="text-slate-700 tabular-nums" data-testid={`host-performance-leads-${row.id}`}>
+                  {row.enquiries}
                 </div>
-                <div className="text-xs text-slate-600" data-testid={`host-performance-featured-${listing.id}`}>
-                  {impressions > 0 || clicks > 0 || featuredLeads > 0 ? (
-                    <div className="space-y-1">
-                      <div>Impr. {impressions} · Clicks {clicks}</div>
-                      <div>CTR {ctr ? `${ctr}%` : "—"} · Leads {featuredLeads}</div>
-                    </div>
-                  ) : (
-                    <span className="text-slate-400">—</span>
-                  )}
+                <div className="text-slate-700 tabular-nums" data-testid={`host-performance-days-${row.id}`}>
+                  {row.daysLive}
                 </div>
-                <div className="text-xs text-slate-600" data-testid={`host-performance-missed-${listing.id}`}>
-                  {showMissed ? formatMissedDemand(missedDemand) : "—"}
+                <div className="text-slate-600 tabular-nums" data-testid={`host-performance-rate-${row.id}`}>
+                  {leadRate}
                 </div>
               </div>
             );
