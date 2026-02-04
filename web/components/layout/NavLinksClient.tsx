@@ -8,6 +8,7 @@ import type { UserRole } from "@/lib/types";
 export type NavLink = {
   href: string;
   label: string;
+  testId?: string;
   requireAuth?: boolean;
   requireRole?: UserRole | "super_admin";
   denyRoles?: UserRole[];
@@ -78,6 +79,7 @@ export function NavLinksClient({ links, initialAuthed, initialRole }: Props) {
             href={link.href}
             prefetch={link.requireAuth || link.requireRole ? false : undefined}
             aria-current={active ? "page" : undefined}
+            data-testid={link.testId}
             className={`transition hover:text-sky-600 ${
               active ? "font-semibold text-slate-900" : "text-slate-700"
             }`}

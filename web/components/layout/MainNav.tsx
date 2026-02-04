@@ -13,6 +13,7 @@ import { normalizeRole } from "@/lib/roles";
 export const MAIN_NAV_LINKS: Array<{
   href: string;
   label: string;
+  testId?: string;
   requireAuth?: boolean;
   requireRole?: UserRole | "super_admin";
   denyRoles?: UserRole[];
@@ -30,6 +31,13 @@ export const MAIN_NAV_LINKS: Array<{
   { href: "/tenant", label: "Dashboard", requireAuth: true, requireRole: "tenant" },
   { href: "/dashboard", label: "Dashboard", requireAuth: true, denyRoles: ["tenant", "admin"] },
   { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
+  {
+    href: "/admin/insights",
+    label: "Insights",
+    testId: "nav-admin-insights",
+    requireAuth: true,
+    requireRole: "admin",
+  },
   { href: "/admin/product-updates", label: "Updates", requireAuth: true, requireRole: "admin" },
   { href: "/admin/support", label: "Support", requireAuth: true, requireRole: "admin" },
   { href: "/admin/legal", label: "Legal", requireAuth: true, requireRole: "admin" },

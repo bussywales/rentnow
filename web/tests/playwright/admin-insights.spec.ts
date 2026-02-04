@@ -22,6 +22,9 @@ test("admin can view insights dashboard", async ({ page }) => {
   test.skip(!HAS_ADMIN, "Set PLAYWRIGHT_ADMIN_EMAIL/PASSWORD to run this test.");
 
   await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  await page.goto("/");
+  await expect(page.getByTestId("nav-admin-insights")).toBeVisible();
+
   await page.goto("/admin/insights");
 
   await expect(page.getByRole("heading", { name: /Insights/i })).toBeVisible();
@@ -40,6 +43,9 @@ test("non-admin is blocked from insights", async ({ page }) => {
   test.skip(!HAS_TENANT, "Set PLAYWRIGHT_USER_EMAIL/PASSWORD to run this test.");
 
   await login(page, TENANT_EMAIL, TENANT_PASSWORD);
+  await page.goto("/");
+  await expect(page.getByTestId("nav-admin-insights")).toHaveCount(0);
+
   await page.goto("/admin/insights");
 
   await expect(page).toHaveURL(/forbidden|auth\/required/i);

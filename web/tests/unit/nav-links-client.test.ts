@@ -8,6 +8,7 @@ test("admin nav shows Admin and hides Dashboard", () => {
   const links = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "admin" });
   const labels = links.map((link) => link.label);
   assert.ok(labels.includes("Admin"));
+  assert.ok(labels.includes("Insights"));
   assert.ok(!labels.includes("Dashboard"));
 });
 
@@ -15,4 +16,5 @@ test("non-admin nav keeps Dashboard", () => {
   const links = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "landlord" });
   const labels = links.map((link) => link.label);
   assert.ok(labels.includes("Dashboard"));
+  assert.ok(!labels.includes("Insights"));
 });
