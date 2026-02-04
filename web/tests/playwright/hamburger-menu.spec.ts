@@ -25,11 +25,14 @@ test("hamburger menu shows logged-out items", async ({ page }) => {
   await page.goto("/");
   const cta = page.getByRole("banner").getByRole("button", { name: /get started/i });
   const hamburger = page.getByTestId("hamburger-menu");
+  await expect(hamburger).toBeVisible();
   const ctaBox = await cta.boundingBox();
   const hamburgerBox = await hamburger.boundingBox();
   if (ctaBox && hamburgerBox) {
     expect(ctaBox.x).toBeLessThan(hamburgerBox.x);
   }
+  await page.setViewportSize({ width: 375, height: 720 });
+  await expect(hamburger).toBeVisible();
   await page.getByTestId("hamburger-menu").click();
   await expect(page.getByTestId("menu-item-help")).toBeVisible();
   await expect(page.getByTestId("menu-item-become-host")).toBeVisible();
