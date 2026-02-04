@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { normalizeCountryCode } from "@/lib/countries";
+import { getHostListingIntentOptions } from "@/lib/listing-intents";
 import {
   createBrowserSupabaseClient,
   hasBrowserSupabaseEnv,
@@ -27,10 +28,7 @@ const rentalTypes: { label: string; value: RentalType }[] = [
   { label: "Short-let", value: "short_let" },
   { label: "Long-term", value: "long_term" },
 ];
-const listingIntents: { label: string; value: ListingIntent }[] = [
-  { label: "Rent", value: "rent" },
-  { label: "Buy", value: "buy" },
-];
+const listingIntents: { label: string; value: ListingIntent }[] = getHostListingIntentOptions();
 
 const STORAGE_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "property-images";
@@ -101,7 +99,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
     return createBrowserSupabaseClient();
   };
 
-  const handleChange = (key: keyof FormState, value: string | number | boolean) => {
+  const handleChange = (key: keyof FormState, value: string | number | boolean | null) => {
     setForm((prev) => ({ ...prev, [key]: value }));
   };
 
@@ -124,6 +122,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
       amenities: form.amenitiesText
         ? form.amenitiesText.split(",").map((a) => a.trim()).filter(Boolean)
         : [],
+      rent_period: form.listing_intent === "buy" ? null : form.rent_period ?? "monthly",
     };
     startTransition(async () => {
       if (onSubmit) {
@@ -287,7 +286,15 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           <label className="text-sm font-medium text-slate-700">Listing intent</label>
           <Select
             value={form.listing_intent ?? "rent"}
-            onChange={(e) => handleChange("listing_intent", e.target.value as ListingIntent)}
+            onChange={(e) => {
+              const nextIntent = e.target.value as ListingIntent;
+              handleChange("listing_intent", nextIntent);
+              if (nextIntent === "buy") {
+                handleChange("rent_period", null);
+              } else if (!form.rent_period) {
+                handleChange("rent_period", "monthly");
+              }
+            }}
           >
             {listingIntents.map((intent) => (
               <option key={intent.value} value={intent.value}>
@@ -295,7 +302,9 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
               </option>
             ))}
           </Select>
-          <p className="text-xs text-slate-500">Is this listing for renting or for buying?</p>
+          <p className="text-xs text-slate-500">
+            Is this listing for renting/leasing or for selling (for sale)?
+          </p>
         </div>
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700">City</label>
@@ -408,32 +417,38 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
               placeholder="Search currency codes"
             />
           </div>
-          <div className="space-y-2">
-            <span className="text-sm font-medium text-slate-700">Rent period</span>
-            <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="rent_period"
-                  value="monthly"
-                  checked={(form.rent_period ?? "monthly") === "monthly"}
-                  onChange={() => handleChange("rent_period", "monthly")}
-                />
-                Monthly
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="rent_period"
-                  value="yearly"
-                  checked={form.rent_period === "yearly"}
-                  onChange={() => handleChange("rent_period", "yearly")}
-                />
-                Yearly
-              </label>
+          {form.listing_intent !== "buy" ? (
+            <div className="space-y-2">
+              <span className="text-sm font-medium text-slate-700">Rent period</span>
+              <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="rent_period"
+                    value="monthly"
+                    checked={(form.rent_period ?? "monthly") === "monthly"}
+                    onChange={() => handleChange("rent_period", "monthly")}
+                  />
+                  Monthly
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="rent_period"
+                    value="yearly"
+                    checked={form.rent_period === "yearly"}
+                    onChange={() => handleChange("rent_period", "yearly")}
+                  />
+                  Yearly
+                </label>
+              </div>
+              <p className="text-xs text-slate-500">How often is rent paid?</p>
             </div>
-            <p className="text-xs text-slate-500">How often is rent paid?</p>
-          </div>
+          ) : (
+            <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+              Sale listings use a total price. No rent cadence is required.
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Available from</label>
             <Input

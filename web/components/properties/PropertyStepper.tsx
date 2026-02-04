@@ -41,6 +41,7 @@ import type {
   RentalType,
   SizeUnit,
 } from "@/lib/types";
+import { getHostListingIntentOptions } from "@/lib/listing-intents";
 import { setToastQuery } from "@/lib/utils/toast";
 import { labelForField } from "@/lib/forms/listing-errors";
 import { hasPinnedLocation } from "@/lib/properties/validation";
@@ -111,10 +112,7 @@ const rentalTypes: { label: string; value: RentalType }[] = [
   { label: "Short-let", value: "short_let" },
   { label: "Long-term", value: "long_term" },
 ];
-const listingIntents: { label: string; value: ListingIntent }[] = [
-  { label: "Rent", value: "rent" },
-  { label: "Buy", value: "buy" },
-];
+const listingIntents: { label: string; value: ListingIntent }[] = getHostListingIntentOptions();
 
 const listingTypes: { label: string; value: ListingType }[] = [
   { label: "Apartment", value: "apartment" },
@@ -667,6 +665,10 @@ export function PropertyStepper({
       location_precision: normalizeOptionalString(form.location_precision),
       size_value: sizeValue ?? undefined,
       size_unit: sizeValue ? form.size_unit ?? "sqm" : undefined,
+      rent_period:
+        form.listing_intent === "buy"
+          ? null
+          : form.rent_period ?? "monthly",
       year_built:
         typeof form.year_built === "number" && Number.isFinite(form.year_built)
           ? form.year_built
@@ -2338,7 +2340,15 @@ export function PropertyStepper({
                   <Select
                     id="listing-intent"
                     value={form.listing_intent ?? "rent"}
-                    onChange={(e) => handleChange("listing_intent", e.target.value as ListingIntent)}
+                    onChange={(e) => {
+                      const nextIntent = e.target.value as ListingIntent;
+                      handleChange("listing_intent", nextIntent);
+                      if (nextIntent === "buy") {
+                        handleChange("rent_period", null);
+                      } else if (!form.rent_period) {
+                        handleChange("rent_period", "monthly");
+                      }
+                    }}
                     aria-required="true"
                     className={fieldErrors.listing_intent ? "ring-2 ring-rose-400 border-rose-300" : ""}
                   >
@@ -2348,7 +2358,9 @@ export function PropertyStepper({
                       </option>
                     ))}
                   </Select>
-                  <p className="text-xs text-slate-500">Is this listing for renting or for buying?</p>
+                  <p className="text-xs text-slate-500">
+                    Is this listing for renting/leasing or for selling (for sale)?
+                  </p>
                   {renderFieldError("listing_intent")}
                 </div>
               </div>
@@ -2996,7 +3008,9 @@ export function PropertyStepper({
                     Pricing & availability
                   </h3>
                   <p className="text-xs text-slate-500">
-                    Set the rent amount, cadence, and move-in details.
+                    {form.listing_intent === "buy"
+                      ? "Set the sale price and availability details."
+                      : "Set the rent amount, cadence, and move-in details."}
                   </p>
                 </div>
               </div>
@@ -3028,34 +3042,40 @@ export function PropertyStepper({
                   />
                   {renderFieldError("currency")}
                 </div>
-                <div className="space-y-2">
-                  <span className="text-sm font-medium text-slate-700">Rent period</span>
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300">
-                      <input
-                        type="radio"
-                        name="rent_period"
-                        value="monthly"
-                        className="h-4 w-4"
-                        checked={(form.rent_period ?? "monthly") === "monthly"}
-                        onChange={() => handleChange("rent_period", "monthly")}
-                      />
-                      Monthly
-                    </label>
-                    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300">
-                      <input
-                        type="radio"
-                        name="rent_period"
-                        value="yearly"
-                        className="h-4 w-4"
-                        checked={form.rent_period === "yearly"}
-                        onChange={() => handleChange("rent_period", "yearly")}
-                      />
-                      Yearly
-                    </label>
+                {form.listing_intent !== "buy" ? (
+                  <div className="space-y-2">
+                    <span className="text-sm font-medium text-slate-700">Rent period</span>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300">
+                        <input
+                          type="radio"
+                          name="rent_period"
+                          value="monthly"
+                          className="h-4 w-4"
+                          checked={(form.rent_period ?? "monthly") === "monthly"}
+                          onChange={() => handleChange("rent_period", "monthly")}
+                        />
+                        Monthly
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300">
+                        <input
+                          type="radio"
+                          name="rent_period"
+                          value="yearly"
+                          className="h-4 w-4"
+                          checked={form.rent_period === "yearly"}
+                          onChange={() => handleChange("rent_period", "yearly")}
+                        />
+                        Yearly
+                      </label>
+                    </div>
+                    <p className="text-xs text-slate-500">How often is rent paid?</p>
                   </div>
-                  <p className="text-xs text-slate-500">How often is rent paid?</p>
-                </div>
+                ) : (
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
+                    Sale listings use a total price. No rent cadence is required.
+                  </div>
+                )}
                 <div className="space-y-2">
                   <label htmlFor="available-from" className="text-sm font-medium text-slate-700">
                     Available from
@@ -3066,7 +3086,11 @@ export function PropertyStepper({
                     value={form.available_from || ""}
                     onChange={(e) => handleChange("available_from", e.target.value)}
                   />
-                  <p className="text-xs text-slate-500">Optional if the date is flexible.</p>
+                  <p className="text-xs text-slate-500">
+                    {form.listing_intent === "buy"
+                      ? "Optional if the sale timeline is flexible."
+                      : "Optional if the date is flexible."}
+                  </p>
                 </div>
                 <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
                   <input
@@ -3768,7 +3792,7 @@ export function PropertyStepper({
               rental_type: form.rental_type || "long_term",
               price: form.price || 0,
               currency: form.currency || "USD",
-              rent_period: form.rent_period || "monthly",
+              rent_period: form.listing_intent === "buy" ? null : form.rent_period || "monthly",
               bedrooms: form.bedrooms || 0,
               bathrooms: form.bathrooms || 0,
               bathroom_type: form.bathroom_type || null,
