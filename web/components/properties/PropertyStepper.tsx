@@ -27,6 +27,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { LocationQualityCard } from "@/components/properties/LocationQualityCard";
 import { PrePublishNudgeCard } from "@/components/properties/PrePublishNudgeCard";
 import { PropertyCard } from "@/components/properties/PropertyCard";
+import { ListingNudges } from "@/components/host/ListingNudges";
 import {
   createBrowserSupabaseClient,
   hasBrowserSupabaseEnv,
@@ -748,6 +749,43 @@ export function PropertyStepper({
       }),
     [coverImageUrl, coverWarning, imageUrls.length, locationQuality, recommended?.url, recommendedDismissed]
   );
+  const listingNudgeFlags = useMemo(() => {
+    const flags: string[] = [];
+    const photoCount = imageUrls.length;
+    if (photoCount === 0) flags.push("no_photos");
+    else if (photoCount < 6) flags.push("few_photos");
+
+    const titleLength = form.title?.trim().length ?? 0;
+    if (titleLength < 20) flags.push("short_title");
+
+    const descriptionLength = form.description?.trim().length ?? 0;
+    if (descriptionLength === 0) flags.push("no_description");
+    else if (descriptionLength < 120) flags.push("short_description");
+
+    const priceOk = typeof form.price === "number" && form.price > 0 && !!form.currency;
+    if (!priceOk) flags.push("no_price");
+
+    const locationOk =
+      !!form.city?.trim() ||
+      !!form.location_label?.trim() ||
+      (!!form.latitude && !!form.longitude);
+    if (!locationOk) flags.push("no_location");
+
+    if (!form.listing_intent) flags.push("no_intent");
+
+    return flags;
+  }, [
+    form.city,
+    form.currency,
+    form.description,
+    form.latitude,
+    form.listing_intent,
+    form.location_label,
+    form.longitude,
+    form.price,
+    form.title,
+    imageUrls.length,
+  ]);
   const countryCtaMessage = useMemo(() => {
     if (!countryHint.key) return null;
     if (countryHint.countryCode === "GB") return LOCATION_MICROCOPY.cta.countryHint.uk;
@@ -1947,7 +1985,9 @@ export function PropertyStepper({
           title: form.title,
           city: form.city,
           neighbourhood: form.neighbourhood,
-          rentalType: form.rental_type,
+          rentalType: form.rental_type ?? undefined,
+          listingIntent: form.listing_intent ?? "rent",
+          listingType: form.listing_type ?? undefined,
           price: form.price ?? 0,
           currency: form.currency || "USD",
           bedrooms: form.bedrooms ?? 0,
@@ -3001,6 +3041,11 @@ export function PropertyStepper({
           </div>
 
           <div className="lg:sticky lg:top-6 lg:self-start">
+            {listingNudgeFlags.length > 0 && (
+              <div className="mb-6">
+                <ListingNudges missingFlags={listingNudgeFlags} />
+              </div>
+            )}
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-2">
                 <div>

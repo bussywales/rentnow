@@ -10,7 +10,9 @@ const bodySchema = z.object({
   title: z.string().min(3),
   city: z.string().min(2),
   neighbourhood: z.string().optional(),
-  rentalType: z.enum(["short_let", "long_term"]),
+  rentalType: z.enum(["short_let", "long_term"]).optional(),
+  listingIntent: z.enum(["rent", "buy"]).optional(),
+  listingType: z.string().optional(),
   price: z.number(),
   currency: z.string().min(2),
   bedrooms: z.number().int(),
@@ -35,13 +37,19 @@ export async function generateDescriptionResponse(
   try {
     assertOpenAiKey();
 
+    const intentLabel = data.listingIntent === "buy" ? "for sale" : "for rent/lease";
+    const listingType = data.listingType ? data.listingType : "N/A";
+    const rentalType = data.rentalType ?? "N/A";
+
     const userPrompt = `
-Write a rental listing description for the following property details:
+Write a real estate listing description for the following property details:
 
 - Title: ${data.title}
 - City: ${data.city}
 - Neighbourhood: ${data.neighbourhood || "N/A"}
-- Rental type: ${data.rentalType}
+- Listing intent: ${data.listingIntent || "rent"} (${intentLabel})
+- Listing type: ${listingType}
+- Rental type: ${rentalType}
 - Price: ${data.price} ${data.currency}
 - Bedrooms: ${data.bedrooms}
 - Bathrooms: ${data.bathrooms}
@@ -62,7 +70,7 @@ Remember: 120-200 words, clear and honest, simple English, no invented features.
         {
           role: "system",
           content:
-            "You are an expert real estate copywriter for African rental properties. Write clear, attractive, honest listing descriptions. 120-200 words. Highlight bedrooms, bathrooms, furnished status, amenities, city, and neighbourhood. No invented features. Return only the description text.",
+            "You are an expert real estate copywriter for African rentals and sales. Write clear, attractive, honest listing descriptions (120-200 words). If the listing intent is for sale, avoid rental language; if it is for rent/lease, avoid sale language. Highlight bedrooms, bathrooms, furnished status, amenities, city, neighbourhood, and listing type. No invented features. Return only the description text.",
         },
         { role: "user", content: userPrompt },
       ],

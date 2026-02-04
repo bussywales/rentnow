@@ -232,6 +232,8 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           city: form.city,
           neighbourhood: form.neighbourhood,
           rentalType: form.rental_type,
+          listingIntent: form.listing_intent ?? "rent",
+          listingType: form.listing_type ?? undefined,
           price: form.price,
           currency: form.currency,
           bedrooms: form.bedrooms,

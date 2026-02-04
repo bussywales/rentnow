@@ -13,6 +13,8 @@ void test("AI description returns 503 when not configured", async () => {
       city: "Lagos",
       neighbourhood: "Lekki",
       rentalType: "long_term",
+      listingIntent: "rent",
+      listingType: "apartment",
       price: 1200,
       currency: "USD",
       bedrooms: 2,
