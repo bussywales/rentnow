@@ -6,11 +6,13 @@ import { buildInsightsActions } from "@/lib/admin/insights-actions.server";
 import { buildInsightsDrilldowns } from "@/lib/admin/insights-drilldowns";
 import { buildRevenueSignals } from "@/lib/admin/revenue-signals.server";
 import { buildRevenueFunnel } from "@/lib/admin/revenue-funnels.server";
+import { buildMonetisationOpportunities } from "@/lib/admin/monetisation-opportunities.server";
 import { getSupplyHealth } from "@/lib/admin/supply-health.server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import AdminInsightsActions from "@/components/admin/AdminInsightsActions";
+import AdminInsightsMonetisation from "@/components/admin/AdminInsightsMonetisation";
 import InsightsListingHealthClient from "@/components/admin/InsightsListingHealthClient";
 import InsightsSupplyHealthClient from "@/components/admin/InsightsSupplyHealthClient";
 
@@ -25,6 +27,7 @@ type InsightsDiagnostics = {
   actions: Awaited<ReturnType<typeof buildInsightsActions>> | null;
   revenueSignals: Awaited<ReturnType<typeof buildRevenueSignals>> | null;
   revenueFunnel: Awaited<ReturnType<typeof buildRevenueFunnel>> | null;
+  monetisation: Awaited<ReturnType<typeof buildMonetisationOpportunities>> | null;
   drilldowns: Awaited<ReturnType<typeof buildInsightsDrilldowns>> | null;
   supplyHealth: Awaited<ReturnType<typeof getSupplyHealth>> | null;
   error: string | null;
@@ -76,6 +79,7 @@ async function getInsightsDiagnostics({
       actions: null,
       revenueSignals: null,
       revenueFunnel: null,
+      monetisation: null,
       drilldowns: null,
       supplyHealth: null,
       error: "Supabase env vars missing.",
@@ -105,6 +109,7 @@ async function getInsightsDiagnostics({
       actions: null,
       revenueSignals: null,
       revenueFunnel: null,
+      monetisation: null,
       drilldowns: null,
       supplyHealth: null,
       error: "Service role key missing; insights unavailable.",
@@ -123,6 +128,11 @@ async function getInsightsDiagnostics({
     intent: funnelIntent || null,
     market: funnelMarket || null,
   });
+  const monetisation = await buildMonetisationOpportunities({
+    client: adminClient,
+    range,
+    market: funnelMarket || null,
+  });
   const drilldowns = await buildInsightsDrilldowns(adminClient, range);
   const supplyHealth = await getSupplyHealth({ client: adminClient, rangeDays: range.days });
 
@@ -133,6 +143,7 @@ async function getInsightsDiagnostics({
     actions,
     revenueSignals,
     revenueFunnel,
+    monetisation,
     drilldowns,
     supplyHealth,
     error: insights.notes.length ? insights.notes.join(" | ") : null,
@@ -190,6 +201,7 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
   const actions = diag.actions;
   const revenueSignals = diag.revenueSignals;
   const revenueFunnel = diag.revenueFunnel;
+  const monetisation = diag.monetisation;
   const drilldowns = diag.drilldowns;
   const supplyHealth = diag.supplyHealth;
 
@@ -241,7 +253,8 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
         supplyHealth &&
         actions &&
         revenueSignals &&
-        revenueFunnel && (
+        revenueFunnel &&
+        monetisation && (
         <>
           <AdminInsightsActions actions={actions} />
           <section className="space-y-4" data-testid="insights-revenue-readiness">
@@ -420,6 +433,7 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
               ) : null}
             </div>
           </section>
+          <AdminInsightsMonetisation opportunities={monetisation} />
           <section className="space-y-4" data-testid="insights-growth">
             <h2 className="text-xl font-semibold text-slate-900">Top-line growth</h2>
             <div className="grid gap-4 md:grid-cols-3">

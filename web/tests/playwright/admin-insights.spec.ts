@@ -31,6 +31,7 @@ test("admin can view insights dashboard", async ({ page }) => {
   await expect(page.getByTestId("insights-actions")).toBeVisible();
   await expect(page.getByTestId("insights-revenue-readiness")).toBeVisible();
   await expect(page.getByTestId("insights-revenue-funnels")).toBeVisible();
+  await expect(page.getByTestId("insights-monetisation-opportunities")).toBeVisible();
   await expect(page.getByTestId("insights-growth")).toBeVisible();
   await expect(page.getByTestId("insights-alerts")).toBeVisible();
   await expect(page.getByTestId("insights-supply-health")).toBeVisible();
@@ -45,6 +46,13 @@ test("admin can view insights dashboard", async ({ page }) => {
     await expect(page.getByTestId("insights-actions-empty")).toBeVisible();
   } else {
     await expect(actionCards.first()).toBeVisible();
+  }
+
+  const monetisationCards = page.getByTestId("insights-monetisation-card");
+  if ((await monetisationCards.count()) === 0) {
+    await expect(page.getByTestId("insights-monetisation-empty")).toBeVisible();
+  } else {
+    await expect(monetisationCards.first()).toBeVisible();
   }
 
   const alert = page.getByTestId("insights-alert-zero-views");
@@ -74,4 +82,9 @@ test("non-admin is blocked from insights", async ({ page }) => {
 
   const funnelResponse = await page.request.get("/api/admin/insights/revenue-funnels");
   expect([401, 403]).toContain(funnelResponse.status());
+
+  const monetisationResponse = await page.request.get(
+    "/api/admin/insights/monetisation-opportunities"
+  );
+  expect([401, 403]).toContain(monetisationResponse.status());
 });
