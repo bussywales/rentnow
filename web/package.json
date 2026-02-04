@@ -17,6 +17,7 @@
     "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "doctor": "node ./scripts/doctor.mjs",
     "test": "tsx --test tests/unit/*.test.ts",
+    "check:migrations": "node ./scripts/check-migration-timestamps.mjs",
     "setup": "npm install && npx playwright install --with-deps",
     "test:e2e": "playwright test",
     "test:e2e:ci": "node ./scripts/run-test-e2e-ci.mjs",
