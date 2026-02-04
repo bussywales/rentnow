@@ -5,6 +5,7 @@ import { buildAdminInsights, resolveInsightsRange } from "@/lib/admin/insights";
 import { buildInsightsActions } from "@/lib/admin/insights-actions.server";
 import { buildInsightsDrilldowns } from "@/lib/admin/insights-drilldowns";
 import { buildRevenueSignals } from "@/lib/admin/revenue-signals.server";
+import { buildRevenueFunnel } from "@/lib/admin/revenue-funnels.server";
 import { getSupplyHealth } from "@/lib/admin/supply-health.server";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
@@ -23,6 +24,7 @@ type InsightsDiagnostics = {
   insights: Awaited<ReturnType<typeof buildAdminInsights>> | null;
   actions: Awaited<ReturnType<typeof buildInsightsActions>> | null;
   revenueSignals: Awaited<ReturnType<typeof buildRevenueSignals>> | null;
+  revenueFunnel: Awaited<ReturnType<typeof buildRevenueFunnel>> | null;
   drilldowns: Awaited<ReturnType<typeof buildInsightsDrilldowns>> | null;
   supplyHealth: Awaited<ReturnType<typeof getSupplyHealth>> | null;
   error: string | null;
@@ -55,7 +57,17 @@ function formatRate(value: number | null) {
   return value.toFixed(2);
 }
 
-async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnostics> {
+async function getInsightsDiagnostics({
+  rangeKey,
+  funnelRole,
+  funnelIntent,
+  funnelMarket,
+}: {
+  rangeKey: string;
+  funnelRole: "tenant" | "host";
+  funnelIntent: string;
+  funnelMarket: string;
+}): Promise<InsightsDiagnostics> {
   if (!hasServerSupabaseEnv()) {
     return {
       supabaseReady: false,
@@ -63,6 +75,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
       insights: null,
       actions: null,
       revenueSignals: null,
+      revenueFunnel: null,
       drilldowns: null,
       supplyHealth: null,
       error: "Supabase env vars missing.",
@@ -91,6 +104,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
       insights: null,
       actions: null,
       revenueSignals: null,
+      revenueFunnel: null,
       drilldowns: null,
       supplyHealth: null,
       error: "Service role key missing; insights unavailable.",
@@ -102,6 +116,13 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
   const insights = await buildAdminInsights(adminClient, range);
   const actions = await buildInsightsActions({ client: adminClient, range });
   const revenueSignals = await buildRevenueSignals({ client: adminClient, range });
+  const revenueFunnel = await buildRevenueFunnel({
+    client: adminClient,
+    range,
+    role: funnelRole,
+    intent: funnelIntent || null,
+    market: funnelMarket || null,
+  });
   const drilldowns = await buildInsightsDrilldowns(adminClient, range);
   const supplyHealth = await getSupplyHealth({ client: adminClient, rangeDays: range.days });
 
@@ -111,6 +132,7 @@ async function getInsightsDiagnostics(rangeKey: string): Promise<InsightsDiagnos
     insights,
     actions,
     revenueSignals,
+    revenueFunnel,
     drilldowns,
     supplyHealth,
     error: insights.notes.length ? insights.notes.join(" | ") : null,
@@ -152,10 +174,22 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
   const statusParam = parseParam(resolvedParams, "status");
   const flagParam = parseParam(resolvedParams, "flag");
   const queryParam = parseParam(resolvedParams, "q");
-  const diag = await getInsightsDiagnostics(rangeKey);
+  const funnelRoleParam = parseParam(resolvedParams, "funnel");
+  const funnelIntentParam = parseParam(resolvedParams, "intent");
+  const funnelMarketParam = parseParam(resolvedParams, "market");
+  const funnelRole = funnelRoleParam === "host" ? "host" : "tenant";
+  const funnelIntent = funnelIntentParam || "";
+  const funnelMarket = funnelMarketParam || "";
+  const diag = await getInsightsDiagnostics({
+    rangeKey,
+    funnelRole,
+    funnelIntent,
+    funnelMarket,
+  });
   const insights = diag.insights;
   const actions = diag.actions;
   const revenueSignals = diag.revenueSignals;
+  const revenueFunnel = diag.revenueFunnel;
   const drilldowns = diag.drilldowns;
   const supplyHealth = diag.supplyHealth;
 
@@ -206,7 +240,8 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
         drilldowns &&
         supplyHealth &&
         actions &&
-        revenueSignals && (
+        revenueSignals &&
+        revenueFunnel && (
         <>
           <AdminInsightsActions actions={actions} />
           <section className="space-y-4" data-testid="insights-revenue-readiness">
@@ -262,8 +297,128 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
                     ))}
                   </div>
                 </div>
+                </div>
+              )}
+            </section>
+          <section className="space-y-4" data-testid="insights-revenue-funnels">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-slate-900">Revenue funnels</h2>
+                <p className="text-sm text-slate-600">
+                  Conversion journey by role, intent, and market for the selected range.
+                </p>
               </div>
-            )}
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/admin/insights?range=${insights.range.key}&funnel=tenant&intent=${encodeURIComponent(
+                    funnelIntent
+                  )}&market=${encodeURIComponent(funnelMarket)}`}
+                  data-testid="insights-funnel-tab-tenant"
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    funnelRole === "tenant"
+                      ? "bg-slate-900 text-white"
+                      : "border border-slate-200 bg-white text-slate-600"
+                  }`}
+                >
+                  Tenants
+                </Link>
+                <Link
+                  href={`/admin/insights?range=${insights.range.key}&funnel=host&intent=${encodeURIComponent(
+                    funnelIntent
+                  )}&market=${encodeURIComponent(funnelMarket)}`}
+                  data-testid="insights-funnel-tab-host"
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    funnelRole === "host"
+                      ? "bg-slate-900 text-white"
+                      : "border border-slate-200 bg-white text-slate-600"
+                  }`}
+                >
+                  Hosts
+                </Link>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              {RANGE_OPTIONS.map((option) => {
+                const active = insights.range.key === option.key;
+                return (
+                  <Link
+                    key={`funnel-${option.key}`}
+                    href={`/admin/insights?range=${option.key}&funnel=${funnelRole}&intent=${encodeURIComponent(
+                      funnelIntent
+                    )}&market=${encodeURIComponent(funnelMarket)}`}
+                    data-testid={`insights-funnel-range-${option.key}`}
+                    className={`rounded-full px-3 py-1 font-semibold transition ${
+                      active ? "bg-slate-900 text-white" : "border border-slate-200 text-slate-600"
+                    }`}
+                  >
+                    {option.label}
+                  </Link>
+                );
+              })}
+            </div>
+            <form method="get" className="flex flex-wrap items-end gap-3">
+              <input type="hidden" name="range" value={insights.range.key} />
+              <input type="hidden" name="funnel" value={funnelRole} />
+              {statusParam ? <input type="hidden" name="status" value={statusParam} /> : null}
+              {flagParam ? <input type="hidden" name="flag" value={flagParam} /> : null}
+              {queryParam ? <input type="hidden" name="q" value={queryParam} /> : null}
+              <label className="text-xs text-slate-600">
+                Intent
+                <select
+                  name="intent"
+                  defaultValue={funnelIntent}
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                >
+                  <option value="">All</option>
+                  <option value="rent">Rent</option>
+                  <option value="sale">Sale</option>
+                </select>
+              </label>
+              <label className="text-xs text-slate-600">
+                Market
+                <input
+                  name="market"
+                  defaultValue={funnelMarket}
+                  placeholder="City"
+                  className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700"
+                />
+              </label>
+              <button
+                type="submit"
+                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-700 shadow-sm"
+              >
+                Apply
+              </button>
+            </form>
+
+            <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+              <div className="grid gap-3 md:grid-cols-2">
+                {revenueFunnel.steps.map((step) => (
+                  <div key={step.key} className="rounded-xl border border-slate-100 p-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="font-semibold text-slate-900">{step.label}</span>
+                      <span className="text-slate-700">{formatNumber(step.count)}</span>
+                    </div>
+                    <div className="mt-2 h-2 w-full rounded-full bg-slate-100">
+                      <div
+                        className="h-2 rounded-full bg-slate-800"
+                        style={{ width: `${step.conversion ?? 100}%` }}
+                      />
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">
+                      {step.conversion === null
+                        ? "Baseline"
+                        : `${step.conversion}% from previous step`}
+                    </p>
+                  </div>
+                ))}
+              </div>
+              {revenueFunnel.meta?.highIntentThreshold ? (
+                <p className="mt-3 text-xs text-slate-500">
+                  High-intent host threshold: ≥{Math.round(revenueFunnel.meta.highIntentThreshold)} views per listing.
+                </p>
+              ) : null}
+            </div>
           </section>
           <section className="space-y-4" data-testid="insights-growth">
             <h2 className="text-xl font-semibold text-slate-900">Top-line growth</h2>

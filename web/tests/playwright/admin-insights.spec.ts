@@ -30,10 +30,15 @@ test("admin can view insights dashboard", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /Insights/i })).toBeVisible();
   await expect(page.getByTestId("insights-actions")).toBeVisible();
   await expect(page.getByTestId("insights-revenue-readiness")).toBeVisible();
+  await expect(page.getByTestId("insights-revenue-funnels")).toBeVisible();
   await expect(page.getByTestId("insights-growth")).toBeVisible();
   await expect(page.getByTestId("insights-alerts")).toBeVisible();
   await expect(page.getByTestId("insights-supply-health")).toBeVisible();
   await expect(page.getByTestId("supply-health-filter-score")).toBeVisible();
+
+  await page.getByTestId("insights-funnel-range-30d").click();
+  await expect(page).toHaveURL(/range=30d/);
+  await expect(page.getByTestId("insights-revenue-funnels")).toBeVisible();
 
   const actionCards = page.getByTestId("insights-action-card");
   if ((await actionCards.count()) === 0) {
@@ -66,4 +71,7 @@ test("non-admin is blocked from insights", async ({ page }) => {
 
   const revenueResponse = await page.request.get("/api/admin/insights/revenue-signals");
   expect([401, 403]).toContain(revenueResponse.status());
+
+  const funnelResponse = await page.request.get("/api/admin/insights/revenue-funnels");
+  expect([401, 403]).toContain(funnelResponse.status());
 });
