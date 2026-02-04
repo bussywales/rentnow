@@ -61,6 +61,7 @@ export default function AnalyticsHelpPage() {
         <HelpStepList
           steps={[
             "Admin listings table shows summary metrics (recent views, saves, leads).",
+            "Supply health table surfaces listing quality scores and missing basics.",
             "Featured inventory panel shows impressions, CTR, and leads for boosted listings.",
             "Host performance page shows listing-level demand and missed demand.",
             "Missed demand indicators appear when listings are paused or expired.",
@@ -69,6 +70,40 @@ export default function AnalyticsHelpPage() {
         <p className="text-sm text-slate-600">
           Recent 7-day signals matter more than lifetime totals. Use short windows to spot changes quickly and act fast.
         </p>
+      </section>
+
+      <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-slate-900">Supply health quality score (0–100)</h2>
+        <p className="text-sm text-slate-600">
+          Supply health scoring highlights listings missing the basics. It is used internally to prioritize fixes; it
+          does not block listings or change review outcomes.
+        </p>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">What improves the score</h3>
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-slate-600">
+              <li>Photos: 1+ photos (baseline), 4+ (strong), 8+ (excellent).</li>
+              <li>Title: 20+ characters with clear specifics.</li>
+              <li>Description: 120+ characters explaining features and fit.</li>
+              <li>Price: price + currency set.</li>
+              <li>Location: city or pinned area present.</li>
+              <li>Listing intent selected (rent/lease or sale).</li>
+              <li>Status: Live listings score higher than draft/paused.</li>
+              <li>Verified host bonus (email + phone).</li>
+            </ul>
+          </div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-slate-900">How to use it</h3>
+            <ul className="mt-2 list-disc space-y-2 pl-5 text-sm text-slate-600">
+              <li>Use the flags to guide host outreach (“missing price”, “few photos”).</li>
+              <li>Low score + high views with no enquiries → start with price and photos.</li>
+              <li>Low score + low views → improve title/location clarity first.</li>
+            </ul>
+            <HelpCallout variant="info" title="Scoring is guidance">
+              Scores are not visible to tenants and do not affect ranking directly.
+            </HelpCallout>
+          </div>
+        </div>
       </section>
 
       <section className="space-y-4">

@@ -9,5 +9,6 @@ void test("host performance help page renders required sections", () => {
   const html = renderToStaticMarkup(React.createElement(HostPerformanceHelpPage));
   assert.ok(html.includes("Featured listings"));
   assert.ok(html.includes("Performance signals"));
+  assert.ok(html.includes("Listing quality signals"));
   assert.ok(html.includes("Paused listings"));
 });

@@ -66,6 +66,25 @@ export default function HostPerformanceHelpPage() {
       </section>
 
       <section className="space-y-4">
+        <h2 className="text-lg font-semibold text-slate-900">Listing quality signals</h2>
+        <p className="text-sm text-slate-600">
+          We highlight basic listing quality signals to help you improve visibility and conversion. These signals are
+          guidance only; they do not change your account status.
+        </p>
+        <ul className="list-disc space-y-2 pl-5 text-sm text-slate-600">
+          <li>Photos: more clear photos improve trust and clicks.</li>
+          <li>Title: specific titles help tenants decide faster.</li>
+          <li>Description: complete details build confidence and reduce back‑and‑forth.</li>
+          <li>Price + currency: missing price reduces enquiries.</li>
+          <li>Location clarity: clearer location improves search relevance.</li>
+          <li>Listing intent: rent/lease vs sale must be set correctly.</li>
+        </ul>
+        <HelpCallout variant="info" title="These are improvement cues">
+          Quality signals are not a penalty and do not rank you down automatically.
+        </HelpCallout>
+      </section>
+
+      <section className="space-y-4">
         <h2 className="text-lg font-semibold text-slate-900">Featured listings: what to expect</h2>
         <p className="text-sm text-slate-600">
           Featured listings receive extra visibility in tenant discovery. This helps more people see your listing, but it
