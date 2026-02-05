@@ -88,7 +88,7 @@ export function NavHamburgerMenu({ initialAuthed, initialRole = null }: Props) {
   if (!isAuthed && !items.length) return null;
 
   return (
-    <div className="relative inline-flex">
+    <div className="relative hidden md:inline-flex">
       <button
         type="button"
         ref={buttonRef}

@@ -24,21 +24,23 @@ async function login(page: Page, email: string, password: string) {
 test("hamburger menu shows logged-out items", async ({ page }) => {
   await page.goto("/");
   const cta = page.getByRole("banner").getByRole("button", { name: /get started/i });
-  const hamburger = page.getByTestId("hamburger-menu");
-  await expect(hamburger).toBeVisible();
+  const desktopHamburger = page.getByTestId("hamburger-menu");
+  await expect(desktopHamburger).toBeVisible();
+  await expect(page.getByRole("button", { name: /open menu/i })).toHaveCount(1);
   const ctaBox = await cta.boundingBox();
-  const hamburgerBox = await hamburger.boundingBox();
+  const hamburgerBox = await desktopHamburger.boundingBox();
   if (ctaBox && hamburgerBox) {
     expect(ctaBox.x).toBeLessThan(hamburgerBox.x);
   }
-  await page.setViewportSize({ width: 375, height: 720 });
-  await expect(hamburger).toBeVisible();
-  await page.getByTestId("hamburger-menu").click();
+  await desktopHamburger.click();
   await expect(page.getByTestId("menu-item-help")).toBeVisible();
   await expect(page.getByTestId("menu-item-become-host")).toBeVisible();
   await expect(page.getByTestId("menu-item-agents")).toBeVisible();
   await expect(page.getByTestId("menu-item-login")).toBeVisible();
   await expect(page.getByTestId("menu-item-signup")).toBeVisible();
+  await page.setViewportSize({ width: 375, height: 720 });
+  await expect(page.getByRole("button", { name: /open menu/i })).toHaveCount(1);
+  await expect(page.getByRole("button", { name: /open menu/i })).toBeVisible();
 });
 
 test("hamburger menu shows admin items when logged in", async ({ page }) => {
@@ -75,4 +77,18 @@ test("host header has no My dashboard action", async ({ page }) => {
 
   await login(page, LANDLORD_EMAIL, LANDLORD_PASSWORD);
   await expect(page.getByRole("link", { name: "My dashboard" })).toHaveCount(0);
+});
+
+test("tenant sees a single hamburger at mobile and desktop widths", async ({ page }) => {
+  test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping tenant menu check.");
+  test.skip(!HAS_TENANT, "Set PLAYWRIGHT_USER_EMAIL/PASSWORD to run this test.");
+
+  await login(page, TENANT_EMAIL, TENANT_PASSWORD);
+  await page.goto("/tenant/home");
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(page.getByRole("button", { name: /open menu/i })).toHaveCount(1);
+
+  await page.setViewportSize({ width: 375, height: 720 });
+  await expect(page.getByRole("button", { name: /open menu/i })).toHaveCount(1);
 });

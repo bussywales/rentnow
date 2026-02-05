@@ -21,6 +21,14 @@ type DrawerLink = {
   showUnread?: boolean;
 };
 
+const LOGGED_OUT_LINKS: DrawerLink[] = [
+  { href: "/help", label: "Help Centre" },
+  { href: "/onboarding", label: "Become a host" },
+  { href: "/agents", label: "Find an agent" },
+  { href: "/auth/login", label: "Log in" },
+  { href: "/auth/register", label: "Sign up" },
+];
+
 export function buildMobileNavLinks(
   links: NavLink[],
   {
@@ -56,7 +64,10 @@ export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Pro
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  const drawerLinks = useMemo(() => buildMobileNavLinks(links, { isAuthed, role }), [isAuthed, links, role]);
+  const drawerLinks = useMemo(
+    () => (isAuthed ? buildMobileNavLinks(links, { isAuthed, role }) : LOGGED_OUT_LINKS),
+    [isAuthed, links, role]
+  );
 
   useEffect(() => {
     if (!open || !isAuthed) return;
@@ -124,8 +135,6 @@ export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Pro
       previousFocusRef.current?.focus();
     };
   }, [open]);
-
-  if (!isAuthed) return null;
 
   return (
     <>
@@ -203,19 +212,21 @@ export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Pro
                   })}
                 </nav>
               </div>
-              <div
-                data-testid="mobile-drawer-footer"
-                className="border-t border-slate-200 bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)]"
-              >
-                <form action="/auth/logout" method="POST">
-                  <button
-                    type="submit"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                  >
-                    Log out
-                  </button>
-                </form>
-              </div>
+              {isAuthed ? (
+                <div
+                  data-testid="mobile-drawer-footer"
+                  className="border-t border-slate-200 bg-white px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 shadow-[0_-4px_12px_rgba(15,23,42,0.06)]"
+                >
+                  <form action="/auth/logout" method="POST">
+                    <button
+                      type="submit"
+                      className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                    >
+                      Log out
+                    </button>
+                  </form>
+                </div>
+              ) : null}
             </div>
           </div>,
           document.body
