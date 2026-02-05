@@ -177,4 +177,39 @@ test.describe.serial("Legal terms management", () => {
     await page.getByRole("button", { name: /i agree/i }).click();
     await page.waitForURL(/\/tenant/, { timeout: 15_000 });
   });
+
+  test("legal acceptance persists under RLS (mobile)", async ({ page }) => {
+    test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping acceptance test.");
+    test.skip(!HAS_TENANT, "Tenant credentials missing; skipping acceptance test.");
+    test.skip(!!setupError, setupError || "Setup failed.");
+    test.skip(!adminClient || !tenantId, "Service role not available for reset.");
+
+    await adminClient
+      .from("legal_acceptances")
+      .delete()
+      .eq("user_id", tenantId)
+      .eq("jurisdiction", "NG");
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await login(page, tenantEmail, tenantPassword);
+    await page.goto("/legal/accept?redirect=/tenant");
+    await expect(page.getByText(/review terms/i)).toBeVisible();
+
+    await page.getByRole("checkbox").check();
+    const [response] = await Promise.all([
+      page.waitForResponse(
+        (resp) =>
+          resp.url().includes("/api/legal/accept") &&
+          resp.request().method() === "POST"
+      ),
+      page.getByRole("button", { name: /i agree/i }).click(),
+    ]);
+
+    expect(response.ok()).toBeTruthy();
+
+    const statusResponse = await page.request.get("/api/legal/accept/status?jurisdiction=NG");
+    expect(statusResponse.ok()).toBeTruthy();
+    const statusBody = await statusResponse.json();
+    expect(statusBody.is_complete).toBe(true);
+  });
 });
