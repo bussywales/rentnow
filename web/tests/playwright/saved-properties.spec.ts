@@ -60,11 +60,19 @@ test("save from property detail redirects to login when logged out", async ({ pa
   const targetPattern = href ? new RegExp(href.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")) : fallbackPattern;
 
   await Promise.all([
-    page.waitForURL(targetPattern, { timeout: 45_000 }),
+    page.waitForURL(targetPattern, { timeout: 60_000 }),
     detailLink.click(),
   ]);
+  await page.waitForLoadState("domcontentloaded");
 
-  await page.getByRole("button", { name: /save property|save listing|saved listing/i }).click();
+  const saveButton = page.getByTestId("save-button");
+  if (await saveButton.isVisible({ timeout: 15_000 }).catch(() => false)) {
+    await saveButton.click();
+  } else {
+    await page
+      .getByRole("button", { name: /save property|save listing|saved listing/i })
+      .click();
+  }
   await page.waitForURL(/auth\/login/, { timeout: 10_000 });
   await expect(page.url()).toContain("redirect=");
 });

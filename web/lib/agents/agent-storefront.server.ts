@@ -93,63 +93,75 @@ export async function getAgentStorefrontData(slug: string): Promise<AgentStorefr
     return { ok: false, reason: "MISSING_SLUG", slug: normalizedSlug };
   }
 
-  const client = hasServiceRoleEnv()
-    ? createServiceRoleClient()
-    : await createServerSupabaseClient();
+  const hasServiceRole = hasServiceRoleEnv();
+  const client = hasServiceRole ? createServiceRoleClient() : await createServerSupabaseClient();
 
-  const { data: exactProfile } = await client
-    .from("profiles")
-    .select(
-      "id, role, display_name, full_name, business_name, avatar_url, agent_bio, agent_slug, agent_storefront_enabled"
-    )
-    .eq("agent_slug", normalizedSlug)
-    .maybeSingle<AgentRow>();
+  let profile: AgentRow | null = null;
 
-  let profile = exactProfile;
-  if (!profile) {
-    const { data: caseInsensitiveProfile } = await client
+  if (hasServiceRole) {
+    const { data: exactProfile } = await client
       .from("profiles")
       .select(
         "id, role, display_name, full_name, business_name, avatar_url, agent_bio, agent_slug, agent_storefront_enabled"
       )
-      .ilike("agent_slug", normalizedSlug)
+      .eq("agent_slug", normalizedSlug)
       .maybeSingle<AgentRow>();
-    profile = caseInsensitiveProfile ?? null;
-  }
-  if (!profile) {
-    const candidateName = safeTrim(slug).replace(/-/g, " ");
-    if (candidateName) {
-      const safeCandidate = candidateName.replace(/[%_]/g, "\\$&");
-      const { data: candidates } = await client
+
+    profile = exactProfile;
+    if (!profile) {
+      const { data: caseInsensitiveProfile } = await client
         .from("profiles")
         .select(
           "id, role, display_name, full_name, business_name, avatar_url, agent_bio, agent_slug, agent_storefront_enabled"
         )
-        .eq("role", "agent")
-        .not("agent_slug", "is", null)
-        .or(
-          `display_name.ilike.%${safeCandidate}%,full_name.ilike.%${safeCandidate}%,business_name.ilike.%${safeCandidate}%`
-        );
+        .ilike("agent_slug", normalizedSlug)
+        .maybeSingle<AgentRow>();
+      profile = caseInsensitiveProfile ?? null;
+    }
+    if (!profile) {
+      const candidateName = safeTrim(slug).replace(/-/g, " ");
+      if (candidateName) {
+        const safeCandidate = candidateName.replace(/[%_]/g, "\\$&");
+        const { data: candidates } = await client
+          .from("profiles")
+          .select(
+            "id, role, display_name, full_name, business_name, avatar_url, agent_bio, agent_slug, agent_storefront_enabled"
+          )
+          .eq("role", "agent")
+          .not("agent_slug", "is", null)
+          .or(
+            `display_name.ilike.%${safeCandidate}%,full_name.ilike.%${safeCandidate}%,business_name.ilike.%${safeCandidate}%`
+          );
 
-      const matches =
-        candidates
-          ?.map((candidate) => ({
-            candidate,
-            redirectSlug: resolveLegacySlugRedirect({
-              requestedSlug: normalizedSlug,
-              profile: candidate,
-            }),
-          }))
-          .filter((match) => !!match.redirectSlug) ?? [];
+        const matches =
+          candidates
+            ?.map((candidate) => ({
+              candidate,
+              redirectSlug: resolveLegacySlugRedirect({
+                requestedSlug: normalizedSlug,
+                profile: candidate,
+              }),
+            }))
+            .filter((match) => !!match.redirectSlug) ?? [];
 
-      if (matches.length === 1) {
-        return {
-          ok: false,
-          reason: "NOT_FOUND",
-          slug: normalizedSlug,
-          redirectSlug: matches[0].redirectSlug ?? null,
-        };
+        if (matches.length === 1) {
+          return {
+            ok: false,
+            reason: "NOT_FOUND",
+            slug: normalizedSlug,
+            redirectSlug: matches[0].redirectSlug ?? null,
+          };
+        }
       }
+    }
+  } else {
+    const { data } = await client.rpc("get_agent_storefront_profile", {
+      input_slug: normalizedSlug,
+    });
+    if (Array.isArray(data)) {
+      profile = (data[0] as AgentRow | undefined) ?? null;
+    } else {
+      profile = (data as AgentRow | null) ?? null;
     }
   }
 

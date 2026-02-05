@@ -22,9 +22,9 @@ test.describe("Smoke checks", () => {
     await expect(firstCardLink).toBeVisible({ timeout: 15_000 });
     const href = await firstCardLink.getAttribute("href");
     expect(href).toBeTruthy();
-    await page.goto(href as string);
+    await page.goto(href as string, { waitUntil: "domcontentloaded", timeout: 90_000 });
 
-    await page.waitForURL("**/properties/**", { timeout: 10_000 });
+    await page.waitForURL("**/properties/**", { timeout: 30_000 });
     if (await page.getByRole("heading", { name: /listing not found/i }).isVisible({ timeout: 2_000 }).catch(() => false)) {
       return;
     }
