@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ensureUniqueSlug,
-  resolveStorefrontAvailability,
+  resolveStorefrontAccess,
   slugifyAgentName,
 } from "@/lib/agents/agent-storefront";
 
@@ -21,32 +21,58 @@ void test("ensureUniqueSlug appends suffix when taken", () => {
   assert.equal(ensureUniqueSlug(undefined, existing), "agent-4");
 });
 
-void test("resolveStorefrontAvailability handles global and agent toggles", () => {
-  const globalOff = resolveStorefrontAvailability({
+void test("resolveStorefrontAccess handles availability reasons", () => {
+  const globalOff = resolveStorefrontAccess({
+    slug: "agent",
     globalEnabled: false,
     agentFound: true,
+    agentRole: "agent",
     agentEnabled: true,
   });
-  assert.deepEqual(globalOff, { available: false, reason: "global_disabled" });
+  assert.deepEqual(globalOff, { ok: false, reason: "GLOBAL_DISABLED" });
 
-  const agentOff = resolveStorefrontAvailability({
+  const missingSlug = resolveStorefrontAccess({
+    slug: "   ",
     globalEnabled: true,
     agentFound: true,
-    agentEnabled: false,
+    agentRole: "agent",
+    agentEnabled: true,
   });
-  assert.deepEqual(agentOff, { available: false, reason: "agent_disabled" });
+  assert.deepEqual(missingSlug, { ok: false, reason: "MISSING_SLUG" });
 
-  const missing = resolveStorefrontAvailability({
+  const notFound = resolveStorefrontAccess({
+    slug: "agent",
     globalEnabled: true,
     agentFound: false,
+    agentRole: "agent",
     agentEnabled: true,
   });
-  assert.deepEqual(missing, { available: false, reason: "not_found" });
+  assert.deepEqual(notFound, { ok: false, reason: "NOT_FOUND" });
 
-  const ok = resolveStorefrontAvailability({
+  const agentOff = resolveStorefrontAccess({
+    slug: "agent",
     globalEnabled: true,
     agentFound: true,
+    agentRole: "agent",
+    agentEnabled: false,
+  });
+  assert.deepEqual(agentOff, { ok: false, reason: "AGENT_DISABLED" });
+
+  const notAgent = resolveStorefrontAccess({
+    slug: "agent",
+    globalEnabled: true,
+    agentFound: true,
+    agentRole: "tenant",
     agentEnabled: true,
   });
-  assert.deepEqual(ok, { available: true });
+  assert.deepEqual(notAgent, { ok: false, reason: "NOT_AGENT" });
+
+  const ok = resolveStorefrontAccess({
+    slug: "agent",
+    globalEnabled: true,
+    agentFound: true,
+    agentRole: "agent",
+    agentEnabled: true,
+  });
+  assert.deepEqual(ok, { ok: true });
 });

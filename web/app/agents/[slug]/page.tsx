@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { getAgentStorefrontData } from "@/lib/agents/agent-storefront.server";
 import AgentStorefrontListingsClient from "@/components/agents/AgentStorefrontListingsClient";
+import { resolveServerRole } from "@/lib/auth/role";
 
 export const dynamic = "force-dynamic";
 
@@ -12,29 +13,41 @@ const FALLBACK_AVATAR =
   "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=200&q=80";
 
 const NOT_AVAILABLE_COPY = {
-  global_disabled: {
+  GLOBAL_DISABLED: {
     title: "Agent storefronts are currently unavailable",
     description:
       "We’ve temporarily paused public agent pages. Please check back soon or browse listings instead.",
   },
-  agent_disabled: {
+  AGENT_DISABLED: {
     title: "This storefront is not available",
     description:
       "This agent has chosen to hide their public storefront right now.",
   },
-  not_found: {
+  NOT_FOUND: {
     title: "This storefront is not available",
     description:
       "We couldn’t find that agent storefront. Double-check the link and try again.",
+  },
+  NOT_AGENT: {
+    title: "This storefront is not available",
+    description:
+      "We couldn’t find a public agent storefront at this link.",
+  },
+  MISSING_SLUG: {
+    title: "This storefront is not available",
+    description:
+      "We couldn’t load that agent storefront. Double-check the link and try again.",
   },
 } as const;
 
 export default async function AgentStorefrontPage({ params }: PageProps) {
   const data = await getAgentStorefrontData(params.slug);
+  const { role } = await resolveServerRole();
+  const isAdmin = role === "admin";
 
-  if (!data.available || !data.agent) {
-    const reason = data.reason ?? "not_found";
-    const copy = NOT_AVAILABLE_COPY[reason];
+  if (!data.ok || !data.storefront) {
+    const reason = data.ok ? "NOT_FOUND" : data.reason;
+    const copy = NOT_AVAILABLE_COPY[reason] ?? NOT_AVAILABLE_COPY.NOT_FOUND;
     return (
       <div
         className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-12"
@@ -43,11 +56,21 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Agents</p>
         <h1 className="text-3xl font-semibold text-slate-900">{copy.title}</h1>
         <p className="text-sm text-slate-600">{copy.description}</p>
+        {isAdmin && (
+          <div
+            className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600"
+            data-testid="agent-storefront-debug"
+          >
+            <p className="font-semibold text-slate-700">Debug</p>
+            <p>Reason: {reason}</p>
+            <p>Slug: {data.slug || params.slug}</p>
+          </div>
+        )}
       </div>
     );
   }
 
-  const { agent, listings } = data;
+  const { agent, listings } = data.storefront;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10">

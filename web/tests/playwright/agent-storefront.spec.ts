@@ -83,12 +83,25 @@ test("global storefront setting disables public pages", async ({ page }) => {
   await page.goto("/agents/preview-agent");
   await expect(page.getByTestId("agent-storefront-unavailable")).toBeVisible();
   await expect(page.getByText(/Agent storefronts are currently unavailable/i)).toBeVisible();
+  await expect(page.getByTestId("agent-storefront-debug")).toBeVisible();
+  await expect(page.getByText(/GLOBAL_DISABLED/i)).toBeVisible();
 
   if (wasEnabled) {
     await page.goto("/admin/settings");
     await card.getByRole("button", { name: /Enable/i }).click();
     await expect(card.getByText("Updated.")).toBeVisible();
   }
+});
+
+test("admin sees debug reason when storefront is not found", async ({ page }) => {
+  test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping agent storefront test.");
+  test.skip(!HAS_ADMIN, "Set PLAYWRIGHT_ADMIN_EMAIL/PASSWORD to run this test.");
+
+  await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  await page.goto("/agents/does-not-exist");
+  await expect(page.getByTestId("agent-storefront-unavailable")).toBeVisible();
+  await expect(page.getByTestId("agent-storefront-debug")).toBeVisible();
+  await expect(page.getByText(/NOT_FOUND/i)).toBeVisible();
 });
 
 test("agent can hide storefront from public", async ({ page }) => {
@@ -123,6 +136,28 @@ test("agent can hide storefront from public", async ({ page }) => {
     await page.getByRole("button", { name: /save changes/i }).click();
     await expect(page.getByText("Profile updated.")).toBeVisible();
   }
+});
+
+test("agent can view their storefront when enabled", async ({ page }) => {
+  test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping agent storefront test.");
+  test.skip(!HAS_AGENT, "Set PLAYWRIGHT_AGENT_EMAIL/PASSWORD to run this test.");
+
+  await login(page, AGENT_EMAIL, AGENT_PASSWORD);
+  await page.goto("/profile");
+
+  const toggle = page.getByTestId("agent-storefront-toggle");
+  await expect(toggle).toBeVisible();
+  if (!(await toggle.isChecked())) {
+    await toggle.check();
+    await page.getByRole("button", { name: /save changes/i }).click();
+    await expect(page.getByText("Profile updated.")).toBeVisible();
+  }
+
+  const slug = (await ensureAgentSlug(page, "Agent")) || (await readSlugFromProfile(page));
+  test.skip(!slug, "Unable to resolve agent slug for storefront test.");
+
+  await page.goto(`/agents/${slug}`);
+  await expect(page.getByTestId("agent-storefront-listings")).toBeVisible();
 });
 
 test("storefront renders with missing optional profile fields", async ({ page }) => {

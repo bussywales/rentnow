@@ -1,11 +1,11 @@
-export type StorefrontAvailabilityReason =
-  | "global_disabled"
-  | "agent_disabled"
-  | "not_found";
+export type StorefrontFailureReason =
+  | "GLOBAL_DISABLED"
+  | "AGENT_DISABLED"
+  | "NOT_FOUND"
+  | "NOT_AGENT"
+  | "MISSING_SLUG";
 
-export type StorefrontAvailability =
-  | { available: true }
-  | { available: false; reason: StorefrontAvailabilityReason };
+export type StorefrontResolution = { ok: true } | { ok: false; reason: StorefrontFailureReason };
 
 export function safeTrim(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
@@ -33,19 +33,28 @@ export function ensureUniqueSlug(base: unknown, existing: string[]): string {
   return `${normalizedBase}-${suffix}`;
 }
 
-export function resolveStorefrontAvailability(input: {
+export function resolveStorefrontAccess(input: {
+  slug: unknown;
   globalEnabled: boolean;
   agentFound: boolean;
+  agentRole?: string | null;
   agentEnabled: boolean | null | undefined;
-}): StorefrontAvailability {
+}): StorefrontResolution {
   if (!input.globalEnabled) {
-    return { available: false, reason: "global_disabled" };
+    return { ok: false, reason: "GLOBAL_DISABLED" };
+  }
+  const normalizedSlug = safeTrim(input.slug);
+  if (!normalizedSlug) {
+    return { ok: false, reason: "MISSING_SLUG" };
   }
   if (!input.agentFound) {
-    return { available: false, reason: "not_found" };
+    return { ok: false, reason: "NOT_FOUND" };
   }
   if (input.agentEnabled === false) {
-    return { available: false, reason: "agent_disabled" };
+    return { ok: false, reason: "AGENT_DISABLED" };
   }
-  return { available: true };
+  if (input.agentRole !== "agent") {
+    return { ok: false, reason: "NOT_AGENT" };
+  }
+  return { ok: true };
 }

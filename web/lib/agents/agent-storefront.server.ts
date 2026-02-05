@@ -5,10 +5,10 @@ import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import {
   ensureUniqueSlug,
-  resolveStorefrontAvailability,
+  resolveStorefrontAccess,
   safeTrim,
   slugifyAgentName,
-  type StorefrontAvailabilityReason,
+  type StorefrontFailureReason,
 } from "@/lib/agents/agent-storefront";
 
 const IMAGE_SELECT = "id,image_url,position,created_at,width,height,bytes,format";
@@ -41,18 +41,26 @@ type AgentRow = {
   agent_storefront_enabled?: boolean | null;
 };
 
-export type AgentStorefrontResult = {
-  available: boolean;
-  reason?: StorefrontAvailabilityReason;
-  agent?: {
-    id: string;
-    name: string;
-    avatarUrl: string | null;
-    bio: string | null;
-    slug: string | null;
-  };
-  listings: Property[];
-};
+export type AgentStorefrontResult =
+  | {
+      ok: true;
+      slug: string;
+      storefront: {
+        agent: {
+          id: string;
+          name: string;
+          avatarUrl: string | null;
+          bio: string | null;
+          slug: string | null;
+        };
+        listings: Property[];
+      };
+    }
+  | {
+      ok: false;
+      slug: string;
+      reason: StorefrontFailureReason;
+    };
 
 function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
   return (rows ?? []).map((row) => ({
@@ -74,38 +82,52 @@ function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
 }
 
 export async function getAgentStorefrontData(slug: string): Promise<AgentStorefrontResult> {
-  const globalEnabled = await getAppSettingBool("agent_storefronts_enabled", true);
   const normalizedSlug = safeTrim(slug).toLowerCase();
-  if (!normalizedSlug) {
-    return { available: false, reason: "not_found", listings: [] };
-  }
+  const globalEnabled = await getAppSettingBool("agent_storefronts_enabled", true);
   if (!globalEnabled) {
-    return { available: false, reason: "global_disabled", listings: [] };
+    return { ok: false, reason: "GLOBAL_DISABLED", slug: normalizedSlug };
+  }
+  if (!normalizedSlug) {
+    return { ok: false, reason: "MISSING_SLUG", slug: normalizedSlug };
   }
 
   const client = hasServiceRoleEnv()
     ? createServiceRoleClient()
     : await createServerSupabaseClient();
 
-  const { data: profile } = await client
+  const { data: exactProfile } = await client
     .from("profiles")
     .select(
       "id, role, display_name, full_name, business_name, avatar_url, agent_bio, agent_slug, agent_storefront_enabled"
     )
-    .ilike("agent_slug", normalizedSlug)
+    .eq("agent_slug", normalizedSlug)
     .maybeSingle<AgentRow>();
 
-  const availability = resolveStorefrontAvailability({
+  let profile = exactProfile;
+  if (!profile) {
+    const { data: fallbackProfile } = await client
+      .from("profiles")
+      .select(
+        "id, role, display_name, full_name, business_name, avatar_url, agent_bio, agent_slug, agent_storefront_enabled"
+      )
+      .ilike("agent_slug", safeTrim(slug))
+      .maybeSingle<AgentRow>();
+    profile = fallbackProfile ?? null;
+  }
+
+  const access = resolveStorefrontAccess({
+    slug: normalizedSlug,
     globalEnabled,
     agentFound: !!profile,
+    agentRole: profile?.role ?? null,
     agentEnabled: profile?.agent_storefront_enabled ?? null,
   });
 
-  if (!availability.available || !profile || profile.role !== "agent") {
+  if (!access.ok || !profile) {
     return {
-      available: false,
-      reason: availability.available ? "not_found" : availability.reason,
-      listings: [],
+      ok: false,
+      reason: access.ok ? "NOT_FOUND" : access.reason,
+      slug: normalizedSlug,
     };
   }
 
@@ -122,18 +144,24 @@ export async function getAgentStorefrontData(slug: string): Promise<AgentStorefr
 
   const listings = mapPropertyRows(listingRows as PropertyRow[]);
   const name =
-    profile.display_name || profile.full_name || profile.business_name || "Agent";
+    safeTrim(profile.display_name) ||
+    safeTrim(profile.full_name) ||
+    safeTrim(profile.business_name) ||
+    "Agent";
 
   return {
-    available: true,
-    agent: {
-      id: profile.id,
-      name,
-      avatarUrl: profile.avatar_url ?? null,
-      bio: profile.agent_bio ?? null,
-      slug: profile.agent_slug ?? null,
+    ok: true,
+    slug: normalizedSlug,
+    storefront: {
+      agent: {
+        id: profile.id,
+        name,
+        avatarUrl: profile.avatar_url ?? null,
+        bio: profile.agent_bio ?? null,
+        slug: profile.agent_slug ?? null,
+      },
+      listings,
     },
-    listings,
   };
 }
 

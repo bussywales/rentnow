@@ -40,6 +40,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   );
   const [agentBio, setAgentBio] = useState(initialProfile?.agent_bio ?? "");
   const [agentSlug, setAgentSlug] = useState(initialProfile?.agent_slug ?? null);
+  const [copyState, setCopyState] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -93,6 +94,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       setAgentStorefrontEnabled(nextProfile?.agent_storefront_enabled ?? true);
       setAgentBio(nextProfile?.agent_bio ?? "");
       setAgentSlug(nextProfile?.agent_slug ?? null);
+      setCopyState(null);
       setSnapshot({
         displayName: nextName,
         phone: nextProfile?.phone ?? "",
@@ -117,6 +119,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
         (agentStorefrontEnabled !== snapshot.agentStorefrontEnabled ||
           agentBio.trim() !== snapshot.agentBio ||
           agentSlug !== snapshot.agentSlug)));
+  const storefrontPath = agentSlug ? `/agents/${agentSlug}` : "";
 
   const handleSave = async () => {
     if (!supabase || !profile) return;
@@ -163,6 +166,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
         if (typeof data?.slug === "string") {
           setAgentSlug(data.slug);
           setSnapshot((prev) => ({ ...prev, agentSlug: data.slug }));
+          setCopyState(null);
         }
       } else {
         setError(
@@ -171,6 +175,19 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       }
     }
     setSaving(false);
+  };
+
+  const handleCopyStorefront = async () => {
+    if (!storefrontPath) return;
+    setCopyState(null);
+    try {
+      const origin = window.location.origin;
+      await navigator.clipboard.writeText(`${origin}${storefrontPath}`);
+      setCopyState("Copied!");
+      setTimeout(() => setCopyState(null), 2000);
+    } catch {
+      setCopyState("Copy failed");
+    }
   };
 
   const handleAvatarChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -362,13 +379,24 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
             {agentSlug && (
               <div>
                 <label className="text-xs font-semibold text-slate-600">
-                  Storefront URL
+                  Your agent storefront link
                 </label>
-                <Input
-                  value={`/agents/${agentSlug}`}
-                  readOnly
-                  data-testid="agent-storefront-url"
-                />
+                <div className="mt-2 flex flex-wrap items-center gap-3">
+                  <Input
+                    value={storefrontPath}
+                    readOnly
+                    data-testid="agent-storefront-url"
+                  />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={handleCopyStorefront}
+                    disabled={!storefrontPath}
+                  >
+                    {copyState ?? "Copy link"}
+                  </Button>
+                </div>
               </div>
             )}
           </div>
