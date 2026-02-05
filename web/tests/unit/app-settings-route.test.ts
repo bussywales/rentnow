@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { patchSchema } from "@/app/api/admin/app-settings/route";
+import { patchSchema, validatePatchPayload } from "@/app/api/admin/app-settings/route";
 
 void test("patchSchema rejects non-boolean enabled", () => {
   assert.throws(() =>
@@ -38,4 +38,17 @@ void test("patchSchema accepts require location pin payload", () => {
     value: { enabled: true },
   });
   assert.equal(parsed.key, "require_location_pin_for_publish");
+});
+
+void test("patchSchema accepts agent storefront payload", () => {
+  const parsed = patchSchema.parse({
+    key: "agent_storefronts_enabled",
+    value: { enabled: true },
+  });
+  assert.equal(parsed.key, "agent_storefronts_enabled");
+});
+
+void test("validatePatchPayload rejects invalid keys", () => {
+  const parsed = validatePatchPayload({ key: "not_a_key", value: { enabled: true } });
+  assert.equal(parsed.ok, false);
 });

@@ -5,16 +5,13 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { logAuditEvent } from "@/lib/audit/audit-log";
+import {
+  APP_SETTING_KEY_LIST,
+  APP_SETTING_KEYS,
+  type AppSettingKey,
+} from "@/lib/settings/app-settings-keys";
 
-const ALLOWED_KEYS = [
-  "show_tenant_photo_trust_signals",
-  "enable_location_picker",
-  "show_tenant_checkin_badge",
-  "require_location_pin_for_publish",
-  "contact_exchange_mode",
-  "listing_expiry_days",
-  "show_expired_listings_public",
-] as const;
+const ALLOWED_KEYS = APP_SETTING_KEY_LIST as [AppSettingKey, ...AppSettingKey[]];
 const routeLabel = "/api/admin/app-settings";
 
 const enabledValueSchema = z.object({
@@ -33,6 +30,14 @@ export const patchSchema = z.object({
   key: z.enum(ALLOWED_KEYS),
   value: z.union([enabledValueSchema, modeValueSchema, daysValueSchema]),
 });
+
+export function validatePatchPayload(input: unknown) {
+  const parsed = patchSchema.safeParse(input);
+  if (parsed.success) {
+    return { ok: true as const, data: parsed.data };
+  }
+  return { ok: false as const, error: parsed.error };
+}
 
 export async function GET(request: Request) {
   const startTime = Date.now();
@@ -73,9 +78,13 @@ export async function PATCH(request: Request) {
   });
   if (!auth.ok) return auth.response;
 
-  const body = patchSchema.parse(await request.json());
-  const isModeSetting = body.key === "contact_exchange_mode";
-  const isExpirySetting = body.key === "listing_expiry_days";
+  const parsed = validatePatchPayload(await request.json());
+  if (!parsed.ok) {
+    return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
+  }
+  const body = parsed.data;
+  const isModeSetting = body.key === APP_SETTING_KEYS.contactExchangeMode;
+  const isExpirySetting = body.key === APP_SETTING_KEYS.listingExpiryDays;
   if (isModeSetting && !("mode" in body.value)) {
     return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
   }
@@ -86,10 +95,10 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
   }
   const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;
+  const now = new Date().toISOString();
   const { data, error } = await adminClient
     .from("app_settings")
-    .update({ value: body.value, updated_at: new Date().toISOString() })
-    .eq("key", body.key)
+    .upsert({ key: body.key, value: body.value, updated_at: now }, { onConflict: "key" })
     .select("key, value, updated_at")
     .maybeSingle();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

@@ -2,9 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
+import { APP_SETTING_KEYS, type AppSettingKey } from "@/lib/settings/app-settings-keys";
 
 type SettingRow = {
-  key: string;
+  key: AppSettingKey;
   enabled: boolean;
   updatedAt: string | null;
 };
@@ -13,26 +14,27 @@ type Props = {
   settings: SettingRow[];
 };
 
-const DESCRIPTIONS: Record<string, { title: string; helper: string }> = {
-  show_tenant_photo_trust_signals: {
+const DESCRIPTIONS: Partial<Record<AppSettingKey, { title: string; helper: string }>> =
+  {
+  [APP_SETTING_KEYS.showTenantPhotoTrustSignals]: {
     title: "Tenant photo details",
     helper: "Shows non-sensitive photo metadata (no GPS) on property pages for tenants.",
   },
-  enable_location_picker: {
+  [APP_SETTING_KEYS.enableLocationPicker]: {
     title: "Location picker",
     helper: "Enable address search and map pin to capture approximate listing locations.",
   },
-  show_tenant_checkin_badge: {
+  [APP_SETTING_KEYS.showTenantCheckinBadge]: {
     title: "Tenant check-in badge",
     helper:
       "Show a small ‘checked in recently’ indicator to tenants. No GPS coordinates are shown.",
   },
-  require_location_pin_for_publish: {
+  [APP_SETTING_KEYS.requireLocationPinForPublish]: {
     title: "Location required to publish",
     helper:
       "When enabled, hosts must pin a general location before publishing. Drafts are still allowed.",
   },
-  agent_storefronts_enabled: {
+  [APP_SETTING_KEYS.agentStorefrontsEnabled]: {
     title: "Agent storefronts (public pages)",
     helper: "Disable to hide all agent storefront pages immediately.",
   },
@@ -40,13 +42,13 @@ const DESCRIPTIONS: Record<string, { title: string; helper: string }> = {
 
 export default function AdminSettingsFeatureFlags({ settings }: Props) {
   const [pending, startTransition] = useTransition();
-  const [local, setLocal] = useState<Record<string, SettingRow>>(
-    () => Object.fromEntries(settings.map((s) => [s.key, s]))
+  const [local, setLocal] = useState<Record<AppSettingKey, SettingRow>>(
+    () => Object.fromEntries(settings.map((s) => [s.key, s])) as Record<AppSettingKey, SettingRow>
   );
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
 
-  const toggle = (settingKey: string, next: boolean) => {
+  const toggle = (settingKey: AppSettingKey, next: boolean) => {
     setError(null);
     startTransition(async () => {
       setToast(null);

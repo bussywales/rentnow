@@ -13,6 +13,7 @@ import { AdminLocationConfigStatus } from "@/components/admin/AdminLocationConfi
 import AdminSettingsContactExchange from "@/components/admin/AdminSettingsContactExchange";
 import AdminSettingsListingExpiry from "@/components/admin/AdminSettingsListingExpiry";
 import { DEFAULT_LISTING_EXPIRY_DAYS } from "@/lib/properties/expiry";
+import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 
 export const dynamic = "force-dynamic";
 
@@ -32,22 +33,22 @@ export default async function AdminSettingsPage() {
     .from("app_settings")
     .select("key, value, updated_at")
     .in("key", [
-      "show_tenant_photo_trust_signals",
-      "enable_location_picker",
-      "show_tenant_checkin_badge",
-      "require_location_pin_for_publish",
-      "agent_storefronts_enabled",
-      "contact_exchange_mode",
-      "listing_expiry_days",
-      "show_expired_listings_public",
+      APP_SETTING_KEYS.showTenantPhotoTrustSignals,
+      APP_SETTING_KEYS.enableLocationPicker,
+      APP_SETTING_KEYS.showTenantCheckinBadge,
+      APP_SETTING_KEYS.requireLocationPinForPublish,
+      APP_SETTING_KEYS.agentStorefrontsEnabled,
+      APP_SETTING_KEYS.contactExchangeMode,
+      APP_SETTING_KEYS.listingExpiryDays,
+      APP_SETTING_KEYS.showExpiredListingsPublic,
     ]);
 
   const keys = [
-    "show_tenant_photo_trust_signals",
-    "enable_location_picker",
-    "show_tenant_checkin_badge",
-    "require_location_pin_for_publish",
-    "agent_storefronts_enabled",
+    APP_SETTING_KEYS.showTenantPhotoTrustSignals,
+    APP_SETTING_KEYS.enableLocationPicker,
+    APP_SETTING_KEYS.showTenantCheckinBadge,
+    APP_SETTING_KEYS.requireLocationPinForPublish,
+    APP_SETTING_KEYS.agentStorefrontsEnabled,
   ] as const;
   const settings = keys.map((key) => {
     const row = data?.find((item) => item.key === key);
@@ -58,14 +59,16 @@ export default async function AdminSettingsPage() {
     };
   });
 
-  const contactRow = data?.find((item) => item.key === "contact_exchange_mode");
+  const contactRow = data?.find((item) => item.key === APP_SETTING_KEYS.contactExchangeMode);
   const contactMode: ContactExchangeMode = parseContactExchangeMode(
     contactRow?.value,
     "redact"
   );
-  const expiryRow = data?.find((item) => item.key === "listing_expiry_days");
+  const expiryRow = data?.find((item) => item.key === APP_SETTING_KEYS.listingExpiryDays);
   const expiryDays = parseAppSettingInt(expiryRow?.value, DEFAULT_LISTING_EXPIRY_DAYS);
-  const showExpiredRow = data?.find((item) => item.key === "show_expired_listings_public");
+  const showExpiredRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.showExpiredListingsPublic
+  );
   const showExpiredPublic = parseAppSettingBool(showExpiredRow?.value, false);
 
   return (
@@ -89,11 +92,15 @@ export default async function AdminSettingsPage() {
       />
       <AdminLocationConfigStatus
         flags={{
-          enable_location_picker: settings.find((s) => s.key === "enable_location_picker")?.enabled ?? false,
+          enable_location_picker:
+            settings.find((s) => s.key === APP_SETTING_KEYS.enableLocationPicker)?.enabled ??
+            false,
           require_location_pin_for_publish:
-            settings.find((s) => s.key === "require_location_pin_for_publish")?.enabled ?? false,
+            settings.find((s) => s.key === APP_SETTING_KEYS.requireLocationPinForPublish)
+              ?.enabled ?? false,
           show_tenant_checkin_badge:
-            settings.find((s) => s.key === "show_tenant_checkin_badge")?.enabled ?? false,
+            settings.find((s) => s.key === APP_SETTING_KEYS.showTenantCheckinBadge)?.enabled ??
+            false,
         }}
         env={{
           mapboxServerConfigured: !!process.env.MAPBOX_TOKEN,
