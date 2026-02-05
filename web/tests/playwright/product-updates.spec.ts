@@ -43,6 +43,12 @@ test("product updates bell reflects published updates", async ({ page }) => {
   await row.getByRole("button", { name: /publish/i }).click();
   await expect(row.getByText(/Published/i)).toBeVisible();
 
+  await expect(page.getByTestId("updates-bell")).toBeVisible();
+  await page.getByTestId("updates-bell").click();
+  await expect(page.getByTestId("updates-drawer")).toBeVisible();
+  await expect(page.getByText(updateTitle)).toBeVisible();
+  await page.keyboard.press("Escape");
+
   await page.getByRole("button", { name: /log out/i }).click();
   await page.waitForURL(/auth\/login|auth\/register|auth\/required|properties|tenant/i, { timeout: 15_000 });
 

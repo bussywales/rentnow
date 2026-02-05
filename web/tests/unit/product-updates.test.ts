@@ -25,7 +25,7 @@ void test("product updates audience filters respect role + published state", () 
   assert.deepEqual(agent.map((row) => row.id), ["1", "3"]);
 
   const admin = filterPublishedUpdatesForRole(updates, "admin");
-  assert.deepEqual(admin.map((row) => row.id), ["1", "4"]);
+  assert.deepEqual(admin.map((row) => row.id), ["1", "2", "3", "4"]);
 
   const anon = filterPublishedUpdatesForRole(updates, null);
   assert.deepEqual(anon.map((row) => row.id), ["1"]);
@@ -42,6 +42,11 @@ void test("audience helpers map roles", () => {
   assert.deepEqual(getAllowedProductUpdateAudiences("tenant"), ["all", "tenant"]);
   assert.deepEqual(getAllowedProductUpdateAudiences("landlord"), ["all", "host"]);
   assert.deepEqual(getAllowedProductUpdateAudiences("agent"), ["all", "host"]);
-  assert.deepEqual(getAllowedProductUpdateAudiences("admin"), ["all", "admin"]);
+  assert.deepEqual(getAllowedProductUpdateAudiences("admin"), [
+    "all",
+    "tenant",
+    "host",
+    "admin",
+  ]);
   assert.deepEqual(getAllowedProductUpdateAudiences(null), ["all"]);
 });

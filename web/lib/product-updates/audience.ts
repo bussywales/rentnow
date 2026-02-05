@@ -9,6 +9,7 @@ export function getAllowedProductUpdateAudiences(
   role: UserRole | null
 ): ProductUpdateAudience[] {
   if (!role) return ["all"];
+  if (role === "admin") return [...PRODUCT_UPDATE_AUDIENCES];
   return PRODUCT_UPDATE_AUDIENCE_BY_ROLE[role] ?? ["all"];
 }
 
