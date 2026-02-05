@@ -2,7 +2,6 @@ import Image from "next/image";
 import { permanentRedirect } from "next/navigation";
 import { getAgentStorefrontData } from "@/lib/agents/agent-storefront.server";
 import AgentStorefrontListingsClient from "@/components/agents/AgentStorefrontListingsClient";
-import { resolveServerRole } from "@/lib/auth/role";
 
 export const dynamic = "force-dynamic";
 
@@ -43,8 +42,6 @@ const NOT_AVAILABLE_COPY = {
 
 export default async function AgentStorefrontPage({ params }: PageProps) {
   const data = await getAgentStorefrontData(params.slug);
-  const { role } = await resolveServerRole();
-  const isAdmin = role === "admin";
 
   if (!data.ok && data.redirectSlug && data.redirectSlug !== params.slug) {
     permanentRedirect(`/agents/${data.redirectSlug}`);
@@ -61,16 +58,6 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Agents</p>
         <h1 className="text-3xl font-semibold text-slate-900">{copy.title}</h1>
         <p className="text-sm text-slate-600">{copy.description}</p>
-        {isAdmin && (
-          <div
-            className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-xs text-slate-600"
-            data-testid="agent-storefront-debug"
-          >
-            <p className="font-semibold text-slate-700">Debug</p>
-            <p>Reason: {reason}</p>
-            <p>Slug: {data.slug || params.slug}</p>
-          </div>
-        )}
       </div>
     );
   }

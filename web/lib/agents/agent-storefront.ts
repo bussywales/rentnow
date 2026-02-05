@@ -7,6 +7,46 @@ export type StorefrontFailureReason =
 
 export type StorefrontResolution = { ok: true } | { ok: false; reason: StorefrontFailureReason };
 
+export type StorefrontPublicRow = {
+  agent_user_id?: string | null;
+  slug?: string | null;
+  display_name?: string | null;
+  avatar_url?: string | null;
+  public_bio?: string | null;
+  agent_storefront_enabled?: boolean | null;
+  global_enabled?: boolean | null;
+  role?: string | null;
+  reason?: string | null;
+  ok?: boolean | null;
+};
+
+export function normalizeStorefrontReason(
+  reason: string | null | undefined
+): StorefrontFailureReason {
+  switch ((reason ?? "").toUpperCase()) {
+    case "GLOBAL_DISABLED":
+      return "GLOBAL_DISABLED";
+    case "AGENT_DISABLED":
+      return "AGENT_DISABLED";
+    case "NOT_AGENT":
+      return "NOT_AGENT";
+    case "MISSING_SLUG":
+      return "MISSING_SLUG";
+    case "NOT_FOUND":
+    default:
+      return "NOT_FOUND";
+  }
+}
+
+export function resolveStorefrontPublicOutcome(
+  row: StorefrontPublicRow | null
+): StorefrontResolution {
+  if (!row || row.ok !== true) {
+    return { ok: false, reason: normalizeStorefrontReason(row?.reason) };
+  }
+  return { ok: true };
+}
+
 export function safeTrim(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }

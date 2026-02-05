@@ -15,14 +15,18 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const displayName = typeof body?.displayName === "string" ? body.displayName : null;
   const force = body?.force === true;
+  const enabled = typeof body?.enabled === "boolean" ? body.enabled : null;
+  const bio = typeof body?.bio === "string" ? body.bio : null;
 
   const slug = await ensureAgentSlugForUser({
     userId: auth.user.id,
     displayName,
     force,
+    enabled,
+    bio,
   });
 
-  if (!slug) {
+  if (!slug && enabled !== false) {
     return NextResponse.json(
       { error: "Unable to generate storefront slug." },
       { status: 500 }

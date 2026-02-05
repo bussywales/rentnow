@@ -5,6 +5,7 @@ import {
   resolveAgentSlugBase,
   resolveLegacySlugRedirect,
   resolveStorefrontAccess,
+  resolveStorefrontPublicOutcome,
   shouldEnsureAgentSlug,
   slugifyAgentName,
 } from "@/lib/agents/agent-storefront";
@@ -120,4 +121,25 @@ void test("resolveStorefrontAccess handles availability reasons", () => {
     agentEnabled: true,
   });
   assert.deepEqual(ok, { ok: true });
+});
+
+void test("resolveStorefrontPublicOutcome handles global disabled and ok", () => {
+  const globalOff = resolveStorefrontPublicOutcome({
+    ok: false,
+    reason: "GLOBAL_DISABLED",
+  });
+  assert.deepEqual(globalOff, { ok: false, reason: "GLOBAL_DISABLED" });
+
+  const ok = resolveStorefrontPublicOutcome({
+    ok: true,
+    reason: "OK",
+  });
+  assert.deepEqual(ok, { ok: true });
+});
+
+void test("resolveStorefrontPublicOutcome handles missing storefront rows", () => {
+  assert.deepEqual(resolveStorefrontPublicOutcome(null), {
+    ok: false,
+    reason: "NOT_FOUND",
+  });
 });

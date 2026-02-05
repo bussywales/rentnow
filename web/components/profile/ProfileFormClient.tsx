@@ -121,7 +121,11 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       const slugRes = await fetch("/api/profile/agent-storefront", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName }),
+        body: JSON.stringify({
+          displayName,
+          enabled: agentStorefrontEnabled,
+          bio: agentBio,
+        }),
       });
       if (slugRes.ok) {
         const data = await slugRes.json().catch(() => ({}));
@@ -131,7 +135,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
         }
       }
     })();
-  }, [agentStorefrontEnabled, agentSlug, displayName, profile, supabase]);
+  }, [agentBio, agentStorefrontEnabled, agentSlug, displayName, profile, supabase]);
 
   const initials = getInitials(displayName || email || "U");
   const isAgent = profile?.role === "agent";
@@ -185,11 +189,15 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       });
       setSuccess("Profile updated.");
     }
-    if (!updateError && isAgent && agentStorefrontEnabled && !agentSlug) {
+    if (!updateError && isAgent && (agentStorefrontEnabled || agentSlug)) {
       const slugRes = await fetch("/api/profile/agent-storefront", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName }),
+        body: JSON.stringify({
+          displayName,
+          enabled: agentStorefrontEnabled,
+          bio: agentBio,
+        }),
       });
       if (slugRes.ok) {
         const data = await slugRes.json().catch(() => ({}));
@@ -198,7 +206,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
           setSnapshot((prev) => ({ ...prev, agentSlug: data.slug }));
           setCopyState(null);
         }
-      } else {
+      } else if (agentStorefrontEnabled && !agentSlug) {
         setError(
           "Profile saved, but we couldn’t generate your storefront link. Please try again."
         );
@@ -216,7 +224,12 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       const slugRes = await fetch("/api/profile/agent-storefront", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ displayName, force: true }),
+        body: JSON.stringify({
+          displayName,
+          force: true,
+          enabled: agentStorefrontEnabled,
+          bio: agentBio,
+        }),
       });
       if (!slugRes.ok) {
         setError("Unable to regenerate storefront link. Please try again.");

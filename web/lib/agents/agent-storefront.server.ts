@@ -1,15 +1,14 @@
 import type { Property } from "@/lib/types";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import {
   ensureUniqueSlug,
   resolveAgentSlugBase,
-  resolveStorefrontAccess,
-  resolveLegacySlugRedirect,
+  resolveStorefrontPublicOutcome,
   safeTrim,
   type StorefrontFailureReason,
+  type StorefrontPublicRow,
 } from "@/lib/agents/agent-storefront";
 
 const IMAGE_SELECT = "id,image_url,position,created_at,width,height,bytes,format";
@@ -41,6 +40,74 @@ type AgentRow = {
   agent_slug?: string | null;
   agent_storefront_enabled?: boolean | null;
 };
+
+type AgentStorefrontRow = {
+  user_id: string;
+  slug: string;
+  enabled: boolean;
+  bio?: string | null;
+};
+
+async function upsertAgentStorefrontRow(input: {
+  client: ReturnType<typeof createServiceRoleClient>;
+  userId: string;
+  slug: string;
+  enabled: boolean;
+  bio: string | null;
+}): Promise<boolean> {
+  const storefrontsTable = input.client.from("agent_storefronts") as unknown as {
+    upsert: (
+      values: AgentStorefrontRow,
+      options?: { onConflict?: string }
+    ) => Promise<{ error: { message?: string } | null }>;
+  };
+
+  const { error } = await storefrontsTable.upsert(
+    {
+      user_id: input.userId,
+      slug: input.slug,
+      enabled: input.enabled,
+      bio: input.bio,
+    },
+    { onConflict: "user_id" }
+  );
+
+  return !error;
+}
+
+async function attemptBackfillStorefront(input: {
+  slug: string;
+}): Promise<boolean> {
+  if (!hasServiceRoleEnv()) return false;
+  const client = createServiceRoleClient();
+  const { data: profile } = await client
+    .from("profiles")
+    .select(
+      "id, role, display_name, full_name, business_name, agent_slug, agent_storefront_enabled, agent_bio"
+    )
+    .ilike("agent_slug", input.slug)
+    .maybeSingle<AgentRow>();
+
+  if (!profile || profile.role !== "agent") return false;
+  const fallbackSlug =
+    safeTrim(profile.agent_slug) || resolveAgentSlugBase({
+      displayName: profile.display_name,
+      fullName: profile.full_name,
+      businessName: profile.business_name,
+      userId: profile.id,
+    });
+
+  if (!fallbackSlug) return false;
+  const enabled = profile.agent_storefront_enabled ?? true;
+  const bio = profile.agent_bio ?? null;
+  return upsertAgentStorefrontRow({
+    client,
+    userId: profile.id,
+    slug: fallbackSlug,
+    enabled,
+    bio,
+  });
+}
 
 export type AgentStorefrontResult =
   | {
@@ -85,98 +152,77 @@ function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
 
 export async function getAgentStorefrontData(slug: string): Promise<AgentStorefrontResult> {
   const normalizedSlug = safeTrim(slug).toLowerCase();
-  const globalEnabled = await getAppSettingBool("agent_storefronts_enabled", true);
-  if (!globalEnabled) {
-    return { ok: false, reason: "GLOBAL_DISABLED", slug: normalizedSlug };
-  }
   if (!normalizedSlug) {
     return { ok: false, reason: "MISSING_SLUG", slug: normalizedSlug };
   }
 
   const hasServiceRole = hasServiceRoleEnv();
   const client = hasServiceRole ? createServiceRoleClient() : await createServerSupabaseClient();
-
-  let profile: AgentRow | null = null;
-
-  if (hasServiceRole) {
-    const { data: exactProfile } = await client
-      .from("profiles")
-      .select(
-        "id, role, display_name, full_name, business_name, avatar_url, agent_bio, agent_slug, agent_storefront_enabled"
-      )
-      .eq("agent_slug", normalizedSlug)
-      .maybeSingle<AgentRow>();
-
-    profile = exactProfile;
-    if (!profile) {
-      const { data: caseInsensitiveProfile } = await client
-        .from("profiles")
-        .select(
-          "id, role, display_name, full_name, business_name, avatar_url, agent_bio, agent_slug, agent_storefront_enabled"
-        )
-        .ilike("agent_slug", normalizedSlug)
-        .maybeSingle<AgentRow>();
-      profile = caseInsensitiveProfile ?? null;
-    }
-    if (!profile) {
-      const candidateName = safeTrim(slug).replace(/-/g, " ");
-      if (candidateName) {
-        const safeCandidate = candidateName.replace(/[%_]/g, "\\$&");
-        const { data: candidates } = await client
-          .from("profiles")
-          .select(
-            "id, role, display_name, full_name, business_name, avatar_url, agent_bio, agent_slug, agent_storefront_enabled"
-          )
-          .eq("role", "agent")
-          .not("agent_slug", "is", null)
-          .or(
-            `display_name.ilike.%${safeCandidate}%,full_name.ilike.%${safeCandidate}%,business_name.ilike.%${safeCandidate}%`
-          );
-
-        const matches =
-          candidates
-            ?.map((candidate) => ({
-              candidate,
-              redirectSlug: resolveLegacySlugRedirect({
-                requestedSlug: normalizedSlug,
-                profile: candidate,
-              }),
-            }))
-            .filter((match) => !!match.redirectSlug) ?? [];
-
-        if (matches.length === 1) {
-          return {
-            ok: false,
-            reason: "NOT_FOUND",
-            slug: normalizedSlug,
-            redirectSlug: matches[0].redirectSlug ?? null,
-          };
-        }
-      }
-    }
-  } else {
-    const { data } = await client.rpc("get_agent_storefront_profile", {
+  let { data: publicRows, error: publicError } = await client.rpc(
+    "get_agent_storefront_public",
+    {
       input_slug: normalizedSlug,
-    });
-    if (Array.isArray(data)) {
-      profile = (data[0] as AgentRow | undefined) ?? null;
-    } else {
-      profile = (data as AgentRow | null) ?? null;
+    }
+  );
+  let publicRow = (Array.isArray(publicRows) ? publicRows[0] : publicRows) as
+    | StorefrontPublicRow
+    | null
+    | undefined;
+
+  let publicOutcome = resolveStorefrontPublicOutcome(publicRow ?? null);
+  let publicReason = publicOutcome.ok ? null : publicOutcome.reason;
+  const globalEnabled = publicRow?.global_enabled ?? true;
+  const agentEnabled = publicRow?.agent_storefront_enabled ?? null;
+  const agentRole = publicRow?.role ?? null;
+
+  if (!publicOutcome.ok && publicReason === "NOT_FOUND" && hasServiceRole) {
+    const backfilled = await attemptBackfillStorefront({ slug: normalizedSlug });
+    if (backfilled) {
+      const retry = await client.rpc("get_agent_storefront_public", {
+        input_slug: normalizedSlug,
+      });
+      publicError = retry.error;
+      publicRows = retry.data;
+      publicRow = (Array.isArray(publicRows) ? publicRows[0] : publicRows) as
+        | StorefrontPublicRow
+        | null
+        | undefined;
+      publicOutcome = resolveStorefrontPublicOutcome(publicRow ?? null);
+      publicReason = publicOutcome.ok ? null : publicOutcome.reason;
     }
   }
 
-  const access = resolveStorefrontAccess({
-    slug: normalizedSlug,
-    globalEnabled,
-    agentFound: !!profile,
-    agentRole: profile?.role ?? null,
-    agentEnabled: profile?.agent_storefront_enabled ?? null,
-  });
-
-  if (!access.ok || !profile) {
+  if (publicError || !publicOutcome.ok) {
+    console.warn("[agent-storefront] unavailable", {
+      slug: normalizedSlug,
+      reason: publicReason,
+      globalEnabled,
+      agentEnabled,
+      role: agentRole,
+    });
     return {
       ok: false,
-      reason: access.ok ? "NOT_FOUND" : access.reason,
+      reason: publicReason ?? "NOT_FOUND",
+      slug: normalizedSlug,
+    };
+  }
+
+  const profile: AgentRow = {
+    id: publicRow?.agent_user_id ?? "",
+    role: agentRole,
+    display_name: publicRow?.display_name ?? null,
+    full_name: null,
+    business_name: null,
+    avatar_url: publicRow?.avatar_url ?? null,
+    agent_bio: publicRow?.public_bio ?? null,
+    agent_slug: publicRow?.slug ?? normalizedSlug,
+    agent_storefront_enabled: agentEnabled ?? true,
+  };
+
+  if (!profile.id) {
+    return {
+      ok: false,
+      reason: "NOT_FOUND",
       slug: normalizedSlug,
     };
   }
@@ -219,19 +265,38 @@ export async function ensureAgentSlugForUser(input: {
   userId: string;
   displayName?: string | null;
   force?: boolean;
+  enabled?: boolean | null;
+  bio?: string | null;
 }): Promise<string | null> {
   if (!hasServiceRoleEnv()) return null;
   const client = createServiceRoleClient();
 
   const { data: profile } = await client
     .from("profiles")
-    .select("id, role, display_name, full_name, agent_slug")
+    .select(
+      "id, role, display_name, full_name, business_name, agent_slug, agent_storefront_enabled, agent_bio"
+    )
     .eq("id", input.userId)
     .maybeSingle<AgentRow>();
 
   if (!profile || profile.role !== "agent") return null;
   const shouldForce = input.force === true;
-  if (profile.agent_slug && !shouldForce) return profile.agent_slug;
+  const storefrontEnabled =
+    input.enabled ?? profile.agent_storefront_enabled ?? true;
+  const storefrontBio = input.bio ?? profile.agent_bio ?? null;
+  if (!profile.agent_slug && !shouldForce && !storefrontEnabled) {
+    return null;
+  }
+  if (profile.agent_slug && !shouldForce) {
+    await upsertAgentStorefrontRow({
+      client,
+      userId: profile.id,
+      slug: profile.agent_slug,
+      enabled: storefrontEnabled,
+      bio: storefrontBio,
+    });
+    return profile.agent_slug;
+  }
 
   const baseSlug = resolveAgentSlugBase({
     currentSlug: shouldForce ? null : profile.agent_slug,
@@ -242,17 +307,22 @@ export async function ensureAgentSlugForUser(input: {
   });
 
   const { data: existingRows } = await client
+    .from("agent_storefronts")
+    .select("user_id, slug")
+    .ilike("slug", `${baseSlug}%`);
+  const { data: legacyRows } = await client
     .from("profiles")
     .select("id, agent_slug")
     .ilike("agent_slug", `${baseSlug}%`);
 
-  const existing = ((existingRows ?? []) as Array<{
-    id: string;
-    agent_slug: string | null;
-  }>)
-    .filter((row) => row.id !== input.userId)
-    .map((row) => row.agent_slug)
-    .filter((value): value is string => typeof value === "string");
+  const existing = [
+    ...((existingRows ?? []) as Array<{ user_id: string; slug: string | null }>)
+      .filter((row) => row.user_id !== input.userId)
+      .map((row) => row.slug),
+    ...((legacyRows ?? []) as Array<{ id: string; agent_slug: string | null }>)
+      .filter((row) => row.id !== input.userId)
+      .map((row) => row.agent_slug),
+  ].filter((value): value is string => typeof value === "string");
 
   if (shouldForce && profile.agent_slug) {
     existing.push(profile.agent_slug);
@@ -269,5 +339,13 @@ export async function ensureAgentSlugForUser(input: {
   const { error } = await profileTable.update({ agent_slug: nextSlug }).eq("id", input.userId);
 
   if (error) return null;
+  const storefrontSaved = await upsertAgentStorefrontRow({
+    client,
+    userId: input.userId,
+    slug: nextSlug,
+    enabled: storefrontEnabled,
+    bio: storefrontBio,
+  });
+  if (!storefrontSaved) return null;
   return nextSlug;
 }
