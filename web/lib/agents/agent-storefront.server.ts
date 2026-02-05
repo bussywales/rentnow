@@ -206,6 +206,7 @@ export async function getAgentStorefrontData(slug: string): Promise<AgentStorefr
 export async function ensureAgentSlugForUser(input: {
   userId: string;
   displayName?: string | null;
+  force?: boolean;
 }): Promise<string | null> {
   if (!hasServiceRoleEnv()) return null;
   const client = createServiceRoleClient();
@@ -217,10 +218,11 @@ export async function ensureAgentSlugForUser(input: {
     .maybeSingle<AgentRow>();
 
   if (!profile || profile.role !== "agent") return null;
-  if (profile.agent_slug) return profile.agent_slug;
+  const shouldForce = input.force === true;
+  if (profile.agent_slug && !shouldForce) return profile.agent_slug;
 
   const baseSlug = resolveAgentSlugBase({
-    currentSlug: profile.agent_slug,
+    currentSlug: shouldForce ? null : profile.agent_slug,
     displayName: input.displayName ?? profile.display_name,
     fullName: profile.full_name,
     businessName: profile.business_name,
@@ -239,6 +241,10 @@ export async function ensureAgentSlugForUser(input: {
     .filter((row) => row.id !== input.userId)
     .map((row) => row.agent_slug)
     .filter((value): value is string => typeof value === "string");
+
+  if (shouldForce && profile.agent_slug) {
+    existing.push(profile.agent_slug);
+  }
 
   const nextSlug = ensureUniqueSlug(baseSlug, existing);
 

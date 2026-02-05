@@ -42,6 +42,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   const [agentBio, setAgentBio] = useState(initialProfile?.agent_bio ?? "");
   const [agentSlug, setAgentSlug] = useState(initialProfile?.agent_slug ?? null);
   const [copyState, setCopyState] = useState<string | null>(null);
+  const [slugUpdating, setSlugUpdating] = useState(false);
   const ensureSlugRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -204,6 +205,35 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       }
     }
     setSaving(false);
+  };
+
+  const handleRegenerateSlug = async () => {
+    if (!profile || profile.role !== "agent") return;
+    setSlugUpdating(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const slugRes = await fetch("/api/profile/agent-storefront", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName, force: true }),
+      });
+      if (!slugRes.ok) {
+        setError("Unable to regenerate storefront link. Please try again.");
+        return;
+      }
+      const data = await slugRes.json().catch(() => ({}));
+      if (typeof data?.slug === "string") {
+        setAgentSlug(data.slug);
+        setSnapshot((prev) => ({ ...prev, agentSlug: data.slug }));
+        setSuccess("Storefront link updated.");
+        setCopyState(null);
+      } else {
+        setError("Unable to regenerate storefront link. Please try again.");
+      }
+    } finally {
+      setSlugUpdating(false);
+    }
   };
 
   const handleCopyStorefront = async () => {
@@ -404,29 +434,36 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
                 rows={4}
               />
             </div>
-            {agentSlug && (
-              <div>
-                <label className="text-xs font-semibold text-slate-600">
-                  Public storefront URL
-                </label>
-                <div className="mt-2 flex flex-wrap items-center gap-3">
-                  <Input
-                    value={storefrontUrl || storefrontPath}
-                    readOnly
-                    data-testid="agent-storefront-url"
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={handleCopyStorefront}
-                    disabled={!storefrontPath}
-                  >
-                    {copyState ?? "Copy link"}
-                  </Button>
-                </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600">
+                Public storefront URL
+              </label>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <Input
+                  value={storefrontUrl || (storefrontPath ? storefrontPath : "Generating link...")}
+                  readOnly
+                  data-testid="agent-storefront-url"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleCopyStorefront}
+                  disabled={!storefrontPath}
+                >
+                  {copyState ?? "Copy link"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRegenerateSlug}
+                  disabled={slugUpdating}
+                >
+                  {slugUpdating ? "Regenerating..." : "Regenerate slug"}
+                </Button>
               </div>
-            )}
+            </div>
           </div>
         </section>
       )}

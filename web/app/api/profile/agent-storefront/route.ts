@@ -14,10 +14,12 @@ export async function POST(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const displayName = typeof body?.displayName === "string" ? body.displayName : null;
+  const force = body?.force === true;
 
   const slug = await ensureAgentSlugForUser({
     userId: auth.user.id,
     displayName,
+    force,
   });
 
   if (!slug) {
