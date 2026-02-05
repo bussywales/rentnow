@@ -49,6 +49,9 @@ test("hamburger menu shows admin items when logged in", async ({ page }) => {
 
   await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(page.getByRole("button", { name: /open menu/i })).toHaveCount(1);
+
   await page.getByRole("button", { name: /open menu/i }).click();
   await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Insights" })).toBeVisible();
@@ -56,6 +59,12 @@ test("hamburger menu shows admin items when logged in", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Support" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
   await expect(page.getByRole("button", { name: /log out/i })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Home" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Saved searches" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: /close menu/i }).click();
+  await page.setViewportSize({ width: 375, height: 720 });
+  await expect(page.getByRole("button", { name: /open menu/i })).toHaveCount(1);
 });
 
 test("hamburger menu hides admin insights for tenant", async ({ page }) => {
@@ -77,6 +86,27 @@ test("host header has no My dashboard action", async ({ page }) => {
 
   await login(page, LANDLORD_EMAIL, LANDLORD_PASSWORD);
   await expect(page.getByRole("link", { name: "My dashboard" })).toHaveCount(0);
+});
+
+test("host sees a single hamburger with host-only items", async ({ page }) => {
+  test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping host menu check.");
+  test.skip(!HAS_LANDLORD, "Set PLAYWRIGHT_LANDLORD_EMAIL/PASSWORD to run this test.");
+
+  await login(page, LANDLORD_EMAIL, LANDLORD_PASSWORD);
+  await page.goto("/dashboard");
+
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await expect(page.getByRole("button", { name: /open menu/i })).toHaveCount(1);
+  await page.getByRole("button", { name: /open menu/i }).click();
+  await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Insights" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Home" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Saved searches" })).toHaveCount(0);
+
+  await page.getByRole("button", { name: /close menu/i }).click();
+  await page.setViewportSize({ width: 375, height: 720 });
+  await expect(page.getByRole("button", { name: /open menu/i })).toHaveCount(1);
 });
 
 test("tenant sees a single hamburger at mobile and desktop widths", async ({ page }) => {
