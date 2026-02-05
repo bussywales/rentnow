@@ -43,6 +43,9 @@ export interface Profile {
   onboarding_completed_at?: string | null;
   last_seen_at?: string | null;
   onboarding_dismissed_at?: string | null;
+  agent_storefront_enabled?: boolean | null;
+  agent_slug?: string | null;
+  agent_bio?: string | null;
   full_name?: string | null;
   display_name?: string | null;
   phone?: string | null;

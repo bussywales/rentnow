@@ -36,6 +36,7 @@ export default async function AdminSettingsPage() {
       "enable_location_picker",
       "show_tenant_checkin_badge",
       "require_location_pin_for_publish",
+      "agent_storefronts_enabled",
       "contact_exchange_mode",
       "listing_expiry_days",
       "show_expired_listings_public",
@@ -46,6 +47,7 @@ export default async function AdminSettingsPage() {
     "enable_location_picker",
     "show_tenant_checkin_badge",
     "require_location_pin_for_publish",
+    "agent_storefronts_enabled",
   ] as const;
   const settings = keys.map((key) => {
     const row = data?.find((item) => item.key === key);

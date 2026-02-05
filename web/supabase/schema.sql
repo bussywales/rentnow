@@ -20,9 +20,15 @@ CREATE TABLE public.profiles (
   areas_served TEXT[],
   last_seen_at TIMESTAMPTZ,
   onboarding_dismissed_at TIMESTAMPTZ,
+  agent_storefront_enabled BOOLEAN NOT NULL DEFAULT TRUE,
+  agent_slug TEXT,
+  agent_bio TEXT,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX idx_profiles_agent_slug_unique ON public.profiles (lower(agent_slug))
+  WHERE agent_slug IS NOT NULL;
 
 -- PROPERTIES
 CREATE TABLE public.properties (

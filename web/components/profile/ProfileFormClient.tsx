@@ -5,14 +5,19 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Textarea } from "@/components/ui/Textarea";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 type ProfileRecord = {
   id: string;
+  role?: string | null;
   display_name?: string | null;
   full_name?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
+  agent_storefront_enabled?: boolean | null;
+  agent_slug?: string | null;
+  agent_bio?: string | null;
 };
 
 type Props = {
@@ -41,6 +46,11 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   );
   const [phone, setPhone] = useState(initialProfile?.phone ?? "");
   const [avatarUrl, setAvatarUrl] = useState(initialProfile?.avatar_url ?? null);
+  const [agentStorefrontEnabled, setAgentStorefrontEnabled] = useState(
+    initialProfile?.agent_storefront_enabled ?? true
+  );
+  const [agentBio, setAgentBio] = useState(initialProfile?.agent_bio ?? "");
+  const [agentSlug, setAgentSlug] = useState(initialProfile?.agent_slug ?? null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +59,9 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
     displayName: initialProfile?.display_name ?? initialProfile?.full_name ?? "",
     phone: initialProfile?.phone ?? "",
     avatarUrl: initialProfile?.avatar_url ?? null,
+    agentStorefrontEnabled: initialProfile?.agent_storefront_enabled ?? true,
+    agentBio: initialProfile?.agent_bio ?? "",
+    agentSlug: initialProfile?.agent_slug ?? null,
   });
 
   const supabase = useMemo(() => {
@@ -65,7 +78,9 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       setLoadingProfile(true);
       const { data, error: fetchError } = await supabase
         .from("profiles")
-        .select("id, display_name, full_name, phone, avatar_url")
+        .select(
+          "id, role, display_name, full_name, phone, avatar_url, agent_storefront_enabled, agent_slug, agent_bio"
+        )
         .eq("id", userId)
         .maybeSingle();
       if (fetchError) {
@@ -79,10 +94,16 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       setDisplayName(nextName);
       setPhone(nextProfile?.phone ?? "");
       setAvatarUrl(nextProfile?.avatar_url ?? null);
+      setAgentStorefrontEnabled(nextProfile?.agent_storefront_enabled ?? true);
+      setAgentBio(nextProfile?.agent_bio ?? "");
+      setAgentSlug(nextProfile?.agent_slug ?? null);
       setSnapshot({
         displayName: nextName,
         phone: nextProfile?.phone ?? "",
         avatarUrl: nextProfile?.avatar_url ?? null,
+        agentStorefrontEnabled: nextProfile?.agent_storefront_enabled ?? true,
+        agentBio: nextProfile?.agent_bio ?? "",
+        agentSlug: nextProfile?.agent_slug ?? null,
       });
       setLoadingProfile(false);
     };
@@ -90,10 +111,15 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   }, [profile, supabase, userId]);
 
   const initials = getInitials(displayName || email || "U");
+  const isAgent = profile?.role === "agent";
   const hasChanges =
     displayName.trim() !== snapshot.displayName ||
     phone.trim() !== snapshot.phone ||
-    avatarUrl !== snapshot.avatarUrl;
+    avatarUrl !== snapshot.avatarUrl ||
+    (isAgent &&
+      (agentStorefrontEnabled !== snapshot.agentStorefrontEnabled ||
+        agentBio.trim() !== snapshot.agentBio ||
+        agentSlug !== snapshot.agentSlug));
 
   const handleSave = async () => {
     if (!supabase || !profile) return;
@@ -105,6 +131,12 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       full_name: displayName.trim() || null,
       phone: phone.trim() || null,
       avatar_url: avatarUrl,
+      ...(isAgent
+        ? {
+            agent_storefront_enabled: agentStorefrontEnabled,
+            agent_bio: agentBio.trim() || null,
+          }
+        : {}),
     };
     const { error: updateError } = await supabase
       .from("profiles")
@@ -117,8 +149,29 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
         displayName: payload.display_name ?? "",
         phone: payload.phone ?? "",
         avatarUrl,
+        agentStorefrontEnabled,
+        agentBio: payload.agent_bio ?? "",
+        agentSlug,
       });
       setSuccess("Profile updated.");
+    }
+    if (!updateError && isAgent && agentStorefrontEnabled && !agentSlug) {
+      const slugRes = await fetch("/api/profile/agent-storefront", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName }),
+      });
+      if (slugRes.ok) {
+        const data = await slugRes.json().catch(() => ({}));
+        if (typeof data?.slug === "string") {
+          setAgentSlug(data.slug);
+          setSnapshot((prev) => ({ ...prev, agentSlug: data.slug }));
+        }
+      } else {
+        setError(
+          "Profile saved, but we couldn’t generate your storefront link. Please try again."
+        );
+      }
     }
     setSaving(false);
   };
@@ -253,6 +306,58 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
           </Link>
         </div>
       </section>
+
+      {isAgent && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Agent storefront</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Control your public agent page and the short bio shown to tenants.
+          </p>
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold text-slate-700">
+                Show my Agent Storefront publicly
+              </p>
+              <p className="text-xs text-slate-500">
+                When off, your storefront page is hidden.
+              </p>
+            </div>
+            <label className="inline-flex items-center gap-2 text-sm font-semibold text-slate-700">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-slate-900"
+                checked={agentStorefrontEnabled}
+                onChange={(event) => setAgentStorefrontEnabled(event.target.checked)}
+                data-testid="agent-storefront-toggle"
+              />
+              {agentStorefrontEnabled ? "Enabled" : "Disabled"}
+            </label>
+          </div>
+          <div className="mt-4 grid gap-4">
+            <div>
+              <label className="text-xs font-semibold text-slate-600">Public bio</label>
+              <Textarea
+                value={agentBio}
+                onChange={(event) => setAgentBio(event.target.value)}
+                placeholder="A short summary about your agency or expertise."
+                rows={4}
+              />
+            </div>
+            {agentSlug && (
+              <div>
+                <label className="text-xs font-semibold text-slate-600">
+                  Storefront URL
+                </label>
+                <Input
+                  value={`/agents/${agentSlug}`}
+                  readOnly
+                  data-testid="agent-storefront-url"
+                />
+              </div>
+            )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }

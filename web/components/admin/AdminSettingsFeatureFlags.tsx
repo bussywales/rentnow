@@ -32,6 +32,10 @@ const DESCRIPTIONS: Record<string, { title: string; helper: string }> = {
     helper:
       "When enabled, hosts must pin a general location before publishing. Drafts are still allowed.",
   },
+  agent_storefronts_enabled: {
+    title: "Agent storefronts (public pages)",
+    helper: "Disable to hide all agent storefront pages immediately.",
+  },
 };
 
 export default function AdminSettingsFeatureFlags({ settings }: Props) {
@@ -87,6 +91,7 @@ export default function AdminSettingsFeatureFlags({ settings }: Props) {
           <div
             key={setting.key}
             className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+            data-testid={`admin-setting-${setting.key}`}
           >
             <div className="flex items-center justify-between gap-3">
               <div>
