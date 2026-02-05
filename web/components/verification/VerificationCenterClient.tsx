@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import type { VerificationStatus } from "@/lib/verification/status";
+import { getCooldownRemaining, startCooldown } from "@/lib/auth/resendCooldown";
 
 type Props = {
   initialStatus: VerificationStatus;
@@ -25,24 +26,38 @@ export default function VerificationCenterClient({ initialStatus, initialEmail }
   const [mode, setMode] = useState<"supabase_phone_otp" | "email_fallback" | null>(null);
   const [stage, setStage] = useState<OtpStage>(initialStatus.phone.verified ? "verified" : "idle");
   const [error, setError] = useState<string | null>(null);
-  const [cooldownUntil, setCooldownUntil] = useState<number | null>(null);
-  const [now, setNow] = useState(() => Date.now());
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
   const overallLabel = status.overall === "verified" ? "Identity verified" : "Complete these steps";
-  const resendAvailable = cooldownUntil ? now > cooldownUntil : true;
-  const countdown = useMemo(() => {
-    if (!cooldownUntil) return 0;
-    return Math.max(0, Math.ceil((cooldownUntil - now) / 1000));
-  }, [cooldownUntil, now]);
+  const identifier = (initialEmail ?? phoneInput).trim().toLowerCase();
+  const cooldownKey = useMemo(
+    () => (identifier ? `verification:${identifier}` : null),
+    [identifier]
+  );
+  const resendAvailable = cooldownRemaining <= 0;
+  const countdown = cooldownRemaining;
 
   useEffect(() => {
-    if (!cooldownUntil) return;
-    const timer = window.setInterval(() => {
-      setNow(Date.now());
-      setCooldownUntil((prev) => (prev && prev < Date.now() ? null : prev));
-    }, 1000);
+    if (!cooldownKey) {
+      setCooldownRemaining(0);
+      return;
+    }
+    const update = () => setCooldownRemaining(getCooldownRemaining(cooldownKey));
+    update();
+    const timer = window.setInterval(update, 1000);
     return () => window.clearInterval(timer);
-  }, [cooldownUntil]);
+  }, [cooldownKey]);
+
+  const isRateLimitError = (message?: string | null) => {
+    if (!message) return false;
+    const lower = message.toLowerCase();
+    return (
+      lower.includes("rate limit") ||
+      lower.includes("too many") ||
+      (lower.includes("rate") && lower.includes("limit")) ||
+      lower.includes("429")
+    );
+  };
 
   const refreshStatus = async () => {
     const res = await fetch("/api/verification/status");
@@ -64,16 +79,24 @@ export default function VerificationCenterClient({ initialStatus, initialEmail }
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data?.error || "Unable to send code.");
+        setError(
+          isRateLimitError(data?.error)
+            ? "We’ve hit the email limit temporarily. Please wait a bit and try again."
+            : data?.error || "Unable to send code."
+        );
         setStage("idle");
-        return;
+      } else {
+        setMode(data?.mode ?? null);
+        setStage("sent");
       }
-      setMode(data?.mode ?? null);
-      setStage("sent");
-      setCooldownUntil(Date.now() + 60000);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to send code.");
       setStage("idle");
+    } finally {
+      if (cooldownKey) {
+        startCooldown(cooldownKey, 60);
+        setCooldownRemaining(getCooldownRemaining(cooldownKey));
+      }
     }
   };
 
@@ -202,7 +225,7 @@ export default function VerificationCenterClient({ initialStatus, initialEmail }
                   onClick={handleResend}
                   disabled={!resendAvailable || stage === "sending"}
                 >
-                  {resendAvailable ? "Resend code" : `Resend in ${countdown}s`}
+                  {resendAvailable ? "Resend code" : `Resend available in ${countdown}s`}
                 </button>
               </div>
               {mode && (

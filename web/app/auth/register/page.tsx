@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { getCooldownRemaining, startCooldown } from "@/lib/auth/resendCooldown";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default function RegisterPage({ searchParams }: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
 
   const getClient = () => {
     try {
@@ -41,6 +43,33 @@ export default function RegisterPage({ searchParams }: PageProps) {
   };
 
   const redirectTo = normalizeRedirect(searchParams?.redirect);
+  const trimmedEmail = email.trim().toLowerCase();
+  const cooldownKey = useMemo(
+    () => (trimmedEmail ? `signup:${trimmedEmail}` : null),
+    [trimmedEmail]
+  );
+
+  useEffect(() => {
+    if (!cooldownKey) {
+      setCooldownRemaining(0);
+      return;
+    }
+    const update = () => setCooldownRemaining(getCooldownRemaining(cooldownKey));
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldownKey]);
+
+  const isRateLimitError = (message?: string | null) => {
+    if (!message) return false;
+    const lower = message.toLowerCase();
+    return (
+      lower.includes("rate limit") ||
+      lower.includes("too many") ||
+      (lower.includes("rate") && lower.includes("limit")) ||
+      lower.includes("429")
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -68,11 +97,19 @@ export default function RegisterPage({ searchParams }: PageProps) {
       },
     });
     if (signUpError) {
-      setError(signUpError.message);
+      setError(
+        isRateLimitError(signUpError.message)
+          ? "We’ve hit the email limit temporarily. Please wait a bit and try again."
+          : signUpError.message
+      );
     } else {
       setSuccess(
         "Check your email to confirm your account. After confirming, log in and you'll be taken to choose your role."
       );
+    }
+    if (cooldownKey) {
+      startCooldown(cooldownKey, 60);
+      setCooldownRemaining(getCooldownRemaining(cooldownKey));
     }
     setLoading(false);
   };
@@ -135,9 +172,19 @@ export default function RegisterPage({ searchParams }: PageProps) {
             autoComplete="new-password"
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
-          <Button className="w-full" type="submit" disabled={loading}>
+          <Button
+            className="w-full"
+            type="submit"
+            disabled={loading || cooldownRemaining > 0}
+            data-testid="auth-register-submit"
+          >
             {loading ? "Creating..." : "Create account"}
           </Button>
+          {cooldownRemaining > 0 && (
+            <p className="text-xs text-slate-500" data-testid="auth-resend-countdown">
+              Resend available in {cooldownRemaining}s
+            </p>
+          )}
         </form>
       )}
       <p className="text-sm text-slate-600">

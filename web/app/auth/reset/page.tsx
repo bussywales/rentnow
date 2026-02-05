@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import { getCooldownRemaining, startCooldown } from "@/lib/auth/resendCooldown";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
@@ -36,6 +37,35 @@ function ResetContent() {
     supabase ? null : "Supabase environment variables are missing."
   );
   const [loading, setLoading] = useState(false);
+  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+
+  const trimmedEmail = email.trim().toLowerCase();
+  const cooldownKey = useMemo(
+    () => (trimmedEmail ? `reset:${trimmedEmail}` : null),
+    [trimmedEmail]
+  );
+
+  useEffect(() => {
+    if (!cooldownKey) {
+      setCooldownRemaining(0);
+      return;
+    }
+    const update = () => setCooldownRemaining(getCooldownRemaining(cooldownKey));
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldownKey]);
+
+  const isRateLimitError = (message?: string | null) => {
+    if (!message) return false;
+    const lower = message.toLowerCase();
+    return (
+      lower.includes("rate limit") ||
+      lower.includes("too many") ||
+      (lower.includes("rate") && lower.includes("limit")) ||
+      lower.includes("429")
+    );
+  };
 
   const resolveSiteUrl = () => {
     if (typeof window !== "undefined") {
@@ -173,9 +203,17 @@ function ResetContent() {
       redirectTo,
     });
     if (resetError) {
-      setError(resetError.message || "Unable to send reset email.");
+      setError(
+        isRateLimitError(resetError.message)
+          ? "We’ve hit the email limit temporarily. Please wait a bit and try again."
+          : resetError.message || "Unable to send reset email."
+      );
     } else {
       setMessage("Check your email for the reset link. It will bring you back here.");
+    }
+    if (cooldownKey) {
+      startCooldown(cooldownKey, 60);
+      setCooldownRemaining(getCooldownRemaining(cooldownKey));
     }
     setLoading(false);
   };
@@ -238,9 +276,19 @@ function ResetContent() {
           />
           {error && <p className="text-sm text-red-600">{error}</p>}
           {message && <p className="text-sm text-slate-700">{message}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={loading || cooldownRemaining > 0}
+            data-testid="auth-reset-submit"
+          >
             {loading ? "Sending..." : "Send reset link"}
           </Button>
+          {cooldownRemaining > 0 && (
+            <p className="text-xs text-slate-500" data-testid="auth-resend-countdown">
+              Resend available in {cooldownRemaining}s
+            </p>
+          )}
         </form>
       )}
 
