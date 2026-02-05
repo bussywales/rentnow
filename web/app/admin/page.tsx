@@ -71,6 +71,7 @@ type OverviewData = {
   reviewCounts: ReviewCounts;
   users: AdminUser[];
   requests: UpgradeRequest[];
+  draftUpdates: number;
   requestId: string | null;
   serviceRoleAvailable: boolean;
   supabaseReady: boolean;
@@ -128,6 +129,7 @@ async function getOverviewData(): Promise<OverviewData> {
       reviewCounts: { pending: 0, changes: 0, reviewable: 0, error: "Supabase env missing" },
       users: [],
       requests: [],
+      draftUpdates: 0,
       requestId,
       serviceRoleAvailable: false,
       supabaseReady,
@@ -156,7 +158,7 @@ async function getOverviewData(): Promise<OverviewData> {
   const serviceClient = serviceRoleAvailable ? createServiceRoleClient() : null;
   const clientForStats = serviceClient ?? supabase;
 
-  const [usersResult, requestsResult, stats, reviewCounts] = await Promise.all([
+  const [usersResult, requestsResult, stats, reviewCounts, draftUpdates] = await Promise.all([
     supabase.from("profiles").select("id, role, full_name"),
     supabase
       .from("plan_upgrade_requests")
@@ -164,6 +166,10 @@ async function getOverviewData(): Promise<OverviewData> {
       .order("created_at", { ascending: false }),
     getAdminListingStats<RawReviewRow>({ client: clientForStats }),
     getReviewCounts(clientForStats),
+    clientForStats
+      .from("product_updates")
+      .select("id", { count: "exact", head: true })
+      .is("published_at", null),
   ]);
 
   return {
@@ -171,6 +177,7 @@ async function getOverviewData(): Promise<OverviewData> {
     reviewCounts,
     users: (usersResult.data as AdminUser[]) || [],
     requests: (requestsResult.data as UpgradeRequest[]) || [],
+    draftUpdates: draftUpdates?.count ?? 0,
     requestId,
     serviceRoleAvailable,
     supabaseReady,
@@ -189,6 +196,7 @@ export default async function AdminOverviewPage() {
     reviewCounts,
     users,
     requests,
+    draftUpdates,
     requestId,
     serviceRoleAvailable,
     supabaseReady,
@@ -202,6 +210,18 @@ export default async function AdminOverviewPage() {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
+      {draftUpdates > 0 && (
+        <div
+          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
+          data-testid="admin-updates-draft-banner"
+        >
+          <span className="font-semibold">Unpublished updates:</span> {draftUpdates} draft
+          {draftUpdates === 1 ? "" : "s"} waiting to be reviewed.{" "}
+          <Link href="/admin/product-updates" className="font-semibold underline">
+            Review drafts
+          </Link>
+        </div>
+      )}
       <div className="rounded-2xl bg-slate-900/95 px-6 py-5 text-white shadow-lg">
         <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Admin</p>
         <p className="text-2xl font-semibold">Control panel</p>

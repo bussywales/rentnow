@@ -170,10 +170,13 @@ export async function ensureAgentSlugForUser(input: {
 
   const nextSlug = ensureUniqueSlug(baseSlug, existing);
 
-  const { error } = await (client as any)
-    .from("profiles")
-    .update({ agent_slug: nextSlug })
-    .eq("id", input.userId);
+  const profileTable = client.from("profiles") as unknown as {
+    update: (values: { agent_slug: string }) => {
+      eq: (column: string, value: string) => Promise<{ error: { message?: string } | null }>;
+    };
+  };
+
+  const { error } = await profileTable.update({ agent_slug: nextSlug }).eq("id", input.userId);
 
   if (error) return null;
   return nextSlug;

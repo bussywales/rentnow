@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -360,7 +361,15 @@ export function AdminProductUpdatesPanel({
             Publish quick, human updates for tenants, hosts, and admins.
           </p>
         </div>
-        <Button onClick={() => setEditor({ mode: "create" })}>New update</Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/product-updates/import"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300"
+          >
+            Import notes
+          </Link>
+          <Button onClick={() => setEditor({ mode: "create" })}>New update</Button>
+        </div>
       </div>
 
       <div className="grid gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:grid-cols-3">

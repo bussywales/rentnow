@@ -150,6 +150,8 @@ CREATE TABLE public.product_updates (
   audience TEXT NOT NULL DEFAULT 'all',
   published_at TIMESTAMPTZ,
   created_by UUID REFERENCES public.profiles (id) ON DELETE SET NULL,
+  source_ref TEXT,
+  source_hash TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT product_updates_audience_check CHECK (audience IN ('all', 'tenant', 'host', 'admin'))
@@ -158,6 +160,8 @@ CREATE TABLE public.product_updates (
 CREATE INDEX idx_product_updates_published_at ON public.product_updates (published_at DESC);
 CREATE INDEX idx_product_updates_audience_published_at ON public.product_updates (audience, published_at DESC);
 CREATE INDEX idx_product_updates_created_at ON public.product_updates (created_at DESC);
+CREATE UNIQUE INDEX idx_product_updates_source_ref_audience ON public.product_updates (source_ref, audience)
+  WHERE source_ref IS NOT NULL;
 
 -- PRODUCT UPDATE READS
 CREATE TABLE public.product_update_reads (
