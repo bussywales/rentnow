@@ -46,6 +46,7 @@ export const HELP_ADMIN_NAV: HelpNavSection[] = [
       { label: "Sharing", href: "/help/admin/support-playbooks/sharing" },
       { label: "Verification", href: "/help/admin/support-playbooks/verification" },
       { label: "Email delivery & limits", href: "/help/admin/support-playbooks/email-delivery" },
+      { label: "Resend SMTP setup", href: "/help/admin/support-playbooks/resend-smtp" },
       { label: "Legal & terms", href: "/help/admin/support-playbooks/legal" },
       { label: "Product updates", href: "/help/admin/support-playbooks/product-updates" },
       { label: "Analytics & events", href: "/help/admin/support-playbooks/analytics" },
