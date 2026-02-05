@@ -283,6 +283,28 @@ CREATE POLICY "profiles update self" ON public.profiles
   USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
+-- storage: avatars bucket (public read, owner write)
+DROP POLICY IF EXISTS "avatars public read" ON storage.objects;
+CREATE POLICY "avatars public read" ON storage.objects
+  FOR SELECT
+  USING (bucket_id = 'avatars');
+
+DROP POLICY IF EXISTS "avatars owner insert" ON storage.objects;
+CREATE POLICY "avatars owner insert" ON storage.objects
+  FOR INSERT
+  WITH CHECK (bucket_id = 'avatars' AND owner = auth.uid());
+
+DROP POLICY IF EXISTS "avatars owner update" ON storage.objects;
+CREATE POLICY "avatars owner update" ON storage.objects
+  FOR UPDATE
+  USING (bucket_id = 'avatars' AND owner = auth.uid())
+  WITH CHECK (bucket_id = 'avatars' AND owner = auth.uid());
+
+DROP POLICY IF EXISTS "avatars owner delete" ON storage.objects;
+CREATE POLICY "avatars owner delete" ON storage.objects
+  FOR DELETE
+  USING (bucket_id = 'avatars' AND owner = auth.uid());
+
 -- app_settings: read-only flags/config for authenticated + anon
 DROP POLICY IF EXISTS "app_settings_read" ON public.app_settings;
 CREATE POLICY "app_settings_read" ON public.app_settings

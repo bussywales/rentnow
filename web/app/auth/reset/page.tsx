@@ -37,22 +37,23 @@ function ResetContent() {
     supabase ? null : "Supabase environment variables are missing."
   );
   const [loading, setLoading] = useState(false);
-  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [cooldownTick, setCooldownTick] = useState(0);
 
   const trimmedEmail = email.trim().toLowerCase();
   const cooldownKey = useMemo(
     () => (trimmedEmail ? `reset:${trimmedEmail}` : null),
     [trimmedEmail]
   );
+  const cooldownRemaining = useMemo(() => {
+    void cooldownTick;
+    return cooldownKey ? getCooldownRemaining(cooldownKey) : 0;
+  }, [cooldownKey, cooldownTick]);
 
   useEffect(() => {
-    if (!cooldownKey) {
-      setCooldownRemaining(0);
-      return;
-    }
-    const update = () => setCooldownRemaining(getCooldownRemaining(cooldownKey));
-    update();
-    const timer = window.setInterval(update, 1000);
+    if (!cooldownKey) return;
+    const timer = window.setInterval(() => {
+      setCooldownTick((prev) => prev + 1);
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [cooldownKey]);
 
@@ -213,7 +214,7 @@ function ResetContent() {
     }
     if (cooldownKey) {
       startCooldown(cooldownKey, 60);
-      setCooldownRemaining(getCooldownRemaining(cooldownKey));
+      setCooldownTick((prev) => prev + 1);
     }
     setLoading(false);
   };

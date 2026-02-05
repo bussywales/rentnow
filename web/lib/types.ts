@@ -44,6 +44,7 @@ export interface Profile {
   last_seen_at?: string | null;
   onboarding_dismissed_at?: string | null;
   full_name?: string | null;
+  display_name?: string | null;
   phone?: string | null;
   city?: string | null;
   country?: string | null;
@@ -60,6 +61,7 @@ export interface Profile {
   reliability_water?: string | null;
   reliability_internet?: string | null;
   trust_updated_at?: string | null;
+  updated_at?: string | null;
   created_at?: string;
 }
 

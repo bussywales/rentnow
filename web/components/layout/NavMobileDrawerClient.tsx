@@ -41,6 +41,9 @@ export function buildMobileNavLinks(
 ): DrawerLink[] {
   const resolved = resolveNavLinks(links, { isAuthed, role });
   const next: DrawerLink[] = [...resolved];
+  if (!next.find((link) => link.href === "/profile")) {
+    next.unshift({ href: "/profile", label: "Profile" });
+  }
   if (isAuthed) {
     next.push({ href: "/dashboard/messages", label: "Messages", showUnread: true });
   }

@@ -26,7 +26,7 @@ export default function VerificationCenterClient({ initialStatus, initialEmail }
   const [mode, setMode] = useState<"supabase_phone_otp" | "email_fallback" | null>(null);
   const [stage, setStage] = useState<OtpStage>(initialStatus.phone.verified ? "verified" : "idle");
   const [error, setError] = useState<string | null>(null);
-  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [cooldownTick, setCooldownTick] = useState(0);
 
   const overallLabel = status.overall === "verified" ? "Identity verified" : "Complete these steps";
   const identifier = (initialEmail ?? phoneInput).trim().toLowerCase();
@@ -34,17 +34,18 @@ export default function VerificationCenterClient({ initialStatus, initialEmail }
     () => (identifier ? `verification:${identifier}` : null),
     [identifier]
   );
+  const cooldownRemaining = useMemo(() => {
+    void cooldownTick;
+    return cooldownKey ? getCooldownRemaining(cooldownKey) : 0;
+  }, [cooldownKey, cooldownTick]);
   const resendAvailable = cooldownRemaining <= 0;
   const countdown = cooldownRemaining;
 
   useEffect(() => {
-    if (!cooldownKey) {
-      setCooldownRemaining(0);
-      return;
-    }
-    const update = () => setCooldownRemaining(getCooldownRemaining(cooldownKey));
-    update();
-    const timer = window.setInterval(update, 1000);
+    if (!cooldownKey) return;
+    const timer = window.setInterval(() => {
+      setCooldownTick((prev) => prev + 1);
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [cooldownKey]);
 
@@ -95,7 +96,7 @@ export default function VerificationCenterClient({ initialStatus, initialEmail }
     } finally {
       if (cooldownKey) {
         startCooldown(cooldownKey, 60);
-        setCooldownRemaining(getCooldownRemaining(cooldownKey));
+        setCooldownTick((prev) => prev + 1);
       }
     }
   };

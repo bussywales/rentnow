@@ -31,7 +31,7 @@ export default function RegisterPage({ searchParams }: PageProps) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [cooldownRemaining, setCooldownRemaining] = useState(0);
+  const [cooldownTick, setCooldownTick] = useState(0);
 
   const getClient = () => {
     try {
@@ -48,15 +48,16 @@ export default function RegisterPage({ searchParams }: PageProps) {
     () => (trimmedEmail ? `signup:${trimmedEmail}` : null),
     [trimmedEmail]
   );
+  const cooldownRemaining = useMemo(() => {
+    void cooldownTick;
+    return cooldownKey ? getCooldownRemaining(cooldownKey) : 0;
+  }, [cooldownKey, cooldownTick]);
 
   useEffect(() => {
-    if (!cooldownKey) {
-      setCooldownRemaining(0);
-      return;
-    }
-    const update = () => setCooldownRemaining(getCooldownRemaining(cooldownKey));
-    update();
-    const timer = window.setInterval(update, 1000);
+    if (!cooldownKey) return;
+    const timer = window.setInterval(() => {
+      setCooldownTick((prev) => prev + 1);
+    }, 1000);
     return () => window.clearInterval(timer);
   }, [cooldownKey]);
 
@@ -109,7 +110,7 @@ export default function RegisterPage({ searchParams }: PageProps) {
     }
     if (cooldownKey) {
       startCooldown(cooldownKey, 60);
-      setCooldownRemaining(getCooldownRemaining(cooldownKey));
+      setCooldownTick((prev) => prev + 1);
     }
     setLoading(false);
   };

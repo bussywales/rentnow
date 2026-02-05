@@ -11,6 +11,7 @@ CREATE TABLE public.profiles (
   id UUID PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
   role user_role NOT NULL DEFAULT 'tenant',
   full_name TEXT,
+  display_name TEXT,
   phone TEXT,
   city TEXT,
   avatar_url TEXT,
@@ -19,6 +20,7 @@ CREATE TABLE public.profiles (
   areas_served TEXT[],
   last_seen_at TIMESTAMPTZ,
   onboarding_dismissed_at TIMESTAMPTZ,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 

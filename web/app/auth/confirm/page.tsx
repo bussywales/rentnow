@@ -8,7 +8,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 
 export const dynamic = "force-dynamic";
 
-type Status = "checking" | "exchanging" | "idle" | "success" | "error";
+type Status = "checking" | "exchanging" | "idle" | "success" | "needs-login" | "error";
 
 function ConfirmContent() {
   const router = useRouter();
@@ -61,7 +61,6 @@ function ConfirmContent() {
 
     setStatus("idle");
     setMessage("Check your email for the verification link, then return here and continue.");
-    setError("We could not find a session. Log in after confirming your email, then try again.");
   };
 
   useEffect(() => {
@@ -86,13 +85,17 @@ function ConfirmContent() {
         setMessage("Processing your verification link...");
         const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code);
         if (exchangeError) {
-          const isVerifierIssue = exchangeError.message?.toLowerCase().includes("code verifier");
-          const hint = isVerifierIssue
-            ? "Looks like the verification link opened in another browser/device. Your email should be confirmed. Please log in here, then hit Continue."
-            : "Unable to finish sign-in. Log in, then press Continue.";
-          setStatus("idle");
-          setError(exchangeError.message);
-          setMessage(hint);
+          const lower = exchangeError.message?.toLowerCase() || "";
+          const isVerifierIssue =
+            lower.includes("code verifier") ||
+            lower.includes("code_verifier") ||
+            lower.includes("auth code and code verifier");
+          setStatus("needs-login");
+          setMessage(
+            isVerifierIssue
+              ? "Your email has been confirmed successfully. For security reasons, please log in to continue setting up your account."
+              : "We couldn’t finish the sign-in step here. Please log in to continue setting up your account."
+          );
           return;
         }
         setStatus("success");
@@ -111,41 +114,61 @@ function ConfirmContent() {
     <div className="mx-auto flex max-w-md flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Email confirmation</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Finish signing in</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">
+          {status === "needs-login" ? "Email confirmed 🎉" : "Finish signing in"}
+        </h1>
         <p className="text-sm text-slate-600">
-          If you just clicked the verification link, we will log you in and take you to role selection.
+          {status === "needs-login"
+            ? "Your email has been confirmed successfully. For security reasons, please log in to continue setting up your account."
+            : "If you just clicked the verification link, we will log you in and take you to role selection."}
         </p>
       </div>
 
-      <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        <p className="font-semibold text-slate-900">
-          {status === "exchanging"
-            ? "Processing magic link..."
-            : status === "checking"
-              ? "Checking your session..."
-              : status === "success"
-                ? "Success"
-                : "Almost there"}
-        </p>
-        {message && <p>{message}</p>}
-        {error && <p className="text-red-600">{error}</p>}
-        {!message && !error && status === "idle" && (
-          <p>Check your inbox and click the verification email. Then hit continue.</p>
-        )}
-      </div>
+      {status === "needs-login" ? (
+        <div className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
+          <Link
+            href={loginHref}
+            className="inline-flex items-center justify-center rounded-lg bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+          >
+            Log in to continue
+          </Link>
+          <p className="text-xs text-slate-500">
+            This can happen if the verification link was opened on another browser or device.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div className="space-y-2 rounded-lg border border-slate-100 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            <p className="font-semibold text-slate-900">
+              {status === "exchanging"
+                ? "Processing magic link..."
+                : status === "checking"
+                  ? "Checking your session..."
+                  : status === "success"
+                    ? "Success"
+                    : "Almost there"}
+            </p>
+            {message && <p>{message}</p>}
+            {error && <p className="text-red-600">{error}</p>}
+            {!message && !error && status === "idle" && (
+              <p>Check your inbox and click the verification email. Then hit continue.</p>
+            )}
+          </div>
 
-      <div className="flex flex-wrap gap-3">
-        <Button onClick={() => checkSession()} disabled={status === "exchanging"}>
-          {status === "exchanging" ? "Processing..." : "Continue"}
-        </Button>
-        <Link href={loginHref} className="text-sm font-semibold text-sky-700">
-          Go to login
-        </Link>
-      </div>
+          <div className="flex flex-wrap gap-3">
+            <Button onClick={() => checkSession()} disabled={status === "exchanging"}>
+              {status === "exchanging" ? "Processing..." : "Continue"}
+            </Button>
+            <Link href={loginHref} className="text-sm font-semibold text-sky-700">
+              Go to login
+            </Link>
+          </div>
 
-      <p className="text-xs text-slate-500">
-        If the verification link opens in another device, just log in on this device and return here to continue.
-      </p>
+          <p className="text-xs text-slate-500">
+            If the verification link opens in another device, just log in on this device and return here to continue.
+          </p>
+        </>
+      )}
     </div>
   );
 }
