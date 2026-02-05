@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UserRole } from "@/lib/types";
 import {
   getAllowedProductUpdateAudiences,
+  type AdminUpdatesViewMode,
   type ProductUpdateSummary,
 } from "@/lib/product-updates/audience";
 import type { ProductUpdateAudience } from "@/lib/product-updates/constants";
@@ -31,13 +32,15 @@ export type ProductUpdatesSinceResult = {
 export async function fetchPublishedProductUpdates({
   client,
   role,
+  adminViewMode,
   limit = 50,
 }: {
   client: SupabaseClient;
   role: UserRole | null;
+  adminViewMode?: AdminUpdatesViewMode;
   limit?: number;
 }): Promise<ProductUpdateRow[]> {
-  const audiences = getAllowedProductUpdateAudiences(role);
+  const audiences = getAllowedProductUpdateAudiences(role, { adminViewMode });
   let query = client
     .from("product_updates")
     .select("id,title,summary,image_url,audience,published_at,created_at,updated_at")
@@ -57,13 +60,15 @@ export async function fetchPublishedProductUpdates({
 export async function fetchPublishedProductUpdateIds({
   client,
   role,
+  adminViewMode,
   limit = 200,
 }: {
   client: SupabaseClient;
   role: UserRole | null;
+  adminViewMode?: AdminUpdatesViewMode;
   limit?: number;
 }): Promise<ProductUpdateSummary[]> {
-  const audiences = getAllowedProductUpdateAudiences(role);
+  const audiences = getAllowedProductUpdateAudiences(role, { adminViewMode });
   let query = client
     .from("product_updates")
     .select("id,audience,published_at")
@@ -104,14 +109,16 @@ export async function buildProductUpdatesFeed({
   client,
   role,
   userId,
+  adminViewMode,
   limit = 50,
 }: {
   client: SupabaseClient;
   role: UserRole | null;
   userId: string;
+  adminViewMode?: AdminUpdatesViewMode;
   limit?: number;
 }): Promise<ProductUpdateFeedItem[]> {
-  const updates = await fetchPublishedProductUpdates({ client, role, limit });
+  const updates = await fetchPublishedProductUpdates({ client, role, adminViewMode, limit });
   const readIds = await fetchProductUpdateReadIds({
     client,
     userId,
@@ -128,11 +135,13 @@ export async function fetchProductUpdatesSinceLastVisit({
   client,
   role,
   userId,
+  adminViewMode,
   limit = 3,
 }: {
   client: SupabaseClient;
   role: UserRole | null;
   userId: string;
+  adminViewMode?: AdminUpdatesViewMode;
   limit?: number;
 }): Promise<ProductUpdatesSinceResult> {
   const { data: profile, error: profileError } = await client
@@ -144,7 +153,7 @@ export async function fetchProductUpdatesSinceLastVisit({
   if (profileError) throw profileError;
 
   const since = profile?.last_seen_at ?? null;
-  const audiences = getAllowedProductUpdateAudiences(role);
+  const audiences = getAllowedProductUpdateAudiences(role, { adminViewMode });
 
   let query = client
     .from("product_updates")

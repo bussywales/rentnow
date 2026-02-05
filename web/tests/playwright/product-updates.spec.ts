@@ -47,6 +47,19 @@ test("product updates bell reflects published updates", async ({ page }) => {
   await page.getByTestId("updates-bell").click();
   await expect(page.getByTestId("updates-drawer")).toBeVisible();
   await expect(page.getByText(updateTitle)).toBeVisible();
+  await expect(page.getByTestId("updates-view-all")).toHaveAttribute("aria-pressed", "true");
+  await page.getByTestId("updates-view-admin").click();
+  await expect(page.getByTestId("updates-view-admin")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText(updateTitle)).toHaveCount(0);
+  await page.keyboard.press("Escape");
+
+  await page.reload();
+  await page.getByTestId("updates-bell").click();
+  await expect(page.getByTestId("updates-drawer")).toBeVisible();
+  await expect(page.getByTestId("updates-view-admin")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText(updateTitle)).toHaveCount(0);
+  await page.getByTestId("updates-view-all").click();
+  await expect(page.getByText(updateTitle)).toBeVisible();
   await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: /log out/i }).click();

@@ -5,11 +5,17 @@ import {
   type ProductUpdateAudience,
 } from "@/lib/product-updates/constants";
 
+export type AdminUpdatesViewMode = "all" | "admin";
+
 export function getAllowedProductUpdateAudiences(
-  role: UserRole | null
+  role: UserRole | null,
+  options?: { adminViewMode?: AdminUpdatesViewMode }
 ): ProductUpdateAudience[] {
   if (!role) return ["all"];
-  if (role === "admin") return [...PRODUCT_UPDATE_AUDIENCES];
+  if (role === "admin") {
+    if (options?.adminViewMode === "admin") return ["admin"];
+    return [...PRODUCT_UPDATE_AUDIENCES];
+  }
   return PRODUCT_UPDATE_AUDIENCE_BY_ROLE[role] ?? ["all"];
 }
 
@@ -20,9 +26,10 @@ export function isProductUpdateAudience(value: string | null | undefined): value
 
 export function isUpdateVisibleForRole(
   audience: ProductUpdateAudience,
-  role: UserRole | null
+  role: UserRole | null,
+  options?: { adminViewMode?: AdminUpdatesViewMode }
 ): boolean {
-  return getAllowedProductUpdateAudiences(role).includes(audience);
+  return getAllowedProductUpdateAudiences(role, options).includes(audience);
 }
 
 export type ProductUpdateSummary = {
@@ -33,10 +40,11 @@ export type ProductUpdateSummary = {
 
 export function filterPublishedUpdatesForRole(
   updates: ProductUpdateSummary[],
-  role: UserRole | null
+  role: UserRole | null,
+  options?: { adminViewMode?: AdminUpdatesViewMode }
 ): ProductUpdateSummary[] {
   return updates.filter(
-    (update) => !!update.published_at && isUpdateVisibleForRole(update.audience, role)
+    (update) => !!update.published_at && isUpdateVisibleForRole(update.audience, role, options)
   );
 }
 

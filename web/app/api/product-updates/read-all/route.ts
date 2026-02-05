@@ -3,6 +3,7 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { requireUser, getUserRole } from "@/lib/authz";
 import { logFailure } from "@/lib/observability";
 import { fetchPublishedProductUpdateIds } from "@/lib/product-updates/product-updates.server";
+import type { AdminUpdatesViewMode } from "@/lib/product-updates/audience";
 
 export const dynamic = "force-dynamic";
 
@@ -19,9 +20,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const role = await getUserRole(auth.supabase, auth.user.id);
+    const adminView =
+      role === "admin"
+        ? ((request.nextUrl.searchParams.get("adminView") as AdminUpdatesViewMode | null) ??
+          undefined)
+        : undefined;
     const updates = await fetchPublishedProductUpdateIds({
       client: auth.supabase,
       role,
+      adminViewMode: adminView === "admin" ? "admin" : "all",
       limit: 200,
     });
 

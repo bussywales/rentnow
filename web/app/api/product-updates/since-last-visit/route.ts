@@ -3,6 +3,7 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { requireUser, getUserRole } from "@/lib/authz";
 import { logFailure } from "@/lib/observability";
 import { fetchProductUpdatesSinceLastVisit } from "@/lib/product-updates/product-updates.server";
+import type { AdminUpdatesViewMode } from "@/lib/product-updates/audience";
 
 export const dynamic = "force-dynamic";
 
@@ -38,10 +39,16 @@ export async function getSinceLastVisitResponse(
 
   try {
     const role = await deps.getUserRole(auth.supabase, auth.user.id);
+    const adminView =
+      role === "admin"
+        ? ((new URL(request.url).searchParams.get("adminView") as AdminUpdatesViewMode | null) ??
+          undefined)
+        : undefined;
     const result = await deps.fetchProductUpdatesSinceLastVisit({
       client: auth.supabase,
       role,
       userId: auth.user.id,
+      adminViewMode: adminView === "admin" ? "admin" : "all",
       limit: 3,
     });
 

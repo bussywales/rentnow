@@ -6,6 +6,11 @@ import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
 import {
+  readAdminUpdatesViewMode,
+  writeAdminUpdatesViewMode,
+  type AdminUpdatesViewMode,
+} from "@/lib/product-updates/admin-view";
+import {
   HELP_DRAWER_OPEN_EVENT,
   HELP_DRAWER_CLOSE_EVENT,
   UPDATES_DRAWER_OPEN_EVENT,
@@ -80,6 +85,8 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
   const [sinceLastVisit, setSinceLastVisit] = useState<UpdatesSinceLastVisit | null>(null);
   const [sinceLoading, setSinceLoading] = useState(false);
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
+  const [viewerRole, setViewerRole] = useState<string | null>(null);
+  const [adminViewMode, setAdminViewMode] = useState<AdminUpdatesViewMode>("all");
   const bellButtonRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
@@ -93,6 +100,8 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
     () => updates.filter((update) => !update.is_read).length,
     [updates]
   );
+
+  const isAdmin = viewerRole === "admin";
 
   const groupedUpdates = useMemo(() => {
     const sorted = [...updates].sort((a, b) => {
@@ -143,10 +152,15 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
     setOpen(true);
   }, []);
 
+  const adminViewParam = useMemo(() => {
+    if (!isAdmin) return "";
+    return `?adminView=${adminViewMode}`;
+  }, [adminViewMode, isAdmin]);
+
   const refreshUnreadCount = useCallback(async () => {
     if (!initialAuthed) return;
     try {
-      const res = await fetch("/api/product-updates/unread-count");
+      const res = await fetch(`/api/product-updates/unread-count${adminViewParam}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         return;
@@ -155,14 +169,14 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
     } catch {
       // ignore
     }
-  }, [initialAuthed]);
+  }, [adminViewParam, initialAuthed]);
 
   const refreshUpdates = useCallback(async () => {
     if (!initialAuthed) return;
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/product-updates");
+      const res = await fetch(`/api/product-updates${adminViewParam}`);
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data?.error || "Unable to load updates");
@@ -177,13 +191,13 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [initialAuthed]);
+  }, [adminViewParam, initialAuthed]);
 
   const refreshSinceLastVisit = useCallback(async () => {
     if (!initialAuthed) return;
     setSinceLoading(true);
     try {
-      const res = await fetch("/api/product-updates/since-last-visit");
+      const res = await fetch(`/api/product-updates/since-last-visit${adminViewParam}`);
       const data = (await res.json().catch(() => ({}))) as UpdatesSinceLastVisit;
       if (!res.ok) {
         setSinceLastVisit(null);
@@ -199,7 +213,7 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
     } finally {
       setSinceLoading(false);
     }
-  }, [initialAuthed]);
+  }, [adminViewParam, initialAuthed]);
 
   const markSeen = useCallback(async () => {
     if (!initialAuthed) return;
@@ -214,6 +228,30 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
     if (!initialAuthed) return;
     void refreshUnreadCount();
   }, [initialAuthed, refreshUnreadCount]);
+
+  useEffect(() => {
+    if (!initialAuthed) return;
+    setAdminViewMode(readAdminUpdatesViewMode());
+    void (async () => {
+      try {
+        const res = await fetch("/api/auth/health");
+        const data = await res.json().catch(() => ({}));
+        setViewerRole(typeof data?.role === "string" ? data.role : null);
+      } catch {
+        setViewerRole(null);
+      }
+    })();
+  }, [initialAuthed]);
+
+  useEffect(() => {
+    if (!isAdmin) return;
+    writeAdminUpdatesViewMode(adminViewMode);
+    void refreshUnreadCount();
+    void refreshSinceLastVisit();
+    if (open) {
+      void refreshUpdates();
+    }
+  }, [adminViewMode, isAdmin, open, refreshSinceLastVisit, refreshUnreadCount, refreshUpdates]);
 
   useEffect(() => {
     if (!initialAuthed || seenSentRef.current) return;
@@ -301,7 +339,9 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
 
   const markAllRead = async () => {
     if (!initialAuthed) return;
-    const res = await fetch("/api/product-updates/read-all", { method: "POST" });
+    const res = await fetch(`/api/product-updates/read-all${adminViewParam}`, {
+      method: "POST",
+    });
     if (res.ok) {
       setUpdates((prev) => prev.map((row) => ({ ...row, is_read: true })));
       setUnreadCount(0);
@@ -396,6 +436,46 @@ export function ProductUpdatesBell({ initialAuthed }: Props) {
                           Product updates
                         </h2>
                         <p className="text-xs text-slate-500">What’s new on PropatyHub</p>
+                        {isAdmin && (
+                          <div
+                            className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-500"
+                            data-testid="updates-admin-view"
+                          >
+                            <span className="text-xs uppercase tracking-[0.2em] text-slate-400">
+                              Viewing
+                            </span>
+                            <div className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 p-0.5">
+                              <button
+                                type="button"
+                                className={cn(
+                                  "rounded-full px-3 py-1 text-xs font-semibold transition",
+                                  adminViewMode === "all"
+                                    ? "bg-white text-slate-900 shadow-sm"
+                                    : "text-slate-500 hover:text-slate-700"
+                                )}
+                                onClick={() => setAdminViewMode("all")}
+                                aria-pressed={adminViewMode === "all"}
+                                data-testid="updates-view-all"
+                              >
+                                All audiences
+                              </button>
+                              <button
+                                type="button"
+                                className={cn(
+                                  "rounded-full px-3 py-1 text-xs font-semibold transition",
+                                  adminViewMode === "admin"
+                                    ? "bg-white text-slate-900 shadow-sm"
+                                    : "text-slate-500 hover:text-slate-700"
+                                )}
+                                onClick={() => setAdminViewMode("admin")}
+                                aria-pressed={adminViewMode === "admin"}
+                                data-testid="updates-view-admin"
+                              >
+                                Only admin
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="flex items-center gap-2">
                         <Button
