@@ -6,6 +6,7 @@ import { orderImagesWithCover } from "@/lib/properties/images";
 import {
   ensureUniqueSlug,
   resolveStorefrontAvailability,
+  safeTrim,
   slugifyAgentName,
   type StorefrontAvailabilityReason,
 } from "@/lib/agents/agent-storefront";
@@ -74,7 +75,7 @@ function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
 
 export async function getAgentStorefrontData(slug: string): Promise<AgentStorefrontResult> {
   const globalEnabled = await getAppSettingBool("agent_storefronts_enabled", true);
-  const normalizedSlug = slug.trim().toLowerCase();
+  const normalizedSlug = safeTrim(slug).toLowerCase();
   if (!normalizedSlug) {
     return { available: false, reason: "not_found", listings: [] };
   }

@@ -7,18 +7,23 @@ export type StorefrontAvailability =
   | { available: true }
   | { available: false; reason: StorefrontAvailabilityReason };
 
-export function slugifyAgentName(value: string): string {
-  return value
+export function safeTrim(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export function slugifyAgentName(value: unknown): string {
+  const trimmed = safeTrim(value);
+  if (!trimmed) return "";
+  return trimmed
     .toLowerCase()
-    .trim()
     .replace(/[’']/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
 }
 
-export function ensureUniqueSlug(base: string, existing: string[]): string {
-  const normalizedBase = base.trim().toLowerCase() || "agent";
+export function ensureUniqueSlug(base: unknown, existing: string[]): string {
+  const normalizedBase = safeTrim(base).toLowerCase() || "agent";
   const used = new Set(existing.map((slug) => slug.toLowerCase()));
   if (!used.has(normalizedBase)) return normalizedBase;
   let suffix = 2;

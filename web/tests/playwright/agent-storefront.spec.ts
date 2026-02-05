@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { HAS_SUPABASE_ENV } from "./helpers/env";
 
 const ADMIN_EMAIL = process.env.PLAYWRIGHT_ADMIN_EMAIL || "";
@@ -8,6 +9,10 @@ const HAS_ADMIN = !!ADMIN_EMAIL && !!ADMIN_PASSWORD;
 const AGENT_EMAIL = process.env.PLAYWRIGHT_AGENT_EMAIL || "";
 const AGENT_PASSWORD = process.env.PLAYWRIGHT_AGENT_PASSWORD || "";
 const HAS_AGENT = !!AGENT_EMAIL && !!AGENT_PASSWORD;
+const supabaseUrl =
+  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
+const HAS_SERVICE_ROLE = !!supabaseUrl && !!serviceRoleKey;
 
 async function login(page: Page, email: string, password: string) {
   await page.goto("/auth/login");
@@ -117,5 +122,55 @@ test("agent can hide storefront from public", async ({ page }) => {
     await toggleBack.check();
     await page.getByRole("button", { name: /save changes/i }).click();
     await expect(page.getByText("Profile updated.")).toBeVisible();
+  }
+});
+
+test("storefront renders with missing optional profile fields", async ({ page }) => {
+  test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping agent storefront test.");
+  test.skip(!HAS_AGENT, "Set PLAYWRIGHT_AGENT_EMAIL/PASSWORD to run this test.");
+  test.skip(!HAS_SERVICE_ROLE, "SUPABASE_SERVICE_ROLE_KEY missing; skipping agent storefront test.");
+
+  const adminClient: SupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  await login(page, AGENT_EMAIL, AGENT_PASSWORD);
+  await page.goto("/profile");
+
+  const slug = (await ensureAgentSlug(page, "Agent")) || (await readSlugFromProfile(page));
+  test.skip(!slug, "Unable to resolve agent slug for storefront test.");
+
+  const userResult = await adminClient.auth.admin.getUserByEmail(AGENT_EMAIL);
+  const userId = userResult.data?.user?.id ?? null;
+  test.skip(!userId, "Unable to resolve agent id for storefront test.");
+
+  const { data: original } = await adminClient
+    .from("profiles")
+    .select(
+      "display_name, full_name, business_name, avatar_url, agent_bio, agent_slug, agent_storefront_enabled"
+    )
+    .eq("id", userId)
+    .maybeSingle();
+
+  await adminClient
+    .from("profiles")
+    .update({
+      display_name: null,
+      full_name: null,
+      business_name: null,
+      avatar_url: null,
+      agent_bio: null,
+      agent_storefront_enabled: true,
+      agent_slug: slug,
+    })
+    .eq("id", userId);
+
+  await page.goto("/auth/logout");
+  await page.goto(`/agents/${slug}`);
+  await expect(page.getByRole("heading", { name: /agent/i })).toBeVisible();
+  await expect(page.getByTestId("agent-storefront-listings")).toBeVisible();
+
+  if (original) {
+    await adminClient.from("profiles").update(original).eq("id", userId);
   }
 });
