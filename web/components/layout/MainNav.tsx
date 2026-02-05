@@ -1,7 +1,6 @@
 import { NavAuthClient } from "@/components/layout/NavAuthClient";
 import { NavLinksClient } from "@/components/layout/NavLinksClient";
 import { NavMobileDrawerClient } from "@/components/layout/NavMobileDrawerClient";
-import { NavHamburgerMenu } from "@/components/layout/NavHamburgerMenu";
 import { BrandLogo } from "@/components/branding/BrandLogo";
 import { AdminHelpDrawer } from "@/components/help/AdminHelpDrawer";
 import { ProductUpdatesBell } from "@/components/updates/ProductUpdatesBell";
@@ -89,7 +88,6 @@ export async function MainNav() {
           <AdminHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
           <ProductUpdatesBell initialAuthed={initialAuthed} />
           <NavAuthClient initialAuthed={initialAuthed} />
-          <NavHamburgerMenu initialAuthed={initialAuthed} initialRole={role} />
           <NavMobileDrawerClient links={MAIN_NAV_LINKS} initialAuthed={initialAuthed} initialRole={role} />
         </div>
       </div>

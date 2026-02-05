@@ -24,7 +24,7 @@ async function login(page: Page, email: string, password: string) {
 test("hamburger menu shows logged-out items", async ({ page }) => {
   await page.goto("/");
   const cta = page.getByRole("banner").getByRole("button", { name: /get started/i });
-  const desktopHamburger = page.getByTestId("hamburger-menu");
+  const desktopHamburger = page.getByRole("button", { name: /open menu/i });
   await expect(desktopHamburger).toBeVisible();
   await expect(page.getByRole("button", { name: /open menu/i })).toHaveCount(1);
   const ctaBox = await cta.boundingBox();
@@ -33,11 +33,11 @@ test("hamburger menu shows logged-out items", async ({ page }) => {
     expect(ctaBox.x).toBeLessThan(hamburgerBox.x);
   }
   await desktopHamburger.click();
-  await expect(page.getByTestId("menu-item-help")).toBeVisible();
-  await expect(page.getByTestId("menu-item-become-host")).toBeVisible();
-  await expect(page.getByTestId("menu-item-agents")).toBeVisible();
-  await expect(page.getByTestId("menu-item-login")).toBeVisible();
-  await expect(page.getByTestId("menu-item-signup")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Help Centre" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Become a host" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Find an agent" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Log in" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Sign up" })).toBeVisible();
   await page.setViewportSize({ width: 375, height: 720 });
   await expect(page.getByRole("button", { name: /open menu/i })).toHaveCount(1);
   await expect(page.getByRole("button", { name: /open menu/i })).toBeVisible();
@@ -49,13 +49,13 @@ test("hamburger menu shows admin items when logged in", async ({ page }) => {
 
   await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 
-  await page.getByTestId("hamburger-menu").click();
-  await expect(page.getByTestId("menu-item-admin")).toBeVisible();
-  await expect(page.getByTestId("hamburger-admin-insights")).toBeVisible();
-  await expect(page.getByTestId("menu-item-updates")).toBeVisible();
-  await expect(page.getByTestId("menu-item-ops-docs")).toBeVisible();
-  await expect(page.getByTestId("menu-item-settings")).toBeVisible();
-  await expect(page.getByTestId("menu-item-logout")).toBeVisible();
+  await page.getByRole("button", { name: /open menu/i }).click();
+  await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Insights" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Updates" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Support" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /log out/i })).toBeVisible();
 });
 
 test("hamburger menu hides admin insights for tenant", async ({ page }) => {
@@ -65,10 +65,10 @@ test("hamburger menu hides admin insights for tenant", async ({ page }) => {
   await login(page, TENANT_EMAIL, TENANT_PASSWORD);
   const topHomeLinks = page.locator("header nav a", { hasText: "Home" });
   await expect(topHomeLinks).toHaveCount(1);
-  await page.getByTestId("hamburger-menu").click();
+  await page.getByRole("button", { name: /open menu/i }).click();
 
-  await expect(page.getByTestId("hamburger-admin-insights")).toHaveCount(0);
-  await expect(page.getByTestId("menu-item-home")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Insights" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Home" })).toBeVisible();
 });
 
 test("host header has no My dashboard action", async ({ page }) => {

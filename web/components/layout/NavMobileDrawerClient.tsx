@@ -140,8 +140,9 @@ export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Pro
     <>
       <button
         type="button"
-        className="inline-flex items-center justify-center rounded-lg border border-slate-200 p-2 text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 md:hidden"
+        className="inline-flex items-center justify-center rounded-lg border border-slate-200 p-2 text-slate-700 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
         aria-label="Open menu"
+        data-testid="hamburger-menu"
         onClick={() => setOpen(true)}
       >
         <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
@@ -152,7 +153,7 @@ export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Pro
       {open &&
         typeof document !== "undefined" &&
         createPortal(
-          <div className="fixed inset-0 z-[10000] flex md:hidden">
+          <div className="fixed inset-0 z-[10000] flex">
             <button
               type="button"
               aria-label="Close menu"
