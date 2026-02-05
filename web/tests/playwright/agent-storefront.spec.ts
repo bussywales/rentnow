@@ -38,6 +38,12 @@ async function readSlugFromProfile(page: Page) {
   return value.split("/").pop() || null;
 }
 
+async function readStorefrontUrlFromProfile(page: Page) {
+  const urlInput = page.getByTestId("agent-storefront-url");
+  if ((await urlInput.count()) === 0) return null;
+  return urlInput.inputValue();
+}
+
 test("logged-out visitors can view agent storefronts", async ({ page }) => {
   test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping agent storefront test.");
   test.skip(!HAS_AGENT, "Set PLAYWRIGHT_AGENT_EMAIL/PASSWORD to run this test.");
@@ -154,9 +160,10 @@ test("agent can view their storefront when enabled", async ({ page }) => {
   }
 
   const slug = (await ensureAgentSlug(page, "Agent")) || (await readSlugFromProfile(page));
-  test.skip(!slug, "Unable to resolve agent slug for storefront test.");
+  const storefrontUrl = await readStorefrontUrlFromProfile(page);
+  test.skip(!slug || !storefrontUrl, "Unable to resolve agent storefront URL.");
 
-  await page.goto(`/agents/${slug}`);
+  await page.goto(storefrontUrl);
   await expect(page.getByTestId("agent-storefront-listings")).toBeVisible();
 });
 

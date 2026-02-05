@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ensureProfileRow, type ProfileRecord } from "@/lib/profile/ensure-profile";
+import { shouldEnsureAgentSlug } from "@/lib/agents/agent-storefront";
 
 type Props = {
   userId: string;
@@ -41,6 +42,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   const [agentBio, setAgentBio] = useState(initialProfile?.agent_bio ?? "");
   const [agentSlug, setAgentSlug] = useState(initialProfile?.agent_slug ?? null);
   const [copyState, setCopyState] = useState<string | null>(null);
+  const ensureSlugRef = useRef(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -108,6 +110,28 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
     void load();
   }, [profile, supabase, userId, email, retryToken]);
 
+  useEffect(() => {
+    if (!profile || !supabase) return;
+    if (ensureSlugRef.current) return;
+    if (profile.role !== "agent") return;
+    if (!shouldEnsureAgentSlug({ enabled: true, slug: agentSlug })) return;
+    ensureSlugRef.current = true;
+    void (async () => {
+      const slugRes = await fetch("/api/profile/agent-storefront", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ displayName }),
+      });
+      if (slugRes.ok) {
+        const data = await slugRes.json().catch(() => ({}));
+        if (typeof data?.slug === "string") {
+          setAgentSlug(data.slug);
+          setSnapshot((prev) => ({ ...prev, agentSlug: data.slug }));
+        }
+      }
+    })();
+  }, [agentStorefrontEnabled, agentSlug, displayName, profile, supabase]);
+
   const initials = getInitials(displayName || email || "U");
   const isAgent = profile?.role === "agent";
   const hasChanges =
@@ -120,6 +144,11 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
           agentBio.trim() !== snapshot.agentBio ||
           agentSlug !== snapshot.agentSlug)));
   const storefrontPath = agentSlug ? `/agents/${agentSlug}` : "";
+  const baseUrl =
+    (typeof window !== "undefined" ? window.location.origin : "") ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "";
+  const storefrontUrl = storefrontPath ? `${baseUrl}${storefrontPath}` : "";
 
   const handleSave = async () => {
     if (!supabase || !profile) return;
@@ -181,8 +210,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
     if (!storefrontPath) return;
     setCopyState(null);
     try {
-      const origin = window.location.origin;
-      await navigator.clipboard.writeText(`${origin}${storefrontPath}`);
+      await navigator.clipboard.writeText(storefrontUrl || storefrontPath);
       setCopyState("Copied!");
       setTimeout(() => setCopyState(null), 2000);
     } catch {
@@ -379,11 +407,11 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
             {agentSlug && (
               <div>
                 <label className="text-xs font-semibold text-slate-600">
-                  Your agent storefront link
+                  Public storefront URL
                 </label>
                 <div className="mt-2 flex flex-wrap items-center gap-3">
                   <Input
-                    value={storefrontPath}
+                    value={storefrontUrl || storefrontPath}
                     readOnly
                     data-testid="agent-storefront-url"
                   />

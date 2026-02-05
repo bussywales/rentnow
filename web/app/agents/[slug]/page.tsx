@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { permanentRedirect } from "next/navigation";
 import { getAgentStorefrontData } from "@/lib/agents/agent-storefront.server";
 import AgentStorefrontListingsClient from "@/components/agents/AgentStorefrontListingsClient";
 import { resolveServerRole } from "@/lib/auth/role";
@@ -44,6 +45,10 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
   const data = await getAgentStorefrontData(params.slug);
   const { role } = await resolveServerRole();
   const isAdmin = role === "admin";
+
+  if (!data.ok && data.redirectSlug && data.redirectSlug !== params.slug) {
+    permanentRedirect(`/agents/${data.redirectSlug}`);
+  }
 
   if (!data.ok || !data.storefront) {
     const reason = data.ok ? "NOT_FOUND" : data.reason;

@@ -5,9 +5,10 @@ import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import {
   ensureUniqueSlug,
+  resolveAgentSlugBase,
   resolveStorefrontAccess,
+  resolveLegacySlugRedirect,
   safeTrim,
-  slugifyAgentName,
   type StorefrontFailureReason,
 } from "@/lib/agents/agent-storefront";
 
@@ -60,6 +61,7 @@ export type AgentStorefrontResult =
       ok: false;
       slug: string;
       reason: StorefrontFailureReason;
+      redirectSlug?: string | null;
     };
 
 function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
@@ -105,14 +107,50 @@ export async function getAgentStorefrontData(slug: string): Promise<AgentStorefr
 
   let profile = exactProfile;
   if (!profile) {
-    const { data: fallbackProfile } = await client
+    const { data: caseInsensitiveProfile } = await client
       .from("profiles")
       .select(
         "id, role, display_name, full_name, business_name, avatar_url, agent_bio, agent_slug, agent_storefront_enabled"
       )
-      .ilike("agent_slug", safeTrim(slug))
+      .ilike("agent_slug", normalizedSlug)
       .maybeSingle<AgentRow>();
-    profile = fallbackProfile ?? null;
+    profile = caseInsensitiveProfile ?? null;
+  }
+  if (!profile) {
+    const candidateName = safeTrim(slug).replace(/-/g, " ");
+    if (candidateName) {
+      const safeCandidate = candidateName.replace(/[%_]/g, "\\$&");
+      const { data: candidates } = await client
+        .from("profiles")
+        .select(
+          "id, role, display_name, full_name, business_name, avatar_url, agent_bio, agent_slug, agent_storefront_enabled"
+        )
+        .eq("role", "agent")
+        .not("agent_slug", "is", null)
+        .or(
+          `display_name.ilike.%${safeCandidate}%,full_name.ilike.%${safeCandidate}%,business_name.ilike.%${safeCandidate}%`
+        );
+
+      const matches =
+        candidates
+          ?.map((candidate) => ({
+            candidate,
+            redirectSlug: resolveLegacySlugRedirect({
+              requestedSlug: normalizedSlug,
+              profile: candidate,
+            }),
+          }))
+          .filter((match) => !!match.redirectSlug) ?? [];
+
+      if (matches.length === 1) {
+        return {
+          ok: false,
+          reason: "NOT_FOUND",
+          slug: normalizedSlug,
+          redirectSlug: matches[0].redirectSlug ?? null,
+        };
+      }
+    }
   }
 
   const access = resolveStorefrontAccess({
@@ -181,8 +219,13 @@ export async function ensureAgentSlugForUser(input: {
   if (!profile || profile.role !== "agent") return null;
   if (profile.agent_slug) return profile.agent_slug;
 
-  const baseRaw = input.displayName || profile.display_name || profile.full_name || "";
-  const baseSlug = slugifyAgentName(baseRaw) || `agent-${input.userId.slice(0, 8)}`;
+  const baseSlug = resolveAgentSlugBase({
+    currentSlug: profile.agent_slug,
+    displayName: input.displayName ?? profile.display_name,
+    fullName: profile.full_name,
+    businessName: profile.business_name,
+    userId: input.userId,
+  });
 
   const { data: existingRows } = await client
     .from("profiles")

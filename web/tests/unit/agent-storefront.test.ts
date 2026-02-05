@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   ensureUniqueSlug,
+  resolveAgentSlugBase,
+  resolveLegacySlugRedirect,
   resolveStorefrontAccess,
+  shouldEnsureAgentSlug,
   slugifyAgentName,
 } from "@/lib/agents/agent-storefront";
 
@@ -19,6 +22,48 @@ void test("ensureUniqueSlug appends suffix when taken", () => {
   assert.equal(ensureUniqueSlug("agent", existing), "agent-4");
   assert.equal(ensureUniqueSlug("fresh", existing), "fresh");
   assert.equal(ensureUniqueSlug(undefined, existing), "agent-4");
+});
+
+void test("agent slug helpers keep slug stable and ensure when missing", () => {
+  assert.equal(
+    resolveAgentSlugBase({
+      currentSlug: "stable-slug",
+      displayName: "New Name",
+      userId: "user-1234",
+    }),
+    "stable-slug"
+  );
+  assert.equal(
+    resolveAgentSlugBase({
+      currentSlug: null,
+      displayName: "Jane Doe",
+      userId: "user-1234",
+    }),
+    "jane-doe"
+  );
+  assert.equal(
+    resolveAgentSlugBase({
+      currentSlug: null,
+      displayName: "",
+      userId: "user-1234",
+    }),
+    "agent-user-123"
+  );
+  assert.equal(shouldEnsureAgentSlug({ enabled: true, slug: null }), true);
+  assert.equal(shouldEnsureAgentSlug({ enabled: false, slug: null }), false);
+});
+
+void test("legacy slug redirect resolves to stored slug", () => {
+  const redirect = resolveLegacySlugRedirect({
+    requestedSlug: "jane-doe",
+    profile: { agent_slug: "jane-co", display_name: "Jane Doe" },
+  });
+  assert.equal(redirect, "jane-co");
+  const noRedirect = resolveLegacySlugRedirect({
+    requestedSlug: "jane-co",
+    profile: { agent_slug: "jane-co", display_name: "Jane Doe" },
+  });
+  assert.equal(noRedirect, null);
 });
 
 void test("resolveStorefrontAccess handles availability reasons", () => {
