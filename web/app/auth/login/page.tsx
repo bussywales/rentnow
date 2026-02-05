@@ -9,7 +9,7 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams?: Record<string, string | string[] | undefined>;
+  searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
 function normalizeRedirect(
@@ -23,13 +23,14 @@ function normalizeRedirect(
 }
 
 export default async function LoginPage({ searchParams }: PageProps) {
+  const resolvedParams = searchParams ? await searchParams : undefined;
   const redirectCandidate =
-    (typeof searchParams?.redirect === "string" && searchParams.redirect) ||
-    (typeof searchParams?.next === "string" && searchParams.next) ||
+    (typeof resolvedParams?.redirect === "string" && resolvedParams.redirect) ||
+    (typeof resolvedParams?.next === "string" && resolvedParams.next) ||
     undefined;
   const redirectTo = normalizeRedirect(redirectCandidate);
-  const reason = typeof searchParams?.reason === "string" ? searchParams.reason : null;
-  const errorParam = typeof searchParams?.error === "string" ? searchParams.error : null;
+  const reason = typeof resolvedParams?.reason === "string" ? resolvedParams.reason : null;
+  const errorParam = typeof resolvedParams?.error === "string" ? resolvedParams.error : null;
   const envError = hasServerSupabaseEnv()
     ? null
     : "Supabase environment variables are missing.";

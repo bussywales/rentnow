@@ -7,18 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
-
-type ProfileRecord = {
-  id: string;
-  role?: string | null;
-  display_name?: string | null;
-  full_name?: string | null;
-  phone?: string | null;
-  avatar_url?: string | null;
-  agent_storefront_enabled?: boolean | null;
-  agent_slug?: string | null;
-  agent_bio?: string | null;
-};
+import { ensureProfileRow, type ProfileRecord } from "@/lib/profile/ensure-profile";
 
 type Props = {
   userId: string;
@@ -53,6 +42,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   const [agentSlug, setAgentSlug] = useState(initialProfile?.agent_slug ?? null);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [retryToken, setRetryToken] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState({
@@ -76,19 +67,24 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
     if (profile || !supabase) return;
     const load = async () => {
       setLoadingProfile(true);
-      const { data, error: fetchError } = await supabase
-        .from("profiles")
-        .select(
-          "id, role, display_name, full_name, phone, avatar_url, agent_storefront_enabled, agent_slug, agent_bio"
-        )
-        .eq("id", userId)
-        .maybeSingle();
-      if (fetchError) {
-        setError("Unable to load profile. Please try again.");
+      setLoadError(null);
+      const result = await ensureProfileRow({ client: supabase, userId, email });
+      if (result.error) {
+        console.error("profile.load", result.error);
+        setLoadError("Unable to load profile. Please try again.");
         setLoadingProfile(false);
         return;
       }
-      const nextProfile = (data as ProfileRecord | null) ?? null;
+      const nextProfile = result.profile;
+      if (!nextProfile) {
+        console.error("profile.load.missing", {
+          message: "Profile row not found after create.",
+          userId,
+        });
+        setLoadError("Unable to load profile. Please try again.");
+        setLoadingProfile(false);
+        return;
+      }
       setProfile(nextProfile);
       const nextName = nextProfile?.display_name ?? nextProfile?.full_name ?? "";
       setDisplayName(nextName);
@@ -108,18 +104,19 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       setLoadingProfile(false);
     };
     void load();
-  }, [profile, supabase, userId]);
+  }, [profile, supabase, userId, email, retryToken]);
 
   const initials = getInitials(displayName || email || "U");
   const isAgent = profile?.role === "agent";
   const hasChanges =
-    displayName.trim() !== snapshot.displayName ||
-    phone.trim() !== snapshot.phone ||
-    avatarUrl !== snapshot.avatarUrl ||
-    (isAgent &&
-      (agentStorefrontEnabled !== snapshot.agentStorefrontEnabled ||
-        agentBio.trim() !== snapshot.agentBio ||
-        agentSlug !== snapshot.agentSlug));
+    !!profile &&
+    (displayName.trim() !== snapshot.displayName ||
+      phone.trim() !== snapshot.phone ||
+      avatarUrl !== snapshot.avatarUrl ||
+      (isAgent &&
+        (agentStorefrontEnabled !== snapshot.agentStorefrontEnabled ||
+          agentBio.trim() !== snapshot.agentBio ||
+          agentSlug !== snapshot.agentSlug)));
 
   const handleSave = async () => {
     if (!supabase || !profile) return;
@@ -268,6 +265,25 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
           </div>
         </div>
       </section>
+
+      {loadError && (
+        <section className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-700">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span>{loadError}</span>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setLoadError(null);
+                setRetryToken((value) => value + 1);
+              }}
+            >
+              Try again
+            </Button>
+          </div>
+        </section>
+      )}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-slate-900">Details</h2>
