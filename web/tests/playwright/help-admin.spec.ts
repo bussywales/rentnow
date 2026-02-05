@@ -82,12 +82,22 @@ test("admin can view support playbooks", async ({ page }) => {
   await expect(page.getByRole("heading", { name: /Login & access issues/i })).toBeVisible();
 });
 
+test("admin can view email delivery playbook", async ({ page }) => {
+  test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping admin playbooks test.");
+  test.skip(!HAS_ADMIN, "Set PLAYWRIGHT_ADMIN_EMAIL/PASSWORD to run this test.");
+
+  await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
+  await page.goto("/help/admin/support-playbooks/email-delivery");
+  await expect(page.getByRole("heading", { name: /Email delivery & limits/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Fix checklist/i })).toBeVisible();
+});
+
 test("non-admin is blocked from admin help", async ({ page }) => {
   test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping non-admin help check.");
   test.skip(!HAS_TENANT, "Set PLAYWRIGHT_USER_EMAIL/PASSWORD to run this test.");
 
   await login(page, TENANT_EMAIL, TENANT_PASSWORD);
-  await page.goto("/help/admin");
+  await page.goto("/help/admin/support-playbooks/email-delivery");
 
   await expect(page).toHaveURL(/forbidden|auth\/required/i);
 });
