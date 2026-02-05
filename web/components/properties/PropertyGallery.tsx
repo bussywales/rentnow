@@ -56,9 +56,9 @@ export function PropertyGallery({ images, title }: Props) {
   const showNav = safeImages.length > 1;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 min-w-0 max-w-full">
       <div
-        className="relative h-72 overflow-hidden rounded-2xl bg-slate-100"
+        className="relative h-72 w-full max-w-full overflow-hidden rounded-2xl bg-slate-100"
         tabIndex={0}
         onKeyDown={handleKey}
         aria-label="Property photos"
@@ -101,7 +101,7 @@ export function PropertyGallery({ images, title }: Props) {
           </>
         )}
       </div>
-      <div className="flex gap-2 overflow-x-auto pb-1">
+      <div className="flex w-full max-w-full min-w-0 gap-2 overflow-x-auto pb-1">
         {safeImages.map((img, idx) => (
           <button
             key={img.id || idx}

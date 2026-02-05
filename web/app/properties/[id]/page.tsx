@@ -554,7 +554,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   const showTrustSignals = !!hostTrust || hostTrustCues.length > 0;
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4">
+    <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-8 px-4">
       {backHref && (
         <Link
           href={backHref}
@@ -604,11 +604,11 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           }}
         />
       )}
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2">
+      <div className="grid min-w-0 gap-6 md:grid-cols-3">
+        <div className="md:col-span-2 min-w-0">
           <PropertyGallery images={property.images || []} title={property.title} />
         </div>
-        <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="min-w-0 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
             {listingIntent === "buy"
               ? "For sale"
@@ -691,8 +691,8 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <div className="grid min-w-0 gap-6 md:grid-cols-3">
+        <div className="md:col-span-2 min-w-0 space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-xl font-semibold text-slate-900">About</h2>
           <p className="text-slate-700 leading-7">{description}</p>
           <PropertyMapToggle
@@ -703,7 +703,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             variant="inline"
           />
         </div>
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {keyFacts.length > 0 && (
             <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <h3 className="text-lg font-semibold text-slate-900">Key facts</h3>
@@ -724,7 +724,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-900">Hosted by</p>
-                <p className="text-xs text-slate-600">
+                <p className="text-xs text-slate-600 break-all">
                   {property.owner_id ? `Host ID: ${property.owner_id}` : "Demo host"}
                 </p>
                 <p className="text-xs text-slate-500">Based in {property.city}</p>

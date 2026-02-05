@@ -36,6 +36,38 @@ test.describe("Smoke checks", () => {
     }
   });
 
+  test("property detail has no horizontal overflow on mobile", async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 720 });
+    await page.goto("/properties");
+    const emptyState = page.getByTestId("properties-empty-state");
+    if (await emptyState.isVisible({ timeout: 3_000 }).catch(() => false)) {
+      await expect(emptyState).toBeVisible();
+      return;
+    }
+
+    const firstCardLink = page.locator('[data-testid="property-card"] a').first();
+    await expect(firstCardLink).toBeVisible({ timeout: 15_000 });
+    const href = await firstCardLink.getAttribute("href");
+    expect(href).toBeTruthy();
+    await page.goto(href as string);
+    await page.waitForURL("**/properties/**", { timeout: 10_000 });
+    if (
+      await page
+        .getByRole("heading", { name: /listing not found/i })
+        .isVisible({ timeout: 2_000 })
+        .catch(() => false)
+    ) {
+      return;
+    }
+
+    await page.waitForTimeout(500);
+    const { scrollWidth, clientWidth } = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+    }));
+    expect(scrollWidth).toBeLessThanOrEqual(clientWidth + 1);
+  });
+
   test("smart search routes to browse with filters", async ({ page }) => {
     test.skip(!HAS_OPENAI, "OPENAI_API_KEY missing; skipping smart search parse test.");
 
