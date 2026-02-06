@@ -174,6 +174,16 @@ export async function getAgentStorefrontData(slug: string): Promise<AgentStorefr
   const globalEnabled = publicRow?.global_enabled ?? true;
   const agentEnabled = publicRow?.agent_storefront_enabled ?? null;
   const agentRole = publicRow?.role ?? null;
+  const resolvedSlug = safeTrim(publicRow?.slug).toLowerCase();
+
+  if (publicOutcome.ok && resolvedSlug && resolvedSlug !== normalizedSlug) {
+    return {
+      ok: false,
+      reason: "NOT_FOUND",
+      slug: normalizedSlug,
+      redirectSlug: resolvedSlug,
+    };
+  }
 
   if (!publicOutcome.ok && publicReason === "NOT_FOUND" && hasServiceRole) {
     const backfilled = await attemptBackfillStorefront({ slug: normalizedSlug });
