@@ -50,7 +50,7 @@ values
     now(),
     'agent-storefronts-contact-20260206'
   )
-on conflict (source_ref, audience) do update
+on conflict (source_ref, audience) where source_ref is not null do update
 set title = excluded.title,
     summary = excluded.summary,
     body = excluded.body,
