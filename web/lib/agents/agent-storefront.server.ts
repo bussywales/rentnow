@@ -369,9 +369,10 @@ export async function getAgentStorefrontViewModel(
   let liveListingsCount: number | null = null;
   let enquiriesCount: number | null = null;
   let memberSince: string | null = null;
+  let authCreatedAt: string | null = null;
 
   if (serviceClient) {
-    const [liveCount, enquiries, profile] = await Promise.all([
+    const [liveCount, enquiries, profile, authUser] = await Promise.all([
       serviceClient
         .from("properties")
         .select("id", { count: "exact", head: true })
@@ -386,6 +387,7 @@ export async function getAgentStorefrontViewModel(
         .select("created_at")
         .eq("id", agentId)
         .maybeSingle<ProfileCreatedAtRow>(),
+      serviceClient.auth.admin.getUserById(agentId),
     ]);
 
     if (!liveCount.error && typeof liveCount.count === "number") {
@@ -394,9 +396,16 @@ export async function getAgentStorefrontViewModel(
     if (!enquiries.error && typeof enquiries.count === "number") {
       enquiriesCount = enquiries.count;
     }
+    if (!authUser.error && authUser.data?.user?.created_at) {
+      authCreatedAt = authUser.data.user.created_at;
+    }
     if (!profile.error && profile.data?.created_at) {
       memberSince = profile.data.created_at;
     }
+  }
+
+  if (authCreatedAt) {
+    memberSince = authCreatedAt;
   }
 
   if (!memberSince) {

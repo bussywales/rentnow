@@ -25,6 +25,14 @@ type Props = {
   listings: Property[];
   contactHref?: string;
   isOwner?: boolean;
+  emptyState?: {
+    title: string;
+    body: string;
+    primaryCta?: { label: string; href: string };
+    secondaryCta?: { label: string; href: string };
+    ownerCta?: { label: string; href: string };
+    ownerNote?: string;
+  };
 };
 
 function getListingTimestamp(listing: Property) {
@@ -33,7 +41,12 @@ function getListingTimestamp(listing: Property) {
   return new Date(value).getTime();
 }
 
-export default function AgentStorefrontListingsClient({ listings, contactHref, isOwner }: Props) {
+export default function AgentStorefrontListingsClient({
+  listings,
+  contactHref,
+  isOwner,
+  emptyState,
+}: Props) {
   const [filter, setFilter] = useState<FilterKey>("all");
   const [sort, setSort] = useState<SortKey>("newest");
 
@@ -57,6 +70,20 @@ export default function AgentStorefrontListingsClient({ listings, contactHref, i
   }, [filtered, sort]);
 
   const resultsLabel = `${sorted.length} ${sorted.length === 1 ? "listing" : "listings"}`;
+
+  const defaultEmptyState = {
+    title: "No live listings right now",
+    body:
+      "This agent doesn’t have any live listings available at the moment. Send a quick message and they can recommend similar homes or alert you when something matches.",
+    primaryCta: contactHref ? { label: "Contact agent", href: contactHref } : undefined,
+    secondaryCta: { label: "Browse all homes", href: "/properties" },
+    ownerCta: isOwner ? { label: "Add a listing", href: "/dashboard/properties/new" } : undefined,
+    ownerNote: isOwner
+      ? "Ready to publish? Add your first listing to appear here."
+      : undefined,
+  } as const;
+
+  const resolvedEmptyState = emptyState ?? defaultEmptyState;
 
   return (
     <section className="space-y-4" data-testid="agent-storefront-listings">
@@ -105,39 +132,40 @@ export default function AgentStorefrontListingsClient({ listings, contactHref, i
       {sorted.length === 0 ? (
         <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center">
           <p className="text-base font-semibold text-slate-900">
-            No live listings right now
+            {resolvedEmptyState.title}
           </p>
           <p className="mt-2 text-sm text-slate-600">
-            This agent doesn’t have any live listings available at the moment. Send a quick message
-            and they can recommend similar homes or alert you when something matches.
+            {resolvedEmptyState.body}
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-            {contactHref && (
+            {resolvedEmptyState.primaryCta && (
               <Link
-                href={contactHref}
+                href={resolvedEmptyState.primaryCta.href}
                 className="inline-flex items-center justify-center rounded-lg bg-sky-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-sky-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2"
               >
-                Contact agent
+                {resolvedEmptyState.primaryCta.label}
               </Link>
             )}
-            <Link
-              href="/properties"
-              className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300"
-            >
-              Browse all homes
-            </Link>
-            {isOwner && (
+            {resolvedEmptyState.secondaryCta && (
               <Link
-                href="/dashboard/properties/new"
+                href={resolvedEmptyState.secondaryCta.href}
+                className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300"
+              >
+                {resolvedEmptyState.secondaryCta.label}
+              </Link>
+            )}
+            {resolvedEmptyState.ownerCta && (
+              <Link
+                href={resolvedEmptyState.ownerCta.href}
                 className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-slate-300"
               >
-                Add a listing
+                {resolvedEmptyState.ownerCta.label}
               </Link>
             )}
           </div>
-          {isOwner && (
+          {resolvedEmptyState.ownerNote && (
             <p className="mt-4 text-sm text-slate-500">
-              Ready to publish? Add your first listing to appear here.
+              {resolvedEmptyState.ownerNote}
             </p>
           )}
         </div>
