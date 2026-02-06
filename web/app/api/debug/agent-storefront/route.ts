@@ -22,11 +22,11 @@ function formatRow(row: StorefrontPublicRow | null | undefined) {
   };
 }
 
-async function fetchPublicRow(client: { rpc: (...args: unknown[]) => unknown }, slug: string) {
-  const response = (await (client.rpc as (...args: unknown[]) => Promise<{
-    data: unknown;
-    error: { code?: string | null; message?: string | null; details?: string | null } | null;
-  }>)("get_agent_storefront_public", { input_slug: slug })) as {
+async function fetchPublicRow(client: unknown, slug: string) {
+  const response = (await (client as { rpc: (fn: string, args?: unknown) => Promise<unknown> }).rpc(
+    "get_agent_storefront_public",
+    { input_slug: slug }
+  )) as {
     data: unknown;
     error: { code?: string | null; message?: string | null; details?: string | null } | null;
   };
