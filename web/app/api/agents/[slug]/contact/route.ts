@@ -75,7 +75,7 @@ export async function POST(
     }
   }
 
-  const { error } = await supabase.from("agent_leads").insert({
+  const insertPayload = {
     agent_user_id: storefront.storefront.agent.id,
     agent_slug: storefront.storefront.agent.slug ?? slug,
     status: "NEW",
@@ -87,7 +87,10 @@ export async function POST(
     source_url: request.headers.get("referer") || null,
     ip_address: ipAddress,
     user_agent: request.headers.get("user-agent") || null,
-  });
+  };
+
+  // Supabase types don't yet include agent_leads in this repo.
+  const { error } = await (supabase as any).from("agent_leads").insert(insertPayload);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
