@@ -1,9 +1,9 @@
-\"use client\";
+"use client";
 
-import Image from \"next/image\";
-import { useMemo, useState } from \"react\";
-import { cn } from \"@/components/ui/cn\";
-import AgentStorefrontHeroActions from \"@/components/agents/AgentStorefrontHeroActions\";
+import Image from "next/image";
+import { useMemo, useState } from "react";
+import { cn } from "@/components/ui/cn";
+import AgentStorefrontHeroActions from "@/components/agents/AgentStorefrontHeroActions";
 
 type Props = {
   name: string;
@@ -17,17 +17,17 @@ type Props = {
 };
 
 const FALLBACK_BIO =
-  \"Helping tenants and buyers find the right home across PropatyHub with trusted guidance and local market insight.\";
+  "Helping tenants and buyers find the right home across PropatyHub with trusted guidance and local market insight.";
 
 function getInitials(name: string) {
   const parts = name
-    .split(\" \")
+    .split(" ")
     .map((part) => part.trim())
     .filter(Boolean);
-  if (parts.length === 0) return \"A\";
+  if (parts.length === 0) return "A";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  const first = parts[0]?.[0] ?? \"\";
-  const last = parts[parts.length - 1]?.[0] ?? \"\";
+  const first = parts[0]?.[0] ?? "";
+  const last = parts[parts.length - 1]?.[0] ?? "";
   return `${first}${last}`.toUpperCase();
 }
 
