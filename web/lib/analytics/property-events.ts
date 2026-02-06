@@ -2,6 +2,8 @@ export const PROPERTY_EVENT_TYPES = [
   "property_view",
   "save_toggle",
   "lead_created",
+  "lead_status_updated",
+  "lead_note_added",
   "viewing_requested",
   "share_open",
   "featured_impression",

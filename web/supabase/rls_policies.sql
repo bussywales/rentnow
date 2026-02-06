@@ -1283,3 +1283,70 @@ END $$;
 
 REVOKE ALL ON FUNCTION public.debug_rls_status() FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION public.debug_rls_status() TO authenticated;
+
+-- Lead notes + tags policies
+DROP POLICY IF EXISTS "lead_notes_select" ON public.lead_notes;
+CREATE POLICY "lead_notes_select" ON public.lead_notes
+  FOR SELECT
+  USING (
+    public.is_admin()
+    OR EXISTS (
+      SELECT 1 FROM public.listing_leads l
+      WHERE l.id = lead_id AND l.owner_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "lead_notes_insert" ON public.lead_notes;
+CREATE POLICY "lead_notes_insert" ON public.lead_notes
+  FOR INSERT
+  WITH CHECK (
+    auth.uid() = author_user_id
+    AND (
+      public.is_admin()
+      OR EXISTS (
+        SELECT 1 FROM public.listing_leads l
+        WHERE l.id = lead_id AND l.owner_id = auth.uid()
+      )
+    )
+  );
+
+DROP POLICY IF EXISTS "lead_notes_delete" ON public.lead_notes;
+CREATE POLICY "lead_notes_delete" ON public.lead_notes
+  FOR DELETE
+  USING (
+    public.is_admin()
+    OR auth.uid() = author_user_id
+  );
+
+DROP POLICY IF EXISTS "lead_tags_select" ON public.lead_tags;
+CREATE POLICY "lead_tags_select" ON public.lead_tags
+  FOR SELECT
+  USING (
+    public.is_admin()
+    OR EXISTS (
+      SELECT 1 FROM public.listing_leads l
+      WHERE l.id = lead_id AND l.owner_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "lead_tags_insert" ON public.lead_tags;
+CREATE POLICY "lead_tags_insert" ON public.lead_tags
+  FOR INSERT
+  WITH CHECK (
+    public.is_admin()
+    OR EXISTS (
+      SELECT 1 FROM public.listing_leads l
+      WHERE l.id = lead_id AND l.owner_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "lead_tags_delete" ON public.lead_tags;
+CREATE POLICY "lead_tags_delete" ON public.lead_tags
+  FOR DELETE
+  USING (
+    public.is_admin()
+    OR EXISTS (
+      SELECT 1 FROM public.listing_leads l
+      WHERE l.id = lead_id AND l.owner_id = auth.uid()
+    )
+  );

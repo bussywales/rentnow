@@ -1,18 +1,32 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { resolveServerRole } from "@/lib/auth/role";
-import { HostLeadsListClient } from "@/components/leads/HostLeadsListClient";
+import { LeadInboxClient } from "@/components/leads/LeadInboxClient";
 import type { LeadStatus } from "@/lib/leads/types";
 
 export const dynamic = "force-dynamic";
 
 type LeadRow = {
   id: string;
+  property_id: string;
   thread_id?: string | null;
   status: LeadStatus;
   created_at?: string | null;
+  updated_at?: string | null;
   intent?: string | null;
-  properties?: { title?: string | null; city?: string | null; state_region?: string | null } | null;
+  budget_min?: number | null;
+  budget_max?: number | null;
+  financing_status?: string | null;
+  timeline?: string | null;
+  message?: string | null;
+  contact_exchange_flags?: Record<string, unknown> | null;
+  properties?: {
+    id?: string | null;
+    title?: string | null;
+    city?: string | null;
+    state_region?: string | null;
+    listing_intent?: string | null;
+  } | null;
   buyer?: { id?: string | null; full_name?: string | null } | null;
 };
 
@@ -30,8 +44,8 @@ export default async function DashboardLeadsPage() {
   const { data, error } = await supabase
     .from("listing_leads")
     .select(
-      `id, thread_id, status, intent, created_at,
-      properties:properties(id, title, city, state_region),
+      `id, property_id, thread_id, status, intent, budget_min, budget_max, financing_status, timeline, message, contact_exchange_flags, created_at, updated_at,
+      properties:properties(id, title, city, state_region, listing_intent),
       buyer:profiles!listing_leads_buyer_id_fkey(id, full_name)`
     )
     .eq("owner_id", user.id)
@@ -45,10 +59,17 @@ export default async function DashboardLeadsPage() {
           New buy enquiries submitted for your listings. Open a lead to continue in Messages.
         </p>
       </div>
-      <HostLeadsListClient
-        leads={(data as LeadRow[]) || []}
-        error={error?.message ?? null}
-      />
+      {error ? (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          {error.message}
+        </div>
+      ) : (
+        <LeadInboxClient
+          leads={(data as LeadRow[]) || []}
+          viewerRole={role as "landlord" | "agent"}
+          viewerId={user.id}
+        />
+      )}
     </div>
   );
 }

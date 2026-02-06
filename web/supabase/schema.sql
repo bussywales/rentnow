@@ -128,6 +128,8 @@ CREATE TABLE public.property_events (
     'property_view',
     'save_toggle',
     'lead_created',
+    'lead_status_updated',
+    'lead_note_added',
     'viewing_requested',
     'share_open',
     'featured_impression'
@@ -432,3 +434,29 @@ CREATE INDEX idx_saved_searches_user ON public.saved_searches (user_id);
 --   FOR SELECT USING (
 --     auth.uid() IN (SELECT owner_id FROM public.properties WHERE id = property_id)
 --   );
+
+-- LEAD NOTES + TAGS
+CREATE TABLE public.lead_notes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  lead_id UUID NOT NULL REFERENCES public.listing_leads (id) ON DELETE CASCADE,
+  author_user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  visibility TEXT NOT NULL DEFAULT 'internal',
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_lead_notes_lead_created_at ON public.lead_notes (lead_id, created_at DESC);
+
+CREATE TABLE public.lead_tags (
+  lead_id UUID NOT NULL REFERENCES public.listing_leads (id) ON DELETE CASCADE,
+  tag TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (lead_id, tag)
+);
+
+CREATE INDEX idx_lead_tags_tag ON public.lead_tags (tag);
+
+ALTER TABLE public.listing_leads DROP CONSTRAINT IF EXISTS listing_leads_status_check;
+ALTER TABLE public.listing_leads
+  ADD CONSTRAINT listing_leads_status_check
+  CHECK (status IN ('NEW', 'CONTACTED', 'VIEWING', 'WON', 'LOST', 'QUALIFIED', 'CLOSED'));

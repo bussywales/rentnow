@@ -1,7 +1,15 @@
 export const LEAD_INTENTS = ["BUY", "MAKE_OFFER", "ASK_QUESTION"] as const;
 export type LeadIntent = (typeof LEAD_INTENTS)[number];
 
-export const LEAD_STATUSES = ["NEW", "CONTACTED", "QUALIFIED", "CLOSED"] as const;
+export const LEAD_STATUSES = [
+  "NEW",
+  "CONTACTED",
+  "VIEWING",
+  "WON",
+  "LOST",
+  "QUALIFIED",
+  "CLOSED",
+] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
 export const LEAD_FINANCING = ["CASH", "MORTGAGE", "UNDECIDED"] as const;
