@@ -25,7 +25,7 @@ const createSchema = z.object({
   client_name: z.string().min(2).max(120),
   client_brief: z.string().max(400).optional().nullable(),
   title: z.string().max(160).optional().nullable(),
-  criteria: z.record(z.any()).optional().default({}),
+  criteria: z.record(z.string(), z.any()).optional().default({}),
   pinned_property_ids: z.array(z.string().uuid()).optional().nullable(),
   published: z.boolean().optional(),
 });

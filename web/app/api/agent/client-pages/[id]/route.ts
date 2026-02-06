@@ -22,7 +22,7 @@ const updateSchema = z.object({
   client_name: z.string().min(2).max(120).optional(),
   client_brief: z.string().max(400).optional().nullable(),
   title: z.string().max(160).optional().nullable(),
-  criteria: z.record(z.any()).optional(),
+  criteria: z.record(z.string(), z.any()).optional(),
   pinned_property_ids: z.array(z.string().uuid()).optional().nullable(),
   published: z.boolean().optional(),
 });
