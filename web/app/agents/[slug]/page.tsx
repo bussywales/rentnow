@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 import { getAgentStorefrontData } from "@/lib/agents/agent-storefront.server";
 import { safeTrim } from "@/lib/agents/agent-storefront";
+import { resolveStorefrontViewState } from "@/lib/agents/storefront-view";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import AgentStorefrontListingsClient from "@/components/agents/AgentStorefrontListingsClient";
 import AgentStorefrontHero from "@/components/agents/AgentStorefrontHero";
 import AgentContactPanel from "@/components/agents/AgentContactPanel";
@@ -50,6 +52,38 @@ function resolveCoverImage(listings: Property[]) {
     if (fallback) return fallback;
   }
   return null;
+}
+
+function resolvePrimaryArea(listings: Property[]) {
+  for (const listing of listings) {
+    const city = safeTrim(listing.city);
+    if (city) return city;
+    const locationLabel = safeTrim(listing.location_label);
+    if (locationLabel) {
+      const [first] = locationLabel.split(",").map((part) => part.trim());
+      if (first) return first;
+    }
+  }
+  return null;
+}
+
+function getDistinctCities(listings: Property[]) {
+  const values = listings
+    .map((listing) => safeTrim(listing.city))
+    .filter((value) => value.length > 0);
+  return new Set(values.map((value) => value.toLowerCase()));
+}
+
+function isNewOnPropatyHub(listings: Property[]) {
+  const dates = listings
+    .map((listing) => listing.created_at || listing.updated_at)
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => Date.parse(value))
+    .filter((value) => !Number.isNaN(value));
+  if (dates.length === 0) return false;
+  const earliest = Math.min(...dates);
+  const days = (Date.now() - earliest) / (1000 * 60 * 60 * 24);
+  return days <= 45;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -114,7 +148,13 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
     permanentRedirect(`/agents/${data.redirectSlug}`);
   }
 
-  if (!data.ok || !data.storefront) {
+  const listingsCount = data.ok && data.storefront ? data.storefront.listings.length : 0;
+  const viewState = resolveStorefrontViewState({
+    ok: data.ok,
+    listingsCount,
+  });
+
+  if (viewState === "unavailable" || !data.storefront) {
     const reason = data.ok ? "NOT_FOUND" : data.reason;
     const copy = NOT_AVAILABLE_COPY[reason] ?? NOT_AVAILABLE_COPY.NOT_FOUND;
     return (
@@ -133,6 +173,32 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
   const coverImageUrl = resolveCoverImage(listings);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
   const shareUrl = `${siteUrl}/agents/${agent.slug ?? slug}`;
+  const primaryArea = resolvePrimaryArea(listings);
+  const distinctCities = getDistinctCities(listings);
+  const primaryAreaLabel = primaryArea
+    ? distinctCities.size > 1
+      ? `Serving ${primaryArea}`
+      : `Based in ${primaryArea}`
+    : null;
+  const trustChips = [
+    listings.length > 0 ? `${listings.length} live listings` : null,
+    primaryAreaLabel,
+    "Replies within 24 hours",
+    isNewOnPropatyHub(listings) ? "New on PropatyHub" : null,
+  ].filter((value): value is string => typeof value === "string");
+
+  let isOwner = false;
+  if (hasServerSupabaseEnv()) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      isOwner = !!user?.id && user.id === agent.id;
+    } catch {
+      isOwner = false;
+    }
+  }
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10">
@@ -143,6 +209,7 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
         coverImageUrl={coverImageUrl}
         listingsCount={listings.length}
         shareUrl={shareUrl}
+        trustChips={trustChips}
         contactAnchor="contact-agent"
       />
 
@@ -156,7 +223,11 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
               </p>
             </div>
           </div>
-          <AgentStorefrontListingsClient listings={listings} />
+          <AgentStorefrontListingsClient
+            listings={listings}
+            contactHref="#contact-agent"
+            isOwner={isOwner}
+          />
         </section>
 
         <div className="lg:sticky lg:top-24">

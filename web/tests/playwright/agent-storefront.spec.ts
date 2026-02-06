@@ -44,6 +44,7 @@ async function readStorefrontUrlFromProfile(page: Page) {
   return urlInput.inputValue();
 }
 
+test.describe.serial("agent storefront", () => {
 test("logged-out visitors can view agent storefronts", async ({ page }) => {
   test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping agent storefront test.");
   test.skip(!HAS_AGENT, "Set PLAYWRIGHT_AGENT_EMAIL/PASSWORD to run this test.");
@@ -114,6 +115,64 @@ test("logged-out visitors can view agent storefronts", async ({ page }) => {
   } finally {
     if (propertyId) {
       await adminClient.from("properties").delete().eq("id", propertyId);
+    }
+  }
+});
+
+test("storefront shows empty state when no live listings", async ({ page }) => {
+  test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping agent storefront test.");
+  test.skip(!HAS_AGENT, "Set PLAYWRIGHT_AGENT_EMAIL/PASSWORD to run this test.");
+  test.skip(!HAS_SERVICE_ROLE, "SUPABASE_SERVICE_ROLE_KEY missing; skipping agent storefront test.");
+
+  const adminClient: SupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  await login(page, AGENT_EMAIL, AGENT_PASSWORD);
+  await page.goto("/profile");
+
+  const slug = (await ensureAgentSlug(page, "Agent")) || (await readSlugFromProfile(page));
+  test.skip(!slug, "Unable to resolve agent slug for storefront test.");
+
+  const userResult = await adminClient.auth.admin.getUserByEmail(AGENT_EMAIL);
+  const userId = userResult.data?.user?.id ?? null;
+  test.skip(!userId, "Unable to resolve agent id for storefront test.");
+
+  const { data: liveListings } = await adminClient
+    .from("properties")
+    .select("id,status,paused_at")
+    .eq("owner_id", userId)
+    .eq("status", "live");
+
+  const originalListings = (liveListings ?? []).map((row) => ({
+    id: row.id as string,
+    status: row.status as string,
+    paused_at: row.paused_at ?? null,
+  }));
+
+  try {
+    if (originalListings.length > 0) {
+      await adminClient
+        .from("properties")
+        .update({ status: "draft", paused_at: null })
+        .in(
+          "id",
+          originalListings.map((row) => row.id)
+        );
+    }
+
+    await page.goto("/auth/logout");
+    await page.goto(`/agents/${slug}`);
+    await expect(page.getByText("No live listings right now")).toBeVisible();
+    await expect(page.getByRole("button", { name: /contact agent/i })).toBeVisible();
+  } finally {
+    if (originalListings.length > 0) {
+      for (const listing of originalListings) {
+        await adminClient
+          .from("properties")
+          .update({ status: listing.status, paused_at: listing.paused_at })
+          .eq("id", listing.id);
+      }
     }
   }
 });
@@ -253,4 +312,5 @@ test("storefront renders with missing optional profile fields", async ({ page })
   if (original) {
     await adminClient.from("profiles").update(original).eq("id", userId);
   }
+});
 });
