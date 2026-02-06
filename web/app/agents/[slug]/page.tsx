@@ -41,7 +41,8 @@ const NOT_AVAILABLE_COPY = {
 } as const;
 
 export default async function AgentStorefrontPage({ params }: PageProps) {
-  const data = await getAgentStorefrontData(params.slug);
+  const requestId = crypto.randomUUID();
+  const data = await getAgentStorefrontData(params.slug, { requestId });
 
   if (!data.ok && data.redirectSlug && data.redirectSlug !== params.slug) {
     permanentRedirect(`/agents/${data.redirectSlug}`);

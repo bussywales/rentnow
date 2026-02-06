@@ -151,7 +151,10 @@ function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
   }));
 }
 
-export async function getAgentStorefrontData(slug: string): Promise<AgentStorefrontResult> {
+export async function getAgentStorefrontData(
+  slug: string,
+  options?: { requestId?: string }
+): Promise<AgentStorefrontResult> {
   const normalizedSlug = safeTrim(slug).toLowerCase();
   if (!normalizedSlug) {
     return { ok: false, reason: "MISSING_SLUG", slug: normalizedSlug };
@@ -221,7 +224,18 @@ export async function getAgentStorefrontData(slug: string): Promise<AgentStorefr
   }
 
   if (publicError || !publicOutcome.ok) {
+    const requestId = options?.requestId;
+    if (publicError) {
+      console.error("[agent-storefront] rpc error", {
+        requestId,
+        slug: normalizedSlug,
+        code: publicError.code,
+        message: publicError.message,
+        details: publicError.details,
+      });
+    }
     console.warn("[agent-storefront] unavailable", {
+      requestId,
       slug: normalizedSlug,
       reason: publicReason,
       globalEnabled,
