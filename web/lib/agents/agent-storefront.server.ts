@@ -161,9 +161,16 @@ export async function getAgentStorefrontData(
   }
 
   const hasServiceRole = hasServiceRoleEnv();
-  const client = hasServiceRole ? createServiceRoleClient() : await createServerSupabaseClient();
-  const fetchPublicRow = async (requestedSlug: string) => {
-    const response = await client.rpc("get_agent_storefront_public", {
+  let clientKind: "service" | "anon" = hasServiceRole ? "service" : "anon";
+  let client = hasServiceRole ? createServiceRoleClient() : await createServerSupabaseClient();
+  let publicClient:
+    | Awaited<ReturnType<typeof createServerSupabaseClient>>
+    | null = null;
+  const fetchPublicRow = async (
+    requestedSlug: string,
+    overrideClient?: typeof client
+  ) => {
+    const response = await (overrideClient ?? client).rpc("get_agent_storefront_public", {
       input_slug: requestedSlug,
     });
     const row = (Array.isArray(response.data) ? response.data[0] : response.data) as
@@ -174,6 +181,47 @@ export async function getAgentStorefrontData(
   };
 
   let { row: publicRow, error: publicError } = await fetchPublicRow(normalizedSlug);
+
+  if (publicError && hasServiceRole) {
+    try {
+      publicClient = publicClient ?? (await createServerSupabaseClient());
+      const retry = await fetchPublicRow(normalizedSlug, publicClient);
+      if (!retry.error) {
+        publicRow = retry.row;
+        publicError = retry.error;
+        client = publicClient;
+        clientKind = "anon";
+      }
+    } catch {
+      // Ignore fallback failures; we'll surface the original error below.
+    }
+  }
+
+  if (process.env.AGENT_STOREFRONT_DEBUG === "true") {
+    console.log("[agent-storefront] debug", {
+      requestId: options?.requestId,
+      slug: normalizedSlug,
+      clientKind,
+      hasServiceRole,
+      error: publicError
+        ? {
+            code: publicError.code,
+            message: publicError.message,
+            details: publicError.details,
+          }
+        : null,
+      row: publicRow
+        ? {
+            ok: publicRow.ok,
+            reason: publicRow.reason,
+            slug: publicRow.slug,
+            role: publicRow.role,
+            global_enabled: publicRow.global_enabled,
+            agent_storefront_enabled: publicRow.agent_storefront_enabled,
+          }
+        : null,
+    });
+  }
 
   let publicOutcome = resolveStorefrontPublicOutcome(publicRow ?? null);
   let publicReason = publicOutcome.ok ? null : publicOutcome.reason;
