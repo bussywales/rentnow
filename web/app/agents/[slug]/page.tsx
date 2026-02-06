@@ -6,7 +6,7 @@ import AgentStorefrontListingsClient from "@/components/agents/AgentStorefrontLi
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  params: { slug: string };
+  params: { slug?: string } | Promise<{ slug?: string }>;
 };
 
 const FALLBACK_AVATAR =
@@ -41,13 +41,15 @@ const NOT_AVAILABLE_COPY = {
 } as const;
 
 export default async function AgentStorefrontPage({ params }: PageProps) {
+  const resolvedParams = await params;
+  const slug = resolvedParams?.slug ?? "";
   const requestId = crypto.randomUUID();
-  const data = await getAgentStorefrontData(params.slug, { requestId });
+  const data = await getAgentStorefrontData(slug, { requestId });
   const debugEnabled = process.env.AGENT_STOREFRONT_DEBUG === "true";
   const debugPayload = debugEnabled
     ? {
         requestId,
-        slug: params.slug,
+        slug,
         ok: data.ok,
         reason: data.ok ? null : data.reason,
         redirectSlug: data.ok ? null : data.redirectSlug ?? null,
@@ -61,7 +63,7 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
       }
     : null;
 
-  if (!data.ok && data.redirectSlug && data.redirectSlug !== params.slug) {
+  if (!data.ok && data.redirectSlug && data.redirectSlug !== slug) {
     permanentRedirect(`/agents/${data.redirectSlug}`);
   }
 
