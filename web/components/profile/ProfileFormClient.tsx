@@ -10,6 +10,7 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ensureProfileRow, type ProfileRecord } from "@/lib/profile/ensure-profile";
 import { shouldEnsureAgentSlug } from "@/lib/agents/agent-storefront";
 import { shouldShowClientPagesShortcut } from "@/lib/profile/client-pages-shortcut";
+import { normalizeRole } from "@/lib/roles";
 
 type Props = {
   userId: string;
@@ -68,7 +69,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
     }
   }, []);
 
-  const showClientPages = shouldShowClientPagesShortcut(profile?.role ?? null);
+  const showClientPages = shouldShowClientPagesShortcut(normalizeRole(profile?.role ?? null));
 
   useEffect(() => {
     if (profile || !supabase) return;
