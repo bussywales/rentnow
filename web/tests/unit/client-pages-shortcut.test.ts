@@ -8,4 +8,5 @@ void test("client pages shortcut only shows for agents", () => {
   assert.equal(shouldShowClientPagesShortcut("landlord"), false);
   assert.equal(shouldShowClientPagesShortcut("admin"), false);
   assert.equal(shouldShowClientPagesShortcut(null), false);
+  assert.equal(shouldShowClientPagesShortcut(undefined), false);
 });

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/Textarea";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
 import { ensureProfileRow, type ProfileRecord } from "@/lib/profile/ensure-profile";
 import { shouldEnsureAgentSlug } from "@/lib/agents/agent-storefront";
+import { shouldShowClientPagesShortcut } from "@/lib/profile/client-pages-shortcut";
 
 type Props = {
   userId: string;
@@ -66,6 +67,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       return null;
     }
   }, []);
+
+  const showClientPages = shouldShowClientPagesShortcut(profile?.role ?? null);
 
   useEffect(() => {
     if (profile || !supabase) return;
@@ -478,6 +481,28 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
               </div>
             </div>
           </div>
+          {showClientPages && (
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Client pages</p>
+                  <p className="text-xs text-slate-600">
+                    Build shortlists for clients and share a private link.
+                  </p>
+                </div>
+                <Link href="/profile/clients" className="shrink-0">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    data-testid="client-pages-storefront-shortcut"
+                  >
+                    Manage client pages
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
         </section>
       )}
     </div>
