@@ -158,16 +158,18 @@ export async function getAgentStorefrontData(slug: string): Promise<AgentStorefr
 
   const hasServiceRole = hasServiceRoleEnv();
   const client = hasServiceRole ? createServiceRoleClient() : await createServerSupabaseClient();
-  let { data: publicRows, error: publicError } = await client.rpc(
-    "get_agent_storefront_public",
-    {
-      input_slug: normalizedSlug,
-    }
-  );
-  let publicRow = (Array.isArray(publicRows) ? publicRows[0] : publicRows) as
-    | StorefrontPublicRow
-    | null
-    | undefined;
+  const fetchPublicRow = async (requestedSlug: string) => {
+    const response = await client.rpc("get_agent_storefront_public", {
+      input_slug: requestedSlug,
+    });
+    const row = (Array.isArray(response.data) ? response.data[0] : response.data) as
+      | StorefrontPublicRow
+      | null
+      | undefined;
+    return { row, error: response.error };
+  };
+
+  let { row: publicRow, error: publicError } = await fetchPublicRow(normalizedSlug);
 
   let publicOutcome = resolveStorefrontPublicOutcome(publicRow ?? null);
   let publicReason = publicOutcome.ok ? null : publicOutcome.reason;
@@ -188,17 +190,32 @@ export async function getAgentStorefrontData(slug: string): Promise<AgentStorefr
   if (!publicOutcome.ok && publicReason === "NOT_FOUND" && hasServiceRole) {
     const backfilled = await attemptBackfillStorefront({ slug: normalizedSlug });
     if (backfilled) {
-      const retry = await client.rpc("get_agent_storefront_public", {
-        input_slug: normalizedSlug,
-      });
+      const retry = await fetchPublicRow(normalizedSlug);
       publicError = retry.error;
-      publicRows = retry.data;
-      publicRow = (Array.isArray(publicRows) ? publicRows[0] : publicRows) as
-        | StorefrontPublicRow
-        | null
-        | undefined;
+      publicRow = retry.row;
       publicOutcome = resolveStorefrontPublicOutcome(publicRow ?? null);
       publicReason = publicOutcome.ok ? null : publicOutcome.reason;
+    }
+  }
+
+  if (!publicOutcome.ok && publicReason === "NOT_FOUND") {
+    const numericFallback = normalizedSlug.replace(/-\d+$/, "");
+    if (numericFallback && numericFallback !== normalizedSlug) {
+      const retry = await fetchPublicRow(numericFallback);
+      if (!retry.error) {
+        const retryOutcome = resolveStorefrontPublicOutcome(retry.row ?? null);
+        if (retryOutcome.ok) {
+          const fallbackSlug = safeTrim(retry.row?.slug).toLowerCase();
+          if (fallbackSlug) {
+            return {
+              ok: false,
+              reason: "NOT_FOUND",
+              slug: normalizedSlug,
+              redirectSlug: fallbackSlug,
+            };
+          }
+        }
+      }
     }
   }
 
