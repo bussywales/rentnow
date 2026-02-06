@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 import { getAgentStorefrontData } from "@/lib/agents/agent-storefront.server";
 import { safeTrim } from "@/lib/agents/agent-storefront";
-import { resolveStorefrontViewState } from "@/lib/agents/storefront-view";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import AgentStorefrontListingsClient from "@/components/agents/AgentStorefrontListingsClient";
 import AgentStorefrontHero from "@/components/agents/AgentStorefrontHero";
@@ -148,14 +147,8 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
     permanentRedirect(`/agents/${data.redirectSlug}`);
   }
 
-  const listingsCount = data.ok && data.storefront ? data.storefront.listings.length : 0;
-  const viewState = resolveStorefrontViewState({
-    ok: data.ok,
-    listingsCount,
-  });
-
-  if (viewState === "unavailable" || !data.storefront) {
-    const reason = data.ok ? "NOT_FOUND" : data.reason;
+  if (!data.ok) {
+    const reason = data.reason;
     const copy = NOT_AVAILABLE_COPY[reason] ?? NOT_AVAILABLE_COPY.NOT_FOUND;
     return (
       <div
