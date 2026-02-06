@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
-import { getAgentStorefrontData } from "@/lib/agents/agent-storefront.server";
+import { getAgentStorefrontData, getAgentStorefrontViewModel } from "@/lib/agents/agent-storefront.server";
 import { safeTrim } from "@/lib/agents/agent-storefront";
+import { buildStorefrontCredibilityChips } from "@/lib/agents/storefront-credibility";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import AgentStorefrontListingsClient from "@/components/agents/AgentStorefrontListingsClient";
 import AgentStorefrontHero from "@/components/agents/AgentStorefrontHero";
@@ -51,38 +52,6 @@ function resolveCoverImage(listings: Property[]) {
     if (fallback) return fallback;
   }
   return null;
-}
-
-function resolvePrimaryArea(listings: Property[]) {
-  for (const listing of listings) {
-    const city = safeTrim(listing.city);
-    if (city) return city;
-    const locationLabel = safeTrim(listing.location_label);
-    if (locationLabel) {
-      const [first] = locationLabel.split(",").map((part) => part.trim());
-      if (first) return first;
-    }
-  }
-  return null;
-}
-
-function getDistinctCities(listings: Property[]) {
-  const values = listings
-    .map((listing) => safeTrim(listing.city))
-    .filter((value) => value.length > 0);
-  return new Set(values.map((value) => value.toLowerCase()));
-}
-
-function isNewOnPropatyHub(listings: Property[]) {
-  const dates = listings
-    .map((listing) => listing.created_at || listing.updated_at)
-    .filter((value): value is string => typeof value === "string")
-    .map((value) => Date.parse(value))
-    .filter((value) => !Number.isNaN(value));
-  if (dates.length === 0) return false;
-  const earliest = Math.min(...dates);
-  const days = (Date.now() - earliest) / (1000 * 60 * 60 * 24);
-  return days <= 45;
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -142,7 +111,7 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
   const resolvedParams = await params;
   const slug = resolvedParams?.slug ?? "";
   const requestId = crypto.randomUUID();
-  const data = await getAgentStorefrontData(slug, { requestId });
+  const data = await getAgentStorefrontViewModel(slug, { requestId });
   if (!data.ok && data.redirectSlug && data.redirectSlug !== slug) {
     permanentRedirect(`/agents/${data.redirectSlug}`);
   }
@@ -166,30 +135,27 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
   const coverImageUrl = resolveCoverImage(listings);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
   const shareUrl = `${siteUrl}/agents/${agent.slug ?? slug}`;
-  const primaryArea = resolvePrimaryArea(listings);
-  const distinctCities = getDistinctCities(listings);
-  const primaryAreaLabel = primaryArea
-    ? distinctCities.size > 1
-      ? `Serving ${primaryArea}`
-      : `Based in ${primaryArea}`
-    : null;
-  const trustChips = [
-    listings.length > 0 ? `${listings.length} live listings` : null,
-    primaryAreaLabel,
-    "Replies within 24 hours",
-    isNewOnPropatyHub(listings) ? "New on PropatyHub" : null,
-  ].filter((value): value is string => typeof value === "string");
+  const trustChips = data.metrics
+    ? buildStorefrontCredibilityChips(data.metrics)
+    : [];
 
-  let isOwner = false;
+  let isOwnerOrAdmin = false;
   if (hasServerSupabaseEnv()) {
     try {
       const supabase = await createServerSupabaseClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      isOwner = !!user?.id && user.id === agent.id;
+      if (user?.id) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+        isOwnerOrAdmin = user.id === agent.id || profile?.role === "admin";
+      }
     } catch {
-      isOwner = false;
+      isOwnerOrAdmin = false;
     }
   }
 
@@ -219,7 +185,7 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
           <AgentStorefrontListingsClient
             listings={listings}
             contactHref="#contact-agent"
-            isOwner={isOwner}
+            isOwner={isOwnerOrAdmin}
           />
         </section>
 

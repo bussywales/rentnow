@@ -108,8 +108,8 @@ export default function AgentStorefrontListingsClient({ listings, contactHref, i
             No live listings right now
           </p>
           <p className="mt-2 text-sm text-slate-600">
-            This agent doesn’t have any live listings at the moment — but you can still reach out
-            with what you’re looking for.
+            This agent doesn’t have any live listings available at the moment. Send a quick message
+            and they can recommend similar homes or alert you when something matches.
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             {contactHref && (
@@ -120,6 +120,12 @@ export default function AgentStorefrontListingsClient({ listings, contactHref, i
                 Contact agent
               </Link>
             )}
+            <Link
+              href="/properties"
+              className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:border-slate-300"
+            >
+              Browse all homes
+            </Link>
             {isOwner && (
               <Link
                 href="/dashboard/properties/new"

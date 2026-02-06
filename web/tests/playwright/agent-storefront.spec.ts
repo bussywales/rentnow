@@ -78,6 +78,23 @@ test("logged-out visitors can view agent storefronts", async ({ page }) => {
   const expiresAt = new Date(now + 14 * 24 * 60 * 60 * 1000).toISOString();
 
   let propertyId: string | null = null;
+  let leadId: string | null = null;
+  const leadsTable = adminClient.from("agent_leads") as unknown as {
+    insert: (values: {
+      agent_user_id: string;
+      status: string;
+      name: string;
+      email: string;
+      message: string;
+    }) => {
+      select: (columns: string) => {
+        maybeSingle: () => Promise<{ data?: { id?: string } | null }>;
+      };
+    };
+    delete: () => {
+      eq: (column: string, value: string) => Promise<{ error?: { message?: string } | null }>;
+    };
+  };
   try {
     const insert = await adminClient
       .from("properties")
@@ -106,13 +123,32 @@ test("logged-out visitors can view agent storefronts", async ({ page }) => {
     propertyId = insert.data?.id ?? null;
     test.skip(!propertyId, insert.error?.message || "Failed to create test listing.");
 
+    const leadInsert = await leadsTable
+      .insert({
+        agent_user_id: userId,
+        status: "NEW",
+        name: "Test Tenant",
+        email: "tenant@example.com",
+        message: "Interested in a viewing.",
+      })
+      .select("id")
+      .maybeSingle();
+
+    leadId = leadInsert?.data?.id ?? null;
+
     await page.goto("/auth/logout");
     await page.goto(`/agents/${slug}`);
     await expect(page.getByTestId("agent-storefront-contact")).toBeVisible();
     await expect(page.getByTestId("agent-storefront-share")).toBeVisible();
     await expect(page.getByTestId("agent-storefront-listings")).toBeVisible();
     await expect(page.getByText(propertyTitle)).toBeVisible();
+    await expect(page.getByText(/Member since \d{4}/)).toBeVisible();
+    await expect(page.getByText(/live listing/i)).toBeVisible();
+    await expect(page.getByText(/enquir(y|ies) received/i)).toBeVisible();
   } finally {
+    if (leadId) {
+      await leadsTable.delete().eq("id", leadId);
+    }
     if (propertyId) {
       await adminClient.from("properties").delete().eq("id", propertyId);
     }
@@ -164,7 +200,13 @@ test("storefront shows empty state when no live listings", async ({ page }) => {
     await page.goto("/auth/logout");
     await page.goto(`/agents/${slug}`);
     await expect(page.getByText("No live listings right now")).toBeVisible();
-    await expect(page.getByRole("button", { name: /contact agent/i })).toBeVisible();
+    await expect(
+      page.getByText(
+        /This agent doesn’t have any live listings available at the moment/i
+      )
+    ).toBeVisible();
+    await expect(page.getByText(/Contact agent/i)).toBeVisible();
+    await expect(page.getByText(/Browse all homes/i)).toBeVisible();
   } finally {
     if (originalListings.length > 0) {
       for (const listing of originalListings) {

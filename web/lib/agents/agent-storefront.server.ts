@@ -132,6 +132,20 @@ export type AgentStorefrontResult =
       redirectSlug?: string | null;
     };
 
+type AgentStorefrontSuccess = Extract<AgentStorefrontResult, { ok: true }>;
+type AgentStorefrontFailure = Extract<AgentStorefrontResult, { ok: false }>;
+
+export type AgentStorefrontMetrics = {
+  memberSince: string | null;
+  liveListingsCount: number | null;
+  enquiriesCount: number | null;
+  activeThisWeek: boolean;
+};
+
+export type AgentStorefrontViewModel =
+  | AgentStorefrontFailure
+  | (AgentStorefrontSuccess & { metrics: AgentStorefrontMetrics });
+
 function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
   return (rows ?? []).map((row) => ({
     ...row,
@@ -149,6 +163,28 @@ function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
       }))
     ),
   }));
+}
+
+function resolveEarliestListingDate(listings: Property[]) {
+  const timestamps = listings
+    .map((listing) => listing.created_at || listing.updated_at)
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => Date.parse(value))
+    .filter((value) => !Number.isNaN(value));
+  if (timestamps.length === 0) return null;
+  return new Date(Math.min(...timestamps)).toISOString();
+}
+
+function resolveActiveThisWeek(listings: Property[]) {
+  const now = Date.now();
+  const weekMs = 7 * 24 * 60 * 60 * 1000;
+  return listings.some((listing) => {
+    const value = listing.updated_at || listing.created_at;
+    if (!value) return false;
+    const timestamp = Date.parse(value);
+    if (Number.isNaN(timestamp)) return false;
+    return now - timestamp <= weekMs;
+  });
 }
 
 export async function getAgentStorefrontData(
@@ -310,6 +346,72 @@ export async function getAgentStorefrontData(
         slug: profile.agent_slug ?? null,
       },
       listings,
+    },
+  };
+}
+
+type ProfileCreatedAtRow = {
+  created_at?: string | null;
+};
+
+export async function getAgentStorefrontViewModel(
+  slug: string,
+  options?: { requestId?: string }
+): Promise<AgentStorefrontViewModel> {
+  const base = await getAgentStorefrontData(slug, options);
+  if (!base.ok) return base;
+
+  const agentId = base.storefront.agent.id;
+  const listings = base.storefront.listings;
+  const hasServiceRole = hasServiceRoleEnv();
+  const serviceClient = hasServiceRole ? createServiceRoleClient() : null;
+
+  let liveListingsCount: number | null = null;
+  let enquiriesCount: number | null = null;
+  let memberSince: string | null = null;
+
+  if (serviceClient) {
+    const [liveCount, enquiries, profile] = await Promise.all([
+      serviceClient
+        .from("properties")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_id", agentId)
+        .eq("status", "live"),
+      serviceClient
+        .from("agent_leads")
+        .select("id", { count: "exact", head: true })
+        .eq("agent_user_id", agentId),
+      serviceClient
+        .from("profiles")
+        .select("created_at")
+        .eq("id", agentId)
+        .maybeSingle<ProfileCreatedAtRow>(),
+    ]);
+
+    if (!liveCount.error && typeof liveCount.count === "number") {
+      liveListingsCount = liveCount.count;
+    }
+    if (!enquiries.error && typeof enquiries.count === "number") {
+      enquiriesCount = enquiries.count;
+    }
+    if (!profile.error && profile.data?.created_at) {
+      memberSince = profile.data.created_at;
+    }
+  }
+
+  if (!memberSince) {
+    memberSince = resolveEarliestListingDate(listings);
+  }
+
+  return {
+    ok: true,
+    slug: base.slug,
+    storefront: base.storefront,
+    metrics: {
+      memberSince,
+      liveListingsCount,
+      enquiriesCount,
+      activeThisWeek: resolveActiveThisWeek(listings),
     },
   };
 }

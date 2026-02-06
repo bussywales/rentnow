@@ -90,7 +90,13 @@ export async function POST(
   };
 
   // Supabase types don't yet include agent_leads in this repo.
-  const { error } = await (supabase as any).from("agent_leads").insert(insertPayload);
+  const leadsTable = supabase.from("agent_leads") as unknown as {
+    insert: (
+      values: typeof insertPayload
+    ) => Promise<{ error: { message?: string } | null }>;
+  };
+
+  const { error } = await leadsTable.insert(insertPayload);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
