@@ -1,7 +1,11 @@
-import Image from "next/image";
+import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
 import { getAgentStorefrontData } from "@/lib/agents/agent-storefront.server";
+import { safeTrim } from "@/lib/agents/agent-storefront";
 import AgentStorefrontListingsClient from "@/components/agents/AgentStorefrontListingsClient";
+import AgentStorefrontHero from "@/components/agents/AgentStorefrontHero";
+import AgentContactPanel from "@/components/agents/AgentContactPanel";
+import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
@@ -9,8 +13,7 @@ type PageProps = {
   params: { slug?: string } | Promise<{ slug?: string }>;
 };
 
-const FALLBACK_AVATAR =
-  "https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=200&q=80";
+const DEFAULT_SITE_URL = "https://www.propatyhub.com";
 
 const NOT_AVAILABLE_COPY = {
   GLOBAL_DISABLED: {
@@ -40,6 +43,68 @@ const NOT_AVAILABLE_COPY = {
   },
 } as const;
 
+function resolveCoverImage(listings: Property[]) {
+  for (const listing of listings) {
+    if (listing.cover_image_url) return listing.cover_image_url;
+    const fallback = listing.images?.[0]?.image_url;
+    if (fallback) return fallback;
+  }
+  return null;
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const resolvedParams = await params;
+  const slug = safeTrim(resolvedParams?.slug);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
+
+  if (!slug) {
+    return {
+      title: "Agent storefront | PropatyHub",
+      description: "Discover verified agents and their latest listings on PropatyHub.",
+      alternates: { canonical: `${siteUrl}/agents` },
+    };
+  }
+
+  const data = await getAgentStorefrontData(slug);
+  if (!data.ok || !data.storefront) {
+    return {
+      title: "Agent storefront | PropatyHub",
+      description: "Discover verified agents and their latest listings on PropatyHub.",
+      alternates: { canonical: `${siteUrl}/agents/${slug}` },
+      robots: { index: false, follow: true },
+    };
+  }
+
+  const agent = data.storefront.agent;
+  const listings = data.storefront.listings;
+  const coverImage = resolveCoverImage(listings);
+  const canonicalSlug = safeTrim(agent.slug) || slug;
+  const canonical = `${siteUrl}/agents/${canonicalSlug}`;
+  const description =
+    agent.bio?.trim() ||
+    `Browse live listings and connect with ${agent.name} on PropatyHub.`;
+
+  return {
+    title: `${agent.name} | PropatyHub`,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title: `${agent.name} | PropatyHub`,
+      description,
+      url: canonical,
+      siteName: "PropatyHub",
+      type: "profile",
+      images: coverImage ? [{ url: coverImage }] : undefined,
+    },
+    twitter: {
+      card: coverImage ? "summary_large_image" : "summary",
+      title: `${agent.name} | PropatyHub`,
+      description,
+      images: coverImage ? [coverImage] : undefined,
+    },
+  };
+}
+
 export default async function AgentStorefrontPage({ params }: PageProps) {
   const resolvedParams = await params;
   const slug = resolvedParams?.slug ?? "";
@@ -65,55 +130,39 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
   }
 
   const { agent, listings } = data.storefront;
+  const coverImageUrl = resolveCoverImage(listings);
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
+  const shareUrl = `${siteUrl}/agents/${agent.slug ?? slug}`;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10">
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-            <div className="relative h-20 w-20 overflow-hidden rounded-full bg-slate-100">
-              <Image
-                src={agent.avatarUrl || FALLBACK_AVATAR}
-                alt={agent.name}
-                fill
-                className="object-cover"
-                sizes="80px"
-                priority={false}
-              />
-            </div>
+      <AgentStorefrontHero
+        name={agent.name}
+        bio={agent.bio}
+        avatarUrl={agent.avatarUrl}
+        coverImageUrl={coverImageUrl}
+        listingsCount={listings.length}
+        shareUrl={shareUrl}
+        contactAnchor="contact-agent"
+      />
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr),360px] lg:items-start">
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Agent</p>
-              <h1 className="text-3xl font-semibold text-slate-900">{agent.name}</h1>
-              {agent.bio ? (
-                <p className="mt-2 max-w-2xl text-sm text-slate-600">{agent.bio}</p>
-              ) : (
-                <p className="mt-2 max-w-2xl text-sm text-slate-500">
-                  Helping tenants and buyers find the right home across PropatyHub.
-                </p>
-              )}
+              <h2 className="text-xl font-semibold text-slate-900">Listings</h2>
+              <p className="text-sm text-slate-600">
+                Live homes currently represented by this agent.
+              </p>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900">Listings</h2>
-            <p className="text-sm text-slate-600">
-              Live homes currently represented by this agent.
-            </p>
-          </div>
-        </div>
-
-        {listings.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
-            No live listings yet.
-          </div>
-        ) : (
           <AgentStorefrontListingsClient listings={listings} />
-        )}
-      </section>
+        </section>
+
+        <div className="lg:sticky lg:top-24">
+          <AgentContactPanel slug={agent.slug ?? slug} agentName={agent.name} />
+        </div>
+      </div>
     </div>
   );
 }

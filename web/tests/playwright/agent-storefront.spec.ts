@@ -107,6 +107,8 @@ test("logged-out visitors can view agent storefronts", async ({ page }) => {
 
     await page.goto("/auth/logout");
     await page.goto(`/agents/${slug}`);
+    await expect(page.getByTestId("agent-storefront-contact")).toBeVisible();
+    await expect(page.getByTestId("agent-storefront-share")).toBeVisible();
     await expect(page.getByTestId("agent-storefront-listings")).toBeVisible();
     await expect(page.getByText(propertyTitle)).toBeVisible();
   } finally {
