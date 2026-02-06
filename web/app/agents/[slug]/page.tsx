@@ -45,24 +45,6 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
   const slug = resolvedParams?.slug ?? "";
   const requestId = crypto.randomUUID();
   const data = await getAgentStorefrontData(slug, { requestId });
-  const debugEnabled = process.env.AGENT_STOREFRONT_DEBUG === "true";
-  const debugPayload = debugEnabled
-    ? {
-        requestId,
-        slug,
-        ok: data.ok,
-        reason: data.ok ? null : data.reason,
-        redirectSlug: data.ok ? null : data.redirectSlug ?? null,
-        storefront: data.ok
-          ? {
-              agentId: data.storefront.agent.id,
-              agentSlug: data.storefront.agent.slug,
-              listings: data.storefront.listings.length,
-            }
-          : null,
-      }
-    : null;
-
   if (!data.ok && data.redirectSlug && data.redirectSlug !== slug) {
     permanentRedirect(`/agents/${data.redirectSlug}`);
   }
@@ -78,11 +60,6 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Agents</p>
         <h1 className="text-3xl font-semibold text-slate-900">{copy.title}</h1>
         <p className="text-sm text-slate-600">{copy.description}</p>
-        {debugPayload ? (
-          <pre className="rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
-            {JSON.stringify(debugPayload, null, 2)}
-          </pre>
-        ) : null}
       </div>
     );
   }
@@ -137,11 +114,6 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
           <AgentStorefrontListingsClient listings={listings} />
         )}
       </section>
-      {debugPayload ? (
-        <pre className="rounded-2xl border border-dashed border-slate-200 bg-white p-4 text-xs text-slate-500">
-          {JSON.stringify(debugPayload, null, 2)}
-        </pre>
-      ) : null}
     </div>
   );
 }

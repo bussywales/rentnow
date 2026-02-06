@@ -161,7 +161,6 @@ export async function getAgentStorefrontData(
   }
 
   const hasServiceRole = hasServiceRoleEnv();
-  let clientKind: "service" | "anon" = hasServiceRole ? "service" : "anon";
   let client = hasServiceRole ? createServiceRoleClient() : await createServerSupabaseClient();
   let publicClient:
     | Awaited<ReturnType<typeof createServerSupabaseClient>>
@@ -190,37 +189,10 @@ export async function getAgentStorefrontData(
         publicRow = retry.row;
         publicError = retry.error;
         client = publicClient;
-        clientKind = "anon";
       }
     } catch {
       // Ignore fallback failures; we'll surface the original error below.
     }
-  }
-
-  if (process.env.AGENT_STOREFRONT_DEBUG === "true") {
-    console.log("[agent-storefront] debug", {
-      requestId: options?.requestId,
-      slug: normalizedSlug,
-      clientKind,
-      hasServiceRole,
-      error: publicError
-        ? {
-            code: publicError.code,
-            message: publicError.message,
-            details: publicError.details,
-          }
-        : null,
-      row: publicRow
-        ? {
-            ok: publicRow.ok,
-            reason: publicRow.reason,
-            slug: publicRow.slug,
-            role: publicRow.role,
-            global_enabled: publicRow.global_enabled,
-            agent_storefront_enabled: publicRow.agent_storefront_enabled,
-          }
-        : null,
-    });
   }
 
   let publicOutcome = resolveStorefrontPublicOutcome(publicRow ?? null);
