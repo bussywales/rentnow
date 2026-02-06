@@ -1,3 +1,4 @@
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -21,8 +22,8 @@ function getRequestIp(request: Request) {
 }
 
 export async function POST(
-  request: Request,
-  { params }: { params: { slug?: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ slug: string }> }
 ) {
   if (!hasServerSupabaseEnv()) {
     return NextResponse.json({ error: "Service unavailable." }, { status: 503 });
@@ -31,7 +32,8 @@ export async function POST(
     return NextResponse.json({ error: "Service unavailable." }, { status: 503 });
   }
 
-  const slug = safeTrim(params?.slug);
+  const resolvedParams = await params;
+  const slug = safeTrim(resolvedParams?.slug);
   if (!slug) {
     return NextResponse.json({ error: "Missing agent slug." }, { status: 400 });
   }
