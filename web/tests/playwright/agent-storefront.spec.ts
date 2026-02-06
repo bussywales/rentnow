@@ -47,6 +47,11 @@ async function readStorefrontUrlFromProfile(page: Page) {
 test("logged-out visitors can view agent storefronts", async ({ page }) => {
   test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping agent storefront test.");
   test.skip(!HAS_AGENT, "Set PLAYWRIGHT_AGENT_EMAIL/PASSWORD to run this test.");
+  test.skip(!HAS_SERVICE_ROLE, "SUPABASE_SERVICE_ROLE_KEY missing; skipping agent storefront test.");
+
+  const adminClient: SupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   await login(page, AGENT_EMAIL, AGENT_PASSWORD);
   await page.goto("/profile");
@@ -62,9 +67,53 @@ test("logged-out visitors can view agent storefronts", async ({ page }) => {
   const slug = (await ensureAgentSlug(page, "Agent")) || (await readSlugFromProfile(page));
   test.skip(!slug, "Unable to resolve agent slug for storefront test.");
 
-  await page.goto("/auth/logout");
-  await page.goto(`/agents/${slug}`);
-  await expect(page.getByTestId("agent-storefront-listings")).toBeVisible();
+  const userResult = await adminClient.auth.admin.getUserByEmail(AGENT_EMAIL);
+  const userId = userResult.data?.user?.id ?? null;
+  test.skip(!userId, "Unable to resolve agent id for storefront test.");
+
+  const now = Date.now();
+  const propertyTitle = `Storefront listing ${now}`;
+  const approvedAt = new Date(now - 2 * 24 * 60 * 60 * 1000).toISOString();
+  const expiresAt = new Date(now + 14 * 24 * 60 * 60 * 1000).toISOString();
+
+  let propertyId: string | null = null;
+  try {
+    const insert = await adminClient
+      .from("properties")
+      .insert({
+        owner_id: userId,
+        title: propertyTitle,
+        city: "Test City",
+        rental_type: "long_term",
+        price: 1500,
+        currency: "USD",
+        bedrooms: 2,
+        bathrooms: 1,
+        furnished: false,
+        status: "live",
+        is_active: true,
+        is_approved: true,
+        approved_at: approvedAt,
+        expires_at: expiresAt,
+        latitude: 6.45,
+        longitude: 3.39,
+        location_label: "Test City",
+      })
+      .select("id")
+      .maybeSingle();
+
+    propertyId = insert.data?.id ?? null;
+    test.skip(!propertyId, insert.error?.message || "Failed to create test listing.");
+
+    await page.goto("/auth/logout");
+    await page.goto(`/agents/${slug}`);
+    await expect(page.getByTestId("agent-storefront-listings")).toBeVisible();
+    await expect(page.getByText(propertyTitle)).toBeVisible();
+  } finally {
+    if (propertyId) {
+      await adminClient.from("properties").delete().eq("id", propertyId);
+    }
+  }
 });
 
 test("global storefront setting disables public pages", async ({ page }) => {

@@ -20,6 +20,10 @@ export type StorefrontPublicRow = {
   ok?: boolean | null;
 };
 
+export function resolveStorefrontOwnerId(row: StorefrontPublicRow | null): string {
+  return typeof row?.agent_user_id === "string" ? row.agent_user_id : "";
+}
+
 export function normalizeStorefrontReason(
   reason: string | null | undefined
 ): StorefrontFailureReason {

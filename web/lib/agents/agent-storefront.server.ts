@@ -6,6 +6,7 @@ import {
   ensureUniqueSlug,
   resolveAgentSlugBase,
   resolveStorefrontPublicOutcome,
+  resolveStorefrontOwnerId,
   safeTrim,
   type StorefrontFailureReason,
   type StorefrontPublicRow,
@@ -246,26 +247,17 @@ export async function getAgentStorefrontData(slug: string): Promise<AgentStorefr
     agent_storefront_enabled: agentEnabled ?? true,
   };
 
-  if (!profile.id) {
-    return {
-      ok: false,
-      reason: "NOT_FOUND",
-      slug: normalizedSlug,
-    };
+  const ownerId = resolveStorefrontOwnerId(publicRow ?? null);
+  let listings: Property[] = [];
+  if (ownerId) {
+    const { data: listingRows } = await client
+      .from("properties")
+      .select(PROPERTY_SELECT)
+      .eq("owner_id", ownerId)
+      .eq("status", "live")
+      .order("updated_at", { ascending: false });
+    listings = mapPropertyRows(listingRows as PropertyRow[]);
   }
-
-  const nowIso = new Date().toISOString();
-  const { data: listingRows } = await client
-    .from("properties")
-    .select(PROPERTY_SELECT)
-    .eq("owner_id", profile.id)
-    .eq("status", "live")
-    .eq("is_active", true)
-    .eq("is_approved", true)
-    .or(`expires_at.is.null,expires_at.gte.${nowIso}`)
-    .order("updated_at", { ascending: false });
-
-  const listings = mapPropertyRows(listingRows as PropertyRow[]);
   const name =
     safeTrim(profile.display_name) ||
     safeTrim(profile.full_name) ||

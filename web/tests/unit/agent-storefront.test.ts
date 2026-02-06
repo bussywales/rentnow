@@ -6,6 +6,7 @@ import {
   resolveLegacySlugRedirect,
   resolveStorefrontAccess,
   resolveStorefrontPublicOutcome,
+  resolveStorefrontOwnerId,
   shouldEnsureAgentSlug,
   slugifyAgentName,
 } from "@/lib/agents/agent-storefront";
@@ -142,4 +143,10 @@ void test("resolveStorefrontPublicOutcome handles missing storefront rows", () =
     ok: false,
     reason: "NOT_FOUND",
   });
+});
+
+void test("resolveStorefrontOwnerId prefers agent_user_id from public row", () => {
+  const ownerId = resolveStorefrontOwnerId({ agent_user_id: "agent-123" });
+  assert.equal(ownerId, "agent-123");
+  assert.equal(resolveStorefrontOwnerId(null), "");
 });
