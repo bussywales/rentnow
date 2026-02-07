@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getPaystackConfig } from "@/lib/billing/paystack";
 import { consumeListingCredit } from "@/lib/billing/listing-credits.server";
@@ -64,7 +65,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  const adminClient = createServiceRoleClient();
+  const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;
   const { data: payment, error: paymentError } = await adminClient
     .from("listing_payments")
     .select("id, user_id, listing_id, status, amount, currency, idempotency_key")
@@ -72,7 +73,17 @@ export async function POST(request: Request) {
     .eq("provider_ref", reference)
     .maybeSingle();
 
-  if (paymentError || !payment) {
+  const typedPayment = payment as {
+    id: string;
+    user_id: string;
+    listing_id: string;
+    status?: string | null;
+    amount?: number | null;
+    currency?: string | null;
+    idempotency_key?: string | null;
+  } | null;
+
+  if (paymentError || !typedPayment) {
     logFailure({
       request,
       route: routeLabel,
@@ -84,7 +95,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  if (payment.status === "paid") {
+  if (typedPayment.status === "paid") {
     return NextResponse.json({ ok: true });
   }
 
@@ -92,7 +103,7 @@ export async function POST(request: Request) {
   const { error: updateError } = await adminClient
     .from("listing_payments")
     .update({ status: "paid", paid_at: now, updated_at: now })
-    .eq("id", payment.id);
+    .eq("id", typedPayment.id);
 
   if (updateError) {
     logFailure({
@@ -108,12 +119,12 @@ export async function POST(request: Request) {
   const { data: existingConsumption } = await adminClient
     .from("listing_credit_consumptions")
     .select("id")
-    .eq("idempotency_key", payment.idempotency_key)
+    .eq("idempotency_key", typedPayment.idempotency_key)
     .maybeSingle();
 
   if (!existingConsumption) {
     await adminClient.from("listing_credits").insert({
-      user_id: payment.user_id,
+      user_id: typedPayment.user_id,
       source: "payg",
       credits_total: 1,
       credits_used: 0,
@@ -123,18 +134,18 @@ export async function POST(request: Request) {
 
     const consumed = await consumeListingCredit({
       client: adminClient,
-      userId: payment.user_id,
-      listingId: payment.listing_id,
-      idempotencyKey: payment.idempotency_key,
+      userId: typedPayment.user_id,
+      listingId: typedPayment.listing_id,
+      idempotencyKey: typedPayment.idempotency_key,
     });
 
     if (consumed.ok) {
       if (consumed.consumed) {
         await logPropertyEvent({
           supabase: adminClient,
-          propertyId: payment.listing_id,
+          propertyId: typedPayment.listing_id,
           eventType: "listing_credit_consumed",
-          actorUserId: payment.user_id,
+          actorUserId: typedPayment.user_id,
           actorRole: null,
           sessionKey: null,
           meta: { source: consumed.source ?? null },
@@ -153,18 +164,18 @@ export async function POST(request: Request) {
         submitted_at: now,
         status_updated_at: now,
         updated_at: now,
-      }).eq("id", payment.listing_id);
+      }).eq("id", typedPayment.listing_id);
     }
   }
 
   await logPropertyEvent({
     supabase: adminClient,
-    propertyId: payment.listing_id,
+    propertyId: typedPayment.listing_id,
     eventType: "listing_payment_succeeded",
-    actorUserId: payment.user_id,
+    actorUserId: typedPayment.user_id,
     actorRole: null,
     sessionKey: null,
-    meta: { provider: "paystack", amount: payment.amount, currency: payment.currency },
+    meta: { provider: "paystack", amount: typedPayment.amount, currency: typedPayment.currency },
   });
 
   return NextResponse.json({ ok: true });
