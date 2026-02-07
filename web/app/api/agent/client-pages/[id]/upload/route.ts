@@ -103,8 +103,14 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   const publicUrl = adminClient.storage.from(CLIENT_PAGES_BUCKET).getPublicUrl(path);
   const imageUrl = publicUrl.data.publicUrl;
 
-  const updatePayload = assetType === "logo" ? { agent_logo_url: imageUrl } : { banner_url: imageUrl };
-  await adminClient.from("agent_client_pages").update(updatePayload).eq("id", pageId);
+  const updatePayload: Record<string, string> =
+    assetType === "logo" ? { agent_logo_url: imageUrl } : { banner_url: imageUrl };
+  const updateTable = adminClient.from("agent_client_pages") as unknown as {
+    update: (values: Record<string, string>) => {
+      eq: (column: string, value: string) => Promise<{ error?: { message?: string } | null }>;
+    };
+  };
+  await updateTable.update(updatePayload).eq("id", pageId);
 
   return NextResponse.json({ imageUrl, path, bucket: CLIENT_PAGES_BUCKET });
 }
