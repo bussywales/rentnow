@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -77,6 +78,7 @@ export default function AgentClientPagesClient({
   liveProperties,
   agentProfile,
 }: Props) {
+  const router = useRouter();
   const [pages, setPages] = useState<ClientPageRow[]>(initialPages);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [toast, setToast] = useState<{ message: string; variant: "success" | "error" } | null>(
@@ -108,6 +110,10 @@ export default function AgentClientPagesClient({
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleViewInbox = (pageId: string) => {
+    router.push(`/profile/clients/${pageId}/inbox`);
+  };
 
   useEffect(() => {
     if (!toast) return;
@@ -828,6 +834,14 @@ export default function AgentClientPagesClient({
                     </div>
                   </div>
                   <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => handleViewInbox(page.id)}
+                      data-testid={`client-page-inbox-${page.id}`}
+                    >
+                      View enquiries
+                    </Button>
                     <Button
                       type="button"
                       variant="secondary"

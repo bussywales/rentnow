@@ -5,6 +5,8 @@ export const PROPERTY_EVENT_TYPES = [
   "lead_attributed",
   "lead_status_updated",
   "lead_note_added",
+  "client_page_lead_viewed",
+  "client_page_lead_status_updated",
   "viewing_requested",
   "share_open",
   "featured_impression",

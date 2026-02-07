@@ -26,6 +26,7 @@ export const leadCreateSchema = z.object({
 
 export const leadStatusUpdateSchema = z.object({
   status: z.enum(LEAD_STATUSES),
+  clientPageId: z.string().optional().nullable(),
 });
 
 export type LeadCreateInput = z.infer<typeof leadCreateSchema>;

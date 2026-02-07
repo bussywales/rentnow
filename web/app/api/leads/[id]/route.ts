@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser, getUserRole, requireOwnership } from "@/lib/authz";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { leadStatusUpdateSchema } from "@/lib/leads/lead-schema";
-import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
+import {
+  isUuid,
+  logPropertyEvent,
+  resolveEventSessionKey,
+} from "@/lib/analytics/property-events.server";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -28,6 +32,8 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid status update" }, { status: 400 });
   }
+  const requestedClientPageId =
+    typeof parsed.data.clientPageId === "string" ? parsed.data.clientPageId : null;
 
   const { data: lead } = await auth.supabase
     .from("listing_leads")
@@ -73,6 +79,31 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
       sessionKey,
       meta: { lead_id: lead.id, status: parsed.data.status },
     });
+
+    if (requestedClientPageId && isUuid(requestedClientPageId)) {
+      const { data: attribution } = await auth.supabase
+        .from("lead_attributions")
+        .select("client_page_id")
+        .eq("lead_id", lead.id)
+        .eq("client_page_id", requestedClientPageId)
+        .maybeSingle();
+
+      if (attribution) {
+        void logPropertyEvent({
+          supabase: auth.supabase,
+          propertyId: lead.property_id,
+          eventType: "client_page_lead_status_updated",
+          actorUserId: auth.user.id,
+          actorRole: role,
+          sessionKey,
+          meta: {
+            lead_id: lead.id,
+            status: parsed.data.status,
+            clientPageId: requestedClientPageId,
+          },
+        });
+      }
+    }
   }
 
   return response;
