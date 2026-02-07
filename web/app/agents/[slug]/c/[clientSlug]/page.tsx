@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
-import { permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { safeTrim } from "@/lib/agents/agent-storefront";
 import { getAgentClientPagePublic } from "@/lib/agents/agent-client-pages.server";
 import { buildStorefrontCredibilityChips } from "@/lib/agents/storefront-credibility";
 import AgentStorefrontHero from "@/components/agents/AgentStorefrontHero";
-import AgentStorefrontListingsClient from "@/components/agents/AgentStorefrontListingsClient";
 import AgentContactPanel from "@/components/agents/AgentContactPanel";
+import AgentClientPageListingsClient from "@/components/agents/AgentClientPageListingsClient";
 
 export const dynamic = "force-dynamic";
 
@@ -17,31 +17,9 @@ type PageProps = {
 
 const DEFAULT_SITE_URL = "https://www.propatyhub.com";
 
-const NOT_AVAILABLE_COPY = {
-  GLOBAL_DISABLED: {
-    title: "Client pages are currently unavailable",
-    description:
-      "We’ve temporarily paused public client pages. Please check back soon or browse listings instead.",
-  },
-  AGENT_DISABLED: {
-    title: "This client page is not available",
-    description: "This agent has disabled their public storefront at the moment.",
-  },
-  NOT_FOUND: {
-    title: "This client page is not available",
-    description: "We couldn’t find that client page. Double-check the link and try again.",
-  },
-  NOT_AGENT: {
-    title: "This client page is not available",
-    description: "We couldn’t find a public agent for this client page.",
-  },
-  MISSING_SLUG: {
-    title: "This client page is not available",
-    description: "We couldn’t load that client page. Double-check the link and try again.",
-  },
-} as const;
-
-function resolveCoverImage(listings: { cover_image_url?: string | null; images?: { image_url?: string | null }[] | null }[]) {
+function resolveCoverImage(
+  listings: { cover_image_url?: string | null; images?: { image_url?: string | null }[] | null }[]
+) {
   for (const listing of listings) {
     if (listing.cover_image_url) return listing.cover_image_url;
     const fallback = listing.images?.[0]?.image_url;
@@ -76,10 +54,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const canonicalSlug = data.agent.slug ?? slug;
   const canonical = `${siteUrl}/agents/${canonicalSlug}/c/${data.client.slug}`;
-  const title = `${data.agent.name} • Homes for ${data.client.name}`;
+  const clientName = data.client.name || "Client";
+  const title = `${data.agent.name} • Homes for ${clientName}`;
   const description =
+    data.client.requirements?.trim() ||
     data.client.brief?.trim() ||
-    `Shortlist curated by ${data.agent.name} for ${data.client.name}.`;
+    `Shortlist curated by ${data.agent.name} for ${clientName}.`;
+  const banner = data.agent.bannerUrl || data.agent.logoUrl || resolveCoverImage(data.listings);
 
   return {
     title,
@@ -91,11 +72,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       url: canonical,
       siteName: "PropatyHub",
       type: "website",
+      images: banner ? [{ url: banner }] : undefined,
     },
     twitter: {
-      card: "summary",
+      card: banner ? "summary_large_image" : "summary",
       title,
       description,
+      images: banner ? [banner] : undefined,
     },
   };
 }
@@ -116,50 +99,64 @@ export default async function AgentClientPage({ params }: PageProps) {
     if (data.redirectSlug && data.redirectSlug !== slug) {
       permanentRedirect(`/agents/${data.redirectSlug}/c/${clientSlug}`);
     }
-    const reason = data.reason;
-    const copy = NOT_AVAILABLE_COPY[reason] ?? NOT_AVAILABLE_COPY.NOT_FOUND;
-    return (
-      <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-12">
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Client pages</p>
-        <h1 className="text-3xl font-semibold text-slate-900">{copy.title}</h1>
-        <p className="text-sm text-slate-600">{copy.description}</p>
-      </div>
-    );
+    if (data.reason === "GLOBAL_DISABLED") {
+      return (
+        <div className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-12">
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Client pages</p>
+          <h1 className="text-3xl font-semibold text-slate-900">
+            Storefronts are temporarily unavailable
+          </h1>
+          <p className="text-sm text-slate-600">
+            We’ve paused public client pages for now. Please check back soon.
+          </p>
+        </div>
+      );
+    }
+    notFound();
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
-  const coverImageUrl = resolveCoverImage(data.listings);
+  const coverImageUrl = data.agent.bannerUrl || resolveCoverImage(data.listings);
   const shareUrl = `${siteUrl}/agents/${data.agent.slug ?? slug}/c/${data.client.slug}`;
-  const trustChips = data.metrics
-    ? buildStorefrontCredibilityChips(data.metrics)
-    : [];
+  const trustChips = data.metrics ? buildStorefrontCredibilityChips(data.metrics) : [];
+  const clientName = data.client.name || "Client";
+  const requirements = data.client.requirements?.trim() || data.client.brief?.trim() || null;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 py-10">
       <AgentStorefrontHero
         name={data.agent.name}
-        bio={data.agent.bio}
+        bio={data.agent.about || data.agent.bio}
         avatarUrl={data.agent.avatarUrl}
         coverImageUrl={coverImageUrl}
         listingsCount={data.listings.length}
         shareUrl={shareUrl}
         trustChips={trustChips}
         contactAnchor="contact-agent"
+        companyName={data.agent.companyName}
+        logoUrl={data.agent.logoUrl}
+        eyebrow="Client shortlist"
       />
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-          Client shortlist
+          Client context
         </p>
         <h2 className="mt-2 text-2xl font-semibold text-slate-900">
-          For {data.client.name}
+          Homes shortlisted for {clientName}
         </h2>
+        {requirements && (
+          <p className="mt-2 text-sm text-slate-600" data-testid="client-page-requirements">
+            {requirements}
+          </p>
+        )}
         {data.client.title && (
           <p className="mt-2 text-sm font-semibold text-slate-700">{data.client.title}</p>
         )}
-        {data.client.brief && (
-          <p className="mt-2 text-sm text-slate-600">{data.client.brief}</p>
+        {data.client.notes && (
+          <p className="mt-3 text-sm text-slate-600">{data.client.notes}</p>
         )}
+        <p className="mt-3 text-xs text-slate-400">Curated by {data.agent.name}</p>
       </section>
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr),360px] lg:items-start">
@@ -170,15 +167,7 @@ export default async function AgentClientPage({ params }: PageProps) {
               Curated homes matched to this client’s shortlist.
             </p>
           </div>
-          <AgentStorefrontListingsClient
-            listings={data.listings}
-            emptyState={{
-              title: "No matches right now",
-              body:
-                "Nothing matches this shortlist at the moment. The agent can update the criteria or add new homes as they come in.",
-              primaryCta: { label: "Message agent", href: "#contact-agent" },
-            }}
-          />
+          <AgentClientPageListingsClient listings={data.listings} contactHref="#contact-agent" />
         </section>
 
         <div className="lg:sticky lg:top-24">

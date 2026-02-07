@@ -3,7 +3,7 @@ import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { hasServiceRoleEnv } from "@/lib/supabase/admin";
 import {
-  buildClientSlug,
+  buildClientSlugFromInput,
   normalizeClientPageCriteria,
   serializeClientPageCriteria,
 } from "@/lib/agents/client-pages";
@@ -23,11 +23,16 @@ const criteriaSchema = z.object({
 
 const createSchema = z.object({
   client_name: z.string().min(2).max(120),
+  client_slug: z.string().max(140).optional().nullable(),
   client_brief: z.string().max(400).optional().nullable(),
+  client_requirements: z.string().max(400).optional().nullable(),
   title: z.string().max(160).optional().nullable(),
+  agent_about: z.string().max(400).optional().nullable(),
+  agent_company_name: z.string().max(160).optional().nullable(),
+  notes_md: z.string().max(1000).optional().nullable(),
   criteria: z.record(z.string(), z.any()).optional().default({}),
-  pinned_property_ids: z.array(z.string().uuid()).optional().nullable(),
   published: z.boolean().optional(),
+  expires_at: z.string().datetime().optional().nullable(),
 });
 
 export async function GET(request: Request) {
@@ -38,7 +43,7 @@ export async function GET(request: Request) {
   const { data, error } = await auth.supabase
     .from("agent_client_pages")
     .select(
-      "id, client_name, client_slug, client_brief, title, criteria, pinned_property_ids, published, updated_at"
+      "id, client_name, client_slug, client_brief, client_requirements, title, agent_about, agent_company_name, agent_logo_url, banner_url, notes_md, criteria, pinned_property_ids, published, published_at, expires_at, updated_at"
     )
     .eq("agent_user_id", auth.user.id)
     .order("updated_at", { ascending: false });
@@ -100,18 +105,11 @@ export async function POST(request: Request) {
     .map((row) => safeTrim(row.client_slug))
     .filter(Boolean);
 
-  const clientSlug = buildClientSlug(payload.data.client_name, existingSlugs);
-
-  let pinnedIds = (payload.data.pinned_property_ids ?? []).filter(Boolean);
-  if (pinnedIds.length > 0) {
-    const { data: pinnedRows } = await supabase
-      .from("properties")
-      .select("id")
-      .eq("owner_id", auth.user.id)
-      .eq("status", "live")
-      .in("id", pinnedIds);
-    pinnedIds = (pinnedRows ?? []).map((row) => row.id as string);
-  }
+  const clientSlug = buildClientSlugFromInput({
+    clientName: payload.data.client_name,
+    clientSlug: payload.data.client_slug ?? null,
+    existing: existingSlugs,
+  });
 
   const insertPayload = {
     agent_user_id: auth.user.id,
@@ -119,10 +117,15 @@ export async function POST(request: Request) {
     client_slug: clientSlug,
     client_name: payload.data.client_name.trim(),
     client_brief: payload.data.client_brief?.trim() || null,
+    client_requirements: payload.data.client_requirements?.trim() || null,
     title: payload.data.title?.trim() || null,
+    agent_about: payload.data.agent_about?.trim() || null,
+    agent_company_name: payload.data.agent_company_name?.trim() || null,
+    notes_md: payload.data.notes_md?.trim() || null,
     criteria: serializeClientPageCriteria(criteria.data),
-    pinned_property_ids: pinnedIds.length > 0 ? pinnedIds : null,
-    published: payload.data.published ?? true,
+    published: payload.data.published ?? false,
+    published_at: payload.data.published ? new Date().toISOString() : null,
+    expires_at: payload.data.expires_at ?? null,
   };
 
   const insertTable = supabase.from("agent_client_pages") as unknown as {
@@ -136,7 +139,7 @@ export async function POST(request: Request) {
   const { data, error } = await insertTable
     .insert(insertPayload)
     .select(
-      "id, client_name, client_slug, client_brief, title, criteria, pinned_property_ids, published, updated_at"
+      "id, client_name, client_slug, client_brief, client_requirements, title, agent_about, agent_company_name, agent_logo_url, banner_url, notes_md, criteria, pinned_property_ids, published, published_at, expires_at, updated_at"
     )
     .maybeSingle();
 

@@ -21,16 +21,19 @@ const criteriaSchema = z.object({
 const updateSchema = z.object({
   client_name: z.string().min(2).max(120).optional(),
   client_brief: z.string().max(400).optional().nullable(),
+  client_requirements: z.string().max(400).optional().nullable(),
   title: z.string().max(160).optional().nullable(),
+  agent_about: z.string().max(400).optional().nullable(),
+  agent_company_name: z.string().max(160).optional().nullable(),
+  notes_md: z.string().max(1000).optional().nullable(),
   criteria: z.record(z.string(), z.any()).optional(),
-  pinned_property_ids: z.array(z.string().uuid()).optional().nullable(),
   published: z.boolean().optional(),
+  expires_at: z.string().datetime().optional().nullable(),
 });
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+type RouteContext = { params: Promise<{ id: string }> };
+
+export async function PATCH(request: Request, { params }: RouteContext) {
   const startTime = Date.now();
   const auth = await requireRole({ request, route: routeLabel, startTime, roles: ["agent"] });
   if (!auth.ok) return auth.response;
@@ -68,8 +71,20 @@ export async function PATCH(
   if (payload.data.client_brief !== undefined) {
     updates.client_brief = payload.data.client_brief?.trim() || null;
   }
+  if (payload.data.client_requirements !== undefined) {
+    updates.client_requirements = payload.data.client_requirements?.trim() || null;
+  }
   if (payload.data.title !== undefined) {
     updates.title = payload.data.title?.trim() || null;
+  }
+  if (payload.data.agent_about !== undefined) {
+    updates.agent_about = payload.data.agent_about?.trim() || null;
+  }
+  if (payload.data.agent_company_name !== undefined) {
+    updates.agent_company_name = payload.data.agent_company_name?.trim() || null;
+  }
+  if (payload.data.notes_md !== undefined) {
+    updates.notes_md = payload.data.notes_md?.trim() || null;
   }
   if (payload.data.criteria !== undefined) {
     const normalizedCriteria = normalizeClientPageCriteria(payload.data.criteria);
@@ -79,23 +94,13 @@ export async function PATCH(
     }
     updates.criteria = serializeClientPageCriteria(criteria.data);
   }
-
-  if (payload.data.pinned_property_ids !== undefined) {
-    let pinnedIds = (payload.data.pinned_property_ids ?? []).filter(Boolean);
-    if (pinnedIds.length > 0) {
-      const { data: pinnedRows } = await supabase
-        .from("properties")
-        .select("id")
-        .eq("owner_id", auth.user.id)
-        .eq("status", "live")
-        .in("id", pinnedIds);
-      pinnedIds = (pinnedRows ?? []).map((row) => row.id as string);
-    }
-    updates.pinned_property_ids = pinnedIds.length > 0 ? pinnedIds : null;
+  if (payload.data.expires_at !== undefined) {
+    updates.expires_at = payload.data.expires_at;
   }
-
   if (payload.data.published !== undefined) {
     updates.published = payload.data.published;
+    updates.published_at = payload.data.published ? new Date().toISOString() : null;
+    updates.unpublished_at = payload.data.published ? null : new Date().toISOString();
   }
 
   if (Object.keys(updates).length === 0) {
@@ -116,7 +121,7 @@ export async function PATCH(
     .update(updates)
     .eq("id", id)
     .select(
-      "id, client_name, client_slug, client_brief, title, criteria, pinned_property_ids, published, updated_at"
+      "id, client_name, client_slug, client_brief, client_requirements, title, agent_about, agent_company_name, agent_logo_url, banner_url, notes_md, criteria, pinned_property_ids, published, published_at, expires_at, updated_at"
     )
     .maybeSingle();
 
@@ -127,10 +132,7 @@ export async function PATCH(
   return NextResponse.json({ page: data }, { status: 200 });
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function DELETE(request: Request, { params }: RouteContext) {
   const startTime = Date.now();
   const auth = await requireRole({ request, route: routeLabel, startTime, roles: ["agent"] });
   if (!auth.ok) return auth.response;

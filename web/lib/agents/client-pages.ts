@@ -14,6 +14,12 @@ export type ClientPagePublicState<T> = {
   listings: T[];
 };
 
+export type CuratedListingInput = {
+  id: string;
+  rank?: number | null;
+  pinned?: boolean | null;
+};
+
 export function normalizeClientPageCriteria(input: unknown): ClientPageCriteria {
   const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
   const intentValue = safeTrim(raw.intent);
@@ -55,6 +61,48 @@ export function serializeClientPageCriteria(criteria: ClientPageCriteria) {
 export function buildClientSlug(clientName: string, existing: string[]): string {
   const base = slugifyAgentName(clientName) || "client";
   return ensureUniqueSlug(base, existing);
+}
+
+export function buildClientSlugFromInput(input: {
+  clientName?: string | null;
+  clientSlug?: string | null;
+  existing: string[];
+}): string {
+  const preferred = slugifyAgentName(input.clientSlug ?? "");
+  if (preferred) {
+    return ensureUniqueSlug(preferred, input.existing);
+  }
+  return buildClientSlug(input.clientName ?? "Client", input.existing);
+}
+
+export function isClientPagePublished(input: {
+  published?: boolean | null;
+  expiresAt?: string | null;
+  now?: Date;
+}): boolean {
+  if (!input.published) return false;
+  if (input.expiresAt) {
+    const ts = Date.parse(input.expiresAt);
+    if (Number.isFinite(ts)) {
+      const now = input.now ?? new Date();
+      if (ts <= now.getTime()) return false;
+    }
+  }
+  return true;
+}
+
+export function orderCuratedListings<T extends CuratedListingInput>(
+  listings: T[]
+): T[] {
+  return [...listings].sort((a, b) => {
+    const pinnedA = a.pinned ? 1 : 0;
+    const pinnedB = b.pinned ? 1 : 0;
+    if (pinnedA !== pinnedB) return pinnedB - pinnedA;
+    const rankA = a.rank ?? 0;
+    const rankB = b.rank ?? 0;
+    if (rankA !== rankB) return rankA - rankB;
+    return a.id.localeCompare(b.id);
+  });
 }
 
 export function resolveClientPagePublicState<T extends { status?: string | null }>(input: {

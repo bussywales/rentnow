@@ -1350,3 +1350,139 @@ CREATE POLICY "lead_tags_delete" ON public.lead_tags
       WHERE l.id = lead_id AND l.owner_id = auth.uid()
     )
   );
+
+-- Agent client pages v2 public select + curation policies
+DROP POLICY IF EXISTS "agent_client_pages_public_select" ON public.agent_client_pages;
+CREATE POLICY "agent_client_pages_public_select"
+  ON public.agent_client_pages
+  FOR SELECT
+  USING (
+    published is true
+    AND (expires_at is null OR expires_at > now())
+    AND EXISTS (
+      SELECT 1
+      FROM public.agent_storefronts s
+      WHERE s.user_id = agent_user_id
+        AND s.enabled is true
+    )
+    AND COALESCE(
+      (
+        SELECT
+          COALESCE(
+            CASE
+              WHEN jsonb_typeof(value) = 'object' AND value ? 'enabled' THEN (value->>'enabled')::boolean
+            END,
+            CASE WHEN jsonb_typeof(value) = 'boolean' THEN (value::text)::boolean END,
+            true
+          )
+        FROM public.app_settings
+        WHERE key = 'agent_storefronts_enabled'
+        LIMIT 1
+      ),
+      true
+    )
+  );
+
+DROP POLICY IF EXISTS "agent_client_page_listings_public_select" ON public.agent_client_page_listings;
+CREATE POLICY "agent_client_page_listings_public_select"
+  ON public.agent_client_page_listings
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.agent_client_pages p
+      WHERE p.id = client_page_id
+        AND p.published is true
+        AND (p.expires_at is null OR p.expires_at > now())
+        AND EXISTS (
+          SELECT 1
+          FROM public.agent_storefronts s
+          WHERE s.user_id = p.agent_user_id
+            AND s.enabled is true
+        )
+        AND COALESCE(
+          (
+            SELECT
+              COALESCE(
+                CASE
+                  WHEN jsonb_typeof(value) = 'object' AND value ? 'enabled' THEN (value->>'enabled')::boolean
+                END,
+                CASE WHEN jsonb_typeof(value) = 'boolean' THEN (value::text)::boolean END,
+                true
+              )
+            FROM public.app_settings
+            WHERE key = 'agent_storefronts_enabled'
+            LIMIT 1
+          ),
+          true
+        )
+    )
+  );
+
+DROP POLICY IF EXISTS "agent_client_page_listings_owner_select" ON public.agent_client_page_listings;
+CREATE POLICY "agent_client_page_listings_owner_select"
+  ON public.agent_client_page_listings
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.agent_client_pages p
+      WHERE p.id = client_page_id AND p.agent_user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "agent_client_page_listings_owner_insert" ON public.agent_client_page_listings;
+CREATE POLICY "agent_client_page_listings_owner_insert"
+  ON public.agent_client_page_listings
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.agent_client_pages p
+      WHERE p.id = client_page_id AND p.agent_user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "agent_client_page_listings_owner_update" ON public.agent_client_page_listings;
+CREATE POLICY "agent_client_page_listings_owner_update"
+  ON public.agent_client_page_listings
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.agent_client_pages p
+      WHERE p.id = client_page_id AND p.agent_user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.agent_client_pages p
+      WHERE p.id = client_page_id AND p.agent_user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "agent_client_page_listings_owner_delete" ON public.agent_client_page_listings;
+CREATE POLICY "agent_client_page_listings_owner_delete"
+  ON public.agent_client_page_listings
+  FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.agent_client_pages p
+      WHERE p.id = client_page_id AND p.agent_user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "agent_client_page_listings_admin_select" ON public.agent_client_page_listings;
+CREATE POLICY "agent_client_page_listings_admin_select"
+  ON public.agent_client_page_listings
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "agent_client_page_listings_admin_write" ON public.agent_client_page_listings;
+CREATE POLICY "agent_client_page_listings_admin_write"
+  ON public.agent_client_page_listings
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());

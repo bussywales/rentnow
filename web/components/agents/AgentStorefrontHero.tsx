@@ -10,6 +10,9 @@ type Props = {
   bio: string | null;
   avatarUrl: string | null;
   coverImageUrl?: string | null;
+  companyName?: string | null;
+  logoUrl?: string | null;
+  eyebrow?: string;
   listingsCount: number;
   shareUrl: string;
   contactAnchor?: string;
@@ -36,6 +39,9 @@ export default function AgentStorefrontHero({
   bio,
   avatarUrl,
   coverImageUrl,
+  companyName,
+  logoUrl,
+  eyebrow = "Agent storefront",
   listingsCount,
   shareUrl,
   contactAnchor,
@@ -70,7 +76,16 @@ export default function AgentStorefrontHero({
       <div className="relative z-10 grid gap-6 px-6 py-8 md:grid-cols-[auto,1fr,auto] md:items-center md:gap-8 md:px-10">
         <div className="flex items-center gap-4">
           <div className="relative flex h-16 w-16 items-center justify-center overflow-hidden rounded-full border-2 border-white/60 bg-white/20">
-            {avatarUrl ? (
+            {logoUrl ? (
+              <Image
+                src={logoUrl}
+                alt={companyName || name}
+                fill
+                className="object-cover"
+                sizes="64px"
+                priority={false}
+              />
+            ) : avatarUrl ? (
               <Image
                 src={avatarUrl}
                 alt={name}
@@ -85,9 +100,12 @@ export default function AgentStorefrontHero({
           </div>
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-sky-200">
-              Agent storefront
+              {eyebrow}
             </p>
             <h1 className="text-3xl font-semibold text-white sm:text-4xl">{name}</h1>
+            {companyName && (
+              <p className="mt-1 text-sm font-semibold text-slate-100/90">{companyName}</p>
+            )}
             <p className="mt-1 text-sm text-slate-100/90">
               {listingsCount} active {listingsCount === 1 ? "listing" : "listings"}
             </p>

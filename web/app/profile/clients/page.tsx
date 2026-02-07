@@ -21,17 +21,32 @@ export default async function AgentClientPagesPage() {
   const supabase = await createServerSupabaseClient();
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, agent_slug")
+    .select("id, agent_slug, display_name, business_name, avatar_url, agent_bio")
     .eq("id", user.id)
     .maybeSingle();
 
   const { data: pages } = await supabase
     .from("agent_client_pages")
     .select(
-      "id, client_name, client_slug, client_brief, title, criteria, pinned_property_ids, published, updated_at"
+      "id, client_name, client_slug, client_brief, client_requirements, title, agent_about, agent_company_name, agent_logo_url, banner_url, notes_md, criteria, pinned_property_ids, published, published_at, expires_at, updated_at"
     )
     .eq("agent_user_id", user.id)
     .order("updated_at", { ascending: false });
+
+  const pageIds = (pages ?? []).map((page) => page.id);
+  const { data: curatedRows } = pageIds.length
+    ? await supabase
+        .from("agent_client_page_listings")
+        .select("client_page_id, property_id, rank, pinned")
+        .in("client_page_id", pageIds)
+    : { data: [] };
+
+  const curatedByPage = (curatedRows ?? []).reduce<Record<string, typeof curatedRows>>((acc, row) => {
+    const key = row.client_page_id as string;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(row);
+    return acc;
+  }, {});
 
   const { data: properties } = await supabase
     .from("properties")
@@ -53,10 +68,25 @@ export default async function AgentClientPagesPage() {
       </header>
 
       <AgentClientPagesClient
-        initialPages={(pages as typeof pages) || []}
+        initialPages={
+          ((pages as typeof pages) || []).map((page) => ({
+            ...page,
+            curated_listings: curatedByPage[page.id] ?? [],
+          }))
+        }
         agentSlug={profile?.agent_slug ?? ""}
         siteUrl={siteUrl}
         liveProperties={(properties as typeof properties) || []}
+        agentProfile={
+          profile
+            ? {
+                display_name: profile.display_name ?? null,
+                business_name: profile.business_name ?? null,
+                avatar_url: profile.avatar_url ?? null,
+                agent_bio: profile.agent_bio ?? null,
+              }
+            : null
+        }
       />
     </div>
   );

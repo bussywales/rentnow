@@ -6,6 +6,8 @@ import { safeTrim } from "@/lib/agents/agent-storefront";
 import {
   normalizeClientPageCriteria,
   resolveClientPagePublicState,
+  isClientPagePublished,
+  orderCuratedListings,
   type ClientPageCriteria,
 } from "@/lib/agents/client-pages";
 import {
@@ -37,14 +39,29 @@ type ClientPageRow = {
   agent_user_id: string;
   agent_slug: string;
   client_slug: string;
-  client_name: string;
+  client_name?: string | null;
   title?: string | null;
   client_brief?: string | null;
+  client_requirements?: string | null;
+  agent_about?: string | null;
+  agent_company_name?: string | null;
+  agent_logo_url?: string | null;
+  banner_url?: string | null;
+  notes_md?: string | null;
   criteria?: ClientPageCriteria | null;
   pinned_property_ids?: string[] | null;
   published?: boolean | null;
+  published_at?: string | null;
+  expires_at?: string | null;
+  unpublished_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+};
+
+type CuratedListingRow = {
+  property_id: string;
+  rank?: number | null;
+  pinned?: boolean | null;
 };
 
 type ClientPagePublicResult =
@@ -61,12 +78,18 @@ type ClientPagePublicResult =
         avatarUrl: string | null;
         bio: string | null;
         slug: string | null;
+        companyName: string | null;
+        logoUrl: string | null;
+        bannerUrl: string | null;
+        about: string | null;
       };
       client: {
         slug: string;
-        name: string;
+        name: string | null;
         title: string | null;
         brief: string | null;
+        requirements: string | null;
+        notes: string | null;
       };
       listings: Property[];
       metrics: AgentStorefrontMetrics | null;
@@ -133,20 +156,50 @@ export async function getAgentClientPagePublic(input: {
   const { data: page } = await supabase
     .from("agent_client_pages")
     .select(
-      "id, agent_user_id, agent_slug, client_slug, client_name, title, client_brief, criteria, pinned_property_ids, published"
+      "id, agent_user_id, agent_slug, client_slug, client_name, title, client_brief, client_requirements, agent_about, agent_company_name, agent_logo_url, banner_url, notes_md, criteria, pinned_property_ids, published, published_at, expires_at, unpublished_at"
     )
     .eq("agent_user_id", agent.id)
     .eq("client_slug", clientSlug)
     .maybeSingle<ClientPageRow>();
 
-  if (!page || page.published !== true) {
+  if (!page || !isClientPagePublished({ published: page.published, expiresAt: page.expires_at })) {
     return { ok: false, reason: "NOT_FOUND" };
   }
+
+  const { data: curatedRowsRaw } = await supabase
+    .from("agent_client_page_listings")
+    .select("property_id, rank, pinned")
+    .eq("client_page_id", page.id);
+
+  const curatedRows = (curatedRowsRaw ?? []) as CuratedListingRow[];
+  const curatedOrder = orderCuratedListings(
+    curatedRows
+      .map((row) => ({
+        id: row.property_id,
+        rank: row.rank ?? 0,
+        pinned: row.pinned ?? false,
+      }))
+      .filter((row) => !!row.id)
+  );
 
   const pinnedIds = (page.pinned_property_ids ?? []).filter((value) => !!value);
   let listings: Property[] = [];
 
-  if (pinnedIds.length > 0) {
+  if (curatedOrder.length > 0) {
+    const curatedIds = curatedOrder.map((row) => row.id);
+    const { data: curatedPropertyRows } = await supabase
+      .from("properties")
+      .select(PROPERTY_SELECT)
+      .eq("owner_id", agent.id)
+      .eq("status", "live")
+      .in("id", curatedIds);
+
+    const curatedProperties = mapPropertyRows(curatedPropertyRows as PropertyRow[]);
+    const propertyMap = new Map(curatedProperties.map((item) => [item.id, item]));
+    listings = curatedOrder
+      .map((row) => propertyMap.get(row.id))
+      .filter((value): value is Property => Boolean(value));
+  } else if (pinnedIds.length > 0) {
     const { data: pinnedRows } = await supabase
       .from("properties")
       .select(PROPERTY_SELECT)
@@ -194,18 +247,22 @@ export async function getAgentClientPagePublic(input: {
     listings,
   });
 
-  if (!publicState.ok) {
-    return { ok: false, reason: "NOT_FOUND" };
-  }
-
   return {
     ok: true,
-    agent,
+    agent: {
+      ...agent,
+      companyName: page.agent_company_name ?? null,
+      logoUrl: page.agent_logo_url ?? null,
+      bannerUrl: page.banner_url ?? null,
+      about: page.agent_about ?? null,
+    },
     client: {
       slug: page.client_slug,
-      name: page.client_name,
+      name: page.client_name ?? null,
       title: page.title ?? null,
       brief: page.client_brief ?? null,
+      requirements: page.client_requirements ?? null,
+      notes: page.notes_md ?? null,
     },
     listings: publicState.listings,
     metrics: storefront.metrics ?? null,

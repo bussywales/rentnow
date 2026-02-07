@@ -460,3 +460,37 @@ ALTER TABLE public.listing_leads DROP CONSTRAINT IF EXISTS listing_leads_status_
 ALTER TABLE public.listing_leads
   ADD CONSTRAINT listing_leads_status_check
   CHECK (status IN ('NEW', 'CONTACTED', 'VIEWING', 'WON', 'LOST', 'QUALIFIED', 'CLOSED'));
+
+-- AGENT CLIENT PAGES V2 EXTENSIONS
+ALTER TABLE public.agent_client_pages
+  ADD COLUMN IF NOT EXISTS agent_company_name TEXT,
+  ADD COLUMN IF NOT EXISTS agent_logo_url TEXT,
+  ADD COLUMN IF NOT EXISTS banner_url TEXT,
+  ADD COLUMN IF NOT EXISTS agent_about TEXT,
+  ADD COLUMN IF NOT EXISTS client_requirements TEXT,
+  ADD COLUMN IF NOT EXISTS notes_md TEXT,
+  ADD COLUMN IF NOT EXISTS published_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS expires_at TIMESTAMPTZ,
+  ADD COLUMN IF NOT EXISTS unpublished_at TIMESTAMPTZ;
+
+ALTER TABLE public.agent_client_pages
+  ALTER COLUMN client_name DROP NOT NULL;
+
+ALTER TABLE public.agent_client_pages
+  ALTER COLUMN published SET DEFAULT false;
+
+CREATE INDEX idx_agent_client_pages_agent_updated ON public.agent_client_pages (agent_user_id, updated_at desc);
+CREATE INDEX idx_agent_client_pages_published ON public.agent_client_pages (published, published_at);
+
+CREATE TABLE public.agent_client_page_listings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_page_id UUID NOT NULL REFERENCES public.agent_client_pages (id) ON DELETE CASCADE,
+  property_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
+  rank INT NOT NULL DEFAULT 0,
+  pinned BOOLEAN NOT NULL DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (client_page_id, property_id)
+);
+
+CREATE INDEX idx_agent_client_page_listings_rank ON public.agent_client_page_listings (client_page_id, rank);
+CREATE INDEX idx_agent_client_page_listings_property ON public.agent_client_page_listings (client_page_id, property_id);

@@ -91,10 +91,7 @@ test.describe.serial("agent client pages", () => {
       await page.goto("/profile/clients");
       await page.getByTestId("client-page-name").fill("Client Alpha");
       await page.getByTestId("client-page-title").fill("Homes picked for Client Alpha");
-      await page.getByTestId("client-page-brief").fill("Needs a two-bed in Test City.");
-      await page.getByTestId("client-page-intent").selectOption("rent");
-      await page.getByTestId("client-page-city").fill("Test City");
-
+      await page.getByTestId("client-page-requirements").fill("Needs a two-bed in Test City.");
       await page.getByTestId("client-page-save").click();
       await expect(page.getByText("Client page created.")).toBeVisible();
 
@@ -114,8 +111,27 @@ test.describe.serial("agent client pages", () => {
         .maybeSingle();
       clientPageId = clientPageRow?.id ?? null;
 
+      if (clientPageId) {
+        await adminClient
+          .from("agent_client_page_listings")
+          .upsert(
+            {
+              client_page_id: clientPageId,
+              property_id: propertyId,
+              pinned: true,
+              rank: 0,
+            },
+            { onConflict: "client_page_id,property_id" }
+          );
+
+        await adminClient
+          .from("agent_client_pages")
+          .update({ published: true, published_at: new Date().toISOString() })
+          .eq("id", clientPageId);
+      }
+
       await page.goto(`/agents/${slug}/c/${clientSlug}`);
-      await expect(page.getByRole("heading", { name: /For Client Alpha/ })).toBeVisible();
+      await expect(page.getByRole("heading", { name: /Homes shortlisted for Client Alpha/ })).toBeVisible();
       await expect(page.getByText(propertyTitle)).toBeVisible();
     } finally {
       if (clientPageId) {
@@ -140,9 +156,8 @@ test.describe.serial("agent client pages", () => {
     await page.goto("/profile/clients");
     await page.getByTestId("client-page-name").fill("Client Empty");
     await page.getByTestId("client-page-title").fill("Shortlist");
-    await page.getByTestId("client-page-brief").fill("No matches expected.");
-    await page.getByTestId("client-page-intent").selectOption("rent");
-    await page.getByTestId("client-page-city").fill("Nowhere");
+    await page.getByTestId("client-page-requirements").fill("No matches expected.");
+    await page.getByTestId("client-page-published").check();
     await page.getByTestId("client-page-save").click();
     await expect(page.getByText("Client page created.")).toBeVisible();
 
@@ -153,6 +168,45 @@ test.describe.serial("agent client pages", () => {
     await page.goto(`/agents/${slug}/c/${clientSlug}`);
     await expect(page.getByText("No matches right now")).toBeVisible();
     await expect(page.getByText(/Nothing matches this shortlist/i)).toBeVisible();
+
+    if (HAS_SERVICE_ROLE) {
+      const adminClient: SupabaseClient = createClient(supabaseUrl, serviceRoleKey, {
+        auth: { persistSession: false, autoRefreshToken: false },
+      });
+      const { data: clientPageRow } = await adminClient
+        .from("agent_client_pages")
+        .select("id")
+        .eq("agent_slug", slug)
+        .eq("client_slug", clientSlug)
+        .maybeSingle();
+      if (clientPageRow?.id) {
+        await adminClient.from("agent_client_pages").delete().eq("id", clientPageRow.id);
+      }
+    }
+  });
+
+  test("unpublished client page returns 404", async ({ page }) => {
+    test.skip(!HAS_SUPABASE_ENV, "Supabase env vars missing; skipping.");
+    test.skip(!HAS_AGENT, "Set PLAYWRIGHT_AGENT_EMAIL/PASSWORD to run this test.");
+
+    await login(page, AGENT_EMAIL, AGENT_PASSWORD);
+    await page.goto("/profile");
+
+    const slug = await ensureAgentSlug(page, "Agent");
+    test.skip(!slug, "Unable to resolve agent slug.");
+
+    await page.goto("/profile/clients");
+    await page.getByTestId("client-page-name").fill("Client Draft");
+    await page.getByTestId("client-page-requirements").fill("Draft requirements");
+    await page.getByTestId("client-page-save").click();
+    await expect(page.getByText("Client page created.")).toBeVisible();
+
+    const row = page.getByTestId("client-page-row").first();
+    const slugText = await row.getByTestId("client-page-slug").innerText();
+    const clientSlug = slugText.replace("/", "").trim();
+
+    await page.goto(`/agents/${slug}/c/${clientSlug}`);
+    await expect(page.getByRole("heading", { name: /page not found/i })).toBeVisible();
 
     if (HAS_SERVICE_ROLE) {
       const adminClient: SupabaseClient = createClient(supabaseUrl, serviceRoleKey, {

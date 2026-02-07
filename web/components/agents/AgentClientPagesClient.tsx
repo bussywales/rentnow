@@ -6,21 +6,38 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
 import { cn } from "@/components/ui/cn";
+import { formatRelativeTime } from "@/lib/date/relative-time";
 import {
   normalizeClientPageCriteria,
   serializeClientPageCriteria,
+  orderCuratedListings,
   type ClientPageCriteria,
 } from "@/lib/agents/client-pages";
 
+type CuratedListing = {
+  property_id: string;
+  rank?: number | null;
+  pinned?: boolean | null;
+};
+
 type ClientPageRow = {
   id: string;
-  client_name: string;
+  client_name: string | null;
   client_slug: string;
   client_brief?: string | null;
+  client_requirements?: string | null;
   title?: string | null;
+  agent_about?: string | null;
+  agent_company_name?: string | null;
+  agent_logo_url?: string | null;
+  banner_url?: string | null;
+  notes_md?: string | null;
   criteria?: ClientPageCriteria | null;
   pinned_property_ids?: string[] | null;
+  curated_listings?: CuratedListing[] | null;
   published: boolean;
+  published_at?: string | null;
+  expires_at?: string | null;
   updated_at?: string | null;
 };
 
@@ -32,11 +49,19 @@ type LiveProperty = {
   currency?: string | null;
 };
 
+type AgentProfile = {
+  display_name?: string | null;
+  business_name?: string | null;
+  avatar_url?: string | null;
+  agent_bio?: string | null;
+};
+
 type Props = {
   initialPages: ClientPageRow[];
   agentSlug: string;
   siteUrl: string;
   liveProperties: LiveProperty[];
+  agentProfile?: AgentProfile | null;
 };
 
 const INTENT_OPTIONS = [
@@ -50,6 +75,7 @@ export default function AgentClientPagesClient({
   agentSlug,
   siteUrl,
   liveProperties,
+  agentProfile,
 }: Props) {
   const [pages, setPages] = useState<ClientPageRow[]>(initialPages);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -59,15 +85,27 @@ export default function AgentClientPagesClient({
 
   const [clientName, setClientName] = useState("");
   const [clientBrief, setClientBrief] = useState("");
+  const [clientRequirements, setClientRequirements] = useState("");
   const [title, setTitle] = useState("");
+  const [agentAbout, setAgentAbout] = useState("");
+  const [agentCompanyName, setAgentCompanyName] = useState("");
+  const [notes, setNotes] = useState("");
   const [intent, setIntent] = useState<ClientPageCriteria["intent"]>(null);
   const [city, setCity] = useState("");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
   const [bedrooms, setBedrooms] = useState("");
-  const [pinnedMode, setPinnedMode] = useState(false);
-  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
-  const [published, setPublished] = useState(true);
+  const [published, setPublished] = useState(false);
+  const [expiresAt, setExpiresAt] = useState("");
+  const [bannerUrl, setBannerUrl] = useState<string | null>(null);
+  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [curatedListings, setCuratedListings] = useState<
+    { id: string; pinned: boolean; rank: number }[]
+  >([]);
+  const [curatedSnapshot, setCuratedSnapshot] = useState<string>("");
+  const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,21 +115,41 @@ export default function AgentClientPagesClient({
     return () => clearTimeout(timer);
   }, [toast]);
 
+  const defaultCompanyName = agentProfile?.business_name || agentProfile?.display_name || "";
+  const defaultAgentAbout = agentProfile?.agent_bio || "";
+
   const resetForm = () => {
     setEditingId(null);
     setClientName("");
     setClientBrief("");
+    setClientRequirements("");
     setTitle("");
+    setAgentAbout(defaultAgentAbout);
+    setAgentCompanyName(defaultCompanyName);
+    setNotes("");
     setIntent(null);
     setCity("");
     setMinPrice("");
     setMaxPrice("");
     setBedrooms("");
-    setPinnedMode(false);
-    setPinnedIds([]);
-    setPublished(true);
+    setPublished(false);
+    setExpiresAt("");
+    setBannerUrl(null);
+    setLogoUrl(null);
+    setBannerFile(null);
+    setLogoFile(null);
+    setCuratedListings([]);
+    setCuratedSnapshot("");
+    setSelectedPropertyId("");
     setError(null);
   };
+
+  useEffect(() => {
+    if (!editingId) {
+      setAgentAbout(defaultAgentAbout);
+      setAgentCompanyName(defaultCompanyName);
+    }
+  }, [editingId, defaultAgentAbout, defaultCompanyName]);
 
   const criteriaPayload = useMemo(() => {
     const parsed = normalizeClientPageCriteria({
@@ -104,8 +162,7 @@ export default function AgentClientPagesClient({
     return serializeClientPageCriteria(parsed);
   }, [intent, city, minPrice, maxPrice, bedrooms]);
 
-  const clientLink = (slug: string) =>
-    `${siteUrl}/agents/${agentSlug}/c/${slug}`;
+  const clientLink = (slug: string) => `${siteUrl}/agents/${agentSlug}/c/${slug}`;
 
   const handleCopy = async (slug: string) => {
     try {
@@ -116,35 +173,144 @@ export default function AgentClientPagesClient({
     }
   };
 
+  const resolveCuratedFromPage = (page: ClientPageRow) => {
+    const curated = (page.curated_listings ?? []).map((row) => ({
+      id: row.property_id,
+      pinned: row.pinned ?? false,
+      rank: row.rank ?? 0,
+    }));
+    if (curated.length > 0) {
+      return orderCuratedListings(curated);
+    }
+    const fallback = (page.pinned_property_ids ?? []).map((id, index) => ({
+      id,
+      pinned: true,
+      rank: index,
+    }));
+    return fallback;
+  };
+
   const handleEdit = (page: ClientPageRow) => {
     setEditingId(page.id);
-    setClientName(page.client_name);
+    setClientName(page.client_name ?? "");
     setClientBrief(page.client_brief ?? "");
+    setClientRequirements(page.client_requirements ?? "");
     setTitle(page.title ?? "");
+    setAgentAbout(page.agent_about ?? defaultAgentAbout);
+    setAgentCompanyName(page.agent_company_name ?? defaultCompanyName);
+    setNotes(page.notes_md ?? "");
     const parsed = normalizeClientPageCriteria(page.criteria ?? {});
     setIntent(parsed.intent);
     setCity(parsed.city ?? "");
     setMinPrice(parsed.minPrice !== null ? String(parsed.minPrice) : "");
     setMaxPrice(parsed.maxPrice !== null ? String(parsed.maxPrice) : "");
     setBedrooms(parsed.bedrooms !== null ? String(parsed.bedrooms) : "");
-    const nextPinned = page.pinned_property_ids ?? [];
-    setPinnedIds(nextPinned);
-    setPinnedMode(nextPinned.length > 0);
     setPublished(page.published);
+    setExpiresAt(page.expires_at ? new Date(page.expires_at).toISOString().slice(0, 10) : "");
+    setBannerUrl(page.banner_url ?? null);
+    setLogoUrl(page.agent_logo_url ?? null);
+    const curated = resolveCuratedFromPage(page);
+    setCuratedListings(curated.map((item, index) => ({ ...item, rank: index })));
+    setCuratedSnapshot(curated.map((item) => `${item.id}:${item.pinned ? 1 : 0}`).join("|"));
+    setSelectedPropertyId("");
     setError(null);
+  };
+
+  const updateCurated = (next: { id: string; pinned: boolean; rank: number }[]) => {
+    setCuratedListings(next.map((item, index) => ({ ...item, rank: index })));
+  };
+
+  const handleAddCurated = () => {
+    if (!selectedPropertyId) return;
+    if (curatedListings.some((item) => item.id === selectedPropertyId)) return;
+    const next = [...curatedListings, { id: selectedPropertyId, pinned: false, rank: curatedListings.length }];
+    updateCurated(next);
+    setSelectedPropertyId("");
+  };
+
+  const handleRemoveCurated = (id: string) => {
+    updateCurated(curatedListings.filter((item) => item.id !== id));
+  };
+
+  const handleMoveCurated = (id: string, direction: -1 | 1) => {
+    const index = curatedListings.findIndex((item) => item.id === id);
+    if (index === -1) return;
+    const next = [...curatedListings];
+    const target = index + direction;
+    if (target < 0 || target >= next.length) return;
+    const [removed] = next.splice(index, 1);
+    next.splice(target, 0, removed);
+    updateCurated(next);
+  };
+
+  const handleTogglePinned = (id: string) => {
+    updateCurated(
+      curatedListings.map((item) =>
+        item.id === id ? { ...item, pinned: !item.pinned } : item
+      )
+    );
+  };
+
+  const syncCuratedListings = async (pageId: string) => {
+    const desired = curatedListings.map((item, index) => ({
+      id: item.id,
+      pinned: item.pinned,
+      rank: index,
+    }));
+    const desiredIds = new Set(desired.map((item) => item.id));
+    const previousIds = curatedSnapshot ? curatedSnapshot.split("|").map((item) => item.split(":")[0]) : [];
+    const removed = previousIds.filter((id) => !desiredIds.has(id));
+
+    await Promise.all(
+      removed.map((id) =>
+        fetch(`/api/agent/client-pages/${pageId}/listings/${id}`, { method: "DELETE" })
+      )
+    );
+
+    await Promise.all(
+      desired.map((item) =>
+        fetch(`/api/agent/client-pages/${pageId}/listings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ propertyId: item.id, pinned: item.pinned, rank: item.rank }),
+        })
+      )
+    );
+
+    setCuratedSnapshot(desired.map((item) => `${item.id}:${item.pinned ? 1 : 0}`).join("|"));
+  };
+
+  const uploadAsset = async (pageId: string, type: "banner" | "logo", file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch(`/api/agent/client-pages/${pageId}/upload?type=${type}`, {
+      method: "POST",
+      body: formData,
+    });
+    const data = await response.json().catch(() => null);
+    if (!response.ok) {
+      throw new Error(data?.error || "Unable to upload image.");
+    }
+    return data?.imageUrl as string | undefined;
   };
 
   const handleSave = async () => {
     setSaving(true);
     setError(null);
 
+    const expiresIso = expiresAt ? new Date(expiresAt).toISOString() : null;
+
     const payload = {
       client_name: clientName.trim(),
       client_brief: clientBrief.trim() || null,
+      client_requirements: clientRequirements.trim() || null,
       title: title.trim() || null,
+      agent_about: agentAbout.trim() || null,
+      agent_company_name: agentCompanyName.trim() || null,
+      notes_md: notes.trim() || null,
       criteria: criteriaPayload,
-      pinned_property_ids: pinnedMode ? pinnedIds : [],
       published,
+      expires_at: expiresIso,
     };
 
     try {
@@ -163,17 +329,49 @@ export default function AgentClientPagesClient({
         return;
       }
 
+      const savedPage = data?.page as ClientPageRow | undefined;
+      if (!savedPage?.id) {
+        setError("Unable to save client page.");
+        return;
+      }
+
+      const selectedSnapshot = curatedListings
+        .map((item) => `${item.id}:${item.pinned ? 1 : 0}`)
+        .join("|");
+      const hasCuratedChanges = selectedSnapshot !== curatedSnapshot;
+
+      if (hasCuratedChanges || curatedListings.length > 0) {
+        await syncCuratedListings(savedPage.id);
+      }
+
+      let updatedBanner = bannerUrl;
+      let updatedLogo = logoUrl;
+
+      if (bannerFile) {
+        const url = await uploadAsset(savedPage.id, "banner", bannerFile);
+        if (url) updatedBanner = url;
+      }
+      if (logoFile) {
+        const url = await uploadAsset(savedPage.id, "logo", logoFile);
+        if (url) updatedLogo = url;
+      }
+
+      const mergedPage = {
+        ...savedPage,
+        banner_url: updatedBanner ?? savedPage.banner_url ?? null,
+        agent_logo_url: updatedLogo ?? savedPage.agent_logo_url ?? null,
+        curated_listings: curatedListings.map((item, index) => ({
+          property_id: item.id,
+          pinned: item.pinned,
+          rank: index,
+        })),
+      } as ClientPageRow;
+
       if (editingId) {
-        setPages((prev) =>
-          prev.map((page) =>
-            page.id === editingId
-              ? { ...page, ...data.page }
-              : page
-          )
-        );
+        setPages((prev) => prev.map((page) => (page.id === editingId ? mergedPage : page)));
         setToast({ message: "Client page updated.", variant: "success" });
       } else {
-        setPages((prev) => [data.page, ...prev]);
+        setPages((prev) => [mergedPage, ...prev]);
         setToast({ message: "Client page created.", variant: "success" });
       }
 
@@ -182,11 +380,14 @@ export default function AgentClientPagesClient({
       setError(err instanceof Error ? err.message : "Unable to save client page.");
     } finally {
       setSaving(false);
+      setBannerFile(null);
+      setLogoFile(null);
     }
   };
 
   const handleDelete = async (page: ClientPageRow) => {
-    if (!confirm(`Delete ${page.client_name}?`)) return;
+    const name = page.client_name || "this client page";
+    if (!confirm(`Delete ${name}?`)) return;
     try {
       const response = await fetch(`/api/agent/client-pages/${page.id}`, {
         method: "DELETE",
@@ -207,11 +408,10 @@ export default function AgentClientPagesClient({
 
   const togglePublished = async (page: ClientPageRow, value: boolean) => {
     try {
-      const response = await fetch(`/api/agent/client-pages/${page.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ published: value }),
-      });
+      const endpoint = value
+        ? `/api/agent/client-pages/${page.id}/publish`
+        : `/api/agent/client-pages/${page.id}/unpublish`;
+      const response = await fetch(endpoint, { method: "POST" });
       const data = await response.json().catch(() => null);
       if (!response.ok) {
         throw new Error(data?.error || "Unable to update status.");
@@ -230,6 +430,11 @@ export default function AgentClientPagesClient({
   const sortedProperties = useMemo(() => {
     return [...liveProperties].sort((a, b) => a.title.localeCompare(b.title));
   }, [liveProperties]);
+
+  const availableProperties = useMemo(() => {
+    const curatedIds = new Set(curatedListings.map((item) => item.id));
+    return sortedProperties.filter((property) => !curatedIds.has(property.id));
+  }, [sortedProperties, curatedListings]);
 
   return (
     <div className="space-y-8">
@@ -294,7 +499,19 @@ export default function AgentClientPagesClient({
               data-testid="client-page-title"
             />
           </div>
-          <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Client requirements
+            </label>
+            <Textarea
+              value={clientRequirements}
+              onChange={(event) => setClientRequirements(event.target.value)}
+              rows={3}
+              placeholder="2-bed in Lekki, budget 2M NGN, prefers furnished."
+              data-testid="client-page-requirements"
+            />
+          </div>
+          <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
               Client brief (optional)
             </label>
@@ -302,9 +519,64 @@ export default function AgentClientPagesClient({
               value={clientBrief}
               onChange={(event) => setClientBrief(event.target.value)}
               rows={3}
-              placeholder="Short notes about budget, lifestyle, or preferred neighbourhoods."
+              placeholder="Short notes about lifestyle or preferred neighbourhoods."
               data-testid="client-page-brief"
             />
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Agent intro (optional)
+            </label>
+            <Textarea
+              value={agentAbout}
+              onChange={(event) => setAgentAbout(event.target.value)}
+              rows={3}
+              placeholder="Short intro about your experience or team."
+              data-testid="client-page-agent-about"
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Company name (optional)
+            </label>
+            <Input
+              value={agentCompanyName}
+              onChange={(event) => setAgentCompanyName(event.target.value)}
+              placeholder="Your agency or team name"
+              data-testid="client-page-company"
+            />
+          </div>
+        </div>
+
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Banner image
+            </label>
+            <Input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => setBannerFile(event.target.files?.[0] || null)}
+              data-testid="client-page-banner"
+            />
+            {bannerUrl && (
+              <p className="text-xs text-slate-500">Banner uploaded.</p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Logo image
+            </label>
+            <Input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(event) => setLogoFile(event.target.files?.[0] || null)}
+              data-testid="client-page-logo"
+            />
+            {logoUrl && <p className="text-xs text-slate-500">Logo uploaded.</p>}
           </div>
         </div>
 
@@ -373,74 +645,150 @@ export default function AgentClientPagesClient({
               data-testid="client-page-bedrooms"
             />
           </div>
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Expiry date (optional)
+            </label>
+            <Input
+              type="date"
+              value={expiresAt}
+              onChange={(event) => setExpiresAt(event.target.value)}
+              data-testid="client-page-expires"
+            />
+          </div>
         </div>
 
         <div className="mt-6 rounded-2xl border border-slate-200 p-4">
-          <label className="flex items-center gap-2 text-sm font-semibold text-slate-700">
-            <input
-              type="checkbox"
-              checked={pinnedMode}
-              onChange={(event) => setPinnedMode(event.target.checked)}
-            />
-            Use pinned shortlist instead of filters
-          </label>
-          {pinnedMode && (
-            <div className="mt-4 space-y-2">
-              {sortedProperties.length === 0 && (
-                <p className="text-sm text-slate-500">No live listings available to pin.</p>
-              )}
-              {sortedProperties.map((property) => (
-                <label
-                  key={property.id}
-                  className={cn(
-                    "flex items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2 text-sm text-slate-700",
-                    pinnedIds.includes(property.id) && "border-sky-500 bg-sky-50"
-                  )}
-                >
-                  <span>
-                    {property.title}
-                    {property.city ? ` · ${property.city}` : ""}
-                  </span>
-                  <input
-                    type="checkbox"
-                    checked={pinnedIds.includes(property.id)}
-                    onChange={(event) => {
-                      if (event.target.checked) {
-                        setPinnedIds((prev) => [...prev, property.id]);
-                      } else {
-                        setPinnedIds((prev) => prev.filter((id) => id !== property.id));
-                      }
-                    }}
-                  />
-                </label>
-              ))}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Curated shortlist</p>
+              <p className="text-xs text-slate-500">
+                Pin live listings in a custom order. If you leave this empty, criteria-based
+                matches will be used.
+              </p>
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <select
+                value={selectedPropertyId}
+                onChange={(event) => setSelectedPropertyId(event.target.value)}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                data-testid="client-page-curated-select"
+              >
+                <option value="">Select a listing</option>
+                {availableProperties.map((property) => (
+                  <option key={property.id} value={property.id}>
+                    {property.title}
+                  </option>
+                ))}
+              </select>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={handleAddCurated}
+                data-testid="client-page-curated-add"
+              >
+                Add
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            {curatedListings.length === 0 && (
+              <p className="text-sm text-slate-500">No listings pinned yet.</p>
+            )}
+            {curatedListings.map((item, index) => {
+              const property = liveProperties.find((entry) => entry.id === item.id);
+              return (
+                <div
+                  key={item.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2"
+                  data-testid="client-page-curated-item"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      {property?.title || "Listing"}
+                    </p>
+                    {property?.city && (
+                      <p className="text-xs text-slate-500">{property.city}</p>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <label className="flex items-center gap-2 text-xs text-slate-600">
+                      <input
+                        type="checkbox"
+                        checked={item.pinned}
+                        onChange={() => handleTogglePinned(item.id)}
+                      />
+                      Pinned
+                    </label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => handleMoveCurated(item.id, -1)}
+                      disabled={index === 0}
+                    >
+                      Up
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => handleMoveCurated(item.id, 1)}
+                      disabled={index === curatedListings.length - 1}
+                    >
+                      Down
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => handleRemoveCurated(item.id)}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={published}
-              onChange={(event) => setPublished(event.target.checked)}
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Additional notes (optional)
+            </label>
+            <Textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              rows={3}
+              placeholder="Add extra notes to display on the client page."
+              data-testid="client-page-notes"
             />
-            Published
-          </label>
-          <div className="flex items-center gap-2">
-            {editingId && (
-              <Button type="button" variant="ghost" onClick={resetForm}>
-                Cancel edit
+          </div>
+          <div className="flex items-end justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={published}
+                onChange={(event) => setPublished(event.target.checked)}
+                data-testid="client-page-published"
+              />
+              Published
+            </label>
+            <div className="flex items-center gap-2">
+              {editingId && (
+                <Button type="button" variant="ghost" onClick={resetForm}>
+                  Cancel edit
+                </Button>
+              )}
+              <Button
+                type="button"
+                onClick={handleSave}
+                disabled={!agentSlug || saving || clientName.trim().length < 2}
+                data-testid="client-page-save"
+              >
+                {saving ? "Saving..." : editingId ? "Save changes" : "Create client page"}
               </Button>
-            )}
-            <Button
-              type="button"
-              onClick={handleSave}
-              disabled={!agentSlug || saving || clientName.trim().length < 2}
-              data-testid="client-page-save"
-            >
-              {saving ? "Saving..." : editingId ? "Save changes" : "Create client page"}
-            </Button>
+            </div>
           </div>
         </div>
 
@@ -455,59 +803,67 @@ export default function AgentClientPagesClient({
           </p>
         ) : (
           <div className="mt-4 space-y-3">
-            {pages.map((page) => (
-              <div
-                key={page.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3"
-                data-testid="client-page-row"
-              >
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">{page.client_name}</p>
-                  <p className="text-xs text-slate-500" data-testid="client-page-slug">
-                    /{page.client_slug}
-                  </p>
-                  {page.updated_at && (
-                    <p className="text-xs text-slate-400">
-                      Updated {new Date(page.updated_at).toLocaleDateString()}
+            {pages.map((page) => {
+              const expiry = page.expires_at ? formatRelativeTime(page.expires_at) : null;
+              const displayName = page.client_name || "Client shortlist";
+              return (
+                <div
+                  key={page.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 px-4 py-3"
+                  data-testid="client-page-row"
+                >
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{displayName}</p>
+                    <p className="text-xs text-slate-500" data-testid="client-page-slug">
+                      /{page.client_slug}
                     </p>
-                  )}
+                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                      <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase", page.published ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500")}>
+                        {page.published ? "Published" : "Draft"}
+                      </span>
+                      {expiry && <span>Expires {expiry}</span>}
+                      {page.updated_at && (
+                        <span>Updated {new Date(page.updated_at).toLocaleDateString()}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => handleCopy(page.client_slug)}
+                      data-testid={`client-page-copy-${page.id}`}
+                    >
+                      Share
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => handleEdit(page)}
+                      data-testid={`client-page-edit-${page.id}`}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => togglePublished(page, !page.published)}
+                      data-testid={`client-page-publish-${page.id}`}
+                    >
+                      {page.published ? "Unpublish" : "Publish"}
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => handleDelete(page)}
+                      data-testid={`client-page-delete-${page.id}`}
+                    >
+                      Delete
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="flex items-center gap-2 text-xs text-slate-600">
-                    <input
-                      type="checkbox"
-                      checked={page.published}
-                      onChange={(event) => togglePublished(page, event.target.checked)}
-                    />
-                    Published
-                  </label>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => handleCopy(page.client_slug)}
-                    data-testid={`client-page-copy-${page.id}`}
-                  >
-                    Copy link
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => handleEdit(page)}
-                    data-testid={`client-page-edit-${page.id}`}
-                  >
-                    Edit
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => handleDelete(page)}
-                    data-testid={`client-page-delete-${page.id}`}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
