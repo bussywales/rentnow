@@ -6,7 +6,7 @@ import {
 } from "@/lib/messaging/contact-exchange";
 import { withDeliveryState } from "@/lib/messaging/status";
 import { logFailure } from "@/lib/observability";
-import type { UserRole } from "@/lib/types";
+import type { Message, UserRole } from "@/lib/types";
 import type { LeadFinancing, LeadIntent, LeadTimeline } from "@/lib/leads/types";
 import {
   buildLeadInsertPayload,
@@ -24,7 +24,7 @@ type LeadCreateResult =
       ok: true;
       lead: Record<string, unknown>;
       threadId: string;
-      message: Record<string, unknown> | null;
+      message: Message | null;
       leadIntent: LeadIntent;
     }
   | {
@@ -167,7 +167,7 @@ export async function createLeadThreadAndMessage(input: LeadCreateInput): Promis
     ok: true,
     lead: lead as Record<string, unknown>,
     threadId: threadRow.id,
-    message: posted ? withDeliveryState(posted as Record<string, unknown>) : null,
+    message: posted ? withDeliveryState(posted as Message) : null,
     leadIntent,
   };
 }
