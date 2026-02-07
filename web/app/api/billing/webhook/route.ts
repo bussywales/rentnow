@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import crypto from "node:crypto";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { getProviderModes } from "@/lib/billing/provider-settings";
@@ -137,7 +138,7 @@ export async function POST(request: Request) {
     });
 
     const consumed = await consumeListingCredit({
-      client: adminClient,
+      client: adminClient as unknown as SupabaseClient,
       userId: typedPayment.user_id,
       listingId: typedPayment.listing_id,
       idempotencyKey: typedPayment.idempotency_key,
