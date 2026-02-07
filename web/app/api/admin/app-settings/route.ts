@@ -89,11 +89,10 @@ export async function PATCH(request: Request) {
   const body = parsed.data;
   const isModeSetting = body.key === APP_SETTING_KEYS.contactExchangeMode;
   const isExpirySetting = body.key === APP_SETTING_KEYS.listingExpiryDays;
-  const isNumericSetting = [
-    APP_SETTING_KEYS.paygListingFeeAmount,
-    APP_SETTING_KEYS.trialListingCreditsAgent,
-    APP_SETTING_KEYS.trialListingCreditsLandlord,
-  ].includes(body.key);
+  const isNumericSetting =
+    body.key === APP_SETTING_KEYS.paygListingFeeAmount ||
+    body.key === APP_SETTING_KEYS.trialListingCreditsAgent ||
+    body.key === APP_SETTING_KEYS.trialListingCreditsLandlord;
   if (isModeSetting && !("mode" in body.value)) {
     return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
   }
