@@ -130,7 +130,7 @@ export async function POST(request: Request) {
         callback_url: callbackUrl,
         metadata: {
           listing_id: listingId,
-          owner_id: listing.owner_id,
+          owner_id: typedListing.owner_id,
           purpose: "listing_submission",
           idempotency_key: paymentIdempotency,
           mode: config.mode,
