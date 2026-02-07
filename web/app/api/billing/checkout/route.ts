@@ -57,7 +57,7 @@ export async function POST(request: Request) {
     .from("properties")
     .select("id, owner_id, status")
     .eq("id", listingId)
-    .maybeSingle<{ id: string; owner_id: string; status?: string | null }>();
+    .maybeSingle();
 
   if (listingError || !listing) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
