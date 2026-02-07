@@ -128,6 +128,17 @@ export async function POST(request: Request) {
   }
 
   if (!existingConsumption) {
+    if (!typedPayment.idempotency_key) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 400,
+        startTime,
+        level: "warn",
+        error: "missing_idempotency_key",
+      });
+      return NextResponse.json({ ok: true });
+    }
     await adminClient.from("listing_credits").insert({
       user_id: typedPayment.user_id,
       source: "payg",
