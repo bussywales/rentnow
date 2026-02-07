@@ -123,7 +123,7 @@ export async function POST(request: Request) {
       .select("id")
       .eq("idempotency_key", typedPayment.idempotency_key)
       .maybeSingle();
-    existingConsumption = data ?? null;
+    existingConsumption = (data as { id?: string } | null)?.id ? { id: (data as { id: string }).id } : null;
   }
 
   if (!existingConsumption) {
