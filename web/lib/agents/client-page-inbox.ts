@@ -3,7 +3,7 @@ export type ClientPageLeadAttribution = {
 };
 
 export type ClientPageLeadRow = {
-  id: string;
+  id?: string | null;
   lead_attributions?: ClientPageLeadAttribution[] | null;
 };
 
