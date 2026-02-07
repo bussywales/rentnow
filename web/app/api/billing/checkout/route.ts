@@ -59,10 +59,11 @@ export async function POST(request: Request) {
     .eq("id", listingId)
     .maybeSingle();
 
-  if (listingError || !listing) {
+  const typedListing = listing as { id: string; owner_id: string; status?: string | null } | null;
+  if (listingError || !typedListing) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
   }
-  if (listing.status === "pending" || listing.status === "live") {
+  if (typedListing.status === "pending" || typedListing.status === "live") {
     return NextResponse.json({ error: "Listing already submitted." }, { status: 409 });
   }
 
@@ -70,14 +71,14 @@ export async function POST(request: Request) {
     request,
     route: routeLabel,
     startTime,
-    resourceOwnerId: listing.owner_id,
+    resourceOwnerId: typedListing.owner_id,
     userId: auth.user.id,
     role,
     allowRoles: ["admin"],
   });
   if (!ownership.ok) {
     if (role === "agent") {
-      const allowed = await hasActiveDelegation(supabase, auth.user.id, listing.owner_id);
+      const allowed = await hasActiveDelegation(supabase, auth.user.id, typedListing.owner_id);
       if (!allowed) return ownership.response;
     } else {
       return ownership.response;
