@@ -158,7 +158,7 @@ export async function POST(request: Request) {
     if (consumed.ok) {
       if (consumed.consumed) {
         await logPropertyEvent({
-          supabase: adminClient,
+          supabase: adminClient as unknown as SupabaseClient,
           propertyId: typedPayment.listing_id,
           eventType: "listing_credit_consumed",
           actorUserId: typedPayment.user_id,
@@ -185,7 +185,7 @@ export async function POST(request: Request) {
   }
 
   await logPropertyEvent({
-    supabase: adminClient,
+    supabase: adminClient as unknown as SupabaseClient,
     propertyId: typedPayment.listing_id,
     eventType: "listing_payment_succeeded",
     actorUserId: typedPayment.user_id,
