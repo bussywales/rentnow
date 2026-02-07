@@ -11,6 +11,7 @@ import { getPaygConfig } from "@/lib/billing/payg";
 import { getSiteUrl } from "@/lib/env";
 import { logFailure } from "@/lib/observability";
 import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 const routeLabel = "/api/billing/checkout";
 
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
   }
 
   const { listingId, idempotencyKey } = parsed.data;
-  const adminClient = createServiceRoleClient();
+  const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;
   const lookupClient = adminClient;
 
   const { data: listing, error: listingError } = await lookupClient
