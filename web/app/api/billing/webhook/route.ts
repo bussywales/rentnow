@@ -116,11 +116,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false }, { status: 500 });
   }
 
-  const { data: existingConsumption } = await adminClient
-    .from("listing_credit_consumptions")
-    .select("id")
-    .eq("idempotency_key", typedPayment.idempotency_key)
-    .maybeSingle();
+  let existingConsumption: { id: string } | null = null;
+  if (typedPayment.idempotency_key) {
+    const { data } = await adminClient
+      .from("listing_credit_consumptions")
+      .select("id")
+      .eq("idempotency_key", typedPayment.idempotency_key)
+      .maybeSingle();
+    existingConsumption = data ?? null;
+  }
 
   if (!existingConsumption) {
     await adminClient.from("listing_credits").insert({
