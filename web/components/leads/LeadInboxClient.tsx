@@ -32,6 +32,20 @@ export type LeadInboxRow = {
   } | null;
   buyer?: { id?: string | null; full_name?: string | null } | null;
   owner?: { id?: string | null; full_name?: string | null } | null;
+  lead_attributions?: {
+    id?: string | null;
+    client_page_id?: string | null;
+    agent_user_id?: string | null;
+    source?: string | null;
+    created_at?: string | null;
+    client_page?: {
+      id?: string | null;
+      client_slug?: string | null;
+      client_name?: string | null;
+      client_requirements?: string | null;
+      agent_slug?: string | null;
+    } | null;
+  }[] | null;
 };
 
 export type LeadInboxProps = {
@@ -127,8 +141,32 @@ function buildStatusOptions(current: LeadStatus): StatusOption[] {
   return [...PRIMARY_STATUS_OPTIONS, { value: current, label: STATUS_LABELS[current] ?? current }];
 }
 
-function resolveLeadSource(_lead: LeadInboxRow) {
-  const flags = (_lead.contact_exchange_flags ?? {}) as Record<string, unknown>;
+type LeadAttribution = {
+  clientPageId: string;
+  clientPageName: string | null;
+  clientPageSlug: string | null;
+  clientRequirements: string | null;
+  agentSlug: string | null;
+  source: string | null;
+};
+
+function resolveLeadAttribution(lead: LeadInboxRow): LeadAttribution | null {
+  const attr = lead.lead_attributions?.[0];
+  if (!attr?.client_page_id) return null;
+  return {
+    clientPageId: attr.client_page_id,
+    clientPageName: attr.client_page?.client_name ?? null,
+    clientPageSlug: attr.client_page?.client_slug ?? null,
+    clientRequirements: attr.client_page?.client_requirements ?? null,
+    agentSlug: attr.client_page?.agent_slug ?? null,
+    source: attr.source ?? null,
+  };
+}
+
+function resolveLeadSource(lead: LeadInboxRow) {
+  const attribution = resolveLeadAttribution(lead);
+  if (attribution?.clientPageId) return "client_page";
+  const flags = (lead.contact_exchange_flags ?? {}) as Record<string, unknown>;
   const moderation = flags.moderation as Record<string, unknown> | undefined;
   const source = typeof moderation?.source === "string" ? moderation.source : null;
   return source ? source.toLowerCase() : "direct";
@@ -141,6 +179,7 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
   const [intentFilter, setIntentFilter] = useState("all");
   const [cityFilter, setCityFilter] = useState("all");
   const [sourceFilter, setSourceFilter] = useState("all");
+  const [clientPageFilter, setClientPageFilter] = useState("all");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [leadDetail, setLeadDetail] = useState<LeadDetailState>({
@@ -159,6 +198,11 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
   const selectedLead = useMemo(
     () => rows.find((lead) => lead.id === selectedId) ?? null,
     [rows, selectedId]
+  );
+
+  const selectedAttribution = useMemo(
+    () => (selectedLead ? resolveLeadAttribution(selectedLead) : null),
+    [selectedLead]
   );
 
   useEffect(() => {
@@ -249,6 +293,22 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
     return Array.from(sources);
   }, [rows]);
 
+  const clientPageOptions = useMemo(() => {
+    const map = new Map<string, string>();
+    rows.forEach((lead) => {
+      const attribution = resolveLeadAttribution(lead);
+      if (!attribution?.clientPageId) return;
+      const label =
+        attribution.clientPageName ||
+        attribution.clientPageSlug ||
+        attribution.clientPageId;
+      if (!map.has(attribution.clientPageId)) {
+        map.set(attribution.clientPageId, label);
+      }
+    });
+    return Array.from(map.entries()).map(([id, label]) => ({ id, label }));
+  }, [rows]);
+
   const filteredRows = useMemo(() => {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
@@ -286,12 +346,18 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
         if (source !== sourceFilter) return false;
       }
 
+      if (clientPageFilter !== "all") {
+        const attribution = resolveLeadAttribution(lead);
+        if (!attribution?.clientPageId || attribution.clientPageId !== clientPageFilter) {
+          return false;
+        }
+      }
+
       return true;
     });
-  }, [rows, selectedTab, dateFilter, intentFilter, cityFilter, sourceFilter]);
+  }, [rows, selectedTab, dateFilter, intentFilter, cityFilter, sourceFilter, clientPageFilter]);
 
   const highlights = useMemo(() => {
-    const now = Date.now();
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const weekStart = new Date();
@@ -570,7 +636,24 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
             <option value="all">All</option>
             {sourceOptions.map((source) => (
               <option key={source} value={source}>
-                {source === "direct" ? "Direct" : source}
+                {source === "direct" ? "Direct" : source === "client_page" ? "Client page" : source}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
+            Client page
+          </span>
+          <select
+            value={clientPageFilter}
+            onChange={(event) => setClientPageFilter(event.target.value)}
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-xs font-semibold text-slate-700"
+          >
+            <option value="all">All</option>
+            {clientPageOptions.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.label}
               </option>
             ))}
           </select>
@@ -585,6 +668,7 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
             const isNew = lead.status === "NEW";
             const updatedAt = lead.updated_at ?? lead.created_at;
             const isRecentlyUpdated = !isNew && Date.now() - toTimestamp(updatedAt) < 24 * 60 * 60 * 1000;
+            const attribution = resolveLeadAttribution(lead);
             return (
               <button
                 key={lead.id}
@@ -618,6 +702,11 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
                       <p className="text-xs text-slate-500">
                         Owner: {lead.owner?.full_name || lead.owner?.id || "Unknown"}
                       </p>
+                    )}
+                    {attribution?.clientPageId && (
+                      <span className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        Client page: {attribution.clientPageName || attribution.clientPageSlug || "Client page"}
+                      </span>
                     )}
                     <p className="text-xs text-slate-400">{formatDate(lead.created_at)}</p>
                   </div>
@@ -720,6 +809,36 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
                   </div>
                 )}
               </div>
+
+              {selectedAttribution?.clientPageId && (
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Context</p>
+                  <div className="mt-3 space-y-2 text-xs text-slate-600">
+                    <div>
+                      Client page:{" "}
+                      <span className="font-semibold text-slate-700">
+                        {selectedAttribution.clientPageName ||
+                          selectedAttribution.clientPageSlug ||
+                          selectedAttribution.clientPageId}
+                      </span>
+                    </div>
+                    {selectedAttribution.clientRequirements && (
+                      <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
+                        {selectedAttribution.clientRequirements}
+                      </div>
+                    )}
+                    {selectedAttribution.agentSlug && selectedAttribution.clientPageSlug && (
+                      <Link
+                        href={`/agents/${selectedAttribution.agentSlug}/c/${selectedAttribution.clientPageSlug}`}
+                        target="_blank"
+                        className="inline-flex w-fit items-center rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:border-slate-300"
+                      >
+                        Open client page
+                      </Link>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="rounded-2xl border border-slate-200 bg-white p-4">
                 <div className="flex items-center justify-between gap-2">

@@ -128,6 +128,7 @@ CREATE TABLE public.property_events (
     'property_view',
     'save_toggle',
     'lead_created',
+    'lead_attributed',
     'lead_status_updated',
     'lead_note_added',
     'viewing_requested',
@@ -494,3 +495,17 @@ CREATE TABLE public.agent_client_page_listings (
 
 CREATE INDEX idx_agent_client_page_listings_rank ON public.agent_client_page_listings (client_page_id, rank);
 CREATE INDEX idx_agent_client_page_listings_property ON public.agent_client_page_listings (client_page_id, property_id);
+
+-- LEAD ATTRIBUTIONS
+CREATE TABLE public.lead_attributions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  lead_id UUID NOT NULL REFERENCES public.listing_leads (id) ON DELETE CASCADE,
+  agent_user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  client_page_id UUID NOT NULL REFERENCES public.agent_client_pages (id) ON DELETE CASCADE,
+  source TEXT NOT NULL DEFAULT 'agent_client_page',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (lead_id)
+);
+
+CREATE INDEX idx_lead_attributions_agent_created ON public.lead_attributions (agent_user_id, created_at desc);
+CREATE INDEX idx_lead_attributions_client_page_created ON public.lead_attributions (client_page_id, created_at desc);

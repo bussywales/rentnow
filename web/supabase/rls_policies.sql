@@ -1486,3 +1486,29 @@ CREATE POLICY "agent_client_page_listings_admin_write"
   FOR ALL
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
+
+-- LEAD ATTRIBUTIONS
+DROP POLICY IF EXISTS "lead_attributions_agent_select" ON public.lead_attributions;
+CREATE POLICY "lead_attributions_agent_select"
+  ON public.lead_attributions
+  FOR SELECT
+  USING (agent_user_id = auth.uid());
+
+DROP POLICY IF EXISTS "lead_attributions_admin_select" ON public.lead_attributions;
+CREATE POLICY "lead_attributions_admin_select"
+  ON public.lead_attributions
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "lead_attributions_service_insert" ON public.lead_attributions;
+CREATE POLICY "lead_attributions_service_insert"
+  ON public.lead_attributions
+  FOR INSERT
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "lead_attributions_admin_write" ON public.lead_attributions;
+CREATE POLICY "lead_attributions_admin_write"
+  ON public.lead_attributions
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());

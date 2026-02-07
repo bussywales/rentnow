@@ -17,6 +17,7 @@ type IntentFilter = (typeof INTENT_OPTIONS)[number]["value"];
 type Props = {
   listings: Property[];
   contactHref?: string;
+  clientPageId?: string | null;
 };
 
 function parseNumber(value: string) {
@@ -26,7 +27,11 @@ function parseNumber(value: string) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export default function AgentClientPageListingsClient({ listings, contactHref }: Props) {
+export default function AgentClientPageListingsClient({
+  listings,
+  contactHref,
+  clientPageId,
+}: Props) {
   const [intent, setIntent] = useState<IntentFilter>("all");
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
@@ -127,9 +132,12 @@ export default function AgentClientPageListingsClient({ listings, contactHref }:
       </div>
 
       <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((listing) => (
-          <PropertyCard key={listing.id} property={listing} />
-        ))}
+        {filtered.map((listing) => {
+          const href = clientPageId
+            ? `/properties/${listing.id}?src=client_page&cp=${clientPageId}`
+            : undefined;
+          return <PropertyCard key={listing.id} property={listing} href={href} />;
+        })}
       </div>
     </section>
   );

@@ -20,6 +20,8 @@ export const leadCreateSchema = z.object({
   timeline: z.enum(LEAD_TIMELINES).optional().nullable(),
   message: z.string().min(10).max(1500),
   consent: z.boolean().optional(),
+  source: z.enum(["agent_client_page", "unknown"]).optional(),
+  clientPageId: z.string().optional().nullable(),
 });
 
 export const leadStatusUpdateSchema = z.object({

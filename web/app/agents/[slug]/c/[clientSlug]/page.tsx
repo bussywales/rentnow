@@ -167,7 +167,11 @@ export default async function AgentClientPage({ params }: PageProps) {
               Curated homes matched to this client’s shortlist.
             </p>
           </div>
-          <AgentClientPageListingsClient listings={data.listings} contactHref="#contact-agent" />
+          <AgentClientPageListingsClient
+            listings={data.listings}
+            contactHref="#contact-agent"
+            clientPageId={data.client.id}
+          />
         </section>
 
         <div className="lg:sticky lg:top-24">

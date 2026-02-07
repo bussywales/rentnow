@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { requireUser, getUserRole } from "@/lib/authz";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { leadCreateSchema } from "@/lib/leads/lead-schema";
 import { LEAD_STATUSES } from "@/lib/leads/types";
 import {
@@ -12,7 +14,11 @@ import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
 import { logFailure } from "@/lib/observability";
 import { withDeliveryState } from "@/lib/messaging/status";
 import { ensureSessionCookie } from "@/lib/analytics/session.server";
-import { logPropertyEvent } from "@/lib/analytics/property-events.server";
+import { isUuid, logPropertyEvent } from "@/lib/analytics/property-events.server";
+import {
+  canAttributeLeadToClientPage,
+  insertLeadAttribution,
+} from "@/lib/leads/lead-attribution";
 
 const routeLabel = "/api/leads";
 
@@ -34,7 +40,10 @@ export async function GET(request: Request) {
       `id, property_id, owner_id, buyer_id, thread_id, status, intent, budget_min, budget_max, financing_status, timeline, message, contact_exchange_flags, created_at, updated_at,
       properties:properties(id, title, city, state_region, country_code),
       buyer:profiles!listing_leads_buyer_id_fkey(id, full_name, role),
-      owner:profiles!listing_leads_owner_id_fkey(id, full_name, role)`
+      owner:profiles!listing_leads_owner_id_fkey(id, full_name, role),
+      lead_attributions:lead_attributions(id, client_page_id, agent_user_id, source, created_at,
+        client_page:agent_client_pages(id, client_slug, client_name, client_requirements, agent_slug)
+      )`
     )
     .order("created_at", { ascending: false });
 
@@ -100,6 +109,63 @@ export async function POST(request: Request) {
 
   if (!property.is_approved || !property.is_active) {
     return NextResponse.json({ error: "Listing is not available." }, { status: 403 });
+  }
+
+  const clientPageId =
+    typeof parsed.data.clientPageId === "string" ? parsed.data.clientPageId : null;
+  const attributionRequested =
+    parsed.data.source === "agent_client_page" && isUuid(clientPageId);
+  let clientPage: {
+    id: string;
+    agent_user_id: string;
+    client_slug: string | null;
+    client_name: string | null;
+    client_requirements: string | null;
+    agent_slug: string | null;
+    published?: boolean | null;
+    expires_at?: string | null;
+  } | null = null;
+
+  if (attributionRequested) {
+    const { data: clientPageRow } = await supabase
+      .from("agent_client_pages")
+      .select(
+        "id, agent_user_id, client_slug, client_name, client_requirements, agent_slug, published, expires_at"
+      )
+      .eq("id", clientPageId as string)
+      .maybeSingle();
+
+    if (
+      clientPageRow &&
+      canAttributeLeadToClientPage({
+        clientPage: {
+          id: clientPageRow.id,
+          agent_user_id: clientPageRow.agent_user_id,
+          published: clientPageRow.published,
+          expires_at: clientPageRow.expires_at,
+        },
+        propertyOwnerId: property.owner_id,
+      })
+    ) {
+      clientPage = {
+        id: clientPageRow.id,
+        agent_user_id: clientPageRow.agent_user_id,
+        client_slug: clientPageRow.client_slug ?? null,
+        client_name: clientPageRow.client_name ?? null,
+        client_requirements: clientPageRow.client_requirements ?? null,
+        agent_slug: clientPageRow.agent_slug ?? null,
+        published: clientPageRow.published ?? null,
+        expires_at: clientPageRow.expires_at ?? null,
+      };
+    } else {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 200,
+        startTime,
+        error: new Error("Lead attribution skipped: invalid or unpublished client page."),
+      });
+    }
   }
 
   const contactMode = await getContactExchangeMode(supabase);
@@ -205,5 +271,39 @@ export async function POST(request: Request) {
     sessionKey,
     meta: { intent: parsed.data.intent ?? "BUY" },
   });
+
+  if (clientPage && hasServiceRoleEnv()) {
+    const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;
+    const attributionResult = await insertLeadAttribution(adminClient, {
+      lead_id: lead.id,
+      agent_user_id: clientPage.agent_user_id,
+      client_page_id: clientPage.id,
+      source: "agent_client_page",
+    });
+
+    if (!attributionResult.ok) {
+      logFailure({
+        request,
+        route: routeLabel,
+        status: 200,
+        startTime,
+        error: new Error(attributionResult.error || "Lead attribution failed."),
+      });
+    } else {
+      void logPropertyEvent({
+        supabase,
+        propertyId: property.id,
+        eventType: "lead_attributed",
+        actorUserId: auth.user.id,
+        actorRole: role,
+        sessionKey,
+        meta: {
+          source: "agent_client_page",
+          clientPageId: clientPage.id,
+          agentUserId: clientPage.agent_user_id,
+        },
+      });
+    }
+  }
   return response;
 }

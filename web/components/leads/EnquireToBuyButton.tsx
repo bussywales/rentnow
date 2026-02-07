@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Textarea } from "@/components/ui/Textarea";
@@ -22,6 +22,7 @@ type Props = {
 
 export function EnquireToBuyButton({ propertyId, disabled }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [open, setOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +33,11 @@ export function EnquireToBuyButton({ propertyId, disabled }: Props) {
   const [intent, setIntent] = useState<LeadIntent>("BUY");
   const [message, setMessage] = useState("");
   const [consent, setConsent] = useState(false);
+  const uuidPattern = useMemo(
+    () =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    []
+  );
 
   const budgetHint = useMemo(() => {
     if (!budgetMin && !budgetMax) return null;
@@ -61,6 +67,13 @@ export function EnquireToBuyButton({ propertyId, disabled }: Props) {
     }
     setSubmitting(true);
     try {
+      const sourceParam = searchParams?.get("src");
+      const clientPageId = searchParams?.get("cp");
+      const validClientPageId = clientPageId ? uuidPattern.test(clientPageId) : false;
+      const attribution =
+        sourceParam === "client_page" && validClientPageId
+          ? { source: "agent_client_page", clientPageId }
+          : {};
       const res = await fetch("/api/leads", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -73,6 +86,7 @@ export function EnquireToBuyButton({ propertyId, disabled }: Props) {
           intent,
           message: message.trim(),
           consent,
+          ...attribution,
         }),
       });
       const data = await res.json().catch(() => ({}));

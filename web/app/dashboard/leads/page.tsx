@@ -28,6 +28,20 @@ type LeadRow = {
     listing_intent?: string | null;
   } | null;
   buyer?: { id?: string | null; full_name?: string | null } | null;
+  lead_attributions?: {
+    id?: string | null;
+    client_page_id?: string | null;
+    agent_user_id?: string | null;
+    source?: string | null;
+    created_at?: string | null;
+    client_page?: {
+      id?: string | null;
+      client_slug?: string | null;
+      client_name?: string | null;
+      client_requirements?: string | null;
+      agent_slug?: string | null;
+    } | null;
+  }[] | null;
 };
 
 export default async function DashboardLeadsPage() {
@@ -46,7 +60,10 @@ export default async function DashboardLeadsPage() {
     .select(
       `id, property_id, thread_id, status, intent, budget_min, budget_max, financing_status, timeline, message, contact_exchange_flags, created_at, updated_at,
       properties:properties(id, title, city, state_region, listing_intent),
-      buyer:profiles!listing_leads_buyer_id_fkey(id, full_name)`
+      buyer:profiles!listing_leads_buyer_id_fkey(id, full_name),
+      lead_attributions:lead_attributions(id, client_page_id, agent_user_id, source, created_at,
+        client_page:agent_client_pages(id, client_slug, client_name, client_requirements, agent_slug)
+      )`
     )
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });

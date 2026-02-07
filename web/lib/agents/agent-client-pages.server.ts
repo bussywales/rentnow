@@ -84,6 +84,7 @@ type ClientPagePublicResult =
         about: string | null;
       };
       client: {
+        id: string;
         slug: string;
         name: string | null;
         title: string | null;
@@ -257,6 +258,7 @@ export async function getAgentClientPagePublic(input: {
       about: page.agent_about ?? null,
     },
     client: {
+      id: page.id,
       slug: page.client_slug,
       name: page.client_name ?? null,
       title: page.title ?? null,
