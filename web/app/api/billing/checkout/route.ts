@@ -157,7 +157,7 @@ export async function POST(request: Request) {
 
     const now = new Date().toISOString();
     const { error: insertError } = await adminClient.from("listing_payments").insert({
-      user_id: listing.owner_id,
+      user_id: typedListing.owner_id,
       listing_id: listingId,
       amount: paygConfig.amount,
       currency: paygConfig.currency,
