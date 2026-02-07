@@ -41,12 +41,22 @@ export default async function AgentClientPagesPage() {
         .in("client_page_id", pageIds)
     : { data: [] };
 
-  const curatedByPage = (curatedRows ?? []).reduce<Record<string, typeof curatedRows>>((acc, row) => {
-    const key = row.client_page_id as string;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(row);
-    return acc;
-  }, {});
+  type CuratedRow = {
+    client_page_id: string;
+    property_id: string;
+    rank: number | null;
+    pinned: boolean | null;
+  };
+
+  const curatedByPage = ((curatedRows ?? []) as CuratedRow[]).reduce<Record<string, CuratedRow[]>>(
+    (acc, row) => {
+      const key = row.client_page_id;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(row);
+      return acc;
+    },
+    {}
+  );
 
   const { data: properties } = await supabase
     .from("properties")
