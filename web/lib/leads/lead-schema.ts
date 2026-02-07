@@ -32,6 +32,15 @@ export const leadStatusUpdateSchema = z.object({
 export type LeadCreateInput = z.infer<typeof leadCreateSchema>;
 export type LeadStatusUpdateInput = z.infer<typeof leadStatusUpdateSchema>;
 
-export function buildLeadSystemMessage(message: string) {
-  return `New buy enquiry submitted.\n\n${message}`;
+export function buildLeadSystemMessage(
+  message: string,
+  listingIntent?: "rent" | "buy" | null
+) {
+  if (listingIntent === "buy") {
+    return `New buy enquiry submitted.\n\n${message}`;
+  }
+  if (listingIntent === "rent") {
+    return `New rent enquiry submitted.\n\n${message}`;
+  }
+  return `New enquiry submitted.\n\n${message}`;
 }

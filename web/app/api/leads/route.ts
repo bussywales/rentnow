@@ -4,21 +4,14 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { leadCreateSchema } from "@/lib/leads/lead-schema";
-import { LEAD_STATUSES } from "@/lib/leads/types";
-import {
-  CONTACT_EXCHANGE_BLOCK_CODE,
-  CONTACT_EXCHANGE_BLOCK_MESSAGE,
-  sanitizeMessageContent,
-} from "@/lib/messaging/contact-exchange";
-import { getContactExchangeMode } from "@/lib/settings/app-settings.server";
 import { logFailure } from "@/lib/observability";
-import { withDeliveryState } from "@/lib/messaging/status";
 import { ensureSessionCookie } from "@/lib/analytics/session.server";
 import { isUuid, logPropertyEvent } from "@/lib/analytics/property-events.server";
 import {
   canAttributeLeadToClientPage,
   insertLeadAttribution,
 } from "@/lib/leads/lead-attribution";
+import { createLeadThreadAndMessage } from "@/lib/leads/lead-create.server";
 
 const routeLabel = "/api/leads";
 
@@ -168,98 +161,36 @@ export async function POST(request: Request) {
     }
   }
 
-  const contactMode = await getContactExchangeMode(supabase);
-  const sanitized = sanitizeMessageContent(parsed.data.message, contactMode);
-  if (sanitized.action === "block") {
+  const leadResult = await createLeadThreadAndMessage({
+    supabase,
+    property,
+    buyerId: auth.user.id,
+    buyerRole: role,
+    message: parsed.data.message,
+    intent: parsed.data.intent ?? "BUY",
+    budgetMin: parsed.data.budget_min ?? null,
+    budgetMax: parsed.data.budget_max ?? null,
+    financingStatus: parsed.data.financing_status ?? null,
+    timeline: parsed.data.timeline ?? null,
+    allowListingIntent: "buy",
+    request,
+    route: routeLabel,
+    startTime,
+  });
+
+  if (!leadResult.ok) {
     return NextResponse.json(
-      { error: CONTACT_EXCHANGE_BLOCK_MESSAGE, code: CONTACT_EXCHANGE_BLOCK_CODE },
-      { status: 400 }
+      { error: leadResult.error, code: leadResult.code },
+      { status: leadResult.status }
     );
   }
 
-  const now = new Date().toISOString();
-  const { data: threadRow, error: threadError } = await supabase
-    .from("message_threads")
-    .upsert(
-      {
-        property_id: property.id,
-        tenant_id: auth.user.id,
-        host_id: property.owner_id,
-        subject: property.title ?? null,
-        last_post_at: now,
-      },
-      { onConflict: "property_id,tenant_id,host_id" }
-    )
-    .select("id")
-    .single();
-
-  if (threadError || !threadRow) {
-    return NextResponse.json({ error: threadError?.message || "Unable to create thread" }, { status: 400 });
-  }
-
-  const { data: lead, error: leadError } = await supabase
-    .from("listing_leads")
-    .insert({
-      property_id: property.id,
-      owner_id: property.owner_id,
-      buyer_id: auth.user.id,
-      thread_id: threadRow.id,
-      status: LEAD_STATUSES[0],
-      intent: parsed.data.intent ?? "BUY",
-      budget_min: parsed.data.budget_min ?? null,
-      budget_max: parsed.data.budget_max ?? null,
-      financing_status: parsed.data.financing_status ?? null,
-      timeline: parsed.data.timeline ?? null,
-      message: sanitized.text,
-      message_original: contactMode === "off" ? parsed.data.message : null,
-      contact_exchange_flags: sanitized.meta ? { moderation: sanitized.meta } : null,
-      created_at: now,
-      updated_at: now,
-    })
-    .select()
-    .single();
-
-  if (leadError || !lead) {
-    return NextResponse.json({ error: leadError?.message || "Unable to save enquiry" }, { status: 400 });
-  }
-
-  const systemMessage = `New buy enquiry submitted.\n\n${sanitized.text}`;
-  const { data: posted, error: postError } = await supabase
-    .from("messages")
-    .insert({
-      thread_id: threadRow.id,
-      property_id: property.id,
-      sender_id: auth.user.id,
-      recipient_id: property.owner_id,
-      body: systemMessage,
-      sender_role: role,
-      metadata: {
-        lead_id: lead.id,
-        moderation: sanitized.meta ?? undefined,
-      },
-    })
-    .select()
-    .single();
-
-  if (postError) {
-    logFailure({
-      request,
-      route: routeLabel,
-      status: 400,
-      startTime,
-      error: new Error(postError.message),
-    });
-  } else {
-    await supabase
-      .from("message_threads")
-      .update({ last_post_at: now })
-      .eq("id", threadRow.id);
-  }
+  const lead = leadResult.lead as { id: string };
 
   const response = NextResponse.json({
     lead,
-    thread_id: threadRow.id,
-    message: posted ? withDeliveryState(posted) : null,
+    thread_id: leadResult.threadId,
+    message: leadResult.message,
   });
   const sessionKey = ensureSessionCookie(request, response);
   void logPropertyEvent({
@@ -269,7 +200,7 @@ export async function POST(request: Request) {
     actorUserId: auth.user.id,
     actorRole: role,
     sessionKey,
-    meta: { intent: parsed.data.intent ?? "BUY" },
+    meta: { intent: leadResult.leadIntent },
   });
 
   if (clientPage && hasServiceRoleEnv()) {

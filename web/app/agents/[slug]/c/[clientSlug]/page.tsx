@@ -4,8 +4,7 @@ import { safeTrim } from "@/lib/agents/agent-storefront";
 import { getAgentClientPagePublic } from "@/lib/agents/agent-client-pages.server";
 import { buildStorefrontCredibilityChips } from "@/lib/agents/storefront-credibility";
 import AgentStorefrontHero from "@/components/agents/AgentStorefrontHero";
-import AgentContactPanel from "@/components/agents/AgentContactPanel";
-import AgentClientPageListingsClient from "@/components/agents/AgentClientPageListingsClient";
+import AgentClientPageEnquirySection from "@/components/agents/AgentClientPageEnquirySection";
 
 export const dynamic = "force-dynamic";
 
@@ -132,7 +131,7 @@ export default async function AgentClientPage({ params }: PageProps) {
         listingsCount={data.listings.length}
         shareUrl={shareUrl}
         trustChips={trustChips}
-        contactAnchor="contact-agent"
+        contactAnchor="client-page-enquiry"
         companyName={data.agent.companyName}
         logoUrl={data.agent.logoUrl}
         eyebrow="Client shortlist"
@@ -159,25 +158,12 @@ export default async function AgentClientPage({ params }: PageProps) {
         <p className="mt-3 text-xs text-slate-400">Curated by {data.agent.name}</p>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr),360px] lg:items-start">
-        <section className="space-y-4">
-          <div>
-            <h3 className="text-xl font-semibold text-slate-900">Listings</h3>
-            <p className="text-sm text-slate-600">
-              Curated homes matched to this client’s shortlist.
-            </p>
-          </div>
-          <AgentClientPageListingsClient
-            listings={data.listings}
-            contactHref="#contact-agent"
-            clientPageId={data.client.id}
-          />
-        </section>
-
-        <div className="lg:sticky lg:top-24">
-          <AgentContactPanel slug={data.agent.slug ?? slug} agentName={data.agent.name} />
-        </div>
-      </div>
+      <AgentClientPageEnquirySection
+        listings={data.listings}
+        clientPageId={data.client.id}
+        agentSlug={data.agent.slug ?? slug}
+        clientSlug={data.client.slug}
+      />
     </div>
   );
 }

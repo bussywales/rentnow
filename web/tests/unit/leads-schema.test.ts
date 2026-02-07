@@ -23,7 +23,9 @@ test("lead status update accepts valid status", () => {
 });
 
 test("system message includes lead text", () => {
-  const message = buildLeadSystemMessage("Hello host");
+  const message = buildLeadSystemMessage("Hello host", "buy");
   assert.ok(message.includes("New buy enquiry submitted"));
+  const rentMessage = buildLeadSystemMessage("Hello host", "rent");
+  assert.ok(rentMessage.includes("New rent enquiry submitted"));
   assert.ok(message.includes("Hello host"));
 });

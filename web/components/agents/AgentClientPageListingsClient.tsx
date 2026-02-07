@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import type { Property } from "@/lib/types";
 import { PropertyCard } from "@/components/properties/PropertyCard";
+import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
 
 const INTENT_OPTIONS = [
@@ -18,6 +19,8 @@ type Props = {
   listings: Property[];
   contactHref?: string;
   clientPageId?: string | null;
+  selectedListingId?: string | null;
+  onEnquire?: (listingId: string) => void;
 };
 
 function parseNumber(value: string) {
@@ -31,6 +34,8 @@ export default function AgentClientPageListingsClient({
   listings,
   contactHref,
   clientPageId,
+  selectedListingId,
+  onEnquire,
 }: Props) {
   const [intent, setIntent] = useState<IntentFilter>("all");
   const [minPrice, setMinPrice] = useState("");
@@ -136,7 +141,28 @@ export default function AgentClientPageListingsClient({
           const href = clientPageId
             ? `/properties/${listing.id}?src=client_page&cp=${clientPageId}`
             : undefined;
-          return <PropertyCard key={listing.id} property={listing} href={href} />;
+          const isSelected = selectedListingId === listing.id;
+          return (
+            <div
+              key={listing.id}
+              className={cn(
+                "flex h-full flex-col gap-2",
+                isSelected && "rounded-2xl ring-2 ring-sky-500/60"
+              )}
+            >
+              <PropertyCard property={listing} href={href} />
+              {onEnquire && (
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onEnquire(listing.id)}
+                  data-testid={`client-page-enquire-${listing.id}`}
+                >
+                  Enquire about this home
+                </Button>
+              )}
+            </div>
+          );
         })}
       </div>
     </section>
