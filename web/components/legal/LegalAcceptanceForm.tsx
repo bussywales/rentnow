@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 
 type Props = {
@@ -11,13 +12,14 @@ type Props = {
 
 export function LegalAcceptanceForm({ jurisdiction, redirectTo }: Props) {
   const router = useRouter();
-  const [checked, setChecked] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedDisclaimer, setAcceptedDisclaimer] = useState(false);
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = () => {
-    if (!checked) {
-      setError("You must agree to continue.");
+    if (!acceptedTerms || !acceptedDisclaimer) {
+      setError("Please confirm both the terms and the disclaimer to continue.");
       return;
     }
     setError(null);
@@ -25,7 +27,11 @@ export function LegalAcceptanceForm({ jurisdiction, redirectTo }: Props) {
       const res = await fetch("/api/legal/accept", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ jurisdiction }),
+        body: JSON.stringify({
+          jurisdiction,
+          accept_terms: true,
+          accept_disclaimer: true,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -45,14 +51,36 @@ export function LegalAcceptanceForm({ jurisdiction, redirectTo }: Props) {
       <label className="flex items-start gap-2 text-sm text-slate-700">
         <input
           type="checkbox"
-          checked={checked}
-          onChange={(event) => setChecked(event.target.checked)}
+          checked={acceptedTerms}
+          onChange={(event) => setAcceptedTerms(event.target.checked)}
           className="mt-1"
           disabled={pending}
         />
         <span>
-          I have read and agree to the Terms & Conditions, policies, and acceptable use
-          requirements listed above.
+          I agree to the{" "}
+          <Link href="/legal" className="font-semibold text-sky-700 hover:underline">
+            Terms & Conditions
+          </Link>{" "}
+          and acceptable use requirements listed above.
+        </span>
+      </label>
+      <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
+        <input
+          type="checkbox"
+          checked={acceptedDisclaimer}
+          onChange={(event) => setAcceptedDisclaimer(event.target.checked)}
+          className="mt-1"
+          disabled={pending}
+        />
+        <span>
+          I understand the{" "}
+          <Link
+            href="/legal/disclaimer"
+            className="font-semibold text-sky-700 hover:underline"
+          >
+            marketplace disclaimer
+          </Link>{" "}
+          and that listings are provided by independent hosts and agents.
         </span>
       </label>
       <div className="mt-4 flex items-center gap-3">

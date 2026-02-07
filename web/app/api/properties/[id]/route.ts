@@ -40,6 +40,7 @@ import {
   isListingPubliclyVisible,
 } from "@/lib/properties/expiry";
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
+import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 
 const routeLabel = "/api/properties/[id]";
 type ImageMetaPayload = Record<
@@ -566,6 +567,9 @@ export async function PUT(
         { status: access.status }
       );
     }
+    if (!role) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
 
     const missingStatus = (message?: string | null) =>
       typeof message === "string" && message.includes("properties.status");
@@ -796,6 +800,18 @@ export async function PUT(
           : wasActive;
     const willActivate = requestedActive && !wasActive;
     const isPublishAttempt = statusTarget === "pending" || statusTarget === "live" || requestedActive;
+
+    if (!isAdmin && isPublishAttempt) {
+      const legalCheck = await requireLegalAcceptance({
+        request,
+        supabase,
+        userId: auth.user.id,
+        role,
+      });
+      if (!legalCheck.ok) {
+        return legalCheck.response;
+      }
+    }
 
     if (
       !isAdmin &&

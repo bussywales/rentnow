@@ -14,6 +14,7 @@ import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { hasPinnedLocation } from "@/lib/properties/validation";
 import { cleanNullableString } from "@/lib/strings";
 import { isPausedStatus, normalizePropertyStatus } from "@/lib/properties/status";
+import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 
 export const dynamic = "force-dynamic";
 
@@ -92,6 +93,9 @@ export async function postPropertyStatusResponse(
       { status: access.status }
     );
   }
+  if (!role) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   const body = await request.json();
   const { status, paused_reason } = bodySchema.parse(body);
@@ -139,6 +143,18 @@ export async function postPropertyStatusResponse(
   const wasPaused = isPausedStatus(listing.status);
   const isPauseRequest = isPausedStatus(normalizedStatus);
   const isReactivateRequest = normalizedStatus === "live";
+
+  if (isReactivateRequest && role !== "admin") {
+    const legalCheck = await requireLegalAcceptance({
+      request,
+      supabase,
+      userId: auth.user.id,
+      role,
+    });
+    if (!legalCheck.ok) {
+      return legalCheck.response;
+    }
+  }
 
   if (isPauseRequest && normalizePropertyStatus(listing.status) !== "live") {
     return NextResponse.json(

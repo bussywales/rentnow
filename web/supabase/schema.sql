@@ -279,7 +279,7 @@ CREATE TABLE public.legal_documents (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   change_log TEXT,
   CONSTRAINT legal_documents_status_check CHECK (status IN ('draft', 'published', 'archived')),
-  CONSTRAINT legal_documents_audience_check CHECK (audience IN ('MASTER', 'TENANT', 'LANDLORD_AGENT', 'ADMIN_OPS', 'AUP'))
+  CONSTRAINT legal_documents_audience_check CHECK (audience IN ('MASTER', 'TENANT', 'LANDLORD_AGENT', 'ADMIN_OPS', 'AUP', 'DISCLAIMER'))
 );
 
 CREATE UNIQUE INDEX legal_documents_unique_version ON public.legal_documents (jurisdiction, audience, version);
@@ -299,12 +299,29 @@ CREATE TABLE public.legal_acceptances (
   accepted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   ip TEXT,
   user_agent TEXT,
-  CONSTRAINT legal_acceptances_audience_check CHECK (audience IN ('MASTER', 'TENANT', 'LANDLORD_AGENT', 'ADMIN_OPS', 'AUP'))
+  CONSTRAINT legal_acceptances_audience_check CHECK (audience IN ('MASTER', 'TENANT', 'LANDLORD_AGENT', 'ADMIN_OPS', 'AUP', 'DISCLAIMER'))
 );
 
 CREATE UNIQUE INDEX legal_acceptances_unique_user_doc ON public.legal_acceptances (user_id, jurisdiction, audience, version);
 CREATE INDEX legal_acceptances_user_idx ON public.legal_acceptances (user_id, accepted_at desc);
 CREATE INDEX idx_legal_acceptances_document_id ON public.legal_acceptances (document_id);
+
+-- LEGAL VERSIONS
+CREATE TABLE public.legal_versions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  jurisdiction TEXT NOT NULL,
+  audience TEXT NOT NULL,
+  version INT NOT NULL,
+  document_id UUID NOT NULL REFERENCES public.legal_documents (id) ON DELETE CASCADE,
+  effective_at TIMESTAMPTZ,
+  published_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  CONSTRAINT legal_versions_audience_check CHECK (audience IN ('MASTER', 'TENANT', 'LANDLORD_AGENT', 'ADMIN_OPS', 'AUP', 'DISCLAIMER'))
+);
+
+CREATE UNIQUE INDEX legal_versions_unique ON public.legal_versions (jurisdiction, audience);
+CREATE INDEX legal_versions_lookup_idx ON public.legal_versions (jurisdiction, audience, version desc);
 
 -- LISTING LEADS
 CREATE TABLE public.listing_leads (
@@ -511,3 +528,213 @@ CREATE TABLE public.lead_attributions (
 
 CREATE INDEX idx_lead_attributions_agent_created ON public.lead_attributions (agent_user_id, created_at desc);
 CREATE INDEX idx_lead_attributions_client_page_created ON public.lead_attributions (client_page_id, created_at desc);
+
+-- PAYG listing fees + credits
+CREATE TABLE public.plans (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  role TEXT NOT NULL,
+  price NUMERIC NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'NGN',
+  period TEXT,
+  listing_credits INT NOT NULL DEFAULT 0,
+  featured_credits INT NOT NULL DEFAULT 0,
+  is_active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE public.listing_credits (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  source TEXT NOT NULL,
+  credits_total INT NOT NULL,
+  credits_used INT NOT NULL DEFAULT 0,
+  expires_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_listing_credits_user ON public.listing_credits (user_id);
+CREATE INDEX idx_listing_credits_user_expiry ON public.listing_credits (user_id, expires_at);
+
+CREATE TABLE public.listing_credit_consumptions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  listing_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
+  credit_id UUID NOT NULL REFERENCES public.listing_credits (id) ON DELETE RESTRICT,
+  idempotency_key TEXT NOT NULL,
+  source TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (idempotency_key),
+  UNIQUE (listing_id)
+);
+
+CREATE INDEX idx_listing_credit_consumptions_user ON public.listing_credit_consumptions (user_id, created_at DESC);
+CREATE INDEX idx_listing_credit_consumptions_listing ON public.listing_credit_consumptions (listing_id, created_at DESC);
+
+CREATE TABLE public.listing_payments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  listing_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
+  amount NUMERIC NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'NGN',
+  status TEXT NOT NULL DEFAULT 'pending',
+  provider TEXT NOT NULL DEFAULT 'paystack',
+  provider_ref TEXT,
+  idempotency_key TEXT NOT NULL,
+  paid_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (idempotency_key)
+);
+
+CREATE INDEX idx_listing_payments_user ON public.listing_payments (user_id, created_at DESC);
+CREATE INDEX idx_listing_payments_listing ON public.listing_payments (listing_id);
+CREATE UNIQUE INDEX idx_listing_payments_provider_ref ON public.listing_payments (provider, provider_ref);
+
+CREATE TABLE public.promo_codes (
+  code TEXT PRIMARY KEY,
+  role TEXT,
+  credits INT NOT NULL DEFAULT 0,
+  expires_at TIMESTAMPTZ,
+  max_redemptions INT,
+  redeemed_count INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE OR REPLACE FUNCTION public.consume_listing_credit(
+  in_user_id UUID,
+  in_listing_id UUID,
+  in_idempotency_key TEXT
+) RETURNS JSONB
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public, pg_catalog
+SET row_security TO off
+AS $$
+DECLARE
+  now_ts TIMESTAMPTZ := NOW();
+  existing_row RECORD;
+  picked_credit RECORD;
+BEGIN
+  IF in_user_id IS NULL OR in_listing_id IS NULL OR in_idempotency_key IS NULL OR btrim(in_idempotency_key) = '' THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'INVALID_INPUT');
+  END IF;
+
+  SELECT id, credit_id, source, idempotency_key
+  INTO existing_row
+  FROM public.listing_credit_consumptions
+  WHERE idempotency_key = in_idempotency_key
+  LIMIT 1;
+
+  IF existing_row.id IS NOT NULL THEN
+    RETURN jsonb_build_object(
+      'ok', true,
+      'consumed', true,
+      'credit_id', existing_row.credit_id,
+      'source', existing_row.source,
+      'idempotency_key', existing_row.idempotency_key,
+      'existing', true
+    );
+  END IF;
+
+  SELECT id, credit_id, source, idempotency_key
+  INTO existing_row
+  FROM public.listing_credit_consumptions
+  WHERE listing_id = in_listing_id
+  LIMIT 1;
+
+  IF existing_row.id IS NOT NULL THEN
+    RETURN jsonb_build_object(
+      'ok', true,
+      'consumed', false,
+      'credit_id', existing_row.credit_id,
+      'source', existing_row.source,
+      'idempotency_key', existing_row.idempotency_key,
+      'already_consumed', true
+    );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.properties p
+    WHERE p.id = in_listing_id AND p.owner_id = in_user_id
+  ) THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'NOT_OWNER');
+  END IF;
+
+  SELECT id, source
+  INTO picked_credit
+  FROM public.listing_credits
+  WHERE user_id = in_user_id
+    AND credits_used < credits_total
+    AND (expires_at IS NULL OR expires_at > now_ts)
+  ORDER BY expires_at NULLS LAST, created_at
+  LIMIT 1
+  FOR UPDATE;
+
+  IF picked_credit.id IS NULL THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'NO_CREDITS');
+  END IF;
+
+  UPDATE public.listing_credits
+    SET credits_used = credits_used + 1,
+        updated_at = now_ts
+    WHERE id = picked_credit.id
+      AND credits_used < credits_total;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('ok', false, 'reason', 'NO_CREDITS');
+  END IF;
+
+  INSERT INTO public.listing_credit_consumptions (
+    user_id,
+    listing_id,
+    credit_id,
+    idempotency_key,
+    source,
+    created_at
+  ) VALUES (
+    in_user_id,
+    in_listing_id,
+    picked_credit.id,
+    in_idempotency_key,
+    picked_credit.source,
+    now_ts
+  );
+
+  RETURN jsonb_build_object(
+    'ok', true,
+    'consumed', true,
+    'credit_id', picked_credit.id,
+    'source', picked_credit.source,
+    'idempotency_key', in_idempotency_key
+  );
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.consume_listing_credit(UUID, UUID, TEXT) TO service_role;
+
+ALTER TABLE public.property_events DROP CONSTRAINT IF EXISTS property_events_event_type_check;
+ALTER TABLE public.property_events
+  ADD CONSTRAINT property_events_event_type_check
+  CHECK (event_type IN (
+    'property_view',
+    'save_toggle',
+    'lead_created',
+    'lead_attributed',
+    'lead_status_updated',
+    'lead_note_added',
+    'client_page_lead_viewed',
+    'client_page_lead_status_updated',
+    'listing_submit_attempted',
+    'listing_submit_blocked_no_credits',
+    'listing_payment_started',
+    'listing_payment_succeeded',
+    'listing_credit_consumed',
+    'viewing_requested',
+    'share_open',
+    'featured_impression'
+  ));

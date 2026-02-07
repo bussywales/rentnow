@@ -14,6 +14,12 @@ import AdminSettingsContactExchange from "@/components/admin/AdminSettingsContac
 import AdminSettingsListingExpiry from "@/components/admin/AdminSettingsListingExpiry";
 import { DEFAULT_LISTING_EXPIRY_DAYS } from "@/lib/properties/expiry";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
+import AdminSettingsPayg from "@/components/admin/AdminSettingsPayg";
+import {
+  DEFAULT_PAYG_LISTING_FEE_AMOUNT,
+  DEFAULT_TRIAL_CREDITS_AGENT,
+  DEFAULT_TRIAL_CREDITS_LANDLORD,
+} from "@/lib/billing/payg";
 
 export const dynamic = "force-dynamic";
 
@@ -41,6 +47,10 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.contactExchangeMode,
       APP_SETTING_KEYS.listingExpiryDays,
       APP_SETTING_KEYS.showExpiredListingsPublic,
+      APP_SETTING_KEYS.paygEnabled,
+      APP_SETTING_KEYS.paygListingFeeAmount,
+      APP_SETTING_KEYS.trialListingCreditsAgent,
+      APP_SETTING_KEYS.trialListingCreditsLandlord,
     ]);
 
   const keys = [
@@ -71,6 +81,28 @@ export default async function AdminSettingsPage() {
   );
   const showExpiredPublic = parseAppSettingBool(showExpiredRow?.value, false);
 
+  const paygEnabledRow = data?.find((item) => item.key === APP_SETTING_KEYS.paygEnabled);
+  const paygEnabled = parseAppSettingBool(paygEnabledRow?.value, true);
+  const paygAmountRow = data?.find((item) => item.key === APP_SETTING_KEYS.paygListingFeeAmount);
+  const paygAmount = parseAppSettingInt(
+    paygAmountRow?.value,
+    DEFAULT_PAYG_LISTING_FEE_AMOUNT
+  );
+  const trialAgentRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.trialListingCreditsAgent
+  );
+  const trialLandlordRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.trialListingCreditsLandlord
+  );
+  const trialAgentCredits = parseAppSettingInt(
+    trialAgentRow?.value,
+    DEFAULT_TRIAL_CREDITS_AGENT
+  );
+  const trialLandlordCredits = parseAppSettingInt(
+    trialLandlordRow?.value,
+    DEFAULT_TRIAL_CREDITS_LANDLORD
+  );
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4">
       <div className="space-y-1">
@@ -89,6 +121,16 @@ export default async function AdminSettingsPage() {
         expiryUpdatedAt={expiryRow?.updated_at ?? null}
         showExpiredPublic={showExpiredPublic}
         showExpiredUpdatedAt={showExpiredRow?.updated_at ?? null}
+      />
+      <AdminSettingsPayg
+        paygEnabled={paygEnabled}
+        paygAmount={paygAmount}
+        paygUpdatedAt={paygEnabledRow?.updated_at ?? null}
+        amountUpdatedAt={paygAmountRow?.updated_at ?? null}
+        trialAgentCredits={trialAgentCredits}
+        trialLandlordCredits={trialLandlordCredits}
+        trialAgentUpdatedAt={trialAgentRow?.updated_at ?? null}
+        trialLandlordUpdatedAt={trialLandlordRow?.updated_at ?? null}
       />
       <AdminLocationConfigStatus
         flags={{

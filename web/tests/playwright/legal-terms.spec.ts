@@ -23,7 +23,7 @@ let originalDocs: Array<{
   effective_at: string | null;
 }> = [];
 
-const audiences = ["MASTER", "TENANT", "LANDLORD_AGENT", "ADMIN_OPS", "AUP"];
+const audiences = ["MASTER", "TENANT", "LANDLORD_AGENT", "ADMIN_OPS", "AUP", "DISCLAIMER"];
 
 async function login(page: Page, email: string, password: string) {
   await page.goto("/auth/login");
@@ -173,7 +173,8 @@ test.describe.serial("Legal terms management", () => {
     await page.waitForURL(/\/legal\/accept/, { timeout: 15_000 });
     await expect(page.getByText(/review terms/i)).toBeVisible();
 
-    await page.getByRole("checkbox").check();
+    await page.getByRole("checkbox").nth(0).check();
+    await page.getByRole("checkbox").nth(1).check();
     await page.getByRole("button", { name: /i agree/i }).click();
     await page.waitForURL(/\/tenant/, { timeout: 15_000 });
   });
@@ -195,7 +196,8 @@ test.describe.serial("Legal terms management", () => {
     await page.goto("/legal/accept?redirect=/tenant");
     await expect(page.getByText(/review terms/i)).toBeVisible();
 
-    await page.getByRole("checkbox").check();
+    await page.getByRole("checkbox").nth(0).check();
+    await page.getByRole("checkbox").nth(1).check();
     const [response] = await Promise.all([
       page.waitForResponse(
         (resp) =>
@@ -211,5 +213,10 @@ test.describe.serial("Legal terms management", () => {
     expect(statusResponse.ok()).toBeTruthy();
     const statusBody = await statusResponse.json();
     expect(statusBody.is_complete).toBe(true);
+  });
+
+  test("public pages show the disclaimer banner", async ({ page }) => {
+    await page.goto("/properties");
+    await expect(page.getByTestId("legal-disclaimer-banner")).toBeVisible();
   });
 });

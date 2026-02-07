@@ -4,6 +4,7 @@ export const LEGAL_AUDIENCES = [
   "LANDLORD_AGENT",
   "ADMIN_OPS",
   "AUP",
+  "DISCLAIMER",
 ] as const;
 
 export type LegalAudience = (typeof LEGAL_AUDIENCES)[number];
@@ -19,6 +20,7 @@ export const LEGAL_AUDIENCE_LABELS: Record<LegalAudience, string> = {
   LANDLORD_AGENT: "Landlord/Agent terms",
   ADMIN_OPS: "Admin/Ops terms",
   AUP: "Acceptable use policy",
+  DISCLAIMER: "Marketplace disclaimer",
 };
 
 export function isLegalAudience(value: string | null | undefined): value is LegalAudience {

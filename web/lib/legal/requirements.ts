@@ -8,7 +8,7 @@ const ROLE_AUDIENCE_MAP: Record<UserRole, LegalAudience> = {
   admin: "ADMIN_OPS",
 };
 
-const BASE_REQUIRED: LegalAudience[] = ["MASTER", "AUP"];
+const BASE_REQUIRED: LegalAudience[] = ["MASTER", "AUP", "DISCLAIMER"];
 const ROLE_PRIORITY: UserRole[] = ["admin", "tenant", "landlord", "agent"];
 
 export function getLegalAudienceForRole(role: UserRole): LegalAudience {

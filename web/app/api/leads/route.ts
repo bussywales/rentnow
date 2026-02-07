@@ -12,6 +12,7 @@ import {
   insertLeadAttribution,
 } from "@/lib/leads/lead-attribution";
 import { createLeadThreadAndMessage } from "@/lib/leads/lead-create.server";
+import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 
 const routeLabel = "/api/leads";
 
@@ -75,6 +76,14 @@ export async function POST(request: Request) {
   if (role !== "tenant") {
     return NextResponse.json({ error: "Only tenants can submit enquiries." }, { status: 403 });
   }
+
+  const legalCheck = await requireLegalAcceptance({
+    request,
+    supabase,
+    userId: auth.user.id,
+    role,
+  });
+  if (!legalCheck.ok) return legalCheck.response;
 
   const payload = await request.json().catch(() => null);
   const parsed = leadCreateSchema.safeParse(payload);

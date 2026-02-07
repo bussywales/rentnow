@@ -13,6 +13,7 @@ import { ensureSessionCookie } from "@/lib/analytics/session.server";
 import { logPropertyEvent } from "@/lib/analytics/property-events.server";
 import { insertLeadAttribution } from "@/lib/leads/lead-attribution";
 import { logFailure } from "@/lib/observability";
+import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 
 const routeLabel = "/api/agents/[slug]/c/[clientSlug]/enquire";
 
@@ -40,6 +41,14 @@ export async function POST(
   if (role !== "tenant") {
     return NextResponse.json({ error: "Only tenants can submit enquiries." }, { status: 403 });
   }
+
+  const legalCheck = await requireLegalAcceptance({
+    request,
+    supabase: auth.supabase,
+    userId: auth.user.id,
+    role,
+  });
+  if (!legalCheck.ok) return legalCheck.response;
 
   const resolvedParams = await params;
   const slug = safeTrim(resolvedParams?.slug);

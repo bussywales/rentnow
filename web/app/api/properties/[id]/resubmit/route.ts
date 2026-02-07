@@ -5,6 +5,7 @@ import { getListingAccessResult } from "@/lib/role-access";
 import { readActingAsFromRequest } from "@/lib/acting-as";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { validateResubmitStatus } from "@/lib/properties/resubmit";
+import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,21 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   const access = getListingAccessResult(role, true);
   if (!access.ok) {
     return NextResponse.json({ error: access.message, code: access.code }, { status: access.status });
+  }
+  if (!role) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  if (role !== "admin") {
+    const legalCheck = await requireLegalAcceptance({
+      request,
+      supabase,
+      userId: auth.user.id,
+      role,
+    });
+    if (!legalCheck.ok) {
+      return legalCheck.response;
+    }
   }
 
   const actingAs = readActingAsFromRequest(request);

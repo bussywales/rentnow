@@ -118,7 +118,9 @@ export default function OnboardingPage() {
       setError(profileError.message);
     } else {
       if (selected === "tenant") {
-        router.replace("/properties");
+        router.replace(
+          `/legal/accept?redirect=${encodeURIComponent("/properties")}`
+        );
       } else if (selected === "agent") {
         router.replace("/onboarding/agent");
       } else {

@@ -28,6 +28,8 @@ export default function RegisterPage({ searchParams }: PageProps) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedDisclaimer, setAcceptedDisclaimer] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -74,6 +76,10 @@ export default function RegisterPage({ searchParams }: PageProps) {
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    if (!acceptedTerms || !acceptedDisclaimer) {
+      setError("Please agree to the terms and disclaimer to continue.");
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -172,6 +178,39 @@ export default function RegisterPage({ searchParams }: PageProps) {
             onChange={(e) => setConfirmPassword(e.target.value)}
             autoComplete="new-password"
           />
+          <label className="flex items-start gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={acceptedTerms}
+              onChange={(e) => setAcceptedTerms(e.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              I agree to the{" "}
+              <Link href="/legal" className="font-semibold text-sky-700 hover:underline">
+                Terms & Conditions
+              </Link>
+              .
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-xs text-slate-600">
+            <input
+              type="checkbox"
+              checked={acceptedDisclaimer}
+              onChange={(e) => setAcceptedDisclaimer(e.target.checked)}
+              className="mt-1"
+            />
+            <span>
+              I understand the{" "}
+              <Link
+                href="/legal/disclaimer"
+                className="font-semibold text-sky-700 hover:underline"
+              >
+                marketplace disclaimer
+              </Link>
+              .
+            </span>
+          </label>
           {error && <p className="text-sm text-red-600">{error}</p>}
           <Button
             className="w-full"

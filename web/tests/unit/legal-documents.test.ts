@@ -21,13 +21,29 @@ type SupabaseStub = {
 };
 
 void test("required legal audiences include base docs per role", () => {
-  assert.deepEqual(getRequiredLegalAudiences("tenant"), ["MASTER", "AUP", "TENANT"]);
-  assert.deepEqual(getRequiredLegalAudiences("landlord"), ["MASTER", "AUP", "LANDLORD_AGENT"]);
-  assert.deepEqual(getRequiredLegalAudiences("agent"), ["MASTER", "AUP", "LANDLORD_AGENT"]);
-  assert.deepEqual(getRequiredLegalAudiences("admin"), ["MASTER", "AUP", "ADMIN_OPS"]);
+  assert.deepEqual(getRequiredLegalAudiences("tenant"), ["MASTER", "AUP", "DISCLAIMER", "TENANT"]);
+  assert.deepEqual(getRequiredLegalAudiences("landlord"), [
+    "MASTER",
+    "AUP",
+    "DISCLAIMER",
+    "LANDLORD_AGENT",
+  ]);
+  assert.deepEqual(getRequiredLegalAudiences("agent"), [
+    "MASTER",
+    "AUP",
+    "DISCLAIMER",
+    "LANDLORD_AGENT",
+  ]);
+  assert.deepEqual(getRequiredLegalAudiences("admin"), [
+    "MASTER",
+    "AUP",
+    "DISCLAIMER",
+    "ADMIN_OPS",
+  ]);
   assert.deepEqual(getRequiredLegalAudiences(["admin", "tenant"]), [
     "MASTER",
     "AUP",
+    "DISCLAIMER",
     "ADMIN_OPS",
     "TENANT",
   ]);
@@ -112,7 +128,11 @@ void test("legal acceptance inserts rows for required documents", async () => {
     new Request("http://localhost/api/legal/accept", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jurisdiction: "NG" }),
+      body: JSON.stringify({
+        jurisdiction: "NG",
+        accept_terms: true,
+        accept_disclaimer: true,
+      }),
     }),
     {
       hasServerSupabaseEnv: () => true,
@@ -123,7 +143,7 @@ void test("legal acceptance inserts rows for required documents", async () => {
         jurisdiction: "NG",
         role: "admin",
         roles: ["admin"],
-        requiredAudiences: ["MASTER", "AUP", "ADMIN_OPS"],
+        requiredAudiences: ["MASTER", "AUP", "DISCLAIMER", "ADMIN_OPS"],
         documents: [
           {
             id: "doc-1",
@@ -144,6 +164,15 @@ void test("legal acceptance inserts rows for required documents", async () => {
             content_md: "Terms",
           },
           {
+            id: "doc-4",
+            jurisdiction: "NG",
+            audience: "DISCLAIMER",
+            version: 1,
+            status: "published",
+            title: "Disclaimer",
+            content_md: "Terms",
+          },
+          {
             id: "doc-3",
             jurisdiction: "NG",
             audience: "ADMIN_OPS",
@@ -154,7 +183,7 @@ void test("legal acceptance inserts rows for required documents", async () => {
           },
         ],
         acceptedAudiences: [],
-        pendingAudiences: ["MASTER", "AUP", "ADMIN_OPS"],
+        pendingAudiences: ["MASTER", "AUP", "DISCLAIMER", "ADMIN_OPS"],
         missingAudiences: [],
         isComplete: false,
       }),
@@ -163,7 +192,7 @@ void test("legal acceptance inserts rows for required documents", async () => {
 
   assert.equal(response.status, 200);
   assert.ok(upsertPayload);
-  assert.equal(upsertPayload?.length, 3);
+  assert.equal(upsertPayload?.length, 4);
   assert.equal(upsertOnConflict, "user_id,jurisdiction,audience,version");
 });
 
@@ -172,7 +201,11 @@ void test("missing audiences are surfaced in acceptance errors", async () => {
     new Request("http://localhost/api/legal/accept", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ jurisdiction: "NG" }),
+      body: JSON.stringify({
+        jurisdiction: "NG",
+        accept_terms: true,
+        accept_disclaimer: true,
+      }),
     }),
     {
       hasServerSupabaseEnv: () => true,
@@ -183,7 +216,7 @@ void test("missing audiences are surfaced in acceptance errors", async () => {
         jurisdiction: "NG",
         role: "tenant",
         roles: ["tenant"],
-        requiredAudiences: ["MASTER", "AUP", "TENANT"],
+        requiredAudiences: ["MASTER", "AUP", "DISCLAIMER", "TENANT"],
         documents: [
           {
             id: "doc-1",
@@ -197,7 +230,7 @@ void test("missing audiences are surfaced in acceptance errors", async () => {
         ],
         acceptedAudiences: [],
         pendingAudiences: ["MASTER"],
-        missingAudiences: ["AUP", "TENANT"],
+        missingAudiences: ["AUP", "DISCLAIMER", "TENANT"],
         isComplete: false,
       }),
     }
@@ -205,7 +238,7 @@ void test("missing audiences are surfaced in acceptance errors", async () => {
 
   const body = await response.json();
   assert.equal(response.status, 409);
-  assert.deepEqual(body.missing_audiences, ["AUP", "TENANT"]);
+  assert.deepEqual(body.missing_audiences, ["AUP", "DISCLAIMER", "TENANT"]);
 });
 
 void test("legal migration enforces published uniqueness and acceptance uniqueness", () => {

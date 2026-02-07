@@ -60,7 +60,9 @@ export default function AgentOnboardingPage() {
       if (updateError) {
         setError(updateError.message);
       } else {
-        router.replace("/dashboard/properties/new");
+        router.replace(
+          `/legal/accept?redirect=${encodeURIComponent("/dashboard/properties/new")}`
+        );
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to save onboarding details.");

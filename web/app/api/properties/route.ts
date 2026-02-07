@@ -26,6 +26,7 @@ import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checki
 import { cleanNullableString } from "@/lib/strings";
 import { computeExpiryAt } from "@/lib/properties/expiry";
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
+import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
@@ -184,6 +185,9 @@ export async function POST(request: Request) {
         { status: access.status }
       );
     }
+    if (!role) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
     const actingAs = readActingAsFromRequest(request as NextRequest);
     let ownerId = user.id;
 
@@ -258,6 +262,18 @@ export async function POST(request: Request) {
         ? computeExpiryAt(now, expiryDays)
         : null;
     const willPublish = !isAdmin && isActive;
+
+    if (willPublish) {
+      const legalCheck = await requireLegalAcceptance({
+        request,
+        supabase,
+        userId: user.id,
+        role,
+      });
+      if (!legalCheck.ok) {
+        return legalCheck.response;
+      }
+    }
 
     if (
       willPublish &&

@@ -37,6 +37,9 @@ ALTER TABLE public.legal_documents FORCE ROW LEVEL SECURITY;
 ALTER TABLE public.legal_acceptances ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.legal_acceptances FORCE ROW LEVEL SECURITY;
 
+ALTER TABLE public.legal_versions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.legal_versions FORCE ROW LEVEL SECURITY;
+
 ALTER TABLE public.listing_leads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.listing_leads FORCE ROW LEVEL SECURITY;
 
@@ -350,6 +353,19 @@ CREATE POLICY "legal acceptances update self" ON public.legal_acceptances
   WITH CHECK (auth.uid() = user_id OR public.is_admin());
 
 DROP POLICY IF EXISTS "legal acceptances admin read" ON public.legal_acceptances;
+
+-- legal_versions: public read; admin write
+DROP POLICY IF EXISTS "legal versions public read" ON public.legal_versions;
+CREATE POLICY "legal versions public read" ON public.legal_versions
+  FOR SELECT
+  TO anon, authenticated
+  USING (true);
+
+DROP POLICY IF EXISTS "legal versions admin write" ON public.legal_versions;
+CREATE POLICY "legal versions admin write" ON public.legal_versions
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
 
 -- listing_leads: buyer/owner/admin read; buyer insert; owner/admin update
 DROP POLICY IF EXISTS "listing_leads_select" ON public.listing_leads;
@@ -1509,6 +1525,111 @@ CREATE POLICY "lead_attributions_service_insert"
 DROP POLICY IF EXISTS "lead_attributions_admin_write" ON public.lead_attributions;
 CREATE POLICY "lead_attributions_admin_write"
   ON public.lead_attributions
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+-- PAYG listing fees + credits
+DROP POLICY IF EXISTS "plans public read" ON public.plans;
+CREATE POLICY "plans public read"
+  ON public.plans
+  FOR SELECT
+  USING (is_active = TRUE OR public.is_admin());
+
+DROP POLICY IF EXISTS "plans admin write" ON public.plans;
+CREATE POLICY "plans admin write"
+  ON public.plans
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "listing credits owner select" ON public.listing_credits;
+CREATE POLICY "listing credits owner select"
+  ON public.listing_credits
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "listing credits admin select" ON public.listing_credits;
+CREATE POLICY "listing credits admin select"
+  ON public.listing_credits
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "listing credits service write" ON public.listing_credits;
+CREATE POLICY "listing credits service write"
+  ON public.listing_credits
+  FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "listing credits admin write" ON public.listing_credits;
+CREATE POLICY "listing credits admin write"
+  ON public.listing_credits
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "listing credit consumptions owner select" ON public.listing_credit_consumptions;
+CREATE POLICY "listing credit consumptions owner select"
+  ON public.listing_credit_consumptions
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "listing credit consumptions admin select" ON public.listing_credit_consumptions;
+CREATE POLICY "listing credit consumptions admin select"
+  ON public.listing_credit_consumptions
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "listing credit consumptions service write" ON public.listing_credit_consumptions;
+CREATE POLICY "listing credit consumptions service write"
+  ON public.listing_credit_consumptions
+  FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "listing credit consumptions admin write" ON public.listing_credit_consumptions;
+CREATE POLICY "listing credit consumptions admin write"
+  ON public.listing_credit_consumptions
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "listing payments owner select" ON public.listing_payments;
+CREATE POLICY "listing payments owner select"
+  ON public.listing_payments
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "listing payments admin select" ON public.listing_payments;
+CREATE POLICY "listing payments admin select"
+  ON public.listing_payments
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "listing payments service write" ON public.listing_payments;
+CREATE POLICY "listing payments service write"
+  ON public.listing_payments
+  FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "listing payments admin write" ON public.listing_payments;
+CREATE POLICY "listing payments admin write"
+  ON public.listing_payments
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
+DROP POLICY IF EXISTS "promo codes admin select" ON public.promo_codes;
+CREATE POLICY "promo codes admin select"
+  ON public.promo_codes
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "promo codes admin write" ON public.promo_codes;
+CREATE POLICY "promo codes admin write"
+  ON public.promo_codes
   FOR ALL
   USING (public.is_admin())
   WITH CHECK (public.is_admin());

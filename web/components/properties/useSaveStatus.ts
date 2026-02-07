@@ -19,5 +19,6 @@ export function useSaveStatus(listingId?: string | null) {
     setSubmitting: () => manager.setSubmitting(),
     setSubmitted: () => manager.setSubmitted(),
     retry: () => manager.triggerRetry(),
+    reset: () => manager.reset(),
   };
 }

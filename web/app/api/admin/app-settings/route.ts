@@ -26,9 +26,13 @@ const daysValueSchema = z.object({
   days: z.number().int().min(7).max(365),
 });
 
+const numericValueSchema = z.object({
+  value: z.number().int().min(0).max(1_000_000),
+});
+
 export const patchSchema = z.object({
   key: z.enum(ALLOWED_KEYS),
-  value: z.union([enabledValueSchema, modeValueSchema, daysValueSchema]),
+  value: z.union([enabledValueSchema, modeValueSchema, daysValueSchema, numericValueSchema]),
 });
 
 export function validatePatchPayload(input: unknown) {
@@ -85,13 +89,21 @@ export async function PATCH(request: Request) {
   const body = parsed.data;
   const isModeSetting = body.key === APP_SETTING_KEYS.contactExchangeMode;
   const isExpirySetting = body.key === APP_SETTING_KEYS.listingExpiryDays;
+  const isNumericSetting = [
+    APP_SETTING_KEYS.paygListingFeeAmount,
+    APP_SETTING_KEYS.trialListingCreditsAgent,
+    APP_SETTING_KEYS.trialListingCreditsLandlord,
+  ].includes(body.key);
   if (isModeSetting && !("mode" in body.value)) {
     return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
   }
   if (isExpirySetting && !("days" in body.value)) {
     return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
   }
-  if (!isModeSetting && !isExpirySetting && !("enabled" in body.value)) {
+  if (isNumericSetting && !("value" in body.value)) {
+    return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
+  }
+  if (!isModeSetting && !isExpirySetting && !isNumericSetting && !("enabled" in body.value)) {
     return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
   }
   const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;

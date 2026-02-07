@@ -16,6 +16,9 @@ export function Footer() {
           >
             Contact
           </a>
+          <a className="hover:text-sky-600" href="/legal/disclaimer">
+            Disclaimer
+          </a>
           <span className="text-slate-400">Built by Xthetic Studio UK</span>
         </div>
       </div>

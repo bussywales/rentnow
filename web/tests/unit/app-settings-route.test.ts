@@ -48,6 +48,22 @@ void test("patchSchema accepts agent storefront payload", () => {
   assert.equal(parsed.key, "agent_storefronts_enabled");
 });
 
+void test("patchSchema accepts payg amount payload", () => {
+  const parsed = patchSchema.parse({
+    key: "payg_listing_fee_amount",
+    value: { value: 2000 },
+  });
+  assert.equal(parsed.key, "payg_listing_fee_amount");
+});
+
+void test("patchSchema accepts trial credits payload", () => {
+  const parsed = patchSchema.parse({
+    key: "trial_listing_credits_agent",
+    value: { value: 3 },
+  });
+  assert.equal(parsed.key, "trial_listing_credits_agent");
+});
+
 void test("validatePatchPayload rejects invalid keys", () => {
   const parsed = validatePatchPayload({ key: "not_a_key", value: { enabled: true } });
   assert.equal(parsed.ok, false);

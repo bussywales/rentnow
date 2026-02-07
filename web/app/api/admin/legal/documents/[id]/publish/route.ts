@@ -79,5 +79,24 @@ export async function POST(request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
+  if (data) {
+    const { error: versionError } = await auth.supabase.from("legal_versions").upsert(
+      {
+        jurisdiction: data.jurisdiction,
+        audience: data.audience,
+        version: data.version,
+        document_id: data.id,
+        effective_at: data.effective_at,
+        published_at: data.published_at,
+        updated_at: now,
+      },
+      { onConflict: "jurisdiction,audience" }
+    );
+
+    if (versionError) {
+      return NextResponse.json({ error: versionError.message }, { status: 400 });
+    }
+  }
+
   return NextResponse.json({ document: data });
 }

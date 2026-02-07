@@ -7,6 +7,10 @@ export const APP_SETTING_KEYS = {
   listingExpiryDays: "listing_expiry_days",
   showExpiredListingsPublic: "show_expired_listings_public",
   agentStorefrontsEnabled: "agent_storefronts_enabled",
+  paygListingFeeAmount: "payg_listing_fee_amount",
+  paygEnabled: "payg_enabled",
+  trialListingCreditsAgent: "trial_listing_credits_agent",
+  trialListingCreditsLandlord: "trial_listing_credits_landlord",
 } as const;
 
 export type AppSettingKey = (typeof APP_SETTING_KEYS)[keyof typeof APP_SETTING_KEYS];

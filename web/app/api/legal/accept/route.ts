@@ -13,6 +13,8 @@ export const runtime = "nodejs";
 
 const acceptSchema = z.object({
   jurisdiction: z.string().trim().min(2).max(10).optional(),
+  accept_terms: z.boolean().optional(),
+  accept_disclaimer: z.boolean().optional(),
 });
 
 function resolveIp(request: Request): string | null {
@@ -52,6 +54,12 @@ export async function postLegalAcceptResponse(
   const body = acceptSchema.safeParse(await request.json().catch(() => ({})));
   if (!body.success) {
     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+  }
+  if (!body.data.accept_terms || !body.data.accept_disclaimer) {
+    return NextResponse.json(
+      { error: "You must accept the terms and disclaimer to continue." },
+      { status: 400 }
+    );
   }
 
   const url = new URL(request.url);

@@ -7,6 +7,8 @@ import { ToastNotice } from "@/components/layout/ToastNotice";
 import { OfflineIndicator } from "@/components/layout/OfflineIndicator";
 import { PwaServiceWorker } from "@/components/layout/PwaServiceWorker";
 import { SessionBootstrap } from "@/components/analytics/SessionBootstrap";
+import { LegalDisclaimerBanner } from "@/components/legal/LegalDisclaimerBanner";
+import { LegalAcceptanceModalGate } from "@/components/legal/LegalAcceptanceModalGate";
 import {
   BRAND,
   BRAND_NAME,
@@ -84,13 +86,15 @@ export default function RootLayout({
       >
         <MainNav />
         <SessionBootstrap />
+        <LegalAcceptanceModalGate />
         <Suspense fallback={null}>
           <ToastNotice />
         </Suspense>
         <OfflineIndicator />
         <PwaServiceWorker />
-        <main className="min-h-[80vh] pb-12 pt-6">{children}</main>
+        <main className="min-h-[80vh] pb-24 pt-6">{children}</main>
         <Footer />
+        <LegalDisclaimerBanner />
       </body>
     </html>
   );

@@ -85,9 +85,10 @@ export default async function LegalAcceptPage({ searchParams }: PageProps) {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-6 px-4 py-6">
       <div className="space-y-2">
-        <h1 className="text-2xl font-semibold text-slate-900">Review terms & policies</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">Review terms & disclaimer</h1>
         <p className="text-sm text-slate-600">
-          You must accept the latest terms for your role before continuing.
+          You must accept the latest terms and marketplace disclaimer for your role before
+          continuing.
         </p>
         {missingDocs.length > 0 && (
           <p className="text-sm text-rose-600">

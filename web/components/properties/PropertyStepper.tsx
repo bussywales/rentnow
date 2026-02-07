@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import NextImage from "next/image";
 import { CurrencySelect } from "@/components/properties/CurrencySelect";
@@ -67,6 +67,7 @@ import { useSaveStatus } from "@/components/properties/useSaveStatus";
 import { SAVE_STATUS_COPY } from "@/lib/properties/save-status-microcopy";
 import { VIDEO_STORAGE_BUCKET, isAllowedVideoSize, isAllowedVideoType } from "@/lib/properties/video";
 import { ReviewAndPublishCard } from "@/components/properties/ReviewAndPublishCard";
+import { ListingPaywallModal } from "@/components/billing/ListingPaywallModal";
 import {
   buildReviewAndPublishChecklist,
   type ReviewActionTarget,
@@ -200,6 +201,7 @@ export function PropertyStepper({
   requireLocationPinForPublish = false,
 }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const normalizedInitialStepId: StepId = useMemo(() => {
     if (typeof initialStep === "string") {
       return normalizeStepParam(initialStep);
@@ -297,7 +299,23 @@ export function PropertyStepper({
     setSubmitting: markSubmitting,
     setSubmitted: markSubmitted,
     retry: retrySave,
+    reset: resetSaveStatus,
   } = useSaveStatus(propertyId);
+  const [paywallOpen, setPaywallOpen] = useState(false);
+  const [paywallAmount, setPaywallAmount] = useState<number | null>(null);
+  const [paywallCurrency, setPaywallCurrency] = useState<string>("NGN");
+  const [paywallLoading, setPaywallLoading] = useState(false);
+  const [paywallError, setPaywallError] = useState<string | null>(null);
+  const submitKeyRef = useRef<string | null>(null);
+  const resumeAttemptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!propertyId || typeof window === "undefined") return;
+    const cached = window.sessionStorage.getItem(`payg_submit_${propertyId}`);
+    if (cached) {
+      submitKeyRef.current = cached;
+    }
+  }, [propertyId]);
   const syncCoverWithImages = useCallback((next: string[]) => {
     setCoverImageUrl((prev) => {
       if (!next.length) return null;
@@ -1339,6 +1357,25 @@ export function PropertyStepper({
   }, [canCreateDraft, saveDraft, setError, startSaving]);
 
   useEffect(() => {
+    if (!propertyId) return;
+    if (resumeAttemptedRef.current) return;
+    const paymentFlag = searchParams?.get("payment");
+    if (paymentFlag !== "payg") return;
+    resumeAttemptedRef.current = true;
+    startSaving(() => {
+      submitListing().then((result) => {
+        if (result?.ok) {
+          markSubmitted();
+          const params = new URLSearchParams(window.location.search);
+          params.delete("payment");
+          setToastQuery(params, "Listing submitted for approval", "success");
+          router.replace(`/dashboard?${params.toString()}`);
+        }
+      });
+    });
+  }, [markSubmitted, propertyId, router, searchParams, startSaving, submitListing]);
+
+  useEffect(() => {
     if (!coverImageUrl) {
       setCoverWarning({ tooSmall: false, portrait: false, unknown: true });
       return;
@@ -2161,21 +2198,126 @@ export function PropertyStepper({
     return next;
   };
 
+  const ensureSubmitKey = useCallback(() => {
+    if (!submitKeyRef.current) {
+      submitKeyRef.current = crypto.randomUUID();
+      if (propertyId && typeof window !== "undefined") {
+        window.sessionStorage.setItem(`payg_submit_${propertyId}`, submitKeyRef.current);
+      }
+    }
+    return submitKeyRef.current;
+  }, [propertyId]);
+
+  const submitListing = useCallback(
+    async () => {
+      if (!propertyId) return;
+      const supabase = getSupabase();
+      if (!supabase) return;
+      const { accessToken, user } = await resolveAuthUser(supabase);
+      if (!user) {
+        setError("Please log in to submit a listing.");
+        return;
+      }
+
+      const submitKey = ensureSubmitKey();
+      const res = await fetch(`/api/properties/${propertyId}/submit`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({ idempotencyKey: submitKey }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data?.ok) {
+        if (propertyId && typeof window !== "undefined") {
+          window.sessionStorage.removeItem(`payg_submit_${propertyId}`);
+        }
+        return { ok: true as const, status: data?.status ?? "pending" };
+      }
+      return { ok: false as const, data, status: res.status };
+    },
+    [ensureSubmitKey, getSupabase, propertyId, resolveAuthUser, setError]
+  );
+
+  const beginPaygCheckout = useCallback(async () => {
+    if (!propertyId) return;
+    setPaywallError(null);
+    setPaywallLoading(true);
+    try {
+      const supabase = getSupabase();
+      if (!supabase) return;
+      const { accessToken } = await resolveAuthUser(supabase);
+      const submitKey = ensureSubmitKey();
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          listingId: propertyId,
+          purpose: "listing_submission",
+          idempotencyKey: submitKey,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setPaywallError(data?.error || "Unable to start checkout.");
+        return;
+      }
+      if (data?.checkoutUrl) {
+        window.location.assign(data.checkoutUrl as string);
+      } else {
+        setPaywallError("Checkout unavailable.");
+      }
+    } finally {
+      setPaywallLoading(false);
+    }
+  }, [ensureSubmitKey, getSupabase, propertyId, resolveAuthUser]);
+
   const handleSubmitForApproval = async () => {
     if (!propertyId) {
       setError("Save a draft before submitting.");
       return;
     }
     setError(null);
+    setErrorCode(null);
     setLocationPublishError(false);
     markSubmitting();
     startSaving(() => {
-      saveDraft("pending")
-        .then(() => {
-          markSubmitted();
-          const params = new URLSearchParams();
-          setToastQuery(params, "Listing submitted for approval", "success");
-          router.push(`/dashboard?${params.toString()}`);
+      saveDraft()
+        .then(async () => {
+          const result = await submitListing();
+          if (result?.ok) {
+            markSubmitted();
+            const params = new URLSearchParams();
+            setToastQuery(params, "Listing submitted for approval", "success");
+            router.push(`/dashboard?${params.toString()}`);
+            return;
+          }
+
+          const data = result?.data || {};
+          if (data?.reason === "PAYMENT_REQUIRED") {
+            setPaywallAmount(typeof data?.amount === "number" ? data.amount : 0);
+            setPaywallCurrency(typeof data?.currency === "string" ? data.currency : "NGN");
+            setPaywallError(null);
+            setPaywallOpen(true);
+            resetSaveStatus();
+            return;
+          }
+
+          if (data?.code === "LOCATION_PIN_REQUIRED") {
+            setLocationPublishError(true);
+            setErrorCode("LOCATION_PIN_REQUIRED");
+          } else if (typeof data?.code === "string") {
+            setErrorCode(data.code);
+          }
+
+          markSaveError(() => handleSubmitForApproval());
+          setError(data?.error || "Unable to submit listing.");
         })
         .catch((err) => {
           markSaveError(() => handleSubmitForApproval());
@@ -3917,6 +4059,20 @@ export function PropertyStepper({
         </Button>
         <SaveStatusPill status={saveStatus} onRetry={retrySave} />
       </div>
+
+      <ListingPaywallModal
+        open={paywallOpen && paywallAmount !== null}
+        amount={paywallAmount ?? 0}
+        currency={paywallCurrency}
+        onClose={() => {
+          setPaywallOpen(false);
+          setPaywallError(null);
+        }}
+        onPay={beginPaygCheckout}
+        onPlans={() => router.push("/pricing")}
+        loading={paywallLoading}
+        error={paywallError}
+      />
     </div>
   );
 }
