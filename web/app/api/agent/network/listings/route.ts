@@ -130,7 +130,7 @@ export async function getAgentNetworkListingsResponse(
   let query = adminClient
     .from("properties")
     .select(PROPERTY_SELECT)
-    .eq("status", "live");
+    .eq("status", "live") as any;
 
   if (excludeMine) {
     query = query.neq("owner_id", auth.user.id);
