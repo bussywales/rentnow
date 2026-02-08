@@ -5,6 +5,7 @@ import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { orderImagesWithCover } from "@/lib/properties/images";
+import { normalizeRole } from "@/lib/roles";
 import type { Property } from "@/lib/types";
 
 const routeLabel = "/api/agent/network/listings";
@@ -58,7 +59,12 @@ function parseNumber(value: string | null) {
 function mapPropertyRows(rows: PropertyRow[]): Property[] {
   return rows.map((row) => ({
     ...row,
-    owner_profile: row.owner ?? null,
+    owner_profile: row.owner
+      ? {
+          ...row.owner,
+          role: normalizeRole(row.owner.role),
+        }
+      : null,
     owner_display_name:
       row.owner?.display_name ||
       row.owner?.full_name ||
