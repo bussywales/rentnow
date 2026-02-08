@@ -21,7 +21,6 @@ import {
   optionalYearBuilt,
   hasPinnedLocation,
 } from "@/lib/properties/validation";
-import { requiresRooms } from "@/lib/properties/listing-types";
 import { sanitizeImageMeta } from "@/lib/properties/image-meta";
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
 import {
@@ -54,8 +53,7 @@ type ImageMetaPayload = Record<
     exif?: { hasGps?: boolean | null; capturedAt?: string | null };
   }
 >;
-export const updateSchema = z
-  .object({
+export const updateSchema = z.object({
   title: z.string().min(3).optional(),
   description: z.string().optional().nullable(),
   city: z.string().min(2).optional(),
@@ -151,26 +149,7 @@ export const updateSchema = z
         .optional()
     ),
   paused_reason: z.string().optional().nullable(),
-  })
-  .superRefine((data, ctx) => {
-    const shouldRequireRooms =
-      typeof data.listing_type === "string" && requiresRooms(data.listing_type);
-    if (!shouldRequireRooms) return;
-    if (typeof data.bedrooms === "number" && data.bedrooms < 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["bedrooms"],
-        message: "Bedrooms must be at least 1 for residential listings.",
-      });
-    }
-    if (typeof data.bathrooms === "number" && data.bathrooms < 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["bathrooms"],
-        message: "Bathrooms must be at least 1 for residential listings.",
-      });
-    }
-  });
+});
 
 const idParamSchema = z.object({
   id: z.string().min(1),

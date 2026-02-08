@@ -21,6 +21,7 @@ test("sale intent hides rental type and deposit section", async ({ page }) => {
   await page.getByLabel(/listing intent/i).selectOption("buy");
 
   await expect(page.locator("label:has-text(\"Rental type\")")).toHaveCount(0);
+  await expect(page.getByLabel(/listing type/i)).toBeVisible();
 
   await page.getByLabel(/city/i).fill("Lagos");
   await page.getByLabel(/price/i).fill("1000");
@@ -29,15 +30,6 @@ test("sale intent hides rental type and deposit section", async ({ page }) => {
 
   await page.getByRole("button", { name: /next/i }).click();
   await expect(page.getByRole("heading", { name: /property specs/i })).toBeVisible();
-
-  await page.getByLabel(/listing type/i).selectOption("apartment");
-  await page.getByRole("button", { name: /back/i }).click();
-  await expect(page.getByRole("heading", { name: /basics/i })).toBeVisible();
-
-  await page.getByLabel(/bedrooms/i).fill("0");
-  await page.getByLabel(/bathrooms/i).fill("0");
-  await page.getByRole("button", { name: /next/i }).click();
-  await expect(page.getByText(/Bedrooms must be at least 1/i)).toBeVisible();
   await expect(page.getByRole("heading", { name: /deposit & rules/i })).toHaveCount(0);
 });
 
@@ -52,10 +44,11 @@ test("non-res listings allow 0 rooms and autosave layout stays stable", async ({
   expect(initialBox).toBeTruthy();
 
   await page.getByLabel(/listing title/i).fill("Land listing test");
+  await page.getByLabel(/listing type/i).selectOption("shop");
   await page.getByLabel(/city/i).fill("Lagos");
   await page.getByLabel(/price/i).fill("1000");
-  await page.getByLabel(/bedrooms/i).fill("1");
-  await page.getByLabel(/bathrooms/i).fill("1");
+  await page.getByLabel(/bedrooms/i).fill("0");
+  await page.getByLabel(/bathrooms/i).fill("0");
 
   await page.getByText(/Saving/i).waitFor();
   const savingBox = await nextButton.boundingBox();
@@ -63,17 +56,6 @@ test("non-res listings allow 0 rooms and autosave layout stays stable", async ({
   if (initialBox && savingBox) {
     expect(Math.abs(initialBox.x - savingBox.x)).toBeLessThanOrEqual(1);
   }
-
-  await page.getByRole("button", { name: /next/i }).click();
-  await expect(page.getByRole("heading", { name: /property specs/i })).toBeVisible();
-
-  await page.getByLabel(/listing type/i).selectOption("land");
-  await page.getByRole("button", { name: /back/i }).click();
-  await expect(page.getByRole("heading", { name: /basics/i })).toBeVisible();
-
-  await expect(page.getByLabel(/bedrooms/i)).toBeVisible();
-  await page.getByLabel(/bedrooms/i).fill("0");
-  await page.getByLabel(/bathrooms/i).fill("0");
 
   await page.getByRole("button", { name: /next/i }).click();
   await expect(page.getByRole("heading", { name: /property specs/i })).toBeVisible();

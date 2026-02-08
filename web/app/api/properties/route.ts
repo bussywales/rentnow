@@ -20,7 +20,6 @@ import {
   optionalYearBuilt,
   hasPinnedLocation,
 } from "@/lib/properties/validation";
-import { requiresRooms } from "@/lib/properties/listing-types";
 import { sanitizeImageMeta } from "@/lib/properties/image-meta";
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
@@ -110,7 +109,7 @@ export const propertySchema = z
   admin_area_1: z.string().optional().nullable(),
   admin_area_2: z.string().optional().nullable(),
   postal_code: z.string().optional().nullable(),
-  imageMeta: z
+    imageMeta: z
     .preprocess(
       (val) => (val === null ? undefined : val),
       z
@@ -131,23 +130,6 @@ export const propertySchema = z
         )
         .optional()
     ),
-  })
-  .superRefine((data, ctx) => {
-    if (!requiresRooms(data.listing_type)) return;
-    if (typeof data.bedrooms !== "number" || data.bedrooms < 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["bedrooms"],
-        message: "Bedrooms must be at least 1 for residential listings.",
-      });
-    }
-    if (typeof data.bathrooms !== "number" || data.bathrooms < 1) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["bathrooms"],
-        message: "Bathrooms must be at least 1 for residential listings.",
-      });
-    }
   });
 
 export async function POST(request: Request) {

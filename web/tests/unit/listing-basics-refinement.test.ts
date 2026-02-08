@@ -12,7 +12,7 @@ void test("isResidentialListingType covers residential and non-residential types
   assert.equal(isResidentialListingType(null), false);
 });
 
-void test("property schema enforces rooms for residential listings", () => {
+void test("property schema allows 0 rooms for any listing type", () => {
   const base = {
     title: "Test listing",
     city: "Lagos",
@@ -36,7 +36,7 @@ void test("property schema enforces rooms for residential listings", () => {
     bedrooms: 0,
     bathrooms: 0,
   });
-  assert.equal(apartmentResult.success, false, "expected residential listings to require rooms");
+  assert.equal(apartmentResult.success, true, "expected residential listings to allow 0 rooms");
 });
 
 void test("rent intent helpers reflect sale vs rent logic", () => {

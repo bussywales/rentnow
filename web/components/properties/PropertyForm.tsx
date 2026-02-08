@@ -47,6 +47,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
   });
   const isSaleListing = isSaleIntent(form.listing_intent);
   const roomsRequired = requiresRooms(form.listing_type);
+  const showRoomOptionalHint = !!form.listing_type && !roomsRequired;
   const [aiLoading, setAiLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -378,31 +379,27 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">
-              {roomsRequired ? "Bedrooms" : "Bedrooms (optional)"}
-            </label>
+            <label className="text-sm font-medium text-slate-700">Bedrooms</label>
             <Input
               type="number"
-              min={roomsRequired ? 1 : 0}
+              min={0}
               value={form.bedrooms ?? 0}
               onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
             />
-            {!roomsRequired && (
-              <p className="text-xs text-slate-500">Set to 0 if not applicable.</p>
+            {showRoomOptionalHint && (
+              <p className="text-xs text-slate-500">Use 0 if not applicable.</p>
             )}
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">
-              {roomsRequired ? "Bathrooms" : "Bathrooms (optional)"}
-            </label>
+            <label className="text-sm font-medium text-slate-700">Bathrooms</label>
             <Input
               type="number"
-              min={roomsRequired ? 1 : 0}
+              min={0}
               value={form.bathrooms ?? 0}
               onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
             />
-            {!roomsRequired && (
-              <p className="text-xs text-slate-500">Set to 0 if not applicable.</p>
+            {showRoomOptionalHint && (
+              <p className="text-xs text-slate-500">Use 0 if not applicable.</p>
             )}
           </div>
           <div className="space-y-2">

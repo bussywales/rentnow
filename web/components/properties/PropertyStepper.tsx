@@ -809,6 +809,7 @@ export function PropertyStepper({
   ]);
   const isSaleListing = isSaleIntent(form.listing_intent);
   const roomsRequired = requiresRooms(form.listing_type);
+  const showRoomOptionalHint = !!form.listing_type && !roomsRequired;
   const countryCtaMessage = useMemo(() => {
     if (!countryHint.key) return null;
     if (countryHint.countryCode === "GB") return LOCATION_MICROCOPY.cta.countryHint.uk;
@@ -2552,6 +2553,28 @@ export function PropertyStepper({
                     {renderFieldError("rental_type")}
                   </div>
                 )}
+                <div className="space-y-2" id="field-listing_type">
+                  <label htmlFor="listing-type" className="text-sm font-medium text-slate-700">
+                    Listing type
+                  </label>
+                  <Select
+                    id="listing-type"
+                    value={form.listing_type ?? ""}
+                    onChange={(e) =>
+                      handleChange("listing_type", e.target.value || null)
+                    }
+                  >
+                    <option value="">Select type</option>
+                    {listingTypes.map((type) => (
+                      <option key={type.value} value={type.value}>
+                        {type.label}
+                      </option>
+                    ))}
+                  </Select>
+                  <p className="text-xs text-slate-500">
+                    Helps tailor capacity and search relevance.
+                  </p>
+                </div>
               </div>
             </section>
 
@@ -3144,39 +3167,35 @@ export function PropertyStepper({
               <div className="mt-4 grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2" id="field-bedrooms">
                   <label htmlFor="bedrooms" className="text-sm font-medium text-slate-700">
-                    {roomsRequired ? "Bedrooms" : "Bedrooms (optional)"}{" "}
-                    {roomsRequired && <span className="text-rose-500">*</span>}
+                    Bedrooms
                   </label>
                   <Input
                     id="bedrooms"
                     type="number"
-                    min={roomsRequired ? 1 : 0}
+                    min={0}
                     value={form.bedrooms ?? 0}
                     onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
-                    aria-required={roomsRequired ? "true" : undefined}
                     className={fieldErrors.bedrooms ? "ring-2 ring-rose-400 border-rose-300" : ""}
                   />
-                  {!roomsRequired && (
-                    <p className="text-xs text-slate-500">Set to 0 if not applicable.</p>
+                  {showRoomOptionalHint && (
+                    <p className="text-xs text-slate-500">Use 0 if not applicable.</p>
                   )}
                   {renderFieldError("bedrooms")}
                 </div>
                 <div className="space-y-2" id="field-bathrooms">
                   <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
-                    {roomsRequired ? "Bathrooms" : "Bathrooms (optional)"}{" "}
-                    {roomsRequired && <span className="text-rose-500">*</span>}
+                    Bathrooms
                   </label>
                   <Input
                     id="bathrooms"
                     type="number"
-                    min={roomsRequired ? 1 : 0}
+                    min={0}
                     value={form.bathrooms ?? 0}
                     onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
-                    aria-required={roomsRequired ? "true" : undefined}
                     className={fieldErrors.bathrooms ? "ring-2 ring-rose-400 border-rose-300" : ""}
                   />
-                  {!roomsRequired && (
-                    <p className="text-xs text-slate-500">Set to 0 if not applicable.</p>
+                  {showRoomOptionalHint && (
+                    <p className="text-xs text-slate-500">Use 0 if not applicable.</p>
                   )}
                   {renderFieldError("bathrooms")}
                 </div>
@@ -3324,25 +3343,6 @@ export function PropertyStepper({
               </div>
               <div className="mt-4 space-y-3">
                 <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <label htmlFor="listing-type" className="text-sm font-medium text-slate-700">
-                      Listing type
-                    </label>
-                    <Select
-                      id="listing-type"
-                      value={form.listing_type ?? ""}
-                      onChange={(e) =>
-                        handleChange("listing_type", e.target.value || null)
-                      }
-                    >
-                      <option value="">Select type</option>
-                      {listingTypes.map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </div>
                   <div className="space-y-2">
                     <label htmlFor="bathroom-type" className="text-sm font-medium text-slate-700">
                       Bathroom privacy
@@ -4058,23 +4058,27 @@ export function PropertyStepper({
         </div>
       )}
 
-      <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <Button
-          variant="ghost"
-          onClick={prev}
-          disabled={stepIndex === 0}
-          className="w-full sm:w-auto"
-        >
-          Back
-        </Button>
-        <Button
-          onClick={next}
-          disabled={stepIndex >= steps.length - 1 || saving}
-          className="w-full sm:w-auto"
-        >
-          {stepIndex >= steps.length - 1 ? "Done" : "Next"}
-        </Button>
-        <SaveStatusPill status={saveStatus} onRetry={retrySave} />
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-col-reverse items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <Button
+            variant="ghost"
+            onClick={prev}
+            disabled={stepIndex === 0}
+            className="w-full sm:w-auto"
+          >
+            Back
+          </Button>
+          <Button
+            onClick={next}
+            disabled={stepIndex >= steps.length - 1 || saving}
+            className="w-full sm:w-auto"
+          >
+            {stepIndex >= steps.length - 1 ? "Done" : "Next"}
+          </Button>
+        </div>
+        <div className="flex min-h-[18px] justify-end">
+          <SaveStatusPill status={saveStatus} onRetry={retrySave} />
+        </div>
       </div>
 
       <ListingPaywallModal
