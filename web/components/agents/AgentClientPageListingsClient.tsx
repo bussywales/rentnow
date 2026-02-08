@@ -142,6 +142,9 @@ export default function AgentClientPageListingsClient({
             ? `/properties/${listing.id}?src=client_page&cp=${clientPageId}`
             : undefined;
           const isSelected = selectedListingId === listing.id;
+          const externalLabel = listing.is_external
+            ? listing.owner_display_name || "another agent"
+            : null;
           return (
             <div
               key={listing.id}
@@ -150,6 +153,11 @@ export default function AgentClientPageListingsClient({
                 isSelected && "rounded-2xl ring-2 ring-sky-500/60"
               )}
             >
+              {externalLabel && (
+                <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Listed by {externalLabel}
+                </span>
+              )}
               <PropertyCard property={listing} href={href} />
               {onEnquire && (
                 <Button

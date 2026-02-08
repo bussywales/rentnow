@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { resolveServerRole } from "@/lib/auth/role";
+import { isAgentNetworkDiscoveryEnabled } from "@/lib/agents/agent-network";
 import AgentClientPagesClient from "@/components/agents/AgentClientPagesClient";
 
 export const dynamic = "force-dynamic";
@@ -65,6 +66,50 @@ export default async function AgentClientPagesPage() {
     .eq("status", "live")
     .order("updated_at", { ascending: false });
 
+  type ShareRow = {
+    client_page_id: string;
+    listing_id: string;
+    owner_user_id: string;
+    owner?: {
+      full_name?: string | null;
+      display_name?: string | null;
+      business_name?: string | null;
+    } | null;
+  };
+
+  const { data: shareRows } = pageIds.length
+    ? await supabase
+        .from("agent_listing_shares")
+        .select(
+          "client_page_id, listing_id, owner_user_id, owner:profiles!agent_listing_shares_owner_user_id_fkey(full_name, display_name, business_name)"
+        )
+        .in("client_page_id", pageIds)
+        .eq("presenting_user_id", user.id)
+    : { data: [] };
+
+  const shareListingIds = (shareRows as ShareRow[] | null | undefined)?.map((row) => row.listing_id) ?? [];
+  const { data: externalProperties } = shareListingIds.length
+    ? await supabase
+        .from("properties")
+        .select("id, title, city, price, currency, status")
+        .in("id", shareListingIds)
+    : { data: [] };
+
+  const externalPropertyMap = new Map(
+    ((externalProperties as typeof externalProperties) || []).map((row) => [row.id, row])
+  );
+
+  const externalByPage = ((shareRows ?? []) as ShareRow[]).reduce<Record<string, ShareRow[]>>(
+    (acc, row) => {
+      const key = row.client_page_id;
+      if (!acc[key]) acc[key] = [];
+      acc[key].push(row);
+      return acc;
+    },
+    {}
+  );
+
+  const agentNetworkEnabled = await isAgentNetworkDiscoveryEnabled();
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.propatyhub.com";
 
   return (
@@ -82,11 +127,29 @@ export default async function AgentClientPagesPage() {
           ((pages as typeof pages) || []).map((page) => ({
             ...page,
             curated_listings: curatedByPage[page.id] ?? [],
+            external_listings: (externalByPage[page.id] ?? []).map((row) => {
+              const ownerName =
+                row.owner?.display_name ||
+                row.owner?.full_name ||
+                row.owner?.business_name ||
+                null;
+              const listing = externalPropertyMap.get(row.listing_id);
+              return {
+                listing_id: row.listing_id,
+                owner_name: ownerName,
+                title: listing?.title ?? null,
+                city: listing?.city ?? null,
+                price: listing?.price ?? null,
+                currency: listing?.currency ?? null,
+                status: listing?.status ?? null,
+              };
+            }),
           }))
         }
         agentSlug={profile?.agent_slug ?? ""}
         siteUrl={siteUrl}
         liveProperties={(properties as typeof properties) || []}
+        agentNetworkEnabled={agentNetworkEnabled}
         agentProfile={
           profile
             ? {

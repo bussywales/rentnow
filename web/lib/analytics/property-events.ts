@@ -12,6 +12,7 @@ export const PROPERTY_EVENT_TYPES = [
   "listing_payment_started",
   "listing_payment_succeeded",
   "listing_credit_consumed",
+  "agent_network_shared",
   "viewing_requested",
   "share_open",
   "featured_impression",

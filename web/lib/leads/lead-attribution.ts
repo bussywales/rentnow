@@ -12,6 +12,9 @@ export type LeadAttributionInsert = {
   lead_id: string;
   agent_user_id: string;
   client_page_id: string;
+  presenting_agent_id?: string | null;
+  owner_user_id?: string | null;
+  listing_id?: string | null;
   source: string;
 };
 

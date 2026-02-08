@@ -21,6 +21,39 @@ type CuratedListing = {
   pinned?: boolean | null;
 };
 
+type ExternalListingMeta = {
+  listing_id: string;
+  owner_name: string | null;
+  title?: string | null;
+  city?: string | null;
+  price?: number | null;
+  currency?: string | null;
+  status?: string | null;
+};
+
+type CuratedListingState = {
+  id: string;
+  pinned: boolean;
+  rank: number;
+  external?: boolean;
+  ownerName?: string | null;
+  meta?: ExternalListingMeta | null;
+};
+
+type NetworkListing = {
+  id: string;
+  title: string;
+  city?: string | null;
+  price?: number | null;
+  currency?: string | null;
+  bedrooms?: number | null;
+  listing_intent?: string | null;
+  listing_type?: string | null;
+  owner_display_name?: string | null;
+  cover_image_url?: string | null;
+  images?: { image_url: string }[] | null;
+};
+
 type ClientPageRow = {
   id: string;
   client_name: string | null;
@@ -36,6 +69,7 @@ type ClientPageRow = {
   criteria?: ClientPageCriteria | null;
   pinned_property_ids?: string[] | null;
   curated_listings?: CuratedListing[] | null;
+  external_listings?: ExternalListingMeta[] | null;
   published: boolean;
   published_at?: string | null;
   expires_at?: string | null;
@@ -62,6 +96,7 @@ type Props = {
   agentSlug: string;
   siteUrl: string;
   liveProperties: LiveProperty[];
+  agentNetworkEnabled: boolean;
   agentProfile?: AgentProfile | null;
 };
 
@@ -76,6 +111,7 @@ export default function AgentClientPagesClient({
   agentSlug,
   siteUrl,
   liveProperties,
+  agentNetworkEnabled,
   agentProfile,
 }: Props) {
   const router = useRouter();
@@ -103,13 +139,22 @@ export default function AgentClientPagesClient({
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [logoFile, setLogoFile] = useState<File | null>(null);
-  const [curatedListings, setCuratedListings] = useState<
-    { id: string; pinned: boolean; rank: number }[]
-  >([]);
+  const [curatedListings, setCuratedListings] = useState<CuratedListingState[]>([]);
   const [curatedSnapshot, setCuratedSnapshot] = useState<string>("");
   const [selectedPropertyId, setSelectedPropertyId] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [networkOpen, setNetworkOpen] = useState(false);
+  const [networkLoading, setNetworkLoading] = useState(false);
+  const [networkError, setNetworkError] = useState<string | null>(null);
+  const [networkListings, setNetworkListings] = useState<NetworkListing[]>([]);
+  const [networkCity, setNetworkCity] = useState("");
+  const [networkIntent, setNetworkIntent] = useState<ClientPageCriteria["intent"]>(null);
+  const [networkMinPrice, setNetworkMinPrice] = useState("");
+  const [networkMaxPrice, setNetworkMaxPrice] = useState("");
+  const [networkBeds, setNetworkBeds] = useState("");
+  const [networkType, setNetworkType] = useState("");
+  const [excludeMine, setExcludeMine] = useState(true);
 
   const handleViewInbox = (pageId: string) => {
     router.push(`/profile/clients/${pageId}/inbox`);
@@ -148,6 +193,9 @@ export default function AgentClientPagesClient({
     setCuratedSnapshot("");
     setSelectedPropertyId("");
     setError(null);
+    setNetworkOpen(false);
+    setNetworkListings([]);
+    setNetworkError(null);
   };
 
   useEffect(() => {
@@ -180,11 +228,20 @@ export default function AgentClientPagesClient({
   };
 
   const resolveCuratedFromPage = (page: ClientPageRow) => {
-    const curated = (page.curated_listings ?? []).map((row) => ({
-      id: row.property_id,
-      pinned: row.pinned ?? false,
-      rank: row.rank ?? 0,
-    }));
+    const externalMap = new Map(
+      (page.external_listings ?? []).map((row) => [row.listing_id, row])
+    );
+    const curated = (page.curated_listings ?? []).map((row) => {
+      const externalMeta = externalMap.get(row.property_id) ?? null;
+      return {
+        id: row.property_id,
+        pinned: row.pinned ?? false,
+        rank: row.rank ?? 0,
+        external: !!externalMeta,
+        ownerName: externalMeta?.owner_name ?? null,
+        meta: externalMeta,
+      };
+    });
     if (curated.length > 0) {
       return orderCuratedListings(curated);
     }
@@ -192,8 +249,30 @@ export default function AgentClientPagesClient({
       id,
       pinned: true,
       rank: index,
+      external: false,
     }));
     return fallback;
+  };
+
+  const buildCuratedSnapshot = (items: CuratedListingState[]) =>
+    JSON.stringify(
+      items.map((item) => ({
+        id: item.id,
+        external: !!item.external,
+      }))
+    );
+
+  const parseCuratedSnapshot = (snapshot: string) => {
+    try {
+      const parsed = JSON.parse(snapshot) as { id?: string; external?: boolean }[];
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter((item) => typeof item.id === "string") as {
+        id: string;
+        external: boolean;
+      }[];
+    } catch {
+      return [];
+    }
   };
 
   const handleEdit = (page: ClientPageRow) => {
@@ -216,20 +295,24 @@ export default function AgentClientPagesClient({
     setBannerUrl(page.banner_url ?? null);
     setLogoUrl(page.agent_logo_url ?? null);
     const curated = resolveCuratedFromPage(page);
-    setCuratedListings(curated.map((item, index) => ({ ...item, rank: index })));
-    setCuratedSnapshot(curated.map((item) => `${item.id}:${item.pinned ? 1 : 0}`).join("|"));
+    const withRanks = curated.map((item, index) => ({ ...item, rank: index }));
+    setCuratedListings(withRanks);
+    setCuratedSnapshot(buildCuratedSnapshot(withRanks));
     setSelectedPropertyId("");
     setError(null);
   };
 
-  const updateCurated = (next: { id: string; pinned: boolean; rank: number }[]) => {
+  const updateCurated = (next: CuratedListingState[]) => {
     setCuratedListings(next.map((item, index) => ({ ...item, rank: index })));
   };
 
   const handleAddCurated = () => {
     if (!selectedPropertyId) return;
     if (curatedListings.some((item) => item.id === selectedPropertyId)) return;
-    const next = [...curatedListings, { id: selectedPropertyId, pinned: false, rank: curatedListings.length }];
+    const next = [
+      ...curatedListings,
+      { id: selectedPropertyId, pinned: false, rank: curatedListings.length, external: false },
+    ];
     updateCurated(next);
     setSelectedPropertyId("");
   };
@@ -262,28 +345,104 @@ export default function AgentClientPagesClient({
       id: item.id,
       pinned: item.pinned,
       rank: index,
+      external: !!item.external,
     }));
     const desiredIds = new Set(desired.map((item) => item.id));
-    const previousIds = curatedSnapshot ? curatedSnapshot.split("|").map((item) => item.split(":")[0]) : [];
-    const removed = previousIds.filter((id) => !desiredIds.has(id));
+    const previousEntries = curatedSnapshot ? parseCuratedSnapshot(curatedSnapshot) : [];
+    const removed = previousEntries.filter((entry) => !desiredIds.has(entry.id));
 
     await Promise.all(
-      removed.map((id) =>
-        fetch(`/api/agent/client-pages/${pageId}/listings/${id}`, { method: "DELETE" })
-      )
+      removed.map((entry) => {
+        const endpoint = entry.external
+          ? `/api/agent/client-pages/${pageId}/external-listings/${entry.id}`
+          : `/api/agent/client-pages/${pageId}/listings/${entry.id}`;
+        return fetch(endpoint, { method: "DELETE" });
+      })
     );
 
     await Promise.all(
-      desired.map((item) =>
-        fetch(`/api/agent/client-pages/${pageId}/listings`, {
+      desired.map((item) => {
+        const endpoint = item.external
+          ? `/api/agent/client-pages/${pageId}/external-listings`
+          : `/api/agent/client-pages/${pageId}/listings`;
+        return fetch(endpoint, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ propertyId: item.id, pinned: item.pinned, rank: item.rank }),
-        })
-      )
+          body: JSON.stringify({
+            listingId: item.id,
+            propertyId: item.id,
+            pinned: item.pinned,
+            rank: item.rank,
+          }),
+        });
+      })
     );
 
-    setCuratedSnapshot(desired.map((item) => `${item.id}:${item.pinned ? 1 : 0}`).join("|"));
+    setCuratedSnapshot(buildCuratedSnapshot(curatedListings));
+  };
+
+  const buildNetworkQuery = () => {
+    const params = new URLSearchParams();
+    if (networkCity.trim()) params.set("city", networkCity.trim());
+    if (networkIntent) params.set("intent", networkIntent);
+    if (networkMinPrice.trim()) params.set("minPrice", networkMinPrice.trim());
+    if (networkMaxPrice.trim()) params.set("maxPrice", networkMaxPrice.trim());
+    if (networkBeds.trim()) params.set("beds", networkBeds.trim());
+    if (networkType.trim()) params.set("type", networkType.trim());
+    params.set("excludeMine", excludeMine ? "true" : "false");
+    return params.toString();
+  };
+
+  const fetchNetworkListings = async () => {
+    setNetworkError(null);
+    setNetworkLoading(true);
+    try {
+      const query = buildNetworkQuery();
+      const response = await fetch(`/api/agent/network/listings?${query}`);
+      const data = await response.json().catch(() => null);
+      if (!response.ok) {
+        setNetworkError(data?.error || "Unable to fetch network listings.");
+        setNetworkListings([]);
+        return;
+      }
+      setNetworkListings((data?.listings as NetworkListing[]) || []);
+    } catch (err) {
+      setNetworkError(err instanceof Error ? err.message : "Unable to fetch network listings.");
+    } finally {
+      setNetworkLoading(false);
+    }
+  };
+
+  const handleAddExternalListing = (listing: NetworkListing) => {
+    if (!editingId) {
+      setToast({ message: "Save the client page before adding external listings.", variant: "error" });
+      return;
+    }
+    if (curatedListings.some((item) => item.id === listing.id)) {
+      setToast({ message: "Listing already added to this page.", variant: "error" });
+      return;
+    }
+    const next: CuratedListingState[] = [
+      ...curatedListings,
+      {
+        id: listing.id,
+        pinned: false,
+        rank: curatedListings.length,
+        external: true,
+        ownerName: listing.owner_display_name ?? null,
+        meta: {
+          listing_id: listing.id,
+          owner_name: listing.owner_display_name ?? null,
+          title: listing.title,
+          city: listing.city ?? null,
+          price: listing.price ?? null,
+          currency: listing.currency ?? null,
+          status: "live",
+        },
+      },
+    ];
+    updateCurated(next);
+    setToast({ message: "External listing added. Save to publish.", variant: "success" });
   };
 
   const uploadAsset = async (pageId: string, type: "banner" | "logo", file: File) => {
@@ -341,9 +500,7 @@ export default function AgentClientPagesClient({
         return;
       }
 
-      const selectedSnapshot = curatedListings
-        .map((item) => `${item.id}:${item.pinned ? 1 : 0}`)
-        .join("|");
+      const selectedSnapshot = buildCuratedSnapshot(curatedListings);
       const hasCuratedChanges = selectedSnapshot !== curatedSnapshot;
 
       if (hasCuratedChanges || curatedListings.length > 0) {
@@ -371,6 +528,17 @@ export default function AgentClientPagesClient({
           pinned: item.pinned,
           rank: index,
         })),
+        external_listings: curatedListings
+          .filter((item) => item.external)
+          .map((item) => ({
+            listing_id: item.id,
+            owner_name: item.ownerName ?? item.meta?.owner_name ?? null,
+            title: item.meta?.title ?? null,
+            city: item.meta?.city ?? null,
+            price: item.meta?.price ?? null,
+            currency: item.meta?.currency ?? null,
+            status: item.meta?.status ?? null,
+          })),
       } as ClientPageRow;
 
       if (editingId) {
@@ -698,29 +866,41 @@ export default function AgentClientPagesClient({
             </div>
           </div>
 
-          <div className="mt-4 space-y-2">
-            {curatedListings.length === 0 && (
-              <p className="text-sm text-slate-500">No listings pinned yet.</p>
-            )}
-            {curatedListings.map((item, index) => {
-              const property = liveProperties.find((entry) => entry.id === item.id);
-              return (
-                <div
-                  key={item.id}
-                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2"
-                  data-testid="client-page-curated-item"
-                >
-                  <div>
-                    <p className="text-sm font-semibold text-slate-900">
-                      {property?.title || "Listing"}
+        <div className="mt-4 space-y-2">
+          {curatedListings.length === 0 && (
+            <p className="text-sm text-slate-500">No listings pinned yet.</p>
+          )}
+          {curatedListings.map((item, index) => {
+            const property = liveProperties.find((entry) => entry.id === item.id);
+            const externalMeta = item.meta;
+            const listingTitle = property?.title || externalMeta?.title || "Listing";
+            const listingCity = property?.city || externalMeta?.city || null;
+            const listingStatus = property ? "live" : externalMeta?.status || null;
+            return (
+              <div
+                key={item.id}
+                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 px-3 py-2"
+                data-testid="client-page-curated-item"
+              >
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">
+                    {listingTitle}
+                  </p>
+                  {listingCity && <p className="text-xs text-slate-500">{listingCity}</p>}
+                  {item.external && (
+                    <p className="text-xs font-semibold text-slate-500">
+                      External · Listed by {item.ownerName || "another agent"}
                     </p>
-                    {property?.city && (
-                      <p className="text-xs text-slate-500">{property.city}</p>
-                    )}
-                  </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <label className="flex items-center gap-2 text-xs text-slate-600">
-                      <input
+                  )}
+                  {listingStatus && listingStatus !== "live" && (
+                    <p className="text-xs text-amber-600">
+                      No longer available. Remove or replace this listing.
+                    </p>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="flex items-center gap-2 text-xs text-slate-600">
+                    <input
                         type="checkbox"
                         checked={item.pinned}
                         onChange={() => handleTogglePinned(item.id)}
@@ -794,9 +974,137 @@ export default function AgentClientPagesClient({
               >
                 {saving ? "Saving..." : editingId ? "Save changes" : "Create client page"}
               </Button>
-            </div>
           </div>
         </div>
+      </div>
+
+      {agentNetworkEnabled && (
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Add external listings</p>
+              <p className="text-xs text-slate-500">
+                Browse live listings from other agents and add them to this client page.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                const next = !networkOpen;
+                setNetworkOpen(next);
+                if (next) {
+                  fetchNetworkListings();
+                }
+              }}
+            >
+              {networkOpen ? "Hide search" : "Search network"}
+            </Button>
+          </div>
+
+          {!editingId && (
+            <p className="mt-3 text-xs text-slate-500">
+              Save this client page before adding external listings.
+            </p>
+          )}
+
+          {networkOpen && editingId && (
+            <div className="mt-4 space-y-4">
+              <div className="grid gap-3 md:grid-cols-3">
+                <Input
+                  value={networkCity}
+                  onChange={(event) => setNetworkCity(event.target.value)}
+                  placeholder="City"
+                />
+                <select
+                  value={networkIntent ?? ""}
+                  onChange={(event) =>
+                    setNetworkIntent(
+                      event.target.value === "rent" || event.target.value === "buy"
+                        ? event.target.value
+                        : null
+                    )
+                  }
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                >
+                  {INTENT_OPTIONS.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <Input
+                  value={networkType}
+                  onChange={(event) => setNetworkType(event.target.value)}
+                  placeholder="Property type"
+                />
+                <Input
+                  value={networkMinPrice}
+                  onChange={(event) => setNetworkMinPrice(event.target.value)}
+                  placeholder="Min price"
+                />
+                <Input
+                  value={networkMaxPrice}
+                  onChange={(event) => setNetworkMaxPrice(event.target.value)}
+                  placeholder="Max price"
+                />
+                <Input
+                  value={networkBeds}
+                  onChange={(event) => setNetworkBeds(event.target.value)}
+                  placeholder="Beds (min)"
+                />
+              </div>
+
+              <label className="flex items-center gap-2 text-xs text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={excludeMine}
+                  onChange={(event) => setExcludeMine(event.target.checked)}
+                />
+                Exclude my listings
+              </label>
+
+              <div className="flex items-center gap-2">
+                <Button type="button" variant="primary" onClick={fetchNetworkListings}>
+                  {networkLoading ? "Searching..." : "Search"}
+                </Button>
+                {networkError && <span className="text-xs text-rose-600">{networkError}</span>}
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                {networkListings.map((listing) => (
+                  <div
+                    key={listing.id}
+                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                  >
+                    <p className="text-sm font-semibold text-slate-900">{listing.title}</p>
+                    <p className="text-xs text-slate-500">
+                      {(listing.city || "Location") +
+                        (listing.owner_display_name
+                          ? ` · Listed by ${listing.owner_display_name}`
+                          : "")}
+                    </p>
+                    {typeof listing.price === "number" && listing.currency && (
+                      <p className="mt-1 text-sm font-semibold text-slate-900">
+                        {listing.currency} {listing.price.toLocaleString()}
+                      </p>
+                    )}
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => handleAddExternalListing(listing)}
+                    >
+                      Add to this page
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
         {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
       </section>

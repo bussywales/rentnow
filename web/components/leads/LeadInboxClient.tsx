@@ -36,6 +36,9 @@ export type LeadInboxRow = {
     id?: string | null;
     client_page_id?: string | null;
     agent_user_id?: string | null;
+    presenting_agent_id?: string | null;
+    owner_user_id?: string | null;
+    listing_id?: string | null;
     source?: string | null;
     created_at?: string | null;
     client_page?: {

@@ -17,7 +17,7 @@ import {
 import type { StorefrontFailureReason } from "@/lib/agents/agent-storefront";
 
 const IMAGE_SELECT = "id,image_url,position,created_at,width,height,bytes,format";
-const PROPERTY_SELECT = `*, property_images(${IMAGE_SELECT})`;
+const PROPERTY_SELECT = `*, property_images(${IMAGE_SELECT}), owner:profiles!properties_owner_id_fkey(id, full_name, display_name, business_name, role)`;
 
 type PropertyImageRow = {
   id: string;
@@ -32,6 +32,13 @@ type PropertyImageRow = {
 
 type PropertyRow = Property & {
   property_images?: PropertyImageRow[] | null;
+  owner?: {
+    id?: string | null;
+    full_name?: string | null;
+    display_name?: string | null;
+    business_name?: string | null;
+    role?: string | null;
+  } | null;
 };
 
 type ClientPageRow = {
@@ -99,6 +106,12 @@ type ClientPagePublicResult =
 function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
   return (rows ?? []).map((row) => ({
     ...row,
+    owner_profile: row.owner ?? null,
+    owner_display_name:
+      row.owner?.display_name ||
+      row.owner?.full_name ||
+      row.owner?.business_name ||
+      null,
     images: orderImagesWithCover(
       row.cover_image_url,
       row.property_images?.map((img) => ({
@@ -188,10 +201,19 @@ export async function getAgentClientPagePublic(input: {
 
   if (curatedOrder.length > 0) {
     const curatedIds = curatedOrder.map((row) => row.id);
+    const { data: shareRows } = await supabase
+      .from("agent_listing_shares")
+      .select("listing_id, owner_user_id")
+      .eq("client_page_id", page.id)
+      .eq("presenting_user_id", agent.id);
+
+    const externalIds = new Set(
+      (shareRows ?? []).map((row) => row.listing_id).filter((value) => !!value)
+    );
+
     const { data: curatedPropertyRows } = await supabase
       .from("properties")
       .select(PROPERTY_SELECT)
-      .eq("owner_id", agent.id)
       .eq("status", "live")
       .in("id", curatedIds);
 
@@ -199,7 +221,12 @@ export async function getAgentClientPagePublic(input: {
     const propertyMap = new Map(curatedProperties.map((item) => [item.id, item]));
     listings = curatedOrder
       .map((row) => propertyMap.get(row.id))
-      .filter((value): value is Property => Boolean(value));
+      .filter((value): value is Property => Boolean(value))
+      .filter((listing) => listing.owner_id === agent.id || externalIds.has(listing.id))
+      .map((listing) => ({
+        ...listing,
+        is_external: externalIds.has(listing.id),
+      }));
   } else if (pinnedIds.length > 0) {
     const { data: pinnedRows } = await supabase
       .from("properties")

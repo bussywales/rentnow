@@ -44,6 +44,7 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.showTenantCheckinBadge,
       APP_SETTING_KEYS.requireLocationPinForPublish,
       APP_SETTING_KEYS.agentStorefrontsEnabled,
+      APP_SETTING_KEYS.agentNetworkDiscoveryEnabled,
       APP_SETTING_KEYS.contactExchangeMode,
       APP_SETTING_KEYS.listingExpiryDays,
       APP_SETTING_KEYS.showExpiredListingsPublic,
@@ -59,6 +60,7 @@ export default async function AdminSettingsPage() {
     APP_SETTING_KEYS.showTenantCheckinBadge,
     APP_SETTING_KEYS.requireLocationPinForPublish,
     APP_SETTING_KEYS.agentStorefrontsEnabled,
+    APP_SETTING_KEYS.agentNetworkDiscoveryEnabled,
   ] as const;
   const settings = keys.map((key) => {
     const row = data?.find((item) => item.key === key);

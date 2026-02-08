@@ -32,6 +32,9 @@ type LeadRow = {
     id?: string | null;
     client_page_id?: string | null;
     agent_user_id?: string | null;
+    presenting_agent_id?: string | null;
+    owner_user_id?: string | null;
+    listing_id?: string | null;
     source?: string | null;
     created_at?: string | null;
     client_page?: {
@@ -61,7 +64,7 @@ export default async function DashboardLeadsPage() {
       `id, property_id, thread_id, status, intent, budget_min, budget_max, financing_status, timeline, message, contact_exchange_flags, created_at, updated_at,
       properties:properties(id, title, city, state_region, listing_intent),
       buyer:profiles!listing_leads_buyer_id_fkey(id, full_name),
-      lead_attributions:lead_attributions(id, client_page_id, agent_user_id, source, created_at,
+      lead_attributions:lead_attributions(id, client_page_id, agent_user_id, presenting_agent_id, owner_user_id, listing_id, source, created_at,
         client_page:agent_client_pages(id, client_slug, client_name, client_requirements, agent_slug)
       )`
     )

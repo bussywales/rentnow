@@ -38,6 +38,11 @@ const DESCRIPTIONS: Partial<Record<AppSettingKey, { title: string; helper: strin
     title: "Agent storefronts (public pages)",
     helper: "Disable to hide all agent storefront pages immediately.",
   },
+  [APP_SETTING_KEYS.agentNetworkDiscoveryEnabled]: {
+    title: "Agent Network Discovery",
+    helper:
+      "Allow agents to browse other agents’ live listings and add them to client pages (attribution-only).",
+  },
 };
 
 export default function AdminSettingsFeatureFlags({ settings }: Props) {

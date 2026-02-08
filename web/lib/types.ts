@@ -84,6 +84,15 @@ export interface PropertyImage {
 export interface Property {
   id: string;
   owner_id: string;
+  owner_display_name?: string | null;
+  owner_profile?: {
+    id?: string | null;
+    full_name?: string | null;
+    display_name?: string | null;
+    business_name?: string | null;
+    role?: UserRole | null;
+  } | null;
+  is_external?: boolean | null;
   title: string;
   description?: string | null;
   city: string;

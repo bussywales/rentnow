@@ -48,6 +48,14 @@ void test("patchSchema accepts agent storefront payload", () => {
   assert.equal(parsed.key, "agent_storefronts_enabled");
 });
 
+void test("patchSchema accepts agent network discovery payload", () => {
+  const parsed = patchSchema.parse({
+    key: "agent_network_discovery_enabled",
+    value: { enabled: true },
+  });
+  assert.equal(parsed.key, "agent_network_discovery_enabled");
+});
+
 void test("patchSchema accepts payg amount payload", () => {
   const parsed = patchSchema.parse({
     key: "payg_listing_fee_amount",

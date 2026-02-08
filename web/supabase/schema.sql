@@ -133,6 +133,12 @@ CREATE TABLE public.property_events (
     'lead_note_added',
     'client_page_lead_viewed',
     'client_page_lead_status_updated',
+    'listing_submit_attempted',
+    'listing_submit_blocked_no_credits',
+    'listing_payment_started',
+    'listing_payment_succeeded',
+    'listing_credit_consumed',
+    'agent_network_shared',
     'viewing_requested',
     'share_open',
     'featured_impression'
@@ -515,19 +521,41 @@ CREATE TABLE public.agent_client_page_listings (
 CREATE INDEX idx_agent_client_page_listings_rank ON public.agent_client_page_listings (client_page_id, rank);
 CREATE INDEX idx_agent_client_page_listings_property ON public.agent_client_page_listings (client_page_id, property_id);
 
+CREATE TABLE public.agent_listing_shares (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_page_id UUID NOT NULL REFERENCES public.agent_client_pages (id) ON DELETE CASCADE,
+  listing_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
+  owner_user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  presenting_user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  mode TEXT NOT NULL DEFAULT 'share',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (client_page_id, listing_id)
+);
+
+CREATE INDEX idx_agent_listing_shares_presenting_created ON public.agent_listing_shares (presenting_user_id, created_at desc);
+CREATE INDEX idx_agent_listing_shares_owner_created ON public.agent_listing_shares (owner_user_id, created_at desc);
+CREATE INDEX idx_agent_listing_shares_listing ON public.agent_listing_shares (listing_id);
+CREATE INDEX idx_agent_listing_shares_client_page ON public.agent_listing_shares (client_page_id);
+
 -- LEAD ATTRIBUTIONS
 CREATE TABLE public.lead_attributions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   lead_id UUID NOT NULL REFERENCES public.listing_leads (id) ON DELETE CASCADE,
   agent_user_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
   client_page_id UUID NOT NULL REFERENCES public.agent_client_pages (id) ON DELETE CASCADE,
-  source TEXT NOT NULL DEFAULT 'agent_client_page',
+  presenting_agent_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
+  owner_user_id UUID REFERENCES auth.users (id) ON DELETE SET NULL,
+  listing_id UUID REFERENCES public.properties (id) ON DELETE SET NULL,
+  source TEXT NOT NULL DEFAULT 'client_page',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (lead_id)
 );
 
 CREATE INDEX idx_lead_attributions_agent_created ON public.lead_attributions (agent_user_id, created_at desc);
 CREATE INDEX idx_lead_attributions_client_page_created ON public.lead_attributions (client_page_id, created_at desc);
+CREATE INDEX idx_lead_attributions_presenting_created ON public.lead_attributions (presenting_agent_id, created_at desc);
+CREATE INDEX idx_lead_attributions_owner_created ON public.lead_attributions (owner_user_id, created_at desc);
+CREATE INDEX idx_lead_attributions_listing_created ON public.lead_attributions (listing_id, created_at desc);
 
 -- PAYG listing fees + credits
 CREATE TABLE public.plans (
@@ -734,6 +762,7 @@ ALTER TABLE public.property_events
     'listing_payment_started',
     'listing_payment_succeeded',
     'listing_credit_consumed',
+    'agent_network_shared',
     'viewing_requested',
     'share_open',
     'featured_impression'

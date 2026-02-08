@@ -1503,6 +1503,59 @@ CREATE POLICY "agent_client_page_listings_admin_write"
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
+-- AGENT LISTING SHARES
+DROP POLICY IF EXISTS "agent listing shares presenting select" ON public.agent_listing_shares;
+CREATE POLICY "agent listing shares presenting select"
+  ON public.agent_listing_shares
+  FOR SELECT
+  USING (
+    presenting_user_id = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM public.agent_client_pages p
+      WHERE p.id = client_page_id AND p.agent_user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "agent listing shares presenting insert" ON public.agent_listing_shares;
+CREATE POLICY "agent listing shares presenting insert"
+  ON public.agent_listing_shares
+  FOR INSERT
+  WITH CHECK (
+    presenting_user_id = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM public.agent_client_pages p
+      WHERE p.id = client_page_id AND p.agent_user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "agent listing shares presenting delete" ON public.agent_listing_shares;
+CREATE POLICY "agent listing shares presenting delete"
+  ON public.agent_listing_shares
+  FOR DELETE
+  USING (
+    presenting_user_id = auth.uid()
+    AND EXISTS (
+      SELECT 1
+      FROM public.agent_client_pages p
+      WHERE p.id = client_page_id AND p.agent_user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS "agent listing shares owner select" ON public.agent_listing_shares;
+CREATE POLICY "agent listing shares owner select"
+  ON public.agent_listing_shares
+  FOR SELECT
+  USING (owner_user_id = auth.uid());
+
+DROP POLICY IF EXISTS "agent listing shares admin write" ON public.agent_listing_shares;
+CREATE POLICY "agent listing shares admin write"
+  ON public.agent_listing_shares
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
 -- LEAD ATTRIBUTIONS
 DROP POLICY IF EXISTS "lead_attributions_agent_select" ON public.lead_attributions;
 CREATE POLICY "lead_attributions_agent_select"

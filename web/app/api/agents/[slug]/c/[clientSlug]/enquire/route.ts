@@ -25,24 +25,57 @@ const enquirySchema = z.object({
   clientPageId: z.string().uuid().optional().nullable(),
 });
 
-export async function POST(
+export type ClientPageEnquiryDeps = {
+  hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
+  requireUser: typeof requireUser;
+  getUserRole: typeof getUserRole;
+  requireLegalAcceptance: typeof requireLegalAcceptance;
+  getAgentClientPagePublic: typeof getAgentClientPagePublic;
+  findCuratedListing: typeof findCuratedListing;
+  createLeadThreadAndMessage: typeof createLeadThreadAndMessage;
+  ensureSessionCookie: typeof ensureSessionCookie;
+  logPropertyEvent: typeof logPropertyEvent;
+  insertLeadAttribution: typeof insertLeadAttribution;
+  logFailure: typeof logFailure;
+  hasServiceRoleEnv: typeof hasServiceRoleEnv;
+  createServiceRoleClient: typeof createServiceRoleClient;
+};
+
+const defaultDeps: ClientPageEnquiryDeps = {
+  hasServerSupabaseEnv,
+  requireUser,
+  getUserRole,
+  requireLegalAcceptance,
+  getAgentClientPagePublic,
+  findCuratedListing,
+  createLeadThreadAndMessage,
+  ensureSessionCookie,
+  logPropertyEvent,
+  insertLeadAttribution,
+  logFailure,
+  hasServiceRoleEnv,
+  createServiceRoleClient,
+};
+
+export async function postClientPageEnquiryResponse(
   request: NextRequest,
-  { params }: { params: Promise<{ slug?: string; clientSlug?: string }> }
+  { params }: { params: Promise<{ slug?: string; clientSlug?: string }> },
+  deps: ClientPageEnquiryDeps = defaultDeps
 ) {
   const startTime = Date.now();
-  if (!hasServerSupabaseEnv()) {
+  if (!deps.hasServerSupabaseEnv()) {
     return NextResponse.json({ error: "Service unavailable." }, { status: 503 });
   }
 
-  const auth = await requireUser({ request, route: routeLabel, startTime });
+  const auth = await deps.requireUser({ request, route: routeLabel, startTime });
   if (!auth.ok) return auth.response;
 
-  const role = await getUserRole(auth.supabase, auth.user.id);
+  const role = await deps.getUserRole(auth.supabase, auth.user.id);
   if (role !== "tenant") {
     return NextResponse.json({ error: "Only tenants can submit enquiries." }, { status: 403 });
   }
 
-  const legalCheck = await requireLegalAcceptance({
+  const legalCheck = await deps.requireLegalAcceptance({
     request,
     supabase: auth.supabase,
     userId: auth.user.id,
@@ -66,14 +99,14 @@ export async function POST(
     return NextResponse.json({ error: "Consent is required." }, { status: 400 });
   }
 
-  let data = await getAgentClientPagePublic({
+  let data = await deps.getAgentClientPagePublic({
     agentSlug: slug,
     clientSlug,
     requestId: `client-page-enquiry-${Date.now()}`,
   });
 
   if (!data.ok && data.redirectSlug) {
-    data = await getAgentClientPagePublic({
+    data = await deps.getAgentClientPagePublic({
       agentSlug: data.redirectSlug,
       clientSlug,
       requestId: `client-page-enquiry-${Date.now()}-redirect`,
@@ -90,16 +123,12 @@ export async function POST(
     return NextResponse.json({ error: "Client page unavailable." }, { status: 404 });
   }
 
-  const listing = findCuratedListing(data.listings, payload.data.propertyId);
+  const listing = deps.findCuratedListing(data.listings, payload.data.propertyId);
   if (!listing) {
     return NextResponse.json({ error: "Listing not available in this shortlist." }, { status: 404 });
   }
 
-  if (listing.owner_id !== data.agent.id) {
-    return NextResponse.json({ error: "Listing not available." }, { status: 403 });
-  }
-
-  const leadResult = await createLeadThreadAndMessage({
+  const leadResult = await deps.createLeadThreadAndMessage({
     supabase: auth.supabase,
     property: listing,
     buyerId: auth.user.id,
@@ -126,8 +155,8 @@ export async function POST(
     message: leadResult.message,
   });
 
-  const sessionKey = ensureSessionCookie(request, response);
-  void logPropertyEvent({
+  const sessionKey = deps.ensureSessionCookie(request, response);
+  void deps.logPropertyEvent({
     supabase: auth.supabase,
     propertyId: listing.id,
     eventType: "lead_created",
@@ -141,17 +170,20 @@ export async function POST(
     },
   });
 
-  if (hasServiceRoleEnv()) {
-    const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;
-    const attribution = await insertLeadAttribution(adminClient, {
+  if (deps.hasServiceRoleEnv()) {
+    const adminClient = deps.createServiceRoleClient() as unknown as UntypedAdminClient;
+    const attribution = await deps.insertLeadAttribution(adminClient, {
       lead_id: lead.id,
       agent_user_id: data.agent.id,
       client_page_id: data.client.id,
-      source: "agent_client_page",
+      presenting_agent_id: data.agent.id,
+      owner_user_id: listing.owner_id,
+      listing_id: listing.id,
+      source: "client_page",
     });
 
     if (!attribution.ok) {
-      logFailure({
+      deps.logFailure({
         request,
         route: routeLabel,
         status: 200,
@@ -159,7 +191,7 @@ export async function POST(
         error: new Error(attribution.error || "Lead attribution failed."),
       });
     } else {
-      void logPropertyEvent({
+      void deps.logPropertyEvent({
         supabase: auth.supabase,
         propertyId: listing.id,
         eventType: "lead_attributed",
@@ -167,13 +199,21 @@ export async function POST(
         actorRole: role,
         sessionKey,
         meta: {
-          source: "agent_client_page",
+          source: "client_page",
           clientPageId: data.client.id,
-          agentUserId: data.agent.id,
+          presentingAgentId: data.agent.id,
+          ownerUserId: listing.owner_id,
         },
       });
     }
   }
 
   return response;
+}
+
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ slug?: string; clientSlug?: string }> }
+) {
+  return postClientPageEnquiryResponse(request, { params });
 }

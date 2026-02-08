@@ -7,10 +7,8 @@ import { leadCreateSchema } from "@/lib/leads/lead-schema";
 import { logFailure } from "@/lib/observability";
 import { ensureSessionCookie } from "@/lib/analytics/session.server";
 import { isUuid, logPropertyEvent } from "@/lib/analytics/property-events.server";
-import {
-  canAttributeLeadToClientPage,
-  insertLeadAttribution,
-} from "@/lib/leads/lead-attribution";
+import { isClientPagePublished } from "@/lib/agents/client-pages";
+import { insertLeadAttribution } from "@/lib/leads/lead-attribution";
 import { createLeadThreadAndMessage } from "@/lib/leads/lead-create.server";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 
@@ -35,7 +33,7 @@ export async function GET(request: Request) {
       properties:properties(id, title, city, state_region, country_code),
       buyer:profiles!listing_leads_buyer_id_fkey(id, full_name, role),
       owner:profiles!listing_leads_owner_id_fkey(id, full_name, role),
-      lead_attributions:lead_attributions(id, client_page_id, agent_user_id, source, created_at,
+      lead_attributions:lead_attributions(id, client_page_id, agent_user_id, presenting_agent_id, owner_user_id, listing_id, source, created_at,
         client_page:agent_client_pages(id, client_slug, client_name, client_requirements, agent_slug)
       )`
     )
@@ -139,14 +137,9 @@ export async function POST(request: Request) {
 
     if (
       clientPageRow &&
-      canAttributeLeadToClientPage({
-        clientPage: {
-          id: clientPageRow.id,
-          agent_user_id: clientPageRow.agent_user_id,
-          published: clientPageRow.published,
-          expires_at: clientPageRow.expires_at,
-        },
-        propertyOwnerId: property.owner_id,
+      isClientPagePublished({
+        published: clientPageRow.published,
+        expiresAt: clientPageRow.expires_at,
       })
     ) {
       clientPage = {
@@ -214,35 +207,62 @@ export async function POST(request: Request) {
 
   if (clientPage && hasServiceRoleEnv()) {
     const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;
-    const attributionResult = await insertLeadAttribution(adminClient, {
-      lead_id: lead.id,
-      agent_user_id: clientPage.agent_user_id,
-      client_page_id: clientPage.id,
-      source: "agent_client_page",
-    });
+    let canAttribute = clientPage.agent_user_id === property.owner_id;
+    if (!canAttribute) {
+      const { data: shareRow } = await adminClient
+        .from("agent_listing_shares")
+        .select("id")
+        .eq("client_page_id", clientPage.id)
+        .eq("listing_id", property.id)
+        .eq("presenting_user_id", clientPage.agent_user_id)
+        .maybeSingle();
+      canAttribute = !!shareRow;
+    }
 
-    if (!attributionResult.ok) {
+    if (!canAttribute) {
       logFailure({
         request,
         route: routeLabel,
         status: 200,
         startTime,
-        error: new Error(attributionResult.error || "Lead attribution failed."),
+        error: new Error("Lead attribution skipped: listing not in client page."),
       });
     } else {
-      void logPropertyEvent({
-        supabase,
-        propertyId: property.id,
-        eventType: "lead_attributed",
-        actorUserId: auth.user.id,
-        actorRole: role,
-        sessionKey,
-        meta: {
-          source: "agent_client_page",
-          clientPageId: clientPage.id,
-          agentUserId: clientPage.agent_user_id,
-        },
+      const attributionResult = await insertLeadAttribution(adminClient, {
+        lead_id: lead.id,
+        agent_user_id: clientPage.agent_user_id,
+        client_page_id: clientPage.id,
+        presenting_agent_id: clientPage.agent_user_id,
+        owner_user_id: property.owner_id,
+        listing_id: property.id,
+        source: "client_page",
       });
+
+      if (!attributionResult.ok) {
+        logFailure({
+          request,
+          route: routeLabel,
+          status: 200,
+          startTime,
+          error: new Error(attributionResult.error || "Lead attribution failed."),
+        });
+      } else {
+        void logPropertyEvent({
+          supabase,
+          propertyId: property.id,
+          eventType: "lead_attributed",
+          actorUserId: auth.user.id,
+          actorRole: role,
+          sessionKey,
+          meta: {
+            source: "client_page",
+            clientPageId: clientPage.id,
+            presentingAgentId: clientPage.agent_user_id,
+            ownerUserId: property.owner_id,
+            listingId: property.id,
+          },
+        });
+      }
     }
   }
   return response;
