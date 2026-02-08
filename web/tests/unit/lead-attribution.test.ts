@@ -6,6 +6,7 @@ import {
   canAttributeLeadToClientPage,
   insertLeadAttribution,
 } from "@/lib/leads/lead-attribution";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 void test("canAttributeLeadToClientPage checks owner and publish state", () => {
   const valid = canAttributeLeadToClientPage({
@@ -51,21 +52,17 @@ void test("canAttributeLeadToClientPage blocks when owner mismatches or page mis
 });
 
 void test("insertLeadAttribution writes row", async () => {
-  let payload: any = null;
-  const adminClient = {
+  let payload: Record<string, unknown> | null = null;
+  const adminClient: UntypedAdminClient = {
     from: () => ({
       insert: async (values: unknown) => {
-        payload = values;
+        payload = values as Record<string, unknown>;
         return { error: null };
       },
     }),
-  } as unknown as {
-    from: (table: string) => {
-      insert: (values: unknown) => Promise<{ error?: { message?: string } | null }>;
-    };
   };
 
-  const result = await insertLeadAttribution(adminClient as any, {
+  const result = await insertLeadAttribution(adminClient, {
     lead_id: "lead-1",
     agent_user_id: "agent-1",
     client_page_id: "page-1",

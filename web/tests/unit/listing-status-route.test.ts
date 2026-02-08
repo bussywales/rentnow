@@ -24,25 +24,118 @@ type ListingRow = {
   location_place_id?: string | null;
 };
 
-const buildSupabaseStub = (listing: ListingRow, capture: { updatePayload: Record<string, unknown> | null }) => ({
-  from: () => ({
-    select: () => ({
-      eq: () => ({
-        maybeSingle: async () => ({ data: listing }),
-      }),
-    }),
-    update: (payload: Record<string, unknown>) => {
-      capture.updatePayload = payload;
-      return {
-        eq: () => ({
+const buildSupabaseStub = (
+  listing: ListingRow,
+  capture: { updatePayload: Record<string, unknown> | null }
+) => {
+  const legalDocs = [
+    {
+      id: "doc-master",
+      jurisdiction: "NG",
+      audience: "MASTER",
+      version: 1,
+      status: "published",
+      title: "Master",
+      content_md: "",
+      effective_at: null,
+      published_at: null,
+      updated_at: null,
+      created_at: null,
+    },
+    {
+      id: "doc-aup",
+      jurisdiction: "NG",
+      audience: "AUP",
+      version: 1,
+      status: "published",
+      title: "AUP",
+      content_md: "",
+      effective_at: null,
+      published_at: null,
+      updated_at: null,
+      created_at: null,
+    },
+    {
+      id: "doc-disclaimer",
+      jurisdiction: "NG",
+      audience: "DISCLAIMER",
+      version: 1,
+      status: "published",
+      title: "Disclaimer",
+      content_md: "",
+      effective_at: null,
+      published_at: null,
+      updated_at: null,
+      created_at: null,
+    },
+    {
+      id: "doc-landlord",
+      jurisdiction: "NG",
+      audience: "LANDLORD_AGENT",
+      version: 1,
+      status: "published",
+      title: "Landlord",
+      content_md: "",
+      effective_at: null,
+      published_at: null,
+      updated_at: null,
+      created_at: null,
+    },
+  ];
+  const legalAcceptances = legalDocs.map((doc) => ({
+    audience: doc.audience,
+    version: doc.version,
+    document_id: doc.id,
+  }));
+
+  return {
+    from: (table: string) => {
+      if (table === "legal_documents") {
+        return {
           select: () => ({
-            maybeSingle: async () => ({ data: { ...listing, ...payload } }),
+            eq: () => ({
+              eq: () => ({
+                or: () => ({
+                  in: () => ({
+                    order: async () => ({ data: legalDocs, error: null }),
+                  }),
+                }),
+              }),
+            }),
+          }),
+        };
+      }
+      if (table === "legal_acceptances") {
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                in: async () => ({ data: legalAcceptances }),
+              }),
+            }),
+          }),
+        };
+      }
+      return {
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: listing }),
           }),
         }),
+        update: (payload: Record<string, unknown>) => {
+          capture.updatePayload = payload;
+          return {
+            eq: () => ({
+              select: () => ({
+                maybeSingle: async () => ({ data: { ...listing, ...payload } }),
+              }),
+            }),
+          };
+        },
       };
     },
-  }),
-});
+  };
+};
 
 void test("owner can pause listing", async () => {
   const capture = { updatePayload: null as Record<string, unknown> | null };

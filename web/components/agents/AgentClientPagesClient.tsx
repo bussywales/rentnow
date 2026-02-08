@@ -1108,7 +1108,7 @@ export default function AgentClientPagesClient({
                   <div>
                     <p className="text-sm font-semibold text-slate-900">Commission terms (optional)</p>
                     <p className="text-xs text-slate-500">
-                      Add draft terms when you include another agent's listing.
+                      Add draft terms when you include another agent&apos;s listing.
                     </p>
                   </div>
                   <Button

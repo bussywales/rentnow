@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { canAccessLeadNotes, normalizeLeadTag } from "@/lib/leads/lead-notes";
@@ -17,7 +18,7 @@ type LeadRow = {
   owner_id: string;
 };
 
-async function fetchLead(supabase: any, id: string): Promise<LeadRow | null> {
+async function fetchLead(supabase: SupabaseClient, id: string): Promise<LeadRow | null> {
   const { data } = await supabase
     .from("listing_leads")
     .select("id, owner_id")

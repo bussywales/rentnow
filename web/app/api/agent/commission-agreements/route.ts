@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   let query = auth.supabase
     .from("agent_commission_agreements")
     .select(
-      "id, listing_id, owner_agent_id, presenting_agent_id, commission_type, commission_value, currency, status, notes, created_at, accepted_at"
+      "id, listing_id, owner_agent_id, presenting_agent_id, commission_type, commission_value, currency, status, notes, created_at, accepted_at, declined_at, voided_at, void_reason, terms_locked, terms_locked_at"
     )
     .or(`owner_agent_id.eq.${auth.user.id},presenting_agent_id.eq.${auth.user.id}`)
     .order("created_at", { ascending: false });

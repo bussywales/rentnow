@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { requireRole } from "@/lib/authz";
 import { safeTrim } from "@/lib/agents/agent-storefront";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
@@ -10,7 +11,11 @@ type RouteContext = { params: Promise<{ id?: string; listingId?: string }> };
 
 type PageRow = { id: string; agent_user_id: string };
 
-async function ensureOwnership(supabase: any, pageId: string, userId: string) {
+async function ensureOwnership(
+  supabase: SupabaseClient,
+  pageId: string,
+  userId: string
+) {
   const { data } = await supabase
     .from("agent_client_pages")
     .select("id, agent_user_id")

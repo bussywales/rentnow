@@ -1,7 +1,12 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { requireRole } from "@/lib/authz";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { postExternalListingResponse } from "@/app/api/agent/client-pages/[id]/external-listings/route";
+
+const TEST_LISTING_ID = "11111111-1111-4111-8111-111111111111";
 
 const makeRequest = (payload: Record<string, unknown>) =>
   new NextRequest("http://localhost/api/agent/client-pages/page1/external-listings", {
@@ -50,7 +55,7 @@ void test("external listing insert writes curated and share rows", async () => {
       select: () => ({
         eq: () => ({
           maybeSingle: async () => ({
-            data: { id: "listing-1", owner_id: "owner-1", status: "live" },
+            data: { id: TEST_LISTING_ID, owner_id: "owner-1", status: "live" },
           }),
         }),
       }),
@@ -58,18 +63,19 @@ void test("external listing insert writes curated and share rows", async () => {
   };
 
   const response = await postExternalListingResponse(
-    makeRequest({ listingId: "listing-1" }),
+    makeRequest({ listingId: TEST_LISTING_ID }),
     { params: Promise.resolve({ id: "page1" }) },
     {
-      requireRole: async () =>
-        ({
-          ok: true,
-          user: { id: "agent-1" },
-          supabase: supabaseStub,
-        }) as any,
+      requireRole: (async () => ({
+        ok: true,
+        user: { id: "agent-1" } as User,
+        supabase: supabaseStub as unknown as SupabaseClient,
+        role: "agent",
+      })) as typeof requireRole,
       hasServiceRoleEnv: () => true,
       getAppSettingBool: async () => true,
-      createServiceRoleClient: () => adminStub as any,
+      createServiceRoleClient: () =>
+        adminStub as unknown as ReturnType<typeof createServiceRoleClient>,
       logPropertyEvent: async () => ({ ok: true }),
       resolveEventSessionKey: () => null,
     }

@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { requireRole } from "@/lib/authz";
 import { postAgentShareCompleteResponse } from "@/app/api/agent/onboarding/share-complete/route";
 
 const makeRequest = () =>
@@ -11,12 +13,12 @@ const makeRequest = () =>
 void test("share complete route marks progress complete", async () => {
   const response = await postAgentShareCompleteResponse(makeRequest(), {
     hasServerSupabaseEnv: () => true,
-    requireRole: async () =>
-      ({
-        ok: true,
-        user: { id: "agent-1" },
-        supabase: {},
-      }) as any,
+    requireRole: (async () => ({
+      ok: true,
+      user: { id: "agent-1" } as User,
+      supabase: {} as SupabaseClient,
+      role: "agent",
+    })) as typeof requireRole,
     markAgentSharedPageComplete: async () => ({
       hasListing: true,
       hasClientPage: true,

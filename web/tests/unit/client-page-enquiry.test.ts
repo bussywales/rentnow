@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { findCuratedListing } from "@/lib/agents/client-page-enquiry";
+import type { Property } from "@/lib/types";
 import {
   buildLeadInsertPayload,
   resolveLeadIntent,
@@ -8,14 +9,14 @@ import {
 } from "@/lib/leads/lead-create";
 
 test("findCuratedListing returns live curated listing", () => {
-  const listings = [
+  const listings: Property[] = [
     { id: "a", status: "draft" },
     { id: "b", status: "live" },
-  ] as any[];
+  ] as Property[];
 
-  assert.equal(findCuratedListing(listings as any, "b")?.id, "b");
-  assert.equal(findCuratedListing(listings as any, "a"), null);
-  assert.equal(findCuratedListing(listings as any, "missing"), null);
+  assert.equal(findCuratedListing(listings, "b")?.id, "b");
+  assert.equal(findCuratedListing(listings, "a"), null);
+  assert.equal(findCuratedListing(listings, "missing"), null);
 });
 
 test("resolveLeadIntent supports rent listings", () => {

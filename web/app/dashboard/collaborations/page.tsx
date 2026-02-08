@@ -22,7 +22,7 @@ export default async function AgentCollaborationsPage() {
   const { data: agreements } = await supabase
     .from("agent_commission_agreements")
     .select(
-      "id, listing_id, owner_agent_id, presenting_agent_id, commission_type, commission_value, currency, status, notes, created_at, accepted_at"
+      "id, listing_id, owner_agent_id, presenting_agent_id, commission_type, commission_value, currency, status, notes, created_at, accepted_at, declined_at, voided_at, void_reason, terms_locked, terms_locked_at"
     )
     .or(`owner_agent_id.eq.${user.id},presenting_agent_id.eq.${user.id}`)
     .order("created_at", { ascending: false });
@@ -39,6 +39,11 @@ export default async function AgentCollaborationsPage() {
     notes?: string | null;
     created_at?: string | null;
     accepted_at?: string | null;
+    declined_at?: string | null;
+    voided_at?: string | null;
+    void_reason?: string | null;
+    terms_locked?: boolean | null;
+    terms_locked_at?: string | null;
   };
 
   const agreementRows = (agreements as AgreementRow[] | null) ?? [];

@@ -1,4 +1,5 @@
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { filterLeadsByClientPage } from "@/lib/agents/client-page-inbox";
 import type { LeadStatus } from "@/lib/leads/types";
 
@@ -112,7 +113,7 @@ async function resolveBuyerEmails(buyerIds: string[]): Promise<Record<string, st
 }
 
 export async function fetchClientPageLeads(input: {
-  supabase: unknown;
+  supabase: SupabaseClient;
   clientPageId: string;
   filters?: ClientPageInboxFilters;
   includeBuyerEmail?: boolean;
@@ -129,7 +130,7 @@ export async function fetchClientPageLeads(input: {
   const to = from + pageSize - 1;
   const startDate = resolveDateRange(input.filters?.dateRange);
 
-  const db = input.supabase as any;
+  const db = input.supabase;
   let query = db
     .from("listing_leads")
     .select(

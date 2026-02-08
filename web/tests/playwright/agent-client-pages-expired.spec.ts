@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { HAS_SUPABASE_ENV } from "./helpers/env";
 
@@ -11,7 +11,7 @@ const supabaseUrl =
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "";
 const HAS_SERVICE_ROLE = !!supabaseUrl && !!serviceRoleKey;
 
-async function login(page: any, email: string, password: string) {
+async function login(page: Page, email: string, password: string) {
   await page.goto("/auth/login");
   await page.getByPlaceholder("you@email.com").fill(email);
   await page.getByPlaceholder("Password").fill(password);
@@ -19,7 +19,7 @@ async function login(page: any, email: string, password: string) {
   await page.waitForURL(/admin|dashboard|tenant\/home|host|profile/i, { timeout: 15_000 });
 }
 
-async function ensureAgentSlug(page: any, displayName: string) {
+async function ensureAgentSlug(page: Page, displayName: string) {
   const response = await page.request.post("/api/profile/agent-storefront", {
     data: { displayName },
   });

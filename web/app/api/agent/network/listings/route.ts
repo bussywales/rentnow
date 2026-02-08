@@ -128,12 +128,12 @@ export async function getAgentNetworkListingsResponse(
 
   const adminClient = deps.createServiceRoleClient() as unknown as UntypedAdminClient;
   let query = adminClient
-    .from("properties")
+    .from<PropertyRow>("properties")
     .select(PROPERTY_SELECT)
-    .eq("status", "live") as any;
+    .eq("status", "live");
 
   if (excludeMine) {
-    query = query.neq("owner_id", auth.user.id);
+    query = query.not("owner_id", "eq", auth.user.id);
   }
   if (city) {
     query = query.ilike("city", `%${city}%`);

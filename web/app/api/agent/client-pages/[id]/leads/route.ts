@@ -33,18 +33,31 @@ export async function GET(request: Request, { params }: RouteContext) {
   }
 
   const url = new URL(request.url);
-  const status = safeTrim(url.searchParams.get("status")) || "all";
+  const statusParam = safeTrim(url.searchParams.get("status")) || "all";
   const dateRange = safeTrim(url.searchParams.get("date")) || "all";
   const propertyId = safeTrim(url.searchParams.get("property"));
   const unreadOnly = url.searchParams.get("unread") === "true";
   const pageParam = Number.parseInt(url.searchParams.get("page") || "0", 10);
   const pageSizeParam = Number.parseInt(url.searchParams.get("pageSize") || "20", 10);
+  const normalizedStatusMap: Record<
+    string,
+    "all" | "offer" | "NEW" | "CONTACTED" | "VIEWING" | "WON" | "LOST"
+  > = {
+    all: "all",
+    offer: "offer",
+    new: "NEW",
+    contacted: "CONTACTED",
+    viewing: "VIEWING",
+    won: "WON",
+    lost: "LOST",
+  };
+  const normalizedStatus = normalizedStatusMap[statusParam.toLowerCase()] ?? "all";
 
   const result = await fetchClientPageLeads({
     supabase,
     clientPageId,
     filters: {
-      status: status === "offer" ? "offer" : (status as any),
+      status: normalizedStatus,
       dateRange: dateRange as "all" | "today" | "week" | "month",
       propertyId: propertyId || null,
       unreadOnly,

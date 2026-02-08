@@ -33,11 +33,9 @@ export function LegalAcceptanceModalGate() {
 
   useEffect(() => {
     if (shouldHide(pathname)) {
-      setLoading(false);
       return;
     }
     let mounted = true;
-    setLoading(true);
     fetch("/api/legal/accept/status", { cache: "no-store" })
       .then(async (res) => {
         if (!mounted) return;

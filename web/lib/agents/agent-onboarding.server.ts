@@ -1,4 +1,5 @@
 import { safeTrim } from "@/lib/agents/agent-storefront";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type AgentOnboardingProgress = {
   hasListing: boolean;
@@ -46,7 +47,7 @@ function buildClientPageUrl(input: {
   return `${input.siteUrl.replace(/\/$/, "")}/agents/${agentSlug}/c/${clientSlug}`;
 }
 
-async function fetchListingCount(supabase: any, userId: string) {
+async function fetchListingCount(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase
     .from("properties")
     .select("id")
@@ -54,7 +55,7 @@ async function fetchListingCount(supabase: any, userId: string) {
   return (data as { id?: string | null }[] | null | undefined)?.length ?? 0;
 }
 
-async function fetchClientPages(supabase: any, userId: string) {
+async function fetchClientPages(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase
     .from("agent_client_pages")
     .select("id, client_slug, published, updated_at, published_at")
@@ -62,7 +63,7 @@ async function fetchClientPages(supabase: any, userId: string) {
   return (data as ClientPageRow[] | null | undefined) ?? [];
 }
 
-async function fetchProgressRow(supabase: any, userId: string) {
+async function fetchProgressRow(supabase: SupabaseClient, userId: string) {
   const { data } = await supabase
     .from("agent_onboarding_progress")
     .select("user_id, has_listing, has_client_page, has_shared_page, completed_at")
@@ -91,7 +92,11 @@ function buildProgress(input: {
   };
 }
 
-async function upsertProgressRow(supabase: any, userId: string, progress: ReturnType<typeof buildProgress>) {
+async function upsertProgressRow(
+  supabase: SupabaseClient,
+  userId: string,
+  progress: ReturnType<typeof buildProgress>
+) {
   const payload = {
     user_id: userId,
     has_listing: progress.hasListing,
@@ -104,7 +109,7 @@ async function upsertProgressRow(supabase: any, userId: string, progress: Return
 }
 
 export async function resolveAgentOnboardingProgress(input: {
-  supabase: any;
+  supabase: SupabaseClient;
   userId: string;
   agentSlug?: string | null;
   siteUrl: string;
@@ -148,7 +153,7 @@ export async function resolveAgentOnboardingProgress(input: {
 }
 
 export async function markAgentSharedPageComplete(input: {
-  supabase: any;
+  supabase: SupabaseClient;
   userId: string;
   agentSlug?: string | null;
   siteUrl: string;

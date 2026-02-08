@@ -47,7 +47,8 @@ export async function POST(
     return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
   }
 
-  const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;
+  const serviceClient = createServiceRoleClient();
+  const adminClient = serviceClient as unknown as UntypedAdminClient;
   const { data: listing, error } = await adminClient
     .from("properties")
     .select("id, owner_id, status, is_featured, featured_until")
@@ -99,7 +100,7 @@ export async function POST(
 
   const idempotencyKey = parsed.data.idempotencyKey || crypto.randomUUID();
   const consumed = await consumeFeaturedCredit({
-    client: adminClient as unknown as any,
+    client: serviceClient,
     userId: typedListing.owner_id,
     listingId: typedListing.id,
     idempotencyKey,

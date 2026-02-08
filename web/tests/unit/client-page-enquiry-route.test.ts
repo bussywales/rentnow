@@ -1,14 +1,19 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
+import type { SupabaseClient, User } from "@supabase/supabase-js";
+import { requireUser, getUserRole } from "@/lib/authz";
+import { requireLegalAcceptance } from "@/lib/legal/guards";
+import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { postClientPageEnquiryResponse } from "@/app/api/agents/[slug]/c/[clientSlug]/enquire/route";
 
+const TEST_LISTING_ID = "22222222-2222-4222-8222-222222222222";
 const makeRequest = () =>
   new NextRequest("http://localhost/api/agents/agent/c/client/enquire", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      propertyId: "listing-1",
+      propertyId: TEST_LISTING_ID,
       message: "I am interested in this listing.",
       consent: true,
       source: "client_page",
@@ -18,7 +23,7 @@ const makeRequest = () =>
 void test("client page enquiry inserts lead attribution", async () => {
   let attributionPayload: Record<string, unknown> | null = null;
   const listing = {
-    id: "listing-1",
+    id: TEST_LISTING_ID,
     owner_id: "owner-1",
     status: "live",
     title: "Listing",
@@ -36,14 +41,13 @@ void test("client page enquiry inserts lead attribution", async () => {
     { params: Promise.resolve({ slug: "agent", clientSlug: "client" }) },
     {
       hasServerSupabaseEnv: () => true,
-      requireUser: async () =>
-        ({
-          ok: true,
-          user: { id: "tenant-1" },
-          supabase: {},
-        }) as any,
-      getUserRole: async () => "tenant",
-      requireLegalAcceptance: async () => ({ ok: true, response: {} } as any),
+      requireUser: (async () => ({
+        ok: true,
+        user: { id: "tenant-1" } as User,
+        supabase: {} as SupabaseClient,
+      })) as typeof requireUser,
+      getUserRole: (async () => "tenant") as typeof getUserRole,
+      requireLegalAcceptance: (async () => ({ ok: true, response: {} })) as typeof requireLegalAcceptance,
       getAgentClientPagePublic: async () =>
         ({
           ok: true,
@@ -67,10 +71,10 @@ void test("client page enquiry inserts lead attribution", async () => {
             requirements: null,
             notes: null,
           },
-          listings: [listing as any],
+          listings: [listing],
           metrics: null,
-        }) as any,
-      findCuratedListing: () => listing as any,
+        }) as unknown,
+      findCuratedListing: () => listing,
       createLeadThreadAndMessage: async () =>
         ({
           ok: true,
@@ -78,7 +82,7 @@ void test("client page enquiry inserts lead attribution", async () => {
           threadId: "thread-1",
           message: null,
           leadIntent: "BUY",
-        }) as any,
+        }) as unknown,
       ensureSessionCookie: () => "session-1",
       logPropertyEvent: async () => ({ ok: true }),
       insertLeadAttribution: async (_client, payload) => {
@@ -87,7 +91,8 @@ void test("client page enquiry inserts lead attribution", async () => {
       },
       logFailure: () => undefined,
       hasServiceRoleEnv: () => true,
-      createServiceRoleClient: () => ({} as any),
+      createServiceRoleClient: () =>
+        ({} as unknown as ReturnType<typeof createServiceRoleClient>),
     }
   );
 
@@ -95,5 +100,5 @@ void test("client page enquiry inserts lead attribution", async () => {
   assert.ok(attributionPayload);
   assert.equal(attributionPayload?.presenting_agent_id, "agent-1");
   assert.equal(attributionPayload?.owner_user_id, "owner-1");
-  assert.equal(attributionPayload?.listing_id, "listing-1");
+  assert.equal(attributionPayload?.listing_id, TEST_LISTING_ID);
 });

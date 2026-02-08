@@ -34,8 +34,7 @@ export async function POST(request: Request, { params }: RouteContext) {
     return NextResponse.json({ error: "Client page not found." }, { status: 404 });
   }
 
-  const leadQuery = supabase as any;
-  const { data: lead } = await leadQuery
+  const { data: lead } = await supabase
     .from("listing_leads")
     .select(
       "id, property_id, lead_attributions!inner(client_page_id)"

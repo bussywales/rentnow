@@ -29,7 +29,7 @@ export default async function AdminCommissionAgreementsPage() {
   const { data: agreements } = await adminClient
     .from("agent_commission_agreements")
     .select(
-      "id, listing_id, owner_agent_id, presenting_agent_id, commission_type, commission_value, currency, status, notes, created_at, accepted_at"
+      "id, listing_id, owner_agent_id, presenting_agent_id, commission_type, commission_value, currency, status, notes, created_at, accepted_at, declined_at, voided_at, void_reason"
     )
     .order("created_at", { ascending: false });
 
@@ -45,6 +45,9 @@ export default async function AdminCommissionAgreementsPage() {
     notes?: string | null;
     created_at?: string | null;
     accepted_at?: string | null;
+    declined_at?: string | null;
+    voided_at?: string | null;
+    void_reason?: string | null;
   };
 
   const agreementRows = (agreements as AgreementRow[] | null) ?? [];
@@ -120,6 +123,20 @@ export default async function AdminCommissionAgreementsPage() {
                     <p className="text-xs text-slate-500">
                       {listing?.city || "Location"} · {agreement.status || "proposed"}
                     </p>
+                    <div className="mt-2 space-y-1 text-xs text-slate-500">
+                      {agreement.accepted_at && (
+                        <p>Accepted: {formatRelativeTime(agreement.accepted_at)}</p>
+                      )}
+                      {agreement.declined_at && (
+                        <p>Declined: {formatRelativeTime(agreement.declined_at)}</p>
+                      )}
+                      {agreement.voided_at && (
+                        <p>Voided: {formatRelativeTime(agreement.voided_at)}</p>
+                      )}
+                      {agreement.void_reason && (
+                        <p className="text-xs text-slate-600">Void reason: {agreement.void_reason}</p>
+                      )}
+                    </div>
                     <p className="mt-2 text-xs text-slate-600">
                       Owner: {owner?.display_name || owner?.full_name || owner?.business_name || owner?.id}
                     </p>

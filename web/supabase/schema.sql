@@ -548,7 +548,12 @@ CREATE TABLE public.agent_commission_agreements (
   status TEXT NOT NULL DEFAULT 'proposed',
   notes TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  accepted_at TIMESTAMPTZ
+  accepted_at TIMESTAMPTZ,
+  declined_at TIMESTAMPTZ,
+  voided_at TIMESTAMPTZ,
+  void_reason TEXT,
+  terms_locked BOOLEAN NOT NULL DEFAULT false,
+  terms_locked_at TIMESTAMPTZ
 );
 
 ALTER TABLE public.agent_commission_agreements

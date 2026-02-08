@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -159,7 +159,7 @@ export default function ClientPageInboxClient({
     return Array.from(map.entries()).map(([id, title]) => ({ id, title }));
   }, [leads]);
 
-  const loadLeads = async (nextPage: number, append: boolean) => {
+  const loadLeads = useCallback(async (nextPage: number, append: boolean) => {
     setLoading(true);
     setLoadError(null);
     try {
@@ -186,13 +186,13 @@ export default function ClientPageInboxClient({
     } finally {
       setLoading(false);
     }
-  };
+  }, [clientPage.id, dateFilter, pageSize, propertyFilter, statusFilter, unreadOnly]);
 
   useEffect(() => {
     void loadLeads(0, false);
     setSelectedId(null);
     setDrawerOpen(false);
-  }, [statusFilter, dateFilter, propertyFilter, unreadOnly]);
+  }, [dateFilter, loadLeads, propertyFilter, statusFilter, unreadOnly]);
 
   useEffect(() => {
     let ignore = false;

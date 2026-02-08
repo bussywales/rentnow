@@ -201,6 +201,15 @@ function resolveCommissionLabel(lead: LeadInboxRow) {
   return agreement.status === "accepted" ? "Yes" : "No";
 }
 
+function resolveCommissionState(lead: LeadInboxRow) {
+  const attr = lead.lead_attributions?.[0];
+  if (!attr?.presenting_agent_id) return null;
+  const agreement = lead.commission_agreement;
+  if (!agreement) return "proposed";
+  if (agreement.status === "accepted") return "accepted";
+  return "proposed";
+}
+
 function formatCommissionTerms(agreement?: LeadInboxRow["commission_agreement"] | null) {
   if (!agreement) return null;
   if (agreement.commission_type === "none") return "None";
@@ -257,10 +266,10 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
   );
 
   const selectedPresenterName = selectedLead ? resolvePresenterName(selectedLead) : null;
-  const selectedCommissionLabel = selectedLead ? resolveCommissionLabel(selectedLead) : null;
   const selectedCommissionTerms = selectedLead
     ? formatCommissionTerms(selectedLead.commission_agreement)
     : null;
+  const selectedCommissionState = selectedLead ? resolveCommissionState(selectedLead) : null;
 
   useEffect(() => {
     if (!drawerOpen || !selectedLead) return;
@@ -897,21 +906,19 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
                           selectedAttribution.clientPageId}
                       </span>
                     </div>
-                    {selectedCommissionLabel && (
+                    {selectedCommissionState && (
                       <div>
-                        Commission agreed:{" "}
-                        <span className="font-semibold text-slate-700">{selectedCommissionLabel}</span>
+                        {selectedCommissionState === "accepted"
+                          ? "Commission agreed"
+                          : "Commission proposed (not accepted)"}
                       </div>
                     )}
                     {selectedCommissionTerms && (
-                      <div className="text-xs text-slate-500">
-                        Terms: {selectedCommissionTerms}
-                      </div>
+                      <div className="text-xs text-slate-500">Terms: {selectedCommissionTerms}</div>
                     )}
-                    {(selectedCommissionLabel || selectedCommissionTerms) && (
+                    {selectedCommissionState && (
                       <div className="text-[11px] text-slate-400">
-                        This agreement is between agents. PropatyHub does not enforce or process
-                        commission payments.
+                        PropatyHub only records this agreement; payment is handled off-platform.
                       </div>
                     )}
                     {selectedAttribution.clientRequirements && (

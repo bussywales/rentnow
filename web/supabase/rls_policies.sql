@@ -1575,7 +1575,6 @@ CREATE POLICY "agent commission agreements insert"
   FOR INSERT
   WITH CHECK (
     presenting_agent_id = auth.uid()
-    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "agent commission agreements update" ON public.agent_commission_agreements;
@@ -1584,11 +1583,9 @@ CREATE POLICY "agent commission agreements update"
   FOR UPDATE
   USING (
     owner_agent_id = auth.uid()
-    OR public.is_admin()
   )
   WITH CHECK (
     owner_agent_id = auth.uid()
-    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "agent commission agreements delete" ON public.agent_commission_agreements;
@@ -1597,7 +1594,6 @@ CREATE POLICY "agent commission agreements delete"
   FOR DELETE
   USING (
     owner_agent_id = auth.uid()
-    OR public.is_admin()
   );
 
 DROP POLICY IF EXISTS "agent commission events select" ON public.agent_commission_events;

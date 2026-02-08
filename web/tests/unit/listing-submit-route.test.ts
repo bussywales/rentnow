@@ -47,7 +47,7 @@ void test("submit returns payment required when no credits", async () => {
     hasServerSupabaseEnv: () => true,
     hasServiceRoleEnv: () => true,
     createServerSupabaseClient: async () => supabase,
-    createServiceRoleClient: () => ({} as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>),
+    createServiceRoleClient: () => supabase as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>,
     requireUser: async () =>
       ({
         ok: true,
@@ -75,7 +75,11 @@ void test("submit returns payment required when no credits", async () => {
     logFailure: () => undefined,
   };
 
-  const res = await postPropertySubmitResponse(makeRequest({ idempotencyKey: "idem-1" }), "prop1", deps);
+  const res = await postPropertySubmitResponse(
+    makeRequest({ idempotencyKey: "idem-12345" }),
+    "prop1",
+    deps
+  );
   assert.equal(res.status, 402);
   const json = await res.json();
   assert.equal(json.reason, "PAYMENT_REQUIRED");

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { safeTrim } from "@/lib/agents/agent-storefront";
@@ -22,7 +23,11 @@ type CuratedRow = {
   pinned: boolean;
 };
 
-async function ensureOwnership(supabase: any, pageId: string, userId: string) {
+async function ensureOwnership(
+  supabase: SupabaseClient,
+  pageId: string,
+  userId: string
+) {
   const { data } = await supabase
     .from("agent_client_pages")
     .select("id, agent_user_id")
