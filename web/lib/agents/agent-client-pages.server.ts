@@ -3,6 +3,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import { safeTrim } from "@/lib/agents/agent-storefront";
+import { normalizeRole } from "@/lib/roles";
 import {
   normalizeClientPageCriteria,
   resolveClientPagePublicState,
@@ -106,7 +107,12 @@ type ClientPagePublicResult =
 function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
   return (rows ?? []).map((row) => ({
     ...row,
-    owner_profile: row.owner ?? null,
+    owner_profile: row.owner
+      ? {
+          ...row.owner,
+          role: normalizeRole(row.owner.role),
+        }
+      : null,
     owner_display_name:
       row.owner?.display_name ||
       row.owner?.full_name ||
