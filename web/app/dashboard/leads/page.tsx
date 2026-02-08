@@ -45,6 +45,21 @@ type LeadRow = {
       agent_slug?: string | null;
     } | null;
   }[] | null;
+  presenting_agent_profile?: {
+    id?: string | null;
+    full_name?: string | null;
+    display_name?: string | null;
+    business_name?: string | null;
+  } | null;
+  commission_agreement?: {
+    id?: string | null;
+    listing_id?: string | null;
+    presenting_agent_id?: string | null;
+    status?: string | null;
+    commission_type?: string | null;
+    commission_value?: number | null;
+    currency?: string | null;
+  } | null;
 };
 
 export default async function DashboardLeadsPage() {
@@ -71,6 +86,84 @@ export default async function DashboardLeadsPage() {
     .eq("owner_id", user.id)
     .order("created_at", { ascending: false });
 
+  const rows = ((data as LeadRow[]) || []).map((row) => ({ ...row }));
+
+  const attributionPairs = rows
+    .map((row) => {
+      const attr = row.lead_attributions?.[0];
+      if (!attr?.presenting_agent_id) return null;
+      return {
+        presenting_agent_id: attr.presenting_agent_id,
+        listing_id: attr.listing_id ?? row.property_id,
+      };
+    })
+    .filter(Boolean) as { presenting_agent_id: string; listing_id: string }[];
+
+  const presentingIds = Array.from(
+    new Set(attributionPairs.map((pair) => pair.presenting_agent_id))
+  );
+  const listingIds = Array.from(new Set(attributionPairs.map((pair) => pair.listing_id)));
+
+  const { data: presentingProfiles } = presentingIds.length
+    ? await supabase
+        .from("profiles")
+        .select("id, full_name, display_name, business_name")
+        .in("id", presentingIds)
+    : { data: [] };
+
+  type PresentingProfile = {
+    id: string;
+    full_name?: string | null;
+    display_name?: string | null;
+    business_name?: string | null;
+  };
+
+  const presentingMap = new Map(
+    ((presentingProfiles as PresentingProfile[] | null) ?? []).map((profile) => [
+      profile.id,
+      profile,
+    ])
+  );
+
+  const { data: agreements } = listingIds.length
+    ? await supabase
+        .from("agent_commission_agreements")
+        .select("id, listing_id, presenting_agent_id, status, commission_type, commission_value, currency")
+        .in("listing_id", listingIds)
+    : { data: [] };
+
+  type AgreementRow = {
+    id: string;
+    listing_id: string;
+    presenting_agent_id: string;
+    status?: string | null;
+    commission_type?: string | null;
+    commission_value?: number | null;
+    currency?: string | null;
+  };
+
+  const agreementMap = new Map(
+    ((agreements as AgreementRow[] | null) ?? []).map((agreement) => [
+      `${agreement.listing_id}:${agreement.presenting_agent_id}`,
+      agreement,
+    ])
+  );
+
+  const enrichedLeads = rows.map((lead) => {
+    const attr = lead.lead_attributions?.[0];
+    const presentingId = attr?.presenting_agent_id ?? null;
+    const listingId = attr?.listing_id ?? lead.property_id;
+    const agreement =
+      presentingId && listingId
+        ? agreementMap.get(`${listingId}:${presentingId}`) ?? null
+        : null;
+    return {
+      ...lead,
+      presenting_agent_profile: presentingId ? presentingMap.get(presentingId) ?? null : null,
+      commission_agreement: agreement ?? null,
+    };
+  });
+
   return (
     <div className="space-y-4">
       <div>
@@ -85,7 +178,7 @@ export default async function DashboardLeadsPage() {
         </div>
       ) : (
         <LeadInboxClient
-          leads={(data as LeadRow[]) || []}
+          leads={enrichedLeads}
           viewerRole={role as "landlord" | "agent"}
           viewerId={user.id}
         />

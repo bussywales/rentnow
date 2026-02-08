@@ -13,6 +13,10 @@ const payloadSchema = z.object({
   listingId: z.string().uuid(),
   pinned: z.boolean().optional(),
   rank: z.number().int().min(0).optional(),
+  commission_type: z.enum(["percentage", "fixed", "none"]).optional(),
+  commission_value: z.number().min(0).nullable().optional(),
+  currency: z.string().max(8).nullable().optional(),
+  notes: z.string().max(800).nullable().optional(),
 });
 
 type RouteContext = { params: Promise<{ id?: string }> };
@@ -133,6 +137,33 @@ export async function postExternalListingResponse(
 
   if (shareError) {
     return NextResponse.json({ error: shareError.message }, { status: 400 });
+  }
+
+  const commissionType = payload.data.commission_type ?? null;
+  const commissionNotes = safeTrim(payload.data.notes ?? null);
+  const shouldCreateAgreement =
+    commissionType !== null && commissionType !== "none";
+  const normalizedValue =
+    commissionType && commissionType !== "none" ? payload.data.commission_value ?? null : null;
+  if (shouldCreateAgreement || commissionNotes) {
+    const agreementPayload = {
+      listing_id: payload.data.listingId,
+      owner_agent_id: resolvedListing.owner_id,
+      presenting_agent_id: auth.user.id,
+      commission_type: commissionType ?? "none",
+      commission_value: normalizedValue,
+      currency: payload.data.currency ?? null,
+      status: "proposed",
+      notes: commissionNotes || null,
+    };
+
+    const { error: agreementError } = await auth.supabase
+      .from("agent_commission_agreements")
+      .upsert(agreementPayload, { onConflict: "listing_id,presenting_agent_id" });
+
+    if (agreementError) {
+      return NextResponse.json({ error: agreementError.message }, { status: 400 });
+    }
   }
 
   const sessionKey = deps.resolveEventSessionKey({ request, userId: auth.user.id });

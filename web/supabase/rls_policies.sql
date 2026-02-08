@@ -1556,6 +1556,78 @@ CREATE POLICY "agent listing shares admin write"
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
+ALTER TABLE public.agent_commission_agreements ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agent_commission_events ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "agent commission agreements select" ON public.agent_commission_agreements;
+CREATE POLICY "agent commission agreements select"
+  ON public.agent_commission_agreements
+  FOR SELECT
+  USING (
+    owner_agent_id = auth.uid()
+    OR presenting_agent_id = auth.uid()
+    OR public.is_admin()
+  );
+
+DROP POLICY IF EXISTS "agent commission agreements insert" ON public.agent_commission_agreements;
+CREATE POLICY "agent commission agreements insert"
+  ON public.agent_commission_agreements
+  FOR INSERT
+  WITH CHECK (
+    presenting_agent_id = auth.uid()
+    OR public.is_admin()
+  );
+
+DROP POLICY IF EXISTS "agent commission agreements update" ON public.agent_commission_agreements;
+CREATE POLICY "agent commission agreements update"
+  ON public.agent_commission_agreements
+  FOR UPDATE
+  USING (
+    owner_agent_id = auth.uid()
+    OR public.is_admin()
+  )
+  WITH CHECK (
+    owner_agent_id = auth.uid()
+    OR public.is_admin()
+  );
+
+DROP POLICY IF EXISTS "agent commission agreements delete" ON public.agent_commission_agreements;
+CREATE POLICY "agent commission agreements delete"
+  ON public.agent_commission_agreements
+  FOR DELETE
+  USING (
+    owner_agent_id = auth.uid()
+    OR public.is_admin()
+  );
+
+DROP POLICY IF EXISTS "agent commission events select" ON public.agent_commission_events;
+CREATE POLICY "agent commission events select"
+  ON public.agent_commission_events
+  FOR SELECT
+  USING (
+    public.is_admin()
+    OR EXISTS (
+      SELECT 1
+      FROM public.agent_commission_agreements a
+      WHERE a.id = agreement_id
+        AND (a.owner_agent_id = auth.uid() OR a.presenting_agent_id = auth.uid())
+    )
+  );
+
+DROP POLICY IF EXISTS "agent commission events insert" ON public.agent_commission_events;
+CREATE POLICY "agent commission events insert"
+  ON public.agent_commission_events
+  FOR INSERT
+  WITH CHECK (
+    public.is_admin()
+    OR EXISTS (
+      SELECT 1
+      FROM public.agent_commission_agreements a
+      WHERE a.id = agreement_id
+        AND a.owner_agent_id = auth.uid()
+    )
+  );
+
 -- AGENT ONBOARDING PROGRESS
 DROP POLICY IF EXISTS "agent onboarding progress owner select" ON public.agent_onboarding_progress;
 CREATE POLICY "agent onboarding progress owner select"

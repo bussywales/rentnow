@@ -38,6 +38,10 @@ type CuratedListingState = {
   external?: boolean;
   ownerName?: string | null;
   meta?: ExternalListingMeta | null;
+  commissionType?: "percentage" | "fixed" | "none";
+  commissionValue?: number | null;
+  commissionCurrency?: string | null;
+  commissionNotes?: string | null;
 };
 
 type NetworkListing = {
@@ -155,6 +159,11 @@ export default function AgentClientPagesClient({
   const [networkBeds, setNetworkBeds] = useState("");
   const [networkType, setNetworkType] = useState("");
   const [excludeMine, setExcludeMine] = useState(true);
+  const [commissionDrawerOpen, setCommissionDrawerOpen] = useState(false);
+  const [commissionType, setCommissionType] = useState<"none" | "percentage" | "fixed">("none");
+  const [commissionValue, setCommissionValue] = useState("");
+  const [commissionCurrency, setCommissionCurrency] = useState("NGN");
+  const [commissionNotes, setCommissionNotes] = useState("");
 
   const handleViewInbox = (pageId: string) => {
     router.push(`/profile/clients/${pageId}/inbox`);
@@ -196,6 +205,11 @@ export default function AgentClientPagesClient({
     setNetworkOpen(false);
     setNetworkListings([]);
     setNetworkError(null);
+    setCommissionDrawerOpen(false);
+    setCommissionType("none");
+    setCommissionValue("");
+    setCommissionCurrency("NGN");
+    setCommissionNotes("");
   };
 
   useEffect(() => {
@@ -346,6 +360,10 @@ export default function AgentClientPagesClient({
       pinned: item.pinned,
       rank: index,
       external: !!item.external,
+      commissionType: item.commissionType,
+      commissionValue: item.commissionValue,
+      commissionCurrency: item.commissionCurrency,
+      commissionNotes: item.commissionNotes,
     }));
     const desiredIds = new Set(desired.map((item) => item.id));
     const previousEntries = curatedSnapshot ? parseCuratedSnapshot(curatedSnapshot) : [];
@@ -373,6 +391,10 @@ export default function AgentClientPagesClient({
             propertyId: item.id,
             pinned: item.pinned,
             rank: item.rank,
+            commission_type: item.commissionType,
+            commission_value: item.commissionValue,
+            currency: item.commissionCurrency,
+            notes: item.commissionNotes,
           }),
         });
       })
@@ -391,6 +413,18 @@ export default function AgentClientPagesClient({
     if (networkType.trim()) params.set("type", networkType.trim());
     params.set("excludeMine", excludeMine ? "true" : "false");
     return params.toString();
+  };
+
+  const resolveCommissionDraft = () => {
+    const notes = commissionNotes.trim();
+    const value = commissionValue.trim() ? Number(commissionValue) : null;
+    if (commissionType === "none" && !notes) return null;
+    return {
+      commission_type: commissionType,
+      commission_value: Number.isFinite(value ?? NaN) ? value : null,
+      currency: commissionCurrency.trim() || null,
+      notes: notes || null,
+    } as const;
   };
 
   const fetchNetworkListings = async () => {
@@ -422,6 +456,7 @@ export default function AgentClientPagesClient({
       setToast({ message: "Listing already added to this page.", variant: "error" });
       return;
     }
+    const commissionDraft = resolveCommissionDraft();
     const next: CuratedListingState[] = [
       ...curatedListings,
       {
@@ -439,6 +474,10 @@ export default function AgentClientPagesClient({
           currency: listing.currency ?? null,
           status: "live",
         },
+        commissionType: commissionDraft?.commission_type,
+        commissionValue: commissionDraft?.commission_value ?? null,
+        commissionCurrency: commissionDraft?.currency ?? null,
+        commissionNotes: commissionDraft?.notes ?? null,
       },
     ];
     updateCurated(next);
@@ -1063,6 +1102,68 @@ export default function AgentClientPagesClient({
                 />
                 Exclude my listings
               </label>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">Commission terms (optional)</p>
+                    <p className="text-xs text-slate-500">
+                      Add draft terms when you include another agent's listing.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCommissionDrawerOpen((prev) => !prev)}
+                  >
+                    {commissionDrawerOpen ? "Hide" : "Add terms"}
+                  </Button>
+                </div>
+                {commissionDrawerOpen && (
+                  <div className="mt-3 grid gap-3 md:grid-cols-3">
+                    <select
+                      value={commissionType}
+                      onChange={(event) =>
+                        setCommissionType(
+                          event.target.value === "percentage" || event.target.value === "fixed"
+                            ? event.target.value
+                            : "none"
+                        )
+                      }
+                      className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                    >
+                      <option value="none">No commission</option>
+                      <option value="percentage">Percentage</option>
+                      <option value="fixed">Fixed amount</option>
+                    </select>
+                    <Input
+                      value={commissionValue}
+                      onChange={(event) => setCommissionValue(event.target.value)}
+                      placeholder={commissionType === "percentage" ? "Percent" : "Amount"}
+                      disabled={commissionType === "none"}
+                    />
+                    <Input
+                      value={commissionCurrency}
+                      onChange={(event) => setCommissionCurrency(event.target.value)}
+                      placeholder="Currency"
+                      disabled={commissionType === "percentage" || commissionType === "none"}
+                    />
+                    <div className="md:col-span-3">
+                      <Textarea
+                        value={commissionNotes}
+                        onChange={(event) => setCommissionNotes(event.target.value)}
+                        rows={2}
+                        placeholder="Add optional notes (e.g., 50/50 split, payable on close)."
+                      />
+                      <p className="mt-2 text-[11px] text-slate-400">
+                        This agreement is between agents. PropatyHub does not enforce or process
+                        commission payments.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
 
               <div className="flex items-center gap-2">
                 <Button type="button" variant="primary" onClick={fetchNetworkListings}>

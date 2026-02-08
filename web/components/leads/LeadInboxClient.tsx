@@ -49,6 +49,21 @@ export type LeadInboxRow = {
       agent_slug?: string | null;
     } | null;
   }[] | null;
+  presenting_agent_profile?: {
+    id?: string | null;
+    full_name?: string | null;
+    display_name?: string | null;
+    business_name?: string | null;
+  } | null;
+  commission_agreement?: {
+    id?: string | null;
+    listing_id?: string | null;
+    presenting_agent_id?: string | null;
+    status?: string | null;
+    commission_type?: string | null;
+    commission_value?: number | null;
+    currency?: string | null;
+  } | null;
 };
 
 export type LeadInboxProps = {
@@ -151,6 +166,7 @@ type LeadAttribution = {
   clientRequirements: string | null;
   agentSlug: string | null;
   source: string | null;
+  presentingAgentId: string | null;
 };
 
 function resolveLeadAttribution(lead: LeadInboxRow): LeadAttribution | null {
@@ -163,7 +179,39 @@ function resolveLeadAttribution(lead: LeadInboxRow): LeadAttribution | null {
     clientRequirements: attr.client_page?.client_requirements ?? null,
     agentSlug: attr.client_page?.agent_slug ?? null,
     source: attr.source ?? null,
+    presentingAgentId: attr.presenting_agent_id ?? null,
   };
+}
+
+function resolvePresenterName(lead: LeadInboxRow) {
+  const profile = lead.presenting_agent_profile;
+  return (
+    profile?.display_name ||
+    profile?.full_name ||
+    profile?.business_name ||
+    null
+  );
+}
+
+function resolveCommissionLabel(lead: LeadInboxRow) {
+  const attr = lead.lead_attributions?.[0];
+  if (!attr?.presenting_agent_id) return null;
+  const agreement = lead.commission_agreement;
+  if (!agreement) return "No";
+  return agreement.status === "accepted" ? "Yes" : "No";
+}
+
+function formatCommissionTerms(agreement?: LeadInboxRow["commission_agreement"] | null) {
+  if (!agreement) return null;
+  if (agreement.commission_type === "none") return "None";
+  if (agreement.commission_type === "percentage" && agreement.commission_value != null) {
+    return `${agreement.commission_value}%`;
+  }
+  if (agreement.commission_type === "fixed" && agreement.commission_value != null) {
+    const currency = agreement.currency || "NGN";
+    return `${currency} ${agreement.commission_value}`;
+  }
+  return "Agreed";
 }
 
 function resolveLeadSource(lead: LeadInboxRow) {
@@ -207,6 +255,12 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
     () => (selectedLead ? resolveLeadAttribution(selectedLead) : null),
     [selectedLead]
   );
+
+  const selectedPresenterName = selectedLead ? resolvePresenterName(selectedLead) : null;
+  const selectedCommissionLabel = selectedLead ? resolveCommissionLabel(selectedLead) : null;
+  const selectedCommissionTerms = selectedLead
+    ? formatCommissionTerms(selectedLead.commission_agreement)
+    : null;
 
   useEffect(() => {
     if (!drawerOpen || !selectedLead) return;
@@ -672,6 +726,8 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
             const updatedAt = lead.updated_at ?? lead.created_at;
             const isRecentlyUpdated = !isNew && Date.now() - toTimestamp(updatedAt) < 24 * 60 * 60 * 1000;
             const attribution = resolveLeadAttribution(lead);
+            const presenterName = resolvePresenterName(lead);
+            const commissionLabel = resolveCommissionLabel(lead);
             return (
               <button
                 key={lead.id}
@@ -709,6 +765,16 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
                     {attribution?.clientPageId && (
                       <span className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
                         Client page: {attribution.clientPageName || attribution.clientPageSlug || "Client page"}
+                      </span>
+                    )}
+                    {presenterName && (
+                      <span className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        Introduced by {presenterName}
+                      </span>
+                    )}
+                    {commissionLabel && (
+                      <span className="inline-flex w-fit rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        Commission agreed: {commissionLabel}
                       </span>
                     )}
                     <p className="text-xs text-slate-400">{formatDate(lead.created_at)}</p>
@@ -817,6 +883,12 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
                 <div className="rounded-2xl border border-slate-200 bg-white p-4">
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Context</p>
                   <div className="mt-3 space-y-2 text-xs text-slate-600">
+                    {selectedPresenterName && (
+                      <div>
+                        Introduced by:{" "}
+                        <span className="font-semibold text-slate-700">{selectedPresenterName}</span>
+                      </div>
+                    )}
                     <div>
                       Client page:{" "}
                       <span className="font-semibold text-slate-700">
@@ -825,6 +897,23 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
                           selectedAttribution.clientPageId}
                       </span>
                     </div>
+                    {selectedCommissionLabel && (
+                      <div>
+                        Commission agreed:{" "}
+                        <span className="font-semibold text-slate-700">{selectedCommissionLabel}</span>
+                      </div>
+                    )}
+                    {selectedCommissionTerms && (
+                      <div className="text-xs text-slate-500">
+                        Terms: {selectedCommissionTerms}
+                      </div>
+                    )}
+                    {(selectedCommissionLabel || selectedCommissionTerms) && (
+                      <div className="text-[11px] text-slate-400">
+                        This agreement is between agents. PropatyHub does not enforce or process
+                        commission payments.
+                      </div>
+                    )}
                     {selectedAttribution.clientRequirements && (
                       <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 text-xs text-slate-600">
                         {selectedAttribution.clientRequirements}

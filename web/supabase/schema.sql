@@ -537,6 +537,47 @@ CREATE INDEX idx_agent_listing_shares_owner_created ON public.agent_listing_shar
 CREATE INDEX idx_agent_listing_shares_listing ON public.agent_listing_shares (listing_id);
 CREATE INDEX idx_agent_listing_shares_client_page ON public.agent_listing_shares (client_page_id);
 
+CREATE TABLE public.agent_commission_agreements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  listing_id UUID NOT NULL REFERENCES public.properties (id) ON DELETE CASCADE,
+  owner_agent_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  presenting_agent_id UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  commission_type TEXT NOT NULL DEFAULT 'none',
+  commission_value NUMERIC,
+  currency TEXT,
+  status TEXT NOT NULL DEFAULT 'proposed',
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  accepted_at TIMESTAMPTZ
+);
+
+ALTER TABLE public.agent_commission_agreements
+  ADD CONSTRAINT agent_commission_type_check CHECK (commission_type IN ('percentage', 'fixed', 'none'));
+
+ALTER TABLE public.agent_commission_agreements
+  ADD CONSTRAINT agent_commission_status_check CHECK (status IN ('proposed', 'accepted', 'declined', 'void'));
+
+CREATE UNIQUE INDEX agent_commission_unique ON public.agent_commission_agreements (listing_id, presenting_agent_id);
+CREATE INDEX agent_commission_owner_idx ON public.agent_commission_agreements (owner_agent_id, created_at desc);
+CREATE INDEX agent_commission_presenting_idx ON public.agent_commission_agreements (presenting_agent_id, created_at desc);
+CREATE INDEX agent_commission_listing_idx ON public.agent_commission_agreements (listing_id);
+
+CREATE TABLE public.agent_commission_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  agreement_id UUID NOT NULL REFERENCES public.agent_commission_agreements (id) ON DELETE CASCADE,
+  lead_id UUID NOT NULL REFERENCES public.listing_leads (id) ON DELETE CASCADE,
+  event TEXT NOT NULL,
+  marked_by UUID NOT NULL REFERENCES auth.users (id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+ALTER TABLE public.agent_commission_events
+  ADD CONSTRAINT agent_commission_event_check CHECK (event IN ('deal_marked_won', 'deal_marked_lost'));
+
+CREATE UNIQUE INDEX agent_commission_event_unique ON public.agent_commission_events (agreement_id, lead_id, event);
+CREATE INDEX agent_commission_events_agreement_idx ON public.agent_commission_events (agreement_id, created_at desc);
+CREATE INDEX agent_commission_events_lead_idx ON public.agent_commission_events (lead_id, created_at desc);
+
 CREATE TABLE public.agent_onboarding_progress (
   user_id UUID PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
   has_listing BOOLEAN NOT NULL DEFAULT false,

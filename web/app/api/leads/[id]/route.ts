@@ -104,6 +104,45 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
         });
       }
     }
+
+    if (parsed.data.status === "WON" || parsed.data.status === "LOST") {
+      const { data: attribution } = await auth.supabase
+        .from("lead_attributions")
+        .select("presenting_agent_id, listing_id")
+        .eq("lead_id", lead.id)
+        .maybeSingle();
+
+      if (attribution?.presenting_agent_id && attribution.listing_id) {
+        const { data: agreement } = await auth.supabase
+          .from("agent_commission_agreements")
+          .select("id, status")
+          .eq("listing_id", attribution.listing_id)
+          .eq("presenting_agent_id", attribution.presenting_agent_id)
+          .maybeSingle();
+
+        if (agreement?.status === "accepted") {
+          const event = parsed.data.status === "WON" ? "deal_marked_won" : "deal_marked_lost";
+          const { data: existingEvent } = await auth.supabase
+            .from("agent_commission_events")
+            .select("id")
+            .eq("agreement_id", agreement.id)
+            .eq("lead_id", lead.id)
+            .eq("event", event)
+            .maybeSingle();
+
+          if (!existingEvent) {
+            await auth.supabase
+              .from("agent_commission_events")
+              .insert({
+                agreement_id: agreement.id,
+                lead_id: lead.id,
+                event,
+                marked_by: auth.user.id,
+              });
+          }
+        }
+      }
+    }
   }
 
   return response;
