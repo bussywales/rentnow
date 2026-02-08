@@ -20,3 +20,11 @@ export function getHostListingIntentOptions() {
 export function getPublicListingIntentLabel(intent: ListingIntent) {
   return LISTING_INTENT_LABELS_PUBLIC[intent];
 }
+
+export function isSaleIntent(intent?: ListingIntent | null): boolean {
+  return intent === "buy";
+}
+
+export function isRentIntent(intent?: ListingIntent | null): boolean {
+  return intent !== "buy";
+}

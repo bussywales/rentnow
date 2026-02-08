@@ -20,6 +20,7 @@ import {
   optionalYearBuilt,
   hasPinnedLocation,
 } from "@/lib/properties/validation";
+import { requiresRooms } from "@/lib/properties/listing-types";
 import { sanitizeImageMeta } from "@/lib/properties/image-meta";
 import { sanitizeExifMeta } from "@/lib/properties/image-exif";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
@@ -35,7 +36,8 @@ type ImageMetaPayload = Record<
   { width?: number; height?: number; bytes?: number; format?: string | null; blurhash?: string | null }
 >;
 // Exported for tests to validate draft vs publish payloads.
-export const propertySchema = z.object({
+export const propertySchema = z
+  .object({
   title: z.string().min(3),
   description: z.string().optional().nullable(),
   city: z.string().min(2),
@@ -53,6 +55,7 @@ export const propertySchema = z.object({
   listing_type: z
     .enum([
       "apartment",
+      "condo",
       "house",
       "duplex",
       "bungalow",
@@ -128,7 +131,24 @@ export const propertySchema = z.object({
         )
         .optional()
     ),
-});
+  })
+  .superRefine((data, ctx) => {
+    if (!requiresRooms(data.listing_type)) return;
+    if (typeof data.bedrooms !== "number" || data.bedrooms < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bedrooms"],
+        message: "Bedrooms must be at least 1 for residential listings.",
+      });
+    }
+    if (typeof data.bathrooms !== "number" || data.bathrooms < 1) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["bathrooms"],
+        message: "Bathrooms must be at least 1 for residential listings.",
+      });
+    }
+  });
 
 export async function POST(request: Request) {
   const startTime = Date.now();
@@ -241,6 +261,11 @@ export async function POST(request: Request) {
       pets_allowed: typeof rest.pets_allowed === "boolean" ? rest.pets_allowed : false,
       cover_image_url: cover_image_url ?? (imageUrls[0] ?? null),
     };
+    if (normalized.listing_intent === "buy") {
+      normalized.deposit_amount = null;
+      normalized.deposit_currency = null;
+      normalized.bills_included = false;
+    }
     if (normalized.cover_image_url && imageUrls.length && !imageUrls.includes(normalized.cover_image_url)) {
       return NextResponse.json(
         { error: "Cover photo must be one of the uploaded photos." },

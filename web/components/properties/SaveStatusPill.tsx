@@ -17,14 +17,21 @@ const tone: Record<SaveStatus, string> = {
 };
 
 export function SaveStatusPill({ status, onRetry }: Props) {
-  if (status === "idle") return null;
-  const label = SAVE_STATUS_COPY[status as keyof typeof SAVE_STATUS_COPY] || "";
+  const isIdle = status === "idle";
+  const label = isIdle
+    ? SAVE_STATUS_COPY.saved
+    : SAVE_STATUS_COPY[status as keyof typeof SAVE_STATUS_COPY] || "";
   const isError = status === "error";
 
   return (
-    <div className={`flex items-center gap-3 text-xs ${tone[status]}`}>
+    <div
+      className={`min-w-[140px] flex items-center justify-end gap-3 text-xs transition-opacity ${
+        isIdle ? "opacity-0 text-slate-500" : tone[status]
+      }`}
+      aria-hidden={isIdle}
+    >
       <span>{label}</span>
-      {isError && onRetry && (
+      {!isIdle && isError && onRetry && (
         <Button size="sm" variant="secondary" onClick={onRetry}>
           {SAVE_STATUS_COPY.retry}
         </Button>

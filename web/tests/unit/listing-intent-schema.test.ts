@@ -44,7 +44,7 @@ void test("property schemas allow null rent_period for sale intent", () => {
   assert.equal(updated.rent_period, null);
 });
 
-void test("property schema accepts student and hostel listing types", () => {
+void test("property schema accepts student, hostel, and condo listing types", () => {
   const base = {
     title: "Test listing",
     city: "Lagos",
@@ -61,4 +61,7 @@ void test("property schema accepts student and hostel listing types", () => {
 
   const hostel = updateSchema.parse({ listing_type: "hostel" as const });
   assert.equal(hostel.listing_type, "hostel");
+
+  const condo = propertySchema.parse({ ...base, listing_type: "condo" as const });
+  assert.equal(condo.listing_type, "condo");
 });

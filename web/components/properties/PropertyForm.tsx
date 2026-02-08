@@ -8,7 +8,8 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import { normalizeCountryCode } from "@/lib/countries";
-import { getHostListingIntentOptions } from "@/lib/listing-intents";
+import { getHostListingIntentOptions, isSaleIntent } from "@/lib/listing-intents";
+import { requiresRooms } from "@/lib/properties/listing-types";
 import {
   createBrowserSupabaseClient,
   hasBrowserSupabaseEnv,
@@ -44,6 +45,8 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
     ...initialData,
     rent_period: initialData?.rent_period ?? "monthly",
   });
+  const isSaleListing = isSaleIntent(form.listing_intent);
+  const roomsRequired = requiresRooms(form.listing_type);
   const [aiLoading, setAiLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -272,26 +275,13 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           />
         </div>
         <div className="space-y-2">
-          <label className="text-sm font-medium text-slate-700">Rental type</label>
-          <Select
-            value={form.rental_type}
-            onChange={(e) => handleChange("rental_type", e.target.value as RentalType)}
-          >
-            {rentalTypes.map((type) => (
-              <option key={type.value} value={type.value}>
-                {type.label}
-              </option>
-            ))}
-          </Select>
-        </div>
-        <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700">Listing intent</label>
           <Select
             value={form.listing_intent ?? "rent"}
             onChange={(e) => {
               const nextIntent = e.target.value as ListingIntent;
               handleChange("listing_intent", nextIntent);
-              if (nextIntent === "buy") {
+              if (isSaleIntent(nextIntent)) {
                 handleChange("rent_period", null);
               } else if (!form.rent_period) {
                 handleChange("rent_period", "monthly");
@@ -308,6 +298,21 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
             Is this listing for renting/leasing or for selling (for sale)?
           </p>
         </div>
+        {!isSaleListing && (
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-slate-700">Rental type</label>
+            <Select
+              value={form.rental_type}
+              onChange={(e) => handleChange("rental_type", e.target.value as RentalType)}
+            >
+              {rentalTypes.map((type) => (
+                <option key={type.value} value={type.value}>
+                  {type.label}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
         <div className="space-y-2">
           <label className="text-sm font-medium text-slate-700">City</label>
           <Input
@@ -373,22 +378,32 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
         </div>
         <div className="grid grid-cols-3 gap-3">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Bedrooms</label>
+            <label className="text-sm font-medium text-slate-700">
+              {roomsRequired ? "Bedrooms" : "Bedrooms (optional)"}
+            </label>
             <Input
               type="number"
-              min={0}
+              min={roomsRequired ? 1 : 0}
               value={form.bedrooms ?? 0}
               onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
             />
+            {!roomsRequired && (
+              <p className="text-xs text-slate-500">Set to 0 if not applicable.</p>
+            )}
           </div>
           <div className="space-y-2">
-            <label className="text-sm font-medium text-slate-700">Bathrooms</label>
+            <label className="text-sm font-medium text-slate-700">
+              {roomsRequired ? "Bathrooms" : "Bathrooms (optional)"}
+            </label>
             <Input
               type="number"
-              min={0}
+              min={roomsRequired ? 1 : 0}
               value={form.bathrooms ?? 0}
               onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
             />
+            {!roomsRequired && (
+              <p className="text-xs text-slate-500">Set to 0 if not applicable.</p>
+            )}
           </div>
           <div className="space-y-2">
             <label className="text-sm font-medium text-slate-700">Max guests</label>

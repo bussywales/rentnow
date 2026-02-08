@@ -42,10 +42,11 @@ import type {
   RentalType,
   SizeUnit,
 } from "@/lib/types";
-import { getHostListingIntentOptions } from "@/lib/listing-intents";
+import { getHostListingIntentOptions, isSaleIntent } from "@/lib/listing-intents";
 import { setToastQuery } from "@/lib/utils/toast";
 import { labelForField } from "@/lib/forms/listing-errors";
 import { hasPinnedLocation } from "@/lib/properties/validation";
+import { requiresRooms } from "@/lib/properties/listing-types";
 import { LOCATION_MICROCOPY } from "@/lib/location-microcopy";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
 import { sanitizePostalCode } from "@/lib/geocode/normalize-location";
@@ -118,6 +119,7 @@ const listingIntents: { label: string; value: ListingIntent }[] = getHostListing
 
 const listingTypes: { label: string; value: ListingType }[] = [
   { label: "Apartment", value: "apartment" },
+  { label: "Condo (Condominium)", value: "condo" },
   { label: "House", value: "house" },
   { label: "Duplex", value: "duplex" },
   { label: "Bungalow", value: "bungalow" },
@@ -663,6 +665,7 @@ export function PropertyStepper({
       typeof form.deposit_amount === "number" && Number.isFinite(form.deposit_amount)
         ? form.deposit_amount
         : null;
+    const saleIntent = isSaleIntent(form.listing_intent);
 
     return {
       ...form,
@@ -684,19 +687,19 @@ export function PropertyStepper({
       location_precision: normalizeOptionalString(form.location_precision),
       size_value: sizeValue ?? undefined,
       size_unit: sizeValue ? form.size_unit ?? "sqm" : undefined,
-      rent_period:
-        form.listing_intent === "buy"
-          ? null
-          : form.rent_period ?? "monthly",
+      rent_period: saleIntent ? null : form.rent_period ?? "monthly",
       year_built:
         typeof form.year_built === "number" && Number.isFinite(form.year_built)
           ? form.year_built
           : null,
-      deposit_amount: depositAmount ?? undefined,
-      deposit_currency: depositAmount
-        ? form.deposit_currency ?? form.currency ?? null
-        : undefined,
+      deposit_amount: saleIntent ? undefined : depositAmount ?? undefined,
+      deposit_currency: saleIntent
+        ? undefined
+        : depositAmount
+          ? form.deposit_currency ?? form.currency ?? null
+          : undefined,
       bathroom_type: normalizeOptionalString(form.bathroom_type),
+      bills_included: saleIntent ? undefined : !!form.bills_included,
       pets_allowed: !!form.pets_allowed,
       amenities: form.amenitiesText
         ? form.amenitiesText.split(",").map((item) => item.trim()).filter(Boolean)
@@ -804,6 +807,8 @@ export function PropertyStepper({
     form.title,
     imageUrls.length,
   ]);
+  const isSaleListing = isSaleIntent(form.listing_intent);
+  const roomsRequired = requiresRooms(form.listing_type);
   const countryCtaMessage = useMemo(() => {
     if (!countryHint.key) return null;
     if (countryHint.countryCode === "GB") return LOCATION_MICROCOPY.cta.countryHint.uk;
@@ -2496,25 +2501,6 @@ export function PropertyStepper({
                   />
                   {renderFieldError("title")}
                 </div>
-                <div className="space-y-2" id="field-rental_type">
-                  <label htmlFor="rental-type" className="text-sm font-medium text-slate-700">
-                    Rental type <span className="text-rose-500">*</span>
-                  </label>
-                  <Select
-                    id="rental-type"
-                    value={form.rental_type}
-                    onChange={(e) => handleChange("rental_type", e.target.value as RentalType)}
-                    aria-required="true"
-                    className={fieldErrors.rental_type ? "ring-2 ring-rose-400 border-rose-300" : ""}
-                  >
-                    {rentalTypes.map((type) => (
-                      <option key={type.value} value={type.value}>
-                        {type.label}
-                      </option>
-                    ))}
-                  </Select>
-                  {renderFieldError("rental_type")}
-                </div>
                 <div className="space-y-2" id="field-listing_intent">
                   <label htmlFor="listing-intent" className="text-sm font-medium text-slate-700">
                     Listing intent <span className="text-rose-500">*</span>
@@ -2525,7 +2511,7 @@ export function PropertyStepper({
                     onChange={(e) => {
                       const nextIntent = e.target.value as ListingIntent;
                       handleChange("listing_intent", nextIntent);
-                      if (nextIntent === "buy") {
+                      if (isSaleIntent(nextIntent)) {
                         handleChange("rent_period", null);
                       } else if (!form.rent_period) {
                         handleChange("rent_period", "monthly");
@@ -2545,6 +2531,27 @@ export function PropertyStepper({
                   </p>
                   {renderFieldError("listing_intent")}
                 </div>
+                {!isSaleListing && (
+                  <div className="space-y-2" id="field-rental_type">
+                    <label htmlFor="rental-type" className="text-sm font-medium text-slate-700">
+                      Rental type <span className="text-rose-500">*</span>
+                    </label>
+                    <Select
+                      id="rental-type"
+                      value={form.rental_type}
+                      onChange={(e) => handleChange("rental_type", e.target.value as RentalType)}
+                      aria-required="true"
+                      className={fieldErrors.rental_type ? "ring-2 ring-rose-400 border-rose-300" : ""}
+                    >
+                      {rentalTypes.map((type) => (
+                        <option key={type.value} value={type.value}>
+                          {type.label}
+                        </option>
+                      ))}
+                    </Select>
+                    {renderFieldError("rental_type")}
+                  </div>
+                )}
               </div>
             </section>
 
@@ -3137,32 +3144,40 @@ export function PropertyStepper({
               <div className="mt-4 grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2" id="field-bedrooms">
                   <label htmlFor="bedrooms" className="text-sm font-medium text-slate-700">
-                    Bedrooms <span className="text-rose-500">*</span>
+                    {roomsRequired ? "Bedrooms" : "Bedrooms (optional)"}{" "}
+                    {roomsRequired && <span className="text-rose-500">*</span>}
                   </label>
                   <Input
                     id="bedrooms"
                     type="number"
-                    min={0}
+                    min={roomsRequired ? 1 : 0}
                     value={form.bedrooms ?? 0}
                     onChange={(e) => handleChange("bedrooms", Number(e.target.value))}
-                    aria-required="true"
+                    aria-required={roomsRequired ? "true" : undefined}
                     className={fieldErrors.bedrooms ? "ring-2 ring-rose-400 border-rose-300" : ""}
                   />
+                  {!roomsRequired && (
+                    <p className="text-xs text-slate-500">Set to 0 if not applicable.</p>
+                  )}
                   {renderFieldError("bedrooms")}
                 </div>
                 <div className="space-y-2" id="field-bathrooms">
                   <label htmlFor="bathrooms" className="text-sm font-medium text-slate-700">
-                    Bathrooms <span className="text-rose-500">*</span>
+                    {roomsRequired ? "Bathrooms" : "Bathrooms (optional)"}{" "}
+                    {roomsRequired && <span className="text-rose-500">*</span>}
                   </label>
                   <Input
                     id="bathrooms"
                     type="number"
-                    min={0}
+                    min={roomsRequired ? 1 : 0}
                     value={form.bathrooms ?? 0}
                     onChange={(e) => handleChange("bathrooms", Number(e.target.value))}
-                    aria-required="true"
+                    aria-required={roomsRequired ? "true" : undefined}
                     className={fieldErrors.bathrooms ? "ring-2 ring-rose-400 border-rose-300" : ""}
                   />
+                  {!roomsRequired && (
+                    <p className="text-xs text-slate-500">Set to 0 if not applicable.</p>
+                  )}
                   {renderFieldError("bathrooms")}
                 </div>
                 <div className="space-y-2">
@@ -3428,63 +3443,65 @@ export function PropertyStepper({
               </div>
             </section>
 
-            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="space-y-1">
-                <h3 className="text-sm font-semibold text-slate-900">Deposit & rules</h3>
-                <p className="text-xs text-slate-500">
-                  Clearly set deposits and included utilities.
-                </p>
-              </div>
-              <div className="mt-4 space-y-3">
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <label htmlFor="deposit-amount" className="text-sm font-medium text-slate-700">
-                      Security deposit
-                    </label>
-                    <Input
-                      id="deposit-amount"
-                      type="number"
-                    min={0}
-                    value={form.deposit_amount ?? ""}
-                    onChange={(e) =>
-                      handleChange(
-                        "deposit_amount",
-                        e.target.value === "" ? null : Number(e.target.value)
-                      )
-                    }
-                  />
+            {!isSaleListing && (
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-semibold text-slate-900">Deposit & rules</h3>
                   <p className="text-xs text-slate-500">
-                    Optional; common is 1–2 months.
+                    Clearly set deposits and included utilities.
                   </p>
-                  {renderFieldError("deposit_amount")}
                 </div>
-                  <div className="space-y-2">
-                    <label htmlFor="deposit-currency" className="text-sm font-medium text-slate-700">
-                      Deposit currency
-                    </label>
-                    <CurrencySelect
-                      id="deposit-currency"
-                      value={form.deposit_currency ?? form.currency ?? "USD"}
-                      onChange={(value) => handleChange("deposit_currency", value)}
-                      placeholder="Search currency codes"
+                <div className="mt-4 space-y-3">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <label htmlFor="deposit-amount" className="text-sm font-medium text-slate-700">
+                        Security deposit
+                      </label>
+                      <Input
+                        id="deposit-amount"
+                        type="number"
+                        min={0}
+                        value={form.deposit_amount ?? ""}
+                        onChange={(e) =>
+                          handleChange(
+                            "deposit_amount",
+                            e.target.value === "" ? null : Number(e.target.value)
+                          )
+                        }
+                      />
+                      <p className="text-xs text-slate-500">
+                        Optional; common is 1–2 months.
+                      </p>
+                      {renderFieldError("deposit_amount")}
+                    </div>
+                    <div className="space-y-2">
+                      <label htmlFor="deposit-currency" className="text-sm font-medium text-slate-700">
+                        Deposit currency
+                      </label>
+                      <CurrencySelect
+                        id="deposit-currency"
+                        value={form.deposit_currency ?? form.currency ?? "USD"}
+                        onChange={(value) => handleChange("deposit_currency", value)}
+                        placeholder="Search currency codes"
+                      />
+                      <p className="text-xs text-slate-500">Defaults to listing currency.</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <input
+                      id="bills_included"
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-sky-600"
+                      checked={!!form.bills_included}
+                      onChange={(e) => handleChange("bills_included", e.target.checked)}
                     />
-                    <p className="text-xs text-slate-500">Defaults to listing currency.</p>
+                    <label htmlFor="bills_included" className="text-sm text-slate-700">
+                      Bills included
+                    </label>
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <input
-                    id="bills_included"
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-slate-300 text-sky-600"
-                    checked={!!form.bills_included}
-                    onChange={(e) => handleChange("bills_included", e.target.checked)}
-                  />
-                  <label htmlFor="bills_included" className="text-sm text-slate-700">
-                    Bills included
-                  </label>
-                </div>
-              </div>
-            </section>
+              </section>
+            )}
 
             <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -3573,9 +3590,9 @@ export function PropertyStepper({
             <section className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
               <h3 className="text-sm font-semibold text-slate-900">Detail tips</h3>
               <ul className="mt-3 space-y-2 text-xs text-slate-600">
-                <li>Deposit currency defaults to listing currency.</li>
+                {!isSaleListing && <li>Deposit currency defaults to listing currency.</li>}
                 <li>Size and year built are optional.</li>
-                <li>Add rules and utilities tenants should know.</li>
+                {!isSaleListing && <li>Add rules and utilities tenants should know.</li>}
               </ul>
             </section>
           </div>

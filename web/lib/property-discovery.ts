@@ -15,6 +15,7 @@ const CURRENCY_SYMBOLS: Record<string, string> = {
 
 const LISTING_TYPE_LABELS: Record<ListingType, string> = {
   apartment: "Apartment",
+  condo: "Condo",
   house: "House",
   duplex: "Duplex",
   bungalow: "Bungalow",

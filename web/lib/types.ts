@@ -8,6 +8,7 @@ export type ListingIntent = "rent" | "buy";
 
 export type ListingType =
   | "apartment"
+  | "condo"
   | "house"
   | "duplex"
   | "bungalow"
