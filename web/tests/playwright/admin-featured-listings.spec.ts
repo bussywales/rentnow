@@ -74,6 +74,13 @@ test("admin can feature listings with scheduling", async ({ page }) => {
     .first();
   await expect(featuredCard).toBeVisible({ timeout: 15_000 });
 
+  await page.goto("/");
+  const featuredSection = page.getByTestId("featured-homes-section");
+  await expect(featuredSection).toBeVisible();
+  await expect(
+    featuredSection.getByTestId("property-card").filter({ hasText: listingTitle }).first()
+  ).toBeVisible();
+
   await page.goto(listingUrl);
   await expect(page.getByTestId("admin-featured-panel")).toBeVisible();
   if (await toggle.isChecked()) {
@@ -85,4 +92,12 @@ test("admin can feature listings with scheduling", async ({ page }) => {
   await page.goto("/properties?featured=true");
   const filtered = page.getByTestId("property-card").filter({ hasText: listingTitle });
   await expect(filtered).toHaveCount(0);
+
+  await page.goto("/");
+  const homeSection = page.getByTestId("featured-homes-section");
+  if ((await homeSection.count()) > 0) {
+    await expect(
+      homeSection.getByTestId("property-card").filter({ hasText: listingTitle })
+    ).toHaveCount(0);
+  }
 });

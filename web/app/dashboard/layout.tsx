@@ -1,6 +1,5 @@
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
 import { getProfile, getSession } from "@/lib/auth";
 import { formatRoleLabel, normalizeRole } from "@/lib/roles";
 import { canManageListings, shouldShowSavedSearchNav } from "@/lib/role-access";
@@ -8,6 +7,7 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { ActingAsSelector } from "@/components/dashboard/ActingAsSelector";
 import { listThreadsForUser } from "@/lib/messaging/threads";
 import { LegalAcceptanceGate } from "@/components/legal/LegalAcceptanceGate";
@@ -15,6 +15,9 @@ import { getLegalAcceptanceStatus } from "@/lib/legal/acceptance.server";
 import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
 import { resolveAgentOnboardingProgress } from "@/lib/agents/agent-onboarding.server";
 import AgentOnboardingChecklist from "@/components/agents/AgentOnboardingChecklist";
+import { isAgentNetworkDiscoveryEnabled } from "@/lib/agents/agent-network";
+import { getAgentDashboardNavItems, type DashboardNavItem } from "@/lib/dashboard/nav";
+import { DashboardNavPills } from "@/components/dashboard/DashboardNavPills";
 
 export default async function DashboardLayout({
   children,
@@ -105,15 +108,7 @@ export default async function DashboardLayout({
     });
   }
 
-  type NavItem = {
-    key: string;
-    label: string;
-    href: string;
-    show: boolean;
-    showUnread?: boolean;
-  };
-
-  const defaultNavItems: NavItem[] = [
+  const defaultNavItems: DashboardNavItem[] = [
     { key: "listings", label: "My listings", href: "/host", show: showMyProperties },
     { key: "analytics", label: "Analytics", href: "/dashboard/analytics", show: showMyProperties },
     { key: "billing", label: "Billing", href: "/dashboard/billing", show: !isTenant },
@@ -134,29 +129,14 @@ export default async function DashboardLayout({
     { key: "viewings", label: "Viewings", href: "/dashboard/viewings", show: true },
   ];
 
-  const agentNavItems: NavItem[] = [
-    { key: "listings", label: "My listings", href: "/host", show: showMyProperties },
-    { key: "client-pages", label: "Client pages", href: "/profile/clients", show: true },
-    { key: "leads", label: "Leads", href: "/dashboard/leads", show: showMyProperties },
-    { key: "messages", label: "Messages", href: "/dashboard/messages", show: true, showUnread: true },
-    { key: "viewings", label: "Viewings", href: "/dashboard/viewings", show: true },
-    { key: "analytics", label: "Analytics", href: "/dashboard/analytics", show: showMyProperties },
-    { key: "billing", label: "Billing", href: "/dashboard/billing", show: !isTenant },
-    {
-      key: "saved-searches",
-      label: "Saved searches",
-      href: "/dashboard/saved-searches",
-      show: showSavedSearches,
-    },
-    {
-      key: "verification",
-      label: "Verification",
-      href: "/dashboard/settings/verification",
-      show: !isTenant,
-    },
-  ];
-
-  const navItems = isAgent ? agentNavItems : defaultNavItems;
+  const agentNetworkEnabled = isAgent ? await isAgentNetworkDiscoveryEnabled() : false;
+  const navItems = isAgent
+    ? getAgentDashboardNavItems({
+        showMyProperties,
+        showSavedSearches,
+        showAgentNetwork: agentNetworkEnabled,
+      })
+    : defaultNavItems;
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -169,26 +149,7 @@ export default async function DashboardLayout({
             <p className="text-xl font-semibold">{workspaceTitle}</p>
             <p className="text-sm text-slate-200">{workspaceCopy}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            {navItems
-              .filter((item) => item.show)
-              .map((item) => (
-                <Link key={item.key} href={item.href} className="rounded-full bg-white/10 px-3 py-1">
-                  {item.showUnread ? (
-                    <span className="inline-flex items-center gap-2">
-                      {item.label}
-                      {unreadMessages > 0 && (
-                        <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
-                          {unreadMessages}
-                        </span>
-                      )}
-                    </span>
-                  ) : (
-                    item.label
-                  )}
-                </Link>
-              ))}
-          </div>
+          <DashboardNavPills items={navItems} unreadMessages={unreadMessages} />
         </div>
       </div>
       {agentOnboarding && !agentOnboarding.completedAt && (

@@ -7,7 +7,7 @@ import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { QuickSearchForm } from "@/components/search/QuickSearchForm";
 import { Button } from "@/components/ui/Button";
 import { getProfile } from "@/lib/auth";
-import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
+import { DEV_MOCKS, getApiBaseUrl } from "@/lib/env";
 import { normalizeRole } from "@/lib/roles";
 import { getListingCta } from "@/lib/role-access";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -18,12 +18,10 @@ import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
 export default async function Home() {
   let featured: Property[] = [];
   const apiBaseUrl = await getApiBaseUrl();
-  const apiUrl = `${apiBaseUrl}/api/properties`;
+  const apiUrl = `${apiBaseUrl}/api/properties/search?featured=true&pageSize=6`;
   const supabaseReady = hasServerSupabaseEnv();
-  const envPresence = getEnvPresence();
   let role = null;
   let profileId: string | null = null;
-  let fetchError: string | null = null;
 
   if (supabaseReady) {
     const profile = await getProfile();
@@ -35,30 +33,16 @@ export default async function Home() {
   if (supabaseReady) {
     try {
       const res = await fetch(apiUrl, { cache: "no-store" });
-      if (!res.ok) {
-        fetchError = `API responded with ${res.status}`;
-      } else {
+      if (res.ok) {
         const json = await res.json();
-        const typed =
-          (json.properties as Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>) ||
-          [];
-        featured =
-          typed
-            .map((row) => ({
-              ...row,
-              images: row.property_images?.map((img) => ({
-                id: img.id,
-                image_url: img.image_url,
-              })),
-            }))
-          .slice(0, 3) || [];
+        const typed = (json.properties as Property[]) || [];
+        featured = typed.slice(0, 3) || [];
+      } else {
+        console.warn("[home] featured listings request failed", res.status);
       }
     } catch (err) {
-      fetchError = err instanceof Error ? err.message : "Unknown error";
       console.warn("[home] unable to fetch featured properties", err);
     }
-  } else {
-    fetchError = "Listing service is not configured yet.";
   }
 
   if (DEV_MOCKS && (!supabaseReady || !featured.length)) {
@@ -174,71 +158,37 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-semibold text-slate-900">
-              Featured properties
-            </h2>
-            <p className="text-sm text-slate-600">
-              A snapshot of homes landlords and agents are listing right now.
-            </p>
+      {featured.length ? (
+        <section className="space-y-4" data-testid="featured-homes-section">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-2xl font-semibold text-slate-900">
+                Featured homes
+              </h2>
+              <p className="text-sm text-slate-600">
+                Premium listings from verified advertisers
+              </p>
+            </div>
+            <Link href={listingCta.href} className="text-sm font-semibold text-sky-600">
+              {`${listingCta.label} ->`}
+            </Link>
           </div>
-          <Link href={listingCta.href} className="text-sm font-semibold text-sky-600">
-            {`${listingCta.label} ->`}
-          </Link>
-        </div>
-        {featured.length ? (
           <div className="grid gap-5 md:grid-cols-3">
             {featured.map((property) => (
-              <PropertyCard
-                key={property.id}
-                property={property}
-                href={`/properties/${property.id}`}
-                showSave
-                initialSaved={savedIds.has(property.id)}
-                showCta={!role || role === "tenant"}
-                viewerRole={role}
-              />
+              <div key={property.id} data-testid="property-card">
+                <PropertyCard
+                  property={property}
+                  href={`/properties/${property.id}`}
+                  showSave
+                  initialSaved={savedIds.has(property.id)}
+                  showCta={!role || role === "tenant"}
+                  viewerRole={role}
+                />
+              </div>
             ))}
           </div>
-        ) : (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="text-base font-semibold">
-              {fetchError ? "Unable to load featured listings" : "No featured listings yet"}
-            </p>
-            <p className="mt-1 text-sm text-amber-800">
-              {fetchError
-                ? "We couldn't load featured listings right now. Please try again."
-                : "Check back soon or browse the full catalogue."}
-            </p>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              {fetchError && (
-                <form action="/">
-                  <Button type="submit" size="sm" variant="secondary">
-                    Retry
-                  </Button>
-                </form>
-              )}
-              <Link href="/properties" className="text-sm font-semibold text-amber-900 underline-offset-4 hover:underline">
-                Browse all listings
-              </Link>
-            </div>
-            {fetchError && process.env.NODE_ENV === "development" && (
-              <div className="mt-3 rounded-lg bg-amber-100/70 p-3 text-xs text-amber-900">
-                <p className="font-semibold">Diagnostics</p>
-                <pre className="mt-2 whitespace-pre-wrap font-mono">
-                  {JSON.stringify(
-                    { apiUrl, supabaseReady, env: envPresence },
-                    null,
-                    2
-                  )}
-                </pre>
-              </div>
-            )}
-          </div>
-        )}
-      </section>
+        </section>
+      ) : null}
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">

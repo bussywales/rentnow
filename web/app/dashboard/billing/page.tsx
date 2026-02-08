@@ -9,6 +9,7 @@ import { getStripeConfigForMode } from "@/lib/billing/stripe";
 import { getPaystackConfig } from "@/lib/billing/paystack";
 import { getFlutterwaveConfig } from "@/lib/billing/flutterwave";
 import { getStripePriceId } from "@/lib/billing/stripe-plans";
+import { getCreditSummary } from "@/lib/billing/credits-summary.server";
 import { getPlanUsage } from "@/lib/plan-enforcement";
 import { normalizeRole } from "@/lib/roles";
 import { getServerAuthUser } from "@/lib/auth/server-session";
@@ -16,6 +17,8 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { normalizePlanTier, type PlanTier } from "@/lib/plans";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
+import { getAppSettingBool } from "@/lib/settings/app-settings.server";
+import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 
 export const dynamic = "force-dynamic";
 
@@ -113,6 +116,14 @@ export default async function BillingPage() {
     serviceClient,
   });
   const plan = usage.plan;
+  const creditSummary = await getCreditSummary({
+    supabase,
+    userId: profile.id,
+  });
+  const subscriptionsEnabled = await getAppSettingBool(
+    APP_SETTING_KEYS.subscriptionsEnabled,
+    false
+  );
   const { count: savedSearchCount } =
     normalizedRole === "tenant"
       ? await supabase
@@ -222,28 +233,56 @@ export default async function BillingPage() {
               <span className="text-slate-500">Valid until</span>
               <span>{validUntil ? new Date(validUntil).toLocaleDateString() : "—"}</span>
             </div>
+            <div className="mt-3 border-t border-slate-200 pt-3">
+              <div className="flex items-center justify-between gap-4">
+                <span className="text-slate-500">Listing credits</span>
+                <span className="font-semibold" data-testid="billing-listing-credits">
+                  {creditSummary.listingRemaining}/{creditSummary.listingTotal}
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between gap-4">
+                <span className="text-slate-500">Featured credits</span>
+                <span className="font-semibold" data-testid="billing-featured-credits">
+                  {creditSummary.featuredRemaining}/{creditSummary.featuredTotal}
+                </span>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">Pay per listing anytime.</p>
+            </div>
           </div>
         </div>
       </div>
-
+      {subscriptionsEnabled ? (
+        <>
+          <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 shadow-sm">
+            <p className="text-sm font-semibold text-slate-900">Save more with a plan (optional)</p>
+            <p className="mt-1 text-xs text-slate-600">
+              Plans bundle monthly listing + featured credits, but PAYG is always available.
+            </p>
+          </div>
           <PlansGrid
             currentTier={planTier}
             currentRole={normalizedRole}
             billingSource={billingSource}
-        stripeStatus={stripeStatus}
-        stripePeriodEnd={stripePeriodEnd}
-        stripeEnabled={stripeEnabled}
-        paystackEnabled={paystackEnabled}
-        paystackMode={providerModes.paystackMode}
-        flutterwaveEnabled={flutterwaveEnabled}
-        flutterwaveMode={providerModes.flutterwaveMode}
-        showManage={showManage}
-        pendingUpgrade={pendingUpgrade}
-        activeCount={usage.activeCount}
-        maxListings={plan.maxListings}
-        savedSearchCount={savedSearchCount ?? 0}
-        requestUpgradeAction={requestUpgrade}
-      />
+            stripeStatus={stripeStatus}
+            stripePeriodEnd={stripePeriodEnd}
+            stripeEnabled={stripeEnabled}
+            paystackEnabled={paystackEnabled}
+            paystackMode={providerModes.paystackMode}
+            flutterwaveEnabled={flutterwaveEnabled}
+            flutterwaveMode={providerModes.flutterwaveMode}
+            showManage={showManage}
+            pendingUpgrade={pendingUpgrade}
+            activeCount={usage.activeCount}
+            maxListings={plan.maxListings}
+            savedSearchCount={savedSearchCount ?? 0}
+            requestUpgradeAction={requestUpgrade}
+          />
+        </>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-white px-4 py-4 text-sm text-slate-700 shadow-sm">
+          Subscriptions are currently paused. Pay per listing anytime.
+        </div>
+      )}
     </div>
   );
 }

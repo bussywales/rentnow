@@ -3,6 +3,10 @@ import { createServiceRoleClient } from "@/lib/supabase/admin";
 import { computeStripePlanUpdate } from "@/lib/billing/stripe-plan-update";
 import { requireCheckoutMetadata, resolvePlanFromStripe } from "@/lib/billing/stripe-webhook";
 import { logStripePaymentFailed, logStripePlanUpdated, logFailure } from "@/lib/observability";
+import {
+  issueSubscriptionCreditsIfNeeded,
+  upsertSubscriptionRecord,
+} from "@/lib/billing/subscription-credits.server";
 
 type ExistingPlan = {
   billing_source?: string | null;
@@ -268,6 +272,7 @@ export async function processStripeEvent(
         }
         outcomeProfileId = profileId;
         const currentPeriodEnd = toIso(subscription.current_period_end);
+        const currentPeriodStart = toIso(subscription.current_period_start);
         const existingPlan = await getExistingPlan(context.adminClient, profileId);
         const result = await applyPlanUpdate(
           context.adminClient,
@@ -306,6 +311,29 @@ export async function processStripeEvent(
             stripeSubscriptionId: subscription.id,
           });
         }
+
+        const subscriptionRow = await upsertSubscriptionRecord({
+          adminClient: context.adminClient,
+          userId: profileId,
+          provider: "stripe",
+          providerSubscriptionId: subscription.id,
+          status: subscription.status ?? null,
+          planTier: plan.tier,
+          currentPeriodStart,
+          currentPeriodEnd,
+          canceledAt: subscription.canceled_at ? toIso(subscription.canceled_at) : null,
+        });
+
+        if (subscriptionRow?.id && ["active", "trialing", "past_due", "unpaid"].includes(subscription.status)) {
+          await issueSubscriptionCreditsIfNeeded({
+            adminClient: context.adminClient,
+            subscriptionId: subscriptionRow.id,
+            userId: profileId,
+            planTier: plan.tier,
+            periodStart: currentPeriodStart,
+            periodEnd: currentPeriodEnd,
+          });
+        }
         break;
       }
       case "customer.subscription.created":
@@ -341,6 +369,7 @@ export async function processStripeEvent(
         }
         outcomeProfileId = profileId;
         const currentPeriodEnd = toIso(subscription.current_period_end);
+        const currentPeriodStart = toIso(subscription.current_period_start);
         const allowImmediateDowngrade = event.type === "customer.subscription.deleted";
         const existingPlan = await getExistingPlan(context.adminClient, profileId);
         const result = await applyPlanUpdate(
@@ -379,6 +408,29 @@ export async function processStripeEvent(
             planTier: result.planTier,
             stripeStatus: subscription.status,
             stripeSubscriptionId: subscription.id,
+          });
+        }
+
+        const subscriptionRow = await upsertSubscriptionRecord({
+          adminClient: context.adminClient,
+          userId: profileId,
+          provider: "stripe",
+          providerSubscriptionId: subscription.id,
+          status: subscription.status ?? null,
+          planTier: plan.tier,
+          currentPeriodStart,
+          currentPeriodEnd,
+          canceledAt: subscription.canceled_at ? toIso(subscription.canceled_at) : null,
+        });
+
+        if (subscriptionRow?.id && ["active", "trialing", "past_due", "unpaid"].includes(subscription.status)) {
+          await issueSubscriptionCreditsIfNeeded({
+            adminClient: context.adminClient,
+            subscriptionId: subscriptionRow.id,
+            userId: profileId,
+            planTier: plan.tier,
+            periodStart: currentPeriodStart,
+            periodEnd: currentPeriodEnd,
           });
         }
         break;
@@ -421,6 +473,7 @@ export async function processStripeEvent(
         }
         outcomeProfileId = profileId;
         const currentPeriodEnd = toIso(subscription.current_period_end);
+        const currentPeriodStart = toIso(subscription.current_period_start);
         const existingPlan = await getExistingPlan(context.adminClient, profileId);
         const result = await applyPlanUpdate(
           context.adminClient,
@@ -466,6 +519,29 @@ export async function processStripeEvent(
             profileId,
             stripeSubscriptionId: subscription.id,
             stripeStatus: subscription.status,
+          });
+        }
+
+        const subscriptionRow = await upsertSubscriptionRecord({
+          adminClient: context.adminClient,
+          userId: profileId,
+          provider: "stripe",
+          providerSubscriptionId: subscription.id,
+          status: subscription.status ?? null,
+          planTier: plan.tier,
+          currentPeriodStart,
+          currentPeriodEnd,
+          canceledAt: subscription.canceled_at ? toIso(subscription.canceled_at) : null,
+        });
+
+        if (subscriptionRow?.id && ["active", "trialing", "past_due", "unpaid"].includes(subscription.status)) {
+          await issueSubscriptionCreditsIfNeeded({
+            adminClient: context.adminClient,
+            subscriptionId: subscriptionRow.id,
+            userId: profileId,
+            planTier: plan.tier,
+            periodStart: currentPeriodStart,
+            periodEnd: currentPeriodEnd,
           });
         }
         break;

@@ -27,6 +27,7 @@ import { Alert } from "@/components/ui/Alert";
 import { RenewListingButton } from "@/components/host/RenewListingButton";
 import { ListingPauseModal } from "@/components/host/ListingPauseModal";
 import { ListingReactivateModal } from "@/components/host/ListingReactivateModal";
+import { ListingPaywallModal } from "@/components/billing/ListingPaywallModal";
 import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import type { PropertyStatus } from "@/lib/types";
 import type { MissedDemandEstimate } from "@/lib/analytics/property-events";
@@ -95,6 +96,14 @@ export function HostDashboardContent({
   const [reactivateTarget, setReactivateTarget] = useState<DashboardListing | null>(null);
   const [statusPending, setStatusPending] = useState<Record<string, boolean>>({});
   const [statusErrors, setStatusErrors] = useState<Record<string, string | null>>({});
+  const [featurePending, setFeaturePending] = useState<Record<string, boolean>>({});
+  const [featureErrors, setFeatureErrors] = useState<Record<string, string | null>>({});
+  const [featurePaywallOpen, setFeaturePaywallOpen] = useState(false);
+  const [featurePaywallAmount, setFeaturePaywallAmount] = useState<number | null>(null);
+  const [featurePaywallCurrency, setFeaturePaywallCurrency] = useState("NGN");
+  const [featurePaywallListing, setFeaturePaywallListing] = useState<DashboardListing | null>(null);
+  const [featurePaywallLoading, setFeaturePaywallLoading] = useState(false);
+  const [featurePaywallError, setFeaturePaywallError] = useState<string | null>(null);
 
   useEffect(() => {
     setLocalListings(listings);
@@ -136,6 +145,104 @@ export function HostDashboardContent({
       window.setTimeout(() => setPopupBlockedCount(null), 4500);
     } else {
       setPopupBlockedCount(null);
+    }
+  };
+
+  const updateListingFeaturedState = (listingId: string, featuredUntil: string | null) => {
+    setLocalListings((prev) =>
+      prev.map((item) =>
+        item.id === listingId
+          ? {
+              ...item,
+              is_featured: true,
+              featured_until: featuredUntil ?? item.featured_until ?? null,
+              featured_at: new Date().toISOString(),
+            }
+          : item
+      )
+    );
+  };
+
+  const buildIdempotencyKey = () => {
+    if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
+      return crypto.randomUUID();
+    }
+    return `feat_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+  };
+
+  const handleFeatureListing = async (listing: DashboardListing) => {
+    setFeatureErrors((prev) => ({ ...prev, [listing.id]: null }));
+    setFeaturePending((prev) => ({ ...prev, [listing.id]: true }));
+    try {
+      const res = await fetch(`/api/properties/${listing.id}/feature`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ idempotencyKey: buildIdempotencyKey() }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 402 || data?.reason === "PAYMENT_REQUIRED") {
+        setFeaturePaywallAmount(data?.amount ?? null);
+        setFeaturePaywallCurrency(data?.currency ?? "NGN");
+        setFeaturePaywallListing(listing);
+        setFeaturePaywallError(null);
+        setFeaturePaywallOpen(true);
+        return;
+      }
+      if (!res.ok) {
+        setFeatureErrors((prev) => ({
+          ...prev,
+          [listing.id]: data?.error || "Unable to feature listing.",
+        }));
+        return;
+      }
+      updateListingFeaturedState(listing.id, data?.featured_until ?? null);
+    } catch (err) {
+      setFeatureErrors((prev) => ({
+        ...prev,
+        [listing.id]:
+          err instanceof Error ? err.message : "Unable to feature listing.",
+      }));
+    } finally {
+      setFeaturePending((prev) => ({ ...prev, [listing.id]: false }));
+    }
+  };
+
+  const closeFeaturePaywall = () => {
+    setFeaturePaywallOpen(false);
+    setFeaturePaywallError(null);
+    setFeaturePaywallListing(null);
+    setFeaturePaywallAmount(null);
+  };
+
+  const startFeatureCheckout = async () => {
+    if (!featurePaywallListing) return;
+    setFeaturePaywallLoading(true);
+    setFeaturePaywallError(null);
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listingId: featurePaywallListing.id,
+          purpose: "featured_listing",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setFeaturePaywallError(data?.error || "Unable to start checkout.");
+        return;
+      }
+      if (data?.checkoutUrl) {
+        window.location.assign(data.checkoutUrl);
+        return;
+      }
+      setFeaturePaywallError("Checkout link missing.");
+    } catch (err) {
+      setFeaturePaywallError(
+        err instanceof Error ? err.message : "Unable to start checkout."
+      );
+    } finally {
+      setFeaturePaywallLoading(false);
     }
   };
 
@@ -327,6 +434,19 @@ export function HostDashboardContent({
             const statusError = statusErrors[property.id] ?? null;
             const performance = performanceById[property.id];
             const missedDemandLabel = formatMissedDemand(performance?.missedDemand);
+            const nowMs = Date.now();
+            const featuredUntilMs = property.featured_until
+              ? Date.parse(property.featured_until)
+              : null;
+            const featuredActive =
+              !!property.is_featured &&
+              (!featuredUntilMs || (Number.isFinite(featuredUntilMs) && featuredUntilMs > nowMs));
+            const featuredLabel =
+              featuredActive && featuredUntilMs && Number.isFinite(featuredUntilMs)
+                ? new Date(featuredUntilMs).toLocaleDateString()
+                : null;
+            const isFeaturing = featurePending[property.id] ?? false;
+            const featureError = featureErrors[property.id] ?? null;
 
             return (
               <div
@@ -346,12 +466,19 @@ export function HostDashboardContent({
                   </label>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span
-                    className={`rounded-full px-3 py-1 text-[11px] font-semibold ${statusChipClass(normalizedStatus)}`}
-                    data-testid={`listing-status-${property.id}`}
-                  >
-                    {mapStatusLabel(status)}
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`rounded-full px-3 py-1 text-[11px] font-semibold ${statusChipClass(normalizedStatus)}`}
+                      data-testid={`listing-status-${property.id}`}
+                    >
+                      {mapStatusLabel(status)}
+                    </span>
+                    {featuredActive && (
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-700">
+                        Featured{featuredLabel ? ` · until ${featuredLabel}` : ""}
+                      </span>
+                    )}
+                  </div>
                   {isUpdatingStatus && (
                     <span className="text-[11px] text-slate-500">Updating...</span>
                   )}
@@ -425,6 +552,17 @@ export function HostDashboardContent({
                   {isExpired && (
                     <RenewListingButton propertyId={property.id} size="sm" />
                   )}
+                  {isLive && !featuredActive && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => handleFeatureListing(property)}
+                      disabled={isFeaturing}
+                      data-testid={`listing-feature-${property.id}`}
+                    >
+                      {isFeaturing ? "Featuring..." : "Feature this listing"}
+                    </Button>
+                  )}
                   {isLive && (
                     <Button
                       size="sm"
@@ -462,6 +600,7 @@ export function HostDashboardContent({
                   ) : null}
                 </div>
                 {statusError && <p className="mt-2 text-xs text-rose-600">{statusError}</p>}
+                {featureError && <p className="mt-2 text-xs text-rose-600">{featureError}</p>}
               </div>
             );
           })}
@@ -502,6 +641,19 @@ export function HostDashboardContent({
         onConfirm={handleReactivateConfirm}
         submitting={reactivateTarget ? statusPending[reactivateTarget.id] ?? false : false}
         error={reactivateTarget ? statusErrors[reactivateTarget.id] ?? null : null}
+      />
+      <ListingPaywallModal
+        open={featurePaywallOpen && featurePaywallAmount !== null}
+        amount={featurePaywallAmount ?? 0}
+        currency={featurePaywallCurrency}
+        onClose={closeFeaturePaywall}
+        onPay={startFeatureCheckout}
+        onPlans={() => {
+          window.location.assign("/dashboard/billing");
+        }}
+        loading={featurePaywallLoading}
+        error={featurePaywallError}
+        mode="featured"
       />
       {popupBlockedCount !== null && (
         <div className="fixed bottom-24 right-4 z-40 max-w-sm">

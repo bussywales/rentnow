@@ -6,6 +6,8 @@ import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getPaystackConfig } from "@/lib/billing/paystack";
 import { consumeListingCredit } from "@/lib/billing/listing-credits.server";
+import { consumeFeaturedCredit } from "@/lib/billing/featured-credits.server";
+import { getFeaturedConfig } from "@/lib/billing/featured";
 import { logFailure } from "@/lib/observability";
 import { logPropertyEvent } from "@/lib/analytics/property-events.server";
 
@@ -84,7 +86,29 @@ export async function POST(request: Request) {
     idempotency_key?: string | null;
   } | null;
 
-  if (paymentError || !typedPayment) {
+  let isFeaturedPurchase = false;
+  let typedFeaturePurchase: {
+    id: string;
+    user_id: string;
+    listing_id: string;
+    status?: string | null;
+    amount?: number | null;
+    currency?: string | null;
+    idempotency_key?: string | null;
+  } | null = null;
+
+  if (!typedPayment) {
+    const { data: featureRow } = await adminClient
+      .from("feature_purchases")
+      .select("id, user_id, listing_id, status, amount, currency, idempotency_key")
+      .eq("provider", "paystack")
+      .eq("provider_ref", reference)
+      .maybeSingle();
+    typedFeaturePurchase = featureRow as typeof typedFeaturePurchase;
+    isFeaturedPurchase = !!typedFeaturePurchase;
+  }
+
+  if (paymentError || (!typedPayment && !typedFeaturePurchase)) {
     logFailure({
       request,
       route: routeLabel,
@@ -96,15 +120,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  if (typedPayment.status === "paid") {
+  if (!isFeaturedPurchase && typedPayment?.status === "paid") {
+    return NextResponse.json({ ok: true });
+  }
+
+  if (isFeaturedPurchase && typedFeaturePurchase?.status === "paid") {
     return NextResponse.json({ ok: true });
   }
 
   const now = new Date().toISOString();
   const { error: updateError } = await adminClient
-    .from("listing_payments")
+    .from(isFeaturedPurchase ? "feature_purchases" : "listing_payments")
     .update({ status: "paid", paid_at: now, updated_at: now })
-    .eq("id", typedPayment.id);
+    .eq("id", isFeaturedPurchase ? typedFeaturePurchase!.id : typedPayment!.id);
 
   if (updateError) {
     logFailure({
@@ -118,17 +146,20 @@ export async function POST(request: Request) {
   }
 
   let existingConsumption: { id: string } | null = null;
-  if (typedPayment.idempotency_key) {
+  const idempotencyKey = isFeaturedPurchase
+    ? typedFeaturePurchase?.idempotency_key ?? null
+    : typedPayment?.idempotency_key ?? null;
+  if (idempotencyKey) {
     const { data } = await adminClient
-      .from("listing_credit_consumptions")
+      .from(isFeaturedPurchase ? "featured_credit_consumptions" : "listing_credit_consumptions")
       .select("id")
-      .eq("idempotency_key", typedPayment.idempotency_key)
+      .eq("idempotency_key", idempotencyKey)
       .maybeSingle();
     existingConsumption = (data as { id?: string } | null)?.id ? { id: (data as { id: string }).id } : null;
   }
 
   if (!existingConsumption) {
-    if (!typedPayment.idempotency_key) {
+    if (!idempotencyKey) {
       logFailure({
         request,
         route: routeLabel,
@@ -139,59 +170,96 @@ export async function POST(request: Request) {
       });
       return NextResponse.json({ ok: true });
     }
-    await adminClient.from("listing_credits").insert({
-      user_id: typedPayment.user_id,
-      source: "payg",
-      credits_total: 1,
-      credits_used: 0,
-      created_at: now,
-      updated_at: now,
-    });
 
-    const consumed = await consumeListingCredit({
-      client: adminClient as unknown as SupabaseClient,
-      userId: typedPayment.user_id,
-      listingId: typedPayment.listing_id,
-      idempotencyKey: typedPayment.idempotency_key,
-    });
-
-    if (consumed.ok) {
-      if (consumed.consumed) {
-        await logPropertyEvent({
-          supabase: adminClient as unknown as SupabaseClient,
-          propertyId: typedPayment.listing_id,
-          eventType: "listing_credit_consumed",
-          actorUserId: typedPayment.user_id,
-          actorRole: null,
-          sessionKey: null,
-          meta: { source: consumed.source ?? null },
-        });
-      }
-      await adminClient.from("properties").update({
-        status: "pending",
-        is_active: true,
-        is_approved: false,
-        approved_at: null,
-        rejected_at: null,
-        paused_at: null,
-        paused_reason: null,
-        expired_at: null,
-        expires_at: null,
-        submitted_at: now,
-        status_updated_at: now,
+    if (isFeaturedPurchase && typedFeaturePurchase) {
+      const featuredConfig = await getFeaturedConfig();
+      await adminClient.from("featured_credits").insert({
+        user_id: typedFeaturePurchase.user_id,
+        source: "payg",
+        credits_total: 1,
+        credits_used: 0,
+        created_at: now,
         updated_at: now,
-      }).eq("id", typedPayment.listing_id);
+      });
+
+      const consumed = await consumeFeaturedCredit({
+        client: adminClient as unknown as SupabaseClient,
+        userId: typedFeaturePurchase.user_id,
+        listingId: typedFeaturePurchase.listing_id,
+        idempotencyKey,
+      });
+
+      if (consumed.ok && consumed.consumed) {
+        const until = new Date(Date.now() + featuredConfig.durationDays * 24 * 60 * 60 * 1000).toISOString();
+        await adminClient.from("properties").update({
+          is_featured: true,
+          featured_until: until,
+          featured_at: now,
+          featured_by: typedFeaturePurchase.user_id,
+          updated_at: now,
+        }).eq("id", typedFeaturePurchase.listing_id);
+        await adminClient.from("feature_purchases").update({ featured_until: until }).eq("id", typedFeaturePurchase.id);
+      }
+    } else if (typedPayment) {
+      await adminClient.from("listing_credits").insert({
+        user_id: typedPayment.user_id,
+        source: "payg",
+        credits_total: 1,
+        credits_used: 0,
+        created_at: now,
+        updated_at: now,
+      });
+
+      const consumed = await consumeListingCredit({
+        client: adminClient as unknown as SupabaseClient,
+        userId: typedPayment.user_id,
+        listingId: typedPayment.listing_id,
+        idempotencyKey,
+      });
+
+      if (consumed.ok) {
+        if (consumed.consumed) {
+          await logPropertyEvent({
+            supabase: adminClient as unknown as SupabaseClient,
+            propertyId: typedPayment.listing_id,
+            eventType: "listing_credit_consumed",
+            actorUserId: typedPayment.user_id,
+            actorRole: null,
+            sessionKey: null,
+            meta: { source: consumed.source ?? null },
+          });
+        }
+        await adminClient.from("properties").update({
+          status: "pending",
+          is_active: true,
+          is_approved: false,
+          approved_at: null,
+          rejected_at: null,
+          paused_at: null,
+          paused_reason: null,
+          expired_at: null,
+          expires_at: null,
+          submitted_at: now,
+          status_updated_at: now,
+          updated_at: now,
+        }).eq("id", typedPayment.listing_id);
+      }
     }
   }
 
+  const eventListingId = isFeaturedPurchase ? typedFeaturePurchase!.listing_id : typedPayment!.listing_id;
+  const eventUserId = isFeaturedPurchase ? typedFeaturePurchase!.user_id : typedPayment!.user_id;
+  const eventAmount = isFeaturedPurchase ? typedFeaturePurchase!.amount : typedPayment!.amount;
+  const eventCurrency = isFeaturedPurchase ? typedFeaturePurchase!.currency : typedPayment!.currency;
+
   await logPropertyEvent({
     supabase: adminClient as unknown as SupabaseClient,
-    propertyId: typedPayment.listing_id,
+    propertyId: eventListingId,
     eventType: "listing_payment_succeeded",
-    actorUserId: typedPayment.user_id,
+    actorUserId: eventUserId,
     actorRole: null,
     sessionKey: null,
-    meta: { provider: "paystack", amount: typedPayment.amount, currency: typedPayment.currency },
+    meta: { provider: "paystack", amount: eventAmount, currency: eventCurrency },
   });
 
   return NextResponse.json({ ok: true });

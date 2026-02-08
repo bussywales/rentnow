@@ -91,6 +91,8 @@ export async function PATCH(request: Request) {
   const isExpirySetting = body.key === APP_SETTING_KEYS.listingExpiryDays;
   const isNumericSetting =
     body.key === APP_SETTING_KEYS.paygListingFeeAmount ||
+    body.key === APP_SETTING_KEYS.paygFeaturedFeeAmount ||
+    body.key === APP_SETTING_KEYS.featuredDurationDays ||
     body.key === APP_SETTING_KEYS.trialListingCreditsAgent ||
     body.key === APP_SETTING_KEYS.trialListingCreditsLandlord;
   if (isModeSetting && !("mode" in body.value)) {

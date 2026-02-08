@@ -1,17 +1,21 @@
 export const dynamic = "force-dynamic";
 
-import Link from "next/link";
 import { getProfile, getSession } from "@/lib/auth";
 import { formatRoleLabel, normalizeRole } from "@/lib/roles";
-import { getHostNavItems } from "@/lib/role-access";
+import { canManageListings, getHostNavItems, shouldShowSavedSearchNav } from "@/lib/role-access";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { ActingAsSelector } from "@/components/dashboard/ActingAsSelector";
 import { LegalAcceptanceGate } from "@/components/legal/LegalAcceptanceGate";
 import { getLegalAcceptanceStatus } from "@/lib/legal/acceptance.server";
 import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
+import { listThreadsForUser } from "@/lib/messaging/threads";
+import { isAgentNetworkDiscoveryEnabled } from "@/lib/agents/agent-network";
+import { getAgentDashboardNavItems, type DashboardNavItem } from "@/lib/dashboard/nav";
+import { DashboardNavPills } from "@/components/dashboard/DashboardNavPills";
 
 export default async function DashboardLayout({
   children,
@@ -41,10 +45,15 @@ export default async function DashboardLayout({
     redirect("/admin/support");
   }
 
+  const showMyProperties = canManageListings(normalizedRole);
+  const showSavedSearches = shouldShowSavedSearchNav();
+  const isAgent = normalizedRole === "agent";
   let requireLegalAcceptance = false;
+  let unreadMessages = 0;
+  let supabase = null as Awaited<ReturnType<typeof createServerSupabaseClient>> | null;
   if (supabaseReady && profile?.id && normalizedRole) {
     try {
-      const supabase = await createServerSupabaseClient();
+      supabase = await createServerSupabaseClient();
       const jurisdiction = await resolveJurisdiction({
         profile,
         userId: profile.id,
@@ -66,6 +75,22 @@ export default async function DashboardLayout({
     return <LegalAcceptanceGate />;
   }
 
+  if (!requireLegalAcceptance && supabaseReady && profile?.id) {
+    try {
+      if (!supabase) {
+        supabase = await createServerSupabaseClient();
+      }
+      const { threads } = await listThreadsForUser({
+        client: supabase,
+        userId: profile.id,
+        role: normalizedRole,
+      });
+      unreadMessages = threads.reduce((sum, thread) => sum + (thread.unread_count ?? 0), 0);
+    } catch {
+      unreadMessages = 0;
+    }
+  }
+
   const roleLabel = formatRoleLabel(normalizedRole);
   const workspaceTitle = `${profile?.full_name || "Your"} workspace`;
   const workspaceCopy = `Role: ${roleLabel} - Manage listings, messages, and viewings.`;
@@ -73,7 +98,19 @@ export default async function DashboardLayout({
     normalizedRole === "landlord" || normalizedRole === "agent"
       ? !profile?.phone || !profile?.preferred_contact
       : false;
-  const navItems = getHostNavItems(normalizedRole);
+  const agentNetworkEnabled = isAgent ? await isAgentNetworkDiscoveryEnabled() : false;
+  const navItems: DashboardNavItem[] = isAgent
+    ? getAgentDashboardNavItems({
+        showMyProperties,
+        showSavedSearches,
+        showAgentNetwork: agentNetworkEnabled,
+      })
+    : getHostNavItems(normalizedRole).map((item) => ({
+        key: item.href,
+        label: item.label,
+        href: item.href,
+        show: item.visible,
+      }));
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
@@ -86,19 +123,7 @@ export default async function DashboardLayout({
             <p className="text-xl font-semibold">{workspaceTitle}</p>
             <p className="text-sm text-slate-200">{workspaceCopy}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-3 text-sm">
-            {navItems
-              .filter((item) => item.visible)
-              .map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className="rounded-full bg-white/10 px-3 py-1"
-                >
-                  {item.label}
-                </Link>
-              ))}
-          </div>
+          <DashboardNavPills items={navItems} unreadMessages={unreadMessages} />
         </div>
       </div>
       {profileIncomplete && (

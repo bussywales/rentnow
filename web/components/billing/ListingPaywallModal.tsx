@@ -12,6 +12,7 @@ type Props = {
   onPlans?: () => void;
   loading?: boolean;
   error?: string | null;
+  mode?: "listing" | "featured";
 };
 
 export function ListingPaywallModal({
@@ -23,9 +24,17 @@ export function ListingPaywallModal({
   onPlans,
   loading,
   error,
+  mode = "listing",
 }: Props) {
   if (!open) return null;
   const formatted = formatPriceValue(currency, amount);
+  const isFeatured = mode === "featured";
+  const title = isFeatured ? "Feature this listing" : "Publish this listing";
+  const description = isFeatured
+    ? `You’re out of featured credits. Pay ${formatted} to feature now, or switch to a plan for monthly featured slots.`
+    : `You’re out of listing credits. Pay ${formatted} to publish now, or switch to a plan for lower per-listing costs.`;
+  const productLabel = isFeatured ? "Pay-as-you-go featured fee" : "Pay-as-you-go listing fee";
+  const primaryLabel = isFeatured ? `Pay ${formatted} to feature` : `Pay ${formatted} and publish`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 px-4" role="dialog" aria-modal="true" aria-labelledby="payg-modal-title" data-testid="payg-modal">
@@ -33,10 +42,10 @@ export function ListingPaywallModal({
         <div className="flex items-start justify-between border-b border-slate-200 px-4 py-3">
           <div>
             <p id="payg-modal-title" className="text-sm font-semibold text-slate-900">
-              Publish this listing
+              {title}
             </p>
             <p className="text-xs text-slate-600">
-              You’re out of listing credits. Pay {formatted} to publish now, or switch to a plan for lower per-listing costs.
+              {description}
             </p>
           </div>
           <button
@@ -50,7 +59,7 @@ export function ListingPaywallModal({
         </div>
         <div className="space-y-3 px-4 py-4">
           <div className="rounded-xl border border-slate-100 bg-slate-50 px-3 py-3">
-            <p className="text-sm font-semibold text-slate-900">Pay-as-you-go listing fee</p>
+            <p className="text-sm font-semibold text-slate-900">{productLabel}</p>
             <p className="text-xs text-slate-600">{formatted} (one-time)</p>
           </div>
           {error && <p className="text-xs text-rose-600">{error}</p>}
@@ -62,7 +71,7 @@ export function ListingPaywallModal({
             </Button>
           )}
           <Button size="sm" onClick={onPay} disabled={loading} data-testid="payg-modal-pay">
-            {loading ? "Opening checkout..." : `Pay ${formatted} and publish`}
+            {loading ? "Opening checkout..." : primaryLabel}
           </Button>
         </div>
       </div>

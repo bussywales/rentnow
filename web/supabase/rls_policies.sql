@@ -1719,3 +1719,107 @@ CREATE POLICY "promo codes admin write"
   FOR ALL
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
+
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subscriptions FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE public.subscription_credit_issues ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subscription_credit_issues FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE public.featured_credits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.featured_credits FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE public.featured_credit_consumptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.featured_credit_consumptions FORCE ROW LEVEL SECURITY;
+
+ALTER TABLE public.feature_purchases ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.feature_purchases FORCE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "subscriptions owner select" ON public.subscriptions;
+CREATE POLICY "subscriptions owner select"
+  ON public.subscriptions
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "subscriptions admin select" ON public.subscriptions;
+CREATE POLICY "subscriptions admin select"
+  ON public.subscriptions
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "subscriptions service write" ON public.subscriptions;
+CREATE POLICY "subscriptions service write"
+  ON public.subscriptions
+  FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "subscription credit issues admin select" ON public.subscription_credit_issues;
+CREATE POLICY "subscription credit issues admin select"
+  ON public.subscription_credit_issues
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "subscription credit issues service write" ON public.subscription_credit_issues;
+CREATE POLICY "subscription credit issues service write"
+  ON public.subscription_credit_issues
+  FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "featured credits owner select" ON public.featured_credits;
+CREATE POLICY "featured credits owner select"
+  ON public.featured_credits
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "featured credits admin select" ON public.featured_credits;
+CREATE POLICY "featured credits admin select"
+  ON public.featured_credits
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "featured credits service write" ON public.featured_credits;
+CREATE POLICY "featured credits service write"
+  ON public.featured_credits
+  FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "featured credit consumptions owner select" ON public.featured_credit_consumptions;
+CREATE POLICY "featured credit consumptions owner select"
+  ON public.featured_credit_consumptions
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "featured credit consumptions admin select" ON public.featured_credit_consumptions;
+CREATE POLICY "featured credit consumptions admin select"
+  ON public.featured_credit_consumptions
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "featured credit consumptions service write" ON public.featured_credit_consumptions;
+CREATE POLICY "featured credit consumptions service write"
+  ON public.featured_credit_consumptions
+  FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');
+
+DROP POLICY IF EXISTS "feature purchases owner select" ON public.feature_purchases;
+CREATE POLICY "feature purchases owner select"
+  ON public.feature_purchases
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
+DROP POLICY IF EXISTS "feature purchases admin select" ON public.feature_purchases;
+CREATE POLICY "feature purchases admin select"
+  ON public.feature_purchases
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "feature purchases service write" ON public.feature_purchases;
+CREATE POLICY "feature purchases service write"
+  ON public.feature_purchases
+  FOR ALL
+  USING (auth.role() = 'service_role')
+  WITH CHECK (auth.role() = 'service_role');

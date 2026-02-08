@@ -6,6 +6,11 @@ import { getPaystackConfig } from "@/lib/billing/paystack";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { logFailure, logProviderPlanUpdated, logProviderVerifyOutcome } from "@/lib/observability";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  issueSubscriptionCreditsIfNeeded,
+  upsertSubscriptionRecord,
+} from "@/lib/billing/subscription-credits.server";
 import { type PlanTier } from "@/lib/plans";
 
 const routeLabel = "/api/billing/paystack/verify";
@@ -253,6 +258,29 @@ export async function POST(request: Request) {
         error: error.message,
       });
       return NextResponse.json({ error: "Unable to apply plan update." }, { status: 500 });
+    }
+
+    const subscriptionRow = await upsertSubscriptionRecord({
+      adminClient: adminDb as unknown as SupabaseClient,
+      userId: event.profile_id,
+      provider: "paystack",
+      providerSubscriptionId: reference,
+      status: "active",
+      planTier: decision.planTier,
+      currentPeriodStart: nowIso,
+      currentPeriodEnd: decision.validUntil,
+      canceledAt: null,
+    });
+
+    if (subscriptionRow?.id) {
+      await issueSubscriptionCreditsIfNeeded({
+        adminClient: adminDb as unknown as SupabaseClient,
+        subscriptionId: subscriptionRow.id,
+        userId: event.profile_id,
+        planTier: decision.planTier,
+        periodStart: nowIso,
+        periodEnd: decision.validUntil,
+      });
     }
 
     await adminDb

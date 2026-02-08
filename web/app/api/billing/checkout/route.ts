@@ -8,6 +8,7 @@ import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getPaystackConfig } from "@/lib/billing/paystack";
 import { getPaygConfig } from "@/lib/billing/payg";
+import { getFeaturedConfig } from "@/lib/billing/featured";
 import { getSiteUrl } from "@/lib/env";
 import { logFailure } from "@/lib/observability";
 import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
@@ -17,7 +18,7 @@ const routeLabel = "/api/billing/checkout";
 
 const payloadSchema = z.object({
   listingId: z.string().uuid(),
-  purpose: z.literal("listing_submission"),
+  purpose: z.enum(["listing_submission", "featured_listing"]),
   idempotencyKey: z.string().min(8).optional(),
 });
 
@@ -49,22 +50,35 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid payload." }, { status: 400 });
   }
 
-  const { listingId, idempotencyKey } = parsed.data;
+  const { listingId, idempotencyKey, purpose } = parsed.data;
   const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;
   const lookupClient = adminClient;
 
   const { data: listing, error: listingError } = await lookupClient
     .from("properties")
-    .select("id, owner_id, status")
+    .select("id, owner_id, status, is_featured, featured_until")
     .eq("id", listingId)
     .maybeSingle();
 
-  const typedListing = listing as { id: string; owner_id: string; status?: string | null } | null;
+  const typedListing = listing as { id: string; owner_id: string; status?: string | null; is_featured?: boolean | null; featured_until?: string | null } | null;
   if (listingError || !typedListing) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
   }
-  if (typedListing.status === "pending" || typedListing.status === "live") {
-    return NextResponse.json({ error: "Listing already submitted." }, { status: 409 });
+  if (purpose === "listing_submission") {
+    if (typedListing.status === "pending" || typedListing.status === "live") {
+      return NextResponse.json({ error: "Listing already submitted." }, { status: 409 });
+    }
+  } else {
+    const nowMs = Date.now();
+    const featuredUntilMs = typedListing.featured_until ? Date.parse(typedListing.featured_until) : null;
+    const featuredActive =
+      !!typedListing.is_featured && (!featuredUntilMs || (Number.isFinite(featuredUntilMs) && featuredUntilMs > nowMs));
+    if (typedListing.status !== "live") {
+      return NextResponse.json({ error: "Listing must be live to feature." }, { status: 409 });
+    }
+    if (featuredActive) {
+      return NextResponse.json({ error: "Listing is already featured." }, { status: 409 });
+    }
   }
 
   const ownership = requireOwnership({
@@ -86,7 +100,8 @@ export async function POST(request: Request) {
   }
 
   const paygConfig = await getPaygConfig();
-  if (!paygConfig.enabled) {
+  const featuredConfig = await getFeaturedConfig();
+  if (!paygConfig.enabled && purpose === "listing_submission") {
     return NextResponse.json({ error: "PAYG is disabled." }, { status: 409 });
   }
 
@@ -106,9 +121,14 @@ export async function POST(request: Request) {
   }
 
   const reference = `ps_${crypto.randomUUID()}`;
-  const amountMinor = Math.round(paygConfig.amount * 100);
+  const amount = purpose === "listing_submission" ? paygConfig.amount : featuredConfig.paygAmount;
+  const currency = purpose === "listing_submission" ? paygConfig.currency : featuredConfig.currency;
+  const amountMinor = Math.round(amount * 100);
   const baseUrl = await getSiteUrl();
-  const callbackUrl = `${baseUrl}/dashboard/properties/${listingId}?payment=payg`;
+  const callbackUrl =
+    purpose === "listing_submission"
+      ? `${baseUrl}/dashboard/properties/${listingId}?payment=payg`
+      : `${baseUrl}/host?featured=${listingId}`;
   const paymentIdempotency = idempotencyKey || crypto.randomUUID();
 
   if (!auth.user.email) {
@@ -125,13 +145,13 @@ export async function POST(request: Request) {
       body: JSON.stringify({
         email: auth.user.email,
         amount: amountMinor,
-        currency: paygConfig.currency,
+        currency,
         reference,
         callback_url: callbackUrl,
         metadata: {
           listing_id: listingId,
           owner_id: typedListing.owner_id,
-          purpose: "listing_submission",
+          purpose,
           idempotency_key: paymentIdempotency,
           mode: config.mode,
           provider: "paystack",
@@ -156,18 +176,20 @@ export async function POST(request: Request) {
     }
 
     const now = new Date().toISOString();
-    const { error: insertError } = await adminClient.from("listing_payments").insert({
+    const paymentsTable = purpose === "listing_submission" ? "listing_payments" : "feature_purchases";
+    const payloadInsert = {
       user_id: typedListing.owner_id,
       listing_id: listingId,
-      amount: paygConfig.amount,
-      currency: paygConfig.currency,
+      amount,
+      currency,
       status: "pending",
       provider: "paystack",
       provider_ref: payload?.data?.reference || reference,
       idempotency_key: paymentIdempotency,
       created_at: now,
       updated_at: now,
-    });
+    };
+    const { error: insertError } = await adminClient.from(paymentsTable).insert(payloadInsert);
 
     if (insertError) {
       logFailure({
@@ -189,16 +211,17 @@ export async function POST(request: Request) {
       actorUserId: auth.user.id,
       actorRole: role ?? null,
       sessionKey,
-      meta: { provider: "paystack", amount: paygConfig.amount, currency: paygConfig.currency },
+      meta: { provider: "paystack", amount, currency, purpose },
     });
 
     return NextResponse.json({
       ok: true,
       checkoutUrl: payload.data.authorization_url,
       reference: payload.data.reference || reference,
-      amount: paygConfig.amount,
-      currency: paygConfig.currency,
+      amount,
+      currency,
       idempotencyKey: paymentIdempotency,
+      purpose,
     });
   } catch (error) {
     logFailure({

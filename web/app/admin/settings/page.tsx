@@ -15,11 +15,16 @@ import AdminSettingsListingExpiry from "@/components/admin/AdminSettingsListingE
 import { DEFAULT_LISTING_EXPIRY_DAYS } from "@/lib/properties/expiry";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 import AdminSettingsPayg from "@/components/admin/AdminSettingsPayg";
+import AdminSettingsSubscriptions from "@/components/admin/AdminSettingsSubscriptions";
 import {
   DEFAULT_PAYG_LISTING_FEE_AMOUNT,
   DEFAULT_TRIAL_CREDITS_AGENT,
   DEFAULT_TRIAL_CREDITS_LANDLORD,
 } from "@/lib/billing/payg";
+import {
+  DEFAULT_FEATURED_DURATION_DAYS,
+  DEFAULT_PAYG_FEATURED_FEE_AMOUNT,
+} from "@/lib/billing/featured";
 
 export const dynamic = "force-dynamic";
 
@@ -45,11 +50,14 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.requireLocationPinForPublish,
       APP_SETTING_KEYS.agentStorefrontsEnabled,
       APP_SETTING_KEYS.agentNetworkDiscoveryEnabled,
+      APP_SETTING_KEYS.subscriptionsEnabled,
       APP_SETTING_KEYS.contactExchangeMode,
       APP_SETTING_KEYS.listingExpiryDays,
       APP_SETTING_KEYS.showExpiredListingsPublic,
       APP_SETTING_KEYS.paygEnabled,
       APP_SETTING_KEYS.paygListingFeeAmount,
+      APP_SETTING_KEYS.paygFeaturedFeeAmount,
+      APP_SETTING_KEYS.featuredDurationDays,
       APP_SETTING_KEYS.trialListingCreditsAgent,
       APP_SETTING_KEYS.trialListingCreditsLandlord,
     ]);
@@ -105,6 +113,34 @@ export default async function AdminSettingsPage() {
     DEFAULT_TRIAL_CREDITS_LANDLORD
   );
 
+  const subscriptionsRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.subscriptionsEnabled
+  );
+  const subscriptionsEnabled = parseAppSettingBool(subscriptionsRow?.value, false);
+
+  const paygFeaturedRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.paygFeaturedFeeAmount
+  );
+  const paygFeaturedAmount = parseAppSettingInt(
+    paygFeaturedRow?.value,
+    DEFAULT_PAYG_FEATURED_FEE_AMOUNT
+  );
+
+  const featuredDurationRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.featuredDurationDays
+  );
+  const featuredDurationDays = parseAppSettingInt(
+    featuredDurationRow?.value,
+    DEFAULT_FEATURED_DURATION_DAYS
+  );
+
+  const { data: planRows } = await supabase
+    .from("plans")
+    .select("id, role, tier, listing_credits, featured_credits, updated_at")
+    .eq("is_active", true)
+    .order("role", { ascending: true })
+    .order("tier", { ascending: true });
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4">
       <div className="space-y-1">
@@ -133,6 +169,22 @@ export default async function AdminSettingsPage() {
         trialLandlordCredits={trialLandlordCredits}
         trialAgentUpdatedAt={trialAgentRow?.updated_at ?? null}
         trialLandlordUpdatedAt={trialLandlordRow?.updated_at ?? null}
+      />
+      <AdminSettingsSubscriptions
+        subscriptionsEnabled={subscriptionsEnabled}
+        subscriptionsUpdatedAt={subscriptionsRow?.updated_at ?? null}
+        paygFeaturedAmount={paygFeaturedAmount}
+        paygFeaturedUpdatedAt={paygFeaturedRow?.updated_at ?? null}
+        featuredDurationDays={featuredDurationDays}
+        featuredDurationUpdatedAt={featuredDurationRow?.updated_at ?? null}
+        plans={(planRows as Array<{
+          id: string;
+          role: string | null;
+          tier: string | null;
+          listing_credits: number | null;
+          featured_credits: number | null;
+          updated_at?: string | null;
+        }>) ?? []}
       />
       <AdminLocationConfigStatus
         flags={{
