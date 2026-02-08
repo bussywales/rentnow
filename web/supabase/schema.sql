@@ -537,6 +537,17 @@ CREATE INDEX idx_agent_listing_shares_owner_created ON public.agent_listing_shar
 CREATE INDEX idx_agent_listing_shares_listing ON public.agent_listing_shares (listing_id);
 CREATE INDEX idx_agent_listing_shares_client_page ON public.agent_listing_shares (client_page_id);
 
+CREATE TABLE public.agent_onboarding_progress (
+  user_id UUID PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
+  has_listing BOOLEAN NOT NULL DEFAULT false,
+  has_client_page BOOLEAN NOT NULL DEFAULT false,
+  has_shared_page BOOLEAN NOT NULL DEFAULT false,
+  completed_at TIMESTAMPTZ NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_agent_onboarding_progress_updated_at ON public.agent_onboarding_progress (updated_at desc);
+
 -- LEAD ATTRIBUTIONS
 CREATE TABLE public.lead_attributions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

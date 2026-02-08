@@ -1556,6 +1556,39 @@ CREATE POLICY "agent listing shares admin write"
   USING (public.is_admin())
   WITH CHECK (public.is_admin());
 
+-- AGENT ONBOARDING PROGRESS
+DROP POLICY IF EXISTS "agent onboarding progress owner select" ON public.agent_onboarding_progress;
+CREATE POLICY "agent onboarding progress owner select"
+  ON public.agent_onboarding_progress
+  FOR SELECT
+  USING (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "agent onboarding progress owner insert" ON public.agent_onboarding_progress;
+CREATE POLICY "agent onboarding progress owner insert"
+  ON public.agent_onboarding_progress
+  FOR INSERT
+  WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "agent onboarding progress owner update" ON public.agent_onboarding_progress;
+CREATE POLICY "agent onboarding progress owner update"
+  ON public.agent_onboarding_progress
+  FOR UPDATE
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "agent onboarding progress admin read" ON public.agent_onboarding_progress;
+CREATE POLICY "agent onboarding progress admin read"
+  ON public.agent_onboarding_progress
+  FOR SELECT
+  USING (public.is_admin());
+
+DROP POLICY IF EXISTS "agent onboarding progress admin write" ON public.agent_onboarding_progress;
+CREATE POLICY "agent onboarding progress admin write"
+  ON public.agent_onboarding_progress
+  FOR ALL
+  USING (public.is_admin())
+  WITH CHECK (public.is_admin());
+
 -- LEAD ATTRIBUTIONS
 DROP POLICY IF EXISTS "lead_attributions_agent_select" ON public.lead_attributions;
 CREATE POLICY "lead_attributions_agent_select"

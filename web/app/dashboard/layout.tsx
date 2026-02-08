@@ -13,6 +13,8 @@ import { listThreadsForUser } from "@/lib/messaging/threads";
 import { LegalAcceptanceGate } from "@/components/legal/LegalAcceptanceGate";
 import { getLegalAcceptanceStatus } from "@/lib/legal/acceptance.server";
 import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
+import { resolveAgentOnboardingProgress } from "@/lib/agents/agent-onboarding.server";
+import AgentOnboardingChecklist from "@/components/agents/AgentOnboardingChecklist";
 
 export default async function DashboardLayout({
   children,
@@ -39,6 +41,7 @@ export default async function DashboardLayout({
   const showMyProperties = canManageListings(normalizedRole);
   const showSavedSearches = shouldShowSavedSearchNav();
   const isTenant = normalizedRole === "tenant";
+  const isAgent = normalizedRole === "agent";
   const workspaceTitle = isTenant
     ? "Tenant workspace"
     : `${profile?.full_name || "Your"} workspace`;
@@ -52,6 +55,7 @@ export default async function DashboardLayout({
   let unreadMessages = 0;
   let requireLegalAcceptance = false;
   let supabase = null as Awaited<ReturnType<typeof createServerSupabaseClient>> | null;
+  let agentOnboarding = null as Awaited<ReturnType<typeof resolveAgentOnboardingProgress>> | null;
 
   if (supabaseReady && profile?.id) {
     try {
@@ -88,6 +92,72 @@ export default async function DashboardLayout({
     return <LegalAcceptanceGate />;
   }
 
+  if (supabaseReady && profile?.id && isAgent) {
+    if (!supabase) {
+      supabase = await createServerSupabaseClient();
+    }
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.propatyhub.com";
+    agentOnboarding = await resolveAgentOnboardingProgress({
+      supabase,
+      userId: profile.id,
+      agentSlug: profile?.agent_slug ?? null,
+      siteUrl,
+    });
+  }
+
+  type NavItem = {
+    key: string;
+    label: string;
+    href: string;
+    show: boolean;
+    showUnread?: boolean;
+  };
+
+  const defaultNavItems: NavItem[] = [
+    { key: "listings", label: "My listings", href: "/host", show: showMyProperties },
+    { key: "analytics", label: "Analytics", href: "/dashboard/analytics", show: showMyProperties },
+    { key: "billing", label: "Billing", href: "/dashboard/billing", show: !isTenant },
+    {
+      key: "saved-searches",
+      label: "Saved searches",
+      href: "/dashboard/saved-searches",
+      show: showSavedSearches,
+    },
+    { key: "messages", label: "Messages", href: "/dashboard/messages", show: true, showUnread: true },
+    { key: "leads", label: "Leads", href: "/dashboard/leads", show: showMyProperties },
+    {
+      key: "verification",
+      label: "Verification",
+      href: "/dashboard/settings/verification",
+      show: !isTenant,
+    },
+    { key: "viewings", label: "Viewings", href: "/dashboard/viewings", show: true },
+  ];
+
+  const agentNavItems: NavItem[] = [
+    { key: "listings", label: "My listings", href: "/host", show: showMyProperties },
+    { key: "client-pages", label: "Client pages", href: "/profile/clients", show: true },
+    { key: "leads", label: "Leads", href: "/dashboard/leads", show: showMyProperties },
+    { key: "messages", label: "Messages", href: "/dashboard/messages", show: true, showUnread: true },
+    { key: "viewings", label: "Viewings", href: "/dashboard/viewings", show: true },
+    { key: "analytics", label: "Analytics", href: "/dashboard/analytics", show: showMyProperties },
+    { key: "billing", label: "Billing", href: "/dashboard/billing", show: !isTenant },
+    {
+      key: "saved-searches",
+      label: "Saved searches",
+      href: "/dashboard/saved-searches",
+      show: showSavedSearches,
+    },
+    {
+      key: "verification",
+      label: "Verification",
+      href: "/dashboard/settings/verification",
+      show: !isTenant,
+    },
+  ];
+
+  const navItems = isAgent ? agentNavItems : defaultNavItems;
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
       <div className="rounded-2xl bg-slate-900 px-5 py-4 text-white shadow-lg">
@@ -100,58 +170,30 @@ export default async function DashboardLayout({
             <p className="text-sm text-slate-200">{workspaceCopy}</p>
           </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
-            {showMyProperties && (
-              <Link href="/host" className="rounded-full bg-white/10 px-3 py-1">
-                My listings
-              </Link>
-            )}
-            {showMyProperties && (
-              <Link href="/dashboard/analytics" className="rounded-full bg-white/10 px-3 py-1">
-                Analytics
-              </Link>
-            )}
-            {!isTenant && (
-              <Link href="/dashboard/billing" className="rounded-full bg-white/10 px-3 py-1">
-                Billing
-              </Link>
-            )}
-            {showSavedSearches && (
-              <Link
-                href="/dashboard/saved-searches"
-                className="rounded-full bg-white/10 px-3 py-1"
-              >
-                Saved searches
-              </Link>
-            )}
-            <Link href="/dashboard/messages" className="rounded-full bg-white/10 px-3 py-1">
-              <span className="inline-flex items-center gap-2">
-                Messages
-                {unreadMessages > 0 && (
-                  <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
-                    {unreadMessages}
-                  </span>
-                )}
-              </span>
-            </Link>
-            {showMyProperties && (
-              <Link href="/dashboard/leads" className="rounded-full bg-white/10 px-3 py-1">
-                Leads
-              </Link>
-            )}
-            {!isTenant && (
-              <Link
-                href="/dashboard/settings/verification"
-                className="rounded-full bg-white/10 px-3 py-1"
-              >
-                Verification
-              </Link>
-            )}
-            <Link href="/dashboard/viewings" className="rounded-full bg-white/10 px-3 py-1">
-              Viewings
-            </Link>
+            {navItems
+              .filter((item) => item.show)
+              .map((item) => (
+                <Link key={item.key} href={item.href} className="rounded-full bg-white/10 px-3 py-1">
+                  {item.showUnread ? (
+                    <span className="inline-flex items-center gap-2">
+                      {item.label}
+                      {unreadMessages > 0 && (
+                        <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                          {unreadMessages}
+                        </span>
+                      )}
+                    </span>
+                  ) : (
+                    item.label
+                  )}
+                </Link>
+              ))}
           </div>
         </div>
       </div>
+      {agentOnboarding && !agentOnboarding.completedAt && (
+        <AgentOnboardingChecklist progress={agentOnboarding} />
+      )}
       {profileIncomplete && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           <p className="font-semibold">Complete your profile to get listings approved faster.</p>
