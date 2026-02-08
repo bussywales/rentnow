@@ -129,7 +129,7 @@ export async function getAgentNetworkListingsResponse(
   const adminClient = deps.createServiceRoleClient() as unknown as UntypedAdminClient;
   let query = adminClient
     .from("properties")
-    .select(PROPERTY_SELECT, { count: "exact" })
+    .select(PROPERTY_SELECT)
     .eq("status", "live");
 
   if (excludeMine) {
@@ -154,7 +154,7 @@ export async function getAgentNetworkListingsResponse(
     query = query.eq("listing_type", listingType);
   }
 
-  const { data, count, error } = await query
+  const { data, error } = await query
     .order("updated_at", { ascending: false })
     .range(offset, offset + pageSize - 1);
 
@@ -170,7 +170,7 @@ export async function getAgentNetworkListingsResponse(
     listings,
     page,
     pageSize,
-    total: count ?? listings.length,
+    total: listings.length,
   });
 }
 
