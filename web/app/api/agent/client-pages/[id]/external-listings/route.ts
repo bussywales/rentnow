@@ -95,7 +95,11 @@ export async function postExternalListingResponse(
     .eq("id", payload.data.listingId)
     .maybeSingle();
 
-  if (!listing || listing.status !== "live") {
+  const resolvedListing = listing as
+    | { id: string; owner_id: string; status?: string | null }
+    | null;
+
+  if (!resolvedListing || resolvedListing.status !== "live") {
     return NextResponse.json({ error: "Listing not available." }, { status: 404 });
   }
 
@@ -120,7 +124,7 @@ export async function postExternalListingResponse(
       {
         client_page_id: pageId,
         listing_id: payload.data.listingId,
-        owner_user_id: listing.owner_id,
+        owner_user_id: resolvedListing.owner_id,
         presenting_user_id: auth.user.id,
         mode: "share",
       },
@@ -141,7 +145,7 @@ export async function postExternalListingResponse(
     sessionKey,
     meta: {
       clientPageId: pageId,
-      ownerUserId: listing.owner_id,
+      ownerUserId: resolvedListing.owner_id,
     },
   });
 
