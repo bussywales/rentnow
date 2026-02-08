@@ -1357,25 +1357,6 @@ export function PropertyStepper({
   }, [canCreateDraft, saveDraft, setError, startSaving]);
 
   useEffect(() => {
-    if (!propertyId) return;
-    if (resumeAttemptedRef.current) return;
-    const paymentFlag = searchParams?.get("payment");
-    if (paymentFlag !== "payg") return;
-    resumeAttemptedRef.current = true;
-    startSaving(() => {
-      submitListing().then((result) => {
-        if (result?.ok) {
-          markSubmitted();
-          const params = new URLSearchParams(window.location.search);
-          params.delete("payment");
-          setToastQuery(params, "Listing submitted for approval", "success");
-          router.replace(`/dashboard?${params.toString()}`);
-        }
-      });
-    });
-  }, [markSubmitted, propertyId, router, searchParams, startSaving, submitListing]);
-
-  useEffect(() => {
     if (!coverImageUrl) {
       setCoverWarning({ tooSmall: false, portrait: false, unknown: true });
       return;
@@ -2240,6 +2221,25 @@ export function PropertyStepper({
     },
     [ensureSubmitKey, getSupabase, propertyId, resolveAuthUser, setError]
   );
+
+  useEffect(() => {
+    if (!propertyId) return;
+    if (resumeAttemptedRef.current) return;
+    const paymentFlag = searchParams?.get("payment");
+    if (paymentFlag !== "payg") return;
+    resumeAttemptedRef.current = true;
+    startSaving(() => {
+      submitListing().then((result) => {
+        if (result?.ok) {
+          markSubmitted();
+          const params = new URLSearchParams(window.location.search);
+          params.delete("payment");
+          setToastQuery(params, "Listing submitted for approval", "success");
+          router.replace(`/dashboard?${params.toString()}`);
+        }
+      });
+    });
+  }, [markSubmitted, propertyId, router, searchParams, startSaving, submitListing]);
 
   const beginPaygCheckout = useCallback(async () => {
     if (!propertyId) return;
