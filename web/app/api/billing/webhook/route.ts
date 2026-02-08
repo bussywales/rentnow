@@ -21,6 +21,16 @@ type PaystackPayload = {
   } | null;
 };
 
+type PaymentRow = {
+  id: string;
+  user_id: string;
+  listing_id: string;
+  status?: string | null;
+  amount?: number | null;
+  currency?: string | null;
+  idempotency_key?: string | null;
+};
+
 const routeLabel = "/api/billing/webhook";
 
 export async function POST(request: Request) {
@@ -76,26 +86,10 @@ export async function POST(request: Request) {
     .eq("provider_ref", reference)
     .maybeSingle();
 
-  const typedPayment = payment as {
-    id: string;
-    user_id: string;
-    listing_id: string;
-    status?: string | null;
-    amount?: number | null;
-    currency?: string | null;
-    idempotency_key?: string | null;
-  } | null;
+  const typedPayment = payment as PaymentRow | null;
 
   let isFeaturedPurchase = false;
-  let typedFeaturePurchase: {
-    id: string;
-    user_id: string;
-    listing_id: string;
-    status?: string | null;
-    amount?: number | null;
-    currency?: string | null;
-    idempotency_key?: string | null;
-  } | null = null;
+  let typedFeaturePurchase: PaymentRow | null = null;
 
   if (!typedPayment) {
     const { data: featureRow } = await adminClient
@@ -104,7 +98,7 @@ export async function POST(request: Request) {
       .eq("provider", "paystack")
       .eq("provider_ref", reference)
       .maybeSingle();
-    typedFeaturePurchase = featureRow as typeof typedFeaturePurchase;
+    typedFeaturePurchase = featureRow as PaymentRow | null;
     isFeaturedPurchase = !!typedFeaturePurchase;
   }
 
