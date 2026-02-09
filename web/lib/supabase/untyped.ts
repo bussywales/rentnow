@@ -13,6 +13,7 @@ export type UntypedQuerySingleResult<T> = {
 export type UntypedQuery<T = Record<string, unknown>> = {
   select: (columns: string) => UntypedQuery<T>;
   update: (values: Record<string, unknown>) => UntypedQuery<T>;
+  delete: () => UntypedQuery<T>;
   upsert: (values: Record<string, unknown> | Record<string, unknown>[], options?: { onConflict?: string }) => UntypedQuery<T>;
   insert: (values: Record<string, unknown> | Record<string, unknown>[]) => UntypedQuery<T>;
   eq: (column: string, value: Primitive) => UntypedQuery<T>;

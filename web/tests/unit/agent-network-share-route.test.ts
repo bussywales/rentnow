@@ -51,15 +51,28 @@ void test("external listing insert writes curated and share rows", async () => {
   };
 
   const adminStub = {
-    from: () => ({
-      select: () => ({
-        eq: () => ({
-          maybeSingle: async () => ({
-            data: { id: TEST_LISTING_ID, owner_id: "owner-1", status: "live" },
+    from: (table: string) => {
+      if (table === "properties") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: { id: TEST_LISTING_ID, owner_id: "owner-1", status: "live" },
+              }),
+            }),
           }),
-        }),
-      }),
-    }),
+        };
+      }
+      if (table === "agent_listing_shares") {
+        return {
+          upsert: async (payload: Record<string, unknown>) => {
+            insertCalls.push({ table, payload });
+            return { error: null };
+          },
+        };
+      }
+      return {};
+    },
   };
 
   const response = await postExternalListingResponse(

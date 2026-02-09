@@ -6,6 +6,7 @@ import { safeTrim } from "@/lib/agents/agent-storefront";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
 
 const routeLabel = "/api/agent/client-pages/[id]/external-listings";
@@ -97,7 +98,7 @@ export async function postExternalListingResponse(
     return NextResponse.json({ error: ownership.error }, { status: ownership.status });
   }
 
-  const adminClient = deps.createServiceRoleClient();
+  const adminClient = deps.createServiceRoleClient() as unknown as UntypedAdminClient;
   const { data: listing } = await adminClient
     .from("properties")
     .select("id, owner_id, status")
@@ -127,7 +128,7 @@ export async function postExternalListingResponse(
     return NextResponse.json({ error: curatedError.message }, { status: 400 });
   }
 
-  const { error: shareError } = await auth.supabase
+  const { error: shareError } = await adminClient
     .from("agent_listing_shares")
     .upsert(
       {
