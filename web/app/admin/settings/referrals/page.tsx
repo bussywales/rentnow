@@ -74,6 +74,9 @@ export default async function AdminReferralSettingsPage() {
           <Link href="/admin/settings" className="underline underline-offset-4">
             Back to Settings
           </Link>
+          <Link href="/admin/referrals/simulator" className="underline underline-offset-4">
+            Open simulator
+          </Link>
           <Link href="/admin" className="underline underline-offset-4">
             Admin home
           </Link>

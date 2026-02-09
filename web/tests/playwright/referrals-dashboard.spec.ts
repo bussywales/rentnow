@@ -19,7 +19,19 @@ test("agent referrals dashboard smoke", async ({ page }) => {
     test.skip(true, "Provided credentials are not an agent workspace.");
   }
 
-  await expect(page.getByRole("heading", { name: /Referral program/i })).toBeVisible();
-  await expect(page.getByRole("button", { name: /Copy link/i })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /Referral hierarchy/i })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^Referrals$/i })).toBeVisible();
+  await expect(page.getByTestId("referrals-metric-total")).toBeVisible();
+  await expect(page.getByTestId("referrals-metric-active")).toBeVisible();
+  await expect(page.getByTestId("referrals-metric-rewards")).toBeVisible();
+  await expect(page.getByRole("heading", { name: /Referral tree/i })).toBeVisible();
+
+  const copyButton = page.getByRole("button", { name: /^Copy$/i });
+  await expect(copyButton).toBeVisible();
+
+  if (await copyButton.isDisabled()) {
+    test.skip(true, "Referral link unavailable for this account/environment.");
+  }
+
+  await copyButton.click();
+  await expect(page.getByText("Link copied")).toBeVisible();
 });

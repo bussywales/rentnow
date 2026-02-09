@@ -156,12 +156,20 @@ export default async function AdminSettingsPage() {
           Configure referral depth, reward rules, tier thresholds, and reward caps.
         </p>
         <div className="mt-3">
-          <Link
-            href="/admin/settings/referrals"
-            className="text-sm font-semibold text-slate-900 underline underline-offset-4"
-          >
-            Open referral settings
-          </Link>
+          <div className="flex flex-wrap gap-4">
+            <Link
+              href="/admin/settings/referrals"
+              className="text-sm font-semibold text-slate-900 underline underline-offset-4"
+            >
+              Open referral settings
+            </Link>
+            <Link
+              href="/admin/referrals/simulator"
+              className="text-sm font-semibold text-slate-900 underline underline-offset-4"
+            >
+              Open simulator
+            </Link>
+          </div>
         </div>
       </div>
       <AdminSettingsFeatureFlags settings={settings} />

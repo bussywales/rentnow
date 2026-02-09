@@ -58,10 +58,14 @@ export default async function DashboardReferralsPage() {
     );
   }
 
-  const [snapshot, code, settings, siteUrl] = await Promise.all([
-    getReferralDashboardSnapshot({ client: supabase as unknown as SupabaseClient, userId: user.id }),
+  const settings = await getReferralSettings(supabase as unknown as SupabaseClient);
+  const [snapshot, code, siteUrl] = await Promise.all([
+    getReferralDashboardSnapshot({
+      client: supabase as unknown as SupabaseClient,
+      userId: user.id,
+      maxDepth: settings.maxDepth,
+    }),
     resolveReferralCode(supabase as unknown as SupabaseClient, user.id),
-    getReferralSettings(supabase as unknown as SupabaseClient),
     getSiteUrl(),
   ]);
 
@@ -81,6 +85,7 @@ export default async function DashboardReferralsPage() {
       creditsUsedTotal={snapshot.creditsUsedTotal}
       creditsEarnedByLevel={snapshot.creditsEarnedByLevel}
       tier={tier}
+      maxDepth={settings.maxDepth}
       tree={snapshot.tree}
       recentActivity={snapshot.recentActivity}
     />

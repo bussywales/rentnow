@@ -15,6 +15,11 @@ type ReferralRow = {
   created_at: string;
 };
 
+type ProfileRow = {
+  id: string;
+  full_name: string | null;
+};
+
 type ReferralRewardSumRow = {
   reward_amount: number | null;
 };
@@ -400,6 +405,7 @@ export type ReferralTreeNode = {
   depth: number;
   joinedAt: string;
   label: string;
+  status: "pending" | "active";
 };
 
 export type ReferralDashboardSnapshot = {
@@ -426,6 +432,12 @@ export type ReferralDashboardSnapshot = {
 
 function shortAgentLabel(userId: string): string {
   return `Agent ${userId.slice(0, 8)}`;
+}
+
+function resolveAgentLabel(userId: string, profileMap: Map<string, string>): string {
+  const label = profileMap.get(userId);
+  if (label && label.trim().length) return label.trim();
+  return shortAgentLabel(userId);
 }
 
 export async function getReferralDashboardSnapshot(input: {
@@ -471,6 +483,7 @@ export async function getReferralDashboardSnapshot(input: {
       issued_at: string;
       event_type: string;
     }> | null) ?? []);
+  const activeReferralIds = new Set(rewards.map((reward) => reward.referred_user_id));
 
   const childrenMap = new Map<string, ReferralRow[]>();
   for (const row of referrals) {
@@ -499,6 +512,7 @@ export async function getReferralDashboardSnapshot(input: {
         depth: child.depth,
         joinedAt: child.created_at,
         label: shortAgentLabel(child.referred_user_id),
+        status: activeReferralIds.has(child.referred_user_id) ? "active" : "pending",
       };
 
       tree[level] = tree[level] ?? [];
@@ -533,16 +547,57 @@ export async function getReferralDashboardSnapshot(input: {
     0
   );
 
-  const recentActivity = rewards.slice(0, 20).map((reward) => ({
+  const profileIds = new Set<string>();
+  for (const levelNodes of Object.values(tree)) {
+    for (const node of levelNodes) profileIds.add(node.userId);
+  }
+  for (const reward of rewards) profileIds.add(reward.referred_user_id);
+
+  const profileMap = new Map<string, string>();
+  if (profileIds.size > 0) {
+    const { data: profileRows } = await client
+      .from("profiles")
+      .select("id, full_name")
+      .in("id", Array.from(profileIds));
+    for (const profile of ((profileRows as ProfileRow[] | null) ?? [])) {
+      if (profile?.id && typeof profile.full_name === "string" && profile.full_name.trim().length > 0) {
+        profileMap.set(profile.id, profile.full_name.trim());
+      }
+    }
+  }
+
+  for (const levelNodes of Object.values(tree)) {
+    for (const node of levelNodes) {
+      node.label = resolveAgentLabel(node.userId, profileMap);
+    }
+  }
+
+  const rewardActivity = rewards.map((reward) => ({
     id: reward.id,
     referredUserId: reward.referred_user_id,
     level: reward.level,
     rewardType: reward.reward_type,
     rewardAmount: Number(Math.max(0, reward.reward_amount).toFixed(2)),
     issuedAt: reward.issued_at,
-    label: shortAgentLabel(reward.referred_user_id),
+    label: resolveAgentLabel(reward.referred_user_id, profileMap),
     eventType: reward.event_type,
   }));
+
+  const fallbackActivity = Object.values(tree)
+    .flat()
+    .map((node) => ({
+      id: `joined:${node.userId}:${node.joinedAt}`,
+      referredUserId: node.userId,
+      level: node.level,
+      rewardType: "pending",
+      rewardAmount: 0,
+      issuedAt: node.joinedAt,
+      label: node.label,
+      eventType: "referral_joined",
+    }))
+    .sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime());
+
+  const recentActivity = (rewardActivity.length ? rewardActivity : fallbackActivity).slice(0, 10);
 
   return {
     totalReferrals,
