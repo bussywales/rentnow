@@ -278,7 +278,7 @@ async function upsertOutstandingCredits(input: {
   const grant = Math.max(0, earnedWhole - issuedWhole);
   if (grant <= 0) return;
 
-  await client.from(creditTable).insert({
+  const { error } = await client.from(creditTable).insert({
     user_id: referrerUserId,
     source,
     credits_total: grant,
@@ -286,6 +286,32 @@ async function upsertOutstandingCredits(input: {
     created_at: nowIso,
     updated_at: nowIso,
   });
+
+  if (error) return;
+
+  try {
+    await client.from("referral_credit_ledger").insert({
+      user_id: referrerUserId,
+      type: "earn",
+      credits: grant,
+      source_event: "referral_reward_issued",
+      source_ref: `${source}:${nowIso}`,
+      created_at: nowIso,
+    });
+  } catch {
+    // Ledger writes are best effort and should not block credit issuance.
+  }
+
+  try {
+    const rpc = (client as unknown as { rpc?: (...args: unknown[]) => Promise<unknown> }).rpc;
+    if (typeof rpc === "function") {
+      await rpc("referral_sync_wallet_balance", {
+        in_user_id: referrerUserId,
+      });
+    }
+  } catch {
+    // Wallet sync is best effort and should not block reward issuance.
+  }
 }
 
 export async function issueReferralRewardsForEvent(input: {

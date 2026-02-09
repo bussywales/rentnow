@@ -263,12 +263,26 @@ export default function AdminSettingsReferrals(props: Props) {
               Rewards are only issued when a referred user completes a verified paid event.
             </p>
           </div>
-          <Link
-            href="/admin/referrals/simulator"
-            className="text-sm font-semibold text-slate-900 underline underline-offset-4"
-          >
-            Open simulator
-          </Link>
+          <div className="flex flex-wrap gap-3">
+            <Link
+              href="/admin/referrals/simulator"
+              className="text-sm font-semibold text-slate-900 underline underline-offset-4"
+            >
+              Open simulator
+            </Link>
+            <Link
+              href="/admin/referrals/payouts"
+              className="text-sm font-semibold text-slate-900 underline underline-offset-4"
+            >
+              Open payouts queue
+            </Link>
+            <Link
+              href="/help/referrals"
+              className="text-sm font-semibold text-slate-900 underline underline-offset-4"
+            >
+              Referral FAQ
+            </Link>
+          </div>
         </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-3">

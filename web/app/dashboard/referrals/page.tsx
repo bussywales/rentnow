@@ -9,6 +9,7 @@ import { hasServiceRoleEnv, createServiceRoleClient } from "@/lib/supabase/admin
 import { getSiteUrl } from "@/lib/env";
 import { getReferralDashboardSnapshot, ensureReferralCode } from "@/lib/referrals/referrals.server";
 import { getReferralSettings, resolveReferralTierStatus } from "@/lib/referrals/settings";
+import { getUserReferralCashoutContext } from "@/lib/referrals/cashout.server";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 
 export const dynamic = "force-dynamic";
@@ -59,7 +60,7 @@ export default async function DashboardReferralsPage() {
   }
 
   const settings = await getReferralSettings(supabase as unknown as SupabaseClient);
-  const [snapshot, code, siteUrl] = await Promise.all([
+  const [snapshot, code, siteUrl, cashoutContext] = await Promise.all([
     getReferralDashboardSnapshot({
       client: supabase as unknown as SupabaseClient,
       userId: user.id,
@@ -67,6 +68,13 @@ export default async function DashboardReferralsPage() {
     }),
     resolveReferralCode(supabase as unknown as SupabaseClient, user.id),
     getSiteUrl(),
+    getUserReferralCashoutContext({
+      userClient: supabase as unknown as SupabaseClient,
+      userId: user.id,
+      authMetadataCountry:
+        ((user.user_metadata as Record<string, unknown> | null)?.country as string | null | undefined) ??
+        null,
+    }),
   ]);
 
   const referralLink = code ? `${siteUrl.replace(/\/$/, "")}/r/${encodeURIComponent(code)}` : null;
@@ -88,6 +96,10 @@ export default async function DashboardReferralsPage() {
       maxDepth={settings.maxDepth}
       tree={snapshot.tree}
       recentActivity={snapshot.recentActivity}
+      wallet={cashoutContext.wallet}
+      jurisdictionCountryCode={cashoutContext.jurisdiction.countryCode}
+      cashoutPolicy={cashoutContext.policy}
+      cashoutRequests={cashoutContext.requests}
     />
   );
 }

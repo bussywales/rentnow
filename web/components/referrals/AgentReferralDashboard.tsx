@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
@@ -27,6 +28,32 @@ type Activity = {
   eventType: string;
 };
 
+type CashoutPolicy = {
+  country_code: string;
+  payouts_enabled: boolean;
+  conversion_enabled: boolean;
+  credit_to_cash_rate: number;
+  currency: string;
+  min_cashout_credits: number;
+  monthly_cashout_cap_amount: number;
+};
+
+type CashoutRequest = {
+  id: string;
+  credits_requested: number;
+  cash_amount: number;
+  currency: string;
+  status: "pending" | "approved" | "rejected" | "paid" | "void";
+  requested_at: string;
+  payout_reference: string | null;
+};
+
+type WalletSnapshot = {
+  total_balance: number;
+  held_credits: number;
+  available_credits: number;
+};
+
 type Props = {
   referralCode: string | null;
   referralLink: string | null;
@@ -42,6 +69,10 @@ type Props = {
   maxDepth: number;
   tree: Record<number, TreeNode[]>;
   recentActivity: Activity[];
+  wallet: WalletSnapshot;
+  jurisdictionCountryCode: string;
+  cashoutPolicy: CashoutPolicy;
+  cashoutRequests: CashoutRequest[];
 };
 
 const LEVEL_PAGE_SIZE = 8;
@@ -64,6 +95,24 @@ function formatRewardType(input: string): string {
   return input.replace(/_/g, " ");
 }
 
+function formatCurrency(value: number, currency: string): string {
+  return new Intl.NumberFormat(undefined, {
+    style: "currency",
+    currency: currency || "NGN",
+    maximumFractionDigits: 2,
+  }).format(Math.max(0, value || 0));
+}
+
+function formatCashoutStatus(status: CashoutRequest["status"]) {
+  const value = status.toLowerCase();
+  if (value === "pending") return "Pending";
+  if (value === "approved") return "Approved";
+  if (value === "rejected") return "Rejected";
+  if (value === "paid") return "Paid";
+  if (value === "void") return "Voided";
+  return status;
+}
+
 export default function AgentReferralDashboard(props: Props) {
   const {
     referralCode,
@@ -80,21 +129,39 @@ export default function AgentReferralDashboard(props: Props) {
     maxDepth,
     tree,
     recentActivity,
+    wallet,
+    jurisdictionCountryCode,
+    cashoutPolicy,
+    cashoutRequests,
   } = props;
 
   const [toast, setToast] = useState<{ message: string; variant: "success" | "error" } | null>(
     null
   );
+  const [walletState, setWalletState] = useState<WalletSnapshot>(wallet);
+  const [cashoutHistory, setCashoutHistory] = useState<CashoutRequest[]>(cashoutRequests);
+  const [cashoutCreditsInput, setCashoutCreditsInput] = useState<string>("");
+  const [cashoutPending, setCashoutPending] = useState(false);
+  const [cashoutError, setCashoutError] = useState<string | null>(null);
   const [expandedLevels, setExpandedLevels] = useState<Record<number, boolean>>({ 1: true });
   const [visibleByLevel, setVisibleByLevel] = useState<Record<number, number>>({});
 
   const depth = Math.max(1, Math.min(5, Math.trunc(maxDepth || 1)));
+  const cashoutEnabled = cashoutPolicy.payouts_enabled && cashoutPolicy.conversion_enabled;
 
   useEffect(() => {
     if (!toast) return;
     const timer = setTimeout(() => setToast(null), 2200);
     return () => clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    setWalletState(wallet);
+  }, [wallet]);
+
+  useEffect(() => {
+    setCashoutHistory(cashoutRequests);
+  }, [cashoutRequests]);
 
   const levels = useMemo(() => {
     const allLevels = Array.from({ length: depth }, (_, index) => index + 1);
@@ -130,6 +197,63 @@ export default function AgentReferralDashboard(props: Props) {
     }
   };
 
+  const requestCashout = async () => {
+    const creditsRequested = Math.max(0, Math.trunc(Number(cashoutCreditsInput || 0)));
+    setCashoutError(null);
+
+    if (!creditsRequested) {
+      setCashoutError("Enter credits to cash out.");
+      return;
+    }
+
+    setCashoutPending(true);
+    try {
+      const response = await fetch("/api/referrals/cashout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ credits_requested: creditsRequested }),
+      });
+      const payload = await response.json().catch(() => ({}));
+
+      if (!response.ok || !payload?.ok) {
+        const reason = String(payload?.reason || payload?.error || "Unable to request cashout.");
+        setCashoutError(reason.replace(/_/g, " ").toLowerCase());
+        return;
+      }
+
+      const nextRequest = payload?.request
+        ? ({
+            id: String(payload.request.id),
+            credits_requested: Math.max(0, Math.trunc(Number(payload.request.credits_requested || 0))),
+            cash_amount: Math.max(0, Number(payload.request.cash_amount || 0)),
+            currency: String(payload.request.currency || cashoutPolicy.currency || "NGN"),
+            status: String(payload.request.status || "pending") as CashoutRequest["status"],
+            requested_at: new Date().toISOString(),
+            payout_reference: null,
+          } as CashoutRequest)
+        : null;
+
+      if (nextRequest) {
+        setCashoutHistory((current) => [nextRequest, ...current].slice(0, 10));
+      }
+
+      if (payload?.wallet) {
+        setWalletState({
+          total_balance: Math.max(0, Math.trunc(Number(payload.wallet.total_balance || 0))),
+          held_credits: Math.max(0, Math.trunc(Number(payload.wallet.held_credits || 0))),
+          available_credits: Math.max(0, Math.trunc(Number(payload.wallet.available_credits || 0))),
+        });
+      }
+
+      setCashoutCreditsInput("");
+      setToast({ message: "Cashout request submitted", variant: "success" });
+    } catch {
+      setCashoutError("Unable to request cashout right now.");
+    } finally {
+      setCashoutPending(false);
+    }
+  };
+
   return (
     <>
       <div className="space-y-6">
@@ -138,6 +262,21 @@ export default function AgentReferralDashboard(props: Props) {
           <p className="text-sm text-slate-600">
             Invite agents. Earn credits when they successfully pay for listings or subscribe.
           </p>
+          <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3">
+            <p className="text-sm font-medium text-sky-900">Rewards are issued as PropatyHub Credits</p>
+            <p className="text-sm text-sky-800">
+              Credits can be used to publish listings and feature listings.
+            </p>
+            <p className="mt-1 text-xs text-sky-700">No money moves by default.</p>
+          </div>
+          <div className="mt-3">
+            <Link
+              href="/help/referrals"
+              className="text-sm font-semibold text-slate-800 underline underline-offset-4"
+            >
+              How referrals work
+            </Link>
+          </div>
 
           <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -190,6 +329,102 @@ export default function AgentReferralDashboard(props: Props) {
               )}
             </div>
           </div>
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Credits balance</h2>
+              <p className="text-sm text-slate-600">
+                Available credits can be used for PAYG listing fees and featured listing credits.
+              </p>
+            </div>
+            {cashoutEnabled ? (
+              <span className="inline-flex items-center rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
+                Cashout available
+              </span>
+            ) : null}
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Total balance</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">{formatNumber(walletState.total_balance)}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Held credits</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">{formatNumber(walletState.held_credits)}</p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Available credits</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-900">
+                {formatNumber(walletState.available_credits)}
+              </p>
+            </div>
+          </div>
+
+          {cashoutEnabled ? (
+            <div className="mt-4 space-y-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm text-slate-700">
+                Country: <span className="font-semibold">{jurisdictionCountryCode}</span> · Rate:{" "}
+                <span className="font-semibold">
+                  1 credit = {formatCurrency(cashoutPolicy.credit_to_cash_rate, cashoutPolicy.currency)}
+                </span>{" "}
+                · Minimum:{" "}
+                <span className="font-semibold">{formatNumber(cashoutPolicy.min_cashout_credits)} credits</span>
+              </p>
+              {cashoutPolicy.monthly_cashout_cap_amount > 0 ? (
+                <p className="text-xs text-slate-600">
+                  Monthly cashout cap:{" "}
+                  {formatCurrency(cashoutPolicy.monthly_cashout_cap_amount, cashoutPolicy.currency)}
+                </p>
+              ) : (
+                <p className="text-xs text-slate-600">No monthly cashout cap configured.</p>
+              )}
+
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto]">
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={cashoutCreditsInput}
+                  onChange={(event) => setCashoutCreditsInput(event.target.value)}
+                  placeholder={`Enter credits (min ${cashoutPolicy.min_cashout_credits})`}
+                  aria-label="Cashout credits"
+                />
+                <Button type="button" onClick={requestCashout} disabled={cashoutPending}>
+                  {cashoutPending ? "Requesting..." : "Request cashout"}
+                </Button>
+              </div>
+              {cashoutError ? <p className="text-sm text-rose-700">{cashoutError}</p> : null}
+
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-slate-900">Recent cashout requests</p>
+                {cashoutHistory.length ? (
+                  cashoutHistory.slice(0, 10).map((request) => (
+                    <div
+                      key={request.id}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2"
+                    >
+                      <p className="text-sm text-slate-700">
+                        {formatNumber(request.credits_requested)} credits ·{" "}
+                        {formatCurrency(request.cash_amount, request.currency)}
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        {formatCashoutStatus(request.status)} · {formatDate(request.requested_at)}
+                      </p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-500">No cashout requests yet.</p>
+                )}
+              </div>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm text-slate-600" data-testid="referrals-cashout-disabled">
+              Cashout is not available in your country yet ({jurisdictionCountryCode}).
+            </p>
+          )}
         </section>
 
         <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

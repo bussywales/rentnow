@@ -169,6 +169,12 @@ export default async function AdminSettingsPage() {
             >
               Open simulator
             </Link>
+            <Link
+              href="/admin/referrals/payouts"
+              className="text-sm font-semibold text-slate-900 underline underline-offset-4"
+            >
+              Open payouts queue
+            </Link>
           </div>
         </div>
       </div>

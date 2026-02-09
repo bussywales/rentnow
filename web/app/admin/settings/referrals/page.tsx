@@ -5,6 +5,7 @@ import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { parseReferralSettingsRows } from "@/lib/referrals/settings";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 import AdminSettingsReferrals from "@/components/admin/AdminSettingsReferrals";
+import AdminReferralJurisdictions from "@/components/admin/AdminReferralJurisdictions";
 
 export const dynamic = "force-dynamic";
 
@@ -37,7 +38,7 @@ async function requireAdmin() {
 export default async function AdminReferralSettingsPage() {
   const { supabase } = await requireAdmin();
 
-  const [settingsRows, referralCount, rewardsResult] = await Promise.all([
+  const [settingsRows, referralCount, rewardsResult, policyRows] = await Promise.all([
     supabase
       .from("app_settings")
       .select("key, value")
@@ -51,6 +52,12 @@ export default async function AdminReferralSettingsPage() {
       ]),
     supabase.from("referrals").select("id", { count: "exact", head: true }),
     supabase.from("referral_rewards").select("id, reward_amount"),
+    supabase
+      .from("referral_jurisdiction_policies")
+      .select(
+        "id, country_code, payouts_enabled, conversion_enabled, credit_to_cash_rate, currency, min_cashout_credits, monthly_cashout_cap_amount, requires_manual_approval, updated_at"
+      )
+      .order("country_code", { ascending: true }),
   ]);
 
   const settings = parseReferralSettingsRows((settingsRows.data as AppSettingRow[] | null) ?? []);
@@ -77,6 +84,12 @@ export default async function AdminReferralSettingsPage() {
           <Link href="/admin/referrals/simulator" className="underline underline-offset-4">
             Open simulator
           </Link>
+          <Link href="/admin/referrals/payouts" className="underline underline-offset-4">
+            Open payouts queue
+          </Link>
+          <Link href="/help/referrals" className="underline underline-offset-4">
+            Referral FAQ
+          </Link>
           <Link href="/admin" className="underline underline-offset-4">
             Admin home
           </Link>
@@ -95,6 +108,22 @@ export default async function AdminReferralSettingsPage() {
           totalRewardsIssued: rewardRows.length,
           totalCreditsEarned,
         }}
+      />
+      <AdminReferralJurisdictions
+        initialPolicies={
+          ((policyRows.data as Array<{
+            id: string;
+            country_code: string;
+            payouts_enabled: boolean;
+            conversion_enabled: boolean;
+            credit_to_cash_rate: number;
+            currency: string;
+            min_cashout_credits: number;
+            monthly_cashout_cap_amount: number;
+            requires_manual_approval: boolean;
+            updated_at: string;
+          }> | null) ?? [])
+        }
       />
     </div>
   );

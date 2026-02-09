@@ -13,7 +13,7 @@ export default function HelpCentrePage() {
         </p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <Link
           href="/support"
           className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300"
@@ -34,6 +34,13 @@ export default function HelpCentrePage() {
         >
           <h2 className="text-lg font-semibold text-slate-900">Admin &amp; ops docs</h2>
           <p className="mt-1 text-sm text-slate-600">Internal playbooks and workflows.</p>
+        </Link>
+        <Link
+          href="/help/referrals"
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300"
+        >
+          <h2 className="text-lg font-semibold text-slate-900">Referral FAQ</h2>
+          <p className="mt-1 text-sm text-slate-600">Credits usage, depth rules, and country cashout policy.</p>
         </Link>
       </div>
     </div>

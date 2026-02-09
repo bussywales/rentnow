@@ -10,6 +10,12 @@ export function Footer() {
           <p className="text-xs text-slate-500">{BRAND_NAME} · {BRAND_TAGLINE}</p>
         </div>
         <div className="flex items-center gap-3">
+          <a className="hover:text-sky-600" href="/help">
+            Help
+          </a>
+          <a className="hover:text-sky-600" href="/help/referrals">
+            Referral FAQ
+          </a>
           <a
             className="hover:text-sky-600"
             href={`mailto:${BRAND_SUPPORT_EMAIL}`}
