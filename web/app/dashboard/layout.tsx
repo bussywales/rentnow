@@ -18,6 +18,7 @@ import AgentOnboardingChecklist from "@/components/agents/AgentOnboardingCheckli
 import { isAgentNetworkDiscoveryEnabled } from "@/lib/agents/agent-network";
 import { getAgentDashboardNavItems, type DashboardNavItem } from "@/lib/dashboard/nav";
 import { DashboardNavPills } from "@/components/dashboard/DashboardNavPills";
+import ReferralCaptureBootstrap from "@/components/referrals/ReferralCaptureBootstrap";
 
 export default async function DashboardLayout({
   children,
@@ -170,6 +171,7 @@ export default async function DashboardLayout({
         </div>
       )}
       {normalizedRole === "agent" && <ActingAsSelector />}
+      <ReferralCaptureBootstrap />
       {children}
     </div>
   );

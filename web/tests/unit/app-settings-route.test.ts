@@ -1,6 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { patchSchema, validatePatchPayload } from "@/app/api/admin/app-settings/route";
+import {
+  patchSchema,
+  validatePatchPayload,
+  validateSettingValueByKey,
+} from "@/app/api/admin/app-settings/route";
 
 void test("patchSchema rejects non-boolean enabled", () => {
   assert.throws(() =>
@@ -72,7 +76,62 @@ void test("patchSchema accepts trial credits payload", () => {
   assert.equal(parsed.key, "trial_listing_credits_agent");
 });
 
+void test("patchSchema accepts referral max depth payload", () => {
+  const parsed = patchSchema.parse({
+    key: "referral_max_depth",
+    value: { value: 3 },
+  });
+  assert.equal(parsed.key, "referral_max_depth");
+});
+
+void test("patchSchema accepts referral enabled levels payload", () => {
+  const parsed = patchSchema.parse({
+    key: "referral_enabled_levels",
+    value: { value: [1, 2, 3] },
+  });
+  assert.equal(parsed.key, "referral_enabled_levels");
+});
+
+void test("patchSchema accepts referral reward rules payload", () => {
+  const parsed = patchSchema.parse({
+    key: "referral_reward_rules",
+    value: {
+      value: {
+        "1": { type: "listing_credit", amount: 1 },
+        "2": { type: "discount", amount: 10 },
+      },
+    },
+  });
+  assert.equal(parsed.key, "referral_reward_rules");
+});
+
+void test("patchSchema accepts referral caps payload", () => {
+  const parsed = patchSchema.parse({
+    key: "referral_caps",
+    value: { value: { daily: 50, monthly: 500 } },
+  });
+  assert.equal(parsed.key, "referral_caps");
+});
+
 void test("validatePatchPayload rejects invalid keys", () => {
   const parsed = validatePatchPayload({ key: "not_a_key", value: { enabled: true } });
   assert.equal(parsed.ok, false);
+});
+
+void test("validateSettingValueByKey rejects referral max depth outside 1-5", () => {
+  assert.equal(validateSettingValueByKey("referral_max_depth", { value: 9 }), false);
+});
+
+void test("validateSettingValueByKey rejects invalid referral levels payload", () => {
+  assert.equal(
+    validateSettingValueByKey("referral_enabled_levels", { value: [1, 7] }),
+    false
+  );
+});
+
+void test("validateSettingValueByKey rejects invalid referral caps payload", () => {
+  assert.equal(
+    validateSettingValueByKey("referral_caps", { value: { daily: 200, monthly: 100 } }),
+    false
+  );
 });

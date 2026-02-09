@@ -10,6 +10,7 @@ import { consumeFeaturedCredit } from "@/lib/billing/featured-credits.server";
 import { getFeaturedConfig } from "@/lib/billing/featured";
 import { logFailure } from "@/lib/observability";
 import { logPropertyEvent } from "@/lib/analytics/property-events.server";
+import { issueReferralRewardsForEvent } from "@/lib/referrals/referrals.server";
 
 type PaystackPayload = {
   event?: string | null;
@@ -115,6 +116,16 @@ export async function POST(request: Request) {
   }
 
   if (!isFeaturedPurchase && typedPayment?.status === "paid") {
+    try {
+      await issueReferralRewardsForEvent({
+        client: adminClient as unknown as SupabaseClient,
+        referredUserId: typedPayment.user_id,
+        eventType: "payg_listing_fee_paid",
+        eventReference: `paystack:${reference}`,
+      });
+    } catch {
+      // Referral rewards should never block payment webhooks.
+    }
     return NextResponse.json({ ok: true });
   }
 
@@ -255,6 +266,19 @@ export async function POST(request: Request) {
     sessionKey: null,
     meta: { provider: "paystack", amount: eventAmount, currency: eventCurrency },
   });
+
+  if (!isFeaturedPurchase && typedPayment) {
+    try {
+      await issueReferralRewardsForEvent({
+        client: adminClient as unknown as SupabaseClient,
+        referredUserId: typedPayment.user_id,
+        eventType: "payg_listing_fee_paid",
+        eventReference: `paystack:${reference}`,
+      });
+    } catch {
+      // Referral rewards should never block payment webhooks.
+    }
+  }
 
   return NextResponse.json({ ok: true });
 }

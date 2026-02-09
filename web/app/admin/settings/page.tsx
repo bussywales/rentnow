@@ -25,6 +25,7 @@ import {
   DEFAULT_FEATURED_DURATION_DAYS,
   DEFAULT_PAYG_FEATURED_FEE_AMOUNT,
 } from "@/lib/billing/featured";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -148,6 +149,20 @@ export default async function AdminSettingsPage() {
         <p className="text-sm text-slate-600">
           Admin-only feature flags and configuration.
         </p>
+      </div>
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Referral program</h2>
+        <p className="text-sm text-slate-600">
+          Configure referral depth, reward rules, tier thresholds, and reward caps.
+        </p>
+        <div className="mt-3">
+          <Link
+            href="/admin/settings/referrals"
+            className="text-sm font-semibold text-slate-900 underline underline-offset-4"
+          >
+            Open referral settings
+          </Link>
+        </div>
       </div>
       <AdminSettingsFeatureFlags settings={settings} />
       <AdminSettingsContactExchange

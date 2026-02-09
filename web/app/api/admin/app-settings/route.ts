@@ -30,9 +30,55 @@ const numericValueSchema = z.object({
   value: z.number().int().min(0).max(1_000_000),
 });
 
+const referralEnabledLevelsSchema = z.object({
+  value: z.array(z.number().int().min(1).max(5)).min(1).max(5),
+});
+
+const referralRewardRulesSchema = z
+  .object({
+    value: z.record(
+      z.string(),
+      z.object({
+        type: z.enum(["listing_credit", "featured_credit", "discount"]),
+        amount: z.number().positive().max(1_000_000),
+      })
+    ),
+  })
+  .refine((payload) => Object.keys(payload.value).every((key) => /^[1-5]$/.test(key)), {
+    message: "Invalid level key",
+  });
+
+const referralTierThresholdSchema = z
+  .object({
+    value: z.record(z.string().min(1), z.number().int().min(0).max(1_000_000)),
+  })
+  .refine((payload) => Object.keys(payload.value).length > 0, {
+    message: "Tier thresholds required",
+  });
+
+const referralCapsSchema = z
+  .object({
+    value: z.object({
+      daily: z.number().int().min(0).max(1_000_000),
+      monthly: z.number().int().min(0).max(1_000_000),
+    }),
+  })
+  .refine((payload) => payload.value.monthly >= payload.value.daily, {
+    message: "Monthly cap must be >= daily cap",
+  });
+
 export const patchSchema = z.object({
   key: z.enum(ALLOWED_KEYS),
-  value: z.union([enabledValueSchema, modeValueSchema, daysValueSchema, numericValueSchema]),
+  value: z.union([
+    enabledValueSchema,
+    modeValueSchema,
+    daysValueSchema,
+    numericValueSchema,
+    referralEnabledLevelsSchema,
+    referralRewardRulesSchema,
+    referralTierThresholdSchema,
+    referralCapsSchema,
+  ]),
 });
 
 export function validatePatchPayload(input: unknown) {
@@ -41,6 +87,35 @@ export function validatePatchPayload(input: unknown) {
     return { ok: true as const, data: parsed.data };
   }
   return { ok: false as const, error: parsed.error };
+}
+
+export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
+  const isModeSetting = key === APP_SETTING_KEYS.contactExchangeMode;
+  const isExpirySetting = key === APP_SETTING_KEYS.listingExpiryDays;
+  const isNumericSetting =
+    key === APP_SETTING_KEYS.paygListingFeeAmount ||
+    key === APP_SETTING_KEYS.paygFeaturedFeeAmount ||
+    key === APP_SETTING_KEYS.featuredDurationDays ||
+    key === APP_SETTING_KEYS.trialListingCreditsAgent ||
+    key === APP_SETTING_KEYS.trialListingCreditsLandlord;
+  const isReferralMaxDepth = key === APP_SETTING_KEYS.referralMaxDepth;
+  const isReferralLevels = key === APP_SETTING_KEYS.referralEnabledLevels;
+  const isReferralRules = key === APP_SETTING_KEYS.referralRewardRules;
+  const isReferralTiers = key === APP_SETTING_KEYS.referralTierThresholds;
+  const isReferralCaps = key === APP_SETTING_KEYS.referralCaps;
+
+  if (isModeSetting) return modeValueSchema.safeParse(value).success;
+  if (isExpirySetting) return daysValueSchema.safeParse(value).success;
+  if (isNumericSetting) return numericValueSchema.safeParse(value).success;
+  if (isReferralMaxDepth) {
+    return numericValueSchema.extend({ value: z.number().int().min(1).max(5) }).safeParse(value)
+      .success;
+  }
+  if (isReferralLevels) return referralEnabledLevelsSchema.safeParse(value).success;
+  if (isReferralRules) return referralRewardRulesSchema.safeParse(value).success;
+  if (isReferralTiers) return referralTierThresholdSchema.safeParse(value).success;
+  if (isReferralCaps) return referralCapsSchema.safeParse(value).success;
+  return enabledValueSchema.safeParse(value).success;
 }
 
 export async function GET(request: Request) {
@@ -87,24 +162,7 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
   }
   const body = parsed.data;
-  const isModeSetting = body.key === APP_SETTING_KEYS.contactExchangeMode;
-  const isExpirySetting = body.key === APP_SETTING_KEYS.listingExpiryDays;
-  const isNumericSetting =
-    body.key === APP_SETTING_KEYS.paygListingFeeAmount ||
-    body.key === APP_SETTING_KEYS.paygFeaturedFeeAmount ||
-    body.key === APP_SETTING_KEYS.featuredDurationDays ||
-    body.key === APP_SETTING_KEYS.trialListingCreditsAgent ||
-    body.key === APP_SETTING_KEYS.trialListingCreditsLandlord;
-  if (isModeSetting && !("mode" in body.value)) {
-    return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
-  }
-  if (isExpirySetting && !("days" in body.value)) {
-    return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
-  }
-  if (isNumericSetting && !("value" in body.value)) {
-    return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
-  }
-  if (!isModeSetting && !isExpirySetting && !isNumericSetting && !("enabled" in body.value)) {
+  if (!validateSettingValueByKey(body.key, body.value)) {
     return NextResponse.json({ error: "Invalid setting payload" }, { status: 400 });
   }
   const adminClient = createServiceRoleClient() as unknown as UntypedAdminClient;

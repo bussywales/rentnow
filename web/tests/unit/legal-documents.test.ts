@@ -335,7 +335,7 @@ void test("public legal export returns PDF for published effective documents", a
           status: "published",
           title: "Master",
           content_md: "Terms",
-          effective_at: new Date().toISOString(),
+          effective_at: new Date(Date.now() - 1_000).toISOString(),
         },
         error: null,
       }),

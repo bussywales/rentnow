@@ -26,6 +26,7 @@ export function getAgentDashboardNavItems(input: {
     { key: "viewings", label: "Viewings", href: "/dashboard/viewings", show: true },
     { key: "analytics", label: "Analytics", href: "/dashboard/analytics", show: showMyProperties },
     { key: "billing", label: "Billing", href: "/dashboard/billing", show: true },
+    { key: "referrals", label: "Referrals", href: "/dashboard/referrals", show: true },
     {
       key: "saved-searches",
       label: "Saved searches",

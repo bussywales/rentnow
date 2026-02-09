@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { AuthChangeEvent, Session } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/Button";
 import { createBrowserSupabaseClient } from "@/lib/supabase/client";
+import ReferralCaptureBootstrap from "@/components/referrals/ReferralCaptureBootstrap";
 
 export const dynamic = "force-dynamic";
 
@@ -132,6 +133,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="mx-auto flex max-w-2xl flex-col gap-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <ReferralCaptureBootstrap />
       <div className="space-y-2">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Onboarding</p>
         <h1 className="text-2xl font-semibold text-slate-900">Choose your role</h1>

@@ -12,6 +12,7 @@ import {
   upsertSubscriptionRecord,
 } from "@/lib/billing/subscription-credits.server";
 import { type PlanTier } from "@/lib/plans";
+import { issueReferralRewardsForEvent } from "@/lib/referrals/referrals.server";
 
 const routeLabel = "/api/billing/paystack/verify";
 
@@ -75,6 +76,18 @@ export async function POST(request: Request) {
   }
 
   if (isProviderEventProcessed({ status: event.status, processed_at: event.processed_at })) {
+    if (event.status === "verified") {
+      try {
+        await issueReferralRewardsForEvent({
+          client: adminDb as unknown as SupabaseClient,
+          referredUserId: event.profile_id,
+          eventType: "subscription_paid",
+          eventReference: `paystack:${reference}`,
+        });
+      } catch {
+        // Referral rewards should never block subscription verification responses.
+      }
+    }
     logProviderVerifyOutcome({
       request,
       route: routeLabel,
@@ -312,6 +325,17 @@ export async function POST(request: Request) {
       outcome: "verified",
       profileId: event.profile_id,
     });
+
+    try {
+      await issueReferralRewardsForEvent({
+        client: adminDb as unknown as SupabaseClient,
+        referredUserId: event.profile_id,
+        eventType: "subscription_paid",
+        eventReference: `paystack:${reference}`,
+      });
+    } catch {
+      // Referral rewards should never block subscription verification responses.
+    }
 
     return NextResponse.json({ ok: true, status: "verified", valid_until: decision.validUntil });
   } catch (error) {

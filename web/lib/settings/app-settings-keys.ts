@@ -15,6 +15,12 @@ export const APP_SETTING_KEYS = {
   paygEnabled: "payg_enabled",
   trialListingCreditsAgent: "trial_listing_credits_agent",
   trialListingCreditsLandlord: "trial_listing_credits_landlord",
+  referralsEnabled: "referrals_enabled",
+  referralMaxDepth: "referral_max_depth",
+  referralEnabledLevels: "referral_enabled_levels",
+  referralRewardRules: "referral_reward_rules",
+  referralTierThresholds: "referral_tier_thresholds",
+  referralCaps: "referral_caps",
 } as const;
 
 export type AppSettingKey = (typeof APP_SETTING_KEYS)[keyof typeof APP_SETTING_KEYS];
