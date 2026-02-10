@@ -20,6 +20,7 @@ import {
 } from "@/lib/iso/countries";
 import {
   normalizeJurisdictionPolicyCodes,
+  validatePercentModePaygAnchor,
   validateJurisdictionPolicyCodes,
   type JurisdictionPolicyCodeErrors,
 } from "@/lib/referrals/jurisdiction-policy-validation";
@@ -319,6 +320,14 @@ export default function AdminReferralJurisdictions({
     });
     setDraftFieldErrors((current) => ({ ...current, [id]: validation }));
     if (hasValidationIssues(validation)) return;
+    const rateModeIssue = validatePercentModePaygAnchor({
+      cashout_rate_mode: draft.cashout_rate_mode,
+      paygListingFeeAmount,
+    });
+    if (rateModeIssue) {
+      setError(rateModeIssue);
+      return;
+    }
 
     setError(null);
     setToast(null);
@@ -350,6 +359,14 @@ export default function AdminReferralJurisdictions({
     });
     setCreateFieldErrors(validation);
     if (hasValidationIssues(validation)) return;
+    const rateModeIssue = validatePercentModePaygAnchor({
+      cashout_rate_mode: createDraft.cashout_rate_mode,
+      paygListingFeeAmount,
+    });
+    if (rateModeIssue) {
+      setError(rateModeIssue);
+      return;
+    }
 
     setError(null);
     setToast(null);
@@ -713,7 +730,12 @@ export default function AdminReferralJurisdictions({
           <Button
             type="button"
             onClick={createPolicy}
-            disabled={pending || !createDraft.country_code.trim() || !createDraft.currency.trim()}
+            disabled={
+              pending ||
+              !createDraft.country_code.trim() ||
+              !createDraft.currency.trim() ||
+              (createDraft.cashout_rate_mode === "percent_of_payg" && !hasPaygAnchor)
+            }
             data-testid="jurisdiction-create-save"
           >
             {pending ? "Saving..." : "Save jurisdiction"}
@@ -741,7 +763,15 @@ export default function AdminReferralJurisdictions({
                     {countryLabel} policy
                   </p>
                   <div className="flex items-center gap-2">
-                    <Button type="button" size="sm" onClick={() => savePolicy(policy.id)} disabled={pending}>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => savePolicy(policy.id)}
+                      disabled={
+                        pending ||
+                        (draft.cashout_rate_mode === "percent_of_payg" && !hasPaygAnchor)
+                      }
+                    >
                       Save
                     </Button>
                     <Button

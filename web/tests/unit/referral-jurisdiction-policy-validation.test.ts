@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   normalizeJurisdictionPolicyCodes,
+  validatePercentModePaygAnchor,
   validateJurisdictionPolicyCodes,
 } from "@/lib/referrals/jurisdiction-policy-validation";
 
@@ -43,4 +44,24 @@ void test("validateJurisdictionPolicyCodes accepts valid ISO codes", () => {
 
   assert.equal(result.country_code, undefined);
   assert.equal(result.currency, undefined);
+});
+
+void test("validatePercentModePaygAnchor requires payg fee when percent mode is selected", () => {
+  const missingAnchor = validatePercentModePaygAnchor({
+    cashout_rate_mode: "percent_of_payg",
+    paygListingFeeAmount: 0,
+  });
+  assert.equal(missingAnchor, "Set PAYG listing fee to use percent mode.");
+
+  const fixedMode = validatePercentModePaygAnchor({
+    cashout_rate_mode: "fixed",
+    paygListingFeeAmount: 0,
+  });
+  assert.equal(fixedMode, null);
+
+  const hasAnchor = validatePercentModePaygAnchor({
+    cashout_rate_mode: "percent_of_payg",
+    paygListingFeeAmount: 2000,
+  });
+  assert.equal(hasAnchor, null);
 });

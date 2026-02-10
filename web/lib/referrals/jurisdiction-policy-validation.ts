@@ -6,6 +6,7 @@ import {
   findIsoCurrencyByCode,
   normalizeIsoCurrencyCode,
 } from "@/lib/iso/currencies";
+import type { ReferralCashoutRateMode } from "@/lib/referrals/cashout";
 
 export type JurisdictionPolicyCodeErrors = {
   country_code?: string;
@@ -42,4 +43,14 @@ export function validateJurisdictionPolicyCodes(input: {
   }
 
   return issues;
+}
+
+export function validatePercentModePaygAnchor(input: {
+  cashout_rate_mode: ReferralCashoutRateMode;
+  paygListingFeeAmount: number | null | undefined;
+}): string | null {
+  if (input.cashout_rate_mode !== "percent_of_payg") return null;
+  const paygListingFeeAmount = Math.max(0, Number(input.paygListingFeeAmount || 0));
+  if (paygListingFeeAmount > 0) return null;
+  return "Set PAYG listing fee to use percent mode.";
 }
