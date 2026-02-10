@@ -158,6 +158,9 @@ function buildInitialState(props: Props): FormState {
   const tierThresholds = Object.fromEntries(
     sortedTierPairs.map(([name, value]) => [name, Math.max(0, Math.trunc(Number(value) || 0))])
   );
+  if ("Bronze" in tierThresholds) {
+    tierThresholds.Bronze = 0;
+  }
 
   return {
     enabled: props.enabled,
@@ -255,6 +258,13 @@ export default function AdminSettingsReferrals(props: Props) {
   const [milestoneToast, setMilestoneToast] = useState<string | null>(null);
 
   const warningForDepthCost = form.maxDepth > 2 || form.enabledLevels.some((level) => level > 2);
+  const tierDisplayOrder = useMemo(() => {
+    const canonical = DEFAULT_TIERS.filter((name) => form.tierOrder.includes(name));
+    const extras = form.tierOrder.filter(
+      (name) => !DEFAULT_TIERS.includes(name as (typeof DEFAULT_TIERS)[number])
+    );
+    return [...canonical, ...extras];
+  }, [form.tierOrder]);
   const isDirty = useMemo(
     () => JSON.stringify(form) !== JSON.stringify(baseline),
     [baseline, form]
@@ -476,36 +486,13 @@ export default function AdminSettingsReferrals(props: Props) {
 
   return (
     <div className="space-y-6">
-      <section
-        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-        data-testid="admin-referral-tiers-milestones"
-      >
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-slate-900">Referral settings</h1>
             <p className="text-sm text-slate-600">
               Rewards are only issued when a referred user completes a verified paid event.
             </p>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Link
-              href="/admin/referrals/simulator"
-              className="text-sm font-semibold text-slate-900 underline underline-offset-4"
-            >
-              Open simulator
-            </Link>
-            <Link
-              href="/admin/referrals/payouts"
-              className="text-sm font-semibold text-slate-900 underline underline-offset-4"
-            >
-              Open payouts queue
-            </Link>
-            <Link
-              href="/help/referrals"
-              className="text-sm font-semibold text-slate-900 underline underline-offset-4"
-            >
-              Referral FAQ
-            </Link>
           </div>
         </div>
 
@@ -710,35 +697,103 @@ export default function AdminSettingsReferrals(props: Props) {
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        data-testid="admin-referral-tiers-milestones"
+      >
         <h2 className="text-lg font-semibold text-slate-900">Tiers & Milestones</h2>
-        <p className="text-sm text-slate-600">
-          Tiers are based on active referrals. Milestones award one-time bonus credits.
-        </p>
+        <p className="text-sm text-slate-600">Configure status tiers and one-time milestone bonuses.</p>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          {form.tierOrder.map((tierName) => (
-            <div key={tierName}>
-              <label className="text-xs uppercase tracking-wide text-slate-500">{tierName}</label>
-              <Input
-                type="number"
-                min={0}
-                step={1}
-                value={form.tierThresholds[tierName]}
-                onChange={(event) =>
-                  setForm((current) => ({
-                    ...current,
-                    tierThresholds: {
-                      ...current.tierThresholds,
-                      [tierName]: Math.max(0, Math.trunc(Number(event.target.value || 0))),
-                    },
-                  }))
-                }
-                disabled={pending}
-                className="mt-1"
-              />
-            </div>
-          ))}
+        <div className="mt-4 rounded-xl border border-sky-200 bg-sky-50 p-4">
+          <p className="text-sm font-semibold text-sky-900">How it works</p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-sky-900">
+            <li>
+              <span className="font-semibold">Tiers</span> are ongoing status badges based on
+              Active referrals.
+            </li>
+            <li>
+              <span className="font-semibold">Milestones</span> are one-time bonus credits when
+              Active referrals reach a threshold.
+            </li>
+            <li>
+              Example: if Silver starts at 5 Active referrals, an agent with 6 Active referrals is
+              Silver until they reach the Gold threshold.
+            </li>
+          </ul>
+          <p className="mt-2 text-xs text-sky-800">
+            Use the{" "}
+            <Link
+              href="/admin/referrals/simulator"
+              className="font-semibold underline underline-offset-4"
+            >
+              simulator
+            </Link>{" "}
+            to estimate reward cost before rollout.
+          </p>
+        </div>
+
+        <div className="mt-4">
+          <p className="text-sm font-semibold text-slate-900">Tier ladder (Active referrals)</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Thresholds must be ascending. Bronze stays at 0 as the entry tier.
+          </p>
+
+          <div className="mt-3 grid gap-3 lg:grid-cols-2">
+            {tierDisplayOrder.map((tierName, index) => {
+              const isBronze = tierName.toLowerCase() === "bronze";
+              const threshold = Math.max(
+                0,
+                Math.trunc(Number(form.tierThresholds[tierName] || 0))
+              );
+              const helperCopy =
+                tierName.toLowerCase() === "silver"
+                  ? "First growth tier after Bronze."
+                  : tierName.toLowerCase() === "gold"
+                    ? "Established referrer tier."
+                    : tierName.toLowerCase() === "platinum"
+                      ? "Top-tier referral status."
+                      : "Custom tier threshold.";
+
+              return (
+                <div key={tierName} className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">
+                        {index + 1}. {tierName}
+                      </p>
+                      <p className="text-xs text-slate-600">{helperCopy}</p>
+                    </div>
+                    <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-600">
+                      {threshold}+ Active
+                    </span>
+                  </div>
+                  <label className="mt-3 block text-xs uppercase tracking-wide text-slate-500">
+                    Active referrals threshold
+                  </label>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={threshold}
+                    onChange={(event) =>
+                      setForm((current) => ({
+                        ...current,
+                        tierThresholds: {
+                          ...current.tierThresholds,
+                          [tierName]: Math.max(0, Math.trunc(Number(event.target.value || 0))),
+                        },
+                      }))
+                    }
+                    disabled={pending || isBronze}
+                    className="mt-1"
+                  />
+                  {isBronze ? (
+                    <p className="mt-1 text-xs text-slate-500">Bronze is fixed at 0 Active referrals.</p>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
@@ -763,7 +818,8 @@ export default function AdminSettingsReferrals(props: Props) {
           >
             <p className="text-sm font-semibold text-slate-900">Milestone editor</p>
             <p className="mt-1 text-xs text-slate-600">
-              Threshold and bonus credits must be greater than 0. Thresholds must be unique.
+              Milestones are one-time bonuses. Each threshold must be unique and agents may need to
+              manually claim unlocked milestones.
             </p>
 
             <div className="mt-3 space-y-3">
@@ -775,78 +831,99 @@ export default function AdminSettingsReferrals(props: Props) {
                     className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-[1.5fr_1fr_1fr_auto_auto]"
                     data-testid={`admin-referral-milestone-row-${milestone.id}`}
                   >
-                    <Input
-                      value={draft.name}
-                      onChange={(event) =>
-                        setMilestoneDrafts((current) => ({
-                          ...current,
-                          [milestone.id]: {
-                            ...draft,
-                            name: event.target.value,
-                          },
-                        }))
-                      }
-                      placeholder="Milestone name"
-                      disabled={milestonePending}
-                      data-testid={`admin-referral-milestone-name-${milestone.id}`}
-                    />
-                    <Input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={draft.active_referrals_threshold}
-                      onChange={(event) =>
-                        setMilestoneDrafts((current) => ({
-                          ...current,
-                          [milestone.id]: {
-                            ...draft,
-                            active_referrals_threshold: Math.max(
-                              1,
-                              Math.trunc(Number(event.target.value || 0))
-                            ),
-                          },
-                        }))
-                      }
-                      placeholder="Threshold"
-                      disabled={milestonePending}
-                      data-testid={`admin-referral-milestone-threshold-${milestone.id}`}
-                    />
-                    <Input
-                      type="number"
-                      min={1}
-                      step={1}
-                      value={draft.bonus_credits}
-                      onChange={(event) =>
-                        setMilestoneDrafts((current) => ({
-                          ...current,
-                          [milestone.id]: {
-                            ...draft,
-                            bonus_credits: Math.max(1, Math.trunc(Number(event.target.value || 0))),
-                          },
-                        }))
-                      }
-                      placeholder="Bonus credits"
-                      disabled={milestonePending}
-                      data-testid={`admin-referral-milestone-bonus-${milestone.id}`}
-                    />
-                    <label className="inline-flex items-center gap-2 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={draft.is_enabled}
+                    <div>
+                      <label className="text-xs uppercase tracking-wide text-slate-500">
+                        Milestone name
+                      </label>
+                      <Input
+                        value={draft.name}
                         onChange={(event) =>
                           setMilestoneDrafts((current) => ({
                             ...current,
                             [milestone.id]: {
                               ...draft,
-                              is_enabled: event.target.checked,
+                              name: event.target.value,
                             },
                           }))
                         }
+                        placeholder="Milestone name"
                         disabled={milestonePending}
-                        data-testid={`admin-referral-milestone-enabled-${milestone.id}`}
+                        data-testid={`admin-referral-milestone-name-${milestone.id}`}
+                        className="mt-1"
                       />
-                      Enabled
-                    </label>
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-wide text-slate-500">
+                        Unlock at (Active referrals)
+                      </label>
+                      <Input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={draft.active_referrals_threshold}
+                        onChange={(event) =>
+                          setMilestoneDrafts((current) => ({
+                            ...current,
+                            [milestone.id]: {
+                              ...draft,
+                              active_referrals_threshold: Math.max(
+                                1,
+                                Math.trunc(Number(event.target.value || 0))
+                              ),
+                            },
+                          }))
+                        }
+                        placeholder="Threshold"
+                        disabled={milestonePending}
+                        data-testid={`admin-referral-milestone-threshold-${milestone.id}`}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-wide text-slate-500">
+                        Bonus (Credits)
+                      </label>
+                      <Input
+                        type="number"
+                        min={1}
+                        step={1}
+                        value={draft.bonus_credits}
+                        onChange={(event) =>
+                          setMilestoneDrafts((current) => ({
+                            ...current,
+                            [milestone.id]: {
+                              ...draft,
+                              bonus_credits: Math.max(1, Math.trunc(Number(event.target.value || 0))),
+                            },
+                          }))
+                        }
+                        placeholder="Bonus credits"
+                        disabled={milestonePending}
+                        data-testid={`admin-referral-milestone-bonus-${milestone.id}`}
+                        className="mt-1"
+                      />
+                    </div>
+                    <div className="self-center">
+                      <label className="text-xs uppercase tracking-wide text-slate-500">Status</label>
+                      <label className="mt-1 inline-flex items-center gap-2 text-sm text-slate-700">
+                        <input
+                          type="checkbox"
+                          checked={draft.is_enabled}
+                          onChange={(event) =>
+                            setMilestoneDrafts((current) => ({
+                              ...current,
+                              [milestone.id]: {
+                                ...draft,
+                                is_enabled: event.target.checked,
+                              },
+                            }))
+                          }
+                          disabled={milestonePending}
+                          data-testid={`admin-referral-milestone-enabled-${milestone.id}`}
+                        />
+                        {draft.is_enabled ? "Enabled" : "Disabled"}
+                      </label>
+                    </div>
                     <div className="flex items-center gap-2">
                       <Button
                         type="button"
@@ -874,48 +951,62 @@ export default function AdminSettingsReferrals(props: Props) {
             </div>
 
             <div className="mt-4 grid gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-3 md:grid-cols-[1.5fr_1fr_1fr_auto]">
-              <Input
-                value={createMilestoneDraft.name}
-                onChange={(event) =>
-                  setCreateMilestoneDraft((current) => ({ ...current, name: event.target.value }))
-                }
-                placeholder="New milestone name"
-                disabled={milestonePending}
-                data-testid="admin-referral-milestone-create-name"
-              />
-              <Input
-                type="number"
-                min={1}
-                step={1}
-                value={createMilestoneDraft.active_referrals_threshold}
-                onChange={(event) =>
-                  setCreateMilestoneDraft((current) => ({
-                    ...current,
-                    active_referrals_threshold: Math.max(
-                      1,
-                      Math.trunc(Number(event.target.value || 0))
-                    ),
-                  }))
-                }
-                placeholder="Threshold"
-                disabled={milestonePending}
-                data-testid="admin-referral-milestone-create-threshold"
-              />
-              <Input
-                type="number"
-                min={1}
-                step={1}
-                value={createMilestoneDraft.bonus_credits}
-                onChange={(event) =>
-                  setCreateMilestoneDraft((current) => ({
-                    ...current,
-                    bonus_credits: Math.max(1, Math.trunc(Number(event.target.value || 0))),
-                  }))
-                }
-                placeholder="Bonus credits"
-                disabled={milestonePending}
-                data-testid="admin-referral-milestone-create-bonus"
-              />
+              <div>
+                <label className="text-xs uppercase tracking-wide text-slate-500">Milestone name</label>
+                <Input
+                  value={createMilestoneDraft.name}
+                  onChange={(event) =>
+                    setCreateMilestoneDraft((current) => ({ ...current, name: event.target.value }))
+                  }
+                  placeholder="New milestone name"
+                  disabled={milestonePending}
+                  data-testid="admin-referral-milestone-create-name"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-wide text-slate-500">
+                  Unlock at (Active referrals)
+                </label>
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={createMilestoneDraft.active_referrals_threshold}
+                  onChange={(event) =>
+                    setCreateMilestoneDraft((current) => ({
+                      ...current,
+                      active_referrals_threshold: Math.max(
+                        1,
+                        Math.trunc(Number(event.target.value || 0))
+                      ),
+                    }))
+                  }
+                  placeholder="Threshold"
+                  disabled={milestonePending}
+                  data-testid="admin-referral-milestone-create-threshold"
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <label className="text-xs uppercase tracking-wide text-slate-500">Bonus (Credits)</label>
+                <Input
+                  type="number"
+                  min={1}
+                  step={1}
+                  value={createMilestoneDraft.bonus_credits}
+                  onChange={(event) =>
+                    setCreateMilestoneDraft((current) => ({
+                      ...current,
+                      bonus_credits: Math.max(1, Math.trunc(Number(event.target.value || 0))),
+                    }))
+                  }
+                  placeholder="Bonus credits"
+                  disabled={milestonePending}
+                  data-testid="admin-referral-milestone-create-bonus"
+                  className="mt-1"
+                />
+              </div>
               <Button
                 type="button"
                 size="sm"
