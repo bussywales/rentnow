@@ -252,6 +252,12 @@ export default function ReferralHelpPage() {
         <Link href="/dashboard/referrals" className="font-semibold text-slate-900 underline underline-offset-4">
           Agent referrals dashboard
         </Link>
+        <Link
+          href="/help/agents/articles/creating-demo-listings"
+          className="font-semibold text-slate-900 underline underline-offset-4"
+        >
+          Related: Creating demo listings
+        </Link>
         <Link href="/help/agents#referrals" className="font-semibold text-slate-900 underline underline-offset-4">
           Agent help referrals section
         </Link>

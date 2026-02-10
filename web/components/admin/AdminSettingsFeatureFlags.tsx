@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { APP_SETTING_KEYS, type AppSettingKey } from "@/lib/settings/app-settings-keys";
@@ -49,7 +50,7 @@ const DESCRIPTIONS: Partial<Record<AppSettingKey, { title: string; helper: strin
   },
   [APP_SETTING_KEYS.demoWatermarkEnabled]: {
     title: "Demo image watermark",
-    helper: "Overlay DEMO watermark on listing images marked as demo.",
+    helper: "Overlay a DEMO watermark on images for listings marked as demo.",
   },
 };
 
@@ -60,6 +61,9 @@ export default function AdminSettingsFeatureFlags({ settings }: Props) {
   );
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const hasDemoControls = Boolean(
+    local[APP_SETTING_KEYS.demoBadgeEnabled] || local[APP_SETTING_KEYS.demoWatermarkEnabled]
+  );
 
   const toggle = (settingKey: AppSettingKey, next: boolean) => {
     setError(null);
@@ -135,6 +139,22 @@ export default function AdminSettingsFeatureFlags({ settings }: Props) {
           </div>
         );
       })}
+      {hasDemoControls ? (
+        <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">How demo listings are set</h2>
+          <p className="mt-1 text-sm text-slate-700">
+            Demo listings are marked by Agents/Hosts when creating or editing a listing (Basics
+            - &quot;Mark as demo listing&quot;). The controls here manage visibility
+            (badge/watermark) and exclusions - they don&apos;t select which listings are demo.
+          </p>
+          <Link
+            href="/help/agents/articles/creating-demo-listings"
+            className="mt-3 inline-flex items-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+          >
+            View Agent guide: Creating demo listings
+          </Link>
+        </div>
+      ) : null}
       {error && <p className="text-xs text-rose-600">{error}</p>}
       {toast && <p className="text-xs text-emerald-600">{toast}</p>}
     </div>

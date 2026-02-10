@@ -40,6 +40,11 @@ const GROUPS: Array<{
         meta: "Step guide",
       },
       {
+        label: "Creating demo listings",
+        href: "/help/agents/articles/creating-demo-listings",
+        meta: "Demo workflow",
+      },
+      {
         label: "Listings & publishing",
         href: "/help/agents#listings-publishing",
         meta: "Best practices",
