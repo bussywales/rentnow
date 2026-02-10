@@ -242,9 +242,10 @@ async function upsertOutstandingCredits(input: {
   client: SupabaseClient;
   referrerUserId: string;
   rewardType: ReferralRewardType;
+  rewardSource: "payg_listing_fee_paid" | "featured_purchase_paid" | "subscription_paid";
   nowIso: string;
 }) {
-  const { client, referrerUserId, rewardType, nowIso } = input;
+  const { client, referrerUserId, rewardType, rewardSource, nowIso } = input;
   if (rewardType !== "listing_credit" && rewardType !== "featured_credit") return;
 
   const source =
@@ -296,6 +297,7 @@ async function upsertOutstandingCredits(input: {
       credits: grant,
       source_event: "referral_reward_issued",
       source_ref: `${source}:${nowIso}`,
+      reward_source: rewardSource,
       created_at: nowIso,
     });
   } catch {
@@ -317,7 +319,7 @@ async function upsertOutstandingCredits(input: {
 export async function issueReferralRewardsForEvent(input: {
   client: SupabaseClient;
   referredUserId: string;
-  eventType: "payg_listing_fee_paid" | "subscription_paid";
+  eventType: "payg_listing_fee_paid" | "featured_purchase_paid" | "subscription_paid";
   eventReference: string;
   issuedAt?: string;
 }): Promise<ReferralRewardIssueResult> {
@@ -418,6 +420,7 @@ export async function issueReferralRewardsForEvent(input: {
       client,
       referrerUserId: ancestor.userId,
       rewardType: rule.type,
+      rewardSource: eventType,
       nowIso: issuedAt,
     });
   }

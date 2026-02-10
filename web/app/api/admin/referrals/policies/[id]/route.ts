@@ -3,9 +3,19 @@ import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
-import { normalizePolicyCountryCode } from "@/lib/referrals/cashout";
+import {
+  DEFAULT_REFERRAL_POLICY,
+  REFERRAL_CASHOUT_ELIGIBLE_SOURCES,
+  REFERRAL_CASHOUT_RATE_MODES,
+  majorCurrencyToMinor,
+  minorCurrencyToMajor,
+  normalizePolicyCountryCode,
+} from "@/lib/referrals/cashout";
 
 const routeLabel = "/api/admin/referrals/policies/[id]";
+
+const cashoutRateModeSchema = z.enum(REFERRAL_CASHOUT_RATE_MODES);
+const cashoutEligibleSourceSchema = z.enum(REFERRAL_CASHOUT_ELIGIBLE_SOURCES);
 
 const patchSchema = z
   .object({
@@ -13,6 +23,10 @@ const patchSchema = z
     payouts_enabled: z.boolean().optional(),
     conversion_enabled: z.boolean().optional(),
     credit_to_cash_rate: z.number().min(0).optional(),
+    cashout_rate_mode: cashoutRateModeSchema.optional(),
+    cashout_rate_amount_minor: z.number().int().min(0).nullable().optional(),
+    cashout_rate_percent: z.number().min(0).nullable().optional(),
+    cashout_eligible_sources: z.array(cashoutEligibleSourceSchema).optional(),
     currency: z.string().min(1).max(10).optional(),
     min_cashout_credits: z.number().int().min(0).optional(),
     monthly_cashout_cap_amount: z.number().min(0).optional(),
@@ -21,6 +35,20 @@ const patchSchema = z
   .refine((value) => Object.keys(value).length > 0, {
     message: "At least one field is required",
   });
+
+function normalizeEligibleSources(value: readonly string[] | undefined) {
+  if (value === undefined) {
+    return [...DEFAULT_REFERRAL_POLICY.cashout_eligible_sources];
+  }
+  const deduped = Array.from(
+    new Set(
+      value.filter((entry): entry is (typeof REFERRAL_CASHOUT_ELIGIBLE_SOURCES)[number] =>
+        (REFERRAL_CASHOUT_ELIGIBLE_SOURCES as readonly string[]).includes(entry)
+      )
+    )
+  );
+  return deduped;
+}
 
 export async function PATCH(
   request: NextRequest,
@@ -58,7 +86,20 @@ export async function PATCH(
   }
   if (payload.payouts_enabled !== undefined) update.payouts_enabled = payload.payouts_enabled;
   if (payload.conversion_enabled !== undefined) update.conversion_enabled = payload.conversion_enabled;
-  if (payload.credit_to_cash_rate !== undefined) update.credit_to_cash_rate = payload.credit_to_cash_rate;
+  if (payload.cashout_rate_mode !== undefined) update.cashout_rate_mode = payload.cashout_rate_mode;
+  if (payload.cashout_rate_amount_minor !== undefined) {
+    update.cashout_rate_amount_minor = payload.cashout_rate_amount_minor;
+    update.credit_to_cash_rate = minorCurrencyToMajor(payload.cashout_rate_amount_minor || 0);
+  } else if (payload.credit_to_cash_rate !== undefined) {
+    update.credit_to_cash_rate = payload.credit_to_cash_rate;
+    update.cashout_rate_amount_minor = majorCurrencyToMinor(payload.credit_to_cash_rate);
+  }
+  if (payload.cashout_rate_percent !== undefined) {
+    update.cashout_rate_percent = payload.cashout_rate_percent;
+  }
+  if (payload.cashout_eligible_sources !== undefined) {
+    update.cashout_eligible_sources = normalizeEligibleSources(payload.cashout_eligible_sources);
+  }
   if (payload.currency !== undefined) update.currency = payload.currency.trim().toUpperCase();
   if (payload.min_cashout_credits !== undefined) update.min_cashout_credits = payload.min_cashout_credits;
   if (payload.monthly_cashout_cap_amount !== undefined) {
@@ -74,7 +115,7 @@ export async function PATCH(
     .update(update)
     .eq("id", id)
     .select(
-      "id, country_code, payouts_enabled, conversion_enabled, credit_to_cash_rate, currency, min_cashout_credits, monthly_cashout_cap_amount, requires_manual_approval, updated_at"
+      "id, country_code, payouts_enabled, conversion_enabled, credit_to_cash_rate, cashout_rate_mode, cashout_rate_amount_minor, cashout_rate_percent, cashout_eligible_sources, currency, min_cashout_credits, monthly_cashout_cap_amount, requires_manual_approval, updated_at"
     )
     .maybeSingle();
 

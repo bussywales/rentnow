@@ -46,6 +46,7 @@ function mapStatus(reason: string | undefined): number {
   if (!reason) return 400;
   if (reason === "CASHOUT_DISABLED") return 403;
   if (reason === "INSUFFICIENT_CREDITS") return 409;
+  if (reason === "NO_ELIGIBLE_CREDITS") return 409;
   if (reason === "MONTHLY_CAP_EXCEEDED") return 409;
   if (reason === "BELOW_MIN_CASHOUT") return 422;
   return 400;

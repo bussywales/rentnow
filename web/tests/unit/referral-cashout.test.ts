@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   applyPendingHold,
+  calculateCashoutAmountMajorFromPercent,
+  calculateCashoutPercentFromAmountMajor,
   calculateAvailableCredits,
+  normalizePolicyRow,
   validateCashoutGuard,
 } from "@/lib/referrals/cashout";
 
@@ -10,9 +13,35 @@ const enabledPolicy = {
   payouts_enabled: true,
   conversion_enabled: true,
   credit_to_cash_rate: 50,
+  cashout_rate_mode: "fixed" as const,
+  cashout_rate_amount_minor: 5000,
+  cashout_rate_percent: 2.5,
   min_cashout_credits: 5,
   monthly_cashout_cap_amount: 2000,
 };
+
+void test("cashout rate conversions between percent and amount are consistent", () => {
+  const amount = calculateCashoutAmountMajorFromPercent({
+    paygListingFeeAmount: 2000,
+    percent: 2.5,
+  });
+  assert.equal(amount, 50);
+
+  const percent = calculateCashoutPercentFromAmountMajor({
+    paygListingFeeAmount: 2000,
+    amountMajor: 50,
+  });
+  assert.equal(percent, 2.5);
+});
+
+void test("default policy excludes subscription rewards from cashout eligibility", () => {
+  const policy = normalizePolicyRow(null, "NG");
+  assert.deepEqual(policy.cashout_eligible_sources, [
+    "payg_listing_fee_paid",
+    "featured_purchase_paid",
+  ]);
+  assert.equal(policy.cashout_eligible_sources.includes("subscription_paid"), false);
+});
 
 void test("cashout guards reject disabled countries", () => {
   const result = validateCashoutGuard({
@@ -27,6 +56,19 @@ void test("cashout guards reject disabled countries", () => {
 
   assert.equal(result.ok, false);
   assert.equal(result.reason, "CASHOUT_DISABLED");
+
+  const conversionDisabled = validateCashoutGuard({
+    policy: {
+      ...enabledPolicy,
+      conversion_enabled: false,
+    },
+    creditsRequested: 10,
+    availableCredits: 100,
+    monthToDateCashAmount: 0,
+  });
+
+  assert.equal(conversionDisabled.ok, false);
+  assert.equal(conversionDisabled.reason, "CASHOUT_DISABLED");
 });
 
 void test("cashout guards enforce minimum credits", () => {

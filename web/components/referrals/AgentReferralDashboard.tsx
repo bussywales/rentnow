@@ -422,7 +422,7 @@ export default function AgentReferralDashboard(props: Props) {
             </div>
           ) : (
             <p className="mt-4 text-sm text-slate-600" data-testid="referrals-cashout-disabled">
-              Cashout is not available in your country yet ({jurisdictionCountryCode}).
+              Cashout unavailable in your country. ({jurisdictionCountryCode})
             </p>
           )}
         </section>

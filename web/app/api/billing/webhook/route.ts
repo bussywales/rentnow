@@ -130,6 +130,16 @@ export async function POST(request: Request) {
   }
 
   if (isFeaturedPurchase && typedFeaturePurchase?.status === "paid") {
+    try {
+      await issueReferralRewardsForEvent({
+        client: adminClient as unknown as SupabaseClient,
+        referredUserId: typedFeaturePurchase.user_id,
+        eventType: "featured_purchase_paid",
+        eventReference: `paystack:${reference}`,
+      });
+    } catch {
+      // Referral rewards should never block payment webhooks.
+    }
     return NextResponse.json({ ok: true });
   }
 
@@ -267,17 +277,25 @@ export async function POST(request: Request) {
     meta: { provider: "paystack", amount: eventAmount, currency: eventCurrency },
   });
 
-  if (!isFeaturedPurchase && typedPayment) {
-    try {
+  try {
+    if (!isFeaturedPurchase && typedPayment) {
       await issueReferralRewardsForEvent({
         client: adminClient as unknown as SupabaseClient,
         referredUserId: typedPayment.user_id,
         eventType: "payg_listing_fee_paid",
         eventReference: `paystack:${reference}`,
       });
-    } catch {
-      // Referral rewards should never block payment webhooks.
     }
+    if (isFeaturedPurchase && typedFeaturePurchase) {
+      await issueReferralRewardsForEvent({
+        client: adminClient as unknown as SupabaseClient,
+        referredUserId: typedFeaturePurchase.user_id,
+        eventType: "featured_purchase_paid",
+        eventReference: `paystack:${reference}`,
+      });
+    }
+  } catch {
+    // Referral rewards should never block payment webhooks.
   }
 
   return NextResponse.json({ ok: true });

@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { parseReferralSettingsRows } from "@/lib/referrals/settings";
+import { parseAppSettingInt } from "@/lib/settings/app-settings";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
+import { DEFAULT_PAYG_LISTING_FEE_AMOUNT } from "@/lib/billing/payg";
 import AdminSettingsReferrals from "@/components/admin/AdminSettingsReferrals";
 import AdminReferralJurisdictions from "@/components/admin/AdminReferralJurisdictions";
 
@@ -38,7 +40,7 @@ async function requireAdmin() {
 export default async function AdminReferralSettingsPage() {
   const { supabase } = await requireAdmin();
 
-  const [settingsRows, referralCount, rewardsResult, policyRows] = await Promise.all([
+  const [settingsRows, referralCount, rewardsResult, policyRows, paygRow] = await Promise.all([
     supabase
       .from("app_settings")
       .select("key, value")
@@ -55,12 +57,21 @@ export default async function AdminReferralSettingsPage() {
     supabase
       .from("referral_jurisdiction_policies")
       .select(
-        "id, country_code, payouts_enabled, conversion_enabled, credit_to_cash_rate, currency, min_cashout_credits, monthly_cashout_cap_amount, requires_manual_approval, updated_at"
+        "id, country_code, payouts_enabled, conversion_enabled, credit_to_cash_rate, cashout_rate_mode, cashout_rate_amount_minor, cashout_rate_percent, cashout_eligible_sources, currency, min_cashout_credits, monthly_cashout_cap_amount, requires_manual_approval, updated_at"
       )
       .order("country_code", { ascending: true }),
+    supabase
+      .from("app_settings")
+      .select("value")
+      .eq("key", APP_SETTING_KEYS.paygListingFeeAmount)
+      .maybeSingle<{ value: unknown }>(),
   ]);
 
   const settings = parseReferralSettingsRows((settingsRows.data as AppSettingRow[] | null) ?? []);
+  const paygListingFeeAmount = Math.max(
+    0,
+    parseAppSettingInt(paygRow.data?.value, DEFAULT_PAYG_LISTING_FEE_AMOUNT)
+  );
   const rewardRows =
     ((rewardsResult.data as Array<{ id: string; reward_amount: number | null }> | null) ?? []);
 
@@ -117,6 +128,12 @@ export default async function AdminReferralSettingsPage() {
             payouts_enabled: boolean;
             conversion_enabled: boolean;
             credit_to_cash_rate: number;
+            cashout_rate_mode: "fixed" | "percent_of_payg";
+            cashout_rate_amount_minor: number | null;
+            cashout_rate_percent: number | null;
+            cashout_eligible_sources: Array<
+              "payg_listing_fee_paid" | "featured_purchase_paid" | "subscription_paid"
+            >;
             currency: string;
             min_cashout_credits: number;
             monthly_cashout_cap_amount: number;
@@ -124,6 +141,7 @@ export default async function AdminReferralSettingsPage() {
             updated_at: string;
           }> | null) ?? [])
         }
+        paygListingFeeAmount={paygListingFeeAmount}
       />
     </div>
   );
