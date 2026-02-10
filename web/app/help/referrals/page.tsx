@@ -31,7 +31,7 @@ export default function ReferralHelpPage() {
       <section className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
         <p className="text-sm font-semibold text-slate-900">Jump to section</p>
         <div className="mt-2 flex flex-wrap gap-3 text-sm">
-          <a href="#agents-hosts" className="font-semibold text-slate-900 underline underline-offset-4">
+          <a href="#for-agents-hosts" className="font-semibold text-slate-900 underline underline-offset-4">
             For Agents &amp; Hosts
           </a>
           <a href="#admins" className="font-semibold text-slate-900 underline underline-offset-4">
@@ -40,7 +40,7 @@ export default function ReferralHelpPage() {
         </div>
       </section>
 
-      <section id="agents-hosts" className="space-y-4">
+      <section id="for-agents-hosts" className="space-y-4">
         <h2 className="text-xl font-semibold text-slate-900">For Agents &amp; Hosts</h2>
 
         <FaqItem id="agent-active-referral" question="1. What counts as an Active referral?">
@@ -218,6 +218,9 @@ export default function ReferralHelpPage() {
       <footer className="flex flex-wrap gap-3 text-sm">
         <Link href="/dashboard/referrals" className="font-semibold text-slate-900 underline underline-offset-4">
           Agent referrals dashboard
+        </Link>
+        <Link href="/help/agents#referrals" className="font-semibold text-slate-900 underline underline-offset-4">
+          Agent help referrals section
         </Link>
         <Link href="/admin/settings/referrals" className="font-semibold text-slate-900 underline underline-offset-4">
           Admin referral settings

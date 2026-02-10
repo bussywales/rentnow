@@ -153,4 +153,16 @@ void test("validateSettingValueByKey accepts leaderboard toggle payloads", () =>
     validateSettingValueByKey("referrals_leaderboard_all_time_enabled", { enabled: true }),
     true
   );
+  assert.equal(
+    validateSettingValueByKey("referrals_leaderboard_initials_only", { enabled: true }),
+    true
+  );
+  assert.equal(
+    validateSettingValueByKey("referrals_leaderboard_scope", { scope: "global" }),
+    true
+  );
+  assert.equal(
+    validateSettingValueByKey("referrals_leaderboard_scope", { scope: "invalid_scope" }),
+    false
+  );
 });

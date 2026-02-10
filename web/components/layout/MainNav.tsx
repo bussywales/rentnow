@@ -3,6 +3,7 @@ import { NavLinksClient } from "@/components/layout/NavLinksClient";
 import { NavMobileDrawerClient } from "@/components/layout/NavMobileDrawerClient";
 import { BrandLogo } from "@/components/branding/BrandLogo";
 import { AdminHelpDrawer } from "@/components/help/AdminHelpDrawer";
+import { AgentHelpDrawer } from "@/components/help/AgentHelpDrawer";
 import { ProductUpdatesBell } from "@/components/updates/ProductUpdatesBell";
 import { ProductUpdatesOnboarding } from "@/components/updates/ProductUpdatesOnboarding";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -86,6 +87,7 @@ export async function MainNav() {
 
         <div className="flex items-center gap-2">
           <AdminHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
+          <AgentHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
           <ProductUpdatesBell initialAuthed={initialAuthed} />
           <NavAuthClient initialAuthed={initialAuthed} />
           <NavMobileDrawerClient links={MAIN_NAV_LINKS} initialAuthed={initialAuthed} initialRole={role} />

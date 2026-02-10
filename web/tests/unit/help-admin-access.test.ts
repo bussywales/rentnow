@@ -46,4 +46,5 @@ void test("non-admin cannot access admin help", async () => {
 void test("admin help routes import", async () => {
   await assert.doesNotReject(async () => import("@/app/help/admin/page"));
   await assert.doesNotReject(async () => import("@/app/help/admin/listings/review-workflow/page"));
+  await assert.doesNotReject(async () => import("@/app/help/admin/help-publishing/page"));
 });

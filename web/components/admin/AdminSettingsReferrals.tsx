@@ -34,6 +34,8 @@ type Props = {
     publicVisible: boolean;
     monthlyEnabled: boolean;
     allTimeEnabled: boolean;
+    initialsOnly: boolean;
+    scope: "global" | "by_country" | "by_city";
   };
   milestones: Milestone[];
   caps: { daily: number; monthly: number };
@@ -58,6 +60,8 @@ type FormState = {
     publicVisible: boolean;
     monthlyEnabled: boolean;
     allTimeEnabled: boolean;
+    initialsOnly: boolean;
+    scope: "global" | "by_country" | "by_city";
   };
   caps: { daily: number; monthly: number };
 };
@@ -187,6 +191,8 @@ function buildInitialState(props: Props): FormState {
       publicVisible: Boolean(props.leaderboard.publicVisible),
       monthlyEnabled: Boolean(props.leaderboard.monthlyEnabled),
       allTimeEnabled: Boolean(props.leaderboard.allTimeEnabled),
+      initialsOnly: Boolean(props.leaderboard.initialsOnly),
+      scope: props.leaderboard.scope || "global",
     },
     caps: {
       daily: Math.max(0, Math.trunc(Number(props.caps.daily) || 0)),
@@ -219,6 +225,8 @@ function cloneFormState(input: FormState): FormState {
       publicVisible: input.leaderboard.publicVisible,
       monthlyEnabled: input.leaderboard.monthlyEnabled,
       allTimeEnabled: input.leaderboard.allTimeEnabled,
+      initialsOnly: input.leaderboard.initialsOnly,
+      scope: input.leaderboard.scope,
     },
     caps: { ...input.caps },
   };
@@ -492,6 +500,14 @@ export default function AdminSettingsReferrals(props: Props) {
         await patchSetting({
           key: "referrals_leaderboard_all_time_enabled",
           value: { enabled: form.leaderboard.allTimeEnabled },
+        });
+        await patchSetting({
+          key: "referrals_leaderboard_initials_only",
+          value: { enabled: form.leaderboard.initialsOnly },
+        });
+        await patchSetting({
+          key: "referrals_leaderboard_scope",
+          value: { scope: form.leaderboard.scope },
         });
         await patchSetting({
           key: "referral_caps",
@@ -856,6 +872,11 @@ export default function AdminSettingsReferrals(props: Props) {
           <p className="mt-1 text-xs text-slate-600">
             Use leaderboard visibility to motivate progress with status, not payouts.
           </p>
+          <div className="mt-2 flex flex-wrap gap-3 text-xs">
+            <Link href="/dashboard/referrals/leaderboard" className="font-semibold text-slate-700 underline">
+              Open leaderboard preview
+            </Link>
+          </div>
           <div className="mt-3 grid gap-2 sm:grid-cols-2">
             <label className="inline-flex items-center gap-2 text-sm text-slate-700">
               <input
@@ -925,9 +946,46 @@ export default function AdminSettingsReferrals(props: Props) {
               />
               All-time leaderboard
             </label>
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.leaderboard.initialsOnly}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    leaderboard: {
+                      ...current.leaderboard,
+                      initialsOnly: event.target.checked,
+                    },
+                  }))
+                }
+                disabled={pending || !form.leaderboard.enabled}
+              />
+              Show initials only (privacy default)
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span className="text-xs uppercase tracking-wide text-slate-500">Leaderboard scope</span>
+              <Select
+                value={form.leaderboard.scope}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    leaderboard: {
+                      ...current.leaderboard,
+                      scope: event.target.value as "global" | "by_country" | "by_city",
+                    },
+                  }))
+                }
+                disabled={pending || !form.leaderboard.enabled}
+              >
+                <option value="global">Global (current)</option>
+                <option value="by_country">By country (coming soon)</option>
+                <option value="by_city">By city (coming soon)</option>
+              </Select>
+            </label>
           </div>
           <p className="mt-2 text-xs text-slate-500">
-            If both windows are off, agents will default to all-time rank callout only.
+            If both windows are off, agents will default to all-time rank callout only. Scope currently runs as global.
           </p>
         </div>
 

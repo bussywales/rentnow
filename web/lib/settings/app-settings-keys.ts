@@ -26,6 +26,8 @@ export const APP_SETTING_KEYS = {
   referralsLeaderboardPublicVisible: "referrals_leaderboard_public_visible",
   referralsLeaderboardMonthlyEnabled: "referrals_leaderboard_monthly_enabled",
   referralsLeaderboardAllTimeEnabled: "referrals_leaderboard_all_time_enabled",
+  referralsLeaderboardInitialsOnly: "referrals_leaderboard_initials_only",
+  referralsLeaderboardScope: "referrals_leaderboard_scope",
   referralCaps: "referral_caps",
 } as const;
 

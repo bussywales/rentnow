@@ -67,6 +67,10 @@ const referralCapsSchema = z
     message: "Monthly cap must be >= daily cap",
   });
 
+const leaderboardScopeSchema = z.object({
+  scope: z.enum(["global", "by_country", "by_city"]),
+});
+
 export const patchSchema = z.object({
   key: z.enum(ALLOWED_KEYS),
   value: z.union([
@@ -78,6 +82,7 @@ export const patchSchema = z.object({
     referralRewardRulesSchema,
     referralTierThresholdSchema,
     referralCapsSchema,
+    leaderboardScopeSchema,
   ]),
 });
 
@@ -112,6 +117,9 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
     key === APP_SETTING_KEYS.referralsLeaderboardMonthlyEnabled;
   const isReferralLeaderboardAllTimeEnabled =
     key === APP_SETTING_KEYS.referralsLeaderboardAllTimeEnabled;
+  const isReferralLeaderboardInitialsOnly =
+    key === APP_SETTING_KEYS.referralsLeaderboardInitialsOnly;
+  const isReferralLeaderboardScope = key === APP_SETTING_KEYS.referralsLeaderboardScope;
   const isReferralCaps = key === APP_SETTING_KEYS.referralCaps;
 
   if (isModeSetting) return modeValueSchema.safeParse(value).success;
@@ -129,6 +137,8 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   if (isReferralLeaderboardPublicVisible) return enabledValueSchema.safeParse(value).success;
   if (isReferralLeaderboardMonthlyEnabled) return enabledValueSchema.safeParse(value).success;
   if (isReferralLeaderboardAllTimeEnabled) return enabledValueSchema.safeParse(value).success;
+  if (isReferralLeaderboardInitialsOnly) return enabledValueSchema.safeParse(value).success;
+  if (isReferralLeaderboardScope) return leaderboardScopeSchema.safeParse(value).success;
   if (isReferralCaps) return referralCapsSchema.safeParse(value).success;
   return enabledValueSchema.safeParse(value).success;
 }

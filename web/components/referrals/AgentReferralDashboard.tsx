@@ -492,10 +492,10 @@ export default function AgentReferralDashboard(props: Props) {
 
           <div className="mt-3">
             <Link
-              href="/help/referrals"
+              href="/help/agents#referrals"
               className="text-sm font-semibold text-slate-800 underline underline-offset-4"
             >
-              How referrals work
+              Learn how referrals work
             </Link>
           </div>
         </section>
@@ -745,6 +745,16 @@ export default function AgentReferralDashboard(props: Props) {
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-slate-600">
+              <span>How to climb: Invite → referral joins → completes verified paid event.</span>
+              <Link
+                href="/dashboard/referrals/leaderboard"
+                className="font-semibold text-slate-800 underline underline-offset-4"
+              >
+                View full leaderboard
+              </Link>
             </div>
 
             <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">

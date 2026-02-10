@@ -29,7 +29,10 @@ export const HELP_ADMIN_NAV: HelpNavSection[] = [
   },
   {
     title: "Updates",
-    items: [{ label: "Product updates", href: "/help/admin/product-updates" }],
+    items: [
+      { label: "Product updates", href: "/help/admin/product-updates" },
+      { label: "Help publishing guide", href: "/help/admin/help-publishing" },
+    ],
   },
   {
     title: "Analytics",
@@ -51,6 +54,62 @@ export const HELP_ADMIN_NAV: HelpNavSection[] = [
       { label: "Product updates", href: "/help/admin/support-playbooks/product-updates" },
       { label: "Analytics & events", href: "/help/admin/support-playbooks/analytics" },
       { label: "Featured scheduling", href: "/help/admin/support-playbooks/featured" },
+    ],
+  },
+];
+
+export const HELP_AGENT_NAV: HelpNavSection[] = [
+  {
+    title: "Overview",
+    items: [
+      { label: "Agent Help Centre", href: "/help/agents#overview" },
+      { label: "Start here", href: "/help/agents#start-here" },
+      { label: "Most common tasks", href: "/help/agents#common-tasks" },
+    ],
+  },
+  {
+    title: "Referrals",
+    items: [
+      { label: "Referrals overview", href: "/help/agents#referrals" },
+      { label: "Referral FAQ", href: "/help/referrals#for-agents-hosts" },
+      {
+        label: "Share referral link",
+        href: "/help/agents/articles/how-to-share-your-referral-link",
+      },
+      {
+        label: "Active referrals explained",
+        href: "/help/agents/articles/understanding-active-referrals",
+      },
+    ],
+  },
+  {
+    title: "Listings & leads",
+    items: [
+      { label: "Listings & publishing", href: "/help/agents#listings-publishing" },
+      { label: "Viewings & leads", href: "/help/agents#viewings-leads" },
+      {
+        label: "Publish a listing",
+        href: "/help/agents/articles/how-to-publish-a-listing",
+      },
+    ],
+  },
+  {
+    title: "Discovery",
+    items: [
+      { label: "Saved searches & alerts", href: "/help/agents#saved-searches-alerts" },
+      {
+        label: "Saved searches guide",
+        href: "/help/agents/articles/saved-searches-and-alerts",
+      },
+    ],
+  },
+  {
+    title: "Billing & trust",
+    items: [
+      { label: "Credits & billing", href: "/help/agents#credits-billing" },
+      { label: "Safety & reporting", href: "/help/agents#safety-reporting" },
+      { label: "Troubleshooting", href: "/help/agents#troubleshooting" },
+      { label: "Browse all articles", href: "/help/articles" },
     ],
   },
 ];

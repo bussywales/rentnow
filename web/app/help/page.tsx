@@ -22,11 +22,22 @@ export default function HelpCentrePage() {
           <p className="mt-1 text-sm text-slate-600">Account, bookings, safety, and reporting.</p>
         </Link>
         <Link
-          href="/host"
+          href="/help/agents"
           className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300"
         >
-          <h2 className="text-lg font-semibold text-slate-900">Host &amp; agent help</h2>
-          <p className="mt-1 text-sm text-slate-600">Listings, viewings, and trust controls.</p>
+          <h2 className="text-lg font-semibold text-slate-900">Agent Help Centre</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Listings, viewings, referrals, billing, and troubleshooting guides.
+          </p>
+        </Link>
+        <Link
+          href="/help/articles"
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300"
+        >
+          <h2 className="text-lg font-semibold text-slate-900">Help articles</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Search and filter published guides with images and video walkthroughs.
+          </p>
         </Link>
         <Link
           href="/help/admin"

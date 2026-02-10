@@ -59,6 +59,8 @@ export default async function AdminReferralSettingsPage() {
         APP_SETTING_KEYS.referralsLeaderboardPublicVisible,
         APP_SETTING_KEYS.referralsLeaderboardMonthlyEnabled,
         APP_SETTING_KEYS.referralsLeaderboardAllTimeEnabled,
+        APP_SETTING_KEYS.referralsLeaderboardInitialsOnly,
+        APP_SETTING_KEYS.referralsLeaderboardScope,
         APP_SETTING_KEYS.referralCaps,
       ]),
     supabase.from("referrals").select("id", { count: "exact", head: true }),
@@ -133,6 +135,9 @@ export default async function AdminReferralSettingsPage() {
           </Link>
           <Link href="/help/referrals" className="underline underline-offset-4">
             Referral FAQ
+          </Link>
+          <Link href="/dashboard/referrals/leaderboard" className="underline underline-offset-4">
+            Leaderboard preview
           </Link>
           <Link href="/admin" className="underline underline-offset-4">
             Admin home

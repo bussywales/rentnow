@@ -12,6 +12,8 @@ export type ReferralLeaderboardEntry = {
   displayName: string;
   tier: string;
   activeReferrals: number;
+  joinedAt: string | null;
+  isYou: boolean;
 };
 
 export type ReferralLeaderboardWindowSnapshot = {
@@ -28,6 +30,8 @@ export type ReferralLeaderboardConfig = {
   publicVisible: boolean;
   monthlyEnabled: boolean;
   allTimeEnabled: boolean;
+  initialsOnly: boolean;
+  scope: "global" | "by_country" | "by_city";
 };
 
 export type ReferralLeaderboardSnapshot = {
@@ -43,6 +47,7 @@ type LeaderboardAgentProfile = {
   id: string;
   display_name: string | null;
   full_name: string | null;
+  created_at: string | null;
 };
 
 type LeaderboardRewardRow = {
@@ -68,6 +73,7 @@ type LeaderboardRankInput = {
   tier: string;
   activeReferrals: number;
   optedOut: boolean;
+  joinedAt: string | null;
 };
 
 const LEADERBOARD_OPT_OUT_PREFIX = "referrals_leaderboard_opt_out:";
@@ -79,13 +85,20 @@ function getMonthStartIso(now = new Date()): string {
   return monthStart.toISOString();
 }
 
-function normalizeDisplayName(name: string | null | undefined, userId: string): string {
+function normalizeDisplayName(input: {
+  name: string | null | undefined;
+  userId: string;
+  initialsOnly: boolean;
+}): string {
+  const { name, userId, initialsOnly } = input;
   const raw = String(name || "").trim().replace(/\s+/g, " ");
   if (!raw) return `Agent ${userId.slice(0, 6)}`;
 
+  if (!initialsOnly) return raw;
+
   const parts = raw.split(" ").filter(Boolean);
   if (parts.length <= 1) {
-    const first = parts[0] || raw;
+    const first = parts[0] || raw || "A";
     return `${first.charAt(0).toUpperCase()}.`;
   }
 
@@ -118,6 +131,8 @@ function rankLeaderboardRows(rows: LeaderboardRankInput[]): ReferralLeaderboardE
       displayName: row.displayName,
       tier: row.tier,
       activeReferrals: row.activeReferrals,
+      joinedAt: row.joinedAt,
+      isYou: false,
     };
   });
 }
@@ -155,8 +170,8 @@ const getLeaderboardBaseData = unstable_cache(
     const [profilesResult, rewardsResult, appSettingResult] = await Promise.all([
       client
         .from("profiles")
-        .select("id, display_name, full_name")
-        .eq("role", "agent"),
+        .select("id, display_name, full_name, created_at")
+        .in("role", ["agent", "landlord"]),
       client
         .from("referral_rewards")
         .select("referrer_user_id, referred_user_id, issued_at"),
@@ -170,6 +185,7 @@ const getLeaderboardBaseData = unstable_cache(
       id: String(row.id),
       display_name: row.display_name ? String(row.display_name) : null,
       full_name: row.full_name ? String(row.full_name) : null,
+      created_at: row.created_at ? String(row.created_at) : null,
     }));
 
     const rewards = ((rewardsResult.data as LeaderboardRewardRow[] | null) ?? []).map((row) => ({
@@ -206,6 +222,7 @@ function buildWindowSnapshot(input: {
   rows: LeaderboardRankInput[];
   userId: string;
   publicVisible: boolean;
+  topLimit: number;
 }): ReferralLeaderboardWindowSnapshot {
   const ranked = rankLeaderboardRows(input.rows);
   const me = ranked.find((row) => row.userId === input.userId) ?? null;
@@ -213,7 +230,11 @@ function buildWindowSnapshot(input: {
   const entries = input.publicVisible
     ? ranked
         .filter((row) => !input.rows.find((candidate) => candidate.userId === row.userId)?.optedOut)
-        .slice(0, 10)
+        .slice(0, Math.max(1, input.topLimit))
+        .map((row) => ({
+          ...row,
+          isYou: row.userId === input.userId,
+        }))
     : [];
 
   return {
@@ -230,6 +251,7 @@ export async function getReferralLeaderboardSnapshot(input: {
   userId: string;
   tierThresholds: ReferralTierThresholds;
   config: ReferralLeaderboardConfig;
+  topLimit?: number;
 }): Promise<ReferralLeaderboardSnapshot> {
   const availableWindows: ReferralLeaderboardWindow[] = [];
   if (input.config.monthlyEnabled) availableWindows.push("month");
@@ -269,25 +291,36 @@ export async function getReferralLeaderboardSnapshot(input: {
     sinceIso: null,
   });
   const userOptedOut = Boolean(baseData.optOutByUserId[input.userId]);
+  const topLimit = Math.max(1, Math.min(100, Math.trunc(input.topLimit ?? 10)));
 
   const monthlyRows: LeaderboardRankInput[] = baseData.agents.map((agent) => {
     const activeReferrals = monthlyCounts.get(agent.id) ?? 0;
     return {
       userId: agent.id,
-      displayName: normalizeDisplayName(agent.display_name ?? agent.full_name, agent.id),
+      displayName: normalizeDisplayName({
+        name: agent.display_name ?? agent.full_name,
+        userId: agent.id,
+        initialsOnly: input.config.initialsOnly,
+      }),
       tier: resolveReferralTierStatus(activeReferrals, input.tierThresholds).currentTier,
       activeReferrals,
       optedOut: Boolean(baseData.optOutByUserId[agent.id]),
+      joinedAt: agent.created_at,
     };
   });
   const allTimeRows: LeaderboardRankInput[] = baseData.agents.map((agent) => {
     const activeReferrals = allTimeCounts.get(agent.id) ?? 0;
     return {
       userId: agent.id,
-      displayName: normalizeDisplayName(agent.display_name ?? agent.full_name, agent.id),
+      displayName: normalizeDisplayName({
+        name: agent.display_name ?? agent.full_name,
+        userId: agent.id,
+        initialsOnly: input.config.initialsOnly,
+      }),
       tier: resolveReferralTierStatus(activeReferrals, input.tierThresholds).currentTier,
       activeReferrals,
       optedOut: Boolean(baseData.optOutByUserId[agent.id]),
+      joinedAt: agent.created_at,
     };
   });
 
@@ -297,6 +330,7 @@ export async function getReferralLeaderboardSnapshot(input: {
       rows: window === "month" ? monthlyRows : allTimeRows,
       userId: input.userId,
       publicVisible: input.config.publicVisible,
+      topLimit,
     })
   );
 
@@ -324,4 +358,4 @@ export async function getReferralLeaderboardOptOut(input: {
 }
 
 export const REFERRAL_LEADERBOARD_OPT_OUT_PREFIX = LEADERBOARD_OPT_OUT_PREFIX;
-export { rankLeaderboardRows };
+export { rankLeaderboardRows, normalizeDisplayName };

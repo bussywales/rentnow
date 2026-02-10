@@ -5,8 +5,9 @@ import { usePathname } from "next/navigation";
 import type { HelpNavSection } from "@/components/help/help-nav";
 
 function isActivePath(current: string, target: string) {
-  if (current === target) return true;
-  if (target !== "/help/admin" && current.startsWith(target)) return true;
+  const normalizedTarget = target.split("#")[0] || target;
+  if (current === normalizedTarget) return true;
+  if (normalizedTarget !== "/help/admin" && current.startsWith(normalizedTarget)) return true;
   return false;
 }
 
@@ -15,7 +16,7 @@ export function HelpSidebar({ sections }: { sections: HelpNavSection[] }) {
 
   return (
     <aside
-      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+      className="self-start rounded-2xl border border-slate-200 bg-white p-4 shadow-sm lg:sticky lg:top-24"
       data-testid="help-sidebar"
     >
       <div className="space-y-5">

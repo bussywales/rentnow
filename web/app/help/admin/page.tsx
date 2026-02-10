@@ -35,6 +35,7 @@ export default function AdminHelpPage() {
                   { label: "Listings review workflow", href: "/help/admin/listings/review-workflow" },
                   { label: "Feature a listing", href: "/help/admin/listings/featured" },
                   { label: "Publish a product update", href: "/help/admin/product-updates" },
+                  { label: "Publish Help articles", href: "/help/admin/help-publishing" },
                   { label: "Check user status", href: "/help/admin/users" },
                   { label: "Featured performance & missed demand", href: "/help/admin/analytics" },
                 ].map((item) => (

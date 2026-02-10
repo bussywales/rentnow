@@ -29,6 +29,8 @@ export type ReferralSettings = {
     publicVisible: boolean;
     monthlyEnabled: boolean;
     allTimeEnabled: boolean;
+    initialsOnly: boolean;
+    scope: "global" | "by_country" | "by_city";
   };
   caps: ReferralCaps;
 };
@@ -59,6 +61,8 @@ export const DEFAULT_REFERRAL_SETTINGS: ReferralSettings = {
     publicVisible: true,
     monthlyEnabled: true,
     allTimeEnabled: true,
+    initialsOnly: true,
+    scope: "global",
   },
   caps: {
     daily: 50,
@@ -189,6 +193,17 @@ function parseCaps(value: unknown): ReferralCaps {
   };
 }
 
+function parseLeaderboardScope(value: unknown): "global" | "by_country" | "by_city" {
+  const unwrapped = unwrapSettingValue(value);
+  const scoped =
+    typeof unwrapped === "object" && unwrapped && "scope" in (unwrapped as Record<string, unknown>)
+      ? String((unwrapped as Record<string, unknown>).scope ?? "")
+      : String(unwrapped ?? "");
+  const raw = scoped.trim().toLowerCase();
+  if (raw === "by_country" || raw === "by_city") return raw;
+  return "global";
+}
+
 export function parseReferralSettingsRows(rows: AppSettingRow[]): ReferralSettings {
   const byKey = new Map(rows.map((row) => [row.key, row.value]));
 
@@ -231,6 +246,13 @@ export function parseReferralSettingsRows(rows: AppSettingRow[]): ReferralSettin
     byKey.get(APP_SETTING_KEYS.referralsLeaderboardAllTimeEnabled),
     DEFAULT_REFERRAL_SETTINGS.leaderboard.allTimeEnabled
   );
+  const leaderboardInitialsOnly = parseAppSettingBool(
+    byKey.get(APP_SETTING_KEYS.referralsLeaderboardInitialsOnly),
+    DEFAULT_REFERRAL_SETTINGS.leaderboard.initialsOnly
+  );
+  const leaderboardScope = parseLeaderboardScope(
+    byKey.get(APP_SETTING_KEYS.referralsLeaderboardScope)
+  );
   const caps = parseCaps(byKey.get(APP_SETTING_KEYS.referralCaps));
 
   return {
@@ -245,6 +267,8 @@ export function parseReferralSettingsRows(rows: AppSettingRow[]): ReferralSettin
       publicVisible: leaderboardPublicVisible,
       monthlyEnabled: leaderboardMonthlyEnabled,
       allTimeEnabled: leaderboardAllTimeEnabled,
+      initialsOnly: leaderboardInitialsOnly,
+      scope: leaderboardScope,
     },
     caps,
   };
@@ -270,6 +294,8 @@ export async function getReferralSettings(client?: SupabaseClient): Promise<Refe
         APP_SETTING_KEYS.referralsLeaderboardPublicVisible,
         APP_SETTING_KEYS.referralsLeaderboardMonthlyEnabled,
         APP_SETTING_KEYS.referralsLeaderboardAllTimeEnabled,
+        APP_SETTING_KEYS.referralsLeaderboardInitialsOnly,
+        APP_SETTING_KEYS.referralsLeaderboardScope,
         APP_SETTING_KEYS.referralCaps,
       ]);
 

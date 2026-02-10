@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveReferralTierStatus } from "@/lib/referrals/settings";
-import { rankLeaderboardRows } from "@/lib/referrals/leaderboard.server";
+import { normalizeDisplayName, rankLeaderboardRows } from "@/lib/referrals/leaderboard.server";
 
 void test("tier status remains consistent with active referral thresholds", () => {
   const thresholds = {
@@ -25,6 +25,7 @@ void test("leaderboard ranking sorts by active referrals and allows ties", () =>
       tier: "Gold",
       activeReferrals: 9,
       optedOut: false,
+      joinedAt: "2026-01-01T00:00:00.000Z",
     },
     {
       userId: "agent-b",
@@ -32,6 +33,7 @@ void test("leaderboard ranking sorts by active referrals and allows ties", () =>
       tier: "Gold",
       activeReferrals: 9,
       optedOut: false,
+      joinedAt: "2026-01-01T00:00:00.000Z",
     },
     {
       userId: "agent-c",
@@ -39,6 +41,7 @@ void test("leaderboard ranking sorts by active referrals and allows ties", () =>
       tier: "Silver",
       activeReferrals: 5,
       optedOut: false,
+      joinedAt: "2026-01-01T00:00:00.000Z",
     },
     {
       userId: "agent-d",
@@ -46,6 +49,7 @@ void test("leaderboard ranking sorts by active referrals and allows ties", () =>
       tier: "Bronze",
       activeReferrals: 0,
       optedOut: true,
+      joinedAt: "2026-01-01T00:00:00.000Z",
     },
   ]);
 
@@ -56,4 +60,31 @@ void test("leaderboard ranking sorts by active referrals and allows ties", () =>
   assert.equal(ranked[3]?.rank, 4);
   assert.equal(ranked[0]?.activeReferrals, 9);
   assert.equal(ranked[1]?.activeReferrals, 9);
+});
+
+void test("leaderboard display names support initials and full-name modes", () => {
+  assert.equal(
+    normalizeDisplayName({
+      name: "Dayo Adewale",
+      userId: "123456",
+      initialsOnly: true,
+    }),
+    "D. Adewale"
+  );
+  assert.equal(
+    normalizeDisplayName({
+      name: "Dayo Adewale",
+      userId: "123456",
+      initialsOnly: false,
+    }),
+    "Dayo Adewale"
+  );
+  assert.match(
+    normalizeDisplayName({
+      name: "",
+      userId: "123456",
+      initialsOnly: true,
+    }),
+    /^Agent 123456/
+  );
 });
