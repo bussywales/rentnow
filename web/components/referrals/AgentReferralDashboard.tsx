@@ -128,15 +128,15 @@ function formatCashoutStatus(status: CashoutRequest["status"]) {
   return status;
 }
 
-function formatMilestoneStatus(status: ReferralMilestoneStatus["status"]): string {
-  if (status === "claimed") return "Claimed";
-  if (status === "achieved") return "Achieved";
+function formatMilestoneStatus(milestone: ReferralMilestoneStatus): string {
+  if (milestone.status === "claimed") return "Claimed";
+  if (milestone.claimable) return "Claimable";
   return "Locked";
 }
 
-function milestoneChipClass(status: ReferralMilestoneStatus["status"]) {
-  if (status === "claimed") return "bg-emerald-100 text-emerald-700";
-  if (status === "achieved") return "bg-sky-100 text-sky-700";
+function milestoneChipClass(milestone: ReferralMilestoneStatus) {
+  if (milestone.status === "claimed") return "bg-emerald-100 text-emerald-700";
+  if (milestone.claimable) return "bg-sky-100 text-sky-700";
   return "bg-slate-100 text-slate-600";
 }
 
@@ -349,6 +349,30 @@ export default function AgentReferralDashboard(props: Props) {
     tierState.nextThreshold !== null
       ? Math.max(0, tierState.nextThreshold - verifiedReferrals)
       : 0;
+  const sortedMilestones = useMemo(
+    () => [...milestoneState].sort((a, b) => a.threshold - b.threshold),
+    [milestoneState]
+  );
+  const nextMilestone = useMemo(
+    () => sortedMilestones.find((milestone) => milestone.status !== "claimed") ?? null,
+    [sortedMilestones]
+  );
+  const nextMilestoneRemaining = nextMilestone
+    ? Math.max(0, nextMilestone.threshold - verifiedReferrals)
+    : 0;
+  const nextMilestoneProgress = nextMilestone
+    ? Math.max(
+        0,
+        Math.min(
+          100,
+          Math.round(
+            (Math.min(verifiedReferrals, nextMilestone.threshold) /
+              Math.max(1, nextMilestone.threshold)) *
+              100
+          )
+        )
+      )
+    : 100;
 
   return (
     <>
@@ -434,8 +458,15 @@ export default function AgentReferralDashboard(props: Props) {
           <section className="rounded-2xl border border-slate-200 bg-gradient-to-br from-slate-50 to-white p-6 shadow-sm">
             <h2 className="text-xl font-semibold text-slate-900">Invite your first referral</h2>
             <p className="mt-2 text-sm text-slate-600">
-              Share your link - once they make a verified payment, you earn credits.
+              Share your link, then help your invite complete a verified payment. Invites become
+              Active referrals only after that first verified paid event.
             </p>
+            <ol className="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-600">
+              <li>Share your referral link</li>
+              <li>Your invite signs up</li>
+              <li>They complete a verified paid event and become Active</li>
+              <li>You earn credits and move toward higher tiers and milestones</li>
+            </ol>
             <div className="mt-3 flex gap-2">
               <Button type="button" size="sm" onClick={copyLink} disabled={!referralLink}>
                 Copy referral link
@@ -451,6 +482,16 @@ export default function AgentReferralDashboard(props: Props) {
                 </a>
               ) : null}
             </div>
+          </section>
+        )}
+
+        {!isEmpty && verifiedReferrals === 0 && (
+          <section className="rounded-2xl border border-amber-200 bg-amber-50 p-4 shadow-sm">
+            <h2 className="text-base font-semibold text-amber-900">No active referrals yet</h2>
+            <p className="mt-1 text-sm text-amber-900">
+              You already have invites, but none are Active yet. Active referrals are invites that
+              have completed at least one verified paid event.
+            </p>
           </section>
         )}
 
@@ -492,42 +533,114 @@ export default function AgentReferralDashboard(props: Props) {
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 className="text-lg font-semibold text-slate-900">
-            You&apos;re {tierState.currentTier} - {formatNumber(verifiedReferrals)} active referrals
-          </h2>
-          <p className="text-sm text-slate-600">Tier progress is based on Active referrals only.</p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Your tier</h2>
+              <p className="text-sm text-slate-600">Based on Active referrals only.</p>
+            </div>
+            <span className="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-800">
+              {tierState.currentTier}
+            </span>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Current progress</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">
+                {formatNumber(verifiedReferrals)} Active referrals
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                {tierState.nextTier && tierState.nextThreshold !== null
+                  ? `${formatNumber(verifiedReferrals)}/${formatNumber(
+                      tierState.nextThreshold
+                    )} toward ${tierState.nextTier}`
+                  : "Top tier reached"}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Next tier goal</p>
+              <p className="mt-1 text-xl font-semibold text-slate-900">
+                {tierState.nextTier ?? "Completed"}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">
+                {tierState.nextTier && tierState.nextThreshold !== null
+                  ? `${tierRemaining} more Active referrals needed`
+                  : "You are currently at the highest tier."}
+              </p>
+            </div>
+          </div>
+
           <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-slate-200">
             <div
               className="h-full rounded-full bg-sky-500 transition-all"
               style={{ width: `${Math.max(0, Math.min(100, tierState.progressToNext))}%` }}
             />
           </div>
-          <p className="mt-2 text-sm text-slate-700">
-            {tierState.nextTier && tierState.nextThreshold !== null
-              ? `${tierRemaining} more active referrals to reach ${tierState.nextTier}`
-              : "You are at the highest tier."}
-          </p>
         </section>
 
         {milestonesEnabled && (
           <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="referrals-milestones-section">
             <h2 className="text-lg font-semibold text-slate-900">Milestones</h2>
-            <p className="text-sm text-slate-600">Hit active-referral targets to unlock one-time bonus credits.</p>
+            <p className="text-sm text-slate-600">
+              One-time bonus credits unlock at Active referral thresholds.
+            </p>
 
-            {milestoneState.length ? (
-              <div className="mt-4 space-y-2">
-                {milestoneState.map((milestone) => (
+            {sortedMilestones.length ? (
+              <div className="mt-4 space-y-3">
+                {nextMilestone ? (
+                  <div className="rounded-xl border border-sky-200 bg-sky-50 p-4">
+                    <p className="text-xs uppercase tracking-wide text-sky-700">Next milestone</p>
+                    <p className="mt-1 text-base font-semibold text-sky-900">
+                      {nextMilestone.name} · {formatNumber(nextMilestone.threshold)} Active
+                    </p>
+                    <p className="mt-1 text-sm text-sky-900">
+                      Reward: +{formatNumber(nextMilestone.bonusCredits)} credits.
+                      {nextMilestoneRemaining > 0
+                        ? ` ${formatNumber(nextMilestoneRemaining)} more Active referrals to unlock.`
+                        : " Ready to claim."}
+                    </p>
+                    <div className="mt-2 h-2.5 w-full overflow-hidden rounded-full bg-sky-100">
+                      <div
+                        className="h-full rounded-full bg-sky-500 transition-all"
+                        style={{ width: `${nextMilestoneProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <p className="text-sm font-semibold text-emerald-900">
+                      All milestones completed
+                    </p>
+                    <p className="mt-1 text-sm text-emerald-800">
+                      You have claimed every configured milestone bonus.
+                    </p>
+                  </div>
+                )}
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">All milestones</p>
+                  <p className="text-xs text-slate-600">
+                    Claiming adds bonus credits to your wallet.
+                  </p>
+                </div>
+
+                {sortedMilestones.map((milestone) => (
                   <div
                     key={milestone.id}
-                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3"
                     data-testid={`referrals-milestone-${milestone.id}`}
                   >
                     <div>
                       <p className="text-sm font-semibold text-slate-900">
-                        {milestone.name} · {formatNumber(milestone.threshold)} active → +{formatNumber(milestone.bonusCredits)} credits
+                        {milestone.name}
+                      </p>
+                      <p className="text-xs text-slate-600">
+                        Unlock at {formatNumber(milestone.threshold)} Active referrals · Reward +
+                        {formatNumber(milestone.bonusCredits)} credits
                       </p>
                       <p className="text-xs text-slate-500">
-                        Status: {formatMilestoneStatus(milestone.status)}
+                        Progress: {formatNumber(Math.min(verifiedReferrals, milestone.threshold))}/
+                        {formatNumber(milestone.threshold)} Active
                         {milestone.claimedAt ? ` · Claimed ${formatDate(milestone.claimedAt)}` : ""}
                       </p>
                     </div>
@@ -535,10 +648,10 @@ export default function AgentReferralDashboard(props: Props) {
                       <span
                         className={cn(
                           "rounded-full px-2 py-1 text-xs font-semibold",
-                          milestoneChipClass(milestone.status)
+                          milestoneChipClass(milestone)
                         )}
                       >
-                        {formatMilestoneStatus(milestone.status)}
+                        {formatMilestoneStatus(milestone)}
                       </span>
                       {milestone.claimable ? (
                         <Button
