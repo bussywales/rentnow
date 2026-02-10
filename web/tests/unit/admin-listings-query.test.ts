@@ -12,6 +12,7 @@ describe("admin listings query parsing", () => {
     assert.equal(parsed.qMode, "title");
     assert.deepEqual(parsed.statuses, []);
     assert.equal(parsed.active, "all");
+    assert.equal(parsed.demo, "all");
     assert.equal(parsed.featured, "all");
     assert.equal(parsed.page, 1);
     assert.ok(parsed.pageSize >= 10);
@@ -34,6 +35,7 @@ describe("admin listings query parsing", () => {
       qMode: "title",
       status: "live,pending",
       active: "true",
+      demo: "true",
       featured: "1",
       page: "2",
       pageSize: "25",
@@ -54,6 +56,7 @@ describe("admin listings query parsing", () => {
     assert.ok(parsed.statuses.includes("live"));
     assert.ok(parsed.statuses.includes("pending"));
     assert.equal(parsed.active, "true");
+    assert.equal(parsed.demo, "true");
     assert.equal(parsed.featured, "active");
     assert.equal(parsed.page, 2);
     assert.equal(parsed.pageSize, 25);
@@ -99,6 +102,17 @@ describe("admin listings query parsing", () => {
     assert.equal(expired.featured, "expired");
   });
 
+  it("parses demo filter", () => {
+    const onlyDemo = parseAdminListingsQuery({ demo: "true" });
+    assert.equal(onlyDemo.demo, "true");
+
+    const notDemo = parseAdminListingsQuery({ demo: "false" });
+    assert.equal(notDemo.demo, "false");
+
+    const all = parseAdminListingsQuery({ demo: "all" });
+    assert.equal(all.demo, "all");
+  });
+
   it("ignores empty or invalid status values", () => {
     const empty = parseAdminListingsQuery({ status: "" });
     assert.deepEqual(empty.statuses, []);
@@ -140,6 +154,7 @@ describe("admin listings query parsing", () => {
       qMode: "title",
       status: ["pending", "live"],
       active: "false",
+      demo: "false",
       featured: "1",
       missingCover: "true",
       missingPhotos: "true",
@@ -164,6 +179,7 @@ describe("admin listings query parsing", () => {
     assert.equal(roundTrip.q, original.q);
     assert.equal(roundTrip.qMode, original.qMode);
     assert.equal(roundTrip.active, original.active);
+    assert.equal(roundTrip.demo, original.demo);
     assert.equal(roundTrip.featured, original.featured);
     assert.equal(roundTrip.missingCover, original.missingCover);
     assert.equal(roundTrip.missingPhotos, original.missingPhotos);

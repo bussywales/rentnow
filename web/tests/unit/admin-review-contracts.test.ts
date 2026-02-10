@@ -64,13 +64,13 @@ void test("queue uses admin review view table constant", () => {
 
 void test("queue select matches expected normalized contract", () => {
   const expected =
-    "id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active,owner_id,title,city,state_region,country_code,admin_area_1,admin_area_2,postal_code,latitude,longitude,location_label,location_place_id,created_at,rejection_reason,expires_at,is_featured,featured_rank,featured_until,featured_at,photo_count,has_cover,cover_image_url,has_video,video_count,price,currency,rent_period,rental_type,listing_type,bedrooms,bathrooms";
+    "id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active,owner_id,title,city,state_region,country_code,admin_area_1,admin_area_2,postal_code,latitude,longitude,location_label,location_place_id,created_at,rejection_reason,expires_at,is_featured,featured_rank,featured_until,featured_at,is_demo,photo_count,has_cover,cover_image_url,has_video,video_count,price,currency,rent_period,rental_type,listing_type,bedrooms,bathrooms";
   assert.equal(normalizeSelect(ADMIN_REVIEW_QUEUE_SELECT), expected);
 });
 
 void test("detail select matches expected normalized contract", () => {
   const expected =
-    "id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active,owner_id,title,city,state_region,country_code,admin_area_1,admin_area_2,postal_code,latitude,longitude,location_label,location_place_id,created_at,rejection_reason,expires_at,is_featured,featured_rank,featured_until,featured_at,photo_count,has_cover,cover_image_url,has_video,video_count,price,currency,rent_period,rental_type,listing_type,bedrooms,bathrooms";
+    "id,status,updated_at,submitted_at,is_approved,approved_at,rejected_at,is_active,owner_id,title,city,state_region,country_code,admin_area_1,admin_area_2,postal_code,latitude,longitude,location_label,location_place_id,created_at,rejection_reason,expires_at,is_featured,featured_rank,featured_until,featured_at,is_demo,photo_count,has_cover,cover_image_url,has_video,video_count,price,currency,rent_period,rental_type,listing_type,bedrooms,bathrooms";
   assert.equal(normalizeSelect(ADMIN_REVIEW_DETAIL_SELECT), expected);
 });
 

@@ -56,6 +56,7 @@ type RawReviewRow = {
   listing_type?: string | null;
   bedrooms?: number | null;
   bathrooms?: number | null;
+  is_demo?: boolean | null;
 };
 
 type OwnerProfile = { id: string; full_name: string | null; role: string | null };
@@ -129,6 +130,11 @@ export default async function AdminListingInspectorPage({ params }: Props) {
         .eq("id", row.owner_id)
         .maybeSingle()
     : { data: null };
+  const { data: demoRow } = await client
+    .from("properties")
+    .select("id,is_demo")
+    .eq("id", id)
+    .maybeSingle();
 
   const ownerName =
     (ownerProfile as OwnerProfile | null)?.full_name ||
@@ -200,6 +206,7 @@ export default async function AdminListingInspectorPage({ params }: Props) {
     listing_type: row.listing_type ?? null,
     bedrooms: row.bedrooms ?? null,
     bathrooms: row.bathrooms ?? null,
+    is_demo: !!(demoRow as { is_demo?: boolean | null } | null)?.is_demo,
     reviewable,
     reviewStage,
   };

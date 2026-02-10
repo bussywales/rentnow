@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
+import AdminDemoToggleButton from "@/components/admin/AdminDemoToggleButton";
 
 type Props = {
   items: AdminReviewListItem[];
@@ -45,9 +46,20 @@ function formatIntent(value?: string | null) {
 
 export function AdminListingsTable({ items, onSelect }: Props) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [rows, setRows] = useState<AdminReviewListItem[]>(items);
+  const [toast, setToast] = useState<string | null>(null);
+
+  useEffect(() => {
+    setRows(items);
+  }, [items]);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      {toast ? (
+        <div className="border-b border-slate-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+          {toast}
+        </div>
+      ) : null}
       <div className="overflow-x-auto">
         <table className="w-full min-w-[980px] table-fixed text-left text-sm">
           <colgroup>
@@ -85,7 +97,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {items.map((item) => (
+            {rows.map((item) => (
               <tr
                 key={item.id}
                 onClick={() => onSelect(item.id)}
@@ -140,6 +152,13 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                       {copiedId === item.id ? "Copied" : "Copy"}
                     </button>
                   </div>
+                  {item.is_demo ? (
+                    <div className="mt-1">
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                        Demo
+                      </span>
+                    </div>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2 text-slate-700">
                   <div className="max-w-[180px] truncate" title={`${item.city || "—"} ${item.state_region || ""}`}>
@@ -219,20 +238,36 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                       )}
                 </td>
                 <td className="px-3 py-2 text-right">
-                  <button
-                    type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      onSelect(item.id);
-                    }}
-                    className="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
-                  >
-                    Open
-                  </button>
+                  <div className="flex items-center justify-end gap-2">
+                    <AdminDemoToggleButton
+                      propertyId={item.id}
+                      isDemo={!!item.is_demo}
+                      dataTestId={`admin-demo-toggle-${item.id}`}
+                      onUpdated={(next) => {
+                        setRows((prev) =>
+                          prev.map((row) => (row.id === item.id ? { ...row, is_demo: next } : row))
+                        );
+                      }}
+                      onToast={(message) => {
+                        setToast(message);
+                        setTimeout(() => setToast(null), 2000);
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onSelect(item.id);
+                      }}
+                      className="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                    >
+                      Open
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
-            {!items.length && (
+            {!rows.length && (
               <tr>
                 <td colSpan={12} className="px-3 py-6 text-center text-sm text-slate-600">
                   No listings found.

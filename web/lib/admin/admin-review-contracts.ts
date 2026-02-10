@@ -29,6 +29,7 @@ export const ADMIN_REVIEW_VIEW_SELECT_MIN = `
   featured_rank,
   featured_until,
   featured_at,
+  is_demo,
   photo_count,
   has_cover,
   cover_image_url,

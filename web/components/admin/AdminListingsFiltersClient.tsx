@@ -192,6 +192,50 @@ export default function AdminListingsFiltersClient({
             </button>
           </div>
         </fieldset>
+        <fieldset
+          className="flex flex-col gap-2 rounded-xl border border-slate-100 bg-slate-50/70 p-3"
+          data-testid="admin-demo-filters"
+        >
+          <legend className="text-xs text-slate-600">Demo</legend>
+          <div className="flex flex-wrap gap-2 text-xs text-slate-700">
+            <button
+              type="button"
+              onClick={() => setDraft((prev) => ({ ...prev, demo: "all" }))}
+              data-testid="admin-demo-filter-all"
+              className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                draft.demo === "all"
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700"
+              }`}
+            >
+              All
+            </button>
+            <button
+              type="button"
+              onClick={() => setDraft((prev) => ({ ...prev, demo: "true" }))}
+              data-testid="admin-demo-filter-true"
+              className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                draft.demo === "true"
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700"
+              }`}
+            >
+              Demo
+            </button>
+            <button
+              type="button"
+              onClick={() => setDraft((prev) => ({ ...prev, demo: "false" }))}
+              data-testid="admin-demo-filter-false"
+              className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                draft.demo === "false"
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700"
+              }`}
+            >
+              Not demo
+            </button>
+          </div>
+        </fieldset>
         <div className="flex items-end gap-2">
           <button
             type="button"

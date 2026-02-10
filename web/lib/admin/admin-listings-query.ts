@@ -5,6 +5,7 @@ export type AdminListingsQuery = {
   qMode: "id" | "owner" | "title";
   statuses: string[];
   active: "all" | "true" | "false";
+  demo: "all" | "true" | "false";
   featured: "all" | "active" | "expiring" | "expired";
   page: number;
   pageSize: number;
@@ -29,6 +30,7 @@ export const DEFAULT_ADMIN_LISTINGS_QUERY: AdminListingsQuery = {
   qMode: "title",
   statuses: [],
   active: "all",
+  demo: "all",
   featured: "all",
   page: 1,
   pageSize: DEFAULT_PAGE_SIZE,
@@ -125,6 +127,13 @@ export function parseAdminListingsQuery(
       : activeRaw === "false" || activeRaw === "inactive"
         ? "false"
         : "all";
+  const demoRaw = (readParam(bag, "demo") ?? "").toLowerCase();
+  const demo: AdminListingsQuery["demo"] =
+    demoRaw === "true" || demoRaw === "demo"
+      ? "true"
+      : demoRaw === "false" || demoRaw === "not_demo"
+        ? "false"
+        : "all";
 
   const featuredActive = parseBool(readParam(bag, "featured"));
   const featuredExpiring = parseBool(readParam(bag, "expiring"));
@@ -162,6 +171,7 @@ export function parseAdminListingsQuery(
     qMode,
     statuses,
     active,
+    demo,
     featured,
     page,
     pageSize,
@@ -208,6 +218,9 @@ export function serializeAdminListingsQuery(query: AdminListingsQuery): URLSearc
   if (query.active !== "all") {
     appendIf("active", query.active);
   }
+  if (query.demo !== "all") {
+    appendIf("demo", query.demo);
+  }
 
   if (query.featured === "active") {
     appendIf("featured", 1);
@@ -247,6 +260,7 @@ export function hasActiveAdminListingsFilters(query: AdminListingsQuery) {
     query.q ||
       query.statuses.length ||
       query.active !== "all" ||
+      query.demo !== "all" ||
       query.featured !== "all" ||
       query.missingCover ||
       query.missingPhotos ||
@@ -271,6 +285,9 @@ export function summarizeAdminListingsFilters(query: AdminListingsQuery): string
   }
   if (query.active !== "all") {
     summary.push(`Active: ${query.active === "true" ? "yes" : "no"}`);
+  }
+  if (query.demo !== "all") {
+    summary.push(`Demo: ${query.demo === "true" ? "only demo" : "hide demo"}`);
   }
   if (query.featured !== "all") {
     const label =

@@ -34,6 +34,7 @@ export type AdminReviewListItem = {
   listing_type?: string | null;
   bedrooms?: number | null;
   bathrooms?: number | null;
+  is_demo?: boolean | null;
 };
 
 export function parseSelectedId(

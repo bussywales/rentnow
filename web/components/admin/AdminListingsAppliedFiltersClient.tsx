@@ -71,6 +71,13 @@ export default function AdminListingsAppliedFiltersClient({
         { ...query, active: DEFAULT_ADMIN_LISTINGS_QUERY.active }
       );
     }
+    if (query.demo !== "all") {
+      pushChip(
+        "demo",
+        query.demo === "true" ? "Demo: only demo" : "Demo: hide demo",
+        { ...query, demo: DEFAULT_ADMIN_LISTINGS_QUERY.demo }
+      );
+    }
 
     if (query.featured !== "all") {
       const label =

@@ -76,6 +76,7 @@ type RawReviewRow = {
   listing_type?: string | null;
   bedrooms?: number | null;
   bathrooms?: number | null;
+  is_demo?: boolean | null;
 };
 
 type OwnerProfile = { id: string; full_name: string | null; role: string | null };
@@ -160,6 +161,16 @@ async function getListingsData(
     });
 
     const rows = result.rows ?? [];
+    const listingIds = rows.map((row) => row.id).filter(Boolean);
+    const { data: demoRows } = listingIds.length
+      ? await client.from("properties").select("id,is_demo").in("id", listingIds)
+      : { data: [] };
+    const demoById = new Map(
+      ((demoRows as Array<{ id?: string | null; is_demo?: boolean | null }> | null | undefined) ?? [])
+        .filter((row) => row.id)
+        .map((row) => [row.id as string, !!row.is_demo])
+    );
+
     const ownerIds = Array.from(
       new Set(rows.map((row) => row.owner_id).filter(Boolean))
     ) as string[];
@@ -247,6 +258,7 @@ async function getListingsData(
         listing_type: row.listing_type ?? null,
         bedrooms: row.bedrooms ?? null,
         bathrooms: row.bathrooms ?? null,
+        is_demo: demoById.get(row.id) ?? false,
         reviewable,
         reviewStage,
       };
@@ -420,6 +432,16 @@ export default async function AdminListingsPage({ searchParams }: Props) {
         Showing {listingStart}-{listingEnd} of {listingTotalCount} listings
         {hasActiveFilters ? " (filtered)" : ""}.
       </div>
+      {listingQuery.demo === "true" ? (
+        <p className="text-sm text-slate-600" data-testid="admin-demo-filter-helper">
+          Showing demo listings only.
+        </p>
+      ) : null}
+      {listingQuery.demo === "false" ? (
+        <p className="text-sm text-slate-600" data-testid="admin-demo-filter-helper">
+          Hiding demo listings.
+        </p>
+      ) : null}
 
       {listingTotalCount === 0 && hasActiveFilters ? (
         <div className="rounded-2xl border border-slate-100 bg-white p-6 text-sm text-slate-600 shadow-sm">

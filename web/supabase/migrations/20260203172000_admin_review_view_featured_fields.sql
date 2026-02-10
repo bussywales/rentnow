@@ -33,6 +33,7 @@ select
   p.featured_rank,
   p.featured_until,
   p.featured_at,
+  p.is_demo,
 
   p.title,
   p.city,

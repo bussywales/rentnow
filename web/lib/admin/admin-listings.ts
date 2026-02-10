@@ -52,6 +52,23 @@ export async function getAdminAllListings<Row>({
     const selectToUse = useMin ? selectNormalizedMin : selectNormalizedFull;
     const from = client.from(ADMIN_REVIEW_VIEW_TABLE).select(selectToUse, { count: "exact" });
     let queryBuilder = from;
+    let demoScopedIds: string[] | null = null;
+
+    if (query.demo !== "all") {
+      const isDemo = query.demo === "true";
+      const { data: demoRows, error: demoError } = await client
+        .from("properties")
+        .select("id")
+        .eq("is_demo", isDemo);
+      if (demoError) throw demoError;
+      demoScopedIds = (demoRows as Array<{ id?: string | null }> | null | undefined)
+        ?.map((row) => row.id)
+        .filter((id): id is string => Boolean(id)) ?? [];
+      if (demoScopedIds.length === 0) {
+        return { rows: [] as Row[], count: 0 };
+      }
+      queryBuilder = queryBuilder.in("id", demoScopedIds);
+    }
 
     let normalizedStatuses: string[] = [];
     if (query.statuses.length) {

@@ -28,6 +28,7 @@ export const ADMIN_REVIEW_PROPERTIES_COLUMNS = [
   "featured_rank",
   "featured_until",
   "featured_at",
+  "is_demo",
   "price",
   "currency",
   "rent_period",
