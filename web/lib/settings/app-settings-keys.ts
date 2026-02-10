@@ -31,6 +31,8 @@ export const APP_SETTING_KEYS = {
   enableShareTracking: "enable_share_tracking",
   attributionWindowDays: "attribution_window_days",
   storeIpHash: "store_ip_hash",
+  demoBadgeEnabled: "demo_badge_enabled",
+  demoWatermarkEnabled: "demo_watermark_enabled",
   referralCaps: "referral_caps",
 } as const;
 

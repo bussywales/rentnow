@@ -14,6 +14,8 @@ import {
   BRAND_NAME,
   BRAND_OG_IMAGE,
 } from "@/lib/brand";
+import { getAppSettingBool } from "@/lib/settings/app-settings.server";
+import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -74,14 +76,22 @@ export const viewport: Viewport = {
   themeColor: "#0f172a",
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const demoBadgeEnabled = await getAppSettingBool(APP_SETTING_KEYS.demoBadgeEnabled, true);
+  const demoWatermarkEnabled = await getAppSettingBool(
+    APP_SETTING_KEYS.demoWatermarkEnabled,
+    false
+  );
+
   return (
     <html lang="en">
       <body
+        data-demo-badge-enabled={demoBadgeEnabled ? "true" : "false"}
+        data-demo-watermark-enabled={demoWatermarkEnabled ? "true" : "false"}
         className={`${geistSans.variable} ${geistMono.variable} antialiased text-slate-900`}
       >
         <MainNav />

@@ -51,7 +51,7 @@ export async function POST(
   const adminClient = serviceClient as unknown as UntypedAdminClient;
   const { data: listing, error } = await adminClient
     .from("properties")
-    .select("id, owner_id, status, is_featured, featured_until")
+    .select("id, owner_id, status, is_featured, featured_until, is_demo")
     .eq("id", id)
     .maybeSingle();
 
@@ -61,6 +61,7 @@ export async function POST(
     status?: string | null;
     is_featured?: boolean | null;
     featured_until?: string | null;
+    is_demo?: boolean | null;
   } | null;
 
   if (error || !typedListing) {
@@ -87,6 +88,9 @@ export async function POST(
 
   if (typedListing.status !== "live") {
     return NextResponse.json({ error: "Listing must be live to feature." }, { status: 409 });
+  }
+  if (typedListing.is_demo) {
+    return NextResponse.json({ error: "Demo listings can't be featured." }, { status: 409 });
   }
 
   const nowMs = Date.now();

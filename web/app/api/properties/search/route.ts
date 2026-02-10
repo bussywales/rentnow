@@ -1,15 +1,18 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { getUserRole } from "@/lib/authz";
 import { logFailure } from "@/lib/observability";
 import { getEarlyAccessApprovedBefore } from "@/lib/early-access";
 import { searchProperties } from "@/lib/search";
 import { parseFiltersFromSearchParams } from "@/lib/search-filters";
 import { getTenantPlanForTier } from "@/lib/plans";
+import { normalizeRole } from "@/lib/roles";
 import type { Property } from "@/lib/types";
 import { computeLocationScore, extractLocationQuery, type LocationQueryInfo } from "@/lib/properties/location-score";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
+import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 
 function parsePagination(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -64,35 +67,39 @@ export async function GET(request: Request) {
 
   try {
     let approvedBefore: string | null = null;
+    let viewerRole = null as ReturnType<typeof normalizeRole>;
+    let viewerUserId: string | null = null;
+    let supabaseForViewer: Awaited<ReturnType<typeof createServerSupabaseClient>> | null = null;
+    try {
+      supabaseForViewer = await createServerSupabaseClient();
+      const {
+        data: { user },
+      } = await supabaseForViewer.auth.getUser();
+      if (user) {
+        viewerUserId = user.id;
+        viewerRole = normalizeRole(await getUserRole(supabaseForViewer, user.id));
+      }
+    } catch {
+      viewerRole = null;
+      viewerUserId = null;
+      supabaseForViewer = null;
+    }
     if (earlyAccessMinutes > 0) {
       try {
-        const supabase = await createServerSupabaseClient();
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        let role: string | null = null;
         let planTier: string | null = null;
         let validUntil: string | null = null;
-        if (user) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("role")
-            .eq("id", user.id)
-            .maybeSingle();
-          role = profile?.role ?? null;
-          if (role === "tenant") {
-            const { data: planRow } = await supabase
-              .from("profile_plans")
-              .select("plan_tier, valid_until")
-              .eq("profile_id", user.id)
+        if (viewerUserId && viewerRole === "tenant" && supabaseForViewer) {
+          const { data: planRow } = await supabaseForViewer
+            .from("profile_plans")
+            .select("plan_tier, valid_until")
+            .eq("profile_id", viewerUserId)
               .maybeSingle();
-            planTier = planRow?.plan_tier ?? null;
-            validUntil = planRow?.valid_until ?? null;
-          }
+          planTier = planRow?.plan_tier ?? null;
+          validUntil = planRow?.valid_until ?? null;
         }
         ({ approvedBefore } = getEarlyAccessApprovedBefore({
-          role,
-          hasUser: !!user,
+          role: viewerRole,
+          hasUser: !!viewerUserId,
           planTier,
           validUntil,
           earlyAccessMinutes,
@@ -114,6 +121,7 @@ export async function GET(request: Request) {
       approvedBefore,
       featuredOnly,
       createdAfter,
+      includeDemo: includeDemoListingsForViewer({ viewerRole }),
     });
     if (error) {
       logFailure({

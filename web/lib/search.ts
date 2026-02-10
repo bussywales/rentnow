@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 import type { ParsedSearchFilters, RentalType } from "@/lib/types";
 
 type SearchOptions = {
@@ -7,10 +8,15 @@ type SearchOptions = {
   approvedBefore?: string | null;
   featuredOnly?: boolean;
   createdAfter?: string | null;
+  includeDemo?: boolean;
 };
 
 export async function searchProperties(filters: ParsedSearchFilters, options: SearchOptions = {}) {
   const supabase = await createServerSupabaseClient();
+  const includeDemoListings =
+    typeof options.includeDemo === "boolean"
+      ? options.includeDemo
+      : includeDemoListingsForViewer({ viewerRole: null });
   const missingPosition = (message?: string | null) =>
     typeof message === "string" &&
     message.includes("position") &&
@@ -40,6 +46,9 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
       .eq("is_approved", true)
       .eq("is_active", true)
       .eq("status", "live");
+    if (!includeDemoListings) {
+      query = query.eq("is_demo", false);
+    }
     if (includeExpiryFilter) {
       query = query.or(`expires_at.is.null,expires_at.gte.${nowIso}`);
     }

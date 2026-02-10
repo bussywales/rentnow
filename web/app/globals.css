@@ -59,3 +59,11 @@ html {
 .leaflet-control {
   z-index: 10 !important;
 }
+
+body[data-demo-badge-enabled="false"] .property-demo-badge {
+  display: none !important;
+}
+
+body[data-demo-watermark-enabled="false"] .property-demo-watermark {
+  display: none !important;
+}

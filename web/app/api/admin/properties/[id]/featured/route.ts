@@ -138,12 +138,16 @@ export async function postAdminFeaturedResponse(
 
   const { data: property } = await client
     .from("properties")
-    .select("id")
+    .select("id,is_demo")
     .eq("id", propertyId)
     .maybeSingle();
 
   if (!property) {
     return NextResponse.json({ error: "Property not found" }, { status: 404 });
+  }
+
+  if (payload.is_featured && (property as { is_demo?: boolean | null }).is_demo) {
+    return NextResponse.json({ error: "Demo listings can't be featured." }, { status: 409 });
   }
 
   const nowIso = new Date().toISOString();

@@ -34,6 +34,8 @@ import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/proper
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 import { cleanNullableString } from "@/lib/strings";
+import { includeDemoListingsForViewer } from "@/lib/properties/demo";
+import type { UserRole } from "@/lib/types";
 import {
   canShowExpiredListingPublic,
   computeExpiryAt,
@@ -125,6 +127,7 @@ export const updateSchema = z.object({
     .optional(),
   rejection_reason: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
+  is_demo: z.boolean().optional(),
   imageUrls: z.array(z.string().url()).optional(),
   cover_image_url: z.string().url().optional().nullable(),
   imageMeta: z
@@ -411,9 +414,17 @@ export async function GET(
 
   const now = new Date();
   const showExpiredPublic = await getAppSettingBool("show_expired_listings_public", false);
+  const { viewerId, viewerRole } = await resolveViewerContext(supabase);
+  const normalizedViewerRole: UserRole | null =
+    viewerRole === "anon" ? null : (viewerRole as UserRole);
+  const includeDemoListings = includeDemoListingsForViewer({
+    viewerRole: normalizedViewerRole,
+  });
+  const isDemoHiddenForViewer =
+    !!(data as { is_demo?: boolean | null }).is_demo && !includeDemoListings;
   const isPublicActive = isListingPubliclyVisible(data, now);
   const allowExpiredPublic = canShowExpiredListingPublic(data, showExpiredPublic, now);
-  const isPublic = isPublicActive || allowExpiredPublic;
+  const isPublic = (isPublicActive || allowExpiredPublic) && !isDemoHiddenForViewer;
 
   if (ownerOnly || !isPublic) {
     const auth = await requireUser({
@@ -444,7 +455,6 @@ export async function GET(
     }
   }
 
-  const { viewerId, viewerRole } = await resolveViewerContext(supabase);
   if (isPrefetchRequest(request.headers)) {
     logViewDecision({
       recorded: false,

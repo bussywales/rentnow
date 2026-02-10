@@ -3,10 +3,12 @@
 import { useState } from "react";
 import Image from "next/image";
 import type { PropertyImage } from "@/lib/types";
+import { shouldRenderDemoWatermark } from "@/lib/properties/demo";
 
 type Props = {
   images: PropertyImage[];
   title: string;
+  isDemo?: boolean;
 };
 
 const fallbackImage =
@@ -14,7 +16,7 @@ const fallbackImage =
 const blurDataURL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
 
-export function PropertyGallery({ images, title }: Props) {
+export function PropertyGallery({ images, title, isDemo = false }: Props) {
   const [current, setCurrent] = useState(0);
   const [broken, setBroken] = useState<Set<string>>(new Set());
   const safeImages = images.length ? images : [];
@@ -54,6 +56,7 @@ export function PropertyGallery({ images, title }: Props) {
   }
 
   const showNav = safeImages.length > 1;
+  const showDemoWatermark = shouldRenderDemoWatermark({ isDemo, enabled: true });
 
   return (
     <div className="space-y-3 min-w-0 max-w-full">
@@ -75,6 +78,14 @@ export function PropertyGallery({ images, title }: Props) {
           blurDataURL={blurDataURL}
           onError={() => markBroken(currentImage, current)}
         />
+        {showDemoWatermark && (
+          <div
+            className="property-demo-watermark pointer-events-none absolute inset-0 z-[2] flex items-center justify-center text-5xl font-black uppercase tracking-[0.5em] text-white/25"
+            aria-hidden
+          >
+            Demo
+          </div>
+        )}
         {showNav && (
           <>
             <div className="absolute right-3 top-3 rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-white">

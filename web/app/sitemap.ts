@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { getApiBaseUrl, getSiteUrl } from "@/lib/env";
 
-type PropertySummary = { id: string; updated_at?: string | null };
+type PropertySummary = { id: string; updated_at?: string | null; is_demo?: boolean | null };
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = (await getSiteUrl()) || "https://www.propatyhub.com";
@@ -30,7 +30,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       const json = await res.json();
       const properties = (json.properties as PropertySummary[]) || [];
       properties.forEach((p) => {
-        if (!p.id) return;
+        if (!p.id || p.is_demo) return;
         urls.push({
           url: `${baseUrl}/properties/${encodeURIComponent(p.id)}`,
           lastModified: p.updated_at || undefined,

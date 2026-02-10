@@ -252,7 +252,7 @@ export async function dispatchSavedSearchAlerts(
   const { data: propertyData, error: propertyError } = await adminDb
     .from("properties")
     .select(
-      "id, title, city, price, currency, bedrooms, rental_type, furnished, amenities, is_active, is_approved"
+      "id, title, city, price, currency, bedrooms, rental_type, furnished, amenities, is_active, is_approved, is_demo"
     )
     .eq("id", propertyId);
 
@@ -267,6 +267,9 @@ export async function dispatchSavedSearchAlerts(
   }
 
   const property = propertyData[0] as Property;
+  if (property.is_demo) {
+    return { ok: true, matched: 0, sent: 0, skipped: 0 };
+  }
   if (!property.is_active || !property.is_approved) {
     return { ok: true, matched: 0, sent: 0, skipped: 0 };
   }

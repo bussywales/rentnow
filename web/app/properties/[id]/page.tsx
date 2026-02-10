@@ -37,6 +37,7 @@ import { orderImagesWithCover } from "@/lib/properties/images";
 import { derivePhotoTrust } from "@/lib/properties/photo-trust";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { isListingExpired } from "@/lib/properties/expiry";
+import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -206,6 +207,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const canonicalPath = `/properties/${property.id}`;
   const canonicalUrl = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;
+  const isDemoListing = !!property.is_demo;
 
   return {
     title,
@@ -225,6 +227,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       images: imageUrl ? [imageUrl] : undefined,
     },
+    ...(isDemoListing
+      ? {
+          robots: {
+            index: false,
+            follow: false,
+          },
+        }
+      : {}),
   };
 }
 
@@ -365,7 +375,10 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
         const priceFloor = property.price ? Math.max(0, property.price * 0.6) : null;
         const priceCeil = property.price ? property.price * 1.4 : null;
         const nowIso = new Date().toISOString();
-        const { data: similarRaw } = await supabase
+        const includeDemoListingsInSimilar = includeDemoListingsForViewer({
+          viewerRole: isAdmin ? "admin" : null,
+        });
+        let similarQuery = supabase
           .from("properties")
           .select("*, property_images(id, image_url, position, created_at)")
           .eq("city", property.city)
@@ -375,6 +388,10 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           .neq("id", property.id)
           .order("created_at", { ascending: false })
           .limit(8);
+        if (!includeDemoListingsInSimilar) {
+          similarQuery = similarQuery.eq("is_demo", false);
+        }
+        const { data: similarRaw } = await similarQuery;
 
         let similarResults: Array<
           Property & { property_images?: Array<{ id: string; image_url: string }> }
@@ -384,7 +401,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           similarResults = similarRaw as typeof similarResults;
         } else {
           // fallback fetch without rental_type if no result
-          const { data: fallback } = await supabase
+          let fallbackQuery = supabase
             .from("properties")
             .select("*, property_images(id, image_url, position, created_at)")
             .eq("city", property.city)
@@ -393,6 +410,10 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             .neq("id", property.id)
             .order("created_at", { ascending: false })
             .limit(8);
+          if (!includeDemoListingsInSimilar) {
+            fallbackQuery = fallbackQuery.eq("is_demo", false);
+          }
+          const { data: fallback } = await fallbackQuery;
           similarResults = (fallback as typeof similarResults) ?? [];
         }
 
@@ -570,7 +591,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           <p className="mt-1 text-amber-800">Details are view-only. Contact and enquiry actions are disabled.</p>
         </div>
       )}
-      {property && (
+      {property && !property.is_demo && (
         <script
           type="application/ld+json"
           suppressHydrationWarning
@@ -606,7 +627,11 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
       )}
       <div className="grid min-w-0 gap-6 md:grid-cols-3">
         <div className="md:col-span-2 min-w-0">
-          <PropertyGallery images={property.images || []} title={property.title} />
+          <PropertyGallery
+            images={property.images || []}
+            title={property.title}
+            isDemo={!!property.is_demo}
+          />
         </div>
         <div className="min-w-0 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
@@ -621,7 +646,14 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               Featured by PropatyHub
             </div>
           )}
-          <h1 className="text-2xl font-semibold text-slate-900">{property.title}</h1>
+          <div className="flex flex-wrap items-center gap-2">
+            <h1 className="text-2xl font-semibold text-slate-900">{property.title}</h1>
+            {property.is_demo && (
+              <span className="property-demo-badge inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
+                Demo listing
+              </span>
+            )}
+          </div>
           <p className="text-sm text-slate-600">{locationLabel}</p>
           <div className="rounded-xl bg-slate-50 px-3 py-2">
             <p className="text-3xl font-semibold text-slate-900 flex flex-wrap items-baseline gap-1">

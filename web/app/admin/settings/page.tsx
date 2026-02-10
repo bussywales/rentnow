@@ -51,6 +51,8 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.requireLocationPinForPublish,
       APP_SETTING_KEYS.agentStorefrontsEnabled,
       APP_SETTING_KEYS.agentNetworkDiscoveryEnabled,
+      APP_SETTING_KEYS.demoBadgeEnabled,
+      APP_SETTING_KEYS.demoWatermarkEnabled,
       APP_SETTING_KEYS.subscriptionsEnabled,
       APP_SETTING_KEYS.contactExchangeMode,
       APP_SETTING_KEYS.listingExpiryDays,
@@ -70,12 +72,15 @@ export default async function AdminSettingsPage() {
     APP_SETTING_KEYS.requireLocationPinForPublish,
     APP_SETTING_KEYS.agentStorefrontsEnabled,
     APP_SETTING_KEYS.agentNetworkDiscoveryEnabled,
+    APP_SETTING_KEYS.demoBadgeEnabled,
+    APP_SETTING_KEYS.demoWatermarkEnabled,
   ] as const;
   const settings = keys.map((key) => {
     const row = data?.find((item) => item.key === key);
+    const defaultEnabled = key === APP_SETTING_KEYS.demoBadgeEnabled;
     return {
       key,
-      enabled: parseAppSettingBool(row?.value, false),
+      enabled: parseAppSettingBool(row?.value, defaultEnabled),
       updatedAt: row?.updated_at ?? null,
     };
   });
