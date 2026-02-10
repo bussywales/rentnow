@@ -65,8 +65,10 @@ export default function AdminDemoToggleButton({
           "rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
         }
         data-testid={dataTestId}
+        title={nextIsDemo ? "Mark as demo" : "Remove demo"}
       >
-        {nextIsDemo ? "Mark as demo" : "Remove demo"}
+        <span className="hidden lg:inline">{nextIsDemo ? "Mark as demo" : "Remove demo"}</span>
+        <span className="lg:hidden">{nextIsDemo ? "Demo" : "Remove"}</span>
       </button>
       {open ? (
         <div

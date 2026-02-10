@@ -61,20 +61,20 @@ export function AdminListingsTable({ items, onSelect }: Props) {
         </div>
       ) : null}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[980px] table-fixed text-left text-sm">
+        <table className="w-full min-w-[1320px] table-fixed text-left text-sm">
           <colgroup>
             <col className="w-2" />
-            <col className="w-[240px]" />
-            <col className="w-[180px]" />
-            <col className="w-[110px]" />
-            <col className="w-[90px]" />
-            <col className="w-[80px]" />
-            <col className="w-[110px]" />
-            <col className="w-[110px]" />
+            <col className="w-[230px]" />
             <col className="w-[160px]" />
+            <col className="w-[90px]" />
+            <col className="w-[70px]" />
+            <col className="w-[60px]" />
+            <col className="w-[90px]" />
+            <col className="w-[90px]" />
             <col className="w-[140px]" />
             <col className="w-[120px]" />
-            <col className="w-[90px]" />
+            <col className="w-[120px]" />
+            <col className="w-[160px]" />
           </colgroup>
           <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
             <tr>
@@ -92,7 +92,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
               <th className="px-3 py-2">Expires</th>
               <th className="px-3 py-2">Owner</th>
               <th className="px-3 py-2">Media</th>
-              <th className="px-3 py-2">Price</th>
+              <th className="px-3 py-2 text-right">Price</th>
               <th className="px-3 py-2 text-right">Actions</th>
             </tr>
           </thead>
@@ -128,7 +128,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                       event.stopPropagation();
                       onSelect(item.id);
                     }}
-                    className="max-w-[240px] truncate text-left font-semibold text-slate-900 hover:underline"
+                    className="max-w-[230px] truncate text-left font-semibold text-slate-900 hover:underline"
                     title={item.title}
                   >
                     {item.title}
@@ -227,7 +227,10 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                     )}
                   </div>
                 </td>
-                <td className="px-3 py-2 text-slate-700 tabular-nums">
+                <td
+                  className="px-3 py-2 text-right text-slate-700 tabular-nums whitespace-nowrap"
+                  data-testid="admin-listings-row-price"
+                >
                   {item.price === null || item.price === undefined
                     ? "—"
                     : (
@@ -237,12 +240,13 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                         </span>
                       )}
                 </td>
-                <td className="px-3 py-2 text-right">
-                  <div className="flex items-center justify-end gap-2">
+                <td className="px-3 py-2 text-right" data-testid="admin-listings-row-actions">
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     <AdminDemoToggleButton
                       propertyId={item.id}
                       isDemo={!!item.is_demo}
                       dataTestId={`admin-demo-toggle-${item.id}`}
+                      buttonClassName="shrink-0 rounded border border-slate-300 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 lg:px-3 lg:text-xs"
                       onUpdated={(next) => {
                         setRows((prev) =>
                           prev.map((row) => (row.id === item.id ? { ...row, is_demo: next } : row))
@@ -259,7 +263,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                         event.stopPropagation();
                         onSelect(item.id);
                       }}
-                      className="rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
+                      className="shrink-0 rounded border border-slate-300 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 lg:px-3 lg:text-xs"
                     >
                       Open
                     </button>

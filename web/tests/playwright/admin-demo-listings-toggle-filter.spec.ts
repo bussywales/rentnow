@@ -19,6 +19,23 @@ test("admin can use demo filter pills (skip-safe)", async ({ page }) => {
   const rowCount = await rows.count();
   if (rowCount > 0) {
     const firstRow = rows.first();
+    const priceCell = firstRow.getByTestId("admin-listings-row-price");
+    const actionsCell = firstRow.getByTestId("admin-listings-row-actions");
+    await expect(priceCell).toBeVisible();
+    await expect(actionsCell).toBeVisible();
+
+    // Regression guard: ensure price and action cells don't overlap visually.
+    await actionsCell.scrollIntoViewIfNeeded();
+    const priceBox = await priceCell.boundingBox();
+    const actionsBox = await actionsCell.boundingBox();
+    expect(priceBox).toBeTruthy();
+    expect(actionsBox).toBeTruthy();
+    if (priceBox && actionsBox) {
+      const ix = Math.max(0, Math.min(priceBox.x + priceBox.width, actionsBox.x + actionsBox.width) - Math.max(priceBox.x, actionsBox.x));
+      const iy = Math.max(0, Math.min(priceBox.y + priceBox.height, actionsBox.y + actionsBox.height) - Math.max(priceBox.y, actionsBox.y));
+      expect(ix * iy).toBeLessThanOrEqual(1);
+    }
+
     const toggle = firstRow.getByRole("button", { name: /mark as demo|remove demo/i });
     await expect(toggle).toBeVisible();
     await toggle.click();
