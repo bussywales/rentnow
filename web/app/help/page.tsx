@@ -40,7 +40,10 @@ export default function HelpCentrePage() {
           className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300"
         >
           <h2 className="text-lg font-semibold text-slate-900">Referral FAQ</h2>
-          <p className="mt-1 text-sm text-slate-600">Credits usage, depth rules, and country cashout policy.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Role-based guide for agents/hosts and admins: active rules, tiers, milestones, and
+            jurisdiction cashout.
+          </p>
         </Link>
       </div>
     </div>
