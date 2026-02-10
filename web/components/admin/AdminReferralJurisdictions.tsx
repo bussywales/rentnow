@@ -3,6 +3,8 @@
 import { useMemo, useState, useTransition } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { CountrySelect } from "@/components/properties/CountrySelect";
+import { CurrencySelect } from "@/components/properties/CurrencySelect";
 import {
   calculateCashoutAmountMajorFromPercent,
   calculateCashoutPercentFromAmountMajor,
@@ -11,6 +13,16 @@ import {
   type ReferralCashoutEligibleSource,
   type ReferralCashoutRateMode,
 } from "@/lib/referrals/cashout";
+import {
+  findIsoCountryByCode,
+  formatIsoCountryLabel,
+  getCommonCurrencyForCountry,
+} from "@/lib/iso/countries";
+import {
+  normalizeJurisdictionPolicyCodes,
+  validateJurisdictionPolicyCodes,
+  type JurisdictionPolicyCodeErrors,
+} from "@/lib/referrals/jurisdiction-policy-validation";
 
 type Policy = {
   id: string;
@@ -35,6 +47,10 @@ type Props = {
 };
 
 type EditablePolicy = Omit<Policy, "updated_at">;
+
+function hasValidationIssues(errors: JurisdictionPolicyCodeErrors): boolean {
+  return Boolean(errors.country_code || errors.currency);
+}
 
 const ELIGIBLE_SOURCE_OPTIONS: Array<{
   value: ReferralCashoutEligibleSource;
@@ -73,9 +89,13 @@ function normalizeEligibleSources(
 }
 
 function toEditable(policy: Policy): EditablePolicy {
+  const normalizedCodes = normalizeJurisdictionPolicyCodes({
+    country_code: policy.country_code,
+    currency: policy.currency,
+  });
   return {
     id: policy.id,
-    country_code: policy.country_code,
+    country_code: normalizedCodes.country_code,
     payouts_enabled: policy.payouts_enabled,
     conversion_enabled: policy.conversion_enabled,
     credit_to_cash_rate: Number(policy.credit_to_cash_rate || 0),
@@ -86,7 +106,7 @@ function toEditable(policy: Policy): EditablePolicy {
         ? 0
         : Math.max(0, Number(policy.cashout_rate_percent || 0)),
     cashout_eligible_sources: normalizeEligibleSources(policy.cashout_eligible_sources),
-    currency: policy.currency || "NGN",
+    currency: normalizedCodes.currency || "NGN",
     min_cashout_credits: Math.max(0, Math.trunc(Number(policy.min_cashout_credits || 0))),
     monthly_cashout_cap_amount: Math.max(0, Number(policy.monthly_cashout_cap_amount || 0)),
     requires_manual_approval: policy.requires_manual_approval,
@@ -194,6 +214,10 @@ export default function AdminReferralJurisdictions({
     monthly_cashout_cap_amount: 0,
     requires_manual_approval: true,
   });
+  const [createFieldErrors, setCreateFieldErrors] = useState<JurisdictionPolicyCodeErrors>({});
+  const [draftFieldErrors, setDraftFieldErrors] = useState<
+    Record<string, JurisdictionPolicyCodeErrors>
+  >({});
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -218,6 +242,15 @@ export default function AdminReferralJurisdictions({
         },
       };
     });
+    if ("country_code" in patch || "currency" in patch) {
+      setDraftFieldErrors((current) => {
+        const prev = current[id] || {};
+        const next = { ...prev };
+        if ("country_code" in patch) delete next.country_code;
+        if ("currency" in patch) delete next.currency;
+        return { ...current, [id]: next };
+      });
+    }
   };
 
   const toggleSource = (
@@ -229,8 +262,25 @@ export default function AdminReferralJurisdictions({
     return normalizeEligibleSources(next);
   };
 
+  const applyCountryWithCurrency = (current: EditablePolicy, countryCode: string): EditablePolicy => {
+    const normalizedCodes = normalizeJurisdictionPolicyCodes({
+      country_code: countryCode,
+      currency: current.currency,
+    });
+    const commonCurrency = getCommonCurrencyForCountry(normalizedCodes.country_code);
+    return {
+      ...current,
+      country_code: normalizedCodes.country_code,
+      currency: commonCurrency ?? normalizedCodes.currency,
+    };
+  };
+
   const buildPolicyPayload = (draft: EditablePolicy) => {
     const mode = draft.cashout_rate_mode;
+    const normalizedCodes = normalizeJurisdictionPolicyCodes({
+      country_code: draft.country_code,
+      currency: draft.currency,
+    });
     const normalizedWithRate =
       mode === "percent_of_payg"
         ? withPercentApplied(draft, Number(draft.cashout_rate_percent || 0), paygListingFeeAmount)
@@ -241,7 +291,7 @@ export default function AdminReferralJurisdictions({
           );
 
     return {
-      country_code: draft.country_code.trim().toUpperCase(),
+      country_code: normalizedCodes.country_code,
       payouts_enabled: draft.payouts_enabled,
       conversion_enabled: draft.conversion_enabled,
       cashout_rate_mode: mode,
@@ -252,7 +302,7 @@ export default function AdminReferralJurisdictions({
       cashout_rate_percent: Math.max(0, Number(normalizedWithRate.cashout_rate_percent || 0)),
       credit_to_cash_rate: Number(normalizedWithRate.credit_to_cash_rate || 0),
       cashout_eligible_sources: normalizeEligibleSources(draft.cashout_eligible_sources),
-      currency: draft.currency.trim().toUpperCase(),
+      currency: normalizedCodes.currency,
       min_cashout_credits: Math.max(0, Math.trunc(Number(draft.min_cashout_credits || 0))),
       monthly_cashout_cap_amount: Math.max(0, Number(draft.monthly_cashout_cap_amount || 0)),
       requires_manual_approval: draft.requires_manual_approval,
@@ -262,6 +312,13 @@ export default function AdminReferralJurisdictions({
   const savePolicy = (id: string) => {
     const draft = drafts[id];
     if (!draft) return;
+
+    const validation = validateJurisdictionPolicyCodes({
+      country_code: draft.country_code,
+      currency: draft.currency,
+    });
+    setDraftFieldErrors((current) => ({ ...current, [id]: validation }));
+    if (hasValidationIssues(validation)) return;
 
     setError(null);
     setToast(null);
@@ -287,6 +344,13 @@ export default function AdminReferralJurisdictions({
   };
 
   const createPolicy = () => {
+    const validation = validateJurisdictionPolicyCodes({
+      country_code: createDraft.country_code,
+      currency: createDraft.currency,
+    });
+    setCreateFieldErrors(validation);
+    if (hasValidationIssues(validation)) return;
+
     setError(null);
     setToast(null);
 
@@ -323,6 +387,7 @@ export default function AdminReferralJurisdictions({
           monthly_cashout_cap_amount: 0,
           requires_manual_approval: true,
         });
+        setCreateFieldErrors({});
         setToast(`Saved ${nextPolicy.country_code}.`);
       } catch (createError) {
         setError(createError instanceof Error ? createError.message : "Unable to create policy");
@@ -474,27 +539,51 @@ export default function AdminReferralJurisdictions({
 
         <div className="mt-3 grid gap-2 md:grid-cols-2">
           <label className="space-y-1 text-sm text-slate-700">
-            <span>Country code (e.g., NG)</span>
-            <Input
-              value={createDraft.country_code}
-              onChange={(event) =>
-                setCreateDraft((current) => ({ ...current, country_code: event.target.value.toUpperCase() }))
+            <span>Country (ISO 3166-1 alpha-2)</span>
+            <CountrySelect
+              id="jurisdiction-create-country-select"
+              value={
+                findIsoCountryByCode(createDraft.country_code) || createDraft.country_code
+                  ? {
+                      code: createDraft.country_code,
+                      name: findIsoCountryByCode(createDraft.country_code)?.name ?? createDraft.country_code,
+                    }
+                  : null
               }
-              maxLength={3}
-              placeholder="NG"
-              data-testid="jurisdiction-create-country-code"
+              onChange={(selected) => {
+                setCreateDraft((current) => applyCountryWithCurrency(current, selected.code));
+                setCreateFieldErrors((current) => ({
+                  ...current,
+                  country_code: undefined,
+                  currency: undefined,
+                }));
+              }}
+              placeholder="Search countries"
+              disabled={pending}
             />
+            <input type="hidden" value={createDraft.country_code} data-testid="jurisdiction-create-country-code" readOnly />
+            {createFieldErrors.country_code ? (
+              <p className="text-xs text-rose-600">{createFieldErrors.country_code}</p>
+            ) : null}
           </label>
           <label className="space-y-1 text-sm text-slate-700">
-            <span>Currency (e.g., NGN)</span>
-            <Input
+            <span>Currency (ISO 4217)</span>
+            <CurrencySelect
+              id="jurisdiction-create-currency-select"
               value={createDraft.currency}
-              onChange={(event) =>
-                setCreateDraft((current) => ({ ...current, currency: event.target.value.toUpperCase() }))
-              }
-              maxLength={10}
-              placeholder="NGN"
+              onChange={(value) => {
+                setCreateDraft((current) => ({
+                  ...current,
+                  currency: String(value || "").trim().toUpperCase(),
+                }));
+                setCreateFieldErrors((current) => ({ ...current, currency: undefined }));
+              }}
+              placeholder="Search currencies"
+              disabled={pending}
             />
+            {createFieldErrors.currency ? (
+              <p className="text-xs text-rose-600">{createFieldErrors.currency}</p>
+            ) : null}
           </label>
         </div>
 
@@ -624,7 +713,7 @@ export default function AdminReferralJurisdictions({
           <Button
             type="button"
             onClick={createPolicy}
-            disabled={pending || !createDraft.country_code.trim()}
+            disabled={pending || !createDraft.country_code.trim() || !createDraft.currency.trim()}
             data-testid="jurisdiction-create-save"
           >
             {pending ? "Saving..." : "Save jurisdiction"}
@@ -636,6 +725,10 @@ export default function AdminReferralJurisdictions({
         {sortedPolicies.length ? (
           sortedPolicies.map((policy) => {
             const draft = drafts[policy.id] || toEditable(policy);
+            const countryOption = findIsoCountryByCode(draft.country_code);
+            const countryLabel = countryOption
+              ? formatIsoCountryLabel(countryOption)
+              : draft.country_code || policy.country_code;
 
             return (
               <div
@@ -645,7 +738,7 @@ export default function AdminReferralJurisdictions({
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-slate-900">
-                    {policy.country_code} policy
+                    {countryLabel} policy
                   </p>
                   <div className="flex items-center gap-2">
                     <Button type="button" size="sm" onClick={() => savePolicy(policy.id)} disabled={pending}>
@@ -665,28 +758,49 @@ export default function AdminReferralJurisdictions({
 
                 <div className="mt-3 grid gap-2 md:grid-cols-2">
                   <label className="space-y-1 text-sm text-slate-700">
-                    <span>Country code</span>
-                    <Input
-                      value={draft.country_code}
-                      onChange={(event) =>
-                        setDraft(policy.id, {
-                          country_code: event.target.value.toUpperCase(),
-                        })
+                    <span>Country (ISO 3166-1 alpha-2)</span>
+                    <CountrySelect
+                      id={`jurisdiction-${policy.id}-country-select`}
+                      value={
+                        findIsoCountryByCode(draft.country_code) || draft.country_code
+                          ? {
+                              code: draft.country_code,
+                              name:
+                                findIsoCountryByCode(draft.country_code)?.name ??
+                                draft.country_code,
+                            }
+                          : null
                       }
-                      maxLength={3}
+                      onChange={(selected) =>
+                        setDraft(policy.id, applyCountryWithCurrency(draft, selected.code))
+                      }
+                      placeholder="Search countries"
+                      disabled={pending}
                     />
+                    {draftFieldErrors[policy.id]?.country_code ? (
+                      <p className="text-xs text-rose-600">
+                        {draftFieldErrors[policy.id]?.country_code}
+                      </p>
+                    ) : null}
                   </label>
                   <label className="space-y-1 text-sm text-slate-700">
-                    <span>Currency</span>
-                    <Input
+                    <span>Currency (ISO 4217)</span>
+                    <CurrencySelect
+                      id={`jurisdiction-${policy.id}-currency-select`}
                       value={draft.currency}
-                      onChange={(event) =>
+                      onChange={(value) =>
                         setDraft(policy.id, {
-                          currency: event.target.value.toUpperCase(),
+                          currency: String(value || "").trim().toUpperCase(),
                         })
                       }
-                      maxLength={10}
+                      placeholder="Search currencies"
+                      disabled={pending}
                     />
+                    {draftFieldErrors[policy.id]?.currency ? (
+                      <p className="text-xs text-rose-600">
+                        {draftFieldErrors[policy.id]?.currency}
+                      </p>
+                    ) : null}
                   </label>
                 </div>
 

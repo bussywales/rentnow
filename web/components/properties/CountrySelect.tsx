@@ -65,7 +65,7 @@ export function CountrySelect({ id, value, onChange, placeholder, disabled, butt
   );
 
   const formatOptionLabel = (option: { code: string; name: string }) =>
-    `${option.code} - ${option.name}`;
+    `${option.name} (${option.code})`;
 
   const selectedOption =
     (value?.code ? getCountryByCode(value.code) : null) ||

@@ -81,7 +81,7 @@ export function CurrencySelect({ id, value, onChange, placeholder, disabled }: P
   );
 
   const formatOptionLabel = (option: { code: string; label: string | null }) =>
-    option.label ? `${option.code} - ${option.label}` : option.code;
+    option.label ? `${option.label} (${option.code})` : option.code;
 
   const selectedOption = optionLookup.get(normalizedValue);
   const selectedLabel = selectedOption

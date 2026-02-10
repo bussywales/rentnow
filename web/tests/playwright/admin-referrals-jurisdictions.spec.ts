@@ -29,7 +29,7 @@ test("admin can configure jurisdiction rate mode with percent/amount auto-calc a
 }) => {
   test.skip(!ADMIN_EMAIL || !ADMIN_PASSWORD, "Admin creds missing.");
 
-  const countryCode = "XZ";
+  const countryCode = "RW";
 
   await login(page, ADMIN_EMAIL!, ADMIN_PASSWORD!);
   await page.goto("/admin/settings/referrals");
@@ -42,7 +42,9 @@ test("admin can configure jurisdiction rate mode with percent/amount auto-calc a
   });
   await page.reload();
 
-  await page.getByTestId("jurisdiction-create-country-code").fill(countryCode);
+  await page.locator("#jurisdiction-create-country-select").click();
+  await page.getByPlaceholder(/search countries/i).fill("Rwanda");
+  await page.getByRole("option", { name: /Rwanda \(RW\)/i }).first().click();
 
   await page.getByTestId("jurisdiction-create-rate-mode-percent").check();
   await page.getByTestId("jurisdiction-create-rate-percent").fill("2.5");
