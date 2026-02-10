@@ -35,7 +35,10 @@ const SECTION_CARDS: Array<{
     id: "listings-publishing",
     title: "Listings & publishing",
     description: "Publish clean listings and improve discovery quality.",
-    links: [{ label: "How to publish a listing", href: "/help/agents/articles/how-to-publish-a-listing" }],
+    links: [
+      { label: "How to publish a listing", href: "/help/agents/articles/how-to-publish-a-listing" },
+      { label: "Creating demo listings", href: "/help/agents/articles/creating-demo-listings" },
+    ],
   },
   {
     id: "viewings-leads",
@@ -122,6 +125,7 @@ export default function AgentHelpCentrePage() {
         <h2 className="text-lg font-semibold text-slate-900">Most common tasks</h2>
         <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
           <li>Publish a new listing with complete media and location</li>
+          <li>Mark training/sample inventory as demo in listing Basics</li>
           <li>Respond to enquiries and schedule viewings</li>
           <li>Share referral link and track Active referral growth</li>
           <li>Use credits for listing and featured operations</li>

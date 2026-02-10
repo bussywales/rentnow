@@ -3341,7 +3341,8 @@ export function PropertyStepper({
                         Mark as demo listing
                       </span>
                       <span className="block text-xs text-slate-600">
-                        Demo listings are labeled and excluded from customer-facing promos.
+                        Demo listings are labelled and excluded from customer-facing promotions.
+                        Admins control whether badges and watermarks are shown.
                       </span>
                     </span>
                   </label>

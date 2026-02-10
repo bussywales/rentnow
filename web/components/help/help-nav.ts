@@ -91,6 +91,10 @@ export const HELP_AGENT_NAV: HelpNavSection[] = [
         label: "Publish a listing",
         href: "/help/agents/articles/how-to-publish-a-listing",
       },
+      {
+        label: "Creating demo listings",
+        href: "/help/agents/articles/creating-demo-listings",
+      },
     ],
   },
   {
