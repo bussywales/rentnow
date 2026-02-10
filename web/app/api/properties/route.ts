@@ -7,9 +7,11 @@ import { getEarlyAccessApprovedBefore } from "@/lib/early-access";
 import { getPlanUsage } from "@/lib/plan-enforcement";
 import { getTenantPlanForTier } from "@/lib/plans";
 import { getListingAccessResult } from "@/lib/role-access";
+import { normalizeRole } from "@/lib/roles";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
+import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
 import { normalizeCountryForCreate } from "@/lib/properties/country-normalize";
 import {
@@ -104,6 +106,7 @@ export const propertySchema = z
     ])
     .optional(),
   is_active: z.boolean().optional(),
+  is_demo: z.boolean().optional(),
   imageUrls: z.array(z.string().url()).optional(),
   cover_image_url: z.string().url().optional().nullable(),
   admin_area_1: z.string().optional().nullable(),
@@ -456,35 +459,40 @@ export async function GET(request: NextRequest) {
       message.includes("approved_at") &&
       message.includes("properties");
 
-    let approvedBefore: string | null = null;
-    if (!ownerOnly && EARLY_ACCESS_MINUTES > 0) {
+    let viewerRole = null as ReturnType<typeof normalizeRole>;
+    let viewerUserId: string | null = null;
+    if (!ownerOnly) {
       try {
         const {
           data: { user },
         } = await supabase.auth.getUser();
-        let role: string | null = null;
+        viewerUserId = user?.id ?? null;
+        if (viewerUserId) {
+          viewerRole = normalizeRole(await getUserRole(supabase, viewerUserId));
+        }
+      } catch {
+        viewerRole = null;
+        viewerUserId = null;
+      }
+    }
+
+    let approvedBefore: string | null = null;
+    if (!ownerOnly && EARLY_ACCESS_MINUTES > 0) {
+      try {
         let planTier: string | null = null;
         let validUntil: string | null = null;
-        if (user) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("role")
-            .eq("id", user.id)
+        if (viewerUserId && viewerRole === "tenant") {
+          const { data: planRow } = await supabase
+            .from("profile_plans")
+            .select("plan_tier, valid_until")
+            .eq("profile_id", viewerUserId)
             .maybeSingle();
-          role = profile?.role ?? null;
-          if (role === "tenant") {
-            const { data: planRow } = await supabase
-              .from("profile_plans")
-              .select("plan_tier, valid_until")
-              .eq("profile_id", user.id)
-              .maybeSingle();
-            planTier = planRow?.plan_tier ?? null;
-            validUntil = planRow?.valid_until ?? null;
-          }
+          planTier = planRow?.plan_tier ?? null;
+          validUntil = planRow?.valid_until ?? null;
         }
         ({ approvedBefore } = getEarlyAccessApprovedBefore({
-          role,
-          hasUser: !!user,
+          role: viewerRole,
+          hasUser: !!viewerUserId,
           planTier,
           validUntil,
           earlyAccessMinutes: EARLY_ACCESS_MINUTES,
@@ -663,6 +671,7 @@ export async function GET(request: NextRequest) {
     }
 
     const nowIso = new Date().toISOString();
+    const includeDemoListings = includeDemoListingsForViewer({ viewerRole });
     const missingExpiresAt = (message?: string | null) =>
       typeof message === "string" &&
       message.includes("expires_at") &&
@@ -684,6 +693,9 @@ export async function GET(request: NextRequest) {
         .eq("is_active", true)
         .eq("status", "live")
         .order("created_at", { ascending: false });
+      if (!includeDemoListings) {
+        query = query.eq("is_demo", false);
+      }
       if (includeExpiryFilter) {
         query = query.or(`expires_at.is.null,expires_at.gte.${nowIso}`);
       }

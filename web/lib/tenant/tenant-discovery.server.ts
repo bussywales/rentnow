@@ -5,6 +5,7 @@ import { getTenantPlanForTier } from "@/lib/plans";
 import { normalizeRole } from "@/lib/roles";
 import type { Property, UserRole } from "@/lib/types";
 import { orderImagesWithCover } from "@/lib/properties/images";
+import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 import { fetchSavedProperties } from "@/lib/saved-properties.server";
 
 type PropertyImageRow = {
@@ -58,13 +59,17 @@ type QueryBuilder = ReturnType<ReturnType<SupabaseClient["from"]>["select"]>;
 function applyVisibilityFilters(
   query: QueryBuilder,
   nowIso: string,
-  approvedBefore: string | null
+  approvedBefore: string | null,
+  includeDemo: boolean
 ) {
   let filtered = query
     .eq("status", "live")
     .eq("is_active", true)
     .eq("is_approved", true)
     .or(`expires_at.is.null,expires_at.gte.${nowIso}`);
+  if (!includeDemo) {
+    filtered = filtered.eq("is_demo", false);
+  }
 
   if (approvedBefore) {
     filtered = filtered.or(`approved_at.is.null,approved_at.lte.${approvedBefore}`);
@@ -136,8 +141,9 @@ export async function getFeaturedHomes({
 }) {
   const ctx = context ?? (await getTenantDiscoveryContext());
   const nowIso = new Date().toISOString();
+  const includeDemo = includeDemoListingsForViewer({ viewerRole: ctx.role });
   let query = ctx.supabase.from("properties").select(BASE_SELECT);
-  query = applyVisibilityFilters(query, nowIso, ctx.approvedBefore)
+  query = applyVisibilityFilters(query, nowIso, ctx.approvedBefore, includeDemo)
     .eq("is_featured", true)
     .or(`featured_until.is.null,featured_until.gt.${nowIso}`)
     .order("featured_rank", { ascending: true, nullsFirst: false })
@@ -159,8 +165,9 @@ export async function getPopularHomes({
 }) {
   const ctx = context ?? (await getTenantDiscoveryContext());
   const nowIso = new Date().toISOString();
+  const includeDemo = includeDemoListingsForViewer({ viewerRole: ctx.role });
   let query = ctx.supabase.from("properties").select(BASE_SELECT);
-  query = applyVisibilityFilters(query, nowIso, ctx.approvedBefore).order("updated_at", {
+  query = applyVisibilityFilters(query, nowIso, ctx.approvedBefore, includeDemo).order("updated_at", {
     ascending: false,
   });
 
@@ -185,9 +192,10 @@ export async function getNewHomes({
   const ctx = context ?? (await getTenantDiscoveryContext());
   const nowIso = new Date().toISOString();
   const sinceIso = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+  const includeDemo = includeDemoListingsForViewer({ viewerRole: ctx.role });
 
   let query = ctx.supabase.from("properties").select(BASE_SELECT);
-  query = applyVisibilityFilters(query, nowIso, ctx.approvedBefore)
+  query = applyVisibilityFilters(query, nowIso, ctx.approvedBefore, includeDemo)
     .gte("created_at", sinceIso)
     .order("created_at", { ascending: false });
 
@@ -204,8 +212,9 @@ export async function getFallbackHomes({
 }) {
   const ctx = context ?? (await getTenantDiscoveryContext());
   const nowIso = new Date().toISOString();
+  const includeDemo = includeDemoListingsForViewer({ viewerRole: ctx.role });
   let query = ctx.supabase.from("properties").select(BASE_SELECT);
-  query = applyVisibilityFilters(query, nowIso, ctx.approvedBefore).order("updated_at", {
+  query = applyVisibilityFilters(query, nowIso, ctx.approvedBefore, includeDemo).order("updated_at", {
     ascending: false,
   });
 

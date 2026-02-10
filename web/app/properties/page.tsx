@@ -27,6 +27,7 @@ import { computeLocationScore, extractLocationQuery, type LocationQueryInfo } fr
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import { isListingPubliclyVisible } from "@/lib/properties/expiry";
+import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
 import { getFastResponderByHostIds } from "@/lib/trust/fast-responder.server";
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -117,10 +118,11 @@ function buildSearchParams(
 function applyMockFilters(
   items: Property[],
   filters: ParsedSearchFilters,
-  options: { featuredOnly?: boolean; createdAfter?: string | null } = {}
+  options: { featuredOnly?: boolean; createdAfter?: string | null; includeDemo?: boolean } = {}
 ): Property[] {
   return items.filter((property) => {
     if (!isListingPubliclyVisible(property)) return false;
+    if (!options.includeDemo && property.is_demo) return false;
     if (options.featuredOnly && !property.is_featured) return false;
     if (options.createdAfter && property.created_at) {
       const created = Date.parse(property.created_at);
@@ -303,6 +305,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     </div>
   ) : null;
   const showListCta = role && role !== "tenant";
+  const includeDemoListings = includeDemoListingsForViewer({ viewerRole: role });
   const apiBaseUrl = await getApiBaseUrl();
   const listParams = buildSearchParams(resolvedSearchParams, {
     page: String(page),
@@ -334,6 +337,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
         approvedBefore,
         featuredOnly,
         createdAfter,
+        includeDemo: includeDemoListings,
       });
       if (error) {
         fetchError = error.message;
@@ -410,8 +414,12 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
   if (DEV_MOCKS && !properties.length) {
     const fallback = hasFilters
-      ? applyMockFilters(mockProperties, filters, { featuredOnly, createdAfter })
-      : mockProperties;
+      ? applyMockFilters(mockProperties, filters, {
+          featuredOnly,
+          createdAfter,
+          includeDemo: includeDemoListings,
+        })
+      : mockProperties.filter((property) => includeDemoListings || !property.is_demo);
     if (fallback.length) {
       properties = fallback;
       fetchError = null;
@@ -439,6 +447,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
           approvedBefore,
           featuredOnly,
           createdAfter,
+          includeDemo: includeDemoListings,
         }
       );
       if (!error && data) {
@@ -450,10 +459,14 @@ export default async function PropertiesPage({ searchParams }: Props) {
         );
       }
     } else if (DEV_MOCKS) {
-      otherOptionProperties = applyMockFilters(mockProperties, {
-        ...filters,
-        bedroomsMode: "minimum",
-      }).filter((item) => item.bedrooms > requestedBedrooms);
+      otherOptionProperties = applyMockFilters(
+        mockProperties,
+        {
+          ...filters,
+          bedroomsMode: "minimum",
+        },
+        { includeDemo: includeDemoListings }
+      ).filter((item) => item.bedrooms > requestedBedrooms);
     }
   } else if (requestedBedrooms !== null) {
     const exactMatches = properties.filter((item) => item.bedrooms === requestedBedrooms);

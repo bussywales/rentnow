@@ -56,11 +56,18 @@ export async function POST(request: Request) {
 
   const { data: listing, error: listingError } = await lookupClient
     .from("properties")
-    .select("id, owner_id, status, is_featured, featured_until")
+    .select("id, owner_id, status, is_featured, featured_until, is_demo")
     .eq("id", listingId)
     .maybeSingle();
 
-  const typedListing = listing as { id: string; owner_id: string; status?: string | null; is_featured?: boolean | null; featured_until?: string | null } | null;
+  const typedListing = listing as {
+    id: string;
+    owner_id: string;
+    status?: string | null;
+    is_featured?: boolean | null;
+    featured_until?: string | null;
+    is_demo?: boolean | null;
+  } | null;
   if (listingError || !typedListing) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
   }
@@ -75,6 +82,9 @@ export async function POST(request: Request) {
       !!typedListing.is_featured && (!featuredUntilMs || (Number.isFinite(featuredUntilMs) && featuredUntilMs > nowMs));
     if (typedListing.status !== "live") {
       return NextResponse.json({ error: "Listing must be live to feature." }, { status: 409 });
+    }
+    if (typedListing.is_demo) {
+      return NextResponse.json({ error: "Demo listings can't be featured." }, { status: 409 });
     }
     if (featuredActive) {
       return NextResponse.json({ error: "Listing is already featured." }, { status: 409 });

@@ -16,6 +16,7 @@ const makeRequest = (payload: Record<string, unknown>) =>
 
 type PropertyRow = {
   id: string;
+  is_demo?: boolean | null;
   is_featured?: boolean | null;
   featured_rank?: number | null;
   featured_until?: string | null;
@@ -119,4 +120,39 @@ void test("non-admin cannot feature property", async () => {
     deps
   );
   assert.equal(res.status, 403);
+});
+
+void test("admin cannot feature a demo property", async () => {
+  const capture = { updatePayload: null as Record<string, unknown> | null };
+  const property: PropertyRow = { id: "prop-1", is_featured: false, is_demo: true };
+  const supabase = buildSupabaseStub(property, capture) as ReturnType<
+    AdminFeaturedDeps["createServerSupabaseClient"]
+  >;
+
+  const deps: AdminFeaturedDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => false,
+    createServerSupabaseClient: async () => supabase,
+    createServiceRoleClient: () =>
+      ({} as ReturnType<AdminFeaturedDeps["createServiceRoleClient"]>),
+    requireRole: async () =>
+      ({
+        ok: true,
+        supabase,
+        user: { id: "admin-1" } as User,
+        role: "admin",
+      }) as Awaited<ReturnType<AdminFeaturedDeps["requireRole"]>>,
+    logFailure: () => undefined,
+  };
+
+  const future = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  const res = await postAdminFeaturedResponse(
+    makeRequest({ is_featured: true, featured_rank: 1, featured_until: future }),
+    "prop-1",
+    deps
+  );
+  assert.equal(res.status, 409);
+  const json = await res.json();
+  assert.equal(json.error, "Demo listings can't be featured.");
+  assert.equal(capture.updatePayload, null);
 });

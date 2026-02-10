@@ -41,6 +41,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
     rental_type: "long_term",
     listing_intent: "rent",
     currency: "USD",
+    is_demo: initialData?.is_demo ?? false,
     amenitiesText: initialData?.amenities?.join(", ") ?? "",
     ...initialData,
     rent_period: initialData?.rent_period ?? "monthly",
@@ -490,6 +491,25 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
           />
           <label htmlFor="furnished" className="text-sm text-slate-700">
             Furnished
+          </label>
+        </div>
+        <div className="space-y-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 md:col-span-2">
+          <label className="flex items-start gap-3">
+            <input
+              id="is-demo"
+              type="checkbox"
+              className="mt-0.5 h-4 w-4 rounded border-slate-300 text-sky-600"
+              checked={!!form.is_demo}
+              onChange={(e) => handleChange("is_demo", e.target.checked)}
+            />
+            <span>
+              <span className="block text-sm font-medium text-slate-800">
+                Mark as demo listing
+              </span>
+              <span className="block text-xs text-slate-600">
+                Demo listings are labeled and excluded from customer-facing promos.
+              </span>
+            </span>
           </label>
         </div>
       </div>

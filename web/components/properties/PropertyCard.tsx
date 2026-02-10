@@ -20,6 +20,7 @@ import { SaveButton } from "@/components/properties/SaveButton";
 import { PropertyTrustCues } from "@/components/properties/PropertyTrustCues";
 import { Button } from "@/components/ui/Button";
 import { buildTrustCues } from "@/lib/trust-cues";
+import { shouldRenderDemoBadge, shouldRenderDemoWatermark } from "@/lib/properties/demo";
 
 const BedIcon = () => (
   <svg
@@ -103,9 +104,12 @@ export function PropertyCard({
       ? property.description
       : "No description provided yet.";
   const nowMs = new Date().getTime();
+  const isDemo = !!property.is_demo;
   const isFeaturedActive =
     !!property.is_featured &&
     (!property.featured_until || Date.parse(property.featured_until) > nowMs);
+  const showDemoBadge = shouldRenderDemoBadge({ isDemo, enabled: true });
+  const showDemoWatermark = shouldRenderDemoWatermark({ isDemo, enabled: true });
   const ctaLabel = listingIntent === "buy" ? "Enquire to buy" : "Request viewing";
   const cardHref = href || `/properties/${property.id}`;
   const trustCues = buildTrustCues({
@@ -162,13 +166,36 @@ export function PropertyCard({
           <SaveButton propertyId={property.id} initialSaved={initialSaved} variant="icon" />
         </div>
       )}
-      {isFeaturedActive && (
-        <span
-          className="absolute left-3 top-3 z-10 rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-700 shadow-sm"
-          title="Featured by PropatyHub"
+      {(showDemoBadge || isFeaturedActive) && (
+        <div className="absolute left-3 top-3 z-10 flex flex-col gap-1">
+          {showDemoBadge && (
+            <span
+              className="property-demo-badge rounded-full bg-slate-900/90 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-white shadow-sm"
+              title="Demo listing"
+            >
+              Demo
+            </span>
+          )}
+          {isFeaturedActive && (
+            <span
+              className="rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-700 shadow-sm"
+              title="Featured by PropatyHub"
+            >
+              Featured
+            </span>
+          )}
+        </div>
+      )}
+      {showDemoWatermark && (
+        <div
+          className={cn(
+            "property-demo-watermark pointer-events-none absolute inset-0 z-[2] flex items-center justify-center font-black uppercase tracking-[0.35em] text-white/35",
+            compact ? "text-xl" : "text-4xl"
+          )}
+          aria-hidden
         >
-          Featured
-        </span>
+          Demo
+        </div>
       )}
     </div>
   );
@@ -179,6 +206,7 @@ export function PropertyCard({
         "card h-full overflow-hidden rounded-2xl bg-white transition hover:-translate-y-0.5 hover:shadow-xl",
         compact && "flex"
       )}
+      data-testid="property-card"
     >
       {imageBlock}
       <div className="flex flex-1 flex-col gap-2 px-4 py-3">

@@ -447,6 +447,7 @@ export function HostDashboardContent({
                 : null;
             const isFeaturing = featurePending[property.id] ?? false;
             const featureError = featureErrors[property.id] ?? null;
+            const isDemo = !!property.is_demo;
 
             return (
               <div
@@ -552,7 +553,7 @@ export function HostDashboardContent({
                   {isExpired && (
                     <RenewListingButton propertyId={property.id} size="sm" />
                   )}
-                  {isLive && !featuredActive && (
+                  {isLive && !featuredActive && !isDemo && (
                     <Button
                       size="sm"
                       variant="secondary"
@@ -562,6 +563,11 @@ export function HostDashboardContent({
                     >
                       {isFeaturing ? "Featuring..." : "Feature this listing"}
                     </Button>
+                  )}
+                  {isLive && isDemo && (
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
+                      Demo listings can&apos;t be featured
+                    </span>
                   )}
                   {isLive && (
                     <Button

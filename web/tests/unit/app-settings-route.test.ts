@@ -173,3 +173,8 @@ void test("validateSettingValueByKey accepts share tracking payloads", () => {
   assert.equal(validateSettingValueByKey("attribution_window_days", { days: 30 }), true);
   assert.equal(validateSettingValueByKey("attribution_window_days", { days: 0 }), false);
 });
+
+void test("validateSettingValueByKey accepts demo presentation toggles", () => {
+  assert.equal(validateSettingValueByKey("demo_badge_enabled", { enabled: true }), true);
+  assert.equal(validateSettingValueByKey("demo_watermark_enabled", { enabled: false }), true);
+});

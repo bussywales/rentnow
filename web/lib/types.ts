@@ -145,6 +145,7 @@ export interface Property {
   reactivated_at?: string | null;
   status_updated_at?: string | null;
   is_featured?: boolean | null;
+  is_demo?: boolean | null;
   featured_rank?: number | null;
   featured_until?: string | null;
   featured_at?: string | null;

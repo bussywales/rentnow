@@ -43,6 +43,14 @@ const DESCRIPTIONS: Partial<Record<AppSettingKey, { title: string; helper: strin
     helper:
       "Allow agents to browse other agents’ live listings and add them to client pages (attribution-only).",
   },
+  [APP_SETTING_KEYS.demoBadgeEnabled]: {
+    title: "Demo listing badge",
+    helper: "Show a Demo label on listing cards and listing details for demo listings.",
+  },
+  [APP_SETTING_KEYS.demoWatermarkEnabled]: {
+    title: "Demo image watermark",
+    helper: "Overlay DEMO watermark on listing images marked as demo.",
+  },
 };
 
 export default function AdminSettingsFeatureFlags({ settings }: Props) {
