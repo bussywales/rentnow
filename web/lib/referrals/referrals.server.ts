@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getReferralSettings, type ReferralRewardType } from "@/lib/referrals/settings";
+import { logPaidEventForReferredUser } from "@/lib/referrals/share-tracking.server";
 
 const REFERRAL_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -430,6 +431,12 @@ export async function issueReferralRewardsForEvent(input: {
       rewardSource: eventType,
       nowIso: issuedAt,
     });
+  }
+
+  try {
+    await logPaidEventForReferredUser(client, referredUserId);
+  } catch {
+    // Tracking is non-blocking and should never fail payout issuance.
   }
 
   return { issued, skipped };

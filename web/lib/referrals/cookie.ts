@@ -1,4 +1,6 @@
 const REFERRAL_COOKIE_NAME = "ph_referral_code";
+const REFERRAL_CAMPAIGN_COOKIE_NAME = "ph_referral_campaign_id";
+const REFERRAL_ANON_COOKIE_NAME = "ph_anon_id";
 
 function parseCookieHeader(header: string): Array<{ name: string; value: string }> {
   return header
@@ -25,4 +27,30 @@ export function readReferralCodeFromCookieHeader(header: string | null): string 
 
 export function getReferralCookieName() {
   return REFERRAL_COOKIE_NAME;
+}
+
+export function readReferralCampaignIdFromCookieHeader(header: string | null): string | null {
+  if (!header) return null;
+  const match = parseCookieHeader(header).find(
+    (cookie) => cookie.name === REFERRAL_CAMPAIGN_COOKIE_NAME
+  );
+  if (!match?.value) return null;
+  const normalized = match.value.trim();
+  return normalized || null;
+}
+
+export function readReferralAnonIdFromCookieHeader(header: string | null): string | null {
+  if (!header) return null;
+  const match = parseCookieHeader(header).find((cookie) => cookie.name === REFERRAL_ANON_COOKIE_NAME);
+  if (!match?.value) return null;
+  const normalized = match.value.trim();
+  return normalized || null;
+}
+
+export function getReferralCampaignCookieName() {
+  return REFERRAL_CAMPAIGN_COOKIE_NAME;
+}
+
+export function getReferralAnonCookieName() {
+  return REFERRAL_ANON_COOKIE_NAME;
 }

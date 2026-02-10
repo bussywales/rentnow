@@ -25,6 +25,9 @@ const modeValueSchema = z.object({
 const daysValueSchema = z.object({
   days: z.number().int().min(7).max(365),
 });
+const attributionWindowDaysSchema = z.object({
+  days: z.number().int().min(1).max(365),
+});
 
 const numericValueSchema = z.object({
   value: z.number().int().min(0).max(1_000_000),
@@ -77,6 +80,7 @@ export const patchSchema = z.object({
     enabledValueSchema,
     modeValueSchema,
     daysValueSchema,
+    attributionWindowDaysSchema,
     numericValueSchema,
     referralEnabledLevelsSchema,
     referralRewardRulesSchema,
@@ -120,6 +124,9 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   const isReferralLeaderboardInitialsOnly =
     key === APP_SETTING_KEYS.referralsLeaderboardInitialsOnly;
   const isReferralLeaderboardScope = key === APP_SETTING_KEYS.referralsLeaderboardScope;
+  const isShareTrackingEnabled = key === APP_SETTING_KEYS.enableShareTracking;
+  const isAttributionWindowDays = key === APP_SETTING_KEYS.attributionWindowDays;
+  const isStoreIpHash = key === APP_SETTING_KEYS.storeIpHash;
   const isReferralCaps = key === APP_SETTING_KEYS.referralCaps;
 
   if (isModeSetting) return modeValueSchema.safeParse(value).success;
@@ -139,6 +146,11 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   if (isReferralLeaderboardAllTimeEnabled) return enabledValueSchema.safeParse(value).success;
   if (isReferralLeaderboardInitialsOnly) return enabledValueSchema.safeParse(value).success;
   if (isReferralLeaderboardScope) return leaderboardScopeSchema.safeParse(value).success;
+  if (isShareTrackingEnabled) return enabledValueSchema.safeParse(value).success;
+  if (isAttributionWindowDays) {
+    return attributionWindowDaysSchema.safeParse(value).success;
+  }
+  if (isStoreIpHash) return enabledValueSchema.safeParse(value).success;
   if (isReferralCaps) return referralCapsSchema.safeParse(value).success;
   return enabledValueSchema.safeParse(value).success;
 }

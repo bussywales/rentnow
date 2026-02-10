@@ -53,3 +53,15 @@ void test("resolveReferralTierStatus computes tiers from active referral thresho
   assert.equal(platinum.nextTier, null);
   assert.equal(platinum.progressToNext, 100);
 });
+
+void test("parseReferralSettingsRows parses share-tracking controls", () => {
+  const settings = parseReferralSettingsRows([
+    { key: "enable_share_tracking", value: { enabled: false } },
+    { key: "attribution_window_days", value: { days: 45 } },
+    { key: "store_ip_hash", value: { enabled: true } },
+  ]);
+
+  assert.equal(settings.shareTracking.enabled, false);
+  assert.equal(settings.shareTracking.attributionWindowDays, 45);
+  assert.equal(settings.shareTracking.storeIpHash, true);
+});

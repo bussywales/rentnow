@@ -61,6 +61,9 @@ export default async function AdminReferralSettingsPage() {
         APP_SETTING_KEYS.referralsLeaderboardAllTimeEnabled,
         APP_SETTING_KEYS.referralsLeaderboardInitialsOnly,
         APP_SETTING_KEYS.referralsLeaderboardScope,
+        APP_SETTING_KEYS.enableShareTracking,
+        APP_SETTING_KEYS.attributionWindowDays,
+        APP_SETTING_KEYS.storeIpHash,
         APP_SETTING_KEYS.referralCaps,
       ]),
     supabase.from("referrals").select("id", { count: "exact", head: true }),
@@ -103,6 +106,7 @@ export default async function AdminReferralSettingsPage() {
     tierThresholds: settings.tierThresholds,
     milestonesEnabled: settings.milestonesEnabled,
     leaderboard: settings.leaderboard,
+    shareTracking: settings.shareTracking,
     caps: settings.caps,
     milestones:
       ((milestoneRows.data as Array<{
@@ -133,6 +137,9 @@ export default async function AdminReferralSettingsPage() {
           <Link href="/admin/referrals/payouts" className="underline underline-offset-4">
             Open payouts queue
           </Link>
+          <Link href="/admin/referrals/attribution" className="underline underline-offset-4">
+            Open attribution analytics
+          </Link>
           <Link href="/help/referrals" className="underline underline-offset-4">
             Referral FAQ
           </Link>
@@ -154,6 +161,7 @@ export default async function AdminReferralSettingsPage() {
         tierThresholds={settings.tierThresholds}
         milestonesEnabled={settings.milestonesEnabled}
         leaderboard={settings.leaderboard}
+        shareTracking={settings.shareTracking}
         milestones={
           ((milestoneRows.data as Array<{
             id: string;

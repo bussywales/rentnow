@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import { cn } from "@/components/ui/cn";
 import type { ReferralTierStatus } from "@/lib/referrals/settings";
 import ReferralTierBadge from "@/components/referrals/ReferralTierBadge";
@@ -68,6 +69,32 @@ type ReferralMilestoneStatus = {
   status: "locked" | "achieved" | "claimed";
   claimable: boolean;
   claimedAt: string | null;
+};
+
+type ShareAnalyticsCampaign = {
+  id: string;
+  name: string;
+  channel: string;
+  is_active: boolean;
+  clicks: number;
+  captures: number;
+  activeReferrals: number;
+  earningsCredits: number;
+  conversionRate: number;
+  shareLink: string;
+  created_at: string;
+};
+
+type ShareAnalyticsSnapshot = {
+  enabled: boolean;
+  attributionWindowDays: number;
+  totals: {
+    clicks: number;
+    captures: number;
+    activeReferrals: number;
+    earningsCredits: number;
+  };
+  campaigns: ShareAnalyticsCampaign[];
 };
 
 type Props = {
@@ -146,6 +173,25 @@ function milestoneChipClass(milestone: ReferralMilestoneStatus) {
   return "bg-slate-100 text-slate-600";
 }
 
+const SHARE_CHANNEL_OPTIONS = [
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "email", label: "Email" },
+  { value: "linkedin", label: "LinkedIn" },
+  { value: "facebook", label: "Facebook" },
+  { value: "x", label: "X" },
+  { value: "sms", label: "SMS" },
+  { value: "qr", label: "QR" },
+  { value: "copy", label: "Copy" },
+  { value: "other", label: "Other" },
+] as const;
+
+const EMPTY_SHARE_ANALYTICS: ShareAnalyticsSnapshot = {
+  enabled: true,
+  attributionWindowDays: 30,
+  totals: { clicks: 0, captures: 0, activeReferrals: 0, earningsCredits: 0 },
+  campaigns: [],
+};
+
 export default function AgentReferralDashboard(props: Props) {
   const {
     referralCode,
@@ -191,6 +237,22 @@ export default function AgentReferralDashboard(props: Props) {
     leaderboard.userOptedOut
   );
   const [leaderboardSaving, setLeaderboardSaving] = useState(false);
+  const [shareAnalytics, setShareAnalytics] =
+    useState<ShareAnalyticsSnapshot>(EMPTY_SHARE_ANALYTICS);
+  const [shareAnalyticsLoading, setShareAnalyticsLoading] = useState(true);
+  const [shareAnalyticsError, setShareAnalyticsError] = useState<string | null>(null);
+  const [campaignForm, setCampaignForm] = useState({
+    name: "",
+    channel: "whatsapp",
+    utm_source: "",
+    utm_medium: "",
+    utm_campaign: "",
+    utm_content: "",
+    landing_path: "/get-started",
+  });
+  const [campaignCreatePending, setCampaignCreatePending] = useState(false);
+  const [campaignCreateError, setCampaignCreateError] = useState<string | null>(null);
+  const [latestShareLink, setLatestShareLink] = useState<string | null>(null);
 
   const depth = Math.max(1, Math.min(5, Math.trunc(maxDepth || 1)));
   const cashoutEnabled = cashoutPolicy.payouts_enabled && cashoutPolicy.conversion_enabled;
@@ -222,6 +284,58 @@ export default function AgentReferralDashboard(props: Props) {
     setLeaderboardOptedOut(leaderboard.userOptedOut);
   }, [leaderboard.defaultWindow, leaderboard.userOptedOut]);
 
+  const loadShareAnalytics = async () => {
+    setShareAnalyticsLoading(true);
+    setShareAnalyticsError(null);
+    try {
+      const response = await fetch("/api/referrals/analytics", { cache: "no-store" });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.ok) {
+        setShareAnalyticsError(
+          String(payload?.error || "Unable to load share analytics right now.")
+        );
+        return;
+      }
+
+      setShareAnalytics({
+        enabled: Boolean(payload.enabled),
+        attributionWindowDays: Math.max(
+          1,
+          Math.trunc(Number(payload.attributionWindowDays || 30))
+        ),
+        totals: {
+          clicks: Math.max(0, Math.trunc(Number(payload.totals?.clicks || 0))),
+          captures: Math.max(0, Math.trunc(Number(payload.totals?.captures || 0))),
+          activeReferrals: Math.max(0, Math.trunc(Number(payload.totals?.activeReferrals || 0))),
+          earningsCredits: Math.max(0, Number(payload.totals?.earningsCredits || 0)),
+        },
+        campaigns: Array.isArray(payload.campaigns)
+          ? payload.campaigns.map((item: Record<string, unknown>) => ({
+              id: String(item.id || ""),
+              name: String(item.name || ""),
+              channel: String(item.channel || "other"),
+              is_active: Boolean(item.is_active),
+              clicks: Math.max(0, Math.trunc(Number(item.clicks || 0))),
+              captures: Math.max(0, Math.trunc(Number(item.captures || 0))),
+              activeReferrals: Math.max(0, Math.trunc(Number(item.activeReferrals || 0))),
+              earningsCredits: Math.max(0, Number(item.earningsCredits || 0)),
+              conversionRate: Math.max(0, Number(item.conversionRate || 0)),
+              shareLink: String(item.shareLink || ""),
+              created_at: String(item.created_at || ""),
+            }))
+          : [],
+      });
+    } catch {
+      setShareAnalyticsError("Unable to load share analytics right now.");
+    } finally {
+      setShareAnalyticsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadShareAnalytics();
+  }, []);
+
   const levels = useMemo(() => {
     const allLevels = Array.from({ length: depth }, (_, index) => index + 1);
     return allLevels.map((level) => ({
@@ -243,6 +357,16 @@ export default function AgentReferralDashboard(props: Props) {
     };
   }, [referralLink]);
 
+  const trackingShareTargets = useMemo(() => {
+    if (!latestShareLink) return { whatsapp: "", email: "", linkedin: "" };
+    const message = `Join me on PropatyHub with this tracked invite link: ${latestShareLink}`;
+    return {
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(message)}`,
+      email: `mailto:?subject=${encodeURIComponent("Join me on PropatyHub")}&body=${encodeURIComponent(message)}`,
+      linkedin: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(latestShareLink)}`,
+    };
+  }, [latestShareLink]);
+
   const copyLink = async () => {
     if (!referralLink || !navigator?.clipboard) {
       setToast({ message: "Unable to copy link", variant: "error" });
@@ -253,6 +377,63 @@ export default function AgentReferralDashboard(props: Props) {
       setToast({ message: "Link copied", variant: "success" });
     } catch {
       setToast({ message: "Unable to copy link", variant: "error" });
+    }
+  };
+
+  const copyTrackingLink = async (value: string) => {
+    if (!value || !navigator?.clipboard) {
+      setToast({ message: "Unable to copy link", variant: "error" });
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      setToast({ message: "Link copied", variant: "success" });
+    } catch {
+      setToast({ message: "Unable to copy link", variant: "error" });
+    }
+  };
+
+  const createTrackingCampaign = async () => {
+    setCampaignCreateError(null);
+    if (!campaignForm.name.trim()) {
+      setCampaignCreateError("Campaign name is required.");
+      return;
+    }
+
+    setCampaignCreatePending(true);
+    try {
+      const response = await fetch("/api/referrals/campaigns", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: campaignForm.name.trim(),
+          channel: campaignForm.channel,
+          utm_source: campaignForm.utm_source.trim() || null,
+          utm_medium: campaignForm.utm_medium.trim() || null,
+          utm_campaign: campaignForm.utm_campaign.trim() || null,
+          utm_content: campaignForm.utm_content.trim() || null,
+          landing_path: campaignForm.landing_path.trim() || "/",
+        }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.ok) {
+        setCampaignCreateError(String(payload?.error || "Unable to create tracking link."));
+        return;
+      }
+
+      const createdLink = String(payload.campaign?.shareLink || "");
+      setLatestShareLink(createdLink || null);
+      setCampaignForm((current) => ({
+        ...current,
+        name: "",
+        utm_content: "",
+      }));
+      await loadShareAnalytics();
+      setToast({ message: "Tracking link created", variant: "success" });
+    } catch {
+      setCampaignCreateError("Unable to create tracking link.");
+    } finally {
+      setCampaignCreatePending(false);
     }
   };
 
@@ -498,6 +679,257 @@ export default function AgentReferralDashboard(props: Props) {
               Learn how referrals work
             </Link>
           </div>
+        </section>
+
+        <section
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+          data-testid="referrals-share-analytics-section"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Share analytics</h2>
+              <p className="text-sm text-slate-600">
+                Track campaign clicks, captures, active referrals, and credited earnings.
+              </p>
+            </div>
+            <Link
+              href="/dashboard/referrals/invites"
+              className="text-sm font-semibold text-slate-800 underline underline-offset-4"
+            >
+              Open invite reminders
+            </Link>
+          </div>
+
+          {shareAnalyticsLoading ? (
+            <p className="mt-3 text-sm text-slate-600">Loading share analytics...</p>
+          ) : shareAnalyticsError ? (
+            <p className="mt-3 text-sm text-rose-600">{shareAnalyticsError}</p>
+          ) : !shareAnalytics.enabled ? (
+            <p className="mt-3 text-sm text-slate-600">
+              Share tracking is currently disabled by admin.
+            </p>
+          ) : (
+            <>
+              <div className="mt-4 grid gap-3 sm:grid-cols-4">
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Clicks</p>
+                  <p className="mt-1 text-xl font-semibold text-slate-900">
+                    {formatNumber(shareAnalytics.totals.clicks)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Captures</p>
+                  <p className="mt-1 text-xl font-semibold text-slate-900">
+                    {formatNumber(shareAnalytics.totals.captures)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Active referrals</p>
+                  <p className="mt-1 text-xl font-semibold text-slate-900">
+                    {formatNumber(shareAnalytics.totals.activeReferrals)}
+                  </p>
+                </div>
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <p className="text-xs uppercase tracking-wide text-slate-500">Credits earned</p>
+                  <p className="mt-1 text-xl font-semibold text-slate-900">
+                    {shareAnalytics.totals.earningsCredits.toFixed(2)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+                <p className="text-sm font-semibold text-slate-900">Create tracking link</p>
+                <p className="text-xs text-slate-600">
+                  Attribution window: {formatNumber(shareAnalytics.attributionWindowDays)} days.
+                  We attribute based on the last saved campaign link before signup.
+                </p>
+                <div className="mt-3 grid gap-3 md:grid-cols-2">
+                  <label className="space-y-1 text-sm text-slate-700">
+                    <span className="text-xs uppercase tracking-wide text-slate-500">Campaign name</span>
+                    <Input
+                      value={campaignForm.name}
+                      onChange={(event) =>
+                        setCampaignForm((current) => ({ ...current, name: event.target.value }))
+                      }
+                      placeholder="e.g. WhatsApp Abuja February"
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm text-slate-700">
+                    <span className="text-xs uppercase tracking-wide text-slate-500">Channel</span>
+                    <Select
+                      value={campaignForm.channel}
+                      onChange={(event) =>
+                        setCampaignForm((current) => ({ ...current, channel: event.target.value }))
+                      }
+                    >
+                      {SHARE_CHANNEL_OPTIONS.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </label>
+                  <label className="space-y-1 text-sm text-slate-700">
+                    <span className="text-xs uppercase tracking-wide text-slate-500">Landing path</span>
+                    <Input
+                      value={campaignForm.landing_path}
+                      onChange={(event) =>
+                        setCampaignForm((current) => ({
+                          ...current,
+                          landing_path: event.target.value,
+                        }))
+                      }
+                      placeholder="/get-started"
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm text-slate-700">
+                    <span className="text-xs uppercase tracking-wide text-slate-500">UTM source</span>
+                    <Input
+                      value={campaignForm.utm_source}
+                      onChange={(event) =>
+                        setCampaignForm((current) => ({ ...current, utm_source: event.target.value }))
+                      }
+                      placeholder="whatsapp"
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm text-slate-700">
+                    <span className="text-xs uppercase tracking-wide text-slate-500">UTM medium</span>
+                    <Input
+                      value={campaignForm.utm_medium}
+                      onChange={(event) =>
+                        setCampaignForm((current) => ({ ...current, utm_medium: event.target.value }))
+                      }
+                      placeholder="social"
+                    />
+                  </label>
+                  <label className="space-y-1 text-sm text-slate-700">
+                    <span className="text-xs uppercase tracking-wide text-slate-500">UTM campaign</span>
+                    <Input
+                      value={campaignForm.utm_campaign}
+                      onChange={(event) =>
+                        setCampaignForm((current) => ({
+                          ...current,
+                          utm_campaign: event.target.value,
+                        }))
+                      }
+                      placeholder="feb-growth"
+                    />
+                  </label>
+                </div>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void createTrackingCampaign()}
+                    disabled={campaignCreatePending}
+                    data-testid="referrals-create-tracking-link"
+                  >
+                    {campaignCreatePending ? "Creating..." : "Create tracking link"}
+                  </Button>
+                  <Link
+                    href="/dashboard/referrals/campaigns"
+                    className="text-sm font-semibold text-slate-800 underline underline-offset-4"
+                  >
+                    View campaigns
+                  </Link>
+                </div>
+                {campaignCreateError ? (
+                  <p className="mt-2 text-sm text-rose-600">{campaignCreateError}</p>
+                ) : null}
+
+                {latestShareLink ? (
+                  <div className="mt-3 rounded-lg border border-slate-200 bg-white p-3">
+                    <p className="text-xs uppercase tracking-wide text-slate-500">Latest link</p>
+                    <div className="mt-1 grid gap-2 sm:grid-cols-[1fr_auto]">
+                      <Input value={latestShareLink} readOnly data-testid="referrals-latest-share-link" />
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void copyTrackingLink(latestShareLink)}
+                      >
+                        Copy link
+                      </Button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                      {trackingShareTargets.whatsapp ? (
+                        <a
+                          href={trackingShareTargets.whatsapp}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-700"
+                        >
+                          WhatsApp
+                        </a>
+                      ) : null}
+                      {trackingShareTargets.email ? (
+                        <a
+                          href={trackingShareTargets.email}
+                          className="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-700"
+                        >
+                          Email
+                        </a>
+                      ) : null}
+                      {trackingShareTargets.linkedin ? (
+                        <a
+                          href={trackingShareTargets.linkedin}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="rounded-md border border-slate-200 bg-white px-2 py-1 font-semibold text-slate-700"
+                        >
+                          LinkedIn
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-4 space-y-2">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-semibold text-slate-900">Top campaigns</p>
+                  <Link
+                    href="/dashboard/referrals/campaigns"
+                    className="text-xs font-semibold text-slate-800 underline underline-offset-4"
+                  >
+                    View full campaign analytics
+                  </Link>
+                </div>
+                {shareAnalytics.campaigns.length ? (
+                  shareAnalytics.campaigns.slice(0, 5).map((campaign) => (
+                    <div
+                      key={campaign.id}
+                      className="grid gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 md:grid-cols-[1.3fr_0.9fr_0.9fr_0.9fr_0.9fr_auto]"
+                      data-testid={`referrals-campaign-row-${campaign.id}`}
+                    >
+                      <div>
+                        <p className="text-sm font-semibold text-slate-900">{campaign.name}</p>
+                        <p className="text-xs text-slate-500">
+                          {campaign.channel.toUpperCase()} · {campaign.is_active ? "Active" : "Disabled"}
+                        </p>
+                      </div>
+                      <p className="text-sm text-slate-700">{formatNumber(campaign.clicks)} clicks</p>
+                      <p className="text-sm text-slate-700">{formatNumber(campaign.captures)} captures</p>
+                      <p className="text-sm text-slate-700">
+                        {formatNumber(campaign.activeReferrals)} active
+                      </p>
+                      <p className="text-sm text-slate-700">
+                        {campaign.earningsCredits.toFixed(2)} credits
+                      </p>
+                      <Link
+                        href={`/dashboard/referrals/campaigns/${encodeURIComponent(campaign.id)}`}
+                        className="text-sm font-semibold text-slate-800 underline underline-offset-4"
+                      >
+                        View
+                      </Link>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-600">No campaigns yet. Create your first tracking link.</p>
+                )}
+              </div>
+            </>
+          )}
         </section>
 
         {isEmpty && (

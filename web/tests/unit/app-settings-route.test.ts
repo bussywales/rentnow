@@ -166,3 +166,10 @@ void test("validateSettingValueByKey accepts leaderboard toggle payloads", () =>
     false
   );
 });
+
+void test("validateSettingValueByKey accepts share tracking payloads", () => {
+  assert.equal(validateSettingValueByKey("enable_share_tracking", { enabled: true }), true);
+  assert.equal(validateSettingValueByKey("store_ip_hash", { enabled: false }), true);
+  assert.equal(validateSettingValueByKey("attribution_window_days", { days: 30 }), true);
+  assert.equal(validateSettingValueByKey("attribution_window_days", { days: 0 }), false);
+});

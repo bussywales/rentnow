@@ -32,6 +32,11 @@ export type ReferralSettings = {
     initialsOnly: boolean;
     scope: "global" | "by_country" | "by_city";
   };
+  shareTracking: {
+    enabled: boolean;
+    attributionWindowDays: number;
+    storeIpHash: boolean;
+  };
   caps: ReferralCaps;
 };
 
@@ -63,6 +68,11 @@ export const DEFAULT_REFERRAL_SETTINGS: ReferralSettings = {
     allTimeEnabled: true,
     initialsOnly: true,
     scope: "global",
+  },
+  shareTracking: {
+    enabled: true,
+    attributionWindowDays: 30,
+    storeIpHash: false,
   },
   caps: {
     daily: 50,
@@ -254,6 +264,24 @@ export function parseReferralSettingsRows(rows: AppSettingRow[]): ReferralSettin
     byKey.get(APP_SETTING_KEYS.referralsLeaderboardScope)
   );
   const caps = parseCaps(byKey.get(APP_SETTING_KEYS.referralCaps));
+  const shareTrackingEnabled = parseAppSettingBool(
+    byKey.get(APP_SETTING_KEYS.enableShareTracking),
+    DEFAULT_REFERRAL_SETTINGS.shareTracking.enabled
+  );
+  const attributionWindowDays = Math.max(
+    1,
+    Math.min(
+      365,
+      parseAppSettingInt(
+        byKey.get(APP_SETTING_KEYS.attributionWindowDays),
+        DEFAULT_REFERRAL_SETTINGS.shareTracking.attributionWindowDays
+      )
+    )
+  );
+  const storeIpHash = parseAppSettingBool(
+    byKey.get(APP_SETTING_KEYS.storeIpHash),
+    DEFAULT_REFERRAL_SETTINGS.shareTracking.storeIpHash
+  );
 
   return {
     enabled,
@@ -269,6 +297,11 @@ export function parseReferralSettingsRows(rows: AppSettingRow[]): ReferralSettin
       allTimeEnabled: leaderboardAllTimeEnabled,
       initialsOnly: leaderboardInitialsOnly,
       scope: leaderboardScope,
+    },
+    shareTracking: {
+      enabled: shareTrackingEnabled,
+      attributionWindowDays,
+      storeIpHash,
     },
     caps,
   };
@@ -296,6 +329,9 @@ export async function getReferralSettings(client?: SupabaseClient): Promise<Refe
         APP_SETTING_KEYS.referralsLeaderboardAllTimeEnabled,
         APP_SETTING_KEYS.referralsLeaderboardInitialsOnly,
         APP_SETTING_KEYS.referralsLeaderboardScope,
+        APP_SETTING_KEYS.enableShareTracking,
+        APP_SETTING_KEYS.attributionWindowDays,
+        APP_SETTING_KEYS.storeIpHash,
         APP_SETTING_KEYS.referralCaps,
       ]);
 

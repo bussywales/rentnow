@@ -3,6 +3,31 @@ import assert from "node:assert/strict";
 import { NextResponse } from "next/server";
 import { postReferralCaptureResponse } from "@/app/api/referrals/capture/route";
 
+function mockReferralSettings() {
+  return {
+    enabled: true,
+    maxDepth: 5,
+    enabledLevels: [1],
+    rewardRules: { 1: { type: "listing_credit", amount: 1 } },
+    tierThresholds: { Bronze: 0 },
+    milestonesEnabled: true,
+    leaderboard: {
+      enabled: true,
+      publicVisible: true,
+      monthlyEnabled: true,
+      allTimeEnabled: true,
+      initialsOnly: true,
+      scope: "global" as const,
+    },
+    shareTracking: {
+      enabled: true,
+      attributionWindowDays: 30,
+      storeIpHash: false,
+    },
+    caps: { daily: 50, monthly: 500 },
+  };
+}
+
 void test("referral capture returns no_cookie when cookie is absent", async () => {
   const response = await postReferralCaptureResponse(
     new Request("http://localhost/api/referrals/capture", { method: "POST" }),
@@ -16,15 +41,20 @@ void test("referral capture returns no_cookie when cookie is absent", async () =
       hasServiceRoleEnv: () => true,
       createServiceRoleClient: () => ({} as never),
       readReferralCodeFromCookieHeader: () => null,
+      readReferralCampaignIdFromCookieHeader: () => null,
+      readReferralAnonIdFromCookieHeader: () => null,
       captureReferralForUser: async () => ({ ok: true, captured: false }),
-      getReferralSettings: async () => ({
+      getReferralSettings: async () => mockReferralSettings(),
+      getReferralTrackingSettings: async () => ({
         enabled: true,
-        maxDepth: 5,
-        enabledLevels: [1],
-        rewardRules: { 1: { type: "listing_credit", amount: 1 } },
-        tierThresholds: { Bronze: 0 },
-        caps: { daily: 50, monthly: 500 },
+        attributionWindowDays: 30,
+        storeIpHash: false,
       }),
+      resolveCampaignIfValid: async () => null,
+      insertReferralTouchEvent: async () => null,
+      findMostRecentTouchEventId: async () => null,
+      upsertReferralAttribution: async () => null,
+      isUuidLike: () => true,
       now: () => 1,
     }
   );
@@ -53,18 +83,23 @@ void test("referral capture calls service handler with parsed cookie code", asyn
       hasServiceRoleEnv: () => true,
       createServiceRoleClient: () => ({ from: () => ({}) } as never),
       readReferralCodeFromCookieHeader: () => "AGENT123",
+      readReferralCampaignIdFromCookieHeader: () => null,
+      readReferralAnonIdFromCookieHeader: () => null,
       captureReferralForUser: async ({ referralCode }) => {
         capturedReferralCode = referralCode;
         return { ok: true, captured: true, depth: 1 };
       },
-      getReferralSettings: async () => ({
+      getReferralSettings: async () => mockReferralSettings(),
+      getReferralTrackingSettings: async () => ({
         enabled: true,
-        maxDepth: 5,
-        enabledLevels: [1],
-        rewardRules: { 1: { type: "listing_credit", amount: 1 } },
-        tierThresholds: { Bronze: 0 },
-        caps: { daily: 50, monthly: 500 },
+        attributionWindowDays: 30,
+        storeIpHash: false,
       }),
+      resolveCampaignIfValid: async () => null,
+      insertReferralTouchEvent: async () => null,
+      findMostRecentTouchEventId: async () => null,
+      upsertReferralAttribution: async () => null,
+      isUuidLike: () => true,
       now: () => 1,
     }
   );
@@ -88,15 +123,20 @@ void test("referral capture returns auth response when user is missing", async (
       hasServiceRoleEnv: () => true,
       createServiceRoleClient: () => ({} as never),
       readReferralCodeFromCookieHeader: () => "ABC",
+      readReferralCampaignIdFromCookieHeader: () => null,
+      readReferralAnonIdFromCookieHeader: () => null,
       captureReferralForUser: async () => ({ ok: true, captured: false }),
-      getReferralSettings: async () => ({
+      getReferralSettings: async () => mockReferralSettings(),
+      getReferralTrackingSettings: async () => ({
         enabled: true,
-        maxDepth: 5,
-        enabledLevels: [1],
-        rewardRules: { 1: { type: "listing_credit", amount: 1 } },
-        tierThresholds: { Bronze: 0 },
-        caps: { daily: 50, monthly: 500 },
+        attributionWindowDays: 30,
+        storeIpHash: false,
       }),
+      resolveCampaignIfValid: async () => null,
+      insertReferralTouchEvent: async () => null,
+      findMostRecentTouchEventId: async () => null,
+      upsertReferralAttribution: async () => null,
+      isUuidLike: () => true,
       now: () => 1,
     }
   );

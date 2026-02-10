@@ -37,6 +37,11 @@ type Props = {
     initialsOnly: boolean;
     scope: "global" | "by_country" | "by_city";
   };
+  shareTracking: {
+    enabled: boolean;
+    attributionWindowDays: number;
+    storeIpHash: boolean;
+  };
   milestones: Milestone[];
   caps: { daily: number; monthly: number };
   analytics: AnalyticsPreview;
@@ -62,6 +67,11 @@ type FormState = {
     allTimeEnabled: boolean;
     initialsOnly: boolean;
     scope: "global" | "by_country" | "by_city";
+  };
+  shareTracking: {
+    enabled: boolean;
+    attributionWindowDays: number;
+    storeIpHash: boolean;
   };
   caps: { daily: number; monthly: number };
 };
@@ -194,6 +204,14 @@ function buildInitialState(props: Props): FormState {
       initialsOnly: Boolean(props.leaderboard.initialsOnly),
       scope: props.leaderboard.scope || "global",
     },
+    shareTracking: {
+      enabled: Boolean(props.shareTracking.enabled),
+      attributionWindowDays: Math.max(
+        1,
+        Math.min(365, Math.trunc(Number(props.shareTracking.attributionWindowDays || 30)))
+      ),
+      storeIpHash: Boolean(props.shareTracking.storeIpHash),
+    },
     caps: {
       daily: Math.max(0, Math.trunc(Number(props.caps.daily) || 0)),
       monthly: Math.max(0, Math.trunc(Number(props.caps.monthly) || 0)),
@@ -228,6 +246,11 @@ function cloneFormState(input: FormState): FormState {
       initialsOnly: input.leaderboard.initialsOnly,
       scope: input.leaderboard.scope,
     },
+    shareTracking: {
+      enabled: input.shareTracking.enabled,
+      attributionWindowDays: input.shareTracking.attributionWindowDays,
+      storeIpHash: input.shareTracking.storeIpHash,
+    },
     caps: { ...input.caps },
   };
 }
@@ -252,6 +275,13 @@ function validateForm(state: FormState): string[] {
   }
   if (state.caps.monthly < state.caps.daily) {
     issues.push("Monthly cap must be greater than or equal to daily cap.");
+  }
+  if (
+    !Number.isFinite(state.shareTracking.attributionWindowDays) ||
+    state.shareTracking.attributionWindowDays < 1 ||
+    state.shareTracking.attributionWindowDays > 365
+  ) {
+    issues.push("Attribution window must be between 1 and 365 days.");
   }
 
   let lastThreshold = -1;
@@ -508,6 +538,18 @@ export default function AdminSettingsReferrals(props: Props) {
         await patchSetting({
           key: "referrals_leaderboard_scope",
           value: { scope: form.leaderboard.scope },
+        });
+        await patchSetting({
+          key: "enable_share_tracking",
+          value: { enabled: form.shareTracking.enabled },
+        });
+        await patchSetting({
+          key: "attribution_window_days",
+          value: { days: Math.max(1, Math.trunc(form.shareTracking.attributionWindowDays)) },
+        });
+        await patchSetting({
+          key: "store_ip_hash",
+          value: { enabled: form.shareTracking.storeIpHash },
         });
         await patchSetting({
           key: "referral_caps",
@@ -987,6 +1029,80 @@ export default function AdminSettingsReferrals(props: Props) {
           <p className="mt-2 text-xs text-slate-500">
             If both windows are off, agents will default to all-time rank callout only. Scope currently runs as global.
           </p>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-900">Share tracking controls</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Analytics-only layer for campaign links and invite reminders. Does not change rewards or cashout rules.
+          </p>
+          <p className="mt-1 text-xs text-slate-600">
+            <Link href="/admin/referrals/attribution" className="font-semibold underline underline-offset-4">
+              Open attribution analytics
+            </Link>
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.shareTracking.enabled}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    shareTracking: {
+                      ...current.shareTracking,
+                      enabled: event.target.checked,
+                    },
+                  }))
+                }
+                disabled={pending}
+              />
+              Enable share tracking
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.shareTracking.storeIpHash}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    shareTracking: {
+                      ...current.shareTracking,
+                      storeIpHash: event.target.checked,
+                    },
+                  }))
+                }
+                disabled={pending || !form.shareTracking.enabled}
+              />
+              Store IP hash (privacy-safe)
+            </label>
+            <label className="space-y-1 text-sm text-slate-700 sm:col-span-2">
+              <span className="text-xs uppercase tracking-wide text-slate-500">
+                Attribution window (days, informational)
+              </span>
+              <Input
+                type="number"
+                min={1}
+                max={365}
+                step={1}
+                value={form.shareTracking.attributionWindowDays}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    shareTracking: {
+                      ...current.shareTracking,
+                      attributionWindowDays: Math.max(
+                        1,
+                        Math.min(365, Math.trunc(Number(event.target.value || 1)))
+                      ),
+                    },
+                  }))
+                }
+                disabled={pending || !form.shareTracking.enabled}
+                className="max-w-[220px]"
+              />
+            </label>
+          </div>
         </div>
 
         {form.milestonesEnabled && (

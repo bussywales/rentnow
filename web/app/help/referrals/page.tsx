@@ -121,7 +121,29 @@ export default function ReferralHelpPage() {
           </p>
         </FaqItem>
 
-        <FaqItem id="agent-cashout-country" question="10. Why can't I cash out in my country?">
+        <FaqItem id="agent-share-tracking" question="10. What are tracking links and campaign tags (UTM)?">
+          <p>
+            Tracking links let you label where invites came from (for example WhatsApp or LinkedIn)
+            and compare clicks, captures, and Active referrals by campaign.
+          </p>
+          <p>
+            UTM tags are optional labels in the URL. They help you understand which messages or
+            channels are converting best.
+          </p>
+        </FaqItem>
+
+        <FaqItem id="agent-invite-reminders" question="11. How do invite reminders work?">
+          <p>
+            Invite reminders are internal notes for your workflow. Add a name, optional contact,
+            reminder date, and status to keep follow-ups organized.
+          </p>
+          <p>
+            This tool does not automatically send messages yet; it helps you track who to follow up
+            with.
+          </p>
+        </FaqItem>
+
+        <FaqItem id="agent-cashout-country" question="12. Why can't I cash out in my country?">
           <p>
             Cashout is controlled by country policy. Some countries may have cashout disabled, and
             some reward sources may be excluded from cashout eligibility.
@@ -132,7 +154,7 @@ export default function ReferralHelpPage() {
           </p>
         </FaqItem>
 
-        <FaqItem id="agent-cashout-rate" question="11. How is cashout rate calculated?">
+        <FaqItem id="agent-cashout-rate" question="13. How is cashout rate calculated?">
           <p>
             Admin can configure either:
           </p>
@@ -145,7 +167,7 @@ export default function ReferralHelpPage() {
           </p>
         </FaqItem>
 
-        <FaqItem id="agent-fraud" question="12. Fraud/abuse policy summary">
+        <FaqItem id="agent-fraud" question="14. Fraud/abuse policy summary">
           <p>
             We monitor suspicious patterns, including duplicate or manipulated activity. Abuse can
             lead to withheld rewards, reversed credits, payout blocking, or account restrictions.
@@ -188,7 +210,18 @@ export default function ReferralHelpPage() {
           </p>
         </FaqItem>
 
-        <FaqItem id="admin-milestones" question="5. How should I set milestones, and what do agents see?">
+        <FaqItem id="admin-share-tracking" question="5. How should I configure share tracking controls?">
+          <p>
+            In Admin Settings → Referrals, use Share tracking controls to enable or disable campaign
+            analytics, set attribution window days, and decide whether IP hash storage is allowed.
+          </p>
+          <p>
+            These controls affect analytics only and do not change referral rewards, milestone
+            rules, or cashout logic.
+          </p>
+        </FaqItem>
+
+        <FaqItem id="admin-milestones" question="6. How should I set milestones, and what do agents see?">
           <p>
             Configure milestone name, threshold (Active referrals), bonus credits, and enabled
             state. Thresholds must be unique.
@@ -199,7 +232,7 @@ export default function ReferralHelpPage() {
           </p>
         </FaqItem>
 
-        <FaqItem id="admin-jurisdictions" question="6. How do jurisdiction policies affect cashout?">
+        <FaqItem id="admin-jurisdictions" question="7. How do jurisdiction policies affect cashout?">
           <p>
             Jurisdiction policy controls whether payouts and conversion are enabled, which reward
             sources are cashout-eligible, and how cashout rates are configured.
@@ -207,7 +240,7 @@ export default function ReferralHelpPage() {
           <p>Country policy can allow credits while still blocking cashout.</p>
         </FaqItem>
 
-        <FaqItem id="admin-payout-queue" question="7. How should I interpret payout queue and manual approval?">
+        <FaqItem id="admin-payout-queue" question="8. How should I interpret payout queue and manual approval?">
           <p>
             The payouts queue shows submitted cashout requests and status transitions. Manual
             approval gives ops a review checkpoint before payment completion.
