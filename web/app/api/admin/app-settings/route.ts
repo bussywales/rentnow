@@ -105,6 +105,13 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
     key === APP_SETTING_KEYS.referralTierThresholds ||
     key === APP_SETTING_KEYS.referralsTierThresholds;
   const isReferralMilestonesEnabled = key === APP_SETTING_KEYS.referralsMilestonesEnabled;
+  const isReferralLeaderboardEnabled = key === APP_SETTING_KEYS.referralsLeaderboardEnabled;
+  const isReferralLeaderboardPublicVisible =
+    key === APP_SETTING_KEYS.referralsLeaderboardPublicVisible;
+  const isReferralLeaderboardMonthlyEnabled =
+    key === APP_SETTING_KEYS.referralsLeaderboardMonthlyEnabled;
+  const isReferralLeaderboardAllTimeEnabled =
+    key === APP_SETTING_KEYS.referralsLeaderboardAllTimeEnabled;
   const isReferralCaps = key === APP_SETTING_KEYS.referralCaps;
 
   if (isModeSetting) return modeValueSchema.safeParse(value).success;
@@ -118,6 +125,10 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   if (isReferralRules) return referralRewardRulesSchema.safeParse(value).success;
   if (isReferralTiers) return referralTierThresholdSchema.safeParse(value).success;
   if (isReferralMilestonesEnabled) return enabledValueSchema.safeParse(value).success;
+  if (isReferralLeaderboardEnabled) return enabledValueSchema.safeParse(value).success;
+  if (isReferralLeaderboardPublicVisible) return enabledValueSchema.safeParse(value).success;
+  if (isReferralLeaderboardMonthlyEnabled) return enabledValueSchema.safeParse(value).success;
+  if (isReferralLeaderboardAllTimeEnabled) return enabledValueSchema.safeParse(value).success;
   if (isReferralCaps) return referralCapsSchema.safeParse(value).success;
   return enabledValueSchema.safeParse(value).success;
 }

@@ -7,6 +7,11 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { cn } from "@/components/ui/cn";
 import type { ReferralTierStatus } from "@/lib/referrals/settings";
+import ReferralTierBadge from "@/components/referrals/ReferralTierBadge";
+import type {
+  ReferralLeaderboardSnapshot,
+  ReferralLeaderboardWindow,
+} from "@/lib/referrals/leaderboard.server";
 
 type TreeNode = {
   userId: string;
@@ -83,6 +88,7 @@ type Props = {
   wallet: WalletSnapshot;
   milestonesEnabled: boolean;
   milestones: ReferralMilestoneStatus[];
+  leaderboard: ReferralLeaderboardSnapshot;
   jurisdictionCountryCode: string;
   cashoutPolicy: CashoutPolicy;
   cashoutRequests: CashoutRequest[];
@@ -159,6 +165,7 @@ export default function AgentReferralDashboard(props: Props) {
     wallet,
     milestonesEnabled,
     milestones,
+    leaderboard,
     jurisdictionCountryCode,
     cashoutPolicy,
     cashoutRequests,
@@ -178,6 +185,12 @@ export default function AgentReferralDashboard(props: Props) {
   const [tierState, setTierState] = useState<ReferralTierStatus>(tier);
   const [milestoneState, setMilestoneState] = useState<ReferralMilestoneStatus[]>(milestones);
   const [claimingMilestoneId, setClaimingMilestoneId] = useState<string | null>(null);
+  const [selectedLeaderboardWindow, setSelectedLeaderboardWindow] =
+    useState<ReferralLeaderboardWindow>(leaderboard.defaultWindow);
+  const [leaderboardOptedOut, setLeaderboardOptedOut] = useState<boolean>(
+    leaderboard.userOptedOut
+  );
+  const [leaderboardSaving, setLeaderboardSaving] = useState(false);
 
   const depth = Math.max(1, Math.min(5, Math.trunc(maxDepth || 1)));
   const cashoutEnabled = cashoutPolicy.payouts_enabled && cashoutPolicy.conversion_enabled;
@@ -204,6 +217,10 @@ export default function AgentReferralDashboard(props: Props) {
   useEffect(() => {
     setMilestoneState(milestones);
   }, [milestones]);
+  useEffect(() => {
+    setSelectedLeaderboardWindow(leaderboard.defaultWindow);
+    setLeaderboardOptedOut(leaderboard.userOptedOut);
+  }, [leaderboard.defaultWindow, leaderboard.userOptedOut]);
 
   const levels = useMemo(() => {
     const allLevels = Array.from({ length: depth }, (_, index) => index + 1);
@@ -345,6 +362,31 @@ export default function AgentReferralDashboard(props: Props) {
     }
   };
 
+  const setLeaderboardVisibility = async (visible: boolean) => {
+    setLeaderboardSaving(true);
+    try {
+      const response = await fetch("/api/referrals/leaderboard-preference", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ visible }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok || !payload?.ok) {
+        setToast({ message: "Unable to update leaderboard visibility", variant: "error" });
+        return;
+      }
+      setLeaderboardOptedOut(Boolean(payload.optedOut));
+      setToast({
+        message: visible ? "Leaderboard visibility enabled" : "Leaderboard visibility disabled",
+        variant: "success",
+      });
+    } catch {
+      setToast({ message: "Unable to update leaderboard visibility", variant: "error" });
+    } finally {
+      setLeaderboardSaving(false);
+    }
+  };
+
   const tierRemaining =
     tierState.nextThreshold !== null
       ? Math.max(0, tierState.nextThreshold - verifiedReferrals)
@@ -373,6 +415,10 @@ export default function AgentReferralDashboard(props: Props) {
         )
       )
     : 100;
+  const selectedLeaderboard =
+    leaderboard.windows.find((window) => window.window === selectedLeaderboardWindow) ??
+    leaderboard.windows[0] ??
+    null;
 
   return (
     <>
@@ -522,12 +568,11 @@ export default function AgentReferralDashboard(props: Props) {
           </div>
           <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="referrals-metric-tier">
             <p className="text-xs uppercase tracking-wide text-slate-500">Tier badge</p>
-            <div
-                className="mt-2 inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-800"
-                data-testid="referrals-tier-badge"
-            >
-              {tierState.currentTier}
-            </div>
+            <ReferralTierBadge
+              tier={tierState.currentTier}
+              className="mt-2"
+              data-testid="referrals-tier-badge"
+            />
             <p className="mt-2 text-xs text-slate-600">Active referrals: {formatNumber(verifiedReferrals)}</p>
           </div>
         </section>
@@ -538,9 +583,7 @@ export default function AgentReferralDashboard(props: Props) {
               <h2 className="text-lg font-semibold text-slate-900">Your tier</h2>
               <p className="text-sm text-slate-600">Based on Active referrals only.</p>
             </div>
-            <span className="inline-flex items-center rounded-full bg-sky-100 px-3 py-1 text-sm font-semibold text-sky-800">
-              {tierState.currentTier}
-            </span>
+            <ReferralTierBadge tier={tierState.currentTier} className="text-sm" />
           </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -669,6 +712,102 @@ export default function AgentReferralDashboard(props: Props) {
               </div>
             ) : (
               <p className="mt-3 text-sm text-slate-600">No milestone bonuses configured.</p>
+            )}
+          </section>
+        )}
+
+        {leaderboard.enabled && selectedLeaderboard && (
+          <section
+            className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+            data-testid="referrals-leaderboard-section"
+          >
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Top referrers</h2>
+                <p className="text-sm text-slate-600">
+                  Status ranking based on Active referrals only.
+                </p>
+              </div>
+              <div className="inline-flex items-center rounded-lg border border-slate-200 bg-slate-50 p-1 text-xs">
+                {leaderboard.availableWindows.map((window) => (
+                  <button
+                    key={window}
+                    type="button"
+                    className={cn(
+                      "rounded-md px-2 py-1 font-semibold",
+                      selectedLeaderboardWindow === window
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-600"
+                    )}
+                    onClick={() => setSelectedLeaderboardWindow(window)}
+                  >
+                    {window === "month" ? "This month" : "All time"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Your rank</p>
+              <p className="mt-1 text-base font-semibold text-slate-900">
+                {selectedLeaderboard.myRank
+                  ? `You're ranked #${formatNumber(selectedLeaderboard.myRank)} out of ${formatNumber(
+                      selectedLeaderboard.totalAgents
+                    )} agents ${selectedLeaderboard.window === "month" ? "this month" : "all time"}.`
+                  : `No rank yet for ${
+                      selectedLeaderboard.window === "month" ? "this month" : "all time"
+                    }.`}
+              </p>
+              <p className="mt-1 text-xs text-slate-600">
+                Active referrals counted for you: {formatNumber(selectedLeaderboard.myActiveReferrals)}
+              </p>
+            </div>
+
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={!leaderboardOptedOut}
+                  onChange={(event) => void setLeaderboardVisibility(event.target.checked)}
+                  disabled={leaderboardSaving}
+                />
+                Show me on leaderboard
+              </label>
+              <p className="mt-1 text-xs text-slate-500">
+                Turn this off to hide your profile from Top 10 lists. You can still view your own rank.
+              </p>
+            </div>
+
+            {leaderboard.publicVisible ? (
+              <div className="mt-4 space-y-2">
+                {selectedLeaderboard.entries.length ? (
+                  selectedLeaderboard.entries.map((entry) => (
+                    <div
+                      key={`${selectedLeaderboard.window}:${entry.userId}`}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-slate-700">
+                          #{formatNumber(entry.rank)}
+                        </span>
+                        <p className="text-sm font-semibold text-slate-900">{entry.displayName}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <ReferralTierBadge tier={entry.tier} />
+                        <span className="text-xs text-slate-600">
+                          {formatNumber(entry.activeReferrals)} Active
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-slate-600">No leaderboard entries available yet.</p>
+                )}
+              </div>
+            ) : (
+              <p className="mt-4 text-sm text-slate-600">
+                Leaderboard visibility is currently turned off by admin.
+              </p>
             )}
           </section>
         )}

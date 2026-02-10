@@ -135,3 +135,22 @@ void test("validateSettingValueByKey rejects invalid referral caps payload", () 
     false
   );
 });
+
+void test("validateSettingValueByKey accepts leaderboard toggle payloads", () => {
+  assert.equal(
+    validateSettingValueByKey("referrals_leaderboard_enabled", { enabled: true }),
+    true
+  );
+  assert.equal(
+    validateSettingValueByKey("referrals_leaderboard_public_visible", { enabled: false }),
+    true
+  );
+  assert.equal(
+    validateSettingValueByKey("referrals_leaderboard_monthly_enabled", { enabled: true }),
+    true
+  );
+  assert.equal(
+    validateSettingValueByKey("referrals_leaderboard_all_time_enabled", { enabled: true }),
+    true
+  );
+});

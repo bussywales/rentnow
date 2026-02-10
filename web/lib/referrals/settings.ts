@@ -24,6 +24,12 @@ export type ReferralSettings = {
   rewardRules: Record<number, ReferralRewardRule>;
   tierThresholds: ReferralTierThresholds;
   milestonesEnabled: boolean;
+  leaderboard: {
+    enabled: boolean;
+    publicVisible: boolean;
+    monthlyEnabled: boolean;
+    allTimeEnabled: boolean;
+  };
   caps: ReferralCaps;
 };
 
@@ -48,6 +54,12 @@ export const DEFAULT_REFERRAL_SETTINGS: ReferralSettings = {
   },
   tierThresholds: DEFAULT_TIER_THRESHOLDS,
   milestonesEnabled: true,
+  leaderboard: {
+    enabled: true,
+    publicVisible: true,
+    monthlyEnabled: true,
+    allTimeEnabled: true,
+  },
   caps: {
     daily: 50,
     monthly: 500,
@@ -203,6 +215,22 @@ export function parseReferralSettingsRows(rows: AppSettingRow[]): ReferralSettin
     byKey.get(APP_SETTING_KEYS.referralsMilestonesEnabled),
     DEFAULT_REFERRAL_SETTINGS.milestonesEnabled
   );
+  const leaderboardEnabled = parseAppSettingBool(
+    byKey.get(APP_SETTING_KEYS.referralsLeaderboardEnabled),
+    DEFAULT_REFERRAL_SETTINGS.leaderboard.enabled
+  );
+  const leaderboardPublicVisible = parseAppSettingBool(
+    byKey.get(APP_SETTING_KEYS.referralsLeaderboardPublicVisible),
+    DEFAULT_REFERRAL_SETTINGS.leaderboard.publicVisible
+  );
+  const leaderboardMonthlyEnabled = parseAppSettingBool(
+    byKey.get(APP_SETTING_KEYS.referralsLeaderboardMonthlyEnabled),
+    DEFAULT_REFERRAL_SETTINGS.leaderboard.monthlyEnabled
+  );
+  const leaderboardAllTimeEnabled = parseAppSettingBool(
+    byKey.get(APP_SETTING_KEYS.referralsLeaderboardAllTimeEnabled),
+    DEFAULT_REFERRAL_SETTINGS.leaderboard.allTimeEnabled
+  );
   const caps = parseCaps(byKey.get(APP_SETTING_KEYS.referralCaps));
 
   return {
@@ -212,6 +240,12 @@ export function parseReferralSettingsRows(rows: AppSettingRow[]): ReferralSettin
     rewardRules,
     tierThresholds,
     milestonesEnabled,
+    leaderboard: {
+      enabled: leaderboardEnabled,
+      publicVisible: leaderboardPublicVisible,
+      monthlyEnabled: leaderboardMonthlyEnabled,
+      allTimeEnabled: leaderboardAllTimeEnabled,
+    },
     caps,
   };
 }
@@ -232,6 +266,10 @@ export async function getReferralSettings(client?: SupabaseClient): Promise<Refe
         APP_SETTING_KEYS.referralsTierThresholds,
         APP_SETTING_KEYS.referralTierThresholds,
         APP_SETTING_KEYS.referralsMilestonesEnabled,
+        APP_SETTING_KEYS.referralsLeaderboardEnabled,
+        APP_SETTING_KEYS.referralsLeaderboardPublicVisible,
+        APP_SETTING_KEYS.referralsLeaderboardMonthlyEnabled,
+        APP_SETTING_KEYS.referralsLeaderboardAllTimeEnabled,
         APP_SETTING_KEYS.referralCaps,
       ]);
 

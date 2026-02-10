@@ -29,6 +29,12 @@ type Props = {
   rewardRules: Record<number, { type: string; amount: number }>;
   tierThresholds: Record<string, number>;
   milestonesEnabled: boolean;
+  leaderboard: {
+    enabled: boolean;
+    publicVisible: boolean;
+    monthlyEnabled: boolean;
+    allTimeEnabled: boolean;
+  };
   milestones: Milestone[];
   caps: { daily: number; monthly: number };
   analytics: AnalyticsPreview;
@@ -47,6 +53,12 @@ type FormState = {
   tierOrder: string[];
   tierThresholds: Record<string, number>;
   milestonesEnabled: boolean;
+  leaderboard: {
+    enabled: boolean;
+    publicVisible: boolean;
+    monthlyEnabled: boolean;
+    allTimeEnabled: boolean;
+  };
   caps: { daily: number; monthly: number };
 };
 
@@ -170,6 +182,12 @@ function buildInitialState(props: Props): FormState {
     tierOrder,
     tierThresholds,
     milestonesEnabled: Boolean(props.milestonesEnabled),
+    leaderboard: {
+      enabled: Boolean(props.leaderboard.enabled),
+      publicVisible: Boolean(props.leaderboard.publicVisible),
+      monthlyEnabled: Boolean(props.leaderboard.monthlyEnabled),
+      allTimeEnabled: Boolean(props.leaderboard.allTimeEnabled),
+    },
     caps: {
       daily: Math.max(0, Math.trunc(Number(props.caps.daily) || 0)),
       monthly: Math.max(0, Math.trunc(Number(props.caps.monthly) || 0)),
@@ -196,6 +214,12 @@ function cloneFormState(input: FormState): FormState {
       input.tierOrder.map((name) => [name, input.tierThresholds[name]])
     ),
     milestonesEnabled: input.milestonesEnabled,
+    leaderboard: {
+      enabled: input.leaderboard.enabled,
+      publicVisible: input.leaderboard.publicVisible,
+      monthlyEnabled: input.leaderboard.monthlyEnabled,
+      allTimeEnabled: input.leaderboard.allTimeEnabled,
+    },
     caps: { ...input.caps },
   };
 }
@@ -452,6 +476,22 @@ export default function AdminSettingsReferrals(props: Props) {
         await patchSetting({
           key: "referrals_milestones_enabled",
           value: { enabled: form.milestonesEnabled },
+        });
+        await patchSetting({
+          key: "referrals_leaderboard_enabled",
+          value: { enabled: form.leaderboard.enabled },
+        });
+        await patchSetting({
+          key: "referrals_leaderboard_public_visible",
+          value: { enabled: form.leaderboard.publicVisible },
+        });
+        await patchSetting({
+          key: "referrals_leaderboard_monthly_enabled",
+          value: { enabled: form.leaderboard.monthlyEnabled },
+        });
+        await patchSetting({
+          key: "referrals_leaderboard_all_time_enabled",
+          value: { enabled: form.leaderboard.allTimeEnabled },
         });
         await patchSetting({
           key: "referral_caps",
@@ -809,6 +849,86 @@ export default function AdminSettingsReferrals(props: Props) {
             />
             Enable milestone bonuses
           </label>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <p className="text-sm font-semibold text-slate-900">Leaderboard controls</p>
+          <p className="mt-1 text-xs text-slate-600">
+            Use leaderboard visibility to motivate progress with status, not payouts.
+          </p>
+          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.leaderboard.enabled}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    leaderboard: {
+                      ...current.leaderboard,
+                      enabled: event.target.checked,
+                    },
+                  }))
+                }
+                disabled={pending}
+              />
+              Enable leaderboard
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.leaderboard.publicVisible}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    leaderboard: {
+                      ...current.leaderboard,
+                      publicVisible: event.target.checked,
+                    },
+                  }))
+                }
+                disabled={pending || !form.leaderboard.enabled}
+              />
+              Enable public leaderboard visibility
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.leaderboard.monthlyEnabled}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    leaderboard: {
+                      ...current.leaderboard,
+                      monthlyEnabled: event.target.checked,
+                    },
+                  }))
+                }
+                disabled={pending || !form.leaderboard.enabled}
+              />
+              Monthly leaderboard
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={form.leaderboard.allTimeEnabled}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    leaderboard: {
+                      ...current.leaderboard,
+                      allTimeEnabled: event.target.checked,
+                    },
+                  }))
+                }
+                disabled={pending || !form.leaderboard.enabled}
+              />
+              All-time leaderboard
+            </label>
+          </div>
+          <p className="mt-2 text-xs text-slate-500">
+            If both windows are off, agents will default to all-time rank callout only.
+          </p>
         </div>
 
         {form.milestonesEnabled && (

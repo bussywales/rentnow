@@ -41,8 +41,8 @@ export default function HelpCentrePage() {
         >
           <h2 className="text-lg font-semibold text-slate-900">Referral FAQ</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Role-based guide for agents/hosts and admins: active rules, tiers, milestones, and
-            jurisdiction cashout.
+            Role-based guide for agents/hosts and admins: active rules, tiers, milestones,
+            leaderboard visibility, and jurisdiction cashout.
           </p>
         </Link>
       </div>

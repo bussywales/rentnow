@@ -55,6 +55,10 @@ export default async function AdminReferralSettingsPage() {
         APP_SETTING_KEYS.referralsTierThresholds,
         APP_SETTING_KEYS.referralTierThresholds,
         APP_SETTING_KEYS.referralsMilestonesEnabled,
+        APP_SETTING_KEYS.referralsLeaderboardEnabled,
+        APP_SETTING_KEYS.referralsLeaderboardPublicVisible,
+        APP_SETTING_KEYS.referralsLeaderboardMonthlyEnabled,
+        APP_SETTING_KEYS.referralsLeaderboardAllTimeEnabled,
         APP_SETTING_KEYS.referralCaps,
       ]),
     supabase.from("referrals").select("id", { count: "exact", head: true }),
@@ -96,6 +100,7 @@ export default async function AdminReferralSettingsPage() {
     rewardRules: settings.rewardRules,
     tierThresholds: settings.tierThresholds,
     milestonesEnabled: settings.milestonesEnabled,
+    leaderboard: settings.leaderboard,
     caps: settings.caps,
     milestones:
       ((milestoneRows.data as Array<{
@@ -143,6 +148,7 @@ export default async function AdminReferralSettingsPage() {
         rewardRules={settings.rewardRules}
         tierThresholds={settings.tierThresholds}
         milestonesEnabled={settings.milestonesEnabled}
+        leaderboard={settings.leaderboard}
         milestones={
           ((milestoneRows.data as Array<{
             id: string;

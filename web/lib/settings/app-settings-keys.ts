@@ -22,6 +22,10 @@ export const APP_SETTING_KEYS = {
   referralTierThresholds: "referral_tier_thresholds",
   referralsTierThresholds: "referrals_tier_thresholds",
   referralsMilestonesEnabled: "referrals_milestones_enabled",
+  referralsLeaderboardEnabled: "referrals_leaderboard_enabled",
+  referralsLeaderboardPublicVisible: "referrals_leaderboard_public_visible",
+  referralsLeaderboardMonthlyEnabled: "referrals_leaderboard_monthly_enabled",
+  referralsLeaderboardAllTimeEnabled: "referrals_leaderboard_all_time_enabled",
   referralCaps: "referral_caps",
 } as const;
 

@@ -31,6 +31,12 @@ test("agent referrals dashboard smoke", async ({ page }) => {
     await expect(milestonesSection).toContainText(/Milestones/i);
   }
 
+  const leaderboardSection = page.getByTestId("referrals-leaderboard-section");
+  if (await leaderboardSection.isVisible().catch(() => false)) {
+    await expect(leaderboardSection).toContainText(/Top referrers/i);
+    await expect(leaderboardSection).toContainText(/Your rank|No rank yet/i);
+  }
+
   const copyButton = page.getByRole("button", { name: /^Copy$/i });
   await expect(copyButton).toBeVisible();
 

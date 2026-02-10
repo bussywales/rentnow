@@ -79,7 +79,17 @@ export default function ReferralHelpPage() {
           </p>
         </FaqItem>
 
-        <FaqItem id="agent-milestones" question="5. How do milestones work?">
+        <FaqItem id="agent-tier-badges" question="5. What do tier badges mean?">
+          <p>
+            Tier badges (Bronze, Silver, Gold, Platinum) are status markers based on your Active
+            referral count.
+          </p>
+          <p>
+            They show growth level only. Tier badges do not directly represent cash value.
+          </p>
+        </FaqItem>
+
+        <FaqItem id="agent-milestones" question="6. How do milestones work?">
           <p>
             Milestones are one-time bonus credit unlocks at specific Active referral thresholds.
           </p>
@@ -89,7 +99,29 @@ export default function ReferralHelpPage() {
           </p>
         </FaqItem>
 
-        <FaqItem id="agent-cashout-country" question="6. Why can’t I cash out in my country?">
+        <FaqItem id="agent-leaderboard" question="7. How is the leaderboard calculated?">
+          <p>
+            Leaderboard rank is based on Active referrals only, not earnings. You can switch between
+            This month and All time when both views are enabled.
+          </p>
+        </FaqItem>
+
+        <FaqItem id="agent-privacy" question="8. Can others see my referral activity?">
+          <p>
+            Top leaderboard lists show masked names, tier badge, and Active referral count only.
+            Credits, earnings, and cash amounts are never shown.
+          </p>
+          <p>You can opt out of leaderboard visibility from your referrals dashboard.</p>
+        </FaqItem>
+
+        <FaqItem id="agent-improve-tier" question="9. How do I improve my tier?">
+          <p>
+            Focus on helping invited users become Active referrals. The fastest path is quality
+            invites who complete verified paid events.
+          </p>
+        </FaqItem>
+
+        <FaqItem id="agent-cashout-country" question="10. Why can't I cash out in my country?">
           <p>
             Cashout is controlled by country policy. Some countries may have cashout disabled, and
             some reward sources may be excluded from cashout eligibility.
@@ -100,7 +132,7 @@ export default function ReferralHelpPage() {
           </p>
         </FaqItem>
 
-        <FaqItem id="agent-cashout-rate" question="7. How is cashout rate calculated?">
+        <FaqItem id="agent-cashout-rate" question="11. How is cashout rate calculated?">
           <p>
             Admin can configure either:
           </p>
@@ -113,7 +145,7 @@ export default function ReferralHelpPage() {
           </p>
         </FaqItem>
 
-        <FaqItem id="agent-fraud" question="8. Fraud/abuse policy summary">
+        <FaqItem id="agent-fraud" question="12. Fraud/abuse policy summary">
           <p>
             We monitor suspicious patterns, including duplicate or manipulated activity. Abuse can
             lead to withheld rewards, reversed credits, payout blocking, or account restrictions.
@@ -146,7 +178,17 @@ export default function ReferralHelpPage() {
           <p>Keep Bronze at 0 as your baseline entry tier.</p>
         </FaqItem>
 
-        <FaqItem id="admin-milestones" question="4. How should I set milestones, and what do agents see?">
+        <FaqItem id="admin-leaderboard-controls" question="4. How should I configure leaderboard visibility?">
+          <p>
+            Use leaderboard toggles to control whether ranking is enabled, whether it is publicly
+            visible to agents, and whether monthly/all-time windows are available.
+          </p>
+          <p>
+            Keep messaging focused on status and growth rather than payouts.
+          </p>
+        </FaqItem>
+
+        <FaqItem id="admin-milestones" question="5. How should I set milestones, and what do agents see?">
           <p>
             Configure milestone name, threshold (Active referrals), bonus credits, and enabled
             state. Thresholds must be unique.
@@ -157,7 +199,7 @@ export default function ReferralHelpPage() {
           </p>
         </FaqItem>
 
-        <FaqItem id="admin-jurisdictions" question="5. How do jurisdiction policies affect cashout?">
+        <FaqItem id="admin-jurisdictions" question="6. How do jurisdiction policies affect cashout?">
           <p>
             Jurisdiction policy controls whether payouts and conversion are enabled, which reward
             sources are cashout-eligible, and how cashout rates are configured.
@@ -165,7 +207,7 @@ export default function ReferralHelpPage() {
           <p>Country policy can allow credits while still blocking cashout.</p>
         </FaqItem>
 
-        <FaqItem id="admin-payout-queue" question="6. How should I interpret payout queue and manual approval?">
+        <FaqItem id="admin-payout-queue" question="7. How should I interpret payout queue and manual approval?">
           <p>
             The payouts queue shows submitted cashout requests and status transitions. Manual
             approval gives ops a review checkpoint before payment completion.

@@ -11,6 +11,7 @@ import { getReferralDashboardSnapshot, ensureReferralCode } from "@/lib/referral
 import { getReferralSettings, resolveReferralTierStatus } from "@/lib/referrals/settings";
 import { getUserReferralCashoutContext } from "@/lib/referrals/cashout.server";
 import { getReferralMilestoneStatusesForUser } from "@/lib/referrals/milestones.server";
+import { getReferralLeaderboardSnapshot } from "@/lib/referrals/leaderboard.server";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 
 export const dynamic = "force-dynamic";
@@ -87,6 +88,11 @@ export default async function DashboardReferralsPage() {
         activeReferralsCount: snapshot.verifiedReferrals,
       })
     : [];
+  const leaderboard = await getReferralLeaderboardSnapshot({
+    userId: user.id,
+    tierThresholds: settings.tierThresholds,
+    config: settings.leaderboard,
+  });
 
   return (
     <AgentReferralDashboard
@@ -107,6 +113,7 @@ export default async function DashboardReferralsPage() {
       wallet={cashoutContext.wallet}
       milestonesEnabled={settings.milestonesEnabled}
       milestones={milestones}
+      leaderboard={leaderboard}
       jurisdictionCountryCode={cashoutContext.jurisdiction.countryCode}
       cashoutPolicy={cashoutContext.policy}
       cashoutRequests={cashoutContext.requests}
