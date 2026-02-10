@@ -27,6 +27,13 @@ type ReferralRewardSumRow = {
 type CreditRow = {
   credits_total: number | null;
   credits_used?: number | null;
+  source?: string | null;
+};
+
+type MilestoneLedgerRow = {
+  source_ref: string;
+  credits: number | null;
+  created_at: string;
 };
 
 export type ReferralCaptureResult =
@@ -477,7 +484,13 @@ export async function getReferralDashboardSnapshot(input: {
   const { client, userId } = input;
   const maxDepth = Math.max(1, Math.min(5, input.maxDepth ?? 5));
 
-  const [{ data: referralsData }, { data: rewardsData }, { data: listingCredits }, { data: featuredCredits }] =
+  const [
+    { data: referralsData },
+    { data: rewardsData },
+    { data: listingCredits },
+    { data: featuredCredits },
+    { data: milestoneLedgerRows },
+  ] =
     await Promise.all([
       client
         .from("referrals")
@@ -491,14 +504,22 @@ export async function getReferralDashboardSnapshot(input: {
         .limit(100),
       client
         .from("listing_credits")
-        .select("credits_total, credits_used")
+        .select("credits_total, credits_used, source")
         .eq("user_id", userId)
-        .eq("source", "referral_listing_credit"),
+        .ilike("source", "referral_%"),
       client
         .from("featured_credits")
         .select("credits_total, credits_used")
         .eq("user_id", userId)
         .eq("source", "referral_featured_credit"),
+      client
+        .from("referral_credit_ledger")
+        .select("source_ref, credits, created_at")
+        .eq("user_id", userId)
+        .eq("type", "earn")
+        .eq("source_event", "referral_milestone_claimed")
+        .order("created_at", { ascending: false })
+        .limit(25),
     ]);
 
   const referrals = (referralsData as ReferralRow[] | null) ?? [];
@@ -561,12 +582,25 @@ export async function getReferralDashboardSnapshot(input: {
     acc[level] = (acc[level] ?? 0) + Math.max(0, Number(reward.reward_amount || 0));
     return acc;
   }, {});
-  const creditsEarnedTotal = Object.values(creditsEarnedByLevel).reduce((sum, amount) => sum + amount, 0);
+  const baseCreditsEarnedTotal = Object.values(creditsEarnedByLevel).reduce(
+    (sum, amount) => sum + amount,
+    0
+  );
 
-  const issuedRows = [
-    ...(((listingCredits as CreditRow[] | null) ?? [])),
-    ...(((featuredCredits as CreditRow[] | null) ?? [])),
-  ];
+  const listingRows = ((listingCredits as CreditRow[] | null) ?? []).filter((row) => {
+    const source = String(row.source || "");
+    return source === "referral_listing_credit" || source.startsWith("referral_milestone_bonus:");
+  });
+  const milestoneCreditRows = listingRows.filter((row) =>
+    String(row.source || "").startsWith("referral_milestone_bonus:")
+  );
+  const milestoneBonusEarned = milestoneCreditRows.reduce(
+    (sum, row) => sum + Math.max(0, Number(row.credits_total || 0)),
+    0
+  );
+  const creditsEarnedTotal = baseCreditsEarnedTotal + milestoneBonusEarned;
+
+  const issuedRows = [...listingRows, ...(((featuredCredits as CreditRow[] | null) ?? []))];
   const creditsIssuedTotal = issuedRows.reduce(
     (sum, row) => sum + Math.max(0, Number(row.credits_total || 0)),
     0
@@ -612,6 +646,19 @@ export async function getReferralDashboardSnapshot(input: {
     eventType: reward.event_type,
   }));
 
+  const milestoneActivity = ((milestoneLedgerRows as MilestoneLedgerRow[] | null) ?? []).map(
+    (row) => ({
+      id: `milestone:${row.source_ref}:${row.created_at}`,
+      referredUserId: userId,
+      level: 0,
+      rewardType: "milestone_bonus",
+      rewardAmount: Math.max(0, Number(row.credits || 0)),
+      issuedAt: row.created_at,
+      label: "Milestone bonus",
+      eventType: "referral_milestone_claimed",
+    })
+  );
+
   const fallbackActivity = Object.values(tree)
     .flat()
     .map((node) => ({
@@ -626,7 +673,13 @@ export async function getReferralDashboardSnapshot(input: {
     }))
     .sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime());
 
-  const recentActivity = (rewardActivity.length ? rewardActivity : fallbackActivity).slice(0, 10);
+  const recentActivity = (
+    rewardActivity.length
+      ? [...rewardActivity, ...milestoneActivity].sort(
+          (a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime()
+        )
+      : fallbackActivity
+  ).slice(0, 10);
 
   return {
     totalReferrals,

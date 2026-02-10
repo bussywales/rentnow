@@ -23,7 +23,13 @@ test("agent referrals dashboard smoke", async ({ page }) => {
   await expect(page.getByTestId("referrals-metric-total")).toBeVisible();
   await expect(page.getByTestId("referrals-metric-active")).toBeVisible();
   await expect(page.getByTestId("referrals-metric-rewards")).toBeVisible();
+  await expect(page.getByTestId("referrals-tier-badge")).toBeVisible();
   await expect(page.getByRole("heading", { name: /Referral tree/i })).toBeVisible();
+
+  const milestonesSection = page.getByTestId("referrals-milestones-section");
+  if (await milestonesSection.isVisible().catch(() => false)) {
+    await expect(milestonesSection).toContainText(/Milestones/i);
+  }
 
   const copyButton = page.getByRole("button", { name: /^Copy$/i });
   await expect(copyButton).toBeVisible();

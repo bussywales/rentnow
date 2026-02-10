@@ -42,7 +42,8 @@ async function requireAdmin() {
 export default async function AdminReferralSettingsPage() {
   const { supabase } = await requireAdmin();
 
-  const [settingsRows, referralCount, rewardsResult, policyRows, paygRow] = await Promise.all([
+  const [settingsRows, referralCount, rewardsResult, policyRows, paygRow, milestoneRows] =
+    await Promise.all([
     supabase
       .from("app_settings")
       .select("key, value")
@@ -51,7 +52,9 @@ export default async function AdminReferralSettingsPage() {
         APP_SETTING_KEYS.referralMaxDepth,
         APP_SETTING_KEYS.referralEnabledLevels,
         APP_SETTING_KEYS.referralRewardRules,
+        APP_SETTING_KEYS.referralsTierThresholds,
         APP_SETTING_KEYS.referralTierThresholds,
+        APP_SETTING_KEYS.referralsMilestonesEnabled,
         APP_SETTING_KEYS.referralCaps,
       ]),
     supabase.from("referrals").select("id", { count: "exact", head: true }),
@@ -67,6 +70,11 @@ export default async function AdminReferralSettingsPage() {
       .select("value")
       .eq("key", APP_SETTING_KEYS.paygListingFeeAmount)
       .maybeSingle<{ value: unknown }>(),
+    supabase
+      .from("referral_milestones")
+      .select("id, name, active_referrals_threshold, bonus_credits, is_enabled, created_at")
+      .order("active_referrals_threshold", { ascending: true })
+      .order("created_at", { ascending: true }),
   ]);
 
   const settings = parseReferralSettingsRows((settingsRows.data as AppSettingRow[] | null) ?? []);
@@ -87,7 +95,17 @@ export default async function AdminReferralSettingsPage() {
     enabledLevels: settings.enabledLevels,
     rewardRules: settings.rewardRules,
     tierThresholds: settings.tierThresholds,
+    milestonesEnabled: settings.milestonesEnabled,
     caps: settings.caps,
+    milestones:
+      ((milestoneRows.data as Array<{
+        id: string;
+        name: string;
+        active_referrals_threshold: number;
+        bonus_credits: number;
+        is_enabled: boolean;
+        created_at: string;
+      }> | null) ?? []),
   });
 
   return (
@@ -124,6 +142,17 @@ export default async function AdminReferralSettingsPage() {
         enabledLevels={settings.enabledLevels}
         rewardRules={settings.rewardRules}
         tierThresholds={settings.tierThresholds}
+        milestonesEnabled={settings.milestonesEnabled}
+        milestones={
+          ((milestoneRows.data as Array<{
+            id: string;
+            name: string;
+            active_referrals_threshold: number;
+            bonus_credits: number;
+            is_enabled: boolean;
+            created_at: string;
+          }> | null) ?? [])
+        }
         caps={settings.caps}
         analytics={{
           totalReferred: referralCount.count ?? 0,

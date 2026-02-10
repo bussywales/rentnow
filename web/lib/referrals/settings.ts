@@ -23,6 +23,7 @@ export type ReferralSettings = {
   enabledLevels: number[];
   rewardRules: Record<number, ReferralRewardRule>;
   tierThresholds: ReferralTierThresholds;
+  milestonesEnabled: boolean;
   caps: ReferralCaps;
 };
 
@@ -46,6 +47,7 @@ export const DEFAULT_REFERRAL_SETTINGS: ReferralSettings = {
     1: { type: "listing_credit", amount: 1 },
   },
   tierThresholds: DEFAULT_TIER_THRESHOLDS,
+  milestonesEnabled: true,
   caps: {
     daily: 50,
     monthly: 500,
@@ -145,8 +147,17 @@ function parseTierThresholds(value: unknown): ReferralTierThresholds {
 
   if (!pairs.length) return DEFAULT_REFERRAL_SETTINGS.tierThresholds;
 
-  const sorted = pairs.sort((a, b) => a[1] - b[1]);
-  return Object.fromEntries(sorted);
+  const merged: ReferralTierThresholds = {
+    ...DEFAULT_REFERRAL_SETTINGS.tierThresholds,
+  };
+  for (const [name, threshold] of pairs) {
+    merged[name] = threshold;
+  }
+  merged.Bronze = 0;
+
+  return Object.fromEntries(
+    Object.entries(merged).sort((a, b) => a[1] - b[1])
+  );
 }
 
 function parseCaps(value: unknown): ReferralCaps {
@@ -184,7 +195,14 @@ export function parseReferralSettingsRows(rows: AppSettingRow[]): ReferralSettin
     maxDepth
   );
   const rewardRules = parseRewardRules(byKey.get(APP_SETTING_KEYS.referralRewardRules));
-  const tierThresholds = parseTierThresholds(byKey.get(APP_SETTING_KEYS.referralTierThresholds));
+  const tierThresholds = parseTierThresholds(
+    byKey.get(APP_SETTING_KEYS.referralsTierThresholds) ??
+      byKey.get(APP_SETTING_KEYS.referralTierThresholds)
+  );
+  const milestonesEnabled = parseAppSettingBool(
+    byKey.get(APP_SETTING_KEYS.referralsMilestonesEnabled),
+    DEFAULT_REFERRAL_SETTINGS.milestonesEnabled
+  );
   const caps = parseCaps(byKey.get(APP_SETTING_KEYS.referralCaps));
 
   return {
@@ -193,6 +211,7 @@ export function parseReferralSettingsRows(rows: AppSettingRow[]): ReferralSettin
     enabledLevels,
     rewardRules,
     tierThresholds,
+    milestonesEnabled,
     caps,
   };
 }
@@ -210,7 +229,9 @@ export async function getReferralSettings(client?: SupabaseClient): Promise<Refe
         APP_SETTING_KEYS.referralMaxDepth,
         APP_SETTING_KEYS.referralEnabledLevels,
         APP_SETTING_KEYS.referralRewardRules,
+        APP_SETTING_KEYS.referralsTierThresholds,
         APP_SETTING_KEYS.referralTierThresholds,
+        APP_SETTING_KEYS.referralsMilestonesEnabled,
         APP_SETTING_KEYS.referralCaps,
       ]);
 

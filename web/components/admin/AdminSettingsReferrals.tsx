@@ -13,12 +13,23 @@ type AnalyticsPreview = {
   totalCreditsEarned: number;
 };
 
+type Milestone = {
+  id: string;
+  name: string;
+  active_referrals_threshold: number;
+  bonus_credits: number;
+  is_enabled: boolean;
+  created_at: string;
+};
+
 type Props = {
   enabled: boolean;
   maxDepth: number;
   enabledLevels: number[];
   rewardRules: Record<number, { type: string; amount: number }>;
   tierThresholds: Record<string, number>;
+  milestonesEnabled: boolean;
+  milestones: Milestone[];
   caps: { daily: number; monthly: number };
   analytics: AnalyticsPreview;
 };
@@ -35,7 +46,15 @@ type FormState = {
   rewardRules: Record<number, RewardRuleForm>;
   tierOrder: string[];
   tierThresholds: Record<string, number>;
+  milestonesEnabled: boolean;
   caps: { daily: number; monthly: number };
+};
+
+type MilestoneDraft = {
+  name: string;
+  active_referrals_threshold: number;
+  bonus_credits: number;
+  is_enabled: boolean;
 };
 
 const LEVELS = [1, 2, 3, 4, 5] as const;
@@ -52,6 +71,40 @@ async function patchSetting(payload: Record<string, unknown>) {
   const json = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(json?.error || "Unable to update referral setting");
   return json;
+}
+
+async function jsonRequest(url: string, init: RequestInit) {
+  const response = await fetch(url, {
+    ...init,
+    headers: {
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload?.error || "Request failed");
+  return payload;
+}
+
+function sortMilestones(milestones: Milestone[]) {
+  return [...milestones].sort((a, b) => {
+    if (a.active_referrals_threshold !== b.active_referrals_threshold) {
+      return a.active_referrals_threshold - b.active_referrals_threshold;
+    }
+    return String(a.created_at).localeCompare(String(b.created_at));
+  });
+}
+
+function toMilestoneDraft(milestone: Milestone): MilestoneDraft {
+  return {
+    name: milestone.name,
+    active_referrals_threshold: Math.max(
+      1,
+      Math.trunc(Number(milestone.active_referrals_threshold || 0))
+    ),
+    bonus_credits: Math.max(1, Math.trunc(Number(milestone.bonus_credits || 0))),
+    is_enabled: Boolean(milestone.is_enabled),
+  };
 }
 
 function clampDepth(value: number): number {
@@ -113,6 +166,7 @@ function buildInitialState(props: Props): FormState {
     rewardRules,
     tierOrder,
     tierThresholds,
+    milestonesEnabled: Boolean(props.milestonesEnabled),
     caps: {
       daily: Math.max(0, Math.trunc(Number(props.caps.daily) || 0)),
       monthly: Math.max(0, Math.trunc(Number(props.caps.monthly) || 0)),
@@ -138,6 +192,7 @@ function cloneFormState(input: FormState): FormState {
     tierThresholds: Object.fromEntries(
       input.tierOrder.map((name) => [name, input.tierThresholds[name]])
     ),
+    milestonesEnabled: input.milestonesEnabled,
     caps: { ...input.caps },
   };
 }
@@ -185,12 +240,166 @@ export default function AdminSettingsReferrals(props: Props) {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [validationIssues, setValidationIssues] = useState<string[]>([]);
+  const [milestones, setMilestones] = useState<Milestone[]>(() => sortMilestones(props.milestones));
+  const [milestoneDrafts, setMilestoneDrafts] = useState<Record<string, MilestoneDraft>>(() =>
+    Object.fromEntries(sortMilestones(props.milestones).map((milestone) => [milestone.id, toMilestoneDraft(milestone)]))
+  );
+  const [createMilestoneDraft, setCreateMilestoneDraft] = useState<MilestoneDraft>({
+    name: "",
+    active_referrals_threshold: 3,
+    bonus_credits: 2,
+    is_enabled: true,
+  });
+  const [milestonePending, setMilestonePending] = useState(false);
+  const [milestoneError, setMilestoneError] = useState<string | null>(null);
+  const [milestoneToast, setMilestoneToast] = useState<string | null>(null);
 
   const warningForDepthCost = form.maxDepth > 2 || form.enabledLevels.some((level) => level > 2);
   const isDirty = useMemo(
     () => JSON.stringify(form) !== JSON.stringify(baseline),
     [baseline, form]
   );
+
+  const hasDuplicateMilestoneThreshold = (threshold: number, excludingId?: string) => {
+    return milestones.some(
+      (milestone) =>
+        milestone.active_referrals_threshold === threshold &&
+        (excludingId ? milestone.id !== excludingId : true)
+    );
+  };
+
+  const saveMilestone = async (id: string) => {
+    const draft = milestoneDrafts[id];
+    if (!draft) return;
+
+    if (!draft.name.trim()) {
+      setMilestoneError("Milestone name is required.");
+      return;
+    }
+    if (draft.active_referrals_threshold <= 0 || draft.bonus_credits <= 0) {
+      setMilestoneError("Milestone threshold and bonus credits must be greater than 0.");
+      return;
+    }
+    if (hasDuplicateMilestoneThreshold(draft.active_referrals_threshold, id)) {
+      setMilestoneError("Milestone thresholds must be unique.");
+      return;
+    }
+
+    setMilestonePending(true);
+    setMilestoneError(null);
+    setMilestoneToast(null);
+    try {
+      const result = await jsonRequest(`/api/admin/referrals/milestones/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          name: draft.name.trim(),
+          active_referrals_threshold: draft.active_referrals_threshold,
+          bonus_credits: draft.bonus_credits,
+          is_enabled: draft.is_enabled,
+        }),
+      });
+      const next = result.milestone as Milestone;
+      setMilestones((current) =>
+        sortMilestones(current.map((milestone) => (milestone.id === id ? next : milestone)))
+      );
+      setMilestoneDrafts((current) => ({
+        ...current,
+        [id]: toMilestoneDraft(next),
+      }));
+      setMilestoneToast("Milestone saved.");
+    } catch (milestoneSaveError) {
+      setMilestoneError(
+        milestoneSaveError instanceof Error
+          ? milestoneSaveError.message
+          : "Unable to save milestone."
+      );
+    } finally {
+      setMilestonePending(false);
+    }
+  };
+
+  const createMilestone = async () => {
+    if (!createMilestoneDraft.name.trim()) {
+      setMilestoneError("Milestone name is required.");
+      return;
+    }
+    if (
+      createMilestoneDraft.active_referrals_threshold <= 0 ||
+      createMilestoneDraft.bonus_credits <= 0
+    ) {
+      setMilestoneError("Milestone threshold and bonus credits must be greater than 0.");
+      return;
+    }
+    if (hasDuplicateMilestoneThreshold(createMilestoneDraft.active_referrals_threshold)) {
+      setMilestoneError("Milestone thresholds must be unique.");
+      return;
+    }
+
+    setMilestonePending(true);
+    setMilestoneError(null);
+    setMilestoneToast(null);
+    try {
+      const result = await jsonRequest("/api/admin/referrals/milestones", {
+        method: "POST",
+        body: JSON.stringify({
+          name: createMilestoneDraft.name.trim(),
+          active_referrals_threshold: createMilestoneDraft.active_referrals_threshold,
+          bonus_credits: createMilestoneDraft.bonus_credits,
+          is_enabled: createMilestoneDraft.is_enabled,
+        }),
+      });
+      const next = result.milestone as Milestone;
+      setMilestones((current) => sortMilestones([...current, next]));
+      setMilestoneDrafts((current) => ({
+        ...current,
+        [next.id]: toMilestoneDraft(next),
+      }));
+      setCreateMilestoneDraft({
+        name: "",
+        active_referrals_threshold: Math.max(
+          1,
+          createMilestoneDraft.active_referrals_threshold + 1
+        ),
+        bonus_credits: createMilestoneDraft.bonus_credits,
+        is_enabled: true,
+      });
+      setMilestoneToast("Milestone added.");
+    } catch (milestoneCreateError) {
+      setMilestoneError(
+        milestoneCreateError instanceof Error
+          ? milestoneCreateError.message
+          : "Unable to add milestone."
+      );
+    } finally {
+      setMilestonePending(false);
+    }
+  };
+
+  const deleteMilestone = async (id: string) => {
+    setMilestonePending(true);
+    setMilestoneError(null);
+    setMilestoneToast(null);
+    try {
+      await jsonRequest(`/api/admin/referrals/milestones/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      setMilestones((current) => current.filter((milestone) => milestone.id !== id));
+      setMilestoneDrafts((current) => {
+        const next = { ...current };
+        delete next[id];
+        return next;
+      });
+      setMilestoneToast("Milestone removed.");
+    } catch (milestoneDeleteError) {
+      setMilestoneError(
+        milestoneDeleteError instanceof Error
+          ? milestoneDeleteError.message
+          : "Unable to remove milestone."
+      );
+    } finally {
+      setMilestonePending(false);
+    }
+  };
 
   const runSave = () => {
     setError(null);
@@ -223,8 +432,16 @@ export default function AdminSettingsReferrals(props: Props) {
         await patchSetting({ key: "referral_enabled_levels", value: { value: enabledLevels } });
         await patchSetting({ key: "referral_reward_rules", value: { value: rewardRulesPayload } });
         await patchSetting({
+          key: "referrals_tier_thresholds",
+          value: { value: tierThresholdsPayload },
+        });
+        await patchSetting({
           key: "referral_tier_thresholds",
           value: { value: tierThresholdsPayload },
+        });
+        await patchSetting({
+          key: "referrals_milestones_enabled",
+          value: { enabled: form.milestonesEnabled },
         });
         await patchSetting({
           key: "referral_caps",
@@ -259,7 +476,10 @@ export default function AdminSettingsReferrals(props: Props) {
 
   return (
     <div className="space-y-6">
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        data-testid="admin-referral-tiers-milestones"
+      >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-slate-900">Referral settings</h1>
@@ -491,8 +711,11 @@ export default function AdminSettingsReferrals(props: Props) {
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Tiers</h2>
-        <p className="text-sm text-slate-600">Thresholds must be ascending.</p>
+        <h2 className="text-lg font-semibold text-slate-900">Tiers & Milestones</h2>
+        <p className="text-sm text-slate-600">
+          Tiers are based on active referrals. Milestones award one-time bonus credits.
+        </p>
+
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           {form.tierOrder.map((tierName) => (
             <div key={tierName}>
@@ -517,6 +740,194 @@ export default function AdminSettingsReferrals(props: Props) {
             </div>
           ))}
         </div>
+
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+          <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+            <input
+              type="checkbox"
+              checked={form.milestonesEnabled}
+              onChange={(event) =>
+                setForm((current) => ({ ...current, milestonesEnabled: event.target.checked }))
+              }
+              disabled={pending}
+              data-testid="admin-referral-milestones-enabled-toggle"
+            />
+            Enable milestone bonuses
+          </label>
+        </div>
+
+        {form.milestonesEnabled && (
+          <div
+            className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4"
+            data-testid="admin-referral-milestones-editor"
+          >
+            <p className="text-sm font-semibold text-slate-900">Milestone editor</p>
+            <p className="mt-1 text-xs text-slate-600">
+              Threshold and bonus credits must be greater than 0. Thresholds must be unique.
+            </p>
+
+            <div className="mt-3 space-y-3">
+              {sortMilestones(milestones).map((milestone) => {
+                const draft = milestoneDrafts[milestone.id] || toMilestoneDraft(milestone);
+                return (
+                  <div
+                    key={milestone.id}
+                    className="grid gap-2 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-[1.5fr_1fr_1fr_auto_auto]"
+                    data-testid={`admin-referral-milestone-row-${milestone.id}`}
+                  >
+                    <Input
+                      value={draft.name}
+                      onChange={(event) =>
+                        setMilestoneDrafts((current) => ({
+                          ...current,
+                          [milestone.id]: {
+                            ...draft,
+                            name: event.target.value,
+                          },
+                        }))
+                      }
+                      placeholder="Milestone name"
+                      disabled={milestonePending}
+                      data-testid={`admin-referral-milestone-name-${milestone.id}`}
+                    />
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={draft.active_referrals_threshold}
+                      onChange={(event) =>
+                        setMilestoneDrafts((current) => ({
+                          ...current,
+                          [milestone.id]: {
+                            ...draft,
+                            active_referrals_threshold: Math.max(
+                              1,
+                              Math.trunc(Number(event.target.value || 0))
+                            ),
+                          },
+                        }))
+                      }
+                      placeholder="Threshold"
+                      disabled={milestonePending}
+                      data-testid={`admin-referral-milestone-threshold-${milestone.id}`}
+                    />
+                    <Input
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={draft.bonus_credits}
+                      onChange={(event) =>
+                        setMilestoneDrafts((current) => ({
+                          ...current,
+                          [milestone.id]: {
+                            ...draft,
+                            bonus_credits: Math.max(1, Math.trunc(Number(event.target.value || 0))),
+                          },
+                        }))
+                      }
+                      placeholder="Bonus credits"
+                      disabled={milestonePending}
+                      data-testid={`admin-referral-milestone-bonus-${milestone.id}`}
+                    />
+                    <label className="inline-flex items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={draft.is_enabled}
+                        onChange={(event) =>
+                          setMilestoneDrafts((current) => ({
+                            ...current,
+                            [milestone.id]: {
+                              ...draft,
+                              is_enabled: event.target.checked,
+                            },
+                          }))
+                        }
+                        disabled={milestonePending}
+                        data-testid={`admin-referral-milestone-enabled-${milestone.id}`}
+                      />
+                      Enabled
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={() => void saveMilestone(milestone.id)}
+                        disabled={milestonePending}
+                        data-testid={`admin-referral-milestone-save-${milestone.id}`}
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => void deleteMilestone(milestone.id)}
+                        disabled={milestonePending}
+                        data-testid={`admin-referral-milestone-delete-${milestone.id}`}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 grid gap-2 rounded-lg border border-dashed border-slate-300 bg-white p-3 md:grid-cols-[1.5fr_1fr_1fr_auto]">
+              <Input
+                value={createMilestoneDraft.name}
+                onChange={(event) =>
+                  setCreateMilestoneDraft((current) => ({ ...current, name: event.target.value }))
+                }
+                placeholder="New milestone name"
+                disabled={milestonePending}
+                data-testid="admin-referral-milestone-create-name"
+              />
+              <Input
+                type="number"
+                min={1}
+                step={1}
+                value={createMilestoneDraft.active_referrals_threshold}
+                onChange={(event) =>
+                  setCreateMilestoneDraft((current) => ({
+                    ...current,
+                    active_referrals_threshold: Math.max(
+                      1,
+                      Math.trunc(Number(event.target.value || 0))
+                    ),
+                  }))
+                }
+                placeholder="Threshold"
+                disabled={milestonePending}
+                data-testid="admin-referral-milestone-create-threshold"
+              />
+              <Input
+                type="number"
+                min={1}
+                step={1}
+                value={createMilestoneDraft.bonus_credits}
+                onChange={(event) =>
+                  setCreateMilestoneDraft((current) => ({
+                    ...current,
+                    bonus_credits: Math.max(1, Math.trunc(Number(event.target.value || 0))),
+                  }))
+                }
+                placeholder="Bonus credits"
+                disabled={milestonePending}
+                data-testid="admin-referral-milestone-create-bonus"
+              />
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void createMilestone()}
+                disabled={milestonePending}
+                data-testid="admin-referral-milestone-create-submit"
+              >
+                Add milestone
+              </Button>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -588,6 +999,16 @@ export default function AdminSettingsReferrals(props: Props) {
       {toast && (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
           {toast}
+        </div>
+      )}
+      {milestoneError && (
+        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+          {milestoneError}
+        </div>
+      )}
+      {milestoneToast && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+          {milestoneToast}
         </div>
       )}
     </div>

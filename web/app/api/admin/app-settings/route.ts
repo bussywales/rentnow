@@ -101,7 +101,10 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   const isReferralMaxDepth = key === APP_SETTING_KEYS.referralMaxDepth;
   const isReferralLevels = key === APP_SETTING_KEYS.referralEnabledLevels;
   const isReferralRules = key === APP_SETTING_KEYS.referralRewardRules;
-  const isReferralTiers = key === APP_SETTING_KEYS.referralTierThresholds;
+  const isReferralTiers =
+    key === APP_SETTING_KEYS.referralTierThresholds ||
+    key === APP_SETTING_KEYS.referralsTierThresholds;
+  const isReferralMilestonesEnabled = key === APP_SETTING_KEYS.referralsMilestonesEnabled;
   const isReferralCaps = key === APP_SETTING_KEYS.referralCaps;
 
   if (isModeSetting) return modeValueSchema.safeParse(value).success;
@@ -114,6 +117,7 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   if (isReferralLevels) return referralEnabledLevelsSchema.safeParse(value).success;
   if (isReferralRules) return referralRewardRulesSchema.safeParse(value).success;
   if (isReferralTiers) return referralTierThresholdSchema.safeParse(value).success;
+  if (isReferralMilestonesEnabled) return enabledValueSchema.safeParse(value).success;
   if (isReferralCaps) return referralCapsSchema.safeParse(value).success;
   return enabledValueSchema.safeParse(value).success;
 }

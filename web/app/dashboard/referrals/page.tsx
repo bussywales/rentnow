@@ -10,6 +10,7 @@ import { getSiteUrl } from "@/lib/env";
 import { getReferralDashboardSnapshot, ensureReferralCode } from "@/lib/referrals/referrals.server";
 import { getReferralSettings, resolveReferralTierStatus } from "@/lib/referrals/settings";
 import { getUserReferralCashoutContext } from "@/lib/referrals/cashout.server";
+import { getReferralMilestoneStatusesForUser } from "@/lib/referrals/milestones.server";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 
 export const dynamic = "force-dynamic";
@@ -79,6 +80,13 @@ export default async function DashboardReferralsPage() {
 
   const referralLink = code ? `${siteUrl.replace(/\/$/, "")}/r/${encodeURIComponent(code)}` : null;
   const tier = resolveReferralTierStatus(snapshot.verifiedReferrals, settings.tierThresholds);
+  const milestones = settings.milestonesEnabled
+    ? await getReferralMilestoneStatusesForUser({
+        client: supabase as unknown as SupabaseClient,
+        userId: user.id,
+        activeReferralsCount: snapshot.verifiedReferrals,
+      })
+    : [];
 
   return (
     <AgentReferralDashboard
@@ -97,6 +105,8 @@ export default async function DashboardReferralsPage() {
       tree={snapshot.tree}
       recentActivity={snapshot.recentActivity}
       wallet={cashoutContext.wallet}
+      milestonesEnabled={settings.milestonesEnabled}
+      milestones={milestones}
       jurisdictionCountryCode={cashoutContext.jurisdiction.countryCode}
       cashoutPolicy={cashoutContext.policy}
       cashoutRequests={cashoutContext.requests}
