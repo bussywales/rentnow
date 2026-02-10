@@ -137,7 +137,12 @@ export function normalizeLandingPath(input: string | null | undefined): string {
   if (!raw.startsWith("/")) return "/";
   if (raw.startsWith("//")) return "/";
   if (raw.includes("\n") || raw.includes("\r")) return "/";
-  return raw.slice(0, 200);
+  const normalized = raw.slice(0, 200);
+  // Back-compat: earlier versions used a /get-started landing path that doesn't exist in prod.
+  if (normalized === "/get-started" || normalized === "/get-started/") {
+    return "/auth/register";
+  }
+  return normalized;
 }
 
 export function buildReferralCampaignShareLink(input: {

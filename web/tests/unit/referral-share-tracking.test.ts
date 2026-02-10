@@ -45,7 +45,7 @@ void test("normalizeCampaignInput validates channel and landing path", () => {
   assert.equal(ok.ok, true);
   if (!ok.ok) return;
   assert.equal(ok.value.channel, "whatsapp");
-  assert.equal(ok.value.landing_path, "/get-started");
+  assert.equal(ok.value.landing_path, "/auth/register");
 
   const invalid = normalizeCampaignInput({
     name: "Invalid",

@@ -12,19 +12,19 @@ export const DEFAULT_REFERRAL_CAMPAIGN_TEMPLATES: DefaultReferralCampaignTemplat
     name: "WhatsApp",
     channel: "whatsapp",
     utm_source: "whatsapp",
-    landing_path: "/get-started",
+    landing_path: "/auth/register",
   },
   {
     name: "Instagram",
     channel: "other",
     utm_source: "instagram",
-    landing_path: "/get-started",
+    landing_path: "/auth/register",
   },
   {
     name: "Direct link",
     channel: "copy",
     utm_source: "direct",
-    landing_path: "/get-started",
+    landing_path: "/auth/register",
   },
 ];
 
@@ -38,4 +38,3 @@ export function computeMissingDefaultReferralCampaigns(
   const existing = new Set(existingCampaigns.map((row) => normalizeName(row.name)));
   return DEFAULT_REFERRAL_CAMPAIGN_TEMPLATES.filter((template) => !existing.has(normalizeName(template.name)));
 }
-

@@ -266,7 +266,7 @@ export default function AgentReferralDashboard(props: Props) {
     utm_medium: "",
     utm_campaign: "",
     utm_content: "",
-    landing_path: "/get-started",
+    landing_path: "/auth/register",
   });
   const [campaignCreatePending, setCampaignCreatePending] = useState(false);
   const [campaignCreateError, setCampaignCreateError] = useState<string | null>(null);
@@ -945,7 +945,7 @@ export default function AgentReferralDashboard(props: Props) {
                           landing_path: event.target.value,
                         }))
                       }
-                      placeholder="/get-started"
+                      placeholder="/auth/register"
                     />
                   </label>
                   <label className="space-y-1 text-sm text-slate-700">
