@@ -20,6 +20,8 @@ export type ListingType =
   | "office"
   | "land";
 
+export type BedroomMatchMode = "exact" | "minimum";
+
 export type SizeUnit = "sqm" | "sqft";
 
 export type BathroomType = "private" | "shared";
@@ -200,6 +202,9 @@ export interface ParsedSearchFilters {
   maxPrice: number | null;
   currency: string | null;
   bedrooms: number | null;
+  bedroomsMode?: BedroomMatchMode;
+  includeSimilarOptions?: boolean;
+  propertyType?: ListingType | null;
   rentalType: RentalType | null;
   furnished: boolean | null;
   amenities: string[];

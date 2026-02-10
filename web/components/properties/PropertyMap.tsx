@@ -142,7 +142,7 @@ export function PropertyMap({ properties, height = "400px" }: Props) {
   const clustered = shouldCluster ? clusterProperties(withCoords) : null;
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="relative z-0 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <MapContainer
         center={fallbackCenter}
         zoom={12}

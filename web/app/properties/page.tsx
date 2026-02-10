@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
+import { AdvancedSearchPanel } from "@/components/properties/AdvancedSearchPanel";
 import { SavedSearchButton } from "@/components/search/SavedSearchButton";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -12,7 +13,12 @@ import { mockProperties } from "@/lib/mock";
 import { getTenantPlanForTier } from "@/lib/plans";
 import { getBrowseEmptyStateCtas } from "@/lib/property-discovery";
 import { normalizeRole } from "@/lib/roles";
-import { filtersToChips, parseFiltersFromParams, parseFiltersFromSavedSearch } from "@/lib/search-filters";
+import {
+  filtersToChips,
+  filtersToSearchParams,
+  parseFiltersFromParams,
+  parseFiltersFromSavedSearch,
+} from "@/lib/search-filters";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { searchProperties } from "@/lib/search";
 import type { ParsedSearchFilters, Property, SavedSearch, UserRole } from "@/lib/types";
@@ -131,7 +137,12 @@ function applyMockFilters(
     if (filters.currency && property.currency.toLowerCase() !== filters.currency.toLowerCase()) {
       return false;
     }
-    if (filters.bedrooms !== null && property.bedrooms < filters.bedrooms) return false;
+    if (filters.bedrooms !== null) {
+      const bedroomsMode = filters.bedroomsMode ?? "exact";
+      if (bedroomsMode === "minimum" && property.bedrooms < filters.bedrooms) return false;
+      if (bedroomsMode === "exact" && property.bedrooms !== filters.bedrooms) return false;
+    }
+    if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
     if (filters.rentalType && property.rental_type !== filters.rentalType) return false;
     if (filters.furnished !== null && property.furnished !== filters.furnished) return false;
     if (filters.amenities.length) {
@@ -141,6 +152,30 @@ function applyMockFilters(
     }
     return true;
   });
+}
+
+function mapSearchRowsToProperties(
+  rows: Array<Property & { property_images?: Array<{ id: string; image_url: string }> }>
+): Property[] {
+  return rows
+    .map((row) => {
+      const mappedImages =
+        row.property_images?.map((img) => ({
+          id: img.id || img.image_url,
+          image_url: img.image_url,
+          position: (img as { position?: number }).position,
+          created_at: (img as { created_at?: string | null }).created_at ?? undefined,
+          width: (img as { width?: number | null }).width ?? null,
+          height: (img as { height?: number | null }).height ?? null,
+          bytes: (img as { bytes?: number | null }).bytes ?? null,
+          format: (img as { format?: string | null }).format ?? null,
+        })) || [];
+      return {
+        ...row,
+        images: orderImagesWithCover(row.cover_image_url, mappedImages),
+      };
+    })
+    .filter((p) => !!p.id);
 }
 
 export default async function PropertiesPage({ searchParams }: Props) {
@@ -250,10 +285,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     !!savedSearch ||
     featuredOnly ||
     !!createdAfter ||
-    Object.values(filters).some((value) => {
-      if (Array.isArray(value)) return value.length > 0;
-      return value !== null && value !== undefined && value !== "";
-    });
+    filtersToSearchParams(filters).toString().length > 0;
   const savedSearchNoticeNode = savedSearchNotice ? (
     <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 shadow-sm">
       <p className="font-semibold">{savedSearchNotice.title}</p>
@@ -281,6 +313,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const apiUrl = `${apiBaseUrl}/api/properties?${listParams.toString()}`;
   const envPresence = getEnvPresence();
   let properties: Property[] = [];
+  let otherOptionProperties: Property[] = [];
   let totalCount: number | null = null;
   let fetchError: string | null = null;
   let trustSnapshots: Record<string, TrustMarkerState> = {};
@@ -324,26 +357,8 @@ export default async function PropertiesPage({ searchParams }: Props) {
             return a.index - b.index;
           })
           .map((item) => item.row);
-        properties =
-          orderedRows.map((row) => {
-            const mappedImages =
-              row.property_images?.map((img) => ({
-                id: img.id || img.image_url,
-                image_url: img.image_url,
-                position: (img as { position?: number }).position,
-                created_at: (img as { created_at?: string | null }).created_at ?? undefined,
-                width: (img as { width?: number | null }).width ?? null,
-                height: (img as { height?: number | null }).height ?? null,
-                bytes: (img as { bytes?: number | null }).bytes ?? null,
-                format: (img as { format?: string | null }).format ?? null,
-              })) || [];
-            return {
-              ...row,
-              images: orderImagesWithCover(row.cover_image_url, mappedImages),
-            };
-          }) || [];
+        properties = mapSearchRowsToProperties(orderedRows);
         totalCount = typeof count === "number" ? count : null;
-        properties = properties.filter((p) => !!p.id);
         if (orderedRows.length !== properties.length) {
           console.warn("[properties] dropped filtered items without id", {
             total: typed.length,
@@ -372,26 +387,8 @@ export default async function PropertiesPage({ searchParams }: Props) {
           (json.properties as Array<
             Property & { property_images?: Array<{ id: string; image_url: string }> }
           >) || [];
-        properties =
-          typed.map((row) => {
-            const mappedImages =
-              row.property_images?.map((img) => ({
-                id: img.id || img.image_url,
-                image_url: img.image_url,
-                position: (img as { position?: number }).position,
-                created_at: (img as { created_at?: string | null }).created_at ?? undefined,
-                width: (img as { width?: number | null }).width ?? null,
-                height: (img as { height?: number | null }).height ?? null,
-                bytes: (img as { bytes?: number | null }).bytes ?? null,
-                format: (img as { format?: string | null }).format ?? null,
-              })) || [];
-            return {
-              ...row,
-              images: orderImagesWithCover(row.cover_image_url, mappedImages),
-            };
-          }) || [];
+        properties = mapSearchRowsToProperties(typed);
         totalCount = typeof json.total === "number" ? json.total : null;
-        properties = properties.filter((p) => !!p.id);
         if (typed.length !== properties.length) {
           console.warn("[properties] dropped items without id from API", {
             total: typed.length,
@@ -421,16 +418,64 @@ export default async function PropertiesPage({ searchParams }: Props) {
     }
   }
 
-  if (supabaseReady && properties.length) {
+  const requestedBedrooms = filters.bedrooms;
+  const bedroomsMode = filters.bedroomsMode ?? "exact";
+  const includeSimilarOptions = Boolean(filters.includeSimilarOptions);
+
+  if (requestedBedrooms !== null && !includeSimilarOptions && bedroomsMode === "exact") {
+    const strictExact = properties.filter((item) => item.bedrooms === requestedBedrooms);
+    properties = strictExact;
+
+    if (hasFilters && supabaseReady) {
+      const { data, error } = await searchProperties(
+        {
+          ...filters,
+          bedroomsMode: "minimum",
+          includeSimilarOptions: false,
+        },
+        {
+          page: 1,
+          pageSize: PAGE_SIZE,
+          approvedBefore,
+          featuredOnly,
+          createdAfter,
+        }
+      );
+      if (!error && data) {
+        const similarRows = (data as Array<
+          Property & { property_images?: Array<{ id: string; image_url: string }> }
+        >) ?? [];
+        otherOptionProperties = mapSearchRowsToProperties(similarRows).filter(
+          (item) => item.bedrooms > requestedBedrooms
+        );
+      }
+    } else if (DEV_MOCKS) {
+      otherOptionProperties = applyMockFilters(mockProperties, {
+        ...filters,
+        bedroomsMode: "minimum",
+      }).filter((item) => item.bedrooms > requestedBedrooms);
+    }
+  } else if (requestedBedrooms !== null) {
+    const exactMatches = properties.filter((item) => item.bedrooms === requestedBedrooms);
+    const similarMatches = properties.filter((item) => item.bedrooms > requestedBedrooms);
+    properties = [...exactMatches, ...similarMatches];
+    otherOptionProperties = similarMatches;
+  }
+
+  const displayProperties = Array.from(
+    new Map([...properties, ...otherOptionProperties].map((item) => [item.id, item])).values()
+  );
+
+  if (supabaseReady && displayProperties.length) {
     try {
       const supabase = await createServerSupabaseClient();
-      const ownerIds = properties.map((property) => property.owner_id);
+      const ownerIds = displayProperties.map((property) => property.owner_id);
       trustSnapshots = await fetchTrustPublicSnapshots(supabase, ownerIds);
       if (userId) {
         savedIds = await fetchSavedPropertyIds({
           supabase,
           userId,
-          propertyIds: properties.map((property) => property.id),
+          propertyIds: displayProperties.map((property) => property.id),
         });
       }
       const uniqueOwners = Array.from(new Set(ownerIds.filter(Boolean)));
@@ -448,7 +493,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     }
   }
 
-  if (!properties.length) {
+  if (!properties.length && !otherOptionProperties.length) {
     if (savedSearchId && savedSearch) {
       const editHref = `/dashboard/saved-searches`;
     return (
@@ -573,6 +618,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
     page < totalPages
       ? `/properties?${buildSearchParams(resolvedSearchParams, { page: String(page + 1) }).toString()}`
       : null;
+  const exactOnlyMode =
+    requestedBedrooms !== null && !includeSimilarOptions && bedroomsMode === "exact";
+  const hasOtherOptionsSection = exactOnlyMode && otherOptionProperties.length > 0;
+  const showingLabel = exactOnlyMode ? "exact matches" : "homes";
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-6 px-4">
@@ -581,9 +630,14 @@ export default async function PropertiesPage({ searchParams }: Props) {
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Properties</h1>
           <p className="text-sm text-slate-500">
-            Showing {properties.length} of {total} homes
+            Showing {properties.length} of {total} {showingLabel}
             {filters.city ? ` in ${filters.city}` : ""}.
           </p>
+          {exactOnlyMode && requestedBedrooms !== null && (
+            <p className="text-xs text-slate-500">
+              Exact beds: {requestedBedrooms}. Expand More options to include similar bed counts.
+            </p>
+          )}
         </div>
         {showListCta && (
           <Link href="/dashboard/properties/new">
@@ -615,6 +669,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
       )}
 
       <SmartSearchBox mode="browse" />
+      <AdvancedSearchPanel initialFilters={filters} />
 
       {role === "tenant" && !isTenantPro && (
         <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-700">
@@ -679,25 +734,66 @@ export default async function PropertiesPage({ searchParams }: Props) {
         </Link>
       </div>
 
-      <div
-        className="grid gap-5 md:grid-cols-3"
-        data-testid="properties-grid"
-      >
-        {properties.map((property) => (
-          <div key={property.id} className="h-full" data-testid="property-card">
-            <PropertyCard
-              property={property}
-              href={`/properties/${property.id}?back=${encodeURIComponent(backHref)}`}
-              trustMarkers={trustSnapshots[property.owner_id]}
-              showSave
-              initialSaved={savedIds.has(property.id)}
-              showCta={!role || role === "tenant"}
-              viewerRole={role}
-              fastResponder={fastResponderByHost[property.owner_id]}
-            />
+      {exactOnlyMode && (
+        <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            Exact matches
+          </p>
+          <p className="text-sm text-slate-600">
+            Showing properties with exactly {requestedBedrooms} bedrooms.
+          </p>
+        </div>
+      )}
+
+      {properties.length > 0 ? (
+        <div className="grid gap-5 md:grid-cols-3" data-testid="properties-grid">
+          {properties.map((property) => (
+            <div key={property.id} className="h-full" data-testid="property-card">
+              <PropertyCard
+                property={property}
+                href={`/properties/${property.id}?back=${encodeURIComponent(backHref)}`}
+                trustMarkers={trustSnapshots[property.owner_id]}
+                showSave
+                initialSaved={savedIds.has(property.id)}
+                showCta={!role || role === "tenant"}
+                viewerRole={role}
+                fastResponder={fastResponderByHost[property.owner_id]}
+              />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 shadow-sm">
+          No exact matches on this page. Check other available options below.
+        </div>
+      )}
+
+      {hasOtherOptionsSection && (
+        <details className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <summary className="cursor-pointer list-none text-sm font-semibold text-slate-900">
+            Other available options
+          </summary>
+          <p className="mt-2 text-sm text-slate-600">
+            Nearby alternatives with higher bedroom counts. Turn on “Include similar options” in More options to merge these into the main grid.
+          </p>
+          <div className="mt-4 grid gap-5 md:grid-cols-3" data-testid="properties-other-options-grid">
+            {otherOptionProperties.map((property) => (
+              <div key={property.id} className="h-full" data-testid="property-card-other-option">
+                <PropertyCard
+                  property={property}
+                  href={`/properties/${property.id}?back=${encodeURIComponent(backHref)}`}
+                  trustMarkers={trustSnapshots[property.owner_id]}
+                  showSave
+                  initialSaved={savedIds.has(property.id)}
+                  showCta={!role || role === "tenant"}
+                  viewerRole={role}
+                  fastResponder={fastResponderByHost[property.owner_id]}
+                />
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
+        </details>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
         <span>

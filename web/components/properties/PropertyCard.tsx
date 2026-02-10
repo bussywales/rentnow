@@ -252,7 +252,7 @@ export function PropertyCard({
           <div className="flex items-center gap-3 text-xs text-slate-500">
             <span className="flex items-center gap-1">
               <BedIcon />
-              {property.bedrooms}
+              <span data-testid="property-card-bedrooms">{property.bedrooms}</span>
             </span>
             <span className="flex items-center gap-1">
               <BathIcon />

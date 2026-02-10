@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -44,6 +45,7 @@ async function patchSetting(payload: Record<string, unknown>) {
   const response = await fetch("/api/admin/app-settings", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
+    cache: "no-store",
     body: JSON.stringify(payload),
   });
 
@@ -176,6 +178,7 @@ function validateForm(state: FormState): string[] {
 }
 
 export default function AdminSettingsReferrals(props: Props) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [baseline, setBaseline] = useState<FormState>(() => buildInitialState(props));
   const [form, setForm] = useState<FormState>(() => buildInitialState(props));
@@ -240,6 +243,7 @@ export default function AdminSettingsReferrals(props: Props) {
         setForm(synced);
         setBaseline(synced);
         setToast("Referral settings saved.");
+        router.refresh();
       } catch (saveError) {
         setError(saveError instanceof Error ? saveError.message : "Unable to save settings.");
       }

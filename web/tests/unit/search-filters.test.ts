@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { filtersToSearchParams, parseFiltersFromParams, parseFiltersFromSavedSearch } from "@/lib/search-filters";
+import {
+  filtersToSearchParams,
+  parseFiltersFromParams,
+  parseFiltersFromSavedSearch,
+  propertyMatchesFilters,
+} from "@/lib/search-filters";
 import type { ParsedSearchFilters } from "@/lib/types";
 
 test("filtersToSearchParams serializes parsed filters", () => {
@@ -10,6 +15,9 @@ test("filtersToSearchParams serializes parsed filters", () => {
     maxPrice: 1500,
     currency: "USD",
     bedrooms: 2,
+    bedroomsMode: "minimum",
+    includeSimilarOptions: true,
+    propertyType: "apartment",
     rentalType: "short_let",
     furnished: true,
     amenities: ["wifi", "parking"],
@@ -22,6 +30,9 @@ test("filtersToSearchParams serializes parsed filters", () => {
   assert.equal(params.get("maxPrice"), "1500");
   assert.equal(params.get("currency"), "USD");
   assert.equal(params.get("bedrooms"), "2");
+  assert.equal(params.get("bedroomsMode"), "minimum");
+  assert.equal(params.get("includeSimilarOptions"), "true");
+  assert.equal(params.get("propertyType"), "apartment");
   assert.equal(params.get("rentalType"), "short_let");
   assert.equal(params.get("furnished"), "true");
   assert.equal(params.get("amenities"), "wifi,parking");
@@ -47,4 +58,46 @@ test("parseFilters clamps negative numeric values to zero", () => {
   assert.equal(savedParsed.minPrice, 0);
   assert.equal(savedParsed.maxPrice, 0);
   assert.equal(savedParsed.bedrooms, 0);
+});
+
+test("parseFilters defaults bedroom mode to exact", () => {
+  const parsed = parseFiltersFromParams({ bedrooms: "2" });
+  assert.equal(parsed.bedrooms, 2);
+  assert.equal(parsed.bedroomsMode, "exact");
+  assert.equal(parsed.includeSimilarOptions, false);
+});
+
+test("propertyMatchesFilters enforces exact bedrooms unless minimum is selected", () => {
+  const baseProperty = {
+    city: "Abuja",
+    price: 1000,
+    currency: "NGN",
+    bedrooms: 4,
+    rental_type: "long_term" as const,
+    furnished: false,
+    amenities: ["parking"],
+    listing_type: "apartment" as const,
+  };
+
+  const exactFilters: ParsedSearchFilters = {
+    city: "Abuja",
+    minPrice: null,
+    maxPrice: null,
+    currency: null,
+    bedrooms: 2,
+    bedroomsMode: "exact",
+    includeSimilarOptions: false,
+    propertyType: null,
+    rentalType: null,
+    furnished: null,
+    amenities: [],
+  };
+
+  const minimumFilters: ParsedSearchFilters = {
+    ...exactFilters,
+    bedroomsMode: "minimum",
+  };
+
+  assert.equal(propertyMatchesFilters(baseProperty, exactFilters), false);
+  assert.equal(propertyMatchesFilters(baseProperty, minimumFilters), true);
 });

@@ -59,7 +59,11 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
       query = query.ilike("city", `%${filters.city}%`);
     }
     if (filters.bedrooms !== null) {
-      query = query.gte("bedrooms", filters.bedrooms);
+      const bedroomsMode = filters.bedroomsMode ?? "exact";
+      query =
+        bedroomsMode === "minimum"
+          ? query.gte("bedrooms", filters.bedrooms)
+          : query.eq("bedrooms", filters.bedrooms);
     }
     if (filters.minPrice !== null) {
       query = query.gte("price", filters.minPrice);
@@ -69,6 +73,9 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     }
     if (filters.rentalType) {
       query = query.eq("rental_type", filters.rentalType as RentalType);
+    }
+    if (filters.propertyType) {
+      query = query.eq("listing_type", filters.propertyType);
     }
     if (filters.furnished !== null) {
       query = query.eq("furnished", filters.furnished);

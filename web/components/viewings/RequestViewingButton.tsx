@@ -216,7 +216,7 @@ export function RequestViewingButton({ propertyId, timezone, city, disabled }: P
       </div>
       {open && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+          className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/40 px-4"
           role="dialog"
           aria-modal="true"
         >

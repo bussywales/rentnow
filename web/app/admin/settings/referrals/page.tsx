@@ -10,6 +10,8 @@ import AdminSettingsReferrals from "@/components/admin/AdminSettingsReferrals";
 import AdminReferralJurisdictions from "@/components/admin/AdminReferralJurisdictions";
 
 export const dynamic = "force-dynamic";
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
 
 type AppSettingRow = {
   key: string;
@@ -79,6 +81,14 @@ export default async function AdminReferralSettingsPage() {
     (sum, row) => sum + Math.max(0, Number(row.reward_amount || 0)),
     0
   );
+  const referralsSettingsKey = JSON.stringify({
+    enabled: settings.enabled,
+    maxDepth: settings.maxDepth,
+    enabledLevels: settings.enabledLevels,
+    rewardRules: settings.rewardRules,
+    tierThresholds: settings.tierThresholds,
+    caps: settings.caps,
+  });
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4">
@@ -108,6 +118,7 @@ export default async function AdminReferralSettingsPage() {
       </div>
 
       <AdminSettingsReferrals
+        key={referralsSettingsKey}
         enabled={settings.enabled}
         maxDepth={settings.maxDepth}
         enabledLevels={settings.enabledLevels}
