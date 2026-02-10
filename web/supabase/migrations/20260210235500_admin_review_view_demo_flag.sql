@@ -1,4 +1,4 @@
--- Add featured fields to admin_review_view for ops visibility.
+-- Expose is_demo on admin_review_view so ops can filter/toggle demo listings safely.
 drop view if exists public.admin_review_view;
 create view public.admin_review_view as
 with img as (
@@ -33,6 +33,7 @@ select
   p.featured_rank,
   p.featured_until,
   p.featured_at,
+  p.is_demo,
 
   p.title,
   p.city,
@@ -66,9 +67,10 @@ from public.properties p
 left join img on img.property_id = p.id
 left join vid on vid.property_id = p.id;
 
-comment on view public.admin_review_view is 'Admin review queue view with stable, contract-approved columns including expiry and featured status.';
+comment on view public.admin_review_view is 'Admin review queue view with stable, contract-approved columns including expiry, featured status, and demo flag.';
 
 grant select on public.admin_review_view to authenticated;
 grant select on public.admin_review_view to anon;
 
 alter view public.admin_review_view set (security_invoker = true);
+

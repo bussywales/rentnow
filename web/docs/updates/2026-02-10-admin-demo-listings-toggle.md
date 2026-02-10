@@ -1,3 +1,13 @@
+---
+title: "Admin: Demo listings toggle + filter"
+audiences:
+  - ADMIN
+areas:
+  - Listings
+published_at: "2026-02-10"
+cta_href: "/admin/listings"
+---
+
 # Admin demo listings toggle + filter
 
 Admins can now:

@@ -48,26 +48,28 @@ export async function getAdminAllListings<Row>({
   const selectNormalizedMin = normalizeSelect(ADMIN_REVIEW_VIEW_SELECT_MIN);
   assertNoForbiddenColumns(selectNormalizedFull, "getAdminAllListings");
 
-  const runQuery = async (useMin = false) => {
-    const selectToUse = useMin ? selectNormalizedMin : selectNormalizedFull;
+  const stripColumn = (selectInput: string, column: string) => {
+    const parts = normalizeSelect(selectInput)
+      .split(",")
+      .map((part) => part.trim())
+      .filter(Boolean);
+    return parts.filter((part) => part !== column).join(",");
+  };
+
+  const runQuery = async ({
+    selectToUse,
+    supportsDemoFilter,
+  }: {
+    selectToUse: string;
+    supportsDemoFilter: boolean;
+  }) => {
     const from = client.from(ADMIN_REVIEW_VIEW_TABLE).select(selectToUse, { count: "exact" });
     let queryBuilder = from;
-    let demoScopedIds: string[] | null = null;
 
     if (query.demo !== "all") {
-      const isDemo = query.demo === "true";
-      const { data: demoRows, error: demoError } = await client
-        .from("properties")
-        .select("id")
-        .eq("is_demo", isDemo);
-      if (demoError) throw demoError;
-      demoScopedIds = (demoRows as Array<{ id?: string | null }> | null | undefined)
-        ?.map((row) => row.id)
-        .filter((id): id is string => Boolean(id)) ?? [];
-      if (demoScopedIds.length === 0) {
-        return { rows: [] as Row[], count: 0 };
+      if (supportsDemoFilter) {
+        queryBuilder = queryBuilder.eq("is_demo", query.demo === "true");
       }
-      queryBuilder = queryBuilder.in("id", demoScopedIds);
     }
 
     let normalizedStatuses: string[] = [];
@@ -181,7 +183,10 @@ export async function getAdminAllListings<Row>({
 
   let contractDegraded = false;
   try {
-    const { rows, count } = await runQuery(false);
+    const { rows, count } = await runQuery({
+      selectToUse: selectNormalizedFull,
+      supportsDemoFilter: true,
+    });
     return {
       rows,
       count,
@@ -193,14 +198,40 @@ export async function getAdminAllListings<Row>({
     const code = (err as { code?: string })?.code;
     if (code === "42703" || /does not exist/i.test((err as { message?: string })?.message ?? "")) {
       contractDegraded = true;
-      const { rows, count } = await runQuery(true);
-      return {
-        rows,
-        count,
-        page: query.page,
-        pageSize: query.pageSize,
-        contractDegraded,
-      };
+      try {
+        const { rows, count } = await runQuery({
+          selectToUse: selectNormalizedMin,
+          supportsDemoFilter: true,
+        });
+        return {
+          rows,
+          count,
+          page: query.page,
+          pageSize: query.pageSize,
+          contractDegraded,
+        };
+      } catch (retryErr) {
+        const retryCode = (retryErr as { code?: string })?.code;
+        if (
+          retryCode === "42703" ||
+          /does not exist/i.test((retryErr as { message?: string })?.message ?? "")
+        ) {
+          // Last-resort: drop is_demo from the select and disable demo filter.
+          const selectWithoutDemo = stripColumn(selectNormalizedMin, "is_demo");
+          const { rows, count } = await runQuery({
+            selectToUse: selectWithoutDemo,
+            supportsDemoFilter: false,
+          });
+          return {
+            rows,
+            count,
+            page: query.page,
+            pageSize: query.pageSize,
+            contractDegraded,
+          };
+        }
+        throw retryErr;
+      }
     }
     throw err;
   }

@@ -161,16 +161,6 @@ async function getListingsData(
     });
 
     const rows = result.rows ?? [];
-    const listingIds = rows.map((row) => row.id).filter(Boolean);
-    const { data: demoRows } = listingIds.length
-      ? await client.from("properties").select("id,is_demo").in("id", listingIds)
-      : { data: [] };
-    const demoById = new Map(
-      ((demoRows as Array<{ id?: string | null; is_demo?: boolean | null }> | null | undefined) ?? [])
-        .filter((row) => row.id)
-        .map((row) => [row.id as string, !!row.is_demo])
-    );
-
     const ownerIds = Array.from(
       new Set(rows.map((row) => row.owner_id).filter(Boolean))
     ) as string[];
@@ -258,7 +248,7 @@ async function getListingsData(
         listing_type: row.listing_type ?? null,
         bedrooms: row.bedrooms ?? null,
         bathrooms: row.bathrooms ?? null,
-        is_demo: demoById.get(row.id) ?? false,
+        is_demo: !!row.is_demo,
         reviewable,
         reviewStage,
       };

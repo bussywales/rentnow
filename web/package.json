@@ -12,7 +12,7 @@
     "build": "BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true next build",
     "build:ci": "node ./scripts/run-build-ci.mjs",
     "start": "next start",
-    "lint": "BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true eslint",
+    "lint": "node -e \"require('fs').mkdirSync('test-results',{recursive:true})\" && BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true eslint",
     "lint:ci": "node ./scripts/run-lint-ci.mjs",
     "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "doctor": "node ./scripts/doctor.mjs",

@@ -15,18 +15,36 @@ test("admin can use demo filter pills (skip-safe)", async ({ page }) => {
   await page.goto("/admin/listings");
   await expect(page.getByRole("heading", { name: /listings registry/i })).toBeVisible();
 
+  const rows = page.getByTestId("admin-listings-row");
+  const rowCount = await rows.count();
+  if (rowCount > 0) {
+    const firstRow = rows.first();
+    const toggle = firstRow.getByRole("button", { name: /mark as demo|remove demo/i });
+    await expect(toggle).toBeVisible();
+    await toggle.click();
+
+    const modal = page.getByTestId("admin-demo-confirm-modal");
+    await expect(modal).toBeVisible();
+    await modal.getByTestId("admin-demo-cancel").click();
+    await expect(modal).toBeHidden();
+  }
+
   const demoFilters = page.getByTestId("admin-demo-filters");
   await expect(demoFilters).toBeVisible();
 
+  const applyFilters = page.getByRole("button", { name: /apply filters/i });
+
   await page.getByTestId("admin-demo-filter-true").click();
+  await applyFilters.click();
   await expect(page).toHaveURL(/demo=true/);
   await expect(page.getByTestId("admin-demo-filter-helper")).toContainText(/Showing demo listings only/i);
 
   await page.getByTestId("admin-demo-filter-false").click();
+  await applyFilters.click();
   await expect(page).toHaveURL(/demo=false/);
   await expect(page.getByTestId("admin-demo-filter-helper")).toContainText(/Hiding demo listings/i);
 
   await page.getByTestId("admin-demo-filter-all").click();
+  await applyFilters.click();
   await expect(page).not.toHaveURL(/demo=(true|false)/);
 });
-
