@@ -13,6 +13,7 @@ import type {
   ReferralLeaderboardSnapshot,
   ReferralLeaderboardWindow,
 } from "@/lib/referrals/leaderboard.server";
+import { computeMissingDefaultReferralCampaigns } from "@/lib/referrals/share-tracking-defaults";
 
 type TreeNode = {
   userId: string;
@@ -94,6 +95,19 @@ type ShareAnalyticsSnapshot = {
     activeReferrals: number;
     earningsCredits: number;
   };
+  funnel30d: {
+    clicks: number;
+    captures: number;
+    activeReferrals: number;
+    earningsCredits: number;
+  };
+  topChannel: {
+    campaignId: string;
+    name: string;
+    channel: string;
+    utm_source: string | null;
+    activeReferrals: number;
+  } | null;
   campaigns: ShareAnalyticsCampaign[];
 };
 
@@ -189,6 +203,8 @@ const EMPTY_SHARE_ANALYTICS: ShareAnalyticsSnapshot = {
   enabled: true,
   attributionWindowDays: 30,
   totals: { clicks: 0, captures: 0, activeReferrals: 0, earningsCredits: 0 },
+  funnel30d: { clicks: 0, captures: 0, activeReferrals: 0, earningsCredits: 0 },
+  topChannel: null,
   campaigns: [],
 };
 
@@ -241,6 +257,8 @@ export default function AgentReferralDashboard(props: Props) {
     useState<ShareAnalyticsSnapshot>(EMPTY_SHARE_ANALYTICS);
   const [shareAnalyticsLoading, setShareAnalyticsLoading] = useState(true);
   const [shareAnalyticsError, setShareAnalyticsError] = useState<string | null>(null);
+  const [defaultCampaignsEnsured, setDefaultCampaignsEnsured] = useState(false);
+  const [defaultCampaignsEnsuring, setDefaultCampaignsEnsuring] = useState(false);
   const [campaignForm, setCampaignForm] = useState({
     name: "",
     channel: "whatsapp",
@@ -309,6 +327,30 @@ export default function AgentReferralDashboard(props: Props) {
           activeReferrals: Math.max(0, Math.trunc(Number(payload.totals?.activeReferrals || 0))),
           earningsCredits: Math.max(0, Number(payload.totals?.earningsCredits || 0)),
         },
+        funnel30d: {
+          clicks: Math.max(0, Math.trunc(Number(payload.funnel30d?.clicks || 0))),
+          captures: Math.max(0, Math.trunc(Number(payload.funnel30d?.captures || 0))),
+          activeReferrals: Math.max(
+            0,
+            Math.trunc(Number(payload.funnel30d?.activeReferrals || 0))
+          ),
+          earningsCredits: Math.max(0, Number(payload.funnel30d?.earningsCredits || 0)),
+        },
+        topChannel: payload.topChannel
+          ? {
+              campaignId: String(payload.topChannel.campaignId || ""),
+              name: String(payload.topChannel.name || ""),
+              channel: String(payload.topChannel.channel || "other"),
+              utm_source:
+                typeof payload.topChannel.utm_source === "string"
+                  ? payload.topChannel.utm_source
+                  : null,
+              activeReferrals: Math.max(
+                0,
+                Math.trunc(Number(payload.topChannel.activeReferrals || 0))
+              ),
+            }
+          : null,
         campaigns: Array.isArray(payload.campaigns)
           ? payload.campaigns.map((item: Record<string, unknown>) => ({
               id: String(item.id || ""),
@@ -335,6 +377,57 @@ export default function AgentReferralDashboard(props: Props) {
   useEffect(() => {
     void loadShareAnalytics();
   }, []);
+
+  useEffect(() => {
+    if (defaultCampaignsEnsured || defaultCampaignsEnsuring) return;
+    if (shareAnalyticsLoading || !shareAnalytics.enabled) return;
+    if (!referralCode) return;
+    if (shareAnalytics.campaigns.length !== 0) {
+      setDefaultCampaignsEnsured(true);
+      return;
+    }
+
+    const ensureDefaults = async () => {
+      setDefaultCampaignsEnsuring(true);
+      try {
+        const missing = computeMissingDefaultReferralCampaigns([]);
+        for (const template of missing) {
+          const response = await fetch("/api/referrals/campaigns", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: template.name,
+              channel: template.channel,
+              utm_source: template.utm_source,
+              utm_medium: null,
+              utm_campaign: null,
+              utm_content: null,
+              landing_path: template.landing_path,
+            }),
+          });
+
+          // Idempotency: ignore duplicates (unique owner_id + name).
+          if (response.status === 409) continue;
+          if (!response.ok) break;
+        }
+      } catch {
+        // Best effort; user can still create campaigns manually.
+      } finally {
+        setDefaultCampaignsEnsured(true);
+        setDefaultCampaignsEnsuring(false);
+        await loadShareAnalytics();
+      }
+    };
+
+    void ensureDefaults();
+  }, [
+    defaultCampaignsEnsured,
+    defaultCampaignsEnsuring,
+    referralCode,
+    shareAnalytics.enabled,
+    shareAnalytics.campaigns.length,
+    shareAnalyticsLoading,
+  ]);
 
   const levels = useMemo(() => {
     const allLevels = Array.from({ length: depth }, (_, index) => index + 1);
@@ -734,6 +827,79 @@ export default function AgentReferralDashboard(props: Props) {
                   <p className="mt-1 text-xl font-semibold text-slate-900">
                     {shareAnalytics.totals.earningsCredits.toFixed(2)}
                   </p>
+                </div>
+              </div>
+
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                <div
+                  className="rounded-xl border border-slate-200 bg-white p-4"
+                  data-testid="referrals-funnel-card"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-900">Funnel</p>
+                      <p className="text-xs text-slate-600">Last 30 days</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">Clicks</p>
+                      <p className="mt-1 text-base font-semibold text-slate-900">
+                        {formatNumber(shareAnalytics.funnel30d.clicks)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">Captures</p>
+                      <p className="mt-1 text-base font-semibold text-slate-900">
+                        {formatNumber(shareAnalytics.funnel30d.captures)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">Active referrals</p>
+                      <p className="mt-1 text-base font-semibold text-slate-900">
+                        {formatNumber(shareAnalytics.funnel30d.activeReferrals)}
+                      </p>
+                    </div>
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                      <p className="text-xs uppercase tracking-wide text-slate-500">Credits earned</p>
+                      <p className="mt-1 text-base font-semibold text-slate-900">
+                        {shareAnalytics.funnel30d.earningsCredits.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div
+                  className="rounded-xl border border-slate-200 bg-white p-4"
+                  data-testid="referrals-top-channel-card"
+                >
+                  <p className="text-sm font-semibold text-slate-900">Top channel</p>
+                  <p className="text-xs text-slate-600">
+                    Best campaign by active referrals (all time)
+                  </p>
+                  {shareAnalytics.topChannel ? (
+                    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {shareAnalytics.topChannel.name}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-600">
+                        {shareAnalytics.topChannel.channel}
+                        {shareAnalytics.topChannel.utm_source
+                          ? ` · utm_source=${shareAnalytics.topChannel.utm_source}`
+                          : ""}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-700">
+                        <span className="font-semibold text-slate-900">
+                          {formatNumber(shareAnalytics.topChannel.activeReferrals)}
+                        </span>{" "}
+                        active referrals
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-3 text-sm text-slate-600">
+                      No top channel yet. Create a tracking link to start measuring results.
+                    </p>
+                  )}
                 </div>
               </div>
 

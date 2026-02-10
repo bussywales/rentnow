@@ -85,6 +85,13 @@ export type ReferralOwnerAnalytics = {
   campaigns: Array<ReferralCampaignRecord & ReferralCampaignMetrics & { shareLink: string }>;
 };
 
+export type ReferralOwnerFunnelSnapshot = {
+  clicks: number;
+  captures: number;
+  activeReferrals: number;
+  earningsCredits: number;
+};
+
 type AppSettingRow = { key: string; value: unknown };
 
 type AttributionRow = {
@@ -454,6 +461,63 @@ export async function getReferralOwnerAnalytics(input: {
   };
 }
 
+export async function getReferralOwnerFunnelSnapshot(input: {
+  client: SupabaseClient;
+  ownerId: string;
+  referralCode: string | null;
+  sinceIso: string;
+}): Promise<ReferralOwnerFunnelSnapshot> {
+  const referralCode = String(input.referralCode || "").trim().toUpperCase();
+  if (!referralCode) {
+    return { clicks: 0, captures: 0, activeReferrals: 0, earningsCredits: 0 };
+  }
+
+  const [clickResult, captureResult, rewardResult] = await Promise.all([
+    input.client
+      .from("referral_touch_events")
+      .select("id", { count: "exact", head: true })
+      .eq("referral_code", referralCode)
+      .eq("event_type", "click")
+      .gte("created_at", input.sinceIso),
+    input.client
+      .from("referral_attributions")
+      .select("id", { count: "exact", head: true })
+      .eq("referrer_owner_id", input.ownerId)
+      .gte("created_at", input.sinceIso),
+    input.client
+      .from("referral_rewards")
+      .select("referred_user_id, reward_amount")
+      .eq("referrer_user_id", input.ownerId)
+      .gte("issued_at", input.sinceIso)
+      .limit(20000),
+  ]);
+
+  const clicks = Math.max(
+    0,
+    Math.trunc(Number((clickResult as { count?: number | null })?.count || 0))
+  );
+  const captures = Math.max(
+    0,
+    Math.trunc(Number((captureResult as { count?: number | null })?.count || 0))
+  );
+
+  const rewards = ((rewardResult.data as RewardRow[] | null) ?? []);
+  const activeUsers = new Set<string>();
+  let earningsCredits = 0;
+  for (const row of rewards) {
+    const userId = String(row.referred_user_id || "");
+    if (userId) activeUsers.add(userId);
+    earningsCredits += Math.max(0, Number(row.reward_amount || 0));
+  }
+
+  return {
+    clicks,
+    captures,
+    activeReferrals: activeUsers.size,
+    earningsCredits: Number(earningsCredits.toFixed(2)),
+  };
+}
+
 export function maskPersonName(input: string | null | undefined, userId: string): string {
   const raw = String(input || "").trim().replace(/\s+/g, " ");
   if (!raw) return `Agent ${userId.slice(0, 6)}`;
@@ -806,41 +870,80 @@ export async function getReferralCampaignDetail(input: {
 export async function getAdminReferralAttributionOverview(input: {
   client: SupabaseClient;
   topLimit?: number;
+  timeframeDays?: 7 | 30 | null;
+  campaignId?: string | null;
+  utmSource?: string | null;
 }): Promise<{
   totals: { clicks: number; captures: number };
   capturesByChannel: Array<{ channel: string; captures: number }>;
+  campaigns: Array<{ id: string; name: string; channel: string; utm_source: string | null }>;
   topCampaigns: Array<{
     campaignId: string;
     campaignName: string;
     ownerMask: string;
     channel: string;
+    utm_source: string | null;
     clicks: number;
     captures: number;
   }>;
+  anomalies: {
+    ipAttributionClusters: Array<{ ipHashPrefix: string; attributions: number }>;
+    deepChains: Array<{ referrerMask: string; deepReferrals: number; maxDepth: number }>;
+  };
 }> {
   const topLimit = Math.max(1, Math.min(50, Math.trunc(input.topLimit ?? 20)));
+  const timeframeDays = input.timeframeDays === undefined ? 30 : input.timeframeDays;
+  const sinceIso =
+    timeframeDays && timeframeDays > 0
+      ? new Date(Date.now() - timeframeDays * 24 * 60 * 60 * 1000).toISOString()
+      : null;
+  const campaignId = String(input.campaignId || "").trim();
+  const utmSource = String(input.utmSource || "").trim();
+
+  const campaignsQuery = input.client
+    .from("referral_share_campaigns")
+    .select("id, owner_id, name, channel, utm_source")
+    .order("created_at", { ascending: false })
+    .limit(5000);
+  if (campaignId) {
+    campaignsQuery.eq("id", campaignId);
+  } else if (utmSource) {
+    campaignsQuery.eq("utm_source", utmSource);
+  }
+
+  const touchQuery = input.client
+    .from("referral_touch_events")
+    .select("campaign_id, event_type, created_at")
+    .order("created_at", { ascending: false })
+    .limit(20000);
+  if (sinceIso) touchQuery.gte("created_at", sinceIso);
+
+  const attributionQuery = input.client
+    .from("referral_attributions")
+    .select("campaign_id, first_touch_event_id, created_at")
+    .order("created_at", { ascending: false })
+    .limit(20000);
+  if (sinceIso) attributionQuery.gte("created_at", sinceIso);
+
   const [campaignsResult, touchResult, attributionResult] = await Promise.all([
-    input.client
-      .from("referral_share_campaigns")
-      .select("id, owner_id, name, channel")
-      .order("created_at", { ascending: false })
-      .limit(5000),
-    input.client
-      .from("referral_touch_events")
-      .select("campaign_id, event_type")
-      .order("created_at", { ascending: false })
-      .limit(10000),
-    input.client
-      .from("referral_attributions")
-      .select("campaign_id")
-      .order("created_at", { ascending: false })
-      .limit(10000),
+    campaignsQuery,
+    touchQuery,
+    attributionQuery,
   ]);
 
   const campaigns =
-    ((campaignsResult.data as Array<{ id: string; owner_id: string; name: string; channel: string }> | null) ?? []);
-  const touches = ((touchResult.data as Array<{ campaign_id: string | null; event_type: string }> | null) ?? []);
-  const attributions = ((attributionResult.data as Array<{ campaign_id: string | null }> | null) ?? []);
+    ((campaignsResult.data as Array<{ id: string; owner_id: string; name: string; channel: string; utm_source: string | null }> | null) ?? []);
+  const campaignIds = new Set(campaigns.map((row) => row.id));
+
+  const touches = (
+    (touchResult.data as Array<{ campaign_id: string | null; event_type: string; created_at: string }> | null) ??
+    []
+  ).filter((row) => (row.campaign_id ? campaignIds.has(row.campaign_id) : false));
+
+  const attributions = (
+    (attributionResult.data as Array<{ campaign_id: string | null; first_touch_event_id: string | null; created_at: string }> | null) ??
+    []
+  ).filter((row) => (row.campaign_id ? campaignIds.has(row.campaign_id) : false));
 
   const clickByCampaign = new Map<string, number>();
   for (const row of touches) {
@@ -863,6 +966,7 @@ export async function getAdminReferralAttributionOverview(input: {
         campaignName: campaign.name,
         ownerMask: `Agent ${campaign.owner_id.slice(0, 6)}`,
         channel: campaign.channel,
+        utm_source: campaign.utm_source ?? null,
         clicks: clickByCampaign.get(campaign.id) ?? 0,
         captures,
       };
@@ -873,14 +977,92 @@ export async function getAdminReferralAttributionOverview(input: {
     })
     .slice(0, topLimit);
 
+  const clickTotal = Array.from(clickByCampaign.values()).reduce((sum, value) => sum + value, 0);
+
+  const chunk = <T,>(items: T[], size: number) => {
+    const result: T[][] = [];
+    for (let i = 0; i < items.length; i += size) result.push(items.slice(i, i + size));
+    return result;
+  };
+
+  // Anomaly flags (read-only, privacy-safe).
+  const firstTouchIds = Array.from(
+    new Set(
+      attributions
+        .slice(0, 2000)
+        .map((row) => row.first_touch_event_id)
+        .filter((id): id is string => Boolean(id))
+    )
+  );
+  const touchesById = new Map<string, { ip_hash: string | null }>();
+  for (const batch of chunk(firstTouchIds, 500)) {
+    const { data } = await input.client
+      .from("referral_touch_events")
+      .select("id, ip_hash")
+      .in("id", batch);
+    for (const row of ((data as Array<{ id: string; ip_hash: string | null }> | null) ?? [])) {
+      touchesById.set(row.id, { ip_hash: row.ip_hash ?? null });
+    }
+  }
+  const ipCounts = new Map<string, number>();
+  for (const row of attributions.slice(0, 2000)) {
+    const touchId = row.first_touch_event_id;
+    if (!touchId) continue;
+    const ipHash = touchesById.get(touchId)?.ip_hash ?? null;
+    if (!ipHash) continue;
+    ipCounts.set(ipHash, (ipCounts.get(ipHash) ?? 0) + 1);
+  }
+  const ipAttributionClusters = Array.from(ipCounts.entries())
+    .filter(([, count]) => count >= 5)
+    .map(([ipHash, count]) => ({ ipHashPrefix: ipHash.slice(0, 10), attributions: count }))
+    .sort((a, b) => b.attributions - a.attributions)
+    .slice(0, 10);
+
+  const deepSinceIso = sinceIso ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const { data: deepRows } = await input.client
+    .from("referrals")
+    .select("referrer_user_id, depth")
+    .gte("created_at", deepSinceIso)
+    .gte("depth", 3)
+    .order("created_at", { ascending: false })
+    .limit(5000);
+  const deepByReferrer = new Map<string, { count: number; maxDepth: number }>();
+  for (const row of ((deepRows as Array<{ referrer_user_id: string; depth: number }> | null) ?? [])) {
+    const id = String(row.referrer_user_id || "");
+    if (!id) continue;
+    const current = deepByReferrer.get(id) ?? { count: 0, maxDepth: 0 };
+    current.count += 1;
+    current.maxDepth = Math.max(current.maxDepth, Math.max(0, Math.trunc(Number(row.depth || 0))));
+    deepByReferrer.set(id, current);
+  }
+  const deepChains = Array.from(deepByReferrer.entries())
+    .filter(([, value]) => value.count >= 5)
+    .map(([referrerId, value]) => ({
+      referrerMask: `Agent ${referrerId.slice(0, 6)}`,
+      deepReferrals: value.count,
+      maxDepth: value.maxDepth,
+    }))
+    .sort((a, b) => b.deepReferrals - a.deepReferrals)
+    .slice(0, 10);
+
   return {
     totals: {
-      clicks: Array.from(clickByCampaign.values()).reduce((sum, value) => sum + value, 0),
+      clicks: clickTotal,
       captures: attributions.length,
     },
     capturesByChannel: Array.from(channelCaptures.entries())
       .map(([channel, captures]) => ({ channel, captures }))
       .sort((a, b) => b.captures - a.captures),
+    campaigns: campaigns.map((campaign) => ({
+      id: campaign.id,
+      name: campaign.name,
+      channel: campaign.channel,
+      utm_source: campaign.utm_source ?? null,
+    })),
     topCampaigns,
+    anomalies: {
+      ipAttributionClusters,
+      deepChains,
+    },
   };
 }

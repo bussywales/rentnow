@@ -37,6 +37,12 @@ test("agent referrals dashboard smoke", async ({ page }) => {
     await expect(leaderboardSection).toContainText(/Your rank|No rank yet/i);
   }
 
+  const shareSection = page.getByTestId("referrals-share-analytics-section");
+  if (await shareSection.isVisible().catch(() => false)) {
+    await expect(shareSection.getByTestId("referrals-funnel-card")).toBeVisible();
+    await expect(shareSection.getByTestId("referrals-top-channel-card")).toBeVisible();
+  }
+
   const copyButton = page.getByRole("button", { name: /^Copy$/i });
   await expect(copyButton).toBeVisible();
 

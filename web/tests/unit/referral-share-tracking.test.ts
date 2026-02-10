@@ -3,10 +3,12 @@ import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   getReferralOwnerAnalytics,
+  getReferralOwnerFunnelSnapshot,
   normalizeCampaignInput,
   normalizeLandingPath,
   upsertReferralAttribution,
 } from "@/lib/referrals/share-tracking.server";
+import { computeMissingDefaultReferralCampaigns } from "@/lib/referrals/share-tracking-defaults";
 
 type Row = Record<string, unknown>;
 
@@ -181,4 +183,86 @@ void test("getReferralOwnerAnalytics aggregates clicks, captures and earnings", 
   assert.equal(result.totals.activeReferrals, 1);
   assert.equal(result.totals.earningsCredits, 2);
   assert.equal(result.campaigns[0]?.conversionRate, 50);
+});
+
+void test("computeMissingDefaultReferralCampaigns is idempotent by name", () => {
+  const missingFromEmpty = computeMissingDefaultReferralCampaigns([]);
+  assert.equal(missingFromEmpty.length, 3);
+
+  const noneMissing = computeMissingDefaultReferralCampaigns([
+    { name: "WhatsApp" },
+    { name: "Instagram" },
+    { name: "Direct link" },
+  ]);
+  assert.equal(noneMissing.length, 0);
+
+  const missingFromPartial = computeMissingDefaultReferralCampaigns([{ name: "WhatsApp" }]);
+  assert.deepEqual(
+    missingFromPartial.map((row) => row.name).sort(),
+    ["Direct link", "Instagram"].sort()
+  );
+});
+
+void test("getReferralOwnerFunnelSnapshot returns last-30d funnel counts", async () => {
+  class MockBuilder {
+    count: number | null;
+    data: Row[] | null;
+    error: null = null;
+    constructor(input: { count?: number | null; data?: Row[] | null }) {
+      this.count = input.count ?? null;
+      this.data = input.data ?? null;
+    }
+    eq() {
+      return this;
+    }
+    gte() {
+      return this;
+    }
+    limit() {
+      return this;
+    }
+    then(onFulfilled: (value: { data: Row[] | null; count: number | null; error: null }) => unknown) {
+      return Promise.resolve({ data: this.data, count: this.count, error: this.error }).then(onFulfilled);
+    }
+  }
+
+  const client = {
+    from: (table: string) => {
+      if (table === "referral_touch_events") {
+        return {
+          select: () => new MockBuilder({ count: 4, data: null }),
+        };
+      }
+      if (table === "referral_attributions") {
+        return {
+          select: () => new MockBuilder({ count: 2, data: null }),
+        };
+      }
+      if (table === "referral_rewards") {
+        return {
+          select: () =>
+            new MockBuilder({
+              data: [
+                { referred_user_id: "referred-1", reward_amount: 2 },
+                { referred_user_id: "referred-1", reward_amount: 1 },
+                { referred_user_id: "referred-2", reward_amount: 3.5 },
+              ],
+            }),
+        };
+      }
+      throw new Error(`Unexpected table: ${table}`);
+    },
+  } as unknown as SupabaseClient;
+
+  const result = await getReferralOwnerFunnelSnapshot({
+    client,
+    ownerId: "owner-1",
+    referralCode: "ABC123",
+    sinceIso: "2026-02-01T00:00:00.000Z",
+  });
+
+  assert.equal(result.clicks, 4);
+  assert.equal(result.captures, 2);
+  assert.equal(result.activeReferrals, 2);
+  assert.equal(result.earningsCredits, 6.5);
 });
