@@ -199,7 +199,7 @@ export async function listCollectionsForOwner(input: {
     .order("updated_at", { ascending: false });
 
   if (collectionsError) throw new Error(collectionsError.message);
-  const collections = (collectionsData as SavedCollectionRow[] | null) ?? [];
+  const collections = (collectionsData as unknown as SavedCollectionRow[] | null) ?? [];
   if (!collections.length) return [];
 
   const collectionIds = collections.map((collection) => collection.id);
@@ -210,7 +210,7 @@ export async function listCollectionsForOwner(input: {
     .order("created_at", { ascending: false });
 
   if (itemsError) throw new Error(itemsError.message);
-  const items = (itemsData as SavedCollectionItemRow[] | null) ?? [];
+  const items = (itemsData as unknown as SavedCollectionItemRow[] | null) ?? [];
 
   const counts = new Map<string, number>();
   const containsListing = new Map<string, boolean>();
@@ -234,7 +234,7 @@ export async function listCollectionsForOwner(input: {
       .select("id,title,cover_image_url,property_images(image_url,id,position,created_at)")
       .in("id", coverListingIds);
     if (coverError) throw new Error(coverError.message);
-    for (const row of ((coverRows as PropertyRow[] | null) ?? [])) {
+    for (const row of ((coverRows as unknown as PropertyRow[] | null) ?? [])) {
       const property = mapPropertyRow(row);
       if (!property) continue;
       covers.set(property.id, {
@@ -276,7 +276,7 @@ async function getPropertiesByIds(input: {
 
   if (error) throw new Error(error.message);
   const map = new Map<string, Property>();
-  for (const row of ((data as PropertyRow[] | null) ?? [])) {
+  for (const row of ((data as unknown as PropertyRow[] | null) ?? [])) {
     const property = mapPropertyRow(row);
     if (!property) continue;
     map.set(property.id, property);
@@ -314,7 +314,7 @@ export async function getCollectionWithListingsForOwner(input: {
     .order("created_at", { ascending: false });
 
   if (itemsError) throw new Error(itemsError.message);
-  const items = (itemRows as SavedCollectionItemRow[] | null) ?? [];
+  const items = (itemRows as unknown as SavedCollectionItemRow[] | null) ?? [];
   const orderedListingIds = items.map((item) => item.listing_id);
   const uniqueListingIds = Array.from(new Set(orderedListingIds));
   const propertiesById = await getPropertiesByIds({
@@ -365,7 +365,7 @@ export async function getPublicCollectionByShareId(input: {
     .order("created_at", { ascending: false });
 
   if (itemsError) throw new Error(itemsError.message);
-  const orderedListingIds = ((itemRows as Array<{ listing_id: string }> | null) ?? []).map(
+  const orderedListingIds = ((itemRows as unknown as Array<{ listing_id: string }> | null) ?? []).map(
     (row) => row.listing_id
   );
   const uniqueListingIds = Array.from(new Set(orderedListingIds));
