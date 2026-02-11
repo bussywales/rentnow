@@ -4,13 +4,35 @@ import { getUserRole, requireUser } from "@/lib/authz";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logFailure, logSavedSearchLimitHit } from "@/lib/observability";
 import { getTenantPlanForTier, isSavedSearchLimitReached } from "@/lib/plans";
+import {
+  buildDefaultSavedSearchName,
+  normalizeSavedSearchFilters,
+  stableStringify,
+} from "@/lib/saved-searches/matching";
 
 const routeLabel = "/api/saved-searches";
 
-const createSchema = z.object({
-  name: z.string().min(2),
-  query_params: z.record(z.string(), z.unknown()),
-});
+const createSchema = z
+  .object({
+    name: z.string().trim().min(2).max(120).optional(),
+    filters: z.record(z.string(), z.unknown()).optional(),
+    query_params: z.record(z.string(), z.unknown()).optional(),
+    source: z.string().trim().max(80).optional(),
+  })
+  .refine((value) => !!value.filters || !!value.query_params, {
+    message: "filters or query_params is required",
+  });
+
+type SavedSearchRow = {
+  id: string;
+  user_id: string;
+  name: string;
+  query_params: Record<string, unknown> | null;
+  is_active?: boolean | null;
+  created_at?: string | null;
+  last_notified_at?: string | null;
+  last_checked_at?: string | null;
+};
 
 type SavedSearchDeps = {
   hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
@@ -23,11 +45,44 @@ type SavedSearchDeps = {
   logSavedSearchLimitHit: typeof logSavedSearchLimitHit;
 };
 
-export async function GET(request: Request) {
+const defaultDeps: SavedSearchDeps = {
+  hasServerSupabaseEnv,
+  createServerSupabaseClient,
+  requireUser,
+  getUserRole,
+  getTenantPlanForTier,
+  isSavedSearchLimitReached,
+  logFailure,
+  logSavedSearchLimitHit,
+};
+
+function normalizeRequestFilters(payload: z.infer<typeof createSchema>) {
+  const base = normalizeSavedSearchFilters(payload.filters ?? payload.query_params ?? {});
+  if (payload.source && !base._source) {
+    base._source = payload.source;
+  }
+  return base;
+}
+
+function findDuplicateByFilters(input: {
+  searches: SavedSearchRow[];
+  filters: Record<string, unknown>;
+}) {
+  const canonical = stableStringify(normalizeSavedSearchFilters(input.filters));
+  return input.searches.find((search) => {
+    const current = normalizeSavedSearchFilters(search.query_params || {});
+    return stableStringify(current) === canonical;
+  });
+}
+
+export async function getSavedSearchesResponse(
+  request: Request,
+  deps: SavedSearchDeps = defaultDeps
+) {
   const startTime = Date.now();
 
-  if (!hasServerSupabaseEnv()) {
-    logFailure({
+  if (!deps.hasServerSupabaseEnv()) {
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 503,
@@ -40,17 +95,17 @@ export async function GET(request: Request) {
     );
   }
 
-  const auth = await requireUser({ request, route: routeLabel, startTime });
+  const auth = await deps.requireUser({ request, route: routeLabel, startTime });
   if (!auth.ok) return auth.response;
 
   const { data, error } = await auth.supabase
     .from("saved_searches")
-    .select("*")
+    .select("id,user_id,name,query_params,is_active,created_at,last_notified_at,last_checked_at")
     .eq("user_id", auth.user.id)
     .order("created_at", { ascending: false });
 
   if (error) {
-    logFailure({
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 400,
@@ -60,27 +115,17 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message, searches: [] }, { status: 400 });
   }
 
-  return NextResponse.json({ searches: data || [] });
+  return NextResponse.json({ searches: (data as unknown as SavedSearchRow[] | null) ?? [] });
 }
 
 export async function postSavedSearchResponse(
   request: Request,
-  deps: Partial<SavedSearchDeps> = {}
+  deps: SavedSearchDeps = defaultDeps
 ) {
   const startTime = Date.now();
-  const {
-    hasServerSupabaseEnv: hasEnv = hasServerSupabaseEnv,
-    createServerSupabaseClient: createClient = createServerSupabaseClient,
-    requireUser: requireAuthUser = requireUser,
-    getUserRole: getRole = getUserRole,
-    getTenantPlanForTier: resolveTenantPlan = getTenantPlanForTier,
-    isSavedSearchLimitReached: isLimitReached = isSavedSearchLimitReached,
-    logFailure: logError = logFailure,
-    logSavedSearchLimitHit: logLimitHit = logSavedSearchLimitHit,
-  } = deps;
 
-  if (!hasEnv()) {
-    logError({
+  if (!deps.hasServerSupabaseEnv()) {
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 503,
@@ -93,8 +138,8 @@ export async function postSavedSearchResponse(
     );
   }
 
-  const supabase = await createClient();
-  const auth = await requireAuthUser({
+  const supabase = await deps.createServerSupabaseClient();
+  const auth = await deps.requireUser({
     request,
     route: routeLabel,
     startTime,
@@ -102,13 +147,55 @@ export async function postSavedSearchResponse(
   });
   if (!auth.ok) {
     return NextResponse.json(
-      { error: "Please log in to save searches.", code: "not_authenticated" },
+      { error: "Please log in to follow searches.", code: "not_authenticated" },
       { status: 401 }
     );
   }
 
   try {
-    const role = await getRole(supabase, auth.user.id);
+    const body = await request.json().catch(() => null);
+    const payload = createSchema.parse(body || {});
+    const filters = normalizeRequestFilters(payload);
+    const requestedName = payload.name?.trim() || null;
+
+    const { data: existingRows, error: existingError } = await supabase
+      .from("saved_searches")
+      .select("id,user_id,name,query_params,is_active,created_at,last_notified_at,last_checked_at")
+      .eq("user_id", auth.user.id)
+      .order("created_at", { ascending: false });
+
+    if (existingError) {
+      return NextResponse.json({ error: existingError.message }, { status: 400 });
+    }
+
+    const existing = (existingRows as unknown as SavedSearchRow[] | null) ?? [];
+    const duplicate = findDuplicateByFilters({ searches: existing, filters });
+    const fallbackName = buildDefaultSavedSearchName(filters);
+    const effectiveName = requestedName || duplicate?.name || fallbackName;
+
+    if (duplicate) {
+      const { data: updated, error: updateError } = await supabase
+        .from("saved_searches")
+        .update({
+          name: effectiveName,
+          query_params: filters,
+          is_active: true,
+        })
+        .eq("id", duplicate.id)
+        .eq("user_id", auth.user.id)
+        .select("id,user_id,name,query_params,is_active,created_at,last_notified_at,last_checked_at")
+        .maybeSingle<SavedSearchRow>();
+
+      if (updateError || !updated) {
+        return NextResponse.json(
+          { error: updateError?.message || "Unable to update followed search." },
+          { status: 400 }
+        );
+      }
+      return NextResponse.json({ search: updated, upserted: true });
+    }
+
+    const role = await deps.getUserRole(supabase, auth.user.id);
     const enforcePlanLimit = role === "tenant";
     if (enforcePlanLimit) {
       const { data: planRow } = await supabase
@@ -120,39 +207,23 @@ export async function postSavedSearchResponse(
       const validUntil = planRow?.valid_until ?? null;
       const expired =
         !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
-      const tenantPlan = resolveTenantPlan(expired ? "free" : planRow?.plan_tier ?? "free");
-
-      const { count: searchCount, error: countError } = await supabase
-        .from("saved_searches")
-        .select("id", { count: "exact", head: true })
-        .eq("user_id", auth.user.id);
-
-      if (countError) {
-        logError({
-          request,
-          route: routeLabel,
-          status: 400,
-          startTime,
-          error: new Error(countError.message),
-        });
-        return NextResponse.json({ error: countError.message }, { status: 400 });
-      }
-
-      if (isLimitReached(searchCount ?? 0, tenantPlan)) {
-        logLimitHit({
+      const tenantPlan = deps.getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+      const searchCount = existing.length;
+      if (deps.isSavedSearchLimitReached(searchCount, tenantPlan)) {
+        deps.logSavedSearchLimitHit({
           request,
           route: routeLabel,
           actorId: auth.user.id,
           planTier: tenantPlan.tier,
           maxSavedSearches: tenantPlan.maxSavedSearches,
-          searchCount: searchCount ?? 0,
+          searchCount,
         });
         return NextResponse.json(
           {
             error: "Saved search limit reached",
             code: "limit_reached",
             maxSavedSearches: tenantPlan.maxSavedSearches,
-            searchCount: searchCount ?? 0,
+            searchCount,
             planTier: tenantPlan.tier,
           },
           { status: 409 }
@@ -160,41 +231,43 @@ export async function postSavedSearchResponse(
       }
     }
 
-    const body = await request.json();
-    const payload = createSchema.parse(body);
-    const { data, error } = await supabase
+    const { data: created, error: insertError } = await supabase
       .from("saved_searches")
       .insert({
         user_id: auth.user.id,
-        name: payload.name,
-        query_params: payload.query_params,
+        name: effectiveName,
+        query_params: filters,
+        is_active: true,
       })
-      .select()
-      .single();
+      .select("id,user_id,name,query_params,is_active,created_at,last_notified_at,last_checked_at")
+      .maybeSingle<SavedSearchRow>();
 
-    if (error) {
-      logError({
-        request,
-        route: routeLabel,
-        status: 400,
-        startTime,
-        error: new Error(error.message),
-      });
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (insertError || !created) {
+      return NextResponse.json(
+        { error: insertError?.message || "Unable to create followed search." },
+        { status: 400 }
+      );
     }
 
-    return NextResponse.json({ search: data });
+    return NextResponse.json({ search: created, upserted: false });
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Unable to save search";
-    logError({
+    const message = err instanceof Error ? err.message : "Unable to follow search";
+    deps.logFailure({
       request,
       route: routeLabel,
       status: 500,
       startTime,
       error: err,
     });
+    if (err instanceof z.ZodError) {
+      return NextResponse.json({ error: "filters or query_params is required." }, { status: 422 });
+    }
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+export async function GET(request: Request) {
+  return getSavedSearchesResponse(request);
 }
 
 export async function POST(request: Request) {

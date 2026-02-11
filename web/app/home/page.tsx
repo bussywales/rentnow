@@ -16,6 +16,7 @@ import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
 import { fetchOwnerListings } from "@/lib/properties/owner-listings";
 import { isListingExpired } from "@/lib/properties/expiry";
 import { buildSummaryByProperty, fetchPropertyEvents, isUuid } from "@/lib/analytics/property-events.server";
+import { getSavedSearchSummaryForUser } from "@/lib/saved-searches/summary.server";
 import type { Property } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -206,8 +207,12 @@ export default async function HomeWorkspacePage() {
   const cityCollections = getCityCollections();
   const popularCity = context.profileCity?.trim() || cityCollections[0]?.city || null;
 
-  const [snapshot, featuredHomes, newHomes, popularHomes] = await Promise.all([
+  const [snapshot, savedSearchSummary, featuredHomes, newHomes, popularHomes] = await Promise.all([
     getSnapshot(user.id, context),
+    getSavedSearchSummaryForUser({
+      supabase: context.supabase,
+      userId: user.id,
+    }).catch(() => ({ totalNewMatches: 0, searches: [] })),
     getFeaturedHomes({ limit: 8, context }),
     getNewHomes({ days: 7, limit: 8, context }),
     getPopularHomes({ city: popularCity, limit: 8, context }),
@@ -293,6 +298,40 @@ export default async function HomeWorkspacePage() {
             <p className="mt-1 text-2xl font-semibold text-slate-900">{formatCount(snapshot.viewingRequests7d)}</p>
           </div>
         </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold text-slate-900">Demand alerts</h2>
+            <p className="text-sm text-slate-600">
+              New matches for searches you follow.
+            </p>
+          </div>
+          <Link href="/saved-searches" className="text-sm font-semibold text-sky-700">
+            Manage searches
+          </Link>
+        </div>
+        <p className="mt-3 text-sm text-slate-700">
+          {savedSearchSummary.totalNewMatches > 0
+            ? `${savedSearchSummary.totalNewMatches} new matches across your followed searches.`
+            : "No new matches yet. Follow searches from Browse to track demand."}
+        </p>
+        {savedSearchSummary.searches.length > 0 ? (
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {savedSearchSummary.searches.slice(0, 3).map((search) => (
+              <div
+                key={search.id}
+                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+              >
+                <p className="text-sm font-semibold text-slate-900">{search.name}</p>
+                <p className="text-xs text-slate-600">
+                  {search.newMatchesCount} new matches
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : null}
       </section>
 
       <section className="space-y-4" data-testid="home-featured-homes">

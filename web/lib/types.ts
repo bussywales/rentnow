@@ -216,6 +216,7 @@ export interface SavedSearch {
   user_id: string;
   name: string;
   query_params: Record<string, unknown>;
+  is_active?: boolean | null;
   created_at?: string;
   last_notified_at?: string | null;
   last_checked_at?: string | null;

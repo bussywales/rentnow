@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { filtersToSearchParams, parseFiltersFromSavedSearch } from "@/lib/search-filters";
 import type { SavedSearch } from "@/lib/types";
 import { setToastQuery } from "@/lib/utils/toast";
 
@@ -30,6 +31,12 @@ function formatSummary(search: SavedSearch) {
     );
   }
   return parts.length ? parts.join(" • ") : "All homes";
+}
+
+function buildViewMatchesHref(search: SavedSearch) {
+  const filters = parseFiltersFromSavedSearch(search.query_params || {});
+  const params = filtersToSearchParams(filters);
+  return `/properties?${params.toString()}`;
 }
 
 export function SavedSearchManager({ initialSearches, alertsEnabled = false }: Props) {
@@ -74,6 +81,25 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
       prev.map((item) => (item.id === search.id ? data.search : item))
     );
     setEditingId(null);
+  };
+
+  const toggleActive = async (search: SavedSearch) => {
+    setError(null);
+    const nextIsActive = search.is_active === false;
+    const res = await fetch(`/api/saved-searches/${search.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ is_active: nextIsActive }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(sanitizeError(data?.error || "", "Unable to update this search."));
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    setSearches((prev) =>
+      prev.map((item) => (item.id === search.id ? data.search : item))
+    );
   };
 
   const deleteSearch = async (search: SavedSearch) => {
@@ -138,7 +164,7 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
     return (
       <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-center">
         <p className="text-base font-semibold text-slate-900">
-          No saved searches yet — save one to get instant match updates.
+          No saved searches yet — follow one to get instant match updates.
         </p>
         <Link
           href="/properties"
@@ -179,6 +205,9 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
                   search.name
                 )}
               </p>
+              <p className="text-xs font-semibold text-slate-600">
+                {search.is_active === false ? "Paused" : "Active"}
+              </p>
               {alertsEnabled && (
                 <p className="text-xs font-semibold text-emerald-600">Alerts enabled</p>
               )}
@@ -188,6 +217,12 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
                   Last checked: {new Date(search.last_checked_at).toLocaleString()}
                 </p>
               )}
+              <Link
+                href={buildViewMatchesHref(search)}
+                className="text-xs font-semibold text-sky-700 transition hover:text-sky-800"
+              >
+                View matches
+              </Link>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {editingId === search.id ? (
@@ -216,6 +251,13 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
                 ) : (
                   "Check matches"
                 )}
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => toggleActive(search)}
+              >
+                {search.is_active === false ? "Resume" : "Pause"}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => deleteSearch(search)}>
                 Delete

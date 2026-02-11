@@ -13,7 +13,7 @@ type Props = {
 function buildDefaultName(filters: ParsedSearchFilters) {
   if (filters.city) return `${filters.city} rentals`;
   if (filters.rentalType) return `${filters.rentalType === "short_let" ? "Short-let" : "Long-term"} search`;
-  return "My saved search";
+  return "Followed search";
 }
 
 export function SavedSearchButton({ filters }: Props) {
@@ -47,21 +47,25 @@ export function SavedSearchButton({ filters }: Props) {
       const res = await fetch("/api/saved-searches", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, query_params: payload }),
+        body: JSON.stringify({
+          name: name.trim() || undefined,
+          filters: payload,
+          source: "browse",
+        }),
       });
       if (!res.ok) {
         if (res.status === 401) {
           setReasonCode("not_authenticated");
-          throw new Error("Please log in to save searches.");
+          throw new Error("Please log in to follow searches.");
         }
         const data = await res.json().catch(() => ({}));
         if (typeof data?.code === "string") setReasonCode(data.code);
-        throw new Error(data?.error || "Unable to save search.");
+        throw new Error(data?.error || "Unable to follow search.");
       }
-      setSuccess("Saved! You can edit alerts in your saved searches.");
+      setSuccess("Following this search.");
       setOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Unable to save search.");
+      setError(err instanceof Error ? err.message : "Unable to follow search.");
     } finally {
       setSaving(false);
     }
@@ -71,7 +75,7 @@ export function SavedSearchButton({ filters }: Props) {
     <div className="relative">
       <div className="flex flex-wrap items-center gap-2">
         <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-          Save this search
+          Follow this search
         </Button>
         {success && <span className="text-xs text-emerald-600">{success}</span>}
         {error && <span className="text-xs text-rose-600">{error}</span>}
@@ -80,14 +84,14 @@ export function SavedSearchButton({ filters }: Props) {
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 px-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold text-slate-900">Save search</h3>
+              <h3 className="text-lg font-semibold text-slate-900">Follow search</h3>
               <p className="text-sm text-slate-600">
-                Give this search a name so you can track new homes later.
+                Follow these filters to track new matches in your saved searches.
               </p>
             </div>
             <div className="mt-4 space-y-2">
               <label htmlFor="saved-search-name" className="text-sm font-medium text-slate-700">
-                Search name
+                Search name (optional)
               </label>
               <Input
                 id="saved-search-name"
@@ -99,8 +103,8 @@ export function SavedSearchButton({ filters }: Props) {
               <Button variant="ghost" onClick={() => setOpen(false)}>
                 Cancel
               </Button>
-              <Button onClick={handleSave} disabled={saving || !name.trim()}>
-                {saving ? "Saving..." : "Save search"}
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Following..." : "Follow search"}
               </Button>
             </div>
             {error && (

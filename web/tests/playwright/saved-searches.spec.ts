@@ -29,9 +29,9 @@ test("tenant can save search and others cannot access it", async ({ browser }) =
   await login(tenantPage, TENANT_EMAIL, TENANT_PASSWORD);
 
   await tenantPage.goto("/properties?city=Lagos&bedrooms=2");
-  await tenantPage.getByRole("button", { name: /save this search/i }).click();
+  await tenantPage.getByRole("button", { name: /follow this search/i }).click();
   await tenantPage.getByLabel("Search name").fill(`Lagos 2-bed ${Date.now()}`);
-  await tenantPage.getByRole("button", { name: /save search/i }).click();
+  await tenantPage.getByRole("button", { name: /follow search/i }).click();
 
   await tenantPage.goto("/dashboard/saved-searches");
   await expect(tenantPage.getByText(/Lagos 2-bed/i)).toBeVisible();

@@ -11,8 +11,10 @@ import type { ParsedSearchFilters } from "@/lib/types";
 const routeLabel = "/api/saved-searches/[id]";
 
 const patchSchema = z.object({
-  name: z.string().min(2).optional(),
+  name: z.string().trim().min(2).max(120).optional(),
   query_params: z.record(z.string(), z.unknown()).optional(),
+  filters: z.record(z.string(), z.unknown()).optional(),
+  is_active: z.boolean().optional(),
   action: z.enum(["check"]).optional(),
 });
 
@@ -20,13 +22,30 @@ function toFilters(queryParams: Record<string, unknown>): ParsedSearchFilters {
   return parseFiltersFromSavedSearch(queryParams);
 }
 
-export async function PATCH(
+type SavedSearchByIdDeps = {
+  hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
+  createServerSupabaseClient: typeof createServerSupabaseClient;
+  requireUser: typeof requireUser;
+  searchProperties: typeof searchProperties;
+  getTenantPlanForTier: typeof getTenantPlanForTier;
+};
+
+const defaultDeps: SavedSearchByIdDeps = {
+  hasServerSupabaseEnv,
+  createServerSupabaseClient,
+  requireUser,
+  searchProperties,
+  getTenantPlanForTier,
+};
+
+export async function patchSavedSearchByIdResponse(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
+  deps: SavedSearchByIdDeps = defaultDeps
 ) {
   const startTime = Date.now();
 
-  if (!hasServerSupabaseEnv()) {
+  if (!deps.hasServerSupabaseEnv()) {
     logFailure({
       request,
       route: routeLabel,
@@ -40,8 +59,8 @@ export async function PATCH(
     );
   }
 
-  const supabase = await createServerSupabaseClient();
-  const auth = await requireUser({
+  const supabase = await deps.createServerSupabaseClient();
+  const auth = await deps.requireUser({
     request,
     route: routeLabel,
     startTime,
@@ -50,8 +69,9 @@ export async function PATCH(
   if (!auth.ok) return auth.response;
 
   const { id } = await context.params;
-  const body = await request.json();
+  const body = await request.json().catch(() => null);
   const payload = patchSchema.parse(body);
+  const nextQueryParams = payload.filters ?? payload.query_params;
 
   const { data: existing, error: fetchError } = await supabase
     .from("saved_searches")
@@ -81,7 +101,7 @@ export async function PATCH(
       const validUntil = planRow?.valid_until ?? null;
       const expired =
         !!validUntil && Number.isFinite(Date.parse(validUntil)) && Date.parse(validUntil) < Date.now();
-      const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
+      const tenantPlan = deps.getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
       if (tenantPlan.tier !== "tenant_pro" && tenantPlan.earlyAccessMinutes > 0) {
         approvedBefore = new Date(
           Date.now() - tenantPlan.earlyAccessMinutes * 60 * 1000
@@ -89,7 +109,7 @@ export async function PATCH(
       }
     }
 
-    const { data, error, count } = await searchProperties(filters, {
+    const { data, error, count } = await deps.searchProperties(filters, {
       page: 1,
       pageSize: 1,
       approvedBefore,
@@ -118,7 +138,8 @@ export async function PATCH(
 
   const updates: Record<string, unknown> = {};
   if (payload.name) updates.name = payload.name;
-  if (payload.query_params) updates.query_params = payload.query_params;
+  if (nextQueryParams) updates.query_params = nextQueryParams;
+  if (typeof payload.is_active === "boolean") updates.is_active = payload.is_active;
 
   if (!Object.keys(updates).length) {
     return NextResponse.json({ search: existing });
@@ -139,13 +160,14 @@ export async function PATCH(
   return NextResponse.json({ search: data });
 }
 
-export async function DELETE(
+export async function deleteSavedSearchByIdResponse(
   request: Request,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> },
+  deps: SavedSearchByIdDeps = defaultDeps
 ) {
   const startTime = Date.now();
 
-  if (!hasServerSupabaseEnv()) {
+  if (!deps.hasServerSupabaseEnv()) {
     logFailure({
       request,
       route: routeLabel,
@@ -159,8 +181,8 @@ export async function DELETE(
     );
   }
 
-  const supabase = await createServerSupabaseClient();
-  const auth = await requireUser({
+  const supabase = await deps.createServerSupabaseClient();
+  const auth = await deps.requireUser({
     request,
     route: routeLabel,
     startTime,
@@ -181,4 +203,18 @@ export async function DELETE(
   }
 
   return NextResponse.json({ id });
+}
+
+export async function PATCH(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  return patchSavedSearchByIdResponse(request, context);
+}
+
+export async function DELETE(
+  request: Request,
+  context: { params: Promise<{ id: string }> }
+) {
+  return deleteSavedSearchByIdResponse(request, context);
 }
