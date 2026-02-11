@@ -8,7 +8,7 @@ void test("dashboard routes admin to admin console", () => {
   const contents = fs.readFileSync(dashboardPath, "utf8");
   assert.ok(contents.includes('role === "admin"'), "admin redirect should be explicit");
   assert.ok(contents.includes('redirect("/admin")'), "admin dashboard should land in /admin");
-  assert.ok(contents.includes("/dashboard/analytics"), "dashboard should route non-admins to analytics workspace");
+  assert.ok(contents.includes('redirect("/home")'), "dashboard should route agent/landlord to /home");
 });
 
 void test("admin route remains admin-only", () => {

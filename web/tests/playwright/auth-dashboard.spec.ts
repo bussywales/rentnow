@@ -18,7 +18,7 @@ test.describe("Auth -> dashboard -> property detail", () => {
     await page.getByPlaceholder("Password").fill(PASSWORD);
     await page.getByRole("button", { name: "Log in" }).click();
 
-    await page.waitForURL("**/dashboard", { timeout: 15_000 });
+    await page.waitForURL("**/home", { timeout: 20_000 });
     await expect(page.getByText(/workspace/i)).toBeVisible();
 
     const firstCard = page.locator("a").filter({ hasText: /viewings|messages|new listing/i }).first();

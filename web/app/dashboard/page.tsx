@@ -29,5 +29,5 @@ export default async function DashboardRouter() {
     redirect("/admin");
   }
 
-  redirect("/dashboard/analytics");
+  redirect("/home");
 }

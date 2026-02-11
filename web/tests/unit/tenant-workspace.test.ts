@@ -12,8 +12,8 @@ void test("dashboard route redirects by role", () => {
     "expected tenant redirect"
   );
   assert.ok(
-    contents.includes('redirect("/dashboard/analytics")'),
-    "expected non-tenant redirect to analytics workspace"
+    contents.includes('redirect("/home")'),
+    "expected non-tenant redirect to /home"
   );
   assert.ok(
     contents.includes('redirect("/admin")'),
