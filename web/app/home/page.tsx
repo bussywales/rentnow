@@ -18,6 +18,9 @@ import { isListingExpired } from "@/lib/properties/expiry";
 import { buildSummaryByProperty, fetchPropertyEvents, isUuid } from "@/lib/analytics/property-events.server";
 import { getSavedSearchSummaryForUser } from "@/lib/saved-searches/summary.server";
 import type { Property } from "@/lib/types";
+import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
+import type { TrustMarkerState } from "@/lib/trust-markers";
+import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
 
 export const dynamic = "force-dynamic";
 
@@ -148,10 +151,14 @@ function PropertyRail({
   homes,
   viewerRole,
   savedIds,
+  trustSnapshots,
+  socialProofByListing,
 }: {
   homes: Property[];
   viewerRole: "agent" | "landlord";
   savedIds: Set<string>;
+  trustSnapshots: Record<string, TrustMarkerState>;
+  socialProofByListing: Record<string, ListingPopularitySignal>;
 }) {
   if (!homes.length) {
     return (
@@ -172,6 +179,8 @@ function PropertyRail({
             initialSaved={savedIds.has(property.id)}
             showCta={false}
             viewerRole={viewerRole}
+            trustMarkers={trustSnapshots[property.owner_id]}
+            socialProof={socialProofByListing[property.id] ?? null}
           />
         </div>
       ))}
@@ -229,6 +238,24 @@ export default async function HomeWorkspacePage() {
         propertyIds: railPropertyIds,
       })
     : new Set<string>();
+  const railOwnerIds = Array.from(
+    new Set(
+      [...featuredHomes, ...newHomes, ...popularHomes]
+        .map((property) => property.owner_id)
+        .filter(Boolean)
+    )
+  );
+  const [trustSnapshots, socialProofByListing] = await Promise.all([
+    railOwnerIds.length
+      ? fetchTrustPublicSnapshots(context.supabase, railOwnerIds)
+      : Promise.resolve({} as Record<string, TrustMarkerState>),
+    railPropertyIds.length
+      ? getListingPopularitySignals({
+          client: context.supabase,
+          listingIds: railPropertyIds,
+        })
+      : Promise.resolve({} as Record<string, ListingPopularitySignal>),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-8 px-4 sm:px-6 lg:px-8">
@@ -340,7 +367,13 @@ export default async function HomeWorkspacePage() {
           description="What renters are seeing first."
           href="/properties?featured=true"
         />
-        <PropertyRail homes={featuredHomes} viewerRole={role} savedIds={savedIds} />
+        <PropertyRail
+          homes={featuredHomes}
+          viewerRole={role}
+          savedIds={savedIds}
+          trustSnapshots={trustSnapshots}
+          socialProofByListing={socialProofByListing}
+        />
       </section>
 
       <section className="space-y-4">
@@ -349,7 +382,13 @@ export default async function HomeWorkspacePage() {
           description="Fresh inventory added in the last 7 days."
           href="/properties?sort=newest"
         />
-        <PropertyRail homes={newHomes} viewerRole={role} savedIds={savedIds} />
+        <PropertyRail
+          homes={newHomes}
+          viewerRole={role}
+          savedIds={savedIds}
+          trustSnapshots={trustSnapshots}
+          socialProofByListing={socialProofByListing}
+        />
       </section>
 
       <section className="space-y-4">
@@ -378,7 +417,13 @@ export default async function HomeWorkspacePage() {
           description="Listings attracting strong attention."
           href={popularCity ? `/properties?city=${encodeURIComponent(popularCity)}` : "/properties"}
         />
-        <PropertyRail homes={popularHomes} viewerRole={role} savedIds={savedIds} />
+        <PropertyRail
+          homes={popularHomes}
+          viewerRole={role}
+          savedIds={savedIds}
+          trustSnapshots={trustSnapshots}
+          socialProofByListing={socialProofByListing}
+        />
       </section>
     </div>
   );

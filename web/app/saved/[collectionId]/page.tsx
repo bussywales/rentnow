@@ -4,6 +4,10 @@ import { SavedCollectionDetailClient } from "@/components/saved/SavedCollectionD
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { getCollectionWithListingsForOwner } from "@/lib/saved-collections.server";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
+import { getListingPopularitySignals } from "@/lib/properties/popularity.server";
+import type { TrustMarkerState } from "@/lib/trust-markers";
+import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
 
 export const dynamic = "force-dynamic";
 
@@ -38,10 +42,27 @@ export default async function SavedCollectionDetailPage({
     collectionId,
   });
   if (!data) notFound();
+  const listingIds = data.properties.map((property) => property.id).filter(Boolean);
+  const ownerIds = Array.from(
+    new Set(data.properties.map((property) => property.owner_id).filter(Boolean))
+  );
+  const [trustSnapshotsByOwner, socialProofByListing] = await Promise.all([
+    ownerIds.length
+      ? fetchTrustPublicSnapshots(supabase, ownerIds)
+      : Promise.resolve({} as Record<string, TrustMarkerState>),
+    listingIds.length
+      ? getListingPopularitySignals({ client: supabase, listingIds })
+      : Promise.resolve({} as Record<string, ListingSocialProof>),
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-4">
-      <SavedCollectionDetailClient collection={data.collection} initialProperties={data.properties} />
+      <SavedCollectionDetailClient
+        collection={data.collection}
+        initialProperties={data.properties}
+        trustSnapshotsByOwner={trustSnapshotsByOwner}
+        socialProofByListing={socialProofByListing}
+      />
     </div>
   );
 }

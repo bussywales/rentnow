@@ -29,6 +29,7 @@ import type { TrustMarkerState } from "@/lib/trust-markers";
 import { logPropertyEventsBulk, isUuid } from "@/lib/analytics/property-events.server";
 import { getSessionKeyFromCookies, getSessionKeyFromUser } from "@/lib/analytics/session.server";
 import { getSavedSearchSummaryForUser } from "@/lib/saved-searches/summary.server";
+import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,7 @@ function PropertyRow({
   fastResponderByHost,
   trustSnapshots,
   source,
+  socialProofByListing,
 }: {
   items: Property[];
   testId?: string;
@@ -83,6 +85,7 @@ function PropertyRow({
   fastResponderByHost?: Record<string, boolean>;
   trustSnapshots?: Record<string, TrustMarkerState>;
   source?: string;
+  socialProofByListing?: Record<string, ListingPopularitySignal>;
 }) {
   return (
     <div
@@ -108,6 +111,7 @@ function PropertyRow({
             viewerRole="tenant"
             fastResponder={fastResponderByHost?.[property.owner_id]}
             trustMarkers={trustSnapshots?.[property.owner_id]}
+            socialProof={socialProofByListing?.[property.id] ?? null}
           />
         </div>
       ))}
@@ -231,6 +235,7 @@ export default async function TenantHomePage() {
   });
   let fastResponderByHost: Record<string, boolean> = {};
   let trustSnapshots: Record<string, TrustMarkerState> = {};
+  let socialProofByListing: Record<string, ListingPopularitySignal> = {};
   try {
     const ownerIds = Array.from(
       new Set(allHomes.map((property) => property.owner_id).filter(Boolean))
@@ -242,10 +247,18 @@ export default async function TenantHomePage() {
       });
       trustSnapshots = await fetchTrustPublicSnapshots(context.supabase, ownerIds);
     }
+    const listingIds = Array.from(new Set(allHomes.map((property) => property.id).filter(Boolean)));
+    if (listingIds.length) {
+      socialProofByListing = await getListingPopularitySignals({
+        client: context.supabase,
+        listingIds,
+      });
+    }
   } catch (err) {
     console.warn("[tenant-home] fast responder lookup failed", err);
     fastResponderByHost = {};
     trustSnapshots = {};
+    socialProofByListing = {};
   }
 
   if (DEV_MOCKS) {
@@ -340,6 +353,7 @@ export default async function TenantHomePage() {
             savedIds={savedIds}
             fastResponderByHost={fastResponderByHost}
             trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
           />
         </section>
       )}
@@ -357,6 +371,7 @@ export default async function TenantHomePage() {
             savedIds={savedIds}
             fastResponderByHost={fastResponderByHost}
             trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
             source="featured"
           />
         </section>
@@ -375,6 +390,7 @@ export default async function TenantHomePage() {
             savedIds={savedIds}
             fastResponderByHost={fastResponderByHost}
             trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
           />
         </section>
       )}
@@ -392,6 +408,7 @@ export default async function TenantHomePage() {
             savedIds={savedIds}
             fastResponderByHost={fastResponderByHost}
             trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
           />
         </section>
       )}
@@ -426,6 +443,7 @@ export default async function TenantHomePage() {
                     viewerRole="tenant"
                     fastResponder={fastResponderByHost[property.owner_id]}
                     trustMarkers={trustSnapshots[property.owner_id]}
+                    socialProof={socialProofByListing[property.id] ?? null}
                   />
                 </div>
               ))}

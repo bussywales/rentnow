@@ -56,6 +56,15 @@ export default function HelpCentrePage() {
             leaderboard visibility, and jurisdiction cashout.
           </p>
         </Link>
+        <Link
+          href="/help/trust"
+          className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-slate-300"
+        >
+          <h2 className="text-lg font-semibold text-slate-900">Trust badges</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Learn what Verified, Identity pending, and popularity badges mean on listing cards.
+          </p>
+        </Link>
       </div>
     </div>
   );

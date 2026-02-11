@@ -4,6 +4,10 @@ import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
 import { getPublicCollectionByShareId } from "@/lib/saved-collections.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
+import { getListingPopularitySignals } from "@/lib/properties/popularity.server";
+import type { TrustMarkerState } from "@/lib/trust-markers";
+import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +47,21 @@ export default async function PublicCollectionPage({
   if (!collection) {
     notFound();
   }
+  const listingIds = collection.properties.map((property) => property.id).filter(Boolean);
+  const ownerIds = Array.from(
+    new Set(collection.properties.map((property) => property.owner_id).filter(Boolean))
+  );
+  const [trustSnapshotsByOwner, socialProofByListing] = await Promise.all([
+    ownerIds.length
+      ? fetchTrustPublicSnapshots(
+          service as unknown as Parameters<typeof fetchTrustPublicSnapshots>[0],
+          ownerIds
+        )
+      : Promise.resolve({} as Record<string, TrustMarkerState>),
+    listingIds.length
+      ? getListingPopularitySignals({ client: service, listingIds })
+      : Promise.resolve({} as Record<string, ListingSocialProof>),
+  ]);
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5">
@@ -67,7 +86,13 @@ export default async function PublicCollectionPage({
       {collection.properties.length ? (
         <section className="grid gap-4 md:grid-cols-2">
           {collection.properties.map((property) => (
-            <PropertyCard key={property.id} property={property} href={`/properties/${property.id}`} />
+            <PropertyCard
+              key={property.id}
+              property={property}
+              href={`/properties/${property.id}`}
+              trustMarkers={trustSnapshotsByOwner[property.owner_id]}
+              socialProof={socialProofByListing[property.id] ?? null}
+            />
           ))}
         </section>
       ) : (

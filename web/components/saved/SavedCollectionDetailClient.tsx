@@ -5,6 +5,8 @@ import { useState } from "react";
 import type { Property } from "@/lib/types";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
+import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
+import type { TrustMarkerState } from "@/lib/trust-markers";
 
 type CollectionDetail = {
   id: string;
@@ -17,13 +19,20 @@ type CollectionDetail = {
 type Props = {
   collection: CollectionDetail;
   initialProperties: Property[];
+  trustSnapshotsByOwner: Record<string, TrustMarkerState>;
+  socialProofByListing: Record<string, ListingSocialProof>;
 };
 
 function buildWhatsappShareUrl(shareUrl: string) {
   return `https://wa.me/?text=${encodeURIComponent(`Here are some properties on PropatyHub: ${shareUrl}`)}`;
 }
 
-export function SavedCollectionDetailClient({ collection, initialProperties }: Props) {
+export function SavedCollectionDetailClient({
+  collection,
+  initialProperties,
+  trustSnapshotsByOwner,
+  socialProofByListing,
+}: Props) {
   const [properties, setProperties] = useState(initialProperties);
   const [shareUrl, setShareUrl] = useState(collection.shareUrl);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -122,7 +131,12 @@ export function SavedCollectionDetailClient({ collection, initialProperties }: P
         <section className="grid gap-4 md:grid-cols-2">
           {properties.map((property) => (
             <article key={property.id} className="space-y-2">
-              <PropertyCard property={property} href={`/properties/${property.id}`} />
+              <PropertyCard
+                property={property}
+                href={`/properties/${property.id}`}
+                trustMarkers={trustSnapshotsByOwner[property.owner_id]}
+                socialProof={socialProofByListing[property.id] ?? null}
+              />
               <Button
                 variant="secondary"
                 size="sm"

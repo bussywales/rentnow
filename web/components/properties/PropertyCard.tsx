@@ -14,13 +14,12 @@ import {
   formatSizeLabel,
 } from "@/lib/property-discovery";
 import { TrustBadges } from "@/components/trust/TrustBadges";
-import { TrustIdentityPill } from "@/components/trust/TrustIdentityPill";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { SaveButton } from "@/components/properties/SaveButton";
-import { PropertyTrustCues } from "@/components/properties/PropertyTrustCues";
 import { Button } from "@/components/ui/Button";
-import { buildTrustCues } from "@/lib/trust-cues";
 import { shouldRenderDemoBadge, shouldRenderDemoWatermark } from "@/lib/properties/demo";
+import { ListingTrustBadges } from "@/components/properties/ListingTrustBadges";
+import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
 
 const BedIcon = () => (
   <svg
@@ -71,6 +70,7 @@ type Props = {
   showCta?: boolean;
   viewerRole?: UserRole | null;
   fastResponder?: boolean;
+  socialProof?: ListingSocialProof | null;
 };
 
 export function PropertyCard({
@@ -84,6 +84,7 @@ export function PropertyCard({
   showCta = false,
   viewerRole,
   fastResponder = false,
+  socialProof = null,
 }: Props) {
   const fallbackImage =
     "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=80";
@@ -112,12 +113,7 @@ export function PropertyCard({
   const showDemoWatermark = shouldRenderDemoWatermark({ isDemo, enabled: true });
   const ctaLabel = listingIntent === "buy" ? "Enquire to buy" : "Request viewing";
   const cardHref = href || `/properties/${property.id}`;
-  const trustCues = buildTrustCues({
-    markers: trustMarkers,
-    fastResponder,
-    createdAt: property.created_at,
-  });
-  const hasTrustCues = trustCues.length > 0;
+  const showFastResponder = !!fastResponder;
 
   const imageBlock = (
     <div
@@ -246,27 +242,24 @@ export function PropertyCard({
                 : "Long-term"}
           </span>
         </div>
+        {trustVariant !== "admin" && (
+          <ListingTrustBadges
+            createdAt={property.created_at}
+            trustMarkers={trustMarkers}
+            socialProof={socialProof}
+          />
+        )}
+        {showFastResponder && trustVariant !== "admin" && (
+          <span className="inline-flex w-fit rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
+            Fast responder
+          </span>
+        )}
         <p className="min-h-[40px] text-sm text-slate-500 line-clamp-2">
           {description}
         </p>
-        {trustMarkers && trustVariant === "admin" ? (
-          <TrustBadges markers={trustMarkers} compact />
-        ) : (
-          (trustMarkers || hasTrustCues || isFeaturedActive) && (
-            <div className="space-y-2">
-              {trustMarkers && <TrustIdentityPill markers={trustMarkers} />}
-              {hasTrustCues && (
-                <PropertyTrustCues
-                  markers={trustMarkers}
-                  fastResponder={fastResponder}
-                  createdAt={property.created_at}
-                />
-              )}
-              {isFeaturedActive && (
-                <p className="text-[11px] text-slate-500">Featured by PropatyHub</p>
-              )}
-            </div>
-          )
+        {trustMarkers && trustVariant === "admin" && <TrustBadges markers={trustMarkers} compact />}
+        {isFeaturedActive && (
+          <p className="text-[11px] text-slate-500">Featured by PropatyHub</p>
         )}
         <div className="flex items-center justify-between text-sm text-slate-700">
           <div className="flex flex-wrap items-baseline gap-1 text-base font-semibold text-slate-900">

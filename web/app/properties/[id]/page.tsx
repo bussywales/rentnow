@@ -38,6 +38,7 @@ import { derivePhotoTrust } from "@/lib/properties/photo-trust";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { isListingExpired } from "@/lib/properties/expiry";
 import { includeDemoListingsForViewer } from "@/lib/properties/demo";
+import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -329,6 +330,8 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   let hostTrust: TrustMarkerState | null = null;
   let fastResponder = false;
   let similar: Property[] = [];
+  let similarTrustSnapshots: Record<string, TrustMarkerState> = {};
+  let similarSocialProof: Record<string, ListingPopularitySignal> = {};
   if (hasServerSupabaseEnv()) {
     try {
       const supabase = await createServerSupabaseClient();
@@ -468,10 +471,29 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
         console.warn("[property-detail] fast responder lookup failed", err);
         fastResponder = false;
       }
+      try {
+        const similarOwnerIds = Array.from(new Set(similar.map((item) => item.owner_id).filter(Boolean)));
+        const similarIds = similar.map((item) => item.id).filter(Boolean);
+        if (similarOwnerIds.length) {
+          similarTrustSnapshots = await fetchTrustPublicSnapshots(supabase, similarOwnerIds);
+        }
+        if (similarIds.length) {
+          similarSocialProof = await getListingPopularitySignals({
+            client: supabase,
+            listingIds: similarIds,
+          });
+        }
+      } catch (err) {
+        console.warn("[property-detail] similar trust signal lookup failed", err);
+        similarTrustSnapshots = {};
+        similarSocialProof = {};
+      }
     } catch (err) {
       console.warn("[property-detail] supabase client unavailable", err);
       isSaved = false;
       similar = [];
+      similarTrustSnapshots = {};
+      similarSocialProof = {};
     }
   }
 
@@ -918,6 +940,8 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
                 key={item.id}
                 property={item}
                 href={`/properties/${item.id}`}
+                trustMarkers={similarTrustSnapshots[item.owner_id]}
+                socialProof={similarSocialProof[item.id] ?? null}
               />
             ))}
           </div>

@@ -14,6 +14,9 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
 import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
+import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
+import type { TrustMarkerState } from "@/lib/trust-markers";
+import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
 
 export default async function Home() {
   let featured: Property[] = [];
@@ -50,6 +53,8 @@ export default async function Home() {
   }
 
   let savedIds = new Set<string>();
+  let trustSnapshots: Record<string, TrustMarkerState> = {};
+  let socialProofByListing: Record<string, ListingPopularitySignal> = {};
   if (supabaseReady && profileId && featured.length) {
     try {
       const supabase = await createServerSupabaseClient();
@@ -58,9 +63,36 @@ export default async function Home() {
         userId: profileId,
         propertyIds: featured.map((property) => property.id),
       });
+      const ownerIds = Array.from(new Set(featured.map((property) => property.owner_id).filter(Boolean)));
+      if (ownerIds.length) {
+        trustSnapshots = await fetchTrustPublicSnapshots(supabase, ownerIds);
+      }
+      socialProofByListing = await getListingPopularitySignals({
+        client: supabase,
+        listingIds: featured.map((property) => property.id),
+      });
     } catch (err) {
       console.warn("[home] saved property lookup failed", err);
       savedIds = new Set<string>();
+      trustSnapshots = {};
+      socialProofByListing = {};
+    }
+  }
+  if (supabaseReady && !profileId && featured.length) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const ownerIds = Array.from(new Set(featured.map((property) => property.owner_id).filter(Boolean)));
+      if (ownerIds.length) {
+        trustSnapshots = await fetchTrustPublicSnapshots(supabase, ownerIds);
+      }
+      socialProofByListing = await getListingPopularitySignals({
+        client: supabase,
+        listingIds: featured.map((property) => property.id),
+      });
+    } catch (err) {
+      console.warn("[home] trust signal lookup failed", err);
+      trustSnapshots = {};
+      socialProofByListing = {};
     }
   }
 
@@ -183,6 +215,8 @@ export default async function Home() {
                   initialSaved={savedIds.has(property.id)}
                   showCta={!role || role === "tenant"}
                   viewerRole={role}
+                  trustMarkers={trustSnapshots[property.owner_id]}
+                  socialProof={socialProofByListing[property.id] ?? null}
                 />
               </div>
             ))}

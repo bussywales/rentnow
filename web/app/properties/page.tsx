@@ -30,6 +30,8 @@ import { isListingPubliclyVisible } from "@/lib/properties/expiry";
 import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
 import { getFastResponderByHostIds } from "@/lib/trust/fast-responder.server";
+import { getListingPopularitySignals } from "@/lib/properties/popularity.server";
+import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
   searchParams?: SearchParams | Promise<SearchParams>;
@@ -328,6 +330,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
   let trustSnapshots: Record<string, TrustMarkerState> = {};
   let savedIds = new Set<string>();
   let fastResponderByHost: Record<string, boolean> = {};
+  let socialProofByListing: Record<string, ListingSocialProof> = {};
   const hubs = [
     { city: "Lagos", label: "Lagos Island" },
     { city: "Nairobi", label: "Nairobi" },
@@ -504,11 +507,16 @@ export default async function PropertiesPage({ searchParams }: Props) {
           hostIds: uniqueOwners,
         });
       }
+      socialProofByListing = await getListingPopularitySignals({
+        client: supabase,
+        listingIds: displayProperties.map((property) => property.id),
+      });
     } catch (err) {
       console.warn("[properties] trust snapshot fetch failed", err);
       trustSnapshots = {};
       savedIds = new Set<string>();
       fastResponderByHost = {};
+      socialProofByListing = {};
     }
   }
 
@@ -777,6 +785,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
                 showCta={!role || role === "tenant"}
                 viewerRole={role}
                 fastResponder={fastResponderByHost[property.owner_id]}
+                socialProof={socialProofByListing[property.id] ?? null}
               />
             </div>
           ))}
@@ -807,6 +816,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
                   showCta={!role || role === "tenant"}
                   viewerRole={role}
                   fastResponder={fastResponderByHost[property.owner_id]}
+                  socialProof={socialProofByListing[property.id] ?? null}
                 />
               </div>
             ))}
