@@ -107,6 +107,14 @@ export type SavedSearchMatchQuerySpec = {
   filters: SavedSearchMatchFilters;
 };
 
+export type SavedSearchMatchQueryLike<TSelf> = {
+  gt: (column: string, value: string) => TSelf;
+  ilike: (column: string, value: string) => TSelf;
+  eq: (column: string, value: string | number | boolean) => TSelf;
+  gte: (column: string, value: number) => TSelf;
+  lte: (column: string, value: number) => TSelf;
+};
+
 export function buildSavedSearchMatchQuerySpec(input: {
   filters: Record<string, unknown>;
   sinceIso: string;
@@ -117,19 +125,11 @@ export function buildSavedSearchMatchQuerySpec(input: {
   };
 }
 
-export function applySavedSearchMatchSpecToQuery<TQuery extends Record<string, unknown>>(
+export function applySavedSearchMatchSpecToQuery<TQuery extends SavedSearchMatchQueryLike<TQuery>>(
   query: TQuery,
   spec: SavedSearchMatchQuerySpec
 ): TQuery {
-  let next = query as unknown as {
-    gt: (column: string, value: string) => typeof next;
-    ilike: (column: string, value: string) => typeof next;
-    eq: (column: string, value: string | number | boolean) => typeof next;
-    gte: (column: string, value: number) => typeof next;
-    lte: (column: string, value: number) => typeof next;
-  };
-
-  next = next.gt("created_at", spec.sinceIso);
+  let next = query.gt("created_at", spec.sinceIso);
 
   const { filters } = spec;
   if (filters.city) {
@@ -158,7 +158,7 @@ export function applySavedSearchMatchSpecToQuery<TQuery extends Record<string, u
     next = next.eq("rental_type", filters.rentalType);
   }
 
-  return next as unknown as TQuery;
+  return next;
 }
 
 export function getSavedSearchBaselineIso(search: SavedSearchLike): string {
