@@ -1,6 +1,9 @@
 import { permanentRedirect, notFound } from "next/navigation";
 import { PublicAdvertiserProfilePage } from "@/components/advertisers/PublicAdvertiserProfilePage";
-import { getOrCreatePublicSlug, type SlugLookupClient } from "@/lib/advertisers/slug";
+import {
+  getOrCreatePublicSlug,
+  type SlugLookupClient,
+} from "@/lib/advertisers/public-slug";
 import { isPublicAdvertiserRole } from "@/lib/advertisers/public-profile";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 
@@ -17,6 +20,7 @@ type SlugLookupRow = {
   display_name?: string | null;
   full_name?: string | null;
   business_name?: string | null;
+  agent_storefront_enabled?: boolean | null;
 };
 
 export default async function PublicAdvertiserProfileIdPage({ params }: PageProps) {
@@ -38,7 +42,9 @@ export default async function PublicAdvertiserProfileIdPage({ params }: PageProp
   const supabase = await createServerSupabaseClient();
   const { data: profileRaw } = await supabase
     .from("profiles")
-    .select("id, role, public_slug, display_name, full_name, business_name")
+    .select(
+      "id, role, public_slug, display_name, full_name, business_name, agent_storefront_enabled"
+    )
     .eq("id", advertiserId)
     .maybeSingle();
   const profile = (profileRaw as SlugLookupRow | null) ?? null;
@@ -46,20 +52,24 @@ export default async function PublicAdvertiserProfileIdPage({ params }: PageProp
     notFound();
   }
 
-  const slug = await getOrCreatePublicSlug({
-    profile: {
-      id: profile.id,
-      role: profile.role,
-      public_slug: profile.public_slug,
-      display_name: profile.display_name,
-      full_name: profile.full_name,
-      business_name: profile.business_name,
-    },
-    lookupClient: supabase as unknown as SlugLookupClient,
-    canPersist: true,
-  });
-  if (slug) {
-    permanentRedirect(`/agents/${slug}`);
+  const storefrontEnabled =
+    profile.role !== "agent" || profile.agent_storefront_enabled !== false;
+  if (storefrontEnabled) {
+    const slug = await getOrCreatePublicSlug({
+      profile: {
+        id: profile.id,
+        role: profile.role,
+        public_slug: profile.public_slug,
+        display_name: profile.display_name,
+        full_name: profile.full_name,
+        business_name: profile.business_name,
+      },
+      lookupClient: supabase as unknown as SlugLookupClient,
+      canPersist: true,
+    });
+    if (slug) {
+      permanentRedirect(`/agents/${slug}`);
+    }
   }
 
   return (

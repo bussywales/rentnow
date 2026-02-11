@@ -4,9 +4,10 @@ import {
   chooseUniqueSlug,
   ensureUniqueSlug,
   getOrCreatePublicSlug,
+  pickNameForSlug,
   slugifyName,
   type SlugLookupClient,
-} from "@/lib/advertisers/slug";
+} from "@/lib/advertisers/public-slug";
 
 void test("slugifyName normalizes punctuation and spacing", () => {
   assert.equal(slugifyName("Xthetic Studio Limited"), "xthetic-studio-limited");
@@ -19,6 +20,33 @@ void test("chooseUniqueSlug appends numeric suffix when base is used", () => {
     "xthetic-studio-2",
   ]);
   assert.equal(slug, "xthetic-studio-3");
+});
+
+void test("pickNameForSlug prefers business, then display, then full name", () => {
+  assert.equal(
+    pickNameForSlug({
+      business_name: "Xthetic Studio Limited",
+      display_name: "Xthetic",
+      full_name: "Adewale",
+    }),
+    "Xthetic Studio Limited"
+  );
+  assert.equal(
+    pickNameForSlug({
+      business_name: " ",
+      display_name: "Xthetic",
+      full_name: "Adewale",
+    }),
+    "Xthetic"
+  );
+  assert.equal(
+    pickNameForSlug({
+      business_name: null,
+      display_name: "",
+      full_name: "Adewale",
+    }),
+    "Adewale"
+  );
 });
 
 void test("ensureUniqueSlug excludes current profile id", async () => {

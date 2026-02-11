@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { PublicAdvertiserProfilePage } from "@/components/advertisers/PublicAdvertiserProfilePage";
 import { getAgentStorefrontData, getAgentStorefrontViewModel } from "@/lib/agents/agent-storefront.server";
 import { safeTrim } from "@/lib/agents/agent-storefront";
@@ -74,35 +74,46 @@ function resolveCoverImage(listings: Property[]) {
   return null;
 }
 
-async function getPublicAdvertiserBySlug(slug: string): Promise<{
-  id: string;
-  role: "agent" | "landlord";
-  publicSlug: string;
-  name: string;
-  agentStorefrontEnabled: boolean | null;
-} | null> {
-  if (!hasServerSupabaseEnv()) return null;
+async function getPublicAdvertiserBySlug(slug: string): Promise<
+  | { status: "not_found" }
+  | { status: "non_public_role" }
+  | {
+      status: "found";
+      advertiser: {
+        id: string;
+        role: "agent" | "landlord";
+        publicSlug: string;
+        name: string;
+        agentStorefrontEnabled: boolean | null;
+      };
+    }
+> {
+  if (!hasServerSupabaseEnv()) return { status: "not_found" };
   const normalizedSlug = normalizePublicSlug(slug);
-  if (!normalizedSlug) return null;
+  if (!normalizedSlug) return { status: "not_found" };
   const supabase = await createServerSupabaseClient();
   const { data } = await supabase
     .from("profiles")
     .select(
       "id, role, public_slug, display_name, full_name, business_name, agent_storefront_enabled"
     )
-    .eq("public_slug", normalizedSlug)
+    .ilike("public_slug", normalizedSlug)
     .limit(1);
   const row = ((data as PublicAdvertiserSlugRow[] | null) ?? [])[0] ?? null;
+  if (!row?.id) return { status: "not_found" };
   const role = row?.role ?? null;
-  if (!row?.id || !isPublicAdvertiserRole(role)) return null;
+  if (!isPublicAdvertiserRole(role)) return { status: "non_public_role" };
   const canonicalSlug = normalizePublicSlug(row.public_slug);
-  if (!canonicalSlug) return null;
+  if (!canonicalSlug) return { status: "not_found" };
   return {
-    id: row.id,
-    role,
-    publicSlug: canonicalSlug,
-    name: derivePublicAdvertiserName(row),
-    agentStorefrontEnabled: row.agent_storefront_enabled ?? null,
+    status: "found",
+    advertiser: {
+      id: row.id,
+      role,
+      publicSlug: canonicalSlug,
+      name: derivePublicAdvertiserName(row),
+      agentStorefrontEnabled: row.agent_storefront_enabled ?? null,
+    },
   };
 }
 
@@ -119,8 +130,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     };
   }
 
-  const advertiser = await getPublicAdvertiserBySlug(slug);
-  if (advertiser) {
+  const advertiserLookup = await getPublicAdvertiserBySlug(slug);
+  if (advertiserLookup?.status === "found") {
+    const advertiser = advertiserLookup.advertiser;
     const canonical = `${siteUrl}/agents/${advertiser.publicSlug}`;
     const description = `Browse live listings and connect with ${advertiser.name} on PropatyHub.`;
     return {
@@ -189,8 +201,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function AgentStorefrontPage({ params }: PageProps) {
   const resolvedParams = await params;
   const slug = safeTrim(resolvedParams?.slug);
-  const advertiser = await getPublicAdvertiserBySlug(slug);
-  if (advertiser) {
+  const advertiserLookup = await getPublicAdvertiserBySlug(slug);
+  if (advertiserLookup?.status === "non_public_role") {
+    notFound();
+  }
+  if (advertiserLookup?.status === "found") {
+    const advertiser = advertiserLookup.advertiser;
     if (advertiser.publicSlug !== slug) {
       permanentRedirect(`/agents/${advertiser.publicSlug}`);
     }
