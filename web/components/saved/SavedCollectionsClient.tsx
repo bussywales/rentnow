@@ -17,6 +17,18 @@ type SavedCollectionCard = {
   updatedAt: string;
 };
 
+type SavedCollectionApiRow = {
+  id?: unknown;
+  title?: unknown;
+  count?: unknown;
+  isDefault?: unknown;
+  shareId?: unknown;
+  shareUrl?: unknown;
+  coverImageUrl?: unknown;
+  coverTitle?: unknown;
+  updatedAt?: unknown;
+};
+
 type Props = {
   initialCollections: SavedCollectionCard[];
 };
@@ -46,7 +58,9 @@ export function SavedCollectionsClient({ initialCollections }: Props) {
       throw new Error(payload?.error || "Unable to load collections.");
     }
     const payload = await response.json().catch(() => ({}));
-    const rows = Array.isArray(payload?.collections) ? payload.collections : [];
+    const rows: SavedCollectionApiRow[] = Array.isArray(payload?.collections)
+      ? (payload.collections as SavedCollectionApiRow[])
+      : [];
     setCollections(
       rows.map((row) => ({
         id: String(row.id || ""),

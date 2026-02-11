@@ -21,6 +21,14 @@ type CollectionSummary = {
   containsListing: boolean;
 };
 
+type CollectionApiRow = {
+  id?: unknown;
+  title?: unknown;
+  count?: unknown;
+  isDefault?: unknown;
+  containsListing?: unknown;
+};
+
 const SAVE_INTENT_KEY = "ph:save-intent";
 
 function HeartIcon({ filled }: { filled: boolean }) {
@@ -172,7 +180,9 @@ export function SaveButton({
         throw new Error(data?.error || "Unable to load collections.");
       }
       const payload = await res.json().catch(() => ({}));
-      const rows = Array.isArray(payload?.collections) ? payload.collections : [];
+      const rows: CollectionApiRow[] = Array.isArray(payload?.collections)
+        ? (payload.collections as CollectionApiRow[])
+        : [];
       setCollections(
         rows.map((row) => ({
           id: String(row.id || ""),
