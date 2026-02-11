@@ -102,7 +102,7 @@ test("host sees a single hamburger with host-only items", async ({ page }) => {
   await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Insights" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Home" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Saved searches" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Saved searches" })).toBeVisible();
 
   await page.getByRole("button", { name: /close menu/i }).click();
   await page.setViewportSize({ width: 375, height: 720 });

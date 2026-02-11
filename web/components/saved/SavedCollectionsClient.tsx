@@ -31,13 +31,14 @@ type SavedCollectionApiRow = {
 
 type Props = {
   initialCollections: SavedCollectionCard[];
+  savedSearchesHref: string;
 };
 
 function buildWhatsappShareUrl(shareUrl: string) {
   return `https://wa.me/?text=${encodeURIComponent(`Here are some properties on PropatyHub: ${shareUrl}`)}`;
 }
 
-export function SavedCollectionsClient({ initialCollections }: Props) {
+export function SavedCollectionsClient({ initialCollections, savedSearchesHref }: Props) {
   const [collections, setCollections] = useState(initialCollections);
   const [newTitle, setNewTitle] = useState("");
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -231,6 +232,12 @@ export function SavedCollectionsClient({ initialCollections }: Props) {
             <h1 className="text-2xl font-semibold text-slate-900">Saved collections</h1>
             <p className="text-sm text-slate-600">
               Organize favourites, share read-only collections, and send on WhatsApp.
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Looking for saved searches?{" "}
+              <Link href={savedSearchesHref} className="font-semibold text-sky-700">
+                View saved searches →
+              </Link>
             </p>
           </div>
           <Link href="/properties">

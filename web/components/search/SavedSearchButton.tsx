@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -8,6 +8,7 @@ import type { ParsedSearchFilters } from "@/lib/types";
 
 type Props = {
   filters: ParsedSearchFilters;
+  savedSearchesHref: string;
 };
 
 function buildDefaultName(filters: ParsedSearchFilters) {
@@ -16,12 +17,12 @@ function buildDefaultName(filters: ParsedSearchFilters) {
   return "Followed search";
 }
 
-export function SavedSearchButton({ filters }: Props) {
+export function SavedSearchButton({ filters, savedSearchesHref }: Props) {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState(buildDefaultName(filters));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [toastVisible, setToastVisible] = useState(false);
   const [reasonCode, setReasonCode] = useState<string | null>(null);
 
   const payload = useMemo(() => ({
@@ -38,10 +39,15 @@ export function SavedSearchButton({ filters }: Props) {
     amenities: filters.amenities,
   }), [filters]);
 
+  useEffect(() => {
+    if (!toastVisible) return;
+    const timer = setTimeout(() => setToastVisible(false), 4000);
+    return () => clearTimeout(timer);
+  }, [toastVisible]);
+
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    setSuccess(null);
     setReasonCode(null);
     try {
       const res = await fetch("/api/saved-searches", {
@@ -62,7 +68,7 @@ export function SavedSearchButton({ filters }: Props) {
         if (typeof data?.code === "string") setReasonCode(data.code);
         throw new Error(data?.error || "Unable to follow search.");
       }
-      setSuccess("Following this search.");
+      setToastVisible(true);
       setOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to follow search.");
@@ -77,9 +83,32 @@ export function SavedSearchButton({ filters }: Props) {
         <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
           Follow this search
         </Button>
-        {success && <span className="text-xs text-emerald-600">{success}</span>}
         {error && <span className="text-xs text-rose-600">{error}</span>}
       </div>
+      {toastVisible ? (
+        <div className="pointer-events-none fixed right-4 top-20 z-50 max-w-sm">
+          <div className="pointer-events-auto rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <p className="font-medium">Search followed.</p>
+              <button
+                type="button"
+                onClick={() => setToastVisible(false)}
+                className="rounded p-1 text-xs text-emerald-700 hover:bg-emerald-100"
+                aria-label="Close"
+              >
+                ✕
+              </button>
+            </div>
+            <Link
+              href={savedSearchesHref}
+              onClick={() => setToastVisible(false)}
+              className="mt-2 inline-flex rounded-md border border-emerald-300 bg-white px-2.5 py-1 text-xs font-semibold text-emerald-800 hover:bg-emerald-100"
+            >
+              View saved searches
+            </Link>
+          </div>
+        </div>
+      ) : null}
       {open && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-slate-900/40 px-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">

@@ -305,6 +305,12 @@ export default async function PropertiesPage({ searchParams }: Props) {
     </div>
   ) : null;
   const showListCta = role && role !== "tenant";
+  const savedSearchesHref =
+    role === "tenant"
+      ? "/tenant/saved-searches"
+      : role === "agent" || role === "landlord"
+      ? "/dashboard/saved-searches"
+      : "/saved-searches";
   const includeDemoListings = includeDemoListingsForViewer({ viewerRole: role });
   const apiBaseUrl = await getApiBaseUrl();
   const listParams = buildSearchParams(resolvedSearchParams, {
@@ -723,7 +729,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
           <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Saved searches</p>
           <p className="text-sm text-slate-500">Save this filter set for alerts later.</p>
         </div>
-        <SavedSearchButton filters={filters} />
+        <SavedSearchButton filters={filters} savedSearchesHref={savedSearchesHref} />
       </div>
 
       <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/80 p-2.5 shadow-sm">

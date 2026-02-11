@@ -3,6 +3,7 @@ import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { ensureDefaultCollection, listCollectionsForOwner } from "@/lib/saved-collections.server";
 import { SavedCollectionsClient } from "@/components/saved/SavedCollectionsClient";
+import { normalizeRole } from "@/lib/roles";
 
 export const dynamic = "force-dynamic";
 
@@ -56,9 +57,25 @@ export default async function FavouritesPage() {
     });
   }
 
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("role")
+    .eq("id", user.id)
+    .maybeSingle();
+  const role = normalizeRole(profile?.role);
+  const savedSearchesHref =
+    role === "tenant"
+      ? "/tenant/saved-searches"
+      : role === "agent" || role === "landlord"
+      ? "/dashboard/saved-searches"
+      : "/saved-searches";
+
   return (
     <div className="mx-auto w-full max-w-6xl px-4 py-4">
-      <SavedCollectionsClient initialCollections={collections} />
+      <SavedCollectionsClient
+        initialCollections={collections}
+        savedSearchesHref={savedSearchesHref}
+      />
     </div>
   );
 }
