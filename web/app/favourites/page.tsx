@@ -1,10 +1,8 @@
 import Link from "next/link";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { PropertyCard } from "@/components/properties/PropertyCard";
-import type { Property, UserRole } from "@/lib/types";
-import { orderImagesWithCover } from "@/lib/properties/images";
-import { normalizeRole } from "@/lib/roles";
+import { ensureDefaultCollection, listCollectionsForOwner } from "@/lib/saved-collections.server";
+import { SavedCollectionsClient } from "@/components/saved/SavedCollectionsClient";
 
 export const dynamic = "force-dynamic";
 
@@ -13,128 +11,54 @@ export default async function FavouritesPage() {
     return (
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
         <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Saved properties</h1>
+          <h1 className="text-2xl font-semibold text-slate-900">Saved collections</h1>
           <p className="text-sm text-slate-600">
-            Supabase is not configured; please add env vars to enable favourites.
+            Supabase is not configured; add env vars to enable saved collections.
           </p>
         </div>
-        <Link href="/properties" className="text-sky-700 font-semibold">
-          Browse demo properties
-        </Link>
-      </div>
-    );
-  }
-
-  const { supabase, user } = await getServerAuthUser();
-  let role: UserRole | null = null;
-
-  if (!user) {
-    return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Saved properties</h1>
-          <p className="text-sm text-slate-600">
-            Log in to save and view your favourites.
-          </p>
-        </div>
-        <Link href="/auth/login" className="text-sky-700 font-semibold">
-          Log in
-        </Link>
-      </div>
-    );
-  }
-
-  let properties: Property[] = [];
-  try {
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", user.id)
-      .maybeSingle();
-    role = normalizeRole(profile?.role ?? null);
-
-    const { data, error } = await supabase
-      .from("saved_properties")
-      .select(
-        "property_id, properties(id, owner_id, title, description, city, country, state_region, neighbourhood, address, latitude, longitude, listing_type, rental_type, price, currency, rent_period, bedrooms, bathrooms, bathroom_type, furnished, size_value, size_unit, year_built, deposit_amount, deposit_currency, pets_allowed, amenities, available_from, max_guests, is_approved, is_active, created_at, updated_at, cover_image_url, property_images(image_url,id, position, created_at))"
-      )
-      .eq("user_id", user.id);
-
-    if (error) throw error;
-
-    type SavedRow = { properties?: Property | Property[] | null };
-    const rows = (data as SavedRow[]) || [];
-    properties =
-      rows
-        .flatMap((row) => {
-          const prop = Array.isArray(row.properties)
-            ? (row.properties[0] as Property | undefined)
-            : (row.properties as Property | null);
-          if (!prop) return [];
-          const images =
-            (prop as Property & { property_images?: Array<{ id: string; image_url: string }> })
-              ?.property_images?.map((img) => ({
-                id: img.id || img.image_url,
-                image_url: img.image_url,
-                position: (img as { position?: number }).position,
-                created_at: (img as { created_at?: string | null }).created_at ?? undefined,
-                width: (img as { width?: number | null }).width ?? null,
-                height: (img as { height?: number | null }).height ?? null,
-                bytes: (img as { bytes?: number | null }).bytes ?? null,
-                format: (img as { format?: string | null }).format ?? null,
-              })) || [];
-          return [{ ...prop, images: orderImagesWithCover(prop.cover_image_url, images) }];
-        }) || [];
-  } catch (err) {
-    console.error("Failed to load favourites", err);
-    return (
-      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
-        <div>
-          <h1 className="text-2xl font-semibold text-slate-900">Saved properties</h1>
-          <p className="text-sm text-slate-600">
-            We could not load your favourites right now. Please refresh or try again later.
-          </p>
-        </div>
-        <Link href="/properties" className="text-sky-700 font-semibold">
+        <Link href="/properties" className="font-semibold text-sky-700">
           Browse properties
         </Link>
       </div>
     );
   }
 
-  return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Saved properties</h1>
-        <p className="text-sm text-slate-600">
-          {properties.length ? "Your favourites" : "No favourites yet."}
-        </p>
-      </div>
-      {properties.length ? (
-        <div className="grid gap-4 md:grid-cols-2">
-          {properties.map((property) => (
-            <PropertyCard
-              key={property.id}
-              property={property}
-              href={`/properties/${property.id}`}
-              showSave
-              initialSaved
-              showCta
-              viewerRole={role}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-white p-5 text-center">
-          <p className="text-base font-semibold text-slate-900">No favourites yet</p>
-          <p className="mt-1 text-sm text-slate-600">
-            Save homes you like to keep track of them across devices.
+  const { supabase, user } = await getServerAuthUser();
+
+  if (!user) {
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
+        <div>
+          <h1 className="text-2xl font-semibold text-slate-900">Saved collections</h1>
+          <p className="text-sm text-slate-600">
+            Log in to create and share your collections.
           </p>
-          <Link href="/properties" className="mt-3 inline-flex text-sky-700 font-semibold">
-            Browse properties
-          </Link>
         </div>
-      )}
+        <Link href="/auth/login?reason=auth" className="font-semibold text-sky-700">
+          Log in
+        </Link>
+      </div>
+    );
+  }
+
+  let collections = await listCollectionsForOwner({
+    supabase,
+    ownerUserId: user.id,
+  });
+  if (!collections.length) {
+    await ensureDefaultCollection({
+      supabase,
+      userId: user.id,
+    });
+    collections = await listCollectionsForOwner({
+      supabase,
+      ownerUserId: user.id,
+    });
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-6xl px-4 py-4">
+      <SavedCollectionsClient initialCollections={collections} />
     </div>
   );
 }
