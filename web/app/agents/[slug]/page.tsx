@@ -1,8 +1,14 @@
 import type { Metadata } from "next";
 import { permanentRedirect } from "next/navigation";
+import { PublicAdvertiserProfilePage } from "@/components/advertisers/PublicAdvertiserProfilePage";
 import { getAgentStorefrontData, getAgentStorefrontViewModel } from "@/lib/agents/agent-storefront.server";
 import { safeTrim } from "@/lib/agents/agent-storefront";
 import { buildStorefrontCredibilityChips } from "@/lib/agents/storefront-credibility";
+import {
+  derivePublicAdvertiserName,
+  isPublicAdvertiserRole,
+  normalizePublicSlug,
+} from "@/lib/advertisers/public-profile";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import AgentStorefrontListingsClient from "@/components/agents/AgentStorefrontListingsClient";
 import AgentStorefrontHero from "@/components/agents/AgentStorefrontHero";
@@ -16,6 +22,20 @@ type PageProps = {
 };
 
 const DEFAULT_SITE_URL = "https://www.propatyhub.com";
+
+type PublicAdvertiserSlugRow = {
+  id?: string | null;
+  role?: string | null;
+  public_slug?: string | null;
+  display_name?: string | null;
+  full_name?: string | null;
+  business_name?: string | null;
+  city?: string | null;
+  country?: string | null;
+  avatar_url?: string | null;
+  created_at?: string | null;
+  agent_storefront_enabled?: boolean | null;
+};
 
 const NOT_AVAILABLE_COPY = {
   GLOBAL_DISABLED: {
@@ -54,6 +74,38 @@ function resolveCoverImage(listings: Property[]) {
   return null;
 }
 
+async function getPublicAdvertiserBySlug(slug: string): Promise<{
+  id: string;
+  role: "agent" | "landlord";
+  publicSlug: string;
+  name: string;
+  agentStorefrontEnabled: boolean | null;
+} | null> {
+  if (!hasServerSupabaseEnv()) return null;
+  const normalizedSlug = normalizePublicSlug(slug);
+  if (!normalizedSlug) return null;
+  const supabase = await createServerSupabaseClient();
+  const { data } = await supabase
+    .from("profiles")
+    .select(
+      "id, role, public_slug, display_name, full_name, business_name, agent_storefront_enabled"
+    )
+    .eq("public_slug", normalizedSlug)
+    .limit(1);
+  const row = ((data as PublicAdvertiserSlugRow[] | null) ?? [])[0] ?? null;
+  const role = row?.role ?? null;
+  if (!row?.id || !isPublicAdvertiserRole(role)) return null;
+  const canonicalSlug = normalizePublicSlug(row.public_slug);
+  if (!canonicalSlug) return null;
+  return {
+    id: row.id,
+    role,
+    publicSlug: canonicalSlug,
+    name: derivePublicAdvertiserName(row),
+    agentStorefrontEnabled: row.agent_storefront_enabled ?? null,
+  };
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const resolvedParams = await params;
   const slug = safeTrim(resolvedParams?.slug);
@@ -64,6 +116,33 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       title: "Agent storefront | PropatyHub",
       description: "Discover verified agents and their latest listings on PropatyHub.",
       alternates: { canonical: `${siteUrl}/agents` },
+    };
+  }
+
+  const advertiser = await getPublicAdvertiserBySlug(slug);
+  if (advertiser) {
+    const canonical = `${siteUrl}/agents/${advertiser.publicSlug}`;
+    const description = `Browse live listings and connect with ${advertiser.name} on PropatyHub.`;
+    return {
+      title: `${advertiser.name} | PropatyHub`,
+      description,
+      alternates: { canonical },
+      openGraph: {
+        title: `${advertiser.name} | PropatyHub`,
+        description,
+        url: canonical,
+        siteName: "PropatyHub",
+        type: "profile",
+      },
+      twitter: {
+        card: "summary",
+        title: `${advertiser.name} | PropatyHub`,
+        description,
+      },
+      robots:
+        advertiser.role === "agent" && advertiser.agentStorefrontEnabled === false
+          ? { index: false, follow: true }
+          : undefined,
     };
   }
 
@@ -109,10 +188,38 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function AgentStorefrontPage({ params }: PageProps) {
   const resolvedParams = await params;
-  const slug = resolvedParams?.slug ?? "";
+  const slug = safeTrim(resolvedParams?.slug);
+  const advertiser = await getPublicAdvertiserBySlug(slug);
+  if (advertiser) {
+    if (advertiser.publicSlug !== slug) {
+      permanentRedirect(`/agents/${advertiser.publicSlug}`);
+    }
+    if (advertiser.role === "agent" && advertiser.agentStorefrontEnabled === false) {
+      return (
+        <div
+          className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-12"
+          data-testid="agent-storefront-unavailable"
+        >
+          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Agents</p>
+          <h1 className="text-3xl font-semibold text-slate-900">Profile unavailable</h1>
+          <p className="text-sm text-slate-600">
+            This advertiser has hidden their public profile.
+          </p>
+        </div>
+      );
+    }
+    return (
+      <PublicAdvertiserProfilePage
+        advertiserId={advertiser.id}
+        loginRedirectPath={`/agents/${advertiser.publicSlug}`}
+      />
+    );
+  }
+
+  const storefrontSlug = resolvedParams?.slug ?? "";
   const requestId = crypto.randomUUID();
-  const data = await getAgentStorefrontViewModel(slug, { requestId });
-  if (!data.ok && data.redirectSlug && data.redirectSlug !== slug) {
+  const data = await getAgentStorefrontViewModel(storefrontSlug, { requestId });
+  if (!data.ok && data.redirectSlug && data.redirectSlug !== storefrontSlug) {
     permanentRedirect(`/agents/${data.redirectSlug}`);
   }
 
@@ -134,7 +241,7 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
   const { agent, listings } = data.storefront;
   const coverImageUrl = resolveCoverImage(listings);
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || DEFAULT_SITE_URL;
-  const shareUrl = `${siteUrl}/agents/${agent.slug ?? slug}`;
+  const shareUrl = `${siteUrl}/agents/${agent.slug ?? storefrontSlug}`;
   const trustChips = data.metrics
     ? buildStorefrontCredibilityChips(data.metrics)
     : [];
@@ -190,7 +297,7 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
         </section>
 
         <div className="lg:sticky lg:top-24">
-          <AgentContactPanel slug={agent.slug ?? slug} agentName={agent.name} />
+          <AgentContactPanel slug={agent.slug ?? storefrontSlug} agentName={agent.name} />
         </div>
       </div>
     </div>

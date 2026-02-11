@@ -20,6 +20,10 @@ import { Button } from "@/components/ui/Button";
 import { shouldRenderDemoBadge, shouldRenderDemoWatermark } from "@/lib/properties/demo";
 import { ListingTrustBadges } from "@/components/properties/ListingTrustBadges";
 import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
+import {
+  derivePublicAdvertiserName,
+  resolvePublicAdvertiserHref,
+} from "@/lib/advertisers/public-profile";
 
 const BedIcon = () => (
   <svg
@@ -114,6 +118,19 @@ export function PropertyCard({
   const ctaLabel = listingIntent === "buy" ? "Enquire to buy" : "Request viewing";
   const cardHref = href || `/properties/${property.id}`;
   const showFastResponder = !!fastResponder;
+  const advertiserName = property.owner_id
+    ? derivePublicAdvertiserName({
+        display_name: property.owner_display_name ?? property.owner_profile?.display_name ?? null,
+        full_name: property.owner_profile?.full_name ?? null,
+        business_name: property.owner_profile?.business_name ?? null,
+      })
+    : "";
+  const showAdvertiserLink = !!property.owner_id && advertiserName !== "Advertiser";
+  const advertiserHref =
+    resolvePublicAdvertiserHref({
+      advertiserId: property.owner_id,
+      publicSlug: property.owner_profile?.public_slug ?? null,
+    }) ?? (property.owner_id ? `/u/${property.owner_id}` : null);
 
   const imageBlock = (
     <div
@@ -232,6 +249,17 @@ export function PropertyCard({
                   {property.title}
                 </h3>
               </>
+            )}
+            {showAdvertiserLink && (
+              <p className="text-xs text-slate-500">
+                By{" "}
+                <Link
+                  href={advertiserHref ?? `/u/${property.owner_id}`}
+                  className="font-semibold text-slate-700 hover:text-sky-700"
+                >
+                  {advertiserName}
+                </Link>
+              </p>
             )}
           </div>
           <span className="rounded-full border border-slate-200/70 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-slate-600 whitespace-nowrap shrink-0">

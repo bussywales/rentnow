@@ -93,6 +93,7 @@ export interface Property {
     full_name?: string | null;
     display_name?: string | null;
     business_name?: string | null;
+    public_slug?: string | null;
     role?: UserRole | null;
   } | null;
   is_external?: boolean | null;

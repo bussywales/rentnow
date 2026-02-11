@@ -1,8 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useSyncExternalStore } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/Button";
+import {
+  dismissMarketplaceDisclaimer,
+  isMarketplaceDisclaimerDismissed,
+} from "@/lib/legal/marketplace-disclaimer";
 
 const HIDDEN_PREFIXES = [
   "/auth",
@@ -22,8 +27,31 @@ function shouldHide(pathname: string | null) {
 
 export function LegalDisclaimerBanner() {
   const pathname = usePathname();
+  const [dismissedThisSession, setDismissedThisSession] = useState(false);
+  const persistedDismissed = useSyncExternalStore(
+    () => () => undefined,
+    () => {
+      if (typeof window === "undefined") return null;
+      return isMarketplaceDisclaimerDismissed(window.localStorage);
+    },
+    () => null
+  );
 
-  if (shouldHide(pathname)) return null;
+  if (
+    shouldHide(pathname) ||
+    persistedDismissed === null ||
+    persistedDismissed ||
+    dismissedThisSession
+  ) {
+    return null;
+  }
+
+  const handleDismiss = () => {
+    if (typeof window !== "undefined") {
+      dismissMarketplaceDisclaimer(window.localStorage);
+    }
+    setDismissedThisSession(true);
+  };
 
   return (
     <div
@@ -39,6 +67,14 @@ export function LegalDisclaimerBanner() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={handleDismiss}
+            aria-label="Dismiss marketplace disclaimer"
+            className="focus-visible:ring-sky-300"
+          >
+            Got it
+          </Button>
           <Link href="/legal/disclaimer" className="text-xs font-semibold text-slate-100 hover:text-white">
             Learn more
           </Link>

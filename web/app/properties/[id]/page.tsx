@@ -39,6 +39,11 @@ import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { isListingExpired } from "@/lib/properties/expiry";
 import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
+import {
+  derivePublicAdvertiserName,
+  isPublicAdvertiserRole,
+  resolvePublicAdvertiserHref,
+} from "@/lib/advertisers/public-profile";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -332,6 +337,10 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   let similar: Property[] = [];
   let similarTrustSnapshots: Record<string, TrustMarkerState> = {};
   let similarSocialProof: Record<string, ListingPopularitySignal> = {};
+  let hostProfileName: string | null = null;
+  let hostProfileCity: string | null = null;
+  let hostProfileIsPublicAdvertiser = false;
+  let hostProfileHref: string | null = null;
   if (hasServerSupabaseEnv()) {
     try {
       const supabase = await createServerSupabaseClient();
@@ -462,6 +471,29 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
         hostTrust = null;
       }
       try {
+        const { data: hostProfile } = await supabase
+          .from("profiles")
+          .select("role, display_name, full_name, business_name, city, public_slug")
+          .eq("id", property.owner_id)
+          .maybeSingle();
+        if (hostProfile && isPublicAdvertiserRole(hostProfile.role)) {
+          hostProfileIsPublicAdvertiser = true;
+          hostProfileName = derivePublicAdvertiserName(hostProfile);
+          hostProfileCity = hostProfile.city ?? null;
+          hostProfileHref =
+            resolvePublicAdvertiserHref({
+              advertiserId: property.owner_id,
+              publicSlug: hostProfile.public_slug ?? null,
+            }) ?? `/u/${property.owner_id}`;
+        }
+      } catch (err) {
+        console.warn("[property-detail] host profile fetch failed", err);
+        hostProfileName = null;
+        hostProfileCity = null;
+        hostProfileIsPublicAdvertiser = false;
+        hostProfileHref = null;
+      }
+      try {
         const fastMap = await getFastResponderByHostIds({
           supabase,
           hostIds: [property.owner_id],
@@ -494,6 +526,10 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
       similar = [];
       similarTrustSnapshots = {};
       similarSocialProof = {};
+      hostProfileName = null;
+      hostProfileCity = null;
+      hostProfileIsPublicAdvertiser = false;
+      hostProfileHref = null;
     }
   }
 
@@ -778,10 +814,21 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-900">Hosted by</p>
-                <p className="text-xs text-slate-600 break-all">
-                  {property.owner_id ? `Host ID: ${property.owner_id}` : "Demo host"}
+                {hostProfileIsPublicAdvertiser && property.owner_id ? (
+                  <Link
+                    href={hostProfileHref ?? `/u/${property.owner_id}`}
+                    className="text-xs font-semibold text-slate-700 underline-offset-4 hover:text-sky-700 hover:underline"
+                  >
+                    {hostProfileName || "View advertiser profile"}
+                  </Link>
+                ) : (
+                  <p className="text-xs text-slate-600 break-all">
+                    {property.owner_id ? `Host ID: ${property.owner_id}` : "Demo host"}
+                  </p>
+                )}
+                <p className="text-xs text-slate-500">
+                  Based in {hostProfileCity || property.city}
                 </p>
-                <p className="text-xs text-slate-500">Based in {property.city}</p>
               </div>
             </div>
             {showTrustSignals && (
