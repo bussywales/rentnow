@@ -7,18 +7,24 @@ import { getIdentityTrustLabel, isIdentityVerified } from "../../lib/trust-marke
 
 void test("identity trust label reflects verified state", () => {
   assert.equal(
-    getIdentityTrustLabel({ email_verified: true, phone_verified: true }),
+    getIdentityTrustLabel({ email_verified: true, phone_verified: true }, { requireEmail: true }),
     "Identity verified"
   );
   assert.equal(
-    getIdentityTrustLabel({ bank_verified: true }),
+    getIdentityTrustLabel(
+      { bank_verified: true },
+      { requireEmail: true, requirePhone: false, requireBank: true }
+    ),
     "Identity pending"
   );
   assert.equal(
-    getIdentityTrustLabel({ email_verified: true, phone_verified: false }),
+    getIdentityTrustLabel(
+      { email_verified: true, phone_verified: false },
+      { requireEmail: true, requirePhone: true, requireBank: false }
+    ),
     "Identity pending"
   );
-  assert.equal(getIdentityTrustLabel(null), "Identity pending");
+  assert.equal(getIdentityTrustLabel(null), null);
   assert.equal(isIdentityVerified(null), false);
 });
 

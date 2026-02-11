@@ -1,4 +1,8 @@
-import { isIdentityVerified, type TrustMarkerState } from "@/lib/trust-markers";
+import {
+  isAdvertiserVerified,
+  type TrustMarkerState,
+  type VerificationRequirements,
+} from "@/lib/trust-markers";
 
 export type TrustCue = {
   key: "verified_host" | "fast_responder" | "new_listing";
@@ -17,17 +21,19 @@ export function isNewListing(createdAt?: string | null, now: Date = new Date()):
 
 export function buildTrustCues({
   markers,
+  verificationRequirements,
   fastResponder,
   createdAt,
   now = new Date(),
 }: {
   markers?: TrustMarkerState | null;
+  verificationRequirements?: Partial<VerificationRequirements> | null;
   fastResponder?: boolean;
   createdAt?: string | null;
   now?: Date;
 }): TrustCue[] {
   const cues: TrustCue[] = [];
-  if (isIdentityVerified(markers)) {
+  if (isAdvertiserVerified(markers, verificationRequirements)) {
     cues.push({ key: "verified_host", label: "Verified host" });
   }
   if (fastResponder) {

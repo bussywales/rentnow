@@ -3,6 +3,7 @@
 import { cn } from "@/components/ui/cn";
 import { buildTrustCues } from "@/lib/trust-cues";
 import type { TrustMarkerState } from "@/lib/trust-markers";
+import { useVerificationRequirements } from "@/lib/trust-verification.client";
 
 type Props = {
   markers?: TrustMarkerState | null;
@@ -17,7 +18,13 @@ export function PropertyTrustCues({
   createdAt,
   className,
 }: Props) {
-  const cues = buildTrustCues({ markers, fastResponder, createdAt });
+  const verificationRequirements = useVerificationRequirements();
+  const cues = buildTrustCues({
+    markers,
+    verificationRequirements,
+    fastResponder,
+    createdAt,
+  });
   if (!cues.length) return null;
 
   return (

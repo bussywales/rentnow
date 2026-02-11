@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { ListingTrustBadges } from "@/components/properties/ListingTrustBadges";
 import { Button } from "@/components/ui/Button";
+import { PublicAdvertiserShareButton } from "@/components/advertisers/PublicAdvertiserShareButton";
 import { resolveServerRole } from "@/lib/auth/role";
 import {
   toPublicAdvertiserProfile,
@@ -207,6 +208,13 @@ export async function PublicAdvertiserProfilePage({
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
+            {advertiser.publicSlug ? (
+              <PublicAdvertiserShareButton
+                advertiserId={advertiser.id}
+                slug={advertiser.publicSlug}
+                displayName={advertiser.name}
+              />
+            ) : null}
             <Link href={messageHref}>
               <Button>Message</Button>
             </Link>

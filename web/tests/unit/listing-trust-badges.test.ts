@@ -42,6 +42,7 @@ void test("badge rules enforce precedence and cap", () => {
 void test("identity pending appears only when verification is incomplete", () => {
   const badges = buildListingTrustBadges({
     markers: { email_verified: true, phone_verified: false, bank_verified: null },
+    verificationRequirements: { requireEmail: true, requirePhone: true, requireBank: false },
     createdAt: null,
     socialProof: null,
   });

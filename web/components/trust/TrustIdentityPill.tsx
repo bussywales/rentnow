@@ -1,7 +1,12 @@
 "use client";
 
 import { cn } from "@/components/ui/cn";
-import { getIdentityTrustLabel, isIdentityVerified, type TrustMarkerState } from "@/lib/trust-markers";
+import {
+  getIdentityTrustLabel,
+  isIdentityVerified,
+  type TrustMarkerState,
+} from "@/lib/trust-markers";
+import { useVerificationRequirements } from "@/lib/trust-verification.client";
 
 type Props = {
   markers?: TrustMarkerState | null;
@@ -9,8 +14,10 @@ type Props = {
 };
 
 export function TrustIdentityPill({ markers, className }: Props) {
-  const verified = isIdentityVerified(markers);
-  const label = getIdentityTrustLabel(markers);
+  const verificationRequirements = useVerificationRequirements();
+  const verified = isIdentityVerified(markers, verificationRequirements);
+  const label = getIdentityTrustLabel(markers, verificationRequirements);
+  if (!label) return null;
 
   return (
     <span

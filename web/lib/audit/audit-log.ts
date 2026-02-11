@@ -6,7 +6,8 @@ export type AuditEvent =
   | "viewings.host.respond"
   | "viewings.host.inbox"
   | "viewing_no_show_marked"
-  | "app_setting_updated";
+  | "app_setting_updated"
+  | "advertisers.profile_share_click";
 
 type AuditContext = {
   route: string;

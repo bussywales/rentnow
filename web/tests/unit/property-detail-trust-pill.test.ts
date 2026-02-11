@@ -14,5 +14,5 @@ void test("public property page uses identity trust pill instead of detailed bad
   assert.ok(!page.includes("Email not verified"), "public page should not embed detailed copy");
   assert.ok(!page.includes("Phone not verified"), "public page should not embed detailed copy");
   assert.ok(!page.includes("Bank not verified"), "public page should not embed detailed copy");
-  assert.equal(getIdentityTrustLabel(null), "Identity pending");
+  assert.equal(getIdentityTrustLabel(null), null);
 });

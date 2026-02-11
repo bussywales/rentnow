@@ -4,6 +4,8 @@ import assert from "node:assert/strict";
 import {
   buildReliabilityItems,
   buildTrustBadges,
+  isAdvertiserIdentityPending,
+  isAdvertiserVerified,
 } from "../../lib/trust-markers";
 
 void test("buildTrustBadges returns empty when markers missing", () => {
@@ -33,4 +35,24 @@ void test("buildReliabilityItems ignores unknown values", () => {
     items.map((item) => `${item.label}:${item.value}`),
     ["Power:Good", "Internet:Fair"]
   );
+});
+
+void test("email-only requirement marks advertiser as verified when email is verified", () => {
+  const markers = { email_verified: true, phone_verified: false, bank_verified: false };
+  const requirements = { requireEmail: true, requirePhone: false, requireBank: false };
+  assert.equal(isAdvertiserVerified(markers, requirements), true);
+  assert.equal(isAdvertiserIdentityPending(markers, requirements), false);
+});
+
+void test("email+phone requirement marks advertiser as identity pending when only email is verified", () => {
+  const markers = { email_verified: true, phone_verified: false, bank_verified: false };
+  const requirements = { requireEmail: true, requirePhone: true, requireBank: false };
+  assert.equal(isAdvertiserVerified(markers, requirements), false);
+  assert.equal(isAdvertiserIdentityPending(markers, requirements), true);
+});
+
+void test("disabled phone and bank requirements do not force identity pending", () => {
+  const markers = { email_verified: true, phone_verified: false, bank_verified: false };
+  const requirements = { requireEmail: true, requirePhone: false, requireBank: false };
+  assert.equal(isAdvertiserIdentityPending(markers, requirements), false);
 });

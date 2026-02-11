@@ -1,5 +1,10 @@
 import { isNewListing } from "@/lib/trust-cues";
-import { isIdentityVerified, type TrustMarkerState } from "@/lib/trust-markers";
+import {
+  isAdvertiserIdentityPending,
+  isAdvertiserVerified,
+  type TrustMarkerState,
+  type VerificationRequirements,
+} from "@/lib/trust-markers";
 
 export type ListingSocialProof = {
   popular: boolean;
@@ -61,6 +66,7 @@ export function resolveListingSocialProof(input: {
 
 export function buildListingTrustBadges(input: {
   markers?: TrustMarkerState | null;
+  verificationRequirements?: Partial<VerificationRequirements> | null;
   createdAt?: string | null;
   socialProof?: ListingSocialProof | null;
   now?: Date;
@@ -71,13 +77,16 @@ export function buildListingTrustBadges(input: {
   const socialProof = input.socialProof ?? null;
   const badges: ListingTrustBadge[] = [];
 
-  const verified = isIdentityVerified(input.markers);
+  const verified = isAdvertiserVerified(input.markers, input.verificationRequirements);
+  const identityPending = isAdvertiserIdentityPending(
+    input.markers,
+    input.verificationRequirements
+  );
   const hasSignals = hasIdentityVerificationSignals(input.markers);
-  const identityPending = !verified && hasSignals;
 
   if (verified) {
     badges.push({ key: "verified", label: "Verified" });
-  } else if (identityPending) {
+  } else if (identityPending && hasSignals) {
     badges.push({ key: "identity_pending", label: "Identity pending" });
   }
 

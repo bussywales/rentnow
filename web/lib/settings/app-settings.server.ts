@@ -7,6 +7,14 @@ import {
   parseContactExchangeMode,
   type ContactExchangeMode,
 } from "@/lib/settings/app-settings";
+import {
+  parseVerificationRequirements,
+  VERIFICATION_REQUIREMENT_KEYS,
+} from "@/lib/settings/verification-requirements";
+import {
+  DEFAULT_VERIFICATION_REQUIREMENTS,
+  type VerificationRequirements,
+} from "@/lib/trust-markers";
 
 type AppSettingRow = { key: string; value: unknown };
 
@@ -87,4 +95,21 @@ export async function getContactExchangeMode(
   defaultValue: ContactExchangeMode = "redact"
 ): Promise<ContactExchangeMode> {
   return getAppSettingMode("contact_exchange_mode", defaultValue, client);
+}
+
+export async function getVerificationRequirements(
+  client?: SupabaseClient
+): Promise<VerificationRequirements> {
+  if (!hasServerSupabaseEnv()) return DEFAULT_VERIFICATION_REQUIREMENTS;
+  try {
+    const supabase = client ?? (await createServerSupabaseClient());
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .in("key", [...VERIFICATION_REQUIREMENT_KEYS]);
+    if (error || !data) return DEFAULT_VERIFICATION_REQUIREMENTS;
+    return parseVerificationRequirements(data as AppSettingRow[]);
+  } catch {
+    return DEFAULT_VERIFICATION_REQUIREMENTS;
+  }
 }

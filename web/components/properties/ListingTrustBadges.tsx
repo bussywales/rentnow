@@ -7,6 +7,7 @@ import {
   buildListingTrustBadges,
   type ListingSocialProof,
 } from "@/lib/properties/listing-trust-badges";
+import { useVerificationRequirements } from "@/lib/trust-verification.client";
 
 type Props = {
   createdAt?: string | null;
@@ -23,8 +24,10 @@ export function ListingTrustBadges({
   className,
   maxBadges = 3,
 }: Props) {
+  const verificationRequirements = useVerificationRequirements();
   const badges = buildListingTrustBadges({
     markers: trustMarkers,
+    verificationRequirements,
     createdAt,
     socialProof,
     maxBadges,

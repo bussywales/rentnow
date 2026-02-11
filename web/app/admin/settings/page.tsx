@@ -53,6 +53,9 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.agentNetworkDiscoveryEnabled,
       APP_SETTING_KEYS.demoBadgeEnabled,
       APP_SETTING_KEYS.demoWatermarkEnabled,
+      APP_SETTING_KEYS.verificationRequireEmail,
+      APP_SETTING_KEYS.verificationRequirePhone,
+      APP_SETTING_KEYS.verificationRequireBank,
       APP_SETTING_KEYS.subscriptionsEnabled,
       APP_SETTING_KEYS.contactExchangeMode,
       APP_SETTING_KEYS.listingExpiryDays,
@@ -74,10 +77,15 @@ export default async function AdminSettingsPage() {
     APP_SETTING_KEYS.agentNetworkDiscoveryEnabled,
     APP_SETTING_KEYS.demoBadgeEnabled,
     APP_SETTING_KEYS.demoWatermarkEnabled,
+    APP_SETTING_KEYS.verificationRequireEmail,
+    APP_SETTING_KEYS.verificationRequirePhone,
+    APP_SETTING_KEYS.verificationRequireBank,
   ] as const;
   const settings = keys.map((key) => {
     const row = data?.find((item) => item.key === key);
-    const defaultEnabled = key === APP_SETTING_KEYS.demoBadgeEnabled;
+    const defaultEnabled =
+      key === APP_SETTING_KEYS.demoBadgeEnabled ||
+      key === APP_SETTING_KEYS.verificationRequireEmail;
     return {
       key,
       enabled: parseAppSettingBool(row?.value, defaultEnabled),

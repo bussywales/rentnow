@@ -52,6 +52,21 @@ const DESCRIPTIONS: Partial<Record<AppSettingKey, { title: string; helper: strin
     title: "Demo image watermark",
     helper: "Overlay a DEMO watermark on images for listings marked as demo.",
   },
+  [APP_SETTING_KEYS.verificationRequireEmail]: {
+    title: "Verification requirement: email",
+    helper:
+      "Require a verified email before showing the Verified badge. Turn on only the checks you can actually support right now.",
+  },
+  [APP_SETTING_KEYS.verificationRequirePhone]: {
+    title: "Verification requirement: phone",
+    helper:
+      "Require a verified phone before showing the Verified badge. Turn on only the checks you can actually support right now.",
+  },
+  [APP_SETTING_KEYS.verificationRequireBank]: {
+    title: "Verification requirement: bank",
+    helper:
+      "Require a verified bank account before showing the Verified badge. Turn on only the checks you can actually support right now.",
+  },
 };
 
 export default function AdminSettingsFeatureFlags({ settings }: Props) {

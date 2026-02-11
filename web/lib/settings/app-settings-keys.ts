@@ -33,6 +33,9 @@ export const APP_SETTING_KEYS = {
   storeIpHash: "store_ip_hash",
   demoBadgeEnabled: "demo_badge_enabled",
   demoWatermarkEnabled: "demo_watermark_enabled",
+  verificationRequireEmail: "verification_require_email",
+  verificationRequirePhone: "verification_require_phone",
+  verificationRequireBank: "verification_require_bank",
   referralCaps: "referral_caps",
 } as const;
 
