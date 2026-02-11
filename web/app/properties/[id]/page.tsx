@@ -9,6 +9,7 @@ import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { PropertyTrustCues } from "@/components/properties/PropertyTrustCues";
+import { PublicPropertyShareButton } from "@/components/properties/PublicPropertyShareButton";
 import { RequestViewingCtaSection } from "@/components/viewings/RequestViewingCtaSection";
 import { TrustIdentityPill } from "@/components/trust/TrustIdentityPill";
 import { PropertySharePanel } from "@/components/properties/PropertySharePanel";
@@ -775,8 +776,13 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </span>
             ))}
           </div>
-          <div className="mt-3">
+          <div className="mt-3 flex flex-wrap gap-2">
             <SaveButton propertyId={property.id} initialSaved={isSaved} />
+            <PublicPropertyShareButton
+              propertyId={property.id}
+              surface="property_detail"
+              variant="button"
+            />
           </div>
         </div>
       </div>

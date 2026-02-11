@@ -5,13 +5,14 @@ export type ProfileRecord = {
   full_name?: string | null;
   phone?: string | null;
   avatar_url?: string | null;
+  public_slug?: string | null;
   agent_storefront_enabled?: boolean | null;
   agent_slug?: string | null;
   agent_bio?: string | null;
 };
 
 export const PROFILE_SELECT_FIELDS =
-  "id, role, display_name, full_name, phone, avatar_url, agent_storefront_enabled, agent_slug, agent_bio";
+  "id, role, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio";
 
 type SupabaseError = {
   message?: string | null;

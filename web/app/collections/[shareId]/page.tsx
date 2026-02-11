@@ -1,18 +1,98 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
-import { getPublicCollectionByShareId } from "@/lib/saved-collections.server";
+import {
+  getPublicCollectionByShareId,
+  getPublicCollectionShareMetaByShareId,
+} from "@/lib/saved-collections.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import { getListingPopularitySignals } from "@/lib/properties/popularity.server";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
+import { BRAND_OG_IMAGE } from "@/lib/brand";
+import { getCanonicalBaseUrl } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 
 function isUuid(input: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input);
+}
+
+export function buildCollectionShareMetadata(input: {
+  shareId: string;
+  baseUrl: string | null;
+  title?: string | null;
+  city?: string | null;
+  imageUrl?: string | null;
+}): Metadata {
+  const canonicalPath = `/collections/${encodeURIComponent(input.shareId || "")}`;
+  const canonicalUrl = input.baseUrl ? `${input.baseUrl}${canonicalPath}` : canonicalPath;
+  const hasCollectionTitle = typeof input.title === "string" && input.title.trim().length > 0;
+  const title = hasCollectionTitle
+    ? `${input.title} · PropatyHub`
+    : "Shared shortlist · PropatyHub";
+  const description = input.city
+    ? `Shared shortlist of homes in ${input.city} on PropatyHub.`
+    : "Shared shortlist of homes on PropatyHub.";
+  const imageUrl = input.imageUrl || BRAND_OG_IMAGE;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: canonicalUrl },
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "website",
+      siteName: "PropatyHub",
+      images: [{ url: imageUrl, alt: hasCollectionTitle ? input.title! : "PropatyHub" }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [imageUrl],
+    },
+  };
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ shareId: string }>;
+}): Promise<Metadata> {
+  const { shareId } = await params;
+  const baseUrl = await getCanonicalBaseUrl();
+  const generic = buildCollectionShareMetadata({
+    shareId,
+    baseUrl,
+  });
+
+  if (!shareId || !isUuid(shareId) || !hasServiceRoleEnv()) {
+    return generic;
+  }
+
+  try {
+    const service = createServiceRoleClient();
+    const collectionMeta = await getPublicCollectionShareMetaByShareId({
+      supabase: service,
+      shareId,
+    });
+    if (!collectionMeta) return generic;
+    return buildCollectionShareMetadata({
+      shareId,
+      baseUrl,
+      title: collectionMeta.title,
+      city: collectionMeta.city,
+      imageUrl: collectionMeta.imageUrl,
+    });
+  } catch {
+    return generic;
+  }
 }
 
 export default async function PublicCollectionPage({

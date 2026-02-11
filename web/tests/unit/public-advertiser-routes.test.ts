@@ -30,6 +30,18 @@ void test("/agents/[slug] resolves advertiser slugs before storefront fallback",
     "expected /agents/[slug] to preserve storefront fallback behavior"
   );
   assert.ok(
+    contents.includes("profile_slug_history"),
+    "expected /agents/[slug] to check profile_slug_history redirects"
+  );
+  assert.ok(
+    contents.includes("getPublicAdvertiserFromSlugHistory"),
+    "expected /agents/[slug] to resolve old slugs from history"
+  );
+  assert.ok(
+    contents.includes("permanentRedirect(`/agents/${historyLookup.advertiser.publicSlug}`)"),
+    "expected old slug matches to redirect to canonical slug"
+  );
+  assert.ok(
     contents.includes("advertiserLookup?.status === \"non_public_role\""),
     "expected /agents/[slug] to treat non-agent/landlord advertiser slugs as not found"
   );

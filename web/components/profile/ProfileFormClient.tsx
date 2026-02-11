@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,10 @@ import { ensureProfileRow, type ProfileRecord } from "@/lib/profile/ensure-profi
 import { shouldEnsureAgentSlug } from "@/lib/agents/agent-storefront";
 import { shouldShowClientPagesShortcut } from "@/lib/profile/client-pages-shortcut";
 import { normalizeRole } from "@/lib/roles";
+import {
+  normalizePublicSlugInput,
+  validatePublicSlugInput,
+} from "@/lib/advertisers/public-slug-policy";
 
 type Props = {
   userId: string;
@@ -21,6 +25,23 @@ type Props = {
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
 const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
 
+type SlugAvailabilityStatus =
+  | "idle"
+  | "checking"
+  | "available"
+  | "taken"
+  | "invalid"
+  | "current"
+  | "error";
+
+type SlugAvailabilityResponse = {
+  ok?: boolean;
+  available?: boolean;
+  status?: SlugAvailabilityStatus;
+  message?: string;
+  slug?: string;
+};
+
 function getInitials(value: string) {
   return value
     .split(" ")
@@ -30,9 +51,14 @@ function getInitials(value: string) {
     .join("");
 }
 
+function canEditPublicSlug(role: string | null) {
+  return role === "agent" || role === "landlord";
+}
+
 export default function ProfileFormClient({ userId, email, initialProfile }: Props) {
   const [profile, setProfile] = useState<ProfileRecord | null>(initialProfile);
   const [loadingProfile, setLoadingProfile] = useState(!initialProfile);
+  const initialPublicSlug = normalizePublicSlugInput(initialProfile?.public_slug ?? "");
   const [displayName, setDisplayName] = useState(
     initialProfile?.display_name ?? initialProfile?.full_name ?? ""
   );
@@ -43,9 +69,17 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   );
   const [agentBio, setAgentBio] = useState(initialProfile?.agent_bio ?? "");
   const [agentSlug, setAgentSlug] = useState(initialProfile?.agent_slug ?? null);
+  const [publicSlugInput, setPublicSlugInput] = useState(initialPublicSlug);
+  const [currentPublicSlug, setCurrentPublicSlug] = useState(initialPublicSlug || null);
+  const [publicSlugSaving, setPublicSlugSaving] = useState(false);
+  const [publicSlugStatus, setPublicSlugStatus] = useState<SlugAvailabilityStatus>("idle");
+  const [publicSlugMessage, setPublicSlugMessage] = useState("");
+  const [publicSlugNotice, setPublicSlugNotice] = useState<string | null>(null);
+  const [publicSlugError, setPublicSlugError] = useState<string | null>(null);
   const [copyState, setCopyState] = useState<string | null>(null);
   const [slugUpdating, setSlugUpdating] = useState(false);
   const ensureSlugRef = useRef(false);
+  const slugCheckRequestRef = useRef(0);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -101,6 +135,13 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       setAgentStorefrontEnabled(nextProfile?.agent_storefront_enabled ?? true);
       setAgentBio(nextProfile?.agent_bio ?? "");
       setAgentSlug(nextProfile?.agent_slug ?? null);
+      const nextPublicSlug = normalizePublicSlugInput(nextProfile?.public_slug ?? "");
+      setPublicSlugInput(nextPublicSlug);
+      setCurrentPublicSlug(nextPublicSlug || null);
+      setPublicSlugStatus("idle");
+      setPublicSlugMessage("");
+      setPublicSlugNotice(null);
+      setPublicSlugError(null);
       setCopyState(null);
       setSnapshot({
         displayName: nextName,
@@ -142,7 +183,9 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   }, [agentBio, agentStorefrontEnabled, agentSlug, displayName, profile, supabase]);
 
   const initials = getInitials(displayName || email || "U");
-  const isAgent = profile?.role === "agent";
+  const normalizedProfileRole = normalizeRole(profile?.role ?? null);
+  const isAgent = normalizedProfileRole === "agent";
+  const canManagePublicSlug = canEditPublicSlug(normalizedProfileRole);
   const hasChanges =
     !!profile &&
     (displayName.trim() !== snapshot.displayName ||
@@ -158,6 +201,113 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
     process.env.NEXT_PUBLIC_SITE_URL ||
     "";
   const storefrontUrl = storefrontPath ? `${baseUrl}${storefrontPath}` : "";
+  const publicProfilePath = currentPublicSlug ? `/agents/${currentPublicSlug}` : "";
+  const publicProfileUrl = publicProfilePath ? `${baseUrl}${publicProfilePath}` : "";
+
+  useEffect(() => {
+    if (!canManagePublicSlug) return;
+    const normalizedCandidate = normalizePublicSlugInput(publicSlugInput);
+    if (!normalizedCandidate) {
+      setPublicSlugStatus("invalid");
+      setPublicSlugMessage("Enter a slug.");
+      return;
+    }
+    if (currentPublicSlug && normalizedCandidate === currentPublicSlug) {
+      setPublicSlugStatus("current");
+      setPublicSlugMessage("This is your current public link.");
+      return;
+    }
+    const validation = validatePublicSlugInput(publicSlugInput);
+    if (!validation.ok) {
+      setPublicSlugStatus("invalid");
+      setPublicSlugMessage(validation.message);
+      return;
+    }
+
+    const requestId = slugCheckRequestRef.current + 1;
+    slugCheckRequestRef.current = requestId;
+    setPublicSlugStatus("checking");
+    setPublicSlugMessage("Checking availability...");
+
+    const timeoutId = window.setTimeout(async () => {
+      try {
+        const response = await fetch(
+          `/api/settings/public-slug?slug=${encodeURIComponent(validation.slug)}`,
+          { cache: "no-store" }
+        );
+        const payload = (await response.json().catch(() => ({}))) as SlugAvailabilityResponse & {
+          error?: string;
+        };
+        if (slugCheckRequestRef.current !== requestId) return;
+        if (!response.ok) {
+          setPublicSlugStatus("error");
+          setPublicSlugMessage(payload.error || "Unable to check link availability.");
+          return;
+        }
+        const status = payload.status ?? (payload.available ? "available" : "taken");
+        setPublicSlugStatus(status);
+        setPublicSlugMessage(payload.message || (payload.available ? "Available" : "Taken"));
+      } catch {
+        if (slugCheckRequestRef.current !== requestId) return;
+        setPublicSlugStatus("error");
+        setPublicSlugMessage("Unable to check link availability.");
+      }
+    }, 350);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [canManagePublicSlug, currentPublicSlug, publicSlugInput]);
+
+  const handleSavePublicSlug = useCallback(async () => {
+    if (!canManagePublicSlug || !profile) return;
+    const validation = validatePublicSlugInput(publicSlugInput);
+    if (!validation.ok) {
+      setPublicSlugStatus("invalid");
+      setPublicSlugMessage(validation.message);
+      return;
+    }
+
+    setPublicSlugSaving(true);
+    setPublicSlugError(null);
+    setPublicSlugNotice(null);
+
+    try {
+      const response = await fetch("/api/settings/public-slug", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug: validation.slug }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        ok?: boolean;
+        changed?: boolean;
+        slug?: string;
+        error?: string;
+        nextAllowedAt?: string;
+      };
+      if (!response.ok) {
+        const message =
+          payload.error ||
+          (response.status === 429
+            ? "You can change your public link once every 7 days."
+            : "Unable to update public link.");
+        setPublicSlugError(message);
+        return;
+      }
+
+      const nextSlug = normalizePublicSlugInput(payload.slug ?? validation.slug);
+      setCurrentPublicSlug(nextSlug || null);
+      setPublicSlugInput(nextSlug);
+      setProfile((prev) => (prev ? { ...prev, public_slug: nextSlug || null } : prev));
+      setPublicSlugStatus("current");
+      setPublicSlugMessage("This is your current public link.");
+      setPublicSlugNotice(
+        payload.changed === false ? "Public link unchanged." : "Public link updated."
+      );
+    } catch {
+      setPublicSlugError("Unable to update public link.");
+    } finally {
+      setPublicSlugSaving(false);
+    }
+  }, [canManagePublicSlug, profile, publicSlugInput]);
 
   const handleSave = async () => {
     if (!supabase || !profile) return;
@@ -314,6 +464,15 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
     event.target.value = "";
   };
 
+  const publicSlugStatusClass =
+    publicSlugStatus === "available" || publicSlugStatus === "current"
+      ? "text-emerald-600"
+      : publicSlugStatus === "checking"
+        ? "text-slate-500"
+        : publicSlugStatus === "invalid" || publicSlugStatus === "taken" || publicSlugStatus === "error"
+          ? "text-rose-600"
+          : "text-slate-500";
+
   if (loadingProfile) {
     return (
       <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -414,6 +573,68 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
           </Link>
         </div>
       </section>
+
+      {canManagePublicSlug && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Public profile link</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Share your public profile at <span className="font-medium text-slate-900">/agents/{`{slug}`}</span>.
+          </p>
+
+          <div className="mt-4 space-y-4">
+            <div>
+              <label className="text-xs font-semibold text-slate-600">Current link</label>
+              <Input
+                value={publicProfileUrl || "No link set yet"}
+                readOnly
+                className="mt-1"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600">Edit slug</label>
+              <Input
+                value={publicSlugInput}
+                onChange={(event) => {
+                  setPublicSlugInput(normalizePublicSlugInput(event.target.value));
+                  setPublicSlugNotice(null);
+                  setPublicSlugError(null);
+                }}
+                placeholder="xthetic-studio-limited"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                className="mt-1"
+              />
+              <p className={`mt-2 text-xs ${publicSlugStatusClass}`}>
+                {publicSlugMessage || "Use lowercase letters, numbers, and hyphens."}
+              </p>
+            </div>
+          </div>
+
+          <p className="mt-3 text-xs text-slate-500">
+            Use lowercase letters, numbers, and hyphens. Changing this link keeps old links working and can be done once every 7 days.
+          </p>
+
+          {publicSlugError && <p className="mt-3 text-sm text-rose-600">{publicSlugError}</p>}
+          {publicSlugNotice && <p className="mt-3 text-sm text-emerald-600">{publicSlugNotice}</p>}
+
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Button
+              type="button"
+              onClick={handleSavePublicSlug}
+              disabled={
+                publicSlugSaving ||
+                publicSlugStatus === "checking" ||
+                publicSlugStatus === "invalid" ||
+                publicSlugStatus === "taken" ||
+                publicSlugStatus === "error"
+              }
+            >
+              {publicSlugSaving ? "Saving..." : "Save public link"}
+            </Button>
+          </div>
+        </section>
+      )}
 
       {isAgent && (
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

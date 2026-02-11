@@ -37,6 +37,28 @@ type PublicAdvertiserSlugRow = {
   agent_storefront_enabled?: boolean | null;
 };
 
+type ProfileSlugHistoryRow = {
+  profile_id?: string | null;
+  old_slug?: string | null;
+  new_slug?: string | null;
+  changed_at?: string | null;
+};
+
+type PublicAdvertiserLookupResult =
+  | { status: "not_found" }
+  | { status: "non_public_role" }
+  | { status: "profile_unavailable" }
+  | {
+      status: "found";
+      advertiser: {
+        id: string;
+        role: "agent" | "landlord";
+        publicSlug: string;
+        name: string;
+        agentStorefrontEnabled: boolean | null;
+      };
+    };
+
 const NOT_AVAILABLE_COPY = {
   GLOBAL_DISABLED: {
     title: "Agent storefronts are currently unavailable",
@@ -75,18 +97,7 @@ function resolveCoverImage(listings: Property[]) {
 }
 
 async function getPublicAdvertiserBySlug(slug: string): Promise<
-  | { status: "not_found" }
-  | { status: "non_public_role" }
-  | {
-      status: "found";
-      advertiser: {
-        id: string;
-        role: "agent" | "landlord";
-        publicSlug: string;
-        name: string;
-        agentStorefrontEnabled: boolean | null;
-      };
-    }
+  PublicAdvertiserLookupResult
 > {
   if (!hasServerSupabaseEnv()) return { status: "not_found" };
   const normalizedSlug = normalizePublicSlug(slug);
@@ -115,6 +126,65 @@ async function getPublicAdvertiserBySlug(slug: string): Promise<
       agentStorefrontEnabled: row.agent_storefront_enabled ?? null,
     },
   };
+}
+
+async function getPublicAdvertiserFromSlugHistory(slug: string): Promise<PublicAdvertiserLookupResult> {
+  if (!hasServerSupabaseEnv()) return { status: "not_found" };
+  const normalizedSlug = normalizePublicSlug(slug);
+  if (!normalizedSlug) return { status: "not_found" };
+  const supabase = await createServerSupabaseClient();
+  const { data: historyData } = await supabase
+    .from("profile_slug_history")
+    .select("profile_id, old_slug, new_slug, changed_at")
+    .ilike("old_slug", normalizedSlug)
+    .order("changed_at", { ascending: false })
+    .limit(1);
+  const historyRow = ((historyData as ProfileSlugHistoryRow[] | null) ?? [])[0] ?? null;
+  const profileId = historyRow?.profile_id ?? null;
+  if (!profileId) return { status: "not_found" };
+
+  const { data } = await supabase
+    .from("profiles")
+    .select(
+      "id, role, public_slug, display_name, full_name, business_name, agent_storefront_enabled"
+    )
+    .eq("id", profileId)
+    .maybeSingle();
+  const profileRow = (data as PublicAdvertiserSlugRow | null) ?? null;
+  if (!profileRow?.id) return { status: "not_found" };
+  const role = profileRow.role ?? null;
+  if (!isPublicAdvertiserRole(role)) return { status: "non_public_role" };
+  const canonicalSlug = normalizePublicSlug(profileRow.public_slug);
+  if (!canonicalSlug) return { status: "profile_unavailable" };
+  if (role === "agent" && profileRow.agent_storefront_enabled === false) {
+    return { status: "profile_unavailable" };
+  }
+
+  return {
+    status: "found",
+    advertiser: {
+      id: profileRow.id,
+      role,
+      publicSlug: canonicalSlug,
+      name: derivePublicAdvertiserName(profileRow),
+      agentStorefrontEnabled: profileRow.agent_storefront_enabled ?? null,
+    },
+  };
+}
+
+function renderProfileUnavailable() {
+  return (
+    <div
+      className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-12"
+      data-testid="agent-storefront-unavailable"
+    >
+      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Agents</p>
+      <h1 className="text-3xl font-semibold text-slate-900">Profile unavailable</h1>
+      <p className="text-sm text-slate-600">
+        This advertiser has hidden their public profile.
+      </p>
+    </div>
+  );
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -211,18 +281,7 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
       permanentRedirect(`/agents/${advertiser.publicSlug}`);
     }
     if (advertiser.role === "agent" && advertiser.agentStorefrontEnabled === false) {
-      return (
-        <div
-          className="mx-auto flex max-w-4xl flex-col gap-4 px-4 py-12"
-          data-testid="agent-storefront-unavailable"
-        >
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Agents</p>
-          <h1 className="text-3xl font-semibold text-slate-900">Profile unavailable</h1>
-          <p className="text-sm text-slate-600">
-            This advertiser has hidden their public profile.
-          </p>
-        </div>
-      );
+      return renderProfileUnavailable();
     }
     return (
       <PublicAdvertiserProfilePage
@@ -230,6 +289,16 @@ export default async function AgentStorefrontPage({ params }: PageProps) {
         loginRedirectPath={`/agents/${advertiser.publicSlug}`}
       />
     );
+  }
+  const historyLookup = await getPublicAdvertiserFromSlugHistory(slug);
+  if (historyLookup.status === "non_public_role") {
+    notFound();
+  }
+  if (historyLookup.status === "profile_unavailable") {
+    return renderProfileUnavailable();
+  }
+  if (historyLookup.status === "found") {
+    permanentRedirect(`/agents/${historyLookup.advertiser.publicSlug}`);
   }
 
   const storefrontSlug = resolvedParams?.slug ?? "";

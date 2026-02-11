@@ -384,6 +384,59 @@ export async function getPublicCollectionByShareId(input: {
   };
 }
 
+export async function getPublicCollectionShareMetaByShareId(input: {
+  supabase: SupabaseClient;
+  shareId: string;
+}): Promise<{ title: string; city: string | null; imageUrl: string | null } | null> {
+  const { data: collection, error: collectionError } = await input.supabase
+    .from("saved_collections")
+    .select("id,title")
+    .eq("share_id", input.shareId)
+    .maybeSingle<{ id: string; title: string }>();
+
+  if (collectionError) throw new Error(collectionError.message);
+  if (!collection) return null;
+
+  const { data: firstItem, error: firstItemError } = await input.supabase
+    .from("saved_collection_items")
+    .select("listing_id")
+    .eq("collection_id", collection.id)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle<{ listing_id: string }>();
+
+  if (firstItemError) throw new Error(firstItemError.message);
+  if (!firstItem?.listing_id) {
+    return {
+      title: collection.title,
+      city: null,
+      imageUrl: null,
+    };
+  }
+
+  const { data: listingRow, error: listingError } = await input.supabase
+    .from("properties")
+    .select("city,cover_image_url,property_images(image_url,id,created_at)")
+    .eq("id", firstItem.listing_id)
+    .order("created_at", { foreignTable: "property_images", ascending: true })
+    .maybeSingle<{
+      city?: string | null;
+      cover_image_url?: string | null;
+      property_images?: Array<{ image_url: string; id?: string | null; created_at?: string | null }>;
+    }>();
+
+  if (listingError) throw new Error(listingError.message);
+
+  return {
+    title: collection.title,
+    city: listingRow?.city?.trim() || null,
+    imageUrl:
+      listingRow?.cover_image_url ||
+      listingRow?.property_images?.[0]?.image_url ||
+      null,
+  };
+}
+
 async function ensureListingExists(input: { supabase: SupabaseClient; listingId: string }) {
   const { data, error } = await input.supabase
     .from("properties")
