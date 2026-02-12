@@ -92,7 +92,9 @@ void test("user-visible changes require update notes", () => {
     );
   }
 
-  const noteFiles = updateNoteChanges.filter((file) => file.endsWith(".md"));
+  const noteFiles = updateNoteChanges.filter(
+    (file) => file.endsWith(".md") && !file.endsWith("README.md")
+  );
   const audiences = new Set<UpdateNoteAudience>();
   for (const file of noteFiles) {
     if (file.endsWith("NO_UPDATE.md")) continue;

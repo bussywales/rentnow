@@ -1,3 +1,18 @@
+---
+title: "Public advertiser profiles"
+audiences:
+  - ADMIN
+  - HOST
+  - TENANT
+  - AGENT
+areas:
+  - Agents
+  - Profiles
+  - Listings
+cta_href: "/agents"
+published_at: "2026-02-11"
+---
+
 # Public Advertiser Profiles (W4.1 + W4.1.1)
 
 PropatyHub now includes public advertiser profile pages for agents and landlords at `/agents/[slug]`, with `/u/[id]` kept as a backward-compatible redirect.

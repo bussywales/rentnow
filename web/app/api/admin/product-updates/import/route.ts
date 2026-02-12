@@ -93,13 +93,21 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ imported: results });
   } catch (error) {
+    const message = error instanceof Error ? error.message : "import failed";
+    const isValidationError =
+      typeof message === "string" &&
+      (message.startsWith("Invalid update note") || message.includes("ENOENT"));
+
     logFailure({
       request,
       route: routeLabel,
-      status: 500,
+      status: isValidationError ? 422 : 500,
       startTime,
-      error: error instanceof Error ? error.message : "import failed",
+      error: error instanceof Error ? error.stack || error.message : "import failed",
     });
+    if (isValidationError) {
+      return NextResponse.json({ error: message }, { status: 422 });
+    }
     return NextResponse.json({ error: "Unable to import update note." }, { status: 500 });
   }
 }

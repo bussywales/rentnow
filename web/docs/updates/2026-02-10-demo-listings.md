@@ -1,3 +1,18 @@
+---
+title: "Demo listings"
+audiences:
+  - ADMIN
+  - HOST
+  - TENANT
+  - AGENT
+areas:
+  - Listings
+  - Admin
+  - Discovery
+cta_href: "/admin/settings"
+published_at: "2026-02-10"
+---
+
 # Demo Listings
 
 We shipped demo listings as a first-class listing mode so teams can safely test showcase inventory without polluting customer-facing experiences.

@@ -6,6 +6,7 @@ import { listUpdateNotes } from "@/lib/product-updates/update-notes.server";
 import { mapUpdateAudiencesToProductAudiences } from "@/lib/product-updates/update-notes";
 import { isProductUpdateAudience } from "@/lib/product-updates/audience";
 import type { ProductUpdateAudience } from "@/lib/product-updates/constants";
+import { summarizeUpdateImportStates } from "@/lib/product-updates/import-status";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -33,7 +34,7 @@ async function requireAdmin() {
 export default async function AdminProductUpdatesImportPage() {
   const supabase = await requireAdmin();
 
-  const notes = await listUpdateNotes();
+  const { notes, invalidNotes } = await listUpdateNotes();
   const filenames = notes.map((note) => note.filename);
 
   let updates: Array<{
@@ -87,6 +88,8 @@ export default async function AdminProductUpdatesImportPage() {
     };
   });
 
+  const importSummary = summarizeUpdateImportStates(status);
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6 px-4 py-4">
       <header className="space-y-2">
@@ -98,7 +101,11 @@ export default async function AdminProductUpdatesImportPage() {
         </p>
       </header>
 
-      <AdminProductUpdatesImportClient notes={status} />
+      <AdminProductUpdatesImportClient
+        notes={status}
+        invalidNotes={invalidNotes}
+        summary={importSummary}
+      />
     </div>
   );
 }

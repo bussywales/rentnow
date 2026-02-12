@@ -1,3 +1,18 @@
+---
+title: "Admin referrals, search strictness, and map layering fixes"
+audiences:
+  - ADMIN
+  - HOST
+  - TENANT
+  - AGENT
+areas:
+  - Referrals
+  - Search
+  - Maps
+cta_href: "/admin/settings/referrals"
+published_at: "2026-02-10"
+---
+
 # Admin referrals, search strictness, and map layering fixes
 
 ## What changed

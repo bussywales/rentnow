@@ -1,3 +1,17 @@
+---
+title: "Phase 3: referral share tracking, deep links, and invite reminders"
+audiences:
+  - ADMIN
+  - HOST
+  - AGENT
+areas:
+  - Referrals
+  - Dashboard
+  - Analytics
+cta_href: "/dashboard/referrals"
+published_at: "2026-02-10"
+---
+
 # Phase 3: Referral share tracking, deep links, and invite reminders
 
 Date: 2026-02-10
