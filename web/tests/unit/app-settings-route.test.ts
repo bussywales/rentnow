@@ -183,6 +183,25 @@ void test("validateSettingValueByKey accepts saved-search email alerts toggle", 
   assert.equal(validateSettingValueByKey("alerts_email_enabled", { enabled: true }), true);
 });
 
+void test("validateSettingValueByKey accepts alerts kill switch and last-run status payload", () => {
+  assert.equal(
+    validateSettingValueByKey("alerts_kill_switch_enabled", { enabled: true }),
+    true
+  );
+  assert.equal(
+    validateSettingValueByKey("alerts_last_run_status_json", {
+      ran_at_utc: "2026-02-12T18:00:00.000Z",
+      mode: "admin",
+      users_processed: 2,
+      digests_sent: 1,
+      searches_included: 3,
+      failed_users: 0,
+      disabled_reason: null,
+    }),
+    true
+  );
+});
+
 void test("validateSettingValueByKey accepts featured request pricing and rules payloads", () => {
   assert.equal(validateSettingValueByKey("featured_requests_enabled", { enabled: true }), true);
   assert.equal(validateSettingValueByKey("featured_price_7d_minor", { value: 1999 }), true);

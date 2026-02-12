@@ -1,12 +1,16 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import {
+  DEFAULT_ALERTS_LAST_RUN_STATUS,
+  parseAlertsLastRunStatus,
   parseAppSettingBool,
   parseAppSettingInt,
   parseAppSettingString,
   parseContactExchangeMode,
+  type AlertsLastRunStatus,
   type ContactExchangeMode,
 } from "@/lib/settings/app-settings";
+import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 import {
   parseVerificationRequirements,
   VERIFICATION_REQUIREMENT_KEYS,
@@ -111,5 +115,23 @@ export async function getVerificationRequirements(
     return parseVerificationRequirements(data as AppSettingRow[]);
   } catch {
     return DEFAULT_VERIFICATION_REQUIREMENTS;
+  }
+}
+
+export async function getAlertsLastRunStatus(
+  client?: SupabaseClient
+): Promise<AlertsLastRunStatus> {
+  if (!hasServerSupabaseEnv()) return DEFAULT_ALERTS_LAST_RUN_STATUS;
+  try {
+    const supabase = client ?? (await createServerSupabaseClient());
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .eq("key", APP_SETTING_KEYS.alertsLastRunStatusJson)
+      .maybeSingle<AppSettingRow>();
+    if (error || !data) return DEFAULT_ALERTS_LAST_RUN_STATUS;
+    return parseAlertsLastRunStatus(data.value);
+  } catch {
+    return DEFAULT_ALERTS_LAST_RUN_STATUS;
   }
 }

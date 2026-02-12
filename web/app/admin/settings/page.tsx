@@ -62,6 +62,7 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.verificationRequirePhone,
       APP_SETTING_KEYS.verificationRequireBank,
       APP_SETTING_KEYS.alertsEmailEnabled,
+      APP_SETTING_KEYS.alertsKillSwitchEnabled,
       APP_SETTING_KEYS.defaultMarketCountry,
       APP_SETTING_KEYS.defaultMarketCurrency,
       APP_SETTING_KEYS.marketAutoDetectEnabled,
@@ -103,6 +104,7 @@ export default async function AdminSettingsPage() {
     APP_SETTING_KEYS.verificationRequirePhone,
     APP_SETTING_KEYS.verificationRequireBank,
     APP_SETTING_KEYS.alertsEmailEnabled,
+    APP_SETTING_KEYS.alertsKillSwitchEnabled,
   ] as const;
   const settings = keys.map((key) => {
     const row = data?.find((item) => item.key === key);

@@ -4,6 +4,7 @@ import { buildSavedSearchDigestEmail } from "@/lib/email/templates/saved-search-
 import {
   buildSavedSearchAlertDedupeKey,
   getSavedSearchAlertBaselineIso,
+  resolveAlertsDispatchEnabled,
   resolveAlertsEmailEnabled,
 } from "@/lib/saved-searches/alerts.server";
 
@@ -72,6 +73,24 @@ void test("settings gating disables alerts unless app setting or env override en
     }),
     true
   );
+});
+
+void test("kill switch blocks sending even when env override is enabled", () => {
+  const allowed = resolveAlertsDispatchEnabled({
+    appSettingValue: { enabled: false },
+    killSwitchValue: { enabled: false },
+    envOverride: "true",
+  });
+  assert.equal(allowed.enabled, true);
+  assert.equal(allowed.disabledReason, null);
+
+  const blocked = resolveAlertsDispatchEnabled({
+    appSettingValue: { enabled: true },
+    killSwitchValue: { enabled: true },
+    envOverride: "true",
+  });
+  assert.equal(blocked.enabled, false);
+  assert.equal(blocked.disabledReason, "kill_switch");
 });
 
 void test("digest email shows overflow hint when search groups are capped", () => {

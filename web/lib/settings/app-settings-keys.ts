@@ -48,6 +48,8 @@ export const APP_SETTING_KEYS = {
   verificationRequirePhone: "verification_require_phone",
   verificationRequireBank: "verification_require_bank",
   alertsEmailEnabled: "alerts_email_enabled",
+  alertsKillSwitchEnabled: "alerts_kill_switch_enabled",
+  alertsLastRunStatusJson: "alerts_last_run_status_json",
   defaultMarketCountry: "default_market_country",
   defaultMarketCurrency: "default_market_currency",
   marketAutoDetectEnabled: "market_auto_detect_enabled",

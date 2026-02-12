@@ -77,6 +77,16 @@ const leaderboardScopeSchema = z.object({
   scope: z.enum(["global", "by_country", "by_city"]),
 });
 
+const alertsLastRunStatusSchema = z.object({
+  ran_at_utc: z.string().datetime().nullable(),
+  mode: z.enum(["cron", "admin"]),
+  users_processed: z.number().int().min(0),
+  digests_sent: z.number().int().min(0),
+  searches_included: z.number().int().min(0),
+  failed_users: z.number().int().min(0),
+  disabled_reason: z.enum(["kill_switch", "feature_flag_off"]).nullable(),
+});
+
 export const patchSchema = z.object({
   key: z.enum(ALLOWED_KEYS),
   value: z.union([
@@ -91,6 +101,7 @@ export const patchSchema = z.object({
     referralTierThresholdSchema,
     referralCapsSchema,
     leaderboardScopeSchema,
+    alertsLastRunStatusSchema,
   ]),
 });
 
@@ -146,6 +157,8 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   const isDefaultMarketCurrency = key === APP_SETTING_KEYS.defaultMarketCurrency;
   const isMarketAutoDetectEnabled = key === APP_SETTING_KEYS.marketAutoDetectEnabled;
   const isMarketSelectorEnabled = key === APP_SETTING_KEYS.marketSelectorEnabled;
+  const isAlertsKillSwitchEnabled = key === APP_SETTING_KEYS.alertsKillSwitchEnabled;
+  const isAlertsLastRunStatus = key === APP_SETTING_KEYS.alertsLastRunStatusJson;
 
   if (isModeSetting) return modeValueSchema.safeParse(value).success;
   if (isExpirySetting) return daysValueSchema.safeParse(value).success;
@@ -203,6 +216,8 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   }
   if (isMarketAutoDetectEnabled) return enabledValueSchema.safeParse(value).success;
   if (isMarketSelectorEnabled) return enabledValueSchema.safeParse(value).success;
+  if (isAlertsKillSwitchEnabled) return enabledValueSchema.safeParse(value).success;
+  if (isAlertsLastRunStatus) return alertsLastRunStatusSchema.safeParse(value).success;
   return enabledValueSchema.safeParse(value).success;
 }
 

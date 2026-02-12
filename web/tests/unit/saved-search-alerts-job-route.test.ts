@@ -23,9 +23,11 @@ void test("saved-search alerts job rejects requests without secret/admin access"
       sent: 0,
       emailsSent: 0,
       failed: 0,
+      failedUsers: 0,
       skipped: 0,
       duplicates: 0,
       noMatches: 0,
+      disabledReason: null,
     }),
     requireRole: async () =>
       ({
@@ -59,9 +61,11 @@ void test("saved-search alerts job runs with valid secret and returns send/fail 
       sent: 5,
       emailsSent: 4,
       failed: 2,
+      failedUsers: 1,
       skipped: 5,
       duplicates: 1,
       noMatches: 3,
+      disabledReason: null,
     }),
   };
 

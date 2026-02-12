@@ -75,6 +75,10 @@ const DESCRIPTIONS: Partial<Record<AppSettingKey, { title: string; helper: strin
     title: "Saved-search email alerts",
     helper: "Enable daily email alerts for active saved searches.",
   },
+  [APP_SETTING_KEYS.alertsKillSwitchEnabled]: {
+    title: "Alerts kill switch",
+    helper: "Emergency stop for all saved-search email sends, regardless of overrides.",
+  },
 };
 
 export default function AdminSettingsFeatureFlags({ settings }: Props) {

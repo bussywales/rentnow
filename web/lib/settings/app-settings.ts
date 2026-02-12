@@ -1,6 +1,26 @@
 export const CONTACT_EXCHANGE_MODES = ["off", "redact", "block"] as const;
 export type ContactExchangeMode = (typeof CONTACT_EXCHANGE_MODES)[number];
 
+export type AlertsLastRunStatus = {
+  ran_at_utc: string | null;
+  mode: "cron" | "admin";
+  users_processed: number;
+  digests_sent: number;
+  searches_included: number;
+  failed_users: number;
+  disabled_reason: null | "kill_switch" | "feature_flag_off";
+};
+
+export const DEFAULT_ALERTS_LAST_RUN_STATUS: AlertsLastRunStatus = {
+  ran_at_utc: null,
+  mode: "admin",
+  users_processed: 0,
+  digests_sent: 0,
+  searches_included: 0,
+  failed_users: 0,
+  disabled_reason: null,
+};
+
 export function parseAppSettingBool(value: unknown, defaultValue: boolean) {
   if (typeof value === "boolean") return value;
   if (typeof value === "object" && value !== null && "enabled" in value) {
@@ -58,4 +78,41 @@ export function parseAppSettingString(value: unknown, defaultValue: string) {
     }
   }
   return defaultValue;
+}
+
+function parseNonNegativeInt(input: unknown, fallback: number): number {
+  if (typeof input === "number" && Number.isFinite(input)) return Math.max(0, Math.trunc(input));
+  if (typeof input === "string" && input.trim() !== "") {
+    const parsed = Number(input);
+    if (Number.isFinite(parsed)) return Math.max(0, Math.trunc(parsed));
+  }
+  return fallback;
+}
+
+function parseIsoTimestamp(value: unknown): string | null {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return null;
+  return new Date(parsed).toISOString();
+}
+
+export function parseAlertsLastRunStatus(value: unknown): AlertsLastRunStatus {
+  if (typeof value !== "object" || value === null) {
+    return DEFAULT_ALERTS_LAST_RUN_STATUS;
+  }
+  const record = value as Record<string, unknown>;
+  const mode = record.mode === "cron" ? "cron" : "admin";
+  const disabledReason =
+    record.disabled_reason === "kill_switch" || record.disabled_reason === "feature_flag_off"
+      ? record.disabled_reason
+      : null;
+  return {
+    ran_at_utc: parseIsoTimestamp(record.ran_at_utc),
+    mode,
+    users_processed: parseNonNegativeInt(record.users_processed, 0),
+    digests_sent: parseNonNegativeInt(record.digests_sent, 0),
+    searches_included: parseNonNegativeInt(record.searches_included, 0),
+    failed_users: parseNonNegativeInt(record.failed_users, 0),
+    disabled_reason: disabledReason,
+  };
 }

@@ -54,9 +54,11 @@ export type SavedSearchAlertsRunResult = {
   sent: number;
   emailsSent: number;
   failed: number;
+  failedUsers: number;
   skipped: number;
   duplicates: number;
   noMatches: number;
+  disabledReason?: "kill_switch" | "feature_flag_off" | null;
 };
 
 type SendEmailInput = {
@@ -140,22 +142,57 @@ export function resolveAlertsEmailEnabled(input: {
   return parseAppSettingBool(input.appSettingValue, false);
 }
 
-async function isAlertsEmailEnabled(input: {
+export function resolveAlertsDispatchEnabled(input: {
+  appSettingValue: unknown;
+  killSwitchValue: unknown;
+  envOverride: string | undefined | null;
+}): {
+  enabled: boolean;
+  disabledReason: "kill_switch" | "feature_flag_off" | null;
+} {
+  const killSwitchEnabled = parseAppSettingBool(input.killSwitchValue, false);
+  if (killSwitchEnabled) {
+    return {
+      enabled: false,
+      disabledReason: "kill_switch",
+    };
+  }
+  const enabled = resolveAlertsEmailEnabled({
+    appSettingValue: input.appSettingValue,
+    envOverride: input.envOverride,
+  });
+  return {
+    enabled,
+    disabledReason: enabled ? null : "feature_flag_off",
+  };
+}
+
+async function resolveAlertsGate(input: {
   supabase: SupabaseClient;
   envOverride?: string | undefined | null;
 }) {
   const { data, error } = await input.supabase
     .from("app_settings")
-    .select("value")
-    .eq("key", APP_SETTING_KEYS.alertsEmailEnabled)
-    .maybeSingle<{ value: unknown }>();
+    .select("key, value")
+    .in("key", [APP_SETTING_KEYS.alertsEmailEnabled, APP_SETTING_KEYS.alertsKillSwitchEnabled]);
 
   if (error) {
-    return isTruthyEnvFlag(input.envOverride ?? process.env[ALERTS_EMAIL_ENABLED_ENV]);
+    const fallbackEnabled = isTruthyEnvFlag(input.envOverride ?? process.env[ALERTS_EMAIL_ENABLED_ENV]);
+    return {
+      enabled: fallbackEnabled,
+      disabledReason: fallbackEnabled ? null : ("feature_flag_off" as const),
+    };
   }
 
-  return resolveAlertsEmailEnabled({
-    appSettingValue: data?.value,
+  const rows = (data as Array<{ key: string; value: unknown }> | null) ?? [];
+  const emailSetting = rows.find((row) => row.key === APP_SETTING_KEYS.alertsEmailEnabled)?.value;
+  const killSwitchSetting = rows.find(
+    (row) => row.key === APP_SETTING_KEYS.alertsKillSwitchEnabled
+  )?.value;
+
+  return resolveAlertsDispatchEnabled({
+    appSettingValue: emailSetting,
+    killSwitchValue: killSwitchSetting,
     envOverride: input.envOverride ?? process.env[ALERTS_EMAIL_ENABLED_ENV],
   });
 }
@@ -245,6 +282,13 @@ function buildMatchesUrl(input: {
   const params = filtersToSearchParams(parsed);
   const query = params.toString();
   return query ? `${input.siteUrl}/properties?${query}` : `${input.siteUrl}/properties`;
+}
+
+export function buildSavedSearchMatchesUrl(input: {
+  siteUrl: string;
+  filters: Record<string, unknown> | null | undefined;
+}) {
+  return buildMatchesUrl(input);
 }
 
 export async function getEligibleSavedSearchesToAlert(input: {
@@ -448,6 +492,7 @@ export async function dispatchSavedSearchEmailAlerts(
       sent: 0,
       emailsSent: 0,
       failed: 0,
+      failedUsers: 0,
       skipped: 0,
       duplicates: 0,
       noMatches: 0,
@@ -461,6 +506,7 @@ export async function dispatchSavedSearchEmailAlerts(
       sent: 0,
       emailsSent: 0,
       failed: 0,
+      failedUsers: 0,
       skipped: 0,
       duplicates: 0,
       noMatches: 0,
@@ -470,9 +516,9 @@ export async function dispatchSavedSearchEmailAlerts(
   const now = input?.now ?? deps.getNow();
   const supabase = deps.createServiceRoleClient() as unknown as SupabaseClient;
   const siteUrl = await deps.getSiteUrl();
-  const alertsEnabled = await isAlertsEmailEnabled({ supabase });
+  const gate = await resolveAlertsGate({ supabase });
 
-  if (!alertsEnabled) {
+  if (!gate.enabled) {
     return {
       ok: true,
       processed: 0,
@@ -480,9 +526,11 @@ export async function dispatchSavedSearchEmailAlerts(
       sent: 0,
       emailsSent: 0,
       failed: 0,
+      failedUsers: 0,
       skipped: 0,
       duplicates: 0,
       noMatches: 0,
+      disabledReason: gate.disabledReason,
     };
   }
 
@@ -499,9 +547,11 @@ export async function dispatchSavedSearchEmailAlerts(
     sent: 0,
     emailsSent: 0,
     failed: 0,
+    failedUsers: 0,
     skipped: 0,
     duplicates: 0,
     noMatches: 0,
+    disabledReason: null,
   };
 
   type CandidateSearch = {
@@ -608,6 +658,7 @@ export async function dispatchSavedSearchEmailAlerts(
       userId,
     });
     if (!email) {
+      result.failedUsers += 1;
       for (const candidate of sendCandidates) {
         await upsertSavedSearchAlertLog({
           supabase,
@@ -636,6 +687,7 @@ export async function dispatchSavedSearchEmailAlerts(
     });
 
     if (!sendResult.ok) {
+      result.failedUsers += 1;
       for (const candidate of sendCandidates) {
         await upsertSavedSearchAlertLog({
           supabase,
