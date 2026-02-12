@@ -5,8 +5,6 @@ import Link from "next/link";
 import { SavedSearchManager } from "@/components/search/SavedSearchManager";
 import { PushStatusBadge } from "@/components/dashboard/PushStatusBadge";
 import { TenantPushDiagnosticsPanel } from "@/components/dashboard/TenantPushDiagnosticsPanel";
-import { getTenantPlanForTier, isPlanExpired } from "@/lib/plans";
-import { normalizeRole } from "@/lib/roles";
 import { shouldShowSavedSearchNav } from "@/lib/role-access";
 import { getPushConfigStatus } from "@/lib/push/config";
 import type { SavedSearch } from "@/lib/types";
@@ -14,7 +12,11 @@ import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 
 export const dynamic = "force-dynamic";
 
-export default async function SavedSearchesPage() {
+export default async function SavedSearchesPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ alerts?: string }>;
+}) {
   if (!hasServerSupabaseEnv()) {
     return (
       <div className="space-y-3">
@@ -33,12 +35,6 @@ export default async function SavedSearchesPage() {
     redirect("/auth/login?reason=auth");
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("role")
-    .eq("id", user.id)
-    .maybeSingle();
-  const normalizedRole = normalizeRole(profile?.role);
   const showSavedSearches = shouldShowSavedSearchNav();
 
   if (!showSavedSearches) {
@@ -64,16 +60,7 @@ export default async function SavedSearchesPage() {
     .order("created_at", { ascending: false });
 
   const searches = (data as SavedSearch[]) || [];
-  const { data: planRow } = await supabase
-    .from("profile_plans")
-    .select("plan_tier, valid_until")
-    .eq("profile_id", user.id)
-    .maybeSingle();
-  const validUntil = planRow?.valid_until ?? null;
-  const expired = isPlanExpired(validUntil);
-  const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
-  const alertsEnabled = tenantPlan.instantAlerts;
-  const billingHref = normalizedRole === "tenant" ? "/tenant/billing#plans" : "/dashboard/billing";
+  const alertsEnabled = true;
 
   const { data: alertRows } = await supabase
     .from("saved_search_alerts")
@@ -83,6 +70,8 @@ export default async function SavedSearchesPage() {
     .limit(1);
   const lastAlertSentAt = Array.isArray(alertRows) ? alertRows[0]?.sent_at ?? null : null;
   const pushConfig = getPushConfigStatus();
+  const params = (await searchParams) ?? {};
+  const alertStatus = params.alerts ?? "";
 
   return (
     <div className="space-y-4">
@@ -91,13 +80,26 @@ export default async function SavedSearchesPage() {
         <p className="text-sm text-slate-600">
           Edit saved searches and check for new home matches.
         </p>
+        {alertStatus === "ok" && (
+          <p className="mt-2 text-sm font-medium text-emerald-700">
+            Alert emails disabled for that search.
+          </p>
+        )}
+        {alertStatus === "invalid" && (
+          <p className="mt-2 text-sm font-medium text-rose-700">
+            That unsubscribe link is invalid or expired.
+          </p>
+        )}
+        {alertStatus === "error" && (
+          <p className="mt-2 text-sm font-medium text-rose-700">
+            We could not update alert settings. Please try again.
+          </p>
+        )}
       </div>
       <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-sm font-semibold text-slate-900">Alerts & saved searches</p>
         <p className="text-xs text-slate-600">
-          {alertsEnabled
-            ? "Instant alerts are enabled for your saved searches."
-            : "Upgrade to Pro to get instant alerts for new listings."}
+          Set per-search email alerts with instant, daily, or weekly frequency.
         </p>
         {!pushConfig.configured ? (
           <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50/70 p-3 text-xs text-amber-900">
@@ -116,14 +118,6 @@ export default async function SavedSearchesPage() {
             Last alert sent: {lastAlertSentAt ? new Date(lastAlertSentAt).toLocaleString() : "—"}
           </span>
         </div>
-        {!alertsEnabled && (
-          <Link
-            href={billingHref}
-            className="mt-3 inline-flex text-sm font-semibold text-sky-700"
-          >
-            View plans
-          </Link>
-        )}
       </div>
       <TenantPushDiagnosticsPanel />
       <SavedSearchManager initialSearches={searches} alertsEnabled={alertsEnabled} />

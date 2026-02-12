@@ -218,6 +218,10 @@ export interface SavedSearch {
   name: string;
   query_params: Record<string, unknown>;
   is_active?: boolean | null;
+  alerts_enabled?: boolean | null;
+  alert_frequency?: "instant" | "daily" | "weekly" | null;
+  alert_last_sent_at?: string | null;
+  alert_baseline_at?: string | null;
   created_at?: string;
   last_notified_at?: string | null;
   last_checked_at?: string | null;

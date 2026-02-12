@@ -29,6 +29,10 @@ type SavedSearchRow = {
   name: string;
   query_params: Record<string, unknown> | null;
   is_active?: boolean | null;
+  alerts_enabled?: boolean | null;
+  alert_frequency?: "instant" | "daily" | "weekly" | null;
+  alert_last_sent_at?: string | null;
+  alert_baseline_at?: string | null;
   created_at?: string | null;
   last_notified_at?: string | null;
   last_checked_at?: string | null;
@@ -100,7 +104,9 @@ export async function getSavedSearchesResponse(
 
   const { data, error } = await auth.supabase
     .from("saved_searches")
-    .select("id,user_id,name,query_params,is_active,created_at,last_notified_at,last_checked_at")
+    .select(
+      "id,user_id,name,query_params,is_active,alerts_enabled,alert_frequency,alert_last_sent_at,alert_baseline_at,created_at,last_notified_at,last_checked_at"
+    )
     .eq("user_id", auth.user.id)
     .order("created_at", { ascending: false });
 
@@ -160,7 +166,9 @@ export async function postSavedSearchResponse(
 
     const { data: existingRows, error: existingError } = await supabase
       .from("saved_searches")
-      .select("id,user_id,name,query_params,is_active,created_at,last_notified_at,last_checked_at")
+      .select(
+        "id,user_id,name,query_params,is_active,alerts_enabled,alert_frequency,alert_last_sent_at,alert_baseline_at,created_at,last_notified_at,last_checked_at"
+      )
       .eq("user_id", auth.user.id)
       .order("created_at", { ascending: false });
 
@@ -180,10 +188,15 @@ export async function postSavedSearchResponse(
           name: effectiveName,
           query_params: filters,
           is_active: true,
+          alerts_enabled: true,
+          alert_frequency: "daily",
+          alert_baseline_at: duplicate.alert_baseline_at ?? new Date().toISOString(),
         })
         .eq("id", duplicate.id)
         .eq("user_id", auth.user.id)
-        .select("id,user_id,name,query_params,is_active,created_at,last_notified_at,last_checked_at")
+        .select(
+          "id,user_id,name,query_params,is_active,alerts_enabled,alert_frequency,alert_last_sent_at,alert_baseline_at,created_at,last_notified_at,last_checked_at"
+        )
         .maybeSingle<SavedSearchRow>();
 
       if (updateError || !updated) {
@@ -238,8 +251,13 @@ export async function postSavedSearchResponse(
         name: effectiveName,
         query_params: filters,
         is_active: true,
+        alerts_enabled: true,
+        alert_frequency: "daily",
+        alert_baseline_at: new Date().toISOString(),
       })
-      .select("id,user_id,name,query_params,is_active,created_at,last_notified_at,last_checked_at")
+      .select(
+        "id,user_id,name,query_params,is_active,alerts_enabled,alert_frequency,alert_last_sent_at,alert_baseline_at,created_at,last_notified_at,last_checked_at"
+      )
       .maybeSingle<SavedSearchRow>();
 
     if (insertError || !created) {

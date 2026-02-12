@@ -102,6 +102,46 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
     );
   };
 
+  const toggleAlertsEnabled = async (search: SavedSearch) => {
+    setError(null);
+    const nextAlertsEnabled = search.alerts_enabled === false;
+    const res = await fetch(`/api/saved-searches/${search.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alerts_enabled: nextAlertsEnabled }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(sanitizeError(data?.error || "", "Unable to update alert settings."));
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    setSearches((prev) =>
+      prev.map((item) => (item.id === search.id ? data.search : item))
+    );
+  };
+
+  const updateAlertFrequency = async (
+    search: SavedSearch,
+    nextFrequency: "instant" | "daily" | "weekly"
+  ) => {
+    setError(null);
+    const res = await fetch(`/api/saved-searches/${search.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alert_frequency: nextFrequency }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(sanitizeError(data?.error || "", "Unable to update alert frequency."));
+      return;
+    }
+    const data = await res.json().catch(() => ({}));
+    setSearches((prev) =>
+      prev.map((item) => (item.id === search.id ? data.search : item))
+    );
+  };
+
   const deleteSearch = async (search: SavedSearch) => {
     setError(null);
     const res = await fetch(`/api/saved-searches/${search.id}`, {
@@ -208,9 +248,7 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
               <p className="text-xs font-semibold text-slate-600">
                 {search.is_active === false ? "Paused" : "Active"}
               </p>
-              {alertsEnabled && (
-                <p className="text-xs font-semibold text-emerald-600">Alerts enabled</p>
-              )}
+              {alertsEnabled && <p className="text-xs font-semibold text-emerald-600">Alerts available</p>}
               <p className="text-xs text-slate-600">{formatSummary(search)}</p>
               {search.last_checked_at && (
                 <p className="text-xs text-slate-500">
@@ -223,6 +261,38 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
               >
                 View matches
               </Link>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <span className="font-semibold text-slate-700">Email alerts</span>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => toggleAlertsEnabled(search)}
+                >
+                  {search.alerts_enabled === false ? "Off" : "On"}
+                </Button>
+                <label htmlFor={`frequency-${search.id}`} className="sr-only">
+                  Alert frequency
+                </label>
+                <select
+                  id={`frequency-${search.id}`}
+                  value={search.alert_frequency ?? "daily"}
+                  onChange={(event) =>
+                    void updateAlertFrequency(
+                      search,
+                      event.target.value as "instant" | "daily" | "weekly"
+                    )
+                  }
+                  className="h-8 rounded-md border border-slate-200 bg-white px-2 text-xs text-slate-700"
+                  disabled={search.alerts_enabled === false}
+                >
+                  <option value="instant">Instant</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Instant: email when new matches appear (rate-limited). Daily/Weekly: digest.
+              </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {editingId === search.id ? (

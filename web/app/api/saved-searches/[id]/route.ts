@@ -15,6 +15,8 @@ const patchSchema = z.object({
   query_params: z.record(z.string(), z.unknown()).optional(),
   filters: z.record(z.string(), z.unknown()).optional(),
   is_active: z.boolean().optional(),
+  alerts_enabled: z.boolean().optional(),
+  alert_frequency: z.enum(["instant", "daily", "weekly"]).optional(),
   action: z.enum(["check"]).optional(),
 });
 
@@ -140,6 +142,8 @@ export async function patchSavedSearchByIdResponse(
   if (payload.name) updates.name = payload.name;
   if (nextQueryParams) updates.query_params = nextQueryParams;
   if (typeof payload.is_active === "boolean") updates.is_active = payload.is_active;
+  if (typeof payload.alerts_enabled === "boolean") updates.alerts_enabled = payload.alerts_enabled;
+  if (payload.alert_frequency) updates.alert_frequency = payload.alert_frequency;
 
   if (!Object.keys(updates).length) {
     return NextResponse.json({ search: existing });
