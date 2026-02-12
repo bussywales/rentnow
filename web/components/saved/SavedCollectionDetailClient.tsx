@@ -7,6 +7,7 @@ import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
 import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
 import type { TrustMarkerState } from "@/lib/trust-markers";
+import { buildCollectionWhatsAppShareUrl } from "@/lib/saved-collections/share";
 
 type CollectionDetail = {
   id: string;
@@ -22,10 +23,6 @@ type Props = {
   trustSnapshotsByOwner: Record<string, TrustMarkerState>;
   socialProofByListing: Record<string, ListingSocialProof>;
 };
-
-function buildWhatsappShareUrl(shareUrl: string) {
-  return `https://wa.me/?text=${encodeURIComponent(`Here are some properties on PropatyHub: ${shareUrl}`)}`;
-}
 
 export function SavedCollectionDetailClient({
   collection,
@@ -187,7 +184,14 @@ export function SavedCollectionDetailClient({
                 Copy link
               </Button>
               {shareUrl ? (
-                <Link href={buildWhatsappShareUrl(shareUrl)} target="_blank" rel="noreferrer">
+                <Link
+                  href={buildCollectionWhatsAppShareUrl({
+                    shareUrl,
+                    collectionTitle: collection.title,
+                  })}
+                  target="_blank"
+                  rel="noreferrer"
+                >
                   <Button variant="secondary" size="sm">
                     WhatsApp
                   </Button>

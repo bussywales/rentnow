@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { buildCollectionWhatsAppShareUrl } from "@/lib/saved-collections/share";
 
 type SavedCollectionCard = {
   id: string;
@@ -33,10 +34,6 @@ type Props = {
   initialCollections: SavedCollectionCard[];
   savedSearchesHref: string;
 };
-
-function buildWhatsappShareUrl(shareUrl: string) {
-  return `https://wa.me/?text=${encodeURIComponent(`Here are some properties on PropatyHub: ${shareUrl}`)}`;
-}
 
 export function SavedCollectionsClient({ initialCollections, savedSearchesHref }: Props) {
   const [collections, setCollections] = useState(initialCollections);
@@ -372,7 +369,10 @@ export function SavedCollectionsClient({ initialCollections, savedSearchesHref }
               </Button>
               {shareCollection.shareUrl ? (
                 <Link
-                  href={buildWhatsappShareUrl(shareCollection.shareUrl)}
+                  href={buildCollectionWhatsAppShareUrl({
+                    shareUrl: shareCollection.shareUrl,
+                    collectionTitle: shareCollection.title,
+                  })}
                   target="_blank"
                   rel="noreferrer"
                 >

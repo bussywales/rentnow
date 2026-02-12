@@ -2,10 +2,13 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
+import { PublicSharedCollectionActions } from "@/components/saved/PublicSharedCollectionActions";
 import { Button } from "@/components/ui/Button";
 import {
+  buildCollectionShareUrl,
   getPublicCollectionByShareId,
   getPublicCollectionShareMetaByShareId,
+  isPubliclyVisibleCollectionListing,
 } from "@/lib/saved-collections.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
@@ -13,12 +16,31 @@ import { getListingPopularitySignals } from "@/lib/properties/popularity.server"
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
 import { BRAND_OG_IMAGE } from "@/lib/brand";
-import { getCanonicalBaseUrl } from "@/lib/env";
+import { getCanonicalBaseUrl, getSiteUrl } from "@/lib/env";
+import { deriveSavedSearchFiltersFromCollectionListings } from "@/lib/saved-searches/from-collection";
+import { filtersToSearchParams, parseFiltersFromSavedSearch } from "@/lib/search-filters";
 
 export const dynamic = "force-dynamic";
 
 function isUuid(input: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input);
+}
+
+function deriveCollectionCity(cities: string[]) {
+  if (!cities.length) return null;
+  const counts = new Map<string, number>();
+  for (const city of cities) {
+    counts.set(city, (counts.get(city) ?? 0) + 1);
+  }
+  let winner: string | null = null;
+  let winnerCount = 0;
+  for (const [city, count] of counts) {
+    if (count > winnerCount) {
+      winner = city;
+      winnerCount = count;
+    }
+  }
+  return winner;
 }
 
 export function buildCollectionShareMetadata(input: {
@@ -127,9 +149,16 @@ export default async function PublicCollectionPage({
   if (!collection) {
     notFound();
   }
-  const listingIds = collection.properties.map((property) => property.id).filter(Boolean);
+  const visibleProperties = collection.properties.filter((property) =>
+    isPubliclyVisibleCollectionListing({
+      listing: property,
+      includeDemo: false,
+    })
+  );
+
+  const listingIds = visibleProperties.map((property) => property.id).filter(Boolean);
   const ownerIds = Array.from(
-    new Set(collection.properties.map((property) => property.owner_id).filter(Boolean))
+    new Set(visibleProperties.map((property) => property.owner_id).filter(Boolean))
   );
   const [trustSnapshotsByOwner, socialProofByListing] = await Promise.all([
     ownerIds.length
@@ -142,16 +171,52 @@ export default async function PublicCollectionPage({
       ? getListingPopularitySignals({ client: service, listingIds })
       : Promise.resolve({} as Record<string, ListingSocialProof>),
   ]);
+  const siteUrl = await getSiteUrl();
+  const shareUrl =
+    buildCollectionShareUrl(shareId, siteUrl) ||
+    `${siteUrl.replace(/\/$/, "")}/collections/${encodeURIComponent(shareId)}`;
+  const coverImageUrl =
+    visibleProperties[0]?.cover_image_url || visibleProperties[0]?.images?.[0]?.image_url || null;
+  const city = deriveCollectionCity(
+    visibleProperties
+      .map((property) => property.city?.trim())
+      .filter((value): value is string => !!value)
+  );
+  const derivedFilters = deriveSavedSearchFiltersFromCollectionListings(visibleProperties);
+  const parsedFilters = parseFiltersFromSavedSearch(derivedFilters);
+  const startSearchParams = filtersToSearchParams(parsedFilters);
+  const startSearchHref = startSearchParams.toString()
+    ? `/properties?${startSearchParams.toString()}`
+    : "/properties";
+  const collectionTitle = collection.title?.trim() || "Shared shortlist";
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-5">
-      <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Shared collection</p>
-        <h1 className="text-2xl font-semibold text-slate-900">{collection.title}</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          Read-only view. Sign in to save homes into your own collections.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 pb-24 pt-5 sm:pb-5">
+      <header className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="relative">
+          {coverImageUrl ? (
+            <div
+              className="absolute inset-0 bg-cover bg-center"
+              style={{
+                backgroundImage: `linear-gradient(110deg, rgba(2,6,23,0.72), rgba(15,23,42,0.45) 55%, rgba(15,23,42,0.2)), url(${coverImageUrl})`,
+              }}
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-sky-800 to-slate-700" />
+          )}
+          <div className="relative space-y-3 p-6 text-white">
+            <p className="text-xs uppercase tracking-[0.2em] text-white/80">Shared collection</p>
+            <h1 className="text-2xl font-semibold">{collectionTitle}</h1>
+            <p className="text-sm text-white/90">A curated shortlist on PropatyHub</p>
+            <p className="text-xs text-white/80">
+              {visibleProperties.length} {visibleProperties.length === 1 ? "home" : "homes"}
+              {city ? ` • ${city}` : ""}
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 bg-white px-6 py-3 text-sm text-slate-600">
+          <span>Read-only view.</span>
+          <span className="hidden sm:inline">Sign in to save homes into your own collections.</span>
           <Link href="/properties">
             <Button variant="secondary" size="sm">
               Browse
@@ -163,9 +228,22 @@ export default async function PublicCollectionPage({
         </div>
       </header>
 
-      {collection.properties.length ? (
+      <PublicSharedCollectionActions
+        shareId={shareId}
+        collectionTitle={collectionTitle}
+        shareUrl={shareUrl}
+        showStickyMobile
+      />
+
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700 shadow-sm">
+        <Link href={startSearchHref} className="font-semibold text-sky-700 hover:text-sky-800">
+          Start your search
+        </Link>
+      </div>
+
+      {visibleProperties.length ? (
         <section className="grid gap-4 md:grid-cols-2">
-          {collection.properties.map((property) => (
+          {visibleProperties.map((property) => (
             <PropertyCard
               key={property.id}
               property={property}
@@ -177,8 +255,17 @@ export default async function PublicCollectionPage({
         </section>
       ) : (
         <section className="rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center">
-          <h2 className="text-lg font-semibold text-slate-900">No listings in this collection yet</h2>
-          <p className="mt-1 text-sm text-slate-600">Ask the owner to add listings and share again.</p>
+          <h2 className="text-lg font-semibold text-slate-900">
+            This shortlist is empty or no longer available.
+          </h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Listings may have expired or been removed from public view.
+          </p>
+          <Link href="/properties" className="mt-4 inline-flex">
+            <Button variant="secondary" size="sm">
+              Browse homes
+            </Button>
+          </Link>
         </section>
       )}
     </div>

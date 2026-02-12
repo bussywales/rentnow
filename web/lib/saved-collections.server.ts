@@ -3,6 +3,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Property } from "@/lib/types";
 import { getSiteUrl } from "@/lib/env";
 import { orderImagesWithCover } from "@/lib/properties/images";
+import { includeDemoListingsForViewer } from "@/lib/properties/demo";
+import { buildCollectionWhatsAppShareUrl } from "@/lib/saved-collections/share";
 
 type PropertyImageRow = {
   id: string;
@@ -142,7 +144,183 @@ export function buildCollectionShareUrl(shareId: string | null, siteUrl: string)
 }
 
 export function buildWhatsappShareUrl(shareUrl: string) {
-  return `https://wa.me/?text=${encodeURIComponent(`Here are some properties on PropatyHub: ${shareUrl}`)}`;
+  return buildCollectionWhatsAppShareUrl({ shareUrl });
+}
+
+export function isPubliclyVisibleCollectionListing(input: {
+  listing: Property;
+  now?: Date;
+  includeDemo?: boolean;
+}) {
+  const listing = input.listing;
+  if (listing.is_approved !== true) return false;
+  if (listing.is_active !== true) return false;
+  if (listing.status !== "live") return false;
+  if (!input.includeDemo && listing.is_demo) return false;
+
+  const expiresAt = listing.expires_at ? Date.parse(listing.expires_at) : null;
+  if (Number.isFinite(expiresAt) && expiresAt !== null) {
+    const nowMs = (input.now ?? new Date()).getTime();
+    if (expiresAt < nowMs) return false;
+  }
+  return true;
+}
+
+export function uniqueSortedListingIds(listingIds: string[]) {
+  return Array.from(new Set(listingIds.filter(Boolean))).sort((a, b) => a.localeCompare(b));
+}
+
+export function buildImportedCollectionTitle(collectionTitle: string | null | undefined) {
+  const base = normalizeCollectionTitle(
+    collectionTitle && collectionTitle.trim() ? `Shortlist from ${collectionTitle}` : "Shared shortlist"
+  );
+  return base || "Shared shortlist";
+}
+
+function listingIdSetsEqual(left: string[], right: string[]) {
+  if (left.length !== right.length) return false;
+  for (let index = 0; index < left.length; index += 1) {
+    if (left[index] !== right[index]) return false;
+  }
+  return true;
+}
+
+export type ImportedCollectionCandidate = {
+  collectionId: string;
+  listingIds: string[];
+};
+
+export function findImportedCollectionIdMatch(input: {
+  targetListingIds: string[];
+  candidates: ImportedCollectionCandidate[];
+}) {
+  for (const candidate of input.candidates) {
+    if (listingIdSetsEqual(candidate.listingIds, input.targetListingIds)) {
+      return candidate.collectionId;
+    }
+  }
+  return null;
+}
+
+async function getListingIdsByCollectionId(input: {
+  supabase: SupabaseClient;
+  collectionId: string;
+}) {
+  const { data, error } = await input.supabase
+    .from("saved_collection_items")
+    .select("listing_id")
+    .eq("collection_id", input.collectionId);
+  if (error) throw new Error(error.message);
+  const listingIds = ((data as Array<{ listing_id?: string }> | null) ?? [])
+    .map((row) => (typeof row.listing_id === "string" ? row.listing_id : ""))
+    .filter(Boolean);
+  return uniqueSortedListingIds(listingIds);
+}
+
+async function findImportedCollectionForOwner(input: {
+  supabase: SupabaseClient;
+  ownerUserId: string;
+  title: string;
+  targetListingIds: string[];
+}) {
+  const { data, error } = await input.supabase
+    .from("saved_collections")
+    .select("id, owner_user_id, title, share_id, is_default, created_at, updated_at")
+    .eq("owner_user_id", input.ownerUserId)
+    .eq("title", input.title)
+    .eq("is_default", false)
+    .order("updated_at", { ascending: false });
+
+  if (error) throw new Error(error.message);
+  const candidates = (data as unknown as SavedCollectionRow[] | null) ?? [];
+  const candidatesWithListingIds: ImportedCollectionCandidate[] = [];
+  for (const collection of candidates) {
+    const listingIds = await getListingIdsByCollectionId({
+      supabase: input.supabase,
+      collectionId: collection.id,
+    });
+    candidatesWithListingIds.push({
+      collectionId: collection.id,
+      listingIds,
+    });
+  }
+  const matchingId = findImportedCollectionIdMatch({
+    targetListingIds: input.targetListingIds,
+    candidates: candidatesWithListingIds,
+  });
+  if (!matchingId) return null;
+  return candidates.find((collection) => collection.id === matchingId) ?? null;
+}
+
+export async function importSharedCollectionForOwner(input: {
+  ownerSupabase: SupabaseClient;
+  publicSupabase: SupabaseClient;
+  ownerUserId: string;
+  shareId: string;
+}) {
+  const sharedCollection = await getPublicCollectionByShareId({
+    supabase: input.publicSupabase,
+    shareId: input.shareId,
+  });
+  if (!sharedCollection) {
+    throw new Error("Shared collection not found.");
+  }
+
+  const includeDemo = includeDemoListingsForViewer({ viewerRole: null });
+  const publicListingIds = uniqueSortedListingIds(
+    sharedCollection.properties
+      .filter((listing) =>
+        isPubliclyVisibleCollectionListing({
+          listing,
+          includeDemo,
+        })
+      )
+      .map((listing) => listing.id)
+  );
+
+  if (!publicListingIds.length) {
+    throw new Error("No publicly visible listings are available in this shortlist.");
+  }
+
+  const title = buildImportedCollectionTitle(sharedCollection.title);
+  let targetCollection = await findImportedCollectionForOwner({
+    supabase: input.ownerSupabase,
+    ownerUserId: input.ownerUserId,
+    title,
+    targetListingIds: publicListingIds,
+  });
+
+  if (!targetCollection) {
+    targetCollection = await createCollectionForOwner({
+      supabase: input.ownerSupabase,
+      ownerUserId: input.ownerUserId,
+      title,
+    });
+  }
+
+  const rows = publicListingIds.map((listingId) => ({
+    collection_id: targetCollection.id,
+    listing_id: listingId,
+  }));
+
+  const { error: insertError } = await input.ownerSupabase
+    .from("saved_collection_items")
+    .upsert(rows, { onConflict: "collection_id,listing_id" });
+
+  if (insertError) throw new Error(insertError.message);
+
+  const collections = await listCollectionsForOwner({
+    supabase: input.ownerSupabase,
+    ownerUserId: input.ownerUserId,
+  });
+  const summary = collections.find((collection) => collection.id === targetCollection?.id) ?? null;
+
+  return {
+    shareTitle: sharedCollection.title,
+    collectionId: targetCollection.id,
+    collection: summary,
+    importedListingIds: publicListingIds,
+  };
 }
 
 export async function ensureDefaultCollection(input: {
