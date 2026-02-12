@@ -86,12 +86,17 @@ export default async function RootLayout({
     APP_SETTING_KEYS.demoWatermarkEnabled,
     false
   );
+  const featuredListingsEnabled = await getAppSettingBool(
+    APP_SETTING_KEYS.featuredListingsEnabled,
+    true
+  );
 
   return (
     <html lang="en">
       <body
         data-demo-badge-enabled={demoBadgeEnabled ? "true" : "false"}
         data-demo-watermark-enabled={demoWatermarkEnabled ? "true" : "false"}
+        data-featured-listings-enabled={featuredListingsEnabled ? "true" : "false"}
         className={`${geistSans.variable} ${geistMono.variable} antialiased text-slate-900`}
       >
         <MainNav />

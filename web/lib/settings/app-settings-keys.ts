@@ -12,6 +12,7 @@ export const APP_SETTING_KEYS = {
   paygListingFeeAmount: "payg_listing_fee_amount",
   paygFeaturedFeeAmount: "payg_featured_fee_amount",
   featuredDurationDays: "featured_duration_days",
+  featuredListingsEnabled: "featured_listings_enabled",
   paygEnabled: "payg_enabled",
   trialListingCreditsAgent: "trial_listing_credits_agent",
   trialListingCreditsLandlord: "trial_listing_credits_landlord",

@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 
 const routeLabel = "/api/admin/properties/[id]/featured";
 
-const bodySchema = z
+const legacyBodySchema = z
   .object({
     is_featured: z.boolean(),
     featured_rank: z.number().int().min(0).nullable().optional(),
@@ -36,6 +36,17 @@ const bodySchema = z
     }
   });
 
+const patchBodySchema = z.object({
+  featured: z.boolean(),
+  durationDays: z.number().int().min(1).max(365).nullable().optional(),
+});
+
+type NormalizedFeaturedPayload = {
+  is_featured: boolean;
+  featured_rank: number | null;
+  featured_until: string | null;
+};
+
 export type AdminFeaturedDeps = {
   hasServerSupabaseEnv: () => boolean;
   hasServiceRoleEnv: () => boolean;
@@ -53,6 +64,44 @@ const defaultDeps: AdminFeaturedDeps = {
   requireRole,
   logFailure,
 };
+
+function resolveFutureIsoFromDays(days: number) {
+  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+}
+
+function normalizeFeaturedPayload(
+  raw: unknown
+): { ok: true; data: NormalizedFeaturedPayload } | { ok: false; error: string } {
+  const legacy = legacyBodySchema.safeParse(raw);
+  if (legacy.success) {
+    return {
+      ok: true,
+      data: {
+        is_featured: legacy.data.is_featured,
+        featured_rank: legacy.data.featured_rank ?? null,
+        featured_until: legacy.data.featured_until ?? null,
+      },
+    };
+  }
+
+  const patch = patchBodySchema.safeParse(raw);
+  if (patch.success) {
+    const isFeatured = patch.data.featured;
+    const durationDays = patch.data.durationDays ?? null;
+    const featuredUntil =
+      isFeatured && durationDays !== null ? resolveFutureIsoFromDays(durationDays) : null;
+    return {
+      ok: true,
+      data: {
+        is_featured: isFeatured,
+        featured_rank: null,
+        featured_until: featuredUntil,
+      },
+    };
+  }
+
+  return { ok: false, error: "Invalid payload" };
+}
 
 export async function getAdminFeaturedResponse(
   request: NextRequest,
@@ -122,10 +171,14 @@ export async function postAdminFeaturedResponse(
   });
   if (!auth.ok) return auth.response;
 
-  let payload: z.infer<typeof bodySchema>;
+  let payload: NormalizedFeaturedPayload;
   try {
     const body = await request.json();
-    payload = bodySchema.parse(body);
+    const normalized = normalizeFeaturedPayload(body);
+    if (!normalized.ok) {
+      return NextResponse.json({ error: normalized.error }, { status: 422 });
+    }
+    payload = normalized.data;
   } catch (err) {
     const message = err instanceof Error ? err.message : "Invalid payload";
     return NextResponse.json({ error: message }, { status: 422 });
@@ -197,6 +250,14 @@ export async function GET(
 }
 
 export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  const { id } = await context.params;
+  return postAdminFeaturedResponse(request, id);
+}
+
+export async function PATCH(
   request: NextRequest,
   context: { params: Promise<{ id: string }> }
 ) {

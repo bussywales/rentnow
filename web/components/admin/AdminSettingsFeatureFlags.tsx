@@ -52,6 +52,10 @@ const DESCRIPTIONS: Partial<Record<AppSettingKey, { title: string; helper: strin
     title: "Demo image watermark",
     helper: "Overlay a DEMO watermark on images for listings marked as demo.",
   },
+  [APP_SETTING_KEYS.featuredListingsEnabled]: {
+    title: "Featured listings visibility",
+    helper: "Show or hide featured rails and featured pills on public listing surfaces.",
+  },
   [APP_SETTING_KEYS.verificationRequireEmail]: {
     title: "Verification requirement: email",
     helper:

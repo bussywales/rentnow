@@ -57,6 +57,9 @@ type RawReviewRow = {
   bedrooms?: number | null;
   bathrooms?: number | null;
   is_demo?: boolean | null;
+  is_featured?: boolean | null;
+  featured_until?: string | null;
+  featured_rank?: number | null;
 };
 
 type OwnerProfile = { id: string; full_name: string | null; role: string | null };
@@ -202,6 +205,9 @@ export default async function AdminListingInspectorPage({ params }: Props) {
     bedrooms: row.bedrooms ?? null,
     bathrooms: row.bathrooms ?? null,
     is_demo: !!row.is_demo,
+    is_featured: !!row.is_featured,
+    featured_until: row.featured_until ?? null,
+    featured_rank: typeof row.featured_rank === "number" ? row.featured_rank : null,
     reviewable,
     reviewStage,
   };

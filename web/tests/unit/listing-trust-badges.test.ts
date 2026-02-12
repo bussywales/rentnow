@@ -39,6 +39,23 @@ void test("badge rules enforce precedence and cap", () => {
   );
 });
 
+void test("featured badge has highest precedence", () => {
+  const badges = buildListingTrustBadges({
+    featured: true,
+    markers: { email_verified: true, phone_verified: true, bank_verified: false },
+    createdAt: new Date().toISOString(),
+    socialProof: {
+      popular: true,
+      savedBucket: "Saved 10+",
+      viewBucket: "Viewed 100+",
+    },
+    maxBadges: 3,
+    now: new Date(),
+  });
+
+  assert.equal(badges[0]?.key, "featured");
+});
+
 void test("identity pending appears only when verification is incomplete", () => {
   const badges = buildListingTrustBadges({
     markers: { email_verified: true, phone_verified: false, bank_verified: null },

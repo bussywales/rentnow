@@ -6,6 +6,8 @@ import { AdminReviewDrawer } from "@/components/admin/AdminReviewDrawer";
 import { DrawerErrorBoundary } from "@/components/admin/AdminReviewShell";
 import { formatLocationLine, type AdminReviewListItem } from "@/lib/admin/admin-review";
 import AdminDemoToggleButton from "@/components/admin/AdminDemoToggleButton";
+import AdminFeaturedToggleButton from "@/components/admin/AdminFeaturedToggleButton";
+import { isFeaturedListingActive } from "@/lib/properties/featured";
 
 type Props = {
   listing: AdminReviewListItem;
@@ -15,8 +17,16 @@ type Props = {
 export default function AdminListingInspectorPanel({ listing, backHref = "/admin/listings" }: Props) {
   const router = useRouter();
   const [overrideDemo, setOverrideDemo] = useState<boolean | null>(null);
+  const [overrideFeatured, setOverrideFeatured] = useState<{
+    is_featured: boolean;
+    featured_until: string | null;
+  } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const isDemo = overrideDemo ?? !!listing.is_demo;
+  const featuredActive = isFeaturedListingActive({
+    is_featured: overrideFeatured?.is_featured ?? listing.is_featured,
+    featured_until: overrideFeatured?.featured_until ?? listing.featured_until,
+  });
 
   return (
     <div className="flex flex-col gap-4">
@@ -61,6 +71,36 @@ export default function AdminListingInspectorPanel({ listing, backHref = "/admin
           </div>
         </div>
         {toast ? <p className="mt-2 text-xs text-emerald-600">{toast}</p> : null}
+      </section>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Featured listing (Admin control)</h2>
+            <p className="text-sm text-slate-600">
+              Featured listings get priority placement when they are publicly visible.
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            {featuredActive ? (
+              <span className="rounded-full bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-700">
+                Featured
+              </span>
+            ) : null}
+            <AdminFeaturedToggleButton
+              propertyId={listing.id}
+              isFeatured={
+                overrideFeatured?.is_featured ?? !!listing.is_featured
+              }
+              featuredUntil={overrideFeatured?.featured_until ?? listing.featured_until}
+              onUpdated={(next) => setOverrideFeatured(next)}
+              onToast={(message) => {
+                setToast(message);
+                setTimeout(() => setToast(null), 2000);
+              }}
+              dataTestId="admin-inspector-featured-toggle"
+            />
+          </div>
+        </div>
       </section>
 
       <DrawerErrorBoundary selectedId={listing.id}>

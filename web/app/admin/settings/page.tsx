@@ -64,6 +64,7 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.paygListingFeeAmount,
       APP_SETTING_KEYS.paygFeaturedFeeAmount,
       APP_SETTING_KEYS.featuredDurationDays,
+      APP_SETTING_KEYS.featuredListingsEnabled,
       APP_SETTING_KEYS.trialListingCreditsAgent,
       APP_SETTING_KEYS.trialListingCreditsLandlord,
     ]);
@@ -77,6 +78,7 @@ export default async function AdminSettingsPage() {
     APP_SETTING_KEYS.agentNetworkDiscoveryEnabled,
     APP_SETTING_KEYS.demoBadgeEnabled,
     APP_SETTING_KEYS.demoWatermarkEnabled,
+    APP_SETTING_KEYS.featuredListingsEnabled,
     APP_SETTING_KEYS.verificationRequireEmail,
     APP_SETTING_KEYS.verificationRequirePhone,
     APP_SETTING_KEYS.verificationRequireBank,
@@ -85,6 +87,7 @@ export default async function AdminSettingsPage() {
     const row = data?.find((item) => item.key === key);
     const defaultEnabled =
       key === APP_SETTING_KEYS.demoBadgeEnabled ||
+      key === APP_SETTING_KEYS.featuredListingsEnabled ||
       key === APP_SETTING_KEYS.verificationRequireEmail;
     return {
       key,

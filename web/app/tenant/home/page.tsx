@@ -30,6 +30,8 @@ import { logPropertyEventsBulk, isUuid } from "@/lib/analytics/property-events.s
 import { getSessionKeyFromCookies, getSessionKeyFromUser } from "@/lib/analytics/session.server";
 import { getSavedSearchSummaryForUser } from "@/lib/saved-searches/summary.server";
 import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
+import { getAppSettingBool } from "@/lib/settings/app-settings.server";
+import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 
 export const dynamic = "force-dynamic";
 
@@ -184,13 +186,19 @@ export default async function TenantHomePage() {
     : jurisdictionName
       ? `Popular in ${jurisdictionName}`
       : "Popular homes";
+  const featuredListingsEnabled = await getAppSettingBool(
+    APP_SETTING_KEYS.featuredListingsEnabled,
+    true
+  );
 
   const [savedSearchSummary, featuredHomes, popularHomes, newHomes, savedHomes] = await Promise.all([
     getSavedSearchSummaryForUser({
       supabase: context.supabase,
       userId: user.id,
     }).catch(() => ({ totalNewMatches: 0, searches: [] })),
-    getFeaturedHomes({ limit: MODULE_LIMIT, context }),
+    featuredListingsEnabled
+      ? getFeaturedHomes({ limit: MODULE_LIMIT, context })
+      : Promise.resolve([]),
     getPopularHomes({ city: popularCity, limit: MODULE_LIMIT, context }),
     getNewHomes({ days: 7, limit: MODULE_LIMIT, context }),
     getSavedHomes({ limit: 8, context }),
@@ -262,7 +270,7 @@ export default async function TenantHomePage() {
   }
 
   if (DEV_MOCKS) {
-    if (!featuredHomes.length) {
+    if (featuredListingsEnabled && !featuredHomes.length) {
       featuredHomes.push(...mockProperties.slice(0, 4));
     }
     if (!popularHomes.length) {

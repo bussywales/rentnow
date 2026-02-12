@@ -18,6 +18,7 @@ import type { TrustMarkerState } from "@/lib/trust-markers";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { Button } from "@/components/ui/Button";
 import { shouldRenderDemoBadge, shouldRenderDemoWatermark } from "@/lib/properties/demo";
+import { isFeaturedListingActive } from "@/lib/properties/featured";
 import { ListingTrustBadges } from "@/components/properties/ListingTrustBadges";
 import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
 import { PublicPropertyShareButton } from "@/components/properties/PublicPropertyShareButton";
@@ -109,11 +110,11 @@ export function PropertyCard({
     typeof property.description === "string" && property.description.trim().length > 0
       ? property.description
       : "No description provided yet.";
-  const nowMs = new Date().getTime();
   const isDemo = !!property.is_demo;
-  const isFeaturedActive =
-    !!property.is_featured &&
-    (!property.featured_until || Date.parse(property.featured_until) > nowMs);
+  const isFeaturedActive = isFeaturedListingActive({
+    is_featured: property.is_featured,
+    featured_until: property.featured_until,
+  });
   const showDemoBadge = shouldRenderDemoBadge({ isDemo, enabled: true });
   const showDemoWatermark = shouldRenderDemoWatermark({ isDemo, enabled: true });
   const ctaLabel = listingIntent === "buy" ? "Enquire to buy" : "Request viewing";
@@ -181,7 +182,7 @@ export function PropertyCard({
         )}
         <PublicPropertyShareButton propertyId={property.id} surface="property_card" />
       </div>
-      {(showDemoBadge || isFeaturedActive) && (
+      {showDemoBadge && (
         <div className="absolute left-3 top-3 z-10 flex flex-col gap-1">
           {showDemoBadge && (
             <span
@@ -189,14 +190,6 @@ export function PropertyCard({
               title="Demo listing"
             >
               Demo
-            </span>
-          )}
-          {isFeaturedActive && (
-            <span
-              className="rounded-full bg-white/95 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-700 shadow-sm"
-              title="Featured by PropatyHub"
-            >
-              Featured
             </span>
           )}
         </div>
@@ -277,6 +270,7 @@ export function PropertyCard({
             createdAt={property.created_at}
             trustMarkers={trustMarkers}
             socialProof={socialProof}
+            featured={isFeaturedActive}
           />
         )}
         {showFastResponder && trustVariant !== "admin" && (
@@ -288,9 +282,6 @@ export function PropertyCard({
           {description}
         </p>
         {trustMarkers && trustVariant === "admin" && <TrustBadges markers={trustMarkers} compact />}
-        {isFeaturedActive && (
-          <p className="text-[11px] text-slate-500">Featured by PropatyHub</p>
-        )}
         <div className="flex items-center justify-between text-sm text-slate-700">
           <div className="flex flex-wrap items-baseline gap-1 text-base font-semibold text-slate-900">
             {priceValue}

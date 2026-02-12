@@ -13,6 +13,7 @@ type Props = {
   createdAt?: string | null;
   trustMarkers?: TrustMarkerState | null;
   socialProof?: ListingSocialProof | null;
+  featured?: boolean;
   className?: string;
   maxBadges?: number;
 };
@@ -21,6 +22,7 @@ export function ListingTrustBadges({
   createdAt,
   trustMarkers,
   socialProof,
+  featured = false,
   className,
   maxBadges = 3,
 }: Props) {
@@ -30,6 +32,7 @@ export function ListingTrustBadges({
     verificationRequirements,
     createdAt,
     socialProof,
+    featured,
     maxBadges,
   });
 
@@ -41,6 +44,8 @@ export function ListingTrustBadges({
         const styles =
           badge.key === "verified"
             ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+            : badge.key === "featured"
+            ? "property-featured-badge border-sky-200 bg-sky-50 text-sky-700"
             : badge.key === "identity_pending"
             ? "border-amber-200 bg-amber-50 text-amber-700"
             : badge.key === "popular"

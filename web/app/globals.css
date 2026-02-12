@@ -67,3 +67,7 @@ body[data-demo-badge-enabled="false"] .property-demo-badge {
 body[data-demo-watermark-enabled="false"] .property-demo-watermark {
   display: none !important;
 }
+
+body[data-featured-listings-enabled="false"] .property-featured-badge {
+  display: none !important;
+}

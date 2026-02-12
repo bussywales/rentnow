@@ -21,6 +21,8 @@ import type { Property } from "@/lib/types";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
+import { getAppSettingBool } from "@/lib/settings/app-settings.server";
+import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 
 export const dynamic = "force-dynamic";
 
@@ -215,6 +217,10 @@ export default async function HomeWorkspacePage() {
   const context = await getTenantDiscoveryContext();
   const cityCollections = getCityCollections();
   const popularCity = context.profileCity?.trim() || cityCollections[0]?.city || null;
+  const featuredListingsEnabled = await getAppSettingBool(
+    APP_SETTING_KEYS.featuredListingsEnabled,
+    true
+  );
 
   const [snapshot, savedSearchSummary, featuredHomes, newHomes, popularHomes] = await Promise.all([
     getSnapshot(user.id, context),
@@ -222,7 +228,7 @@ export default async function HomeWorkspacePage() {
       supabase: context.supabase,
       userId: user.id,
     }).catch(() => ({ totalNewMatches: 0, searches: [] })),
-    getFeaturedHomes({ limit: 8, context }),
+    featuredListingsEnabled ? getFeaturedHomes({ limit: 8, context }) : Promise.resolve([]),
     getNewHomes({ days: 7, limit: 8, context }),
     getPopularHomes({ city: popularCity, limit: 8, context }),
   ]);
@@ -361,20 +367,22 @@ export default async function HomeWorkspacePage() {
         ) : null}
       </section>
 
-      <section className="space-y-4" data-testid="home-featured-homes">
-        <SectionHeader
-          title="Featured homes"
-          description="What renters are seeing first."
-          href="/properties?featured=true"
-        />
-        <PropertyRail
-          homes={featuredHomes}
-          viewerRole={role}
-          savedIds={savedIds}
-          trustSnapshots={trustSnapshots}
-          socialProofByListing={socialProofByListing}
-        />
-      </section>
+      {featuredListingsEnabled && featuredHomes.length > 0 ? (
+        <section className="space-y-4" data-testid="home-featured-homes">
+          <SectionHeader
+            title="Featured homes"
+            description="What renters are seeing first."
+            href="/properties?featured=true"
+          />
+          <PropertyRail
+            homes={featuredHomes}
+            viewerRole={role}
+            savedIds={savedIds}
+            trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
+          />
+        </section>
+      ) : null}
 
       <section className="space-y-4">
         <SectionHeader

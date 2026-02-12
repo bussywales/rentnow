@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { NextRequest, NextResponse } from "next/server";
 import type { User } from "@supabase/supabase-js";
 import {
+  PATCH as patchFeaturedRoute,
   postAdminFeaturedResponse,
   type AdminFeaturedDeps,
 } from "@/app/api/admin/properties/[id]/featured/route";
@@ -96,6 +97,56 @@ void test("admin can feature and unfeature a property", async () => {
   assert.equal(jsonOff.is_featured, false);
   assert.equal(jsonOff.featured_rank, null);
   assert.equal(jsonOff.featured_until, null);
+});
+
+void test("admin can feature property with durationDays payload", async () => {
+  const capture = { updatePayload: null as Record<string, unknown> | null };
+  const property: PropertyRow = { id: "prop-1", is_featured: false };
+  const supabase = buildSupabaseStub(property, capture) as ReturnType<
+    AdminFeaturedDeps["createServerSupabaseClient"]
+  >;
+
+  const deps: AdminFeaturedDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => false,
+    createServerSupabaseClient: async () => supabase,
+    createServiceRoleClient: () =>
+      ({} as ReturnType<AdminFeaturedDeps["createServiceRoleClient"]>),
+    requireRole: async () =>
+      ({
+        ok: true,
+        supabase,
+        user: { id: "admin-1" } as User,
+        role: "admin",
+      }) as Awaited<ReturnType<AdminFeaturedDeps["requireRole"]>>,
+    logFailure: () => undefined,
+  };
+
+  const res = await postAdminFeaturedResponse(
+    makeRequest({ featured: true, durationDays: 7 }),
+    "prop-1",
+    deps
+  );
+  assert.equal(res.status, 200);
+  const json = await res.json();
+  assert.equal(json.is_featured, true);
+  assert.equal(typeof json.featured_until, "string");
+  assert.equal(capture.updatePayload?.is_featured, true);
+  assert.equal(typeof capture.updatePayload?.featured_until, "string");
+});
+
+void test("patch route delegates to featured update handler", async () => {
+  const request = new NextRequest("http://localhost/api/admin/properties/prop-1/featured", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ featured: true, durationDays: 7 }),
+  });
+
+  const response = await patchFeaturedRoute(request, {
+    params: Promise.resolve({ id: "prop-1" }),
+  });
+
+  assert.notEqual(response.status, 405);
 });
 
 void test("non-admin cannot feature property", async () => {

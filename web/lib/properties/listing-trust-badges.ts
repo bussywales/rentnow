@@ -13,6 +13,7 @@ export type ListingSocialProof = {
 };
 
 export type ListingTrustBadgeKey =
+  | "featured"
   | "verified"
   | "identity_pending"
   | "popular"
@@ -69,6 +70,7 @@ export function buildListingTrustBadges(input: {
   verificationRequirements?: Partial<VerificationRequirements> | null;
   createdAt?: string | null;
   socialProof?: ListingSocialProof | null;
+  featured?: boolean;
   now?: Date;
   maxBadges?: number;
 }): ListingTrustBadge[] {
@@ -76,6 +78,10 @@ export function buildListingTrustBadges(input: {
   const maxBadges = input.maxBadges ?? 3;
   const socialProof = input.socialProof ?? null;
   const badges: ListingTrustBadge[] = [];
+
+  if (input.featured) {
+    badges.push({ key: "featured", label: "Featured" });
+  }
 
   const verified = isAdvertiserVerified(input.markers, input.verificationRequirements);
   const identityPending = isAdvertiserIdentityPending(

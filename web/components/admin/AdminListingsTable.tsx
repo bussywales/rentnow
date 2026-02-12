@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import AdminDemoToggleButton from "@/components/admin/AdminDemoToggleButton";
+import AdminFeaturedToggleButton from "@/components/admin/AdminFeaturedToggleButton";
+import { isFeaturedListingActive } from "@/lib/properties/featured";
 
 type Props = {
   items: AdminReviewListItem[];
@@ -61,7 +63,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
         </div>
       ) : null}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1320px] table-fixed text-left text-sm">
+        <table className="w-full min-w-[1480px] table-fixed text-left text-sm">
           <colgroup>
             <col className="w-2" />
             <col className="w-[230px]" />
@@ -71,10 +73,11 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             <col className="w-[60px]" />
             <col className="w-[90px]" />
             <col className="w-[90px]" />
+            <col className="w-[90px]" />
             <col className="w-[140px]" />
             <col className="w-[120px]" />
             <col className="w-[120px]" />
-            <col className="w-[160px]" />
+            <col className="w-[220px]" />
           </colgroup>
           <thead className="sticky top-0 z-10 bg-slate-50 text-[11px] uppercase tracking-wide text-slate-500">
             <tr>
@@ -88,6 +91,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
               <th className="px-3 py-2">Status</th>
               <th className="px-3 py-2">Intent</th>
               <th className="px-3 py-2">Active</th>
+              <th className="px-3 py-2">Featured</th>
               <th className="px-3 py-2">Updated</th>
               <th className="px-3 py-2">Expires</th>
               <th className="px-3 py-2">Owner</th>
@@ -97,7 +101,12 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {rows.map((item) => (
+            {rows.map((item) => {
+              const featuredActive = isFeaturedListingActive({
+                is_featured: item.is_featured,
+                featured_until: item.featured_until,
+              });
+              return (
               <tr
                 key={item.id}
                 onClick={() => onSelect(item.id)}
@@ -159,6 +168,13 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                       </span>
                     </div>
                   ) : null}
+                  {featuredActive ? (
+                    <div className="mt-1">
+                      <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+                        Featured
+                      </span>
+                    </div>
+                  ) : null}
                 </td>
                 <td className="px-3 py-2 text-slate-700">
                   <div className="max-w-[180px] truncate" title={`${item.city || "—"} ${item.state_region || ""}`}>
@@ -178,6 +194,17 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                 </td>
                 <td className="px-3 py-2 text-slate-600">
                   {item.is_active === null || item.is_active === undefined ? "—" : item.is_active ? "Yes" : "No"}
+                </td>
+                <td className="px-3 py-2 text-slate-600">
+                  {featuredActive ? (
+                    <span className="rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-sky-700">
+                      Active
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[11px] text-slate-600">
+                      Off
+                    </span>
+                  )}
                 </td>
                 <td className="px-3 py-2 text-slate-600 tabular-nums">{formatDate(item.updatedAt)}</td>
                 <td className="px-3 py-2 text-slate-600 tabular-nums">{formatDate(item.expiresAt ?? null)}</td>
@@ -241,7 +268,31 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                       )}
                 </td>
                 <td className="px-3 py-2 text-right" data-testid="admin-listings-row-actions">
-                  <div className="flex flex-wrap items-center justify-end gap-2">
+                  <div className="flex items-center justify-end gap-2">
+                    <AdminFeaturedToggleButton
+                      propertyId={item.id}
+                      isFeatured={!!item.is_featured}
+                      featuredUntil={item.featured_until ?? null}
+                      dataTestId={`admin-featured-toggle-${item.id}`}
+                      buttonClassName="shrink-0 rounded border border-slate-300 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 lg:px-3 lg:text-xs"
+                      onUpdated={(next) => {
+                        setRows((prev) =>
+                          prev.map((row) =>
+                            row.id === item.id
+                              ? {
+                                  ...row,
+                                  is_featured: next.is_featured,
+                                  featured_until: next.featured_until,
+                                }
+                              : row
+                          )
+                        );
+                      }}
+                      onToast={(message) => {
+                        setToast(message);
+                        setTimeout(() => setToast(null), 2000);
+                      }}
+                    />
                     <AdminDemoToggleButton
                       propertyId={item.id}
                       isDemo={!!item.is_demo}
@@ -270,10 +321,11 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                   </div>
                 </td>
               </tr>
-            ))}
+              );
+            })}
             {!rows.length && (
               <tr>
-                <td colSpan={12} className="px-3 py-6 text-center text-sm text-slate-600">
+                <td colSpan={13} className="px-3 py-6 text-center text-sm text-slate-600">
                   No listings found.
                 </td>
               </tr>
