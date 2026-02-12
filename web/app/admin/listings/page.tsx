@@ -363,6 +363,12 @@ export default async function AdminListingsPage({ searchParams }: Props) {
             <Link href="/admin" className="rounded border border-slate-200 bg-white px-3 py-1 shadow-sm">
               Back to overview
             </Link>
+            <Link
+              href="/admin/featured/requests"
+              className="rounded border border-slate-200 bg-white px-3 py-1 shadow-sm"
+            >
+              Featured requests
+            </Link>
             <Link href="/admin/review" className="rounded border border-slate-200 bg-white px-3 py-1 shadow-sm">
               Review queue
             </Link>

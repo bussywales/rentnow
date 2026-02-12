@@ -26,6 +26,7 @@ import {
   isUuid,
 } from "@/lib/analytics/property-events.server";
 import { estimateMissedDemand } from "@/lib/analytics/property-events";
+import { getFeaturedRequestsForOwnerProperties } from "@/lib/featured/requests.server";
 
 export const dynamic = "force-dynamic";
 
@@ -100,6 +101,20 @@ export default async function DashboardHome() {
   let pendingUpgrade = false;
   let trustMarkers: TrustMarkerState | null = null;
   let hostUserId: string | null = null;
+  let initialFeaturedRequestsByProperty: Record<
+    string,
+    {
+      id: string;
+      property_id: string;
+      duration_days: 7 | 30 | null;
+      requested_until: string | null;
+      note: string | null;
+      status: "pending" | "approved" | "rejected" | "cancelled";
+      admin_note: string | null;
+      decided_at: string | null;
+      created_at: string | null;
+    }
+  > = {};
 
   if (supabaseReady) {
     try {
@@ -184,6 +199,17 @@ export default async function DashboardHome() {
             .eq("status", "pending")
             .maybeSingle();
           pendingUpgrade = !!upgradeRequest;
+
+          const listingIds = properties.map((property) => property.id).filter(Boolean);
+          if (listingIds.length) {
+            const requestsClient = hasServiceRoleEnv()
+              ? createServiceRoleClient()
+              : supabase;
+            initialFeaturedRequestsByProperty = await getFeaturedRequestsForOwnerProperties({
+              client: requestsClient,
+              propertyIds: listingIds,
+            });
+          }
         }
       }
     } catch (err) {
@@ -412,6 +438,7 @@ export default async function DashboardHome() {
         trustMarkers={trustMarkers}
         listingLimitReached={listingLimitReached}
         hostUserId={hostUserId}
+        initialFeaturedRequestsByProperty={initialFeaturedRequestsByProperty}
         performanceById={performanceById}
       />
         ) : (

@@ -28,9 +28,11 @@ import { RenewListingButton } from "@/components/host/RenewListingButton";
 import { ListingPauseModal } from "@/components/host/ListingPauseModal";
 import { ListingReactivateModal } from "@/components/host/ListingReactivateModal";
 import { ListingPaywallModal } from "@/components/billing/ListingPaywallModal";
+import { HostFeaturedRequestModal } from "@/components/host/HostFeaturedRequestModal";
 import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import type { PropertyStatus } from "@/lib/types";
 import type { MissedDemandEstimate } from "@/lib/analytics/property-events";
+import { resolveFeaturedRequestHostSummary } from "@/lib/featured/requests";
 
 function normalizeStatus(property: {
   status?: string | null;
@@ -73,17 +75,44 @@ type ListingPerformance = {
   missedDemand?: MissedDemandEstimate | null;
 };
 
+type FeaturedRequestState = {
+  id: string;
+  property_id: string;
+  duration_days: 7 | 30 | null;
+  requested_until: string | null;
+  note: string | null;
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  admin_note?: string | null;
+  decided_at?: string | null;
+  created_at?: string | null;
+};
+
+function featuredRequestChipClass(status: FeaturedRequestState["status"] | "featured_active"): string {
+  if (status === "featured_active") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (status === "pending") return "border-sky-200 bg-sky-50 text-sky-700";
+  if (status === "approved") return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  if (status === "rejected") return "border-amber-200 bg-amber-50 text-amber-800";
+  return "border-slate-200 bg-slate-50 text-slate-600";
+}
+
+function truncateText(value: string, limit: number): string {
+  if (value.length <= limit) return value;
+  return `${value.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
+}
+
 export function HostDashboardContent({
   listings,
   trustMarkers,
   listingLimitReached,
   hostUserId,
+  initialFeaturedRequestsByProperty = {},
   performanceById = {},
 }: {
   listings: DashboardListing[];
   trustMarkers: TrustMarkerState | null;
   listingLimitReached: boolean;
   hostUserId?: string | null;
+  initialFeaturedRequestsByProperty?: Record<string, FeaturedRequestState>;
   performanceById?: Record<string, ListingPerformance>;
 }) {
   const [search, setSearch] = useState("");
@@ -104,10 +133,24 @@ export function HostDashboardContent({
   const [featurePaywallListing, setFeaturePaywallListing] = useState<DashboardListing | null>(null);
   const [featurePaywallLoading, setFeaturePaywallLoading] = useState(false);
   const [featurePaywallError, setFeaturePaywallError] = useState<string | null>(null);
+  const [featuredRequestsByProperty, setFeaturedRequestsByProperty] = useState<
+    Record<string, FeaturedRequestState>
+  >(initialFeaturedRequestsByProperty);
+  const [featuredRequestTarget, setFeaturedRequestTarget] = useState<DashboardListing | null>(null);
+  const [featuredRequestSaving, setFeaturedRequestSaving] = useState(false);
+  const [featuredRequestToast, setFeaturedRequestToast] = useState<string | null>(null);
+  const [featuredRequestErrors, setFeaturedRequestErrors] = useState<Record<string, string | null>>({});
+  const [featuredRequestModalError, setFeaturedRequestModalError] = useState<string | null>(null);
+  const [featuredRequestModalKey, setFeaturedRequestModalKey] = useState(0);
+  const [expandedFeaturedRequestNotes, setExpandedFeaturedRequestNotes] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setLocalListings(listings);
   }, [listings]);
+
+  useEffect(() => {
+    setFeaturedRequestsByProperty(initialFeaturedRequestsByProperty);
+  }, [initialFeaturedRequestsByProperty]);
 
   const summary = useMemo(() => summarizeListings(localListings), [localListings]);
   const filtered = useMemo(() => filterListings(localListings, view), [view, localListings]);
@@ -243,6 +286,85 @@ export function HostDashboardContent({
       );
     } finally {
       setFeaturePaywallLoading(false);
+    }
+  };
+
+  const openFeaturedRequestModal = (listing: DashboardListing) => {
+    setFeaturedRequestModalError(null);
+    setFeaturedRequestModalKey((prev) => prev + 1);
+    setFeaturedRequestTarget(listing);
+  };
+
+  const closeFeaturedRequestModal = () => {
+    if (featuredRequestSaving) return;
+    setFeaturedRequestTarget(null);
+    setFeaturedRequestModalError(null);
+  };
+
+  const submitFeaturedRequest = async (payload: { durationDays: 7 | 30 | null; note: string | null }) => {
+    if (!featuredRequestTarget) return;
+    const listing = featuredRequestTarget;
+    setFeaturedRequestSaving(true);
+    setFeaturedRequestModalError(null);
+    setFeaturedRequestErrors((prev) => ({ ...prev, [listing.id]: null }));
+    try {
+      const response = await fetch("/api/featured/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId: listing.id,
+          durationDays: payload.durationDays,
+          note: payload.note,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const errorMessage = result?.error || "Unable to submit featured request.";
+        setFeaturedRequestModalError(errorMessage);
+        setFeaturedRequestErrors((prev) => ({ ...prev, [listing.id]: errorMessage }));
+        return;
+      }
+
+      const requestRow = result?.request;
+      if (requestRow && requestRow.property_id) {
+        setFeaturedRequestsByProperty((prev) => ({
+          ...prev,
+          [requestRow.property_id]: {
+            id: String(requestRow.id || ""),
+            property_id: String(requestRow.property_id || ""),
+            duration_days:
+              requestRow.duration_days === 7 || requestRow.duration_days === 30
+                ? requestRow.duration_days
+                : null,
+            requested_until:
+              typeof requestRow.requested_until === "string" ? requestRow.requested_until : null,
+            note: typeof requestRow.note === "string" ? requestRow.note : null,
+            status:
+              requestRow.status === "approved" ||
+              requestRow.status === "rejected" ||
+              requestRow.status === "cancelled"
+                ? requestRow.status
+                : "pending",
+            admin_note:
+              typeof requestRow.admin_note === "string" ? requestRow.admin_note : null,
+            decided_at:
+              typeof requestRow.decided_at === "string" ? requestRow.decided_at : null,
+            created_at: typeof requestRow.created_at === "string" ? requestRow.created_at : null,
+          },
+        }));
+      }
+
+      setFeaturedRequestToast(
+        result?.pending ? "Request pending." : "Request sent. We'll review shortly."
+      );
+      window.setTimeout(() => setFeaturedRequestToast(null), 3500);
+      setFeaturedRequestTarget(null);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unable to submit featured request.";
+      setFeaturedRequestModalError(message);
+      setFeaturedRequestErrors((prev) => ({ ...prev, [listing.id]: message }));
+    } finally {
+      setFeaturedRequestSaving(false);
     }
   };
 
@@ -448,6 +570,25 @@ export function HostDashboardContent({
             const isFeaturing = featurePending[property.id] ?? false;
             const featureError = featureErrors[property.id] ?? null;
             const isDemo = !!property.is_demo;
+            const featuredRequest = featuredRequestsByProperty[property.id] ?? null;
+            const featuredRequestPending = featuredRequest?.status === "pending";
+            const featuredRequestApproved = featuredRequest?.status === "approved";
+            const requestEligible = isLive && !isDemo && !featuredActive && !featuredRequestApproved;
+            const requestError = featuredRequestErrors[property.id] ?? null;
+            const featuredStatusSummary = resolveFeaturedRequestHostSummary({
+              isFeaturedActive: featuredActive,
+              hasFeaturedUntil: !!featuredLabel,
+              requestStatus: featuredRequest?.status ?? null,
+            });
+            const featuredStatusLabel =
+              featuredStatusSummary.state === "featured_active"
+                ? featuredLabel
+                  ? `Featured until ${featuredLabel}`
+                  : "Featured"
+                : featuredStatusSummary.label;
+            const decisionNote = featuredRequest?.admin_note?.trim() || null;
+            const noteExpanded = expandedFeaturedRequestNotes[property.id] ?? false;
+            const truncatedDecisionNote = decisionNote ? truncateText(decisionNote, 120) : null;
 
             return (
               <div
@@ -487,6 +628,38 @@ export function HostDashboardContent({
                 {pausedReasonLabel && (
                   <p className="mt-2 text-xs text-slate-500">Paused reason: {pausedReasonLabel}</p>
                 )}
+                {featuredStatusLabel ? (
+                  <div className="mt-2 space-y-1">
+                    <div
+                      className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-semibold ${featuredRequestChipClass(
+                        featuredStatusSummary.state === "featured_active"
+                          ? "featured_active"
+                          : featuredRequest?.status ?? "cancelled"
+                      )}`}
+                    >
+                      {featuredStatusLabel}
+                    </div>
+                    {featuredStatusSummary.showDecisionNote && decisionNote ? (
+                      <div className="text-xs text-slate-600">
+                        <span>{noteExpanded ? decisionNote : truncatedDecisionNote}</span>{" "}
+                        {decisionNote.length > 120 ? (
+                          <button
+                            type="button"
+                            className="font-semibold text-sky-700 underline underline-offset-2"
+                            onClick={() =>
+                              setExpandedFeaturedRequestNotes((prev) => ({
+                                ...prev,
+                                [property.id]: !noteExpanded,
+                              }))
+                            }
+                          >
+                            {noteExpanded ? "Hide details" : "See details"}
+                          </button>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
                 <div className="mt-3">
                   <PropertyCard
                     property={property}
@@ -564,6 +737,34 @@ export function HostDashboardContent({
                       {isFeaturing ? "Featuring..." : "Feature this listing"}
                     </Button>
                   )}
+                  {!featuredActive && (
+                    featuredRequestPending ? (
+                      <>
+                        <Button size="sm" variant="secondary" disabled data-testid={`listing-feature-request-pending-${property.id}`}>
+                          Request pending
+                        </Button>
+                        <span className="inline-flex items-center text-[11px] text-slate-500">
+                          We usually review within 1-2 days.
+                        </span>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => openFeaturedRequestModal(property)}
+                        disabled={!requestEligible}
+                        title={requestEligible ? "Request featured placement" : "Not eligible yet"}
+                        data-testid={`listing-feature-request-${property.id}`}
+                      >
+                        Request featured
+                      </Button>
+                    )
+                  )}
+                  {featuredActive && (
+                    <Button size="sm" variant="secondary" disabled title="Already featured">
+                      Request featured
+                    </Button>
+                  )}
                   {isLive && isDemo && (
                     <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-semibold text-slate-600">
                       Demo listings can&apos;t be featured
@@ -607,6 +808,7 @@ export function HostDashboardContent({
                 </div>
                 {statusError && <p className="mt-2 text-xs text-rose-600">{statusError}</p>}
                 {featureError && <p className="mt-2 text-xs text-rose-600">{featureError}</p>}
+                {requestError && <p className="mt-2 text-xs text-rose-600">{requestError}</p>}
               </div>
             );
           })}
@@ -661,6 +863,30 @@ export function HostDashboardContent({
         error={featurePaywallError}
         mode="featured"
       />
+      <HostFeaturedRequestModal
+        key={`${featuredRequestTarget?.id ?? "none"}-${featuredRequestModalKey}`}
+        open={!!featuredRequestTarget}
+        listingTitle={featuredRequestTarget?.title}
+        submitting={featuredRequestSaving}
+        error={featuredRequestModalError}
+        defaultDurationDays={
+          featuredRequestTarget
+            ? featuredRequestsByProperty[featuredRequestTarget.id]?.duration_days ?? 7
+            : 7
+        }
+        defaultNote={
+          featuredRequestTarget
+            ? featuredRequestsByProperty[featuredRequestTarget.id]?.note ?? null
+            : null
+        }
+        onClose={closeFeaturedRequestModal}
+        onSubmit={submitFeaturedRequest}
+      />
+      {featuredRequestToast ? (
+        <div className="fixed bottom-4 right-4 z-40 max-w-sm">
+          <Alert title="Featured request" description={featuredRequestToast} variant="success" />
+        </div>
+      ) : null}
       {popupBlockedCount !== null && (
         <div className="fixed bottom-24 right-4 z-40 max-w-sm">
           <Alert
