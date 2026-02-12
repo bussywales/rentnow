@@ -29,6 +29,8 @@ import {
 import Link from "next/link";
 import AdminSettingsFeaturedRequests from "@/components/admin/AdminSettingsFeaturedRequests";
 import { DEFAULT_FEATURED_ELIGIBILITY_SETTINGS } from "@/lib/featured/eligibility";
+import AdminSettingsMarket from "@/components/admin/AdminSettingsMarket";
+import { DEFAULT_MARKET_SETTINGS } from "@/lib/market/market";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +62,10 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.verificationRequirePhone,
       APP_SETTING_KEYS.verificationRequireBank,
       APP_SETTING_KEYS.alertsEmailEnabled,
+      APP_SETTING_KEYS.defaultMarketCountry,
+      APP_SETTING_KEYS.defaultMarketCurrency,
+      APP_SETTING_KEYS.marketAutoDetectEnabled,
+      APP_SETTING_KEYS.marketSelectorEnabled,
       APP_SETTING_KEYS.subscriptionsEnabled,
       APP_SETTING_KEYS.contactExchangeMode,
       APP_SETTING_KEYS.listingExpiryDays,
@@ -149,6 +155,38 @@ export default async function AdminSettingsPage() {
     (item) => item.key === APP_SETTING_KEYS.subscriptionsEnabled
   );
   const subscriptionsEnabled = parseAppSettingBool(subscriptionsRow?.value, false);
+
+  const marketCountryRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.defaultMarketCountry
+  );
+  const marketCurrencyRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.defaultMarketCurrency
+  );
+  const marketAutoDetectRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.marketAutoDetectEnabled
+  );
+  const marketSelectorRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.marketSelectorEnabled
+  );
+
+  const marketSettings = {
+    defaultCountry: parseAppSettingString(
+      marketCountryRow?.value,
+      DEFAULT_MARKET_SETTINGS.defaultCountry
+    ),
+    defaultCurrency: parseAppSettingString(
+      marketCurrencyRow?.value,
+      DEFAULT_MARKET_SETTINGS.defaultCurrency
+    ),
+    autoDetectEnabled: parseAppSettingBool(
+      marketAutoDetectRow?.value,
+      DEFAULT_MARKET_SETTINGS.autoDetectEnabled
+    ),
+    selectorEnabled: parseAppSettingBool(
+      marketSelectorRow?.value,
+      DEFAULT_MARKET_SETTINGS.selectorEnabled
+    ),
+  };
 
   const paygFeaturedRow = data?.find(
     (item) => item.key === APP_SETTING_KEYS.paygFeaturedFeeAmount
@@ -284,6 +322,15 @@ export default async function AdminSettingsPage() {
         </div>
       </div>
       <AdminSettingsFeatureFlags settings={settings} />
+      <AdminSettingsMarket
+        settings={marketSettings}
+        updatedAt={{
+          defaultCountry: marketCountryRow?.updated_at ?? null,
+          defaultCurrency: marketCurrencyRow?.updated_at ?? null,
+          autoDetectEnabled: marketAutoDetectRow?.updated_at ?? null,
+          selectorEnabled: marketSelectorRow?.updated_at ?? null,
+        }}
+      />
       <AdminSettingsFeaturedRequests
         settings={featuredSettings}
         updatedAt={{

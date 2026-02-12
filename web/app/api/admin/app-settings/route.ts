@@ -142,6 +142,10 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   const isAttributionWindowDays = key === APP_SETTING_KEYS.attributionWindowDays;
   const isStoreIpHash = key === APP_SETTING_KEYS.storeIpHash;
   const isReferralCaps = key === APP_SETTING_KEYS.referralCaps;
+  const isDefaultMarketCountry = key === APP_SETTING_KEYS.defaultMarketCountry;
+  const isDefaultMarketCurrency = key === APP_SETTING_KEYS.defaultMarketCurrency;
+  const isMarketAutoDetectEnabled = key === APP_SETTING_KEYS.marketAutoDetectEnabled;
+  const isMarketSelectorEnabled = key === APP_SETTING_KEYS.marketSelectorEnabled;
 
   if (isModeSetting) return modeValueSchema.safeParse(value).success;
   if (isExpirySetting) return daysValueSchema.safeParse(value).success;
@@ -187,6 +191,18 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   }
   if (isStoreIpHash) return enabledValueSchema.safeParse(value).success;
   if (isReferralCaps) return referralCapsSchema.safeParse(value).success;
+  if (isDefaultMarketCountry) {
+    return textValueSchema
+      .extend({ value: z.string().trim().toUpperCase().regex(/^[A-Z]{2}$/) })
+      .safeParse(value).success;
+  }
+  if (isDefaultMarketCurrency) {
+    return textValueSchema
+      .extend({ value: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/) })
+      .safeParse(value).success;
+  }
+  if (isMarketAutoDetectEnabled) return enabledValueSchema.safeParse(value).success;
+  if (isMarketSelectorEnabled) return enabledValueSchema.safeParse(value).success;
   return enabledValueSchema.safeParse(value).success;
 }
 

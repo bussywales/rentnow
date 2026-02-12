@@ -33,11 +33,16 @@ const SIZE_UNIT_LABELS: Record<SizeUnit, string> = {
   sqft: "sqft",
 };
 
-function resolveCurrencyCode(input?: string | null): string {
+function resolveCurrencyCode(
+  input?: string | null,
+  fallbackCurrency?: string | null
+): string {
   const normalized = normalizeCurrency(input);
   if (normalized) return normalized;
+  const fallback = normalizeCurrency(fallbackCurrency);
+  if (fallback) return fallback;
   const trimmed = input?.trim().toUpperCase();
-  return trimmed || "USD";
+  return trimmed || "NGN";
 }
 
 function resolveCurrencyPrefix(code: string): string {
@@ -75,21 +80,26 @@ export function formatCadence(
   return null;
 }
 
-export function formatPriceValue(currency: string, price: number): string {
-  const safeCurrency = resolveCurrencyCode(currency);
+export function formatPriceValue(
+  currency: string | null | undefined,
+  price: number,
+  options?: { marketCurrency?: string | null }
+): string {
+  const safeCurrency = resolveCurrencyCode(currency, options?.marketCurrency ?? null);
   const safePrice = Number.isFinite(price) ? price : 0;
   const prefix = resolveCurrencyPrefix(safeCurrency);
   return `${prefix}${PRICE_FORMATTER.format(safePrice)}`;
 }
 
 export function formatPriceLabel(
-  currency: string,
+  currency: string | null | undefined,
   price: number,
   rentalType: RentalType,
-  rentPeriod?: RentPeriod | null
+  rentPeriod?: RentPeriod | null,
+  options?: { marketCurrency?: string | null }
 ): string {
   const cadence = formatCadence(rentalType, rentPeriod);
-  const base = formatPriceValue(currency, price);
+  const base = formatPriceValue(currency, price, options);
   return cadence ? `${base} / ${cadence}` : base;
 }
 

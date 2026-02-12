@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { PropertyCard } from "@/components/properties/PropertyCard";
@@ -32,6 +33,11 @@ import { getSavedSearchSummaryForUser } from "@/lib/saved-searches/summary.serve
 import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
+import { getMarketSettings } from "@/lib/market/market.server";
+import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/market";
+import { buildMarketHubHref, getMarketHubs } from "@/lib/market/hubs";
+import { HomeBrowseCtaClient } from "@/components/market/HomeBrowseCtaClient";
+import { MarketHubLink } from "@/components/market/MarketHubLink";
 
 export const dynamic = "force-dynamic";
 
@@ -121,22 +127,9 @@ function PropertyRow({
   );
 }
 
-function CityTiles({ cities }: { cities: ReturnType<typeof getCityCollections> }) {
-  return (
-    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-      {cities.map((city) => (
-        <Link
-          key={city.city}
-          href={`/properties?city=${encodeURIComponent(city.city)}`}
-          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
-        >
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Explore</p>
-          <p className="mt-1 text-lg font-semibold text-slate-900">{city.city}</p>
-          <p className="text-sm text-slate-600">{city.caption}</p>
-        </Link>
-      ))}
-    </div>
-  );
+function formatMarketRegionLabel(countryCode: string): string {
+  if (countryCode === "GB") return "the UK";
+  return getCountryByCode(countryCode)?.name ?? countryCode;
 }
 
 export default async function TenantHomePage() {
@@ -163,7 +156,19 @@ export default async function TenantHomePage() {
     redirect(role === "admin" ? "/admin/support" : "/host");
   }
 
-  const context = await getTenantDiscoveryContext();
+  const [context, requestHeaders, cookieStore, marketSettings] = await Promise.all([
+    getTenantDiscoveryContext(),
+    headers(),
+    cookies(),
+    getMarketSettings(),
+  ]);
+  const market = resolveMarketFromRequest({
+    headers: requestHeaders,
+    cookieValue: cookieStore.get(MARKET_COOKIE_NAME)?.value ?? null,
+    appSettings: marketSettings,
+  });
+  const marketHubs = getMarketHubs(market.country);
+  const marketRegionLabel = formatMarketRegionLabel(market.country);
   const cityCollections = getCityCollections();
   const fallbackCity = cityCollections[0]?.city ?? null;
 
@@ -175,17 +180,34 @@ export default async function TenantHomePage() {
     });
   }
 
-  const jurisdictionName = getCountryByCode(jurisdictionCode)?.name ?? jurisdictionCode;
   const popularCity =
     context.profileCity ??
+    marketHubs[0]?.label ??
     (jurisdictionCode ? DEFAULT_CITY_BY_JURISDICTION[jurisdictionCode] : null) ??
     fallbackCity;
 
-  const popularHeading = popularCity
-    ? `Popular in ${popularCity}`
-    : jurisdictionName
-      ? `Popular in ${jurisdictionName}`
-      : "Popular homes";
+  const popularHeading = `Popular in ${marketRegionLabel}`;
+  const newThisWeekHeading = `New this week in ${marketRegionLabel}`;
+  const suggestedStartLabel = marketHubs[0]?.label ?? popularCity ?? fallbackCity ?? "top cities";
+  const suggestedStartHref = marketHubs[0]
+    ? buildMarketHubHref(marketHubs[0])
+    : popularCity
+      ? `/properties?city=${encodeURIComponent(popularCity)}`
+      : "/properties";
+  const hubsForDisplay =
+    marketHubs.length > 0
+      ? marketHubs.map((hub) => ({
+          key: hub.key,
+          label: hub.label,
+          caption: `Start your search in ${hub.label}.`,
+          href: buildMarketHubHref(hub),
+        }))
+      : cityCollections.map((city) => ({
+          key: city.city,
+          label: city.city,
+          caption: city.caption,
+          href: `/properties?city=${encodeURIComponent(city.city)}`,
+        }));
   const featuredListingsEnabled = await getAppSettingBool(
     APP_SETTING_KEYS.featuredListingsEnabled,
     true
@@ -304,6 +326,10 @@ export default async function TenantHomePage() {
               <span className="rounded-full bg-white/10 px-3 py-1">Secure messaging</span>
               <span className="rounded-full bg-white/10 px-3 py-1">Saved search alerts</span>
             </div>
+            <HomeBrowseCtaClient
+              fallbackHref={suggestedStartHref}
+              fallbackLabel={suggestedStartLabel}
+            />
           </div>
           <div className="rounded-2xl bg-white/95 p-4 text-slate-900 shadow-[0_18px_40px_rgba(15,23,42,0.3)]">
             <SmartSearchBox mode="browse" />
@@ -389,7 +415,11 @@ export default async function TenantHomePage() {
         <section className="space-y-4" data-testid="tenant-home-popular">
           <SectionHeader
             title={popularHeading}
-            description="Homes tenants are engaging with right now."
+            description={
+              popularCity
+                ? `Homes tenants are engaging with right now, with ${popularCity} as a top starting point.`
+                : "Homes tenants are engaging with right now."
+            }
             href={popularCity ? `/properties?city=${encodeURIComponent(popularCity)}` : "/properties"}
           />
           <PropertyRow
@@ -406,8 +436,8 @@ export default async function TenantHomePage() {
       {modules.hasNew && (
         <section className="space-y-4" data-testid="tenant-home-new">
           <SectionHeader
-            title="New this week"
-            description="Fresh listings added in the last 7 days."
+            title={newThisWeekHeading}
+            description={`Fresh listings added in the last 7 days across ${marketRegionLabel}.`}
             href="/properties?recent=7"
           />
           <PropertyRow
@@ -421,13 +451,27 @@ export default async function TenantHomePage() {
         </section>
       )}
 
-      {cityCollections.length > 0 && (
+      {hubsForDisplay.length > 0 && (
         <section className="space-y-4" data-testid="tenant-home-cities">
           <SectionHeader
             title="Popular cities"
-            description="Browse curated neighbourhoods and popular districts."
+            description={`Suggested starting points in ${marketRegionLabel}.`}
           />
-          <CityTiles cities={cityCollections} />
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {hubsForDisplay.map((hub) => (
+              <MarketHubLink
+                key={hub.key}
+                href={hub.href}
+                country={market.country}
+                label={hub.label}
+                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
+              >
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Explore</p>
+                <p className="mt-1 text-lg font-semibold text-slate-900">{hub.label}</p>
+                <p className="text-sm text-slate-600">{hub.caption}</p>
+              </MarketHubLink>
+            ))}
+          </div>
         </section>
       )}
 

@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { Button } from "@/components/ui/Button";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import { resolveServerRole } from "@/lib/auth/role";
+import { getCountryByCode } from "@/lib/countries";
 import {
   getCityCollections,
   getFeaturedHomes,
@@ -23,6 +25,11 @@ import type { TrustMarkerState } from "@/lib/trust-markers";
 import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
+import { getMarketSettings } from "@/lib/market/market.server";
+import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/market";
+import { buildMarketHubHref, getMarketHubs } from "@/lib/market/hubs";
+import { HomeBrowseCtaClient } from "@/components/market/HomeBrowseCtaClient";
+import { MarketHubLink } from "@/components/market/MarketHubLink";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +50,11 @@ const WORKSPACE_LINKS = [
 
 function formatCount(value: number) {
   return Math.max(0, Number(value || 0)).toLocaleString();
+}
+
+function formatMarketRegionLabel(countryCode: string): string {
+  if (countryCode === "GB") return "the UK";
+  return getCountryByCode(countryCode)?.name ?? countryCode;
 }
 
 function isActiveListing(property: Property) {
@@ -214,9 +226,41 @@ export default async function HomeWorkspacePage() {
     redirect("/forbidden?reason=role");
   }
 
-  const context = await getTenantDiscoveryContext();
+  const [context, requestHeaders, cookieStore, marketSettings] = await Promise.all([
+    getTenantDiscoveryContext(),
+    headers(),
+    cookies(),
+    getMarketSettings(),
+  ]);
+  const market = resolveMarketFromRequest({
+    headers: requestHeaders,
+    cookieValue: cookieStore.get(MARKET_COOKIE_NAME)?.value ?? null,
+    appSettings: marketSettings,
+  });
   const cityCollections = getCityCollections();
-  const popularCity = context.profileCity?.trim() || cityCollections[0]?.city || null;
+  const marketHubs = getMarketHubs(market.country);
+  const marketRegionLabel = formatMarketRegionLabel(market.country);
+  const popularCity = context.profileCity?.trim() || marketHubs[0]?.label || cityCollections[0]?.city || null;
+  const suggestedStartLabel = marketHubs[0]?.label ?? cityCollections[0]?.city ?? "top cities";
+  const suggestedStartHref = marketHubs[0]
+    ? buildMarketHubHref(marketHubs[0])
+    : cityCollections[0]
+      ? `/properties?city=${encodeURIComponent(cityCollections[0].city)}`
+      : "/properties";
+  const hubsForDisplay =
+    marketHubs.length > 0
+      ? marketHubs.map((hub) => ({
+          key: hub.key,
+          label: hub.label,
+          caption: `Start your search in ${hub.label}.`,
+          href: buildMarketHubHref(hub),
+        }))
+      : cityCollections.map((city) => ({
+          key: city.city,
+          label: city.city,
+          caption: city.caption,
+          href: `/properties?city=${encodeURIComponent(city.city)}`,
+        }));
   const featuredListingsEnabled = await getAppSettingBool(
     APP_SETTING_KEYS.featuredListingsEnabled,
     true
@@ -278,6 +322,10 @@ export default async function HomeWorkspacePage() {
             <p className="text-base text-slate-200">
               Keep your listings active, respond to leads quickly, and track referral growth from one place.
             </p>
+            <HomeBrowseCtaClient
+              fallbackHref={suggestedStartHref}
+              fallbackLabel={suggestedStartLabel}
+            />
           </div>
           <div className="rounded-2xl bg-white/95 p-4 text-slate-900 shadow-[0_18px_40px_rgba(15,23,42,0.3)]">
             <SmartSearchBox mode="browse" />
@@ -386,8 +434,8 @@ export default async function HomeWorkspacePage() {
 
       <section className="space-y-4">
         <SectionHeader
-          title="New this week"
-          description="Fresh inventory added in the last 7 days."
+          title={`New this week in ${marketRegionLabel}`}
+          description={`Fresh inventory added in the last 7 days across ${marketRegionLabel}.`}
           href="/properties?sort=newest"
         />
         <PropertyRail
@@ -402,27 +450,33 @@ export default async function HomeWorkspacePage() {
       <section className="space-y-4">
         <SectionHeader
           title="Popular cities & hubs"
-          description="Discover top markets where people are actively searching."
+          description={`Suggested starting points in ${marketRegionLabel}.`}
         />
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {cityCollections.map((city) => (
-            <Link
-              key={city.city}
-              href={`/properties?city=${encodeURIComponent(city.city)}`}
+          {hubsForDisplay.map((hub) => (
+            <MarketHubLink
+              key={hub.key}
+              href={hub.href}
+              country={market.country}
+              label={hub.label}
               className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
             >
               <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Explore</p>
-              <p className="mt-1 text-lg font-semibold text-slate-900">{city.city}</p>
-              <p className="text-sm text-slate-600">{city.caption}</p>
-            </Link>
+              <p className="mt-1 text-lg font-semibold text-slate-900">{hub.label}</p>
+              <p className="text-sm text-slate-600">{hub.caption}</p>
+            </MarketHubLink>
           ))}
         </div>
       </section>
 
       <section className="space-y-4">
         <SectionHeader
-          title={popularCity ? `Popular in ${popularCity}` : "Popular right now"}
-          description="Listings attracting strong attention."
+          title={`Popular in ${marketRegionLabel}`}
+          description={
+            popularCity
+              ? `Listings attracting strong attention, with ${popularCity} as a top starting point.`
+              : "Listings attracting strong attention."
+          }
           href={popularCity ? `/properties?city=${encodeURIComponent(popularCity)}` : "/properties"}
         />
         <PropertyRail

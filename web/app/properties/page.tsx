@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { AdvancedSearchPanel } from "@/components/properties/AdvancedSearchPanel";
+import { BrowseIntentClient } from "@/components/properties/BrowseIntentClient";
 import { SavedSearchButton } from "@/components/search/SavedSearchButton";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -15,7 +16,7 @@ import { getBrowseEmptyStateCtas } from "@/lib/property-discovery";
 import { normalizeRole } from "@/lib/roles";
 import {
   filtersToChips,
-  filtersToSearchParams,
+  hasActiveFilters,
   parseFiltersFromParams,
   parseFiltersFromSavedSearch,
 } from "@/lib/search-filters";
@@ -32,6 +33,10 @@ import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
 import { getFastResponderByHostIds } from "@/lib/trust/fast-responder.server";
 import { getListingPopularitySignals } from "@/lib/properties/popularity.server";
 import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
+import { getMarketSettings } from "@/lib/market/market.server";
+import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/market";
+import { buildMarketHubHref, getMarketHubs } from "@/lib/market/hubs";
+import { MarketHubLink } from "@/components/market/MarketHubLink";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
   searchParams?: SearchParams | Promise<SearchParams>;
@@ -289,7 +294,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     !!savedSearch ||
     featuredOnly ||
     !!createdAfter ||
-    filtersToSearchParams(filters).toString().length > 0;
+    hasActiveFilters(filters);
   const savedSearchNoticeNode = savedSearchNotice ? (
     <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 shadow-sm">
       <p className="font-semibold">{savedSearchNotice.title}</p>
@@ -313,6 +318,23 @@ export default async function PropertiesPage({ searchParams }: Props) {
       : role === "agent" || role === "landlord"
       ? "/dashboard/saved-searches"
       : "/saved-searches";
+  const [requestHeaders, marketSettings] = await Promise.all([
+    headers(),
+    getMarketSettings(),
+  ]);
+  const cookieStore = await cookies();
+  const market = resolveMarketFromRequest({
+    headers: requestHeaders,
+    cookieValue: cookieStore.get(MARKET_COOKIE_NAME)?.value ?? null,
+    appSettings: marketSettings,
+  });
+  const marketHubs = getMarketHubs(market.country);
+  const marketHubLinks = marketHubs.map((hub) => ({
+    key: hub.key,
+    label: hub.label,
+    href: buildMarketHubHref(hub),
+  }));
+  const showMarketHubSuggestions = !hasFilters && marketHubLinks.length > 0;
   const includeDemoListings = includeDemoListingsForViewer({ viewerRole: role });
   const apiBaseUrl = await getApiBaseUrl();
   const listParams = buildSearchParams(resolvedSearchParams, {
@@ -331,12 +353,6 @@ export default async function PropertiesPage({ searchParams }: Props) {
   let savedIds = new Set<string>();
   let fastResponderByHost: Record<string, boolean> = {};
   let socialProofByListing: Record<string, ListingSocialProof> = {};
-  const hubs = [
-    { city: "Lagos", label: "Lagos Island" },
-    { city: "Nairobi", label: "Nairobi" },
-    { city: "Accra", label: "Accra" },
-    { city: "Dakar", label: "Dakar" },
-  ];
 
   try {
     if (hasFilters && supabaseReady) {
@@ -387,7 +403,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     } else if (hasFilters) {
       fetchError = fetchError ?? "Supabase env vars missing; live filtering is unavailable.";
     } else {
-      const cookieHeader = (await cookies()).toString();
+      const cookieHeader = cookieStore.toString();
       const apiRes = await fetch(apiUrl, {
         ...(cookieHeader ? { cache: "no-store" } : { next: { revalidate: 60 } }),
         headers: cookieHeader ? { cookie: cookieHeader } : undefined,
@@ -697,6 +713,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
       <SmartSearchBox mode="browse" />
       <AdvancedSearchPanel initialFilters={filters} />
+      <BrowseIntentClient
+        persistFilters={hasFilters}
+        showContinueBanner={showMarketHubSuggestions}
+      />
 
       {role === "tenant" && !isTenantPro && (
         <div className="rounded-2xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-slate-700">
@@ -740,26 +760,24 @@ export default async function PropertiesPage({ searchParams }: Props) {
         <SavedSearchButton filters={filters} savedSearchesHref={savedSearchesHref} />
       </div>
 
-      <div className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white/80 p-2.5 shadow-sm">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-          Popular hubs
-        </p>
-        {hubs.map((hub) => (
-          <Link
-            key={hub.city}
-            href={`/properties?city=${encodeURIComponent(hub.city)}`}
-            className="rounded-full border border-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700"
-          >
-            {hub.label}
-          </Link>
-        ))}
-        <Link
-          href="/properties"
-          className="rounded-full border border-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 transition hover:border-sky-100"
-        >
-          Clear
-        </Link>
-      </div>
+      {showMarketHubSuggestions ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 p-2.5 shadow-sm">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+            Popular starting points
+          </p>
+          {marketHubLinks.map((hub) => (
+            <MarketHubLink
+              key={hub.key}
+              href={hub.href}
+              country={market.country}
+              label={hub.label}
+              className="rounded-full border border-slate-200 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700 transition hover:border-sky-200 hover:text-sky-700"
+            >
+              {hub.label}
+            </MarketHubLink>
+          ))}
+        </div>
+      ) : null}
 
       {exactOnlyMode && (
         <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">

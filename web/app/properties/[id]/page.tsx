@@ -45,6 +45,12 @@ import {
   isPublicAdvertiserRole,
   resolvePublicAdvertiserHref,
 } from "@/lib/advertisers/public-profile";
+import { getMarketSettings } from "@/lib/market/market.server";
+import {
+  MARKET_COOKIE_NAME,
+  readCookieValueFromHeader,
+  resolveMarketFromRequest,
+} from "@/lib/market/market";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -195,6 +201,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const id = await extractId(params);
   const { property } = await getProperty(id);
   const baseUrl = await getCanonicalBaseUrl();
+  const headerList = await headers();
+  const market = resolveMarketFromRequest({
+    headers: headerList,
+    cookieValue: readCookieValueFromHeader(headerList.get("cookie"), MARKET_COOKIE_NAME),
+    appSettings: await getMarketSettings(),
+  });
 
   if (!property) {
     const canonicalPath = `/properties/${id ?? ""}`;
@@ -209,7 +221,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = `${property.title} | ${property.city}${property.neighbourhood ? ` - ${property.neighbourhood}` : ""}`;
   const description =
     property.description ||
-    `Discover ${property.title} in ${property.city}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${property.currency} ${property.price.toLocaleString()}.`;
+    `Discover ${property.title} in ${property.city}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${formatPriceValue(property.currency, property.price, { marketCurrency: market.currency })}.`;
   const imageUrl = property.cover_image_url || property.images?.[0]?.image_url;
 
   const canonicalPath = `/properties/${property.id}`;
@@ -258,6 +270,11 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
       ? await (searchParams as Promise<SearchParams>)
       : (searchParams as SearchParams));
   const headerList = await headers();
+  const market = resolveMarketFromRequest({
+    headers: headerList,
+    cookieValue: readCookieValueFromHeader(headerList.get("cookie"), MARKET_COOKIE_NAME),
+    appSettings: await getMarketSettings(),
+  });
   const backHref = resolveBackHref(resolvedSearchParams, headerList.get("referer"));
   const sourceParam = getSearchParamValue(resolvedSearchParams, "source") ?? null;
   const forwardedHeaders = new Headers();
@@ -535,7 +552,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   }
 
   const locationLabel = formatLocationLabel(property.city, property.neighbourhood);
-  const priceValue = formatPriceValue(property.currency, property.price);
+  const priceValue = formatPriceValue(property.currency, property.price, {
+    marketCurrency: market.currency,
+  });
   const cadence = formatCadence(property.rental_type, property.rent_period);
   const listingTypeLabel = formatListingType(property.listing_type);
   const listingIntent = property.listing_intent ?? "rent";
@@ -565,7 +584,8 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
     typeof property.deposit_amount === "number" && property.deposit_amount > 0
       ? formatPriceValue(
           property.deposit_currency || property.currency,
-          property.deposit_amount
+          property.deposit_amount,
+          { marketCurrency: market.currency }
         )
       : null;
   const bathroomLabel =

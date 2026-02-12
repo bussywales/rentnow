@@ -8,11 +8,13 @@ import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
 import { resolveNavLinks, type NavLink, isActiveHref } from "@/components/layout/NavLinksClient";
 import { BrandLogo } from "@/components/branding/BrandLogo";
+import { MarketSelector } from "@/components/layout/MarketSelector";
 
 type Props = {
   links: NavLink[];
   initialAuthed: boolean;
   initialRole: UserRole | "super_admin" | null;
+  marketSelectorEnabled: boolean;
 };
 
 type DrawerLink = {
@@ -55,7 +57,12 @@ export function buildMobileNavLinks(
   return next;
 }
 
-export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Props) {
+export function NavMobileDrawerClient({
+  links,
+  initialAuthed,
+  initialRole,
+  marketSelectorEnabled,
+}: Props) {
   const normalizedRole =
     initialRole === "super_admin" ? "super_admin" : normalizeRole(initialRole);
   const role = normalizedRole;
@@ -190,6 +197,14 @@ export function NavMobileDrawerClient({ links, initialAuthed, initialRole }: Pro
                 data-testid="mobile-drawer-scroll"
                 className="flex-1 min-h-0 overflow-y-auto px-4 pb-4"
               >
+                {marketSelectorEnabled ? (
+                  <div className="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+                      Market
+                    </p>
+                    <MarketSelector enabled compact />
+                  </div>
+                ) : null}
                 <nav className="flex flex-col gap-2">
                   {drawerLinks.map((link) => {
                     const active = isActiveHref(pathname, link.href);

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
@@ -8,6 +9,13 @@ import { logPropertyEvent } from "@/lib/analytics/property-events.server";
 import { getSessionKeyFromCookies } from "@/lib/analytics/session.server";
 import { getCanonicalBaseUrl } from "@/lib/env";
 import { BRAND_OG_IMAGE } from "@/lib/brand";
+import { formatPriceValue } from "@/lib/property-discovery";
+import {
+  MARKET_COOKIE_NAME,
+  readCookieValueFromHeader,
+  resolveMarketFromRequest,
+} from "@/lib/market/market";
+import { getMarketSettings } from "@/lib/market/market.server";
 
 export const dynamic = "force-dynamic";
 
@@ -69,6 +77,12 @@ export async function generateMetadata({
 }: Props): Promise<Metadata> {
   const { token } = await params;
   const baseUrl = await getCanonicalBaseUrl();
+  const headerList = await headers();
+  const market = resolveMarketFromRequest({
+    headers: headerList,
+    cookieValue: readCookieValueFromHeader(headerList.get("cookie"), MARKET_COOKIE_NAME),
+    appSettings: await getMarketSettings(),
+  });
   const fallbackPath = `/share/property/${encodeURIComponent(token || "")}`;
   const fallbackCanonical = baseUrl ? `${baseUrl}${fallbackPath}` : fallbackPath;
 
@@ -104,7 +118,7 @@ export async function generateMetadata({
     const title = `${property.title} | ${property.city}${property.neighbourhood ? ` - ${property.neighbourhood}` : ""}`;
     const description =
       property.description ||
-      `Discover ${property.title} in ${property.city}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${property.currency} ${property.price.toLocaleString()}.`;
+      `Discover ${property.title} in ${property.city}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${formatPriceValue(property.currency, property.price, { marketCurrency: market.currency })}.`;
     const imageUrl = property.cover_image_url || property.property_images?.[0]?.image_url || BRAND_OG_IMAGE;
     const canonicalPath = `/properties/${property.id}`;
     const canonicalUrl = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;

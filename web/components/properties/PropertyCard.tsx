@@ -26,6 +26,7 @@ import {
   derivePublicAdvertiserName,
   resolvePublicAdvertiserHref,
 } from "@/lib/advertisers/public-profile";
+import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 
 const BedIcon = () => (
   <svg
@@ -92,6 +93,7 @@ export function PropertyCard({
   fastResponder = false,
   socialProof = null,
 }: Props) {
+  const { market } = useMarketPreference();
   const fallbackImage =
     "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=80";
   const primaryImage =
@@ -100,7 +102,9 @@ export function PropertyCard({
   const blurDataURL =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
   const locationLabel = formatLocationLabel(property.city, property.neighbourhood);
-  const priceValue = formatPriceValue(property.currency, property.price);
+  const priceValue = formatPriceValue(property.currency, property.price, {
+    marketCurrency: market.currency,
+  });
   const cadence = formatCadence(property.rental_type, property.rent_period);
   const listingTypeLabel = formatListingType(property.listing_type);
   const sizeLabel = formatSizeLabel(property.size_value, property.size_unit);

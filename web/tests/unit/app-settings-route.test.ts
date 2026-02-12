@@ -202,3 +202,15 @@ void test("validateSettingValueByKey rejects invalid featured request payloads",
   assert.equal(validateSettingValueByKey("featured_min_photos", { value: 25 }), false);
   assert.equal(validateSettingValueByKey("featured_min_description_chars", { value: -1 }), false);
 });
+
+void test("validateSettingValueByKey accepts market defaults and toggles", () => {
+  assert.equal(validateSettingValueByKey("default_market_country", { value: "NG" }), true);
+  assert.equal(validateSettingValueByKey("default_market_currency", { value: "NGN" }), true);
+  assert.equal(validateSettingValueByKey("market_auto_detect_enabled", { enabled: true }), true);
+  assert.equal(validateSettingValueByKey("market_selector_enabled", { enabled: false }), true);
+});
+
+void test("validateSettingValueByKey rejects invalid market defaults", () => {
+  assert.equal(validateSettingValueByKey("default_market_country", { value: "NIG" }), false);
+  assert.equal(validateSettingValueByKey("default_market_currency", { value: "NG" }), false);
+});

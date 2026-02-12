@@ -134,6 +134,19 @@ export function filtersToSearchParams(filters: ParsedSearchFilters): URLSearchPa
   return params;
 }
 
+export function hasActiveFilters(filters: ParsedSearchFilters): boolean {
+  if (filters.city && filters.city.trim()) return true;
+  if (filters.minPrice !== null) return true;
+  if (filters.maxPrice !== null) return true;
+  if (filters.currency && filters.currency.trim()) return true;
+  if (filters.bedrooms !== null) return true;
+  if (filters.propertyType !== null && filters.propertyType !== undefined) return true;
+  if (filters.rentalType !== null) return true;
+  if (filters.furnished !== null) return true;
+  if (filters.amenities.length > 0) return true;
+  return false;
+}
+
 export function filtersToChips(filters: ParsedSearchFilters): FilterChip[] {
   const chips: FilterChip[] = [];
   if (filters.city) chips.push({ label: "City", value: filters.city });

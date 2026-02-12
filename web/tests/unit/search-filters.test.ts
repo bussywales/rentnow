@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   filtersToSearchParams,
+  hasActiveFilters,
   parseFiltersFromParams,
   parseFiltersFromSavedSearch,
   propertyMatchesFilters,
@@ -100,4 +101,25 @@ test("propertyMatchesFilters enforces exact bedrooms unless minimum is selected"
 
   assert.equal(propertyMatchesFilters(baseProperty, exactFilters), false);
   assert.equal(propertyMatchesFilters(baseProperty, minimumFilters), true);
+});
+
+test("hasActiveFilters only returns true for real search filters", () => {
+  const emptyFilters: ParsedSearchFilters = {
+    city: null,
+    minPrice: null,
+    maxPrice: null,
+    currency: null,
+    bedrooms: null,
+    bedroomsMode: "exact",
+    includeSimilarOptions: false,
+    propertyType: null,
+    rentalType: null,
+    furnished: null,
+    amenities: [],
+  };
+
+  assert.equal(hasActiveFilters(emptyFilters), false);
+  assert.equal(hasActiveFilters({ ...emptyFilters, city: "Lagos" }), true);
+  assert.equal(hasActiveFilters({ ...emptyFilters, minPrice: 50000 }), true);
+  assert.equal(hasActiveFilters({ ...emptyFilters, bedrooms: 2 }), true);
 });

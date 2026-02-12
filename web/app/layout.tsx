@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
+import { headers, cookies } from "next/headers";
 import { MainNav } from "@/components/layout/MainNav";
 import { Footer } from "@/components/layout/Footer";
 import { ToastNotice } from "@/components/layout/ToastNotice";
@@ -16,6 +17,9 @@ import {
 } from "@/lib/brand";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
+import { getMarketSettings } from "@/lib/market/market.server";
+import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/market";
+import { MarketPreferenceProvider } from "@/components/layout/MarketPreferenceProvider";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -90,26 +94,38 @@ export default async function RootLayout({
     APP_SETTING_KEYS.featuredListingsEnabled,
     true
   );
+  const marketSettings = await getMarketSettings();
+  const requestHeaders = await headers();
+  const cookieStore = await cookies();
+  const market = resolveMarketFromRequest({
+    headers: requestHeaders,
+    cookieValue: cookieStore.get(MARKET_COOKIE_NAME)?.value ?? null,
+    appSettings: marketSettings,
+  });
 
   return (
     <html lang="en">
       <body
+        data-market-country={market.country}
+        data-market-currency={market.currency}
         data-demo-badge-enabled={demoBadgeEnabled ? "true" : "false"}
         data-demo-watermark-enabled={demoWatermarkEnabled ? "true" : "false"}
         data-featured-listings-enabled={featuredListingsEnabled ? "true" : "false"}
         className={`${geistSans.variable} ${geistMono.variable} antialiased text-slate-900`}
       >
-        <MainNav />
-        <SessionBootstrap />
-        <LegalAcceptanceModalGate />
-        <Suspense fallback={null}>
-          <ToastNotice />
-        </Suspense>
-        <OfflineIndicator />
-        <PwaServiceWorker />
-        <main className="min-h-[80vh] pb-24 pt-6">{children}</main>
-        <Footer />
-        <LegalDisclaimerBanner />
+        <MarketPreferenceProvider initialMarket={market}>
+          <MainNav marketSelectorEnabled={marketSettings.selectorEnabled} />
+          <SessionBootstrap />
+          <LegalAcceptanceModalGate />
+          <Suspense fallback={null}>
+            <ToastNotice />
+          </Suspense>
+          <OfflineIndicator />
+          <PwaServiceWorker />
+          <main className="min-h-[80vh] pb-24 pt-6">{children}</main>
+          <Footer />
+          <LegalDisclaimerBanner />
+        </MarketPreferenceProvider>
       </body>
     </html>
   );

@@ -6,6 +6,7 @@ import { AdminHelpDrawer } from "@/components/help/AdminHelpDrawer";
 import { AgentHelpDrawer } from "@/components/help/AgentHelpDrawer";
 import { ProductUpdatesBell } from "@/components/updates/ProductUpdatesBell";
 import { ProductUpdatesOnboarding } from "@/components/updates/ProductUpdatesOnboarding";
+import { MarketSelector } from "@/components/layout/MarketSelector";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
@@ -45,7 +46,11 @@ export const MAIN_NAV_LINKS: Array<{
   { href: "/admin/settings", label: "Settings", requireAuth: true, requireRole: "admin" },
 ];
 
-export async function MainNav() {
+export async function MainNav({
+  marketSelectorEnabled,
+}: {
+  marketSelectorEnabled: boolean;
+}) {
   let initialAuthed = false;
   let role: UserRole | "super_admin" | null = null;
 
@@ -87,11 +92,19 @@ export async function MainNav() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <div className="hidden sm:block">
+            <MarketSelector enabled={marketSelectorEnabled} />
+          </div>
           <AdminHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
           <AgentHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
           <ProductUpdatesBell initialAuthed={initialAuthed} />
           <NavAuthClient initialAuthed={initialAuthed} />
-          <NavMobileDrawerClient links={MAIN_NAV_LINKS} initialAuthed={initialAuthed} initialRole={role} />
+          <NavMobileDrawerClient
+            links={MAIN_NAV_LINKS}
+            initialAuthed={initialAuthed}
+            initialRole={role}
+            marketSelectorEnabled={marketSelectorEnabled}
+          />
         </div>
       </div>
       <ProductUpdatesOnboarding initialAuthed={initialAuthed} />
