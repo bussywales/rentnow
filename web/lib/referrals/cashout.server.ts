@@ -112,6 +112,14 @@ export async function getUserReferralCashoutContext(input: {
   policy: ReferralJurisdictionPolicy;
   wallet: ReferralWalletSnapshot;
   requests: ReferralCashoutRequest[];
+  notifications: Array<{
+    id: string;
+    type: "approved" | "rejected";
+    message: string;
+    created_at: string;
+    read_at: string | null;
+    request_id: string;
+  }>;
 }> {
   const serviceClient = hasServiceRoleEnv()
     ? (createServiceRoleClient() as unknown as SupabaseClient)
@@ -123,7 +131,7 @@ export async function getUserReferralCashoutContext(input: {
 
   await syncReferralWalletBalance({ userId: input.userId, serviceClient: serviceClient ?? undefined });
 
-  const [paygListingFeeAmount, walletRes, requestsRes] = await Promise.all([
+  const [paygListingFeeAmount, walletRes, requestsRes, notificationsRes] = await Promise.all([
     getPaygListingFeeAmount(serviceClient ?? input.userClient),
     getReferralWalletSnapshot(input.userClient, input.userId),
     input.userClient
@@ -133,6 +141,12 @@ export async function getUserReferralCashoutContext(input: {
       )
       .eq("user_id", input.userId)
       .order("requested_at", { ascending: false })
+      .limit(10),
+    input.userClient
+      .from("referral_cashout_notifications")
+      .select("id, type, message, created_at, read_at, request_id")
+      .eq("user_id", input.userId)
+      .order("created_at", { ascending: false })
       .limit(10),
   ]);
 
@@ -146,11 +160,23 @@ export async function getUserReferralCashoutContext(input: {
     ...row,
     status: row.status,
   }));
+  const notifications =
+    ((notificationsRes.data as
+      | Array<{
+          id: string;
+          type: "approved" | "rejected";
+          message: string;
+          created_at: string;
+          read_at: string | null;
+          request_id: string;
+        }>
+      | null) ?? []) ?? [];
 
   return {
     jurisdiction,
     policy,
     wallet: walletRes,
     requests,
+    notifications,
   };
 }

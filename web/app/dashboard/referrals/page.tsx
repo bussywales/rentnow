@@ -117,6 +117,7 @@ export default async function DashboardReferralsPage() {
       jurisdictionCountryCode={cashoutContext.jurisdiction.countryCode}
       cashoutPolicy={cashoutContext.policy}
       cashoutRequests={cashoutContext.requests}
+      cashoutNotifications={cashoutContext.notifications}
     />
   );
 }

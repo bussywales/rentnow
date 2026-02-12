@@ -55,6 +55,15 @@ type CashoutRequest = {
   payout_reference: string | null;
 };
 
+type CashoutNotification = {
+  id: string;
+  type: "approved" | "rejected";
+  message: string;
+  created_at: string;
+  read_at: string | null;
+  request_id: string;
+};
+
 type WalletSnapshot = {
   total_balance: number;
   held_credits: number;
@@ -133,6 +142,7 @@ type Props = {
   jurisdictionCountryCode: string;
   cashoutPolicy: CashoutPolicy;
   cashoutRequests: CashoutRequest[];
+  cashoutNotifications: CashoutNotification[];
 };
 
 const LEVEL_PAGE_SIZE = 8;
@@ -231,6 +241,7 @@ export default function AgentReferralDashboard(props: Props) {
     jurisdictionCountryCode,
     cashoutPolicy,
     cashoutRequests,
+    cashoutNotifications,
   } = props;
 
   const [toast, setToast] = useState<{ message: string; variant: "success" | "error" } | null>(
@@ -238,6 +249,8 @@ export default function AgentReferralDashboard(props: Props) {
   );
   const [walletState, setWalletState] = useState<WalletSnapshot>(wallet);
   const [cashoutHistory, setCashoutHistory] = useState<CashoutRequest[]>(cashoutRequests);
+  const [cashoutUpdates, setCashoutUpdates] =
+    useState<CashoutNotification[]>(cashoutNotifications);
   const [cashoutCreditsInput, setCashoutCreditsInput] = useState<string>("");
   const [cashoutPending, setCashoutPending] = useState(false);
   const [cashoutError, setCashoutError] = useState<string | null>(null);
@@ -289,6 +302,10 @@ export default function AgentReferralDashboard(props: Props) {
   useEffect(() => {
     setCashoutHistory(cashoutRequests);
   }, [cashoutRequests]);
+
+  useEffect(() => {
+    setCashoutUpdates(cashoutNotifications);
+  }, [cashoutNotifications]);
 
   useEffect(() => {
     setTierState(tier);
@@ -1618,12 +1635,30 @@ export default function AgentReferralDashboard(props: Props) {
                   <p className="text-sm text-slate-500">No cashout requests yet.</p>
                 )}
               </div>
+
             </div>
           ) : (
             <p className="mt-4 text-sm text-slate-600" data-testid="referrals-cashout-disabled">
               Cashout unavailable in your country. ({jurisdictionCountryCode})
             </p>
           )}
+
+          <div className="mt-4 space-y-2">
+            <p className="text-sm font-semibold text-slate-900">Cashout updates</p>
+            {cashoutUpdates.length ? (
+              cashoutUpdates.slice(0, 5).map((update) => (
+                <div
+                  key={update.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
+                >
+                  <p className="text-sm text-slate-700">{update.message}</p>
+                  <p className="text-xs text-slate-500">{formatDate(update.created_at)}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-sm text-slate-500">No updates yet.</p>
+            )}
+          </div>
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
