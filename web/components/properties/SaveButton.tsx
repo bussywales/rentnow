@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition, type MouseEvent } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -30,6 +30,12 @@ type CollectionApiRow = {
 };
 
 const SAVE_INTENT_KEY = "ph:save-intent";
+
+function stopCardEvent(event?: MouseEvent<HTMLElement>) {
+  if (!event) return;
+  event.preventDefault();
+  event.stopPropagation();
+}
 
 function HeartIcon({ filled }: { filled: boolean }) {
   return (
@@ -65,6 +71,9 @@ export function SaveButton({
   const [newCollectionTitle, setNewCollectionTitle] = useState("");
   const [collectionPendingId, setCollectionPendingId] = useState<string | null>(null);
   const [creatingCollection, setCreatingCollection] = useState(false);
+  const saveIntentCheckedRef = useRef(false);
+  const membershipMutationRef = useRef(false);
+  const createCollectionRef = useRef(false);
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -86,6 +95,8 @@ export function SaveButton({
   }, [initialSaved]);
 
   useEffect(() => {
+    if (saveIntentCheckedRef.current) return;
+    saveIntentCheckedRef.current = true;
     if (isDemoSave || saved) return;
     if (typeof window === "undefined") return;
     try {
@@ -206,7 +217,9 @@ export function SaveButton({
     }
   };
 
-  const openCollections = async () => {
+  const openCollections = async (event?: MouseEvent<HTMLButtonElement>) => {
+    stopCardEvent(event);
+    if (collectionsOpen || collectionsLoading) return;
     const loaded = await loadCollections();
     if (loaded) {
       setCollectionsOpen(true);
@@ -214,8 +227,14 @@ export function SaveButton({
     }
   };
 
-  const updateCollectionMembership = async (collection: CollectionSummary) => {
+  const updateCollectionMembership = async (
+    collection: CollectionSummary,
+    event?: MouseEvent<HTMLButtonElement>
+  ) => {
+    stopCardEvent(event);
     if (!collection.id) return;
+    if (membershipMutationRef.current || createCollectionRef.current) return;
+    membershipMutationRef.current = true;
     setCollectionPendingId(collection.id);
     setCollectionsError(null);
     try {
@@ -252,16 +271,20 @@ export function SaveButton({
       const message = err instanceof Error ? err.message : "Unable to update collection.";
       setCollectionsError(message);
     } finally {
+      membershipMutationRef.current = false;
       setCollectionPendingId(null);
     }
   };
 
-  const createCollection = async () => {
+  const createCollection = async (event?: MouseEvent<HTMLButtonElement>) => {
+    stopCardEvent(event);
     const title = newCollectionTitle.trim();
     if (!title) {
       setCollectionsError("Enter a collection name.");
       return;
     }
+    if (createCollectionRef.current || membershipMutationRef.current) return;
+    createCollectionRef.current = true;
     setCreatingCollection(true);
     setCollectionsError(null);
     try {
@@ -289,11 +312,13 @@ export function SaveButton({
       }
       setNewCollectionTitle("");
       await loadCollections();
+      setCollectionsOpen(true);
       setNotice(`Saved to ${title}.`);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unable to create collection.";
       setCollectionsError(message);
     } finally {
+      createCollectionRef.current = false;
       setCreatingCollection(false);
     }
   };
@@ -308,7 +333,10 @@ export function SaveButton({
         <div className="flex items-center gap-1">
           <button
             type="button"
-            onClick={() => handleToggle()}
+            onClick={(event) => {
+              stopCardEvent(event);
+              handleToggle();
+            }}
             disabled={loading}
             aria-pressed={saved}
             aria-label={accessibleLabel}
@@ -326,7 +354,9 @@ export function SaveButton({
           </button>
           <button
             type="button"
-            onClick={openCollections}
+            onClick={(event) => {
+              void openCollections(event);
+            }}
             disabled={loading}
             aria-label="Save to collection"
             title="Save to..."
@@ -343,7 +373,10 @@ export function SaveButton({
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => handleToggle()}
+            onClick={(event) => {
+              stopCardEvent(event);
+              handleToggle();
+            }}
             disabled={loading}
             aria-pressed={saved}
             data-testid="save-button"
@@ -353,7 +386,9 @@ export function SaveButton({
           <Button
             variant="ghost"
             size="sm"
-            onClick={openCollections}
+            onClick={(event) => {
+              void openCollections(event);
+            }}
             disabled={loading}
             data-testid="save-to-collections-open"
           >
@@ -394,7 +429,14 @@ export function SaveButton({
                   Quick save uses Favourites. Use collections to organize homes.
                 </p>
               </div>
-              <Button variant="secondary" size="sm" onClick={() => setCollectionsOpen(false)}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={(event) => {
+                  stopCardEvent(event);
+                  setCollectionsOpen(false);
+                }}
+              >
                 Close
               </Button>
             </div>
@@ -422,8 +464,10 @@ export function SaveButton({
                     <Button
                       variant={collection.containsListing ? "secondary" : "primary"}
                       size="sm"
-                      onClick={() => updateCollectionMembership(collection)}
-                      disabled={collectionPendingId === collection.id}
+                      onClick={(event) => {
+                        void updateCollectionMembership(collection, event);
+                      }}
+                      disabled={collectionPendingId === collection.id || creatingCollection}
                     >
                       {collectionPendingId === collection.id
                         ? "Saving..."

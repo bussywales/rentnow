@@ -42,12 +42,18 @@ test("user can create a collection, save a listing, and open public share link",
   await card.getByTestId("save-to-collections-open").click();
   const modal = page.getByTestId("save-collections-modal");
   await expect(modal).toBeVisible();
+  await expect(page.locator("[data-testid='save-collections-modal']")).toHaveCount(1);
   const collectionRow = modal.locator("div", { hasText: title }).first();
   if (!(await collectionRow.isVisible().catch(() => false))) {
     test.skip(true, "Collection row was not rendered in save modal.");
   }
   await collectionRow.getByRole("button", { name: /save|remove/i }).click();
+  await expect(modal).toBeVisible();
+  await page.waitForTimeout(700);
+  await expect(modal).toBeVisible();
+  await expect(page.locator("[data-testid='save-collections-modal']")).toHaveCount(1);
   await modal.getByRole("button", { name: /close/i }).click();
+  await expect(modal).toBeHidden();
 
   await page.goto("/favourites");
   const collectionCard = page.locator("article", { hasText: title }).first();
