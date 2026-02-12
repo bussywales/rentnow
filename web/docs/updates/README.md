@@ -57,3 +57,34 @@ Who it affects:
 
 Where to find it:
 - `/saved-searches`
+```
+
+## Troubleshooting
+
+### Import page shows “Something went wrong”
+Most commonly caused by a note missing YAML frontmatter or having invalid frontmatter types.
+
+Fix:
+- Ensure every `web/docs/updates/*.md` note begins with:
+  - `---`
+  - required keys (`title`, `audiences`, `areas`)
+  - closing `---`
+
+### Notes don’t appear in the import list
+Common causes:
+- File is not inside `web/docs/updates/`
+- Filename does not end with `.md`
+- Note is missing required frontmatter keys
+- `audiences` contains unsupported values (must be `TENANT`, `HOST`, `AGENT`, `ADMIN`)
+
+### Import API returns 422
+This usually means at least one note failed validation (missing/invalid frontmatter).
+
+Fix:
+- Open the note mentioned in the error (or the “invalid notes” list on the import screen) and correct the frontmatter.
+- Re-run import.
+
+### Role confusion (AGENT vs HOST)
+Reminder:
+- `AGENT` maps to product audience `host` (same as `HOST`).
+- If you want tenants to see it, include `TENANT` explicitly.
