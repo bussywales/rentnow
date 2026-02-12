@@ -33,6 +33,13 @@ import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/p
 import type { PropertyStatus } from "@/lib/types";
 import type { MissedDemandEstimate } from "@/lib/analytics/property-events";
 import { resolveFeaturedRequestHostSummary } from "@/lib/featured/requests";
+import {
+  formatFeaturedMinorAmount,
+  getFeaturedEligibility,
+  getFeaturedPricing,
+  type FeaturedEligibilityCode,
+  type FeaturedEligibilitySettings,
+} from "@/lib/featured/eligibility";
 
 function normalizeStatus(property: {
   status?: string | null;
@@ -87,6 +94,13 @@ type FeaturedRequestState = {
   created_at?: string | null;
 };
 
+type FeaturedFixItem = {
+  code: FeaturedEligibilityCode;
+  label: string;
+  href?: string;
+  actionLabel?: string;
+};
+
 function featuredRequestChipClass(status: FeaturedRequestState["status"] | "featured_active"): string {
   if (status === "featured_active") return "border-amber-200 bg-amber-50 text-amber-800";
   if (status === "pending") return "border-sky-200 bg-sky-50 text-sky-700";
@@ -100,12 +114,62 @@ function truncateText(value: string, limit: number): string {
   return `${value.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
 }
 
+function buildFeaturedFixItems(propertyId: string, codes: FeaturedEligibilityCode[]): FeaturedFixItem[] {
+  const items: FeaturedFixItem[] = [];
+  for (const code of codes) {
+    if (code === "requires_approved_listing") {
+      items.push({
+        code,
+        label: "Submit for approval.",
+        href: `/dashboard/properties/${propertyId}?step=submit`,
+        actionLabel: "Submit now",
+      });
+      continue;
+    }
+    if (code === "requires_active_listing") {
+      items.push({
+        code,
+        label: "Activate or relaunch the listing.",
+        href: `/dashboard/properties/${propertyId}`,
+        actionLabel: "Open listing",
+      });
+      continue;
+    }
+    if (code === "min_photos") {
+      items.push({
+        code,
+        label: "Add more listing photos.",
+        href: `/dashboard/properties/${propertyId}?step=photos`,
+        actionLabel: "Add photos",
+      });
+      continue;
+    }
+    if (code === "min_description_chars") {
+      items.push({
+        code,
+        label: "Improve the listing description.",
+        href: `/dashboard/properties/${propertyId}`,
+        actionLabel: "Edit description",
+      });
+      continue;
+    }
+    if (code === "requires_not_demo") {
+      items.push({
+        code,
+        label: "Demo listings are excluded from Featured requests.",
+      });
+    }
+  }
+  return items;
+}
+
 export function HostDashboardContent({
   listings,
   trustMarkers,
   listingLimitReached,
   hostUserId,
   initialFeaturedRequestsByProperty = {},
+  featuredRequestSettings,
   performanceById = {},
 }: {
   listings: DashboardListing[];
@@ -113,6 +177,7 @@ export function HostDashboardContent({
   listingLimitReached: boolean;
   hostUserId?: string | null;
   initialFeaturedRequestsByProperty?: Record<string, FeaturedRequestState>;
+  featuredRequestSettings: FeaturedEligibilitySettings;
   performanceById?: Record<string, ListingPerformance>;
 }) {
   const [search, setSearch] = useState("");
@@ -143,6 +208,7 @@ export function HostDashboardContent({
   const [featuredRequestModalError, setFeaturedRequestModalError] = useState<string | null>(null);
   const [featuredRequestModalKey, setFeaturedRequestModalKey] = useState(0);
   const [expandedFeaturedRequestNotes, setExpandedFeaturedRequestNotes] = useState<Record<string, boolean>>({});
+  const [openFixChecklistByProperty, setOpenFixChecklistByProperty] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     setLocalListings(listings);
@@ -153,6 +219,14 @@ export function HostDashboardContent({
   }, [initialFeaturedRequestsByProperty]);
 
   const summary = useMemo(() => summarizeListings(localListings), [localListings]);
+  const featuredPricing = useMemo(
+    () => getFeaturedPricing(featuredRequestSettings),
+    [featuredRequestSettings]
+  );
+  const featuredFromPriceLabel = useMemo(
+    () => formatFeaturedMinorAmount(featuredPricing.price7dMinor, featuredPricing.currency),
+    [featuredPricing.currency, featuredPricing.price7dMinor]
+  );
   const filtered = useMemo(() => filterListings(localListings, view), [view, localListings]);
   const searched = useMemo(() => searchListings(filtered, search), [filtered, search]);
   const sorted = useMemo(() => sortListings(searched), [searched]);
@@ -573,8 +647,28 @@ export function HostDashboardContent({
             const featuredRequest = featuredRequestsByProperty[property.id] ?? null;
             const featuredRequestPending = featuredRequest?.status === "pending";
             const featuredRequestApproved = featuredRequest?.status === "approved";
-            const requestEligible = isLive && !isDemo && !featuredActive && !featuredRequestApproved;
             const requestError = featuredRequestErrors[property.id] ?? null;
+            const featuredEligibility = getFeaturedEligibility(
+              property,
+              featuredRequestSettings,
+              { hasPendingRequest: featuredRequestPending }
+            );
+            const requestEligible =
+              featuredEligibility.eligible &&
+              !featuredRequestApproved &&
+              !featuredActive &&
+              featuredRequestSettings.requestsEnabled;
+            const fixItems = buildFeaturedFixItems(
+              property.id,
+              featuredEligibility.blocking.map((item) => item.code)
+            );
+            const showFixChecklist = openFixChecklistByProperty[property.id] ?? false;
+            const canShowFixToRequest =
+              !requestEligible &&
+              !featuredRequestPending &&
+              !featuredActive &&
+              featuredRequestSettings.requestsEnabled &&
+              fixItems.length > 0;
             const featuredStatusSummary = resolveFeaturedRequestHostSummary({
               isFeaturedActive: featuredActive,
               hasFeaturedUntil: !!featuredLabel,
@@ -737,29 +831,53 @@ export function HostDashboardContent({
                       {isFeaturing ? "Featuring..." : "Feature this listing"}
                     </Button>
                   )}
-                  {!featuredActive && (
+                  {!featuredActive && !featuredRequestSettings.requestsEnabled ? (
+                    <Button size="sm" variant="secondary" disabled title="Featured requests are currently paused.">
+                      Featured requests paused
+                    </Button>
+                  ) : null}
+                  {!featuredActive && featuredRequestSettings.requestsEnabled ? (
                     featuredRequestPending ? (
                       <>
                         <Button size="sm" variant="secondary" disabled data-testid={`listing-feature-request-pending-${property.id}`}>
                           Request pending
                         </Button>
                         <span className="inline-flex items-center text-[11px] text-slate-500">
-                          We usually review within 1-2 days.
+                          We usually review within 1-{featuredPricing.slaDays} days.
                         </span>
                       </>
                     ) : (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => openFeaturedRequestModal(property)}
-                        disabled={!requestEligible}
-                        title={requestEligible ? "Request featured placement" : "Not eligible yet"}
-                        data-testid={`listing-feature-request-${property.id}`}
-                      >
-                        Request featured
-                      </Button>
+                      <>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => openFeaturedRequestModal(property)}
+                          disabled={!requestEligible}
+                          title={requestEligible ? "Request featured placement" : "Not eligible yet"}
+                          data-testid={`listing-feature-request-${property.id}`}
+                        >
+                          Request featured
+                        </Button>
+                        <span className="inline-flex items-center text-[11px] text-slate-500">
+                          From {featuredFromPriceLabel} / 7 days
+                        </span>
+                      </>
                     )
-                  )}
+                  ) : null}
+                  {canShowFixToRequest ? (
+                    <button
+                      type="button"
+                      className="inline-flex items-center rounded-full border border-slate-200 px-3 py-1 text-[11px] font-semibold text-slate-600 hover:bg-slate-50"
+                      onClick={() =>
+                        setOpenFixChecklistByProperty((prev) => ({
+                          ...prev,
+                          [property.id]: !showFixChecklist,
+                        }))
+                      }
+                    >
+                      {showFixChecklist ? "Hide checklist" : "Fix to request"}
+                    </button>
+                  ) : null}
                   {featuredActive && (
                     <Button size="sm" variant="secondary" disabled title="Already featured">
                       Request featured
@@ -806,6 +924,23 @@ export function HostDashboardContent({
                     )
                   ) : null}
                 </div>
+                {showFixChecklist && canShowFixToRequest ? (
+                  <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                    <p className="text-xs font-semibold text-slate-700">Request checklist</p>
+                    <ul className="mt-2 space-y-2 text-xs text-slate-600">
+                      {fixItems.map((item) => (
+                        <li key={`${property.id}-${item.code}`} className="flex items-center justify-between gap-2">
+                          <span>{item.label}</span>
+                          {item.href ? (
+                            <Link href={item.href} className="font-semibold text-sky-700 underline underline-offset-2">
+                              {item.actionLabel || "Open"}
+                            </Link>
+                          ) : null}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {statusError && <p className="mt-2 text-xs text-rose-600">{statusError}</p>}
                 {featureError && <p className="mt-2 text-xs text-rose-600">{featureError}</p>}
                 {requestError && <p className="mt-2 text-xs text-rose-600">{requestError}</p>}
@@ -869,6 +1004,11 @@ export function HostDashboardContent({
         listingTitle={featuredRequestTarget?.title}
         submitting={featuredRequestSaving}
         error={featuredRequestModalError}
+        requestsEnabled={featuredRequestSettings.requestsEnabled}
+        currency={featuredPricing.currency}
+        price7dMinor={featuredPricing.price7dMinor}
+        price30dMinor={featuredPricing.price30dMinor}
+        reviewSlaDays={featuredPricing.slaDays}
         defaultDurationDays={
           featuredRequestTarget
             ? featuredRequestsByProperty[featuredRequestTarget.id]?.duration_days ?? 7

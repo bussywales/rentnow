@@ -32,6 +32,9 @@ const attributionWindowDaysSchema = z.object({
 const numericValueSchema = z.object({
   value: z.number().int().min(0).max(1_000_000),
 });
+const textValueSchema = z.object({
+  value: z.string().trim().min(1).max(16),
+});
 
 const referralEnabledLevelsSchema = z.object({
   value: z.array(z.number().int().min(1).max(5)).min(1).max(5),
@@ -82,6 +85,7 @@ export const patchSchema = z.object({
     daysValueSchema,
     attributionWindowDaysSchema,
     numericValueSchema,
+    textValueSchema,
     referralEnabledLevelsSchema,
     referralRewardRulesSchema,
     referralTierThresholdSchema,
@@ -106,7 +110,17 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
     key === APP_SETTING_KEYS.paygFeaturedFeeAmount ||
     key === APP_SETTING_KEYS.featuredDurationDays ||
     key === APP_SETTING_KEYS.trialListingCreditsAgent ||
-    key === APP_SETTING_KEYS.trialListingCreditsLandlord;
+    key === APP_SETTING_KEYS.trialListingCreditsLandlord ||
+    key === APP_SETTING_KEYS.featuredPrice7dMinor ||
+    key === APP_SETTING_KEYS.featuredPrice30dMinor;
+  const isFeaturedReviewSla = key === APP_SETTING_KEYS.featuredReviewSlaDays;
+  const isFeaturedMinPhotos = key === APP_SETTING_KEYS.featuredMinPhotos;
+  const isFeaturedMinDescriptionChars = key === APP_SETTING_KEYS.featuredMinDescriptionChars;
+  const isFeaturedCurrency = key === APP_SETTING_KEYS.featuredCurrency;
+  const isFeaturedRequestsEnabled = key === APP_SETTING_KEYS.featuredRequestsEnabled;
+  const isFeaturedRequiresApproved = key === APP_SETTING_KEYS.featuredRequiresApprovedListing;
+  const isFeaturedRequiresActive = key === APP_SETTING_KEYS.featuredRequiresActiveListing;
+  const isFeaturedRequiresNotDemo = key === APP_SETTING_KEYS.featuredRequiresNotDemo;
   const isReferralMaxDepth = key === APP_SETTING_KEYS.referralMaxDepth;
   const isReferralLevels = key === APP_SETTING_KEYS.referralEnabledLevels;
   const isReferralRules = key === APP_SETTING_KEYS.referralRewardRules;
@@ -132,6 +146,27 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   if (isModeSetting) return modeValueSchema.safeParse(value).success;
   if (isExpirySetting) return daysValueSchema.safeParse(value).success;
   if (isNumericSetting) return numericValueSchema.safeParse(value).success;
+  if (isFeaturedReviewSla) {
+    return numericValueSchema.extend({ value: z.number().int().min(1).max(30) }).safeParse(value)
+      .success;
+  }
+  if (isFeaturedMinPhotos) {
+    return numericValueSchema.extend({ value: z.number().int().min(0).max(20) }).safeParse(value)
+      .success;
+  }
+  if (isFeaturedMinDescriptionChars) {
+    return numericValueSchema.extend({ value: z.number().int().min(0).max(5000) }).safeParse(value)
+      .success;
+  }
+  if (isFeaturedCurrency) {
+    return textValueSchema
+      .extend({ value: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/) })
+      .safeParse(value).success;
+  }
+  if (isFeaturedRequestsEnabled) return enabledValueSchema.safeParse(value).success;
+  if (isFeaturedRequiresApproved) return enabledValueSchema.safeParse(value).success;
+  if (isFeaturedRequiresActive) return enabledValueSchema.safeParse(value).success;
+  if (isFeaturedRequiresNotDemo) return enabledValueSchema.safeParse(value).success;
   if (isReferralMaxDepth) {
     return numericValueSchema.extend({ value: z.number().int().min(1).max(5) }).safeParse(value)
       .success;

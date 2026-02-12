@@ -182,3 +182,23 @@ void test("validateSettingValueByKey accepts demo presentation toggles", () => {
 void test("validateSettingValueByKey accepts saved-search email alerts toggle", () => {
   assert.equal(validateSettingValueByKey("alerts_email_enabled", { enabled: true }), true);
 });
+
+void test("validateSettingValueByKey accepts featured request pricing and rules payloads", () => {
+  assert.equal(validateSettingValueByKey("featured_requests_enabled", { enabled: true }), true);
+  assert.equal(validateSettingValueByKey("featured_price_7d_minor", { value: 1999 }), true);
+  assert.equal(validateSettingValueByKey("featured_price_30d_minor", { value: 4999 }), true);
+  assert.equal(validateSettingValueByKey("featured_currency", { value: "GBP" }), true);
+  assert.equal(validateSettingValueByKey("featured_review_sla_days", { value: 2 }), true);
+  assert.equal(validateSettingValueByKey("featured_requires_approved_listing", { enabled: true }), true);
+  assert.equal(validateSettingValueByKey("featured_requires_active_listing", { enabled: true }), true);
+  assert.equal(validateSettingValueByKey("featured_requires_not_demo", { enabled: true }), true);
+  assert.equal(validateSettingValueByKey("featured_min_photos", { value: 3 }), true);
+  assert.equal(validateSettingValueByKey("featured_min_description_chars", { value: 80 }), true);
+});
+
+void test("validateSettingValueByKey rejects invalid featured request payloads", () => {
+  assert.equal(validateSettingValueByKey("featured_currency", { value: "GB" }), false);
+  assert.equal(validateSettingValueByKey("featured_review_sla_days", { value: 0 }), false);
+  assert.equal(validateSettingValueByKey("featured_min_photos", { value: 25 }), false);
+  assert.equal(validateSettingValueByKey("featured_min_description_chars", { value: -1 }), false);
+});

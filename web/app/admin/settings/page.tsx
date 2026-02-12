@@ -7,6 +7,7 @@ import {
   parseAppSettingBool,
   parseContactExchangeMode,
   parseAppSettingInt,
+  parseAppSettingString,
   type ContactExchangeMode,
 } from "@/lib/settings/app-settings";
 import { AdminLocationConfigStatus } from "@/components/admin/AdminLocationConfigStatus";
@@ -26,6 +27,8 @@ import {
   DEFAULT_PAYG_FEATURED_FEE_AMOUNT,
 } from "@/lib/billing/featured";
 import Link from "next/link";
+import AdminSettingsFeaturedRequests from "@/components/admin/AdminSettingsFeaturedRequests";
+import { DEFAULT_FEATURED_ELIGIBILITY_SETTINGS } from "@/lib/featured/eligibility";
 
 export const dynamic = "force-dynamic";
 
@@ -66,6 +69,16 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.paygFeaturedFeeAmount,
       APP_SETTING_KEYS.featuredDurationDays,
       APP_SETTING_KEYS.featuredListingsEnabled,
+      APP_SETTING_KEYS.featuredRequestsEnabled,
+      APP_SETTING_KEYS.featuredPrice7dMinor,
+      APP_SETTING_KEYS.featuredPrice30dMinor,
+      APP_SETTING_KEYS.featuredCurrency,
+      APP_SETTING_KEYS.featuredReviewSlaDays,
+      APP_SETTING_KEYS.featuredRequiresApprovedListing,
+      APP_SETTING_KEYS.featuredRequiresActiveListing,
+      APP_SETTING_KEYS.featuredRequiresNotDemo,
+      APP_SETTING_KEYS.featuredMinPhotos,
+      APP_SETTING_KEYS.featuredMinDescriptionChars,
       APP_SETTING_KEYS.trialListingCreditsAgent,
       APP_SETTING_KEYS.trialListingCreditsLandlord,
     ]);
@@ -160,6 +173,80 @@ export default async function AdminSettingsPage() {
     .order("role", { ascending: true })
     .order("tier", { ascending: true });
 
+  const featuredRequestsEnabledRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.featuredRequestsEnabled
+  );
+  const featuredPrice7dRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.featuredPrice7dMinor
+  );
+  const featuredPrice30dRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.featuredPrice30dMinor
+  );
+  const featuredCurrencyRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.featuredCurrency
+  );
+  const featuredReviewSlaRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.featuredReviewSlaDays
+  );
+  const featuredRequiresApprovedRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.featuredRequiresApprovedListing
+  );
+  const featuredRequiresActiveRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.featuredRequiresActiveListing
+  );
+  const featuredRequiresNotDemoRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.featuredRequiresNotDemo
+  );
+  const featuredMinPhotosRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.featuredMinPhotos
+  );
+  const featuredMinDescriptionRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.featuredMinDescriptionChars
+  );
+
+  const featuredSettings = {
+    requestsEnabled: parseAppSettingBool(
+      featuredRequestsEnabledRow?.value,
+      DEFAULT_FEATURED_ELIGIBILITY_SETTINGS.requestsEnabled
+    ),
+    price7dMinor: parseAppSettingInt(
+      featuredPrice7dRow?.value,
+      DEFAULT_FEATURED_ELIGIBILITY_SETTINGS.price7dMinor
+    ),
+    price30dMinor: parseAppSettingInt(
+      featuredPrice30dRow?.value,
+      DEFAULT_FEATURED_ELIGIBILITY_SETTINGS.price30dMinor
+    ),
+    currency: parseAppSettingString(
+      featuredCurrencyRow?.value,
+      DEFAULT_FEATURED_ELIGIBILITY_SETTINGS.currency
+    ),
+    reviewSlaDays: parseAppSettingInt(
+      featuredReviewSlaRow?.value,
+      DEFAULT_FEATURED_ELIGIBILITY_SETTINGS.reviewSlaDays
+    ),
+    requiresApprovedListing: parseAppSettingBool(
+      featuredRequiresApprovedRow?.value,
+      DEFAULT_FEATURED_ELIGIBILITY_SETTINGS.requiresApprovedListing
+    ),
+    requiresActiveListing: parseAppSettingBool(
+      featuredRequiresActiveRow?.value,
+      DEFAULT_FEATURED_ELIGIBILITY_SETTINGS.requiresActiveListing
+    ),
+    requiresNotDemo: parseAppSettingBool(
+      featuredRequiresNotDemoRow?.value,
+      DEFAULT_FEATURED_ELIGIBILITY_SETTINGS.requiresNotDemo
+    ),
+    minPhotos: parseAppSettingInt(
+      featuredMinPhotosRow?.value,
+      DEFAULT_FEATURED_ELIGIBILITY_SETTINGS.minPhotos
+    ),
+    minDescriptionChars: parseAppSettingInt(
+      featuredMinDescriptionRow?.value,
+      DEFAULT_FEATURED_ELIGIBILITY_SETTINGS.minDescriptionChars
+    ),
+  };
+
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4">
       <div className="space-y-1">
@@ -197,6 +284,21 @@ export default async function AdminSettingsPage() {
         </div>
       </div>
       <AdminSettingsFeatureFlags settings={settings} />
+      <AdminSettingsFeaturedRequests
+        settings={featuredSettings}
+        updatedAt={{
+          requestsEnabled: featuredRequestsEnabledRow?.updated_at ?? null,
+          price7dMinor: featuredPrice7dRow?.updated_at ?? null,
+          price30dMinor: featuredPrice30dRow?.updated_at ?? null,
+          currency: featuredCurrencyRow?.updated_at ?? null,
+          reviewSlaDays: featuredReviewSlaRow?.updated_at ?? null,
+          requiresApprovedListing: featuredRequiresApprovedRow?.updated_at ?? null,
+          requiresActiveListing: featuredRequiresActiveRow?.updated_at ?? null,
+          requiresNotDemo: featuredRequiresNotDemoRow?.updated_at ?? null,
+          minPhotos: featuredMinPhotosRow?.updated_at ?? null,
+          minDescriptionChars: featuredMinDescriptionRow?.updated_at ?? null,
+        }}
+      />
       <AdminSettingsContactExchange
         mode={contactMode}
         updatedAt={contactRow?.updated_at ?? null}

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/Button";
 import { getUserRole } from "@/lib/authz";
 import { readActingAsFromCookies } from "@/lib/acting-as.server";
@@ -27,6 +28,11 @@ import {
 } from "@/lib/analytics/property-events.server";
 import { estimateMissedDemand } from "@/lib/analytics/property-events";
 import { getFeaturedRequestsForOwnerProperties } from "@/lib/featured/requests.server";
+import { getFeaturedEligibilitySettings } from "@/lib/featured/eligibility.server";
+import {
+  DEFAULT_FEATURED_ELIGIBILITY_SETTINGS,
+  type FeaturedEligibilitySettings,
+} from "@/lib/featured/eligibility";
 
 export const dynamic = "force-dynamic";
 
@@ -115,6 +121,7 @@ export default async function DashboardHome() {
       created_at: string | null;
     }
   > = {};
+  let featuredRequestSettings: FeaturedEligibilitySettings = DEFAULT_FEATURED_ELIGIBILITY_SETTINGS;
 
   if (supabaseReady) {
     try {
@@ -205,10 +212,15 @@ export default async function DashboardHome() {
             const requestsClient = hasServiceRoleEnv()
               ? createServiceRoleClient()
               : supabase;
+            featuredRequestSettings = await getFeaturedEligibilitySettings(
+              requestsClient as unknown as SupabaseClient
+            );
             initialFeaturedRequestsByProperty = await getFeaturedRequestsForOwnerProperties({
               client: requestsClient,
               propertyIds: listingIds,
             });
+          } else {
+            featuredRequestSettings = await getFeaturedEligibilitySettings(supabase);
           }
         }
       }
@@ -439,6 +451,7 @@ export default async function DashboardHome() {
         listingLimitReached={listingLimitReached}
         hostUserId={hostUserId}
         initialFeaturedRequestsByProperty={initialFeaturedRequestsByProperty}
+        featuredRequestSettings={featuredRequestSettings}
         performanceById={performanceById}
       />
         ) : (

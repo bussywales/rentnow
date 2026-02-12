@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import Link from "next/link";
+import { formatFeaturedMinorAmount } from "@/lib/featured/eligibility";
 
 type DurationPreset = "7" | "30" | "none";
 
@@ -10,6 +12,11 @@ type Props = {
   listingTitle?: string | null;
   submitting?: boolean;
   error?: string | null;
+  requestsEnabled: boolean;
+  currency: string;
+  price7dMinor: number;
+  price30dMinor: number;
+  reviewSlaDays: number;
   defaultDurationDays?: 7 | 30 | null;
   defaultNote?: string | null;
   onClose: () => void;
@@ -29,6 +36,11 @@ export function HostFeaturedRequestModal({
   listingTitle,
   submitting = false,
   error = null,
+  requestsEnabled,
+  currency,
+  price7dMinor,
+  price30dMinor,
+  reviewSlaDays,
   defaultDurationDays = 7,
   defaultNote = null,
   onClose,
@@ -45,6 +57,8 @@ export function HostFeaturedRequestModal({
     if (durationPreset === "30") return 30;
     return null;
   }, [durationPreset]);
+  const price7dLabel = formatFeaturedMinorAmount(price7dMinor, currency || "GBP");
+  const price30dLabel = formatFeaturedMinorAmount(price30dMinor, currency || "GBP");
 
   if (!open) return null;
 
@@ -68,16 +82,32 @@ export function HostFeaturedRequestModal({
         <p className="mt-1 text-sm text-slate-600">
           We&apos;ll review it and schedule featured visibility if approved.
         </p>
+        <p className="mt-1 text-xs text-slate-500">Reviewed within ~{reviewSlaDays} days.</p>
+
+        {!requestsEnabled ? (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            <p className="font-semibold">Featured requests are currently paused.</p>
+            <p className="mt-1 text-xs">
+              You can still keep the listing ready while requests are paused.
+            </p>
+            <Link
+              href="/help/featured"
+              className="mt-2 inline-flex text-xs font-semibold text-amber-900 underline underline-offset-2"
+            >
+              How Featured works
+            </Link>
+          </div>
+        ) : null}
 
         <fieldset className="mt-4 space-y-2">
           <legend className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-            Duration
+            Plans
           </legend>
           <div className="flex flex-wrap gap-2">
             {[
-              { key: "7", label: "7 days" },
-              { key: "30", label: "30 days" },
-              { key: "none", label: "No expiry" },
+              { key: "7", label: `7 days · ${price7dLabel}` },
+              { key: "30", label: `30 days · ${price30dLabel}` },
+              { key: "none", label: "No expiry · custom review" },
             ].map((option) => (
               <button
                 key={option.key}
@@ -88,7 +118,7 @@ export function HostFeaturedRequestModal({
                     : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
                 }`}
                 onClick={() => setDurationPreset(option.key as DurationPreset)}
-                disabled={submitting}
+                disabled={submitting || !requestsEnabled}
                 data-testid={`host-featured-duration-${option.key}`}
               >
                 {option.label}
@@ -107,7 +137,7 @@ export function HostFeaturedRequestModal({
             onChange={(event) => setNote(event.target.value.slice(0, NOTE_LIMIT))}
             rows={3}
             maxLength={NOTE_LIMIT}
-            disabled={submitting}
+            disabled={submitting || !requestsEnabled}
             className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm text-slate-700 focus:border-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-100"
             placeholder="I’m promoting this property this month"
             data-testid="host-featured-note"
@@ -124,10 +154,10 @@ export function HostFeaturedRequestModal({
           <Button
             size="sm"
             onClick={() => onSubmit({ durationDays, note: note.trim() ? note.trim() : null })}
-            disabled={submitting}
+            disabled={submitting || !requestsEnabled}
             data-testid="host-featured-request-confirm"
           >
-            {submitting ? "Sending…" : "Request featured"}
+            {submitting ? "Sending…" : "Request Featured (review first)"}
           </Button>
         </div>
       </div>

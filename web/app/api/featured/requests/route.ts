@@ -7,10 +7,10 @@ import { hasActiveDelegation } from "@/lib/agent-delegations";
 import {
   parseFeaturedRequestDuration,
   resolveFeaturedUntil,
-  isListingEligibleForFeaturedRequest,
   type FeaturedRequestDuration,
 } from "@/lib/featured/requests";
-import { isFeaturedListingActive } from "@/lib/properties/featured";
+import { getFeaturedEligibility } from "@/lib/featured/eligibility";
+import { getFeaturedEligibilitySettings } from "@/lib/featured/eligibility.server";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +30,7 @@ export type FeaturedRequestDeps = {
   requireUser: typeof requireUser;
   getUserRole: typeof getUserRole;
   hasActiveDelegation: typeof hasActiveDelegation;
+  getFeaturedEligibilitySettings: typeof getFeaturedEligibilitySettings;
 };
 
 const defaultDeps: FeaturedRequestDeps = {
@@ -40,6 +41,7 @@ const defaultDeps: FeaturedRequestDeps = {
   requireUser,
   getUserRole,
   hasActiveDelegation,
+  getFeaturedEligibilitySettings,
 };
 
 type PropertyRow = {
@@ -54,6 +56,8 @@ type PropertyRow = {
   is_demo: boolean | null;
   is_featured: boolean | null;
   featured_until: string | null;
+  description: string | null;
+  property_images?: Array<{ id: string | null }> | null;
 };
 
 function toDuration(value: unknown): FeaturedRequestDuration {
@@ -99,11 +103,18 @@ export async function postFeaturedRequestResponse(
   const note = parseNote(parsed.data.note ?? null);
 
   const queryClient = deps.hasServiceRoleEnv() ? deps.createServiceRoleClient() : supabase;
+  const featuredSettings = await deps.getFeaturedEligibilitySettings(queryClient);
+  if (!featuredSettings.requestsEnabled) {
+    return NextResponse.json(
+      { error: "Featured requests are currently paused." },
+      { status: 403 }
+    );
+  }
 
   const { data: propertyData, error: propertyError } = await queryClient
     .from("properties")
     .select(
-      "id,owner_id,title,city,status,is_active,is_approved,expires_at,is_demo,is_featured,featured_until"
+      "id,owner_id,title,city,status,is_active,is_approved,expires_at,is_demo,is_featured,featured_until,description,property_images(id)"
     )
     .eq("id", propertyId)
     .maybeSingle();
@@ -123,32 +134,6 @@ export async function postFeaturedRequestResponse(
     }
   }
 
-  const featuredActive = isFeaturedListingActive({
-    is_featured: property.is_featured,
-    featured_until: property.featured_until,
-  });
-  if (featuredActive) {
-    return NextResponse.json({ error: "Listing is already featured." }, { status: 409 });
-  }
-
-  if (property.is_demo) {
-    return NextResponse.json({ error: "Demo listings can't request featured." }, { status: 409 });
-  }
-
-  const eligible = isListingEligibleForFeaturedRequest({
-    status: property.status,
-    is_active: property.is_active,
-    is_approved: property.is_approved,
-    expires_at: property.expires_at,
-    is_demo: property.is_demo,
-    is_featured: property.is_featured,
-    featured_until: property.featured_until,
-  });
-
-  if (!eligible) {
-    return NextResponse.json({ error: "Not eligible yet." }, { status: 409 });
-  }
-
   const { data: existingPending } = await queryClient
     .from("featured_requests")
     .select(
@@ -165,6 +150,29 @@ export async function postFeaturedRequestResponse(
       message: "Request pending.",
       request: existingPending,
     });
+  }
+
+  const eligibility = getFeaturedEligibility(
+    {
+      status: property.status,
+      is_active: property.is_active,
+      is_approved: property.is_approved,
+      expires_at: property.expires_at,
+      is_demo: property.is_demo,
+      is_featured: property.is_featured,
+      featured_until: property.featured_until,
+      description: property.description,
+      photo_count: Array.isArray(property.property_images) ? property.property_images.length : 0,
+    },
+    featuredSettings,
+    { hasPendingRequest: false }
+  );
+
+  if (!eligibility.eligible) {
+    return NextResponse.json(
+      { error: eligibility.reasons[0] || "Not eligible yet." },
+      { status: 409 }
+    );
   }
 
   const requestedUntil = resolveFeaturedUntil(durationDays);
