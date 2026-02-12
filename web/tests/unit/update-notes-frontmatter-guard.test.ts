@@ -5,6 +5,24 @@ import path from "node:path";
 
 const UPDATES_DIR = path.join(process.cwd(), "docs", "updates");
 const ALLOWED_AUDIENCES = new Set(["TENANT", "HOST", "AGENT", "ADMIN"]);
+const NOTE_FILENAME_REGEX = /^(\d{4}-\d{2}-\d{2})-([a-z0-9-]+)\.md$/;
+
+function isValidCalendarDate(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return false;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return false;
+
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  return (
+    parsed.getUTCFullYear() === year &&
+    parsed.getUTCMonth() === month - 1 &&
+    parsed.getUTCDate() === day
+  );
+}
 
 function parseArrayValue(frontmatter: string, key: string): string[] | null {
   const lines = frontmatter.split("\n");
@@ -46,11 +64,30 @@ function parseArrayValue(frontmatter: string, key: string): string[] | null {
 
 void test("update notes enforce required frontmatter contract", async () => {
   const entries = await fs.readdir(UPDATES_DIR);
-  const markdownFiles = entries.filter((name) => name.endsWith(".md") && name !== "README.md");
+  const markdownFiles = entries.filter(
+    (name) => name.endsWith(".md") && name !== "README.md" && name !== "_TEMPLATE.md"
+  );
 
   const failures: string[] = [];
 
   for (const filename of markdownFiles) {
+    const filenameMatch = filename.match(NOTE_FILENAME_REGEX);
+    if (!filenameMatch) {
+      failures.push(
+        `${filename}: filename must match YYYY-MM-DD-short-slug.md (lowercase letters, numbers, hyphens)`
+      );
+      continue;
+    }
+
+    const datePrefix = filenameMatch[1];
+    const slug = filenameMatch[2];
+    if (!isValidCalendarDate(datePrefix)) {
+      failures.push(`${filename}: date prefix "${datePrefix}" is not a valid calendar date`);
+    }
+    if (slug.length < 3) {
+      failures.push(`${filename}: slug must be at least 3 characters`);
+    }
+
     const fullPath = path.join(UPDATES_DIR, filename);
     const raw = await fs.readFile(fullPath, "utf8");
     const match = raw.match(/^---\s*\n([\s\S]*?)\n---\s*(\n|$)/);
