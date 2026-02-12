@@ -41,6 +41,13 @@ function readParam(params: SearchParams | undefined, key: string) {
   return value ?? "";
 }
 
+function shortId(value: string) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) return "";
+  if (trimmed.length <= 10) return trimmed;
+  return `${trimmed.slice(0, 6)}…${trimmed.slice(-4)}`;
+}
+
 type Props = {
   searchParams?: SearchParams | Promise<SearchParams>;
 };
@@ -64,6 +71,9 @@ export default async function AdminReferralAttributionPage({ searchParams: rawSe
         : 30;
   const campaignId = readParam(searchParams, "campaignId").trim();
   const utmSource = readParam(searchParams, "utm_source").trim();
+  const referrer = readParam(searchParams, "referrer").trim();
+  const from = readParam(searchParams, "from").trim();
+  const to = readParam(searchParams, "to").trim();
 
   const summary = await getAdminReferralAttributionOverview({
     client,
@@ -71,7 +81,33 @@ export default async function AdminReferralAttributionPage({ searchParams: rawSe
     timeframeDays,
     campaignId: campaignId || null,
     utmSource: utmSource || null,
+    referrerUserId: referrer || null,
+    fromDate: from || null,
+    toDate: to || null,
   });
+
+  const referrerName = referrer
+    ? (
+        await client
+          .from("profiles")
+          .select("full_name")
+          .eq("id", referrer)
+          .maybeSingle<{ full_name: string | null }>()
+      ).data?.full_name ?? null
+    : null;
+
+  const clearReferrerParams = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (key === "referrer" || key === "from" || key === "to") continue;
+    if (Array.isArray(value)) {
+      for (const entry of value) clearReferrerParams.append(key, entry);
+    } else if (typeof value === "string" && value.length) {
+      clearReferrerParams.set(key, value);
+    }
+  }
+  const clearReferrerHref = `/admin/referrals/attribution${
+    clearReferrerParams.toString() ? `?${clearReferrerParams.toString()}` : ""
+  }`;
 
   const utmSources = Array.from(
     new Set(
@@ -105,7 +141,28 @@ export default async function AdminReferralAttributionPage({ searchParams: rawSe
           Filters apply to clicks and captures only (read-only analytics).
         </p>
 
+        {referrer ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-slate-700">
+            <span>
+              Filtered to referrer:{" "}
+              <span className="font-semibold">{referrerName || shortId(referrer)}</span>
+              {from || to ? (
+                <>
+                  {" "}
+                  · Range: <span className="font-semibold">{from || "—"} to {to || "—"}</span>
+                </>
+              ) : null}
+            </span>
+            <Link href={clearReferrerHref} className="font-semibold text-sky-700 underline underline-offset-2">
+              Clear filter
+            </Link>
+          </div>
+        ) : null}
+
         <form className="mt-3 grid gap-3 md:grid-cols-[1fr_1.2fr_1.2fr_auto]" method="get">
+          {referrer ? <input type="hidden" name="referrer" value={referrer} /> : null}
+          {from ? <input type="hidden" name="from" value={from} /> : null}
+          {to ? <input type="hidden" name="to" value={to} /> : null}
           <label className="flex flex-col gap-1 text-sm text-slate-700">
             <span className="text-xs uppercase tracking-wide text-slate-500">Timeframe</span>
             <select

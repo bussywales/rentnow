@@ -878,6 +878,9 @@ export async function getAdminReferralAttributionOverview(input: {
   timeframeDays?: 7 | 30 | null;
   campaignId?: string | null;
   utmSource?: string | null;
+  referrerUserId?: string | null;
+  fromDate?: string | null;
+  toDate?: string | null;
 }): Promise<{
   totals: { clicks: number; captures: number };
   capturesByChannel: Array<{ channel: string; captures: number }>;
@@ -898,18 +901,37 @@ export async function getAdminReferralAttributionOverview(input: {
 }> {
   const topLimit = Math.max(1, Math.min(50, Math.trunc(input.topLimit ?? 20)));
   const timeframeDays = input.timeframeDays === undefined ? 30 : input.timeframeDays;
-  const sinceIso =
+  const defaultSinceIso =
     timeframeDays && timeframeDays > 0
       ? new Date(Date.now() - timeframeDays * 24 * 60 * 60 * 1000).toISOString()
       : null;
   const campaignId = String(input.campaignId || "").trim();
   const utmSource = String(input.utmSource || "").trim();
+  const referrerUserId = isUuidLike(input.referrerUserId) ? String(input.referrerUserId) : "";
+
+  const normalizeDateBoundary = (
+    value: string | null | undefined,
+    edge: "start" | "end"
+  ): string | null => {
+    const raw = String(value || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+    const iso = edge === "start" ? `${raw}T00:00:00.000Z` : `${raw}T23:59:59.999Z`;
+    const date = new Date(iso);
+    if (!Number.isFinite(date.getTime())) return null;
+    return date.toISOString();
+  };
+  const fromIso = normalizeDateBoundary(input.fromDate, "start");
+  const toIso = normalizeDateBoundary(input.toDate, "end");
+  const sinceIso = fromIso ?? defaultSinceIso;
 
   const campaignsQuery = input.client
     .from("referral_share_campaigns")
     .select("id, owner_id, name, channel, utm_source")
     .order("created_at", { ascending: false })
     .limit(5000);
+  if (referrerUserId) {
+    campaignsQuery.eq("owner_id", referrerUserId);
+  }
   if (campaignId) {
     campaignsQuery.eq("id", campaignId);
   } else if (utmSource) {
@@ -922,6 +944,7 @@ export async function getAdminReferralAttributionOverview(input: {
     .order("created_at", { ascending: false })
     .limit(20000);
   if (sinceIso) touchQuery.gte("created_at", sinceIso);
+  if (toIso) touchQuery.lte("created_at", toIso);
 
   const attributionQuery = input.client
     .from("referral_attributions")
@@ -929,6 +952,7 @@ export async function getAdminReferralAttributionOverview(input: {
     .order("created_at", { ascending: false })
     .limit(20000);
   if (sinceIso) attributionQuery.gte("created_at", sinceIso);
+  if (toIso) attributionQuery.lte("created_at", toIso);
 
   const [campaignsResult, touchResult, attributionResult] = await Promise.all([
     campaignsQuery,
@@ -1024,13 +1048,16 @@ export async function getAdminReferralAttributionOverview(input: {
     .slice(0, 10);
 
   const deepSinceIso = sinceIso ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const { data: deepRows } = await input.client
+  const deepQuery = input.client
     .from("referrals")
-    .select("referrer_user_id, depth")
+    .select("referrer_user_id, depth, created_at")
     .gte("created_at", deepSinceIso)
     .gte("depth", 3)
     .order("created_at", { ascending: false })
     .limit(5000);
+  if (toIso) deepQuery.lte("created_at", toIso);
+  if (referrerUserId) deepQuery.eq("referrer_user_id", referrerUserId);
+  const { data: deepRows } = await deepQuery;
   const deepByReferrer = new Map<string, { count: number; maxDepth: number }>();
   for (const row of ((deepRows as Array<{ referrer_user_id: string; depth: number }> | null) ?? [])) {
     const id = String(row.referrer_user_id || "");

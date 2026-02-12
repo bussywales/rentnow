@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { cn } from "@/components/ui/cn";
+import { buildAdminReferralAttributionContextUrl } from "@/lib/referrals/cashout-context";
 
 type QueueStatus = "pending" | "held" | "approved" | "rejected" | "paid" | "void";
 type RiskLevel = "none" | "low" | "medium" | "high";
@@ -152,6 +153,7 @@ export default function AdminReferralPayoutQueue({ initialRequests }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [triageRequest, setTriageRequest] = useState<QueueRequest | null>(null);
   const [pending, startTransition] = useTransition();
 
   const queryString = useMemo(
@@ -229,6 +231,76 @@ export default function AdminReferralPayoutQueue({ initialRequests }: Props) {
     setReasonText(options?.reason ?? state.defaultReason ?? "");
     setPayoutReference(options?.payoutReference ?? state.defaultPayoutReference ?? "");
     setReasonTemplate(options?.reasonTemplate ?? "");
+  };
+
+  const openRequestActionConfirm = (
+    request: QueueRequest,
+    action: "approve" | "reject" | "void" | "paid"
+  ) => {
+    const held = request.queue_status === "held";
+    if (action === "approve") {
+      openConfirm(
+        {
+          mode: "single",
+          action: "approve",
+          ids: [request.id],
+          title: held ? "Approve HELD request" : "Approve request",
+          description: held
+            ? "HELD requests need explicit reason before approval."
+            : "Approve this payout request.",
+          requiresReason: held,
+          defaultReason: request.admin_note || "",
+          defaultPayoutReference: request.payout_reference || "",
+        },
+        { reason: request.admin_note || "" }
+      );
+      return;
+    }
+
+    if (action === "reject") {
+      openConfirm(
+        {
+          mode: "single",
+          action: "reject",
+          ids: [request.id],
+          title: "Reject request",
+          description: "Provide a reason before rejecting.",
+          requiresReason: true,
+          defaultReason: request.admin_note || "",
+          defaultPayoutReference: request.payout_reference || "",
+        },
+        { reason: request.admin_note || "" }
+      );
+      return;
+    }
+
+    if (action === "void") {
+      openConfirm({
+        mode: "single",
+        action: "void",
+        ids: [request.id],
+        title: "Void request",
+        description: "Void this request. This cannot be reversed from queue actions.",
+        requiresReason: false,
+        defaultReason: request.admin_note || "",
+        defaultPayoutReference: request.payout_reference || "",
+      });
+      return;
+    }
+
+    openConfirm(
+      {
+        mode: "single",
+        action: "paid",
+        ids: [request.id],
+        title: "Mark as paid",
+        description: "Record payout reference and mark request as paid.",
+        requiresReason: false,
+        defaultReason: request.admin_note || "",
+        defaultPayoutReference: request.payout_reference || "",
+      },
+      { payoutReference: request.payout_reference || "" }
+    );
   };
 
   const executeConfirm = () => {
@@ -453,7 +525,10 @@ export default function AdminReferralPayoutQueue({ initialRequests }: Props) {
               const canReject = request.status === "pending";
               const canVoid = request.status === "pending" || request.status === "approved";
               const canPaid = request.status === "approved";
-              const held = request.queue_status === "held";
+              const contextHref = buildAdminReferralAttributionContextUrl({
+                referrerUserId: request.user_id,
+                requestedAt: request.requested_at,
+              });
               const riskTitle =
                 request.risk_flags.length > 0
                   ? `Flags: ${request.risk_flags.join(", ")}`
@@ -534,27 +609,27 @@ export default function AdminReferralPayoutQueue({ initialRequests }: Props) {
                   </td>
                   <td className="px-3 py-3 align-top">
                     <div className="flex flex-wrap gap-2">
+                      <a
+                        href={contextHref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center rounded border border-slate-300 px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                      >
+                        View context
+                      </a>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setTriageRequest(request)}
+                      >
+                        Triage
+                      </Button>
                       <Button
                         type="button"
                         size="sm"
                         disabled={!canApprove || pending}
-                        onClick={() =>
-                          openConfirm(
-                            {
-                              mode: "single",
-                              action: "approve",
-                              ids: [request.id],
-                              title: held ? "Approve HELD request" : "Approve request",
-                              description: held
-                                ? "HELD requests need explicit reason before approval."
-                                : "Approve this payout request.",
-                              requiresReason: held,
-                              defaultReason: request.admin_note || "",
-                              defaultPayoutReference: request.payout_reference || "",
-                            },
-                            { reason: request.admin_note || "" }
-                          )
-                        }
+                        onClick={() => openRequestActionConfirm(request, "approve")}
                       >
                         Approve
                       </Button>
@@ -563,21 +638,7 @@ export default function AdminReferralPayoutQueue({ initialRequests }: Props) {
                         size="sm"
                         variant="secondary"
                         disabled={!canReject || pending}
-                        onClick={() =>
-                          openConfirm(
-                            {
-                              mode: "single",
-                              action: "reject",
-                              ids: [request.id],
-                              title: "Reject request",
-                              description: "Provide a reason before rejecting.",
-                              requiresReason: true,
-                              defaultReason: request.admin_note || "",
-                              defaultPayoutReference: request.payout_reference || "",
-                            },
-                            { reason: request.admin_note || "" }
-                          )
-                        }
+                        onClick={() => openRequestActionConfirm(request, "reject")}
                       >
                         Reject
                       </Button>
@@ -586,18 +647,7 @@ export default function AdminReferralPayoutQueue({ initialRequests }: Props) {
                         size="sm"
                         variant="secondary"
                         disabled={!canVoid || pending}
-                        onClick={() =>
-                          openConfirm({
-                            mode: "single",
-                            action: "void",
-                            ids: [request.id],
-                            title: "Void request",
-                            description: "Void this request. This cannot be reversed from queue actions.",
-                            requiresReason: false,
-                            defaultReason: request.admin_note || "",
-                            defaultPayoutReference: request.payout_reference || "",
-                          })
-                        }
+                        onClick={() => openRequestActionConfirm(request, "void")}
                       >
                         Void
                       </Button>
@@ -605,21 +655,7 @@ export default function AdminReferralPayoutQueue({ initialRequests }: Props) {
                         type="button"
                         size="sm"
                         disabled={!canPaid || pending}
-                        onClick={() =>
-                          openConfirm(
-                            {
-                              mode: "single",
-                              action: "paid",
-                              ids: [request.id],
-                              title: "Mark as paid",
-                              description: "Record payout reference and mark request as paid.",
-                              requiresReason: false,
-                              defaultReason: request.admin_note || "",
-                              defaultPayoutReference: request.payout_reference || "",
-                            },
-                            { payoutReference: request.payout_reference || "" }
-                          )
-                        }
+                        onClick={() => openRequestActionConfirm(request, "paid")}
                       >
                         Mark paid
                       </Button>
@@ -647,6 +683,159 @@ export default function AdminReferralPayoutQueue({ initialRequests }: Props) {
       {toast ? (
         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
           {toast}
+        </div>
+      ) : null}
+
+      {triageRequest ? (
+        <div className="fixed inset-0 z-40 flex">
+          <button
+            type="button"
+            className="h-full flex-1 bg-slate-900/50"
+            aria-label="Close triage panel"
+            onClick={() => setTriageRequest(null)}
+          />
+          <aside className="h-full w-full max-w-xl overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">Cashout triage</h2>
+                <p className="text-xs text-slate-600">Request {triageRequest.id}</p>
+              </div>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setTriageRequest(null)}>
+                Close
+              </Button>
+            </div>
+
+            <section className="mt-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              <p>
+                Requester:{" "}
+                <span className="font-semibold">
+                  {triageRequest.user.full_name || triageRequest.user.id}
+                </span>
+              </p>
+              <p>
+                Country: <span className="font-semibold">{triageRequest.country_code}</span>
+              </p>
+              <p>
+                Credits/Cash:{" "}
+                <span className="font-semibold">
+                  {triageRequest.credits_requested} ·{" "}
+                  {formatCurrency(triageRequest.cash_amount, triageRequest.currency)}
+                </span>
+              </p>
+              <p>
+                Status:{" "}
+                <span className="font-semibold">{triageRequest.queue_status.toUpperCase()}</span> · Requested:{" "}
+                <span className="font-semibold">{formatDate(triageRequest.requested_at)}</span>
+              </p>
+            </section>
+
+            <section className="mt-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              <p className="font-semibold text-slate-900">Risk summary</p>
+              <p>
+                Level:{" "}
+                <span className={cn("rounded-full px-2 py-1 text-xs font-semibold", riskChipClass(triageRequest.risk_level))}>
+                  {triageRequest.risk_level === "none" ? "None" : triageRequest.risk_level}
+                </span>
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {triageRequest.risk_flags.length ? (
+                  triageRequest.risk_flags.map((flag) => (
+                    <span
+                      key={flag}
+                      className="inline-flex rounded bg-slate-200 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700"
+                    >
+                      {flag}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-xs text-slate-600">No risk flags</span>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-2 text-xs text-slate-600">
+                <p>Captures (1h): {triageRequest.risk_stats.captures_1h}</p>
+                <p>Captures (24h): {triageRequest.risk_stats.captures_24h}</p>
+                <p>Distinct IPs (24h): {triageRequest.risk_stats.distinct_ip_hash_24h}</p>
+                <p>Distinct UAs (24h): {triageRequest.risk_stats.distinct_ua_hash_24h}</p>
+                <p>Geo mismatches (24h): {triageRequest.risk_stats.geo_mismatch_count_24h}</p>
+                <p>Deep refs (30d): {triageRequest.risk_stats.deep_referrals_30d}</p>
+              </div>
+            </section>
+
+            <section className="mt-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm text-slate-700">
+              <p className="font-semibold text-slate-900">Quick links</p>
+              <div className="flex flex-wrap gap-2">
+                <a
+                  href={buildAdminReferralAttributionContextUrl({
+                    referrerUserId: triageRequest.user_id,
+                    requestedAt: triageRequest.requested_at,
+                  })}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center rounded border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  View context
+                </a>
+                <a
+                  href={`/admin/users?q=${encodeURIComponent(triageRequest.user_id)}`}
+                  className="inline-flex items-center rounded border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                >
+                  Open user profile
+                </a>
+              </div>
+            </section>
+
+            <section className="mt-4 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-sm font-semibold text-slate-900">Actions</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={triageRequest.status !== "pending" || pending}
+                  onClick={() => {
+                    openRequestActionConfirm(triageRequest, "approve");
+                    setTriageRequest(null);
+                  }}
+                >
+                  Approve
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={triageRequest.status !== "pending" || pending}
+                  onClick={() => {
+                    openRequestActionConfirm(triageRequest, "reject");
+                    setTriageRequest(null);
+                  }}
+                >
+                  Reject
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  disabled={!(triageRequest.status === "pending" || triageRequest.status === "approved") || pending}
+                  onClick={() => {
+                    openRequestActionConfirm(triageRequest, "void");
+                    setTriageRequest(null);
+                  }}
+                >
+                  Void
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={triageRequest.status !== "approved" || pending}
+                  onClick={() => {
+                    openRequestActionConfirm(triageRequest, "paid");
+                    setTriageRequest(null);
+                  }}
+                >
+                  Mark paid
+                </Button>
+              </div>
+            </section>
+          </aside>
         </div>
       ) : null}
 
