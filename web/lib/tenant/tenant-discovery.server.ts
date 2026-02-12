@@ -7,6 +7,11 @@ import type { Property, UserRole } from "@/lib/types";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 import { fetchSavedProperties } from "@/lib/saved-properties.server";
+import {
+  getMostSavedHomes as getMostSavedHomesSocialProof,
+  getMostViewedHomes as getMostViewedHomesSocialProof,
+  getTrendingHomes as getTrendingHomesSocialProof,
+} from "@/lib/tenant/tenant-social-proof.server";
 
 type PropertyImageRow = {
   id: string;
@@ -236,6 +241,42 @@ export async function getSavedHomes({
     userId: ctx.userId,
     limit,
   });
+}
+
+export async function getTrendingHomes({
+  limit = 10,
+  marketCountryCode,
+  context,
+}: {
+  limit?: number;
+  marketCountryCode?: string | null;
+  context?: DiscoveryContext;
+}) {
+  return getTrendingHomesSocialProof({ limit, marketCountryCode, context });
+}
+
+export async function getMostSavedHomes({
+  limit = 10,
+  marketCountryCode,
+  context,
+}: {
+  limit?: number;
+  marketCountryCode?: string | null;
+  context?: DiscoveryContext;
+}) {
+  return getMostSavedHomesSocialProof({ limit, marketCountryCode, context });
+}
+
+export async function getMostViewedHomes({
+  limit = 10,
+  marketCountryCode,
+  context,
+}: {
+  limit?: number;
+  marketCountryCode?: string | null;
+  context?: DiscoveryContext;
+}) {
+  return getMostViewedHomesSocialProof({ limit, marketCountryCode, context });
 }
 
 export function getCityCollections() {

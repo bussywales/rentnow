@@ -10,9 +10,12 @@ import { getCountryByCode } from "@/lib/countries";
 import {
   getCityCollections,
   getFeaturedHomes,
+  getMostSavedHomes,
+  getMostViewedHomes,
   getNewHomes,
   getPopularHomes,
   getTenantDiscoveryContext,
+  getTrendingHomes,
 } from "@/lib/tenant/tenant-discovery.server";
 import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
 import { fetchOwnerListings } from "@/lib/properties/owner-listings";
@@ -266,19 +269,40 @@ export default async function HomeWorkspacePage() {
     true
   );
 
-  const [snapshot, savedSearchSummary, featuredHomes, newHomes, popularHomes] = await Promise.all([
+  const [
+    snapshot,
+    savedSearchSummary,
+    featuredHomes,
+    trendingHomes,
+    mostSavedHomes,
+    mostViewedHomes,
+    newHomes,
+    popularHomes,
+  ] = await Promise.all([
     getSnapshot(user.id, context),
     getSavedSearchSummaryForUser({
       supabase: context.supabase,
       userId: user.id,
     }).catch(() => ({ totalNewMatches: 0, searches: [] })),
     featuredListingsEnabled ? getFeaturedHomes({ limit: 8, context }) : Promise.resolve([]),
+    getTrendingHomes({ limit: 10, marketCountryCode: market.country, context }),
+    getMostSavedHomes({ limit: 10, marketCountryCode: market.country, context }),
+    getMostViewedHomes({ limit: 10, marketCountryCode: market.country, context }),
     getNewHomes({ days: 7, limit: 8, context }),
     getPopularHomes({ city: popularCity, limit: 8, context }),
   ]);
 
   const railPropertyIds = Array.from(
-    new Set([...featuredHomes, ...newHomes, ...popularHomes].map((property) => property.id))
+    new Set(
+      [
+        ...featuredHomes,
+        ...trendingHomes,
+        ...mostSavedHomes,
+        ...mostViewedHomes,
+        ...newHomes,
+        ...popularHomes,
+      ].map((property) => property.id)
+    )
   );
 
   const savedIds = railPropertyIds.length
@@ -291,6 +315,7 @@ export default async function HomeWorkspacePage() {
   const railOwnerIds = Array.from(
     new Set(
       [...featuredHomes, ...newHomes, ...popularHomes]
+        .concat(trendingHomes, mostSavedHomes, mostViewedHomes)
         .map((property) => property.owner_id)
         .filter(Boolean)
     )
@@ -424,6 +449,60 @@ export default async function HomeWorkspacePage() {
           />
           <PropertyRail
             homes={featuredHomes}
+            viewerRole={role}
+            savedIds={savedIds}
+            trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
+          />
+        </section>
+      ) : null}
+
+      {trendingHomes.length > 0 ? (
+        <section className="space-y-4" data-testid="home-trending-homes">
+          <SectionHeader
+            title="Trending this week"
+            description={`Popular with renters in ${marketRegionLabel} and beyond, based on recent views and saves.`}
+            href="/help/trending"
+            hrefLabel="What is this?"
+          />
+          <PropertyRail
+            homes={trendingHomes}
+            viewerRole={role}
+            savedIds={savedIds}
+            trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
+          />
+        </section>
+      ) : null}
+
+      {mostSavedHomes.length > 0 ? (
+        <section className="space-y-4" data-testid="home-most-saved-homes">
+          <SectionHeader
+            title="Most saved"
+            description={`Homes with strong shortlist activity in ${marketRegionLabel} and beyond.`}
+            href="/properties"
+            hrefLabel="Browse all"
+          />
+          <PropertyRail
+            homes={mostSavedHomes}
+            viewerRole={role}
+            savedIds={savedIds}
+            trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
+          />
+        </section>
+      ) : null}
+
+      {mostViewedHomes.length > 0 ? (
+        <section className="space-y-4" data-testid="home-most-viewed-homes">
+          <SectionHeader
+            title="Most viewed"
+            description={`Homes drawing the highest viewing activity across ${marketRegionLabel} and beyond.`}
+            href="/properties"
+            hrefLabel="Browse all"
+          />
+          <PropertyRail
+            homes={mostViewedHomes}
             viewerRole={role}
             savedIds={savedIds}
             trustSnapshots={trustSnapshots}

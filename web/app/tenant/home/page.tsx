@@ -17,10 +17,13 @@ import {
   buildTenantDiscoveryModules,
   getFallbackHomes,
   getFeaturedHomes,
+  getMostSavedHomes,
+  getMostViewedHomes,
   getNewHomes,
   getPopularHomes,
   getTenantDiscoveryContext,
   getSavedHomes,
+  getTrendingHomes,
 } from "@/lib/tenant/tenant-discovery.server";
 import type { Property } from "@/lib/types";
 import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
@@ -213,7 +216,16 @@ export default async function TenantHomePage() {
     true
   );
 
-  const [savedSearchSummary, featuredHomes, popularHomes, newHomes, savedHomes] = await Promise.all([
+  const [
+    savedSearchSummary,
+    featuredHomes,
+    trendingHomes,
+    mostSavedHomes,
+    mostViewedHomes,
+    popularHomes,
+    newHomes,
+    savedHomes,
+  ] = await Promise.all([
     getSavedSearchSummaryForUser({
       supabase: context.supabase,
       userId: user.id,
@@ -221,6 +233,9 @@ export default async function TenantHomePage() {
     featuredListingsEnabled
       ? getFeaturedHomes({ limit: MODULE_LIMIT, context })
       : Promise.resolve([]),
+    getTrendingHomes({ limit: MODULE_LIMIT, marketCountryCode: market.country, context }),
+    getMostSavedHomes({ limit: MODULE_LIMIT, marketCountryCode: market.country, context }),
+    getMostViewedHomes({ limit: MODULE_LIMIT, marketCountryCode: market.country, context }),
     getPopularHomes({ city: popularCity, limit: MODULE_LIMIT, context }),
     getNewHomes({ days: 7, limit: MODULE_LIMIT, context }),
     getSavedHomes({ limit: 8, context }),
@@ -245,14 +260,20 @@ export default async function TenantHomePage() {
   }
 
   const modules = buildTenantDiscoveryModules({ featuredHomes, popularHomes, newHomes });
+  const hasSocialProofModules =
+    trendingHomes.length > 0 || mostSavedHomes.length > 0 || mostViewedHomes.length > 0;
+  const hasDiscoveryModules = modules.hasModules || hasSocialProofModules;
 
   let fallbackHomes: Property[] = [];
-  if (!modules.hasModules) {
+  if (!hasDiscoveryModules) {
     fallbackHomes = await getFallbackHomes({ limit: 9, context });
   }
 
   const allHomes = [
     ...featuredHomes,
+    ...trendingHomes,
+    ...mostSavedHomes,
+    ...mostViewedHomes,
     ...popularHomes,
     ...newHomes,
     ...fallbackHomes,
@@ -411,6 +432,63 @@ export default async function TenantHomePage() {
         </section>
       )}
 
+      {trendingHomes.length > 0 && (
+        <section className="space-y-4" data-testid="tenant-home-trending">
+          <SectionHeader
+            title="Trending this week"
+            description={`Popular with renters in ${marketRegionLabel} and beyond, based on recent views and saves.`}
+            href="/help/trending"
+            hrefLabel="What is this?"
+          />
+          <PropertyRow
+            items={trendingHomes}
+            testId="tenant-home-trending-row"
+            savedIds={savedIds}
+            fastResponderByHost={fastResponderByHost}
+            trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
+          />
+        </section>
+      )}
+
+      {mostSavedHomes.length > 0 && (
+        <section className="space-y-4" data-testid="tenant-home-most-saved">
+          <SectionHeader
+            title="Most saved"
+            description={`Homes with strong shortlist activity in ${marketRegionLabel} and beyond.`}
+            href="/properties"
+            hrefLabel="Browse all"
+          />
+          <PropertyRow
+            items={mostSavedHomes}
+            testId="tenant-home-most-saved-row"
+            savedIds={savedIds}
+            fastResponderByHost={fastResponderByHost}
+            trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
+          />
+        </section>
+      )}
+
+      {mostViewedHomes.length > 0 && (
+        <section className="space-y-4" data-testid="tenant-home-most-viewed">
+          <SectionHeader
+            title="Most viewed"
+            description={`Homes drawing the highest viewing activity across ${marketRegionLabel} and beyond.`}
+            href="/properties"
+            hrefLabel="Browse all"
+          />
+          <PropertyRow
+            items={mostViewedHomes}
+            testId="tenant-home-most-viewed-row"
+            savedIds={savedIds}
+            fastResponderByHost={fastResponderByHost}
+            trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
+          />
+        </section>
+      )}
+
       {modules.hasPopular && (
         <section className="space-y-4" data-testid="tenant-home-popular">
           <SectionHeader
@@ -475,7 +553,7 @@ export default async function TenantHomePage() {
         </section>
       )}
 
-      {!modules.hasModules && (
+      {!hasDiscoveryModules && (
         <section className="space-y-4" data-testid="tenant-home-fallback">
           <SectionHeader
             title="Browse all homes"
