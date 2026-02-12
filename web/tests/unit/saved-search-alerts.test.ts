@@ -65,22 +65,19 @@ void test("daily and weekly alert cadence is enforced", () => {
 
 void test("dedupe key is stable for the same search + listing set", () => {
   const a = buildSavedSearchAlertDedupeKey({
+    userId: "user-1",
     searchId: "search-1",
-    frequency: "daily",
-    baselineIso: "2026-02-10T00:00:00.000Z",
-    listingIds: ["l-2", "l-1", "l-3"],
+    dayKey: "2026-02-12",
   });
   const b = buildSavedSearchAlertDedupeKey({
+    userId: "user-1",
     searchId: "search-1",
-    frequency: "daily",
-    baselineIso: "2026-02-10T00:00:00.000Z",
-    listingIds: ["l-1", "l-3", "l-2"],
+    dayKey: "2026-02-12",
   });
   const c = buildSavedSearchAlertDedupeKey({
+    userId: "user-1",
     searchId: "search-1",
-    frequency: "daily",
-    baselineIso: "2026-02-10T00:00:00.000Z",
-    listingIds: ["l-1", "l-3"],
+    dayKey: "2026-02-13",
   });
 
   assert.equal(a, b);
@@ -118,4 +115,3 @@ void test("unsubscribe token validates only for the matching search/user pair", 
     else delete process.env.JOB_SECRET;
   }
 });
-

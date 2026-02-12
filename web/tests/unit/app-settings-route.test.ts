@@ -178,3 +178,7 @@ void test("validateSettingValueByKey accepts demo presentation toggles", () => {
   assert.equal(validateSettingValueByKey("demo_badge_enabled", { enabled: true }), true);
   assert.equal(validateSettingValueByKey("demo_watermark_enabled", { enabled: false }), true);
 });
+
+void test("validateSettingValueByKey accepts saved-search email alerts toggle", () => {
+  assert.equal(validateSettingValueByKey("alerts_email_enabled", { enabled: true }), true);
+});

@@ -71,6 +71,10 @@ const DESCRIPTIONS: Partial<Record<AppSettingKey, { title: string; helper: strin
     helper:
       "Require a verified bank account before showing the Verified badge. Turn on only the checks you can actually support right now.",
   },
+  [APP_SETTING_KEYS.alertsEmailEnabled]: {
+    title: "Saved-search email alerts",
+    helper: "Enable daily email alerts for active saved searches.",
+  },
 };
 
 export default function AdminSettingsFeatureFlags({ settings }: Props) {

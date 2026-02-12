@@ -37,6 +37,7 @@ export const APP_SETTING_KEYS = {
   verificationRequireEmail: "verification_require_email",
   verificationRequirePhone: "verification_require_phone",
   verificationRequireBank: "verification_require_bank",
+  alertsEmailEnabled: "alerts_email_enabled",
   referralCaps: "referral_caps",
 } as const;
 

@@ -19,7 +19,9 @@ void test("saved-search alerts job rejects requests without secret/admin access"
     dispatchSavedSearchEmailAlerts: async () => ({
       ok: true,
       processed: 0,
+      processedUsers: 0,
       sent: 0,
+      emailsSent: 0,
       failed: 0,
       skipped: 0,
       duplicates: 0,
@@ -53,7 +55,9 @@ void test("saved-search alerts job runs with valid secret and returns send/fail 
     dispatchSavedSearchEmailAlerts: async () => ({
       ok: true,
       processed: 12,
+      processedUsers: 5,
       sent: 5,
+      emailsSent: 4,
       failed: 2,
       skipped: 5,
       duplicates: 1,
@@ -69,4 +73,3 @@ void test("saved-search alerts job runs with valid secret and returns send/fail 
   assert.equal(body.processed, 12);
   assert.equal(roleChecks, 0);
 });
-

@@ -36,7 +36,11 @@ const UPDATES_DIR = path.join(process.cwd(), "docs", "updates");
 export async function listUpdateNotes(): Promise<ListUpdateNotesResult> {
   const entries = await fs.readdir(UPDATES_DIR).catch(() => []);
   const files = entries.filter(
-    (name) => name.endsWith(".md") && name !== "NO_UPDATE.md" && name !== "README.md"
+    (name) =>
+      name.endsWith(".md") &&
+      name !== "NO_UPDATE.md" &&
+      name !== "README.md" &&
+      name !== "_TEMPLATE.md"
   );
   const notes: UpdateNoteFile[] = [];
   const invalidNotes: UpdateNoteParseIssue[] = [];

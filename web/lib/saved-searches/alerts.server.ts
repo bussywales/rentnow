@@ -3,6 +3,12 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { filtersToSearchParams, parseFiltersFromSavedSearch } from "@/lib/search-filters";
 import { getSiteUrl } from "@/lib/env";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { parseAppSettingBool } from "@/lib/settings/app-settings";
+import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
+import {
+  buildSavedSearchDigestEmail,
+  type SavedSearchDigestGroup,
+} from "@/lib/email/templates/saved-search-digest";
 import {
   applySavedSearchMatchSpecToQuery,
   buildSavedSearchMatchQuerySpec,
@@ -13,6 +19,8 @@ const INSTANT_RATE_LIMIT_MS = 6 * 60 * 60 * 1000;
 const DAILY_RATE_LIMIT_MS = 24 * 60 * 60 * 1000;
 const WEEKLY_RATE_LIMIT_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_BATCH_SIZE = 200;
+const MAX_SEARCHES_PER_DIGEST = 10;
+const ALERTS_EMAIL_ENABLED_ENV = "ALERTS_EMAIL_ENABLED";
 
 export type SavedSearchAlertFrequency = "instant" | "daily" | "weekly";
 
@@ -42,7 +50,9 @@ export type SavedSearchAlertListingRow = {
 export type SavedSearchAlertsRunResult = {
   ok: boolean;
   processed: number;
+  processedUsers: number;
   sent: number;
+  emailsSent: number;
   failed: number;
   skipped: number;
   duplicates: number;
@@ -70,8 +80,8 @@ const defaultDeps: SavedSearchAlertDeps = {
   createServiceRoleClient,
   sendEmail: async ({ to, subject, html }) => {
     const apiKey = process.env.RESEND_API_KEY;
-    const from = process.env.RESEND_FROM;
-    if (!apiKey || !from) {
+    const from = process.env.RESEND_FROM || "PropatyHub <no-reply@propatyhub.com>";
+    if (!apiKey) {
       return { ok: false, error: "Email not configured" };
     }
     const response = await fetch(RESEND_ENDPOINT, {
@@ -109,10 +119,45 @@ function coerceBoolean(value: boolean | null | undefined, fallback: boolean) {
 function getAlertSecret() {
   return (
     process.env.SAVED_SEARCH_ALERTS_SECRET ||
+    process.env.CRON_SECRET ||
     process.env.JOB_SECRET ||
     process.env.LISTING_EXPIRY_JOB_SECRET ||
     ""
   );
+}
+
+function isTruthyEnvFlag(value: string | undefined | null) {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes" || normalized === "on";
+}
+
+export function resolveAlertsEmailEnabled(input: {
+  appSettingValue: unknown;
+  envOverride: string | undefined | null;
+}) {
+  if (isTruthyEnvFlag(input.envOverride)) return true;
+  return parseAppSettingBool(input.appSettingValue, false);
+}
+
+async function isAlertsEmailEnabled(input: {
+  supabase: SupabaseClient;
+  envOverride?: string | undefined | null;
+}) {
+  const { data, error } = await input.supabase
+    .from("app_settings")
+    .select("value")
+    .eq("key", APP_SETTING_KEYS.alertsEmailEnabled)
+    .maybeSingle<{ value: unknown }>();
+
+  if (error) {
+    return isTruthyEnvFlag(input.envOverride ?? process.env[ALERTS_EMAIL_ENABLED_ENV]);
+  }
+
+  return resolveAlertsEmailEnabled({
+    appSettingValue: data?.value,
+    envOverride: input.envOverride ?? process.env[ALERTS_EMAIL_ENABLED_ENV],
+  });
 }
 
 export function normalizeSavedSearchAlertFrequency(
@@ -154,14 +199,16 @@ export function getSavedSearchAlertBaselineIso(input: {
   return new Date(input.now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
 }
 
+function getUtcDayKey(date: Date) {
+  return date.toISOString().slice(0, 10);
+}
+
 export function buildSavedSearchAlertDedupeKey(input: {
+  userId: string;
   searchId: string;
-  frequency: SavedSearchAlertFrequency;
-  baselineIso: string;
-  listingIds: string[];
+  dayKey: string;
 }) {
-  const normalized = [...input.listingIds].sort().join(",");
-  const payload = `${input.searchId}|${input.frequency}|${input.baselineIso}|${normalized}|${input.listingIds.length}`;
+  const payload = `${input.userId}|${input.searchId}|${input.dayKey}`;
   return createHmac("sha256", "saved-search-alert-dedupe").update(payload).digest("hex");
 }
 
@@ -190,32 +237,6 @@ export function isValidSavedSearchUnsubscribeToken(input: {
   return timingSafeEqual(expectedBuffer, providedBuffer);
 }
 
-function formatPrice(input: { amount: number | null; currency: string | null }) {
-  if (!Number.isFinite(input.amount ?? NaN)) return "Price unavailable";
-  const value = Number(input.amount ?? 0);
-  const currency = input.currency || "NGN";
-  try {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(value);
-  } catch {
-    return `${currency} ${value.toLocaleString()}`;
-  }
-}
-
-function buildAlertSubject(input: {
-  frequency: SavedSearchAlertFrequency;
-  matchCount: number;
-}) {
-  if (input.frequency === "weekly") return "Your weekly property matches";
-  if (input.frequency === "daily") return "Your daily property matches";
-  return input.matchCount > 1
-    ? "New homes matching your search"
-    : "New home matching your search";
-}
-
 function buildMatchesUrl(input: {
   siteUrl: string;
   filters: Record<string, unknown> | null | undefined;
@@ -224,62 +245,6 @@ function buildMatchesUrl(input: {
   const params = filtersToSearchParams(parsed);
   const query = params.toString();
   return query ? `${input.siteUrl}/properties?${query}` : `${input.siteUrl}/properties`;
-}
-
-function buildSavedSearchAlertHtml(input: {
-  siteUrl: string;
-  searchName: string;
-  frequency: SavedSearchAlertFrequency;
-  listings: SavedSearchAlertListingRow[];
-  filters: Record<string, unknown> | null | undefined;
-  unsubscribeUrl: string;
-}) {
-  const matchesUrl = buildMatchesUrl({
-    siteUrl: input.siteUrl,
-    filters: input.filters,
-  });
-  const heading =
-    input.frequency === "weekly"
-      ? "Your weekly matches are in"
-      : input.frequency === "daily"
-      ? "Your daily matches are in"
-      : "New matches for your saved search";
-
-  const items = input.listings
-    .slice(0, 6)
-    .map((listing) => {
-      const listingUrl = `${input.siteUrl}/properties/${listing.id}`;
-      const price = formatPrice({ amount: listing.price, currency: listing.currency });
-      const city = listing.city || "Location not set";
-      return `
-      <tr>
-        <td style="padding: 10px 0; border-bottom: 1px solid #e2e8f0;">
-          <a href="${listingUrl}" style="font-weight: 600; color: #0f172a; text-decoration: none;">
-            ${listing.title}
-          </a>
-          <div style="color: #475569; font-size: 13px; margin-top: 4px;">${city} · ${price}</div>
-        </td>
-      </tr>`;
-    })
-    .join("");
-
-  return `
-  <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: #0f172a; line-height: 1.5;">
-    <h2 style="margin: 0 0 8px;">${heading}</h2>
-    <p style="margin: 0 0 16px; color: #334155;">
-      ${input.listings.length} new listing${input.listings.length === 1 ? "" : "s"} matched “${input.searchName}”.
-    </p>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="margin-bottom: 18px;">
-      ${items}
-    </table>
-    <a href="${matchesUrl}" style="display: inline-block; background: #0ea5e9; color: #ffffff; padding: 10px 14px; border-radius: 8px; text-decoration: none; font-weight: 600;">
-      View all matches
-    </a>
-    <p style="margin: 18px 0 0; color: #64748b; font-size: 12px;">
-      Not useful right now?
-      <a href="${input.unsubscribeUrl}" style="color: #0f766e;">Disable alerts for this search</a>.
-    </p>
-  </div>`;
 }
 
 export async function getEligibleSavedSearchesToAlert(input: {
@@ -407,7 +372,7 @@ async function upsertSavedSearchAlertLog(input: {
   searchId: string;
   anchorPropertyId: string;
   dedupeKey: string;
-  status: "sent" | "failed";
+  status: "sent" | "failed" | "skipped";
   sentAt?: string | null;
   error?: string | null;
 }) {
@@ -479,7 +444,9 @@ export async function dispatchSavedSearchEmailAlerts(
     return {
       ok: false,
       processed: 0,
+      processedUsers: 0,
       sent: 0,
+      emailsSent: 0,
       failed: 0,
       skipped: 0,
       duplicates: 0,
@@ -490,7 +457,9 @@ export async function dispatchSavedSearchEmailAlerts(
     return {
       ok: false,
       processed: 0,
+      processedUsers: 0,
       sent: 0,
+      emailsSent: 0,
       failed: 0,
       skipped: 0,
       duplicates: 0,
@@ -501,6 +470,21 @@ export async function dispatchSavedSearchEmailAlerts(
   const now = input?.now ?? deps.getNow();
   const supabase = deps.createServiceRoleClient() as unknown as SupabaseClient;
   const siteUrl = await deps.getSiteUrl();
+  const alertsEnabled = await isAlertsEmailEnabled({ supabase });
+
+  if (!alertsEnabled) {
+    return {
+      ok: true,
+      processed: 0,
+      processedUsers: 0,
+      sent: 0,
+      emailsSent: 0,
+      failed: 0,
+      skipped: 0,
+      duplicates: 0,
+      noMatches: 0,
+    };
+  }
 
   const searches = await getEligibleSavedSearchesToAlert({
     supabase,
@@ -511,16 +495,27 @@ export async function dispatchSavedSearchEmailAlerts(
   const result: SavedSearchAlertsRunResult = {
     ok: true,
     processed: 0,
+    processedUsers: 0,
     sent: 0,
+    emailsSent: 0,
     failed: 0,
     skipped: 0,
     duplicates: 0,
     noMatches: 0,
   };
 
+  type CandidateSearch = {
+    search: SavedSearchAlertSearchRow;
+    dedupeKey: string;
+    anchorPropertyId: string;
+    digestGroup: SavedSearchDigestGroup;
+  };
+
+  const candidatesByUser = new Map<string, CandidateSearch[]>();
+  const dayKey = getUtcDayKey(now);
+
   for (const search of searches) {
     result.processed += 1;
-    const frequency = normalizeSavedSearchAlertFrequency(search.alert_frequency);
 
     let matchData: Awaited<ReturnType<typeof getNewMatchesForSavedSearch>>;
     try {
@@ -554,10 +549,9 @@ export async function dispatchSavedSearchEmailAlerts(
     }
 
     const dedupeKey = buildSavedSearchAlertDedupeKey({
+      userId: search.user_id,
       searchId: search.id,
-      frequency,
-      baselineIso: matchData.baselineIso,
-      listingIds: pendingMatches.map((listing) => listing.id),
+      dayKey,
     });
 
     const existing = await findExistingAlertLogByDedupeKey({
@@ -570,42 +564,69 @@ export async function dispatchSavedSearchEmailAlerts(
       continue;
     }
 
-    const email = await loadUserEmail({
-      supabase,
-      userId: search.user_id,
-    });
     const anchorPropertyId = pendingMatches[0].id;
-
-    if (!email) {
-      await upsertSavedSearchAlertLog({
-        supabase,
-        userId: search.user_id,
-        searchId: search.id,
-        anchorPropertyId,
-        dedupeKey,
-        status: "failed",
-        error: "Missing recipient email",
-      });
-      result.failed += 1;
-      continue;
-    }
-
     const unsubscribeToken = createSavedSearchUnsubscribeToken({
       searchId: search.id,
       userId: search.user_id,
     });
     const unsubscribeUrl = `${siteUrl}/api/saved-searches/${search.id}/unsubscribe?token=${encodeURIComponent(unsubscribeToken)}`;
-    const subject = buildAlertSubject({
-      frequency,
-      matchCount: pendingMatches.length,
-    });
-    const html = buildSavedSearchAlertHtml({
+    const matchesUrl = buildMatchesUrl({
       siteUrl,
-      searchName: search.name || "Saved search",
-      frequency,
-      listings: pendingMatches,
       filters: search.query_params || {},
+    });
+
+    const digestGroup: SavedSearchDigestGroup = {
+      savedSearchId: search.id,
+      searchName: search.name || "Saved search",
+      matchCount: pendingMatches.length,
+      matchesUrl,
       unsubscribeUrl,
+      listings: pendingMatches,
+    };
+
+    const existingCandidates = candidatesByUser.get(search.user_id) ?? [];
+    existingCandidates.push({
+      search,
+      dedupeKey,
+      anchorPropertyId,
+      digestGroup,
+    });
+    candidatesByUser.set(search.user_id, existingCandidates);
+  }
+
+  result.processedUsers = candidatesByUser.size;
+
+  for (const [userId, candidates] of candidatesByUser.entries()) {
+    const orderedCandidates = [...candidates].sort(
+      (a, b) => b.digestGroup.matchCount - a.digestGroup.matchCount
+    );
+    const sendCandidates = orderedCandidates.slice(0, MAX_SEARCHES_PER_DIGEST);
+    const overflowCandidates = orderedCandidates.slice(MAX_SEARCHES_PER_DIGEST);
+
+    const email = await loadUserEmail({
+      supabase,
+      userId,
+    });
+    if (!email) {
+      for (const candidate of sendCandidates) {
+        await upsertSavedSearchAlertLog({
+          supabase,
+          userId,
+          searchId: candidate.search.id,
+          anchorPropertyId: candidate.anchorPropertyId,
+          dedupeKey: candidate.dedupeKey,
+          status: "failed",
+          error: "Missing recipient email",
+        });
+        result.failed += 1;
+      }
+      continue;
+    }
+
+    const { subject, html } = buildSavedSearchDigestEmail({
+      siteUrl,
+      groups: sendCandidates.map((candidate) => candidate.digestGroup),
+      omittedSearchCount: overflowCandidates.length,
     });
 
     const sendResult = await deps.sendEmail({
@@ -615,41 +636,69 @@ export async function dispatchSavedSearchEmailAlerts(
     });
 
     if (!sendResult.ok) {
-      await upsertSavedSearchAlertLog({
-        supabase,
-        userId: search.user_id,
-        searchId: search.id,
-        anchorPropertyId,
-        dedupeKey,
-        status: "failed",
-        error: sendResult.error || "Email delivery failed",
-      });
-      result.failed += 1;
+      for (const candidate of sendCandidates) {
+        await upsertSavedSearchAlertLog({
+          supabase,
+          userId,
+          searchId: candidate.search.id,
+          anchorPropertyId: candidate.anchorPropertyId,
+          dedupeKey: candidate.dedupeKey,
+          status: "failed",
+          error: sendResult.error || "Email delivery failed",
+        });
+        result.failed += 1;
+      }
       continue;
     }
 
-    await upsertSavedSearchAlertLog({
-      supabase,
-      userId: search.user_id,
-      searchId: search.id,
-      anchorPropertyId,
-      dedupeKey,
-      status: "sent",
-      sentAt: now.toISOString(),
-      error: null,
-    });
+    for (const candidate of sendCandidates) {
+      await upsertSavedSearchAlertLog({
+        supabase,
+        userId,
+        searchId: candidate.search.id,
+        anchorPropertyId: candidate.anchorPropertyId,
+        dedupeKey: candidate.dedupeKey,
+        status: "sent",
+        sentAt: now.toISOString(),
+        error: null,
+      });
 
-    await supabase
-      .from("saved_searches")
-      .update({
-        alert_last_sent_at: now.toISOString(),
-        alert_baseline_at: search.alert_baseline_at ?? now.toISOString(),
-        last_notified_at: now.toISOString(),
-      })
-      .eq("id", search.id)
-      .eq("user_id", search.user_id);
+      await supabase
+        .from("saved_searches")
+        .update({
+          alert_last_sent_at: now.toISOString(),
+          alert_baseline_at: candidate.search.alert_baseline_at ?? now.toISOString(),
+          last_notified_at: now.toISOString(),
+        })
+        .eq("id", candidate.search.id)
+        .eq("user_id", userId);
 
-    result.sent += 1;
+      result.sent += 1;
+    }
+
+    for (const candidate of overflowCandidates) {
+      await upsertSavedSearchAlertLog({
+        supabase,
+        userId,
+        searchId: candidate.search.id,
+        anchorPropertyId: candidate.anchorPropertyId,
+        dedupeKey: candidate.dedupeKey,
+        status: "skipped",
+        sentAt: now.toISOString(),
+        error: "Digest cap reached",
+      });
+      await supabase
+        .from("saved_searches")
+        .update({
+          alert_last_sent_at: now.toISOString(),
+          alert_baseline_at: candidate.search.alert_baseline_at ?? now.toISOString(),
+          last_notified_at: now.toISOString(),
+        })
+        .eq("id", candidate.search.id)
+        .eq("user_id", userId);
+      result.skipped += 1;
+    }
+    result.emailsSent += 1;
   }
 
   return result;

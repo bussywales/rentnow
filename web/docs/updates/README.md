@@ -1,23 +1,44 @@
 # Product Updates Notes Import
 
-Use this folder as the source-of-truth for release notes that feed **Admin → Product updates → Import notes**.
+Use this folder as the source of truth for notes imported from **Admin → Product updates → Import notes**.
 
 ## File naming
 
 - Format: `YYYY-MM-DD-short-slug.md`
 - Example: `2026-02-12-saved-search-email-alerts.md`
 
+## Audience mapping (important)
+
+- Allowed note audiences: `TENANT`, `HOST`, `AGENT`, `ADMIN`
+- Product update audiences are mapped as:
+  - `TENANT` -> `tenant`
+  - `HOST` -> `host`
+  - `AGENT` -> `host`
+  - `ADMIN` -> `admin`
+- This means **AGENT + HOST both publish into product audience `host`**.
+
 ## Required frontmatter
 
-Every importable note must include frontmatter:
+Every importable note must include frontmatter with:
+
+- `title`
+- `audiences`
+- `areas`
+
+Optional:
+
+- `cta_href` (should be a valid in-app route like `/saved-searches`)
+- `published_at`
+- `source_ref`
+
+## Copy/paste template
 
 ```md
 ---
-title: "Saved search email alerts"
+title: "Short feature title"
 audiences:
   - TENANT
   - HOST
-  - AGENT
   - ADMIN
 areas:
   - Search
@@ -25,53 +46,32 @@ areas:
 cta_href: "/saved-searches"
 published_at: "2026-02-12"
 ---
+
+What changed:
+- One short bullet.
+
+Who it affects:
+- Tenant: short impact.
+- Host/Agent: short impact.
+- Admin: short impact.
+
+Where to find it:
+- `/saved-searches`
 ```
 
-Required keys:
+## Import workflow
 
-- `title`
-- `audiences` (one or more of `TENANT`, `HOST`, `AGENT`, `ADMIN`)
-- `areas` (free-form tags)
-
-Optional keys:
-
-- `cta_href`
-- `published_at`
-- `source_ref`
-
-## Body format (recommended)
-
-Keep this short and human:
-
-- What changed
-- Who it affects
-- Where to find it
-
-If audience-specific copy is needed, add mini sections:
-
-```md
-## Tenant
-- ...
-
-## Agent/Landlord
-- ...
-
-## Admin
-- ...
-```
-
-## Import workflow (after each feature merge)
-
-1. Add/update a markdown note in this folder.
+1. Add/update note in this folder.
 2. Open `/admin/product-updates/import`.
-3. Import notes marked **Not imported** or **Needs update**.
-4. Review drafts in `/admin/product-updates`, then publish.
+3. Import notes marked **New since import** or **Needs sync**.
+4. Review drafts in `/admin/product-updates`.
+5. Publish audience-specific updates.
 
-## “New notes since last import” logic
+## Definition of done
 
-- The importer matches notes by filename (`source_ref`).
-- It compares note content hashes (`source_hash`) to detect changes.
-- Import page counts:
-  - **New since import**: required audiences missing in `product_updates`.
-  - **Needs sync**: note exists but hash changed.
-  - **Up to date**: all mapped audiences already synced.
+- [ ] File is named `YYYY-MM-DD-short-slug.md`
+- [ ] Frontmatter is present
+- [ ] Audiences are correct for impacted roles
+- [ ] `cta_href` (if set) points to a valid app route
+- [ ] Import completed in `/admin/product-updates/import`
+- [ ] Drafts reviewed and published in `/admin/product-updates`
