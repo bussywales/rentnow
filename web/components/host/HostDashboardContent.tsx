@@ -203,9 +203,11 @@ export function HostDashboardContent({
   >(initialFeaturedRequestsByProperty);
   const [featuredRequestTarget, setFeaturedRequestTarget] = useState<DashboardListing | null>(null);
   const [featuredRequestSaving, setFeaturedRequestSaving] = useState(false);
+  const [featuredPaymentLoading, setFeaturedPaymentLoading] = useState(false);
   const [featuredRequestToast, setFeaturedRequestToast] = useState<string | null>(null);
   const [featuredRequestErrors, setFeaturedRequestErrors] = useState<Record<string, string | null>>({});
   const [featuredRequestModalError, setFeaturedRequestModalError] = useState<string | null>(null);
+  const [featuredPaymentModalError, setFeaturedPaymentModalError] = useState<string | null>(null);
   const [featuredRequestModalKey, setFeaturedRequestModalKey] = useState(0);
   const [expandedFeaturedRequestNotes, setExpandedFeaturedRequestNotes] = useState<Record<string, boolean>>({});
   const [openFixChecklistByProperty, setOpenFixChecklistByProperty] = useState<Record<string, boolean>>({});
@@ -236,6 +238,17 @@ export function HostDashboardContent({
     () => sorted.filter((item) => selectedIds.includes(item.id)),
     [selectedIds, sorted]
   );
+  const featuredPaymentAllowedForTarget = useMemo(() => {
+    if (!featuredRequestTarget) return false;
+    const request = featuredRequestsByProperty[featuredRequestTarget.id] ?? null;
+    if (!request || request.status !== "approved") return false;
+    const eligibility = getFeaturedEligibility(
+      featuredRequestTarget,
+      featuredRequestSettings,
+      { hasPendingRequest: false }
+    );
+    return eligibility.eligible;
+  }, [featuredRequestSettings, featuredRequestTarget, featuredRequestsByProperty]);
   const allSelected = sorted.length > 0 && selectedIds.length === sorted.length;
 
   const toggleSelectAll = () => {
@@ -365,6 +378,7 @@ export function HostDashboardContent({
 
   const openFeaturedRequestModal = (listing: DashboardListing) => {
     setFeaturedRequestModalError(null);
+    setFeaturedPaymentModalError(null);
     setFeaturedRequestModalKey((prev) => prev + 1);
     setFeaturedRequestTarget(listing);
   };
@@ -373,6 +387,7 @@ export function HostDashboardContent({
     if (featuredRequestSaving) return;
     setFeaturedRequestTarget(null);
     setFeaturedRequestModalError(null);
+    setFeaturedPaymentModalError(null);
   };
 
   const submitFeaturedRequest = async (payload: { durationDays: 7 | 30 | null; note: string | null }) => {
@@ -439,6 +454,50 @@ export function HostDashboardContent({
       setFeaturedRequestErrors((prev) => ({ ...prev, [listing.id]: message }));
     } finally {
       setFeaturedRequestSaving(false);
+    }
+  };
+
+  const proceedToFeaturedPayment = async (payload: { durationDays: 7 | 30 | null }) => {
+    if (!featuredRequestTarget) return;
+    const request = featuredRequestsByProperty[featuredRequestTarget.id] ?? null;
+    const approvedRequestId = request?.status === "approved" ? request.id : null;
+    if (!approvedRequestId) {
+      setFeaturedPaymentModalError("Request must be approved before payment.");
+      return;
+    }
+    const durationDays =
+      payload.durationDays ?? (request?.duration_days === 30 ? 30 : 7);
+    const plan = durationDays === 30 ? "featured_30d" : "featured_7d";
+
+    setFeaturedPaymentLoading(true);
+    setFeaturedPaymentModalError(null);
+
+    try {
+      const response = await fetch("/api/payments/featured/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          propertyId: featuredRequestTarget.id,
+          plan,
+          requestId: approvedRequestId,
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        setFeaturedPaymentModalError(result?.error || "Unable to start payment.");
+        return;
+      }
+      if (!result?.authorization_url) {
+        setFeaturedPaymentModalError("Payment link missing.");
+        return;
+      }
+      window.location.assign(String(result.authorization_url));
+    } catch (error) {
+      setFeaturedPaymentModalError(
+        error instanceof Error ? error.message : "Unable to start payment."
+      );
+    } finally {
+      setFeaturedPaymentLoading(false);
     }
   };
 
@@ -820,7 +879,7 @@ export function HostDashboardContent({
                   {isExpired && (
                     <RenewListingButton propertyId={property.id} size="sm" />
                   )}
-                  {isLive && !featuredActive && !isDemo && (
+                  {isLive && !featuredActive && !isDemo && !featuredRequestSettings.requestsEnabled && (
                     <Button
                       size="sm"
                       variant="secondary"
@@ -836,7 +895,7 @@ export function HostDashboardContent({
                       Featured requests paused
                     </Button>
                   ) : null}
-                  {!featuredActive && featuredRequestSettings.requestsEnabled ? (
+                  {!featuredActive && featuredRequestSettings.requestsEnabled && !featuredRequestApproved ? (
                     featuredRequestPending ? (
                       <>
                         <Button size="sm" variant="secondary" disabled data-testid={`listing-feature-request-pending-${property.id}`}>
@@ -863,6 +922,16 @@ export function HostDashboardContent({
                         </span>
                       </>
                     )
+                  ) : null}
+                  {!featuredActive && featuredRequestSettings.requestsEnabled && featuredRequestApproved ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => openFeaturedRequestModal(property)}
+                      data-testid={`listing-feature-pay-${property.id}`}
+                    >
+                      Pay to activate
+                    </Button>
                   ) : null}
                   {canShowFixToRequest ? (
                     <button
@@ -1003,12 +1072,19 @@ export function HostDashboardContent({
         open={!!featuredRequestTarget}
         listingTitle={featuredRequestTarget?.title}
         submitting={featuredRequestSaving}
+        paymentLoading={featuredPaymentLoading}
         error={featuredRequestModalError}
+        paymentError={featuredPaymentModalError}
         requestsEnabled={featuredRequestSettings.requestsEnabled}
         currency={featuredPricing.currency}
         price7dMinor={featuredPricing.price7dMinor}
         price30dMinor={featuredPricing.price30dMinor}
         reviewSlaDays={featuredPricing.slaDays}
+        canProceedToPayment={
+          featuredRequestSettings.requestsEnabled &&
+          !featuredPaymentLoading &&
+          featuredPaymentAllowedForTarget
+        }
         defaultDurationDays={
           featuredRequestTarget
             ? featuredRequestsByProperty[featuredRequestTarget.id]?.duration_days ?? 7
@@ -1021,6 +1097,7 @@ export function HostDashboardContent({
         }
         onClose={closeFeaturedRequestModal}
         onSubmit={submitFeaturedRequest}
+        onProceedToPayment={proceedToFeaturedPayment}
       />
       {featuredRequestToast ? (
         <div className="fixed bottom-4 right-4 z-40 max-w-sm">

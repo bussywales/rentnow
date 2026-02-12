@@ -50,7 +50,7 @@ export default function AdminSettingsFeaturedRequests({ settings, updatedAt }: P
   const [toast, setToast] = useState<string | null>(null);
 
   const currencyOptions = useMemo(() => {
-    const unique = new Set(["GBP", draft.currency.toUpperCase()]);
+    const unique = new Set(["NGN", "GBP", draft.currency.toUpperCase()]);
     return Array.from(unique);
   }, [draft.currency]);
 
@@ -60,7 +60,7 @@ export default function AdminSettingsFeaturedRequests({ settings, updatedAt }: P
 
     const payload: SettingsState = {
       ...draft,
-      currency: draft.currency.toUpperCase().slice(0, 3) || "GBP",
+      currency: draft.currency.toUpperCase().slice(0, 3) || "NGN",
       price7dMinor: toMinor(price7dMajor),
       price30dMinor: toMinor(price30dMajor),
       reviewSlaDays: clampInt(draft.reviewSlaDays, 1, 30),
@@ -105,8 +105,8 @@ export default function AdminSettingsFeaturedRequests({ settings, updatedAt }: P
     });
   };
 
-  const preview7d = formatFeaturedMinorAmount(toMinor(price7dMajor), draft.currency || "GBP");
-  const preview30d = formatFeaturedMinorAmount(toMinor(price30dMajor), draft.currency || "GBP");
+  const preview7d = formatFeaturedMinorAmount(toMinor(price7dMajor), draft.currency || "NGN");
+  const preview30d = formatFeaturedMinorAmount(toMinor(price30dMajor), draft.currency || "NGN");
   const lastUpdated = Object.values(updatedAt).find(Boolean) ?? null;
 
   return (

@@ -11,16 +11,20 @@ type Props = {
   open: boolean;
   listingTitle?: string | null;
   submitting?: boolean;
+  paymentLoading?: boolean;
   error?: string | null;
+  paymentError?: string | null;
   requestsEnabled: boolean;
   currency: string;
   price7dMinor: number;
   price30dMinor: number;
   reviewSlaDays: number;
+  canProceedToPayment?: boolean;
   defaultDurationDays?: 7 | 30 | null;
   defaultNote?: string | null;
   onClose: () => void;
   onSubmit: (payload: { durationDays: 7 | 30 | null; note: string | null }) => void;
+  onProceedToPayment?: (payload: { durationDays: 7 | 30 | null }) => void;
 };
 
 const NOTE_LIMIT = 280;
@@ -35,16 +39,20 @@ export function HostFeaturedRequestModal({
   open,
   listingTitle,
   submitting = false,
+  paymentLoading = false,
   error = null,
+  paymentError = null,
   requestsEnabled,
   currency,
   price7dMinor,
   price30dMinor,
   reviewSlaDays,
+  canProceedToPayment = false,
   defaultDurationDays = 7,
   defaultNote = null,
   onClose,
   onSubmit,
+  onProceedToPayment,
 }: Props) {
   const [durationPreset, setDurationPreset] = useState<DurationPreset>(() =>
     toPreset(defaultDurationDays)
@@ -57,8 +65,8 @@ export function HostFeaturedRequestModal({
     if (durationPreset === "30") return 30;
     return null;
   }, [durationPreset]);
-  const price7dLabel = formatFeaturedMinorAmount(price7dMinor, currency || "GBP");
-  const price30dLabel = formatFeaturedMinorAmount(price30dMinor, currency || "GBP");
+  const price7dLabel = formatFeaturedMinorAmount(price7dMinor, currency || "NGN");
+  const price30dLabel = formatFeaturedMinorAmount(price30dMinor, currency || "NGN");
 
   if (!open) return null;
 
@@ -83,6 +91,9 @@ export function HostFeaturedRequestModal({
           We&apos;ll review it and schedule featured visibility if approved.
         </p>
         <p className="mt-1 text-xs text-slate-500">Reviewed within ~{reviewSlaDays} days.</p>
+        <p className="mt-1 text-xs text-slate-500">
+          Activation happens automatically after successful payment.
+        </p>
 
         {!requestsEnabled ? (
           <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
@@ -146,11 +157,23 @@ export function HostFeaturedRequestModal({
         </div>
 
         {error ? <p className="mt-3 text-xs text-rose-600">{error}</p> : null}
+        {paymentError ? <p className="mt-1 text-xs text-rose-600">{paymentError}</p> : null}
 
         <div className="mt-5 flex items-center justify-end gap-2">
           <Button size="sm" variant="secondary" onClick={onClose} disabled={submitting}>
             Cancel
           </Button>
+          {canProceedToPayment ? (
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={() => onProceedToPayment?.({ durationDays })}
+              disabled={paymentLoading}
+              data-testid="host-featured-proceed-payment"
+            >
+              {paymentLoading ? "Redirecting…" : "Proceed to payment"}
+            </Button>
+          ) : null}
           <Button
             size="sm"
             onClick={() => onSubmit({ durationDays, note: note.trim() ? note.trim() : null })}

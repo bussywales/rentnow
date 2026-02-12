@@ -50,7 +50,7 @@ export const DEFAULT_FEATURED_ELIGIBILITY_SETTINGS: FeaturedEligibilitySettings 
   requestsEnabled: true,
   price7dMinor: 1999,
   price30dMinor: 4999,
-  currency: "GBP",
+  currency: "NGN",
   reviewSlaDays: 2,
   requiresApprovedListing: true,
   requiresActiveListing: true,
