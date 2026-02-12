@@ -57,21 +57,3 @@ Who it affects:
 
 Where to find it:
 - `/saved-searches`
-```
-
-## Import workflow
-
-1. Add/update note in this folder.
-2. Open `/admin/product-updates/import`.
-3. Import notes marked **New since import** or **Needs sync**.
-4. Review drafts in `/admin/product-updates`.
-5. Publish audience-specific updates.
-
-## Definition of done
-
-- [ ] File is named `YYYY-MM-DD-short-slug.md`
-- [ ] Frontmatter is present
-- [ ] Audiences are correct for impacted roles
-- [ ] `cta_href` (if set) points to a valid app route
-- [ ] Import completed in `/admin/product-updates/import`
-- [ ] Drafts reviewed and published in `/admin/product-updates`
