@@ -4,6 +4,7 @@ import { NavMobileDrawerClient } from "@/components/layout/NavMobileDrawerClient
 import { BrandLogo } from "@/components/branding/BrandLogo";
 import { AdminHelpDrawer } from "@/components/help/AdminHelpDrawer";
 import { AgentHelpDrawer } from "@/components/help/AgentHelpDrawer";
+import { TenantHelpDrawer } from "@/components/help/TenantHelpDrawer";
 import { ProductUpdatesBell } from "@/components/updates/ProductUpdatesBell";
 import { ProductUpdatesOnboarding } from "@/components/updates/ProductUpdatesOnboarding";
 import { MarketSelector } from "@/components/layout/MarketSelector";
@@ -97,6 +98,7 @@ export async function MainNav({
           </div>
           <AdminHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
           <AgentHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
+          <TenantHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
           <ProductUpdatesBell initialAuthed={initialAuthed} />
           <NavAuthClient initialAuthed={initialAuthed} />
           <NavMobileDrawerClient

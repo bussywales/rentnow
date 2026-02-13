@@ -17,6 +17,14 @@ type MenuItem = {
   testId: string;
 };
 
+function getRoleHelpHref(role: ReturnType<typeof normalizeRole>) {
+  if (role === "tenant") return "/help/tenant";
+  if (role === "landlord") return "/help/landlord";
+  if (role === "agent") return "/help/agent";
+  if (role === "admin") return "/help/admin";
+  return "/help";
+}
+
 export function NavHamburgerMenu({ initialAuthed, initialRole = null }: Props) {
   const role = normalizeRole(initialRole);
   const isAuthed = initialAuthed;
@@ -40,7 +48,7 @@ export function NavHamburgerMenu({ initialAuthed, initialRole = null }: Props) {
         { label: "Home", href: "/tenant/home", testId: "menu-item-home" },
         { label: "Browse", href: "/properties", testId: "menu-item-browse" },
         { label: "Saved", href: "/tenant/saved", testId: "menu-item-saved" },
-        { label: "Help Centre", href: "/help", testId: "menu-item-help" },
+        { label: "Help Centre", href: getRoleHelpHref(role), testId: "menu-item-help" },
         { label: "Settings", href: "/tenant/billing", testId: "menu-item-settings" },
       ] satisfies MenuItem[];
     }
@@ -58,7 +66,7 @@ export function NavHamburgerMenu({ initialAuthed, initialRole = null }: Props) {
     return [
       { label: "Dashboard", href: "/host", testId: "menu-item-dashboard" },
       { label: "My listings", href: "/host/listings", testId: "menu-item-listings" },
-      { label: "Help Centre", href: "/help", testId: "menu-item-help" },
+      { label: "Help Centre", href: getRoleHelpHref(role), testId: "menu-item-help" },
       { label: "Settings", href: "/dashboard/settings/verification", testId: "menu-item-settings" },
     ] satisfies MenuItem[];
   }, [isAuthed, role]);

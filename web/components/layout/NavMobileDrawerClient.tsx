@@ -31,6 +31,14 @@ const LOGGED_OUT_LINKS: DrawerLink[] = [
   { href: "/auth/register", label: "Sign up" },
 ];
 
+function getRoleHelpHref(role: UserRole | "super_admin" | null): string {
+  if (role === "tenant") return "/help/tenant";
+  if (role === "landlord") return "/help/landlord";
+  if (role === "agent") return "/help/agent";
+  if (role === "admin" || role === "super_admin") return "/help/admin";
+  return "/help";
+}
+
 export function buildMobileNavLinks(
   links: NavLink[],
   {
@@ -49,9 +57,15 @@ export function buildMobileNavLinks(
   if (isAuthed) {
     next.push({ href: "/dashboard/messages", label: "Messages", showUnread: true });
   }
+  if (isAuthed) {
+    const helpHref = getRoleHelpHref(role);
+    if (!next.find((link) => link.href === helpHref)) {
+      next.push({ href: helpHref, label: "Help Centre" });
+    }
+  }
   if (!next.find((link) => link.href === "/support")) {
     if (role !== "admin" && role !== "super_admin") {
-      next.push({ href: "/support", label: "Support" });
+      next.push({ href: "/support", label: "Contact support" });
     }
   }
   return next;
