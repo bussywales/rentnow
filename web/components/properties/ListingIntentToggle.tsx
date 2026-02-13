@@ -11,17 +11,15 @@ import {
   setIntentPersist,
 } from "@/lib/search-intent";
 import { cn } from "@/components/ui/cn";
+import {
+  getIntentModeHint,
+  LISTING_INTENT_TOGGLE_OPTIONS,
+} from "@/lib/properties/listing-intent-ui";
 
 type Props = {
   currentIntent: ListingIntentFilter;
   hasUrlIntent: boolean;
 };
-
-const OPTIONS: Array<{ value: ListingIntentFilter; label: string }> = [
-  { value: "rent", label: "For rent" },
-  { value: "buy", label: "For sale" },
-  { value: "all", label: "All" },
-];
 
 export function ListingIntentToggle({ currentIntent, hasUrlIntent }: Props) {
   const router = useRouter();
@@ -30,6 +28,7 @@ export function ListingIntentToggle({ currentIntent, hasUrlIntent }: Props) {
   const urlIntent = parseIntent(searchParams.get("intent"));
   const hasSavedSearchContext = searchParams.has("savedSearchId");
   const activeIntent = urlIntent ?? currentIntent;
+  const intentHint = getIntentModeHint(activeIntent);
 
   const updateIntent = (intent: ListingIntentFilter, mode: "push" | "replace") => {
     const next = new URLSearchParams(searchParams.toString());
@@ -71,35 +70,42 @@ export function ListingIntentToggle({ currentIntent, hasUrlIntent }: Props) {
   }, [hasUrlIntent, urlIntent, currentIntent, hasSavedSearchContext]);
 
   return (
-    <div
-      className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm"
-      role="tablist"
-      aria-label="Listing intent"
-    >
-      {OPTIONS.map((option) => {
-        const selected = activeIntent === option.value;
-        return (
-          <button
-            key={option.value}
-            type="button"
-            role="tab"
-            aria-selected={selected}
-            className={cn(
-              "rounded-xl px-3 py-1.5 text-sm font-medium transition",
-              selected
-                ? "bg-slate-900 text-white shadow-sm"
-                : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
-            )}
-            onClick={() => {
-              if (option.value === activeIntent) return;
-              setIntentPersist(option.value);
-              updateIntent(option.value, "push");
-            }}
-          >
-            {option.label}
-          </button>
-        );
-      })}
+    <div className="space-y-2">
+      <div
+        className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm"
+        role="tablist"
+        aria-label="Listing intent"
+      >
+        {LISTING_INTENT_TOGGLE_OPTIONS.map((option) => {
+          const selected = activeIntent === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              className={cn(
+                "rounded-xl px-3 py-1.5 text-sm font-medium transition",
+                selected
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+              )}
+              onClick={() => {
+                if (option.value === activeIntent) return;
+                setIntentPersist(option.value);
+                updateIntent(option.value, "push");
+              }}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+      {intentHint ? (
+        <p className="text-xs text-slate-500" data-testid="intent-mode-hint">
+          {intentHint}
+        </p>
+      ) : null}
     </div>
   );
 }

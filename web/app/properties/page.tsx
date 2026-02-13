@@ -40,6 +40,10 @@ import { buildMarketHubHref, getMarketHubs } from "@/lib/market/hubs";
 import { INTENT_COOKIE_NAME, parseIntent, resolveIntent } from "@/lib/search-intent";
 import { MarketHubLink } from "@/components/market/MarketHubLink";
 import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
+import {
+  buildIntentHref,
+  getIntentRecoveryOptions,
+} from "@/lib/properties/listing-intent-ui";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
   searchParams?: SearchParams | Promise<SearchParams>;
@@ -356,6 +360,33 @@ export default async function PropertiesPage({ searchParams }: Props) {
     href: buildMarketHubHref(hub, { intent: resolvedIntent }),
   }));
   const showMarketHubSuggestions = !hasFilters && marketHubLinks.length > 0;
+  const intentRecoveryBaseParams = buildSearchParams(resolvedSearchParams, {
+    success: null,
+  });
+  const intentRecoveryOptions = getIntentRecoveryOptions(resolvedIntent);
+  const intentRecoveryCard = intentRecoveryOptions.length ? (
+    <div
+      className="rounded-2xl border border-sky-200 bg-sky-50/80 px-4 py-3 text-sm text-sky-900 shadow-sm"
+      data-testid="intent-recovery-card"
+    >
+      <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-sky-700">No results in this mode</p>
+      <p className="mt-1 text-sm text-sky-800">
+        Widen your browse mode while keeping the rest of your filters.
+      </p>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {intentRecoveryOptions.map((option) => (
+          <Link
+            key={option.intent}
+            href={buildIntentHref("/properties", intentRecoveryBaseParams, option.intent)}
+          >
+            <Button size="sm" variant="secondary">
+              {option.label}
+            </Button>
+          </Link>
+        ))}
+      </div>
+    </div>
+  ) : null;
   const includeDemoListings = includeDemoListingsForViewer({ viewerRole: role });
   const apiBaseUrl = await getApiBaseUrl();
   const listParams = buildSearchParams(resolvedSearchParams, {
@@ -560,12 +591,13 @@ export default async function PropertiesPage({ searchParams }: Props) {
   if (!properties.length && !otherOptionProperties.length) {
     if (savedSearchId && savedSearch) {
       const editHref = `/dashboard/saved-searches`;
-    return (
-      <div
-        className="mx-auto flex max-w-4xl flex-col gap-4 px-4"
-        data-testid="properties-empty-state"
-      >
+      return (
+        <div
+          className="mx-auto flex max-w-4xl flex-col gap-4 px-4"
+          data-testid="properties-empty-state"
+        >
           {savedSearchNoticeNode}
+          {intentRecoveryCard}
           <ErrorState
             title="No matches yet for this search"
             description="No homes match yet — try widening your filters."
@@ -632,6 +664,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
         data-testid="properties-empty-state"
       >
         {savedSearchNoticeNode}
+        {!isFetchError ? intentRecoveryCard : null}
         <ErrorState
           title={title}
           description={description}
