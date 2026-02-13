@@ -17,106 +17,86 @@ type Props = {
   initialRole?: string | null;
 };
 
-const GROUPS: Array<{
+type DrawerGroup = {
   title: string;
   description: string;
   links: Array<{ label: string; href: string; meta: string }>;
-}> = [
-  {
-    title: "Getting started",
-    description: "Set up your workspace and key workflows quickly.",
-    links: [
-      { label: "Agent Help Centre overview", href: "/help/agents#overview", meta: "Start here" },
-      { label: "Most common tasks", href: "/help/agents#common-tasks", meta: "Checklist" },
-    ],
-  },
-  {
-    title: "Listings & publishing",
-    description: "Publish stronger listings and keep quality high.",
-    links: [
-      {
-        label: "Publish a listing",
-        href: "/help/agents/articles/how-to-publish-a-listing",
-        meta: "Step guide",
-      },
-      {
-        label: "Creating demo listings",
-        href: "/help/agents/articles/creating-demo-listings",
-        meta: "Demo workflow",
-      },
-      {
-        label: "Listings & publishing",
-        href: "/help/agents#listings-publishing",
-        meta: "Best practices",
-      },
-    ],
-  },
-  {
-    title: "Viewings & enquiries",
-    description: "Handle leads, viewings, and follow-ups faster.",
-    links: [
-      {
-        label: "Request viewings and respond to leads",
-        href: "/help/agents/articles/how-to-request-viewings-and-respond-to-leads",
-        meta: "Guide",
-      },
-      { label: "Viewings & leads", href: "/help/agents#viewings-leads", meta: "Workflow" },
-    ],
-  },
-  {
-    title: "Referrals",
-    description: "Grow referral activity with clear active milestones.",
-    links: [
-      {
-        label: "How to share your referral link",
-        href: "/help/agents/articles/how-to-share-your-referral-link",
-        meta: "Share tips",
-      },
-      {
-        label: "Understanding Active referrals",
-        href: "/help/agents/articles/understanding-active-referrals",
-        meta: "Definitions",
-      },
-    ],
-  },
-  {
-    title: "Billing & credits",
-    description: "Understand credits, usage, and billing controls.",
-    links: [
-      {
-        label: "How to use credits",
-        href: "/help/agents/articles/how-to-use-credits",
-        meta: "Listings + featured",
-      },
-      { label: "Credits & billing", href: "/help/agents#credits-billing", meta: "Policy" },
-    ],
-  },
-  {
-    title: "Safety & reporting",
-    description: "Protect your account and report suspicious behavior.",
-    links: [{ label: "Safety & reporting", href: "/help/agents#safety-reporting", meta: "Trust" }],
-  },
-  {
-    title: "Troubleshooting",
-    description: "Fix common issues before contacting support.",
-    links: [
-      {
-        label: "Troubleshooting common issues",
-        href: "/help/agents/articles/troubleshooting-common-issues",
-        meta: "Fixes",
-      },
-      {
-        label: "Escalation checklist",
-        href: "/help/agents#escalation-checklist",
-        meta: "Before support",
-      },
-    ],
-  },
-];
+};
+
+function buildGroups(roleLabel: "Agent" | "Landlord", rolePath: "/help/agent" | "/help/landlord"): DrawerGroup[] {
+  return [
+    {
+      title: "Getting started",
+      description: "Set up your workspace and key workflows quickly.",
+      links: [
+        { label: `${roleLabel} Help Centre overview`, href: rolePath, meta: "Start here" },
+        { label: `${roleLabel} getting started`, href: `${rolePath}/getting-started`, meta: "Checklist" },
+      ],
+    },
+    {
+      title: "Listings & publishing",
+      description: "Publish stronger listings and keep quality high.",
+      links: [
+        {
+          label: `${roleLabel} core workflows`,
+          href: `${rolePath}/core-workflows`,
+          meta: "Workflow",
+        },
+        {
+          label: "Creating demo listings",
+          href: "/help/agents/articles/creating-demo-listings",
+          meta: "Demo workflow",
+        },
+      ],
+    },
+    {
+      title: "Featured & payments",
+      description: "Request featured placement and activate after approval.",
+      links: [
+        {
+          label: `${roleLabel} featured and payments`,
+          href: `${rolePath}/featured-and-payments`,
+          meta: "Guide",
+        },
+      ],
+    },
+    {
+      title: "Referrals",
+      description: "Grow referral activity with clear active milestones.",
+      links: [
+        { label: "Referral FAQ", href: "/help/referrals#for-agents-hosts", meta: "FAQ" },
+        {
+          label: "How to share your referral link",
+          href: "/help/agents/articles/how-to-share-your-referral-link",
+          meta: "Share tips",
+        },
+      ],
+    },
+    {
+      title: "Troubleshooting",
+      description: "Fix common issues before contacting support.",
+      links: [
+        {
+          label: `${roleLabel} troubleshooting`,
+          href: `${rolePath}/troubleshooting`,
+          meta: "Fixes",
+        },
+        {
+          label: `${roleLabel} success tips`,
+          href: `${rolePath}/success-tips`,
+          meta: "Best practices",
+        },
+      ],
+    },
+  ];
+}
 
 export function AgentHelpDrawer({ initialAuthed, initialRole = null }: Props) {
   const role = normalizeRole(initialRole);
   const canShow = initialAuthed && (role === "agent" || role === "landlord");
+  const roleLabel: "Agent" | "Landlord" = role === "landlord" ? "Landlord" : "Agent";
+  const rolePath: "/help/agent" | "/help/landlord" = role === "landlord" ? "/help/landlord" : "/help/agent";
+  const groups = buildGroups(roleLabel, rolePath);
   const [open, setOpen] = useState(false);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
@@ -249,10 +229,10 @@ export function AgentHelpDrawer({ initialAuthed, initialRole = null }: Props) {
                       <div>
                         <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Help</p>
                         <h2 id="help-drawer-title" className="text-lg font-semibold text-slate-900">
-                          Help Centre
+                          {roleLabel} Help Centre
                         </h2>
                         <p className="text-xs text-slate-500">
-                          Guides for browsing, listings, viewings, saved searches, referrals, and billing.
+                          Guides for listings, featured workflows, referrals, and operational troubleshooting.
                         </p>
                       </div>
                       <Button ref={closeButtonRef} variant="secondary" size="sm" onClick={closeDrawer}>
@@ -262,7 +242,7 @@ export function AgentHelpDrawer({ initialAuthed, initialRole = null }: Props) {
 
                     <div className="flex-1 overflow-y-auto px-6 py-5">
                       <div className="space-y-5">
-                        {GROUPS.map((group) => (
+                        {groups.map((group) => (
                           <section key={group.title} className="space-y-2">
                             <div>
                               <h3 className="text-sm font-semibold text-slate-900">{group.title}</h3>
@@ -289,11 +269,11 @@ export function AgentHelpDrawer({ initialAuthed, initialRole = null }: Props) {
                     <div className="border-t border-slate-200 px-6 py-4">
                       <div className="flex flex-wrap gap-2">
                         <Link
-                          href="/help/articles"
+                          href={rolePath}
                           onClick={closeDrawer}
                           className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                         >
-                          Browse all articles
+                          Open {roleLabel} help
                         </Link>
                         <Link
                           href="/help/referrals#for-agents-hosts"
