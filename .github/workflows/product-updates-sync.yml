@@ -1,0 +1,82 @@
+name: Product Updates Sync
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: product-updates-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call product updates sync endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ]; then
+            echo "Missing required secret: APP_URL"
+            exit 1
+          fi
+
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "Missing required secret: CRON_SECRET"
+            exit 1
+          fi
+
+          SYNC_URL="${APP_URL%/}/api/admin/product-updates/sync"
+          echo "Sync URL: ${SYNC_URL}"
+
+          attempts=3
+          sleep_seconds=10
+          attempt=1
+          success=0
+          response_file="$(mktemp)"
+          trap 'rm -f "${response_file}"' EXIT
+
+          while [ "${attempt}" -le "${attempts}" ]; do
+            echo "Attempt ${attempt}/${attempts}"
+
+            if ! http_code="$(curl -sS \
+              -o "${response_file}" \
+              -w "%{http_code}" \
+              -X POST "${SYNC_URL}" \
+              -H "x-cron-secret: ${CRON_SECRET}" \
+              -H "content-type: application/json" \
+              --data '{}')"; then
+              http_code="curl_error"
+            fi
+
+            echo "HTTP status: ${http_code}"
+            echo "Response body (first 2048 bytes):"
+            head -c 2048 "${response_file}" || true
+            echo ""
+
+            if [[ "${http_code}" =~ ^[0-9]{3}$ ]] && [ "${http_code}" -ge 200 ] && [ "${http_code}" -lt 300 ]; then
+              success=1
+              break
+            fi
+
+            if [ "${attempt}" -lt "${attempts}" ]; then
+              echo "Request failed; retrying in ${sleep_seconds}s..."
+              sleep "${sleep_seconds}"
+            fi
+
+            attempt=$((attempt + 1))
+          done
+
+          if [ "${success}" -ne 1 ]; then
+            echo "Product updates sync failed after ${attempts} attempts."
+            exit 1
+          fi

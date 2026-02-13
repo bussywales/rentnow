@@ -35,8 +35,17 @@ type Props = {
 
 export default function AdminProductUpdatesImportClient({ notes, invalidNotes, summary }: Props) {
   const [pending, startTransition] = useTransition();
+  const [syncing, startSyncTransition] = useTransition();
   const [importing, setImporting] = useState<string | null>(null);
   const [status, setStatus] = useState<Record<string, string>>({});
+  const [syncStatus, setSyncStatus] = useState<string>("");
+
+  const [syncSummary, setSyncSummary] = useState<{
+    created: number;
+    updated: number;
+    unchanged: number;
+    skippedInvalid: number;
+  } | null>(null);
 
   const handleImport = (filename: string) => {
     setImporting(filename);
@@ -56,47 +65,66 @@ export default function AdminProductUpdatesImportClient({ notes, invalidNotes, s
     });
   };
 
-  if (!notes.length) {
-    return (
-      <div className="space-y-4">
-        {invalidNotes.length > 0 && (
-          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-            <p className="font-semibold">Some update notes could not be parsed.</p>
-            <p className="mt-1 text-xs text-amber-800">
-              Fix frontmatter in these files, then retry import.
-            </p>
-            <ul className="mt-2 space-y-1 text-xs">
-              {invalidNotes.map((note) => (
-                <li key={note.filename}>
-                  <code className="font-semibold">{note.filename}</code>: {note.error}
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
-          No valid update notes found in <code className="font-semibold">web/docs/updates</code>.
-        </div>
-      </div>
-    );
-  }
+  const handleSync = () => {
+    setSyncStatus("");
+    startSyncTransition(async () => {
+      const response = await fetch("/api/admin/product-updates/sync", { method: "POST" });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data?.ok) {
+        setSyncStatus(data?.error || "Sync failed.");
+        return;
+      }
+      setSyncSummary({
+        created: Number(data.created || 0),
+        updated: Number(data.updated || 0),
+        unchanged: Number(data.unchanged || 0),
+        skippedInvalid: Number(data.skippedInvalid || 0),
+      });
+      setSyncStatus("Sync completed.");
+    });
+  };
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm md:grid-cols-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
         <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">New since import</p>
-          <p className="text-lg font-semibold text-slate-900">{summary.newSinceImport}</p>
+          <p className="text-sm font-semibold text-slate-900">Docs sync</p>
+          <p className="text-xs text-slate-600">
+            Create/update drafts from all markdown notes in <code>web/docs/updates</code>.
+          </p>
+          {syncSummary ? (
+            <p className="mt-1 text-xs text-slate-600">
+              Created {syncSummary.created}, updated {syncSummary.updated}, unchanged {syncSummary.unchanged}, skipped invalid {syncSummary.skippedInvalid}.
+            </p>
+          ) : null}
+          {syncStatus ? <p className="mt-1 text-xs text-slate-600">{syncStatus}</p> : null}
         </div>
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Needs sync</p>
-          <p className="text-lg font-semibold text-slate-900">{summary.needsSync}</p>
-        </div>
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Up to date</p>
-          <p className="text-lg font-semibold text-slate-900">{summary.upToDate}</p>
-        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          disabled={syncing || pending || importing !== null}
+          onClick={handleSync}
+        >
+          {syncing ? "Syncing…" : "Sync from docs (create/update drafts)"}
+        </Button>
       </div>
+
+      {notes.length > 0 ? (
+        <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm md:grid-cols-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">New since import</p>
+            <p className="text-lg font-semibold text-slate-900">{summary.newSinceImport}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Needs sync</p>
+            <p className="text-lg font-semibold text-slate-900">{summary.needsSync}</p>
+          </div>
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Up to date</p>
+            <p className="text-lg font-semibold text-slate-900">{summary.upToDate}</p>
+          </div>
+        </div>
+      ) : null}
 
       {invalidNotes.length > 0 && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
@@ -113,6 +141,12 @@ export default function AdminProductUpdatesImportClient({ notes, invalidNotes, s
           </ul>
         </div>
       )}
+
+      {notes.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
+          No valid update notes found in <code className="font-semibold">web/docs/updates</code>.
+        </div>
+      ) : null}
 
       {notes.map((note) => {
         const missingAudiences = note.audiences.filter(

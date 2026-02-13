@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import Link from "next/link";
 import { Callout } from "@/components/help/articles/Callout";
 import { Steps } from "@/components/help/articles/Steps";
 import { YouTube } from "@/components/help/articles/YouTube";
@@ -20,9 +21,62 @@ function renderParagraphChunk(lines: string[], key: string): ReactNode {
   if (!text) return null;
   return (
     <p key={key} className="text-sm leading-7 text-slate-700">
-      {text}
+      {renderInlineMarkdown(text, key)}
     </p>
   );
+}
+
+function renderInlineMarkdown(text: string, keyPrefix: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+  let lastIndex = 0;
+  let index = 0;
+
+  for (const match of text.matchAll(linkRegex)) {
+    const matched = match[0] || "";
+    const label = (match[1] || "").trim();
+    const href = (match[2] || "").trim();
+    const start = match.index ?? 0;
+
+    if (start > lastIndex) {
+      nodes.push(text.slice(lastIndex, start));
+    }
+
+    if (!label || !href) {
+      nodes.push(matched);
+    } else if (href.startsWith("/") || href.startsWith("#")) {
+      nodes.push(
+        <Link
+          key={`${keyPrefix}-link-${index}`}
+          href={href}
+          className="font-semibold text-slate-900 underline underline-offset-4"
+        >
+          {label}
+        </Link>
+      );
+    } else {
+      nodes.push(
+        <a
+          key={`${keyPrefix}-link-${index}`}
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="font-semibold text-slate-900 underline underline-offset-4"
+        >
+          {label}
+        </a>
+      );
+    }
+
+    lastIndex = start + matched.length;
+    index += 1;
+  }
+
+  if (lastIndex < text.length) {
+    nodes.push(text.slice(lastIndex));
+  }
+
+  return nodes.length > 0 ? nodes : [text];
 }
 
 function renderListBlock(
@@ -40,7 +94,7 @@ function renderListBlock(
     return (
       <ul key={key} className="list-disc space-y-1 pl-5 text-sm leading-7 text-slate-700">
         {items.map((item, index) => (
-          <li key={`${key}-${index}`}>{item}</li>
+          <li key={`${key}-${index}`}>{renderInlineMarkdown(item, `${key}-${index}`)}</li>
         ))}
       </ul>
     );
@@ -49,7 +103,7 @@ function renderListBlock(
   return (
     <ol key={key} className="list-decimal space-y-1 pl-5 text-sm leading-7 text-slate-700">
       {items.map((item, index) => (
-        <li key={`${key}-${index}`}>{item}</li>
+        <li key={`${key}-${index}`}>{renderInlineMarkdown(item, `${key}-${index}`)}</li>
       ))}
     </ol>
   );

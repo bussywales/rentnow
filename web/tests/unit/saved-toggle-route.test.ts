@@ -18,7 +18,7 @@ function createSavedPropertiesSupabaseStub() {
           return { error: null };
         },
         delete: () => ({
-          eq: (_column: string, _value: string) => ({
+          eq: () => ({
             eq: (column: string, value: string) => {
               if (column === "property_id") deletedListingId = value;
               deleteCount += 1;
