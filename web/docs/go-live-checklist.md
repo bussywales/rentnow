@@ -1,174 +1,150 @@
----
-# PropatyHub Go-Live Runbook (Internal)
+# PropatyHub Go-Live Checklist (Internal)
 
-**Purpose:** A fast, repeatable checklist to validate PropatyHub is safe to ship (or re-ship) without breaking core flows.  
-**Scope:** Web app + Supabase + settings toggles.  
-**Time to run:** ~30–60 minutes.
+One-page launch runbook for Vercel + Supabase releases.
 
----
+## 1) Purpose + release owner checklist
 
-## 0) Before you start
+- Release owner:
+- Target commit/tag:
+- Deployment environment:
+- Launch window (UTC):
+- Go/no-go approver:
 
-- ✅ You have access to:
-  - Production URL
-  - Supabase project + migrations history
-  - Admin account + 1 tenant + 1 agent/landlord test account
-- ✅ You know the target release (commit/tag) you’re deploying.
+Before go-live:
 
----
+- Confirm `npm run lint`, `npm test`, `npm run build` pass on the release commit.
+- Confirm admin access to `/admin/system`, `/admin/alerts`, `/admin/payments`.
+- Confirm one tenant and one host/agent smoke account are available.
 
-## 1) Build & environment sanity
+## 2) Required Vercel env vars
 
-- ✅ Deployer runtime is Node **20+**
-- ✅ `npm run build` succeeds in CI/deploy environment
-- ✅ Latest Supabase migrations applied to production (verify timestamps match repo)
-- ✅ Secrets are server-side only (no service role keys exposed to client)
+Supabase:
 
-**Fail = stop launch.**
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `SUPABASE_SERVICE_ROLE_KEY`
 
----
+Auth/session:
 
-## 2) Role landings & navigation (must pass)
+- `NEXT_PUBLIC_SITE_URL` (or equivalent canonical site URL)
+- Any auth callback URLs used by the environment
 
-### Role landings
-- **Admin** lands on: `/admin`
-- **Tenant** lands on: `/tenant/home`
-- **Agent/Landlord** lands on: `/home`
+Email (Resend):
 
-### Navigation checks (logged in as agent/landlord)
-- Menu includes:
-  - **Home**
-  - **Collections**
-  - **Saved searches**
-  - **Referrals**
-- ✅ `/saved-searches` redirects to correct role page
+- `RESEND_API_KEY`
+- `RESEND_FROM` (recommended)
 
-**Fail = fix before launch** (bad UX + support tickets).
+Cron/jobs:
 
----
+- `CRON_SECRET`
 
-## 3) Demo listings behaviour (prod expectation)
+Payments (Paystack):
 
-In production:
-- ✅ Admin can see demo listings
-- ✅ Non-admin browse/search does **not** include demo listings
+- `PAYSTACK_SECRET_KEY`
+- `PAYSTACK_PUBLIC_KEY` (if checkout flow needs it)
+- `PAYSTACK_WEBHOOK_SECRET` (recommended)
 
-Admin settings:
-- `demo_badge_enabled` set as desired (admin-only visibility ok)
-- `demo_watermark_enabled` set as desired (admin-only visibility ok)
+Flags/settings controls:
 
----
+- `ALERTS_EMAIL_ENABLED` (optional override)
+- `NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA` or `VERCEL_GIT_COMMIT_SHA` (optional, shown in admin system health)
 
-## 4) Trust & verification (avoid “Identity pending everywhere”)
+## 3) Supabase migrations checklist
 
-Admin Settings → Trust/Verification requirements:
-- ✅ `verification_require_email` = **ON**
-- ⛔ `verification_require_phone` = **OFF** (until SMS provider live)
-- ⛔ `verification_require_bank` = **OFF** (until bank verification live)
+- Compare latest migration in repo (`/web/supabase/migrations`) with production migration history in Supabase dashboard.
+- Ensure latest payment ops migrations exist in production, including:
+  - `payments` / `featured_purchases`
+  - `payment_webhook_events`
+  - `receipt_sent_at` on `payments`
 
-Spot checks:
-- ✅ Email-verified user shows **VERIFIED** (not “Identity pending”)
-- ✅ Trust help page loads: `/help/trust`
+If drift is found:
 
----
+1. Pause launch.
+2. Apply missing migrations in order.
+3. Re-run smoke tests before resuming launch.
 
-## 5) Public sharing readiness (virality baseline)
+## 4) Cron/jobs checklist
 
-### Collections share
-1. Create or open a collection
-2. Share → open link in incognito
-3. ✅ `/collections/[shareId]` loads read-only
-4. ✅ WhatsApp preview shows title/image (OG metadata works)
+Payments reconcile (Vercel cron target):
 
-### Listing share (public)
-1. Go to `/properties`
-2. Click Share on a card → **Copy link**
-3. ✅ Clipboard contains `/properties/[id]`
-4. Click Share → **WhatsApp**
-5. ✅ WhatsApp intent opens with message + URL
-6. Go to `/properties/[id]` and repeat (detail share button)
+- `POST /api/jobs/payments/reconcile`
+- Header: `x-cron-secret: <CRON_SECRET>`
+- Confirm job returns summary JSON and does not error.
 
-### Agent page share
-1. Open `/agents/[slug]` logged out
-2. Click **Share profile**
-3. ✅ Copy/WhatsApp/Native share works
+Alerts runner:
 
----
+- `POST /api/admin/alerts/run` (admin session or cron secret if configured)
+- Test email path explicitly with Resend:
+  - `POST /api/admin/alerts/test`
 
-## 6) Saved searches (retention foundation)
+## 5) Smoke tests
 
-1. Go to `/properties`
-2. Apply filters
-3. Click **Follow this search**
-4. ✅ Toast confirms follow + link to “View saved searches”
-5. Open saved searches page:
-   - Tenant: `/tenant/saved-searches`
-   - Agent/Landlord: `/dashboard/saved-searches`
-6. ✅ Toggle Pause/Resume works
-7. ✅ “View matches” returns to `/properties` with filters applied
+Logged-out:
 
----
+- `/`, `/properties`, `/collections/[shareId]`, `/agents/[slug]` load without auth errors.
 
-## 7) Referrals readiness (monetisation engine — can be “dark launched”)
+Tenant:
 
-Even with no real payments yet:
+- Lands on `/tenant/home`.
+- Saved searches page works and can follow/search.
 
-### Agent/Landlord
-- ✅ `/dashboard/referrals` loads
-- ✅ Default campaigns exist for a fresh account
-- ✅ Tracked link click increases “clicks”
-- ✅ Capture flow increases “captures”
+Host/Agent:
 
-### Admin (ops pages must not crash)
-- ✅ `/admin/referrals/attribution` loads and is empty-safe
-- ✅ `/admin/referrals/payouts` loads and is empty-safe (filters don’t crash)
+- Lands on `/home`.
+- `/host` loads listings.
+- Featured/payment status cards render.
 
-> Note: Cashout/payouts can stay OFF until revenue begins; ops surfaces must still be stable.
+Admin:
 
----
+- `/admin/system` shows env status + settings snapshot.
+- `/admin/alerts` and `/admin/payments` load without crashes.
+- Payments reconcile actions return valid summaries.
 
-## 8) Legal + trust surfaces
+## 6) Safe launch toggles
 
-- ✅ Marketplace disclaimer can be acknowledged (“Got it”) and stays dismissed
-- ✅ Terms / Privacy / Disclaimer pages load
-- ✅ Mobile footer looks correct (links accessible; “More” works)
+Use `/admin/settings` as primary safety controls:
 
----
+- `alerts_email_enabled`
+- `alerts_kill_switch_enabled`
+- `featured_requests_enabled`
+- `featured_listings_enabled`
+- `verification_require_email`
+- `verification_require_phone`
+- `verification_require_bank`
+- `default_market_country`
+- `default_market_currency`
+- `market_auto_detect_enabled`
+- `market_selector_enabled`
 
-## 9) Performance / “no embarrassment” checks (mobile-first)
+## 7) Rollback plan
 
-On iPhone-width viewport:
-- ✅ Home feed loads without layout jumps
-- ✅ Cards do not overflow (price/badges/buttons)
-- ✅ Images have fallbacks (no broken thumbnails)
-- ✅ Map does not show a broken state if coordinates are missing  
-  - Preferred: hide map or show friendly message (not “no coordinates”)
+If launch issues occur:
 
----
+1. Disable risky systems first (toggle-based):
+   - Enable `alerts_kill_switch_enabled`
+   - Disable `featured_requests_enabled` and/or `featured_listings_enabled`
+2. Revert to last stable Vercel deployment.
+3. Validate stability:
+   - `/admin/system` reflects expected env/settings
+   - `/admin/alerts` and `/admin/payments` stop erroring
+4. Open incident note with request IDs, affected routes, and timeline.
 
-## 10) Recommended launch toggles (default stance)
+## 8) Incident triage quick steps
 
-- Share tracking: **ON**
-- Leaderboard: **ON** (initials-only preferred)
-- Payouts by jurisdiction: **OFF** until real revenue
-- Requires manual approval (cashouts): **ON** for first month
-- Verification requirements: **email-only** (phone/bank OFF)
+Start here:
 
----
+- `/admin/system` (env + setting readiness)
+- `/admin/alerts` (alert run state and failures)
+- `/admin/payments` (stuck payments, receipts pending, webhook events)
 
-## Rollback rule
+Then:
 
-If any “must pass” section fails:
-- Stop launch
-- Roll back to last known-good tag/commit
-- Log issue + fix forward
+- Check Vercel function logs for failing route handlers.
+- Check Supabase logs/query errors for RLS or missing column issues.
+- Check webhook event rows for invalid signatures or processing errors.
 
----
+Payments note:
 
-## Release record (fill in)
-
-- Release date:
-- Commit/tag:
-- Checked by:
-- Notes/issues found:
----
+- Paystack live verification can be deferred during controlled rollout.
+- Keep payments reconcile enabled for reliability.
+- If needed, pause payment activation by disabling featured request flow via settings until payment paths are verified.
