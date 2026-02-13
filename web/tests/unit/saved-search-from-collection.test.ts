@@ -27,8 +27,22 @@ function makeProperty(overrides: Partial<Property>): Property {
 
 void test("deriveSavedSearchFiltersFromCollectionListings prefers exact bedrooms and shared traits", () => {
   const filters = deriveSavedSearchFiltersFromCollectionListings([
-    makeProperty({ city: "Abuja", bedrooms: 2, price: 1200, rental_type: "long_term", furnished: true }),
-    makeProperty({ city: "Abuja", bedrooms: 2, price: 1800, rental_type: "long_term", furnished: true }),
+    makeProperty({
+      city: "Abuja",
+      bedrooms: 2,
+      price: 1200,
+      rental_type: "long_term",
+      listing_intent: "rent",
+      furnished: true,
+    }),
+    makeProperty({
+      city: "Abuja",
+      bedrooms: 2,
+      price: 1800,
+      rental_type: "long_term",
+      listing_intent: "rent",
+      furnished: true,
+    }),
   ]);
 
   assert.equal(filters.city, "Abuja");
@@ -37,6 +51,7 @@ void test("deriveSavedSearchFiltersFromCollectionListings prefers exact bedrooms
   assert.equal(filters.bedrooms, 2);
   assert.equal(filters.bedroomsMode, "exact");
   assert.equal(filters.rentalType, "long_term");
+  assert.equal(filters.intent, "rent");
   assert.equal(filters.furnished, true);
 });
 
@@ -52,6 +67,7 @@ void test("deriveSavedSearchFiltersFromCollectionListings falls back to minimum 
   assert.equal(filters.bedroomsMode, "minimum");
   assert.equal(filters.minPrice, 900);
   assert.equal(filters.maxPrice, 2500);
+  assert.equal(filters.intent, "all");
 });
 
 void test("buildSavedSearchNameFromCollection trims and caps output", () => {

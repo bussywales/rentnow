@@ -1,4 +1,5 @@
 import type { ParsedSearchFilters, RentalType } from "@/lib/types";
+import { parseIntent } from "@/lib/search-intent";
 
 export type SavedSearchMatchFilters = {
   city: string | null;
@@ -8,6 +9,7 @@ export type SavedSearchMatchFilters = {
   maxPrice: number | null;
   bedrooms: number | null;
   bedroomsMode: "exact" | "minimum";
+  listingIntent: "rent" | "buy" | null;
   rentalType: RentalType | null;
 };
 
@@ -54,9 +56,20 @@ export function normalizeSavedSearchFilters(
   filters: Record<string, unknown>
 ): Record<string, unknown> {
   const normalized: Record<string, unknown> = {};
+  const normalizedIntent = parseIntent(
+    typeof filters.intent === "string"
+      ? filters.intent
+      : typeof filters.listingIntent === "string"
+      ? filters.listingIntent
+      : null
+  );
   for (const [key, value] of Object.entries(filters)) {
     if (value === undefined) continue;
+    if (key === "listingIntent") continue;
     normalized[key] = value;
+  }
+  if (normalizedIntent) {
+    normalized.intent = normalizedIntent;
   }
   return normalized;
 }
@@ -84,6 +97,19 @@ export function parseSavedSearchMatchFilters(
   const maxPrice = readNumber(filters.maxPrice);
   const bedrooms = readNumber(filters.bedrooms);
   const bedroomsMode = filters.bedroomsMode === "minimum" ? "minimum" : "exact";
+  const listingIntentRaw = parseIntent(
+    readString(
+      typeof filters.intent === "string"
+        ? filters.intent
+        : typeof filters.listingIntent === "string"
+        ? filters.listingIntent
+        : null
+    )
+  );
+  const listingIntent: "rent" | "buy" | null =
+    listingIntentRaw === "rent" || listingIntentRaw === "buy"
+      ? listingIntentRaw
+      : null;
   const rentalTypeRaw = readString(filters.rentalType);
   const rentalType: RentalType | null =
     rentalTypeRaw === "short_let" || rentalTypeRaw === "long_term"
@@ -98,6 +124,7 @@ export function parseSavedSearchMatchFilters(
     maxPrice: maxPrice !== null ? Math.max(0, maxPrice) : null,
     bedrooms: bedrooms !== null ? Math.max(0, bedrooms) : null,
     bedroomsMode,
+    listingIntent,
     rentalType,
   };
 }
@@ -154,6 +181,9 @@ export function applySavedSearchMatchSpecToQuery<TQuery extends SavedSearchMatch
       next = next.eq("bedrooms", filters.bedrooms);
     }
   }
+  if (filters.listingIntent) {
+    next = next.eq("listing_intent", filters.listingIntent);
+  }
   if (filters.rentalType) {
     next = next.eq("rental_type", filters.rentalType);
   }
@@ -184,6 +214,7 @@ export function toParsedSearchFilters(
     bedroomsMode: parsed.bedroomsMode,
     includeSimilarOptions: false,
     propertyType: null,
+    listingIntent: parsed.listingIntent ?? "all",
     rentalType: parsed.rentalType,
     furnished: null,
     amenities: [],

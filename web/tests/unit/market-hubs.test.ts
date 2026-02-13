@@ -23,3 +23,10 @@ void test("hub link builder creates stable properties query links", () => {
   assert.ok(hub);
   assert.equal(buildMarketHubHref(hub), "/properties?city=Lagos");
 });
+
+void test("hub link builder preserves provided intent when passed", () => {
+  const hub = getMarketHubs("NG")[0];
+  assert.ok(hub);
+  assert.equal(buildMarketHubHref(hub, { intent: "buy" }), "/properties?city=Lagos&intent=buy");
+  assert.equal(buildMarketHubHref(hub, { intent: "all" }), "/properties?city=Lagos&intent=all");
+});

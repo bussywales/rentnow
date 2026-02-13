@@ -1,5 +1,5 @@
 import { filtersToSearchParams } from "@/lib/search-filters";
-import type { ParsedSearchFilters } from "@/lib/types";
+import type { ListingIntentFilter, ParsedSearchFilters } from "@/lib/types";
 
 export type MarketHub = {
   key: string;
@@ -55,8 +55,16 @@ export function getMarketHubs(countryCode: string | null | undefined): MarketHub
   return HUBS_BY_MARKET[normalized] ?? [];
 }
 
-export function buildMarketHubHref(hub: MarketHub): string {
+export function buildMarketHubHref(
+  hub: MarketHub,
+  options?: { intent?: ListingIntentFilter | null }
+): string {
   const params = filtersToSearchParams(hub.query);
+  if (options?.intent === "rent" || options?.intent === "buy") {
+    params.set("intent", options.intent);
+  } else if (options?.intent === "all") {
+    params.set("intent", "all");
+  }
   const query = params.toString();
   return query ? `/properties?${query}` : "/properties";
 }

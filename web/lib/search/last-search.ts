@@ -11,6 +11,9 @@ export type LastSearchState = {
 
 export function buildSearchHref(filters: ParsedSearchFilters) {
   const params = filtersToSearchParams(filters);
+  if (!params.get("intent") && filters.listingIntent === "all") {
+    params.set("intent", "all");
+  }
   const query = params.toString();
   return query ? `/properties?${query}` : "/properties";
 }

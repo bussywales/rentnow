@@ -28,6 +28,7 @@ export function ListingIntentToggle({ currentIntent, hasUrlIntent }: Props) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const urlIntent = parseIntent(searchParams.get("intent"));
+  const hasSavedSearchContext = searchParams.has("savedSearchId");
   const activeIntent = urlIntent ?? currentIntent;
 
   const updateIntent = (intent: ListingIntentFilter, mode: "push" | "replace") => {
@@ -56,18 +57,18 @@ export function ListingIntentToggle({ currentIntent, hasUrlIntent }: Props) {
       return;
     }
 
-    const cookieIntent = readIntentCookieClient();
-    const localIntent = readIntentStorageClient();
-    const resolved = resolveIntent({
-      cookieIntent,
-      localIntent,
-      defaultIntent: currentIntent,
-    });
+    const resolved = hasSavedSearchContext
+      ? currentIntent
+      : resolveIntent({
+          cookieIntent: readIntentCookieClient(),
+          localIntent: readIntentStorageClient(),
+          defaultIntent: currentIntent,
+        });
     const intent = resolved ?? "rent";
     setIntentPersist(intent);
     updateIntent(intent, "replace");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hasUrlIntent, urlIntent, currentIntent]);
+  }, [hasUrlIntent, urlIntent, currentIntent, hasSavedSearchContext]);
 
   return (
     <div

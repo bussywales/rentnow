@@ -60,6 +60,9 @@ export function deriveSavedSearchFiltersFromCollectionListings(listings: Propert
   const rentalTypes = listings
     .map((listing) => listing.rental_type)
     .filter((value): value is RentalType => value === "short_let" || value === "long_term");
+  const listingIntents = listings
+    .map((listing) => listing.listing_intent)
+    .filter((value): value is "rent" | "buy" => value === "rent" || value === "buy");
   const listingTypes = listings
     .map((listing) =>
       typeof listing.listing_type === "string" ? listing.listing_type.trim() : ""
@@ -98,6 +101,13 @@ export function deriveSavedSearchFiltersFromCollectionListings(listings: Propert
   const rentalType = allSame(rentalTypes);
   if (rentalType === "short_let" || rentalType === "long_term") {
     derived.rentalType = rentalType;
+  }
+
+  const listingIntent = allSame(listingIntents);
+  if (listingIntent === "rent" || listingIntent === "buy") {
+    derived.intent = listingIntent;
+  } else {
+    derived.intent = "all";
   }
 
   const listingType = allSame(listingTypes);

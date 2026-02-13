@@ -78,6 +78,46 @@ void test("uses minimum bedroom mode and rental type filters when provided", () 
   ]);
 });
 
+void test("applies listing intent filter for rent/buy and skips for all or missing", () => {
+  const rentSpec = buildSavedSearchMatchQuerySpec({
+    sinceIso: "2026-02-01T00:00:00.000Z",
+    filters: {
+      intent: "rent",
+    },
+  });
+  const rentRecorder = createQueryRecorder();
+  applySavedSearchMatchSpecToQuery(rentRecorder.query, rentSpec);
+  assert.deepEqual(rentRecorder.calls, [
+    { op: "gt", column: "created_at", value: "2026-02-01T00:00:00.000Z" },
+    { op: "eq", column: "listing_intent", value: "rent" },
+  ]);
+
+  const buySpec = buildSavedSearchMatchQuerySpec({
+    sinceIso: "2026-02-01T00:00:00.000Z",
+    filters: {
+      listingIntent: "buy",
+    },
+  });
+  const buyRecorder = createQueryRecorder();
+  applySavedSearchMatchSpecToQuery(buyRecorder.query, buySpec);
+  assert.deepEqual(buyRecorder.calls, [
+    { op: "gt", column: "created_at", value: "2026-02-01T00:00:00.000Z" },
+    { op: "eq", column: "listing_intent", value: "buy" },
+  ]);
+
+  const mixedSpec = buildSavedSearchMatchQuerySpec({
+    sinceIso: "2026-02-01T00:00:00.000Z",
+    filters: {
+      intent: "all",
+    },
+  });
+  const mixedRecorder = createQueryRecorder();
+  applySavedSearchMatchSpecToQuery(mixedRecorder.query, mixedSpec);
+  assert.deepEqual(mixedRecorder.calls, [
+    { op: "gt", column: "created_at", value: "2026-02-01T00:00:00.000Z" },
+  ]);
+});
+
 void test("ignores unsupported filter keys safely", () => {
   const spec = buildSavedSearchMatchQuerySpec({
     sinceIso: "2026-02-01T00:00:00.000Z",

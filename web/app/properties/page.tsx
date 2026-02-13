@@ -285,12 +285,13 @@ export default async function PropertiesPage({ searchParams }: Props) {
     }
   }
 
+  const shouldFavorSavedSearchIntent = !!savedSearchId && !urlIntent;
   const resolvedIntent =
     resolveIntent({
       urlIntent,
-      cookieIntent,
-      defaultIntent: filters.listingIntent ?? "rent",
-    }) ?? "rent";
+      cookieIntent: shouldFavorSavedSearchIntent ? null : cookieIntent,
+      defaultIntent: filters.listingIntent ?? (shouldFavorSavedSearchIntent ? "all" : "rent"),
+    }) ?? (shouldFavorSavedSearchIntent ? "all" : "rent");
   filters = {
     ...filters,
     listingIntent: resolvedIntent,
@@ -352,7 +353,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const marketHubLinks = marketHubs.map((hub) => ({
     key: hub.key,
     label: hub.label,
-    href: buildMarketHubHref(hub),
+    href: buildMarketHubHref(hub, { intent: resolvedIntent }),
   }));
   const showMarketHubSuggestions = !hasFilters && marketHubLinks.length > 0;
   const includeDemoListings = includeDemoListingsForViewer({ viewerRole: role });

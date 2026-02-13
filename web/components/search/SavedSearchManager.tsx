@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/Alert";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { filtersToSearchParams, parseFiltersFromSavedSearch } from "@/lib/search-filters";
+import { parseIntent } from "@/lib/search-intent";
 import type { SavedSearch } from "@/lib/types";
 import { setToastQuery } from "@/lib/utils/toast";
 
@@ -21,6 +22,12 @@ function formatSummary(search: SavedSearch) {
   const params = search.query_params || {};
   const parts: string[] = [];
   if (typeof params.city === "string") parts.push(params.city);
+  if (typeof params.intent === "string" || typeof params.listingIntent === "string") {
+    const intent =
+      (typeof params.intent === "string" ? params.intent : params.listingIntent) ?? "all";
+    if (intent === "buy") parts.push("For sale");
+    if (intent === "rent") parts.push("For rent");
+  }
   if (typeof params.rentalType === "string") {
     parts.push(params.rentalType === "short_let" ? "Short-let" : "Long-term");
   }
@@ -36,7 +43,11 @@ function formatSummary(search: SavedSearch) {
 function buildViewMatchesHref(search: SavedSearch) {
   const filters = parseFiltersFromSavedSearch(search.query_params || {});
   const params = filtersToSearchParams(filters);
-  return `/properties?${params.toString()}`;
+  if (!params.get("intent")) {
+    params.set("intent", filters.listingIntent ?? "all");
+  }
+  const query = params.toString();
+  return query ? `/properties?${query}` : "/properties";
 }
 
 export function SavedSearchManager({ initialSearches, alertsEnabled = false }: Props) {
@@ -186,6 +197,15 @@ export function SavedSearchManager({ initialSearches, alertsEnabled = false }: P
       const params = new URLSearchParams();
       params.set("savedSearchId", savedSearchId);
       params.set("source", "saved-search");
+      const intent =
+        parseIntent(
+          typeof search.query_params?.intent === "string"
+            ? search.query_params.intent
+            : typeof search.query_params?.listingIntent === "string"
+            ? search.query_params.listingIntent
+            : null
+        ) ?? "all";
+      params.set("intent", intent);
       const message =
         typeof matchCount === "number" && matchCount > 0
           ? `Found ${matchCount} matches — opening homes...`

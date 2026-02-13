@@ -41,6 +41,26 @@ test("filtersToSearchParams serializes parsed filters", () => {
   assert.equal(params.get("amenities"), "wifi,parking");
 });
 
+test("filtersToSearchParams omits intent when set to all", () => {
+  const filters: ParsedSearchFilters = {
+    city: null,
+    minPrice: null,
+    maxPrice: null,
+    currency: null,
+    bedrooms: null,
+    bedroomsMode: "exact",
+    includeSimilarOptions: false,
+    propertyType: null,
+    listingIntent: "all",
+    rentalType: null,
+    furnished: null,
+    amenities: [],
+  };
+
+  const params = filtersToSearchParams(filters);
+  assert.equal(params.get("intent"), null);
+});
+
 test("parseFilters clamps negative numeric values to zero", () => {
   const parsed = parseFiltersFromParams({
     minPrice: "-50",
@@ -122,6 +142,8 @@ test("hasActiveFilters only returns true for real search filters", () => {
   };
 
   assert.equal(hasActiveFilters(emptyFilters), false);
+  assert.equal(hasActiveFilters({ ...emptyFilters, listingIntent: "all" }), false);
+  assert.equal(hasActiveFilters({ ...emptyFilters, listingIntent: "buy" }), true);
   assert.equal(hasActiveFilters({ ...emptyFilters, city: "Lagos" }), true);
   assert.equal(hasActiveFilters({ ...emptyFilters, minPrice: 50000 }), true);
   assert.equal(hasActiveFilters({ ...emptyFilters, bedrooms: 2 }), true);

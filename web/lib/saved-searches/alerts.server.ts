@@ -280,6 +280,9 @@ function buildMatchesUrl(input: {
 }) {
   const parsed = parseFiltersFromSavedSearch(input.filters || {});
   const params = filtersToSearchParams(parsed);
+  if (!params.get("intent")) {
+    params.set("intent", parsed.listingIntent ?? "all");
+  }
   const query = params.toString();
   return query ? `${input.siteUrl}/properties?${query}` : `${input.siteUrl}/properties`;
 }

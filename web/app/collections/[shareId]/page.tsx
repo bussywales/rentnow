@@ -185,6 +185,9 @@ export default async function PublicCollectionPage({
   const derivedFilters = deriveSavedSearchFiltersFromCollectionListings(visibleProperties);
   const parsedFilters = parseFiltersFromSavedSearch(derivedFilters);
   const startSearchParams = filtersToSearchParams(parsedFilters);
+  if (!startSearchParams.get("intent")) {
+    startSearchParams.set("intent", parsedFilters.listingIntent ?? "all");
+  }
   const startSearchHref = startSearchParams.toString()
     ? `/properties?${startSearchParams.toString()}`
     : "/properties";

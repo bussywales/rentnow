@@ -34,6 +34,7 @@ export function SavedSearchButton({ filters, savedSearchesHref }: Props) {
     bedroomsMode: filters.bedroomsMode ?? "exact",
     includeSimilarOptions: Boolean(filters.includeSimilarOptions),
     propertyType: filters.propertyType ?? null,
+    intent: filters.listingIntent ?? "all",
     rentalType: filters.rentalType,
     furnished: filters.furnished,
     amenities: filters.amenities,

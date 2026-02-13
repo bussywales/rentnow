@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { buildSavedSearchDigestEmail } from "@/lib/email/templates/saved-search-digest";
 import {
   buildSavedSearchAlertDedupeKey,
+  buildSavedSearchMatchesUrl,
   getSavedSearchAlertBaselineIso,
   resolveAlertsDispatchEnabled,
   resolveAlertsEmailEnabled,
@@ -120,4 +121,23 @@ void test("digest email shows overflow hint when search groups are capped", () =
   assert.equal(digest.subject, "New matches on PropatyHub");
   assert.match(digest.html, /Showing top 1 searches/i);
   assert.match(digest.html, /You have 2 more searches with updates/i);
+});
+
+void test("saved search matches URL preserves rent/buy intent and keeps mixed compatibility", () => {
+  const buyUrl = buildSavedSearchMatchesUrl({
+    siteUrl: "https://www.propatyhub.com",
+    filters: {
+      city: "Lagos",
+      intent: "buy",
+    },
+  });
+  assert.match(buyUrl, /intent=buy/);
+
+  const mixedUrl = buildSavedSearchMatchesUrl({
+    siteUrl: "https://www.propatyhub.com",
+    filters: {
+      city: "Abuja",
+    },
+  });
+  assert.match(mixedUrl, /intent=all/);
 });

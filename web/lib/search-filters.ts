@@ -77,7 +77,9 @@ function parseListingType(
 
 export function parseFiltersFromParams(params: SearchParamRecord): ParsedSearchFilters {
   const rentalType = firstValue(params.rentalType);
-  const listingIntent = parseIntent(firstValue(params.intent));
+  const listingIntent = parseIntent(
+    firstValue(params.intent) ?? firstValue(params.listingIntent)
+  );
   return {
     city: firstValue(params.city),
     minPrice: parseNumber(params.minPrice),
@@ -131,7 +133,9 @@ export function filtersToSearchParams(filters: ParsedSearchFilters): URLSearchPa
     params.set("includeSimilarOptions", "true");
   }
   if (filters.propertyType) params.set("propertyType", filters.propertyType);
-  if (filters.listingIntent) params.set("intent", filters.listingIntent);
+  if (filters.listingIntent && filters.listingIntent !== "all") {
+    params.set("intent", filters.listingIntent);
+  }
   if (filters.rentalType) params.set("rentalType", filters.rentalType);
   if (filters.furnished !== null) params.set("furnished", String(filters.furnished));
   if (filters.amenities.length) {
@@ -147,6 +151,7 @@ export function hasActiveFilters(filters: ParsedSearchFilters): boolean {
   if (filters.currency && filters.currency.trim()) return true;
   if (filters.bedrooms !== null) return true;
   if (filters.propertyType !== null && filters.propertyType !== undefined) return true;
+  if (filters.listingIntent && filters.listingIntent !== "all") return true;
   if (filters.rentalType !== null) return true;
   if (filters.furnished !== null) return true;
   if (filters.amenities.length > 0) return true;
@@ -169,6 +174,12 @@ export function filtersToChips(filters: ParsedSearchFilters): FilterChip[] {
     chips.push({
       label: "Property type",
       value: filters.propertyType,
+    });
+  }
+  if (filters.listingIntent && filters.listingIntent !== "all") {
+    chips.push({
+      label: "Intent",
+      value: filters.listingIntent === "buy" ? "For sale" : "For rent",
     });
   }
   if (filters.rentalType) {
