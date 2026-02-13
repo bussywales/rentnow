@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { fetchAdminPayments } from "@/lib/payments/featured-payments.server";
+import { fetchPaymentWebhookEvents } from "@/lib/payments/featured-payments-ops.server";
+import { fetchPaymentsOpsSnapshot } from "@/lib/payments/reconcile.server";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
+import AdminPaymentsReconcilePanel from "@/components/admin/AdminPaymentsReconcilePanel";
+import AdminPaymentsOpsPanel from "@/components/admin/AdminPaymentsOpsPanel";
 
 export const dynamic = "force-dynamic";
 
@@ -13,6 +17,10 @@ type PageProps = {
 
 function firstValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
+}
+
+function toAnchorSafe(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]+/g, "-");
 }
 
 async function requireAdmin() {
@@ -41,10 +49,20 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
   const to = firstValue(params.to) || "";
 
   const { client } = await requireAdmin();
-  const rows = await fetchAdminPayments({
-    client,
-    filters: { status, from, to, limit: 200 },
-  });
+  const [rows, webhookEvents, opsSnapshot] = await Promise.all([
+    fetchAdminPayments({
+      client,
+      filters: { status, from, to, limit: 200 },
+    }),
+    fetchPaymentWebhookEvents({
+      client,
+      limit: 50,
+    }),
+    fetchPaymentsOpsSnapshot({
+      client,
+      stuckLimit: 10,
+    }),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4">
@@ -106,6 +124,14 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
         </div>
       </form>
 
+      <AdminPaymentsOpsPanel
+        stuckCount={opsSnapshot.stuckCount}
+        receiptsPendingCount={opsSnapshot.receiptsPendingCount}
+        stuckRows={opsSnapshot.stuckRows}
+      />
+
+      <AdminPaymentsReconcilePanel />
+
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.14em] text-slate-500">
@@ -129,14 +155,17 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
                   ? ((purchase as { properties?: Record<string, unknown> | null }).properties ?? null)
                   : null;
 
+                const reference = String((row as { reference?: string }).reference || "");
+                const rowAnchor = `payment-ref-${toAnchorSafe(reference || "unknown")}`;
+
                 return (
-                  <tr key={String((row as { id?: string }).id || "")}>
+                  <tr key={String((row as { id?: string }).id || "")} id={rowAnchor}>
                     <td className="px-4 py-3">{String((row as { status?: string }).status || "—")}</td>
                     <td className="px-4 py-3">
                       {String((row as { currency?: string }).currency || "NGN")}{" "}
                       {Number((row as { amount_minor?: number }).amount_minor || 0) / 100}
                     </td>
-                    <td className="px-4 py-3 font-mono text-xs">{String((row as { reference?: string }).reference || "—")}</td>
+                    <td className="px-4 py-3 font-mono text-xs">{reference || "—"}</td>
                     <td className="px-4 py-3">
                       {property ? (
                         <Link
@@ -160,6 +189,63 @@ export default async function AdminPaymentsPage({ searchParams }: PageProps) {
               <tr>
                 <td className="px-4 py-6 text-sm text-slate-500" colSpan={6}>
                   No payment records found for this filter.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-4 py-3">
+          <h2 className="text-sm font-semibold text-slate-900">Webhook events (latest 50)</h2>
+        </div>
+        <table className="min-w-full divide-y divide-slate-200 text-sm">
+          <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.14em] text-slate-500">
+            <tr>
+              <th className="px-4 py-3">Received</th>
+              <th className="px-4 py-3">Event</th>
+              <th className="px-4 py-3">Reference</th>
+              <th className="px-4 py-3">Processed</th>
+              <th className="px-4 py-3">Error</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {webhookEvents.length ? (
+              webhookEvents.map((row) => (
+                <tr key={String((row as { id?: string }).id || "")}>
+                  <td className="px-4 py-3">
+                    {String((row as { received_at?: string }).received_at || "")
+                      .slice(0, 19)
+                      .replace("T", " ")}
+                  </td>
+                  <td className="px-4 py-3">{String((row as { event?: string }).event || "—")}</td>
+                  <td className="px-4 py-3 font-mono text-xs">
+                    {String((row as { reference?: string }).reference || "").trim() ? (
+                      <a
+                        className="text-sky-700 underline underline-offset-2"
+                        href={`#payment-ref-${toAnchorSafe(
+                          String((row as { reference?: string }).reference || "")
+                        )}`}
+                      >
+                        {String((row as { reference?: string }).reference || "")}
+                      </a>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {(row as { processed?: boolean }).processed ? "Yes" : "No"}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-600">
+                    {String((row as { process_error?: string }).process_error || "—")}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td className="px-4 py-6 text-sm text-slate-500" colSpan={5}>
+                  No webhook events recorded yet.
                 </td>
               </tr>
             )}

@@ -12,6 +12,7 @@ import {
 } from "@/lib/payments/products";
 import { validateWebhookSignature } from "@/lib/payments/paystack.server";
 import { shouldProcessFeaturedChargeSuccess } from "@/lib/payments/featured-payments.server";
+import { sendFeaturedReceiptIfNeeded } from "@/lib/payments/featured-payments-ops.server";
 
 function makeRequest(payload: Record<string, unknown>) {
   return new NextRequest("http://localhost/api/payments/featured/initialize", {
@@ -230,4 +231,51 @@ void test("featured charge-success idempotency helper skips already processed pa
     shouldProcessFeaturedChargeSuccess({ paymentStatus: "pending", purchaseStatus: "pending" }),
     true
   );
+});
+
+void test("featured receipt sender is idempotent when receipt was already sent", async () => {
+  const originalFetch = global.fetch;
+  let fetchCalled = false;
+  global.fetch = (async () => {
+    fetchCalled = true;
+    return new Response(null, { status: 500 });
+  }) as typeof fetch;
+
+  const client = {
+    from: (table: string) => {
+      if (table === "payments") {
+        return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: {
+                  id: "pay_1",
+                  amount_minor: 4999,
+                  currency: "NGN",
+                  email: "owner@example.com",
+                  reference: "ref_1",
+                  receipt_sent_at: "2026-02-12T00:00:00.000Z",
+                },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      throw new Error(`Unexpected table ${table}`);
+    },
+  };
+
+  try {
+    const result = await sendFeaturedReceiptIfNeeded({
+      client: client as never,
+      paymentId: "pay_1",
+      fallbackEmail: "owner@example.com",
+    });
+    assert.equal(result.sent, false);
+    assert.equal(result.alreadySent, true);
+    assert.equal(fetchCalled, false);
+  } finally {
+    global.fetch = originalFetch;
+  }
 });

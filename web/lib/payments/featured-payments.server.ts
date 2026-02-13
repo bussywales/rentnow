@@ -15,6 +15,7 @@ export type PaymentRow = {
   reference: string;
   authorization_code: string | null;
   paid_at: string | null;
+  receipt_sent_at: string | null;
   meta: Record<string, unknown> | null;
   created_at: string;
   updated_at: string;
@@ -79,7 +80,7 @@ export async function createFeaturedPaymentRecords(input: {
       updated_at: nowIso,
     })
     .select(
-      "id,user_id,provider,status,currency,amount_minor,email,reference,authorization_code,paid_at,meta,created_at,updated_at"
+      "id,user_id,provider,status,currency,amount_minor,email,reference,authorization_code,paid_at,receipt_sent_at,meta,created_at,updated_at"
     )
     .maybeSingle();
 
@@ -138,7 +139,7 @@ export async function getPaymentWithPurchaseByReference(input: {
   const { data, error } = await input.client
     .from("payments")
     .select(
-      "id,user_id,provider,status,currency,amount_minor,email,reference,authorization_code,paid_at,meta,created_at,updated_at,featured_purchases(id,payment_id,property_id,request_id,plan,duration_days,status,featured_until,activated_at,created_at)"
+      "id,user_id,provider,status,currency,amount_minor,email,reference,authorization_code,paid_at,receipt_sent_at,meta,created_at,updated_at,featured_purchases(id,payment_id,property_id,request_id,plan,duration_days,status,featured_until,activated_at,created_at)"
     )
     .eq("reference", input.reference)
     .maybeSingle();
@@ -174,7 +175,7 @@ export async function fetchAdminPayments(input: {
   let query = input.client
     .from("payments")
     .select(
-      "id,user_id,status,currency,amount_minor,email,reference,paid_at,created_at,meta,featured_purchases(id,payment_id,property_id,request_id,plan,duration_days,status,featured_until,activated_at,created_at,properties(id,title,city))"
+      "id,user_id,status,currency,amount_minor,email,reference,paid_at,receipt_sent_at,created_at,meta,featured_purchases(id,payment_id,property_id,request_id,plan,duration_days,status,featured_until,activated_at,created_at,properties(id,title,city))"
     )
     .eq("provider", "paystack")
     .order("created_at", { ascending: false })
@@ -199,5 +200,26 @@ export async function fetchAdminPayments(input: {
     throw new Error(error.message || "Unable to load payments.");
   }
 
+  return ((data as Array<Record<string, unknown>> | null) ?? []);
+}
+
+export async function fetchMyPayments(input: {
+  client: UntypedAdminClient;
+  userId: string;
+  limit?: number;
+}) {
+  const limit = Number.isFinite(input.limit || NaN)
+    ? Math.max(1, Math.min(100, Math.trunc(input.limit || 20)))
+    : 20;
+  const { data, error } = await input.client
+    .from("payments")
+    .select(
+      "id,user_id,status,currency,amount_minor,email,reference,paid_at,receipt_sent_at,created_at,featured_purchases(id,payment_id,property_id,request_id,plan,duration_days,status,featured_until,activated_at,created_at,properties(id,title,city))"
+    )
+    .eq("provider", "paystack")
+    .eq("user_id", input.userId)
+    .order("created_at", { ascending: false })
+    .range(0, limit - 1);
+  if (error) throw new Error(error.message || "Unable to load payment history.");
   return ((data as Array<Record<string, unknown>> | null) ?? []);
 }

@@ -29,6 +29,7 @@ import { ListingPauseModal } from "@/components/host/ListingPauseModal";
 import { ListingReactivateModal } from "@/components/host/ListingReactivateModal";
 import { ListingPaywallModal } from "@/components/billing/ListingPaywallModal";
 import { HostFeaturedRequestModal } from "@/components/host/HostFeaturedRequestModal";
+import { HostPaymentsPanel } from "@/components/host/HostPaymentsPanel";
 import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import type { PropertyStatus } from "@/lib/types";
 import type { MissedDemandEstimate } from "@/lib/analytics/property-events";
@@ -1025,6 +1026,7 @@ export function HostDashboardContent({
           <p className="mt-1 text-sm text-slate-600">{viewCopy.description}</p>
         </div>
       )}
+      <HostPaymentsPanel />
       <ListingBulkActionsBar
         count={selectedIds.length}
         onResume={() => setShowResumeModal(true)}

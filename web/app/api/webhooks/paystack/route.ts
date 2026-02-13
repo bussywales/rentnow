@@ -1,7 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getSiteUrl } from "@/lib/env";
-import { buildFeaturedReceiptEmail } from "@/lib/email/templates/receipt-featured";
 import { getPaymentWithPurchaseByReference } from "@/lib/payments/featured-payments.server";
+import {
+  hashWebhookPayload,
+  insertPaymentWebhookEvent,
+  markPaymentWebhookEventError,
+  markPaymentWebhookEventProcessed,
+  sendFeaturedReceiptIfNeeded,
+} from "@/lib/payments/featured-payments-ops.server";
 import {
   getPaystackServerConfig,
   hasPaystackServerEnv,
@@ -20,75 +25,89 @@ type PaystackWebhookEvent = {
   } | null;
 };
 
-async function sendReceipt(input: {
-  to: string;
-  subject: string;
-  html: string;
-}) {
-  const apiKey = process.env.RESEND_API_KEY;
-  if (!apiKey) return;
-  await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: process.env.RESEND_FROM || "PropatyHub <no-reply@propatyhub.com>",
-      to: input.to,
-      subject: input.subject,
-      html: input.html,
-    }),
-  }).catch(() => undefined);
-}
+type PaystackWebhookDeps = {
+  hasServiceRoleEnv: typeof hasServiceRoleEnv;
+  hasPaystackServerEnv: typeof hasPaystackServerEnv;
+  createServiceRoleClient: typeof createServiceRoleClient;
+  getPaystackServerConfig: typeof getPaystackServerConfig;
+  hashWebhookPayload: typeof hashWebhookPayload;
+  insertPaymentWebhookEvent: typeof insertPaymentWebhookEvent;
+  markPaymentWebhookEventError: typeof markPaymentWebhookEventError;
+  markPaymentWebhookEventProcessed: typeof markPaymentWebhookEventProcessed;
+  validateWebhookSignature: typeof validateWebhookSignature;
+  getPaymentWithPurchaseByReference: typeof getPaymentWithPurchaseByReference;
+  verifyTransaction: typeof verifyTransaction;
+  sendFeaturedReceiptIfNeeded: typeof sendFeaturedReceiptIfNeeded;
+};
 
-async function buildReceiptPayload(input: {
-  client: UntypedAdminClient;
-  paymentId: string;
-  amountMinor: number;
-  currency: string;
-  reference: string;
-  paidAt: string | null;
-}) {
-  const { data } = await input.client
-    .from("featured_purchases")
-    .select("plan,property_id,properties(title,address,city)")
-    .eq("payment_id", input.paymentId)
-    .maybeSingle();
+const defaultDeps: PaystackWebhookDeps = {
+  hasServiceRoleEnv,
+  hasPaystackServerEnv,
+  createServiceRoleClient,
+  getPaystackServerConfig,
+  hashWebhookPayload,
+  insertPaymentWebhookEvent,
+  markPaymentWebhookEventError,
+  markPaymentWebhookEventProcessed,
+  validateWebhookSignature,
+  getPaymentWithPurchaseByReference,
+  verifyTransaction,
+  sendFeaturedReceiptIfNeeded,
+};
 
-  const row = (data as
-    | {
-        plan?: "featured_7d" | "featured_30d" | null;
-        properties?: { title?: string | null; address?: string | null; city?: string | null } | null;
-      }
-    | null) ?? null;
-  if (!row) return null;
-
-  const siteUrl = await getSiteUrl();
-  return buildFeaturedReceiptEmail({
-    amountMinor: input.amountMinor,
-    currency: input.currency,
-    plan: row.plan === "featured_30d" ? "featured_30d" : "featured_7d",
-    reference: input.reference,
-    paidAtIso: input.paidAt,
-    propertyTitle: row.properties?.title || "Listing",
-    propertyAddress: row.properties?.address || null,
-    propertyCity: row.properties?.city || null,
-    siteUrl,
-  });
-}
-
-export async function POST(request: NextRequest) {
-  if (!hasServiceRoleEnv()) {
+export async function postPaystackWebhookResponse(
+  request: NextRequest,
+  deps: PaystackWebhookDeps = defaultDeps
+) {
+  if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json({ error: "Service role not configured." }, { status: 503 });
   }
-  if (!hasPaystackServerEnv()) {
+  if (!deps.hasPaystackServerEnv()) {
     return NextResponse.json({ error: "Paystack not configured." }, { status: 503 });
   }
 
   const rawBody = await request.text();
   const signature = request.headers.get("x-paystack-signature");
-  const paystackConfig = getPaystackServerConfig();
+  const paystackConfig = deps.getPaystackServerConfig();
+  const payloadHash = deps.hashWebhookPayload(rawBody);
+
+  let payload: Record<string, unknown> = {};
+  let parsedEvent: PaystackWebhookEvent | null = null;
+  try {
+    parsedEvent = JSON.parse(rawBody) as PaystackWebhookEvent;
+    payload = parsedEvent as unknown as Record<string, unknown>;
+  } catch {
+    payload = {
+      parse_error: "invalid_json",
+      raw_body: rawBody,
+    };
+  }
+
+  const eventValue = String(parsedEvent?.event || "").trim().toLowerCase() || null;
+  const referenceValue = String(parsedEvent?.data?.reference || "").trim() || null;
+  const client = deps.createServiceRoleClient() as unknown as UntypedAdminClient;
+
+  let webhookEventId: string | null = null;
+  try {
+    const inserted = await deps.insertPaymentWebhookEvent({
+      client,
+      provider: "paystack",
+      event: eventValue,
+      reference: referenceValue,
+      signature: signature || null,
+      payload,
+      payloadHash,
+    });
+    webhookEventId = inserted.id;
+    if (inserted.duplicate) {
+      return NextResponse.json({ ok: true, duplicate: true });
+    }
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: error instanceof Error ? error.message : "webhook_insert_failed" },
+      { status: 200 }
+    );
+  }
 
   const validSignature = validateWebhookSignature({
     rawBody,
@@ -96,38 +115,55 @@ export async function POST(request: NextRequest) {
     secret: paystackConfig.webhookSecret,
   });
   if (!validSignature) {
+    if (webhookEventId) {
+      await deps.markPaymentWebhookEventError({
+        client,
+        id: webhookEventId,
+        error: "invalid_signature",
+      });
+    }
     return NextResponse.json({ error: "Invalid signature." }, { status: 401 });
   }
 
-  let payload: PaystackWebhookEvent;
-  try {
-    payload = JSON.parse(rawBody) as PaystackWebhookEvent;
-  } catch {
+  if (!parsedEvent || !eventValue || !referenceValue) {
+    if (webhookEventId) {
+      await deps.markPaymentWebhookEventError({
+        client,
+        id: webhookEventId,
+        error: !parsedEvent ? "invalid_payload_json" : "missing_reference_or_event",
+      });
+    }
     return NextResponse.json({ ok: true });
   }
-
-  const event = String(payload.event || "").trim().toLowerCase();
-  if (!event) return NextResponse.json({ ok: true });
-
-  const reference = String(payload.data?.reference || "").trim();
-  if (!reference) return NextResponse.json({ ok: true });
-
-  const client = createServiceRoleClient() as unknown as UntypedAdminClient;
-  const found = await getPaymentWithPurchaseByReference({
+  const found = await deps.getPaymentWithPurchaseByReference({
     client,
-    reference,
+    reference: referenceValue,
   });
 
   if (!found) {
+    if (webhookEventId) {
+      await deps.markPaymentWebhookEventError({
+        client,
+        id: webhookEventId,
+        error: "payment_not_found",
+      });
+    }
     return NextResponse.json({ ok: true });
   }
 
   const { payment } = found;
   if (payment.provider !== "paystack") {
+    if (webhookEventId) {
+      await deps.markPaymentWebhookEventError({
+        client,
+        id: webhookEventId,
+        error: "provider_mismatch",
+      });
+    }
     return NextResponse.json({ ok: true });
   }
 
-  if (event === "charge.failed") {
+  if (eventValue === "charge.failed") {
     if (payment.status !== "succeeded") {
       await client
         .from("payments")
@@ -137,21 +173,34 @@ export async function POST(request: NextRequest) {
         })
         .eq("id", payment.id);
     }
+    if (webhookEventId) {
+      await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
+    }
     return NextResponse.json({ ok: true });
   }
 
-  if (event !== "charge.success") {
+  if (eventValue !== "charge.success") {
+    if (webhookEventId) {
+      await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
+    }
     return NextResponse.json({ ok: true });
   }
 
-  if (payment.status === "succeeded") {
+  if (payment.status === "succeeded" && found.purchase?.status === "activated") {
+    await deps.sendFeaturedReceiptIfNeeded({
+      client,
+      paymentId: payment.id,
+    });
+    if (webhookEventId) {
+      await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
+    }
     return NextResponse.json({ ok: true, idempotent: true });
   }
 
   try {
-    const verified = await verifyTransaction({
+    const verified = await deps.verifyTransaction({
       secretKey: paystackConfig.secretKey || "",
-      reference,
+      reference: referenceValue,
     });
 
     if (!verified.ok) {
@@ -162,6 +211,13 @@ export async function POST(request: NextRequest) {
           updated_at: new Date().toISOString(),
         })
         .eq("id", payment.id);
+      if (webhookEventId) {
+        await deps.markPaymentWebhookEventError({
+          client,
+          id: webhookEventId,
+          error: "verification_failed",
+        });
+      }
       return NextResponse.json({ ok: true, status: "verification_failed" });
     }
 
@@ -187,29 +243,43 @@ export async function POST(request: NextRequest) {
       p_payment_id: payment.id,
     });
 
-    if (!activateError) {
-      const receipt = await buildReceiptPayload({
-        client,
-        paymentId: payment.id,
-        amountMinor: payment.amount_minor,
-        currency: payment.currency,
-        reference: payment.reference,
-        paidAt,
-      });
-      if (receipt && (verified.email || payment.email)) {
-        await sendReceipt({
-          to: verified.email || payment.email || "",
-          subject: receipt.subject,
-          html: receipt.html,
+    if (activateError) {
+      if (webhookEventId) {
+        await deps.markPaymentWebhookEventError({
+          client,
+          id: webhookEventId,
+          error: activateError.message || "activate_failed",
         });
       }
+      return NextResponse.json({ ok: true, status: "activation_failed" });
+    }
+
+    await deps.sendFeaturedReceiptIfNeeded({
+      client,
+      paymentId: payment.id,
+      fallbackEmail: verified.email || payment.email,
+    });
+
+    if (webhookEventId) {
+      await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
     }
 
     return NextResponse.json({ ok: true });
   } catch (error) {
+    if (webhookEventId) {
+      await deps.markPaymentWebhookEventError({
+        client,
+        id: webhookEventId,
+        error: error instanceof Error ? error.message : "webhook_error",
+      });
+    }
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "webhook_error" },
       { status: 200 }
     );
   }
+}
+
+export async function POST(request: NextRequest) {
+  return postPaystackWebhookResponse(request);
 }
