@@ -72,7 +72,7 @@ export function ListingIntentToggle({ currentIntent, hasUrlIntent }: Props) {
   return (
     <div className="space-y-2">
       <div
-        className="inline-flex rounded-2xl border border-slate-200 bg-white p-1 shadow-sm"
+        className="grid w-full grid-cols-3 rounded-2xl border border-slate-200 bg-white p-1 shadow-sm sm:inline-flex sm:w-auto sm:grid-cols-none"
         role="tablist"
         aria-label="Listing intent"
       >
@@ -90,6 +90,7 @@ export function ListingIntentToggle({ currentIntent, hasUrlIntent }: Props) {
                   ? "bg-slate-900 text-white shadow-sm"
                   : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
               )}
+              data-testid={`intent-toggle-${option.value}`}
               onClick={() => {
                 if (option.value === activeIntent) return;
                 setIntentPersist(option.value);

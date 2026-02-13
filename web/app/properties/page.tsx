@@ -41,8 +41,10 @@ import { INTENT_COOKIE_NAME, parseIntent, resolveIntent } from "@/lib/search-int
 import { MarketHubLink } from "@/components/market/MarketHubLink";
 import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 import {
+  buildClearFiltersHref,
   buildIntentHref,
   getIntentRecoveryOptions,
+  getIntentSummaryCopy,
 } from "@/lib/properties/listing-intent-ui";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
@@ -363,6 +365,11 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const intentRecoveryBaseParams = buildSearchParams(resolvedSearchParams, {
     success: null,
   });
+  const intentClearFiltersHref = buildClearFiltersHref(
+    "/properties",
+    intentRecoveryBaseParams,
+    resolvedIntent
+  );
   const intentRecoveryOptions = getIntentRecoveryOptions(resolvedIntent);
   const intentRecoveryCard = intentRecoveryOptions.length ? (
     <div
@@ -384,6 +391,11 @@ export default async function PropertiesPage({ searchParams }: Props) {
             </Button>
           </Link>
         ))}
+        <Link href={intentClearFiltersHref}>
+          <Button size="sm" variant="secondary">
+            Clear filters
+          </Button>
+        </Link>
       </div>
     </div>
   ) : null;
@@ -746,7 +758,9 @@ export default async function PropertiesPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <ListingIntentToggle currentIntent={resolvedIntent} hasUrlIntent={urlIntent !== undefined} />
+      <div className="-mx-4 sticky top-16 z-20 border-y border-slate-200/70 bg-slate-50/95 px-4 py-2 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
+        <ListingIntentToggle currentIntent={resolvedIntent} hasUrlIntent={urlIntent !== undefined} />
+      </div>
 
       {savedSearch && (
         <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
@@ -755,7 +769,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
             Matches for &quot;{savedSearch.name || "your saved search"}&quot;
           </p>
           <p className="text-sm text-slate-500">
-            Filters applied from your saved search.
+            Filters applied from your saved search. {getIntentSummaryCopy(resolvedIntent)}.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <Link href="/dashboard/saved-searches">

@@ -10,4 +10,7 @@ test("properties empty state wires intent recovery CTA card", () => {
   assert.match(contents, /data-testid="intent-recovery-card"/);
   assert.match(contents, /getIntentRecoveryOptions/);
   assert.match(contents, /buildIntentHref/);
+  assert.match(contents, /buildClearFiltersHref/);
+  assert.match(contents, /Clear filters/);
+  assert.match(contents, /sticky top-16/);
 });
