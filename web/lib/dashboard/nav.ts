@@ -36,7 +36,7 @@ export function getAgentDashboardNavItems(input: {
     {
       key: "verification",
       label: "Verification",
-      href: "/dashboard/settings/verification",
+      href: "/account/verification",
       show: true,
     },
   ];

@@ -33,6 +33,8 @@ import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/marke
 import { buildMarketHubHref, getMarketHubs } from "@/lib/market/hubs";
 import { HomeBrowseCtaClient } from "@/components/market/HomeBrowseCtaClient";
 import { MarketHubLink } from "@/components/market/MarketHubLink";
+import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
+import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
 
 export const dynamic = "force-dynamic";
 
@@ -270,6 +272,7 @@ export default async function HomeWorkspacePage() {
   );
 
   const [
+    gettingStartedChecklist,
     snapshot,
     savedSearchSummary,
     featuredHomes,
@@ -279,6 +282,11 @@ export default async function HomeWorkspacePage() {
     newHomes,
     popularHomes,
   ] = await Promise.all([
+    loadHostChecklist({
+      supabase: context.supabase,
+      userId: user.id,
+      role,
+    }),
     getSnapshot(user.id, context),
     getSavedSearchSummaryForUser({
       supabase: context.supabase,
@@ -373,6 +381,12 @@ export default async function HomeWorkspacePage() {
           ))}
         </div>
       </section>
+
+      <RoleChecklistPanel
+        title="Getting started checklist"
+        subtitle="Track the fundamentals that drive listing quality and conversion."
+        items={gettingStartedChecklist}
+      />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">

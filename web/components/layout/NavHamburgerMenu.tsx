@@ -67,7 +67,7 @@ export function NavHamburgerMenu({ initialAuthed, initialRole = null }: Props) {
       { label: "Dashboard", href: "/host", testId: "menu-item-dashboard" },
       { label: "My listings", href: "/host/listings", testId: "menu-item-listings" },
       { label: "Help Centre", href: getRoleHelpHref(role), testId: "menu-item-help" },
-      { label: "Settings", href: "/dashboard/settings/verification", testId: "menu-item-settings" },
+      { label: "Settings", href: "/account/verification", testId: "menu-item-settings" },
     ] satisfies MenuItem[];
   }, [isAuthed, role]);
 

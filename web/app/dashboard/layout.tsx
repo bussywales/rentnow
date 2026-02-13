@@ -124,7 +124,7 @@ export default async function DashboardLayout({
     {
       key: "verification",
       label: "Verification",
-      href: "/dashboard/settings/verification",
+      href: "/account/verification",
       show: !isTenant,
     },
     { key: "viewings", label: "Viewings", href: "/dashboard/viewings", show: true },

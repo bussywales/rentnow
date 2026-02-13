@@ -31,6 +31,7 @@ function buildGroups(roleLabel: "Agent" | "Landlord", rolePath: "/help/agent" | 
       links: [
         { label: `${roleLabel} Help Centre overview`, href: rolePath, meta: "Start here" },
         { label: `${roleLabel} getting started`, href: `${rolePath}/getting-started`, meta: "Checklist" },
+        { label: `${roleLabel} verification`, href: `${rolePath}/verification`, meta: "Identity" },
       ],
     },
     {

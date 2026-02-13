@@ -1,13 +1,20 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
 import {
   buildSystemHealthSettingsSnapshot,
   getSystemHealthEnvStatus,
   SYSTEM_HEALTH_SETTING_KEYS,
   type SystemHealthSettingsSnapshot,
 } from "@/lib/admin/system-health";
+import {
+  loadAdminChecklist,
+  loadAdminVerificationRollup,
+  type AdminVerificationRollup,
+} from "@/lib/checklists/role-checklists.server";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 export const dynamic = "force-dynamic";
@@ -62,10 +69,17 @@ async function loadAdminSystemHealth() {
     }>)
   );
   const env = getSystemHealthEnvStatus();
+  const [opsChecklist, verificationRollup] = await Promise.all([
+    loadAdminChecklist({ supabase: client as unknown as SupabaseClient }),
+    loadAdminVerificationRollup({ supabase: client as unknown as SupabaseClient }),
+  ]);
+
   return {
     settings,
     env,
     serverTimeUtc: new Date().toISOString(),
+    opsChecklist,
+    verificationRollup,
   };
 }
 
@@ -124,8 +138,42 @@ function SettingsSnapshot(props: { settings: SystemHealthSettingsSnapshot }) {
   );
 }
 
+function VerificationCountsCard({
+  counts,
+}: {
+  counts: AdminVerificationRollup;
+}) {
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-semibold text-slate-900">Verification requirements</h2>
+        <Link href="/admin/settings" className="text-xs font-semibold text-sky-700 underline underline-offset-4">
+          Manage settings
+        </Link>
+      </div>
+      <p className="mt-1 text-xs text-slate-500">
+        Rough counts for host and agent profiles still missing each marker.
+      </p>
+      <dl className="mt-3 grid gap-2 sm:grid-cols-3">
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <dt className="text-xs uppercase tracking-[0.16em] text-slate-500">Missing email</dt>
+          <dd className="mt-1 text-lg font-semibold text-slate-900">{counts.missingEmail ?? "—"}</dd>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <dt className="text-xs uppercase tracking-[0.16em] text-slate-500">Missing phone</dt>
+          <dd className="mt-1 text-lg font-semibold text-slate-900">{counts.missingPhone ?? "—"}</dd>
+        </div>
+        <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2">
+          <dt className="text-xs uppercase tracking-[0.16em] text-slate-500">Missing bank</dt>
+          <dd className="mt-1 text-lg font-semibold text-slate-900">{counts.missingBank ?? "—"}</dd>
+        </div>
+      </dl>
+    </section>
+  );
+}
+
 export default async function AdminSystemPage() {
-  const { settings, env, serverTimeUtc } = await loadAdminSystemHealth();
+  const { settings, env, serverTimeUtc, opsChecklist, verificationRollup } = await loadAdminSystemHealth();
   const shortCommit = env.commitSha ? env.commitSha.slice(0, 8) : "unknown";
 
   return (
@@ -167,6 +215,16 @@ export default async function AdminSystemPage() {
       </section>
 
       <SettingsSnapshot settings={settings} />
+
+      <VerificationCountsCard counts={verificationRollup} />
+
+      {Array.isArray(opsChecklist) && opsChecklist.length > 0 ? (
+        <RoleChecklistPanel
+          title="Admin getting started checklist"
+          subtitle="Daily launch-safety checks for approvals, featured queues, alerts, and publishing."
+          items={opsChecklist}
+        />
+      ) : null}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900">Quick links</h2>

@@ -1,13 +1,19 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import type { VerificationStatus } from "@/lib/verification/status";
 import { getCooldownRemaining, startCooldown } from "@/lib/auth/resendCooldown";
+import type { VerificationRequirements } from "@/lib/trust-markers";
+import { buildVerificationCenterState } from "@/lib/verification/center";
+import type { UserRole } from "@/lib/types";
 
 type Props = {
   initialStatus: VerificationStatus;
+  requirements: VerificationRequirements;
   initialEmail?: string | null;
+  viewerRole?: UserRole | null;
 };
 
 type OtpStage = "idle" | "sending" | "sent" | "verifying" | "verified";
@@ -19,7 +25,27 @@ function formatDate(value?: string | null) {
   return parsed.toLocaleDateString();
 }
 
-export default function VerificationCenterClient({ initialStatus, initialEmail }: Props) {
+function roleHelpHref(role?: UserRole | null) {
+  if (role === "tenant") return "/help/tenant/verification";
+  if (role === "landlord") return "/help/landlord/verification";
+  if (role === "agent") return "/help/agent/verification";
+  if (role === "admin") return "/help/admin/verification";
+  return "/help";
+}
+
+function statusBadgeClass(label: string) {
+  if (label === "Verified") return "bg-emerald-50 text-emerald-700";
+  if (label === "Coming soon") return "bg-indigo-50 text-indigo-700";
+  if (label === "Not required right now") return "bg-slate-100 text-slate-600";
+  return "bg-amber-50 text-amber-700";
+}
+
+export default function VerificationCenterClient({
+  initialStatus,
+  requirements,
+  initialEmail,
+  viewerRole = null,
+}: Props) {
   const [status, setStatus] = useState<VerificationStatus>(initialStatus);
   const [phoneInput, setPhoneInput] = useState(initialStatus.phone.phoneE164 ?? "");
   const [code, setCode] = useState("");
@@ -28,7 +54,18 @@ export default function VerificationCenterClient({ initialStatus, initialEmail }
   const [error, setError] = useState<string | null>(null);
   const [cooldownTick, setCooldownTick] = useState(0);
 
-  const overallLabel = status.overall === "verified" ? "Identity verified" : "Complete these steps";
+  const centerState = useMemo(
+    () =>
+      buildVerificationCenterState({
+        status,
+        requirements,
+      }),
+    [requirements, status]
+  );
+  const overallLabel = centerState.completion.isComplete
+    ? "Identity verified"
+    : "Complete your required steps";
+  const helpHref = roleHelpHref(viewerRole);
   const identifier = (initialEmail ?? phoneInput).trim().toLowerCase();
   const cooldownKey = useMemo(
     () => (identifier ? `verification:${identifier}` : null),
@@ -137,33 +174,43 @@ export default function VerificationCenterClient({ initialStatus, initialEmail }
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Verification center</p>
             <h1 className="text-2xl font-semibold text-slate-900">Identity verification</h1>
-            <p className="text-sm text-slate-600">{overallLabel}</p>
+            <p className="text-sm text-slate-600">
+              {overallLabel} • {centerState.completion.requiredCompleted}/
+              {centerState.completion.requiredTotal} required checks completed
+            </p>
           </div>
           <span
             className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-              status.overall === "verified"
+              centerState.completion.isComplete
                 ? "bg-emerald-50 text-emerald-700"
                 : "bg-amber-50 text-amber-700"
             }`}
           >
-            {status.overall === "verified" ? "Identity verified" : "Pending steps"}
+            {centerState.completion.isComplete ? "Identity verified" : "Pending steps"}
           </span>
         </div>
+        <p className="mt-3 text-xs text-slate-500">
+          Verification helps build trust and unlocks key actions.{" "}
+          <Link href={helpHref} className="font-semibold text-sky-700 underline underline-offset-4">
+            Read verification guide
+          </Link>
+          .
+        </p>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Email</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Verified emails improve trust and keep your account secure.
+            Unlocks secure account recovery and trust checks across the marketplace.
           </p>
           <div className="mt-4 flex items-center justify-between">
             <span
-              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                status.email.verified ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
-              }`}
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(
+                centerState.steps.email.statusLabel
+              )}`}
             >
-              {status.email.verified ? "Verified" : "Not verified"}
+              {centerState.steps.email.statusLabel}
             </span>
             {status.email.verified && status.email.verifiedAt && (
               <span className="text-xs text-slate-500">{formatDate(status.email.verifiedAt)}</span>
@@ -172,23 +219,40 @@ export default function VerificationCenterClient({ initialStatus, initialEmail }
           {initialEmail && (
             <p className="mt-3 text-xs text-slate-500">Signed in as {initialEmail}</p>
           )}
+          {!status.email.verified ? (
+            <Link
+              href={`/auth/confirm?redirect=${encodeURIComponent("/account/verification")}`}
+              className="mt-4 inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Open email confirmation
+            </Link>
+          ) : null}
         </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Phone</h2>
-          <p className="mt-1 text-sm text-slate-600">Verify a phone number so tenants can trust you.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Unlocks faster contact verification and improves listing credibility.
+          </p>
+
+          <div className="mt-4">
+            <span
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(
+                centerState.steps.phone.statusLabel
+              )}`}
+            >
+              {centerState.steps.phone.statusLabel}
+            </span>
+          </div>
 
           {status.phone.verified ? (
-            <div className="mt-4 space-y-2">
-              <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
-                Verified
-              </span>
+            <div className="mt-3 space-y-2">
               {status.phone.phoneE164 && (
                 <p className="text-xs text-slate-500">{status.phone.phoneE164}</p>
               )}
             </div>
           ) : (
-            <div className="mt-4 space-y-3">
+            <div className="mt-3 space-y-3">
               <div>
                 <label className="text-xs font-semibold text-slate-600">Phone (E.164)</label>
                 <input
@@ -243,19 +307,46 @@ export default function VerificationCenterClient({ initialStatus, initialEmail }
         <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-900">Bank</h2>
           <p className="mt-1 text-sm text-slate-600">
-            Required before payouts. Admins will enable this when ready.
+            Unlocks payouts and settlement controls when enabled by admin policy.
           </p>
           <div className="mt-4 flex items-center gap-2">
             <span
-              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${
-                status.bank.verified ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
-              }`}
+              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(
+                centerState.steps.bank.statusLabel
+              )}`}
             >
-              {status.bank.verified ? "Verified" : "Pending"}
+              {centerState.steps.bank.statusLabel}
             </span>
             {status.bank.verifiedAt && (
               <span className="text-xs text-slate-500">{formatDate(status.bank.verifiedAt)}</span>
             )}
+          </div>
+          {requirements.requireBank === false ? (
+            <p className="mt-3 text-xs text-slate-500">
+              Not required right now. We will only require this when payouts need bank verification.
+            </p>
+          ) : null}
+          {requirements.requireBank && !status.bank.verified ? (
+            <p className="mt-3 text-xs text-slate-500">
+              Bank self-serve verification is coming soon. You can continue using the platform without this step for now.
+            </p>
+          ) : null}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {requirements.requireBank && !status.bank.verified ? (
+              <button
+                type="button"
+                className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-400"
+                disabled
+              >
+                Coming soon
+              </button>
+            ) : null}
+            <Link
+              href={helpHref}
+              className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              Learn more
+            </Link>
           </div>
         </section>
       </div>

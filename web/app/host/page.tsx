@@ -33,6 +33,9 @@ import {
   DEFAULT_FEATURED_ELIGIBILITY_SETTINGS,
   type FeaturedEligibilitySettings,
 } from "@/lib/featured/eligibility";
+import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
+import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
+import type { ChecklistItem } from "@/lib/checklists/role-checklists";
 
 export const dynamic = "force-dynamic";
 
@@ -122,6 +125,7 @@ export default async function DashboardHome() {
     }
   > = {};
   let featuredRequestSettings: FeaturedEligibilitySettings = DEFAULT_FEATURED_ELIGIBILITY_SETTINGS;
+  let gettingStartedChecklist: ChecklistItem[] = [];
 
   if (supabaseReady) {
     try {
@@ -222,6 +226,12 @@ export default async function DashboardHome() {
           } else {
             featuredRequestSettings = await getFeaturedEligibilitySettings(supabase);
           }
+
+          gettingStartedChecklist = await loadHostChecklist({
+            supabase,
+            userId: ownerId,
+            role,
+          });
         }
       }
     } catch (err) {
@@ -407,6 +417,13 @@ export default async function DashboardHome() {
           <li>Confirm rent, availability, and contact details.</li>
         </ul>
       </div>
+      {(role === "landlord" || role === "agent") && gettingStartedChecklist.length > 0 && (
+        <RoleChecklistPanel
+          title="Getting started checklist"
+          subtitle="Operational milestones for listing quality, approvals, and responses."
+          items={gettingStartedChecklist}
+        />
+      )}
       {(role === "landlord" || role === "agent") && trustMarkers && (
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-lg font-semibold text-slate-900">Trust status</h3>

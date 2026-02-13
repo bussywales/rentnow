@@ -30,6 +30,7 @@ const GROUPS: DrawerGroup[] = [
     links: [
       { label: "Tenant Help Centre overview", href: "/help/tenant", meta: "Start here" },
       { label: "Tenant getting started", href: "/help/tenant/getting-started", meta: "Checklist" },
+      { label: "Tenant verification", href: "/help/tenant/verification", meta: "Identity" },
     ],
   },
   {

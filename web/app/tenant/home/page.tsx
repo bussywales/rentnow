@@ -41,6 +41,8 @@ import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/marke
 import { buildMarketHubHref, getMarketHubs } from "@/lib/market/hubs";
 import { HomeBrowseCtaClient } from "@/components/market/HomeBrowseCtaClient";
 import { MarketHubLink } from "@/components/market/MarketHubLink";
+import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
+import { loadTenantChecklist } from "@/lib/checklists/role-checklists.server";
 
 export const dynamic = "force-dynamic";
 
@@ -217,6 +219,7 @@ export default async function TenantHomePage() {
   );
 
   const [
+    gettingStartedChecklist,
     savedSearchSummary,
     featuredHomes,
     trendingHomes,
@@ -226,6 +229,10 @@ export default async function TenantHomePage() {
     newHomes,
     savedHomes,
   ] = await Promise.all([
+    loadTenantChecklist({
+      supabase: context.supabase,
+      userId: user.id,
+    }),
     getSavedSearchSummaryForUser({
       supabase: context.supabase,
       userId: user.id,
@@ -359,6 +366,12 @@ export default async function TenantHomePage() {
       </section>
 
       <ContinueSearchCard />
+
+      <RoleChecklistPanel
+        title="Getting started checklist"
+        subtitle="Complete a few core actions to get faster matches and better response rates."
+        items={gettingStartedChecklist}
+      />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-3">
