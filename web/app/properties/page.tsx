@@ -6,6 +6,7 @@ import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { AdvancedSearchPanel } from "@/components/properties/AdvancedSearchPanel";
 import { BrowseIntentClient } from "@/components/properties/BrowseIntentClient";
+import { ListingIntentToggle } from "@/components/properties/ListingIntentToggle";
 import { SavedSearchButton } from "@/components/search/SavedSearchButton";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -36,6 +37,7 @@ import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
 import { getMarketSettings } from "@/lib/market/market.server";
 import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/market";
 import { buildMarketHubHref, getMarketHubs } from "@/lib/market/hubs";
+import { INTENT_COOKIE_NAME, parseIntent, resolveIntent } from "@/lib/search-intent";
 import { MarketHubLink } from "@/components/market/MarketHubLink";
 import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -153,6 +155,10 @@ function applyMockFilters(
       if (bedroomsMode === "exact" && property.bedrooms !== filters.bedrooms) return false;
     }
     if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
+    if (filters.listingIntent && filters.listingIntent !== "all") {
+      const intent = property.listing_intent ?? "rent";
+      if (intent !== filters.listingIntent) return false;
+    }
     if (filters.rentalType && property.rental_type !== filters.rentalType) return false;
     if (filters.furnished !== null && property.furnished !== filters.furnished) return false;
     if (filters.amenities.length) {
@@ -190,6 +196,9 @@ function mapSearchRowsToProperties(
 
 export default async function PropertiesPage({ searchParams }: Props) {
   const resolvedSearchParams = await resolveSearchParams(searchParams);
+  const cookieStore = await cookies();
+  const urlIntent = parseIntent(readParam(resolvedSearchParams, "intent"));
+  const cookieIntent = parseIntent(cookieStore.get(INTENT_COOKIE_NAME)?.value ?? null);
   const savedSearchId = readParam(resolvedSearchParams, "savedSearchId");
   const page = parsePage(resolvedSearchParams);
   const featuredOnly = parseBooleanParam(resolvedSearchParams, "featured");
@@ -276,6 +285,17 @@ export default async function PropertiesPage({ searchParams }: Props) {
     }
   }
 
+  const resolvedIntent =
+    resolveIntent({
+      urlIntent,
+      cookieIntent,
+      defaultIntent: filters.listingIntent ?? "rent",
+    }) ?? "rent";
+  filters = {
+    ...filters,
+    listingIntent: resolvedIntent,
+  };
+
   const savedSearchNotice =
     savedSearchId && savedSearchError
       ? savedSearchError === "Supabase is not configured."
@@ -323,7 +343,6 @@ export default async function PropertiesPage({ searchParams }: Props) {
     headers(),
     getMarketSettings(),
   ]);
-  const cookieStore = await cookies();
   const market = resolveMarketFromRequest({
     headers: requestHeaders,
     cookieValue: cookieStore.get(MARKET_COOKIE_NAME)?.value ?? null,
@@ -692,6 +711,8 @@ export default async function PropertiesPage({ searchParams }: Props) {
           )}
         </div>
       </div>
+
+      <ListingIntentToggle currentIntent={resolvedIntent} hasUrlIntent={urlIntent !== undefined} />
 
       {savedSearch && (
         <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">

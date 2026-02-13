@@ -19,6 +19,7 @@ test("filtersToSearchParams serializes parsed filters", () => {
     bedroomsMode: "minimum",
     includeSimilarOptions: true,
     propertyType: "apartment",
+    listingIntent: "buy",
     rentalType: "short_let",
     furnished: true,
     amenities: ["wifi", "parking"],
@@ -34,6 +35,7 @@ test("filtersToSearchParams serializes parsed filters", () => {
   assert.equal(params.get("bedroomsMode"), "minimum");
   assert.equal(params.get("includeSimilarOptions"), "true");
   assert.equal(params.get("propertyType"), "apartment");
+  assert.equal(params.get("intent"), "buy");
   assert.equal(params.get("rentalType"), "short_let");
   assert.equal(params.get("furnished"), "true");
   assert.equal(params.get("amenities"), "wifi,parking");
@@ -89,6 +91,7 @@ test("propertyMatchesFilters enforces exact bedrooms unless minimum is selected"
     bedroomsMode: "exact",
     includeSimilarOptions: false,
     propertyType: null,
+    listingIntent: undefined,
     rentalType: null,
     furnished: null,
     amenities: [],

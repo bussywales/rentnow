@@ -1,9 +1,11 @@
 import type {
   BedroomMatchMode,
+  ListingIntent,
   ListingType,
   ParsedSearchFilters,
   RentalType,
 } from "@/lib/types";
+import { parseIntent } from "@/lib/search-intent";
 
 export type SearchParamRecord = Record<string, string | string[] | undefined>;
 
@@ -75,6 +77,7 @@ function parseListingType(
 
 export function parseFiltersFromParams(params: SearchParamRecord): ParsedSearchFilters {
   const rentalType = firstValue(params.rentalType);
+  const listingIntent = parseIntent(firstValue(params.intent));
   return {
     city: firstValue(params.city),
     minPrice: parseNumber(params.minPrice),
@@ -84,6 +87,7 @@ export function parseFiltersFromParams(params: SearchParamRecord): ParsedSearchF
     bedroomsMode: parseBedroomsMode(params.bedroomsMode),
     includeSimilarOptions: parseBoolean(params.includeSimilarOptions) ?? false,
     propertyType: parseListingType(params.propertyType),
+    listingIntent,
     rentalType:
       rentalType === "short_let" || rentalType === "long_term"
         ? (rentalType as RentalType)
@@ -106,6 +110,7 @@ export function parseFiltersFromSearchParams(
     bedroomsMode: searchParams.get("bedroomsMode") ?? undefined,
     includeSimilarOptions: searchParams.get("includeSimilarOptions") ?? undefined,
     propertyType: searchParams.get("propertyType") ?? undefined,
+    intent: searchParams.get("intent") ?? undefined,
     rentalType: searchParams.get("rentalType") ?? undefined,
     furnished: searchParams.get("furnished") ?? undefined,
     amenities: amenities.length ? amenities : searchParams.get("amenities") ?? undefined,
@@ -126,6 +131,7 @@ export function filtersToSearchParams(filters: ParsedSearchFilters): URLSearchPa
     params.set("includeSimilarOptions", "true");
   }
   if (filters.propertyType) params.set("propertyType", filters.propertyType);
+  if (filters.listingIntent) params.set("intent", filters.listingIntent);
   if (filters.rentalType) params.set("rentalType", filters.rentalType);
   if (filters.furnished !== null) params.set("furnished", String(filters.furnished));
   if (filters.amenities.length) {
@@ -233,6 +239,13 @@ export function parseFiltersFromSavedSearch(params: Record<string, unknown>): Pa
     params.rentalType === "short_let" || params.rentalType === "long_term"
       ? (params.rentalType as RentalType)
       : null;
+  const listingIntent = parseIntent(
+    typeof params.intent === "string"
+      ? params.intent
+      : typeof params.listingIntent === "string"
+      ? params.listingIntent
+      : null
+  );
   const furnished =
     params.furnished === true || params.furnished === false
       ? params.furnished
@@ -256,6 +269,7 @@ export function parseFiltersFromSavedSearch(params: Record<string, unknown>): Pa
     bedroomsMode,
     includeSimilarOptions,
     propertyType,
+    listingIntent,
     rentalType,
     furnished,
     amenities,
@@ -268,6 +282,7 @@ export function propertyMatchesFilters(property: {
   currency: string;
   bedrooms: number;
   listing_type?: ListingType | null;
+  listing_intent?: ListingIntent | null;
   rental_type: RentalType;
   furnished: boolean;
   amenities?: string[] | null;
@@ -285,6 +300,10 @@ export function propertyMatchesFilters(property: {
     const mode = filters.bedroomsMode ?? "exact";
     if (mode === "minimum" && property.bedrooms < filters.bedrooms) return false;
     if (mode === "exact" && property.bedrooms !== filters.bedrooms) return false;
+  }
+  if (filters.listingIntent && filters.listingIntent !== "all") {
+    const intent = property.listing_intent ?? "rent";
+    if (intent !== filters.listingIntent) return false;
   }
   if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
   if (filters.rentalType && property.rental_type !== filters.rentalType) return false;

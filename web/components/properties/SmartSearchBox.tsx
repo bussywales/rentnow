@@ -1,12 +1,13 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { filtersToChips } from "@/lib/search-filters";
 import type { ParsedSearchFilters } from "@/lib/types";
 import { buildSearchHref, LAST_SEARCH_STORAGE_KEY } from "@/lib/search/last-search";
+import { parseIntent } from "@/lib/search-intent";
 
 type Props = {
   mode?: "home" | "browse";
@@ -26,6 +27,7 @@ const emptyFilters: ParsedSearchFilters = {
 
 export function SmartSearchBox({ onFilters, mode = "home" }: Props) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<ParsedSearchFilters | null>(null);
   const [loading, setLoading] = useState(false);
@@ -34,7 +36,21 @@ export function SmartSearchBox({ onFilters, mode = "home" }: Props) {
 
   const chips = useMemo(() => (result ? filtersToChips(result) : []), [result]);
 
-  const buildBrowseUrl = (filters: ParsedSearchFilters) => buildSearchHref(filters);
+  const buildBrowseUrl = (filters: ParsedSearchFilters) => {
+    const href = buildSearchHref(filters);
+    if (mode !== "browse") return href;
+
+    const currentIntent = parseIntent(searchParams.get("intent"));
+    if (!currentIntent) return href;
+
+    const [basePath, existingQuery = ""] = href.split("?");
+    const next = new URLSearchParams(existingQuery);
+    if (!next.get("intent")) {
+      next.set("intent", currentIntent);
+    }
+    const queryString = next.toString();
+    return queryString ? `${basePath}?${queryString}` : basePath;
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();

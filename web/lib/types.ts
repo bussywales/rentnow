@@ -5,6 +5,7 @@ export type RentalType = "short_let" | "long_term";
 export type RentPeriod = "monthly" | "yearly";
 
 export type ListingIntent = "rent" | "buy";
+export type ListingIntentFilter = ListingIntent | "all";
 
 export type ListingType =
   | "apartment"
@@ -207,6 +208,7 @@ export interface ParsedSearchFilters {
   bedroomsMode?: BedroomMatchMode;
   includeSimilarOptions?: boolean;
   propertyType?: ListingType | null;
+  listingIntent?: ListingIntentFilter;
   rentalType: RentalType | null;
   furnished: boolean | null;
   amenities: string[];
