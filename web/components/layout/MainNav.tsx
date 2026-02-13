@@ -2,15 +2,14 @@ import { NavAuthClient } from "@/components/layout/NavAuthClient";
 import { NavLinksClient } from "@/components/layout/NavLinksClient";
 import { NavMobileDrawerClient } from "@/components/layout/NavMobileDrawerClient";
 import { BrandLogo } from "@/components/branding/BrandLogo";
-import { AdminHelpDrawer } from "@/components/help/AdminHelpDrawer";
-import { AgentHelpDrawer } from "@/components/help/AgentHelpDrawer";
-import { TenantHelpDrawer } from "@/components/help/TenantHelpDrawer";
+import { HelpDrawer } from "@/components/help/HelpDrawer";
 import { ProductUpdatesBell } from "@/components/updates/ProductUpdatesBell";
 import { ProductUpdatesOnboarding } from "@/components/updates/ProductUpdatesOnboarding";
 import { MarketSelector } from "@/components/layout/MarketSelector";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
+import { getHelpDocsForRole } from "@/lib/help/docs";
 
 export const MAIN_NAV_LINKS: Array<{
   href: string;
@@ -76,6 +75,44 @@ export async function MainNav({
     }
   }
 
+  const [tenantDocs, landlordDocs, agentDocs, adminDocs] = await Promise.all([
+    getHelpDocsForRole("tenant"),
+    getHelpDocsForRole("landlord"),
+    getHelpDocsForRole("agent"),
+    getHelpDocsForRole("admin"),
+  ]);
+
+  const helpDocsByRole = {
+    tenant: tenantDocs.map((doc) => ({
+      slug: doc.slug,
+      title: doc.title,
+      description: doc.description,
+      updatedAt: doc.updatedAt,
+      body: doc.body,
+    })),
+    landlord: landlordDocs.map((doc) => ({
+      slug: doc.slug,
+      title: doc.title,
+      description: doc.description,
+      updatedAt: doc.updatedAt,
+      body: doc.body,
+    })),
+    agent: agentDocs.map((doc) => ({
+      slug: doc.slug,
+      title: doc.title,
+      description: doc.description,
+      updatedAt: doc.updatedAt,
+      body: doc.body,
+    })),
+    admin: adminDocs.map((doc) => ({
+      slug: doc.slug,
+      title: doc.title,
+      description: doc.description,
+      updatedAt: doc.updatedAt,
+      body: doc.body,
+    })),
+  };
+
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/95 backdrop-blur-lg shadow-[0_1px_10px_rgba(15,23,42,0.06)]">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:h-16">
@@ -96,9 +133,7 @@ export async function MainNav({
           <div className="hidden sm:block">
             <MarketSelector enabled={marketSelectorEnabled} />
           </div>
-          <AdminHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
-          <AgentHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
-          <TenantHelpDrawer initialAuthed={initialAuthed} initialRole={role} />
+          <HelpDrawer initialAuthed={initialAuthed} initialRole={role} docsByRole={helpDocsByRole} />
           <ProductUpdatesBell initialAuthed={initialAuthed} />
           <NavAuthClient initialAuthed={initialAuthed} />
           <NavMobileDrawerClient

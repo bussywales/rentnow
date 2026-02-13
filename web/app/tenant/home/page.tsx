@@ -42,6 +42,8 @@ import { buildMarketHubHref, getMarketHubs } from "@/lib/market/hubs";
 import { HomeBrowseCtaClient } from "@/components/market/HomeBrowseCtaClient";
 import { MarketHubLink } from "@/components/market/MarketHubLink";
 import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
+import { NextBestActionsPanel } from "@/components/checklists/NextBestActionsPanel";
+import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 import { loadTenantChecklist } from "@/lib/checklists/role-checklists.server";
 
 export const dynamic = "force-dynamic";
@@ -366,6 +368,12 @@ export default async function TenantHomePage() {
       </section>
 
       <ContinueSearchCard />
+
+      <div className="flex justify-end">
+        <HelpDrawerTrigger label="Need help?" testId="tenant-help-trigger" />
+      </div>
+
+      <NextBestActionsPanel role="tenant" items={gettingStartedChecklist} />
 
       <RoleChecklistPanel
         title="Getting started checklist"

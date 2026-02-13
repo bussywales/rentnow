@@ -37,6 +37,7 @@ import { getMarketSettings } from "@/lib/market/market.server";
 import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/market";
 import { buildMarketHubHref, getMarketHubs } from "@/lib/market/hubs";
 import { MarketHubLink } from "@/components/market/MarketHubLink";
+import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
   searchParams?: SearchParams | Promise<SearchParams>;
@@ -682,11 +683,14 @@ export default async function PropertiesPage({ searchParams }: Props) {
             </p>
           )}
         </div>
-        {showListCta && (
-          <Link href="/dashboard/properties/new">
-            <Button variant="secondary">List a property</Button>
-          </Link>
-        )}
+        <div className="flex items-center gap-2">
+          {role ? <HelpDrawerTrigger label="Need help?" testId="properties-help-trigger" /> : null}
+          {showListCta && (
+            <Link href="/dashboard/properties/new">
+              <Button variant="secondary">List a property</Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {savedSearch && (

@@ -40,6 +40,21 @@ export async function RoleHelpIndex(props: {
         </section>
       )}
 
+      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h2 className="text-lg font-semibold text-slate-900">Using guided help</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Open contextual help from the header or page-level “Need help?” actions.
+        </p>
+        <div className="mt-3">
+          <Link
+            href="/help/troubleshooting/using-help-drawer"
+            className="inline-flex rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-800 hover:bg-slate-50"
+          >
+            Read: Using the help drawer
+          </Link>
+        </div>
+      </section>
+
       <section className="grid gap-3">
         {docs.map((doc) => (
           <Link
@@ -102,4 +117,3 @@ export async function RoleHelpDetail(props: { role: HelpRole; slug: string }) {
     </div>
   );
 }
-

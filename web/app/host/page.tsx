@@ -34,6 +34,8 @@ import {
   type FeaturedEligibilitySettings,
 } from "@/lib/featured/eligibility";
 import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
+import { NextBestActionsPanel } from "@/components/checklists/NextBestActionsPanel";
+import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
 import type { ChecklistItem } from "@/lib/checklists/role-checklists";
 
@@ -331,6 +333,7 @@ export default async function DashboardHome() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <HelpDrawerTrigger label="Need help?" testId="host-help-trigger" />
           {listingLimitReached ? (
             <Button variant="secondary" disabled>
               Max listings reached
@@ -417,6 +420,9 @@ export default async function DashboardHome() {
           <li>Confirm rent, availability, and contact details.</li>
         </ul>
       </div>
+      {(role === "landlord" || role === "agent") && gettingStartedChecklist.length > 0 && (
+        <NextBestActionsPanel role={role} items={gettingStartedChecklist} />
+      )}
       {(role === "landlord" || role === "agent") && gettingStartedChecklist.length > 0 && (
         <RoleChecklistPanel
           title="Getting started checklist"

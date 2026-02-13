@@ -4,6 +4,8 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
+import { NextBestActionsPanel } from "@/components/checklists/NextBestActionsPanel";
+import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 import {
   buildSystemHealthSettingsSnapshot,
   getSystemHealthEnvStatus,
@@ -179,8 +181,17 @@ export default async function AdminSystemPage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
       <section className="rounded-2xl bg-slate-900 px-5 py-4 text-white shadow-lg">
-        <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Admin</p>
-        <h1 className="text-2xl font-semibold">System health</h1>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Admin</p>
+            <h1 className="text-2xl font-semibold">System health</h1>
+          </div>
+          <HelpDrawerTrigger
+            label="Need help?"
+            className="border-white/30 bg-white/10 text-white hover:bg-white/20"
+            testId="admin-help-trigger"
+          />
+        </div>
         <p className="mt-1 text-sm text-slate-200">
           Lightweight go-live visibility for environment readiness and key launch toggles.
         </p>
@@ -217,6 +228,10 @@ export default async function AdminSystemPage() {
       <SettingsSnapshot settings={settings} />
 
       <VerificationCountsCard counts={verificationRollup} />
+
+      {Array.isArray(opsChecklist) && opsChecklist.length > 0 ? (
+        <NextBestActionsPanel role="admin" items={opsChecklist} />
+      ) : null}
 
       {Array.isArray(opsChecklist) && opsChecklist.length > 0 ? (
         <RoleChecklistPanel
