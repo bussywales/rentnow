@@ -1,4 +1,4 @@
-# Payments v1 Ops — Vercel Cron Reconcile
+# Payments v1 Ops — Scheduled Reconcile (GitHub Actions on Hobby)
 
 This runbook covers the fallback reconcile job for Paystack Featured payments.
 
@@ -20,24 +20,18 @@ Optional but recommended:
 - `PAYSTACK_WEBHOOK_SECRET`
 - `RESEND_FROM`
 
-## Vercel cron configuration
+## Scheduler configuration (Hobby)
 
-`/Users/olubusayoadewale/rentnow/web/vercel.json` includes:
+Vercel cron is not used on Hobby for this job.
 
-```json
-{
-  "crons": [
-    { "path": "/api/jobs/payments/reconcile", "schedule": "0 9 * * *" }
-  ]
-}
-```
+Scheduler source:
 
-Hobby plan note:
+- GitHub Actions workflow:
+  - `/Users/olubusayoadewale/rentnow/.github/workflows/payments-reconcile.yml`
+  - runs every 15 minutes (`*/15 * * * *`)
+  - calls `POST /api/jobs/payments/reconcile` with `x-cron-secret`
 
-- Vercel Hobby supports daily cron jobs only.
-- Current schedule runs once daily at `09:00 UTC`.
-
-If you need 15-minute cadence, use an external scheduler to call:
+Alternative external schedulers (if needed) can also call:
 
 - `POST /api/jobs/payments/reconcile` with `x-cron-secret`
 - Recommended options: GitHub Actions, cron-job.org, Upstash QStash

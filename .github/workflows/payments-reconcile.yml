@@ -1,0 +1,56 @@
+name: Payments Reconcile
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: payments-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call payments reconcile endpoint
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${APP_URL:-}" ]; then
+            echo "APP_URL secret is required"
+            exit 1
+          fi
+
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "CRON_SECRET secret is required"
+            exit 1
+          fi
+
+          RECONCILE_URL="${APP_URL%/}/api/jobs/payments/reconcile"
+          echo "POST ${RECONCILE_URL}"
+
+          HTTP_CODE="$(curl -sS \
+            --retry 3 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            -o reconcile-response.json \
+            -w "%{http_code}" \
+            -X POST "${RECONCILE_URL}" \
+            -H "x-cron-secret: ${CRON_SECRET}" \
+            -H "content-type: application/json" \
+            --data '{}')"
+
+          cat reconcile-response.json
+
+          if [ "${HTTP_CODE}" -lt 200 ] || [ "${HTTP_CODE}" -ge 300 ]; then
+            echo "Reconcile failed with HTTP ${HTTP_CODE}"
+            exit 1
+          fi
