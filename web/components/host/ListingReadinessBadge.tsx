@@ -9,15 +9,15 @@ type Props = {
 export function ListingReadinessBadge({ readiness, improveHref }: Props) {
   const topIssue = readiness.issues[0];
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-semibold text-slate-900">
+    <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+        <span className="min-w-0 font-semibold text-slate-900">
           Readiness: {readiness.score} · {readiness.tier}
         </span>
         {improveHref && topIssue && (
           <Link
             href={improveHref}
-            className="rounded-full bg-sky-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-sky-700"
+            className="shrink-0 rounded-full bg-sky-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-sky-700"
           >
             Improve
           </Link>

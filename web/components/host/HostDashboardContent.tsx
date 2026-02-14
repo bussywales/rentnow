@@ -664,7 +664,7 @@ export function HostDashboardContent({
   };
 
   return (
-    <div className="space-y-3">
+    <div className="min-w-0 space-y-3">
       <HostDashboardSavedViews
         view={view}
         onSelect={handleViewChange}
@@ -679,7 +679,7 @@ export function HostDashboardContent({
         onToggleSelectAll={toggleSelectAll}
       />
       {sorted.length ? (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid min-w-0 gap-4 md:grid-cols-2">
           {sorted.map((property) => {
             const status = normalizeStatus(property);
             const normalizedStatus = normalizePropertyStatus(status) ?? status;
@@ -757,7 +757,7 @@ export function HostDashboardContent({
             return (
               <div
                 key={property.id}
-                className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                className="min-w-0 w-full rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
                 data-testid={`host-listing-card-${property.id}`}
               >
                 <div className="mb-2">
@@ -771,8 +771,8 @@ export function HostDashboardContent({
                     <span>Select</span>
                   </label>
                 </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
                     <span
                       className={`rounded-full px-3 py-1 text-[11px] font-semibold ${statusChipClass(normalizedStatus)}`}
                       data-testid={`listing-status-${property.id}`}
@@ -824,7 +824,7 @@ export function HostDashboardContent({
                     ) : null}
                   </div>
                 ) : null}
-                <div className="mt-3">
+                <div className="mt-3 min-w-0">
                   <PropertyCard
                     property={property}
                     compact
@@ -833,7 +833,7 @@ export function HostDashboardContent({
                     trustVariant="admin"
                   />
                 </div>
-                <div className="mt-3 flex items-center justify-between text-xs text-slate-600">
+                <div className="mt-3 flex min-w-0 flex-wrap items-center justify-between gap-2 text-xs text-slate-600">
                   <span>Readiness</span>
                   <span className="font-semibold text-slate-900">
                     {readiness.score} · {readiness.tier}
@@ -874,7 +874,7 @@ export function HostDashboardContent({
                     Rejection reason: {property.rejection_reason}
                   </p>
                 )}
-                <div className="mt-4 flex flex-wrap gap-2">
+                <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2">
                   <Link href={`/dashboard/properties/${property.id}`}>
                     <Button size="sm" variant="secondary">
                       Edit listing
@@ -912,7 +912,7 @@ export function HostDashboardContent({
                         <Button size="sm" variant="secondary" disabled data-testid={`listing-feature-request-pending-${property.id}`}>
                           Request pending
                         </Button>
-                        <span className="inline-flex items-center text-[11px] text-slate-500">
+                        <span className="inline-flex min-w-0 items-center text-[11px] text-slate-500">
                           We usually review within 1-{featuredPricing.slaDays} days.
                         </span>
                       </>
@@ -928,7 +928,7 @@ export function HostDashboardContent({
                         >
                           Request featured
                         </Button>
-                        <span className="inline-flex items-center text-[11px] text-slate-500">
+                        <span className="inline-flex min-w-0 items-center text-[11px] text-slate-500">
                           From {featuredFromPriceLabel} / 7 days
                         </span>
                       </>
@@ -1009,8 +1009,8 @@ export function HostDashboardContent({
                     <p className="text-xs font-semibold text-slate-700">Request checklist</p>
                     <ul className="mt-2 space-y-2 text-xs text-slate-600">
                       {fixItems.map((item) => (
-                        <li key={`${property.id}-${item.code}`} className="flex items-center justify-between gap-2">
-                          <span>{item.label}</span>
+                        <li key={`${property.id}-${item.code}`} className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                          <span className="min-w-0 flex-1">{item.label}</span>
                           {item.href ? (
                             <Link href={item.href} className="font-semibold text-sky-700 underline underline-offset-2">
                               {item.actionLabel || "Open"}

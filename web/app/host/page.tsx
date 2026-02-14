@@ -355,7 +355,7 @@ export default async function DashboardHome() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="min-w-0 space-y-4">
       <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-xl font-semibold text-slate-900">My listings</h2>
@@ -478,7 +478,7 @@ export default async function DashboardHome() {
           </div>
         </div>
       )}
-      <div className="space-y-3">
+      <div className="min-w-0 space-y-3">
         {dashboardError && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
             <p>{dashboardError}</p>
