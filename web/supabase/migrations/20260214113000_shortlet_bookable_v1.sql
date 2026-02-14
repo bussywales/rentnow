@@ -3,6 +3,9 @@
 alter table public.properties
   alter column listing_intent set default 'rent_lease';
 
+alter table public.properties
+  drop constraint if exists properties_listing_intent_check;
+
 update public.properties
 set listing_intent = 'rent_lease'
 where listing_intent = 'rent';
@@ -10,9 +13,6 @@ where listing_intent = 'rent';
 update public.properties
 set listing_intent = 'sale'
 where listing_intent = 'buy';
-
-alter table public.properties
-  drop constraint if exists properties_listing_intent_check;
 
 alter table public.properties
   add constraint properties_listing_intent_check
