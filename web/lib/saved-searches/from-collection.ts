@@ -1,5 +1,6 @@
 import type { Property, RentalType } from "@/lib/types";
 import { normalizeSavedSearchFilters } from "@/lib/saved-searches/matching";
+import { mapIntentForSearchFilter, normalizeListingIntent } from "@/lib/listing-intents";
 
 function mostFrequent(values: string[]) {
   const counts = new Map<string, number>();
@@ -61,7 +62,7 @@ export function deriveSavedSearchFiltersFromCollectionListings(listings: Propert
     .map((listing) => listing.rental_type)
     .filter((value): value is RentalType => value === "short_let" || value === "long_term");
   const listingIntents = listings
-    .map((listing) => listing.listing_intent)
+    .map((listing) => mapIntentForSearchFilter(normalizeListingIntent(listing.listing_intent)))
     .filter((value): value is "rent" | "buy" => value === "rent" || value === "buy");
   const listingTypes = listings
     .map((listing) =>

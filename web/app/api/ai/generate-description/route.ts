@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { logFailure } from "@/lib/observability";
 import { getOpenAI, assertOpenAiKey } from "@/lib/openai";
+import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 
 const routeLabel = "/api/ai/generate-description";
 
@@ -11,7 +12,7 @@ const bodySchema = z.object({
   city: z.string().min(2),
   neighbourhood: z.string().optional(),
   rentalType: z.enum(["short_let", "long_term"]).optional(),
-  listingIntent: z.enum(["rent", "buy"]).optional(),
+  listingIntent: z.enum(["rent", "buy", "rent_lease", "sale", "shortlet", "off_plan"]).optional(),
   listingType: z.string().optional(),
   price: z.number(),
   currency: z.string().min(2),
@@ -37,7 +38,8 @@ export async function generateDescriptionResponse(
   try {
     assertOpenAiKey();
 
-    const intentLabel = data.listingIntent === "buy" ? "for sale" : "for rent/lease";
+    const normalizedIntent = normalizeListingIntent(data.listingIntent);
+    const intentLabel = isSaleIntent(normalizedIntent) ? "for sale" : "for rent/lease";
     const listingType = data.listingType ? data.listingType : "N/A";
     const rentalType = data.rentalType ?? "N/A";
 
@@ -47,7 +49,7 @@ Write a real estate listing description for the following property details:
 - Title: ${data.title}
 - City: ${data.city}
 - Neighbourhood: ${data.neighbourhood || "N/A"}
-- Listing intent: ${data.listingIntent || "rent"} (${intentLabel})
+- Listing intent: ${normalizedIntent || "rent_lease"} (${intentLabel})
 - Listing type: ${listingType}
 - Rental type: ${rentalType}
 - Price: ${data.price} ${data.currency}

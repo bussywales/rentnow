@@ -46,6 +46,7 @@ import {
   getIntentRecoveryOptions,
   getIntentSummaryCopy,
 } from "@/lib/properties/listing-intent-ui";
+import { mapSearchFilterToListingIntent, normalizeListingIntent } from "@/lib/listing-intents";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
   searchParams?: SearchParams | Promise<SearchParams>;
@@ -162,8 +163,9 @@ function applyMockFilters(
     }
     if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
     if (filters.listingIntent && filters.listingIntent !== "all") {
-      const intent = property.listing_intent ?? "rent";
-      if (intent !== filters.listingIntent) return false;
+      const expectedIntent = mapSearchFilterToListingIntent(filters.listingIntent);
+      const listingIntent = normalizeListingIntent(property.listing_intent);
+      if (expectedIntent && listingIntent !== expectedIntent) return false;
     }
     if (filters.rentalType && property.rental_type !== filters.rentalType) return false;
     if (filters.furnished !== null && property.furnished !== filters.furnished) return false;

@@ -11,6 +11,7 @@ import { isClientPagePublished } from "@/lib/agents/client-pages";
 import { insertLeadAttribution } from "@/lib/leads/lead-attribution";
 import { createLeadThreadAndMessage } from "@/lib/leads/lead-create.server";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
+import { isSaleIntent } from "@/lib/listing-intents";
 
 const routeLabel = "/api/leads";
 
@@ -103,7 +104,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
   }
 
-  if (property.listing_intent !== "buy") {
+  if (!isSaleIntent(property.listing_intent)) {
     return NextResponse.json({ error: "Enquiries are only available for buy listings." }, { status: 400 });
   }
 

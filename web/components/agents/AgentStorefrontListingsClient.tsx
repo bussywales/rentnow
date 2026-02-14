@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { Property } from "@/lib/types";
 import { cn } from "@/components/ui/cn";
 import { PropertyCard } from "@/components/properties/PropertyCard";
+import { mapIntentForSearchFilter, normalizeListingIntent } from "@/lib/listing-intents";
 
 const FILTERS = [
   { key: "all", label: "All listings" },
@@ -52,7 +53,10 @@ export default function AgentStorefrontListingsClient({
 
   const filtered = useMemo(() => {
     if (filter === "all") return listings;
-    return listings.filter((item) => (item.listing_intent ?? "rent") === filter);
+    return listings.filter((item) => {
+      const normalized = normalizeListingIntent(item.listing_intent);
+      return mapIntentForSearchFilter(normalized) === filter;
+    });
   }, [filter, listings]);
 
   const sorted = useMemo(() => {

@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 import type { ParsedSearchFilters, RentalType } from "@/lib/types";
+import { mapSearchFilterToListingIntent } from "@/lib/listing-intents";
 
 type SearchOptions = {
   page?: number;
@@ -67,8 +68,9 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     if (filters.city) {
       query = query.ilike("city", `%${filters.city}%`);
     }
-    if (filters.listingIntent === "rent" || filters.listingIntent === "buy") {
-      query = query.eq("listing_intent", filters.listingIntent);
+    const listingIntent = mapSearchFilterToListingIntent(filters.listingIntent ?? null);
+    if (listingIntent) {
+      query = query.eq("listing_intent", listingIntent);
     }
     if (filters.bedrooms !== null) {
       const bedroomsMode = filters.bedroomsMode ?? "exact";

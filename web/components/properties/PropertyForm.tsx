@@ -127,7 +127,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
       amenities: form.amenitiesText
         ? form.amenitiesText.split(",").map((a) => a.trim()).filter(Boolean)
         : [],
-      rent_period: form.listing_intent === "buy" ? null : form.rent_period ?? "monthly",
+      rent_period: isSaleListing ? null : form.rent_period ?? "monthly",
     };
     startTransition(async () => {
       if (onSubmit) {
@@ -432,7 +432,7 @@ export function PropertyForm({ initialData, onSubmit }: Props) {
               placeholder="Search currency codes"
             />
           </div>
-          {form.listing_intent !== "buy" ? (
+          {!isSaleListing ? (
             <div className="space-y-2">
               <span className="text-sm font-medium text-slate-700">Rent period</span>
               <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">

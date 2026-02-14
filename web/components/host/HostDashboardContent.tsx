@@ -30,9 +30,11 @@ import { ListingReactivateModal } from "@/components/host/ListingReactivateModal
 import { ListingPaywallModal } from "@/components/billing/ListingPaywallModal";
 import { HostFeaturedRequestModal } from "@/components/host/HostFeaturedRequestModal";
 import { HostPaymentsPanel } from "@/components/host/HostPaymentsPanel";
+import { HostShortletBookingsPanel } from "@/components/host/HostShortletBookingsPanel";
 import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import type { PropertyStatus } from "@/lib/types";
 import type { MissedDemandEstimate } from "@/lib/analytics/property-events";
+import type { HostShortletBookingSummary } from "@/lib/shortlet/shortlet.server";
 import { resolveFeaturedRequestHostSummary } from "@/lib/featured/requests";
 import {
   formatFeaturedMinorAmount,
@@ -172,6 +174,7 @@ export function HostDashboardContent({
   initialFeaturedRequestsByProperty = {},
   featuredRequestSettings,
   performanceById = {},
+  shortletBookings = [],
 }: {
   listings: DashboardListing[];
   trustMarkers: TrustMarkerState | null;
@@ -180,6 +183,7 @@ export function HostDashboardContent({
   initialFeaturedRequestsByProperty?: Record<string, FeaturedRequestState>;
   featuredRequestSettings: FeaturedEligibilitySettings;
   performanceById?: Record<string, ListingPerformance>;
+  shortletBookings?: HostShortletBookingSummary[];
 }) {
   const [search, setSearch] = useState("");
   const { view, setView } = useHostDashboardView(hostUserId);
@@ -1026,6 +1030,7 @@ export function HostDashboardContent({
           <p className="mt-1 text-sm text-slate-600">{viewCopy.description}</p>
         </div>
       )}
+      <HostShortletBookingsPanel initialRows={shortletBookings} />
       <HostPaymentsPanel />
       <ListingBulkActionsBar
         count={selectedIds.length}

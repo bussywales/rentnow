@@ -43,6 +43,7 @@ import {
 } from "@/lib/properties/expiry";
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
+import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 
 const routeLabel = "/api/properties/[id]";
 type ImageMetaPayload = Record<
@@ -91,7 +92,10 @@ export const updateSchema = z.object({
     .optional()
     .nullable(),
   rental_type: z.enum(["short_let", "long_term"]).optional(),
-  listing_intent: z.enum(["rent", "buy"]).optional().nullable(),
+  listing_intent: z
+    .enum(["rent", "buy", "rent_lease", "sale", "shortlet", "off_plan"])
+    .optional()
+    .nullable(),
   price: z.number().positive().optional(),
   currency: z.string().min(2).optional(),
   rent_period: z.enum(["monthly", "yearly"]).optional().nullable(),
@@ -704,7 +708,9 @@ export async function PUT(
     const normalizedRest = {
       ...rest,
       listing_intent:
-        typeof rest.listing_intent === "undefined" ? undefined : rest.listing_intent ?? "rent",
+        typeof rest.listing_intent === "undefined"
+          ? undefined
+          : normalizeListingIntent(rest.listing_intent) ?? "rent_lease",
       listing_type: typeof rest.listing_type === "undefined" ? undefined : rest.listing_type,
       country: countryFields.country,
       country_code: countryFields.country_code,
@@ -740,10 +746,14 @@ export async function PUT(
           ? undefined
           : cover_image_url ?? (imageUrls[0] ?? null),
     };
-    if (normalizedRest.listing_intent === "buy") {
+    if (
+      isSaleIntent(normalizedRest.listing_intent) ||
+      normalizedRest.listing_intent === "off_plan"
+    ) {
       normalizedRest.deposit_amount = null;
       normalizedRest.deposit_currency = null;
       normalizedRest.bills_included = false;
+      normalizedRest.rent_period = null;
     }
     if (typeof normalizedRest.cover_image_url === "string" && imageUrls.length && !imageUrls.includes(normalizedRest.cover_image_url)) {
       return NextResponse.json(

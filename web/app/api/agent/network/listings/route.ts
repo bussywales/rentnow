@@ -7,6 +7,7 @@ import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import { normalizeRole } from "@/lib/roles";
 import type { Property } from "@/lib/types";
+import { mapSearchFilterToListingIntent } from "@/lib/listing-intents";
 
 const routeLabel = "/api/agent/network/listings";
 
@@ -139,7 +140,10 @@ export async function getAgentNetworkListingsResponse(
     query = query.ilike("city", `%${city}%`);
   }
   if (intent === "rent" || intent === "buy") {
-    query = query.eq("listing_intent", intent);
+    const listingIntent = mapSearchFilterToListingIntent(intent);
+    if (listingIntent) {
+      query = query.eq("listing_intent", listingIntent);
+    }
   }
   if (typeof minPrice === "number") {
     query = query.gte("price", minPrice);

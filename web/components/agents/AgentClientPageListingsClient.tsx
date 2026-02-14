@@ -6,6 +6,7 @@ import type { Property } from "@/lib/types";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
+import { mapIntentForSearchFilter, normalizeListingIntent } from "@/lib/listing-intents";
 
 const INTENT_OPTIONS = [
   { value: "all", label: "All" },
@@ -48,7 +49,10 @@ export default function AgentClientPageListingsClient({
     const minBeds = parseNumber(bedrooms);
 
     return listings.filter((listing) => {
-      if (intent !== "all" && (listing.listing_intent ?? "rent") !== intent) return false;
+      if (intent !== "all") {
+        const listingIntent = mapIntentForSearchFilter(normalizeListingIntent(listing.listing_intent));
+        if (listingIntent !== intent) return false;
+      }
       if (typeof min === "number" && (listing.price ?? 0) < min) return false;
       if (typeof max === "number" && (listing.price ?? 0) > max) return false;
       if (typeof minBeds === "number" && (listing.bedrooms ?? 0) < minBeds) return false;

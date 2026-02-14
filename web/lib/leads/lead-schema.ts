@@ -34,12 +34,12 @@ export type LeadStatusUpdateInput = z.infer<typeof leadStatusUpdateSchema>;
 
 export function buildLeadSystemMessage(
   message: string,
-  listingIntent?: "rent" | "buy" | null
+  listingIntent?: "rent" | "buy" | "rent_lease" | "sale" | "shortlet" | "off_plan" | null
 ) {
-  if (listingIntent === "buy") {
+  if (listingIntent === "buy" || listingIntent === "sale") {
     return `New buy enquiry submitted.\n\n${message}`;
   }
-  if (listingIntent === "rent") {
+  if (listingIntent === "rent" || listingIntent === "rent_lease") {
     return `New rent enquiry submitted.\n\n${message}`;
   }
   return `New enquiry submitted.\n\n${message}`;

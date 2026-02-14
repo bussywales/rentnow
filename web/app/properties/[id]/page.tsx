@@ -45,12 +45,14 @@ import {
   isPublicAdvertiserRole,
   resolvePublicAdvertiserHref,
 } from "@/lib/advertisers/public-profile";
+import { isSaleIntent, isShortletIntent, normalizeListingIntent } from "@/lib/listing-intents";
 import { getMarketSettings } from "@/lib/market/market.server";
 import {
   MARKET_COOKIE_NAME,
   readCookieValueFromHeader,
   resolveMarketFromRequest,
 } from "@/lib/market/market";
+import { ShortletBookingWidget } from "@/components/properties/ShortletBookingWidget";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -557,7 +559,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   });
   const cadence = formatCadence(property.rental_type, property.rent_period);
   const listingTypeLabel = formatListingType(property.listing_type);
-  const listingIntent = property.listing_intent ?? "rent";
+  const listingIntent = normalizeListingIntent(property.listing_intent) ?? "rent_lease";
+  const isSaleListing = isSaleIntent(listingIntent);
+  const isShortletListing = isShortletIntent(listingIntent);
   const isFeaturedActive =
     !!property.is_featured &&
     (!property.featured_until || Date.parse(property.featured_until) > Date.now());
@@ -714,9 +718,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
         </div>
         <div className="min-w-0 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">
-            {listingIntent === "buy"
+            {isSaleListing
               ? "For sale"
-              : property.rental_type === "short_let"
+              : isShortletListing || property.rental_type === "short_let"
                 ? "Short-let"
                 : "Long-term"}
           </p>
@@ -887,7 +891,15 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </p>
             </div>
           )}
-          {showPublicActions && !expiredReadOnly && listingIntent !== "buy" && (
+          {showPublicActions && !expiredReadOnly && isShortletListing && (
+            <ShortletBookingWidget
+              propertyId={property.id}
+              listingTitle={property.title}
+              isAuthenticated={!isGuest}
+              loginHref={loginRedirect}
+            />
+          )}
+          {showPublicActions && !expiredReadOnly && !isSaleListing && !isShortletListing && (
             <div id="cta" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Viewing requests</h3>
@@ -914,7 +926,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </div>
             </div>
           )}
-          {showPublicActions && !expiredReadOnly && listingIntent === "buy" && (
+          {showPublicActions && !expiredReadOnly && isSaleListing && (
             <div id="cta" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Enquire to buy</h3>

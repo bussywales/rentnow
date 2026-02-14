@@ -3,6 +3,7 @@ import { buildPropertyEventSummary, estimateMissedDemand } from "@/lib/analytics
 import { fetchPropertyEvents, groupEventsByProperty } from "@/lib/analytics/property-events.server";
 import type { PropertyEventSummary } from "@/lib/analytics/property-events";
 import type { InsightsRange } from "@/lib/admin/insights";
+import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 
 export type RevenueSignalType =
   | "HIGH_DEMAND_LOW_CONVERSION"
@@ -200,7 +201,7 @@ export function classifyRevenueSignals({
   }
 
   if (
-    listing.listing_intent === "buy" &&
+    isSaleIntent(normalizeListingIntent(listing.listing_intent)) &&
     views >= REVENUE_SIGNAL_THRESHOLDS.saleInterestViews &&
     (saves >= REVENUE_SIGNAL_THRESHOLDS.saleInterestSaves || enquiries > 0)
   ) {

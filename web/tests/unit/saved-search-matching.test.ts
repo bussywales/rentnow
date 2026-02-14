@@ -89,7 +89,7 @@ void test("applies listing intent filter for rent/buy and skips for all or missi
   applySavedSearchMatchSpecToQuery(rentRecorder.query, rentSpec);
   assert.deepEqual(rentRecorder.calls, [
     { op: "gt", column: "created_at", value: "2026-02-01T00:00:00.000Z" },
-    { op: "eq", column: "listing_intent", value: "rent" },
+    { op: "eq", column: "listing_intent", value: "rent_lease" },
   ]);
 
   const buySpec = buildSavedSearchMatchQuerySpec({
@@ -102,7 +102,7 @@ void test("applies listing intent filter for rent/buy and skips for all or missi
   applySavedSearchMatchSpecToQuery(buyRecorder.query, buySpec);
   assert.deepEqual(buyRecorder.calls, [
     { op: "gt", column: "created_at", value: "2026-02-01T00:00:00.000Z" },
-    { op: "eq", column: "listing_intent", value: "buy" },
+    { op: "eq", column: "listing_intent", value: "sale" },
   ]);
 
   const mixedSpec = buildSavedSearchMatchQuerySpec({

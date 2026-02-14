@@ -23,8 +23,8 @@ function firstCookieValue(cookieHeader: string, key: string): string | null {
 export function parseIntent(value: string | null | undefined): ListingIntentMode | undefined {
   if (typeof value !== "string") return undefined;
   const normalized = value.trim().toLowerCase();
-  if (normalized === "rent") return "rent";
-  if (normalized === "buy") return "buy";
+  if (normalized === "rent" || normalized === "rent_lease") return "rent";
+  if (normalized === "buy" || normalized === "sale") return "buy";
   if (normalized === "all") return "all";
   return undefined;
 }

@@ -250,6 +250,12 @@ export default async function AdminSystemPage() {
           <Link href="/admin/payments" className="rounded-lg border border-slate-300 px-3 py-2 text-slate-700">
             Payments ops
           </Link>
+          <Link href="/admin/shortlets" className="rounded-lg border border-slate-300 px-3 py-2 text-slate-700">
+            Shortlet bookings
+          </Link>
+          <Link href="/admin/shortlets/payouts" className="rounded-lg border border-slate-300 px-3 py-2 text-slate-700">
+            Shortlet payouts
+          </Link>
           <Link href="/admin/settings" className="rounded-lg border border-slate-300 px-3 py-2 text-slate-700">
             Settings
           </Link>

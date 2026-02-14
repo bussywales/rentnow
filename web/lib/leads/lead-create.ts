@@ -1,5 +1,6 @@
 import type { ListingIntent } from "@/lib/types";
 import type { LeadFinancing, LeadIntent, LeadTimeline } from "@/lib/leads/types";
+import { isRentIntent, isSaleIntent } from "@/lib/listing-intents";
 
 export type LeadPropertyInput = {
   id: string;
@@ -33,7 +34,7 @@ export function resolveLeadIntent(input: {
   listingIntent?: ListingIntent | null;
   requestedIntent?: LeadIntent | null;
 }): LeadIntent {
-  if (input.listingIntent === "rent") return "ASK_QUESTION";
+  if (isRentIntent(input.listingIntent)) return "ASK_QUESTION";
   return input.requestedIntent ?? "BUY";
 }
 
@@ -50,7 +51,7 @@ export function validateLeadProperty(
   }
 
   if ((options?.allowListingIntent ?? "buy") === "buy") {
-    if (property.listing_intent !== "buy") {
+    if (!isSaleIntent(property.listing_intent)) {
       return {
         ok: false,
         status: 400,

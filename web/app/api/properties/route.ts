@@ -29,6 +29,7 @@ import { cleanNullableString } from "@/lib/strings";
 import { computeExpiryAt } from "@/lib/properties/expiry";
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
+import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
@@ -71,7 +72,10 @@ export const propertySchema = z
     .optional()
     .nullable(),
   rental_type: z.enum(["short_let", "long_term"]),
-  listing_intent: z.enum(["rent", "buy"]).optional().nullable(),
+  listing_intent: z
+    .enum(["rent", "buy", "rent_lease", "sale", "shortlet", "off_plan"])
+    .optional()
+    .nullable(),
   price: z.number().positive(),
   currency: z.string().min(2),
   rent_period: z.enum(["monthly", "yearly"]).optional().nullable(),
@@ -229,7 +233,7 @@ export async function POST(request: Request) {
       location_place_id: cleanNullableString(rest.location_place_id, { allowUndefined: false }),
       location_source: cleanNullableString(rest.location_source, { allowUndefined: false }),
       location_precision: cleanNullableString(rest.location_precision, { allowUndefined: false }),
-      listing_intent: rest.listing_intent ?? "rent",
+      listing_intent: normalizeListingIntent(rest.listing_intent) ?? "rent_lease",
       listing_type: rest.listing_type ?? null,
       country,
       country_code,
@@ -246,10 +250,11 @@ export async function POST(request: Request) {
       pets_allowed: typeof rest.pets_allowed === "boolean" ? rest.pets_allowed : false,
       cover_image_url: cover_image_url ?? (imageUrls[0] ?? null),
     };
-    if (normalized.listing_intent === "buy") {
+    if (isSaleIntent(normalized.listing_intent) || normalized.listing_intent === "off_plan") {
       normalized.deposit_amount = null;
       normalized.deposit_currency = null;
       normalized.bills_included = false;
+      normalized.rent_period = null;
     }
     if (normalized.cover_image_url && imageUrls.length && !imageUrls.includes(normalized.cover_image_url)) {
       return NextResponse.json(

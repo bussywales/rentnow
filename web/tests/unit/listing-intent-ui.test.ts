@@ -17,13 +17,13 @@ void test("listing intent field is present in host create/edit UI", () => {
   );
 });
 
-void test("buy listings render the Enquire to buy CTA", () => {
+void test("sale listings render the Enquire to buy CTA", () => {
   const pagePath = path.join(process.cwd(), "app", "properties", "[id]", "page.tsx");
   const page = fs.readFileSync(pagePath, "utf8");
 
   assert.ok(
-    page.includes('listingIntent === "buy"'),
-    "expected listing intent branch in property page"
+    page.includes("isSaleListing"),
+    "expected sale intent branch in property page"
   );
   assert.ok(
     page.includes("Enquire to buy"),

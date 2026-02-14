@@ -27,6 +27,7 @@ import {
   resolvePublicAdvertiserHref,
 } from "@/lib/advertisers/public-profile";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
+import { isSaleIntent, isShortletIntent, normalizeListingIntent } from "@/lib/listing-intents";
 
 const BedIcon = () => (
   <svg
@@ -109,7 +110,7 @@ export function PropertyCard({
   const listingTypeLabel = formatListingType(property.listing_type);
   const sizeLabel = formatSizeLabel(property.size_value, property.size_unit);
   const metaLine = [listingTypeLabel, sizeLabel].filter(Boolean).join(" \u00b7 ");
-  const listingIntent = property.listing_intent ?? "rent";
+  const listingIntent = normalizeListingIntent(property.listing_intent) ?? "rent_lease";
   const description =
     typeof property.description === "string" && property.description.trim().length > 0
       ? property.description
@@ -121,7 +122,11 @@ export function PropertyCard({
   });
   const showDemoBadge = shouldRenderDemoBadge({ isDemo, enabled: true });
   const showDemoWatermark = shouldRenderDemoWatermark({ isDemo, enabled: true });
-  const ctaLabel = listingIntent === "buy" ? "Enquire to buy" : "Request viewing";
+  const ctaLabel = isShortletIntent(listingIntent)
+    ? "Book stay"
+    : isSaleIntent(listingIntent)
+    ? "Enquire to buy"
+    : "Request viewing";
   const cardHref = href || `/properties/${property.id}`;
   const showFastResponder = !!fastResponder;
   const advertiserName = property.owner_id
@@ -262,8 +267,12 @@ export function PropertyCard({
             )}
           </div>
           <span className="rounded-full border border-slate-200/70 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-slate-600 whitespace-nowrap shrink-0">
-            {listingIntent === "buy"
+            {isSaleIntent(listingIntent)
               ? "For sale"
+              : isShortletIntent(listingIntent)
+                ? "Shortlet"
+                : listingIntent === "off_plan"
+                  ? "Off-plan"
               : property.rental_type === "short_let"
                 ? "Short-let"
                 : "Long-term"}

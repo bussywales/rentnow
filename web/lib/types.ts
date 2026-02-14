@@ -4,8 +4,14 @@ export type RentalType = "short_let" | "long_term";
 
 export type RentPeriod = "monthly" | "yearly";
 
-export type ListingIntent = "rent" | "buy";
-export type ListingIntentFilter = ListingIntent | "all";
+export type ListingIntent =
+  | "rent_lease"
+  | "sale"
+  | "shortlet"
+  | "off_plan"
+  | "rent"
+  | "buy";
+export type ListingIntentFilter = "rent" | "buy" | "all";
 
 export type ListingType =
   | "apartment"

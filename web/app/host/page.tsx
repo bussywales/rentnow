@@ -38,6 +38,8 @@ import { NextBestActionsPanel } from "@/components/checklists/NextBestActionsPan
 import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
 import type { ChecklistItem } from "@/lib/checklists/role-checklists";
+import { listHostShortletBookings, type HostShortletBookingSummary } from "@/lib/shortlet/shortlet.server";
+import { isSaleIntent } from "@/lib/listing-intents";
 
 export const dynamic = "force-dynamic";
 
@@ -128,6 +130,7 @@ export default async function DashboardHome() {
   > = {};
   let featuredRequestSettings: FeaturedEligibilitySettings = DEFAULT_FEATURED_ELIGIBILITY_SETTINGS;
   let gettingStartedChecklist: ChecklistItem[] = [];
+  let shortletBookings: HostShortletBookingSummary[] = [];
 
   if (supabaseReady) {
     try {
@@ -234,6 +237,20 @@ export default async function DashboardHome() {
             userId: ownerId,
             role,
           });
+
+          try {
+            const shortletClient = hasServiceRoleEnv()
+              ? createServiceRoleClient()
+              : supabase;
+            shortletBookings = await listHostShortletBookings({
+              client: shortletClient as unknown as SupabaseClient,
+              hostUserId: ownerId,
+              limit: 120,
+            });
+          } catch (shortletError) {
+            console.warn("[host-dashboard] shortlet bookings lookup failed", shortletError);
+            shortletBookings = [];
+          }
         }
       }
     } catch (err) {
@@ -298,7 +315,7 @@ export default async function DashboardHome() {
             const views = summary?.views ?? 0;
             const saves = Math.max(summary?.netSaves ?? 0, 0);
             const leads =
-              (property.listing_intent ?? "rent") === "buy"
+              isSaleIntent(property.listing_intent)
                 ? summary?.enquiries ?? 0
                 : summary?.viewingRequests ?? 0;
             const missedDemand = estimateMissedDemand({
@@ -476,6 +493,7 @@ export default async function DashboardHome() {
         initialFeaturedRequestsByProperty={initialFeaturedRequestsByProperty}
         featuredRequestSettings={featuredRequestSettings}
         performanceById={performanceById}
+        shortletBookings={shortletBookings}
       />
         ) : (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">

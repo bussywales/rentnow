@@ -1,5 +1,6 @@
 import type { ParsedSearchFilters, RentalType } from "@/lib/types";
 import { parseIntent } from "@/lib/search-intent";
+import { mapSearchFilterToListingIntent } from "@/lib/listing-intents";
 
 export type SavedSearchMatchFilters = {
   city: string | null;
@@ -182,7 +183,10 @@ export function applySavedSearchMatchSpecToQuery<TQuery extends SavedSearchMatch
     }
   }
   if (filters.listingIntent) {
-    next = next.eq("listing_intent", filters.listingIntent);
+    const listingIntent = mapSearchFilterToListingIntent(filters.listingIntent);
+    if (listingIntent) {
+      next = next.eq("listing_intent", listingIntent);
+    }
   }
   if (filters.rentalType) {
     next = next.eq("rental_type", filters.rentalType);

@@ -6,6 +6,7 @@ import type {
   RentalType,
 } from "@/lib/types";
 import { parseIntent } from "@/lib/search-intent";
+import { mapSearchFilterToListingIntent, normalizeListingIntent } from "@/lib/listing-intents";
 
 export type SearchParamRecord = Record<string, string | string[] | undefined>;
 
@@ -313,8 +314,9 @@ export function propertyMatchesFilters(property: {
     if (mode === "exact" && property.bedrooms !== filters.bedrooms) return false;
   }
   if (filters.listingIntent && filters.listingIntent !== "all") {
-    const intent = property.listing_intent ?? "rent";
-    if (intent !== filters.listingIntent) return false;
+    const expectedIntent = mapSearchFilterToListingIntent(filters.listingIntent);
+    const listingIntent = normalizeListingIntent(property.listing_intent);
+    if (expectedIntent && listingIntent !== expectedIntent) return false;
   }
   if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
   if (filters.rentalType && property.rental_type !== filters.rentalType) return false;

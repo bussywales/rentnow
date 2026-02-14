@@ -3231,7 +3231,7 @@ export function PropertyStepper({
                     Pricing & availability
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {form.listing_intent === "buy"
+                    {isSaleIntent(form.listing_intent)
                       ? "Set the sale price and availability details."
                       : "Set the rent amount, cadence, and move-in details."}
                   </p>
@@ -3265,7 +3265,7 @@ export function PropertyStepper({
                   />
                   {renderFieldError("currency")}
                 </div>
-                {form.listing_intent !== "buy" ? (
+                {!isSaleIntent(form.listing_intent) ? (
                   <div className="space-y-2">
                     <span className="text-sm font-medium text-slate-700">Rent period</span>
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -3310,7 +3310,7 @@ export function PropertyStepper({
                     onChange={(e) => handleChange("available_from", e.target.value)}
                   />
                   <p className="text-xs text-slate-500">
-                    {form.listing_intent === "buy"
+                    {isSaleIntent(form.listing_intent)
                       ? "Optional if the sale timeline is flexible."
                       : "Optional if the date is flexible."}
                   </p>
@@ -4018,7 +4018,7 @@ export function PropertyStepper({
               rental_type: form.rental_type || "long_term",
               price: form.price || 0,
               currency: form.currency || "USD",
-              rent_period: form.listing_intent === "buy" ? null : form.rent_period || "monthly",
+              rent_period: isSaleIntent(form.listing_intent) ? null : form.rent_period || "monthly",
               bedrooms: form.bedrooms || 0,
               bathrooms: form.bathrooms || 0,
               bathroom_type: form.bathroom_type || null,
