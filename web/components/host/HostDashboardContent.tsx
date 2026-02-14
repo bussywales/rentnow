@@ -31,10 +31,14 @@ import { ListingPaywallModal } from "@/components/billing/ListingPaywallModal";
 import { HostFeaturedRequestModal } from "@/components/host/HostFeaturedRequestModal";
 import { HostPaymentsPanel } from "@/components/host/HostPaymentsPanel";
 import { HostShortletBookingsPanel } from "@/components/host/HostShortletBookingsPanel";
+import { HostShortletEarningsPanel } from "@/components/host/HostShortletEarningsPanel";
 import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import type { PropertyStatus } from "@/lib/types";
 import type { MissedDemandEstimate } from "@/lib/analytics/property-events";
-import type { HostShortletBookingSummary } from "@/lib/shortlet/shortlet.server";
+import type {
+  HostShortletBookingSummary,
+  HostShortletEarningSummary,
+} from "@/lib/shortlet/shortlet.server";
 import { resolveFeaturedRequestHostSummary } from "@/lib/featured/requests";
 import {
   formatFeaturedMinorAmount,
@@ -175,6 +179,7 @@ export function HostDashboardContent({
   featuredRequestSettings,
   performanceById = {},
   shortletBookings = [],
+  shortletEarnings = [],
 }: {
   listings: DashboardListing[];
   trustMarkers: TrustMarkerState | null;
@@ -184,6 +189,7 @@ export function HostDashboardContent({
   featuredRequestSettings: FeaturedEligibilitySettings;
   performanceById?: Record<string, ListingPerformance>;
   shortletBookings?: HostShortletBookingSummary[];
+  shortletEarnings?: HostShortletEarningSummary[];
 }) {
   const [search, setSearch] = useState("");
   const { view, setView } = useHostDashboardView(hostUserId);
@@ -1031,6 +1037,7 @@ export function HostDashboardContent({
         </div>
       )}
       <HostShortletBookingsPanel initialRows={shortletBookings} />
+      <HostShortletEarningsPanel rows={shortletEarnings} />
       <HostPaymentsPanel />
       <ListingBulkActionsBar
         count={selectedIds.length}

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
+import { canCancelBooking } from "@/lib/shortlet/bookings";
+import { isBookingEligibleForPayout, resolveMarkPaidTransition } from "@/lib/shortlet/payouts";
 
 export type ShortletBookingMode = "instant" | "request";
 
@@ -78,14 +80,35 @@ export type AdminShortletPayoutSummary = {
   currency: string;
   status: "eligible" | "paid";
   paid_at: string | null;
-  paid_ref: string | null;
+  paid_method: string | null;
+  paid_reference: string | null;
+  paid_by: string | null;
   note: string | null;
   created_at: string;
   booking_check_in: string | null;
+  booking_check_out: string | null;
   booking_status: string | null;
   property_id: string | null;
   property_title: string | null;
   property_city: string | null;
+};
+
+export type HostShortletEarningSummary = {
+  payout_id: string;
+  booking_id: string;
+  property_id: string | null;
+  property_title: string | null;
+  property_city: string | null;
+  check_in: string | null;
+  check_out: string | null;
+  booking_status: string | null;
+  amount_minor: number;
+  currency: string;
+  payout_status: "eligible" | "paid";
+  paid_at: string | null;
+  paid_method: string | null;
+  paid_reference: string | null;
+  note: string | null;
 };
 
 export type ShortletBlockRow = {
@@ -158,6 +181,55 @@ export async function listHostShortletBookings(input: {
       created_at: String(row.created_at || ""),
     } satisfies HostShortletBookingSummary;
   })) as HostShortletBookingSummary[];
+}
+
+export async function listHostShortletEarnings(input: {
+  client: SupabaseClient;
+  hostUserId: string;
+  limit?: number;
+}) {
+  const limit = Math.max(1, Math.min(120, Math.trunc(input.limit ?? 60)));
+  const { data, error } = await input.client
+    .from("shortlet_payouts")
+    .select(
+      "id,booking_id,amount_minor,currency,status,paid_at,paid_method,paid_reference,note,shortlet_bookings!inner(property_id,check_in,check_out,status,properties!inner(title,city))"
+    )
+    .eq("host_user_id", input.hostUserId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(error.message || "Unable to load shortlet earnings");
+  }
+
+  return (((data as Array<Record<string, unknown>> | null) ?? []).map((row) => {
+    const booking = (row.shortlet_bookings ?? null) as
+      | {
+          property_id?: string;
+          check_in?: string;
+          check_out?: string;
+          status?: string;
+          properties?: { title?: string | null; city?: string | null } | null;
+        }
+      | null;
+    return {
+      payout_id: String(row.id || ""),
+      booking_id: String(row.booking_id || ""),
+      property_id: typeof booking?.property_id === "string" ? booking.property_id : null,
+      property_title: booking?.properties?.title ?? null,
+      property_city: booking?.properties?.city ?? null,
+      check_in: typeof booking?.check_in === "string" ? booking.check_in : null,
+      check_out: typeof booking?.check_out === "string" ? booking.check_out : null,
+      booking_status: typeof booking?.status === "string" ? booking.status : null,
+      amount_minor: Number(row.amount_minor || 0),
+      currency: String(row.currency || "NGN"),
+      payout_status: (row.status === "paid" ? "paid" : "eligible") as "eligible" | "paid",
+      paid_at: typeof row.paid_at === "string" ? row.paid_at : null,
+      paid_method: typeof row.paid_method === "string" ? row.paid_method : null,
+      paid_reference: typeof row.paid_reference === "string" ? row.paid_reference : null,
+      note: typeof row.note === "string" ? row.note : null,
+    } satisfies HostShortletEarningSummary;
+  })) as HostShortletEarningSummary[];
 }
 
 export async function listAdminShortletBookings(input: {
@@ -237,7 +309,7 @@ export async function listAdminShortletPayouts(input: {
   let query = input.client
     .from("shortlet_payouts")
     .select(
-      "id,booking_id,host_user_id,amount_minor,currency,status,paid_at,paid_ref,note,created_at,shortlet_bookings!inner(check_in,status,property_id,properties!inner(title,city))"
+      "id,booking_id,host_user_id,amount_minor,currency,status,paid_at,paid_method,paid_reference,paid_by,note,created_at,shortlet_bookings!inner(check_in,check_out,status,property_id,properties!inner(title,city))"
     )
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -255,6 +327,7 @@ export async function listAdminShortletPayouts(input: {
     const booking = (row.shortlet_bookings ?? null) as
       | {
           check_in?: string;
+          check_out?: string;
           status?: string;
           property_id?: string;
           properties?: { title?: string | null; city?: string | null } | null;
@@ -268,10 +341,13 @@ export async function listAdminShortletPayouts(input: {
       currency: String(row.currency || "NGN"),
       status: (row.status === "paid" ? "paid" : "eligible") as "eligible" | "paid",
       paid_at: typeof row.paid_at === "string" ? row.paid_at : null,
-      paid_ref: typeof row.paid_ref === "string" ? row.paid_ref : null,
+      paid_method: typeof row.paid_method === "string" ? row.paid_method : null,
+      paid_reference: typeof row.paid_reference === "string" ? row.paid_reference : null,
+      paid_by: typeof row.paid_by === "string" ? row.paid_by : null,
       note: typeof row.note === "string" ? row.note : null,
       created_at: String(row.created_at || ""),
       booking_check_in: typeof booking?.check_in === "string" ? booking.check_in : null,
+      booking_check_out: typeof booking?.check_out === "string" ? booking.check_out : null,
       booking_status: typeof booking?.status === "string" ? booking.status : null,
       property_id: typeof booking?.property_id === "string" ? booking.property_id : null,
       property_title: booking?.properties?.title ?? null,
@@ -280,12 +356,12 @@ export async function listAdminShortletPayouts(input: {
   })) as AdminShortletPayoutSummary[];
 
   if (input.status === "eligible" || !input.status || input.status === "all") {
-    const now = Date.now();
     rows = rows.filter((row) => {
       if (row.status !== "eligible") return true;
-      const checkInMs = Date.parse(row.booking_check_in || "");
-      const bookingStatus = (row.booking_status || "").toLowerCase();
-      return bookingStatus === "completed" || (Number.isFinite(checkInMs) && checkInMs <= now);
+      return isBookingEligibleForPayout({
+        bookingStatus: row.booking_status,
+        checkOut: row.booking_check_out,
+      });
     });
   }
 
@@ -302,7 +378,7 @@ export async function listBlockedRangesForProperty(input: {
     .from("shortlet_bookings")
     .select("id,property_id,check_in,check_out,status")
     .eq("property_id", input.propertyId)
-    .in("status", ["pending", "confirmed", "completed"])
+    .in("status", ["pending", "confirmed"])
     .order("check_in", { ascending: true });
 
   let blocksQuery = input.client
@@ -425,6 +501,63 @@ export async function respondShortletBookingViaRpc(input: {
   };
 }
 
+export async function cancelShortletBooking(input: {
+  client: SupabaseClient;
+  bookingId: string;
+  actorUserId: string;
+  isAdmin?: boolean;
+}) {
+  const { data: booking, error: bookingError } = await input.client
+    .from("shortlet_bookings")
+    .select("id,status,guest_user_id,host_user_id")
+    .eq("id", input.bookingId)
+    .maybeSingle();
+  if (bookingError || !booking) {
+    throw new Error("BOOKING_NOT_FOUND");
+  }
+  const bookingStatus = String(booking.status || "pending") as ShortletBookingRow["status"];
+  const canCancel =
+    !!input.isAdmin ||
+    String(booking.guest_user_id || "") === input.actorUserId ||
+    String(booking.host_user_id || "") === input.actorUserId;
+  if (!canCancel) {
+    throw new Error("FORBIDDEN");
+  }
+  if (!canCancelBooking(bookingStatus)) {
+    throw new Error("INVALID_STATUS");
+  }
+
+  const { data: updated, error: updateError } = await input.client
+    .from("shortlet_bookings")
+    .update({
+      status: "cancelled",
+      expires_at: null,
+      refund_required: true,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", input.bookingId)
+    .in("status", ["pending", "confirmed"])
+    .select("id,status,property_id,guest_user_id,host_user_id")
+    .maybeSingle();
+  if (updateError || !updated) {
+    throw new Error("INVALID_STATUS");
+  }
+
+  await input.client
+    .from("shortlet_payouts")
+    .delete()
+    .eq("booking_id", input.bookingId)
+    .eq("status", "eligible");
+
+  return {
+    bookingId: String(updated.id || ""),
+    status: String(updated.status || "cancelled"),
+    propertyId: String(updated.property_id || ""),
+    hostUserId: String(updated.host_user_id || ""),
+    guestUserId: String(updated.guest_user_id || ""),
+  };
+}
+
 export async function expireDueShortletBookings(client: SupabaseClient) {
   const nowIso = new Date().toISOString();
   const { data, error } = await client
@@ -449,18 +582,23 @@ export async function ensureShortletPayoutForBooking(input: {
   currency: string;
 }) {
   const adminClient = input.client as unknown as UntypedAdminClient;
-  const { error } = await adminClient
+  const { data: existing, error: existingError } = await adminClient
     .from("shortlet_payouts")
-    .upsert(
-      {
-        booking_id: input.bookingId,
-        host_user_id: input.hostUserId,
-        amount_minor: Math.max(0, Math.trunc(input.amountMinor)),
-        currency: input.currency,
-        status: "eligible",
-      },
-      { onConflict: "booking_id" }
-    );
+    .select("id")
+    .eq("booking_id", input.bookingId)
+    .maybeSingle();
+  if (existingError) {
+    throw new Error(existingError.message || "Unable to check shortlet payout");
+  }
+  if (existing?.id) return;
+
+  const { error } = await adminClient.from("shortlet_payouts").insert({
+    booking_id: input.bookingId,
+    host_user_id: input.hostUserId,
+    amount_minor: Math.max(0, Math.trunc(input.amountMinor)),
+    currency: input.currency,
+    status: "eligible",
+  });
 
   if (error) {
     throw new Error(error.message || "Unable to upsert shortlet payout");
@@ -470,25 +608,84 @@ export async function ensureShortletPayoutForBooking(input: {
 export async function markShortletPayoutPaid(input: {
   client: SupabaseClient;
   payoutId: string;
-  paidRef: string | null;
+  paidMethod: string;
+  paidReference: string;
   note: string | null;
+  paidBy: string | null;
 }) {
+  const { data: existing, error: existingError } = await input.client
+    .from("shortlet_payouts")
+    .select("id,status,booking_id")
+    .eq("id", input.payoutId)
+    .maybeSingle();
+  if (existingError || !existing) {
+    throw new Error("PAYOUT_NOT_FOUND");
+  }
+
+  const transition = resolveMarkPaidTransition(String(existing.status || ""));
+  if (transition === "already_paid") {
+    const { data: current } = await input.client
+      .from("shortlet_payouts")
+      .select("id,status,paid_at,paid_method,paid_reference,paid_by,note")
+      .eq("id", input.payoutId)
+      .maybeSingle();
+    return {
+      payout: (current as Record<string, unknown> | null) ?? null,
+      alreadyPaid: true,
+    };
+  }
+  if (transition !== "mark_paid") {
+    throw new Error("INVALID_PAYOUT_STATUS");
+  }
+
+  const paidAt = new Date().toISOString();
   const { data, error } = await input.client
     .from("shortlet_payouts")
     .update({
       status: "paid",
-      paid_at: new Date().toISOString(),
-      paid_ref: input.paidRef,
+      paid_at: paidAt,
+      paid_method: input.paidMethod,
+      paid_reference: input.paidReference,
+      paid_by: input.paidBy,
       note: input.note,
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.payoutId)
     .eq("status", "eligible")
-    .select("id,status,paid_at,paid_ref")
+    .select("id,status,paid_at,paid_method,paid_reference,paid_by,note,booking_id")
     .maybeSingle();
 
   if (error) {
     throw new Error(error.message || "Unable to mark payout paid");
   }
-  return (data as Record<string, unknown> | null) ?? null;
+
+  if (!data) {
+    const { data: current } = await input.client
+      .from("shortlet_payouts")
+      .select("id,status,paid_at,paid_method,paid_reference,paid_by,note")
+      .eq("id", input.payoutId)
+      .maybeSingle();
+    if (String(current?.status || "") === "paid") {
+      return { payout: (current as Record<string, unknown> | null) ?? null, alreadyPaid: true };
+    }
+    throw new Error("Unable to mark payout paid");
+  }
+
+  await input.client.from("shortlet_payout_audit").insert({
+    payout_id: input.payoutId,
+    booking_id: String((data as Record<string, unknown>).booking_id || existing.booking_id || ""),
+    action: "mark_paid",
+    actor_user_id: input.paidBy,
+    meta: {
+      method: input.paidMethod,
+      reference: input.paidReference,
+      note: input.note,
+      paid_at: paidAt,
+    },
+  });
+
+  return {
+    payout: (data as Record<string, unknown> | null) ?? null,
+    alreadyPaid: false,
+  };
 }

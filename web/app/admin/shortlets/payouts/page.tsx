@@ -74,6 +74,12 @@ export default async function AdminShortletPayoutsPage({ searchParams }: PagePro
           <button type="submit" className="inline-flex h-10 items-center justify-center rounded-lg bg-sky-600 px-4 text-sm font-semibold text-white">
             Apply
           </button>
+          <Link
+            href={`/api/admin/shortlets/payouts/export.csv?status=${encodeURIComponent(status || "eligible")}`}
+            className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700"
+          >
+            Export CSV
+          </Link>
         </div>
       </form>
 

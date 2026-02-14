@@ -26,8 +26,21 @@ export function AdminShortletPayoutsTable(props: { initialRows: AdminShortletPay
 
   async function markPaid(row: AdminShortletPayoutSummary) {
     if (busyId) return;
-    const paidRef = window.prompt("Payment reference (optional)", row.paid_ref || "") ?? "";
-    const note = window.prompt("Admin note (optional)", row.note || "") ?? "";
+    const paidMethod = window.prompt("Payout method (required)", row.paid_method || "bank_transfer") ?? "";
+    if (!paidMethod.trim()) {
+      setError("Payout method is required.");
+      return;
+    }
+    const paidReference = window.prompt("Payout reference (required)", row.paid_reference || "") ?? "";
+    if (!paidReference.trim()) {
+      setError("Payout reference is required.");
+      return;
+    }
+    const note = window.prompt("Admin note (required)", row.note || "") ?? "";
+    if (!note.trim()) {
+      setError("Admin note is required.");
+      return;
+    }
     setBusyId(row.id);
     setError(null);
     try {
@@ -36,12 +49,23 @@ export function AdminShortletPayoutsTable(props: { initialRows: AdminShortletPay
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paid_ref: paidRef.trim() || null,
-          note: note.trim() || null,
+          paid_method: paidMethod.trim(),
+          paid_reference: paidReference.trim(),
+          note: note.trim(),
         }),
       });
       const payload = (await response.json().catch(() => null)) as
-        | { error?: string; payout?: { paid_at?: string; paid_ref?: string | null } }
+        | {
+            error?: string;
+            already_paid?: boolean;
+            payout?: {
+              paid_at?: string;
+              paid_method?: string | null;
+              paid_reference?: string | null;
+              paid_by?: string | null;
+              note?: string | null;
+            };
+          }
         | null;
       if (!response.ok) {
         throw new Error(payload?.error || "Unable to mark payout paid");
@@ -53,8 +77,10 @@ export function AdminShortletPayoutsTable(props: { initialRows: AdminShortletPay
                 ...item,
                 status: "paid",
                 paid_at: payload?.payout?.paid_at ?? new Date().toISOString(),
-                paid_ref: payload?.payout?.paid_ref ?? (paidRef.trim() || null),
-                note: note.trim() || item.note,
+                paid_method: payload?.payout?.paid_method ?? paidMethod.trim(),
+                paid_reference: payload?.payout?.paid_reference ?? paidReference.trim(),
+                paid_by: payload?.payout?.paid_by ?? item.paid_by,
+                note: payload?.payout?.note ?? note.trim(),
               }
             : item
         )
@@ -113,7 +139,10 @@ export function AdminShortletPayoutsTable(props: { initialRows: AdminShortletPay
                         {busyId === row.id ? "Processing..." : "Mark paid"}
                       </Button>
                     ) : (
-                      <span className="text-xs text-slate-500">{row.paid_ref ? `Ref: ${row.paid_ref}` : "Paid"}</span>
+                      <div className="space-y-1 text-xs text-slate-500">
+                        <div>{row.paid_method ? `Method: ${row.paid_method}` : "Paid"}</div>
+                        {row.paid_reference ? <div>Ref: {row.paid_reference}</div> : null}
+                      </div>
                     )}
                   </td>
                 </tr>
@@ -131,4 +160,3 @@ export function AdminShortletPayoutsTable(props: { initialRows: AdminShortletPay
     </div>
   );
 }
-

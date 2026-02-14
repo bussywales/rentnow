@@ -8,6 +8,7 @@ import {
   ensureShortletPayoutForBooking,
   mapLegacyListingIntent,
 } from "@/lib/shortlet/shortlet.server";
+import { mapBookingCreateError } from "@/lib/shortlet/bookings";
 import {
   notifyGuestBookingConfirmed,
   notifyGuestBookingPending,
@@ -131,14 +132,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to create booking";
-    const status =
-      message.includes("DATES_") ||
-      message.includes("NIGHTS") ||
-      message.includes("NOTICE") ||
-      message.includes("SHORTLET") ||
-      message.includes("NIGHTLY_PRICE_REQUIRED")
-        ? 409
-        : 500;
-    return NextResponse.json({ error: message }, { status });
+    const mapped = mapBookingCreateError(message);
+    return NextResponse.json({ error: mapped.error }, { status: mapped.status });
   }
 }

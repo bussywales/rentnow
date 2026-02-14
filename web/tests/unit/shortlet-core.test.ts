@@ -1,8 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { calculateNights, calculateShortletPricing, hasDateOverlap } from "@/lib/shortlet/pricing";
-import { resolveHostBookingResponseStatus } from "@/lib/shortlet/bookings";
+import {
+  blocksAvailability,
+  canCancelBooking,
+  mapBookingCreateError,
+  resolveHostBookingResponseStatus,
+} from "@/lib/shortlet/bookings";
 import { mapLegacyListingIntent } from "@/lib/shortlet/shortlet.server";
+import { resolveMarkPaidTransition } from "@/lib/shortlet/payouts";
 
 void test("shortlet pricing computes nights and totals", () => {
   const breakdown = calculateShortletPricing({
@@ -60,6 +66,28 @@ void test("booking status transitions only allow pending host responses", () => 
     () => resolveHostBookingResponseStatus("confirmed", "accept"),
     /INVALID_STATUS_TRANSITION/
   );
+});
+
+void test("overlap errors map to 409 with friendly message", () => {
+  const mapped = mapBookingCreateError(
+    'conflicting key value violates exclusion constraint "shortlet_bookings_no_overlap"'
+  );
+  assert.equal(mapped.status, 409);
+  assert.match(mapped.error, /dates are no longer available/i);
+});
+
+void test("cancelled bookings release availability", () => {
+  assert.equal(blocksAvailability("pending"), true);
+  assert.equal(blocksAvailability("confirmed"), true);
+  assert.equal(blocksAvailability("cancelled"), false);
+  assert.equal(canCancelBooking("confirmed"), true);
+  assert.equal(canCancelBooking("cancelled"), false);
+});
+
+void test("payout marking transition is idempotent", () => {
+  assert.equal(resolveMarkPaidTransition("eligible"), "mark_paid");
+  assert.equal(resolveMarkPaidTransition("paid"), "already_paid");
+  assert.equal(resolveMarkPaidTransition("unknown"), "blocked");
 });
 
 void test("intent migration mapping keeps compatibility", () => {

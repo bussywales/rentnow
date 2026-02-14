@@ -41,6 +41,10 @@ async function sendEmail(to: string, subject: string, html: string) {
   return { ok: !!response?.ok };
 }
 
+function shortletEmailsEnabled() {
+  return process.env.SHORTLET_BOOKING_EMAILS_ENABLED !== "false";
+}
+
 async function buildBaseInput(payload: NotificationPayload) {
   const siteUrl = await getSiteUrl();
   return {
@@ -50,6 +54,7 @@ async function buildBaseInput(payload: NotificationPayload) {
 }
 
 export async function notifyGuestBookingPending(email: string | null, payload: NotificationPayload) {
+  if (!shortletEmailsEnabled()) return;
   if (!email) return;
   const base = await buildBaseInput(payload);
   const { subject, html } = buildGuestBookingPendingEmail(base);
@@ -57,6 +62,7 @@ export async function notifyGuestBookingPending(email: string | null, payload: N
 }
 
 export async function notifyGuestBookingConfirmed(email: string | null, payload: NotificationPayload) {
+  if (!shortletEmailsEnabled()) return;
   if (!email) return;
   const base = await buildBaseInput(payload);
   const { subject, html } = buildGuestBookingConfirmedEmail(base);
@@ -64,6 +70,7 @@ export async function notifyGuestBookingConfirmed(email: string | null, payload:
 }
 
 export async function notifyHostBookingRequest(email: string | null, payload: NotificationPayload) {
+  if (!shortletEmailsEnabled()) return;
   if (!email) return;
   const base = await buildBaseInput(payload);
   const { subject, html } = buildHostBookingRequestEmail(base);
@@ -71,6 +78,7 @@ export async function notifyHostBookingRequest(email: string | null, payload: No
 }
 
 export async function notifyGuestBookingDeclined(email: string | null, payload: NotificationPayload) {
+  if (!shortletEmailsEnabled()) return;
   if (!email) return;
   const base = await buildBaseInput(payload);
   const { subject, html } = buildGuestBookingDeclinedEmail(base);
@@ -78,6 +86,7 @@ export async function notifyGuestBookingDeclined(email: string | null, payload: 
 }
 
 export async function notifyGuestBookingExpired(email: string | null, payload: NotificationPayload) {
+  if (!shortletEmailsEnabled()) return;
   if (!email) return;
   const base = await buildBaseInput(payload);
   const { subject, html } = buildGuestBookingExpiredEmail(base);

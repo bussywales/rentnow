@@ -38,7 +38,12 @@ import { NextBestActionsPanel } from "@/components/checklists/NextBestActionsPan
 import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
 import type { ChecklistItem } from "@/lib/checklists/role-checklists";
-import { listHostShortletBookings, type HostShortletBookingSummary } from "@/lib/shortlet/shortlet.server";
+import {
+  listHostShortletBookings,
+  listHostShortletEarnings,
+  type HostShortletBookingSummary,
+  type HostShortletEarningSummary,
+} from "@/lib/shortlet/shortlet.server";
 import { isSaleIntent } from "@/lib/listing-intents";
 
 export const dynamic = "force-dynamic";
@@ -131,6 +136,7 @@ export default async function DashboardHome() {
   let featuredRequestSettings: FeaturedEligibilitySettings = DEFAULT_FEATURED_ELIGIBILITY_SETTINGS;
   let gettingStartedChecklist: ChecklistItem[] = [];
   let shortletBookings: HostShortletBookingSummary[] = [];
+  let shortletEarnings: HostShortletEarningSummary[] = [];
 
   if (supabaseReady) {
     try {
@@ -242,14 +248,22 @@ export default async function DashboardHome() {
             const shortletClient = hasServiceRoleEnv()
               ? createServiceRoleClient()
               : supabase;
-            shortletBookings = await listHostShortletBookings({
-              client: shortletClient as unknown as SupabaseClient,
-              hostUserId: ownerId,
-              limit: 120,
-            });
+            [shortletBookings, shortletEarnings] = await Promise.all([
+              listHostShortletBookings({
+                client: shortletClient as unknown as SupabaseClient,
+                hostUserId: ownerId,
+                limit: 120,
+              }),
+              listHostShortletEarnings({
+                client: shortletClient as unknown as SupabaseClient,
+                hostUserId: ownerId,
+                limit: 80,
+              }),
+            ]);
           } catch (shortletError) {
             console.warn("[host-dashboard] shortlet bookings lookup failed", shortletError);
             shortletBookings = [];
+            shortletEarnings = [];
           }
         }
       }
@@ -494,6 +508,7 @@ export default async function DashboardHome() {
         featuredRequestSettings={featuredRequestSettings}
         performanceById={performanceById}
         shortletBookings={shortletBookings}
+        shortletEarnings={shortletEarnings}
       />
         ) : (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
