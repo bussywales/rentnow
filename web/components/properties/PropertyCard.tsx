@@ -147,7 +147,7 @@ export function PropertyCard({
     <div
       className={cn(
         "relative",
-        compact ? "h-32 w-32 flex-none" : "aspect-[4/3] w-full"
+        compact ? "h-32 w-32 shrink-0 flex-none" : "aspect-[4/3] w-full"
       )}
     >
       {href ? (
@@ -220,15 +220,15 @@ export function PropertyCard({
   return (
     <div
       className={cn(
-        "card h-full overflow-hidden rounded-2xl bg-white transition hover:-translate-y-0.5 hover:shadow-xl",
+        "card h-full min-w-0 overflow-hidden rounded-2xl bg-white transition hover:-translate-y-0.5 hover:shadow-xl",
         compact && "flex"
       )}
       data-testid="property-card"
     >
       {imageBlock}
-      <div className="flex flex-1 flex-col gap-2 px-4 py-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex-1">
+      <div className="flex min-w-0 flex-1 flex-col gap-2 px-4 py-3">
+        <div className="flex min-w-0 items-start justify-between gap-2">
+          <div className="min-w-0 flex-1">
             {href ? (
               <Link href={cardHref} className="block">
                 <p className="text-xs font-semibold text-slate-500">
@@ -295,8 +295,8 @@ export function PropertyCard({
           {description}
         </p>
         {trustMarkers && trustVariant === "admin" && <TrustBadges markers={trustMarkers} compact />}
-        <div className="flex items-center justify-between text-sm text-slate-700">
-          <div className="flex flex-wrap items-baseline gap-1 text-base font-semibold text-slate-900">
+        <div className="flex flex-col items-start gap-2 text-sm text-slate-700 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-baseline gap-1 text-base font-semibold text-slate-900">
             {priceValue}
             {cadence && (
               <span className="text-xs font-normal text-slate-500 whitespace-nowrap">
@@ -304,7 +304,7 @@ export function PropertyCard({
               </span>
             )}
           </div>
-          <div className="flex items-center gap-3 text-xs text-slate-500">
+          <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs text-slate-500">
             <span className="flex items-center gap-1">
               <BedIcon />
               <span data-testid="property-card-bedrooms">{property.bedrooms}</span>
