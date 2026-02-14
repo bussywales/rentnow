@@ -1114,12 +1114,12 @@ export function HostDashboardContent({
         onProceedToPayment={proceedToFeaturedPayment}
       />
       {featuredRequestToast ? (
-        <div className="fixed bottom-4 right-4 z-40 max-w-sm">
+        <div className="fixed bottom-4 inset-x-4 z-40 w-auto sm:inset-x-auto sm:right-4 sm:w-full sm:max-w-sm">
           <Alert title="Featured request" description={featuredRequestToast} variant="success" />
         </div>
       ) : null}
       {popupBlockedCount !== null && (
-        <div className="fixed bottom-24 right-4 z-40 max-w-sm">
+        <div className="fixed bottom-24 inset-x-4 z-40 w-auto sm:inset-x-auto sm:right-4 sm:w-full sm:max-w-sm">
           <Alert
             title="Pop-ups blocked"
             description={`Your browser blocked ${popupBlockedCount} tab(s). Allow pop-ups for propatyhub.com to open multiple listings.`}
