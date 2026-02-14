@@ -17,6 +17,7 @@ const routeLabel = "/api/shortlet/bookings/[id]/respond";
 
 const payloadSchema = z.object({
   action: z.enum(["accept", "decline"]),
+  reason: z.string().trim().max(280).optional(),
 });
 
 async function resolveUserEmail(userId: string): Promise<string | null> {
@@ -60,7 +61,7 @@ export async function POST(
     const { data: bookingData, error: bookingError } = await supabase
       .from("shortlet_bookings")
       .select(
-        "id,property_id,host_user_id,guest_user_id,status,check_in,check_out,nights,total_amount_minor,currency,properties!inner(id,title,city,owner_id)"
+        "id,property_id,host_user_id,guest_user_id,status,check_in,check_out,nights,total_amount_minor,currency,pricing_snapshot_json,properties!inner(id,title,city,owner_id)"
       )
       .eq("id", id)
       .maybeSingle();
@@ -89,6 +90,11 @@ export async function POST(
       nights: Number(bookingRow.nights || 0),
       total_amount_minor: Number(bookingRow.total_amount_minor || 0),
       currency: String(bookingRow.currency || "NGN"),
+      pricing_snapshot_json:
+        bookingRow.pricing_snapshot_json &&
+        typeof bookingRow.pricing_snapshot_json === "object"
+          ? (bookingRow.pricing_snapshot_json as Record<string, unknown>)
+          : {},
       properties: property
         ? {
             id: String(property.id || ""),
@@ -115,6 +121,22 @@ export async function POST(
       hostUserId,
       action: parsed.data.action,
     });
+
+    const reason = parsed.data.reason?.trim();
+    if (reason && parsed.data.action === "decline") {
+      const nextSnapshot = {
+        ...(booking.pricing_snapshot_json || {}),
+        host_decision_reason: reason,
+        host_decision_at: new Date().toISOString(),
+      };
+      await supabase
+        .from("shortlet_bookings")
+        .update({
+          pricing_snapshot_json: nextSnapshot,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", booking.id);
+    }
 
     if (updated.status === "confirmed" && hasServiceRoleEnv()) {
       const adminClient = createServiceRoleClient();

@@ -9,6 +9,11 @@ import {
 } from "@/lib/shortlet/bookings";
 import { mapLegacyListingIntent } from "@/lib/shortlet/shortlet.server";
 import { resolveMarkPaidTransition } from "@/lib/shortlet/payouts";
+import {
+  canHostManageShortletBooking,
+  canViewTenantShortletBookings,
+  classifyShortletBookingWindow,
+} from "@/lib/shortlet/access";
 
 void test("shortlet pricing computes nights and totals", () => {
   const breakdown = calculateShortletPricing({
@@ -76,6 +81,11 @@ void test("overlap errors map to 409 with friendly message", () => {
   assert.match(mapped.error, /dates are no longer available/i);
 });
 
+void test("nightly price errors remain booking-blocking", () => {
+  const mapped = mapBookingCreateError("NIGHTLY_PRICE_REQUIRED");
+  assert.equal(mapped.status, 409);
+});
+
 void test("cancelled bookings release availability", () => {
   assert.equal(blocksAvailability("pending"), true);
   assert.equal(blocksAvailability("confirmed"), true);
@@ -97,4 +107,75 @@ void test("intent migration mapping keeps compatibility", () => {
   assert.equal(mapLegacyListingIntent("sale"), "sale");
   assert.equal(mapLegacyListingIntent("shortlet"), "shortlet");
   assert.equal(mapLegacyListingIntent("off_plan"), "off_plan");
+});
+
+void test("host booking permissions enforce owner/admin/delegated agent", () => {
+  assert.equal(
+    canHostManageShortletBooking({
+      actorRole: "landlord",
+      actorUserId: "host-1",
+      hostUserId: "host-1",
+    }),
+    true
+  );
+  assert.equal(
+    canHostManageShortletBooking({
+      actorRole: "agent",
+      actorUserId: "agent-1",
+      hostUserId: "host-1",
+      hasDelegation: false,
+    }),
+    false
+  );
+  assert.equal(
+    canHostManageShortletBooking({
+      actorRole: "agent",
+      actorUserId: "agent-1",
+      hostUserId: "host-1",
+      hasDelegation: true,
+    }),
+    true
+  );
+  assert.equal(
+    canHostManageShortletBooking({
+      actorRole: "admin",
+      actorUserId: "admin-1",
+      hostUserId: "host-1",
+    }),
+    true
+  );
+});
+
+void test("tenant-only booking view gating and booking buckets", () => {
+  assert.equal(canViewTenantShortletBookings("tenant"), true);
+  assert.equal(canViewTenantShortletBookings("landlord"), false);
+
+  const now = new Date("2026-03-01T10:00:00.000Z");
+  assert.equal(
+    classifyShortletBookingWindow({
+      status: "pending",
+      checkIn: "2026-03-10",
+      checkOut: "2026-03-12",
+      now,
+    }),
+    "incoming"
+  );
+  assert.equal(
+    classifyShortletBookingWindow({
+      status: "confirmed",
+      checkIn: "2026-03-10",
+      checkOut: "2026-03-12",
+      now,
+    }),
+    "upcoming"
+  );
+  assert.equal(
+    classifyShortletBookingWindow({
+      status: "cancelled",
+      checkIn: "2026-02-10",
+      checkOut: "2026-02-11",
+      now,
+    }),
+    "past"
+  );
 });

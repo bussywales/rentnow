@@ -369,6 +369,21 @@ export default async function TenantHomePage() {
 
       <ContinueSearchCard />
 
+      <section className="rounded-2xl border border-sky-100 bg-sky-50/70 p-5 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-sky-700">Shortlet stays</p>
+            <h2 className="text-xl font-semibold text-slate-900">Need a nightly stay?</h2>
+            <p className="text-sm text-slate-600">
+              Open the shortlet browse to filter bookable stays with date and pricing breakdown.
+            </p>
+          </div>
+          <Link href="/shortlets">
+            <Button>Browse shortlets</Button>
+          </Link>
+        </div>
+      </section>
+
       <div className="flex justify-end">
         <HelpDrawerTrigger label="Need help?" testId="tenant-help-trigger" />
       </div>

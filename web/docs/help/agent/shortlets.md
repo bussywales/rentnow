@@ -1,24 +1,25 @@
 ---
 title: "Agent shortlets"
-description: "Operate shortlet inventory, approve requests quickly, and coordinate manual payouts."
+description: "Run shortlet operations across managed inventory with fast booking response workflows."
 order: 35
 updated_at: "2026-02-14"
 ---
 
-## Shortlet operations for agents
+## Agent shortlet workflow
 
-Agents can manage shortlet requests on behalf of owned/delegated inventory:
+Agents can operate shortlets for owned or delegated landlord inventory:
 
-- Review pending requests from `/host`
-- Accept/decline requests in one click
-- Track confirmed stays and booking IDs
+- `/host` -> **Shortlet** -> **Bookings** for incoming/upcoming stays
+- `/host` -> **Shortlet** -> **Availability & pricing** for nightly rules
+- `/host/shortlets/blocks` for manual date blocks
 
-## Operating checklist
+## Operating checklist (daily)
 
-1. Keep listing intent correct (**Shortlet** for bookable stays).
-2. Review pending requests throughout the day.
-3. Confirm dates before accepting.
-4. Escalate payout questions with booking and payout references.
+1. Keep listing intent as **Shortlet** for bookable stays.
+2. Ensure nightly pricing is configured per listing.
+3. Review pending requests throughout the day.
+4. Confirm or decline quickly with a clear reason when needed.
+5. Escalate payout questions with booking + payout references.
 
 ## Manual payout model (pilot)
 
@@ -31,10 +32,10 @@ Agents can manage shortlet requests on behalf of owned/delegated inventory:
 - **Request status conflict**: another action already processed the booking.
 - **Availability mismatch**: overlapping booking/block prevented confirmation.
 - **Missing payout**: confirm booking status and check-in threshold first.
+- **Cannot edit pricing**: verify delegation scope or listing ownership.
 
 ## Success tips
 
 - Standardize response SLAs with your team.
 - Use concise decline reasons for better guest recovery.
 - Keep shortlet calendars clean to avoid false availability.
-

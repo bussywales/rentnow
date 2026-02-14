@@ -1,6 +1,6 @@
 ---
 title: "Admin shortlets"
-description: "Run shortlet booking ops, expiry jobs, and manual payout reconciliation."
+description: "Operate shortlet booking lifecycle, expiry jobs, and manual payout pilot safely."
 order: 35
 updated_at: "2026-02-14"
 ---
@@ -10,12 +10,14 @@ updated_at: "2026-02-14"
 - `/admin/shortlets` for bookings review and filters.
 - `/admin/shortlets/payouts` for manual payout queue.
 - `/api/shortlet/bookings/expire-due` for pending expiry cron run.
+- `/host` shortlet tabs are now the primary host/agent execution surface.
 
 ## Booking lifecycle
 
 - `pending` -> host action needed.
 - `confirmed` -> payout candidate exists.
 - `declined` / `expired` -> refund-needed marker may be set.
+- `cancelled` -> date range released and payout eligibility removed.
 - `completed` -> payout is eligible.
 
 ## Manual payouts
@@ -25,6 +27,7 @@ Use payout queue actions:
 1. Verify booking status and check-in date.
 2. Mark payout paid with reference and note.
 3. Confirm row moved from `eligible` to `paid`.
+4. Keep payout notes concise for dispute traceability.
 
 ## Ops checks
 
@@ -37,4 +40,4 @@ Use payout queue actions:
 - **Overlap booking failures**: inspect conflicting confirmed bookings or blocks.
 - **Unexpected pending volume**: verify host response SLAs and expiry job cadence.
 - **Payout disputes**: use booking ID + payout note/reference trail.
-
+- **Host claims settings issue**: confirm shortlet_settings has nightly_price_minor > 0.

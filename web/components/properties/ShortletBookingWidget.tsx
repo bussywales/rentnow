@@ -243,6 +243,14 @@ export function ShortletBookingWidget(props: {
             )}
           </>
         )}
+        {props.isAuthenticated ? (
+          <Link
+            href="/tenant/bookings"
+            className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+          >
+            My bookings
+          </Link>
+        ) : null}
       </div>
 
       {notice ? <p className="mt-2 text-sm text-emerald-700">{notice}</p> : null}

@@ -764,6 +764,20 @@ export default async function PropertiesPage({ searchParams }: Props) {
         <ListingIntentToggle currentIntent={resolvedIntent} hasUrlIntent={urlIntent !== undefined} />
       </div>
 
+      <div className="rounded-2xl border border-sky-100 bg-sky-50/80 px-4 py-3 text-sm text-slate-700 shadow-sm">
+        <p className="text-[10px] uppercase tracking-[0.2em] text-sky-700">Short stays</p>
+        <p className="mt-1 font-semibold text-slate-900">Need a nightly stay?</p>
+        <p className="text-slate-600">
+          Browse bookable shortlets with date availability and itemized pricing.
+        </p>
+        <Link
+          href="/shortlets"
+          className="mt-2 inline-flex rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50"
+        >
+          Open shortlet browse
+        </Link>
+      </div>
+
       {savedSearch && (
         <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
           <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Saved search</p>

@@ -43,6 +43,8 @@ import {
   listHostShortletEarnings,
   type HostShortletBookingSummary,
   type HostShortletEarningSummary,
+  listHostShortletSettings,
+  type HostShortletSettingSummary,
 } from "@/lib/shortlet/shortlet.server";
 import { isSaleIntent } from "@/lib/listing-intents";
 
@@ -137,6 +139,7 @@ export default async function DashboardHome() {
   let gettingStartedChecklist: ChecklistItem[] = [];
   let shortletBookings: HostShortletBookingSummary[] = [];
   let shortletEarnings: HostShortletEarningSummary[] = [];
+  let shortletSettings: HostShortletSettingSummary[] = [];
 
   if (supabaseReady) {
     try {
@@ -248,7 +251,7 @@ export default async function DashboardHome() {
             const shortletClient = hasServiceRoleEnv()
               ? createServiceRoleClient()
               : supabase;
-            [shortletBookings, shortletEarnings] = await Promise.all([
+            [shortletBookings, shortletEarnings, shortletSettings] = await Promise.all([
               listHostShortletBookings({
                 client: shortletClient as unknown as SupabaseClient,
                 hostUserId: ownerId,
@@ -259,11 +262,17 @@ export default async function DashboardHome() {
                 hostUserId: ownerId,
                 limit: 80,
               }),
+              listHostShortletSettings({
+                client: shortletClient as unknown as SupabaseClient,
+                hostUserId: ownerId,
+                limit: 120,
+              }),
             ]);
           } catch (shortletError) {
             console.warn("[host-dashboard] shortlet bookings lookup failed", shortletError);
             shortletBookings = [];
             shortletEarnings = [];
+            shortletSettings = [];
           }
         }
       }
@@ -509,6 +518,7 @@ export default async function DashboardHome() {
         performanceById={performanceById}
         shortletBookings={shortletBookings}
         shortletEarnings={shortletEarnings}
+        shortletSettings={shortletSettings}
       />
         ) : (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">

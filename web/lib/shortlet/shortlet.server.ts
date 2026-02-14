@@ -44,6 +44,38 @@ export type HostShortletBookingSummary = {
   property_title: string | null;
   city: string | null;
   guest_user_id: string;
+  guest_name: string | null;
+  check_in: string;
+  check_out: string;
+  nights: number;
+  status: ShortletBookingRow["status"];
+  total_amount_minor: number;
+  currency: string;
+  expires_at: string | null;
+  created_at: string;
+};
+
+export type HostShortletSettingSummary = {
+  property_id: string;
+  property_title: string | null;
+  property_city: string | null;
+  booking_mode: ShortletBookingMode;
+  nightly_price_minor: number | null;
+  cleaning_fee_minor: number;
+  deposit_minor: number;
+  min_nights: number;
+  max_nights: number | null;
+  advance_notice_hours: number;
+  prep_days: number;
+};
+
+export type GuestShortletBookingSummary = {
+  id: string;
+  property_id: string;
+  property_title: string | null;
+  city: string | null;
+  host_user_id: string;
+  host_name: string | null;
   check_in: string;
   check_out: string;
   nights: number;
@@ -163,7 +195,7 @@ export async function listHostShortletBookings(input: {
     throw new Error(error.message || "Unable to load host shortlet bookings");
   }
 
-  return (((data as Array<Record<string, unknown>> | null) ?? []).map((row) => {
+  const rows = (((data as Array<Record<string, unknown>> | null) ?? []).map((row) => {
     const property = (row.properties ?? null) as { title?: string | null; city?: string | null } | null;
     return {
       id: String(row.id || ""),
@@ -171,6 +203,7 @@ export async function listHostShortletBookings(input: {
       property_title: property?.title ?? null,
       city: property?.city ?? null,
       guest_user_id: String(row.guest_user_id || ""),
+      guest_name: null,
       check_in: String(row.check_in || ""),
       check_out: String(row.check_out || ""),
       nights: Number(row.nights || 0),
@@ -181,6 +214,113 @@ export async function listHostShortletBookings(input: {
       created_at: String(row.created_at || ""),
     } satisfies HostShortletBookingSummary;
   })) as HostShortletBookingSummary[];
+
+  const guestIds = Array.from(new Set(rows.map((row) => row.guest_user_id).filter(Boolean)));
+  if (!guestIds.length) return rows;
+
+  const { data: profileRows } = await input.client
+    .from("profiles")
+    .select("id,display_name,full_name")
+    .in("id", guestIds);
+
+  const guestNameMap = new Map<string, string>();
+  for (const profile of ((profileRows as Array<Record<string, unknown>> | null) ?? [])) {
+    const id = String(profile.id || "");
+    if (!id) continue;
+    const name =
+      (typeof profile.display_name === "string" && profile.display_name.trim()) ||
+      (typeof profile.full_name === "string" && profile.full_name.trim()) ||
+      "";
+    if (name) guestNameMap.set(id, name);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    guest_name: guestNameMap.get(row.guest_user_id) ?? null,
+  }));
+}
+
+export async function listHostShortletSettings(input: {
+  client: SupabaseClient;
+  hostUserId: string;
+  limit?: number;
+}) {
+  const limit = Math.max(1, Math.min(200, Math.trunc(input.limit ?? 120)));
+  const { data: propertyRows, error: propertyError } = await input.client
+    .from("properties")
+    .select("id,title,city")
+    .eq("owner_id", input.hostUserId)
+    .eq("listing_intent", "shortlet")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (propertyError) {
+    throw new Error(propertyError.message || "Unable to load host shortlet listings");
+  }
+
+  const properties = ((propertyRows as Array<Record<string, unknown>> | null) ?? []).map((row) => ({
+    property_id: String(row.id || ""),
+    property_title: typeof row.title === "string" ? row.title : null,
+    property_city: typeof row.city === "string" ? row.city : null,
+  }));
+  if (!properties.length) return [] as HostShortletSettingSummary[];
+
+  const propertyIds = properties.map((row) => row.property_id).filter(Boolean);
+  const { data: settingsRows, error: settingsError } = await input.client
+    .from("shortlet_settings")
+    .select(
+      "property_id,booking_mode,nightly_price_minor,cleaning_fee_minor,deposit_minor,min_nights,max_nights,advance_notice_hours,prep_days"
+    )
+    .in("property_id", propertyIds);
+
+  if (settingsError) {
+    throw new Error(settingsError.message || "Unable to load shortlet settings");
+  }
+
+  const settingsMap = new Map<string, Record<string, unknown>>();
+  for (const row of ((settingsRows as Array<Record<string, unknown>> | null) ?? [])) {
+    const propertyId = String(row.property_id || "");
+    if (propertyId) settingsMap.set(propertyId, row);
+  }
+
+  return properties.map((property) => {
+    const settings = settingsMap.get(property.property_id);
+    return {
+      property_id: property.property_id,
+      property_title: property.property_title,
+      property_city: property.property_city,
+      booking_mode:
+        settings?.booking_mode === "instant" ? "instant" : "request",
+      nightly_price_minor:
+        typeof settings?.nightly_price_minor === "number"
+          ? Number(settings.nightly_price_minor)
+          : null,
+      cleaning_fee_minor:
+        typeof settings?.cleaning_fee_minor === "number"
+          ? Number(settings.cleaning_fee_minor)
+          : 0,
+      deposit_minor:
+        typeof settings?.deposit_minor === "number"
+          ? Number(settings.deposit_minor)
+          : 0,
+      min_nights:
+        typeof settings?.min_nights === "number"
+          ? Number(settings.min_nights)
+          : 1,
+      max_nights:
+        typeof settings?.max_nights === "number"
+          ? Number(settings.max_nights)
+          : null,
+      advance_notice_hours:
+        typeof settings?.advance_notice_hours === "number"
+          ? Number(settings.advance_notice_hours)
+          : 0,
+      prep_days:
+        typeof settings?.prep_days === "number"
+          ? Number(settings.prep_days)
+          : 0,
+    } satisfies HostShortletSettingSummary;
+  });
 }
 
 export async function listHostShortletEarnings(input: {
@@ -298,6 +438,71 @@ export async function listAdminShortletBookings(input: {
     });
   }
   return rows;
+}
+
+export async function listGuestShortletBookings(input: {
+  client: SupabaseClient;
+  guestUserId: string;
+  limit?: number;
+}) {
+  const limit = Math.max(1, Math.min(120, Math.trunc(input.limit ?? 80)));
+  const { data, error } = await input.client
+    .from("shortlet_bookings")
+    .select(
+      "id,property_id,host_user_id,check_in,check_out,nights,status,total_amount_minor,currency,expires_at,created_at,properties!inner(title,city)"
+    )
+    .eq("guest_user_id", input.guestUserId)
+    .order("check_in", { ascending: true })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(error.message || "Unable to load guest shortlet bookings");
+  }
+
+  const rows = (((data as Array<Record<string, unknown>> | null) ?? []).map((row) => {
+    const property = (row.properties ?? null) as
+      | { title?: string | null; city?: string | null }
+      | null;
+    return {
+      id: String(row.id || ""),
+      property_id: String(row.property_id || ""),
+      property_title: property?.title ?? null,
+      city: property?.city ?? null,
+      host_user_id: String(row.host_user_id || ""),
+      host_name: null,
+      check_in: String(row.check_in || ""),
+      check_out: String(row.check_out || ""),
+      nights: Number(row.nights || 0),
+      status: String(row.status || "pending") as ShortletBookingRow["status"],
+      total_amount_minor: Number(row.total_amount_minor || 0),
+      currency: String(row.currency || "NGN"),
+      expires_at: typeof row.expires_at === "string" ? row.expires_at : null,
+      created_at: String(row.created_at || ""),
+    } satisfies GuestShortletBookingSummary;
+  })) as GuestShortletBookingSummary[];
+
+  const hostIds = Array.from(new Set(rows.map((row) => row.host_user_id).filter(Boolean)));
+  if (!hostIds.length) return rows;
+  const { data: profileRows } = await input.client
+    .from("profiles")
+    .select("id,display_name,full_name,business_name")
+    .in("id", hostIds);
+  const hostNameMap = new Map<string, string>();
+  for (const profile of ((profileRows as Array<Record<string, unknown>> | null) ?? [])) {
+    const id = String(profile.id || "");
+    if (!id) continue;
+    const name =
+      (typeof profile.business_name === "string" && profile.business_name.trim()) ||
+      (typeof profile.display_name === "string" && profile.display_name.trim()) ||
+      (typeof profile.full_name === "string" && profile.full_name.trim()) ||
+      "";
+    if (name) hostNameMap.set(id, name);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    host_name: hostNameMap.get(row.host_user_id) ?? null,
+  }));
 }
 
 export async function listAdminShortletPayouts(input: {

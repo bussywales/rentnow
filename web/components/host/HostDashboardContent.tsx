@@ -30,14 +30,14 @@ import { ListingReactivateModal } from "@/components/host/ListingReactivateModal
 import { ListingPaywallModal } from "@/components/billing/ListingPaywallModal";
 import { HostFeaturedRequestModal } from "@/components/host/HostFeaturedRequestModal";
 import { HostPaymentsPanel } from "@/components/host/HostPaymentsPanel";
-import { HostShortletBookingsPanel } from "@/components/host/HostShortletBookingsPanel";
-import { HostShortletEarningsPanel } from "@/components/host/HostShortletEarningsPanel";
+import { HostShortletWorkspace } from "@/components/host/HostShortletWorkspace";
 import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import type { PropertyStatus } from "@/lib/types";
 import type { MissedDemandEstimate } from "@/lib/analytics/property-events";
 import type {
   HostShortletBookingSummary,
   HostShortletEarningSummary,
+  HostShortletSettingSummary,
 } from "@/lib/shortlet/shortlet.server";
 import { resolveFeaturedRequestHostSummary } from "@/lib/featured/requests";
 import {
@@ -180,6 +180,7 @@ export function HostDashboardContent({
   performanceById = {},
   shortletBookings = [],
   shortletEarnings = [],
+  shortletSettings = [],
 }: {
   listings: DashboardListing[];
   trustMarkers: TrustMarkerState | null;
@@ -190,6 +191,7 @@ export function HostDashboardContent({
   performanceById?: Record<string, ListingPerformance>;
   shortletBookings?: HostShortletBookingSummary[];
   shortletEarnings?: HostShortletEarningSummary[];
+  shortletSettings?: HostShortletSettingSummary[];
 }) {
   const [search, setSearch] = useState("");
   const { view, setView } = useHostDashboardView(hostUserId);
@@ -1036,8 +1038,11 @@ export function HostDashboardContent({
           <p className="mt-1 text-sm text-slate-600">{viewCopy.description}</p>
         </div>
       )}
-      <HostShortletBookingsPanel initialRows={shortletBookings} />
-      <HostShortletEarningsPanel rows={shortletEarnings} />
+      <HostShortletWorkspace
+        bookings={shortletBookings}
+        settingsRows={shortletSettings}
+        earnings={shortletEarnings}
+      />
       <HostPaymentsPanel />
       <ListingBulkActionsBar
         count={selectedIds.length}
