@@ -135,7 +135,8 @@ export async function POST(request: NextRequest) {
       message.includes("DATES_") ||
       message.includes("NIGHTS") ||
       message.includes("NOTICE") ||
-      message.includes("SHORTLET")
+      message.includes("SHORTLET") ||
+      message.includes("NIGHTLY_PRICE_REQUIRED")
         ? 409
         : 500;
     return NextResponse.json({ error: message }, { status });

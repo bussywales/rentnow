@@ -23,6 +23,13 @@ type AvailabilityResponse = {
     totalAmountMinor: number;
     currency: string;
   } | null;
+  settings: {
+    nightlyPriceMinor: number | null;
+    cleaningFeeMinor: number;
+    depositMinor: number;
+    minNights: number;
+    maxNights: number | null;
+  } | null;
 };
 
 function formatMoney(currency: string, amountMinor: number): string {
@@ -96,6 +103,10 @@ export function ShortletBookingWidget(props: {
   const ctaLabel = isRequestMode ? "Request to book" : "Book now";
   const blockedCount = availability?.blockedRanges?.length ?? 0;
   const pricing = availability?.pricing ?? null;
+  const hasNightlyPriceConfigured =
+    typeof availability?.settings?.nightlyPriceMinor === "number" &&
+    availability.settings.nightlyPriceMinor > 0;
+  const canSubmit = hasNightlyPriceConfigured && !!pricing && blockedCount === 0;
   const priceSummary = useMemo(() => {
     if (!pricing) return null;
     return {
@@ -194,9 +205,16 @@ export function ShortletBookingWidget(props: {
               {priceSummary.cleaning ? <p>Cleaning fee: {priceSummary.cleaning}</p> : null}
               {priceSummary.deposit ? <p>Deposit: {priceSummary.deposit}</p> : null}
               <p className="font-semibold text-slate-900">Total: {priceSummary.total}</p>
+              <p className="text-xs text-slate-500">
+                Deposit is included in total for this pilot.
+              </p>
             </>
           ) : (
-            <p>Select dates to see pricing.</p>
+            <p>
+              {hasNightlyPriceConfigured
+                ? "Select valid dates to see pricing."
+                : "Nightly pricing is not configured for this shortlet yet."}
+            </p>
           )}
           {blockedCount > 0 ? (
             <p className="text-xs text-amber-700">
@@ -208,13 +226,22 @@ export function ShortletBookingWidget(props: {
 
       <div className="mt-4 flex flex-wrap gap-2">
         {props.isAuthenticated ? (
-          <Button onClick={handleCreateBooking} disabled={creating || loading || !checkIn || !checkOut}>
+          <Button
+            onClick={handleCreateBooking}
+            disabled={creating || loading || !checkIn || !checkOut || !canSubmit}
+          >
             {creating ? "Submitting..." : ctaLabel}
           </Button>
         ) : (
-          <Link href={props.loginHref}>
-            <Button>{ctaLabel}</Button>
-          </Link>
+          <>
+            {canSubmit ? (
+              <Link href={props.loginHref}>
+                <Button>{ctaLabel}</Button>
+              </Link>
+            ) : (
+              <Button disabled>{ctaLabel}</Button>
+            )}
+          </>
         )}
       </div>
 
@@ -226,4 +253,3 @@ export function ShortletBookingWidget(props: {
     </div>
   );
 }
-

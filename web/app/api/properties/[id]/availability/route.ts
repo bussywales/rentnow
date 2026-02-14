@@ -29,7 +29,7 @@ export async function GET(
     const supabase = await createServerSupabaseClient();
     const { data: propertyData, error: propertyError } = await supabase
       .from("properties")
-      .select("id,listing_intent,price,currency")
+      .select("id,listing_intent,currency")
       .eq("id", id)
       .maybeSingle();
 
@@ -61,21 +61,25 @@ export async function GET(
     let pricing: Record<string, unknown> | null = null;
     if (from && to) {
       const nightlyPriceMinor =
-        settings?.nightly_price_minor ?? Math.max(0, Math.round(Number(propertyData.price || 0) * 100));
+        typeof settings?.nightly_price_minor === "number" ? settings.nightly_price_minor : null;
       try {
-        const breakdown = calculateShortletPricing({
-          checkIn: from,
-          checkOut: to,
-          nightlyPriceMinor,
-          cleaningFeeMinor: settings?.cleaning_fee_minor ?? 0,
-          depositMinor: settings?.deposit_minor ?? 0,
-        });
-        pricing = {
-          ...breakdown,
-          currency: propertyData.currency || "NGN",
-          minNights: settings?.min_nights ?? 1,
-          maxNights: settings?.max_nights ?? null,
-        };
+        if (nightlyPriceMinor && nightlyPriceMinor > 0) {
+          const breakdown = calculateShortletPricing({
+            checkIn: from,
+            checkOut: to,
+            nightlyPriceMinor,
+            cleaningFeeMinor: settings?.cleaning_fee_minor ?? 0,
+            depositMinor: settings?.deposit_minor ?? 0,
+          });
+          pricing = {
+            ...breakdown,
+            currency: propertyData.currency || "NGN",
+            minNights: settings?.min_nights ?? 1,
+            maxNights: settings?.max_nights ?? null,
+          };
+        } else {
+          pricing = null;
+        }
       } catch {
         pricing = null;
       }
@@ -95,8 +99,7 @@ export async function GET(
             prepDays: settings.prep_days,
             checkinTime: settings.checkin_time,
             checkoutTime: settings.checkout_time,
-            nightlyPriceMinor:
-              settings.nightly_price_minor ?? Math.max(0, Math.round(Number(propertyData.price || 0) * 100)),
+            nightlyPriceMinor: settings.nightly_price_minor,
             cleaningFeeMinor: settings.cleaning_fee_minor,
             depositMinor: settings.deposit_minor,
           }

@@ -22,6 +22,20 @@ void test("calculateNights rejects invalid ranges", () => {
   assert.throws(() => calculateNights("2026-02-24", "2026-02-24"), /INVALID_NIGHTS/);
 });
 
+void test("shortlet pricing requires nightly price from settings", () => {
+  assert.throws(
+    () =>
+      calculateShortletPricing({
+        checkIn: "2026-02-20",
+        checkOut: "2026-02-24",
+        nightlyPriceMinor: 0,
+        cleaningFeeMinor: 0,
+        depositMinor: 0,
+      }),
+    /NIGHTLY_PRICE_REQUIRED/
+  );
+});
+
 void test("overlap helper detects half-open date range conflicts", () => {
   assert.equal(
     hasDateOverlap(
@@ -56,4 +70,3 @@ void test("intent migration mapping keeps compatibility", () => {
   assert.equal(mapLegacyListingIntent("shortlet"), "shortlet");
   assert.equal(mapLegacyListingIntent("off_plan"), "off_plan");
 });
-

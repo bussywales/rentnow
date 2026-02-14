@@ -36,7 +36,10 @@ export function calculateNights(checkIn: string, checkOut: string): number {
 
 export function calculateShortletPricing(input: ShortletPricingInput): ShortletPricingBreakdown {
   const nights = calculateNights(input.checkIn, input.checkOut);
-  const nightlyPriceMinor = Math.max(0, Math.trunc(input.nightlyPriceMinor || 0));
+  const nightlyPriceMinor = Math.trunc(input.nightlyPriceMinor || 0);
+  if (!Number.isFinite(nightlyPriceMinor) || nightlyPriceMinor <= 0) {
+    throw new Error("NIGHTLY_PRICE_REQUIRED");
+  }
   const cleaningFeeMinor = Math.max(0, Math.trunc(input.cleaningFeeMinor || 0));
   const depositMinor = Math.max(0, Math.trunc(input.depositMinor || 0));
   const subtotalMinor = nightlyPriceMinor * nights;
