@@ -6,9 +6,10 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import {
   createShortletBookingViaRpc,
   ensureShortletPayoutForBooking,
-  mapLegacyListingIntent,
+  getShortletSettingsForProperty,
 } from "@/lib/shortlet/shortlet.server";
 import { mapBookingCreateError } from "@/lib/shortlet/bookings";
+import { isShortletProperty } from "@/lib/shortlet/discovery";
 import {
   notifyGuestBookingConfirmed,
   notifyGuestBookingPending,
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabaseClient();
     const { data: propertyData, error: propertyError } = await supabase
       .from("properties")
-      .select("id,owner_id,title,city,currency,listing_intent")
+      .select("id,owner_id,title,city,currency,listing_intent,rental_type")
       .eq("id", property_id)
       .maybeSingle();
 
@@ -69,8 +70,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Listing not found" }, { status: 404 });
     }
 
-    const listingIntent = mapLegacyListingIntent(propertyData.listing_intent);
-    if (listingIntent !== "shortlet") {
+    const settings = await getShortletSettingsForProperty(supabase, property_id);
+    const isShortletListing = isShortletProperty({
+      listing_intent: propertyData.listing_intent,
+      rental_type: propertyData.rental_type,
+      shortlet_settings: settings ? [settings] : [],
+    });
+    if (!isShortletListing) {
       return NextResponse.json({ error: "This listing is not bookable as a shortlet." }, { status: 409 });
     }
 

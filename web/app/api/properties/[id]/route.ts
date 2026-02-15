@@ -371,7 +371,7 @@ export async function GET(
     let query = supabase
       .from("properties")
       .select(
-        `*, property_images(${imageFields}), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at)`
+        `*, property_images(${imageFields}), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at), shortlet_settings(property_id,booking_mode,nightly_price_minor)`
       )
       .eq("id", id);
     if (includePosition) {

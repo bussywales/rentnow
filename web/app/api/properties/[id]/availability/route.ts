@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { calculateShortletPricing } from "@/lib/shortlet/pricing";
 import { getShortletSettingsForProperty, listBlockedRangesForProperty, mapLegacyListingIntent } from "@/lib/shortlet/shortlet.server";
+import { isShortletProperty } from "@/lib/shortlet/discovery";
 
 const routeLabel = "/api/properties/[id]/availability";
 
@@ -29,23 +30,12 @@ export async function GET(
     const supabase = await createServerSupabaseClient();
     const { data: propertyData, error: propertyError } = await supabase
       .from("properties")
-      .select("id,listing_intent,currency")
+      .select("id,listing_intent,rental_type,currency")
       .eq("id", id)
       .maybeSingle();
 
     if (propertyError || !propertyData) {
       return NextResponse.json({ error: "Property not found" }, { status: 404 });
-    }
-
-    const intent = mapLegacyListingIntent(propertyData.listing_intent);
-    if (intent !== "shortlet") {
-      return NextResponse.json({
-        propertyId: id,
-        listingIntent: intent,
-        blockedRanges: [],
-        bookingMode: null,
-        pricing: null,
-      });
     }
 
     const [settings, blocked] = await Promise.all([
@@ -57,6 +47,22 @@ export async function GET(
         to,
       }),
     ]);
+    const isShortletListing = isShortletProperty({
+      listing_intent: propertyData.listing_intent,
+      rental_type: propertyData.rental_type,
+      shortlet_settings: settings ? [settings] : [],
+    });
+    const intent = mapLegacyListingIntent(propertyData.listing_intent);
+
+    if (!isShortletListing) {
+      return NextResponse.json({
+        propertyId: id,
+        listingIntent: intent,
+        blockedRanges: [],
+        bookingMode: null,
+        pricing: null,
+      });
+    }
 
     let pricing: Record<string, unknown> | null = null;
     if (from && to) {

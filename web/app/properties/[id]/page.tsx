@@ -45,7 +45,7 @@ import {
   isPublicAdvertiserRole,
   resolvePublicAdvertiserHref,
 } from "@/lib/advertisers/public-profile";
-import { isSaleIntent, isShortletIntent, normalizeListingIntent } from "@/lib/listing-intents";
+import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 import { getMarketSettings } from "@/lib/market/market.server";
 import {
   MARKET_COOKIE_NAME,
@@ -53,6 +53,8 @@ import {
   resolveMarketFromRequest,
 } from "@/lib/market/market";
 import { ShortletBookingWidget } from "@/components/properties/ShortletBookingWidget";
+import { isShortletProperty } from "@/lib/shortlet/discovery";
+import { CtaHashAnchorClient } from "@/components/properties/CtaHashAnchorClient";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -561,7 +563,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   const listingTypeLabel = formatListingType(property.listing_type);
   const listingIntent = normalizeListingIntent(property.listing_intent) ?? "rent_lease";
   const isSaleListing = isSaleIntent(listingIntent);
-  const isShortletListing = isShortletIntent(listingIntent);
+  const isShortletListing = isShortletProperty(property);
   const isFeaturedActive =
     !!property.is_featured &&
     (!property.featured_until || Date.parse(property.featured_until) > Date.now());
@@ -659,6 +661,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-8 px-4">
+      <CtaHashAnchorClient targetId="cta" topOffsetPx={104} />
       {backHref && (
         <Link
           href={backHref}
@@ -900,7 +903,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             />
           )}
           {showPublicActions && !expiredReadOnly && !isSaleListing && !isShortletListing && (
-            <div id="cta" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div id="cta" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Viewing requests</h3>
               </div>
@@ -927,7 +930,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             </div>
           )}
           {showPublicActions && !expiredReadOnly && isSaleListing && (
-            <div id="cta" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div id="cta" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
               <div className="flex items-center justify-between gap-3">
                 <h3 className="text-lg font-semibold text-slate-900">Enquire to buy</h3>
               </div>
