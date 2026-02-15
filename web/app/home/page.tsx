@@ -14,6 +14,7 @@ import {
   getMostViewedHomes,
   getNewHomes,
   getPopularHomes,
+  getShortletHomes,
   getTenantDiscoveryContext,
   getTrendingHomes,
 } from "@/lib/tenant/tenant-discovery.server";
@@ -279,6 +280,7 @@ export default async function HomeWorkspacePage() {
     trendingHomes,
     mostSavedHomes,
     mostViewedHomes,
+    shortletHomes,
     newHomes,
     popularHomes,
   ] = await Promise.all([
@@ -296,6 +298,7 @@ export default async function HomeWorkspacePage() {
     getTrendingHomes({ limit: 10, marketCountryCode: market.country, context }),
     getMostSavedHomes({ limit: 10, marketCountryCode: market.country, context }),
     getMostViewedHomes({ limit: 10, marketCountryCode: market.country, context }),
+    getShortletHomes({ city: popularCity, limit: 8, context }),
     getNewHomes({ days: 7, limit: 8, context }),
     getPopularHomes({ city: popularCity, limit: 8, context }),
   ]);
@@ -307,6 +310,7 @@ export default async function HomeWorkspacePage() {
         ...trendingHomes,
         ...mostSavedHomes,
         ...mostViewedHomes,
+        ...shortletHomes,
         ...newHomes,
         ...popularHomes,
       ].map((property) => property.id)
@@ -323,7 +327,7 @@ export default async function HomeWorkspacePage() {
   const railOwnerIds = Array.from(
     new Set(
       [...featuredHomes, ...newHomes, ...popularHomes]
-        .concat(trendingHomes, mostSavedHomes, mostViewedHomes)
+        .concat(trendingHomes, mostSavedHomes, mostViewedHomes, shortletHomes)
         .map((property) => property.owner_id)
         .filter(Boolean)
     )
@@ -517,6 +521,24 @@ export default async function HomeWorkspacePage() {
           />
           <PropertyRail
             homes={mostViewedHomes}
+            viewerRole={role}
+            savedIds={savedIds}
+            trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
+          />
+        </section>
+      ) : null}
+
+      {shortletHomes.length > 0 ? (
+        <section className="space-y-4" data-testid="home-shortlet-homes">
+          <SectionHeader
+            title="Shortlets to book"
+            description="Book stays by the night - Lagos and beyond."
+            href="/properties?stay=shortlet"
+            hrefLabel="Browse shortlets"
+          />
+          <PropertyRail
+            homes={shortletHomes}
             viewerRole={role}
             savedIds={savedIds}
             trustSnapshots={trustSnapshots}

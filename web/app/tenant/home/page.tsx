@@ -21,6 +21,7 @@ import {
   getMostViewedHomes,
   getNewHomes,
   getPopularHomes,
+  getShortletHomes,
   getTenantDiscoveryContext,
   getSavedHomes,
   getTrendingHomes,
@@ -227,6 +228,7 @@ export default async function TenantHomePage() {
     trendingHomes,
     mostSavedHomes,
     mostViewedHomes,
+    shortletHomes,
     popularHomes,
     newHomes,
     savedHomes,
@@ -245,6 +247,7 @@ export default async function TenantHomePage() {
     getTrendingHomes({ limit: MODULE_LIMIT, marketCountryCode: market.country, context }),
     getMostSavedHomes({ limit: MODULE_LIMIT, marketCountryCode: market.country, context }),
     getMostViewedHomes({ limit: MODULE_LIMIT, marketCountryCode: market.country, context }),
+    getShortletHomes({ city: popularCity, limit: MODULE_LIMIT, context }),
     getPopularHomes({ city: popularCity, limit: MODULE_LIMIT, context }),
     getNewHomes({ days: 7, limit: MODULE_LIMIT, context }),
     getSavedHomes({ limit: 8, context }),
@@ -271,7 +274,8 @@ export default async function TenantHomePage() {
   const modules = buildTenantDiscoveryModules({ featuredHomes, popularHomes, newHomes });
   const hasSocialProofModules =
     trendingHomes.length > 0 || mostSavedHomes.length > 0 || mostViewedHomes.length > 0;
-  const hasDiscoveryModules = modules.hasModules || hasSocialProofModules;
+  const hasDiscoveryModules =
+    modules.hasModules || hasSocialProofModules || shortletHomes.length > 0;
 
   let fallbackHomes: Property[] = [];
   if (!hasDiscoveryModules) {
@@ -283,6 +287,7 @@ export default async function TenantHomePage() {
     ...trendingHomes,
     ...mostSavedHomes,
     ...mostViewedHomes,
+    ...shortletHomes,
     ...popularHomes,
     ...newHomes,
     ...fallbackHomes,
@@ -378,7 +383,7 @@ export default async function TenantHomePage() {
               Open the shortlet browse to filter bookable stays with date and pricing breakdown.
             </p>
           </div>
-          <Link href="/shortlets">
+          <Link href="/properties?stay=shortlet">
             <Button>Browse shortlets</Button>
           </Link>
         </div>
@@ -521,6 +526,26 @@ export default async function TenantHomePage() {
             fastResponderByHost={fastResponderByHost}
             trustSnapshots={trustSnapshots}
             socialProofByListing={socialProofByListing}
+          />
+        </section>
+      )}
+
+      {shortletHomes.length > 0 && (
+        <section className="space-y-4" data-testid="tenant-home-shortlets">
+          <SectionHeader
+            title="Shortlets to book"
+            description="Book stays by the night - Lagos and beyond."
+            href="/properties?stay=shortlet"
+            hrefLabel="Browse shortlets"
+          />
+          <PropertyRow
+            items={shortletHomes}
+            testId="tenant-home-shortlets-row"
+            savedIds={savedIds}
+            fastResponderByHost={fastResponderByHost}
+            trustSnapshots={trustSnapshots}
+            socialProofByListing={socialProofByListing}
+            source="shortlets"
           />
         </section>
       )}

@@ -27,7 +27,12 @@ import {
   resolvePublicAdvertiserHref,
 } from "@/lib/advertisers/public-profile";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
-import { isSaleIntent, isShortletIntent, normalizeListingIntent } from "@/lib/listing-intents";
+import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
+import {
+  isShortletProperty,
+  resolveShortletBookingMode,
+  resolveShortletNightlyPriceMinor,
+} from "@/lib/shortlet/discovery";
 
 const BedIcon = () => (
   <svg
@@ -103,10 +108,20 @@ export function PropertyCard({
   const blurDataURL =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
   const locationLabel = formatLocationLabel(property.city, property.neighbourhood);
-  const priceValue = formatPriceValue(property.currency, property.price, {
+  const isShortlet = isShortletProperty(property);
+  const shortletMode = resolveShortletBookingMode(property);
+  const shortletNightlyMinor = resolveShortletNightlyPriceMinor(property);
+  const displayPriceValue =
+    isShortlet &&
+    typeof shortletNightlyMinor === "number" &&
+    Number.isFinite(shortletNightlyMinor) &&
+    shortletNightlyMinor > 0
+      ? shortletNightlyMinor / 100
+      : property.price;
+  const priceValue = formatPriceValue(property.currency, displayPriceValue, {
     marketCurrency: market.currency,
   });
-  const cadence = formatCadence(property.rental_type, property.rent_period);
+  const cadence = isShortlet ? "night" : formatCadence(property.rental_type, property.rent_period);
   const listingTypeLabel = formatListingType(property.listing_type);
   const sizeLabel = formatSizeLabel(property.size_value, property.size_unit);
   const metaLine = [listingTypeLabel, sizeLabel].filter(Boolean).join(" \u00b7 ");
@@ -122,8 +137,10 @@ export function PropertyCard({
   });
   const showDemoBadge = shouldRenderDemoBadge({ isDemo, enabled: true });
   const showDemoWatermark = shouldRenderDemoWatermark({ isDemo, enabled: true });
-  const ctaLabel = isShortletIntent(listingIntent)
-    ? "Book stay"
+  const ctaLabel = isShortlet
+    ? shortletMode === "request"
+      ? "Request to book"
+      : "Reserve"
     : isSaleIntent(listingIntent)
     ? "Enquire to buy"
     : "Request viewing";
@@ -271,7 +288,7 @@ export function PropertyCard({
           <span className="rounded-full border border-slate-200/70 bg-slate-50 px-2.5 py-0.5 text-[10px] font-semibold tracking-[0.18em] text-slate-600 whitespace-nowrap shrink-0">
             {isSaleIntent(listingIntent)
               ? "For sale"
-              : isShortletIntent(listingIntent)
+              : isShortlet
                 ? "Shortlet"
                 : listingIntent === "off_plan"
                   ? "Off-plan"
@@ -291,6 +308,11 @@ export function PropertyCard({
         {showFastResponder && trustVariant !== "admin" && (
           <span className="inline-flex w-fit rounded-full border border-emerald-100 bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-700">
             Fast responder
+          </span>
+        )}
+        {isShortlet && (
+          <span className="inline-flex w-fit rounded-full border border-sky-100 bg-sky-50 px-2.5 py-0.5 text-[11px] font-semibold text-sky-700">
+            {shortletMode === "request" ? "Shortlet - Request to book" : "Shortlet - Instant book"}
           </span>
         )}
         <p className="min-h-[40px] text-sm text-slate-500 line-clamp-2">

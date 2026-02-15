@@ -41,12 +41,15 @@ export function SmartSearchBox({ onFilters, mode = "home" }: Props) {
     if (mode !== "browse") return href;
 
     const currentIntent = parseIntent(searchParams.get("intent"));
-    if (!currentIntent) return href;
+    const currentStay = searchParams.get("stay");
 
     const [basePath, existingQuery = ""] = href.split("?");
     const next = new URLSearchParams(existingQuery);
-    if (!next.get("intent")) {
+    if (currentIntent && !next.get("intent")) {
       next.set("intent", currentIntent);
+    }
+    if (currentStay === "shortlet" && !next.get("stay")) {
+      next.set("stay", "shortlet");
     }
     const queryString = next.toString();
     return queryString ? `${basePath}?${queryString}` : basePath;

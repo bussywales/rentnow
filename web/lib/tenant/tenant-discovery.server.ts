@@ -12,6 +12,7 @@ import {
   getMostViewedHomes as getMostViewedHomesSocialProof,
   getTrendingHomes as getTrendingHomesSocialProof,
 } from "@/lib/tenant/tenant-social-proof.server";
+import { isDiscoverableShortletProperty } from "@/lib/shortlet/discovery";
 
 type PropertyImageRow = {
   id: string;
@@ -26,6 +27,11 @@ type PropertyImageRow = {
 
 type PropertyRow = Property & {
   property_images?: PropertyImageRow[] | null;
+  shortlet_settings?: Array<{
+    property_id?: string | null;
+    booking_mode?: "instant" | "request" | null;
+    nightly_price_minor?: number | null;
+  }> | null;
 };
 
 type DiscoveryContext = {
@@ -38,11 +44,14 @@ type DiscoveryContext = {
 };
 
 const IMAGE_SELECT = "id,image_url,position,created_at,width,height,bytes,format";
-const BASE_SELECT = `*, property_images(${IMAGE_SELECT})`;
+const BASE_SELECT = `*, property_images(${IMAGE_SELECT}), shortlet_settings(property_id,booking_mode,nightly_price_minor)`;
 
 function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
   return (rows ?? []).map((row) => ({
     ...row,
+    shortlet_settings: Array.isArray(row.shortlet_settings)
+      ? row.shortlet_settings
+      : null,
     images: orderImagesWithCover(
       row.cover_image_url,
       row.property_images?.map((img) => ({
@@ -57,6 +66,21 @@ function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
       }))
     ),
   }));
+}
+
+export function filterShortletHomesForDiscovery(
+  homes: Property[],
+  options: {
+    nowIso?: string;
+    includeDemo?: boolean;
+  } = {}
+): Property[] {
+  return homes.filter((home) =>
+    isDiscoverableShortletProperty(home, {
+      nowIso: options.nowIso,
+      includeDemo: options.includeDemo,
+    })
+  );
 }
 
 type QueryBuilder = ReturnType<ReturnType<SupabaseClient["from"]>["select"]>;
@@ -225,6 +249,35 @@ export async function getFallbackHomes({
 
   const { data } = await query.limit(limit);
   return mapPropertyRows(data as PropertyRow[]);
+}
+
+export async function getShortletHomes({
+  city,
+  limit = 10,
+  context,
+}: {
+  city?: string | null;
+  limit?: number;
+  context?: DiscoveryContext;
+}) {
+  const ctx = context ?? (await getTenantDiscoveryContext());
+  const nowIso = new Date().toISOString();
+  const includeDemo = includeDemoListingsForViewer({ viewerRole: ctx.role });
+  const safeLimit = Math.max(1, Math.min(24, Math.trunc(limit)));
+
+  let query = ctx.supabase.from("properties").select(BASE_SELECT);
+  query = applyVisibilityFilters(query, nowIso, ctx.approvedBefore, includeDemo)
+    .or("listing_intent.eq.shortlet,rental_type.eq.short_let")
+    .order("updated_at", { ascending: false });
+
+  const trimmedCity = city?.trim();
+  if (trimmedCity) {
+    query = query.ilike("city", `%${trimmedCity}%`);
+  }
+
+  const { data } = await query.limit(Math.max(safeLimit * 2, 20));
+  const homes = mapPropertyRows(data as PropertyRow[]);
+  return filterShortletHomesForDiscovery(homes, { nowIso, includeDemo }).slice(0, safeLimit);
 }
 
 export async function getSavedHomes({

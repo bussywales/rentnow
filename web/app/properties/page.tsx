@@ -47,6 +47,7 @@ import {
   getIntentSummaryCopy,
 } from "@/lib/properties/listing-intent-ui";
 import { mapSearchFilterToListingIntent, normalizeListingIntent } from "@/lib/listing-intents";
+import { isShortletProperty } from "@/lib/shortlet/discovery";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
   searchParams?: SearchParams | Promise<SearchParams>;
@@ -167,6 +168,7 @@ function applyMockFilters(
       const listingIntent = normalizeListingIntent(property.listing_intent);
       if (expectedIntent && listingIntent !== expectedIntent) return false;
     }
+    if (filters.stay === "shortlet" && !isShortletProperty(property)) return false;
     if (filters.rentalType && property.rental_type !== filters.rentalType) return false;
     if (filters.furnished !== null && property.furnished !== filters.furnished) return false;
     if (filters.amenities.length) {
@@ -325,6 +327,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     featuredOnly ||
     !!createdAfter ||
     hasActiveFilters(filters);
+  const isShortletStayOnly = filters.stay === "shortlet";
   const savedSearchNoticeNode = savedSearchNotice ? (
     <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 shadow-sm">
       <p className="font-semibold">{savedSearchNotice.title}</p>
@@ -364,6 +367,24 @@ export default async function PropertiesPage({ searchParams }: Props) {
     href: buildMarketHubHref(hub, { intent: resolvedIntent }),
   }));
   const showMarketHubSuggestions = !hasFilters && marketHubLinks.length > 0;
+  const shortletToggleHrefParams = buildSearchParams(resolvedSearchParams, {
+    stay: isShortletStayOnly ? null : "shortlet",
+    page: "1",
+    savedSearchId: null,
+    source: null,
+  });
+  const allStaysHrefParams = buildSearchParams(resolvedSearchParams, {
+    stay: null,
+    page: "1",
+    savedSearchId: null,
+    source: null,
+  });
+  const shortletToggleHref = shortletToggleHrefParams.toString()
+    ? `/properties?${shortletToggleHrefParams.toString()}`
+    : "/properties";
+  const allStaysHref = allStaysHrefParams.toString()
+    ? `/properties?${allStaysHrefParams.toString()}`
+    : "/properties";
   const intentRecoveryBaseParams = buildSearchParams(resolvedSearchParams, {
     success: null,
   });
@@ -764,6 +785,30 @@ export default async function PropertiesPage({ searchParams }: Props) {
         <ListingIntentToggle currentIntent={resolvedIntent} hasUrlIntent={urlIntent !== undefined} />
       </div>
 
+      <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-sm">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Stay type</p>
+        <Link
+          href={allStaysHref}
+          className={
+            isShortletStayOnly
+              ? "rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
+              : "rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
+          }
+        >
+          All stays
+        </Link>
+        <Link
+          href={shortletToggleHref}
+          className={
+            isShortletStayOnly
+              ? "rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
+              : "rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
+          }
+        >
+          Shortlets
+        </Link>
+      </div>
+
       <div className="rounded-2xl border border-sky-100 bg-sky-50/80 px-4 py-3 text-sm text-slate-700 shadow-sm">
         <p className="text-[10px] uppercase tracking-[0.2em] text-sky-700">Short stays</p>
         <p className="mt-1 font-semibold text-slate-900">Need a nightly stay?</p>
@@ -771,10 +816,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
           Browse bookable shortlets with date availability and itemized pricing.
         </p>
         <Link
-          href="/shortlets"
+          href={isShortletStayOnly ? allStaysHref : shortletToggleHref}
           className="mt-2 inline-flex rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50"
         >
-          Open shortlet browse
+          {isShortletStayOnly ? "Back to all stays" : "Open shortlet browse"}
         </Link>
       </div>
 

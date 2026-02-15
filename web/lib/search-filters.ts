@@ -4,9 +4,11 @@ import type {
   ListingType,
   ParsedSearchFilters,
   RentalType,
+  StayFilter,
 } from "@/lib/types";
 import { parseIntent } from "@/lib/search-intent";
 import { mapSearchFilterToListingIntent, normalizeListingIntent } from "@/lib/listing-intents";
+import { isShortletProperty } from "@/lib/shortlet/discovery";
 
 export type SearchParamRecord = Record<string, string | string[] | undefined>;
 
@@ -76,11 +78,19 @@ function parseListingType(
   return LISTING_TYPES.includes(raw as ListingType) ? (raw as ListingType) : null;
 }
 
+function parseStay(value: string | string[] | undefined | null): StayFilter | null {
+  const raw = firstValue(value);
+  if (!raw) return null;
+  if (raw === "shortlet") return "shortlet";
+  return null;
+}
+
 export function parseFiltersFromParams(params: SearchParamRecord): ParsedSearchFilters {
   const rentalType = firstValue(params.rentalType);
   const listingIntent = parseIntent(
     firstValue(params.intent) ?? firstValue(params.listingIntent)
   );
+  const stay = parseStay(firstValue(params.stay) ?? firstValue(params.category));
   return {
     city: firstValue(params.city),
     minPrice: parseNumber(params.minPrice),
@@ -91,6 +101,7 @@ export function parseFiltersFromParams(params: SearchParamRecord): ParsedSearchF
     includeSimilarOptions: parseBoolean(params.includeSimilarOptions) ?? false,
     propertyType: parseListingType(params.propertyType),
     listingIntent,
+    stay,
     rentalType:
       rentalType === "short_let" || rentalType === "long_term"
         ? (rentalType as RentalType)
@@ -114,6 +125,7 @@ export function parseFiltersFromSearchParams(
     includeSimilarOptions: searchParams.get("includeSimilarOptions") ?? undefined,
     propertyType: searchParams.get("propertyType") ?? undefined,
     intent: searchParams.get("intent") ?? undefined,
+    stay: searchParams.get("stay") ?? searchParams.get("category") ?? undefined,
     rentalType: searchParams.get("rentalType") ?? undefined,
     furnished: searchParams.get("furnished") ?? undefined,
     amenities: amenities.length ? amenities : searchParams.get("amenities") ?? undefined,
@@ -137,6 +149,7 @@ export function filtersToSearchParams(filters: ParsedSearchFilters): URLSearchPa
   if (filters.listingIntent && filters.listingIntent !== "all") {
     params.set("intent", filters.listingIntent);
   }
+  if (filters.stay === "shortlet") params.set("stay", filters.stay);
   if (filters.rentalType) params.set("rentalType", filters.rentalType);
   if (filters.furnished !== null) params.set("furnished", String(filters.furnished));
   if (filters.amenities.length) {
@@ -153,6 +166,7 @@ export function hasActiveFilters(filters: ParsedSearchFilters): boolean {
   if (filters.bedrooms !== null) return true;
   if (filters.propertyType !== null && filters.propertyType !== undefined) return true;
   if (filters.listingIntent && filters.listingIntent !== "all") return true;
+  if (filters.stay === "shortlet") return true;
   if (filters.rentalType !== null) return true;
   if (filters.furnished !== null) return true;
   if (filters.amenities.length > 0) return true;
@@ -181,6 +195,12 @@ export function filtersToChips(filters: ParsedSearchFilters): FilterChip[] {
     chips.push({
       label: "Intent",
       value: filters.listingIntent === "buy" ? "For sale" : "For rent",
+    });
+  }
+  if (filters.stay === "shortlet") {
+    chips.push({
+      label: "Stay type",
+      value: "Shortlet",
     });
   }
   if (filters.rentalType) {
@@ -258,6 +278,8 @@ export function parseFiltersFromSavedSearch(params: Record<string, unknown>): Pa
       ? params.listingIntent
       : null
   );
+  const stay =
+    params.stay === "shortlet" || params.category === "shortlet" ? "shortlet" : null;
   const furnished =
     params.furnished === true || params.furnished === false
       ? params.furnished
@@ -282,6 +304,7 @@ export function parseFiltersFromSavedSearch(params: Record<string, unknown>): Pa
     includeSimilarOptions,
     propertyType,
     listingIntent,
+    stay,
     rentalType,
     furnished,
     amenities,
@@ -296,6 +319,7 @@ export function propertyMatchesFilters(property: {
   listing_type?: ListingType | null;
   listing_intent?: ListingIntent | null;
   rental_type: RentalType;
+  shortlet_settings?: Array<{ booking_mode?: string | null; nightly_price_minor?: number | null }> | null;
   furnished: boolean;
   amenities?: string[] | null;
 }, filters: ParsedSearchFilters): boolean {
@@ -318,6 +342,7 @@ export function propertyMatchesFilters(property: {
     const listingIntent = normalizeListingIntent(property.listing_intent);
     if (expectedIntent && listingIntent !== expectedIntent) return false;
   }
+  if (filters.stay === "shortlet" && !isShortletProperty(property)) return false;
   if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
   if (filters.rentalType && property.rental_type !== filters.rentalType) return false;
   if (filters.furnished !== null && property.furnished !== filters.furnished) return false;

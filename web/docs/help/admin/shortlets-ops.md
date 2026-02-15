@@ -9,6 +9,7 @@ updated_at: "2026-02-15"
 
 - Host inbox actions (approve/decline) are live in `/host`.
 - Tenant trips are visible in `/trips`.
+- Tenant discovery now includes `/properties?stay=shortlet` and home-page shortlet rails.
 - Manual payouts remain the active settlement model for shortlets.
 
 ## What to monitor

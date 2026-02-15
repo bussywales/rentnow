@@ -12,6 +12,18 @@ type SearchOptions = {
   includeDemo?: boolean;
 };
 
+type QueryWithOr<T> = {
+  or: (clause: string) => T;
+};
+
+export function applyStayFilterToQuery<T extends QueryWithOr<T>>(
+  query: T,
+  filters: Pick<ParsedSearchFilters, "stay">
+): T {
+  if (filters.stay !== "shortlet") return query;
+  return query.or("listing_intent.eq.shortlet,rental_type.eq.short_let");
+}
+
 export async function searchProperties(filters: ParsedSearchFilters, options: SearchOptions = {}) {
   const supabase = await createServerSupabaseClient();
   const includeDemoListings =
@@ -43,7 +55,10 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     const nowIso = new Date().toISOString();
     let query = supabase
       .from("properties")
-      .select(`*, property_images(${imageFields})`, { count: "exact" })
+      .select(
+        `*, property_images(${imageFields}), shortlet_settings(property_id,booking_mode,nightly_price_minor)`,
+        { count: "exact" }
+      )
       .eq("is_approved", true)
       .eq("is_active", true)
       .eq("status", "live");
@@ -72,6 +87,7 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     if (listingIntent) {
       query = query.eq("listing_intent", listingIntent);
     }
+    query = applyStayFilterToQuery(query, filters);
     if (filters.bedrooms !== null) {
       const bedroomsMode = filters.bedroomsMode ?? "exact";
       query =

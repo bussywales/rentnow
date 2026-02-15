@@ -12,6 +12,7 @@ export type ListingIntent =
   | "rent"
   | "buy";
 export type ListingIntentFilter = "rent" | "buy" | "all";
+export type StayFilter = "shortlet";
 
 export type ListingType =
   | "apartment"
@@ -178,6 +179,11 @@ export interface Property {
     created_at?: string | null;
     updated_at?: string | null;
   }> | null;
+  shortlet_settings?: Array<{
+    property_id?: string | null;
+    booking_mode?: "instant" | "request" | null;
+    nightly_price_minor?: number | null;
+  }> | null;
 }
 
 export interface Message {
@@ -215,6 +221,7 @@ export interface ParsedSearchFilters {
   includeSimilarOptions?: boolean;
   propertyType?: ListingType | null;
   listingIntent?: ListingIntentFilter;
+  stay?: StayFilter | null;
   rentalType: RentalType | null;
   furnished: boolean | null;
   amenities: string[];
