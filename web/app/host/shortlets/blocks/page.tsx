@@ -4,6 +4,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { readActingAsFromCookies } from "@/lib/acting-as.server";
+import { HostShortletBlocksManager } from "@/components/host/HostShortletBlocksManager";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,7 @@ export default async function HostShortletBlocksPage() {
       row.title ?? null,
     ])
   );
+  const properties = Array.from(propertyMap.entries()).map(([id, title]) => ({ id, title }));
   const propertyIds = Array.from(propertyMap.keys());
 
   let blocksRows: Array<Record<string, unknown>> = [];
@@ -81,7 +83,7 @@ export default async function HostShortletBlocksPage() {
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Host shortlets</p>
         <h1 className="text-2xl font-semibold text-slate-900">Calendar blocks</h1>
         <p className="mt-1 text-sm text-slate-600">
-          Review manual blocked dates for your shortlet listings.
+          Block and unblock dates for your shortlet listings.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link href="/host" className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
@@ -89,41 +91,7 @@ export default async function HostShortletBlocksPage() {
           </Link>
         </div>
       </div>
-
-      <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-slate-200 text-sm">
-          <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.14em] text-slate-500">
-            <tr>
-              <th className="px-4 py-3">Property</th>
-              <th className="px-4 py-3">From</th>
-              <th className="px-4 py-3">To</th>
-              <th className="px-4 py-3">Reason</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {rows.length ? (
-              rows.map((row) => (
-                <tr key={row.id}>
-                  <td className="px-4 py-3">
-                    <Link href={`/dashboard/properties/${row.property_id}`} className="font-semibold text-sky-700 underline underline-offset-2">
-                      {row.property_title || row.property_id}
-                    </Link>
-                  </td>
-                  <td className="px-4 py-3">{row.date_from}</td>
-                  <td className="px-4 py-3">{row.date_to}</td>
-                  <td className="px-4 py-3">{row.reason || "—"}</td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-slate-500">
-                  No calendar blocks yet.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <HostShortletBlocksManager initialRows={rows} properties={properties} />
     </div>
   );
 }

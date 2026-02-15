@@ -5,6 +5,8 @@ export type ShortletBookingStatus =
   | "cancelled"
   | "expired"
   | "completed";
+export type HostBookingDecision = "approve" | "decline";
+export type HostBookingRespondAction = "accept" | "decline";
 
 export function canHostRespondToBooking(status: ShortletBookingStatus): boolean {
   return status === "pending";
@@ -26,6 +28,22 @@ export function resolveHostBookingResponseStatus(
     throw new Error("INVALID_STATUS_TRANSITION");
   }
   return action === "accept" ? "confirmed" : "declined";
+}
+
+export function mapHostBookingDecisionToAction(
+  decision: HostBookingDecision
+): HostBookingRespondAction {
+  return decision === "approve" ? "accept" : "decline";
+}
+
+export function resolveHostBookingDecisionStatus(
+  currentStatus: ShortletBookingStatus,
+  decision: HostBookingDecision
+): ShortletBookingStatus {
+  return resolveHostBookingResponseStatus(
+    currentStatus,
+    mapHostBookingDecisionToAction(decision)
+  );
 }
 
 export function mapBookingCreateError(message: string): { status: number; error: string } {

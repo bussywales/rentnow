@@ -30,6 +30,7 @@ import { ListingReactivateModal } from "@/components/host/ListingReactivateModal
 import { ListingPaywallModal } from "@/components/billing/ListingPaywallModal";
 import { HostFeaturedRequestModal } from "@/components/host/HostFeaturedRequestModal";
 import { HostPaymentsPanel } from "@/components/host/HostPaymentsPanel";
+import { HostShortletBookingsPanel } from "@/components/host/HostShortletBookingsPanel";
 import { HostShortletWorkspace } from "@/components/host/HostShortletWorkspace";
 import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import type { PropertyStatus } from "@/lib/types";
@@ -224,6 +225,7 @@ export function HostDashboardContent({
   const [featuredRequestModalKey, setFeaturedRequestModalKey] = useState(0);
   const [expandedFeaturedRequestNotes, setExpandedFeaturedRequestNotes] = useState<Record<string, boolean>>({});
   const [openFixChecklistByProperty, setOpenFixChecklistByProperty] = useState<Record<string, boolean>>({});
+  const [workspaceSection, setWorkspaceSection] = useState<"listings" | "bookings">("listings");
 
   useEffect(() => {
     setLocalListings(listings);
@@ -263,6 +265,10 @@ export function HostDashboardContent({
     return eligibility.eligible;
   }, [featuredRequestSettings, featuredRequestTarget, featuredRequestsByProperty]);
   const allSelected = sorted.length > 0 && selectedIds.length === sorted.length;
+  const pendingShortletCount = useMemo(
+    () => shortletBookings.filter((row) => row.status === "pending").length,
+    [shortletBookings]
+  );
 
   const toggleSelectAll = () => {
     if (allSelected) {
@@ -667,21 +673,47 @@ export function HostDashboardContent({
 
   return (
     <div className="min-w-0 space-y-3">
-      <HostDashboardSavedViews
-        view={view}
-        onSelect={handleViewChange}
-        onReset={() => handleViewChange("all")}
-      />
-      <HostDashboardControls
-        search={search}
-        onSearch={setSearch}
-        summary={summary}
-        showing={sorted.length}
-        selectAllChecked={allSelected}
-        onToggleSelectAll={toggleSelectAll}
-      />
-      {sorted.length ? (
-        <div className="grid min-w-0 gap-4 md:grid-cols-2">
+      <div className="flex min-w-0 flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setWorkspaceSection("listings")}
+          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+            workspaceSection === "listings"
+              ? "bg-sky-600 text-white"
+              : "border border-slate-200 bg-white text-slate-700"
+          }`}
+        >
+          Listings
+        </button>
+        <button
+          type="button"
+          onClick={() => setWorkspaceSection("bookings")}
+          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+            workspaceSection === "bookings"
+              ? "bg-sky-600 text-white"
+              : "border border-slate-200 bg-white text-slate-700"
+          }`}
+        >
+          Bookings ({pendingShortletCount})
+        </button>
+      </div>
+      {workspaceSection === "listings" ? (
+        <>
+          <HostDashboardSavedViews
+            view={view}
+            onSelect={handleViewChange}
+            onReset={() => handleViewChange("all")}
+          />
+          <HostDashboardControls
+            search={search}
+            onSearch={setSearch}
+            summary={summary}
+            showing={sorted.length}
+            selectAllChecked={allSelected}
+            onToggleSelectAll={toggleSelectAll}
+          />
+          {sorted.length ? (
+            <div className="grid min-w-0 gap-4 md:grid-cols-2">
           {sorted.map((property) => {
             const status = normalizeStatus(property);
             const normalizedStatus = normalizePropertyStatus(status) ?? status;
@@ -1029,28 +1061,41 @@ export function HostDashboardContent({
               </div>
             );
           })}
-        </div>
+            </div>
+          ) : (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
+              <p className="text-base font-semibold text-slate-900">
+                {emptyTitle}
+              </p>
+              <p className="mt-1 text-sm text-slate-600">{viewCopy.description}</p>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
-          <p className="text-base font-semibold text-slate-900">
-            {emptyTitle}
-          </p>
-          <p className="mt-1 text-sm text-slate-600">{viewCopy.description}</p>
+        <div className="space-y-3">
+          <HostShortletBookingsPanel
+            initialRows={shortletBookings}
+            settingsRows={shortletSettings}
+          />
+          <HostShortletWorkspace
+            bookings={shortletBookings}
+            settingsRows={shortletSettings}
+            earnings={shortletEarnings}
+            defaultTab="settings"
+            showBookingTab={false}
+          />
         </div>
       )}
-      <HostShortletWorkspace
-        bookings={shortletBookings}
-        settingsRows={shortletSettings}
-        earnings={shortletEarnings}
-      />
       <HostPaymentsPanel />
-      <ListingBulkActionsBar
-        count={selectedIds.length}
-        onResume={() => setShowResumeModal(true)}
-        onOpenFive={openUpToFive}
-        onExport={handleExport}
-        onClear={clearSelection}
-      />
+      {workspaceSection === "listings" ? (
+        <ListingBulkActionsBar
+          count={selectedIds.length}
+          onResume={() => setShowResumeModal(true)}
+          onOpenFive={openUpToFive}
+          onExport={handleExport}
+          onClear={clearSelection}
+        />
+      ) : null}
       <HostBulkResumeSetupModal
         open={showResumeModal}
         onClose={() => setShowResumeModal(false)}

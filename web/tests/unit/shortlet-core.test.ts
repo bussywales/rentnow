@@ -4,7 +4,9 @@ import { calculateNights, calculateShortletPricing, hasDateOverlap } from "@/lib
 import {
   blocksAvailability,
   canCancelBooking,
+  mapHostBookingDecisionToAction,
   mapBookingCreateError,
+  resolveHostBookingDecisionStatus,
   resolveHostBookingResponseStatus,
 } from "@/lib/shortlet/bookings";
 import { mapLegacyListingIntent } from "@/lib/shortlet/shortlet.server";
@@ -73,6 +75,17 @@ void test("booking status transitions only allow pending host responses", () => 
   );
 });
 
+void test("approve/decline decisions map to expected statuses", () => {
+  assert.equal(mapHostBookingDecisionToAction("approve"), "accept");
+  assert.equal(mapHostBookingDecisionToAction("decline"), "decline");
+  assert.equal(resolveHostBookingDecisionStatus("pending", "approve"), "confirmed");
+  assert.equal(resolveHostBookingDecisionStatus("pending", "decline"), "declined");
+  assert.throws(
+    () => resolveHostBookingDecisionStatus("cancelled", "approve"),
+    /INVALID_STATUS_TRANSITION/
+  );
+});
+
 void test("overlap errors map to 409 with friendly message", () => {
   const mapped = mapBookingCreateError(
     'conflicting key value violates exclusion constraint "shortlet_bookings_no_overlap"'
@@ -117,6 +130,14 @@ void test("host booking permissions enforce owner/admin/delegated agent", () => 
       hostUserId: "host-1",
     }),
     true
+  );
+  assert.equal(
+    canHostManageShortletBooking({
+      actorRole: "landlord",
+      actorUserId: "host-2",
+      hostUserId: "host-1",
+    }),
+    false
   );
   assert.equal(
     canHostManageShortletBooking({

@@ -75,8 +75,15 @@ export function HostShortletWorkspace(props: {
   bookings: HostShortletBookingSummary[];
   settingsRows: HostShortletSettingSummary[];
   earnings: HostShortletEarningSummary[];
+  defaultTab?: WorkspaceTab;
+  showBookingTab?: boolean;
 }) {
-  const [tab, setTab] = useState<WorkspaceTab>("bookings");
+  const showBookingTab = props.showBookingTab ?? true;
+  const resolvedDefaultTab =
+    props.defaultTab && (!showBookingTab || props.defaultTab === "settings")
+      ? props.defaultTab
+      : "bookings";
+  const [tab, setTab] = useState<WorkspaceTab>(resolvedDefaultTab);
   const [rows, setRows] = useState<HostShortletBookingSummary[]>(props.bookings);
   const [busyBookingId, setBusyBookingId] = useState<string | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
@@ -91,6 +98,16 @@ export function HostShortletWorkspace(props: {
   useEffect(() => {
     setRows(props.bookings);
   }, [props.bookings]);
+
+  useEffect(() => {
+    if (!showBookingTab) {
+      setTab("settings");
+      return;
+    }
+    if (props.defaultTab === "settings" || props.defaultTab === "bookings") {
+      setTab(props.defaultTab);
+    }
+  }, [props.defaultTab, showBookingTab]);
 
   useEffect(() => {
     setSettingsForms(
@@ -331,9 +348,13 @@ export function HostShortletWorkspace(props: {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Shortlet</p>
-          <h3 className="text-lg font-semibold text-slate-900">Bookings and availability</h3>
+          <h3 className="text-lg font-semibold text-slate-900">
+            {showBookingTab ? "Bookings and availability" : "Availability and pricing"}
+          </h3>
           <p className="text-sm text-slate-600">
-            Manage incoming booking requests and keep shortlet pricing/rules up to date.
+            {showBookingTab
+              ? "Manage incoming booking requests and keep shortlet pricing/rules up to date."
+              : "Manage booking mode, stay rules, and nightly pricing for shortlet listings."}
           </p>
         </div>
         <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
@@ -341,32 +362,34 @@ export function HostShortletWorkspace(props: {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => setTab("bookings")}
-          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-            tab === "bookings"
-              ? "bg-sky-600 text-white"
-              : "border border-slate-200 bg-white text-slate-700"
-          }`}
-        >
-          Bookings
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("settings")}
-          className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
-            tab === "settings"
-              ? "bg-sky-600 text-white"
-              : "border border-slate-200 bg-white text-slate-700"
-          }`}
-        >
-          Availability & pricing
-        </button>
-      </div>
+      {showBookingTab ? (
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => setTab("bookings")}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+              tab === "bookings"
+                ? "bg-sky-600 text-white"
+                : "border border-slate-200 bg-white text-slate-700"
+            }`}
+          >
+            Bookings
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab("settings")}
+            className={`rounded-full px-3 py-1.5 text-xs font-semibold ${
+              tab === "settings"
+                ? "bg-sky-600 text-white"
+                : "border border-slate-200 bg-white text-slate-700"
+            }`}
+          >
+            Availability & pricing
+          </button>
+        </div>
+      ) : null}
 
-      {tab === "bookings" ? (
+      {showBookingTab && tab === "bookings" ? (
         <div className="space-y-5">
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
