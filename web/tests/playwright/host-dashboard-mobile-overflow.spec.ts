@@ -1,37 +1,37 @@
 import { test, expect, type Page } from "@playwright/test";
 
-const SHOULD_RUN = process.env.E2E_ENABLE_HOST_DASHBOARD === "true";
 const HOST_EMAIL =
+  process.env.PLAYWRIGHT_HOST_EMAIL ||
   process.env.E2E_HOST_EMAIL ||
-  process.env.PLAYWRIGHT_USER_EMAIL ||
-  process.env.E2E_EMAIL ||
   "";
 const HOST_PASSWORD =
+  process.env.PLAYWRIGHT_HOST_PASSWORD ||
   process.env.E2E_HOST_PASSWORD ||
-  process.env.PLAYWRIGHT_USER_PASSWORD ||
-  process.env.E2E_PASSWORD ||
   "";
 const HAS_HOST_CREDS = !!HOST_EMAIL && !!HOST_PASSWORD;
 
-if (!SHOULD_RUN) {
+if (!HAS_HOST_CREDS) {
   test.skip(
     true,
-    "Host dashboard overflow e2e disabled (set E2E_ENABLE_HOST_DASHBOARD=true to run)"
+    "Host dashboard overflow requires PLAYWRIGHT_HOST_EMAIL and PLAYWRIGHT_HOST_PASSWORD."
   );
 }
 
 const VIEWPORTS = [320, 360, 390, 414] as const;
 const VIEWS = ["all", "needs-attention", "drafts", "ready"] as const;
 
-async function loginIfPossible(page: Page) {
-  if (!HAS_HOST_CREDS) return;
-
+async function loginAsHost(page: Page) {
+  await page.goto("/host?view=all", { waitUntil: "domcontentloaded" });
+  if (!page.url().includes("/auth/login")) {
+    return;
+  }
   await page.goto("/auth/login");
   await page.getByLabel(/email/i).fill(HOST_EMAIL);
   await page.getByLabel(/password/i).fill(HOST_PASSWORD);
   await page.getByRole("button", { name: /log in/i }).click();
   await page.waitForURL(/\/(host|dashboard|tenant\/home)/, { timeout: 20_000 });
-  await page.goto("/host?view=all");
+  await page.goto("/host?view=all", { waitUntil: "domcontentloaded" });
+  await expect(page).not.toHaveURL(/\/auth\/login/);
 }
 
 async function assertNoHorizontalOverflow(page: Page, label: string) {
@@ -91,24 +91,16 @@ async function assertNoHorizontalOverflow(page: Page, label: string) {
 
 test.describe("Host dashboard mobile overflow", () => {
   test("my listings views do not pan horizontally", async ({ page }) => {
-    await loginIfPossible(page);
-
-    await page.goto("/host?view=all");
-    if (page.url().includes("/auth/login")) {
-      test.skip(
-        true,
-        "Host auth required. Set E2E_HOST_EMAIL/E2E_HOST_PASSWORD (or PLAYWRIGHT_USER_EMAIL/PASSWORD) to run overflow checks."
-      );
-    }
+    await loginAsHost(page);
 
     for (const width of VIEWPORTS) {
       await page.setViewportSize({ width, height: 900 });
       for (const view of VIEWS) {
-        await page.goto(`/host?view=${view}`);
-        await page.waitForTimeout(300);
+        await page.goto(`/host?view=${view}`, { waitUntil: "domcontentloaded" });
+        await expect(page).not.toHaveURL(/\/auth\/login/);
+        await page.waitForLoadState("networkidle");
         await assertNoHorizontalOverflow(page, `view=${view} width=${width}`);
       }
     }
   });
 });
-

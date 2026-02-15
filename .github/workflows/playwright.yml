@@ -13,11 +13,16 @@ jobs:
       run:
         working-directory: web
     env:
-      PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL || 'https://www.rentnow.space' }}
+      APP_URL: ${{ secrets.APP_URL || '' }}
+      PLAYWRIGHT_BASE_URL: ${{ secrets.PLAYWRIGHT_BASE_URL || secrets.APP_URL || 'https://www.rentnow.space' }}
       PLAYWRIGHT_USER_EMAIL: ${{ secrets.PLAYWRIGHT_USER_EMAIL || '' }}
       PLAYWRIGHT_USER_PASSWORD: ${{ secrets.PLAYWRIGHT_USER_PASSWORD || '' }}
+      PLAYWRIGHT_HOST_EMAIL: ${{ secrets.PLAYWRIGHT_HOST_EMAIL || '' }}
+      PLAYWRIGHT_HOST_PASSWORD: ${{ secrets.PLAYWRIGHT_HOST_PASSWORD || '' }}
       E2E_EMAIL: ${{ secrets.E2E_EMAIL || secrets.PLAYWRIGHT_USER_EMAIL || '' }}
       E2E_PASSWORD: ${{ secrets.E2E_PASSWORD || secrets.PLAYWRIGHT_USER_PASSWORD || '' }}
+      E2E_HOST_EMAIL: ${{ secrets.E2E_HOST_EMAIL || secrets.PLAYWRIGHT_HOST_EMAIL || '' }}
+      E2E_HOST_PASSWORD: ${{ secrets.E2E_HOST_PASSWORD || secrets.PLAYWRIGHT_HOST_PASSWORD || '' }}
       PLAYWRIGHT_ALLOW_WRITE: ${{ secrets.PLAYWRIGHT_ALLOW_WRITE || 'false' }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL || '' }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || '' }}
@@ -54,6 +59,17 @@ jobs:
 
       - name: Run Playwright tests
         run: npm run test:e2e -- --reporter=dot
+
+      - name: Upload Playwright artifacts on failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            web/playwright-report
+            web/test-results
+          if-no-files-found: ignore
+          retention-days: 14
 
       - name: Cleanup Playwright data
         if: ${{ env.PLAYWRIGHT_ALLOW_WRITE == 'true' && env.NEXT_PUBLIC_SUPABASE_URL != '' && env.NEXT_PUBLIC_SUPABASE_ANON_KEY != '' }}
