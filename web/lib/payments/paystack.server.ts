@@ -3,11 +3,13 @@ import crypto from "node:crypto";
 const PAYSTACK_BASE_URL = "https://api.paystack.co";
 
 type InitializeTransactionInput = {
-  secretKey: string;
-  amountMinor: number;
+  secretKey?: string;
+  amountMinor?: number;
+  amount_minor?: number;
   email: string;
   reference: string;
-  callbackUrl: string;
+  callbackUrl?: string;
+  callback_url?: string;
   metadata?: Record<string, unknown>;
   currency?: string;
 };
@@ -19,6 +21,7 @@ type VerifyTransactionResult = {
   currency: string;
   paidAt: string | null;
   authorizationCode: string | null;
+  customerCode: string | null;
   email: string | null;
   raw: Record<string, unknown> | null;
 };
@@ -57,18 +60,40 @@ export function validateWebhookSignature(input: {
   return computed === signature;
 }
 
+export function isValidPaystackReference(reference: string) {
+  return /^[A-Za-z0-9.\-=]+$/.test(reference);
+}
+
+export function buildShortletPaymentReference(bookingId: string) {
+  const compact = bookingId.replace(/[^a-zA-Z0-9]/g, "").slice(0, 10) || crypto.randomUUID().replace(/-/g, "").slice(0, 10);
+  const timestamp = Date.now().toString(36).toUpperCase();
+  return `RN-SLT-${compact}-${timestamp}`;
+}
+
 export async function initializeTransaction(input: InitializeTransactionInput) {
+  const secretKey = input.secretKey || getPaystackSecretKey();
+  if (!secretKey) {
+    throw new Error("Paystack is not configured.");
+  }
+  const amountMinor = Number(input.amountMinor ?? input.amount_minor ?? 0);
+  if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
+    throw new Error("Invalid transaction amount.");
+  }
+  if (!isValidPaystackReference(input.reference)) {
+    throw new Error("Invalid payment reference.");
+  }
+  const callbackUrl = input.callbackUrl || input.callback_url || undefined;
   const response = await fetch(`${PAYSTACK_BASE_URL}/transaction/initialize`, {
     method: "POST",
     headers: {
       "content-type": "application/json",
-      authorization: `Bearer ${input.secretKey}`,
+      authorization: `Bearer ${secretKey}`,
     },
     body: JSON.stringify({
-      amount: input.amountMinor,
+      amount: Math.trunc(amountMinor),
       email: input.email,
       reference: input.reference,
-      callback_url: input.callbackUrl,
+      callback_url: callbackUrl,
       metadata: input.metadata || {},
       currency: input.currency || "NGN",
     }),
@@ -98,13 +123,20 @@ export async function initializeTransaction(input: InitializeTransactionInput) {
   };
 }
 
-export async function verifyTransaction(input: { secretKey: string; reference: string }): Promise<VerifyTransactionResult> {
+export async function verifyTransaction(input: { secretKey?: string; reference: string }): Promise<VerifyTransactionResult> {
+  const secretKey = input.secretKey || getPaystackSecretKey();
+  if (!secretKey) {
+    throw new Error("Paystack is not configured.");
+  }
+  if (!isValidPaystackReference(input.reference)) {
+    throw new Error("Invalid payment reference.");
+  }
   const response = await fetch(
     `${PAYSTACK_BASE_URL}/transaction/verify/${encodeURIComponent(input.reference)}`,
     {
       method: "GET",
       headers: {
-        authorization: `Bearer ${input.secretKey}`,
+        authorization: `Bearer ${secretKey}`,
       },
     }
   );
@@ -118,7 +150,7 @@ export async function verifyTransaction(input: { secretKey: string; reference: s
           amount?: number | null;
           currency?: string | null;
           paid_at?: string | null;
-          customer?: { email?: string | null } | null;
+          customer?: { email?: string | null; customer_code?: string | null } | null;
           authorization?: { authorization_code?: string | null } | null;
         } | null;
       }
@@ -137,6 +169,7 @@ export async function verifyTransaction(input: { secretKey: string; reference: s
     currency: readString(data.currency) || "NGN",
     paidAt: readString(data.paid_at),
     authorizationCode: readString(data.authorization?.authorization_code),
+    customerCode: readString(data.customer?.customer_code),
     email: readString(data.customer?.email),
     raw: (payload as unknown as Record<string, unknown>) || null,
   };

@@ -32,6 +32,72 @@ type AvailabilityResponse = {
   } | null;
 };
 
+type CreateBookingResponse = {
+  booking?: {
+    id?: string;
+    status?: string;
+  };
+  error?: string;
+};
+
+type InitPaymentResponse = {
+  bookingId: string;
+  reference: string;
+  access_code: string | null;
+  amount_minor: number;
+  currency: string;
+  paystack_public_key: string | null;
+  payer_email: string | null;
+  status: string;
+  reused: boolean;
+  error?: string;
+};
+
+type VerifyPaymentResponse = {
+  ok?: boolean;
+  bookingId?: string;
+  bookingStatus?: string;
+  paymentStatus?: string;
+  reference?: string;
+  error?: string;
+};
+
+declare global {
+  interface Window {
+    PaystackPop?: {
+      setup: (options: {
+        key: string;
+        email: string;
+        amount: number;
+        currency?: string;
+        ref?: string;
+        access_code?: string | null;
+        callback?: (response: { reference?: string }) => void;
+        onClose?: () => void;
+      }) => { openIframe: () => void };
+    };
+  }
+}
+
+let paystackScriptPromise: Promise<void> | null = null;
+
+function loadPaystackInlineScript() {
+  if (typeof window === "undefined") {
+    return Promise.reject(new Error("Checkout is only available in the browser."));
+  }
+  if (window.PaystackPop) return Promise.resolve();
+  if (paystackScriptPromise) return paystackScriptPromise;
+  paystackScriptPromise = new Promise<void>((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://js.paystack.co/v1/inline.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("Unable to load payment checkout script."));
+    document.body.appendChild(script);
+  });
+  return paystackScriptPromise;
+}
+
 function formatMoney(currency: string, amountMinor: number): string {
   const amount = Math.max(0, Math.trunc(amountMinor || 0)) / 100;
   try {
@@ -62,8 +128,11 @@ export function ShortletBookingWidget(props: {
   const [checkOut, setCheckOut] = useState<string>(getDefaultDate(3));
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [paying, setPaying] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [missingEmail, setMissingEmail] = useState(false);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
 
   useEffect(() => {
@@ -118,11 +187,88 @@ export function ShortletBookingWidget(props: {
     };
   }, [pricing]);
 
+  async function verifyShortletPayment(reference: string) {
+    setVerifying(true);
+    try {
+      const response = await fetch("/api/shortlet/payments/verify", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reference }),
+      });
+      const payload = (await response.json().catch(() => null)) as VerifyPaymentResponse | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || "Unable to verify payment");
+      }
+      setNotice(
+        payload?.bookingStatus === "confirmed"
+          ? "Payment verified. Your booking is confirmed."
+          : "Payment verified — awaiting host confirmation."
+      );
+    } finally {
+      setVerifying(false);
+    }
+  }
+
+  async function startInlineCheckout(initPayload: InitPaymentResponse) {
+    await loadPaystackInlineScript();
+    const key = String(initPayload.paystack_public_key || "").trim();
+    const email = String(initPayload.payer_email || "").trim();
+    if (!key) throw new Error("Payment public key is missing.");
+    if (!email) throw new Error("Account email is required for checkout.");
+    const handler = window.PaystackPop?.setup({
+      key,
+      email,
+      amount: Math.max(0, Math.trunc(initPayload.amount_minor || 0)),
+      currency: initPayload.currency || "NGN",
+      ref: initPayload.reference,
+      access_code: initPayload.access_code,
+      callback: async (response) => {
+        const ref = String(response?.reference || initPayload.reference || "").trim();
+        if (!ref) {
+          setError("Checkout completed but payment reference is missing.");
+          return;
+        }
+        try {
+          await verifyShortletPayment(ref);
+        } catch (verifyError) {
+          setError(verifyError instanceof Error ? verifyError.message : "Unable to verify payment.");
+        }
+      },
+      onClose: () => {
+        setNotice((current) => current || "Checkout closed. You can retry payment for this booking.");
+      },
+    });
+    if (!handler?.openIframe) {
+      throw new Error("Payment checkout is unavailable. Please retry.");
+    }
+    handler.openIframe();
+  }
+
+  async function initShortletPayment(bookingId: string) {
+    const response = await fetch("/api/shortlet/payments/init", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ bookingId }),
+    });
+    const payload = (await response.json().catch(() => null)) as InitPaymentResponse | null;
+    if (!response.ok) {
+      const message = payload?.error || "Unable to initialize payment";
+      if (response.status === 400 && message.includes("Account email is required")) {
+        setMissingEmail(true);
+      }
+      throw new Error(message);
+    }
+    return payload as InitPaymentResponse;
+  }
+
   async function handleCreateBooking() {
     if (!checkIn || !checkOut || creating) return;
     setCreating(true);
     setError(null);
     setNotice(null);
+    setMissingEmail(false);
     try {
       const response = await fetch("/api/shortlet/bookings/create", {
         method: "POST",
@@ -134,26 +280,34 @@ export function ShortletBookingWidget(props: {
           check_out: checkOut,
         }),
       });
-      const payload = (await response.json().catch(() => null)) as
-        | { booking?: { id?: string; status?: string }; error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as CreateBookingResponse | null;
       if (!response.ok) {
         throw new Error(payload?.error || "Unable to create booking");
       }
-      const status = payload?.booking?.status || "pending";
-      if (status === "confirmed") {
-        setNotice("Booking confirmed. Your stay is now reserved.");
-      } else {
-        setNotice(
-          "Booking request sent. If this request is declined or expires, it will be marked refund-needed for manual follow-up."
-        );
+      const bookingId = String(payload?.booking?.id || "").trim();
+      if (!bookingId) {
+        throw new Error("Booking was created but no booking id was returned.");
       }
+
+      setPaying(true);
+      const initPayload = await initShortletPayment(bookingId);
+      await startInlineCheckout(initPayload);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Unable to create booking");
     } finally {
+      setPaying(false);
       setCreating(false);
     }
   }
+
+  const actionBusy = creating || paying || verifying;
+  const actionLabel = creating
+    ? "Creating booking..."
+    : paying
+      ? "Opening checkout..."
+      : verifying
+        ? "Verifying payment..."
+        : ctaLabel;
 
   return (
     <div id="cta" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -228,9 +382,9 @@ export function ShortletBookingWidget(props: {
         {props.isAuthenticated ? (
           <Button
             onClick={handleCreateBooking}
-            disabled={creating || loading || !checkIn || !checkOut || !canSubmit}
+            disabled={actionBusy || loading || !checkIn || !checkOut || !canSubmit}
           >
-            {creating ? "Submitting..." : ctaLabel}
+            {actionLabel}
           </Button>
         ) : (
           <>
@@ -255,6 +409,14 @@ export function ShortletBookingWidget(props: {
 
       {notice ? <p className="mt-2 text-sm text-emerald-700">{notice}</p> : null}
       {error ? <p className="mt-2 text-sm text-rose-600">{error}</p> : null}
+      {missingEmail ? (
+        <p className="mt-2 text-sm text-amber-700">
+          Add or confirm your account email to continue checkout.{" "}
+          <Link href="/profile" className="font-semibold underline underline-offset-2">
+            Update profile email
+          </Link>
+        </p>
+      ) : null}
       <p className="mt-2 text-xs text-slate-500">
         {props.listingTitle} · Marketplace pilot with manual payout handling.
       </p>
