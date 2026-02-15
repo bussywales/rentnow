@@ -8,7 +8,11 @@ export type HostDashboardView = keyof typeof HOST_DASHBOARD_VIEWS;
 
 export function parseHostDashboardView(value: string | null | undefined): HostDashboardView | null {
   if (!value) return null;
-  return value in HOST_DASHBOARD_VIEWS ? (value as HostDashboardView) : null;
+  const normalized =
+    value === "needs-attention"
+      ? "needs_attention"
+      : value;
+  return normalized in HOST_DASHBOARD_VIEWS ? (normalized as HostDashboardView) : null;
 }
 
 export function resolveInitialHostDashboardView(

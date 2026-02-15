@@ -792,7 +792,7 @@ export function HostDashboardContent({
                   )}
                 </div>
                 {pausedReasonLabel && (
-                  <p className="mt-2 text-xs text-slate-500">Paused reason: {pausedReasonLabel}</p>
+                  <p className="mt-2 text-xs text-slate-500 break-words">Paused reason: {pausedReasonLabel}</p>
                 )}
                 {featuredStatusLabel ? (
                   <div className="mt-2 space-y-1">
@@ -806,7 +806,7 @@ export function HostDashboardContent({
                       {featuredStatusLabel}
                     </div>
                     {featuredStatusSummary.showDecisionNote && decisionNote ? (
-                      <div className="text-xs text-slate-600">
+                      <div className="min-w-0 text-xs text-slate-600 break-words">
                         <span>{noteExpanded ? decisionNote : truncatedDecisionNote}</span>{" "}
                         {decisionNote.length > 120 ? (
                           <button
@@ -841,18 +841,18 @@ export function HostDashboardContent({
                     {readiness.score} · {readiness.tier}
                   </span>
                 </div>
-                <div className="mt-1 text-[11px] text-slate-500">
+                <div className="mt-1 text-[11px] text-slate-500 break-words">
                   {HOST_DASHBOARD_COPY.lastUpdatedLabel}:{" "}
                   {formatRelativeTime(getLastUpdatedDate(property))}
                 </div>
                 {performance && (
                   <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
                     <div className="font-semibold text-slate-700">Demand last 7d</div>
-                    <div className="mt-1 text-[11px] text-slate-600">
+                    <div className="mt-1 text-[11px] text-slate-600 break-words">
                       Views {performance.views} · Saves {performance.saves} · Leads {performance.leads}
                     </div>
                     {(isPaused || isExpired) && missedDemandLabel && (
-                      <div className="mt-1 text-[11px] text-slate-500">{missedDemandLabel}</div>
+                      <div className="mt-1 text-[11px] text-slate-500 break-words">{missedDemandLabel}</div>
                     )}
                   </div>
                 )}
@@ -872,7 +872,7 @@ export function HostDashboardContent({
                   <ListingQuickFixes readiness={readiness} propertyId={property.id} />
                 )}
                 {property.rejection_reason && status === "rejected" && (
-                  <p className="mt-2 text-xs text-rose-600">
+                  <p className="mt-2 text-xs text-rose-600 break-words">
                     Rejection reason: {property.rejection_reason}
                   </p>
                 )}
@@ -914,7 +914,7 @@ export function HostDashboardContent({
                         <Button size="sm" variant="secondary" disabled data-testid={`listing-feature-request-pending-${property.id}`}>
                           Request pending
                         </Button>
-                        <span className="inline-flex min-w-0 items-center text-[11px] text-slate-500">
+                        <span className="inline-flex min-w-0 items-center text-[11px] text-slate-500 break-words">
                           We usually review within 1-{featuredPricing.slaDays} days.
                         </span>
                       </>
@@ -930,7 +930,7 @@ export function HostDashboardContent({
                         >
                           Request featured
                         </Button>
-                        <span className="inline-flex min-w-0 items-center text-[11px] text-slate-500">
+                        <span className="inline-flex min-w-0 items-center text-[11px] text-slate-500 break-words">
                           From {featuredFromPriceLabel} / 7 days
                         </span>
                       </>
@@ -1008,13 +1008,13 @@ export function HostDashboardContent({
                 </div>
                 {showFixChecklist && canShowFixToRequest ? (
                   <div className="mt-2 rounded-xl border border-slate-200 bg-slate-50 p-3">
-                    <p className="text-xs font-semibold text-slate-700">Request checklist</p>
+                    <p className="text-xs font-semibold text-slate-700 break-words">Request checklist</p>
                     <ul className="mt-2 space-y-2 text-xs text-slate-600">
                       {fixItems.map((item) => (
                         <li key={`${property.id}-${item.code}`} className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-                          <span className="min-w-0 flex-1">{item.label}</span>
+                          <span className="min-w-0 flex-1 break-words">{item.label}</span>
                           {item.href ? (
-                            <Link href={item.href} className="font-semibold text-sky-700 underline underline-offset-2">
+                            <Link href={item.href} className="font-semibold text-sky-700 underline underline-offset-2 break-words">
                               {item.actionLabel || "Open"}
                             </Link>
                           ) : null}
@@ -1023,9 +1023,9 @@ export function HostDashboardContent({
                     </ul>
                   </div>
                 ) : null}
-                {statusError && <p className="mt-2 text-xs text-rose-600">{statusError}</p>}
-                {featureError && <p className="mt-2 text-xs text-rose-600">{featureError}</p>}
-                {requestError && <p className="mt-2 text-xs text-rose-600">{requestError}</p>}
+                {statusError && <p className="mt-2 text-xs text-rose-600 break-words">{statusError}</p>}
+                {featureError && <p className="mt-2 text-xs text-rose-600 break-words">{featureError}</p>}
+                {requestError && <p className="mt-2 text-xs text-rose-600 break-words">{requestError}</p>}
               </div>
             );
           })}

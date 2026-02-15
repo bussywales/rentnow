@@ -28,6 +28,7 @@ const expectedViews = {
 void test("parses host dashboard views from URL", () => {
   assert.equal(parseHostDashboardView("ready"), "ready");
   assert.equal(parseHostDashboardView("needs_attention"), "needs_attention");
+  assert.equal(parseHostDashboardView("needs-attention"), "needs_attention");
   assert.equal(parseHostDashboardView("unknown"), null);
   assert.equal(parseHostDashboardView(null), null);
 });

@@ -147,7 +147,9 @@ export function PropertyCard({
     <div
       className={cn(
         "relative",
-        compact ? "h-32 w-32 shrink-0 flex-none" : "aspect-[4/3] w-full"
+        compact
+          ? "h-40 w-full shrink-0 flex-none min-[360px]:h-32 min-[360px]:w-32"
+          : "aspect-[4/3] w-full"
       )}
     >
       {href ? (
@@ -221,7 +223,7 @@ export function PropertyCard({
     <div
       className={cn(
         "card h-full min-w-0 overflow-hidden rounded-2xl bg-white transition hover:-translate-y-0.5 hover:shadow-xl",
-        compact && "flex"
+        compact && "flex flex-col min-[360px]:flex-row"
       )}
       data-testid="property-card"
     >
@@ -235,7 +237,7 @@ export function PropertyCard({
                   {locationLabel}
                 </p>
                 {metaLine && (
-                  <p className="text-xs text-slate-500">{metaLine}</p>
+                  <p className="text-xs text-slate-500 break-words">{metaLine}</p>
                 )}
                 <h3 className="text-base font-semibold text-slate-900 line-clamp-1">
                   {property.title}
@@ -247,7 +249,7 @@ export function PropertyCard({
                   {locationLabel}
                 </p>
                 {metaLine && (
-                  <p className="text-xs text-slate-500">{metaLine}</p>
+                  <p className="text-xs text-slate-500 break-words">{metaLine}</p>
                 )}
                 <h3 className="text-base font-semibold text-slate-900 line-clamp-1">
                   {property.title}

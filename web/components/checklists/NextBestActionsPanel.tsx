@@ -17,8 +17,8 @@ export function NextBestActionsPanel({
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="next-best-actions-panel">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Guided help</p>
           <h2 className="text-xl font-semibold text-slate-900">Next best actions</h2>
           <p className="text-sm text-slate-600">
@@ -47,16 +47,16 @@ export function NextBestActionsPanel({
         <div className="mt-4 grid gap-3">
           {model.actions.map((action) => (
             <div key={action.id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <Link href={action.href} className="text-sm font-semibold text-slate-900 hover:underline">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+                <Link href={action.href} className="min-w-0 flex-1 text-sm font-semibold text-slate-900 hover:underline break-words">
                   {action.label}
                 </Link>
                 <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-700">
                   To do
                 </span>
               </div>
-              <p className="mt-1 text-xs text-slate-600">{action.why}</p>
-              {action.note ? <p className="mt-1 text-xs text-slate-500">{action.note}</p> : null}
+              <p className="mt-1 text-xs text-slate-600 break-words">{action.why}</p>
+              {action.note ? <p className="mt-1 text-xs text-slate-500 break-words">{action.note}</p> : null}
             </div>
           ))}
         </div>

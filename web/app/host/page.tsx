@@ -372,7 +372,7 @@ export default async function DashboardHome() {
             Listings you own. Approvals required for public visibility.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-3">
           <HelpDrawerTrigger label="Need help?" testId="host-help-trigger" />
           {listingLimitReached ? (
             <Button variant="secondary" disabled>

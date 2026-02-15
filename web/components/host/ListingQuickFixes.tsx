@@ -28,9 +28,9 @@ export function ListingQuickFixes({ readiness, propertyId }: Props) {
   const actionable = readiness.issues.slice(0, 2);
   if (!actionable.length) return null;
   return (
-    <div className="mt-3 space-y-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+    <div className="mt-3 min-w-0 space-y-2 rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-700">
       <p className="font-semibold text-slate-900">Quick fixes</p>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex min-w-0 flex-wrap gap-2">
         {actionable.map((issue) => {
           const label = LABELS[issue.code] || "Improve";
           const href = hrefForIssue(issue.code, propertyId);
@@ -38,7 +38,7 @@ export function ListingQuickFixes({ readiness, propertyId }: Props) {
             <Link
               key={issue.key}
               href={href}
-              className="rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-100"
+              className="min-w-0 rounded-full bg-white px-3 py-1 text-[11px] font-semibold text-slate-700 shadow-sm ring-1 ring-slate-200 hover:bg-slate-100 break-words"
             >
               {label}
             </Link>

@@ -10,12 +10,12 @@ type Props = {
 export function HostDashboardSavedViews({ view, onSelect, onReset }: Props) {
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-        <div>
+      <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">{HOST_DASHBOARD_COPY.title}</p>
-          <p className="text-xs text-slate-500">{HOST_DASHBOARD_COPY.helper}</p>
+          <p className="text-xs text-slate-500 break-words">{HOST_DASHBOARD_COPY.helper}</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={onReset}
@@ -23,7 +23,7 @@ export function HostDashboardSavedViews({ view, onSelect, onReset }: Props) {
           >
             {HOST_DASHBOARD_COPY.resetLabel}
           </button>
-          <p className="text-[11px] text-slate-500">{HOST_DASHBOARD_COPY.resetHelper}</p>
+          <p className="min-w-0 text-[11px] text-slate-500 break-words">{HOST_DASHBOARD_COPY.resetHelper}</p>
         </div>
       </div>
       <div className="flex flex-wrap gap-2">
@@ -45,7 +45,7 @@ export function HostDashboardSavedViews({ view, onSelect, onReset }: Props) {
           );
         })}
       </div>
-      <p className="text-xs text-slate-600">{HOST_DASHBOARD_VIEWS[view].description}</p>
+      <p className="text-xs text-slate-600 break-words">{HOST_DASHBOARD_VIEWS[view].description}</p>
     </div>
   );
 }

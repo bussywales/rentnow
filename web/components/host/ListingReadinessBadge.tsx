@@ -11,7 +11,7 @@ export function ListingReadinessBadge({ readiness, improveHref }: Props) {
   return (
     <div className="flex min-w-0 flex-col gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
       <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
-        <span className="min-w-0 font-semibold text-slate-900">
+        <span className="min-w-0 flex-1 font-semibold text-slate-900 break-words">
           Readiness: {readiness.score} · {readiness.tier}
         </span>
         {improveHref && topIssue && (
@@ -30,7 +30,7 @@ export function ListingReadinessBadge({ readiness, improveHref }: Props) {
             {readiness.issues.map((issue) => (
               <li key={issue.key} className="flex items-start gap-2">
                 <span className="mt-[3px] h-1.5 w-1.5 rounded-full bg-slate-400" aria-hidden />
-                <span>{issue.label}</span>
+                <span className="min-w-0 break-words">{issue.label}</span>
               </li>
             ))}
           </ul>

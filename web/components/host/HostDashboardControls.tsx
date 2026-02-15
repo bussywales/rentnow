@@ -12,8 +12,8 @@ type Props = {
 export function HostDashboardControls({ search, onSearch, summary, showing, selectAllChecked, onToggleSelectAll }: Props) {
   return (
     <div className="space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <p className="text-sm font-semibold text-slate-900">Search listings</p>
           <p className="text-xs text-slate-500">Showing {showing}</p>
         </div>
@@ -35,7 +35,7 @@ export function HostDashboardControls({ search, onSearch, summary, showing, sele
           <span>Select all</span>
         </label>
       )}
-      <p className="text-xs text-slate-600">
+      <p className="text-xs text-slate-600 break-words">
         {summary.total} listings · {summary.needsAttention} need attention · {summary.ready} ready
       </p>
     </div>

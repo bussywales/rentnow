@@ -25,10 +25,10 @@ export function RoleChecklistPanel({
   const summary = summarizeChecklist(items);
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="role-checklist-panel">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
           <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
-          <p className="text-sm text-slate-600">{subtitle}</p>
+          <p className="text-sm text-slate-600 break-words">{subtitle}</p>
         </div>
         <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700">
           {summary.done}/{summary.total} complete
@@ -38,15 +38,15 @@ export function RoleChecklistPanel({
       <div className="mt-4 grid gap-3">
         {items.map((item) => (
           <div key={item.id} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <Link href={item.href} className="text-sm font-semibold text-slate-900 hover:underline">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2">
+              <Link href={item.href} className="min-w-0 flex-1 text-sm font-semibold text-slate-900 hover:underline break-words">
                 {item.label}
               </Link>
               <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${statusStyles(item.status)}`}>
                 {statusLabel(item.status)}
               </span>
             </div>
-            {item.note ? <p className="mt-1 text-xs text-slate-600">{item.note}</p> : null}
+            {item.note ? <p className="mt-1 text-xs text-slate-600 break-words">{item.note}</p> : null}
           </div>
         ))}
       </div>
