@@ -226,6 +226,7 @@ export function HostDashboardContent({
   const [expandedFeaturedRequestNotes, setExpandedFeaturedRequestNotes] = useState<Record<string, boolean>>({});
   const [openFixChecklistByProperty, setOpenFixChecklistByProperty] = useState<Record<string, boolean>>({});
   const [workspaceSection, setWorkspaceSection] = useState<"listings" | "bookings">("listings");
+  const [pendingShortletCountFromApi, setPendingShortletCountFromApi] = useState<number | null>(null);
 
   useEffect(() => {
     setLocalListings(listings);
@@ -269,6 +270,35 @@ export function HostDashboardContent({
     () => shortletBookings.filter((row) => row.status === "pending").length,
     [shortletBookings]
   );
+  const pendingRequestCount =
+    typeof pendingShortletCountFromApi === "number"
+      ? pendingShortletCountFromApi
+      : pendingShortletCount;
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+    const run = async () => {
+      try {
+        const response = await fetch("/api/shortlet/bookings/pending-count", {
+          credentials: "include",
+          signal: controller.signal,
+        });
+        const payload = (await response.json().catch(() => null)) as
+          | { pendingCount?: number }
+          | null;
+        if (!active || !response.ok || typeof payload?.pendingCount !== "number") return;
+        setPendingShortletCountFromApi(Math.max(0, Math.trunc(payload.pendingCount)));
+      } catch {
+        if (!active) return;
+      }
+    };
+    void run();
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
 
   const toggleSelectAll = () => {
     if (allSelected) {
@@ -694,9 +724,23 @@ export function HostDashboardContent({
               : "border border-slate-200 bg-white text-slate-700"
           }`}
         >
-          Bookings ({pendingShortletCount})
+          Bookings ({pendingRequestCount})
         </button>
       </div>
+      {pendingRequestCount > 0 ? (
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span className="min-w-0 break-words">
+            You have {pendingRequestCount} booking request{pendingRequestCount === 1 ? "" : "s"} waiting.
+          </span>
+          <button
+            type="button"
+            className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
+            onClick={() => setWorkspaceSection("bookings")}
+          >
+            Review bookings
+          </button>
+        </div>
+      ) : null}
       {workspaceSection === "listings" ? (
         <>
           <HostDashboardSavedViews

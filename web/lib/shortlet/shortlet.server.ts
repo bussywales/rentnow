@@ -86,6 +86,12 @@ export type GuestShortletBookingSummary = {
   created_at: string;
 };
 
+export type GuestShortletBookingDetail = GuestShortletBookingSummary & {
+  pricing_snapshot_json: Record<string, unknown>;
+  payment_reference: string | null;
+  updated_at: string;
+};
+
 export type AdminShortletBookingSummary = {
   id: string;
   property_id: string;
@@ -503,6 +509,73 @@ export async function listGuestShortletBookings(input: {
     ...row,
     host_name: hostNameMap.get(row.host_user_id) ?? null,
   }));
+}
+
+export async function getGuestShortletBookingById(input: {
+  client: SupabaseClient;
+  guestUserId: string;
+  bookingId: string;
+}) {
+  const { data, error } = await input.client
+    .from("shortlet_bookings")
+    .select(
+      "id,property_id,host_user_id,check_in,check_out,nights,status,total_amount_minor,currency,expires_at,created_at,updated_at,payment_reference,pricing_snapshot_json,properties!inner(title,city)"
+    )
+    .eq("id", input.bookingId)
+    .eq("guest_user_id", input.guestUserId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || "Unable to load booking");
+  }
+  if (!data) return null;
+
+  const row = data as Record<string, unknown>;
+  const property = (row.properties ?? null) as
+    | { title?: string | null; city?: string | null }
+    | null;
+
+  const hostUserId = String(row.host_user_id || "");
+  let hostName: string | null = null;
+  if (hostUserId) {
+    const { data: profile } = await input.client
+      .from("profiles")
+      .select("display_name,full_name,business_name")
+      .eq("id", hostUserId)
+      .maybeSingle();
+    if (profile) {
+      const profileRow = profile as Record<string, unknown>;
+      const resolvedName =
+        (typeof profileRow.business_name === "string" && profileRow.business_name.trim()) ||
+        (typeof profileRow.display_name === "string" && profileRow.display_name.trim()) ||
+        (typeof profileRow.full_name === "string" && profileRow.full_name.trim()) ||
+        "";
+      hostName = resolvedName || null;
+    }
+  }
+
+  return {
+    id: String(row.id || ""),
+    property_id: String(row.property_id || ""),
+    property_title: property?.title ?? null,
+    city: property?.city ?? null,
+    host_user_id: hostUserId,
+    host_name: hostName,
+    check_in: String(row.check_in || ""),
+    check_out: String(row.check_out || ""),
+    nights: Number(row.nights || 0),
+    status: String(row.status || "pending") as ShortletBookingRow["status"],
+    total_amount_minor: Number(row.total_amount_minor || 0),
+    currency: String(row.currency || "NGN"),
+    expires_at: typeof row.expires_at === "string" ? row.expires_at : null,
+    created_at: String(row.created_at || ""),
+    updated_at: String(row.updated_at || row.created_at || ""),
+    payment_reference: typeof row.payment_reference === "string" ? row.payment_reference : null,
+    pricing_snapshot_json:
+      row.pricing_snapshot_json && typeof row.pricing_snapshot_json === "object"
+        ? (row.pricing_snapshot_json as Record<string, unknown>)
+        : {},
+  } satisfies GuestShortletBookingDetail;
 }
 
 export async function listAdminShortletPayouts(input: {
