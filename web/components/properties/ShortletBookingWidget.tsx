@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { resolveShortletBookingCtaLabel } from "@/lib/shortlet/booking-cta";
 
 type AvailabilityResponse = {
   bookingMode: "instant" | "request";
@@ -99,8 +100,9 @@ export function ShortletBookingWidget(props: {
     };
   }, [checkIn, checkOut, props.propertyId]);
 
-  const isRequestMode = (availability?.bookingMode ?? "request") === "request";
-  const ctaLabel = isRequestMode ? "Request to book" : "Book now";
+  const bookingMode = availability?.bookingMode ?? "request";
+  const isRequestMode = bookingMode === "request";
+  const ctaLabel = resolveShortletBookingCtaLabel(bookingMode);
   const blockedCount = availability?.blockedRanges?.length ?? 0;
   const pricing = availability?.pricing ?? null;
   const hasNightlyPriceConfigured =
@@ -160,7 +162,7 @@ export function ShortletBookingWidget(props: {
       <div className="flex items-center justify-between gap-3">
         <h3 className="text-lg font-semibold text-slate-900">Book this shortlet</h3>
         <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
-          {isRequestMode ? "Request mode" : "Instant mode"}
+          {isRequestMode ? "Request mode" : "Instant book"}
         </span>
       </div>
       <p className="mt-1 text-sm text-slate-600">
