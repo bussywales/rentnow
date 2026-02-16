@@ -96,8 +96,8 @@ export function AdminListingsTable({ items, onSelect }: Props) {
               <th className="px-3 py-2">Expires</th>
               <th className="px-3 py-2">Owner</th>
               <th className="px-3 py-2">Media</th>
-              <th className="px-3 py-2 text-right">Price</th>
-              <th className="px-3 py-2 text-right">Actions</th>
+              <th className="w-[120px] px-3 py-2 text-right">Price</th>
+              <th className="w-[220px] px-3 py-2 text-right whitespace-nowrap">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
@@ -255,20 +255,28 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                   </div>
                 </td>
                 <td
-                  className="px-3 py-2 text-right text-slate-700 tabular-nums whitespace-nowrap"
+                  className="w-[120px] px-3 py-2 text-right text-slate-700 tabular-nums overflow-hidden"
                   data-testid="admin-listings-row-price"
                 >
-                  {item.price === null || item.price === undefined
-                    ? "—"
-                    : (
-                        <span>
-                          <span className="mr-1 text-xs text-slate-500">{item.currency || "NGN"}</span>
-                          <span className="font-semibold">{item.price}</span>
-                        </span>
-                      )}
+                  {item.price === null || item.price === undefined ? (
+                    "—"
+                  ) : (
+                    <span className="inline-flex w-full min-w-0 items-center justify-end gap-1 whitespace-nowrap">
+                      <span
+                        className="max-w-[44px] truncate text-xs text-slate-500"
+                        title={item.currency || "NGN"}
+                      >
+                        {item.currency || "NGN"}
+                      </span>
+                      <span className="min-w-0 truncate font-semibold">{item.price}</span>
+                    </span>
+                  )}
                 </td>
-                <td className="px-3 py-2 text-right" data-testid="admin-listings-row-actions">
-                  <div className="flex items-center justify-end gap-2">
+                <td
+                  className="w-[220px] px-3 py-2 text-right whitespace-nowrap"
+                  data-testid="admin-listings-row-actions"
+                >
+                  <div className="flex flex-wrap items-center justify-end gap-2">
                     <AdminFeaturedToggleButton
                       propertyId={item.id}
                       isFeatured={!!item.is_featured}
