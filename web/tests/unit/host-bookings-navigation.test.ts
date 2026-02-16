@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   isBookingsTargetFromLocation,
+  resolveHostWorkspaceParam,
   resolveHostWorkspaceSectionFromLocation,
 } from "@/lib/host/bookings-navigation";
 
@@ -13,6 +14,21 @@ void test("bookings target resolves from tab parameter", () => {
   assert.equal(
     resolveHostWorkspaceSectionFromLocation("listings", {
       tab: "bookings",
+      hash: null,
+    }),
+    "bookings"
+  );
+});
+
+void test("bookings target resolves from section alias", () => {
+  assert.equal(
+    resolveHostWorkspaceParam({ tab: null, section: "bookings", hash: null }),
+    "bookings"
+  );
+  assert.equal(
+    resolveHostWorkspaceSectionFromLocation("listings", {
+      tab: null,
+      section: "bookings",
       hash: null,
     }),
     "bookings"

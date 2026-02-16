@@ -362,14 +362,26 @@ export function HostDashboardContent({
   }, []);
 
   useEffect(() => {
-    const requestedTab = searchParams?.get("tab");
-    const hash = typeof window !== "undefined" ? window.location.hash : null;
-    setWorkspaceSection((current) =>
-      resolveHostWorkspaceSectionFromLocation(current, {
-        tab: requestedTab,
-        hash,
-      })
-    );
+    const applyFromLocation = () => {
+      const requestedTab = searchParams?.get("tab");
+      const requestedSection = searchParams?.get("section");
+      const hash = typeof window !== "undefined" ? window.location.hash : null;
+      setWorkspaceSection((current) =>
+        resolveHostWorkspaceSectionFromLocation(current, {
+          tab: requestedTab,
+          section: requestedSection,
+          hash,
+        })
+      );
+    };
+
+    applyFromLocation();
+
+    const onHashChange = () => applyFromLocation();
+    window.addEventListener("hashchange", onHashChange);
+    return () => {
+      window.removeEventListener("hashchange", onHashChange);
+    };
   }, [searchParams]);
 
   const toggleSelectAll = () => {

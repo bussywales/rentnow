@@ -19,8 +19,9 @@ export function HostBookingsHashAnchorClient(props: {
 
     const scrollToTarget = (behavior: ScrollBehavior, attempt = 0) => {
       const tab = searchParams.get("tab");
+      const section = searchParams.get("section");
       const hash = window.location.hash;
-      const shouldScroll = isBookingsTargetFromLocation({ tab, hash });
+      const shouldScroll = isBookingsTargetFromLocation({ tab, section, hash });
       if (!shouldScroll) return;
 
       const target = document.getElementById(targetId);

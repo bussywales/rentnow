@@ -1,11 +1,31 @@
 export type HostWorkspaceSection = "listings" | "bookings";
 
+type HostWorkspaceLocationInput = {
+  tab?: string | null;
+  section?: string | null;
+  hash?: string | null;
+};
+
+function normalizeSectionParam(value: string | null | undefined): HostWorkspaceSection | null {
+  const normalized = (value || "").trim().toLowerCase();
+  if (normalized === "bookings") return "bookings";
+  if (normalized === "listings") return "listings";
+  return null;
+}
+
+export function resolveHostWorkspaceParam(
+  input: HostWorkspaceLocationInput
+): HostWorkspaceSection | null {
+  return normalizeSectionParam(input.tab) ?? normalizeSectionParam(input.section) ?? null;
+}
+
 export function isBookingsTargetFromLocation(input: {
   tab?: string | null;
+  section?: string | null;
   hash?: string | null;
 }) {
-  const tab = (input.tab || "").trim().toLowerCase();
-  if (tab === "bookings") return true;
+  const sectionParam = resolveHostWorkspaceParam(input);
+  if (sectionParam === "bookings") return true;
 
   const hash = (input.hash || "").replace(/^#/, "").trim().toLowerCase();
   return hash === "host-bookings";
@@ -15,13 +35,14 @@ export function resolveHostWorkspaceSectionFromLocation(
   current: HostWorkspaceSection,
   input: {
     tab?: string | null;
+    section?: string | null;
     hash?: string | null;
   }
 ): HostWorkspaceSection {
-  if (isBookingsTargetFromLocation(input)) return "bookings";
+  const sectionParam = resolveHostWorkspaceParam(input);
+  if (sectionParam) return sectionParam;
 
-  const tab = (input.tab || "").trim().toLowerCase();
-  if (tab === "listings") return "listings";
+  if (isBookingsTargetFromLocation(input)) return "bookings";
 
   return current;
 }
