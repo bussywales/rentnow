@@ -55,6 +55,9 @@ export const APP_SETTING_KEYS = {
   marketAutoDetectEnabled: "market_auto_detect_enabled",
   marketSelectorEnabled: "market_selector_enabled",
   referralCaps: "referral_caps",
+  shortletPaymentsStripeEnabled: "shortlet_payments_stripe_enabled",
+  shortletPaymentsPaystackEnabled: "shortlet_payments_paystack_enabled",
+  shortletAutoPayoutsEnabled: "shortlet_auto_payouts_enabled",
 } as const;
 
 export type AppSettingKey = (typeof APP_SETTING_KEYS)[keyof typeof APP_SETTING_KEYS];

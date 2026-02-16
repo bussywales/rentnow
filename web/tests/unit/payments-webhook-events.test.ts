@@ -70,6 +70,10 @@ void test("webhook route short-circuits duplicate payloads before processing", a
         raw: null,
       }),
       sendFeaturedReceiptIfNeeded: async () => ({ sent: false, alreadySent: false, reason: "noop" }),
+      getShortletPaymentByReference: async () => null,
+      markShortletPaymentFailed: async () => undefined,
+      markShortletPaymentSucceededAndConfirmBooking: async () => ({ ok: false as const, reason: "PAYMENT_NOT_FOUND" }),
+      dispatchShortletPaymentSuccess: async () => undefined,
     }
   );
 

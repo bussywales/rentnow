@@ -36,6 +36,7 @@ function statusTone(status: GuestShortletBookingSummary["status"]) {
   if (status === "confirmed" || status === "completed") {
     return "text-emerald-700 bg-emerald-50 border-emerald-200";
   }
+  if (status === "pending_payment") return "text-indigo-700 bg-indigo-50 border-indigo-200";
   if (status === "pending") return "text-sky-700 bg-sky-50 border-sky-200";
   if (status === "declined" || status === "cancelled" || status === "expired") {
     return "text-rose-700 bg-rose-50 border-rose-200";

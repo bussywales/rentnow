@@ -2,24 +2,12 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { requireRole } from "@/lib/authz";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import {
   createShortletBookingViaRpc,
-  ensureShortletPayoutForBooking,
   getShortletSettingsForProperty,
 } from "@/lib/shortlet/shortlet.server";
 import { mapBookingCreateError } from "@/lib/shortlet/bookings";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
-import {
-  notifyHostNewBookingRequest,
-  notifyHostNewReservation,
-  notifyTenantBookingRequestSent,
-  notifyTenantReservationConfirmed,
-} from "@/lib/shortlet/notifications.server";
-import {
-  buildShortletNotificationBody,
-  createNotification,
-} from "@/lib/notifications/notifications.server";
 
 const routeLabel = "/api/shortlet/bookings/create";
 
@@ -28,17 +16,6 @@ const payloadSchema = z.object({
   check_in: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
 });
-
-async function resolveHostEmail(hostUserId: string): Promise<string | null> {
-  if (!hasServiceRoleEnv()) return null;
-  try {
-    const client = createServiceRoleClient();
-    const { data } = await client.auth.admin.getUserById(hostUserId);
-    return data.user?.email ?? null;
-  } catch {
-    return null;
-  }
-}
 
 export const dynamic = "force-dynamic";
 
@@ -67,7 +44,7 @@ export async function POST(request: NextRequest) {
     const supabase = await createServerSupabaseClient();
     const { data: propertyData, error: propertyError } = await supabase
       .from("properties")
-      .select("id,owner_id,title,city,currency,listing_intent,rental_type")
+      .select("id,currency,listing_intent,rental_type")
       .eq("id", property_id)
       .maybeSingle();
 
@@ -85,7 +62,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "This listing is not bookable as a shortlet." }, { status: 409 });
     }
 
-    const created = await createShortletBookingViaRpc({
+    let created = await createShortletBookingViaRpc({
       client: supabase,
       propertyId: property_id,
       guestUserId: auth.user.id,
@@ -93,95 +70,27 @@ export async function POST(request: NextRequest) {
       checkOut: check_out,
     });
 
-    if (created.status === "confirmed" && hasServiceRoleEnv()) {
-      const adminClient = createServiceRoleClient();
-      await ensureShortletPayoutForBooking({
-        client: adminClient,
-        bookingId: created.bookingId,
-        hostUserId: propertyData.owner_id,
-        amountMinor: created.totalAmountMinor,
-        currency: created.currency || propertyData.currency || "NGN",
-      });
-    }
-
-    const notificationPayload = {
-      propertyTitle: propertyData.title || "Shortlet listing",
-      city: propertyData.city,
-      checkIn: check_in,
-      checkOut: check_out,
-      nights: created.nights,
-      amountMinor: created.totalAmountMinor,
-      currency: created.currency || propertyData.currency || "NGN",
-      bookingId: created.bookingId,
-    };
-    const notificationBody = buildShortletNotificationBody({
-      checkIn: check_in,
-      checkOut: check_out,
-      nights: created.nights,
-      amountMinor: created.totalAmountMinor,
-      currency: created.currency || propertyData.currency || "NGN",
-    });
-
-    const hostEmail = await resolveHostEmail(propertyData.owner_id);
-
-    if (created.status === "confirmed") {
-      await Promise.all([
-        notifyTenantReservationConfirmed({
-          guestUserId: auth.user.id,
-          email: auth.user.email ?? null,
-          payload: notificationPayload,
-        }),
-        notifyHostNewReservation({
-          hostUserId: propertyData.owner_id,
-          email: hostEmail,
-          payload: notificationPayload,
-        }),
-        createNotification({
-          userId: auth.user.id,
-          type: "shortlet_booking_instant_confirmed",
-          title: "Reservation confirmed",
-          body: notificationBody,
-          href: `/trips/${created.bookingId}`,
-          dedupeKey: `shortlet_booking:${created.bookingId}:instant_confirmed:tenant`,
-        }),
-        createNotification({
-          userId: propertyData.owner_id,
-          type: "shortlet_booking_instant_confirmed",
-          title: `New reservation: ${propertyData.title || "Shortlet listing"}`,
-          body: notificationBody,
-          href: "/host?tab=bookings#host-bookings",
-          dedupeKey: `shortlet_booking:${created.bookingId}:instant_confirmed:host`,
-        }),
-      ]);
-    } else {
-      await Promise.all([
-        notifyTenantBookingRequestSent({
-          guestUserId: auth.user.id,
-          email: auth.user.email ?? null,
-          payload: notificationPayload,
-        }),
-        notifyHostNewBookingRequest({
-          hostUserId: propertyData.owner_id,
-          email: hostEmail,
-          payload: notificationPayload,
-        }),
-        createNotification({
-          userId: auth.user.id,
-          type: "shortlet_booking_request_sent",
-          title: "Your booking request was sent",
-          body: notificationBody,
-          href: `/trips/${created.bookingId}`,
-          dedupeKey: `shortlet_booking:${created.bookingId}:request_sent:tenant`,
-        }),
-        createNotification({
-          userId: propertyData.owner_id,
-          type: "shortlet_booking_request_sent",
-          title: `New booking request: ${propertyData.title || "Shortlet listing"}`,
-          body: notificationBody,
-          href: "/host?tab=bookings#host-bookings",
-          dedupeKey: `shortlet_booking:${created.bookingId}:request_sent:host`,
-        }),
-      ]);
+    if (created.status !== "pending_payment") {
+      const { data: updated } = await supabase
+        .from("shortlet_bookings")
+        .update({
+          status: "pending_payment",
+          expires_at: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", created.bookingId)
+        .in("status", ["pending", "confirmed"])
+        .select("status")
+        .maybeSingle();
+      if (updated?.status === "pending_payment") {
+        created = {
+          ...created,
+          status: "pending_payment",
+          expiresAt: null,
+        };
+      } else {
+        throw new Error("Unable to prepare booking for payment.");
+      }
     }
 
     return NextResponse.json({
@@ -195,6 +104,7 @@ export async function POST(request: NextRequest) {
         expires_at: created.expiresAt,
         pricing_snapshot: created.pricingSnapshot,
       },
+      payment_required: true,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to create booking";

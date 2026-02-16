@@ -16,6 +16,18 @@ void test("trip bucket resolves pending first", () => {
   );
 });
 
+void test("trip bucket treats pending_payment as pending", () => {
+  assert.equal(
+    resolveTripBucket({
+      status: "pending_payment",
+      checkIn: "2026-03-20",
+      checkOut: "2026-03-23",
+      now,
+    }),
+    "pending"
+  );
+});
+
 void test("trip bucket resolves confirmed future bookings as upcoming", () => {
   assert.equal(
     resolveTripBucket({

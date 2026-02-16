@@ -2,7 +2,7 @@
 title: "Agent shortlets: bookings inbox"
 description: "Handle delegated host booking requests and keep shortlet availability in sync."
 order: 36
-updated_at: "2026-02-15"
+updated_at: "2026-02-16"
 ---
 
 ## Where to work
@@ -15,6 +15,8 @@ updated_at: "2026-02-15"
 1. Filter to `Pending` in the bookings inbox.
 2. Confirm listing, dates, nights, and total.
 3. Use **Approve** or **Decline**.
+
+Only paid requests reach the inbox. Checkout is completed by guests with Stripe or Paystack before host-side approval actions.
 
 ## Availability controls
 

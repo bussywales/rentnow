@@ -36,6 +36,9 @@ function statusTone(status: string) {
   if (status === "confirmed" || status === "completed") {
     return "border-emerald-200 bg-emerald-50 text-emerald-800";
   }
+  if (status === "pending_payment") {
+    return "border-sky-200 bg-sky-50 text-sky-800";
+  }
   if (status === "pending") {
     return "border-amber-200 bg-amber-50 text-amber-800";
   }
@@ -89,6 +92,7 @@ export default async function TripDetailPage({
   const totalMinor =
     resolveSnapshotAmount(snapshot, "total_amount_minor") ?? booking.total_amount_minor;
 
+  const isPendingPayment = booking.status === "pending_payment";
   const isPending = booking.status === "pending";
   const isConfirmed = booking.status === "confirmed" || booking.status === "completed";
   const isClosed = booking.status === "cancelled" || booking.status === "declined" || booking.status === "expired";
@@ -108,6 +112,7 @@ export default async function TripDetailPage({
         </div>
 
         <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          {isPendingPayment ? "Payment is required to continue this booking." : null}
           {isPending ? "Waiting for host to respond." : null}
           {isConfirmed ? "Your booking is confirmed." : null}
           {isClosed ? "This booking is closed. You can browse new shortlet dates anytime." : null}
@@ -146,6 +151,14 @@ export default async function TripDetailPage({
         ) : null}
 
         <div className="mt-4 flex flex-wrap gap-2">
+          {isPendingPayment ? (
+            <Link
+              href={`/payments/shortlet/checkout?bookingId=${booking.id}`}
+              className="inline-flex items-center rounded-lg bg-sky-600 px-3 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+            >
+              Continue payment
+            </Link>
+          ) : null}
           <Link
             href={`/properties/${booking.property_id}`}
             className="inline-flex items-center rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"

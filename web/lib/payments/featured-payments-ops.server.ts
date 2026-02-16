@@ -35,8 +35,9 @@ export function hashWebhookPayload(rawBody: string) {
 
 export async function insertPaymentWebhookEvent(input: {
   client: UntypedAdminClient;
-  provider: "paystack";
+  provider: "paystack" | "stripe";
   event: string | null;
+  eventId?: string | null;
   reference: string | null;
   signature: string | null;
   payload: Record<string, unknown>;
@@ -47,6 +48,7 @@ export async function insertPaymentWebhookEvent(input: {
     .insert({
       provider: input.provider,
       event: input.event,
+      event_id: input.eventId ?? null,
       reference: input.reference,
       signature: input.signature,
       payload: input.payload,

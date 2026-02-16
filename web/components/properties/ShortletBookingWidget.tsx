@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { resolveShortletBookingCtaLabel } from "@/lib/shortlet/booking-cta";
 
@@ -59,13 +60,13 @@ export function ShortletBookingWidget(props: {
   isAuthenticated: boolean;
   loginHref: string;
 }) {
+  const router = useRouter();
   const [checkIn, setCheckIn] = useState<string>(getDefaultDate(1));
   const [checkOut, setCheckOut] = useState<string>(getDefaultDate(3));
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [latestBookingId, setLatestBookingId] = useState<string | null>(null);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
 
   useEffect(() => {
@@ -103,7 +104,8 @@ export function ShortletBookingWidget(props: {
 
   const bookingMode = availability?.bookingMode ?? "request";
   const isRequestMode = bookingMode === "request";
-  const ctaLabel = resolveShortletBookingCtaLabel(bookingMode);
+  const modeCtaLabel = resolveShortletBookingCtaLabel(bookingMode);
+  const ctaLabel = "Continue to payment";
   const blockedCount = availability?.blockedRanges?.length ?? 0;
   const pricing = availability?.pricing ?? null;
   const hasNightlyPriceConfigured =
@@ -126,7 +128,6 @@ export function ShortletBookingWidget(props: {
     setCreating(true);
     setError(null);
     setNotice(null);
-    setLatestBookingId(null);
     try {
       const response = await fetch("/api/shortlet/bookings/create", {
         method: "POST",
@@ -145,14 +146,10 @@ export function ShortletBookingWidget(props: {
         throw new Error(payload?.error || "Unable to create booking");
       }
       const bookingId = typeof payload?.booking?.id === "string" ? payload.booking.id : null;
-      setLatestBookingId(bookingId);
-      const status = payload?.booking?.status || "pending";
-      if (status === "confirmed") {
-        setNotice("Booking confirmed. Your stay is now reserved.");
+      if (bookingId) {
+        router.push(`/payments/shortlet/checkout?bookingId=${encodeURIComponent(bookingId)}`);
       } else {
-        setNotice(
-          "Booking request sent. If this request is declined or expires, it will be marked refund-needed for manual follow-up."
-        );
+        setNotice("Booking created. Continue to payment to complete your booking.");
       }
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : "Unable to create booking");
@@ -171,8 +168,8 @@ export function ShortletBookingWidget(props: {
       </div>
       <p className="mt-1 text-sm text-slate-600">
         {isRequestMode
-          ? "Host approval is required. Charges are captured now and flagged for refund if declined or expired."
-          : "Instant confirmation when dates are available."}
+          ? "Host approval is required after payment succeeds."
+          : "Instant confirmation after successful payment when dates are available."}
       </p>
 
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -258,12 +255,15 @@ export function ShortletBookingWidget(props: {
           </Link>
         ) : null}
       </div>
+      <p className="mt-2 text-xs text-slate-500">
+        {modeCtaLabel} will be finalised after checkout.
+      </p>
 
       {notice ? (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-emerald-700">
           <p>{notice}</p>
           <Link
-            href={latestBookingId ? `/trips/${latestBookingId}` : "/trips"}
+            href="/trips"
             className="font-semibold text-emerald-800 underline underline-offset-2"
           >
             My trips

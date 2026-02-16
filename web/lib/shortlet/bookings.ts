@@ -1,4 +1,5 @@
 export type ShortletBookingStatus =
+  | "pending_payment"
   | "pending"
   | "confirmed"
   | "declined"
@@ -17,7 +18,7 @@ export function blocksAvailability(status: ShortletBookingStatus): boolean {
 }
 
 export function canCancelBooking(status: ShortletBookingStatus): boolean {
-  return status === "pending" || status === "confirmed";
+  return status === "pending_payment" || status === "pending" || status === "confirmed";
 }
 
 export function resolveHostBookingResponseStatus(

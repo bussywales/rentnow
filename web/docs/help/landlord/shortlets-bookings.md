@@ -2,13 +2,14 @@
 title: "Landlord shortlets: bookings inbox"
 description: "Review pending requests, approve or decline quickly, and keep availability accurate."
 order: 36
-updated_at: "2026-02-15"
+updated_at: "2026-02-16"
 ---
 
 ## Bookings inbox location
 
 - Open `/host` and switch to the **Bookings** section.
 - Pending requests are highlighted with a bookings count and top callout.
+- The inbox only shows paid booking requests and confirmed reservations.
 
 ## Responding to requests
 
@@ -34,4 +35,8 @@ When status is no longer pending, the decision endpoints return a conflict respo
 
 <Callout type="warning">
 Manual payouts remain unchanged in this pilot. Booking decisions should be based on real availability and stay readiness.
+</Callout>
+
+<Callout type="info">
+Checkout supports Stripe (global card) and Paystack (popular in Nigeria). Hosts still receive booking emails and in-app notifications after successful guest payment.
 </Callout>

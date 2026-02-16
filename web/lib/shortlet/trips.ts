@@ -30,7 +30,7 @@ export function resolveTripBucket(input: {
   const checkInKey = normalizeDateKey(input.checkIn);
   const checkOutKey = normalizeDateKey(input.checkOut);
 
-  if (status === "pending") return "pending";
+  if (status === "pending" || status === "pending_payment") return "pending";
   if (status === "declined" || status === "cancelled" || status === "expired") {
     return "cancelled";
   }

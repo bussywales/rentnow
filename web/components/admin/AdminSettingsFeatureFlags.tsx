@@ -79,6 +79,18 @@ const DESCRIPTIONS: Partial<Record<AppSettingKey, { title: string; helper: strin
     title: "Alerts kill switch",
     helper: "Emergency stop for all saved-search email sends, regardless of overrides.",
   },
+  [APP_SETTING_KEYS.shortletPaymentsStripeEnabled]: {
+    title: "Shortlet Stripe checkout",
+    helper: "Enable card checkout for shortlet bookings.",
+  },
+  [APP_SETTING_KEYS.shortletPaymentsPaystackEnabled]: {
+    title: "Shortlet Paystack checkout",
+    helper: "Enable Paystack checkout for shortlet bookings.",
+  },
+  [APP_SETTING_KEYS.shortletAutoPayoutsEnabled]: {
+    title: "Shortlet auto payouts",
+    helper: "Pilot placeholder only. Keep disabled until automated settlement is launched.",
+  },
 };
 
 export default function AdminSettingsFeatureFlags({ settings }: Props) {

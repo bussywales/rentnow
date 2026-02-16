@@ -27,7 +27,14 @@ export type ShortletBookingRow = {
   check_in: string;
   check_out: string;
   nights: number;
-  status: "pending" | "confirmed" | "declined" | "cancelled" | "expired" | "completed";
+  status:
+    | "pending_payment"
+    | "pending"
+    | "confirmed"
+    | "declined"
+    | "cancelled"
+    | "expired"
+    | "completed";
   total_amount_minor: number;
   currency: string;
   pricing_snapshot_json: Record<string, unknown>;
@@ -194,6 +201,7 @@ export async function listHostShortletBookings(input: {
       "id,property_id,guest_user_id,check_in,check_out,nights,status,total_amount_minor,currency,expires_at,created_at,properties!inner(title,city)"
     )
     .eq("host_user_id", input.hostUserId)
+    .neq("status", "pending_payment")
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -814,7 +822,7 @@ export async function cancelShortletBooking(input: {
       updated_at: new Date().toISOString(),
     })
     .eq("id", input.bookingId)
-    .in("status", ["pending", "confirmed"])
+    .in("status", ["pending_payment", "pending", "confirmed"])
     .select("id,status,property_id,guest_user_id,host_user_id")
     .maybeSingle();
   if (updateError || !updated) {

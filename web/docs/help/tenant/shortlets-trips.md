@@ -2,7 +2,7 @@
 title: "Tenant shortlets: trips"
 description: "Understand Request to book vs Reserve, track trip statuses, and know what to do next."
 order: 36
-updated_at: "2026-02-15"
+updated_at: "2026-02-16"
 ---
 
 ## Where to manage trips
@@ -13,11 +13,20 @@ updated_at: "2026-02-15"
 
 ## Booking modes on listing pages
 
-- **Request to book**: host approval is required. Your booking shows as `pending` first.
-- **Reserve**: instant confirmation when dates are available.
+- **Request to book**: host approval is required after payment succeeds.
+- **Reserve**: instant confirmation after payment succeeds.
+
+## Paying for a shortlet booking
+
+1. On the listing page, choose dates and select **Continue to payment**.
+2. On checkout, choose:
+   - **Pay by Card (recommended)** (Stripe)
+   - **Pay with Nigerian methods** (Paystack)
+3. After payment, open `/trips/[bookingId]` to track the status.
 
 ## Trip status guide
 
+- `pending_payment`: booking created, payment not completed yet.
 - `pending`: waiting for host response.
 - `confirmed`: stay is reserved.
 - `completed`: stay finished.

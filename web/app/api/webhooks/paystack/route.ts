@@ -13,6 +13,12 @@ import {
   validateWebhookSignature,
   verifyTransaction,
 } from "@/lib/payments/paystack.server";
+import { dispatchShortletPaymentSuccess } from "@/lib/shortlet/payment-success.server";
+import {
+  getShortletPaymentByReference,
+  markShortletPaymentFailed,
+  markShortletPaymentSucceededAndConfirmBooking,
+} from "@/lib/shortlet/payments.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
@@ -38,6 +44,10 @@ type PaystackWebhookDeps = {
   getPaymentWithPurchaseByReference: typeof getPaymentWithPurchaseByReference;
   verifyTransaction: typeof verifyTransaction;
   sendFeaturedReceiptIfNeeded: typeof sendFeaturedReceiptIfNeeded;
+  getShortletPaymentByReference: typeof getShortletPaymentByReference;
+  markShortletPaymentFailed: typeof markShortletPaymentFailed;
+  markShortletPaymentSucceededAndConfirmBooking: typeof markShortletPaymentSucceededAndConfirmBooking;
+  dispatchShortletPaymentSuccess: typeof dispatchShortletPaymentSuccess;
 };
 
 const defaultDeps: PaystackWebhookDeps = {
@@ -53,6 +63,10 @@ const defaultDeps: PaystackWebhookDeps = {
   getPaymentWithPurchaseByReference,
   verifyTransaction,
   sendFeaturedReceiptIfNeeded,
+  getShortletPaymentByReference,
+  markShortletPaymentFailed,
+  markShortletPaymentSucceededAndConfirmBooking,
+  dispatchShortletPaymentSuccess,
 };
 
 export async function postPaystackWebhookResponse(
@@ -109,7 +123,7 @@ export async function postPaystackWebhookResponse(
     );
   }
 
-  const validSignature = validateWebhookSignature({
+  const validSignature = deps.validateWebhookSignature({
     rawBody,
     signature,
     secret: paystackConfig.webhookSecret,
@@ -135,6 +149,138 @@ export async function postPaystackWebhookResponse(
     }
     return NextResponse.json({ ok: true });
   }
+
+  const shortletPayment = await deps.getShortletPaymentByReference({
+    provider: "paystack",
+    providerReference: referenceValue,
+    client: client as unknown as never,
+  });
+
+  if (shortletPayment) {
+    if (eventValue === "charge.failed") {
+      if (shortletPayment.status !== "succeeded") {
+        await deps.markShortletPaymentFailed({
+          provider: "paystack",
+          providerReference: referenceValue,
+          providerPayload: payload,
+          client: client as unknown as never,
+        });
+      }
+      if (webhookEventId) {
+        await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
+      }
+      return NextResponse.json({ ok: true, shortlet: true });
+    }
+
+    if (eventValue !== "charge.success") {
+      if (webhookEventId) {
+        await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
+      }
+      return NextResponse.json({ ok: true, shortlet: true });
+    }
+
+    try {
+      const verified = await deps.verifyTransaction({
+        secretKey: paystackConfig.secretKey || "",
+        reference: referenceValue,
+      });
+
+      if (!verified.ok) {
+        await deps.markShortletPaymentFailed({
+          provider: "paystack",
+          providerReference: referenceValue,
+          providerPayload: verified.raw || payload,
+          client: client as unknown as never,
+        });
+        if (webhookEventId) {
+          await deps.markPaymentWebhookEventError({
+            client,
+            id: webhookEventId,
+            error: "verification_failed",
+          });
+        }
+        return NextResponse.json({ ok: true, status: "verification_failed", shortlet: true });
+      }
+
+      if (
+        Number(verified.amountMinor || 0) !== Number(shortletPayment.amount_total_minor || 0) ||
+        String(verified.currency || "").toUpperCase() !== String(shortletPayment.currency || "").toUpperCase()
+      ) {
+        await deps.markShortletPaymentFailed({
+          provider: "paystack",
+          providerReference: referenceValue,
+          providerPayload: verified.raw || payload,
+          client: client as unknown as never,
+        });
+        if (webhookEventId) {
+          await deps.markPaymentWebhookEventError({
+            client,
+            id: webhookEventId,
+            error: "amount_or_currency_mismatch",
+          });
+        }
+        return NextResponse.json({ ok: true, status: "mismatch", shortlet: true });
+      }
+
+      const paid = await deps.markShortletPaymentSucceededAndConfirmBooking({
+        provider: "paystack",
+        providerReference: referenceValue,
+        providerPayload: verified.raw || payload,
+        client: client as unknown as never,
+      });
+
+      if (!paid.ok) {
+        if (webhookEventId) {
+          await deps.markPaymentWebhookEventError({
+            client,
+            id: webhookEventId,
+            error: paid.reason,
+          });
+        }
+        return NextResponse.json({ ok: true, shortlet: true, status: paid.reason });
+      }
+
+      if (paid.booking.transitioned) {
+        await deps.dispatchShortletPaymentSuccess({
+          bookingId: paid.booking.bookingId,
+          propertyId: paid.booking.propertyId,
+          hostUserId: paid.booking.hostUserId,
+          guestUserId: paid.booking.guestUserId,
+          listingTitle: paid.booking.listingTitle,
+          city: paid.booking.city,
+          checkIn: paid.booking.checkIn,
+          checkOut: paid.booking.checkOut,
+          nights: paid.booking.nights,
+          amountMinor: paid.booking.totalAmountMinor,
+          currency: paid.booking.currency,
+          bookingStatus:
+            paid.booking.status === "confirmed" || paid.booking.status === "completed"
+              ? "confirmed"
+              : "pending",
+        });
+      }
+
+      if (webhookEventId) {
+        await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
+      }
+
+      return NextResponse.json({
+        ok: true,
+        shortlet: true,
+        idempotent: !paid.booking.transitioned,
+      });
+    } catch (error) {
+      if (webhookEventId) {
+        await deps.markPaymentWebhookEventError({
+          client,
+          id: webhookEventId,
+          error: error instanceof Error ? error.message : "shortlet_webhook_error",
+        });
+      }
+      return NextResponse.json({ ok: false, error: "shortlet_webhook_error" }, { status: 200 });
+    }
+  }
+
   const found = await deps.getPaymentWithPurchaseByReference({
     client,
     reference: referenceValue,
