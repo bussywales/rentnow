@@ -4,6 +4,8 @@ const FIELD_LABELS: Record<string, string> = {
   rental_type: "Rental type",
   listing_intent: "Listing intent",
   price: "Price",
+  shortlet_nightly_price_minor: "Nightly price",
+  shortlet_booking_mode: "Booking mode",
   currency: "Currency",
   bedrooms: "Bedrooms",
   bathrooms: "Bathrooms",

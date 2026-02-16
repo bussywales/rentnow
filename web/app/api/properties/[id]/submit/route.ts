@@ -12,6 +12,8 @@ import { hasPinnedLocation } from "@/lib/properties/validation";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
 import { logFailure } from "@/lib/observability";
+import { isShortletProperty } from "@/lib/shortlet/discovery";
+import { normalizeShortletNightlyPriceMinor } from "@/lib/shortlet/listing-setup";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +36,8 @@ type ListingRow = {
   longitude?: number | null;
   location_label?: string | null;
   location_place_id?: string | null;
+  listing_intent?: string | null;
+  rental_type?: string | null;
 };
 
 export type ListingSubmitDeps = {
@@ -109,7 +113,7 @@ export async function postPropertySubmitResponse(
   const { data: listing, error: listingError } = await lookupClient
     .from("properties")
     .select(
-      "id, owner_id, status, submitted_at, is_active, is_approved, latitude, longitude, location_label, location_place_id"
+      "id, owner_id, status, submitted_at, is_active, is_approved, latitude, longitude, location_label, location_place_id, listing_intent, rental_type"
     )
     .eq("id", propertyId)
     .maybeSingle<ListingRow>();
@@ -170,6 +174,32 @@ export async function postPropertySubmitResponse(
       { ok: false, error: "Pin a location to publish this listing.", code: "LOCATION_PIN_REQUIRED" },
       { status: 400 }
     );
+  }
+
+  const isShortletListing = isShortletProperty({
+    listing_intent: listing.listing_intent,
+    rental_type: listing.rental_type,
+  });
+  if (isShortletListing) {
+    const settingsClient = adminClient ?? supabase;
+    const { data: settingsRow } = await settingsClient
+      .from("shortlet_settings")
+      .select("nightly_price_minor")
+      .eq("property_id", propertyId)
+      .maybeSingle();
+    const nightlyPriceMinor = normalizeShortletNightlyPriceMinor(
+      settingsRow?.nightly_price_minor
+    );
+    if (!nightlyPriceMinor) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Set a nightly price before submitting this shortlet.",
+          code: "SHORTLET_NIGHTLY_PRICE_REQUIRED",
+        },
+        { status: 409 }
+      );
+    }
   }
 
   const sessionKey = deps.resolveEventSessionKey({ request, userId: auth.user.id });

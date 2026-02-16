@@ -165,3 +165,17 @@ export async function PATCH(
     },
   });
 }
+
+export async function PUT(
+  request: NextRequest,
+  context: { params: Promise<{ propertyId: string }> }
+) {
+  return PATCH(request, context);
+}
+
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ propertyId: string }> }
+) {
+  return PATCH(request, context);
+}

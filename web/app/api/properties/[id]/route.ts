@@ -44,6 +44,11 @@ import {
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
+import {
+  normalizeShortletNightlyPriceMinor,
+  resolveRentalTypeForListingIntent,
+  resolveShortletPersistenceInput,
+} from "@/lib/shortlet/listing-setup";
 
 const routeLabel = "/api/properties/[id]";
 type ImageMetaPayload = Record<
@@ -98,6 +103,8 @@ export const updateSchema = z.object({
     .nullable(),
   price: z.number().positive().optional(),
   currency: z.string().min(2).optional(),
+  shortlet_nightly_price_minor: z.number().int().positive().optional().nullable(),
+  shortlet_booking_mode: z.enum(["instant", "request"]).optional().nullable(),
   rent_period: z.enum(["monthly", "yearly"]).optional().nullable(),
   bedrooms: z.number().int().nonnegative().optional(),
   bathrooms: z.number().int().nonnegative().optional(),
@@ -596,6 +603,8 @@ export async function PUT(
       is_active?: boolean | null;
       is_approved?: boolean | null;
       approved_at?: string | null;
+      listing_intent?: string | null;
+      rental_type?: string | null;
     } | null = null;
     let fetchError: { message: string } | null = null;
     let statusMissing = false;
@@ -603,14 +612,14 @@ export async function PUT(
     if (adminClient) {
       const initial = await adminClient
         .from("properties")
-        .select("owner_id, status, is_active, is_approved, approved_at")
+        .select("owner_id, status, is_active, is_approved, approved_at, listing_intent, rental_type")
         .eq("id", id)
         .maybeSingle();
       if (initial.error && missingStatus(initial.error.message)) {
         statusMissing = true;
         const fallback = await adminClient
           .from("properties")
-          .select("owner_id, is_active, is_approved, approved_at")
+          .select("owner_id, is_active, is_approved, approved_at, listing_intent, rental_type")
           .eq("id", id)
           .maybeSingle();
         existing = fallback.data ?? null;
@@ -622,14 +631,14 @@ export async function PUT(
     } else {
       const initial = await supabase
         .from("properties")
-        .select("owner_id, status, is_active, is_approved, approved_at")
+        .select("owner_id, status, is_active, is_approved, approved_at, listing_intent, rental_type")
         .eq("id", id)
         .maybeSingle();
       if (initial.error && missingStatus(initial.error.message)) {
         statusMissing = true;
         const fallback = await supabase
           .from("properties")
-          .select("owner_id, is_active, is_approved, approved_at")
+          .select("owner_id, is_active, is_approved, approved_at, listing_intent, rental_type")
           .eq("id", id)
           .maybeSingle();
         existing = fallback.data ?? null;
@@ -699,6 +708,8 @@ export async function PUT(
       paused_reason,
       cover_image_url,
       imageMeta = {} as ImageMetaPayload,
+      shortlet_nightly_price_minor,
+      shortlet_booking_mode,
       ...rest
     } = updates;
     const countryFields = normalizeCountryForUpdate({
@@ -746,6 +757,30 @@ export async function PUT(
           ? undefined
           : cover_image_url ?? (imageUrls[0] ?? null),
     };
+    const existingListingIntent = normalizeListingIntent(existing.listing_intent) ?? null;
+    const effectiveListingIntent =
+      typeof normalizedRest.listing_intent === "undefined"
+        ? existingListingIntent
+        : normalizedRest.listing_intent;
+    const shortletPersistence = resolveShortletPersistenceInput({
+      listingIntent: effectiveListingIntent,
+      rentalType:
+        typeof normalizedRest.rental_type === "undefined"
+          ? existing.rental_type
+          : normalizedRest.rental_type,
+      nightlyPriceMinor: shortlet_nightly_price_minor,
+      bookingMode: shortlet_booking_mode,
+      fallbackPrice: normalizedRest.price,
+    });
+    if (shortletPersistence.isShortlet) {
+      normalizedRest.rental_type = "short_let";
+      normalizedRest.rent_period = null;
+    } else if (typeof normalizedRest.rental_type !== "undefined") {
+      normalizedRest.rental_type = resolveRentalTypeForListingIntent(
+        effectiveListingIntent,
+        normalizedRest.rental_type
+      );
+    }
     if (
       isSaleIntent(normalizedRest.listing_intent) ||
       normalizedRest.listing_intent === "off_plan"
@@ -860,6 +895,31 @@ export async function PUT(
       );
     }
 
+    if (!isAdmin && isPublishAttempt && shortletPersistence.isShortlet) {
+      const { data: settingsRow } = await supabase
+        .from("shortlet_settings")
+        .select("nightly_price_minor")
+        .eq("property_id", id)
+        .maybeSingle();
+      const nightlyFromSettings = normalizeShortletNightlyPriceMinor(
+        settingsRow?.nightly_price_minor
+      );
+      const candidateNightly =
+        shortletPersistence.nightlyPriceMinor ??
+        nightlyFromSettings ??
+        normalizeShortletNightlyPriceMinor(normalizedRest.price);
+      if (!candidateNightly) {
+        return NextResponse.json(
+          {
+            ok: false,
+            error: "Set a nightly price before submitting this shortlet.",
+            code: "SHORTLET_NIGHTLY_PRICE_REQUIRED",
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     if (!isAdmin && willActivate) {
       const usage = await getPlanUsage({
         supabase,
@@ -945,6 +1005,39 @@ export async function PUT(
           })
         );
       }
+    }
+
+    if (shortletPersistence.isShortlet) {
+      const settingsClient = adminClient ?? supabase;
+      const { data: existingSettings } = await settingsClient
+        .from("shortlet_settings")
+        .select("nightly_price_minor,booking_mode")
+        .eq("property_id", id)
+        .maybeSingle();
+      const nightlyPriceMinor =
+        shortletPersistence.nightlyPriceMinor ??
+        normalizeShortletNightlyPriceMinor(existingSettings?.nightly_price_minor) ??
+        normalizeShortletNightlyPriceMinor(normalizedRest.price);
+      const bookingMode =
+        shortlet_booking_mode ??
+        (existingSettings?.booking_mode === "instant" ? "instant" : "request");
+      const { error: settingsError } = await settingsClient.from("shortlet_settings").upsert(
+        {
+          property_id: id,
+          nightly_price_minor: nightlyPriceMinor,
+          booking_mode: bookingMode,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "property_id" }
+      );
+      if (settingsError) {
+        return NextResponse.json(
+          { error: settingsError.message || "Unable to save shortlet settings." },
+          { status: 500 }
+        );
+      }
+    } else {
+      await (adminClient ?? supabase).from("shortlet_settings").delete().eq("property_id", id);
     }
 
     if (willActivate) {

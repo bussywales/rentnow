@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import type { TrustMarkerState } from "@/lib/trust-markers";
@@ -48,6 +49,7 @@ import {
   type FeaturedEligibilityCode,
   type FeaturedEligibilitySettings,
 } from "@/lib/featured/eligibility";
+import { isShortletProperty } from "@/lib/shortlet/discovery";
 
 function normalizeStatus(property: {
   status?: string | null;
@@ -194,6 +196,7 @@ export function HostDashboardContent({
   shortletEarnings?: HostShortletEarningSummary[];
   shortletSettings?: HostShortletSettingSummary[];
 }) {
+  const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
   const { view, setView } = useHostDashboardView(hostUserId);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -274,6 +277,10 @@ export function HostDashboardContent({
     typeof pendingShortletCountFromApi === "number"
       ? pendingShortletCountFromApi
       : pendingShortletCount;
+  const shortletSettingsByPropertyId = useMemo(
+    () => new Map(shortletSettings.map((row) => [row.property_id, row])),
+    [shortletSettings]
+  );
 
   useEffect(() => {
     let active = true;
@@ -299,6 +306,17 @@ export function HostDashboardContent({
       controller.abort();
     };
   }, []);
+
+  useEffect(() => {
+    const requestedTab = searchParams?.get("tab");
+    if (requestedTab === "bookings") {
+      setWorkspaceSection("bookings");
+      return;
+    }
+    if (requestedTab === "listings") {
+      setWorkspaceSection("listings");
+    }
+  }, [searchParams]);
 
   const toggleSelectAll = () => {
     if (allSelected) {
@@ -792,6 +810,22 @@ export function HostDashboardContent({
             const isFeaturing = featurePending[property.id] ?? false;
             const featureError = featureErrors[property.id] ?? null;
             const isDemo = !!property.is_demo;
+            const shortletSetting = shortletSettingsByPropertyId.get(property.id) ?? null;
+            const isShortletListing = isShortletProperty({
+              listing_intent: property.listing_intent,
+              rental_type: property.rental_type,
+              shortlet_settings: shortletSetting
+                ? [
+                    {
+                      booking_mode: shortletSetting.booking_mode,
+                      nightly_price_minor: shortletSetting.nightly_price_minor,
+                    },
+                  ]
+                : property.shortlet_settings ?? null,
+            });
+            const hasNightlyPrice =
+              typeof shortletSetting?.nightly_price_minor === "number" &&
+              shortletSetting.nightly_price_minor > 0;
             const featuredRequest = featuredRequestsByProperty[property.id] ?? null;
             const featuredRequestPending = featuredRequest?.status === "pending";
             const featuredRequestApproved = featuredRequest?.status === "approved";
@@ -862,6 +896,11 @@ export function HostDashboardContent({
                         Featured{featuredLabel ? ` · until ${featuredLabel}` : ""}
                       </span>
                     )}
+                    {isShortletListing && !hasNightlyPrice ? (
+                      <span className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1 text-[11px] font-semibold text-rose-700">
+                        Nightly price required
+                      </span>
+                    ) : null}
                   </div>
                   {isUpdatingStatus && (
                     <span className="text-[11px] text-slate-500">Updating...</span>
@@ -952,6 +991,35 @@ export function HostDashboardContent({
                     Rejection reason: {property.rejection_reason}
                   </p>
                 )}
+                {isShortletListing ? (
+                  <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">
+                      Manage shortlet
+                    </p>
+                    <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                      <Link href="/host?tab=bookings">
+                        <Button size="sm" variant="secondary">
+                          Bookings
+                        </Button>
+                      </Link>
+                      <Link href={`/host/shortlets/blocks?property_id=${encodeURIComponent(property.id)}`}>
+                        <Button size="sm" variant="secondary">
+                          Availability
+                        </Button>
+                      </Link>
+                      <Link href={`/host/shortlets/${property.id}/settings`}>
+                        <Button size="sm" variant="secondary">
+                          Pricing
+                        </Button>
+                      </Link>
+                      {!hasNightlyPrice ? (
+                        <Link href={`/host/shortlets/${property.id}/settings`}>
+                          <Button size="sm">Set nightly price</Button>
+                        </Link>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2">
                   <Link href={`/dashboard/properties/${property.id}`}>
                     <Button size="sm" variant="secondary">

@@ -30,6 +30,10 @@ import { computeExpiryAt } from "@/lib/properties/expiry";
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
+import {
+  resolveRentalTypeForListingIntent,
+  resolveShortletPersistenceInput,
+} from "@/lib/shortlet/listing-setup";
 
 const routeLabel = "/api/properties";
 const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
@@ -78,6 +82,8 @@ export const propertySchema = z
     .nullable(),
   price: z.number().positive(),
   currency: z.string().min(2),
+  shortlet_nightly_price_minor: z.number().int().positive().optional().nullable(),
+  shortlet_booking_mode: z.enum(["instant", "request"]).optional().nullable(),
   rent_period: z.enum(["monthly", "yearly"]).optional().nullable(),
   bedrooms: z.number().int().nonnegative(),
   bathrooms: z.number().int().nonnegative(),
@@ -215,6 +221,8 @@ export async function POST(request: Request) {
       status,
       cover_image_url,
       imageMeta = {} as ImageMetaPayload,
+      shortlet_nightly_price_minor,
+      shortlet_booking_mode,
       ...rest
     } = data;
     const normalizedDepositCurrency =
@@ -250,6 +258,23 @@ export async function POST(request: Request) {
       pets_allowed: typeof rest.pets_allowed === "boolean" ? rest.pets_allowed : false,
       cover_image_url: cover_image_url ?? (imageUrls[0] ?? null),
     };
+    const shortletPersistence = resolveShortletPersistenceInput({
+      listingIntent: normalized.listing_intent,
+      rentalType: normalized.rental_type,
+      nightlyPriceMinor: shortlet_nightly_price_minor,
+      bookingMode: shortlet_booking_mode,
+      fallbackPrice: normalized.price,
+    });
+    normalized.rental_type = resolveRentalTypeForListingIntent(
+      normalized.listing_intent,
+      normalized.rental_type
+    );
+    if (shortletPersistence.isShortlet) {
+      normalized.rent_period = null;
+      if (!shortletPersistence.nightlyPriceMinor && typeof normalized.price === "number") {
+        shortletPersistence.nightlyPriceMinor = normalized.price;
+      }
+    }
     if (isSaleIntent(normalized.listing_intent) || normalized.listing_intent === "off_plan") {
       normalized.deposit_amount = null;
       normalized.deposit_currency = null;
@@ -384,6 +409,25 @@ export async function POST(request: Request) {
     }
 
     const propertyId = property?.id;
+
+    if (propertyId && shortletPersistence.isShortlet) {
+      const settingsClient = hasServiceRoleEnv() ? createServiceRoleClient() : supabase;
+      const { error: settingsError } = await settingsClient.from("shortlet_settings").upsert(
+        {
+          property_id: propertyId,
+          booking_mode: shortletPersistence.bookingMode,
+          nightly_price_minor: shortletPersistence.nightlyPriceMinor,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "property_id" }
+      );
+      if (settingsError) {
+        return NextResponse.json(
+          { error: settingsError.message || "Unable to save shortlet settings." },
+          { status: 500 }
+        );
+      }
+    }
 
     if (propertyId && imageUrls.length) {
       await supabase.from("property_images").insert(
@@ -568,7 +612,9 @@ export async function GET(request: NextRequest) {
           : baseFields;
         let query = supabase
           .from("properties")
-          .select(`*, property_images(${imageFields}), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at)`)
+          .select(
+            `*, property_images(${imageFields}), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at), shortlet_settings(property_id,booking_mode,nightly_price_minor)`
+          )
           .order("created_at", { ascending: false });
         if (includePosition) {
           query = query
@@ -691,7 +737,7 @@ export async function GET(request: NextRequest) {
         : "image_url,id,created_at,width,height,bytes,format";
       let query = supabase
         .from("properties")
-        .select(`*, property_images(${imageFields})`, {
+        .select(`*, property_images(${imageFields}), shortlet_settings(property_id,booking_mode,nightly_price_minor)`, {
           count: shouldPaginate ? "exact" : undefined,
         })
         .eq("is_approved", true)

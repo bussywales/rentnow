@@ -12,7 +12,7 @@ void test("listing intent field is present in host create/edit UI", () => {
   assert.ok(form.includes("listing_intent"), "expected listing_intent in PropertyForm");
   assert.ok(stepper.includes("listing_intent"), "expected listing_intent in PropertyStepper");
   assert.ok(
-    stepper.includes('listing_intent: initialData?.listing_intent ?? "rent"'),
+    stepper.includes('const initialListingIntent = initialData?.listing_intent ?? "rent";'),
     "expected default listing intent to be rent for new drafts"
   );
 });

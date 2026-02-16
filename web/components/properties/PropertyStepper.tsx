@@ -76,8 +76,20 @@ import {
 import { formatRelativeTime } from "@/lib/date/relative-time";
 import { buildEditorUrl } from "@/lib/properties/host-dashboard";
 import { normalizeFocusParam, normalizeStepParam, STEP_IDS, type StepId } from "@/lib/properties/step-params";
+import {
+  isShortletIntentValue,
+  resolveCurrencyDefaultForCountry,
+  resolveRentalTypeForListingIntent,
+  resolveShortletBookingMode,
+  resolveShortletNightlyPriceMinor,
+} from "@/lib/shortlet/listing-setup";
 
-type FormState = Partial<Property> & { amenitiesText?: string; featuresText?: string };
+type FormState = Partial<Property> & {
+  amenitiesText?: string;
+  featuresText?: string;
+  shortlet_nightly_price_minor?: number | null;
+  shortlet_booking_mode?: "instant" | "request" | null;
+};
 type ResolvedAuth = {
   user: User | null;
   accessToken: string | null;
@@ -163,7 +175,18 @@ const steps: Array<{ id: StepId; label: string }> = [
   { id: "submit", label: "Submit" },
 ];
 const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | "imageUrls" | "cover_image_url">> = {
-  basics: ["title", "rental_type", "listing_intent", "city", "price", "currency", "bedrooms", "bathrooms"],
+  basics: [
+    "title",
+    "rental_type",
+    "listing_intent",
+    "city",
+    "price",
+    "shortlet_nightly_price_minor",
+    "shortlet_booking_mode",
+    "currency",
+    "bedrooms",
+    "bathrooms",
+  ],
   details: [
     "listing_type",
     "state_region",
@@ -474,10 +497,15 @@ export function PropertyStepper({
     return Object.fromEntries(entries);
   }, [currentStepId, fieldErrors]);
 
+  const initialShortletSettings = Array.isArray(initialData?.shortlet_settings)
+    ? initialData?.shortlet_settings[0]
+    : initialData?.shortlet_settings ?? null;
+  const initialListingIntent = initialData?.listing_intent ?? "rent";
+  const initialCurrencyHasOverride =
+    typeof initialData?.currency === "string" && initialData.currency.trim().length > 0;
+
   const [form, setForm] = useState<FormState>({
-    rental_type: initialData?.rental_type ?? "long_term",
-    listing_intent: initialData?.listing_intent ?? "rent",
-    currency: initialData?.currency ?? "USD",
+    listing_intent: initialListingIntent,
     listing_type: initialData?.listing_type ?? null,
     country: initialData?.country ?? null,
     country_code: initialData?.country_code ?? null,
@@ -501,7 +529,28 @@ export function PropertyStepper({
     location_precision: initialData?.location_precision ?? null,
     ...initialData,
     rent_period: initialData?.rent_period ?? "monthly",
+    shortlet_nightly_price_minor:
+      resolveShortletNightlyPriceMinor({
+        nightlyPriceMinor: initialShortletSettings?.nightly_price_minor,
+        fallbackPrice:
+          isShortletIntentValue(initialListingIntent) &&
+          typeof initialData?.price === "number"
+            ? initialData.price
+            : null,
+      }) ?? null,
+    shortlet_booking_mode: resolveShortletBookingMode(initialShortletSettings?.booking_mode ?? null),
+    rental_type: resolveRentalTypeForListingIntent(
+      initialListingIntent,
+      initialData?.rental_type ?? "long_term"
+    ),
+    currency: resolveCurrencyDefaultForCountry({
+      countryCode: initialData?.country_code ?? null,
+      currentCurrency: initialData?.currency ?? null,
+      hasUserOverride: initialCurrencyHasOverride,
+      fallbackCurrency: "USD",
+    }),
   });
+  const [currencyTouchedByUser, setCurrencyTouchedByUser] = useState(initialCurrencyHasOverride);
   const [locationQuery, setLocationQuery] = useState(form.location_label || "");
   const [locationResults, setLocationResults] = useState<
     Array<{
@@ -647,6 +696,17 @@ export function PropertyStepper({
     };
   }, [enableLocationPicker, form.country_code, form.latitude, form.longitude, locationQuery]);
 
+  useEffect(() => {
+    const nextCurrency = resolveCurrencyDefaultForCountry({
+      countryCode: form.country_code ?? null,
+      currentCurrency: form.currency ?? null,
+      hasUserOverride: currencyTouchedByUser,
+      fallbackCurrency: "USD",
+    });
+    if (!nextCurrency || nextCurrency === form.currency) return;
+    setForm((prev) => ({ ...prev, currency: nextCurrency }));
+  }, [currencyTouchedByUser, form.country_code, form.currency]);
+
   const lastAutoSaved = useRef<string>("");
   const autoSaveTimer = useRef<number | null>(null);
   const authResolveRef = useRef<Promise<ResolvedAuth> | null>(null);
@@ -668,9 +728,28 @@ export function PropertyStepper({
         ? form.deposit_amount
         : null;
     const saleIntent = isSaleIntent(form.listing_intent);
+    const shortletIntent = isShortletIntentValue(form.listing_intent);
+    const shortletNightlyPriceMinor = shortletIntent
+      ? resolveShortletNightlyPriceMinor({
+          nightlyPriceMinor: form.shortlet_nightly_price_minor,
+          fallbackPrice: form.price,
+        })
+      : null;
+    const normalizedRentalType = resolveRentalTypeForListingIntent(
+      form.listing_intent,
+      form.rental_type ?? "long_term"
+    );
+    const normalizedPrice = shortletIntent
+      ? shortletNightlyPriceMinor ?? (typeof form.price === "number" ? form.price : undefined)
+      : form.price;
 
     return {
       ...form,
+      rental_type: normalizedRentalType,
+      shortlet_nightly_price_minor: shortletIntent ? shortletNightlyPriceMinor : null,
+      shortlet_booking_mode: shortletIntent
+        ? resolveShortletBookingMode(form.shortlet_booking_mode)
+        : null,
       listing_type: normalizeOptionalString(form.listing_type),
       country: normalizeOptionalString(form.country),
       country_code: normalizeCountryCode(form.country_code),
@@ -687,9 +766,10 @@ export function PropertyStepper({
       location_place_id: normalizeOptionalString(form.location_place_id),
       location_source: normalizeOptionalString(form.location_source),
       location_precision: normalizeOptionalString(form.location_precision),
+      price: normalizedPrice,
       size_value: sizeValue ?? undefined,
       size_unit: sizeValue ? form.size_unit ?? "sqm" : undefined,
-      rent_period: saleIntent ? null : form.rent_period ?? "monthly",
+      rent_period: saleIntent || shortletIntent ? null : form.rent_period ?? "monthly",
       year_built:
         typeof form.year_built === "number" && Number.isFinite(form.year_built)
           ? form.year_built
@@ -772,6 +852,7 @@ export function PropertyStepper({
       }),
     [coverImageUrl, coverWarning, imageUrls.length, locationQuality, recommended?.url, recommendedDismissed]
   );
+  const isShortletListing = isShortletIntentValue(form.listing_intent);
   const listingNudgeFlags = useMemo(() => {
     const flags: string[] = [];
     const photoCount = imageUrls.length;
@@ -785,7 +866,11 @@ export function PropertyStepper({
     if (descriptionLength === 0) flags.push("no_description");
     else if (descriptionLength < 120) flags.push("short_description");
 
-    const priceOk = typeof form.price === "number" && form.price > 0 && !!form.currency;
+    const priceOk = isShortletListing
+      ? typeof form.shortlet_nightly_price_minor === "number" &&
+        form.shortlet_nightly_price_minor > 0 &&
+        !!form.currency
+      : typeof form.price === "number" && form.price > 0 && !!form.currency;
     if (!priceOk) flags.push("no_price");
 
     const locationOk =
@@ -806,8 +891,10 @@ export function PropertyStepper({
     form.location_label,
     form.longitude,
     form.price,
+    form.shortlet_nightly_price_minor,
     form.title,
     imageUrls.length,
+    isShortletListing,
   ]);
   const isSaleListing = isSaleIntent(form.listing_intent);
   const roomsRequired = requiresRooms(form.listing_type);
@@ -899,6 +986,10 @@ export function PropertyStepper({
     }
   }, []);
 
+  const shortletNightlyReady =
+    !isShortletListing ||
+    (typeof payload.shortlet_nightly_price_minor === "number" &&
+      payload.shortlet_nightly_price_minor > 0);
   const canCreateDraft =
     !!payload.title &&
     !!payload.city &&
@@ -906,6 +997,7 @@ export function PropertyStepper({
     !!payload.listing_intent &&
     payload.price !== undefined &&
     payload.price !== null &&
+    shortletNightlyReady &&
     payload.currency &&
     payload.bedrooms !== undefined &&
     payload.bathrooms !== undefined;
@@ -1615,6 +1707,14 @@ export function PropertyStepper({
     ]
   );
 
+  const handleCurrencyChange = useCallback(
+    (value: string) => {
+      setCurrencyTouchedByUser(true);
+      handleChange("currency", value);
+    },
+    [handleChange]
+  );
+
   const handleApplyCountryFromHint = useCallback(() => {
     if (!countryHint.key) return;
     const option =
@@ -1955,23 +2055,36 @@ export function PropertyStepper({
   const next = () => {
     setError(null);
     if (stepIndex === 0 && !canCreateDraft) {
-      const required: Array<keyof FormState> = [
-        "title",
-        "city",
-        "rental_type",
-        "listing_intent",
-        "price",
-        "currency",
-        "bedrooms",
-        "bathrooms",
-      ];
+      const required: Array<keyof FormState> = isShortletListing
+        ? [
+            "title",
+            "city",
+            "rental_type",
+            "listing_intent",
+            "shortlet_nightly_price_minor",
+            "currency",
+            "bedrooms",
+            "bathrooms",
+          ]
+        : [
+            "title",
+            "city",
+            "rental_type",
+            "listing_intent",
+            "price",
+            "currency",
+            "bedrooms",
+            "bathrooms",
+          ];
       const missing: Record<string, string> = {};
       required.forEach((key) => {
         const val = form[key];
+        const requiresPositiveNumber = key === "price" || key === "shortlet_nightly_price_minor";
         const isMissing =
           val === null ||
           typeof val === "undefined" ||
-          (typeof val === "string" && !val.trim());
+          (typeof val === "string" && !val.trim()) ||
+          (requiresPositiveNumber && (typeof val !== "number" || val <= 0));
         if (isMissing) missing[key] = `${labelForField(key)} is required`;
       });
       if (Object.keys(missing).length) {
@@ -2014,7 +2127,7 @@ export function PropertyStepper({
           rentalType: form.rental_type ?? undefined,
           listingIntent: form.listing_intent ?? "rent",
           listingType: form.listing_type ?? undefined,
-          price: form.price ?? 0,
+          price: form.shortlet_nightly_price_minor ?? form.price ?? 0,
           currency: form.currency || "USD",
           bedrooms: form.bedrooms ?? 0,
           bathrooms: form.bathrooms ?? 0,
@@ -2320,6 +2433,14 @@ export function PropertyStepper({
           if (data?.code === "LOCATION_PIN_REQUIRED") {
             setLocationPublishError(true);
             setErrorCode("LOCATION_PIN_REQUIRED");
+          } else if (data?.code === "SHORTLET_NIGHTLY_PRICE_REQUIRED") {
+            setErrorCode("SHORTLET_NIGHTLY_PRICE_REQUIRED");
+            setFieldErrors((prev) => ({
+              ...prev,
+              shortlet_nightly_price_minor: "Set a nightly price before submitting a shortlet.",
+            }));
+            setStepIndex(0);
+            window.setTimeout(() => scrollToField("shortlet_nightly_price_minor"), 120);
           } else if (typeof data?.code === "string") {
             setErrorCode(data.code);
           }
@@ -2353,6 +2474,9 @@ export function PropertyStepper({
     }
     if (code === "LOCATION_PIN_REQUIRED") {
       return "Pin your listing location to publish.";
+    }
+    if (code === "SHORTLET_NIGHTLY_PRICE_REQUIRED") {
+      return "Set a nightly price to submit this shortlet.";
     }
     const normalized = message.toLowerCase();
     if (normalized.includes("supabase environment variables are missing")) {
@@ -2514,7 +2638,22 @@ export function PropertyStepper({
                     onChange={(e) => {
                       const nextIntent = e.target.value as ListingIntent;
                       handleChange("listing_intent", nextIntent);
-                      if (isSaleIntent(nextIntent)) {
+                      if (isShortletIntentValue(nextIntent)) {
+                        handleChange("rental_type", "short_let");
+                        handleChange("rent_period", null);
+                        handleChange(
+                          "shortlet_booking_mode",
+                          resolveShortletBookingMode(form.shortlet_booking_mode)
+                        );
+                        const fallbackNightly = resolveShortletNightlyPriceMinor({
+                          nightlyPriceMinor: form.shortlet_nightly_price_minor,
+                          fallbackPrice: form.price,
+                        });
+                        if (fallbackNightly) {
+                          handleChange("shortlet_nightly_price_minor", fallbackNightly);
+                          handleChange("price", fallbackNightly);
+                        }
+                      } else if (isSaleIntent(nextIntent)) {
                         handleChange("rent_period", null);
                       } else if (!form.rent_period) {
                         handleChange("rent_period", "monthly");
@@ -2534,7 +2673,7 @@ export function PropertyStepper({
                   </p>
                   {renderFieldError("listing_intent")}
                 </div>
-                {!isSaleListing && (
+                {!isSaleListing && !isShortletListing && (
                   <div className="space-y-2" id="field-rental_type">
                     <label htmlFor="rental-type" className="text-sm font-medium text-slate-700">
                       Rental type <span className="text-rose-500">*</span>
@@ -2552,6 +2691,26 @@ export function PropertyStepper({
                         </option>
                       ))}
                     </Select>
+                    {renderFieldError("rental_type")}
+                  </div>
+                )}
+                {!isSaleListing && isShortletListing && (
+                  <div className="space-y-2" id="field-rental_type">
+                    <label htmlFor="rental-type-shortlet" className="text-sm font-medium text-slate-700">
+                      Rental type <span className="text-rose-500">*</span>
+                    </label>
+                    <Select
+                      id="rental-type-shortlet"
+                      value="short_let"
+                      disabled
+                      aria-disabled="true"
+                      className={fieldErrors.rental_type ? "ring-2 ring-rose-400 border-rose-300" : ""}
+                    >
+                      <option value="short_let">Short-let</option>
+                    </Select>
+                    <p className="text-xs text-slate-500">
+                      Shortlet intent automatically uses short-let rental type.
+                    </p>
                     {renderFieldError("rental_type")}
                   </div>
                 )}
@@ -3233,26 +3392,60 @@ export function PropertyStepper({
                   <p className="text-xs text-slate-500">
                     {isSaleIntent(form.listing_intent)
                       ? "Set the sale price and availability details."
+                      : isShortletListing
+                        ? "Set nightly pricing and booking mode so guests can book."
                       : "Set the rent amount, cadence, and move-in details."}
                   </p>
                 </div>
               </div>
               <div className="mt-4 space-y-4">
-                <div className="space-y-2" id="field-price">
-                  <label htmlFor="price" className="text-sm font-medium text-slate-700">
-                    Price <span className="text-rose-500">*</span>
-                  </label>
-                  <Input
-                    id="price"
-                    type="number"
-                    min={1}
-                    value={form.price ?? ""}
-                    onChange={(e) => handleChange("price", Number(e.target.value))}
-                    aria-required="true"
-                    className={fieldErrors.price ? "ring-2 ring-rose-400 border-rose-300" : ""}
-                  />
-                  {renderFieldError("price")}
-                </div>
+                {isShortletListing ? (
+                  <div className="space-y-2" id="field-shortlet_nightly_price_minor">
+                    <label htmlFor="shortlet-nightly-price" className="text-sm font-medium text-slate-700">
+                      Nightly price <span className="text-rose-500">*</span>
+                    </label>
+                    <Input
+                      id="shortlet-nightly-price"
+                      type="number"
+                      min={1}
+                      value={form.shortlet_nightly_price_minor ?? form.price ?? ""}
+                      onChange={(event) => {
+                        const raw = event.target.value;
+                        const parsed = raw === "" ? null : Math.max(0, Math.trunc(Number(raw)));
+                        handleChange("shortlet_nightly_price_minor", parsed);
+                        if (parsed !== null) {
+                          handleChange("price", parsed);
+                        }
+                      }}
+                      aria-required="true"
+                      className={
+                        fieldErrors.shortlet_nightly_price_minor
+                          ? "ring-2 ring-rose-400 border-rose-300"
+                          : ""
+                      }
+                    />
+                    <p className="text-xs text-slate-500">
+                      This is the source-of-truth price used for shortlet bookings.
+                    </p>
+                    {renderFieldError("shortlet_nightly_price_minor")}
+                  </div>
+                ) : (
+                  <div className="space-y-2" id="field-price">
+                    <label htmlFor="price" className="text-sm font-medium text-slate-700">
+                      Price <span className="text-rose-500">*</span>
+                    </label>
+                    <Input
+                      id="price"
+                      type="number"
+                      min={1}
+                      value={form.price ?? ""}
+                      onChange={(e) => handleChange("price", Number(e.target.value))}
+                      aria-required="true"
+                      className={fieldErrors.price ? "ring-2 ring-rose-400 border-rose-300" : ""}
+                    />
+                    {renderFieldError("price")}
+                  </div>
+                )}
                 <div className="space-y-2" id="field-currency">
                   <label htmlFor="currency" className="text-sm font-medium text-slate-700">
                     Currency <span className="text-rose-500">*</span>
@@ -3260,12 +3453,44 @@ export function PropertyStepper({
                   <CurrencySelect
                     id="currency"
                     value={form.currency || "USD"}
-                    onChange={(value) => handleChange("currency", value)}
+                    onChange={handleCurrencyChange}
                     placeholder="Search currency codes"
                   />
                   {renderFieldError("currency")}
                 </div>
-                {!isSaleIntent(form.listing_intent) ? (
+                {isShortletListing ? (
+                  <div className="space-y-2" id="field-shortlet_booking_mode">
+                    <span className="text-sm font-medium text-slate-700">Booking mode</span>
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300">
+                        <input
+                          type="radio"
+                          name="shortlet_booking_mode"
+                          value="instant"
+                          className="h-4 w-4"
+                          checked={resolveShortletBookingMode(form.shortlet_booking_mode) === "instant"}
+                          onChange={() => handleChange("shortlet_booking_mode", "instant")}
+                        />
+                        Instant book
+                      </label>
+                      <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-slate-300">
+                        <input
+                          type="radio"
+                          name="shortlet_booking_mode"
+                          value="request"
+                          className="h-4 w-4"
+                          checked={resolveShortletBookingMode(form.shortlet_booking_mode) === "request"}
+                          onChange={() => handleChange("shortlet_booking_mode", "request")}
+                        />
+                        Request to book
+                      </label>
+                    </div>
+                    <p className="text-xs text-slate-500">
+                      Guests can reserve instantly or wait for your approval.
+                    </p>
+                    {renderFieldError("shortlet_booking_mode")}
+                  </div>
+                ) : !isSaleIntent(form.listing_intent) ? (
                   <div className="space-y-2">
                     <span className="text-sm font-medium text-slate-700">Rent period</span>
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -3312,6 +3537,8 @@ export function PropertyStepper({
                   <p className="text-xs text-slate-500">
                     {isSaleIntent(form.listing_intent)
                       ? "Optional if the sale timeline is flexible."
+                      : isShortletListing
+                        ? "Optional if check-in timing is flexible."
                       : "Optional if the date is flexible."}
                   </p>
                 </div>
@@ -4015,10 +4242,15 @@ export function PropertyStepper({
               country: form.country || null,
               state_region: form.state_region || null,
               listing_intent: form.listing_intent || "rent",
-              rental_type: form.rental_type || "long_term",
-              price: form.price || 0,
+              rental_type: isShortletListing ? "short_let" : form.rental_type || "long_term",
+              price: isShortletListing
+                ? form.shortlet_nightly_price_minor || form.price || 0
+                : form.price || 0,
               currency: form.currency || "USD",
-              rent_period: isSaleIntent(form.listing_intent) ? null : form.rent_period || "monthly",
+              rent_period:
+                isSaleIntent(form.listing_intent) || isShortletListing
+                  ? null
+                  : form.rent_period || "monthly",
               bedrooms: form.bedrooms || 0,
               bathrooms: form.bathrooms || 0,
               bathroom_type: form.bathroom_type || null,
@@ -4038,7 +4270,11 @@ export function PropertyStepper({
           <div className="rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-700 shadow-sm">
             <p className="font-semibold text-slate-900">Preview checklist</p>
             <ul className="mt-2 space-y-1">
-              <li>Title, price, and location filled</li>
+              <li>
+                {isShortletListing
+                  ? "Title, nightly price, and location filled"
+                  : "Title, price, and location filled"}
+              </li>
               <li>{imageUrls.length ? `${imageUrls.length} photo(s) added` : "Add photos"}</li>
               <li>Description and amenities updated</li>
             </ul>

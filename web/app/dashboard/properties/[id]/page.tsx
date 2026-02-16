@@ -139,7 +139,9 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
 
     let query = supabase
       .from("properties")
-      .select("*, property_images(image_url,id), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at)")
+      .select(
+        "*, property_images(image_url,id), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at), shortlet_settings(property_id,booking_mode,nightly_price_minor)"
+      )
       .eq("id", cleanId);
 
     if (!isAdmin) {
