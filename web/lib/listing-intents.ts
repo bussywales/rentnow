@@ -33,6 +33,10 @@ export function isSaleIntent(intent?: ListingIntent | null): boolean {
   return intent === "sale" || intent === "buy";
 }
 
+export function isSaleLikeIntent(intent?: ListingIntent | null): boolean {
+  return isSaleIntent(intent) || intent === "off_plan";
+}
+
 export function isRentIntent(intent?: ListingIntent | null): boolean {
   return intent === "rent_lease" || intent === "rent";
 }
@@ -57,15 +61,23 @@ export function normalizeListingIntent(intent?: string | null): ListingIntent | 
 
 export function mapIntentForSearchFilter(intent?: ListingIntent | null): "rent" | "buy" | "all" {
   if (!intent) return "all";
+  if (isShortletIntent(intent)) return "rent";
+  if (isOffPlanIntent(intent)) return "buy";
   if (isSaleIntent(intent)) return "buy";
   if (isRentIntent(intent)) return "rent";
   return "all";
 }
 
+export function mapSearchFilterToListingIntents(
+  filter: "rent" | "buy" | "all" | null | undefined
+): ListingIntent[] {
+  if (filter === "rent") return ["rent_lease", "rent", "shortlet"];
+  if (filter === "buy") return ["sale", "buy", "off_plan"];
+  return [];
+}
+
 export function mapSearchFilterToListingIntent(
   filter: "rent" | "buy" | "all" | null | undefined
 ): ListingIntent | null {
-  if (filter === "rent") return "rent_lease";
-  if (filter === "buy") return "sale";
-  return null;
+  return mapSearchFilterToListingIntents(filter)[0] ?? null;
 }

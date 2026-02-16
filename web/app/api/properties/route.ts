@@ -3,9 +3,7 @@ import { z } from "zod";
 import { getUserRole, requireUser } from "@/lib/authz";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { readActingAsFromRequest } from "@/lib/acting-as";
-import { getEarlyAccessApprovedBefore } from "@/lib/early-access";
 import { getPlanUsage } from "@/lib/plan-enforcement";
-import { getTenantPlanForTier } from "@/lib/plans";
 import { getListingAccessResult } from "@/lib/role-access";
 import { normalizeRole } from "@/lib/roles";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
@@ -36,7 +34,6 @@ import {
 } from "@/lib/shortlet/listing-setup";
 
 const routeLabel = "/api/properties";
-const EARLY_ACCESS_MINUTES = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
 type ImageMetaPayload = Record<
   string,
   { width?: number; height?: number; bytes?: number; format?: string | null; blurhash?: string | null }
@@ -525,38 +522,6 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let approvedBefore: string | null = null;
-    if (!ownerOnly && EARLY_ACCESS_MINUTES > 0) {
-      try {
-        let planTier: string | null = null;
-        let validUntil: string | null = null;
-        if (viewerUserId && viewerRole === "tenant") {
-          const { data: planRow } = await supabase
-            .from("profile_plans")
-            .select("plan_tier, valid_until")
-            .eq("profile_id", viewerUserId)
-            .maybeSingle();
-          planTier = planRow?.plan_tier ?? null;
-          validUntil = planRow?.valid_until ?? null;
-        }
-        ({ approvedBefore } = getEarlyAccessApprovedBefore({
-          role: viewerRole,
-          hasUser: !!viewerUserId,
-          planTier,
-          validUntil,
-          earlyAccessMinutes: EARLY_ACCESS_MINUTES,
-        }));
-      } catch {
-        ({ approvedBefore } = getEarlyAccessApprovedBefore({
-          role: null,
-          hasUser: false,
-          planTier: null,
-          validUntil: null,
-          earlyAccessMinutes: EARLY_ACCESS_MINUTES,
-        }));
-      }
-    }
-
     if (ownerOnly) {
       const auth = await requireUser({
         request,
@@ -783,9 +748,9 @@ export async function GET(request: NextRequest) {
         return result;
       };
 
-      const { data, error, count } = await runQuery(true, approvedBefore);
+      const { data, error, count } = await runQuery(true, null);
       if (error && missingPosition(error.message)) {
-        const fallback = await runQuery(false, approvedBefore);
+        const fallback = await runQuery(false, null);
         if (fallback.error) {
           logFailure({
             request,
@@ -835,9 +800,9 @@ export async function GET(request: NextRequest) {
       return result;
     };
 
-    const { data, error, count } = await runQuery(true, approvedBefore);
+    const { data, error, count } = await runQuery(true, null);
     if (error && missingPosition(error.message)) {
-      const fallback = await runQuery(false, approvedBefore);
+      const fallback = await runQuery(false, null);
       if (fallback.error) {
         logFailure({
           request,

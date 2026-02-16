@@ -42,7 +42,11 @@ import type {
   RentalType,
   SizeUnit,
 } from "@/lib/types";
-import { getHostListingIntentOptions, isSaleIntent } from "@/lib/listing-intents";
+import {
+  getHostListingIntentOptions,
+  isSaleLikeIntent,
+  normalizeListingIntent,
+} from "@/lib/listing-intents";
 import { setToastQuery } from "@/lib/utils/toast";
 import { labelForField } from "@/lib/forms/listing-errors";
 import { hasPinnedLocation } from "@/lib/properties/validation";
@@ -500,7 +504,7 @@ export function PropertyStepper({
   const initialShortletSettings = Array.isArray(initialData?.shortlet_settings)
     ? initialData?.shortlet_settings[0]
     : initialData?.shortlet_settings ?? null;
-  const initialListingIntent = initialData?.listing_intent ?? "rent";
+  const initialListingIntent = normalizeListingIntent(initialData?.listing_intent) ?? "rent_lease";
   const initialCurrencyHasOverride =
     typeof initialData?.currency === "string" && initialData.currency.trim().length > 0;
 
@@ -727,7 +731,7 @@ export function PropertyStepper({
       typeof form.deposit_amount === "number" && Number.isFinite(form.deposit_amount)
         ? form.deposit_amount
         : null;
-    const saleIntent = isSaleIntent(form.listing_intent);
+    const saleIntent = isSaleLikeIntent(form.listing_intent);
     const shortletIntent = isShortletIntentValue(form.listing_intent);
     const shortletNightlyPriceMinor = shortletIntent
       ? resolveShortletNightlyPriceMinor({
@@ -896,7 +900,7 @@ export function PropertyStepper({
     imageUrls.length,
     isShortletListing,
   ]);
-  const isSaleListing = isSaleIntent(form.listing_intent);
+  const isSaleListing = isSaleLikeIntent(form.listing_intent);
   const roomsRequired = requiresRooms(form.listing_type);
   const showRoomOptionalHint = !!form.listing_type && !roomsRequired;
   const countryCtaMessage = useMemo(() => {
@@ -1714,6 +1718,46 @@ export function PropertyStepper({
     },
     [handleChange]
   );
+  const handleListingIntentChange = useCallback(
+    (nextIntent: ListingIntent) => {
+      handleChange("listing_intent", nextIntent);
+      handleChange(
+        "rental_type",
+        resolveRentalTypeForListingIntent(nextIntent, form.rental_type ?? "long_term")
+      );
+      if (isShortletIntentValue(nextIntent)) {
+        handleChange("rent_period", null);
+        handleChange(
+          "shortlet_booking_mode",
+          resolveShortletBookingMode(form.shortlet_booking_mode)
+        );
+        const fallbackNightly = resolveShortletNightlyPriceMinor({
+          nightlyPriceMinor: form.shortlet_nightly_price_minor,
+          fallbackPrice: form.price,
+        });
+        if (fallbackNightly) {
+          handleChange("shortlet_nightly_price_minor", fallbackNightly);
+          handleChange("price", fallbackNightly);
+        }
+        return;
+      }
+      if (isSaleLikeIntent(nextIntent)) {
+        handleChange("rent_period", null);
+        return;
+      }
+      if (!form.rent_period) {
+        handleChange("rent_period", "monthly");
+      }
+    },
+    [
+      form.price,
+      form.rent_period,
+      form.rental_type,
+      form.shortlet_booking_mode,
+      form.shortlet_nightly_price_minor,
+      handleChange,
+    ]
+  );
 
   const handleApplyCountryFromHint = useCallback(() => {
     if (!countryHint.key) return;
@@ -2125,7 +2169,7 @@ export function PropertyStepper({
           city: form.city,
           neighbourhood: form.neighbourhood,
           rentalType: form.rental_type ?? undefined,
-          listingIntent: form.listing_intent ?? "rent",
+          listingIntent: form.listing_intent ?? "rent_lease",
           listingType: form.listing_type ?? undefined,
           price: form.shortlet_nightly_price_minor ?? form.price ?? 0,
           currency: form.currency || "USD",
@@ -2629,47 +2673,39 @@ export function PropertyStepper({
                   {renderFieldError("title")}
                 </div>
                 <div className="space-y-2" id="field-listing_intent">
-                  <label htmlFor="listing-intent" className="text-sm font-medium text-slate-700">
+                  <span className="text-sm font-medium text-slate-700">
                     Listing intent <span className="text-rose-500">*</span>
-                  </label>
-                  <Select
-                    id="listing-intent"
-                    value={form.listing_intent ?? "rent"}
-                    onChange={(e) => {
-                      const nextIntent = e.target.value as ListingIntent;
-                      handleChange("listing_intent", nextIntent);
-                      if (isShortletIntentValue(nextIntent)) {
-                        handleChange("rental_type", "short_let");
-                        handleChange("rent_period", null);
-                        handleChange(
-                          "shortlet_booking_mode",
-                          resolveShortletBookingMode(form.shortlet_booking_mode)
-                        );
-                        const fallbackNightly = resolveShortletNightlyPriceMinor({
-                          nightlyPriceMinor: form.shortlet_nightly_price_minor,
-                          fallbackPrice: form.price,
-                        });
-                        if (fallbackNightly) {
-                          handleChange("shortlet_nightly_price_minor", fallbackNightly);
-                          handleChange("price", fallbackNightly);
-                        }
-                      } else if (isSaleIntent(nextIntent)) {
-                        handleChange("rent_period", null);
-                      } else if (!form.rent_period) {
-                        handleChange("rent_period", "monthly");
-                      }
-                    }}
-                    aria-required="true"
-                    className={fieldErrors.listing_intent ? "ring-2 ring-rose-400 border-rose-300" : ""}
+                  </span>
+                  <div
+                    className={`grid gap-2 sm:grid-cols-2 ${
+                      fieldErrors.listing_intent ? "rounded-lg ring-2 ring-rose-300 ring-offset-2" : ""
+                    }`}
+                    role="radiogroup"
+                    aria-label="Listing intent"
                   >
-                    {listingIntents.map((intent) => (
-                      <option key={intent.value} value={intent.value}>
-                        {intent.label}
-                      </option>
-                    ))}
-                  </Select>
+                    {listingIntents.map((intent) => {
+                      const selected =
+                        (normalizeListingIntent(form.listing_intent) ?? "rent_lease") === intent.value;
+                      return (
+                        <button
+                          key={intent.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => handleListingIntentChange(intent.value)}
+                          className={`rounded-xl border px-3 py-2 text-left text-sm font-medium transition ${
+                            selected
+                              ? "border-sky-300 bg-sky-50 text-sky-800"
+                              : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                          }`}
+                        >
+                          {intent.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                   <p className="text-xs text-slate-500">
-                    Is this listing for renting/leasing or for selling (for sale)?
+                    Choose what this listing is for: rent/lease, sale, shortlet, or off-plan.
                   </p>
                   {renderFieldError("listing_intent")}
                 </div>
@@ -3390,7 +3426,7 @@ export function PropertyStepper({
                     Pricing & availability
                   </h3>
                   <p className="text-xs text-slate-500">
-                    {isSaleIntent(form.listing_intent)
+                    {isSaleListing
                       ? "Set the sale price and availability details."
                       : isShortletListing
                         ? "Set nightly pricing and booking mode so guests can book."
@@ -3490,7 +3526,7 @@ export function PropertyStepper({
                     </p>
                     {renderFieldError("shortlet_booking_mode")}
                   </div>
-                ) : !isSaleIntent(form.listing_intent) ? (
+                ) : !isSaleListing ? (
                   <div className="space-y-2">
                     <span className="text-sm font-medium text-slate-700">Rent period</span>
                     <div className="grid gap-2 sm:grid-cols-2">
@@ -3535,7 +3571,7 @@ export function PropertyStepper({
                     onChange={(e) => handleChange("available_from", e.target.value)}
                   />
                   <p className="text-xs text-slate-500">
-                    {isSaleIntent(form.listing_intent)
+                    {isSaleListing
                       ? "Optional if the sale timeline is flexible."
                       : isShortletListing
                         ? "Optional if check-in timing is flexible."
@@ -4241,14 +4277,14 @@ export function PropertyStepper({
               listing_type: form.listing_type || null,
               country: form.country || null,
               state_region: form.state_region || null,
-              listing_intent: form.listing_intent || "rent",
+              listing_intent: form.listing_intent || "rent_lease",
               rental_type: isShortletListing ? "short_let" : form.rental_type || "long_term",
               price: isShortletListing
                 ? form.shortlet_nightly_price_minor || form.price || 0
                 : form.price || 0,
               currency: form.currency || "USD",
               rent_period:
-                isSaleIntent(form.listing_intent) || isShortletListing
+                isSaleListing || isShortletListing
                   ? null
                   : form.rent_period || "monthly",
               bedrooms: form.bedrooms || 0,

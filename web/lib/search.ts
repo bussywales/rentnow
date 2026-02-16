@@ -1,7 +1,7 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 import type { ParsedSearchFilters, RentalType } from "@/lib/types";
-import { mapSearchFilterToListingIntent } from "@/lib/listing-intents";
+import { mapSearchFilterToListingIntents } from "@/lib/listing-intents";
 import { normalizeIntentStaySelection } from "@/lib/search-filters";
 
 type SearchOptions = {
@@ -92,12 +92,14 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     if (filters.city) {
       query = query.ilike("city", `%${filters.city}%`);
     }
-    const listingIntent =
+    const listingIntents =
       normalizedSelection.stay === "shortlet"
-        ? null
-        : mapSearchFilterToListingIntent(normalizedSelection.listingIntent ?? null);
-    if (listingIntent) {
-      query = query.eq("listing_intent", listingIntent);
+        ? []
+        : mapSearchFilterToListingIntents(normalizedSelection.listingIntent ?? null);
+    if (listingIntents.length === 1) {
+      query = query.eq("listing_intent", listingIntents[0]);
+    } else if (listingIntents.length > 1) {
+      query = query.in("listing_intent", listingIntents);
     }
     query = applyStayFilterToQuery(query, normalizedSelection);
     if (filters.bedrooms !== null) {

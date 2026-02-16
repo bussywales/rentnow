@@ -2,6 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   getHostListingIntentOptions,
+  mapIntentForSearchFilter,
+  mapSearchFilterToListingIntents,
   getPublicListingIntentLabel,
   normalizeListingIntent,
 } from "@/lib/listing-intents";
@@ -32,4 +34,11 @@ void test("normalizeListingIntent maps legacy rent/buy to canonical values", () 
   assert.equal(normalizeListingIntent("buy"), "sale");
   assert.equal(normalizeListingIntent("shortlet"), "shortlet");
   assert.equal(normalizeListingIntent("off_plan"), "off_plan");
+});
+
+void test("browse intent mapping keeps shortlet under rent and off-plan under buy", () => {
+  assert.equal(mapIntentForSearchFilter("shortlet"), "rent");
+  assert.equal(mapIntentForSearchFilter("off_plan"), "buy");
+  assert.deepEqual(mapSearchFilterToListingIntents("rent"), ["rent_lease", "rent", "shortlet"]);
+  assert.deepEqual(mapSearchFilterToListingIntents("buy"), ["sale", "buy", "off_plan"]);
 });

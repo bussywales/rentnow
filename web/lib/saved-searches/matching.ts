@@ -1,6 +1,6 @@
 import type { ParsedSearchFilters, RentalType } from "@/lib/types";
 import { parseIntent } from "@/lib/search-intent";
-import { mapSearchFilterToListingIntent } from "@/lib/listing-intents";
+import { mapSearchFilterToListingIntents } from "@/lib/listing-intents";
 
 export type SavedSearchMatchFilters = {
   city: string | null;
@@ -139,6 +139,7 @@ export type SavedSearchMatchQueryLike<TSelf> = {
   gt: (column: string, value: string) => TSelf;
   ilike: (column: string, value: string) => TSelf;
   eq: (column: string, value: string | number | boolean) => TSelf;
+  in: (column: string, values: string[]) => TSelf;
   gte: (column: string, value: number) => TSelf;
   lte: (column: string, value: number) => TSelf;
 };
@@ -183,9 +184,11 @@ export function applySavedSearchMatchSpecToQuery<TQuery extends SavedSearchMatch
     }
   }
   if (filters.listingIntent) {
-    const listingIntent = mapSearchFilterToListingIntent(filters.listingIntent);
-    if (listingIntent) {
-      next = next.eq("listing_intent", listingIntent);
+    const listingIntents = mapSearchFilterToListingIntents(filters.listingIntent);
+    if (listingIntents.length === 1) {
+      next = next.eq("listing_intent", listingIntents[0]);
+    } else if (listingIntents.length > 1) {
+      next = next.in("listing_intent", listingIntents);
     }
   }
   if (filters.rentalType) {

@@ -50,6 +50,7 @@ import {
   type FeaturedEligibilitySettings,
 } from "@/lib/featured/eligibility";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
+import { getPublicVisibilityDiagnostics } from "@/lib/properties/public-visibility-diagnostics";
 
 function normalizeStatus(property: {
   status?: string | null;
@@ -826,6 +827,7 @@ export function HostDashboardContent({
             const hasNightlyPrice =
               typeof shortletSetting?.nightly_price_minor === "number" &&
               shortletSetting.nightly_price_minor > 0;
+            const visibilityDiagnostics = getPublicVisibilityDiagnostics(property);
             const featuredRequest = featuredRequestsByProperty[property.id] ?? null;
             const featuredRequestPending = featuredRequest?.status === "pending";
             const featuredRequestApproved = featuredRequest?.status === "approved";
@@ -991,6 +993,20 @@ export function HostDashboardContent({
                     Rejection reason: {property.rejection_reason}
                   </p>
                 )}
+                {!visibilityDiagnostics.isVisible && visibilityDiagnostics.blockers.length > 0 ? (
+                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+                    <p className="text-xs font-semibold text-amber-800">
+                      Why this listing is not visible
+                    </p>
+                    <ul className="mt-2 space-y-1 text-[11px] text-amber-900">
+                      {visibilityDiagnostics.blockers.map((reason) => (
+                        <li key={`${property.id}-${reason}`} className="break-words">
+                          {reason}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
                 {isShortletListing ? (
                   <div className="mt-3 rounded-xl border border-sky-100 bg-sky-50 px-3 py-3">
                     <p className="text-xs font-semibold uppercase tracking-[0.16em] text-sky-700">

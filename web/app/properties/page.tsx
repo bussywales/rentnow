@@ -47,7 +47,7 @@ import {
   getIntentRecoveryOptions,
   getIntentSummaryCopy,
 } from "@/lib/properties/listing-intent-ui";
-import { mapSearchFilterToListingIntent, normalizeListingIntent } from "@/lib/listing-intents";
+import { mapSearchFilterToListingIntents, normalizeListingIntent } from "@/lib/listing-intents";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
@@ -165,9 +165,11 @@ function applyMockFilters(
     }
     if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
     if (filters.stay !== "shortlet" && filters.listingIntent && filters.listingIntent !== "all") {
-      const expectedIntent = mapSearchFilterToListingIntent(filters.listingIntent);
+      const expectedIntents = new Set(mapSearchFilterToListingIntents(filters.listingIntent));
       const listingIntent = normalizeListingIntent(property.listing_intent);
-      if (expectedIntent && listingIntent !== expectedIntent) return false;
+      if (expectedIntents.size > 0 && (!listingIntent || !expectedIntents.has(listingIntent))) {
+        return false;
+      }
     }
     if (filters.stay === "shortlet" && !isShortletProperty(property)) return false;
     if (filters.rentalType && property.rental_type !== filters.rentalType) return false;
@@ -223,8 +225,6 @@ export default async function PropertiesPage({ searchParams }: Props) {
   let userId: string | null = null;
   let role: UserRole | null = null;
   let isTenantPro = false;
-  let approvedBefore: string | null = null;
-  const earlyAccessMinutes = getTenantPlanForTier("tenant_pro").earlyAccessMinutes;
   if (supabaseReady) {
     try {
       supabase = await createServerSupabaseClient();
@@ -253,11 +253,6 @@ export default async function PropertiesPage({ searchParams }: Props) {
           const tenantPlan = getTenantPlanForTier(expired ? "free" : planRow?.plan_tier ?? "free");
           isTenantPro = tenantPlan.tier === "tenant_pro";
         }
-      }
-      if ((!role || role === "tenant") && !isTenantPro && earlyAccessMinutes > 0) {
-        approvedBefore = new Date(
-          Date.now() - earlyAccessMinutes * 60 * 1000
-        ).toISOString();
       }
     } catch {
       role = null;
@@ -456,7 +451,6 @@ export default async function PropertiesPage({ searchParams }: Props) {
       const { data, error, count } = await searchProperties(filters, {
         page,
         pageSize: PAGE_SIZE,
-        approvedBefore,
         featuredOnly,
         createdAfter,
         includeDemo: includeDemoListings,
@@ -566,7 +560,6 @@ export default async function PropertiesPage({ searchParams }: Props) {
         {
           page: 1,
           pageSize: PAGE_SIZE,
-          approvedBefore,
           featuredOnly,
           createdAfter,
           includeDemo: includeDemoListings,

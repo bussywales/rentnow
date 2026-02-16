@@ -215,6 +215,49 @@ test("propertyMatchesFilters enforces stay=shortlet", () => {
   assert.equal(propertyMatchesFilters(nonShortletProperty, filters), false);
 });
 
+test("propertyMatchesFilters treats shortlet as rent intent and off-plan as buy intent", () => {
+  const shortletListing = {
+    city: "Lagos",
+    price: 300,
+    currency: "USD",
+    bedrooms: 1,
+    rental_type: "short_let" as const,
+    furnished: true,
+    amenities: [],
+    listing_type: "studio" as const,
+    listing_intent: "shortlet" as const,
+    shortlet_settings: [{ booking_mode: "request", nightly_price_minor: 45000 }],
+  };
+  const offPlanListing = {
+    ...shortletListing,
+    rental_type: "long_term" as const,
+    listing_intent: "off_plan" as const,
+    shortlet_settings: [],
+  };
+  const rentFilters: ParsedSearchFilters = {
+    city: null,
+    minPrice: null,
+    maxPrice: null,
+    currency: null,
+    bedrooms: null,
+    bedroomsMode: "exact",
+    includeSimilarOptions: false,
+    propertyType: null,
+    listingIntent: "rent",
+    stay: null,
+    rentalType: null,
+    furnished: null,
+    amenities: [],
+  };
+  const buyFilters: ParsedSearchFilters = {
+    ...rentFilters,
+    listingIntent: "buy",
+  };
+
+  assert.equal(propertyMatchesFilters(shortletListing, rentFilters), true);
+  assert.equal(propertyMatchesFilters(offPlanListing, buyFilters), true);
+});
+
 test("hasActiveFilters only returns true for real search filters", () => {
   const emptyFilters: ParsedSearchFilters = {
     city: null,

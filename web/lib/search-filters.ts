@@ -8,7 +8,7 @@ import type {
   StayFilter,
 } from "@/lib/types";
 import { parseIntent } from "@/lib/search-intent";
-import { mapSearchFilterToListingIntent, normalizeListingIntent } from "@/lib/listing-intents";
+import { mapSearchFilterToListingIntents, normalizeListingIntent } from "@/lib/listing-intents";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
 
 export type SearchParamRecord = Record<string, string | string[] | undefined>;
@@ -393,9 +393,13 @@ export function propertyMatchesFilters(property: {
     normalizedSelection.listingIntent &&
     normalizedSelection.listingIntent !== "all"
   ) {
-    const expectedIntent = mapSearchFilterToListingIntent(normalizedSelection.listingIntent);
+    const expectedIntents = new Set(
+      mapSearchFilterToListingIntents(normalizedSelection.listingIntent)
+    );
     const listingIntent = normalizeListingIntent(property.listing_intent);
-    if (expectedIntent && listingIntent !== expectedIntent) return false;
+    if (expectedIntents.size > 0 && (!listingIntent || !expectedIntents.has(listingIntent))) {
+      return false;
+    }
   }
   if (normalizedSelection.stay === "shortlet" && !isShortletProperty(property)) return false;
   if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
