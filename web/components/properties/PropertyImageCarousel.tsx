@@ -27,6 +27,15 @@ type Props = {
   sizes: string;
   className?: string;
   imageClassName?: string;
+  countBadgeClassName?: string;
+  onSelectedIndexChange?: (index: number) => void;
+  onCarouselReady?: (controller: PropertyImageCarouselController | null) => void;
+};
+
+export type PropertyImageCarouselController = {
+  scrollTo: (index: number) => void;
+  scrollPrev: () => void;
+  scrollNext: () => void;
 };
 
 const DRAG_NAVIGATION_THRESHOLD_PX = 8;
@@ -68,6 +77,9 @@ export function PropertyImageCarousel({
   sizes,
   className,
   imageClassName,
+  countBadgeClassName,
+  onSelectedIndexChange,
+  onCarouselReady,
 }: Props) {
   const computedSources = useMemo(
     () =>
@@ -95,6 +107,17 @@ export function PropertyImageCarousel({
     loop: false,
     dragFree: false,
   });
+  const controller = useMemo<PropertyImageCarouselController | null>(() => {
+    if (!emblaApi) {
+      return null;
+    }
+
+    return {
+      scrollTo: (index: number) => emblaApi.scrollTo(index),
+      scrollPrev: () => emblaApi.scrollPrev(),
+      scrollNext: () => emblaApi.scrollNext(),
+    };
+  }, [emblaApi]);
 
   const updateCarouselState = useCallback(() => {
     if (!emblaApi) {
@@ -117,6 +140,20 @@ export function PropertyImageCarousel({
       emblaApi.off("reInit", updateCarouselState);
     };
   }, [emblaApi, updateCarouselState]);
+
+  useEffect(() => {
+    onSelectedIndexChange?.(selectedIndex);
+  }, [onSelectedIndexChange, selectedIndex]);
+
+  useEffect(() => {
+    if (!onCarouselReady) {
+      return;
+    }
+    onCarouselReady(controller);
+    return () => {
+      onCarouselReady(null);
+    };
+  }, [controller, onCarouselReady]);
 
   const handleImageError = useCallback(
     (imageUrl: string) => {
@@ -226,7 +263,10 @@ export function PropertyImageCarousel({
 
       {showCountBadge && (
         <span
-          className="pointer-events-none absolute right-3 top-14 z-10 rounded-full bg-slate-900/75 px-2 py-0.5 text-[11px] font-medium text-white"
+          className={cn(
+            "pointer-events-none absolute right-3 top-14 z-10 rounded-full bg-slate-900/75 px-2 py-0.5 text-[11px] font-medium text-white",
+            countBadgeClassName
+          )}
           data-testid="property-image-count-badge"
         >
           {`${countIndex}/${imageSources.length}`}

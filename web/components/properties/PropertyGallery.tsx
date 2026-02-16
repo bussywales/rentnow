@@ -1,9 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import Image from "next/image";
 import type { PropertyImage } from "@/lib/types";
 import { shouldRenderDemoWatermark } from "@/lib/properties/demo";
+import { shouldRenderImageCountBadge } from "@/components/properties/PropertyImageCarousel";
+import { cn } from "@/components/ui/cn";
+import {
+  PropertyImageCarousel,
+  type PropertyImageCarouselController,
+} from "@/components/properties/PropertyImageCarousel";
 
 type Props = {
   images: PropertyImage[];
@@ -17,10 +23,12 @@ const blurDataURL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
 
 export function PropertyGallery({ images, title, isDemo = false }: Props) {
-  const [current, setCurrent] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [carouselController, setCarouselController] =
+    useState<PropertyImageCarouselController | null>(null);
   const [broken, setBroken] = useState<Set<string>>(new Set());
-  const safeImages = images.length ? images : [];
-  const currentImage = safeImages[current] || safeImages[0];
+  const thumbRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const safeImages = useMemo(() => (images.length ? images : []), [images]);
 
   const imageKey = (img: PropertyImage, idx: number) => img.id || `${img.image_url}-${idx}`;
   const resolveSrc = (img: PropertyImage, idx: number) =>
@@ -35,12 +43,24 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
     });
   };
 
-  const handleKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const activeIndex = resolveThumbnailTargetIndex(selectedIndex, safeImages.length);
+
+  useEffect(() => {
+    const activeThumb = thumbRefs.current[activeIndex];
+    activeThumb?.scrollIntoView({
+      block: "nearest",
+      inline: "center",
+    });
+  }, [activeIndex]);
+
+  const handleKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === "ArrowLeft") {
-      setCurrent((prev) => (prev - 1 + safeImages.length) % safeImages.length);
+      e.preventDefault();
+      carouselController?.scrollPrev();
     }
     if (e.key === "ArrowRight") {
-      setCurrent((prev) => (prev + 1) % safeImages.length);
+      e.preventDefault();
+      carouselController?.scrollNext();
     }
   };
 
@@ -55,28 +75,27 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
     );
   }
 
-  const showNav = safeImages.length > 1;
+  const showNav = shouldRenderGalleryControls(safeImages.length);
   const showDemoWatermark = shouldRenderDemoWatermark({ isDemo, enabled: true });
 
   return (
     <div className="space-y-3 min-w-0 max-w-full">
       <div
-        className="relative h-72 w-full max-w-full overflow-hidden rounded-2xl bg-slate-100"
+        className="group/property-gallery relative h-72 w-full max-w-full overflow-hidden rounded-2xl bg-slate-100"
         tabIndex={0}
         onKeyDown={handleKey}
         aria-label="Property photos"
       >
-        <Image
-          key={imageKey(currentImage, current)}
-          src={resolveSrc(currentImage, current)}
-          alt={title}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, 640px"
-          priority
-          placeholder="blur"
+        <PropertyImageCarousel
+          title={title}
+          images={safeImages}
+          fallbackImage={fallbackImage}
           blurDataURL={blurDataURL}
-          onError={() => markBroken(currentImage, current)}
+          sizes="(max-width: 768px) 100vw, 640px"
+          className="h-full"
+          onSelectedIndexChange={setSelectedIndex}
+          onCarouselReady={setCarouselController}
+          countBadgeClassName="top-3"
         />
         {showDemoWatermark && (
           <div
@@ -86,56 +105,56 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
             Demo
           </div>
         )}
-        {showNav && (
-          <>
-            <div className="absolute right-3 top-3 rounded-full bg-slate-900/70 px-3 py-1 text-xs font-semibold text-white">
-              {current + 1} / {safeImages.length}
-            </div>
-            <button
-              type="button"
-              onClick={() =>
-                setCurrent((prev) => (prev - 1 + safeImages.length) % safeImages.length)
-              }
-              className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-white"
-              aria-label="Previous photo"
-            >
-              Prev
-            </button>
-            <button
-              type="button"
-              onClick={() => setCurrent((prev) => (prev + 1) % safeImages.length)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/90 px-3 py-1 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-white"
-              aria-label="Next photo"
-            >
-              Next
-            </button>
-          </>
-        )}
       </div>
-      <div className="flex w-full max-w-full min-w-0 gap-2 overflow-x-auto pb-1">
-        {safeImages.map((img, idx) => (
-          <button
-            key={img.id || idx}
-            type="button"
-            onClick={() => setCurrent(idx)}
-            className={`relative h-16 w-24 flex-none overflow-hidden rounded-lg border ${
-              idx === current ? "border-sky-500 ring-2 ring-sky-200" : "border-slate-200"
-            }`}
-            aria-label={`Photo ${idx + 1}`}
-          >
-            <Image
-              src={resolveSrc(img, idx)}
-              alt={`${title} thumbnail ${idx + 1}`}
-              fill
-              className="object-cover"
-              sizes="96px"
-              placeholder="blur"
-              blurDataURL={blurDataURL}
-              onError={() => markBroken(img, idx)}
-            />
-          </button>
-        ))}
-      </div>
+      {showNav && (
+        <div className="flex w-full max-w-full min-w-0 gap-2 overflow-x-auto pb-1">
+          {safeImages.map((img, idx) => (
+            <button
+              key={img.id || idx}
+              ref={(node) => {
+                thumbRefs.current[idx] = node;
+              }}
+              type="button"
+              onClick={() => {
+                const targetIndex = resolveThumbnailTargetIndex(idx, safeImages.length);
+                setSelectedIndex(targetIndex);
+                carouselController?.scrollTo(targetIndex);
+              }}
+              className={cn(
+                "relative h-16 w-24 flex-none overflow-hidden rounded-lg border transition",
+                idx === activeIndex
+                  ? "border-sky-500 ring-2 ring-sky-200"
+                  : "border-slate-200 hover:border-slate-300"
+              )}
+              data-testid="property-gallery-thumbnail"
+              data-active={idx === activeIndex ? "true" : "false"}
+              aria-label={`Photo ${idx + 1}`}
+            >
+              <Image
+                src={resolveSrc(img, idx)}
+                alt={`${title} thumbnail ${idx + 1}`}
+                fill
+                className="object-cover"
+                sizes="96px"
+                placeholder="blur"
+                blurDataURL={blurDataURL}
+                onError={() => markBroken(img, idx)}
+              />
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
+}
+
+export function shouldRenderGalleryControls(totalImages: number): boolean {
+  return shouldRenderImageCountBadge(totalImages);
+}
+
+export function resolveThumbnailTargetIndex(index: number, totalImages: number): number {
+  if (totalImages <= 0) return 0;
+  if (index < 0) return 0;
+  if (index >= totalImages) return totalImages - 1;
+  return index;
 }
