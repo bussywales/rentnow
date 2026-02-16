@@ -13,6 +13,10 @@ import {
   notifyTenantBookingApproved,
   notifyTenantBookingDeclined,
 } from "@/lib/shortlet/notifications.server";
+import {
+  buildShortletNotificationBody,
+  createInAppNotification,
+} from "@/lib/notifications/in-app.server";
 
 const routeLabel = "/api/shortlet/bookings/[id]/respond";
 
@@ -164,6 +168,13 @@ export async function POST(
       currency: booking.currency,
       bookingId: booking.id,
     };
+    const notificationBody = buildShortletNotificationBody({
+      checkIn: booking.check_in,
+      checkOut: booking.check_out,
+      nights: booking.nights,
+      amountMinor: booking.total_amount_minor,
+      currency: booking.currency,
+    });
 
     if (parsed.data.action === "accept") {
       await Promise.all([
@@ -177,13 +188,39 @@ export async function POST(
           email: hostEmail,
           payload: notificationPayload,
         }),
+        createInAppNotification({
+          userId: booking.guest_user_id,
+          type: "shortlet_booking_approved",
+          title: `Booking approved: ${booking.properties?.title || "Shortlet listing"}`,
+          body: notificationBody,
+          href: `/trips/${booking.id}`,
+          dedupeKey: `shortlet_booking:${booking.id}:approved:tenant`,
+        }),
+        createInAppNotification({
+          userId: booking.host_user_id,
+          type: "shortlet_booking_host_update",
+          title: "You approved a booking request",
+          body: notificationBody,
+          href: "/host?tab=bookings",
+          dedupeKey: `shortlet_booking:${booking.id}:approved:host`,
+        }),
       ]);
     } else {
-      await notifyTenantBookingDeclined({
-        guestUserId: booking.guest_user_id,
-        email: guestEmail,
-        payload: notificationPayload,
-      });
+      await Promise.all([
+        notifyTenantBookingDeclined({
+          guestUserId: booking.guest_user_id,
+          email: guestEmail,
+          payload: notificationPayload,
+        }),
+        createInAppNotification({
+          userId: booking.guest_user_id,
+          type: "shortlet_booking_declined",
+          title: `Booking declined: ${booking.properties?.title || "Shortlet listing"}`,
+          body: notificationBody,
+          href: `/trips/${booking.id}`,
+          dedupeKey: `shortlet_booking:${booking.id}:declined:tenant`,
+        }),
+      ]);
     }
 
     return NextResponse.json({

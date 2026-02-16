@@ -6,6 +6,7 @@ import { HelpDrawer } from "@/components/help/HelpDrawer";
 import { ProductUpdatesBell } from "@/components/updates/ProductUpdatesBell";
 import { ProductUpdatesOnboarding } from "@/components/updates/ProductUpdatesOnboarding";
 import { MarketSelector } from "@/components/layout/MarketSelector";
+import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
@@ -135,6 +136,7 @@ export async function MainNav({
             <MarketSelector enabled={marketSelectorEnabled} />
           </div>
           <HelpDrawer initialAuthed={initialAuthed} initialRole={role} docsByRole={helpDocsByRole} />
+          <NotificationsBell initialAuthed={initialAuthed} initialRole={role} />
           <ProductUpdatesBell initialAuthed={initialAuthed} />
           <NavAuthClient initialAuthed={initialAuthed} />
           <NavMobileDrawerClient

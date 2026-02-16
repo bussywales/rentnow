@@ -16,6 +16,10 @@ import {
   notifyTenantBookingRequestSent,
   notifyTenantReservationConfirmed,
 } from "@/lib/shortlet/notifications.server";
+import {
+  buildShortletNotificationBody,
+  createInAppNotification,
+} from "@/lib/notifications/in-app.server";
 
 const routeLabel = "/api/shortlet/bookings/create";
 
@@ -110,6 +114,13 @@ export async function POST(request: NextRequest) {
       currency: created.currency || propertyData.currency || "NGN",
       bookingId: created.bookingId,
     };
+    const notificationBody = buildShortletNotificationBody({
+      checkIn: check_in,
+      checkOut: check_out,
+      nights: created.nights,
+      amountMinor: created.totalAmountMinor,
+      currency: created.currency || propertyData.currency || "NGN",
+    });
 
     const hostEmail = await resolveHostEmail(propertyData.owner_id);
 
@@ -125,6 +136,22 @@ export async function POST(request: NextRequest) {
           email: hostEmail,
           payload: notificationPayload,
         }),
+        createInAppNotification({
+          userId: auth.user.id,
+          type: "shortlet_booking_instant_confirmed",
+          title: "Reservation confirmed",
+          body: notificationBody,
+          href: `/trips/${created.bookingId}`,
+          dedupeKey: `shortlet_booking:${created.bookingId}:instant_confirmed:tenant`,
+        }),
+        createInAppNotification({
+          userId: propertyData.owner_id,
+          type: "shortlet_booking_instant_confirmed",
+          title: `New reservation: ${propertyData.title || "Shortlet listing"}`,
+          body: notificationBody,
+          href: "/host?tab=bookings",
+          dedupeKey: `shortlet_booking:${created.bookingId}:instant_confirmed:host`,
+        }),
       ]);
     } else {
       await Promise.all([
@@ -137,6 +164,22 @@ export async function POST(request: NextRequest) {
           hostUserId: propertyData.owner_id,
           email: hostEmail,
           payload: notificationPayload,
+        }),
+        createInAppNotification({
+          userId: auth.user.id,
+          type: "shortlet_booking_request_sent",
+          title: "Your booking request was sent",
+          body: notificationBody,
+          href: `/trips/${created.bookingId}`,
+          dedupeKey: `shortlet_booking:${created.bookingId}:request_sent:tenant`,
+        }),
+        createInAppNotification({
+          userId: propertyData.owner_id,
+          type: "shortlet_booking_request_sent",
+          title: `New booking request: ${propertyData.title || "Shortlet listing"}`,
+          body: notificationBody,
+          href: "/host?tab=bookings",
+          dedupeKey: `shortlet_booking:${created.bookingId}:request_sent:host`,
         }),
       ]);
     }
