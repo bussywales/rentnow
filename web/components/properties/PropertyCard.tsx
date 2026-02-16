@@ -1,7 +1,5 @@
 "use client";
 
-import { useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import type { Property, UserRole } from "@/lib/types";
 import { cn } from "@/components/ui/cn";
@@ -26,6 +24,7 @@ import {
   derivePublicAdvertiserName,
   resolvePublicAdvertiserHref,
 } from "@/lib/advertisers/public-profile";
+import { PropertyImageCarousel } from "@/components/properties/PropertyImageCarousel";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 import {
@@ -104,7 +103,6 @@ export function PropertyCard({
     "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=80";
   const primaryImage =
     getPrimaryImageUrl(property) || property.images?.[0]?.image_url || fallbackImage;
-  const [imgSrc, setImgSrc] = useState(primaryImage);
   const blurDataURL =
     "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
   const locationLabel = formatLocationLabel(property.city, property.neighbourhood);
@@ -169,41 +167,16 @@ export function PropertyCard({
           : "aspect-[4/3] w-full"
       )}
     >
-      {href ? (
-        <Link
-          href={cardHref}
-          aria-label={`View ${property.title}`}
-          className="block h-full w-full"
-        >
-          <Image
-            src={imgSrc}
-            alt={property.title}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, 320px"
-            priority={false}
-            placeholder="blur"
-            blurDataURL={blurDataURL}
-            onError={() => {
-              if (imgSrc !== fallbackImage) setImgSrc(fallbackImage);
-            }}
-          />
-        </Link>
-      ) : (
-        <Image
-          src={imgSrc}
-          alt={property.title}
-          fill
-          className="object-cover"
-          sizes="(max-width: 768px) 100vw, 320px"
-          priority={false}
-          placeholder="blur"
-          blurDataURL={blurDataURL}
-          onError={() => {
-            if (imgSrc !== fallbackImage) setImgSrc(fallbackImage);
-          }}
-        />
-      )}
+      <PropertyImageCarousel
+        title={property.title}
+        href={href ? cardHref : undefined}
+        coverImageUrl={property.cover_image_url}
+        primaryImageUrl={primaryImage}
+        images={property.images}
+        fallbackImage={fallbackImage}
+        blurDataURL={blurDataURL}
+        sizes="(max-width: 768px) 100vw, 320px"
+      />
       <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
         {showSave && (
           <SaveButton propertyId={property.id} initialSaved={initialSaved} variant="icon" />

@@ -29,6 +29,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "docx": "^9.5.1",
+    "embla-carousel-react": "^8.6.0",
     "leaflet": "^1.9.4",
     "next": "^16.0.7",
     "openai": "^6.9.1",
