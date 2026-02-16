@@ -33,6 +33,7 @@ import { HostFeaturedRequestModal } from "@/components/host/HostFeaturedRequestM
 import { HostPaymentsPanel } from "@/components/host/HostPaymentsPanel";
 import { HostShortletBookingsPanel } from "@/components/host/HostShortletBookingsPanel";
 import { HostShortletWorkspace } from "@/components/host/HostShortletWorkspace";
+import { HostBookingsHashAnchorClient } from "@/components/host/HostBookingsHashAnchorClient";
 import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import type { PropertyStatus } from "@/lib/types";
 import type { MissedDemandEstimate } from "@/lib/analytics/property-events";
@@ -51,6 +52,7 @@ import {
 } from "@/lib/featured/eligibility";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
 import { getPublicVisibilityDiagnostics } from "@/lib/properties/public-visibility-diagnostics";
+import { resolveHostWorkspaceSectionFromLocation } from "@/lib/host/bookings-navigation";
 
 function normalizeStatus(property: {
   status?: string | null;
@@ -361,13 +363,13 @@ export function HostDashboardContent({
 
   useEffect(() => {
     const requestedTab = searchParams?.get("tab");
-    if (requestedTab === "bookings") {
-      setWorkspaceSection("bookings");
-      return;
-    }
-    if (requestedTab === "listings") {
-      setWorkspaceSection("listings");
-    }
+    const hash = typeof window !== "undefined" ? window.location.hash : null;
+    setWorkspaceSection((current) =>
+      resolveHostWorkspaceSectionFromLocation(current, {
+        tab: requestedTab,
+        hash,
+      })
+    );
   }, [searchParams]);
 
   const toggleSelectAll = () => {
@@ -773,6 +775,7 @@ export function HostDashboardContent({
 
   return (
     <div className="min-w-0 space-y-3">
+      <HostBookingsHashAnchorClient targetId="host-bookings" topOffsetPx={96} />
       <div className="flex min-w-0 flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-sm">
         <button
           type="button"
@@ -803,7 +806,7 @@ export function HostDashboardContent({
             You have {pendingRequestCount} booking request{pendingRequestCount === 1 ? "" : "s"} awaiting approval.
           </span>
           <Link
-            href="/host?tab=bookings"
+            href="/host?tab=bookings#host-bookings"
             className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
           >
             Review bookings
@@ -1078,7 +1081,7 @@ export function HostDashboardContent({
                       Manage shortlet
                     </p>
                     <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-                      <Link href="/host?tab=bookings">
+                      <Link href="/host?tab=bookings#host-bookings">
                         <Button size="sm" variant="secondary">
                           Bookings
                         </Button>
@@ -1265,7 +1268,7 @@ export function HostDashboardContent({
           )}
         </>
       ) : (
-        <div className="space-y-3">
+        <div id="host-bookings" data-testid="host-bookings" className="space-y-3 scroll-mt-28">
           <HostShortletBookingsPanel
             initialRows={shortletBookings}
             settingsRows={shortletSettings}

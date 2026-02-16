@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
           type: "shortlet_booking_instant_confirmed",
           title: `New reservation: ${propertyData.title || "Shortlet listing"}`,
           body: notificationBody,
-          href: "/host?tab=bookings",
+          href: "/host?tab=bookings#host-bookings",
           dedupeKey: `shortlet_booking:${created.bookingId}:instant_confirmed:host`,
         }),
       ]);
@@ -178,7 +178,7 @@ export async function POST(request: NextRequest) {
           type: "shortlet_booking_request_sent",
           title: `New booking request: ${propertyData.title || "Shortlet listing"}`,
           body: notificationBody,
-          href: "/host?tab=bookings",
+          href: "/host?tab=bookings#host-bookings",
           dedupeKey: `shortlet_booking:${created.bookingId}:request_sent:host`,
         }),
       ]);
