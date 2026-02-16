@@ -13,8 +13,8 @@ type NotificationRow = {
   id: string;
   type: string;
   title: string;
-  body: string;
-  href: string;
+  body: string | null;
+  href: string | null;
   is_read: boolean;
   created_at: string;
 };
@@ -123,7 +123,7 @@ export async function getNotificationsResponse(
     }
 
     return NextResponse.json({
-      notifications: listResult.data,
+      items: listResult.data,
       unreadCount: countResult.unreadCount,
     });
   } catch {

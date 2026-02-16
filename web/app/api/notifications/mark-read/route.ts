@@ -11,6 +11,20 @@ const payloadSchema = z.object({
 
 type QueryClient = {
   from: (table: "notifications") => {
+    select: (
+      columns: string,
+      options?: { count?: "exact"; head?: boolean }
+    ) => {
+      eq: (
+        column: "user_id" | "is_read",
+        value: string | boolean
+      ) => {
+        eq?: (
+          column: "is_read",
+          value: boolean
+        ) => Promise<{ count: number | null; error: { message?: string | null } | null }>;
+      };
+    };
     update: (row: { is_read: boolean }) => {
       eq: (
         column: "user_id" | "is_read",
@@ -72,16 +86,33 @@ export async function markNotificationsRead(
   };
 }
 
+async function countUnreadForUser(client: QueryClient, userId: string) {
+  const query = client
+    .from("notifications")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId);
+
+  const result = await query.eq?.("is_read", false);
+  if (!result) return { unreadCount: 0, error: null };
+
+  return {
+    unreadCount: result.count ?? 0,
+    error: result.error,
+  };
+}
+
 export type NotificationsMarkReadDeps = {
   hasServerSupabaseEnv: typeof hasServerSupabaseEnv;
   requireUser: typeof requireUser;
   markNotificationsRead: typeof markNotificationsRead;
+  countUnreadForUser: typeof countUnreadForUser;
 };
 
 const defaultDeps: NotificationsMarkReadDeps = {
   hasServerSupabaseEnv,
   requireUser,
   markNotificationsRead,
+  countUnreadForUser,
 };
 
 export async function postNotificationsMarkReadResponse(
@@ -111,7 +142,15 @@ export async function postNotificationsMarkReadResponse(
     return NextResponse.json({ error: "Unable to mark notifications as read" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, updated: result.updatedIds.length, ids: result.updatedIds });
+  const unreadResult = await deps.countUnreadForUser(
+    auth.supabase as unknown as QueryClient,
+    auth.user.id
+  );
+  if (unreadResult.error) {
+    return NextResponse.json({ error: "Unable to mark notifications as read" }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, unreadCount: unreadResult.unreadCount });
 }
 
 export const dynamic = "force-dynamic";

@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  createInAppNotification,
-  type CreateInAppNotificationDeps,
-} from "@/lib/notifications/in-app.server";
+  createNotification,
+  type CreateNotificationDeps,
+} from "@/lib/notifications/notifications.server";
 
 function buildFakeClient() {
   const dedupeKeys = new Set<string>();
@@ -28,12 +28,12 @@ function buildFakeClient() {
 
 void test("in-app notifications are idempotent by dedupe key", async () => {
   const fakeClient = buildFakeClient();
-  const deps: CreateInAppNotificationDeps = {
+  const deps: CreateNotificationDeps = {
     hasServiceRoleEnv: () => true,
     createServiceRoleClient: () => fakeClient as never,
   };
 
-  const first = await createInAppNotification(
+  const first = await createNotification(
     {
       userId: "tenant-1",
       type: "shortlet_booking_request_sent",
@@ -45,7 +45,7 @@ void test("in-app notifications are idempotent by dedupe key", async () => {
     deps
   );
 
-  const second = await createInAppNotification(
+  const second = await createNotification(
     {
       userId: "tenant-1",
       type: "shortlet_booking_request_sent",

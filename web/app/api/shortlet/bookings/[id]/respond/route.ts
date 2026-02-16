@@ -15,8 +15,8 @@ import {
 } from "@/lib/shortlet/notifications.server";
 import {
   buildShortletNotificationBody,
-  createInAppNotification,
-} from "@/lib/notifications/in-app.server";
+  createNotification,
+} from "@/lib/notifications/notifications.server";
 
 const routeLabel = "/api/shortlet/bookings/[id]/respond";
 
@@ -188,7 +188,7 @@ export async function POST(
           email: hostEmail,
           payload: notificationPayload,
         }),
-        createInAppNotification({
+        createNotification({
           userId: booking.guest_user_id,
           type: "shortlet_booking_approved",
           title: `Booking approved: ${booking.properties?.title || "Shortlet listing"}`,
@@ -196,7 +196,7 @@ export async function POST(
           href: `/trips/${booking.id}`,
           dedupeKey: `shortlet_booking:${booking.id}:approved:tenant`,
         }),
-        createInAppNotification({
+        createNotification({
           userId: booking.host_user_id,
           type: "shortlet_booking_host_update",
           title: "You approved a booking request",
@@ -212,7 +212,7 @@ export async function POST(
           email: guestEmail,
           payload: notificationPayload,
         }),
-        createInAppNotification({
+        createNotification({
           userId: booking.guest_user_id,
           type: "shortlet_booking_declined",
           title: `Booking declined: ${booking.properties?.title || "Shortlet listing"}`,

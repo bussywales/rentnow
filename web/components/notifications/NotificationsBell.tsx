@@ -11,8 +11,8 @@ type NotificationItem = {
   id: string;
   type: string;
   title: string;
-  body: string;
-  href: string;
+  body: string | null;
+  href: string | null;
   is_read: boolean;
   created_at: string;
 };
@@ -73,16 +73,16 @@ export function NotificationsBell({ initialAuthed, initialRole }: Props) {
         credentials: "include",
       });
       const payload = (await response.json().catch(() => null)) as
-        | { notifications?: NotificationItem[]; unreadCount?: number; error?: string }
+        | { items?: NotificationItem[]; unreadCount?: number; error?: string }
         | null;
 
       if (!response.ok) {
         throw new Error(payload?.error || "Unable to load notifications");
       }
 
-      const notifications = Array.isArray(payload?.notifications) ? payload.notifications : [];
-      setItems(notifications);
-      setUnreadCount(resolveUnreadNotificationsCount(notifications, payload?.unreadCount ?? null));
+      const nextItems = Array.isArray(payload?.items) ? payload.items : [];
+      setItems(nextItems);
+      setUnreadCount(resolveUnreadNotificationsCount(nextItems, payload?.unreadCount ?? null));
     } catch (refreshError) {
       setError(refreshError instanceof Error ? refreshError.message : "Unable to load notifications");
     } finally {
@@ -93,12 +93,18 @@ export function NotificationsBell({ initialAuthed, initialRole }: Props) {
   const markRead = useCallback(async (ids?: string[]) => {
     if (!initialAuthed || !canShow) return;
 
-    await fetch("/api/notifications/mark-read", {
+    const response = await fetch("/api/notifications/mark-read", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(ids?.length ? { ids } : {}),
     }).catch(() => null);
+    const payload = (await response?.json().catch(() => null)) as
+      | { unreadCount?: number }
+      | null;
+    if (typeof payload?.unreadCount === "number") {
+      setUnreadCount(Math.max(0, Math.trunc(payload.unreadCount)));
+    }
   }, [canShow, initialAuthed]);
 
   useEffect(() => {
@@ -220,7 +226,7 @@ export function NotificationsBell({ initialAuthed, initialRole }: Props) {
                       <p className="text-sm font-semibold leading-5">{item.title}</p>
                       <span className="shrink-0 text-[11px] text-slate-500">{formatRelativeTime(item.created_at)}</span>
                     </div>
-                    <p className="w-full text-xs leading-5 text-slate-600">{item.body}</p>
+                    <p className="w-full text-xs leading-5 text-slate-600">{item.body || "Booking activity update"}</p>
                   </button>
                 ))
               : null}

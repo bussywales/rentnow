@@ -18,8 +18,8 @@ import {
 } from "@/lib/shortlet/notifications.server";
 import {
   buildShortletNotificationBody,
-  createInAppNotification,
-} from "@/lib/notifications/in-app.server";
+  createNotification,
+} from "@/lib/notifications/notifications.server";
 
 const routeLabel = "/api/shortlet/bookings/create";
 
@@ -136,7 +136,7 @@ export async function POST(request: NextRequest) {
           email: hostEmail,
           payload: notificationPayload,
         }),
-        createInAppNotification({
+        createNotification({
           userId: auth.user.id,
           type: "shortlet_booking_instant_confirmed",
           title: "Reservation confirmed",
@@ -144,7 +144,7 @@ export async function POST(request: NextRequest) {
           href: `/trips/${created.bookingId}`,
           dedupeKey: `shortlet_booking:${created.bookingId}:instant_confirmed:tenant`,
         }),
-        createInAppNotification({
+        createNotification({
           userId: propertyData.owner_id,
           type: "shortlet_booking_instant_confirmed",
           title: `New reservation: ${propertyData.title || "Shortlet listing"}`,
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
           email: hostEmail,
           payload: notificationPayload,
         }),
-        createInAppNotification({
+        createNotification({
           userId: auth.user.id,
           type: "shortlet_booking_request_sent",
           title: "Your booking request was sent",
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
           href: `/trips/${created.bookingId}`,
           dedupeKey: `shortlet_booking:${created.bookingId}:request_sent:tenant`,
         }),
-        createInAppNotification({
+        createNotification({
           userId: propertyData.owner_id,
           type: "shortlet_booking_request_sent",
           title: `New booking request: ${propertyData.title || "Shortlet listing"}`,

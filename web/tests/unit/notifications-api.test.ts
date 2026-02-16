@@ -74,7 +74,7 @@ void test("notifications GET returns latest rows and unread count", async () => 
   const payload = await response.json();
 
   assert.equal(response.status, 200);
-  assert.equal(payload.notifications.length, 1);
+  assert.equal(payload.items.length, 1);
   assert.equal(payload.unreadCount, 1);
 });
 
@@ -98,6 +98,10 @@ void test("mark-read route scopes update to authenticated user", async () => {
         error: null,
       };
     },
+    countUnreadForUser: async (_client, userId) => {
+      assert.equal(userId, "host-77");
+      return { unreadCount: 2, error: null };
+    },
   };
 
   const request = new NextRequest("http://localhost/api/notifications/mark-read", {
@@ -114,5 +118,5 @@ void test("mark-read route scopes update to authenticated user", async () => {
   assert.equal(response.status, 200);
   assert.equal(markUserId, "host-77");
   assert.deepEqual(markIds, ["11111111-1111-4111-8111-111111111111"]);
-  assert.equal(payload.updated, 1);
+  assert.equal(payload.unreadCount, 2);
 });
