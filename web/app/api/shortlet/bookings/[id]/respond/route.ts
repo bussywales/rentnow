@@ -9,8 +9,9 @@ import {
   respondShortletBookingViaRpc,
 } from "@/lib/shortlet/shortlet.server";
 import {
-  notifyGuestBookingConfirmed,
-  notifyGuestBookingDeclined,
+  notifyHostBookingApprovedConfirmation,
+  notifyTenantBookingApproved,
+  notifyTenantBookingDeclined,
 } from "@/lib/shortlet/notifications.server";
 
 const routeLabel = "/api/shortlet/bookings/[id]/respond";
@@ -149,7 +150,10 @@ export async function POST(
       });
     }
 
-    const guestEmail = await resolveUserEmail(booking.guest_user_id);
+    const [guestEmail, hostEmail] = await Promise.all([
+      resolveUserEmail(booking.guest_user_id),
+      resolveUserEmail(booking.host_user_id),
+    ]);
     const notificationPayload = {
       propertyTitle: booking.properties?.title || "Shortlet listing",
       city: booking.properties?.city || null,
@@ -162,9 +166,24 @@ export async function POST(
     };
 
     if (parsed.data.action === "accept") {
-      await notifyGuestBookingConfirmed(guestEmail, notificationPayload);
+      await Promise.all([
+        notifyTenantBookingApproved({
+          guestUserId: booking.guest_user_id,
+          email: guestEmail,
+          payload: notificationPayload,
+        }),
+        notifyHostBookingApprovedConfirmation({
+          hostUserId: booking.host_user_id,
+          email: hostEmail,
+          payload: notificationPayload,
+        }),
+      ]);
     } else {
-      await notifyGuestBookingDeclined(guestEmail, notificationPayload);
+      await notifyTenantBookingDeclined({
+        guestUserId: booking.guest_user_id,
+        email: guestEmail,
+        payload: notificationPayload,
+      });
     }
 
     return NextResponse.json({

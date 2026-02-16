@@ -38,6 +38,10 @@ void test("tenant workspace renders tenant-focused panels", () => {
     "expected messages panel"
   );
   assert.ok(
+    contents.includes('"/trips"'),
+    "expected trips quick action"
+  );
+  assert.ok(
     contents.includes("Viewings"),
     "expected viewings panel"
   );

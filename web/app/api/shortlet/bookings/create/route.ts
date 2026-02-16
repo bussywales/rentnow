@@ -11,9 +11,10 @@ import {
 import { mapBookingCreateError } from "@/lib/shortlet/bookings";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
 import {
-  notifyGuestBookingConfirmed,
-  notifyGuestBookingPending,
-  notifyHostBookingRequest,
+  notifyHostNewBookingRequest,
+  notifyHostNewReservation,
+  notifyTenantBookingRequestSent,
+  notifyTenantReservationConfirmed,
 } from "@/lib/shortlet/notifications.server";
 
 const routeLabel = "/api/shortlet/bookings/create";
@@ -114,13 +115,29 @@ export async function POST(request: NextRequest) {
 
     if (created.status === "confirmed") {
       await Promise.all([
-        notifyGuestBookingConfirmed(auth.user.email ?? null, notificationPayload),
-        notifyHostBookingRequest(hostEmail, notificationPayload),
+        notifyTenantReservationConfirmed({
+          guestUserId: auth.user.id,
+          email: auth.user.email ?? null,
+          payload: notificationPayload,
+        }),
+        notifyHostNewReservation({
+          hostUserId: propertyData.owner_id,
+          email: hostEmail,
+          payload: notificationPayload,
+        }),
       ]);
     } else {
       await Promise.all([
-        notifyGuestBookingPending(auth.user.email ?? null, notificationPayload),
-        notifyHostBookingRequest(hostEmail, notificationPayload),
+        notifyTenantBookingRequestSent({
+          guestUserId: auth.user.id,
+          email: auth.user.email ?? null,
+          payload: notificationPayload,
+        }),
+        notifyHostNewBookingRequest({
+          hostUserId: propertyData.owner_id,
+          email: hostEmail,
+          payload: notificationPayload,
+        }),
       ]);
     }
 

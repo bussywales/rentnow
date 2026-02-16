@@ -125,6 +125,23 @@ function truncateText(value: string, limit: number): string {
   return `${value.slice(0, Math.max(0, limit - 1)).trimEnd()}…`;
 }
 
+function resolveNightlyPriceMinorForListing(
+  property: DashboardListing,
+  shortletSetting: HostShortletSettingSummary | null
+): number | null {
+  if (typeof shortletSetting?.nightly_price_minor === "number") {
+    return shortletSetting.nightly_price_minor;
+  }
+
+  const rawSettings = Array.isArray(property.shortlet_settings)
+    ? property.shortlet_settings[0]
+    : null;
+  if (!rawSettings || typeof rawSettings !== "object") return null;
+
+  const nightly = (rawSettings as Record<string, unknown>).nightly_price_minor;
+  return typeof nightly === "number" ? nightly : null;
+}
+
 function buildFeaturedFixItems(propertyId: string, codes: FeaturedEligibilityCode[]): FeaturedFixItem[] {
   const items: FeaturedFixItem[] = [];
   for (const code of codes) {
@@ -282,6 +299,40 @@ export function HostDashboardContent({
     () => new Map(shortletSettings.map((row) => [row.property_id, row])),
     [shortletSettings]
   );
+  const shortletsMissingNightlyPrice = useMemo(
+    () =>
+      localListings
+        .map((property) => {
+          const shortletSetting = shortletSettingsByPropertyId.get(property.id) ?? null;
+          const isShortletListing = isShortletProperty({
+            listing_intent: property.listing_intent,
+            rental_type: property.rental_type,
+            shortlet_settings: shortletSetting
+              ? [
+                  {
+                    booking_mode: shortletSetting.booking_mode,
+                    nightly_price_minor: shortletSetting.nightly_price_minor,
+                  },
+                ]
+              : property.shortlet_settings ?? null,
+          });
+          const nightlyPriceMinor = resolveNightlyPriceMinorForListing(
+            property,
+            shortletSetting
+          );
+          const hasNightlyPrice =
+            typeof nightlyPriceMinor === "number" && nightlyPriceMinor > 0;
+          return {
+            propertyId: property.id,
+            isMissingNightlyPrice: isShortletListing && !hasNightlyPrice,
+          };
+        })
+        .filter((item) => item.isMissingNightlyPrice)
+        .map((item) => item.propertyId),
+    [localListings, shortletSettingsByPropertyId]
+  );
+  const missingShortletPriceCount = shortletsMissingNightlyPrice.length;
+  const firstMissingShortletPropertyId = shortletsMissingNightlyPrice[0] ?? null;
 
   useEffect(() => {
     let active = true;
@@ -749,15 +800,29 @@ export function HostDashboardContent({
       {pendingRequestCount > 0 ? (
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           <span className="min-w-0 break-words">
-            You have {pendingRequestCount} booking request{pendingRequestCount === 1 ? "" : "s"} waiting.
+            You have {pendingRequestCount} booking request{pendingRequestCount === 1 ? "" : "s"} awaiting approval.
           </span>
-          <button
-            type="button"
+          <Link
+            href="/host?tab=bookings"
             className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-            onClick={() => setWorkspaceSection("bookings")}
           >
             Review bookings
-          </button>
+          </Link>
+        </div>
+      ) : null}
+      {missingShortletPriceCount > 0 ? (
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+          <span className="min-w-0 break-words">
+            Some shortlets are not bookable until nightly price is set.
+          </span>
+          {firstMissingShortletPropertyId ? (
+            <Link
+              href={`/host/shortlets/${firstMissingShortletPropertyId}/settings`}
+              className="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100"
+            >
+              Set nightly price
+            </Link>
+          ) : null}
         </div>
       ) : null}
       {workspaceSection === "listings" ? (
@@ -824,9 +889,9 @@ export function HostDashboardContent({
                   ]
                 : property.shortlet_settings ?? null,
             });
+            const nightlyPriceMinor = resolveNightlyPriceMinorForListing(property, shortletSetting);
             const hasNightlyPrice =
-              typeof shortletSetting?.nightly_price_minor === "number" &&
-              shortletSetting.nightly_price_minor > 0;
+              typeof nightlyPriceMinor === "number" && nightlyPriceMinor > 0;
             const visibilityDiagnostics = getPublicVisibilityDiagnostics(property);
             const featuredRequest = featuredRequestsByProperty[property.id] ?? null;
             const featuredRequestPending = featuredRequest?.status === "pending";

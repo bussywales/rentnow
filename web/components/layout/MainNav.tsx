@@ -21,6 +21,7 @@ export const MAIN_NAV_LINKS: Array<{
 }> = [
   { href: "/properties", label: "Browse" },
   { href: "/tenant/saved", label: "Collections", requireAuth: true, requireRole: "tenant" },
+  { href: "/trips", label: "Trips", requireAuth: true, requireRole: "tenant" },
   { href: "/favourites", label: "Collections", requireAuth: true, denyRoles: ["tenant"] },
   { href: "/tenant/home", label: "Home", requireAuth: true, requireRole: "tenant" },
   { href: "/saved-searches", label: "Saved searches", requireAuth: true, denyRoles: ["admin"] },

@@ -18,3 +18,9 @@ test("non-admin nav keeps Dashboard", () => {
   assert.ok(labels.includes("Dashboard"));
   assert.ok(!labels.includes("Insights"));
 });
+
+test("tenant nav includes Trips", () => {
+  const links = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "tenant" });
+  const trips = links.find((link) => link.href === "/trips");
+  assert.ok(trips, "expected trips link for tenant role");
+});

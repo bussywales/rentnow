@@ -383,9 +383,14 @@ export default async function TenantHomePage() {
               Open the shortlet browse to filter bookable stays with date and pricing breakdown.
             </p>
           </div>
-          <Link href="/properties?stay=shortlet">
-            <Button>Browse shortlets</Button>
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link href="/properties?stay=shortlet">
+              <Button>Browse shortlets</Button>
+            </Link>
+            <Link href="/trips">
+              <Button variant="secondary">My trips</Button>
+            </Link>
+          </div>
         </div>
       </section>
 

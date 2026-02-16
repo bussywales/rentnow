@@ -65,6 +65,7 @@ export function ShortletBookingWidget(props: {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [latestBookingId, setLatestBookingId] = useState<string | null>(null);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
 
   useEffect(() => {
@@ -125,6 +126,7 @@ export function ShortletBookingWidget(props: {
     setCreating(true);
     setError(null);
     setNotice(null);
+    setLatestBookingId(null);
     try {
       const response = await fetch("/api/shortlet/bookings/create", {
         method: "POST",
@@ -142,6 +144,8 @@ export function ShortletBookingWidget(props: {
       if (!response.ok) {
         throw new Error(payload?.error || "Unable to create booking");
       }
+      const bookingId = typeof payload?.booking?.id === "string" ? payload.booking.id : null;
+      setLatestBookingId(bookingId);
       const status = payload?.booking?.status || "pending";
       if (status === "confirmed") {
         setNotice("Booking confirmed. Your stay is now reserved.");
@@ -255,7 +259,17 @@ export function ShortletBookingWidget(props: {
         ) : null}
       </div>
 
-      {notice ? <p className="mt-2 text-sm text-emerald-700">{notice}</p> : null}
+      {notice ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-emerald-700">
+          <p>{notice}</p>
+          <Link
+            href={latestBookingId ? `/trips/${latestBookingId}` : "/trips"}
+            className="font-semibold text-emerald-800 underline underline-offset-2"
+          >
+            My trips
+          </Link>
+        </div>
+      ) : null}
       {error ? <p className="mt-2 text-sm text-rose-600">{error}</p> : null}
       <p className="mt-2 text-xs text-slate-500">
         {props.listingTitle} · Marketplace pilot with manual payout handling.

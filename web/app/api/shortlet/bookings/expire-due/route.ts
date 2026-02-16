@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { expireDueShortletBookings } from "@/lib/shortlet/shortlet.server";
-import { notifyGuestBookingExpired } from "@/lib/shortlet/notifications.server";
+import { notifyTenantBookingExpired } from "@/lib/shortlet/notifications.server";
 
 const routeLabel = "/api/shortlet/bookings/expire-due";
 
@@ -58,15 +58,19 @@ export async function POST(request: NextRequest) {
       } | null) ?? null;
 
       const guestEmail = await resolveUserEmail(guestUserId);
-      await notifyGuestBookingExpired(guestEmail, {
-        propertyTitle: booking?.properties?.title || `Listing ${propertyId}`,
-        city: booking?.properties?.city || null,
-        checkIn: booking?.check_in || "",
-        checkOut: booking?.check_out || "",
-        nights: Number(booking?.nights || 0),
-        amountMinor: Number(booking?.total_amount_minor || 0),
-        currency: booking?.currency || "NGN",
-        bookingId,
+      await notifyTenantBookingExpired({
+        guestUserId,
+        email: guestEmail,
+        payload: {
+          propertyTitle: booking?.properties?.title || `Listing ${propertyId}`,
+          city: booking?.properties?.city || null,
+          checkIn: booking?.check_in || "",
+          checkOut: booking?.check_out || "",
+          nights: Number(booking?.nights || 0),
+          amountMinor: Number(booking?.total_amount_minor || 0),
+          currency: booking?.currency || "NGN",
+          bookingId,
+        },
       });
     }
 

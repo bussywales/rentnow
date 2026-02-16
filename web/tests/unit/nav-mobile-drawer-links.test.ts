@@ -39,4 +39,8 @@ void test("mobile drawer links are role-aware", () => {
     tenantLinks.find((link) => link.href === "/help/tenant"),
     "tenant should see tenant help link"
   );
+  assert.ok(
+    tenantLinks.find((link) => link.href === "/trips"),
+    "tenant should see Trips link"
+  );
 });
