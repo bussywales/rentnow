@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { filtersToChips } from "@/lib/search-filters";
+import { filtersToChips, normalizeIntentStaySelection } from "@/lib/search-filters";
 import type { ParsedSearchFilters } from "@/lib/types";
 import { buildSearchHref, LAST_SEARCH_STORAGE_KEY } from "@/lib/search/last-search";
 import { parseIntent } from "@/lib/search-intent";
@@ -50,6 +50,22 @@ export function SmartSearchBox({ onFilters, mode = "home" }: Props) {
     }
     if (currentStay === "shortlet" && !next.get("stay")) {
       next.set("stay", "shortlet");
+    }
+
+    const normalizedSelection = normalizeIntentStaySelection({
+      listingIntent: parseIntent(next.get("intent")),
+      stay: next.get("stay") === "shortlet" ? "shortlet" : null,
+    });
+    if (normalizedSelection.listingIntent) {
+      next.set("intent", normalizedSelection.listingIntent);
+    } else {
+      next.delete("intent");
+    }
+    if (normalizedSelection.stay === "shortlet") {
+      next.set("stay", "shortlet");
+    } else {
+      next.delete("stay");
+      next.delete("category");
     }
     const queryString = next.toString();
     return queryString ? `${basePath}?${queryString}` : basePath;

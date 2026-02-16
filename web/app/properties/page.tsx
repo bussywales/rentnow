@@ -18,6 +18,7 @@ import { normalizeRole } from "@/lib/roles";
 import {
   filtersToChips,
   hasActiveFilters,
+  normalizeIntentStaySelection,
   parseFiltersFromParams,
   parseFiltersFromSavedSearch,
 } from "@/lib/search-filters";
@@ -163,7 +164,7 @@ function applyMockFilters(
       if (bedroomsMode === "exact" && property.bedrooms !== filters.bedrooms) return false;
     }
     if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
-    if (filters.listingIntent && filters.listingIntent !== "all") {
+    if (filters.stay !== "shortlet" && filters.listingIntent && filters.listingIntent !== "all") {
       const expectedIntent = mapSearchFilterToListingIntent(filters.listingIntent);
       const listingIntent = normalizeListingIntent(property.listing_intent);
       if (expectedIntent && listingIntent !== expectedIntent) return false;
@@ -296,15 +297,21 @@ export default async function PropertiesPage({ searchParams }: Props) {
   }
 
   const shouldFavorSavedSearchIntent = !!savedSearchId && !urlIntent;
-  const resolvedIntent =
+  const resolvedIntentFromContext =
     resolveIntent({
       urlIntent,
       cookieIntent: shouldFavorSavedSearchIntent ? null : cookieIntent,
       defaultIntent: filters.listingIntent ?? (shouldFavorSavedSearchIntent ? "all" : "rent"),
     }) ?? (shouldFavorSavedSearchIntent ? "all" : "rent");
+  const normalizedIntentStay = normalizeIntentStaySelection({
+    listingIntent: resolvedIntentFromContext,
+    stay: filters.stay ?? null,
+  });
+  const resolvedIntent = normalizedIntentStay.listingIntent ?? resolvedIntentFromContext;
   filters = {
     ...filters,
     listingIntent: resolvedIntent,
+    stay: normalizedIntentStay.stay,
   };
 
   const savedSearchNotice =
@@ -328,6 +335,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     !!createdAfter ||
     hasActiveFilters(filters);
   const isShortletStayOnly = filters.stay === "shortlet";
+  const showStayTypeToggle = resolvedIntent !== "buy";
   const savedSearchNoticeNode = savedSearchNotice ? (
     <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 shadow-sm">
       <p className="font-semibold">{savedSearchNotice.title}</p>
@@ -369,12 +377,14 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const showMarketHubSuggestions = !hasFilters && marketHubLinks.length > 0;
   const shortletToggleHrefParams = buildSearchParams(resolvedSearchParams, {
     stay: isShortletStayOnly ? null : "shortlet",
+    intent: isShortletStayOnly ? resolvedIntent : "rent",
     page: "1",
     savedSearchId: null,
     source: null,
   });
   const allStaysHrefParams = buildSearchParams(resolvedSearchParams, {
     stay: null,
+    category: null,
     page: "1",
     savedSearchId: null,
     source: null,
@@ -785,43 +795,50 @@ export default async function PropertiesPage({ searchParams }: Props) {
         <ListingIntentToggle currentIntent={resolvedIntent} hasUrlIntent={urlIntent !== undefined} />
       </div>
 
-      <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-sm">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Stay type</p>
-        <Link
-          href={allStaysHref}
-          className={
-            isShortletStayOnly
-              ? "rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
-              : "rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
-          }
-        >
-          All stays
-        </Link>
-        <Link
-          href={shortletToggleHref}
-          className={
-            isShortletStayOnly
-              ? "rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
-              : "rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
-          }
-        >
-          Shortlets
-        </Link>
-      </div>
+      {showStayTypeToggle ? (
+        <div className="space-y-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-sm">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Stay type</p>
+            <Link
+              href={allStaysHref}
+              className={
+                isShortletStayOnly
+                  ? "rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
+                  : "rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
+              }
+            >
+              All stays
+            </Link>
+            <Link
+              href={shortletToggleHref}
+              className={
+                isShortletStayOnly
+                  ? "rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
+                  : "rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
+              }
+            >
+              Shortlets
+            </Link>
+          </div>
+          <p className="text-xs text-slate-500">Shortlets are bookable nightly stays (rent only).</p>
+        </div>
+      ) : null}
 
-      <div className="rounded-2xl border border-sky-100 bg-sky-50/80 px-4 py-3 text-sm text-slate-700 shadow-sm">
-        <p className="text-[10px] uppercase tracking-[0.2em] text-sky-700">Short stays</p>
-        <p className="mt-1 font-semibold text-slate-900">Need a nightly stay?</p>
-        <p className="text-slate-600">
-          Browse bookable shortlets with date availability and itemized pricing.
-        </p>
-        <Link
-          href={isShortletStayOnly ? allStaysHref : shortletToggleHref}
-          className="mt-2 inline-flex rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50"
-        >
-          {isShortletStayOnly ? "Back to all stays" : "Open shortlet browse"}
-        </Link>
-      </div>
+      {showStayTypeToggle ? (
+        <div className="rounded-2xl border border-sky-100 bg-sky-50/80 px-4 py-3 text-sm text-slate-700 shadow-sm">
+          <p className="text-[10px] uppercase tracking-[0.2em] text-sky-700">Short stays</p>
+          <p className="mt-1 font-semibold text-slate-900">Need a nightly stay?</p>
+          <p className="text-slate-600">
+            Browse bookable shortlets with date availability and itemized pricing.
+          </p>
+          <Link
+            href={isShortletStayOnly ? allStaysHref : shortletToggleHref}
+            className="mt-2 inline-flex rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50"
+          >
+            {isShortletStayOnly ? "Back to all stays" : "Open shortlet browse"}
+          </Link>
+        </div>
+      ) : null}
 
       {savedSearch && (
         <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">

@@ -37,10 +37,32 @@ test("filtersToSearchParams serializes parsed filters", () => {
   assert.equal(params.get("includeSimilarOptions"), "true");
   assert.equal(params.get("propertyType"), "apartment");
   assert.equal(params.get("intent"), "buy");
-  assert.equal(params.get("stay"), "shortlet");
+  assert.equal(params.get("stay"), null);
   assert.equal(params.get("rentalType"), "short_let");
   assert.equal(params.get("furnished"), "true");
   assert.equal(params.get("amenities"), "wifi,parking");
+});
+
+test("filtersToSearchParams forces rent intent when stay=shortlet", () => {
+  const filters: ParsedSearchFilters = {
+    city: null,
+    minPrice: null,
+    maxPrice: null,
+    currency: null,
+    bedrooms: null,
+    bedroomsMode: "exact",
+    includeSimilarOptions: false,
+    propertyType: null,
+    listingIntent: "all",
+    stay: "shortlet",
+    rentalType: null,
+    furnished: null,
+    amenities: [],
+  };
+
+  const params = filtersToSearchParams(filters);
+  assert.equal(params.get("intent"), "rent");
+  assert.equal(params.get("stay"), "shortlet");
 });
 
 test("filtersToSearchParams omits intent when set to all", () => {
@@ -88,12 +110,25 @@ test("parseFilters clamps negative numeric values to zero", () => {
 test("stay shortlet parses from query and saved search", () => {
   const parsed = parseFiltersFromParams({ stay: "shortlet" });
   assert.equal(parsed.stay, "shortlet");
+  assert.equal(parsed.listingIntent, "rent");
 
   const parsedFromCategory = parseFiltersFromParams({ category: "shortlet" });
   assert.equal(parsedFromCategory.stay, "shortlet");
+  assert.equal(parsedFromCategory.listingIntent, "rent");
 
   const savedParsed = parseFiltersFromSavedSearch({ stay: "shortlet" });
   assert.equal(savedParsed.stay, "shortlet");
+  assert.equal(savedParsed.listingIntent, "rent");
+});
+
+test("stay shortlet is cleared for sale intent", () => {
+  const parsed = parseFiltersFromParams({ intent: "buy", stay: "shortlet" });
+  assert.equal(parsed.listingIntent, "buy");
+  assert.equal(parsed.stay, null);
+
+  const savedParsed = parseFiltersFromSavedSearch({ intent: "buy", stay: "shortlet" });
+  assert.equal(savedParsed.listingIntent, "buy");
+  assert.equal(savedParsed.stay, null);
 });
 
 test("parseFilters defaults bedroom mode to exact", () => {

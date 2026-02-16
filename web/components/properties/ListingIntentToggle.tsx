@@ -33,6 +33,10 @@ export function ListingIntentToggle({ currentIntent, hasUrlIntent }: Props) {
   const updateIntent = (intent: ListingIntentFilter, mode: "push" | "replace") => {
     const next = new URLSearchParams(searchParams.toString());
     next.set("intent", intent);
+    if (intent !== "rent") {
+      next.delete("stay");
+      next.delete("category");
+    }
     if (next.has("page")) {
       next.set("page", "1");
     }

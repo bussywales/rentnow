@@ -1,6 +1,7 @@
 import type {
   BedroomMatchMode,
   ListingIntent,
+  ListingIntentFilter,
   ListingType,
   ParsedSearchFilters,
   RentalType,
@@ -15,6 +16,11 @@ export type SearchParamRecord = Record<string, string | string[] | undefined>;
 type FilterChip = {
   label: string;
   value: string;
+};
+
+type IntentStaySelection = {
+  listingIntent?: ListingIntentFilter | null;
+  stay?: StayFilter | null;
 };
 
 const LISTING_TYPES: ListingType[] = [
@@ -85,12 +91,37 @@ function parseStay(value: string | string[] | undefined | null): StayFilter | nu
   return null;
 }
 
+export function normalizeIntentStaySelection<T extends IntentStaySelection>(
+  selection: T
+): {
+  listingIntent: ListingIntentFilter | undefined;
+  stay: StayFilter | null;
+} {
+  const listingIntent = selection.listingIntent ?? undefined;
+  const stay = selection.stay === "shortlet" ? "shortlet" : null;
+
+  if (stay !== "shortlet") {
+    return { listingIntent, stay: null };
+  }
+  if (listingIntent === "buy") {
+    return { listingIntent, stay: null };
+  }
+  if (listingIntent === "all" || !listingIntent) {
+    return { listingIntent: "rent", stay: "shortlet" };
+  }
+  return { listingIntent, stay: "shortlet" };
+}
+
 export function parseFiltersFromParams(params: SearchParamRecord): ParsedSearchFilters {
   const rentalType = firstValue(params.rentalType);
   const listingIntent = parseIntent(
     firstValue(params.intent) ?? firstValue(params.listingIntent)
   );
   const stay = parseStay(firstValue(params.stay) ?? firstValue(params.category));
+  const normalizedSelection = normalizeIntentStaySelection({
+    listingIntent,
+    stay,
+  });
   return {
     city: firstValue(params.city),
     minPrice: parseNumber(params.minPrice),
@@ -100,8 +131,8 @@ export function parseFiltersFromParams(params: SearchParamRecord): ParsedSearchF
     bedroomsMode: parseBedroomsMode(params.bedroomsMode),
     includeSimilarOptions: parseBoolean(params.includeSimilarOptions) ?? false,
     propertyType: parseListingType(params.propertyType),
-    listingIntent,
-    stay,
+    listingIntent: normalizedSelection.listingIntent,
+    stay: normalizedSelection.stay,
     rentalType:
       rentalType === "short_let" || rentalType === "long_term"
         ? (rentalType as RentalType)
@@ -134,6 +165,10 @@ export function parseFiltersFromSearchParams(
 
 export function filtersToSearchParams(filters: ParsedSearchFilters): URLSearchParams {
   const params = new URLSearchParams();
+  const normalizedSelection = normalizeIntentStaySelection({
+    listingIntent: filters.listingIntent,
+    stay: filters.stay ?? null,
+  });
   if (filters.city) params.set("city", filters.city);
   if (filters.minPrice !== null) params.set("minPrice", String(filters.minPrice));
   if (filters.maxPrice !== null) params.set("maxPrice", String(filters.maxPrice));
@@ -146,10 +181,10 @@ export function filtersToSearchParams(filters: ParsedSearchFilters): URLSearchPa
     params.set("includeSimilarOptions", "true");
   }
   if (filters.propertyType) params.set("propertyType", filters.propertyType);
-  if (filters.listingIntent && filters.listingIntent !== "all") {
-    params.set("intent", filters.listingIntent);
+  if (normalizedSelection.listingIntent && normalizedSelection.listingIntent !== "all") {
+    params.set("intent", normalizedSelection.listingIntent);
   }
-  if (filters.stay === "shortlet") params.set("stay", filters.stay);
+  if (normalizedSelection.stay === "shortlet") params.set("stay", normalizedSelection.stay);
   if (filters.rentalType) params.set("rentalType", filters.rentalType);
   if (filters.furnished !== null) params.set("furnished", String(filters.furnished));
   if (filters.amenities.length) {
@@ -159,14 +194,18 @@ export function filtersToSearchParams(filters: ParsedSearchFilters): URLSearchPa
 }
 
 export function hasActiveFilters(filters: ParsedSearchFilters): boolean {
+  const normalizedSelection = normalizeIntentStaySelection({
+    listingIntent: filters.listingIntent,
+    stay: filters.stay ?? null,
+  });
   if (filters.city && filters.city.trim()) return true;
   if (filters.minPrice !== null) return true;
   if (filters.maxPrice !== null) return true;
   if (filters.currency && filters.currency.trim()) return true;
   if (filters.bedrooms !== null) return true;
   if (filters.propertyType !== null && filters.propertyType !== undefined) return true;
-  if (filters.listingIntent && filters.listingIntent !== "all") return true;
-  if (filters.stay === "shortlet") return true;
+  if (normalizedSelection.listingIntent && normalizedSelection.listingIntent !== "all") return true;
+  if (normalizedSelection.stay === "shortlet") return true;
   if (filters.rentalType !== null) return true;
   if (filters.furnished !== null) return true;
   if (filters.amenities.length > 0) return true;
@@ -174,6 +213,10 @@ export function hasActiveFilters(filters: ParsedSearchFilters): boolean {
 }
 
 export function filtersToChips(filters: ParsedSearchFilters): FilterChip[] {
+  const normalizedSelection = normalizeIntentStaySelection({
+    listingIntent: filters.listingIntent,
+    stay: filters.stay ?? null,
+  });
   const chips: FilterChip[] = [];
   if (filters.city) chips.push({ label: "City", value: filters.city });
   if (filters.bedrooms !== null) {
@@ -191,13 +234,13 @@ export function filtersToChips(filters: ParsedSearchFilters): FilterChip[] {
       value: filters.propertyType,
     });
   }
-  if (filters.listingIntent && filters.listingIntent !== "all") {
+  if (normalizedSelection.listingIntent && normalizedSelection.listingIntent !== "all") {
     chips.push({
       label: "Intent",
-      value: filters.listingIntent === "buy" ? "For sale" : "For rent",
+      value: normalizedSelection.listingIntent === "buy" ? "For sale" : "For rent",
     });
   }
-  if (filters.stay === "shortlet") {
+  if (normalizedSelection.stay === "shortlet") {
     chips.push({
       label: "Stay type",
       value: "Shortlet",
@@ -280,6 +323,10 @@ export function parseFiltersFromSavedSearch(params: Record<string, unknown>): Pa
   );
   const stay =
     params.stay === "shortlet" || params.category === "shortlet" ? "shortlet" : null;
+  const normalizedSelection = normalizeIntentStaySelection({
+    listingIntent,
+    stay,
+  });
   const furnished =
     params.furnished === true || params.furnished === false
       ? params.furnished
@@ -303,8 +350,8 @@ export function parseFiltersFromSavedSearch(params: Record<string, unknown>): Pa
     bedroomsMode,
     includeSimilarOptions,
     propertyType,
-    listingIntent,
-    stay,
+    listingIntent: normalizedSelection.listingIntent,
+    stay: normalizedSelection.stay,
     rentalType,
     furnished,
     amenities,
@@ -323,6 +370,10 @@ export function propertyMatchesFilters(property: {
   furnished: boolean;
   amenities?: string[] | null;
 }, filters: ParsedSearchFilters): boolean {
+  const normalizedSelection = normalizeIntentStaySelection({
+    listingIntent: filters.listingIntent,
+    stay: filters.stay ?? null,
+  });
   if (filters.city) {
     const cityMatch = property.city.toLowerCase().includes(filters.city.toLowerCase());
     if (!cityMatch) return false;
@@ -337,12 +388,16 @@ export function propertyMatchesFilters(property: {
     if (mode === "minimum" && property.bedrooms < filters.bedrooms) return false;
     if (mode === "exact" && property.bedrooms !== filters.bedrooms) return false;
   }
-  if (filters.listingIntent && filters.listingIntent !== "all") {
-    const expectedIntent = mapSearchFilterToListingIntent(filters.listingIntent);
+  if (
+    normalizedSelection.stay !== "shortlet" &&
+    normalizedSelection.listingIntent &&
+    normalizedSelection.listingIntent !== "all"
+  ) {
+    const expectedIntent = mapSearchFilterToListingIntent(normalizedSelection.listingIntent);
     const listingIntent = normalizeListingIntent(property.listing_intent);
     if (expectedIntent && listingIntent !== expectedIntent) return false;
   }
-  if (filters.stay === "shortlet" && !isShortletProperty(property)) return false;
+  if (normalizedSelection.stay === "shortlet" && !isShortletProperty(property)) return false;
   if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
   if (filters.rentalType && property.rental_type !== filters.rentalType) return false;
   if (filters.furnished !== null && property.furnished !== filters.furnished) return false;

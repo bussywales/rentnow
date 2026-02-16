@@ -2,6 +2,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { includeDemoListingsForViewer } from "@/lib/properties/demo";
 import type { ParsedSearchFilters, RentalType } from "@/lib/types";
 import { mapSearchFilterToListingIntent } from "@/lib/listing-intents";
+import { normalizeIntentStaySelection } from "@/lib/search-filters";
 
 type SearchOptions = {
   page?: number;
@@ -18,13 +19,21 @@ type QueryWithOr<T> = {
 
 export function applyStayFilterToQuery<T extends QueryWithOr<T>>(
   query: T,
-  filters: Pick<ParsedSearchFilters, "stay">
+  filters: Pick<ParsedSearchFilters, "listingIntent" | "stay">
 ): T {
-  if (filters.stay !== "shortlet") return query;
+  const normalizedSelection = normalizeIntentStaySelection({
+    listingIntent: filters.listingIntent,
+    stay: filters.stay ?? null,
+  });
+  if (normalizedSelection.stay !== "shortlet") return query;
   return query.or("listing_intent.eq.shortlet,rental_type.eq.short_let");
 }
 
 export async function searchProperties(filters: ParsedSearchFilters, options: SearchOptions = {}) {
+  const normalizedSelection = normalizeIntentStaySelection({
+    listingIntent: filters.listingIntent,
+    stay: filters.stay ?? null,
+  });
   const supabase = await createServerSupabaseClient();
   const includeDemoListings =
     typeof options.includeDemo === "boolean"
@@ -83,11 +92,14 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     if (filters.city) {
       query = query.ilike("city", `%${filters.city}%`);
     }
-    const listingIntent = mapSearchFilterToListingIntent(filters.listingIntent ?? null);
+    const listingIntent =
+      normalizedSelection.stay === "shortlet"
+        ? null
+        : mapSearchFilterToListingIntent(normalizedSelection.listingIntent ?? null);
     if (listingIntent) {
       query = query.eq("listing_intent", listingIntent);
     }
-    query = applyStayFilterToQuery(query, filters);
+    query = applyStayFilterToQuery(query, normalizedSelection);
     if (filters.bedrooms !== null) {
       const bedroomsMode = filters.bedroomsMode ?? "exact";
       query =
