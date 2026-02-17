@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type StatusPayload = {
   ok?: boolean;
@@ -22,6 +22,21 @@ type StatusPayload = {
 
 const STATUS_POLL_INTERVAL_MS = 5000;
 const STATUS_POLL_MAX_MS = 60_000;
+const TERMINAL_BOOKING_STATUSES = new Set([
+  "pending",
+  "confirmed",
+  "completed",
+  "declined",
+  "cancelled",
+  "expired",
+]);
+const TERMINAL_PAYMENT_STATUSES = new Set(["failed", "refunded"]);
+const PENDING_APPROVAL_BOOKING_STATUSES = new Set([
+  "pending",
+  "pending_host_approval",
+  "pending_confirmation",
+  "awaiting_host_approval",
+]);
 
 function formatMoney(currency: string, amountMinor: number) {
   const amount = Math.max(0, Math.trunc(amountMinor || 0)) / 100;
@@ -40,26 +55,34 @@ function normalizeStatus(value: string | null | undefined) {
   return String(value || "").trim().toLowerCase();
 }
 
+function resolvePollDecision(
+  paymentStatus: string | null | undefined,
+  bookingStatus: string | null | undefined,
+  elapsedMs: number,
+  maxPollMs: number
+) {
+  const normalizedPayment = normalizeStatus(paymentStatus);
+  const normalizedBooking = normalizeStatus(bookingStatus);
+
+  if (TERMINAL_BOOKING_STATUSES.has(normalizedBooking)) {
+    return { shouldPoll: false, reason: "terminal_booking" as const };
+  }
+  if (TERMINAL_PAYMENT_STATUSES.has(normalizedPayment)) {
+    return { shouldPoll: false, reason: "terminal_payment" as const };
+  }
+  if (elapsedMs >= maxPollMs) {
+    return { shouldPoll: false, reason: "timeout" as const };
+  }
+  return { shouldPoll: true, reason: "continue" as const };
+}
+
 export function shouldPollStatus(
   paymentStatus: string | null | undefined,
   bookingStatus: string | null | undefined,
   elapsedMs: number,
   maxPollMs = STATUS_POLL_MAX_MS
 ) {
-  if (elapsedMs >= maxPollMs) return false;
-
-  const normalizedPayment = normalizeStatus(paymentStatus);
-  const normalizedBooking = normalizeStatus(bookingStatus);
-
-  if (["pending", "confirmed", "completed", "declined", "cancelled", "expired"].includes(normalizedBooking)) {
-    return false;
-  }
-
-  if (["succeeded", "failed", "refunded"].includes(normalizedPayment)) {
-    return false;
-  }
-
-  return true;
+  return resolvePollDecision(paymentStatus, bookingStatus, elapsedMs, maxPollMs).shouldPoll;
 }
 
 export function ShortletPaymentReturnStatus(props: {
@@ -73,19 +96,22 @@ export function ShortletPaymentReturnStatus(props: {
   const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [verifyAttempted, setVerifyAttempted] = useState(false);
+  const previousStatusRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     let pollTimer: number | null = null;
+    let timeoutFinalFetchDone = false;
     const startedAt = Date.now();
 
     const shouldVerifyPaystack =
       String(props.provider || "").toLowerCase() === "paystack" &&
       String(props.providerReference || "").trim().length > 0;
     console.log("[/payments/shortlet/return] init", {
+      bookingId: props.bookingId,
       provider: props.provider || null,
-      hasReference: Boolean(String(props.providerReference || "").trim()),
-      verifyAttempted: shouldVerifyPaystack,
+      referencePresent: Boolean(String(props.providerReference || "").trim()),
+      verifyOnMount: shouldVerifyPaystack,
     });
 
     const loadStatus = async () => {
@@ -115,23 +141,71 @@ export function ShortletPaymentReturnStatus(props: {
     const runVerifyOnce = async () => {
       if (!shouldVerifyPaystack) return;
       setVerifyAttempted(true);
-      await fetch(
+      const response = await fetch(
         `/api/shortlet/payments/paystack/verify?reference=${encodeURIComponent(
           String(props.providerReference || "")
         )}&booking_id=${encodeURIComponent(props.bookingId)}`,
         { credentials: "include" }
       ).catch(() => null);
+      const verifyResult =
+        response &&
+        (await response
+          .json()
+          .then((value) => (value && typeof value === "object" ? (value as Record<string, unknown>) : null))
+          .catch(() => null));
+      console.log("[/payments/shortlet/return] verify-complete", {
+        bookingId: props.bookingId,
+        httpStatus: response?.status ?? null,
+        ok: response?.ok ?? false,
+        resultStatus:
+          verifyResult && typeof verifyResult.status === "string" ? verifyResult.status : null,
+        bookingStatus:
+          verifyResult && typeof verifyResult.booking_status === "string"
+            ? verifyResult.booking_status
+            : null,
+      });
     };
 
     const scheduleNext = (statusPayload: StatusPayload | null) => {
       const elapsedMs = Date.now() - startedAt;
-      const shouldPoll = shouldPollStatus(
+      const decision = resolvePollDecision(
         statusPayload?.payment?.status ?? null,
         statusPayload?.booking?.status ?? null,
-        elapsedMs
+        elapsedMs,
+        STATUS_POLL_MAX_MS
       );
-      if (!shouldPoll) {
-        setTimedOut(elapsedMs >= STATUS_POLL_MAX_MS);
+      if (!decision.shouldPoll) {
+        if (decision.reason === "timeout" && !timeoutFinalFetchDone) {
+          timeoutFinalFetchDone = true;
+          void (async () => {
+            const finalPayload = await loadStatus();
+            if (cancelled) return;
+            const finalDecision = resolvePollDecision(
+              finalPayload?.payment?.status ?? null,
+              finalPayload?.booking?.status ?? null,
+              Date.now() - startedAt,
+              STATUS_POLL_MAX_MS
+            );
+            const timedOutAfterFinalFetch = finalDecision.reason === "timeout";
+            setTimedOut(timedOutAfterFinalFetch);
+            console.log("[/payments/shortlet/return] polling-stop", {
+              bookingId: props.bookingId,
+              reason: timedOutAfterFinalFetch ? "timeout" : "terminal_after_timeout_final_fetch",
+              elapsedMs: Date.now() - startedAt,
+              bookingStatus: finalPayload?.booking?.status ?? null,
+              paymentStatus: finalPayload?.payment?.status ?? null,
+            });
+          })();
+          return;
+        }
+        setTimedOut(decision.reason === "timeout");
+        console.log("[/payments/shortlet/return] polling-stop", {
+          bookingId: props.bookingId,
+          reason: decision.reason,
+          elapsedMs,
+          bookingStatus: statusPayload?.booking?.status ?? null,
+          paymentStatus: statusPayload?.payment?.status ?? null,
+        });
         return;
       }
       pollTimer = window.setTimeout(async () => {
@@ -153,6 +227,20 @@ export function ShortletPaymentReturnStatus(props: {
       if (pollTimer) window.clearTimeout(pollTimer);
     };
   }, [props.bookingId, props.provider, props.providerReference]);
+
+  useEffect(() => {
+    if (!payload) return;
+    const bookingStatus = normalizeStatus(payload.booking?.status);
+    const paymentStatus = normalizeStatus(payload.payment?.status);
+    const key = `${bookingStatus}|${paymentStatus}`;
+    if (previousStatusRef.current === key) return;
+    previousStatusRef.current = key;
+    console.log("[/payments/shortlet/return] status-change", {
+      bookingId: props.bookingId,
+      bookingStatus: bookingStatus || null,
+      paymentStatus: paymentStatus || null,
+    });
+  }, [payload, props.bookingId]);
 
   const runManualRefresh = async () => {
     setRefreshing(true);
@@ -186,12 +274,12 @@ export function ShortletPaymentReturnStatus(props: {
   };
 
   const state = useMemo(() => {
-    const bookingStatus = String(payload?.booking?.status || "").toLowerCase();
-    const paymentStatus = String(payload?.payment?.status || "").toLowerCase();
+    const bookingStatus = normalizeStatus(payload?.booking?.status);
+    const paymentStatus = normalizeStatus(payload?.payment?.status);
 
-    if (paymentStatus === "failed") return "failed" as const;
+    if (paymentStatus === "failed" || paymentStatus === "refunded") return "failed" as const;
     if (bookingStatus === "confirmed" || bookingStatus === "completed") return "confirmed" as const;
-    if (bookingStatus === "pending") return "pending" as const;
+    if (PENDING_APPROVAL_BOOKING_STATUSES.has(bookingStatus)) return "pending" as const;
     if (bookingStatus === "pending_payment" || paymentStatus === "initiated" || !payload?.payment) {
       return "processing" as const;
     }

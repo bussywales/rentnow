@@ -71,8 +71,8 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
-  // Refresh the session if needed and propagate cookies to the response
-  await supabase.auth.getSession();
+  // Refresh/validate auth cookies via auth server and propagate updates to the response
+  await supabase.auth.getUser();
   hostOnlyCookies.forEach(({ name, value, options }) => {
     response.headers.append(
       "set-cookie",

@@ -63,7 +63,13 @@ export async function getShortletPaystackVerifyResponse(
   deps: VerifyShortletPaystackDeps = defaultDeps
 ) {
   const startTime = Date.now();
-  console.log(`[${routeLabel}] start`);
+  const referenceParam = request.nextUrl.searchParams.get("reference");
+  const bookingParam =
+    request.nextUrl.searchParams.get("booking_id") || request.nextUrl.searchParams.get("bookingId");
+  console.log(`[${routeLabel}] start`, {
+    bookingIdParam: bookingParam,
+    referencePresent: Boolean(String(referenceParam || "").trim()),
+  });
   if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json({ error: "Service role not configured" }, { status: 503 });
   }
@@ -77,7 +83,12 @@ export async function getShortletPaystackVerifyResponse(
     startTime,
     roles: ["tenant", "landlord", "agent", "admin"],
   });
-  if (!auth.ok) return auth.response;
+  if (!auth.ok) {
+    console.warn(`[${routeLabel}] auth_failed`, {
+      status: auth.response.status,
+    });
+    return auth.response;
+  }
 
   const parsed = querySchema.safeParse({
     reference: request.nextUrl.searchParams.get("reference"),
@@ -85,6 +96,9 @@ export async function getShortletPaystackVerifyResponse(
       request.nextUrl.searchParams.get("booking_id") || request.nextUrl.searchParams.get("bookingId"),
   });
   if (!parsed.success) {
+    console.warn(`[${routeLabel}] invalid_query`, {
+      hasReference: Boolean(referenceParam),
+    });
     return NextResponse.json({ error: "reference is required" }, { status: 422 });
   }
 
@@ -242,6 +256,7 @@ export async function getShortletPaystackVerifyResponse(
       bookingId,
       reference: parsed.data.reference,
       transitioned: paid.booking.transitioned,
+      bookingStatus: paid.booking.status,
     });
     return NextResponse.json({
       ok: true,
@@ -251,7 +266,9 @@ export async function getShortletPaystackVerifyResponse(
     });
   } catch (error) {
     console.error(`[${routeLabel}] failed`, {
+      name: error instanceof Error ? error.name : "Error",
       error: error instanceof Error ? error.message : "verify_failed",
+      stack: error instanceof Error ? error.stack : null,
       reference: request.nextUrl.searchParams.get("reference"),
     });
     return NextResponse.json({ error: "Unable to verify payment" }, { status: 500 });

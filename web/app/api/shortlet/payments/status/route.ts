@@ -55,8 +55,20 @@ export async function getShortletPaymentStatusResponse(
   });
 
   if (!booking) {
+    console.log(`[${routeLabel}] not_found`, {
+      bookingId: parsed.data.booking_id,
+      userId: auth.user.id,
+    });
     return NextResponse.json({ error: "Booking not found" }, { status: 404 });
   }
+
+  console.log(`[${routeLabel}] result`, {
+    bookingId: booking.bookingId,
+    bookingStatus: booking.status,
+    bookingMode: booking.bookingMode,
+    paymentStatus: booking.payment?.status ?? null,
+    provider: booking.payment?.provider ?? null,
+  });
 
   return NextResponse.json({
     ok: true,

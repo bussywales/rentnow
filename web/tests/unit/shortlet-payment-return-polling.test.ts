@@ -7,6 +7,11 @@ void test("shouldPollStatus keeps polling while payment is still processing", ()
   assert.equal(result, true);
 });
 
+void test("shouldPollStatus keeps polling when payment succeeded but booking still pending_payment", () => {
+  const result = shouldPollStatus("succeeded", "pending_payment", 10_000);
+  assert.equal(result, true);
+});
+
 void test("shouldPollStatus stops after successful transition", () => {
   assert.equal(shouldPollStatus("succeeded", "pending", 10_000), false);
   assert.equal(shouldPollStatus("succeeded", "confirmed", 10_000), false);
