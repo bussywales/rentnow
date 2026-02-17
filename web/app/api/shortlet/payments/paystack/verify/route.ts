@@ -220,6 +220,10 @@ export async function getShortletPaystackVerifyResponse(
       provider: "paystack",
       providerReference: parsed.data.reference,
       providerPayload,
+      providerTxId:
+        typeof providerData.id === "number" || typeof providerData.id === "string"
+          ? String(providerData.id)
+          : null,
       client: adminClient,
     });
 

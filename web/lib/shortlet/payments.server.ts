@@ -30,7 +30,18 @@ type SupabaseLikeError = {
   status?: number | null;
 };
 
-type ShortletPaymentRow = {
+const SHORTLET_PAYMENT_SELECT =
+  "id,booking_id,property_id,guest_user_id,host_user_id,provider,currency,amount_total_minor,status,provider_reference,provider_payload_json,last_verified_at,verify_attempts,needs_reconcile,reconcile_reason,reconcile_locked_until,provider_event_id,provider_tx_id,confirmed_at,created_at,updated_at";
+
+const TERMINAL_BOOKING_STATUSES = new Set([
+  "confirmed",
+  "declined",
+  "cancelled",
+  "expired",
+  "completed",
+]);
+
+export type ShortletPaymentRow = {
   id: string;
   booking_id: string;
   property_id: string;
@@ -42,6 +53,14 @@ type ShortletPaymentRow = {
   status: ShortletPaymentStatus;
   provider_reference: string;
   provider_payload_json: Record<string, unknown>;
+  last_verified_at?: string | null;
+  verify_attempts?: number;
+  needs_reconcile?: boolean;
+  reconcile_reason?: string | null;
+  reconcile_locked_until?: string | null;
+  provider_event_id?: string | null;
+  provider_tx_id?: string | null;
+  confirmed_at?: string | null;
   created_at: string;
   updated_at: string;
 };
@@ -176,17 +195,69 @@ function normalizePaymentRow(row: Record<string, unknown> | null): ShortletPayme
             : "initiated",
     provider_reference: String(row.provider_reference || ""),
     provider_payload_json: asObject(row.provider_payload_json),
+    last_verified_at:
+      typeof row.last_verified_at === "string" && row.last_verified_at.trim()
+        ? row.last_verified_at
+        : null,
+    verify_attempts: Math.max(0, Math.trunc(Number(row.verify_attempts || 0))),
+    needs_reconcile: Boolean(row.needs_reconcile),
+    reconcile_reason:
+      typeof row.reconcile_reason === "string" && row.reconcile_reason.trim()
+        ? row.reconcile_reason
+        : null,
+    reconcile_locked_until:
+      typeof row.reconcile_locked_until === "string" && row.reconcile_locked_until.trim()
+        ? row.reconcile_locked_until
+        : null,
+    provider_event_id:
+      typeof row.provider_event_id === "string" && row.provider_event_id.trim()
+        ? row.provider_event_id
+        : null,
+    provider_tx_id:
+      typeof row.provider_tx_id === "string" && row.provider_tx_id.trim()
+        ? row.provider_tx_id
+        : null,
+    confirmed_at:
+      typeof row.confirmed_at === "string" && row.confirmed_at.trim()
+        ? row.confirmed_at
+        : null,
     created_at: String(row.created_at || ""),
     updated_at: String(row.updated_at || ""),
   };
 }
 
+function normalizeReconcileRow(row: Record<string, unknown> | null): ShortletPaymentReconcileRow | null {
+  const payment = normalizePaymentRow(row);
+  if (!payment) return null;
+  return {
+    id: payment.id,
+    bookingId: payment.booking_id,
+    provider: payment.provider,
+    providerReference: payment.provider_reference,
+    status: payment.status,
+    currency: payment.currency,
+    amountTotalMinor: payment.amount_total_minor,
+    verifyAttempts: Math.max(0, Math.trunc(Number(payment.verify_attempts || 0))),
+    needsReconcile: Boolean(payment.needs_reconcile),
+    reconcileReason: payment.reconcile_reason ?? null,
+    reconcileLockedUntil: payment.reconcile_locked_until ?? null,
+    providerPayload: payment.provider_payload_json,
+    createdAt: payment.created_at,
+    updatedAt: payment.updated_at,
+    lastVerifiedAt: payment.last_verified_at ?? null,
+    providerEventId: payment.provider_event_id ?? null,
+    providerTxId: payment.provider_tx_id ?? null,
+  };
+}
+
+function getReconcileUnlockedFilter(nowIso: string) {
+  return `reconcile_locked_until.is.null,reconcile_locked_until.lt.${nowIso}`;
+}
+
 async function resolvePaymentRowByBooking(client: SupabaseClient, bookingId: string) {
   const { data } = await client
     .from("shortlet_payments")
-    .select(
-      "id,booking_id,property_id,guest_user_id,host_user_id,provider,currency,amount_total_minor,status,provider_reference,provider_payload_json,created_at,updated_at"
-    )
+    .select(SHORTLET_PAYMENT_SELECT)
     .eq("booking_id", bookingId)
     .maybeSingle();
 
@@ -283,6 +354,41 @@ export function isNigeriaShortlet(context: Pick<ShortletPaymentBookingContext, "
   if (context.countryCode === "NG") return true;
   return String(context.currency || "").toUpperCase() === "NGN";
 }
+
+export function isTerminalShortletBookingStatus(
+  status: ShortletPaymentBookingContext["status"] | string | null | undefined
+) {
+  return TERMINAL_BOOKING_STATUSES.has(String(status || "").toLowerCase());
+}
+
+export type ShortletReconcileReason =
+  | "booking_status_transition_failed"
+  | "booking_not_found"
+  | "booking_not_payable"
+  | "provider_not_paid"
+  | "provider_verification_failed"
+  | "provider_status_unknown"
+  | "provider_mismatch";
+
+export type ShortletPaymentReconcileRow = {
+  id: string;
+  bookingId: string;
+  provider: ShortletPaymentProvider;
+  providerReference: string;
+  status: ShortletPaymentStatus;
+  currency: string;
+  amountTotalMinor: number;
+  verifyAttempts: number;
+  needsReconcile: boolean;
+  reconcileReason: string | null;
+  reconcileLockedUntil: string | null;
+  providerPayload: Record<string, unknown>;
+  createdAt: string;
+  updatedAt: string;
+  lastVerifiedAt: string | null;
+  providerEventId: string | null;
+  providerTxId: string | null;
+};
 
 function normalizeCountryCode(value: string | null | undefined): string | null {
   if (!value) return null;
@@ -399,11 +505,17 @@ export async function upsertShortletPaymentIntent(input: {
     status: "initiated",
     provider_reference: input.providerReference,
     provider_payload_json: input.providerPayload || {},
+    needs_reconcile: false,
+    reconcile_reason: null,
+    reconcile_locked_until: null,
+    last_verified_at: null,
+    provider_event_id: null,
+    provider_tx_id: null,
+    confirmed_at: null,
     updated_at: nowIso,
   };
   const untypedClient = client as unknown as UntypedAdminClient;
-  const selectColumns =
-    "id,booking_id,property_id,guest_user_id,host_user_id,provider,currency,amount_total_minor,status,provider_reference,provider_payload_json,created_at,updated_at";
+  const selectColumns = SHORTLET_PAYMENT_SELECT;
   const legacyCompatibleRow = {
     ...baseRow,
     amount_minor: amountMinor,
@@ -453,19 +565,166 @@ export async function markShortletPaymentFailed(input: {
   provider: ShortletPaymentProvider;
   providerReference: string;
   providerPayload?: Record<string, unknown>;
+  reconcileReason?: ShortletReconcileReason | null;
   client?: SupabaseClient;
 }) {
   const client = getClient(input.client);
+  const nowIso = new Date().toISOString();
+  const updatePayload: Record<string, unknown> = {
+    status: "failed",
+    last_verified_at: nowIso,
+    needs_reconcile: false,
+    reconcile_reason: input.reconcileReason ?? null,
+    reconcile_locked_until: null,
+    updated_at: nowIso,
+  };
+  if (input.providerPayload) {
+    updatePayload.provider_payload_json = input.providerPayload;
+  }
   await client
     .from("shortlet_payments")
-    .update({
-      status: "failed",
-      provider_payload_json: input.providerPayload || {},
-      updated_at: new Date().toISOString(),
-    })
+    .update(updatePayload)
     .eq("provider", input.provider)
     .eq("provider_reference", input.providerReference)
     .neq("status", "succeeded");
+}
+
+export async function listShortletPaymentsForReconcile(input: {
+  staleBeforeIso: string;
+  nowIso?: string;
+  limit?: number;
+  client?: SupabaseClient;
+}) {
+  const client = getClient(input.client);
+  const nowIso = input.nowIso || new Date().toISOString();
+  const limit = Math.max(1, Math.min(200, Math.trunc(Number(input.limit || 50))));
+  const unlockedFilter = getReconcileUnlockedFilter(nowIso);
+
+  const [needsRows, initiatedRows, succeededRows] = await Promise.all([
+    client
+      .from("shortlet_payments")
+      .select(SHORTLET_PAYMENT_SELECT)
+      .eq("needs_reconcile", true)
+      .or(unlockedFilter)
+      .order("updated_at", { ascending: true })
+      .limit(limit),
+    client
+      .from("shortlet_payments")
+      .select(SHORTLET_PAYMENT_SELECT)
+      .eq("status", "initiated")
+      .lte("created_at", input.staleBeforeIso)
+      .or(unlockedFilter)
+      .order("created_at", { ascending: true })
+      .limit(limit),
+    client
+      .from("shortlet_payments")
+      .select(SHORTLET_PAYMENT_SELECT)
+      .eq("status", "succeeded")
+      .or(unlockedFilter)
+      .order("updated_at", { ascending: true })
+      .limit(limit),
+  ]);
+
+  const errors = [needsRows.error, initiatedRows.error, succeededRows.error].filter(Boolean);
+  if (errors.length > 0) {
+    throw new Error(errors[0]?.message || "SHORTLET_RECONCILE_CANDIDATES_FAILED");
+  }
+
+  const merged = [
+    ...(needsRows.data || []),
+    ...(initiatedRows.data || []),
+    ...(succeededRows.data || []),
+  ] as Record<string, unknown>[];
+
+  const deduped = new Map<string, ShortletPaymentReconcileRow>();
+  for (const row of merged) {
+    const normalized = normalizeReconcileRow(row);
+    if (!normalized) continue;
+    if (!deduped.has(normalized.id)) {
+      deduped.set(normalized.id, normalized);
+    }
+  }
+  return Array.from(deduped.values()).slice(0, limit);
+}
+
+export async function lockShortletPaymentForReconcile(input: {
+  paymentId: string;
+  verifyAttempts: number;
+  lockUntilIso: string;
+  nowIso?: string;
+  client?: SupabaseClient;
+}) {
+  const client = getClient(input.client);
+  const nowIso = input.nowIso || new Date().toISOString();
+  const unlockedFilter = getReconcileUnlockedFilter(nowIso);
+  const { data, error } = await client
+    .from("shortlet_payments")
+    .update({
+      verify_attempts: Math.max(0, Math.trunc(Number(input.verifyAttempts || 0))) + 1,
+      reconcile_locked_until: input.lockUntilIso,
+      last_verified_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq("id", input.paymentId)
+    .or(unlockedFilter)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message || "SHORTLET_RECONCILE_LOCK_FAILED");
+  }
+
+  return Boolean(data && typeof data.id === "string");
+}
+
+export async function markShortletPaymentNeedsReconcile(input: {
+  paymentId: string;
+  reason: ShortletReconcileReason;
+  lockUntilIso?: string | null;
+  providerPayload?: Record<string, unknown>;
+  nowIso?: string;
+  client?: SupabaseClient;
+}) {
+  const client = getClient(input.client);
+  const nowIso = input.nowIso || new Date().toISOString();
+  const updatePayload: Record<string, unknown> = {
+    needs_reconcile: true,
+    reconcile_reason: input.reason,
+    reconcile_locked_until: input.lockUntilIso ?? null,
+    last_verified_at: nowIso,
+    updated_at: nowIso,
+  };
+  if (input.providerPayload) {
+    updatePayload.provider_payload_json = input.providerPayload;
+  }
+  const { error } = await client
+    .from("shortlet_payments")
+    .update(updatePayload)
+    .eq("id", input.paymentId);
+  if (error) {
+    throw new Error(error.message || "SHORTLET_RECONCILE_MARK_FAILED");
+  }
+}
+
+export async function clearShortletPaymentReconcileState(input: {
+  paymentId: string;
+  nowIso?: string;
+  client?: SupabaseClient;
+}) {
+  const client = getClient(input.client);
+  const nowIso = input.nowIso || new Date().toISOString();
+  const { error } = await client
+    .from("shortlet_payments")
+    .update({
+      needs_reconcile: false,
+      reconcile_reason: null,
+      reconcile_locked_until: null,
+      updated_at: nowIso,
+    })
+    .eq("id", input.paymentId);
+  if (error) {
+    throw new Error(error.message || "SHORTLET_RECONCILE_CLEAR_FAILED");
+  }
 }
 
 async function confirmBookingAfterPayment(input: {
@@ -512,7 +771,14 @@ async function confirmBookingAfterPayment(input: {
     transitioned,
   });
 
-  if (status === "pending" || status === "confirmed" || status === "completed") {
+  if (
+    status === "pending" ||
+    status === "confirmed" ||
+    status === "completed" ||
+    status === "declined" ||
+    status === "cancelled" ||
+    status === "expired"
+  ) {
     return finalizeContext(status, false);
   }
 
@@ -547,7 +813,14 @@ async function confirmBookingAfterPayment(input: {
       .eq("id", input.bookingId)
       .maybeSingle();
     const freshStatus = String((fresh as { status?: string } | null)?.status || "");
-    if (freshStatus === "pending" || freshStatus === "confirmed" || freshStatus === "completed") {
+    if (
+      freshStatus === "pending" ||
+      freshStatus === "confirmed" ||
+      freshStatus === "completed" ||
+      freshStatus === "declined" ||
+      freshStatus === "cancelled" ||
+      freshStatus === "expired"
+    ) {
       return finalizeContext(freshStatus, false);
     }
     throw new Error("BOOKING_STATUS_UPDATE_FAILED");
@@ -556,18 +829,27 @@ async function confirmBookingAfterPayment(input: {
   return finalizeContext(nextStatus, true);
 }
 
+function mapBookingConfirmErrorToReconcileReason(message: string): ShortletReconcileReason {
+  const normalized = String(message || "").toUpperCase();
+  if (normalized.includes("BOOKING_NOT_FOUND")) return "booking_not_found";
+  if (normalized.includes("BOOKING_NOT_PAYABLE")) return "booking_not_payable";
+  if (normalized.includes("BOOKING_STATUS_UPDATE_FAILED")) return "booking_status_transition_failed";
+  return "booking_status_transition_failed";
+}
+
 export async function markShortletPaymentSucceededAndConfirmBooking(input: {
   provider: ShortletPaymentProvider;
   providerReference: string;
   providerPayload?: Record<string, unknown>;
+  providerEventId?: string | null;
+  providerTxId?: string | null;
   client?: SupabaseClient;
 }) {
   const client = getClient(input.client);
+  const nowIso = new Date().toISOString();
   const { data, error } = await client
     .from("shortlet_payments")
-    .select(
-      "id,booking_id,property_id,guest_user_id,host_user_id,provider,currency,amount_total_minor,status,provider_reference,provider_payload_json,created_at,updated_at"
-    )
+    .select(SHORTLET_PAYMENT_SELECT)
     .eq("provider", input.provider)
     .eq("provider_reference", input.providerReference)
     .maybeSingle();
@@ -579,36 +861,81 @@ export async function markShortletPaymentSucceededAndConfirmBooking(input: {
     };
   }
 
-  const payment = normalizePaymentRow(data as Record<string, unknown>) as ShortletPaymentRow;
+  const currentPayment = normalizePaymentRow(data as Record<string, unknown>) as ShortletPaymentRow;
+  const mergedPayload = {
+    ...(currentPayment.provider_payload_json || {}),
+    ...(input.providerPayload || {}),
+  };
 
-  if (payment.status !== "succeeded") {
-    const { error: updateError } = await client
-      .from("shortlet_payments")
-      .update({
-        status: "succeeded",
-        provider_payload_json: input.providerPayload || {},
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", payment.id)
-      .neq("status", "succeeded");
+  const nextProviderEventId =
+    typeof input.providerEventId === "string" && input.providerEventId.trim()
+      ? input.providerEventId
+      : currentPayment.provider_event_id;
+  const nextProviderTxId =
+    typeof input.providerTxId === "string" && input.providerTxId.trim()
+      ? input.providerTxId
+      : currentPayment.provider_tx_id;
 
-    if (updateError) {
-      throw new Error(updateError.message || "SHORTLET_PAYMENT_UPDATE_FAILED");
-    }
+  const { data: updatedPaymentRow, error: updateError } = await client
+    .from("shortlet_payments")
+    .update({
+      status: "succeeded",
+      provider_payload_json: mergedPayload,
+      provider_event_id: nextProviderEventId ?? null,
+      provider_tx_id: nextProviderTxId ?? null,
+      confirmed_at: currentPayment.confirmed_at || nowIso,
+      last_verified_at: nowIso,
+      needs_reconcile: false,
+      reconcile_reason: null,
+      reconcile_locked_until: null,
+      updated_at: nowIso,
+    })
+    .eq("id", currentPayment.id)
+    .select(SHORTLET_PAYMENT_SELECT)
+    .maybeSingle();
+
+  if (updateError || !updatedPaymentRow) {
+    return {
+      ok: false as const,
+      reason: "PAYMENT_UPDATE_FAILED",
+    };
   }
 
-  const booking = await confirmBookingAfterPayment({
-    bookingId: payment.booking_id,
-    providerReference: input.providerReference,
-    client,
-  });
+  const updatedPayment = normalizePaymentRow(updatedPaymentRow as Record<string, unknown>) as ShortletPaymentRow;
 
-  return {
-    ok: true as const,
-    payment,
-    booking,
-    alreadySucceeded: payment.status === "succeeded",
-  };
+  try {
+    const booking = await confirmBookingAfterPayment({
+      bookingId: updatedPayment.booking_id,
+      providerReference: input.providerReference,
+      client,
+    });
+
+    return {
+      ok: true as const,
+      payment: updatedPayment,
+      booking,
+      alreadySucceeded: currentPayment.status === "succeeded",
+    };
+  } catch (error) {
+    const reason = mapBookingConfirmErrorToReconcileReason(
+      error instanceof Error ? error.message : "BOOKING_STATUS_UPDATE_FAILED"
+    );
+
+    await markShortletPaymentNeedsReconcile({
+      paymentId: updatedPayment.id,
+      reason,
+      lockUntilIso: new Date(Date.now() + 60 * 1000).toISOString(),
+      providerPayload: mergedPayload,
+      nowIso,
+      client,
+    });
+
+    return {
+      ok: false as const,
+      reason: "BOOKING_STATUS_TRANSITION_FAILED",
+      reconcileReason: reason,
+    };
+  }
 }
 
 export async function getShortletPaymentByReference(input: {
@@ -619,9 +946,7 @@ export async function getShortletPaymentByReference(input: {
   const client = getClient(input.client);
   const { data } = await client
     .from("shortlet_payments")
-    .select(
-      "id,booking_id,property_id,guest_user_id,host_user_id,provider,currency,amount_total_minor,status,provider_reference,provider_payload_json,created_at,updated_at"
-    )
+    .select(SHORTLET_PAYMENT_SELECT)
     .eq("provider", input.provider)
     .eq("provider_reference", input.providerReference)
     .maybeSingle();

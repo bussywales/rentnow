@@ -31,6 +31,7 @@ type StatusPayload = {
 
 const STATUS_POLL_INTERVAL_MS = 5000;
 const STATUS_POLL_MAX_MS = SHORTLET_STATUS_POLL_TIMEOUT_MS;
+const FORCE_RECHECK_THROTTLE_MS = 4000;
 
 function formatMoney(currency: string, amountMinor: number) {
   const amount = Math.max(0, Math.trunc(amountMinor || 0)) / 100;
@@ -69,8 +70,11 @@ export function ShortletPaymentReturnStatus(props: {
   const [timedOut, setTimedOut] = useState(false);
   const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [forceRechecking, setForceRechecking] = useState(false);
   const [verifyAttempted, setVerifyAttempted] = useState(false);
+  const [forceRecheckMessage, setForceRecheckMessage] = useState<string | null>(null);
   const previousStatusRef = useRef<string | null>(null);
+  const lastForceRecheckAtRef = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -226,17 +230,6 @@ export function ShortletPaymentReturnStatus(props: {
   const runManualRefresh = async () => {
     setRefreshing(true);
     try {
-      if (
-        String(props.provider || "").toLowerCase() === "paystack" &&
-        String(props.providerReference || "").trim().length > 0
-      ) {
-        await fetch(
-          `/api/shortlet/payments/paystack/verify?reference=${encodeURIComponent(
-            String(props.providerReference || "")
-          )}&booking_id=${encodeURIComponent(props.bookingId)}`,
-          { credentials: "include" }
-        ).catch(() => null);
-      }
       const response = await fetch(
         `/api/shortlet/payments/status?booking_id=${encodeURIComponent(props.bookingId)}`,
         { credentials: "include" }
@@ -251,6 +244,37 @@ export function ShortletPaymentReturnStatus(props: {
       });
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const runForceRecheck = async () => {
+    const hasPaystackReference =
+      String(props.provider || "").toLowerCase() === "paystack" &&
+      String(props.providerReference || "").trim().length > 0;
+    if (!hasPaystackReference) {
+      await runManualRefresh();
+      return;
+    }
+
+    const nowMs = Date.now();
+    if (nowMs - lastForceRecheckAtRef.current < FORCE_RECHECK_THROTTLE_MS) {
+      setForceRecheckMessage("Please wait a few seconds before forcing another re-check.");
+      return;
+    }
+    lastForceRecheckAtRef.current = nowMs;
+    setForceRecheckMessage(null);
+    setForceRechecking(true);
+    try {
+      setVerifyAttempted(true);
+      await fetch(
+        `/api/shortlet/payments/paystack/verify?reference=${encodeURIComponent(
+          String(props.providerReference || "")
+        )}&booking_id=${encodeURIComponent(props.bookingId)}`,
+        { credentials: "include" }
+      ).catch(() => null);
+      await runManualRefresh();
+    } finally {
+      setForceRechecking(false);
     }
   };
 
@@ -340,11 +364,22 @@ export function ShortletPaymentReturnStatus(props: {
         <button
           type="button"
           onClick={runManualRefresh}
-          disabled={refreshing}
+          disabled={refreshing || forceRechecking}
           className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
         >
           {refreshing ? "Refreshing..." : "Refresh status"}
         </button>
+        {String(props.provider || "").toLowerCase() === "paystack" &&
+        String(props.providerReference || "").trim().length > 0 ? (
+          <button
+            type="button"
+            onClick={runForceRecheck}
+            disabled={refreshing || forceRechecking}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
+          >
+            {forceRechecking ? "Re-checking..." : "Force re-check"}
+          </button>
+        ) : null}
         <Link href="/support" className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">
           Contact support
         </Link>
@@ -361,6 +396,9 @@ export function ShortletPaymentReturnStatus(props: {
         <p className="mt-3 text-xs text-slate-500">
           {verifyAttempted ? "Paystack verify checked." : "Status checked."}
         </p>
+      ) : null}
+      {forceRecheckMessage ? (
+        <p className="mt-2 text-xs text-amber-700">{forceRecheckMessage}</p>
       ) : null}
     </section>
   );

@@ -175,6 +175,8 @@ export async function postStripeWebhookResponse(
       provider: "stripe",
       providerReference: reference,
       providerPayload: event,
+      providerEventId: eventId,
+      providerTxId: typeof object.payment_intent === "string" ? object.payment_intent : null,
       client: client as unknown as never,
     });
 

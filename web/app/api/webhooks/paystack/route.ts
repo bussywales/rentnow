@@ -315,6 +315,10 @@ export async function postPaystackWebhookResponse(
         provider: "paystack",
         providerReference: referenceValue,
         providerPayload,
+        providerTxId:
+          typeof providerData.id === "number" || typeof providerData.id === "string"
+            ? String(providerData.id)
+            : null,
         client: client as unknown as never,
       });
 

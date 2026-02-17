@@ -15,6 +15,15 @@ void test("shouldStopPolling returns false for succeeded + pending_payment race"
   assert.equal(result, false);
 });
 
+void test("shouldStopPolling returns false for succeeded + pending host-approval state", () => {
+  const result = shouldStopPolling({
+    paymentStatus: "succeeded",
+    bookingStatus: "pending",
+    elapsedMs: 10_000,
+  });
+  assert.equal(result, false);
+});
+
 void test("shouldStopPolling stops whenever booking is terminal", () => {
   const terminalBookingStatuses = [
     "confirmed",
