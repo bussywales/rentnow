@@ -61,10 +61,13 @@ void test("paystack init enforces booking ownership", async () => {
       accessCode: "ac_1",
       reference: "ps_ref_1",
     }),
-    upsertShortletPaymentIntent: async () => ({
-      payment: makeBookingContext().payment as never,
-      alreadySucceeded: false,
-    }),
+    upsertShortletPaymentIntent: async (input) => {
+      void input;
+      return {
+        payment: makeBookingContext().payment as never,
+        alreadySucceeded: false,
+      };
+    },
   };
 
   const response = await postInitShortletPaystackResponse(
@@ -120,7 +123,8 @@ void test("stripe init rejects already paid bookings", async () => {
         },
       }) as never,
     getSiteUrl: async () => "https://example.com",
-    upsertShortletPaymentIntent: async () => {
+    upsertShortletPaymentIntent: async (input) => {
+      void input;
       upsertCalled = true;
       return {
         payment: makeBookingContext().payment as never,
@@ -166,7 +170,10 @@ void test("provider toggles disable init endpoints", async () => {
         accessCode: "ac_1",
         reference: "ps_ref_1",
       }),
-      upsertShortletPaymentIntent: async () => ({ payment: makeBookingContext().payment as never, alreadySucceeded: false }),
+      upsertShortletPaymentIntent: async (input) => {
+        void input;
+        return { payment: makeBookingContext().payment as never, alreadySucceeded: false };
+      },
     }
   );
 
@@ -192,7 +199,10 @@ void test("provider toggles disable init endpoints", async () => {
           },
         }) as never,
       getSiteUrl: async () => "https://example.com",
-      upsertShortletPaymentIntent: async () => ({ payment: makeBookingContext().payment as never, alreadySucceeded: false }),
+      upsertShortletPaymentIntent: async (input) => {
+        void input;
+        return { payment: makeBookingContext().payment as never, alreadySucceeded: false };
+      },
     }
   );
 
@@ -220,7 +230,10 @@ void test("stripe init preserves auth failure response", async () => {
         },
       }) as never,
     getSiteUrl: async () => "https://example.com",
-    upsertShortletPaymentIntent: async () => ({ payment: makeBookingContext().payment as never, alreadySucceeded: false }),
+    upsertShortletPaymentIntent: async (input) => {
+      void input;
+      return { payment: makeBookingContext().payment as never, alreadySucceeded: false };
+    },
   };
 
   const response = await postInitShortletStripeResponse(
@@ -260,7 +273,10 @@ void test("stripe init returns provider unavailable when NGN booking prefers pay
         },
       }) as never,
     getSiteUrl: async () => "https://example.com",
-    upsertShortletPaymentIntent: async () => ({ payment: makeBookingContext().payment as never, alreadySucceeded: false }),
+    upsertShortletPaymentIntent: async (input) => {
+      void input;
+      return { payment: makeBookingContext().payment as never, alreadySucceeded: false };
+    },
   };
 
   const response = await postInitShortletStripeResponse(
@@ -300,7 +316,10 @@ void test("stripe init allows NGN booking when paystack is disabled and stripe i
         },
       }) as never,
     getSiteUrl: async () => "https://example.com",
-    upsertShortletPaymentIntent: async () => ({ payment: makeBookingContext().payment as never, alreadySucceeded: false }),
+    upsertShortletPaymentIntent: async (input) => {
+      void input;
+      return { payment: makeBookingContext().payment as never, alreadySucceeded: false };
+    },
   };
 
   const response = await postInitShortletStripeResponse(
@@ -314,4 +333,119 @@ void test("stripe init allows NGN booking when paystack is disabled and stripe i
   assert.equal(response.status, 200);
   assert.equal(payload.provider, "stripe");
   assert.equal(payload.checkout_url, "https://stripe.example/checkout");
+});
+
+void test("paystack init returns SHORTLET_INVALID_AMOUNT for non-positive computed amount", async () => {
+  const deps: InitShortletPaystackDeps = {
+    hasServiceRoleEnv: () => true,
+    hasPaystackServerEnv: () => true,
+    requireRole: async () =>
+      ({
+        ok: true,
+        user: { id: "tenant-1", email: "tenant@example.com" } as never,
+        role: "tenant",
+        supabase: {} as never,
+      }) as Awaited<ReturnType<InitShortletPaystackDeps["requireRole"]>>,
+    getShortletPaymentsProviderFlags: async () => ({ stripeEnabled: true, paystackEnabled: true }),
+    getShortletPaymentCheckoutContext: async () => makeBookingContext({ totalAmountMinor: 0 }),
+    getSiteUrl: async () => "https://example.com",
+    getPaystackServerConfig: () => ({ secretKey: "sk_test", publicKey: "pk_test", webhookSecret: "wh_test" }),
+    initializeTransaction: async () => ({
+      authorizationUrl: "https://paystack.example/checkout",
+      accessCode: "ac_1",
+      reference: "ps_ref_1",
+    }),
+    upsertShortletPaymentIntent: async (input) => {
+      void input;
+      return { payment: makeBookingContext().payment as never, alreadySucceeded: false };
+    },
+  };
+
+  const response = await postInitShortletPaystackResponse(
+    makeRequest("http://localhost/api/shortlet/payments/paystack/init", {
+      booking_id: "11111111-1111-4111-8111-111111111111",
+    }),
+    deps
+  );
+  const payload = (await response.json()) as { code?: string };
+
+  assert.equal(response.status, 400);
+  assert.equal(payload.code, "SHORTLET_INVALID_AMOUNT");
+});
+
+void test("payment init routes pass computed amountMinor into shortlet payment upsert", async () => {
+  let paystackAmountMinor: number | null = null;
+  let stripeAmountMinor: number | null = null;
+
+  const paystackDeps: InitShortletPaystackDeps = {
+    hasServiceRoleEnv: () => true,
+    hasPaystackServerEnv: () => true,
+    requireRole: async () =>
+      ({
+        ok: true,
+        user: { id: "tenant-1", email: "tenant@example.com" } as never,
+        role: "tenant",
+        supabase: {} as never,
+      }) as Awaited<ReturnType<InitShortletPaystackDeps["requireRole"]>>,
+    getShortletPaymentsProviderFlags: async () => ({ stripeEnabled: true, paystackEnabled: true }),
+    getShortletPaymentCheckoutContext: async () => makeBookingContext({ countryCode: "NG", currency: "NGN" }),
+    getSiteUrl: async () => "https://example.com",
+    getPaystackServerConfig: () => ({ secretKey: "sk_test", publicKey: "pk_test", webhookSecret: "wh_test" }),
+    initializeTransaction: async () => ({
+      authorizationUrl: "https://paystack.example/checkout",
+      accessCode: "ac_1",
+      reference: "ps_ref_1",
+    }),
+    upsertShortletPaymentIntent: async (input) => {
+      paystackAmountMinor = input.amountMinor;
+      return { payment: makeBookingContext().payment as never, alreadySucceeded: false };
+    },
+  };
+
+  const paystackResponse = await postInitShortletPaystackResponse(
+    makeRequest("http://localhost/api/shortlet/payments/paystack/init", {
+      booking_id: "11111111-1111-4111-8111-111111111111",
+    }),
+    paystackDeps
+  );
+  assert.equal(paystackResponse.status, 200);
+
+  const stripeDeps: InitShortletStripeDeps = {
+    hasServiceRoleEnv: () => true,
+    requireRole: async () =>
+      ({
+        ok: true,
+        user: { id: "tenant-1", email: "tenant@example.com" } as never,
+        role: "tenant",
+        supabase: {} as never,
+      }) as Awaited<ReturnType<InitShortletStripeDeps["requireRole"]>>,
+    getShortletPaymentsProviderFlags: async () => ({ stripeEnabled: true, paystackEnabled: false }),
+    getShortletPaymentCheckoutContext: async () => makeBookingContext({ countryCode: "US", currency: "USD" }),
+    getProviderModes: async () => ({ stripeMode: "test", paystackMode: "test", flutterwaveMode: "test" }),
+    getStripeConfigForMode: () => ({ mode: "test", secretKey: "sk_test", webhookSecret: "wh_test" }),
+    getStripeClient: () =>
+      ({
+        checkout: {
+          sessions: {
+            create: async () => ({ id: "cs_1", url: "https://stripe.example/checkout" }),
+          },
+        },
+      }) as never,
+    getSiteUrl: async () => "https://example.com",
+    upsertShortletPaymentIntent: async (input) => {
+      stripeAmountMinor = input.amountMinor;
+      return { payment: makeBookingContext().payment as never, alreadySucceeded: false };
+    },
+  };
+
+  const stripeResponse = await postInitShortletStripeResponse(
+    makeRequest("http://localhost/api/shortlet/payments/stripe/init", {
+      booking_id: "11111111-1111-4111-8111-111111111111",
+    }),
+    stripeDeps
+  );
+  assert.equal(stripeResponse.status, 200);
+
+  assert.equal(paystackAmountMinor, 120000);
+  assert.equal(stripeAmountMinor, 120000);
 });

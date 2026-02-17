@@ -8,10 +8,12 @@ import {
   initializeTransaction,
 } from "@/lib/payments/paystack.server";
 import {
+  deriveShortletAmountMinorFromNumericTotal,
   getShortletPaymentCheckoutContext,
   getShortletPaymentsProviderFlags,
   isBookingPayableStatus,
   isNigeriaShortlet,
+  resolveCurrencyMinorUnit,
   upsertShortletPaymentIntent,
 } from "@/lib/shortlet/payments.server";
 import { hasServiceRoleEnv } from "@/lib/supabase/admin";
@@ -100,14 +102,21 @@ export async function postInitShortletPaystackResponse(
     return NextResponse.json({ error: "Booking is not payable in the current status" }, { status: 409 });
   }
 
-  const amountMinor = Math.max(0, Math.trunc(booking.totalAmountMinor));
-  if (amountMinor <= 0) {
-    return NextResponse.json({ error: "Invalid booking total" }, { status: 409 });
+  const currency = isNigeriaShortlet(booking) ? "NGN" : booking.currency;
+  const total = Number(booking.totalAmountMinor) / resolveCurrencyMinorUnit(currency);
+  const amountMinor = deriveShortletAmountMinorFromNumericTotal({ total, currency });
+  if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
+    return NextResponse.json(
+      {
+        error: "Invalid booking total",
+        code: "SHORTLET_INVALID_AMOUNT",
+      },
+      { status: 400 }
+    );
   }
 
   const siteUrl = await deps.getSiteUrl();
   const reference = buildReference(booking.bookingId);
-  const currency = isNigeriaShortlet(booking) ? "NGN" : booking.currency;
   const callbackUrl = `${siteUrl}/payments/shortlet/return?bookingId=${encodeURIComponent(
     booking.bookingId
   )}&provider=paystack&reference=${encodeURIComponent(reference)}`;
@@ -132,6 +141,7 @@ export async function postInitShortletPaystackResponse(
       booking,
       provider: "paystack",
       providerReference: transaction.reference,
+      amountMinor,
       providerPayload: {
         access_code: transaction.accessCode,
         authorization_url: transaction.authorizationUrl,
@@ -146,11 +156,30 @@ export async function postInitShortletPaystackResponse(
       authorization_url: transaction.authorizationUrl,
     });
   } catch (error) {
+    const routeError = error as {
+      message?: string;
+      details?: string | null;
+      hint?: string | null;
+      code?: string | null;
+      status?: number | null;
+    };
+    console.error("[shortlet-payments/paystack/init] failed", {
+      bookingId: booking.bookingId,
+      currency,
+      total,
+      supabaseError: {
+        message: routeError?.message ?? null,
+        details: routeError?.details ?? null,
+        hint: routeError?.hint ?? null,
+        code: routeError?.code ?? null,
+        status: routeError?.status ?? null,
+      },
+    });
     return NextResponse.json(
       {
         error: error instanceof Error ? error.message : "Unable to initialize Paystack checkout",
       },
-      { status: 502 }
+      { status: 500 }
     );
   }
 }

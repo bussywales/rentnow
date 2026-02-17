@@ -5,9 +5,11 @@ import { getProviderModes } from "@/lib/billing/provider-settings";
 import { getStripeClient, getStripeConfigForMode } from "@/lib/billing/stripe";
 import { getSiteUrl } from "@/lib/env";
 import {
+  deriveShortletAmountMinorFromNumericTotal,
   getShortletPaymentCheckoutContext,
   getShortletPaymentsProviderFlags,
   isBookingPayableStatus,
+  resolveCurrencyMinorUnit,
   resolveShortletPaymentProviderDecision,
   upsertShortletPaymentIntent,
 } from "@/lib/shortlet/payments.server";
@@ -89,9 +91,17 @@ export async function postInitShortletStripeResponse(
     return NextResponse.json({ error: "Booking is not payable in the current status" }, { status: 409 });
   }
 
-  const amountMinor = Math.max(0, Math.trunc(booking.totalAmountMinor));
-  if (amountMinor <= 0) {
-    return NextResponse.json({ error: "Invalid booking total" }, { status: 409 });
+  const currency = booking.currency;
+  const total = Number(booking.totalAmountMinor) / resolveCurrencyMinorUnit(currency);
+  const amountMinor = deriveShortletAmountMinorFromNumericTotal({ total, currency });
+  if (!Number.isFinite(amountMinor) || amountMinor <= 0) {
+    return NextResponse.json(
+      {
+        error: "Invalid booking total",
+        code: "SHORTLET_INVALID_AMOUNT",
+      },
+      { status: 400 }
+    );
   }
 
   const providerDecision = resolveShortletPaymentProviderDecision({
@@ -124,7 +134,6 @@ export async function postInitShortletStripeResponse(
 
     const stripe = deps.getStripeClient(stripeConfig.secretKey);
     const siteUrl = await deps.getSiteUrl();
-    const currency = booking.currency;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
@@ -167,6 +176,7 @@ export async function postInitShortletStripeResponse(
       booking,
       provider: "stripe",
       providerReference: session.id,
+      amountMinor,
       providerPayload: {
         checkout_session_id: session.id,
       },

@@ -3,6 +3,7 @@ import { resolvePostPaymentBookingStatus } from "@/lib/shortlet/bookings";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 export type ShortletPaymentProvider = "stripe" | "paystack";
 export type ShortletPaymentStatus = "initiated" | "succeeded" | "failed" | "refunded";
@@ -19,6 +20,14 @@ export type ShortletPaymentProviderDecision = {
   paystackEnabled: boolean;
   chosenProvider: ShortletPaymentProvider | null;
   reason: ShortletPaymentProviderUnavailableReason | null;
+};
+
+type SupabaseLikeError = {
+  message?: string;
+  details?: string | null;
+  hint?: string | null;
+  code?: string | null;
+  status?: number | null;
 };
 
 type ShortletPaymentRow = {
@@ -78,6 +87,29 @@ function normalizePropertyRelation(value: unknown): Record<string, unknown> | nu
     return first && typeof first === "object" ? (first as Record<string, unknown>) : null;
   }
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function normalizeAmountCurrencyCode(input: string | null | undefined): string {
+  const raw = String(input || "").trim();
+  if (!raw) return "NGN";
+  if (raw.includes("₦")) return "NGN";
+  return raw.toUpperCase();
+}
+
+export function resolveCurrencyMinorUnit(currency: string | null | undefined): number {
+  const normalized = normalizeAmountCurrencyCode(currency);
+  if (normalized === "JPY" || normalized === "KRW") return 1;
+  return 100;
+}
+
+export function deriveShortletAmountMinorFromNumericTotal(input: {
+  total: number;
+  currency: string | null | undefined;
+}): number {
+  const total = Number(input.total);
+  if (!Number.isFinite(total)) return Number.NaN;
+  const minorUnit = resolveCurrencyMinorUnit(input.currency);
+  return Math.round(total * minorUnit);
 }
 
 function normalizePaymentRow(row: Record<string, unknown> | null): ShortletPaymentRow | null {
@@ -279,6 +311,7 @@ export async function upsertShortletPaymentIntent(input: {
   booking: ShortletPaymentBookingContext;
   provider: ShortletPaymentProvider;
   providerReference: string;
+  amountMinor: number;
   providerPayload?: Record<string, unknown>;
   client?: SupabaseClient;
 }) {
@@ -291,31 +324,67 @@ export async function upsertShortletPaymentIntent(input: {
     };
   }
 
+  const amountMinor = Math.max(0, Math.trunc(Number(input.amountMinor || 0)));
+  if (!amountMinor) {
+    const amountError = new Error("SHORTLET_INVALID_AMOUNT") as Error & SupabaseLikeError;
+    amountError.code = "SHORTLET_INVALID_AMOUNT";
+    throw amountError;
+  }
+
   const nowIso = new Date().toISOString();
-  const row = {
+  const baseRow = {
     booking_id: input.booking.bookingId,
     property_id: input.booking.propertyId,
     guest_user_id: input.booking.guestUserId,
     host_user_id: input.booking.hostUserId,
     provider: input.provider,
     currency: input.booking.currency,
-    amount_total_minor: input.booking.totalAmountMinor,
+    amount_total_minor: amountMinor,
     status: "initiated",
     provider_reference: input.providerReference,
     provider_payload_json: input.providerPayload || {},
     updated_at: nowIso,
   };
+  const untypedClient = client as unknown as UntypedAdminClient;
+  const selectColumns =
+    "id,booking_id,property_id,guest_user_id,host_user_id,provider,currency,amount_total_minor,status,provider_reference,provider_payload_json,created_at,updated_at";
+  const legacyCompatibleRow = {
+    ...baseRow,
+    amount_minor: amountMinor,
+    reference: input.providerReference,
+  };
 
-  const { data, error } = await client
+  let queryResult = await untypedClient
     .from("shortlet_payments")
-    .upsert(row, { onConflict: "booking_id" })
-    .select(
-      "id,booking_id,property_id,guest_user_id,host_user_id,provider,currency,amount_total_minor,status,provider_reference,provider_payload_json,created_at,updated_at"
-    )
+    .upsert(legacyCompatibleRow, { onConflict: "booking_id" })
+    .select(selectColumns)
     .maybeSingle();
 
+  const queryError = (queryResult.error ?? null) as SupabaseLikeError | null;
+  const legacyColumnMissing =
+    !!queryError?.message &&
+    (queryError.message.includes("amount_minor") || queryError.message.includes("reference")) &&
+    queryError.message.includes("does not exist");
+
+  if (legacyColumnMissing) {
+    queryResult = await untypedClient
+      .from("shortlet_payments")
+      .upsert(baseRow, { onConflict: "booking_id" })
+      .select(selectColumns)
+      .maybeSingle();
+  }
+
+  const { data } = queryResult;
+  const error = (queryResult.error ?? null) as SupabaseLikeError | null;
+
   if (error || !data) {
-    throw new Error(error?.message || "SHORTLET_PAYMENT_UPSERT_FAILED");
+    const upsertError = new Error(error?.message || "SHORTLET_PAYMENT_UPSERT_FAILED") as Error &
+      SupabaseLikeError;
+    upsertError.details = error?.details ?? null;
+    upsertError.hint = error?.hint ?? null;
+    upsertError.code = error?.code ?? null;
+    upsertError.status = error?.status ?? null;
+    throw upsertError;
   }
 
   return {
