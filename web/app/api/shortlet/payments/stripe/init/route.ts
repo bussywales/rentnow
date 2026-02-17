@@ -8,7 +8,7 @@ import {
   getShortletPaymentCheckoutContext,
   getShortletPaymentsProviderFlags,
   isBookingPayableStatus,
-  isNigeriaShortlet,
+  resolveShortletPaymentProviderDecision,
   upsertShortletPaymentIntent,
 } from "@/lib/shortlet/payments.server";
 import { hasServiceRoleEnv } from "@/lib/supabase/admin";
@@ -94,6 +94,22 @@ export async function postInitShortletStripeResponse(
     return NextResponse.json({ error: "Invalid booking total" }, { status: 409 });
   }
 
+  const providerDecision = resolveShortletPaymentProviderDecision({
+    propertyCountry: booking.countryCode,
+    bookingCurrency: booking.currency,
+    stripeEnabled: providerFlags.stripeEnabled,
+    paystackEnabled: providerFlags.paystackEnabled,
+  });
+  if (!providerDecision.chosenProvider || providerDecision.chosenProvider !== "stripe") {
+    return NextResponse.json(
+      {
+        error: "Payments are not available for this listing right now.",
+        code: "PAYMENTS_PROVIDER_UNAVAILABLE",
+      },
+      { status: 400 }
+    );
+  }
+
   try {
     const modes = await deps.getProviderModes();
     const stripeConfig = deps.getStripeConfigForMode(modes.stripeMode);
@@ -103,7 +119,7 @@ export async function postInitShortletStripeResponse(
 
     const stripe = deps.getStripeClient(stripeConfig.secretKey);
     const siteUrl = await deps.getSiteUrl();
-    const currency = isNigeriaShortlet(booking) ? "NGN" : booking.currency;
+    const currency = booking.currency;
 
     const session = await stripe.checkout.sessions.create({
       mode: "payment",

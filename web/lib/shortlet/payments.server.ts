@@ -5,6 +5,14 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 
 export type ShortletPaymentProvider = "stripe" | "paystack";
 export type ShortletPaymentStatus = "initiated" | "succeeded" | "failed" | "refunded";
+export type ShortletPaymentProviderDecision = {
+  propertyCountry: string | null;
+  bookingCurrency: string;
+  wantsPaystack: boolean;
+  stripeEnabled: boolean;
+  paystackEnabled: boolean;
+  chosenProvider: ShortletPaymentProvider | null;
+};
 
 type ShortletPaymentRow = {
   id: string;
@@ -179,6 +187,49 @@ export function isBookingPayableStatus(status: ShortletPaymentBookingContext["st
 export function isNigeriaShortlet(context: Pick<ShortletPaymentBookingContext, "countryCode" | "currency">) {
   if (context.countryCode === "NG") return true;
   return String(context.currency || "").toUpperCase() === "NGN";
+}
+
+function normalizeCountryCode(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = String(value).trim().toUpperCase();
+  if (!normalized) return null;
+  if (normalized === "NIGERIA" || normalized === "NGA") return "NG";
+  return normalized;
+}
+
+function normalizeCurrencyCode(value: string | null | undefined): string {
+  const normalized = String(value || "").trim().toUpperCase();
+  return normalized || "NGN";
+}
+
+export function resolveShortletPaymentProviderDecision(input: {
+  propertyCountry: string | null | undefined;
+  bookingCurrency: string | null | undefined;
+  stripeEnabled: boolean;
+  paystackEnabled: boolean;
+}): ShortletPaymentProviderDecision {
+  const propertyCountry = normalizeCountryCode(input.propertyCountry);
+  const bookingCurrency = normalizeCurrencyCode(input.bookingCurrency);
+  const wantsPaystack = propertyCountry === "NG" || bookingCurrency === "NGN";
+
+  let chosenProvider: ShortletPaymentProvider | null = wantsPaystack ? "paystack" : "stripe";
+
+  if (bookingCurrency === "NGN") {
+    chosenProvider = input.paystackEnabled ? "paystack" : null;
+  } else if (chosenProvider === "paystack" && !input.paystackEnabled) {
+    chosenProvider = input.stripeEnabled ? "stripe" : null;
+  } else if (chosenProvider === "stripe" && !input.stripeEnabled) {
+    chosenProvider = input.paystackEnabled ? "paystack" : null;
+  }
+
+  return {
+    propertyCountry,
+    bookingCurrency,
+    wantsPaystack,
+    stripeEnabled: input.stripeEnabled,
+    paystackEnabled: input.paystackEnabled,
+    chosenProvider,
+  };
 }
 
 export async function upsertShortletPaymentIntent(input: {

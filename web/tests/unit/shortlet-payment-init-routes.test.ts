@@ -232,3 +232,46 @@ void test("stripe init preserves auth failure response", async () => {
 
   assert.equal(response.status, 401);
 });
+
+void test("stripe init blocks NGN bookings and returns provider unavailable", async () => {
+  let stripeCreateCalled = false;
+  const deps: InitShortletStripeDeps = {
+    hasServiceRoleEnv: () => true,
+    requireRole: async () =>
+      ({
+        ok: true,
+        user: { id: "tenant-1", email: "tenant@example.com" } as never,
+        role: "tenant",
+        supabase: {} as never,
+      }) as Awaited<ReturnType<InitShortletStripeDeps["requireRole"]>>,
+    getShortletPaymentsProviderFlags: async () => ({ stripeEnabled: true, paystackEnabled: true }),
+    getShortletPaymentCheckoutContext: async () => makeBookingContext(),
+    getProviderModes: async () => ({ stripeMode: "test", paystackMode: "test", flutterwaveMode: "test" }),
+    getStripeConfigForMode: () => ({ mode: "test", secretKey: "sk_test", webhookSecret: "wh_test" }),
+    getStripeClient: () =>
+      ({
+        checkout: {
+          sessions: {
+            create: async () => {
+              stripeCreateCalled = true;
+              return { id: "cs_1", url: "https://stripe.example/checkout" };
+            },
+          },
+        },
+      }) as never,
+    getSiteUrl: async () => "https://example.com",
+    upsertShortletPaymentIntent: async () => ({ payment: makeBookingContext().payment as never, alreadySucceeded: false }),
+  };
+
+  const response = await postInitShortletStripeResponse(
+    makeRequest("http://localhost/api/shortlet/payments/stripe/init", {
+      booking_id: "11111111-1111-4111-8111-111111111111",
+    }),
+    deps
+  );
+
+  const payload = (await response.json()) as { code?: string };
+  assert.equal(response.status, 400);
+  assert.equal(payload.code, "PAYMENTS_PROVIDER_UNAVAILABLE");
+  assert.equal(stripeCreateCalled, false);
+});

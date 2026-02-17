@@ -6,6 +6,7 @@ import {
   getShortletPaymentCheckoutContext,
   getShortletPaymentsProviderFlags,
   isNigeriaShortlet,
+  resolveShortletPaymentProviderDecision,
 } from "@/lib/shortlet/payments.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 
@@ -75,6 +76,20 @@ export default async function ShortletPaymentCheckoutPage({ searchParams }: Page
   }
 
   const providers = await getShortletPaymentsProviderFlags();
+  const providerDecision = resolveShortletPaymentProviderDecision({
+    propertyCountry: booking.countryCode,
+    bookingCurrency: booking.currency,
+    stripeEnabled: providers.stripeEnabled,
+    paystackEnabled: providers.paystackEnabled,
+  });
+  const stripeEnabled =
+    providerDecision.chosenProvider === null
+      ? false
+      : providerDecision.bookingCurrency === "NGN"
+        ? false
+        : providers.stripeEnabled;
+  const paystackEnabled =
+    providerDecision.chosenProvider === null ? false : providers.paystackEnabled;
   const totalLabel = formatMoney(booking.currency, booking.totalAmountMinor);
   const nigeriaHint = isNigeriaShortlet(booking);
   const isAlreadyPaid =
@@ -122,9 +137,11 @@ export default async function ShortletPaymentCheckoutPage({ searchParams }: Page
       ) : (
         <ShortletPaymentChoiceCard
           bookingId={booking.bookingId}
-          stripeEnabled={providers.stripeEnabled}
-          paystackEnabled={providers.paystackEnabled}
+          stripeEnabled={stripeEnabled}
+          paystackEnabled={paystackEnabled}
           showPaystackHint={nigeriaHint}
+          chosenProvider={providerDecision.chosenProvider}
+          bookingCurrency={providerDecision.bookingCurrency}
         />
       )}
     </div>

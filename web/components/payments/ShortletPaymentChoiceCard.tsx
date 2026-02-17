@@ -38,6 +38,8 @@ export function ShortletPaymentChoiceCard(props: {
   stripeEnabled: boolean;
   paystackEnabled: boolean;
   showPaystackHint: boolean;
+  chosenProvider: "stripe" | "paystack" | null;
+  bookingCurrency: string;
 }) {
   const [busyProvider, setBusyProvider] = useState<"stripe" | "paystack" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -100,6 +102,16 @@ export function ShortletPaymentChoiceCard(props: {
       {!props.stripeEnabled || !props.paystackEnabled ? (
         <p className="mt-2 text-xs text-amber-700">
           Some payment options are temporarily disabled by admin settings.
+        </p>
+      ) : null}
+      {props.bookingCurrency.toUpperCase() === "NGN" ? (
+        <p className="mt-2 text-xs text-slate-500">
+          NGN shortlet bookings are processed with Paystack.
+        </p>
+      ) : null}
+      {props.chosenProvider === null ? (
+        <p className="mt-2 text-sm text-rose-600">
+          Payments are not available for this listing right now.
         </p>
       ) : null}
 
