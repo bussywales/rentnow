@@ -113,7 +113,7 @@ export default async function TripDetailPage({
 
         <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
           {isPendingPayment ? "Payment is required to continue this booking." : null}
-          {isPending ? "Waiting for host to respond." : null}
+          {isPending ? "Waiting for host to respond within 12 hours." : null}
           {isConfirmed ? "Your booking is confirmed." : null}
           {isClosed ? "This booking is closed. You can browse new shortlet dates anytime." : null}
         </div>

@@ -386,6 +386,7 @@ export async function POST(request: NextRequest) {
         nights: created.nights,
         total_amount_minor: created.totalAmountMinor,
         currency: created.currency,
+        respond_by: created.respondBy,
         expires_at: created.expiresAt,
         pricing_snapshot: created.pricingSnapshot,
       },

@@ -39,6 +39,7 @@ export type ShortletBookingRow = {
   currency: string;
   pricing_snapshot_json: Record<string, unknown>;
   payment_reference: string | null;
+  respond_by: string | null;
   expires_at: string | null;
   refund_required: boolean;
   created_at: string;
@@ -58,6 +59,7 @@ export type HostShortletBookingSummary = {
   status: ShortletBookingRow["status"];
   total_amount_minor: number;
   currency: string;
+  respond_by?: string | null;
   expires_at: string | null;
   created_at: string;
 };
@@ -89,6 +91,7 @@ export type GuestShortletBookingSummary = {
   status: ShortletBookingRow["status"];
   total_amount_minor: number;
   currency: string;
+  respond_by?: string | null;
   expires_at: string | null;
   created_at: string;
 };
@@ -112,6 +115,7 @@ export type AdminShortletBookingSummary = {
   status: ShortletBookingRow["status"];
   total_amount_minor: number;
   currency: string;
+  respond_by?: string | null;
   expires_at: string | null;
   created_at: string;
   refund_required: boolean;
@@ -195,15 +199,35 @@ export async function listHostShortletBookings(input: {
   limit?: number;
 }) {
   const limit = Math.max(1, Math.min(100, Math.trunc(input.limit ?? 100)));
-  const { data, error } = await input.client
+  const primarySelect =
+    "id,property_id,guest_user_id,check_in,check_out,nights,status,total_amount_minor,currency,respond_by,expires_at,created_at,properties!inner(title,city)";
+  const fallbackSelect =
+    "id,property_id,guest_user_id,check_in,check_out,nights,status,total_amount_minor,currency,expires_at,created_at,properties!inner(title,city)";
+  const primaryResult = await input.client
     .from("shortlet_bookings")
-    .select(
-      "id,property_id,guest_user_id,check_in,check_out,nights,status,total_amount_minor,currency,expires_at,created_at,properties!inner(title,city)"
-    )
+    .select(primarySelect)
     .eq("host_user_id", input.hostUserId)
     .neq("status", "pending_payment")
     .order("created_at", { ascending: false })
     .limit(limit);
+  let data = primaryResult.data as Array<Record<string, unknown>> | null;
+  let error = primaryResult.error;
+
+  if (
+    error &&
+    error.message.includes("respond_by") &&
+    error.message.toLowerCase().includes("does not exist")
+  ) {
+    const fallbackResult = await input.client
+      .from("shortlet_bookings")
+      .select(fallbackSelect)
+      .eq("host_user_id", input.hostUserId)
+      .neq("status", "pending_payment")
+      .order("created_at", { ascending: false })
+      .limit(limit);
+    data = fallbackResult.data as Array<Record<string, unknown>> | null;
+    error = fallbackResult.error;
+  }
 
   if (error) {
     throw new Error(error.message || "Unable to load host shortlet bookings");
@@ -224,6 +248,7 @@ export async function listHostShortletBookings(input: {
       status: String(row.status || "pending") as ShortletBookingRow["status"],
       total_amount_minor: Number(row.total_amount_minor || 0),
       currency: String(row.currency || "NGN"),
+      respond_by: typeof row.respond_by === "string" ? row.respond_by : null,
       expires_at: typeof row.expires_at === "string" ? row.expires_at : null,
       created_at: String(row.created_at || ""),
     } satisfies HostShortletBookingSummary;
@@ -708,6 +733,7 @@ export type CreateShortletBookingResult = {
   nights: number;
   totalAmountMinor: number;
   currency: string;
+  respondBy: string | null;
   expiresAt: string | null;
   pricingSnapshot: Record<string, unknown>;
 };
@@ -763,6 +789,12 @@ export async function createShortletBookingViaRpc(input: {
     nights: Number(row.nights || 0),
     totalAmountMinor: Number(row.total_amount_minor || 0),
     currency: String(row.currency || "NGN"),
+    respondBy:
+      typeof row.respond_by === "string"
+        ? row.respond_by
+        : typeof row.expires_at === "string"
+          ? row.expires_at
+          : null,
     expiresAt: typeof row.expires_at === "string" ? row.expires_at : null,
     pricingSnapshot:
       row.pricing_snapshot_json && typeof row.pricing_snapshot_json === "object"
@@ -832,6 +864,7 @@ export async function cancelShortletBooking(input: {
     .from("shortlet_bookings")
     .update({
       status: "cancelled",
+      respond_by: null,
       expires_at: null,
       refund_required: true,
       updated_at: new Date().toISOString(),
@@ -859,19 +892,68 @@ export async function cancelShortletBooking(input: {
   };
 }
 
+export function isShortletBookingPastRespondBy(
+  row: { respond_by?: unknown; expires_at?: unknown },
+  nowIso: string
+) {
+  const respondBy =
+    typeof row.respond_by === "string" && row.respond_by.trim()
+      ? row.respond_by
+      : typeof row.expires_at === "string" && row.expires_at.trim()
+        ? row.expires_at
+        : null;
+  if (!respondBy) return false;
+  const respondByMs = Date.parse(respondBy);
+  const nowMs = Date.parse(nowIso);
+  if (!Number.isFinite(respondByMs) || !Number.isFinite(nowMs)) return false;
+  return respondByMs < nowMs;
+}
+
 export async function expireDueShortletBookings(client: SupabaseClient) {
   const nowIso = new Date().toISOString();
+  const primaryResult = await client
+    .from("shortlet_bookings")
+    .select("id,guest_user_id,property_id,total_amount_minor,currency,respond_by,expires_at")
+    .eq("status", "pending");
+  let pendingRows = (primaryResult.data as Array<Record<string, unknown>> | null) ?? [];
+  let loadError = primaryResult.error;
+  if (
+    loadError &&
+    loadError.message.includes("respond_by") &&
+    loadError.message.toLowerCase().includes("does not exist")
+  ) {
+    const fallbackResult = await client
+      .from("shortlet_bookings")
+      .select("id,guest_user_id,property_id,total_amount_minor,currency,expires_at")
+      .eq("status", "pending");
+    pendingRows = (fallbackResult.data as Array<Record<string, unknown>> | null) ?? [];
+    loadError = fallbackResult.error;
+  }
+  if (loadError) {
+    throw new Error(loadError.message || "Unable to load due bookings");
+  }
+  const overdueIds = pendingRows
+    .filter((row) => isShortletBookingPastRespondBy(row, nowIso))
+    .map((row) => String(row.id || ""))
+    .filter(Boolean);
+
+  if (!overdueIds.length) return [];
+
   const { data, error } = await client
     .from("shortlet_bookings")
-    .update({ status: "expired", refund_required: true, updated_at: nowIso })
+    .update({
+      status: "expired",
+      respond_by: null,
+      expires_at: null,
+      refund_required: true,
+      updated_at: nowIso,
+    })
+    .in("id", overdueIds)
     .eq("status", "pending")
-    .lt("expires_at", nowIso)
     .select("id,guest_user_id,property_id,total_amount_minor,currency");
-
   if (error) {
     throw new Error(error.message || "Unable to expire due bookings");
   }
-
   return (data as Array<Record<string, unknown>> | null) ?? [];
 }
 

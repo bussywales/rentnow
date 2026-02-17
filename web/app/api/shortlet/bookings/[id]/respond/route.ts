@@ -201,7 +201,7 @@ export async function POST(
           type: "shortlet_booking_host_update",
           title: "You approved a booking request",
           body: notificationBody,
-          href: "/host?tab=bookings#host-bookings",
+          href: `/host?tab=bookings&booking=${booking.id}#host-bookings`,
           dedupeKey: `shortlet_booking:${booking.id}:approved:host`,
         }),
       ]);

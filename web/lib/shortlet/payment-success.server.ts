@@ -94,7 +94,7 @@ export async function dispatchShortletPaymentSuccess(input: ShortletPaymentSucce
         type: "shortlet_booking_instant_confirmed",
         title: `New reservation: ${input.listingTitle || "Shortlet listing"}`,
         body,
-        href: "/host?tab=bookings#host-bookings",
+        href: `/host?tab=bookings&booking=${input.bookingId}#host-bookings`,
         dedupeKey: `shortlet_booking:${input.bookingId}:instant_confirmed:host`,
       }),
     ]);
@@ -126,7 +126,7 @@ export async function dispatchShortletPaymentSuccess(input: ShortletPaymentSucce
       type: "shortlet_booking_request_sent",
       title: `New booking request: ${input.listingTitle || "Shortlet listing"}`,
       body,
-      href: "/host?tab=bookings#host-bookings",
+      href: `/host?tab=bookings&booking=${input.bookingId}#host-bookings`,
       dedupeKey: `shortlet_booking:${input.bookingId}:request_sent:host`,
     }),
   ]);

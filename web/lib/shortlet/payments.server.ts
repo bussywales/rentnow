@@ -761,7 +761,7 @@ async function confirmBookingAfterPayment(input: {
   const { data: bookingData, error } = await input.client
     .from("shortlet_bookings")
     .select(
-      "id,property_id,guest_user_id,host_user_id,status,check_in,check_out,nights,total_amount_minor,currency,payment_reference,pricing_snapshot_json,properties!inner(title,city,country_code)"
+      "id,property_id,guest_user_id,host_user_id,status,check_in,check_out,nights,total_amount_minor,currency,payment_reference,respond_by,expires_at,created_at,pricing_snapshot_json,properties!inner(title,city,country_code)"
     )
     .eq("id", input.bookingId)
     .maybeSingle();
@@ -813,9 +813,18 @@ async function confirmBookingAfterPayment(input: {
   }
 
   const nextStatus = resolvePostPaymentBookingStatus(status as ShortletPaymentBookingContext["status"], bookingMode);
-  const expiresAt =
+  const createdAtRaw =
+    typeof booking.created_at === "string" ? Date.parse(booking.created_at) : NaN;
+  const createdAtMs = Number.isFinite(createdAtRaw) ? createdAtRaw : Date.now();
+  const existingRespondBy =
+    typeof booking.respond_by === "string"
+      ? booking.respond_by
+      : typeof booking.expires_at === "string"
+        ? booking.expires_at
+        : null;
+  const respondBy =
     nextStatus === "pending"
-      ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
+      ? existingRespondBy || new Date(createdAtMs + 12 * 60 * 60 * 1000).toISOString()
       : null;
 
   const { data: updatedRow } = await input.client
@@ -823,7 +832,8 @@ async function confirmBookingAfterPayment(input: {
     .update({
       status: nextStatus,
       payment_reference: input.providerReference,
-      expires_at: expiresAt,
+      respond_by: respondBy,
+      expires_at: respondBy,
       refund_required: false,
       updated_at: new Date().toISOString(),
     })

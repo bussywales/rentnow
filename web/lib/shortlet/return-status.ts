@@ -22,6 +22,23 @@ export type ShortletReturnUiState =
 
 export const SHORTLET_STATUS_POLL_TIMEOUT_MS = 60_000;
 
+export const SHORTLET_BOOKING_STATUS_VALUES = [
+  "pending_payment",
+  "pending",
+  "confirmed",
+  "declined",
+  "cancelled",
+  "expired",
+  "completed",
+] as const satisfies ReadonlyArray<ShortletBookingStatus>;
+
+export const SHORTLET_PAYMENT_STATUS_VALUES = [
+  "initiated",
+  "succeeded",
+  "failed",
+  "refunded",
+] as const satisfies ReadonlyArray<ShortletPaymentStatus>;
+
 const TERMINAL_BOOKING_STATUSES = new Set<ShortletBookingStatus>([
   "pending",
   "confirmed",
@@ -87,6 +104,14 @@ export function isTerminalPaymentStatus(status: string | null | undefined) {
   return TERMINAL_PAYMENT_STATUSES.has(normalized);
 }
 
+export function isTerminalBooking(status: string | null | undefined) {
+  return isTerminalBookingStatus(status);
+}
+
+export function isTerminalPayment(status: string | null | undefined) {
+  return isTerminalPaymentStatus(status);
+}
+
 function isFailurePaymentStatus(status: string | null | undefined) {
   const normalized = normalizeShortletPaymentStatus(status);
   if (!normalized) return false;
@@ -97,26 +122,32 @@ function isFailurePaymentStatus(status: string | null | undefined) {
  * Booking status is authoritative for return-page polling.
  * Continue polling only while booking is pending_payment, except failed/refunded payments stop immediately.
  */
-export function shouldStopPolling(input: {
+export function shouldPoll(input: {
   bookingStatus: string | null | undefined;
   paymentStatus: string | null | undefined;
   elapsedMs: number;
   timeoutMs?: number;
 }) {
   if (isFailurePaymentStatus(input.paymentStatus)) {
-    return true;
+    return false;
   }
   if (input.elapsedMs >= (input.timeoutMs ?? SHORTLET_STATUS_POLL_TIMEOUT_MS)) {
-    return true;
+    return false;
   }
   const bookingStatus = normalizeShortletBookingStatus(input.bookingStatus);
   if (!bookingStatus) {
-    return false;
-  }
-  if (bookingStatus !== "pending_payment") {
     return true;
   }
-  return false;
+  return bookingStatus === "pending_payment";
+}
+
+export function shouldStopPolling(input: {
+  bookingStatus: string | null | undefined;
+  paymentStatus: string | null | undefined;
+  elapsedMs: number;
+  timeoutMs?: number;
+}) {
+  return !shouldPoll(input);
 }
 
 export function getPollingStopReason(input: {

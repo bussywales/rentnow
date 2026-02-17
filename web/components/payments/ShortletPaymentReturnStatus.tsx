@@ -9,7 +9,7 @@ import {
   normalizeShortletPaymentStatus,
   resolvePollingAction,
   resolveShortletReturnUiState,
-  shouldStopPolling,
+  shouldPoll,
 } from "@/lib/shortlet/return-status";
 
 type StatusPayload = {
@@ -52,7 +52,7 @@ export function shouldPollStatus(
   elapsedMs: number,
   maxPollMs = STATUS_POLL_MAX_MS
 ) {
-  return !shouldStopPolling({
+  return shouldPoll({
     paymentStatus,
     bookingStatus,
     elapsedMs,
@@ -337,7 +337,7 @@ export function ShortletPaymentReturnStatus(props: {
       ) : null}
       {state === "pending" ? (
         <p className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700">
-          Payment received. Your booking request is now waiting for host approval.
+          Payment received. Your booking request is waiting for host approval within 12 hours.
         </p>
       ) : null}
       {state === "confirmed" ? (

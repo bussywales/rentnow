@@ -1,75 +1,99 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  SHORTLET_BOOKING_STATUS_VALUES,
+  SHORTLET_PAYMENT_STATUS_VALUES,
   resolvePollingAction,
   resolveShortletReturnUiState,
-  shouldStopPolling,
+  shouldPoll,
 } from "@/lib/shortlet/return-status";
 
-void test("shouldStopPolling returns false for succeeded + pending_payment race", () => {
-  const result = shouldStopPolling({
-    paymentStatus: "succeeded",
-    bookingStatus: "pending_payment",
-    elapsedMs: 10_000,
-  });
-  assert.equal(result, false);
-});
-
-void test("shouldStopPolling returns true for succeeded + pending host-approval state", () => {
-  const result = shouldStopPolling({
-    paymentStatus: "succeeded",
-    bookingStatus: "pending",
-    elapsedMs: 10_000,
-  });
-  assert.equal(result, true);
-});
-
-void test("shouldStopPolling returns true for initiated + pending host-approval state", () => {
-  const result = shouldStopPolling({
-    paymentStatus: "initiated",
-    bookingStatus: "pending",
-    elapsedMs: 10_000,
-  });
-  assert.equal(result, true);
-});
-
-void test("shouldStopPolling stops whenever booking is terminal", () => {
-  const terminalBookingStatuses = [
+void test("status mapping arrays stay in sync with contract", () => {
+  assert.deepEqual(SHORTLET_BOOKING_STATUS_VALUES, [
+    "pending_payment",
+    "pending",
     "confirmed",
     "declined",
     "cancelled",
     "expired",
     "completed",
-  ] as const;
-  for (const bookingStatus of terminalBookingStatuses) {
-    assert.equal(
-      shouldStopPolling({
-        paymentStatus: "initiated",
-        bookingStatus,
-        elapsedMs: 5_000,
-      }),
-      true
-    );
-  }
+  ]);
+  assert.deepEqual(SHORTLET_PAYMENT_STATUS_VALUES, [
+    "initiated",
+    "succeeded",
+    "failed",
+    "refunded",
+  ]);
 });
 
-void test("shouldStopPolling stops for payment failed/refunded", () => {
+void test("shouldPoll keeps polling for succeeded + pending_payment race", () => {
   assert.equal(
-    shouldStopPolling({
+    shouldPoll({
+      paymentStatus: "succeeded",
+      bookingStatus: "pending_payment",
+      elapsedMs: 10_000,
+    }),
+    true
+  );
+});
+
+void test("shouldPoll stops when booking is pending (awaiting host approval)", () => {
+  assert.equal(
+    shouldPoll({
+      paymentStatus: "initiated",
+      bookingStatus: "pending",
+      elapsedMs: 10_000,
+    }),
+    false
+  );
+  assert.equal(
+    shouldPoll({
+      paymentStatus: "succeeded",
+      bookingStatus: "pending",
+      elapsedMs: 10_000,
+    }),
+    false
+  );
+});
+
+void test("shouldPoll stops for failed and refunded payments", () => {
+  assert.equal(
+    shouldPoll({
       paymentStatus: "failed",
       bookingStatus: "pending_payment",
       elapsedMs: 5_000,
     }),
-    true
+    false
   );
   assert.equal(
-    shouldStopPolling({
+    shouldPoll({
       paymentStatus: "refunded",
-      bookingStatus: "pending",
+      bookingStatus: "pending_payment",
       elapsedMs: 5_000,
     }),
-    true
+    false
   );
+});
+
+void test("shouldPoll table-driven combinations follow authoritative booking rule", () => {
+  for (const bookingStatus of SHORTLET_BOOKING_STATUS_VALUES) {
+    for (const paymentStatus of SHORTLET_PAYMENT_STATUS_VALUES) {
+      const expected =
+        (paymentStatus === "failed" || paymentStatus === "refunded")
+          ? false
+          : bookingStatus === "pending_payment";
+
+      assert.equal(
+        shouldPoll({
+          bookingStatus,
+          paymentStatus,
+          elapsedMs: 1_000,
+        }),
+        expected,
+        `Expected shouldPoll(${bookingStatus}, ${paymentStatus}) === ${expected}`
+      );
+    }
+  }
 });
 
 void test("timeout triggers one final fetch action, then stop", () => {
@@ -93,12 +117,36 @@ void test("timeout triggers one final fetch action, then stop", () => {
   );
 });
 
-void test("pending booking maps to waiting-for-host UI", () => {
+void test("return UI state maps pending host-approval and terminal states correctly", () => {
   assert.equal(
     resolveShortletReturnUiState({
-      paymentStatus: "initiated",
+      paymentStatus: "succeeded",
       bookingStatus: "pending",
     }),
     "pending"
   );
+  assert.equal(
+    resolveShortletReturnUiState({
+      paymentStatus: "succeeded",
+      bookingStatus: "confirmed",
+    }),
+    "confirmed"
+  );
+  assert.equal(
+    resolveShortletReturnUiState({
+      paymentStatus: "failed",
+      bookingStatus: "pending_payment",
+    }),
+    "failed"
+  );
+
+  for (const bookingStatus of ["declined", "cancelled", "expired", "completed"] as const) {
+    assert.equal(
+      resolveShortletReturnUiState({
+        paymentStatus: "succeeded",
+        bookingStatus,
+      }),
+      "closed"
+    );
+  }
 });

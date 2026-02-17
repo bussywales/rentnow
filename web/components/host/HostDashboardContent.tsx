@@ -250,6 +250,7 @@ export function HostDashboardContent({
   const [openFixChecklistByProperty, setOpenFixChecklistByProperty] = useState<Record<string, boolean>>({});
   const [workspaceSection, setWorkspaceSection] = useState<"listings" | "bookings">("listings");
   const [pendingShortletCountFromApi, setPendingShortletCountFromApi] = useState<number | null>(null);
+  const focusBookingId = searchParams?.get("booking");
 
   useEffect(() => {
     setLocalListings(listings);
@@ -1284,6 +1285,7 @@ export function HostDashboardContent({
           <HostShortletBookingsPanel
             initialRows={shortletBookings}
             settingsRows={shortletSettings}
+            focusBookingId={focusBookingId}
           />
           <HostShortletWorkspace
             bookings={shortletBookings}

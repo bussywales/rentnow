@@ -59,10 +59,13 @@ export async function MainNav({
   if (hasServerSupabaseEnv()) {
     try {
       const supabase = await createServerSupabaseClient();
-      const { data, error } = await supabase.auth.getSession();
+      const {
+        data: { user },
+        error,
+      } = await supabase.auth.getUser();
       if (!error) {
-        initialAuthed = !!data.session;
-        const userId = data.session?.user?.id;
+        initialAuthed = !!user;
+        const userId = user?.id;
         if (userId) {
           const { data: profile } = await supabase
             .from("profiles")
