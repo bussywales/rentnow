@@ -198,6 +198,13 @@ export async function POST(request: NextRequest) {
   }
 
   const { property_id, check_in, check_out } = parsed.data;
+  let derivedNights: number | null = null;
+  let derivedGuests: number | null = null;
+  let derivedMode: "instant" | "request" | null = null;
+  let debugTransition: { from: string | null; to: string | null } = {
+    from: null,
+    to: "pending_payment",
+  };
   const payloadRecord =
     rawPayload && typeof rawPayload === "object" ? (rawPayload as Record<string, unknown>) : {};
   console.info("[shortlet-bookings/create] start", {
@@ -243,34 +250,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "This listing is not bookable as a shortlet." }, { status: 409 });
     }
 
-    const nights = calculateBookingNightsFromDates(check_in, check_out);
-    if (!nights) {
+    derivedNights = calculateBookingNightsFromDates(check_in, check_out);
+    if (!derivedNights) {
       return NextResponse.json(
         { error: "Invalid booking dates.", code: invalidDatesErrorCode },
         { status: 400 }
       );
     }
-    const guests = resolveBookingGuests(payloadRecord.guests);
-    if (!guests) {
+    derivedGuests = resolveBookingGuests(payloadRecord.guests);
+    if (!derivedGuests) {
       return NextResponse.json(
         { error: "Invalid guests value.", code: invalidGuestsErrorCode },
         { status: 400 }
       );
     }
-    const mode = resolveBookingMode(payloadRecord.mode ?? payloadRecord.booking_mode, settings?.booking_mode);
+    derivedMode = resolveBookingMode(payloadRecord.mode ?? payloadRecord.booking_mode, settings?.booking_mode);
     const propertyCountry = getPropertyCountryCode(propertyData);
     const propertyCurrency = typeof propertyData.currency === "string" ? propertyData.currency : null;
     const bookingCurrency = propertyCurrency || "NGN";
     const intent = typeof payloadRecord.intent === "string" ? payloadRecord.intent : "shortlet";
 
-    console.info("[shortlet-bookings/create] derived-inputs", {
-      propertyId: property_id,
-      nights,
-      guests,
-      mode,
-      bookingCurrency,
+    console.log("[shortlet-bookings/create] derived-inputs", {
+      nights: derivedNights,
+      guests: derivedGuests,
+      mode: derivedMode,
       propertyCountry,
+      bookingCurrency,
+    });
+    console.info("[shortlet-bookings/create] derived-inputs-meta", {
+      propertyId: property_id,
       intent,
+      checkIn: check_in,
+      checkOut: check_out,
     });
 
     let created: Awaited<ReturnType<typeof createShortletBookingViaRpc>>;
@@ -300,6 +311,10 @@ export async function POST(request: NextRequest) {
       throw rpcError;
     }
 
+    debugTransition = {
+      from: created.status,
+      to: "pending_payment",
+    };
     console.info("[shortlet-bookings/create] status-check", {
       route: routeLabel,
       bookingId: created.bookingId,
@@ -399,11 +414,44 @@ export async function POST(request: NextRequest) {
     }
     const message = error instanceof Error ? error.message : "Unable to create booking";
     const mapped = mapBookingCreateError(message);
+    const responseCode = typeof err?.code === "string" ? err.code : "BOOKING_PAYMENT_PREP_FAILED";
+    const responseReason = typeof err?.reason === "string" ? err.reason : null;
+    if (mapped.status >= 500) {
+      const debug = {
+        upstream: {
+          message: typeof err?.message === "string" ? err.message : null,
+          details: err?.details ?? null,
+          hint: err?.hint ?? null,
+          code: typeof err?.code === "string" ? err.code : null,
+          status: typeof err?.status === "number" ? err.status : null,
+          upstreamBody,
+        },
+        transition: debugTransition,
+      };
+      console.error(
+        "[shortlet-bookings/create] 500",
+        JSON.stringify(
+          {
+            code: responseCode,
+            reason: responseReason,
+            propertyId: property_id,
+            checkIn: check_in,
+            checkOut: check_out,
+            nights: derivedNights,
+            guests: derivedGuests,
+            mode: derivedMode,
+            debug,
+          },
+          null,
+          2
+        )
+      );
+    }
     return NextResponse.json(
       {
         error: mapped.error,
-        code: typeof err?.code === "string" ? err.code : "BOOKING_PAYMENT_PREP_FAILED",
-        reason: typeof err?.reason === "string" ? err.reason : null,
+        code: responseCode,
+        reason: responseReason,
       },
       { status: mapped.status }
     );
