@@ -32,6 +32,18 @@ type SupabaseLikeError = {
 
 const SHORTLET_PAYMENT_SELECT =
   "id,booking_id,property_id,guest_user_id,host_user_id,provider,currency,amount_total_minor,status,provider_reference,provider_payload_json,last_verified_at,verify_attempts,needs_reconcile,reconcile_reason,reconcile_locked_until,provider_event_id,provider_tx_id,confirmed_at,created_at,updated_at";
+const SHORTLET_PAYMENT_SELECT_LEGACY =
+  "id,booking_id,property_id,guest_user_id,host_user_id,provider,currency,amount_total_minor,status,provider_reference,provider_payload_json,created_at,updated_at";
+const SHORTLET_PAYMENT_RECONCILE_COLUMNS = [
+  "last_verified_at",
+  "verify_attempts",
+  "needs_reconcile",
+  "reconcile_reason",
+  "reconcile_locked_until",
+  "provider_event_id",
+  "provider_tx_id",
+  "confirmed_at",
+] as const;
 
 const TERMINAL_BOOKING_STATUSES = new Set([
   "confirmed",
@@ -40,6 +52,20 @@ const TERMINAL_BOOKING_STATUSES = new Set([
   "expired",
   "completed",
 ]);
+
+function isMissingShortletPaymentColumnsError(
+  error: SupabaseLikeError | null | undefined,
+  columns: readonly string[]
+) {
+  const message = String(error?.message || "").toLowerCase();
+  if (!message.includes("does not exist")) return false;
+  return columns.some(
+    (column) =>
+      message.includes(`shortlet_payments.${column.toLowerCase()}`) ||
+      message.includes(`column ${column.toLowerCase()}`) ||
+      message.includes(`column \"${column.toLowerCase()}\"`)
+  );
+}
 
 export type ShortletPaymentRow = {
   id: string;
@@ -847,14 +873,25 @@ export async function markShortletPaymentSucceededAndConfirmBooking(input: {
 }) {
   const client = getClient(input.client);
   const nowIso = new Date().toISOString();
-  const { data, error } = await client
+  let paymentQuery = await client
     .from("shortlet_payments")
     .select(SHORTLET_PAYMENT_SELECT)
     .eq("provider", input.provider)
     .eq("provider_reference", input.providerReference)
     .maybeSingle();
+  let paymentQueryError = (paymentQuery.error ?? null) as SupabaseLikeError | null;
+  if (isMissingShortletPaymentColumnsError(paymentQueryError, SHORTLET_PAYMENT_RECONCILE_COLUMNS)) {
+    paymentQuery = await client
+      .from("shortlet_payments")
+      .select(SHORTLET_PAYMENT_SELECT_LEGACY)
+      .eq("provider", input.provider)
+      .eq("provider_reference", input.providerReference)
+      .maybeSingle();
+    paymentQueryError = (paymentQuery.error ?? null) as SupabaseLikeError | null;
+  }
+  const data = paymentQuery.data as Record<string, unknown> | null;
 
-  if (error || !data) {
+  if (paymentQueryError || !data) {
     return {
       ok: false as const,
       reason: "PAYMENT_NOT_FOUND",
@@ -876,7 +913,7 @@ export async function markShortletPaymentSucceededAndConfirmBooking(input: {
       ? input.providerTxId
       : currentPayment.provider_tx_id;
 
-  const { data: updatedPaymentRow, error: updateError } = await client
+  let updateQuery = await client
     .from("shortlet_payments")
     .update({
       status: "succeeded",
@@ -893,6 +930,21 @@ export async function markShortletPaymentSucceededAndConfirmBooking(input: {
     .eq("id", currentPayment.id)
     .select(SHORTLET_PAYMENT_SELECT)
     .maybeSingle();
+  let updateError = (updateQuery.error ?? null) as SupabaseLikeError | null;
+  if (isMissingShortletPaymentColumnsError(updateError, SHORTLET_PAYMENT_RECONCILE_COLUMNS)) {
+    updateQuery = await client
+      .from("shortlet_payments")
+      .update({
+        status: "succeeded",
+        provider_payload_json: mergedPayload,
+        updated_at: nowIso,
+      })
+      .eq("id", currentPayment.id)
+      .select(SHORTLET_PAYMENT_SELECT_LEGACY)
+      .maybeSingle();
+    updateError = (updateQuery.error ?? null) as SupabaseLikeError | null;
+  }
+  const updatedPaymentRow = updateQuery.data as Record<string, unknown> | null;
 
   if (updateError || !updatedPaymentRow) {
     return {
@@ -921,14 +973,18 @@ export async function markShortletPaymentSucceededAndConfirmBooking(input: {
       error instanceof Error ? error.message : "BOOKING_STATUS_UPDATE_FAILED"
     );
 
-    await markShortletPaymentNeedsReconcile({
-      paymentId: updatedPayment.id,
-      reason,
-      lockUntilIso: new Date(Date.now() + 60 * 1000).toISOString(),
-      providerPayload: mergedPayload,
-      nowIso,
-      client,
-    });
+    try {
+      await markShortletPaymentNeedsReconcile({
+        paymentId: updatedPayment.id,
+        reason,
+        lockUntilIso: new Date(Date.now() + 60 * 1000).toISOString(),
+        providerPayload: mergedPayload,
+        nowIso,
+        client,
+      });
+    } catch {
+      // Reconcile columns may not exist on older schemas; canonical status update already happened.
+    }
 
     return {
       ok: false as const,

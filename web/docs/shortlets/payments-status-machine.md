@@ -66,6 +66,11 @@ This document defines the v1 booking/payment state model for shortlets and the s
 
 ## Reconcile flow
 
+Guarantee model:
+
+- DB trigger + canonical success function guarantee correctness for payment->booking transition.
+- Reconcile worker is a best-effort backstop for lagging/missed provider callbacks.
+
 Internal route:
 
 - `POST /api/internal/shortlet/reconcile-payments`

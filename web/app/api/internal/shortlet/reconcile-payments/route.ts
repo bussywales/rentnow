@@ -18,6 +18,7 @@ import {
   type ShortletPaymentReconcileRow,
 } from "@/lib/shortlet/payments.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,15 @@ const STALE_WINDOW_MS = 5 * 60 * 1000;
 const RECONCILE_LOCK_MS = 90 * 1000;
 const RECONCILE_RETRY_LOCK_MS = 60 * 1000;
 const DEFAULT_LIMIT = 50;
+const LEGACY_RECONCILE_SELECT =
+  "id,booking_id,provider,provider_reference,status,currency,amount_total_minor,provider_payload_json,created_at,updated_at";
+const RECONCILE_SCHEMA_COLUMNS = [
+  "needs_reconcile",
+  "reconcile_reason",
+  "reconcile_locked_until",
+  "verify_attempts",
+  "last_verified_at",
+] as const;
 
 type StripeSessionLike = {
   payment_status?: string | null;
@@ -51,6 +61,14 @@ export type InternalShortletReconcileDeps = {
   markShortletPaymentNeedsReconcile: typeof markShortletPaymentNeedsReconcile;
   markShortletPaymentFailed: typeof markShortletPaymentFailed;
   markShortletPaymentSucceededAndConfirmBooking: typeof markShortletPaymentSucceededAndConfirmBooking;
+  detectReconcileSchemaSupport?: (input: {
+    client: ReturnType<typeof createServiceRoleClient>;
+  }) => Promise<boolean>;
+  listShortletPaymentsForReconcileLegacy?: (input: {
+    staleBeforeIso: string;
+    limit: number;
+    client: ReturnType<typeof createServiceRoleClient>;
+  }) => Promise<ShortletPaymentReconcileRow[]>;
   now: () => Date;
 };
 
@@ -71,6 +89,8 @@ const defaultDeps: InternalShortletReconcileDeps = {
   markShortletPaymentNeedsReconcile,
   markShortletPaymentFailed,
   markShortletPaymentSucceededAndConfirmBooking,
+  detectReconcileSchemaSupport,
+  listShortletPaymentsForReconcileLegacy,
   now: () => new Date(),
 };
 
@@ -112,6 +132,7 @@ function resolveStripeTxId(session: StripeSessionLike) {
 type ReconcileSummary = {
   ok: boolean;
   route: string;
+  schemaMode: "reconcile_columns" | "legacy_no_reconcile_columns";
   scanned: number;
   locked: number;
   reconciled: number;
@@ -122,6 +143,118 @@ type ReconcileSummary = {
   errors: string[];
 };
 
+function isMissingColumnErrorMessage(input: { message: string | null | undefined; column: string }) {
+  const message = String(input.message || "").toLowerCase();
+  const column = input.column.toLowerCase();
+  return (
+    message.includes("does not exist") &&
+    (message.includes(`shortlet_payments.${column}`) ||
+      message.includes(`column ${column}`) ||
+      message.includes(`column \"${column}\"`))
+  );
+}
+
+function hasMissingReconcileColumnsError(error: { message?: string | null } | null | undefined) {
+  return RECONCILE_SCHEMA_COLUMNS.some((column) =>
+    isMissingColumnErrorMessage({
+      message: error?.message,
+      column,
+    })
+  );
+}
+
+function normalizeLegacyReconcileRow(row: Record<string, unknown>): ShortletPaymentReconcileRow | null {
+  const id = String(row.id || "");
+  const bookingId = String(row.booking_id || "");
+  const providerReference = String(row.provider_reference || "");
+  if (!id || !bookingId || !providerReference) return null;
+
+  return {
+    id,
+    bookingId,
+    provider: row.provider === "stripe" ? "stripe" : "paystack",
+    providerReference,
+    status:
+      row.status === "succeeded"
+        ? "succeeded"
+        : row.status === "failed"
+          ? "failed"
+          : row.status === "refunded"
+            ? "refunded"
+            : "initiated",
+    currency: String(row.currency || "NGN"),
+    amountTotalMinor: Math.max(0, Math.trunc(Number(row.amount_total_minor || 0))),
+    verifyAttempts: 0,
+    needsReconcile: false,
+    reconcileReason: null,
+    reconcileLockedUntil: null,
+    providerPayload:
+      row.provider_payload_json && typeof row.provider_payload_json === "object"
+        ? (row.provider_payload_json as Record<string, unknown>)
+        : {},
+    createdAt: String(row.created_at || ""),
+    updatedAt: String(row.updated_at || ""),
+    lastVerifiedAt: null,
+    providerEventId: null,
+    providerTxId: null,
+  };
+}
+
+async function detectReconcileSchemaSupport(input: {
+  client: ReturnType<typeof createServiceRoleClient>;
+}) {
+  const client = input.client as unknown as UntypedAdminClient;
+  const { error } = await client
+    .from("shortlet_payments")
+    .select("id,needs_reconcile,reconcile_reason,reconcile_locked_until,verify_attempts,last_verified_at")
+    .range(0, 0);
+  if (!error) return true;
+  if (hasMissingReconcileColumnsError(error)) return false;
+  throw new Error(error.message || "SHORTLET_RECONCILE_SCHEMA_PROBE_FAILED");
+}
+
+async function listShortletPaymentsForReconcileLegacy(input: {
+  staleBeforeIso: string;
+  limit: number;
+  client: ReturnType<typeof createServiceRoleClient>;
+}) {
+  const client = input.client as unknown as UntypedAdminClient;
+  const [initiatedRows, succeededRows] = await Promise.all([
+    client
+      .from("shortlet_payments")
+      .select(LEGACY_RECONCILE_SELECT)
+      .eq("status", "initiated")
+      .lte("created_at", input.staleBeforeIso)
+      .order("created_at", { ascending: true })
+      .range(0, input.limit - 1),
+    client
+      .from("shortlet_payments")
+      .select(LEGACY_RECONCILE_SELECT)
+      .eq("status", "succeeded")
+      .order("updated_at", { ascending: true })
+      .range(0, input.limit - 1),
+  ]);
+
+  const errors = [initiatedRows.error, succeededRows.error].filter(Boolean);
+  if (errors.length > 0) {
+    throw new Error(errors[0]?.message || "SHORTLET_RECONCILE_CANDIDATES_LEGACY_FAILED");
+  }
+
+  const merged = [...(initiatedRows.data || []), ...(succeededRows.data || [])] as Record<
+    string,
+    unknown
+  >[];
+  const deduped = new Map<string, ShortletPaymentReconcileRow>();
+  for (const row of merged) {
+    const normalized = normalizeLegacyReconcileRow(row);
+    if (!normalized) continue;
+    if (!deduped.has(normalized.id)) {
+      deduped.set(normalized.id, normalized);
+    }
+  }
+  return Array.from(deduped.values()).slice(0, input.limit);
+}
+
 async function reconcilePaystackCandidate(input: {
   candidate: ShortletPaymentReconcileRow;
   bookingCurrency: string;
@@ -131,15 +264,18 @@ async function reconcilePaystackCandidate(input: {
   nowIso: string;
   retryLockIso: string;
   paystackSecretKey: string | null;
+  allowReconcileStateWrites: boolean;
 }) {
   if (!input.paystackSecretKey) {
-    await input.deps.markShortletPaymentNeedsReconcile({
-      paymentId: input.candidate.id,
-      reason: "provider_verification_failed",
-      lockUntilIso: input.retryLockIso,
-      nowIso: input.nowIso,
-      client: input.client,
-    });
+    if (input.allowReconcileStateWrites) {
+      await input.deps.markShortletPaymentNeedsReconcile({
+        paymentId: input.candidate.id,
+        reason: "provider_verification_failed",
+        lockUntilIso: input.retryLockIso,
+        nowIso: input.nowIso,
+        client: input.client,
+      });
+    }
     return { outcome: "flagged" as const };
   }
 
@@ -155,24 +291,28 @@ async function reconcilePaystackCandidate(input: {
 
   if (!verified.ok) {
     if (shouldMarkProviderFailure(verified.status)) {
-      await input.deps.markShortletPaymentFailed({
-        provider: "paystack",
-        providerReference: input.candidate.providerReference,
-        providerPayload: payload,
-        reconcileReason: "provider_not_paid",
-        client: input.client,
-      });
+      if (input.allowReconcileStateWrites) {
+        await input.deps.markShortletPaymentFailed({
+          provider: "paystack",
+          providerReference: input.candidate.providerReference,
+          providerPayload: payload,
+          reconcileReason: "provider_not_paid",
+          client: input.client,
+        });
+      }
       return { outcome: "failed" as const };
     }
 
-    await input.deps.markShortletPaymentNeedsReconcile({
-      paymentId: input.candidate.id,
-      reason: "provider_not_paid",
-      lockUntilIso: input.retryLockIso,
-      providerPayload: payload,
-      nowIso: input.nowIso,
-      client: input.client,
-    });
+    if (input.allowReconcileStateWrites) {
+      await input.deps.markShortletPaymentNeedsReconcile({
+        paymentId: input.candidate.id,
+        reason: "provider_not_paid",
+        lockUntilIso: input.retryLockIso,
+        providerPayload: payload,
+        nowIso: input.nowIso,
+        client: input.client,
+      });
+    }
     return { outcome: "flagged" as const };
   }
 
@@ -180,14 +320,16 @@ async function reconcilePaystackCandidate(input: {
     Math.max(0, Math.trunc(Number(verified.amountMinor || 0))) !== input.bookingAmountMinor ||
     normalizeCurrency(verified.currency) !== normalizeCurrency(input.bookingCurrency)
   ) {
-    await input.deps.markShortletPaymentNeedsReconcile({
-      paymentId: input.candidate.id,
-      reason: "provider_mismatch",
-      lockUntilIso: input.retryLockIso,
-      providerPayload: payload,
-      nowIso: input.nowIso,
-      client: input.client,
-    });
+    if (input.allowReconcileStateWrites) {
+      await input.deps.markShortletPaymentNeedsReconcile({
+        paymentId: input.candidate.id,
+        reason: "provider_mismatch",
+        lockUntilIso: input.retryLockIso,
+        providerPayload: payload,
+        nowIso: input.nowIso,
+        client: input.client,
+      });
+    }
     return { outcome: "flagged" as const };
   }
 
@@ -201,17 +343,19 @@ async function reconcilePaystackCandidate(input: {
   });
 
   if (!paid.ok) {
-    await input.deps.markShortletPaymentNeedsReconcile({
-      paymentId: input.candidate.id,
-      reason:
-        paid.reason === "BOOKING_STATUS_TRANSITION_FAILED"
-          ? "booking_status_transition_failed"
-          : "provider_status_unknown",
-      lockUntilIso: input.retryLockIso,
-      providerPayload: payload,
-      nowIso: input.nowIso,
-      client: input.client,
-    });
+    if (input.allowReconcileStateWrites) {
+      await input.deps.markShortletPaymentNeedsReconcile({
+        paymentId: input.candidate.id,
+        reason:
+          paid.reason === "BOOKING_STATUS_TRANSITION_FAILED"
+            ? "booking_status_transition_failed"
+            : "provider_status_unknown",
+        lockUntilIso: input.retryLockIso,
+        providerPayload: payload,
+        nowIso: input.nowIso,
+        client: input.client,
+      });
+    }
     return { outcome: "flagged" as const };
   }
 
@@ -227,15 +371,18 @@ async function reconcileStripeCandidate(input: {
   nowIso: string;
   retryLockIso: string;
   stripeClient: ReturnType<typeof getStripeClient> | null;
+  allowReconcileStateWrites: boolean;
 }) {
   if (!input.stripeClient) {
-    await input.deps.markShortletPaymentNeedsReconcile({
-      paymentId: input.candidate.id,
-      reason: "provider_verification_failed",
-      lockUntilIso: input.retryLockIso,
-      nowIso: input.nowIso,
-      client: input.client,
-    });
+    if (input.allowReconcileStateWrites) {
+      await input.deps.markShortletPaymentNeedsReconcile({
+        paymentId: input.candidate.id,
+        reason: "provider_verification_failed",
+        lockUntilIso: input.retryLockIso,
+        nowIso: input.nowIso,
+        client: input.client,
+      });
+    }
     return { outcome: "flagged" as const };
   }
 
@@ -247,24 +394,28 @@ async function reconcileStripeCandidate(input: {
 
   if (paymentStatus !== "paid") {
     if (shouldMarkProviderFailure(paymentStatus)) {
-      await input.deps.markShortletPaymentFailed({
-        provider: "stripe",
-        providerReference: input.candidate.providerReference,
-        providerPayload: payload,
-        reconcileReason: "provider_not_paid",
-        client: input.client,
-      });
+      if (input.allowReconcileStateWrites) {
+        await input.deps.markShortletPaymentFailed({
+          provider: "stripe",
+          providerReference: input.candidate.providerReference,
+          providerPayload: payload,
+          reconcileReason: "provider_not_paid",
+          client: input.client,
+        });
+      }
       return { outcome: "failed" as const };
     }
 
-    await input.deps.markShortletPaymentNeedsReconcile({
-      paymentId: input.candidate.id,
-      reason: "provider_not_paid",
-      lockUntilIso: input.retryLockIso,
-      providerPayload: payload,
-      nowIso: input.nowIso,
-      client: input.client,
-    });
+    if (input.allowReconcileStateWrites) {
+      await input.deps.markShortletPaymentNeedsReconcile({
+        paymentId: input.candidate.id,
+        reason: "provider_not_paid",
+        lockUntilIso: input.retryLockIso,
+        providerPayload: payload,
+        nowIso: input.nowIso,
+        client: input.client,
+      });
+    }
     return { outcome: "flagged" as const };
   }
 
@@ -273,14 +424,16 @@ async function reconcileStripeCandidate(input: {
     amountMinor !== input.bookingAmountMinor ||
     normalizeCurrency(session.currency) !== normalizeCurrency(input.bookingCurrency)
   ) {
-    await input.deps.markShortletPaymentNeedsReconcile({
-      paymentId: input.candidate.id,
-      reason: "provider_mismatch",
-      lockUntilIso: input.retryLockIso,
-      providerPayload: payload,
-      nowIso: input.nowIso,
-      client: input.client,
-    });
+    if (input.allowReconcileStateWrites) {
+      await input.deps.markShortletPaymentNeedsReconcile({
+        paymentId: input.candidate.id,
+        reason: "provider_mismatch",
+        lockUntilIso: input.retryLockIso,
+        providerPayload: payload,
+        nowIso: input.nowIso,
+        client: input.client,
+      });
+    }
     return { outcome: "flagged" as const };
   }
 
@@ -293,17 +446,19 @@ async function reconcileStripeCandidate(input: {
   });
 
   if (!paid.ok) {
-    await input.deps.markShortletPaymentNeedsReconcile({
-      paymentId: input.candidate.id,
-      reason:
-        paid.reason === "BOOKING_STATUS_TRANSITION_FAILED"
-          ? "booking_status_transition_failed"
-          : "provider_status_unknown",
-      lockUntilIso: input.retryLockIso,
-      providerPayload: payload,
-      nowIso: input.nowIso,
-      client: input.client,
-    });
+    if (input.allowReconcileStateWrites) {
+      await input.deps.markShortletPaymentNeedsReconcile({
+        paymentId: input.candidate.id,
+        reason:
+          paid.reason === "BOOKING_STATUS_TRANSITION_FAILED"
+            ? "booking_status_transition_failed"
+            : "provider_status_unknown",
+        lockUntilIso: input.retryLockIso,
+        providerPayload: payload,
+        nowIso: input.nowIso,
+        client: input.client,
+      });
+    }
     return { outcome: "flagged" as const };
   }
 
@@ -332,6 +487,7 @@ export async function postInternalShortletReconcilePaymentsResponse(
   const summary: ReconcileSummary = {
     ok: true,
     route: routeLabel,
+    schemaMode: "reconcile_columns",
     scanned: 0,
     locked: 0,
     reconciled: 0,
@@ -360,29 +516,45 @@ export async function postInternalShortletReconcilePaymentsResponse(
     ? deps.getPaystackServerConfig().secretKey || null
     : null;
 
-  const candidates = await deps.listShortletPaymentsForReconcile({
-    staleBeforeIso,
-    nowIso,
-    limit,
+  const hasReconcileColumns = await (deps.detectReconcileSchemaSupport ?? detectReconcileSchemaSupport)({
     client,
   });
+  if (!hasReconcileColumns) {
+    summary.schemaMode = "legacy_no_reconcile_columns";
+    console.warn(`[${routeLabel}] legacy_mode_no_reconcile_columns`);
+  }
+
+  const candidates = hasReconcileColumns
+    ? await deps.listShortletPaymentsForReconcile({
+        staleBeforeIso,
+        nowIso,
+        limit,
+        client,
+      })
+    : await (deps.listShortletPaymentsForReconcileLegacy ?? listShortletPaymentsForReconcileLegacy)({
+        staleBeforeIso,
+        limit,
+        client,
+      });
 
   summary.scanned = candidates.length;
 
   for (const candidate of candidates) {
     try {
-      const locked = await deps.lockShortletPaymentForReconcile({
-        paymentId: candidate.id,
-        verifyAttempts: candidate.verifyAttempts,
-        lockUntilIso,
-        nowIso,
-        client,
-      });
-      if (!locked) {
-        summary.skippedLocked += 1;
-        continue;
+      if (hasReconcileColumns) {
+        const locked = await deps.lockShortletPaymentForReconcile({
+          paymentId: candidate.id,
+          verifyAttempts: candidate.verifyAttempts,
+          lockUntilIso,
+          nowIso,
+          client,
+        });
+        if (!locked) {
+          summary.skippedLocked += 1;
+          continue;
+        }
+        summary.locked += 1;
       }
-      summary.locked += 1;
 
       const booking = await deps.getShortletPaymentCheckoutContextByBookingId({
         bookingId: candidate.bookingId,
@@ -390,14 +562,17 @@ export async function postInternalShortletReconcilePaymentsResponse(
       });
 
       if (!booking) {
-        await deps.markShortletPaymentNeedsReconcile({
-          paymentId: candidate.id,
-          reason: "booking_not_found",
-          lockUntilIso: retryLockIso,
-          nowIso,
-          client,
-        });
+        if (hasReconcileColumns) {
+          await deps.markShortletPaymentNeedsReconcile({
+            paymentId: candidate.id,
+            reason: "booking_not_found",
+            lockUntilIso: retryLockIso,
+            nowIso,
+            client,
+          });
+        }
         summary.flaggedForReconcile += 1;
+        summary.errors.push(`${candidate.id}:booking_not_found`);
         continue;
       }
 
@@ -405,11 +580,13 @@ export async function postInternalShortletReconcilePaymentsResponse(
         candidate.status === "succeeded" &&
         isTerminalShortletBookingStatus(booking.status)
       ) {
-        await deps.clearShortletPaymentReconcileState({
-          paymentId: candidate.id,
-          nowIso,
-          client,
-        });
+        if (hasReconcileColumns) {
+          await deps.clearShortletPaymentReconcileState({
+            paymentId: candidate.id,
+            nowIso,
+            client,
+          });
+        }
         summary.skippedTerminal += 1;
         continue;
       }
@@ -425,6 +602,7 @@ export async function postInternalShortletReconcilePaymentsResponse(
               nowIso,
               retryLockIso,
               paystackSecretKey,
+              allowReconcileStateWrites: hasReconcileColumns,
             })
           : await reconcileStripeCandidate({
               candidate,
@@ -435,6 +613,7 @@ export async function postInternalShortletReconcilePaymentsResponse(
               nowIso,
               retryLockIso,
               stripeClient,
+              allowReconcileStateWrites: hasReconcileColumns,
             });
 
       if (outcome.outcome === "reconciled") summary.reconciled += 1;
@@ -445,13 +624,15 @@ export async function postInternalShortletReconcilePaymentsResponse(
         `${candidate.id}:${error instanceof Error ? error.message : "reconcile_failed"}`
       );
       try {
-        await deps.markShortletPaymentNeedsReconcile({
-          paymentId: candidate.id,
-          reason: "provider_verification_failed",
-          lockUntilIso: retryLockIso,
-          nowIso,
-          client,
-        });
+        if (hasReconcileColumns) {
+          await deps.markShortletPaymentNeedsReconcile({
+            paymentId: candidate.id,
+            reason: "provider_verification_failed",
+            lockUntilIso: retryLockIso,
+            nowIso,
+            client,
+          });
+        }
         summary.flaggedForReconcile += 1;
       } catch {
         // no-op: best effort path already captured in summary errors.
@@ -460,6 +641,7 @@ export async function postInternalShortletReconcilePaymentsResponse(
   }
 
   console.log(`[${routeLabel}] done`, {
+    schemaMode: summary.schemaMode,
     scanned: summary.scanned,
     locked: summary.locked,
     reconciled: summary.reconciled,
