@@ -6,6 +6,7 @@ import {
   canCancelBooking,
   mapHostBookingDecisionToAction,
   mapBookingCreateError,
+  resolvePostPaymentBookingStatus,
   resolveHostBookingDecisionStatus,
   resolveHostBookingResponseStatus,
 } from "@/lib/shortlet/bookings";
@@ -103,8 +104,18 @@ void test("cancelled bookings release availability", () => {
   assert.equal(blocksAvailability("pending"), true);
   assert.equal(blocksAvailability("confirmed"), true);
   assert.equal(blocksAvailability("cancelled"), false);
+  assert.equal(canCancelBooking("pending_payment"), true);
   assert.equal(canCancelBooking("confirmed"), true);
   assert.equal(canCancelBooking("cancelled"), false);
+});
+
+void test("post-payment transitions require pending_payment and resolve by booking mode", () => {
+  assert.equal(resolvePostPaymentBookingStatus("pending_payment", "request"), "pending");
+  assert.equal(resolvePostPaymentBookingStatus("pending_payment", "instant"), "confirmed");
+  assert.throws(
+    () => resolvePostPaymentBookingStatus("pending", "request"),
+    /INVALID_STATUS_TRANSITION/
+  );
 });
 
 void test("payout marking transition is idempotent", () => {

@@ -273,51 +273,61 @@ export async function POST(request: NextRequest) {
       intent,
     });
 
-    let created = await createShortletBookingViaRpc({
-      client: supabase,
-      propertyId: property_id,
-      guestUserId: auth.user.id,
-      checkIn: check_in,
-      checkOut: check_out,
+    let created: Awaited<ReturnType<typeof createShortletBookingViaRpc>>;
+    try {
+      created = await createShortletBookingViaRpc({
+        client: supabase,
+        propertyId: property_id,
+        guestUserId: auth.user.id,
+        checkIn: check_in,
+        checkOut: check_out,
+      });
+    } catch (rpcError) {
+      const rpcErr = rpcError as CreateRouteError;
+      console.error(`[shortlet-bookings/create] ${routeLabel} booking-create-rpc-failed`, {
+        route: routeLabel,
+        propertyId: property_id,
+        currentStatus: null,
+        targetStatus: "pending_payment",
+        supabaseError: {
+          message: typeof rpcErr?.message === "string" ? rpcErr.message : null,
+          details: rpcErr?.details ?? null,
+          hint: rpcErr?.hint ?? null,
+          code: typeof rpcErr?.code === "string" ? rpcErr.code : null,
+          status: typeof rpcErr?.status === "number" ? rpcErr.status : null,
+        },
+      });
+      throw rpcError;
+    }
+
+    console.info("[shortlet-bookings/create] status-check", {
+      route: routeLabel,
+      bookingId: created.bookingId,
+      currentStatus: created.status,
+      targetStatus: "pending_payment",
     });
 
     if (created.status !== "pending_payment") {
-      const { data: updated } = await supabase
-        .from("shortlet_bookings")
-        .update({
-          status: "pending_payment",
-          expires_at: null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", created.bookingId)
-        .in("status", ["pending", "confirmed"])
-        .select("status")
-        .maybeSingle();
-      if (updated?.status === "pending_payment") {
-        created = {
-          ...created,
-          status: "pending_payment",
-          expiresAt: null,
-        };
-      } else {
-        console.info("[shortlet-bookings/create] prepare-payment", {
-          bookingId: created.bookingId,
-          propertyId: property_id,
-          propertyCountry,
-          propertyCurrency,
-          bookingCurrency: typeof created.currency === "string" ? created.currency : null,
-          stripeEnabled: null,
-          paystackEnabled: null,
-          chosenProvider: null,
-          reason: "booking_status_transition_failed",
-        });
-        const prepareError = new Error("Unable to prepare booking for payment.") as CreateRouteError &
-          Error;
-        prepareError.code = "BOOKING_PAYMENT_PREP_FAILED";
-        prepareError.status = 409;
-        prepareError.reason = "booking_status_transition_failed";
-        throw prepareError;
-      }
+      console.error(`[shortlet-bookings/create] ${routeLabel} unexpected booking status`, {
+        route: routeLabel,
+        bookingId: created.bookingId,
+        propertyId: property_id,
+        currentStatus: created.status,
+        targetStatus: "pending_payment",
+        supabaseError: {
+          message: null,
+          details: null,
+          hint: null,
+          code: null,
+          status: null,
+        },
+      });
+      const prepareError = new Error("Unable to prepare booking for payment.") as CreateRouteError &
+        Error;
+      prepareError.code = "BOOKING_PAYMENT_PREP_FAILED";
+      prepareError.status = 409;
+      prepareError.reason = "booking_initial_status_invalid";
+      throw prepareError;
     }
 
     const providerFlags = await getShortletPaymentsProviderFlags();
@@ -370,7 +380,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const err = error as CreateRouteError;
     const upstreamBody = await readUpstreamResponseBody(err);
-    console.error("[shortlet-bookings/create] failed", {
+    console.error(`[shortlet-bookings/create] ${routeLabel} failed`, {
+      route: routeLabel,
       message: typeof err?.message === "string" ? err.message : null,
       name: typeof err?.name === "string" ? err.name : null,
       code: typeof err?.code === "string" ? err.code : null,

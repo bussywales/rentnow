@@ -6,6 +6,7 @@ export type ShortletBookingStatus =
   | "cancelled"
   | "expired"
   | "completed";
+export type ShortletBookingMode = "instant" | "request";
 export type HostBookingDecision = "approve" | "decline";
 export type HostBookingRespondAction = "accept" | "decline";
 
@@ -45,6 +46,16 @@ export function resolveHostBookingDecisionStatus(
     currentStatus,
     mapHostBookingDecisionToAction(decision)
   );
+}
+
+export function resolvePostPaymentBookingStatus(
+  currentStatus: ShortletBookingStatus,
+  bookingMode: ShortletBookingMode
+): ShortletBookingStatus {
+  if (currentStatus !== "pending_payment") {
+    throw new Error("INVALID_STATUS_TRANSITION");
+  }
+  return bookingMode === "instant" ? "confirmed" : "pending";
 }
 
 export function mapBookingCreateError(message: string): { status: number; error: string } {

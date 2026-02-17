@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolvePostPaymentBookingStatus } from "@/lib/shortlet/bookings";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
@@ -394,7 +395,7 @@ async function confirmBookingAfterPayment(input: {
     throw new Error("BOOKING_NOT_PAYABLE");
   }
 
-  const nextStatus = bookingMode === "instant" ? "confirmed" : "pending";
+  const nextStatus = resolvePostPaymentBookingStatus(status as ShortletPaymentBookingContext["status"], bookingMode);
   const expiresAt =
     nextStatus === "pending"
       ? new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()

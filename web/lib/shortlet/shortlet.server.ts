@@ -712,6 +712,14 @@ export type CreateShortletBookingResult = {
   pricingSnapshot: Record<string, unknown>;
 };
 
+type SupabaseRpcErrorPayload = {
+  message?: string;
+  details?: string;
+  hint?: string;
+  code?: string;
+  status?: number;
+};
+
 export async function createShortletBookingViaRpc(input: {
   client: SupabaseClient;
   propertyId: string;
@@ -723,7 +731,7 @@ export async function createShortletBookingViaRpc(input: {
     rpc: (
       fn: string,
       args: Record<string, unknown>
-    ) => Promise<{ data: Array<Record<string, unknown>> | null; error: { message?: string } | null }>;
+    ) => Promise<{ data: Array<Record<string, unknown>> | null; error: SupabaseRpcErrorPayload | null }>;
   };
 
   const { data, error } = await rpcClient.rpc("create_shortlet_booking", {
@@ -734,7 +742,14 @@ export async function createShortletBookingViaRpc(input: {
   });
 
   if (error) {
-    throw new Error(error.message || "Unable to create booking");
+    const rpcError = new Error(error.message || "Unable to create booking") as Error &
+      SupabaseRpcErrorPayload & { data?: unknown };
+    rpcError.details = error.details;
+    rpcError.hint = error.hint;
+    rpcError.code = error.code;
+    rpcError.status = error.status;
+    rpcError.data = { source: "supabase.rpc:create_shortlet_booking" };
+    throw rpcError;
   }
 
   const row = data?.[0];
