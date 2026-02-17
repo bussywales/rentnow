@@ -85,17 +85,15 @@ export async function getShortletPaymentStatusResponse(
       listing_title: booking.listingTitle,
       city: booking.city,
     },
-    payment: booking.payment
-      ? {
-          id: booking.payment.id,
-          provider: booking.payment.provider,
-          status: booking.payment.status,
-          provider_reference: booking.payment.provider_reference,
-          amount_total_minor: booking.payment.amount_total_minor,
-          currency: booking.payment.currency,
-          updated_at: booking.payment.updated_at,
-        }
-      : null,
+    payment: {
+      id: booking.payment?.id ?? null,
+      provider: booking.payment?.provider ?? null,
+      status: booking.payment?.status ?? null,
+      provider_reference: booking.payment?.provider_reference ?? null,
+      amount_total_minor: booking.payment?.amount_total_minor ?? null,
+      currency: booking.payment?.currency ?? null,
+      updated_at: booking.payment?.updated_at ?? null,
+    },
   });
 }
 
