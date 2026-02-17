@@ -23,6 +23,7 @@ export type ShortletReturnUiState =
 export const SHORTLET_STATUS_POLL_TIMEOUT_MS = 60_000;
 
 const TERMINAL_BOOKING_STATUSES = new Set<ShortletBookingStatus>([
+  "pending",
   "confirmed",
   "declined",
   "cancelled",
@@ -93,7 +94,8 @@ function isFailurePaymentStatus(status: string | null | undefined) {
 }
 
 /**
- * Booking status is authoritative; do not stop polling on payment success while booking is pending_payment.
+ * Booking status is authoritative for return-page polling.
+ * Continue polling only while booking is pending_payment, except failed/refunded payments stop immediately.
  */
 export function shouldStopPolling(input: {
   bookingStatus: string | null | undefined;
@@ -101,13 +103,17 @@ export function shouldStopPolling(input: {
   elapsedMs: number;
   timeoutMs?: number;
 }) {
+  if (isFailurePaymentStatus(input.paymentStatus)) {
+    return true;
+  }
   if (input.elapsedMs >= (input.timeoutMs ?? SHORTLET_STATUS_POLL_TIMEOUT_MS)) {
     return true;
   }
-  if (isTerminalBookingStatus(input.bookingStatus)) {
-    return true;
+  const bookingStatus = normalizeShortletBookingStatus(input.bookingStatus);
+  if (!bookingStatus) {
+    return false;
   }
-  if (isFailurePaymentStatus(input.paymentStatus)) {
+  if (bookingStatus !== "pending_payment") {
     return true;
   }
   return false;
@@ -119,14 +125,15 @@ export function getPollingStopReason(input: {
   elapsedMs: number;
   timeoutMs?: number;
 }) {
+  if (isFailurePaymentStatus(input.paymentStatus)) {
+    return "terminal_payment" as const;
+  }
   if (input.elapsedMs >= (input.timeoutMs ?? SHORTLET_STATUS_POLL_TIMEOUT_MS)) {
     return "timeout" as const;
   }
-  if (isTerminalBookingStatus(input.bookingStatus)) {
+  const bookingStatus = normalizeShortletBookingStatus(input.bookingStatus);
+  if (bookingStatus && bookingStatus !== "pending_payment") {
     return "terminal_booking" as const;
-  }
-  if (isFailurePaymentStatus(input.paymentStatus)) {
-    return "terminal_payment" as const;
   }
   return "continue" as const;
 }
@@ -169,4 +176,3 @@ export function resolveShortletReturnUiState(input: {
   }
   return "processing" as const;
 }
-

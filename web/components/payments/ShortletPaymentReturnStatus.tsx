@@ -288,8 +288,7 @@ export function ShortletPaymentReturnStatus(props: {
   const bookingStatus = normalizeShortletBookingStatus(payload?.booking?.status);
   const paymentStatus = normalizeShortletPaymentStatus(payload?.payment?.status);
   const isPaymentSucceededPendingFinalisation =
-    paymentStatus === "succeeded" &&
-    (bookingStatus === "pending_payment" || bookingStatus === "pending");
+    paymentStatus === "succeeded" && bookingStatus === "pending_payment";
 
   const canRetryPayment = !["confirmed", "pending"].includes(state);
   const showTimeoutState = timedOut && state === "processing";

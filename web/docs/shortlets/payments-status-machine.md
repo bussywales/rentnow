@@ -88,13 +88,29 @@ Worker behavior:
 
 ## Return-page polling contract
 
-- Keep polling while booking is non-terminal and payment is not `failed/refunded`.
-- Do not stop polling only because payment is `succeeded` if booking is still `pending_payment` or `pending`.
+- Booking status is authoritative for the return page.
+- Keep polling only while booking is `pending_payment` and payment is not `failed/refunded`.
+- Stop polling once booking leaves `pending_payment` (including `pending`, which is waiting for host approval).
 - Show:
   - `pending_payment + succeeded`: "Payment received. Finalising your booking..."
-  - `pending + succeeded`: "Payment received. Your booking request is now waiting for host approval."
+  - `pending + (initiated|succeeded)`: "Payment received. Your booking request is now waiting for host approval."
 
 ## Debug commands
+
+Manual reconcile run:
+
+```bash
+curl -X POST "https://www.propatyhub.com/api/internal/shortlet/reconcile-payments" \
+  -H "x-cron-secret: <CRON_SECRET>" \
+  -H "content-type: application/json" \
+  --data '{}'
+```
+
+Expected scheduler behavior:
+
+- GitHub Actions workflow `.github/workflows/payments-reconcile.yml` runs every 15 minutes and calls:
+  - `/api/jobs/payments/reconcile`
+  - `/api/internal/shortlet/reconcile-payments`
 
 Vercel logs:
 

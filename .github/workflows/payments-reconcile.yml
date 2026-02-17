@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - name: Call payments reconcile endpoint
+      - name: Call payments reconcile endpoints
         env:
           APP_URL: ${{ secrets.APP_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -34,48 +34,58 @@ jobs:
             exit 1
           fi
 
-          RECONCILE_URL="${APP_URL%/}/api/jobs/payments/reconcile"
-          echo "Reconcile URL: ${RECONCILE_URL}"
-
           ATTEMPTS=3
           SLEEP_SECONDS=10
-          attempt=1
-          success=0
-          response_file="$(mktemp)"
-          trap 'rm -f "${response_file}"' EXIT
+          call_endpoint() {
+            local endpoint="$1"
+            local reconcile_url="${APP_URL%/}${endpoint}"
+            local attempt=1
+            local success=0
+            local response_file
 
-          while [ "${attempt}" -le "${ATTEMPTS}" ]; do
-            echo "Attempt ${attempt}/${ATTEMPTS}"
+            response_file="$(mktemp)"
 
-            if ! http_code="$(curl -sS \
-              -o "${response_file}" \
-              -w "%{http_code}" \
-              -X POST "${RECONCILE_URL}" \
-              -H "x-cron-secret: ${CRON_SECRET}" \
-              -H "content-type: application/json" \
-              --data '{}')"; then
-              http_code="curl_error"
+            echo "Reconcile URL: ${reconcile_url}"
+
+            while [ "${attempt}" -le "${ATTEMPTS}" ]; do
+              echo "[${endpoint}] Attempt ${attempt}/${ATTEMPTS}"
+
+              if ! http_code="$(curl -sS \
+                -o "${response_file}" \
+                -w "%{http_code}" \
+                -X POST "${reconcile_url}" \
+                -H "x-cron-secret: ${CRON_SECRET}" \
+                -H "content-type: application/json" \
+                --data '{}')"; then
+                http_code="curl_error"
+              fi
+
+              echo "[${endpoint}] HTTP status: ${http_code}"
+              echo "[${endpoint}] Response body (first 2048 bytes):"
+              head -c 2048 "${response_file}" || true
+              echo ""
+
+              if [[ "${http_code}" =~ ^[0-9]{3}$ ]] && [ "${http_code}" -ge 200 ] && [ "${http_code}" -lt 300 ]; then
+                success=1
+                break
+              fi
+
+              if [ "${attempt}" -lt "${ATTEMPTS}" ]; then
+                echo "[${endpoint}] Request failed; retrying in ${SLEEP_SECONDS}s..."
+                sleep "${SLEEP_SECONDS}"
+              fi
+
+              attempt=$((attempt + 1))
+            done
+
+            if [ "${success}" -ne 1 ]; then
+              echo "[${endpoint}] Reconcile failed after ${ATTEMPTS} attempts."
+              rm -f "${response_file}"
+              exit 1
             fi
 
-            echo "HTTP status: ${http_code}"
-            echo "Response body (first 2048 bytes):"
-            head -c 2048 "${response_file}" || true
-            echo ""
+            rm -f "${response_file}"
+          }
 
-            if [[ "${http_code}" =~ ^[0-9]{3}$ ]] && [ "${http_code}" -ge 200 ] && [ "${http_code}" -lt 300 ]; then
-              success=1
-              break
-            fi
-
-            if [ "${attempt}" -lt "${ATTEMPTS}" ]; then
-              echo "Request failed; retrying in ${SLEEP_SECONDS}s..."
-              sleep "${SLEEP_SECONDS}"
-            fi
-
-            attempt=$((attempt + 1))
-          done
-
-          if [ "${success}" -ne 1 ]; then
-            echo "Payments reconcile failed after ${ATTEMPTS} attempts."
-            exit 1
-          fi
+          call_endpoint "/api/jobs/payments/reconcile"
+          call_endpoint "/api/internal/shortlet/reconcile-payments"
