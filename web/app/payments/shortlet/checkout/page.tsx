@@ -85,9 +85,8 @@ export default async function ShortletPaymentCheckoutPage({ searchParams }: Page
   const stripeEnabled =
     providerDecision.chosenProvider === null
       ? false
-      : providerDecision.bookingCurrency === "NGN"
-        ? false
-        : providers.stripeEnabled;
+      : providers.stripeEnabled &&
+        (providerDecision.bookingCurrency !== "NGN" || providerDecision.chosenProvider === "stripe");
   const paystackEnabled =
     providerDecision.chosenProvider === null ? false : providers.paystackEnabled;
   const totalLabel = formatMoney(booking.currency, booking.totalAmountMinor);

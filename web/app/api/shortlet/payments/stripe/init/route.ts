@@ -101,12 +101,17 @@ export async function postInitShortletStripeResponse(
     paystackEnabled: providerFlags.paystackEnabled,
   });
   if (!providerDecision.chosenProvider || providerDecision.chosenProvider !== "stripe") {
+    const reason =
+      providerDecision.reason ||
+      (providerDecision.chosenProvider === "paystack"
+        ? "provider_paystack_preferred_for_currency"
+        : "both_providers_disabled");
     return NextResponse.json(
       {
-        error: "Payments are not available for this listing right now.",
-        code: "PAYMENTS_PROVIDER_UNAVAILABLE",
+        error: "SHORTLET_PAYMENT_PROVIDER_UNAVAILABLE",
+        reason,
       },
-      { status: 400 }
+      { status: 409 }
     );
   }
 

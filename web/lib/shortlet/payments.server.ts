@@ -5,6 +5,11 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 
 export type ShortletPaymentProvider = "stripe" | "paystack";
 export type ShortletPaymentStatus = "initiated" | "succeeded" | "failed" | "refunded";
+export type ShortletPaymentProviderUnavailableReason =
+  | "missing_currency"
+  | "both_providers_disabled"
+  | "currency_ngn_paystack_disabled"
+  | `unsupported_currency:${string}`;
 export type ShortletPaymentProviderDecision = {
   propertyCountry: string | null;
   bookingCurrency: string;
@@ -12,6 +17,7 @@ export type ShortletPaymentProviderDecision = {
   stripeEnabled: boolean;
   paystackEnabled: boolean;
   chosenProvider: ShortletPaymentProvider | null;
+  reason: ShortletPaymentProviderUnavailableReason | null;
 };
 
 type ShortletPaymentRow = {
@@ -197,9 +203,24 @@ function normalizeCountryCode(value: string | null | undefined): string | null {
   return normalized;
 }
 
-function normalizeCurrencyCode(value: string | null | undefined): string {
-  const normalized = String(value || "").trim().toUpperCase();
-  return normalized || "NGN";
+function normalizeCurrencyCode(input: {
+  bookingCurrency: string | null | undefined;
+  propertyCountry: string | null;
+}): { currency: string | null; wasMissing: boolean } {
+  const raw = String(input.bookingCurrency || "").trim();
+  if (!raw) {
+    if (input.propertyCountry === "NG") {
+      return { currency: "NGN", wasMissing: true };
+    }
+    return { currency: null, wasMissing: true };
+  }
+
+  if (raw.includes("₦")) {
+    return { currency: "NGN", wasMissing: false };
+  }
+
+  const normalized = raw.toUpperCase();
+  return { currency: normalized || null, wasMissing: false };
 }
 
 export function resolveShortletPaymentProviderDecision(input: {
@@ -209,17 +230,37 @@ export function resolveShortletPaymentProviderDecision(input: {
   paystackEnabled: boolean;
 }): ShortletPaymentProviderDecision {
   const propertyCountry = normalizeCountryCode(input.propertyCountry);
-  const bookingCurrency = normalizeCurrencyCode(input.bookingCurrency);
+  const normalizedCurrency = normalizeCurrencyCode({
+    bookingCurrency: input.bookingCurrency,
+    propertyCountry,
+  });
+  const bookingCurrency = normalizedCurrency.currency || "";
   const wantsPaystack = propertyCountry === "NG" || bookingCurrency === "NGN";
+  let chosenProvider: ShortletPaymentProvider | null = null;
+  let reason: ShortletPaymentProviderUnavailableReason | null = null;
 
-  let chosenProvider: ShortletPaymentProvider | null = wantsPaystack ? "paystack" : "stripe";
+  if (!bookingCurrency) {
+    reason = "missing_currency";
+  } else if (!/^[A-Z]{3}$/.test(bookingCurrency)) {
+    reason = `unsupported_currency:${bookingCurrency}`;
+  } else if (bookingCurrency === "NGN") {
+    if (input.paystackEnabled) {
+      chosenProvider = "paystack";
+    } else if (input.stripeEnabled) {
+      chosenProvider = "stripe";
+    } else {
+      reason = "currency_ngn_paystack_disabled";
+    }
+  } else if (input.stripeEnabled) {
+    chosenProvider = "stripe";
+  } else if (input.paystackEnabled) {
+    chosenProvider = "paystack";
+  } else {
+    reason = "both_providers_disabled";
+  }
 
-  if (bookingCurrency === "NGN") {
-    chosenProvider = input.paystackEnabled ? "paystack" : null;
-  } else if (chosenProvider === "paystack" && !input.paystackEnabled) {
-    chosenProvider = input.stripeEnabled ? "stripe" : null;
-  } else if (chosenProvider === "stripe" && !input.stripeEnabled) {
-    chosenProvider = input.paystackEnabled ? "paystack" : null;
+  if (!chosenProvider && !reason && !input.stripeEnabled && !input.paystackEnabled) {
+    reason = "both_providers_disabled";
   }
 
   return {
@@ -229,6 +270,7 @@ export function resolveShortletPaymentProviderDecision(input: {
     stripeEnabled: input.stripeEnabled,
     paystackEnabled: input.paystackEnabled,
     chosenProvider,
+    reason,
   };
 }
 

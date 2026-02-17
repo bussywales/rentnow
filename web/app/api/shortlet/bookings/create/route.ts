@@ -10,10 +10,43 @@ import { mapBookingCreateError } from "@/lib/shortlet/bookings";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
 import {
   getShortletPaymentsProviderFlags,
+  type ShortletPaymentProviderUnavailableReason,
   resolveShortletPaymentProviderDecision,
 } from "@/lib/shortlet/payments.server";
 
 const routeLabel = "/api/shortlet/bookings/create";
+const providerUnavailableErrorCode = "SHORTLET_PAYMENT_PROVIDER_UNAVAILABLE";
+
+type CreateRouteError = {
+  message?: string;
+  name?: string;
+  code?: string;
+  status?: number;
+  reason?: string;
+  stack?: string;
+};
+
+class ShortletPaymentProviderUnavailableError extends Error {
+  code = providerUnavailableErrorCode;
+  status = 409;
+  reason: string;
+
+  constructor(reason: ShortletPaymentProviderUnavailableReason) {
+    super("Payments are not available for this listing right now.");
+    this.name = "ShortletPaymentProviderUnavailableError";
+    this.reason = reason;
+  }
+}
+
+export function buildProviderUnavailableResponse(reason: string) {
+  return NextResponse.json(
+    {
+      error: providerUnavailableErrorCode,
+      reason,
+    },
+    { status: 409 }
+  );
+}
 
 const payloadSchema = z.object({
   property_id: z.string().uuid(),
@@ -116,42 +149,69 @@ export async function POST(request: NextRequest) {
           expiresAt: null,
         };
       } else {
-        throw new Error("Unable to prepare booking for payment.");
+        console.info("[shortlet-bookings/create] prepare-payment", {
+          bookingId: created.bookingId,
+          propertyId: property_id,
+          propertyCountry:
+            typeof propertyData.country_code === "string" && propertyData.country_code.trim().length > 0
+              ? propertyData.country_code
+              : typeof propertyData.country === "string"
+                ? propertyData.country
+                : null,
+          propertyCurrency: typeof propertyData.currency === "string" ? propertyData.currency : null,
+          bookingCurrency: typeof created.currency === "string" ? created.currency : null,
+          stripeEnabled: null,
+          paystackEnabled: null,
+          chosenProvider: null,
+          reason: "booking_status_transition_failed",
+        });
+        const prepareError = new Error("Unable to prepare booking for payment.") as CreateRouteError &
+          Error;
+        prepareError.code = "BOOKING_PAYMENT_PREP_FAILED";
+        prepareError.status = 409;
+        prepareError.reason = "booking_status_transition_failed";
+        throw prepareError;
       }
     }
 
     const providerFlags = await getShortletPaymentsProviderFlags();
+    const propertyCountry =
+      typeof propertyData.country_code === "string" && propertyData.country_code.trim().length > 0
+        ? propertyData.country_code
+        : typeof propertyData.country === "string"
+          ? propertyData.country
+          : null;
+    const propertyCurrency = typeof propertyData.currency === "string" ? propertyData.currency : null;
     const providerDecision = resolveShortletPaymentProviderDecision({
-      propertyCountry:
-        typeof propertyData.country_code === "string" && propertyData.country_code.trim().length > 0
-          ? propertyData.country_code
-          : typeof propertyData.country === "string"
-            ? propertyData.country
-            : null,
-      bookingCurrency: created.currency || propertyData.currency || "NGN",
+      propertyCountry,
+      bookingCurrency: created.currency || propertyCurrency,
       stripeEnabled: providerFlags.stripeEnabled,
       paystackEnabled: providerFlags.paystackEnabled,
     });
     console.info("[shortlet-bookings/create] payment decision", {
       propertyCountry: providerDecision.propertyCountry,
+      propertyCurrency,
       bookingCurrency: providerDecision.bookingCurrency,
-      marketCountry:
-        typeof propertyData.country_code === "string" && propertyData.country_code.trim().length > 0
-          ? propertyData.country_code
-          : null,
+      marketCountry: propertyCountry,
       stripeEnabled: providerDecision.stripeEnabled,
       paystackEnabled: providerDecision.paystackEnabled,
       chosenProvider: providerDecision.chosenProvider,
     });
 
     if (!providerDecision.chosenProvider) {
-      return NextResponse.json(
-        {
-          error: "Payments are not available for this listing right now.",
-          code: "PAYMENTS_PROVIDER_UNAVAILABLE",
-        },
-        { status: 400 }
-      );
+      const reason = providerDecision.reason || "both_providers_disabled";
+      console.info("[shortlet-bookings/create] prepare-payment", {
+        bookingId: created.bookingId,
+        propertyId: property_id,
+        propertyCountry: providerDecision.propertyCountry,
+        propertyCurrency,
+        bookingCurrency: providerDecision.bookingCurrency || null,
+        stripeEnabled: providerDecision.stripeEnabled,
+        paystackEnabled: providerDecision.paystackEnabled,
+        chosenProvider: providerDecision.chosenProvider,
+        reason,
+      });
+      throw new ShortletPaymentProviderUnavailableError(reason);
     }
 
     return NextResponse.json({
@@ -169,26 +229,27 @@ export async function POST(request: NextRequest) {
       chosen_provider: providerDecision.chosenProvider,
     });
   } catch (error) {
-    const err = error as {
-      message?: string;
-      name?: string;
-      code?: string;
-      status?: number;
-      stack?: string;
-    };
+    const err = error as CreateRouteError;
     console.error("[shortlet-bookings/create] failed", {
       message: typeof err?.message === "string" ? err.message : null,
       name: typeof err?.name === "string" ? err.name : null,
       code: typeof err?.code === "string" ? err.code : null,
       status: typeof err?.status === "number" ? err.status : null,
+      reason: typeof err?.reason === "string" ? err.reason : null,
       stack: typeof err?.stack === "string" ? err.stack : null,
     });
+    if (err?.code === providerUnavailableErrorCode) {
+      return buildProviderUnavailableResponse(
+        typeof err.reason === "string" ? err.reason : "both_providers_disabled"
+      );
+    }
     const message = error instanceof Error ? error.message : "Unable to create booking";
     const mapped = mapBookingCreateError(message);
     return NextResponse.json(
       {
         error: mapped.error,
         code: typeof err?.code === "string" ? err.code : "BOOKING_PAYMENT_PREP_FAILED",
+        reason: typeof err?.reason === "string" ? err.reason : null,
       },
       { status: mapped.status }
     );

@@ -233,7 +233,7 @@ void test("stripe init preserves auth failure response", async () => {
   assert.equal(response.status, 401);
 });
 
-void test("stripe init blocks NGN bookings and returns provider unavailable", async () => {
+void test("stripe init returns provider unavailable when NGN booking prefers paystack", async () => {
   let stripeCreateCalled = false;
   const deps: InitShortletStripeDeps = {
     hasServiceRoleEnv: () => true,
@@ -270,8 +270,48 @@ void test("stripe init blocks NGN bookings and returns provider unavailable", as
     deps
   );
 
-  const payload = (await response.json()) as { code?: string };
-  assert.equal(response.status, 400);
-  assert.equal(payload.code, "PAYMENTS_PROVIDER_UNAVAILABLE");
+  const payload = (await response.json()) as { error?: string; reason?: string };
+  assert.equal(response.status, 409);
+  assert.equal(payload.error, "SHORTLET_PAYMENT_PROVIDER_UNAVAILABLE");
+  assert.equal(payload.reason, "provider_paystack_preferred_for_currency");
   assert.equal(stripeCreateCalled, false);
+});
+
+void test("stripe init allows NGN booking when paystack is disabled and stripe is enabled", async () => {
+  const deps: InitShortletStripeDeps = {
+    hasServiceRoleEnv: () => true,
+    requireRole: async () =>
+      ({
+        ok: true,
+        user: { id: "tenant-1", email: "tenant@example.com" } as never,
+        role: "tenant",
+        supabase: {} as never,
+      }) as Awaited<ReturnType<InitShortletStripeDeps["requireRole"]>>,
+    getShortletPaymentsProviderFlags: async () => ({ stripeEnabled: true, paystackEnabled: false }),
+    getShortletPaymentCheckoutContext: async () => makeBookingContext(),
+    getProviderModes: async () => ({ stripeMode: "test", paystackMode: "test", flutterwaveMode: "test" }),
+    getStripeConfigForMode: () => ({ mode: "test", secretKey: "sk_test", webhookSecret: "wh_test" }),
+    getStripeClient: () =>
+      ({
+        checkout: {
+          sessions: {
+            create: async () => ({ id: "cs_1", url: "https://stripe.example/checkout" }),
+          },
+        },
+      }) as never,
+    getSiteUrl: async () => "https://example.com",
+    upsertShortletPaymentIntent: async () => ({ payment: makeBookingContext().payment as never, alreadySucceeded: false }),
+  };
+
+  const response = await postInitShortletStripeResponse(
+    makeRequest("http://localhost/api/shortlet/payments/stripe/init", {
+      booking_id: "11111111-1111-4111-8111-111111111111",
+    }),
+    deps
+  );
+
+  const payload = (await response.json()) as { provider?: string; checkout_url?: string };
+  assert.equal(response.status, 200);
+  assert.equal(payload.provider, "stripe");
+  assert.equal(payload.checkout_url, "https://stripe.example/checkout");
 });
