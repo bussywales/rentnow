@@ -54,6 +54,16 @@ function getDefaultDate(offsetDays: number): string {
   return value.toISOString().slice(0, 10);
 }
 
+function calculateNights(checkIn: string, checkOut: string): number | null {
+  if (!checkIn || !checkOut) return null;
+  const start = new Date(`${checkIn}T00:00:00Z`);
+  const end = new Date(`${checkOut}T00:00:00Z`);
+  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return null;
+  const diff = (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000);
+  if (!Number.isFinite(diff) || diff < 1 || !Number.isInteger(diff)) return null;
+  return diff;
+}
+
 export function ShortletBookingWidget(props: {
   propertyId: string;
   listingTitle: string;
@@ -128,6 +138,9 @@ export function ShortletBookingWidget(props: {
     setCreating(true);
     setError(null);
     setNotice(null);
+    const payloadNights = pricing?.nights ?? calculateNights(checkIn, checkOut) ?? 1;
+    const payloadGuests = 1;
+    const payloadMode = bookingMode === "instant" ? "instant" : "request";
     try {
       const response = await fetch("/api/shortlet/bookings/create", {
         method: "POST",
@@ -137,6 +150,10 @@ export function ShortletBookingWidget(props: {
           property_id: props.propertyId,
           check_in: checkIn,
           check_out: checkOut,
+          nights: payloadNights,
+          guests: payloadGuests,
+          mode: payloadMode,
+          intent: "shortlet",
         }),
       });
       const payload = (await response.json().catch(() => null)) as

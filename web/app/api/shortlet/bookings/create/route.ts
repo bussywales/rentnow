@@ -16,6 +16,9 @@ import {
 
 const routeLabel = "/api/shortlet/bookings/create";
 const providerUnavailableErrorCode = "SHORTLET_PAYMENT_PROVIDER_UNAVAILABLE";
+const invalidDatesErrorCode = "SHORTLET_INVALID_DATES";
+const invalidGuestsErrorCode = "SHORTLET_INVALID_GUESTS";
+const invalidPayloadErrorCode = "SHORTLET_INVALID_PAYLOAD";
 
 type CreateRouteError = {
   message?: string;
@@ -23,6 +26,11 @@ type CreateRouteError = {
   code?: string;
   status?: number;
   reason?: string;
+  details?: unknown;
+  hint?: unknown;
+  response?: unknown;
+  body?: unknown;
+  data?: unknown;
   stack?: string;
 };
 
@@ -46,6 +54,110 @@ export function buildProviderUnavailableResponse(reason: string) {
     },
     { status: 409 }
   );
+}
+
+function parseIsoDate(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (
+    parsed.getUTCFullYear() !== year ||
+    parsed.getUTCMonth() !== month - 1 ||
+    parsed.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return parsed;
+}
+
+export function calculateBookingNightsFromDates(checkIn: string, checkOut: string): number | null {
+  const start = parseIsoDate(checkIn);
+  const end = parseIsoDate(checkOut);
+  if (!start || !end) return null;
+  const diff = (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000);
+  if (!Number.isFinite(diff) || diff < 1 || !Number.isInteger(diff)) return null;
+  return diff;
+}
+
+export function resolveBookingGuests(value: unknown): number | null {
+  if (value == null || value === "") return 1;
+  const numeric = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(numeric) || !Number.isInteger(numeric)) return null;
+  if (numeric < 1 || numeric > 50) return null;
+  return numeric;
+}
+
+export function resolveBookingMode(
+  payloadMode: unknown,
+  settingsMode: unknown
+): "instant" | "request" {
+  if (payloadMode === "instant" || payloadMode === "request") return payloadMode;
+  if (settingsMode === "instant" || settingsMode === "request") return settingsMode;
+  return "request";
+}
+
+function getPropertyCountryCode(property: {
+  country?: string | null;
+  country_code?: string | null;
+}) {
+  if (typeof property.country_code === "string" && property.country_code.trim().length > 0) {
+    return property.country_code;
+  }
+  if (typeof property.country === "string" && property.country.trim().length > 0) {
+    return property.country;
+  }
+  return null;
+}
+
+function safeSerialize(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === "string") return value.slice(0, 2000);
+  try {
+    return JSON.stringify(value).slice(0, 2000);
+  } catch {
+    return String(value).slice(0, 2000);
+  }
+}
+
+async function readUpstreamResponseBody(err: CreateRouteError): Promise<string | null> {
+  const explicit =
+    safeSerialize(err.body) ||
+    safeSerialize(err.data) ||
+    safeSerialize(err.details);
+  if (explicit) return explicit;
+
+  const responseLike = err.response as
+    | {
+        clone?: () => { text: () => Promise<string> };
+        text?: () => Promise<string>;
+        json?: () => Promise<unknown>;
+      }
+    | undefined;
+
+  if (!responseLike || typeof responseLike !== "object") return null;
+
+  try {
+    if (typeof responseLike.clone === "function") {
+      const text = await responseLike.clone().text();
+      return safeSerialize(text);
+    }
+    if (typeof responseLike.text === "function") {
+      const text = await responseLike.text();
+      return safeSerialize(text);
+    }
+    if (typeof responseLike.json === "function") {
+      const json = await responseLike.json();
+      return safeSerialize(json);
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 const payloadSchema = z.object({
@@ -73,7 +185,16 @@ export async function POST(request: NextRequest) {
   const rawPayload = await request.json().catch(() => null);
   const parsed = payloadSchema.safeParse(rawPayload);
   if (!parsed.success) {
-    return NextResponse.json({ error: "Invalid payload" }, { status: 422 });
+    const invalidDateField = parsed.error.issues.some(
+      (issue) => issue.path[0] === "check_in" || issue.path[0] === "check_out"
+    );
+    if (invalidDateField) {
+      return NextResponse.json(
+        { error: "Invalid booking dates.", code: invalidDatesErrorCode },
+        { status: 400 }
+      );
+    }
+    return NextResponse.json({ error: "Invalid payload", code: invalidPayloadErrorCode }, { status: 400 });
   }
 
   const { property_id, check_in, check_out } = parsed.data;
@@ -122,6 +243,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "This listing is not bookable as a shortlet." }, { status: 409 });
     }
 
+    const nights = calculateBookingNightsFromDates(check_in, check_out);
+    if (!nights) {
+      return NextResponse.json(
+        { error: "Invalid booking dates.", code: invalidDatesErrorCode },
+        { status: 400 }
+      );
+    }
+    const guests = resolveBookingGuests(payloadRecord.guests);
+    if (!guests) {
+      return NextResponse.json(
+        { error: "Invalid guests value.", code: invalidGuestsErrorCode },
+        { status: 400 }
+      );
+    }
+    const mode = resolveBookingMode(payloadRecord.mode ?? payloadRecord.booking_mode, settings?.booking_mode);
+    const propertyCountry = getPropertyCountryCode(propertyData);
+    const propertyCurrency = typeof propertyData.currency === "string" ? propertyData.currency : null;
+    const bookingCurrency = propertyCurrency || "NGN";
+    const intent = typeof payloadRecord.intent === "string" ? payloadRecord.intent : "shortlet";
+
+    console.info("[shortlet-bookings/create] derived-inputs", {
+      propertyId: property_id,
+      nights,
+      guests,
+      mode,
+      bookingCurrency,
+      propertyCountry,
+      intent,
+    });
+
     let created = await createShortletBookingViaRpc({
       client: supabase,
       propertyId: property_id,
@@ -152,13 +303,8 @@ export async function POST(request: NextRequest) {
         console.info("[shortlet-bookings/create] prepare-payment", {
           bookingId: created.bookingId,
           propertyId: property_id,
-          propertyCountry:
-            typeof propertyData.country_code === "string" && propertyData.country_code.trim().length > 0
-              ? propertyData.country_code
-              : typeof propertyData.country === "string"
-                ? propertyData.country
-                : null,
-          propertyCurrency: typeof propertyData.currency === "string" ? propertyData.currency : null,
+          propertyCountry,
+          propertyCurrency,
           bookingCurrency: typeof created.currency === "string" ? created.currency : null,
           stripeEnabled: null,
           paystackEnabled: null,
@@ -175,13 +321,6 @@ export async function POST(request: NextRequest) {
     }
 
     const providerFlags = await getShortletPaymentsProviderFlags();
-    const propertyCountry =
-      typeof propertyData.country_code === "string" && propertyData.country_code.trim().length > 0
-        ? propertyData.country_code
-        : typeof propertyData.country === "string"
-          ? propertyData.country
-          : null;
-    const propertyCurrency = typeof propertyData.currency === "string" ? propertyData.currency : null;
     const providerDecision = resolveShortletPaymentProviderDecision({
       propertyCountry,
       bookingCurrency: created.currency || propertyCurrency,
@@ -230,12 +369,16 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     const err = error as CreateRouteError;
+    const upstreamBody = await readUpstreamResponseBody(err);
     console.error("[shortlet-bookings/create] failed", {
       message: typeof err?.message === "string" ? err.message : null,
       name: typeof err?.name === "string" ? err.name : null,
       code: typeof err?.code === "string" ? err.code : null,
       status: typeof err?.status === "number" ? err.status : null,
       reason: typeof err?.reason === "string" ? err.reason : null,
+      details: err?.details ?? null,
+      hint: err?.hint ?? null,
+      upstreamBody,
       stack: typeof err?.stack === "string" ? err.stack : null,
     });
     if (err?.code === providerUnavailableErrorCode) {
