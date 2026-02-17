@@ -15,14 +15,18 @@ import {
 } from "@/lib/payments/paystack.server";
 import { dispatchShortletPaymentSuccess } from "@/lib/shortlet/payment-success.server";
 import {
+  getShortletPaymentCheckoutContextByBookingId,
   getShortletPaymentByReference,
   markShortletPaymentFailed,
   markShortletPaymentSucceededAndConfirmBooking,
+  resolveShortletBookingIdFromPaystackPayload,
+  upsertShortletPaymentIntent,
 } from "@/lib/shortlet/payments.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 export const dynamic = "force-dynamic";
+const routeLabel = "/api/webhooks/paystack";
 
 type PaystackWebhookEvent = {
   event?: string | null;
@@ -45,6 +49,9 @@ type PaystackWebhookDeps = {
   verifyTransaction: typeof verifyTransaction;
   sendFeaturedReceiptIfNeeded: typeof sendFeaturedReceiptIfNeeded;
   getShortletPaymentByReference: typeof getShortletPaymentByReference;
+  getShortletPaymentCheckoutContextByBookingId: typeof getShortletPaymentCheckoutContextByBookingId;
+  resolveShortletBookingIdFromPaystackPayload: typeof resolveShortletBookingIdFromPaystackPayload;
+  upsertShortletPaymentIntent: typeof upsertShortletPaymentIntent;
   markShortletPaymentFailed: typeof markShortletPaymentFailed;
   markShortletPaymentSucceededAndConfirmBooking: typeof markShortletPaymentSucceededAndConfirmBooking;
   dispatchShortletPaymentSuccess: typeof dispatchShortletPaymentSuccess;
@@ -64,6 +71,9 @@ const defaultDeps: PaystackWebhookDeps = {
   verifyTransaction,
   sendFeaturedReceiptIfNeeded,
   getShortletPaymentByReference,
+  getShortletPaymentCheckoutContextByBookingId,
+  resolveShortletBookingIdFromPaystackPayload,
+  upsertShortletPaymentIntent,
   markShortletPaymentFailed,
   markShortletPaymentSucceededAndConfirmBooking,
   dispatchShortletPaymentSuccess,
@@ -73,6 +83,7 @@ export async function postPaystackWebhookResponse(
   request: NextRequest,
   deps: PaystackWebhookDeps = defaultDeps
 ) {
+  console.log(`[${routeLabel}] start`);
   if (!deps.hasServiceRoleEnv()) {
     return NextResponse.json({ error: "Service role not configured." }, { status: 503 });
   }
@@ -126,9 +137,10 @@ export async function postPaystackWebhookResponse(
   const validSignature = deps.validateWebhookSignature({
     rawBody,
     signature,
-    secret: paystackConfig.webhookSecret,
+    secret: paystackConfig.secretKey,
   });
   if (!validSignature) {
+    console.error(`[${routeLabel}] invalid_signature`, { hasSignature: Boolean(signature) });
     if (webhookEventId) {
       await deps.markPaymentWebhookEventError({
         client,
@@ -140,6 +152,11 @@ export async function postPaystackWebhookResponse(
   }
 
   if (!parsedEvent || !eventValue || !referenceValue) {
+    console.error(`[${routeLabel}] invalid_event_payload`, {
+      hasParsedEvent: Boolean(parsedEvent),
+      event: eventValue,
+      reference: referenceValue,
+    });
     if (webhookEventId) {
       await deps.markPaymentWebhookEventError({
         client,
@@ -155,10 +172,10 @@ export async function postPaystackWebhookResponse(
     providerReference: referenceValue,
     client: client as unknown as never,
   });
-
-  if (shortletPayment) {
+  const mayBeShortletReference = referenceValue.toLowerCase().startsWith("shb_ps_");
+  if (shortletPayment || mayBeShortletReference) {
     if (eventValue === "charge.failed") {
-      if (shortletPayment.status !== "succeeded") {
+      if (shortletPayment && shortletPayment.status !== "succeeded") {
         await deps.markShortletPaymentFailed({
           provider: "paystack",
           providerReference: referenceValue,
@@ -169,6 +186,10 @@ export async function postPaystackWebhookResponse(
       if (webhookEventId) {
         await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
       }
+      console.log(`[${routeLabel}] shortlet_failed_event_processed`, {
+        reference: referenceValue,
+        hadPaymentRecord: Boolean(shortletPayment),
+      });
       return NextResponse.json({ ok: true, shortlet: true });
     }
 
@@ -184,12 +205,46 @@ export async function postPaystackWebhookResponse(
         secretKey: paystackConfig.secretKey || "",
         reference: referenceValue,
       });
+      const providerPayload = (verified.raw || payload) as Record<string, unknown>;
+      const providerData =
+        providerPayload && typeof providerPayload === "object" && providerPayload.data
+          ? (providerPayload.data as Record<string, unknown>)
+          : {};
+      const bookingId =
+        shortletPayment?.booking_id ||
+        deps.resolveShortletBookingIdFromPaystackPayload({
+          reference: referenceValue,
+          payload: providerPayload,
+        });
+      const booking = bookingId
+        ? await deps.getShortletPaymentCheckoutContextByBookingId({
+            bookingId,
+            client: client as unknown as never,
+          })
+        : null;
+      if (!booking) {
+        if (webhookEventId) {
+          await deps.markPaymentWebhookEventError({
+            client,
+            id: webhookEventId,
+            error: "booking_not_found_for_shortlet_reference",
+          });
+        }
+        console.error(`[${routeLabel}] booking_not_found_for_shortlet_reference`, {
+          reference: referenceValue,
+          bookingId,
+        });
+        return NextResponse.json({ ok: true, shortlet: true, status: "booking_not_found" });
+      }
+
+      const paymentCurrency = String(verified.currency || booking.currency || "NGN").toUpperCase();
+      const paymentAmountMinor = Math.max(0, Math.trunc(Number(verified.amountMinor || 0)));
 
       if (!verified.ok) {
         await deps.markShortletPaymentFailed({
           provider: "paystack",
           providerReference: referenceValue,
-          providerPayload: verified.raw || payload,
+          providerPayload,
           client: client as unknown as never,
         });
         if (webhookEventId) {
@@ -199,17 +254,21 @@ export async function postPaystackWebhookResponse(
             error: "verification_failed",
           });
         }
+        console.error(`[${routeLabel}] shortlet_verification_failed`, {
+          bookingId: booking.bookingId,
+          reference: referenceValue,
+        });
         return NextResponse.json({ ok: true, status: "verification_failed", shortlet: true });
       }
 
       if (
-        Number(verified.amountMinor || 0) !== Number(shortletPayment.amount_total_minor || 0) ||
-        String(verified.currency || "").toUpperCase() !== String(shortletPayment.currency || "").toUpperCase()
+        paymentAmountMinor !== Number(booking.totalAmountMinor || 0) ||
+        paymentCurrency !== String(booking.currency || "").toUpperCase()
       ) {
         await deps.markShortletPaymentFailed({
           provider: "paystack",
           providerReference: referenceValue,
-          providerPayload: verified.raw || payload,
+          providerPayload,
           client: client as unknown as never,
         });
         if (webhookEventId) {
@@ -219,13 +278,43 @@ export async function postPaystackWebhookResponse(
             error: "amount_or_currency_mismatch",
           });
         }
+        console.error(`[${routeLabel}] shortlet_amount_or_currency_mismatch`, {
+          bookingId: booking.bookingId,
+          reference: referenceValue,
+          expectedAmountMinor: booking.totalAmountMinor,
+          receivedAmountMinor: paymentAmountMinor,
+          expectedCurrency: booking.currency,
+          receivedCurrency: paymentCurrency,
+        });
         return NextResponse.json({ ok: true, status: "mismatch", shortlet: true });
       }
+
+      await deps.upsertShortletPaymentIntent({
+        booking,
+        provider: "paystack",
+        providerReference: referenceValue,
+        amountMinor: paymentAmountMinor,
+        providerPayload: {
+          ...(providerPayload || {}),
+          paystack_transaction_id:
+            typeof providerData.id === "number" || typeof providerData.id === "string"
+              ? String(providerData.id)
+              : null,
+          gateway_response:
+            typeof providerData.gateway_response === "string" ? providerData.gateway_response : null,
+          authorization_code:
+            typeof (providerData.authorization as Record<string, unknown> | undefined)?.authorization_code ===
+            "string"
+              ? ((providerData.authorization as Record<string, unknown>).authorization_code as string)
+              : null,
+        },
+        client: client as unknown as never,
+      });
 
       const paid = await deps.markShortletPaymentSucceededAndConfirmBooking({
         provider: "paystack",
         providerReference: referenceValue,
-        providerPayload: verified.raw || payload,
+        providerPayload,
         client: client as unknown as never,
       });
 
@@ -263,6 +352,11 @@ export async function postPaystackWebhookResponse(
       if (webhookEventId) {
         await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
       }
+      console.log(`[${routeLabel}] shortlet_payment_confirmed`, {
+        bookingId: paid.booking.bookingId,
+        reference: referenceValue,
+        transitioned: paid.booking.transitioned,
+      });
 
       return NextResponse.json({
         ok: true,
@@ -277,6 +371,10 @@ export async function postPaystackWebhookResponse(
           error: error instanceof Error ? error.message : "shortlet_webhook_error",
         });
       }
+      console.error(`[${routeLabel}] shortlet_webhook_error`, {
+        reference: referenceValue,
+        error: error instanceof Error ? error.message : "shortlet_webhook_error",
+      });
       return NextResponse.json({ ok: false, error: "shortlet_webhook_error" }, { status: 200 });
     }
   }
@@ -294,6 +392,7 @@ export async function postPaystackWebhookResponse(
         error: "payment_not_found",
       });
     }
+    console.log(`[${routeLabel}] no_matching_payment_reference`, { reference: referenceValue });
     return NextResponse.json({ ok: true });
   }
 
@@ -322,6 +421,10 @@ export async function postPaystackWebhookResponse(
     if (webhookEventId) {
       await deps.markPaymentWebhookEventProcessed({ client, id: webhookEventId });
     }
+    console.log(`[${routeLabel}] featured_webhook_processed`, {
+      reference: referenceValue,
+      event: eventValue,
+    });
     return NextResponse.json({ ok: true });
   }
 
@@ -419,6 +522,10 @@ export async function postPaystackWebhookResponse(
         error: error instanceof Error ? error.message : "webhook_error",
       });
     }
+    console.error(`[${routeLabel}] featured_webhook_error`, {
+      reference: referenceValue,
+      error: error instanceof Error ? error.message : "webhook_error",
+    });
     return NextResponse.json(
       { ok: false, error: error instanceof Error ? error.message : "webhook_error" },
       { status: 200 }

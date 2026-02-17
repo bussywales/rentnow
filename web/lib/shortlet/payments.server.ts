@@ -89,6 +89,27 @@ function normalizePropertyRelation(value: unknown): Record<string, unknown> | nu
   return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
 }
 
+function toRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== "object") return {};
+  return value as Record<string, unknown>;
+}
+
+function normalizeUuid(input: string | null | undefined): string | null {
+  const value = String(input || "").trim();
+  if (!value) return null;
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)) {
+    return value.toLowerCase();
+  }
+  if (/^[0-9a-f]{32}$/i.test(value)) {
+    const compact = value.toLowerCase();
+    return `${compact.slice(0, 8)}-${compact.slice(8, 12)}-${compact.slice(12, 16)}-${compact.slice(
+      16,
+      20
+    )}-${compact.slice(20)}`;
+  }
+  return null;
+}
+
 function normalizeAmountCurrencyCode(input: string | null | undefined): string {
   const raw = String(input || "").trim();
   if (!raw) return "NGN";
@@ -110,6 +131,28 @@ export function deriveShortletAmountMinorFromNumericTotal(input: {
   if (!Number.isFinite(total)) return Number.NaN;
   const minorUnit = resolveCurrencyMinorUnit(input.currency);
   return Math.round(total * minorUnit);
+}
+
+export function extractBookingIdFromShortletPaystackReference(reference: string | null | undefined) {
+  const normalized = String(reference || "").trim();
+  if (!normalized) return null;
+  const refMatch = /^shb_ps_([^_]+)_\d+$/i.exec(normalized);
+  if (!refMatch) return null;
+  return normalizeUuid(refMatch[1]);
+}
+
+export function resolveShortletBookingIdFromPaystackPayload(input: {
+  reference: string | null | undefined;
+  payload: Record<string, unknown> | null | undefined;
+}) {
+  const payload = toRecord(input.payload);
+  const data = toRecord(payload.data);
+  const metadata = toRecord(data.metadata);
+  const fromMetadata =
+    normalizeUuid(typeof metadata.booking_id === "string" ? metadata.booking_id : null) ||
+    normalizeUuid(typeof metadata.bookingId === "string" ? metadata.bookingId : null);
+  if (fromMetadata) return fromMetadata;
+  return extractBookingIdFromShortletPaystackReference(input.reference);
 }
 
 function normalizePaymentRow(row: Record<string, unknown> | null): ShortletPaymentRow | null {
@@ -175,6 +218,19 @@ export async function getShortletPaymentCheckoutContext(input: {
   guestUserId: string;
   client?: SupabaseClient;
 }): Promise<ShortletPaymentBookingContext | null> {
+  const booking = await getShortletPaymentCheckoutContextByBookingId({
+    bookingId: input.bookingId,
+    client: input.client,
+  });
+  if (!booking) return null;
+  if (!booking.guestUserId || booking.guestUserId !== input.guestUserId) return null;
+  return booking;
+}
+
+export async function getShortletPaymentCheckoutContextByBookingId(input: {
+  bookingId: string;
+  client?: SupabaseClient;
+}): Promise<ShortletPaymentBookingContext | null> {
   const client = getClient(input.client);
   const { data, error } = await client
     .from("shortlet_bookings")
@@ -187,7 +243,7 @@ export async function getShortletPaymentCheckoutContext(input: {
   if (error || !data) return null;
   const bookingRow = data as Record<string, unknown>;
   const guestUserId = String(bookingRow.guest_user_id || "");
-  if (!guestUserId || guestUserId !== input.guestUserId) return null;
+  if (!guestUserId) return null;
 
   const property = normalizePropertyRelation(bookingRow.properties);
   const snapshot = asObject(bookingRow.pricing_snapshot_json);

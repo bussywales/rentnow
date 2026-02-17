@@ -27,8 +27,7 @@ const payloadSchema = z.object({
 });
 
 function buildReference(bookingId: string) {
-  const compactBooking = bookingId.replace(/-/g, "").slice(0, 20);
-  return `shb_ps_${compactBooking}_${Date.now()}`;
+  return `shb_ps_${bookingId}_${Date.now()}`;
 }
 
 export type InitShortletPaystackDeps = {

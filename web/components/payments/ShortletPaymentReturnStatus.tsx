@@ -33,7 +33,11 @@ function formatMoney(currency: string, amountMinor: number) {
   }
 }
 
-export function ShortletPaymentReturnStatus(props: { bookingId: string }) {
+export function ShortletPaymentReturnStatus(props: {
+  bookingId: string;
+  provider?: string | null;
+  providerReference?: string | null;
+}) {
   const [loading, setLoading] = useState(true);
   const [payload, setPayload] = useState<StatusPayload | null>(null);
 
@@ -42,6 +46,17 @@ export function ShortletPaymentReturnStatus(props: { bookingId: string }) {
 
     const load = async () => {
       try {
+        const shouldVerifyPaystack =
+          String(props.provider || "").toLowerCase() === "paystack" &&
+          String(props.providerReference || "").trim().length > 0;
+        if (shouldVerifyPaystack) {
+          await fetch(
+            `/api/shortlet/payments/paystack/verify?reference=${encodeURIComponent(
+              String(props.providerReference || "")
+            )}&booking_id=${encodeURIComponent(props.bookingId)}`,
+            { credentials: "include" }
+          ).catch(() => null);
+        }
         const response = await fetch(
           `/api/shortlet/payments/status?booking_id=${encodeURIComponent(props.bookingId)}`,
           { credentials: "include" }
@@ -68,7 +83,7 @@ export function ShortletPaymentReturnStatus(props: { bookingId: string }) {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [props.bookingId]);
+  }, [props.bookingId, props.provider, props.providerReference]);
 
   const state = useMemo(() => {
     const bookingStatus = String(payload?.booking?.status || "").toLowerCase();

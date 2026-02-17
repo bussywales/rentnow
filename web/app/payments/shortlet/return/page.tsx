@@ -14,14 +14,28 @@ function readBookingId(params: Record<string, string | string[] | undefined>) {
   return String(fromCamel || fromSnake || "").trim();
 }
 
+function readSingleParam(
+  params: Record<string, string | string[] | undefined>,
+  key: string
+) {
+  const value = params[key];
+  return String(Array.isArray(value) ? value[0] || "" : value || "").trim();
+}
+
 export default async function ShortletPaymentReturnPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const bookingId = readBookingId(params);
+  const provider = readSingleParam(params, "provider");
+  const reference = readSingleParam(params, "reference");
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-8">
       {bookingId ? (
-        <ShortletPaymentReturnStatus bookingId={bookingId} />
+        <ShortletPaymentReturnStatus
+          bookingId={bookingId}
+          provider={provider || null}
+          providerReference={reference || null}
+        />
       ) : (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-800">
           Missing booking reference.
