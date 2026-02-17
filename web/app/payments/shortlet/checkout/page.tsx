@@ -6,7 +6,6 @@ import {
   getShortletPaymentCheckoutContext,
   getShortletPaymentsProviderFlags,
   isNigeriaShortlet,
-  resolveShortletPaymentProviderDecision,
 } from "@/lib/shortlet/payments.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 
@@ -76,21 +75,22 @@ export default async function ShortletPaymentCheckoutPage({ searchParams }: Page
   }
 
   const providers = await getShortletPaymentsProviderFlags();
-  const providerDecision = resolveShortletPaymentProviderDecision({
-    propertyCountry: booking.countryCode,
-    bookingCurrency: booking.currency,
-    stripeEnabled: providers.stripeEnabled,
-    paystackEnabled: providers.paystackEnabled,
-  });
-  const stripeEnabled =
-    providerDecision.chosenProvider === null
-      ? false
-      : providers.stripeEnabled &&
-        (providerDecision.bookingCurrency !== "NGN" || providerDecision.chosenProvider === "stripe");
-  const paystackEnabled =
-    providerDecision.chosenProvider === null ? false : providers.paystackEnabled;
+  const isNigeriaFlow = isNigeriaShortlet(booking) || String(booking.currency || "").toUpperCase() === "NGN";
+  const primaryProvider = isNigeriaFlow ? "paystack" : "stripe";
+  const paystackEnabled = providers.paystackEnabled;
+  const stripeEnabled = providers.stripeEnabled;
+  const paystackReason = !paystackEnabled
+    ? "Disabled by admin settings."
+    : isNigeriaFlow
+      ? "Primary for NGN and Nigeria stays."
+      : null;
+  const stripeReason = !providers.stripeEnabled
+    ? "Disabled by admin settings."
+    : isNigeriaFlow
+      ? "Available as an alternative card checkout."
+      : null;
+
   const totalLabel = formatMoney(booking.currency, booking.totalAmountMinor);
-  const nigeriaHint = isNigeriaShortlet(booking);
   const isAlreadyPaid =
     booking.payment?.status === "succeeded" ||
     booking.status === "pending" ||
@@ -136,11 +136,9 @@ export default async function ShortletPaymentCheckoutPage({ searchParams }: Page
       ) : (
         <ShortletPaymentChoiceCard
           bookingId={booking.bookingId}
-          stripeEnabled={stripeEnabled}
-          paystackEnabled={paystackEnabled}
-          showPaystackHint={nigeriaHint}
-          chosenProvider={providerDecision.chosenProvider}
-          bookingCurrency={providerDecision.bookingCurrency}
+          primaryProvider={primaryProvider}
+          stripe={{ enabled: stripeEnabled, reason: stripeReason }}
+          paystack={{ enabled: paystackEnabled, reason: paystackReason }}
         />
       )}
     </div>

@@ -2,14 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveServerUser } from "@/lib/auth/server-session";
 
-void test("resolveServerUser prefers existing session user", async () => {
+void test("resolveServerUser prefers getUser directly", async () => {
   const supabase = {
     auth: {
-      getSession: async () => ({
-        data: { session: { user: { id: "user-1" } } },
-      }),
+      getUser: async () => ({ data: { user: { id: "user-1" } } }),
       refreshSession: async () => ({ data: { session: null } }),
-      getUser: async () => ({ data: { user: null } }),
     },
   } as never;
 
@@ -19,13 +16,17 @@ void test("resolveServerUser prefers existing session user", async () => {
 });
 
 void test("resolveServerUser refreshes when session missing", async () => {
+  let getUserCalls = 0;
   const supabase = {
     auth: {
-      getSession: async () => ({ data: { session: null } }),
+      getUser: async () => {
+        getUserCalls += 1;
+        if (getUserCalls === 1) return { data: { user: null } };
+        return { data: { user: { id: "user-2" } } };
+      },
       refreshSession: async () => ({
         data: { session: { user: { id: "user-2" } } },
       }),
-      getUser: async () => ({ data: { user: null } }),
     },
   } as never;
 
@@ -37,9 +38,8 @@ void test("resolveServerUser refreshes when session missing", async () => {
 void test("resolveServerUser falls back to getUser", async () => {
   const supabase = {
     auth: {
-      getSession: async () => ({ data: { session: null } }),
-      refreshSession: async () => ({ data: { session: null } }),
       getUser: async () => ({ data: { user: { id: "user-3" } } }),
+      refreshSession: async () => ({ data: { session: null } }),
     },
   } as never;
 

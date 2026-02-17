@@ -15,6 +15,8 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 export const dynamic = "force-dynamic";
 
 const routeLabel = "/api/shortlet/payments/paystack/verify";
+const VERIFY_MIN_INTERVAL_MS = 1500;
+const verifyRequestGuard = new Map<string, number>();
 
 const querySchema = z.object({
   reference: z.string().min(8),
@@ -84,6 +86,18 @@ export async function getShortletPaystackVerifyResponse(
   });
   if (!parsed.success) {
     return NextResponse.json({ error: "reference is required" }, { status: 422 });
+  }
+
+  const guardKey = `${auth.user.id}:${parsed.data.reference}`;
+  const nowMs = Date.now();
+  const lastRunMs = verifyRequestGuard.get(guardKey) ?? 0;
+  verifyRequestGuard.set(guardKey, nowMs);
+  if (lastRunMs && nowMs - lastRunMs < VERIFY_MIN_INTERVAL_MS) {
+    console.log(`[${routeLabel}] throttled`, {
+      reference: parsed.data.reference,
+      deltaMs: nowMs - lastRunMs,
+    });
+    return NextResponse.json({ ok: true, status: "throttled" }, { status: 202 });
   }
 
   try {

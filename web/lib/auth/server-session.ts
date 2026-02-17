@@ -13,26 +13,20 @@ export async function resolveServerUser(
   supabase: SupabaseClient
 ): Promise<ResolvedServerUser> {
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  let user = session?.user ?? null;
+    data: { user: initialUser },
+  } = await supabase.auth.getUser();
+  let user = initialUser ?? null;
   let sessionRefreshed = false;
 
   if (!user) {
-    const {
-      data: { session: refreshed },
-    } = await supabase.auth.refreshSession();
-    if (refreshed?.user) {
-      user = refreshed.user;
+    const { data: refreshedData } = await supabase.auth.refreshSession();
+    if (refreshedData?.session) {
+      const {
+        data: { user: refreshedUser },
+      } = await supabase.auth.getUser();
+      user = refreshedUser ?? null;
       sessionRefreshed = true;
     }
-  }
-
-  if (!user) {
-    const {
-      data: { user: fallbackUser },
-    } = await supabase.auth.getUser();
-    user = fallbackUser ?? null;
   }
 
   return { supabase, user, sessionRefreshed };

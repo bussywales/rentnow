@@ -20,6 +20,9 @@ type StatusPayload = {
   } | null;
 };
 
+const STATUS_POLL_INTERVAL_MS = 5000;
+const STATUS_POLL_MAX_MS = 60_000;
+
 function formatMoney(currency: string, amountMinor: number) {
   const amount = Math.max(0, Math.trunc(amountMinor || 0)) / 100;
   try {
@@ -33,6 +36,32 @@ function formatMoney(currency: string, amountMinor: number) {
   }
 }
 
+function normalizeStatus(value: string | null | undefined) {
+  return String(value || "").trim().toLowerCase();
+}
+
+export function shouldPollStatus(
+  paymentStatus: string | null | undefined,
+  bookingStatus: string | null | undefined,
+  elapsedMs: number,
+  maxPollMs = STATUS_POLL_MAX_MS
+) {
+  if (elapsedMs >= maxPollMs) return false;
+
+  const normalizedPayment = normalizeStatus(paymentStatus);
+  const normalizedBooking = normalizeStatus(bookingStatus);
+
+  if (["pending", "confirmed", "completed", "declined", "cancelled", "expired"].includes(normalizedBooking)) {
+    return false;
+  }
+
+  if (["succeeded", "failed", "refunded"].includes(normalizedPayment)) {
+    return false;
+  }
+
+  return true;
+}
+
 export function ShortletPaymentReturnStatus(props: {
   bookingId: string;
   provider?: string | null;
@@ -40,50 +69,121 @@ export function ShortletPaymentReturnStatus(props: {
 }) {
   const [loading, setLoading] = useState(true);
   const [payload, setPayload] = useState<StatusPayload | null>(null);
+  const [timedOut, setTimedOut] = useState(false);
+  const [lastCheckedAt, setLastCheckedAt] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [verifyAttempted, setVerifyAttempted] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    let pollTimer: number | null = null;
+    const startedAt = Date.now();
 
-    const load = async () => {
+    const shouldVerifyPaystack =
+      String(props.provider || "").toLowerCase() === "paystack" &&
+      String(props.providerReference || "").trim().length > 0;
+    console.log("[/payments/shortlet/return] init", {
+      provider: props.provider || null,
+      hasReference: Boolean(String(props.providerReference || "").trim()),
+      verifyAttempted: shouldVerifyPaystack,
+    });
+
+    const loadStatus = async () => {
       try {
-        const shouldVerifyPaystack =
-          String(props.provider || "").toLowerCase() === "paystack" &&
-          String(props.providerReference || "").trim().length > 0;
-        if (shouldVerifyPaystack) {
-          await fetch(
-            `/api/shortlet/payments/paystack/verify?reference=${encodeURIComponent(
-              String(props.providerReference || "")
-            )}&booking_id=${encodeURIComponent(props.bookingId)}`,
-            { credentials: "include" }
-          ).catch(() => null);
-        }
         const response = await fetch(
           `/api/shortlet/payments/status?booking_id=${encodeURIComponent(props.bookingId)}`,
           { credentials: "include" }
         );
         const data = (await response.json().catch(() => ({}))) as StatusPayload;
-        if (!cancelled) setPayload(data);
+        if (!cancelled) {
+          setPayload(data);
+          setLastCheckedAt(Date.now());
+        }
+        return data;
       } catch (error) {
         if (!cancelled) {
           setPayload({
             error: error instanceof Error ? error.message : "Unable to load payment status",
           });
         }
+        return null;
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
 
-    void load();
-    const timer = window.setInterval(() => {
-      if (!cancelled) void load();
-    }, 5000);
+    const runVerifyOnce = async () => {
+      if (!shouldVerifyPaystack) return;
+      setVerifyAttempted(true);
+      await fetch(
+        `/api/shortlet/payments/paystack/verify?reference=${encodeURIComponent(
+          String(props.providerReference || "")
+        )}&booking_id=${encodeURIComponent(props.bookingId)}`,
+        { credentials: "include" }
+      ).catch(() => null);
+    };
+
+    const scheduleNext = (statusPayload: StatusPayload | null) => {
+      const elapsedMs = Date.now() - startedAt;
+      const shouldPoll = shouldPollStatus(
+        statusPayload?.payment?.status ?? null,
+        statusPayload?.booking?.status ?? null,
+        elapsedMs
+      );
+      if (!shouldPoll) {
+        setTimedOut(elapsedMs >= STATUS_POLL_MAX_MS);
+        return;
+      }
+      pollTimer = window.setTimeout(async () => {
+        const next = await loadStatus();
+        if (!cancelled) scheduleNext(next);
+      }, STATUS_POLL_INTERVAL_MS);
+    };
+
+    const run = async () => {
+      await runVerifyOnce();
+      const firstPayload = await loadStatus();
+      if (!cancelled) scheduleNext(firstPayload);
+    };
+
+    void run();
 
     return () => {
       cancelled = true;
-      window.clearInterval(timer);
+      if (pollTimer) window.clearTimeout(pollTimer);
     };
   }, [props.bookingId, props.provider, props.providerReference]);
+
+  const runManualRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (
+        String(props.provider || "").toLowerCase() === "paystack" &&
+        String(props.providerReference || "").trim().length > 0
+      ) {
+        await fetch(
+          `/api/shortlet/payments/paystack/verify?reference=${encodeURIComponent(
+            String(props.providerReference || "")
+          )}&booking_id=${encodeURIComponent(props.bookingId)}`,
+          { credentials: "include" }
+        ).catch(() => null);
+      }
+      const response = await fetch(
+        `/api/shortlet/payments/status?booking_id=${encodeURIComponent(props.bookingId)}`,
+        { credentials: "include" }
+      );
+      const data = (await response.json().catch(() => ({}))) as StatusPayload;
+      setPayload(data);
+      setLastCheckedAt(Date.now());
+      setTimedOut(false);
+    } catch (error) {
+      setPayload({
+        error: error instanceof Error ? error.message : "Unable to refresh payment status",
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const state = useMemo(() => {
     const bookingStatus = String(payload?.booking?.status || "").toLowerCase();
@@ -100,6 +200,9 @@ export function ShortletPaymentReturnStatus(props: {
     }
     return "processing" as const;
   }, [payload]);
+
+  const canRetryPayment = !["confirmed", "pending"].includes(state);
+  const showTimeoutState = timedOut && state === "processing";
 
   if (loading) {
     return (
@@ -133,7 +236,12 @@ export function ShortletPaymentReturnStatus(props: {
 
       {state === "processing" ? (
         <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
-          We are still confirming your payment. This page refreshes automatically.
+          We are still confirming your payment.
+        </p>
+      ) : null}
+      {showTimeoutState ? (
+        <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          Confirmation is taking longer than usual. You can refresh status now or contact support.
         </p>
       ) : null}
       {state === "pending" ? (
@@ -161,13 +269,31 @@ export function ShortletPaymentReturnStatus(props: {
         <Link href={`/trips/${props.bookingId}`} className="rounded-lg bg-sky-600 px-4 py-2 text-sm font-semibold text-white">
           Open trip
         </Link>
-        <Link
-          href={`/payments/shortlet/checkout?bookingId=${encodeURIComponent(props.bookingId)}`}
+        <button
+          type="button"
+          onClick={runManualRefresh}
+          disabled={refreshing}
           className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
         >
-          Retry payment
+          {refreshing ? "Refreshing..." : "Refresh status"}
+        </button>
+        <Link href="/support" className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700">
+          Contact support
         </Link>
+        {canRetryPayment ? (
+          <Link
+            href={`/payments/shortlet/checkout?bookingId=${encodeURIComponent(props.bookingId)}`}
+            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
+          >
+            Retry payment
+          </Link>
+        ) : null}
       </div>
+      {verifyAttempted || lastCheckedAt ? (
+        <p className="mt-3 text-xs text-slate-500">
+          {verifyAttempted ? "Paystack verify checked." : "Status checked."}
+        </p>
+      ) : null}
     </section>
   );
 }
