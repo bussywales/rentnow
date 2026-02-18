@@ -1,5 +1,6 @@
 import { isShortletProperty, resolveShortletBookingMode, resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
 import type { Property } from "@/lib/types";
+import { orderImagesWithCover } from "@/lib/properties/images";
 
 export type ShortletSearchSort = "recommended" | "price_low" | "price_high" | "newest";
 
@@ -40,6 +41,27 @@ export type ShortletOverlapRow = {
   property_id: string;
   start: string;
   end: string;
+};
+
+type ShortletSearchImageRow = {
+  id?: string | null;
+  image_url?: string | null;
+  position?: number | null;
+  created_at?: string | null;
+  width?: number | null;
+  height?: number | null;
+  bytes?: number | null;
+  format?: string | null;
+};
+
+export type ShortletSearchPropertyRow = Property & {
+  property_images?: ShortletSearchImageRow[] | null;
+};
+
+export type ShortletSearchResultItem = Property & {
+  coverImageUrl: string | null;
+  imageCount: number;
+  imageUrls: string[];
 };
 
 const POWER_BACKUP_TOKENS = [
@@ -333,4 +355,39 @@ export function filterToShortletListings(rows: Property[]): Property[] {
 
 export function parseSearchView(value: string | null): "list" | "map" {
   return value === "map" ? "map" : "list";
+}
+
+export function mapShortletSearchRowsToResultItems(
+  rows: ShortletSearchPropertyRow[]
+): ShortletSearchResultItem[] {
+  return rows.map((row) => {
+    const propertyImages = (row.property_images ?? [])
+      .map((img) => ({
+        id: String(img.id || img.image_url || ""),
+        image_url: String(img.image_url || ""),
+        position: typeof img.position === "number" ? img.position : null,
+        created_at: img.created_at ?? undefined,
+        width: typeof img.width === "number" ? img.width : null,
+        height: typeof img.height === "number" ? img.height : null,
+        bytes: typeof img.bytes === "number" ? img.bytes : null,
+        format: img.format ?? null,
+      }))
+      .filter((img) => img.id && img.image_url);
+
+    const orderedImages = orderImagesWithCover(row.cover_image_url, propertyImages);
+    const coverImageUrl = row.cover_image_url || orderedImages[0]?.image_url || null;
+    const imageUrls = orderedImages.slice(0, 5).map((img) => img.image_url);
+    const imageCount = orderedImages.length;
+
+    const rest: Property = { ...row };
+    delete (rest as Property & { property_images?: ShortletSearchImageRow[] }).property_images;
+    return {
+      ...rest,
+      cover_image_url: coverImageUrl,
+      images: orderedImages,
+      coverImageUrl,
+      imageCount,
+      imageUrls,
+    };
+  });
 }

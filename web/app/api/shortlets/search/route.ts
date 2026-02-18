@@ -7,11 +7,13 @@ import {
   filterShortletListingsByMarket,
   filterToShortletListings,
   isWithinBounds,
+  mapShortletSearchRowsToResultItems,
   matchesShortletSearchQuery,
   matchesTrustFilters,
   parseShortletSearchFilters,
   sortShortletSearchResults,
   unavailablePropertyIdsForDateRange,
+  type ShortletSearchPropertyRow,
   type ShortletOverlapRow,
 } from "@/lib/shortlet/search";
 import { resolveShortletBookingMode } from "@/lib/shortlet/discovery";
@@ -160,7 +162,21 @@ export async function GET(request: NextRequest) {
     const total = sorted.length;
     const from = (filters.page - 1) * filters.pageSize;
     const to = from + filters.pageSize;
-    const items = sorted.slice(from, to);
+    const items = mapShortletSearchRowsToResultItems(
+      sorted.slice(from, to) as unknown as ShortletSearchPropertyRow[]
+    );
+
+    if (process.env.NODE_ENV !== "production") {
+      console.info("[api/shortlets/search] image-sample", {
+        sample: items.slice(0, 3).map((item) => ({
+          id: item.id,
+          title: item.title,
+          coverImageUrl: item.coverImageUrl,
+          imageCount: item.imageCount,
+          firstPhotoUrl: item.imageUrls[0] ?? null,
+        })),
+      });
+    }
     const hasNearbySuggestion = total === 0 && !!filters.bounds;
 
     const payload = {

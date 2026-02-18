@@ -40,7 +40,7 @@ export type PropertyImageCarouselController = {
 
 const DRAG_NAVIGATION_THRESHOLD_PX = 8;
 
-function resolveImageSources({
+export function resolvePropertyImageSources({
   coverImageUrl,
   images,
   primaryImageUrl,
@@ -83,7 +83,7 @@ export function PropertyImageCarousel({
 }: Props) {
   const computedSources = useMemo(
     () =>
-      resolveImageSources({
+      resolvePropertyImageSources({
         coverImageUrl,
         images,
         primaryImageUrl,

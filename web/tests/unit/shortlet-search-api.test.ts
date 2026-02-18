@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   filterShortletListingsByMarket,
+  mapShortletSearchRowsToResultItems,
   matchesTrustFilters,
   parseShortletSearchFilters,
   parseShortletSearchBounds,
@@ -117,4 +118,38 @@ void test("market=NG returns only NG listings", () => {
 void test("shortlet search defaults market to NG", () => {
   const parsed = parseShortletSearchFilters(new URLSearchParams("q=lekki"));
   assert.equal(parsed.marketCountry, "NG");
+});
+
+void test("shortlet search result items expose canonical cover image fields", () => {
+  const rows = [
+    {
+      ...buildProperty({
+        id: "with-photos",
+        cover_image_url: null,
+      }),
+      property_images: [
+        {
+          id: "img-1",
+          image_url: "https://example.com/img-1.jpg",
+          position: 0,
+        },
+        {
+          id: "img-2",
+          image_url: "https://example.com/img-2.jpg",
+          position: 1,
+        },
+      ],
+    },
+  ];
+
+  const [mapped] = mapShortletSearchRowsToResultItems(rows);
+  assert.ok(mapped);
+  assert.equal(mapped.coverImageUrl, "https://example.com/img-1.jpg");
+  assert.equal(mapped.cover_image_url, "https://example.com/img-1.jpg");
+  assert.equal(mapped.imageCount, 2);
+  assert.deepEqual(mapped.imageUrls, [
+    "https://example.com/img-1.jpg",
+    "https://example.com/img-2.jpg",
+  ]);
+  assert.equal(mapped.images?.[0]?.image_url, "https://example.com/img-1.jpg");
 });

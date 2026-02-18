@@ -30,7 +30,13 @@ type SearchResponse = {
   page: number;
   pageSize: number;
   total: number;
-  items: Property[];
+  items: Array<
+    Property & {
+      coverImageUrl?: string | null;
+      imageCount?: number;
+      imageUrls?: string[];
+    }
+  >;
   nearbyAlternatives: Array<{ label: string; hint: string }>;
 };
 
@@ -95,6 +101,22 @@ function formatMoney(currency: string, nightlyMinor: number | null): string {
   } catch {
     return `${currency || "NGN"} ${major.toFixed(0)}`;
   }
+}
+
+function normalizeSearchItemImageFields(item: SearchResponse["items"][number]): Property {
+  const coverImageUrl = item.coverImageUrl ?? item.cover_image_url ?? null;
+  const images =
+    item.images ??
+    (item.imageUrls ?? []).map((imageUrl, index) => ({
+      id: `${item.id}-image-${index}`,
+      image_url: imageUrl,
+    }));
+
+  return {
+    ...item,
+    cover_image_url: coverImageUrl,
+    images,
+  };
 }
 
 export function ShortletsSearchShell({ initialSearchParams }: Props) {
@@ -180,10 +202,14 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           throw new Error((payload as { error?: string } | null)?.error || "Unable to fetch shortlets.");
         }
         const typed = payload as SearchResponse;
-        setResults(typed);
+        setResults({
+          ...typed,
+          items: typed.items.map((item) => normalizeSearchItemImageFields(item)),
+        });
         setSelectedListingId((current) => {
-          if (current && typed.items.some((item) => item.id === current)) return current;
-          return typed.items[0]?.id ?? null;
+          const normalized = typed.items;
+          if (current && normalized.some((item) => item.id === current)) return current;
+          return normalized[0]?.id ?? null;
         });
       } catch (fetchError) {
         if (controller.signal.aborted) return;
