@@ -77,7 +77,7 @@ export function buildHostNewBookingRequestEmail(input: ShortletEmailBase) {
     "New booking request",
     `<p style="margin:0 0 8px;color:#334155">A tenant sent a request to book your shortlet.</p>${renderBaseLines(input, "Pending approval")}`,
     input.siteUrl,
-    "/host?tab=bookings",
+    "/host/bookings",
     "Review booking requests"
   );
   return { subject, html };
@@ -101,7 +101,7 @@ export function buildHostNewReservationEmail(input: ShortletEmailBase) {
     "New instant reservation",
     `<p style="margin:0 0 8px;color:#334155">A tenant reserved your shortlet in instant mode.</p>${renderBaseLines(input, "Confirmed")}`,
     input.siteUrl,
-    "/host?tab=bookings",
+    "/host/bookings",
     "Open bookings inbox"
   );
   return { subject, html };
@@ -137,7 +137,7 @@ export function buildHostBookingApprovedEmail(input: ShortletEmailBase) {
     "Booking request approved",
     `<p style="margin:0 0 8px;color:#334155">You approved this request and the booking is now confirmed.</p>${renderBaseLines(input, "Confirmed")}`,
     input.siteUrl,
-    "/host?tab=bookings",
+    "/host/bookings",
     "View bookings inbox"
   );
   return { subject, html };

@@ -842,13 +842,13 @@ export function HostDashboardContent({
           </div>
           <div className="flex min-w-0 flex-wrap gap-2">
             <Link
-              href="/host?tab=bookings&view=awaiting#host-bookings"
+              href="/host/bookings?view=awaiting#host-bookings"
               className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
             >
               Review requests
             </Link>
             <Link
-              href="/host?tab=bookings#host-bookings"
+              href="/host/bookings#host-bookings"
               className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
             >
               View all bookings
@@ -1124,7 +1124,7 @@ export function HostDashboardContent({
                       Manage shortlet
                     </p>
                     <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
-                      <Link href="/host?tab=bookings#host-bookings">
+                      <Link href="/host/bookings#host-bookings">
                         <Button size="sm" variant="secondary">
                           Bookings
                         </Button>

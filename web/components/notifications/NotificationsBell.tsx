@@ -61,7 +61,7 @@ export function NotificationsBell({ initialAuthed, initialRole }: Props) {
     initialRole === "admin" ||
     initialRole === "super_admin";
 
-  const viewAllHref = initialRole === "tenant" ? "/trips" : "/host?tab=bookings#host-bookings";
+  const viewAllHref = initialRole === "tenant" ? "/trips" : "/host/bookings#host-bookings";
 
   const refresh = useCallback(async () => {
     if (!initialAuthed || !canShow) return;

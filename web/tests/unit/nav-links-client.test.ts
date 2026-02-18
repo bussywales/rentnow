@@ -27,14 +27,14 @@ test("tenant nav includes Trips", () => {
 
 test("host bookings nav badge appears when awaiting approvals exist", () => {
   const withBadge = applyHostBookingsBadge(MAIN_NAV_LINKS, 3);
-  const bookingsLink = withBadge.find((link) => link.href === "/host?tab=bookings");
+  const bookingsLink = withBadge.find((link) => link.href === "/host/bookings");
   assert.ok(bookingsLink, "expected host bookings link");
   assert.equal(bookingsLink?.badgeCount, 3);
 });
 
 test("host bookings nav badge stays hidden when there are no awaiting approvals", () => {
   const withBadge = applyHostBookingsBadge(MAIN_NAV_LINKS, 0);
-  const bookingsLink = withBadge.find((link) => link.href === "/host?tab=bookings");
+  const bookingsLink = withBadge.find((link) => link.href === "/host/bookings");
   assert.ok(bookingsLink, "expected host bookings link");
   assert.equal(bookingsLink?.badgeCount ?? null, null);
 });

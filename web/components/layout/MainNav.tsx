@@ -37,7 +37,7 @@ export const MAIN_NAV_LINKS: Array<{
     denyRoles: ["tenant", "admin"],
   },
   {
-    href: "/host?tab=bookings",
+    href: "/host/bookings",
     label: "Bookings",
     requireAuth: true,
     denyRoles: ["tenant", "admin"],
@@ -61,7 +61,7 @@ export function applyHostBookingsBadge(
   awaitingApprovalCount: number
 ) {
   return links.map((link) => {
-    if (link.href !== "/host?tab=bookings") return link;
+    if (link.href !== "/host/bookings") return link;
     return {
       ...link,
       badgeCount: awaitingApprovalCount > 0 ? awaitingApprovalCount : null,

@@ -51,6 +51,7 @@ import {
   countAwaitingApprovalBookings,
   shouldDefaultHostToBookingsInbox,
 } from "@/lib/shortlet/host-bookings-inbox";
+import { buildCanonicalHostBookingsHrefFromSearchParams } from "@/lib/host/bookings-navigation";
 
 export const dynamic = "force-dynamic";
 
@@ -128,6 +129,14 @@ async function requestUpgrade() {
 
 export default async function DashboardHome({ searchParams }: PageProps) {
   const resolvedSearchParams = searchParams ? await searchParams : {};
+  const requestedTab = readSingleParam(resolvedSearchParams, "tab");
+  const requestedSection = readSingleParam(resolvedSearchParams, "section");
+  const requestedBooking = readSingleParam(resolvedSearchParams, "booking");
+
+  if (requestedTab.toLowerCase() === "bookings" || requestedSection.toLowerCase() === "bookings") {
+    redirect(buildCanonicalHostBookingsHrefFromSearchParams(resolvedSearchParams));
+  }
+
   const supabaseReady = hasServerSupabaseEnv();
   let properties: Property[] = [];
   let fetchError: string | null = null;
@@ -157,7 +166,6 @@ export default async function DashboardHome({ searchParams }: PageProps) {
   let shortletBookings: HostShortletBookingSummary[] = [];
   let shortletEarnings: HostShortletEarningSummary[] = [];
   let shortletSettings: HostShortletSettingSummary[] = [];
-  let initialWorkspaceSection: "listings" | "bookings" = "listings";
 
   if (supabaseReady) {
     try {
@@ -302,9 +310,6 @@ export default async function DashboardHome({ searchParams }: PageProps) {
   }
 
   const awaitingApprovalCount = countAwaitingApprovalBookings(shortletBookings);
-  const requestedTab = readSingleParam(resolvedSearchParams, "tab");
-  const requestedSection = readSingleParam(resolvedSearchParams, "section");
-  const requestedBooking = readSingleParam(resolvedSearchParams, "booking");
   const shouldDefaultToBookings = shouldDefaultHostToBookingsInbox({
     awaitingApprovalCount,
     tab: requestedTab || null,
@@ -313,24 +318,11 @@ export default async function DashboardHome({ searchParams }: PageProps) {
   });
 
   if (shouldDefaultToBookings) {
-    const params = new URLSearchParams();
-    for (const [key, rawValue] of Object.entries(resolvedSearchParams)) {
-      if (key === "tab" || key === "section" || key === "view") continue;
-      if (Array.isArray(rawValue)) {
-        for (const item of rawValue) {
-          if (item) params.append(key, item);
-        }
-      } else if (rawValue) {
-        params.set(key, rawValue);
-      }
-    }
-    params.set("tab", "bookings");
-    params.set("view", "awaiting");
-    redirect(`/host?${params.toString()}`);
-  }
-
-  if (requestedTab.toLowerCase() === "bookings" || requestedSection.toLowerCase() === "bookings") {
-    initialWorkspaceSection = "bookings";
+    redirect(
+      buildCanonicalHostBookingsHrefFromSearchParams(resolvedSearchParams, {
+        defaultView: "awaiting",
+      })
+    );
   }
 
   const expired =
@@ -569,7 +561,6 @@ export default async function DashboardHome({ searchParams }: PageProps) {
         shortletBookings={shortletBookings}
         shortletEarnings={shortletEarnings}
         shortletSettings={shortletSettings}
-        initialWorkspaceSection={initialWorkspaceSection}
       />
         ) : (
           <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
