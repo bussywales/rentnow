@@ -18,10 +18,40 @@ const excludedRelativePaths = new Set([
 const ignoredDirNames = new Set(["node_modules", ".next", "tests", "scripts"]);
 const sourceExtensions = new Set([".ts", ".tsx"]);
 
-const hasAuthGetSessionCall = (line) =>
-  /\bsupabase\.auth\.getSession\s*\(/.test(line) ||
-  /\bauth\.getSession\s*\(/.test(line) ||
-  /\b[a-zA-Z_$][\w$]*auth[\w$]*\.getSession\s*\(/i.test(line);
+const forbiddenPatterns = [
+  {
+    reason: "Forbidden server getSession call detected",
+    regex: /\bsupabase\.auth\.getSession\s*\(/,
+  },
+  {
+    reason: "Forbidden server getSession call detected",
+    regex: /\bauth\.getSession\s*\(/,
+  },
+  {
+    reason: "Forbidden server getSession call detected",
+    regex: /\b[a-zA-Z_$][\w$]*auth[\w$]*\.getSession\s*\(/i,
+  },
+  {
+    reason: "Forbidden server getSession aliasing detected",
+    regex: /\b(?:const|let|var)\s*\{\s*getSession(?:\s*:\s*[A-Za-z_$][\w$]*)?\s*\}\s*=\s*[A-Za-z_$][\w$]*\.auth\b/,
+  },
+  {
+    reason: "Forbidden server getSession aliasing detected",
+    regex: /\(\s*\{\s*getSession(?:\s*:\s*[A-Za-z_$][\w$]*)?\s*\}\s*=\s*[A-Za-z_$][\w$]*\.auth\s*\)/,
+  },
+  {
+    reason: "Forbidden server getSession aliasing detected",
+    regex: /\b(?:const|let|var)\s+[A-Za-z_$][\w$]*\s*=\s*[A-Za-z_$][\w$]*\.auth\.getSession\b/,
+  },
+  {
+    reason: "Forbidden server getSession aliasing detected",
+    regex: /\bgetSession\s*=\s*[A-Za-z_$][\w$]*\.auth\.getSession\b/,
+  },
+  {
+    reason: "Forbidden server getSession bracket access detected",
+    regex: /\.auth\[['"]getSession['"]\]/,
+  },
+];
 
 const toPosix = (value) => value.split(path.sep).join("/");
 
@@ -99,14 +129,18 @@ async function main() {
     const content = await fs.readFile(absolutePath, "utf8");
     const lines = content.split("\n");
     lines.forEach((line, index) => {
-      if (!hasAuthGetSessionCall(line)) {
-        return;
-      }
-      const relative = `web/${toPosix(path.relative(webRoot, absolutePath))}`;
-      violations.push({
-        file: relative,
-        lineNumber: index + 1,
-        line: line.trim(),
+      forbiddenPatterns.forEach((pattern) => {
+        const match = line.match(pattern.regex);
+        if (!match) {
+          return;
+        }
+        const relative = `web/${toPosix(path.relative(webRoot, absolutePath))}`;
+        violations.push({
+          file: relative,
+          lineNumber: index + 1,
+          reason: pattern.reason,
+          match: match[0],
+        });
       });
     });
   }
@@ -114,7 +148,9 @@ async function main() {
   if (violations.length > 0) {
     console.error("Server-side getSession usage is forbidden. Replace with getUser()-first auth.");
     for (const violation of violations) {
-      console.error(`${violation.file}:${violation.lineNumber} ${violation.line}`);
+      console.error(
+        `${violation.file}:${violation.lineNumber} ${violation.reason}: ${violation.match}`
+      );
     }
     process.exitCode = 1;
     return;

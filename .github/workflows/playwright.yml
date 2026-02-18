@@ -42,6 +42,9 @@ jobs:
       - name: Install deps
         run: npm ci
 
+      - name: Run server auth guard
+        run: npm run guard:no-server-getsession
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 

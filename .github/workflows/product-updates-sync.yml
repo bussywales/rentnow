@@ -18,6 +18,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.9.0"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install web deps
+        run: npm --prefix web ci
+
+      - name: Run server auth guard
+        run: npm --prefix web run guard:no-server-getsession
+
       - name: Call product updates sync endpoint
         env:
           APP_URL: ${{ secrets.APP_URL }}
