@@ -8,12 +8,12 @@ export type ShortletMapSearchAreaState = {
 
 export type ShortletMapAutoFitInput = {
   hasMarkers: boolean;
-  hasAutoFitOnce: boolean;
+  cameraIntent: "initial" | "idle" | "user_search" | "user_search_area" | "location_change";
+  cameraIntentNonce: number;
+  resolvedFitRequestKey: string;
+  activeFitRequestKey: string;
   resultHash: string;
-  lastResultHash: string | null;
-  hasUserMovedMap: boolean;
-  fitRequestKey: string;
-  lastFitRequestKey: string | null;
+  lastFittedResultHash: string | null;
 };
 
 export type ShortletMapMarkerVisualState = {
@@ -211,15 +211,21 @@ export function toggleShortletSearchView(current: "list" | "map"): "list" | "map
 
 export function shouldAutoFitShortletMap(input: ShortletMapAutoFitInput): boolean {
   if (!input.hasMarkers) return false;
-  if (input.resultHash === input.lastResultHash) return false;
-  if (!input.hasAutoFitOnce) return true;
+  if (input.cameraIntent === "idle") return false;
+  if (input.cameraIntentNonce <= 0) return false;
+  if (input.resolvedFitRequestKey !== input.activeFitRequestKey) return false;
+  if (input.cameraIntent === "initial") return true;
+  if (input.resultHash === input.lastFittedResultHash) return false;
+  return true;
+}
 
-  const explicitSearch =
-    input.lastFitRequestKey === null || input.fitRequestKey !== input.lastFitRequestKey;
-
-  if (explicitSearch) return true;
-
-  return !input.hasUserMovedMap;
+export function resolveShortletMapCameraIntent(input: {
+  hasLocationChanged: boolean;
+  hasBoundsChanged: boolean;
+}): "user_search" | "user_search_area" | "location_change" {
+  if (input.hasBoundsChanged) return "user_search_area";
+  if (input.hasLocationChanged) return "location_change";
+  return "user_search";
 }
 
 export function shouldUseCompactShortletSearchPill(scrollY: number, thresholdPx = 96): boolean {

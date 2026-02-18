@@ -10,6 +10,7 @@ import {
   normalizeShortletGuestsParam,
   readShortletAdvancedFiltersFromParams,
   removeShortletAdvancedFilterTag,
+  resolveShortletMapCameraIntent,
   resolveShortletMapMarkerVisualState,
   resolveSelectedListingId,
   shouldUseCompactShortletSearchPill,
@@ -75,16 +76,16 @@ void test("mobile map toggle flips view between list and map", () => {
   assert.equal(toggleShortletSearchView("map"), "list");
 });
 
-void test("auto-fit runs on first load and explicit search changes", () => {
+void test("auto-fit runs on initial intent and explicit search results", () => {
   assert.equal(
     shouldAutoFitShortletMap({
       hasMarkers: true,
-      hasAutoFitOnce: false,
+      cameraIntent: "initial",
+      cameraIntentNonce: 1,
+      resolvedFitRequestKey: "market=NG",
+      activeFitRequestKey: "market=NG",
       resultHash: "ng|2|a,b",
-      lastResultHash: null,
-      hasUserMovedMap: false,
-      fitRequestKey: "market=NG",
-      lastFitRequestKey: null,
+      lastFittedResultHash: null,
     }),
     true
   );
@@ -92,27 +93,27 @@ void test("auto-fit runs on first load and explicit search changes", () => {
   assert.equal(
     shouldAutoFitShortletMap({
       hasMarkers: true,
-      hasAutoFitOnce: true,
+      cameraIntent: "user_search",
+      cameraIntentNonce: 2,
+      resolvedFitRequestKey: "market=NG&q=ikeja",
+      activeFitRequestKey: "market=NG&q=ikeja",
       resultHash: "ng|3|a,b,c",
-      lastResultHash: "ng|2|a,b",
-      hasUserMovedMap: true,
-      fitRequestKey: "market=NG&bounds=1,2,3,4",
-      lastFitRequestKey: "market=NG",
+      lastFittedResultHash: "ng|2|a,b",
     }),
     true
   );
 });
 
-void test("auto-fit skips unchanged result sets and non-explicit interactions", () => {
+void test("auto-fit skips unchanged results, idle intent, and unresolved fetches", () => {
   assert.equal(
     shouldAutoFitShortletMap({
       hasMarkers: true,
-      hasAutoFitOnce: true,
+      cameraIntent: "user_search",
+      cameraIntentNonce: 3,
+      resolvedFitRequestKey: "market=NG&q=ikeja",
+      activeFitRequestKey: "market=NG&q=ikeja",
       resultHash: "ng|2|a,b",
-      lastResultHash: "ng|2|a,b",
-      hasUserMovedMap: false,
-      fitRequestKey: "market=NG",
-      lastFitRequestKey: "market=NG",
+      lastFittedResultHash: "ng|2|a,b",
     }),
     false
   );
@@ -120,14 +121,51 @@ void test("auto-fit skips unchanged result sets and non-explicit interactions", 
   assert.equal(
     shouldAutoFitShortletMap({
       hasMarkers: true,
-      hasAutoFitOnce: true,
+      cameraIntent: "idle",
+      cameraIntentNonce: 4,
+      resolvedFitRequestKey: "market=NG&q=ikeja",
+      activeFitRequestKey: "market=NG&q=ikeja",
       resultHash: "ng|3|a,b,c",
-      lastResultHash: "ng|2|a,b",
-      hasUserMovedMap: true,
-      fitRequestKey: "market=NG",
-      lastFitRequestKey: "market=NG",
+      lastFittedResultHash: "ng|2|a,b",
     }),
     false
+  );
+
+  assert.equal(
+    shouldAutoFitShortletMap({
+      hasMarkers: true,
+      cameraIntent: "location_change",
+      cameraIntentNonce: 5,
+      resolvedFitRequestKey: "market=NG&q=lekki",
+      activeFitRequestKey: "market=NG&q=yaba",
+      resultHash: "ng|3|a,b,c",
+      lastFittedResultHash: "ng|2|a,b",
+    }),
+    false
+  );
+});
+
+void test("camera intent resolver maps explicit user actions", () => {
+  assert.equal(
+    resolveShortletMapCameraIntent({
+      hasLocationChanged: false,
+      hasBoundsChanged: true,
+    }),
+    "user_search_area"
+  );
+  assert.equal(
+    resolveShortletMapCameraIntent({
+      hasLocationChanged: true,
+      hasBoundsChanged: false,
+    }),
+    "location_change"
+  );
+  assert.equal(
+    resolveShortletMapCameraIntent({
+      hasLocationChanged: false,
+      hasBoundsChanged: false,
+    }),
+    "user_search"
   );
 });
 

@@ -26,6 +26,7 @@ import {
   normalizeShortletGuestsParam,
   readShortletAdvancedFiltersFromParams,
   removeShortletAdvancedFilterTag,
+  resolveShortletMapCameraIntent,
   resolveSelectedListingId,
   shouldUseCompactShortletSearchPill,
   SHORTLET_QUICK_FILTER_KEYS,
@@ -218,6 +219,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "map">(parsedUi.view);
   const [mapAreaState, setMapAreaState] = useState(() => createShortletMapSearchAreaState(parsedBounds));
+  const [resolvedMapFitRequestKey, setResolvedMapFitRequestKey] = useState(mapFitRequestKey);
+  const [cameraIntent, setCameraIntent] = useState<
+    "initial" | "idle" | "user_search" | "user_search_area" | "location_change"
+  >("initial");
+  const [cameraIntentNonce, setCameraIntentNonce] = useState(1);
   const [mobileMapOpen, setMobileMapOpen] = useState(parsedUi.view === "map");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [isCompactSearch, setIsCompactSearch] = useState(false);
@@ -324,6 +330,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           ...typed,
           items: typed.items.map((item) => normalizeSearchItemImageFields(item)),
         });
+        setResolvedMapFitRequestKey(mapFitRequestKey);
         setSelectedListingId((current) => {
           const normalized = typed.items;
           if (current && normalized.some((item) => item.id === current)) return current;
@@ -338,7 +345,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     };
     void run();
     return () => controller.abort();
-  }, [requestSearchQuery]);
+  }, [mapFitRequestKey, requestSearchQuery]);
 
   useEffect(() => {
     if (!filtersOpen) return;
@@ -383,6 +390,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   );
 
   const onSubmitSearch = () => {
+    const intent = resolveShortletMapCameraIntent({
+      hasLocationChanged: queryDraft.trim() !== parsedUi.q.trim(),
+      hasBoundsChanged: false,
+    });
+    setCameraIntent(intent);
+    setCameraIntentNonce((current) => current + 1);
     updateUrl((next) => {
       if (queryDraft.trim()) next.set("q", queryDraft.trim());
       else next.delete("q");
@@ -996,7 +1009,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               }
               marketCountry={parsedUi.market}
               resultHash={mapResultHash}
+              cameraIntent={cameraIntent}
+              cameraIntentNonce={cameraIntentNonce}
               fitRequestKey={mapFitRequestKey}
+              resolvedFitRequestKey={resolvedMapFitRequestKey}
               height="min(76vh, 800px)"
             />
             {searchAreaDirty ? (
@@ -1004,6 +1020,13 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                 <Button
                   className="pointer-events-auto"
                   onClick={() => {
+                    setCameraIntent(
+                      resolveShortletMapCameraIntent({
+                        hasLocationChanged: false,
+                        hasBoundsChanged: true,
+                      })
+                    );
+                    setCameraIntentNonce((current) => current + 1);
                     setMapAreaState((current) => {
                       const next = applySearchThisArea(current);
                       const encoded = serializeShortletSearchBounds(next.activeBounds);
@@ -1104,7 +1127,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               }
               marketCountry={parsedUi.market}
               resultHash={mapResultHash}
+              cameraIntent={cameraIntent}
+              cameraIntentNonce={cameraIntentNonce}
               fitRequestKey={mapFitRequestKey}
+              resolvedFitRequestKey={resolvedMapFitRequestKey}
               height="100%"
             />
             {searchAreaDirty ? (
@@ -1112,6 +1138,13 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                 <Button
                   className="pointer-events-auto"
                   onClick={() => {
+                    setCameraIntent(
+                      resolveShortletMapCameraIntent({
+                        hasLocationChanged: false,
+                        hasBoundsChanged: true,
+                      })
+                    );
+                    setCameraIntentNonce((current) => current + 1);
                     setMapAreaState((current) => {
                       const next = applySearchThisArea(current);
                       const encoded = serializeShortletSearchBounds(next.activeBounds);

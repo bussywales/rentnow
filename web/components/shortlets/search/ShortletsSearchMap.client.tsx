@@ -37,7 +37,10 @@ type Props = {
   onBoundsChanged: (bounds: MapBounds) => void;
   marketCountry: string;
   resultHash: string;
+  cameraIntent: "initial" | "idle" | "user_search" | "user_search_area" | "location_change";
+  cameraIntentNonce: number;
   fitRequestKey: string;
+  resolvedFitRequestKey: string;
   height?: string;
 };
 
@@ -123,21 +126,24 @@ function AutoFitToMarkers({
   markers,
   marketCountry,
   resultHash,
+  cameraIntent,
+  cameraIntentNonce,
   fitRequestKey,
-  hasUserMovedMapRef,
+  resolvedFitRequestKey,
   suppressedBoundsUpdatesRef,
 }: {
   markers: Array<[number, number]>;
   marketCountry: string;
   resultHash: string;
+  cameraIntent: "initial" | "idle" | "user_search" | "user_search_area" | "location_change";
+  cameraIntentNonce: number;
   fitRequestKey: string;
-  hasUserMovedMapRef: { current: boolean };
+  resolvedFitRequestKey: string;
   suppressedBoundsUpdatesRef: { current: number };
 }) {
   const map = useMap();
-  const hasAutoFitOnceRef = useRef(false);
-  const lastResultHashRef = useRef<string | null>(null);
-  const lastFitRequestKeyRef = useRef<string | null>(null);
+  const lastHandledIntentNonceRef = useRef<number>(0);
+  const lastFittedResultHashRef = useRef<string | null>(null);
 
   useEffect(() => {
     const raf = requestAnimationFrame(() => map.invalidateSize());
@@ -149,31 +155,34 @@ function AutoFitToMarkers({
   }, [map, fitRequestKey, markers.length]);
 
   useEffect(() => {
+    if (resolvedFitRequestKey !== fitRequestKey) return;
+    if (cameraIntentNonce === lastHandledIntentNonceRef.current) return;
+
     const shouldAutoFit = shouldAutoFitShortletMap({
       hasMarkers: markers.length > 0,
-      hasAutoFitOnce: hasAutoFitOnceRef.current,
+      cameraIntent,
+      cameraIntentNonce,
+      resolvedFitRequestKey,
+      activeFitRequestKey: fitRequestKey,
       resultHash,
-      lastResultHash: lastResultHashRef.current,
-      hasUserMovedMap: hasUserMovedMapRef.current,
-      fitRequestKey,
-      lastFitRequestKey: lastFitRequestKeyRef.current,
+      lastFittedResultHash: lastFittedResultHashRef.current,
     });
 
-    if (!shouldAutoFit) return;
+    if (shouldAutoFit) {
+      suppressedBoundsUpdatesRef.current = 2;
+      fitMapToMarkers({ map, markers, marketCountry });
+      lastFittedResultHashRef.current = resultHash;
+    }
 
-    suppressedBoundsUpdatesRef.current = 2;
-    fitMapToMarkers({ map, markers, marketCountry });
-
-    hasAutoFitOnceRef.current = true;
-    lastResultHashRef.current = resultHash;
-    lastFitRequestKeyRef.current = fitRequestKey;
-    hasUserMovedMapRef.current = false;
+    lastHandledIntentNonceRef.current = cameraIntentNonce;
   }, [
+    cameraIntent,
+    cameraIntentNonce,
     fitRequestKey,
-    hasUserMovedMapRef,
     map,
     markers,
     marketCountry,
+    resolvedFitRequestKey,
     resultHash,
     suppressedBoundsUpdatesRef,
   ]);
@@ -183,21 +192,12 @@ function AutoFitToMarkers({
 
 function ReportBounds({
   onBoundsChanged,
-  onUserMovedMap,
   suppressedBoundsUpdatesRef,
 }: {
   onBoundsChanged: (bounds: MapBounds) => void;
-  onUserMovedMap: () => void;
   suppressedBoundsUpdatesRef: { current: number };
 }) {
   const map = useMapEvents({
-    dragstart() {
-      onUserMovedMap();
-    },
-    zoomstart(event) {
-      const sourceEvent = (event as unknown as { originalEvent?: unknown }).originalEvent;
-      if (sourceEvent) onUserMovedMap();
-    },
     moveend() {
       if (suppressedBoundsUpdatesRef.current > 0) {
         suppressedBoundsUpdatesRef.current -= 1;
@@ -216,7 +216,7 @@ function ReportBounds({
 
   useEffect(() => {
     onBoundsChanged(resolveBounds(map));
-  }, [map, onBoundsChanged, onUserMovedMap]);
+  }, [map, onBoundsChanged]);
 
   return null;
 }
@@ -230,10 +230,12 @@ export function ShortletsSearchMapClient({
   onBoundsChanged,
   marketCountry,
   resultHash,
+  cameraIntent,
+  cameraIntentNonce,
   fitRequestKey,
+  resolvedFitRequestKey,
   height = "min(70vh, 760px)",
 }: Props) {
-  const hasUserMovedMapRef = useRef(false);
   const suppressedBoundsUpdatesRef = useRef(0);
   const mapListings = listings.filter(
     (listing): listing is MapListing & { latitude: number; longitude: number } =>
@@ -269,15 +271,14 @@ export function ShortletsSearchMapClient({
           markers={markers}
           marketCountry={marketCountry}
           resultHash={resultHash}
+          cameraIntent={cameraIntent}
+          cameraIntentNonce={cameraIntentNonce}
           fitRequestKey={fitRequestKey}
-          hasUserMovedMapRef={hasUserMovedMapRef}
+          resolvedFitRequestKey={resolvedFitRequestKey}
           suppressedBoundsUpdatesRef={suppressedBoundsUpdatesRef}
         />
         <ReportBounds
           onBoundsChanged={onBoundsChanged}
-          onUserMovedMap={() => {
-            hasUserMovedMapRef.current = true;
-          }}
           suppressedBoundsUpdatesRef={suppressedBoundsUpdatesRef}
         />
         {mapListings.map((listing) => {

@@ -28,7 +28,10 @@ type Props = {
   onBoundsChanged: (bounds: { north: number; south: number; east: number; west: number }) => void;
   marketCountry: string;
   resultHash: string;
+  cameraIntent: "initial" | "idle" | "user_search" | "user_search_area" | "location_change";
+  cameraIntentNonce: number;
   fitRequestKey: string;
+  resolvedFitRequestKey: string;
   height?: string;
 };
 

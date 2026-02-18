@@ -63,3 +63,13 @@ void test("guests control always renders readable guest labels", () => {
   assert.ok(contents.includes("guests-option-"));
   assert.equal(contents.includes('type="number"'), false);
 });
+
+void test("map camera intent only updates on explicit search actions", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("cameraIntentNonce"));
+  assert.ok(contents.includes("resolveShortletMapCameraIntent"));
+  assert.ok(contents.includes("hasBoundsChanged: true"));
+  assert.ok(contents.includes("hasLocationChanged: queryDraft.trim() !== parsedUi.q.trim()"));
+  assert.ok(contents.includes("resolvedFitRequestKey={resolvedMapFitRequestKey}"));
+});
