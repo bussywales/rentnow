@@ -58,14 +58,19 @@ export function resolvePostPaymentBookingStatus(
   return bookingMode === "instant" ? "confirmed" : "pending";
 }
 
-export function mapBookingCreateError(message: string): { status: number; error: string } {
+export function isAvailabilityConflictErrorMessage(message: string): boolean {
   const normalized = String(message || "").toUpperCase();
-  if (
+  return (
     normalized.includes("DATES_UNAVAILABLE") ||
     normalized.includes("DATES_BLOCKED") ||
     normalized.includes("SHORTLET_BOOKINGS_NO_OVERLAP") ||
     normalized.includes("EXCLUSION CONSTRAINT")
-  ) {
+  );
+}
+
+export function mapBookingCreateError(message: string): { status: number; error: string } {
+  const normalized = String(message || "").toUpperCase();
+  if (isAvailabilityConflictErrorMessage(message)) {
     return {
       status: 409,
       error: "Selected dates are no longer available. Please choose different dates.",

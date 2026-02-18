@@ -13,6 +13,7 @@ import {
   resolveShortletPaymentProviderDecision,
   upsertShortletPaymentIntent,
 } from "@/lib/shortlet/payments.server";
+import { resolveShortletAvailabilityConflict } from "@/lib/shortlet/availability.server";
 import { hasServiceRoleEnv } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,7 @@ export type InitShortletStripeDeps = {
   getStripeClient: typeof getStripeClient;
   getSiteUrl: typeof getSiteUrl;
   upsertShortletPaymentIntent: typeof upsertShortletPaymentIntent;
+  resolveShortletAvailabilityConflict?: typeof resolveShortletAvailabilityConflict;
 };
 
 const defaultDeps: InitShortletStripeDeps = {
@@ -45,6 +47,7 @@ const defaultDeps: InitShortletStripeDeps = {
   getStripeClient,
   getSiteUrl,
   upsertShortletPaymentIntent,
+  resolveShortletAvailabilityConflict,
 };
 
 export async function postInitShortletStripeResponse(
@@ -89,6 +92,38 @@ export async function postInitShortletStripeResponse(
 
   if (!isBookingPayableStatus(booking.status)) {
     return NextResponse.json({ error: "Booking is not payable in the current status" }, { status: 409 });
+  }
+
+  let conflict:
+    | Awaited<ReturnType<typeof resolveShortletAvailabilityConflict>>
+    | null = null;
+  try {
+    conflict = await (
+      deps.resolveShortletAvailabilityConflict ?? resolveShortletAvailabilityConflict
+    )({
+      propertyId: booking.propertyId,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      excludeBookingId: booking.bookingId,
+    });
+  } catch (conflictError) {
+    if (process.env.NODE_ENV === "production") {
+      console.warn("[shortlet-payments/stripe/init] availability-check-skipped", {
+        bookingId: booking.bookingId,
+        reason: conflictError instanceof Error ? conflictError.message : "unknown",
+      });
+    }
+  }
+  if (conflict?.hasConflict) {
+    return NextResponse.json(
+      {
+        error: "Selected dates are no longer available. Please choose different dates.",
+        code: "availability_conflict",
+        conflicting_dates: conflict.conflictingDates,
+        conflicting_ranges: conflict.conflictingRanges,
+      },
+      { status: 409 }
+    );
   }
 
   const currency = booking.currency;

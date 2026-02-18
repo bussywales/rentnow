@@ -19,6 +19,12 @@ export type ShortletRangeValidationResult = {
   nights: number | null;
 };
 
+export type ShortletAvailabilityConflictResult = {
+  hasConflict: boolean;
+  conflictingDates: string[];
+  conflictingRanges: ShortletUnavailableRange[];
+};
+
 function parseDateKey(value: string): { year: number; month: number; day: number } | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;
@@ -58,6 +64,10 @@ function addDays(dateKey: string, days: number): string {
   const utcMs = dateKeyToUtcMs(dateKey);
   if (utcMs == null) return dateKey;
   return utcMsToDateKey(utcMs + days * 24 * 60 * 60 * 1000);
+}
+
+export function addDaysToDateKey(dateKey: string, days: number): string {
+  return addDays(dateKey, days);
 }
 
 function compareDateKeys(left: string, right: string): number {
@@ -110,6 +120,101 @@ export function expandRangesToDisabledDates(
   }
 
   return disabled;
+}
+
+function rangeOverlaps(input: {
+  leftStart: string;
+  leftEnd: string;
+  rightStart: string;
+  rightEnd: string;
+}): boolean {
+  return (
+    compareDateKeys(input.leftStart, input.rightEnd) < 0 &&
+    compareDateKeys(input.rightStart, input.leftEnd) < 0
+  );
+}
+
+export function applyPrepBufferToUnavailableRanges(
+  ranges: ReadonlyArray<ShortletUnavailableRange>,
+  prepDays: number
+): ShortletUnavailableRange[] {
+  const normalizedPrepDays = Math.max(0, Math.trunc(prepDays || 0));
+  if (normalizedPrepDays < 1) return [...ranges];
+
+  return ranges.map((range) => {
+    const shouldApply =
+      range.source === "booking" || (typeof range.bookingId === "string" && range.bookingId.length > 0);
+    if (!shouldApply) return { ...range };
+    return {
+      ...range,
+      end: addDays(range.end, normalizedPrepDays),
+    };
+  });
+}
+
+export function resolveAvailabilityConflicts(input: {
+  checkIn: string;
+  checkOut: string;
+  unavailableRanges: ReadonlyArray<ShortletUnavailableRange>;
+  prepDays?: number | null;
+}): ShortletAvailabilityConflictResult {
+  if (!parseDateKey(input.checkIn) || !parseDateKey(input.checkOut)) {
+    return {
+      hasConflict: false,
+      conflictingDates: [],
+      conflictingRanges: [],
+    };
+  }
+  if (compareDateKeys(input.checkIn, input.checkOut) >= 0) {
+    return {
+      hasConflict: false,
+      conflictingDates: [],
+      conflictingRanges: [],
+    };
+  }
+
+  const effectiveRanges = applyPrepBufferToUnavailableRanges(
+    input.unavailableRanges,
+    input.prepDays ?? 0
+  ).filter((range) => {
+    if (!range?.start || !range?.end) return false;
+    if (!parseDateKey(range.start) || !parseDateKey(range.end)) return false;
+    if (compareDateKeys(range.start, range.end) >= 0) return false;
+    return rangeOverlaps({
+      leftStart: range.start,
+      leftEnd: range.end,
+      rightStart: input.checkIn,
+      rightEnd: input.checkOut,
+    });
+  });
+
+  if (!effectiveRanges.length) {
+    return {
+      hasConflict: false,
+      conflictingDates: [],
+      conflictingRanges: [],
+    };
+  }
+
+  const conflictingDateSet = new Set<string>();
+  let cursor = input.checkIn;
+  while (compareDateKeys(cursor, input.checkOut) < 0) {
+    const blocked = effectiveRanges.some(
+      (range) =>
+        compareDateKeys(range.start, cursor) <= 0 &&
+        compareDateKeys(cursor, range.end) < 0
+    );
+    if (blocked) {
+      conflictingDateSet.add(cursor);
+    }
+    cursor = addDays(cursor, 1);
+  }
+
+  return {
+    hasConflict: conflictingDateSet.size > 0,
+    conflictingDates: Array.from(conflictingDateSet).sort(),
+    conflictingRanges: effectiveRanges,
+  };
 }
 
 export function validateRangeSelection(input: {

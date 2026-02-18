@@ -62,6 +62,20 @@ type CalendarWindow = {
 const AVAILABILITY_WINDOW_DAYS = 180;
 const CALENDAR_DISABLED_HORIZON_DAYS = 720;
 const availabilityWindowCache = new Map<string, CalendarAvailabilityResponse>();
+const availabilityConflictCode = "availability_conflict";
+
+type BookingCreateResponse = {
+  booking?: { id?: string; status?: string };
+  error?: string;
+  code?: string;
+  conflicting_dates?: string[];
+  conflicting_ranges?: Array<{
+    start: string;
+    end: string;
+    source?: string | null;
+    bookingId?: string | null;
+  }>;
+};
 
 function formatMoney(currency: string, amountMinor: number): string {
   const amount = Math.max(0, Math.trunc(amountMinor || 0)) / 100;
@@ -188,6 +202,7 @@ export function ShortletBookingWidget(props: {
   const [notice, setNotice] = useState<string | null>(null);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
   const [unavailableRanges, setUnavailableRanges] = useState<ShortletUnavailableRange[]>([]);
+  const [conflictingDates, setConflictingDates] = useState<string[]>([]);
   const [selectionHint, setSelectionHint] = useState<string | null>(null);
   const loadedWindowKeysRef = useRef<Set<string>>(new Set());
 
@@ -226,9 +241,13 @@ export function ShortletBookingWidget(props: {
   const loadingAny = loading || metaLoading || calendarLoading;
 
   const loadAvailabilityWindow = useCallback(
-    async (month: Date) => {
+    async (month: Date, options?: { force?: boolean }) => {
       const window = buildCalendarWindow(month);
       const cacheKey = `${props.propertyId}:${window.monthKey}`;
+      if (options?.force) {
+        loadedWindowKeysRef.current.delete(cacheKey);
+        availabilityWindowCache.delete(cacheKey);
+      }
       if (loadedWindowKeysRef.current.has(cacheKey)) {
         return;
       }
@@ -291,14 +310,26 @@ export function ShortletBookingWidget(props: {
     [props.propertyId]
   );
 
+  const prefetchAvailabilityMonths = useCallback(
+    async (baseMonth: Date, options?: { force?: boolean }) => {
+      const monthStart = new Date(baseMonth.getFullYear(), baseMonth.getMonth(), 1);
+      const nextMonth = new Date(baseMonth.getFullYear(), baseMonth.getMonth() + 1, 1);
+      await Promise.all([
+        loadAvailabilityWindow(monthStart, options),
+        loadAvailabilityWindow(nextMonth, options),
+      ]);
+    },
+    [loadAvailabilityWindow]
+  );
+
   useEffect(() => {
-    void loadAvailabilityWindow(new Date());
-  }, [loadAvailabilityWindow]);
+    void prefetchAvailabilityMonths(new Date());
+  }, [prefetchAvailabilityMonths]);
 
   useEffect(() => {
     if (!calendarOpen) return;
-    void loadAvailabilityWindow(calendarMonth);
-  }, [calendarMonth, calendarOpen, loadAvailabilityWindow]);
+    void prefetchAvailabilityMonths(calendarMonth);
+  }, [calendarMonth, calendarOpen, prefetchAvailabilityMonths]);
 
   useEffect(() => {
     let active = true;
@@ -427,11 +458,13 @@ export function ShortletBookingWidget(props: {
     ],
     [disabledSet, today]
   );
+  const conflictingDateSet = useMemo(() => new Set(conflictingDates), [conflictingDates]);
 
   const applyRangeSelection = useCallback(
     (next: DateRange | undefined) => {
       setError(null);
       setNotice(null);
+      setConflictingDates([]);
 
       if (!next?.from) {
         setSelectedRange(undefined);
@@ -504,10 +537,24 @@ export function ShortletBookingWidget(props: {
           intent: "shortlet",
         }),
       });
-      const payload = (await response.json().catch(() => null)) as
-        | { booking?: { id?: string; status?: string }; error?: string }
-        | null;
+      const payload = (await response.json().catch(() => null)) as BookingCreateResponse | null;
       if (!response.ok) {
+        if (payload?.code === availabilityConflictCode) {
+          const conflictDates = Array.isArray(payload.conflicting_dates)
+            ? payload.conflicting_dates.filter((value) => typeof value === "string")
+            : [];
+          setCalendarOpen(true);
+          setConflictingDates(conflictDates);
+          setSelectionHint("Those dates just became unavailable. Pick a new range.");
+          await prefetchAvailabilityMonths(selectedRange?.from ?? calendarMonth, { force: true });
+          const conflictPreview = conflictDates.slice(0, 3).map(formatDisplayDate).join(", ");
+          setError(
+            conflictPreview
+              ? `Selected dates are no longer available (${conflictPreview}).`
+              : payload.error || "Selected dates are no longer available."
+          );
+          return;
+        }
         throw new Error(payload?.error || "Unable to create booking");
       }
       const bookingId = typeof payload?.booking?.id === "string" ? payload.booking.id : null;
@@ -591,6 +638,7 @@ export function ShortletBookingWidget(props: {
             setSelectedRange(undefined);
             setCheckIn("");
             setCheckOut("");
+            setConflictingDates([]);
             setSelectionHint(null);
           }}
           disabled={!checkIn && !checkOut}
@@ -601,24 +649,57 @@ export function ShortletBookingWidget(props: {
 
       {calendarOpen ? (
         <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/40 p-2 sm:p-3">
-          <Calendar
-            mode="range"
-            month={calendarMonth}
-            selected={selectedRange}
-            onSelect={applyRangeSelection}
-            onMonthChange={setCalendarMonth}
-            disabled={disabledDaysMatcher}
-            excludeDisabled
-            numberOfMonths={1}
-            fixedWeeks
-            onDayClick={(_, modifiers) => {
-              if (modifiers.disabled) {
-                setSelectionHint("Those dates include unavailable nights. Choose different dates.");
-              }
-            }}
-          />
-          <p className="px-1 text-xs text-slate-500">
-            Grey dates are unavailable because they are booked, blocked, or in the past.
+          {calendarLoading && unavailableRanges.length < 1 ? (
+            <div className="space-y-3 px-3 py-2" aria-hidden="true">
+              <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+              <div className="grid grid-cols-7 gap-2">
+                {Array.from({ length: 35 }).map((_, index) => (
+                  <div key={`cal-skeleton-${index}`} className="h-8 w-full animate-pulse rounded bg-slate-200" />
+                ))}
+              </div>
+            </div>
+          ) : (
+            <Calendar
+              mode="range"
+              month={calendarMonth}
+              selected={selectedRange}
+              onSelect={applyRangeSelection}
+              onMonthChange={setCalendarMonth}
+              disabled={disabledDaysMatcher}
+              modifiers={{
+                conflict: (date: Date) => conflictingDateSet.has(toDateKey(date)),
+              }}
+              modifiersClassNames={{
+                conflict: "bg-rose-100 text-rose-700 ring-1 ring-rose-200 font-semibold",
+              }}
+              excludeDisabled
+              numberOfMonths={1}
+              fixedWeeks
+              onDayClick={(_, modifiers) => {
+                if (modifiers.disabled) {
+                  setSelectionHint("Those dates include unavailable nights. Choose different dates.");
+                }
+              }}
+            />
+          )}
+          <div className="mt-2 flex flex-wrap gap-2 px-1">
+            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
+              <span className="h-2 w-2 rounded-full bg-sky-500" />
+              Selected
+            </span>
+            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
+              <span className="h-2 w-2 rounded-full bg-slate-300" />
+              Unavailable
+            </span>
+            {conflictingDates.length > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
+                <span className="h-2 w-2 rounded-full bg-rose-500" />
+                Conflicting dates
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-2 px-1 text-xs text-slate-500">
+            Grey dates are unavailable because they are booked, blocked, or in the past. Back-to-back check-out/check-in is allowed unless prep days apply.
           </p>
         </div>
       ) : null}
@@ -648,8 +729,9 @@ export function ShortletBookingWidget(props: {
             </p>
           )}
           {blockedCount > 0 ? (
-            <p className="text-xs text-amber-700">
-              Some selected dates are no longer available. Choose a different range.
+            <p className="text-xs text-slate-500">
+              Calendar loaded with {blockedCount} blocked or booked range
+              {blockedCount === 1 ? "" : "s"}.
             </p>
           ) : null}
         </div>

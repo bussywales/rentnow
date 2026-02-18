@@ -66,6 +66,10 @@ async function loadPropertyRow(supabase: Awaited<ReturnType<typeof createServerS
 
 export const dynamic = "force-dynamic";
 
+const availabilityCacheHeaders = {
+  "Cache-Control": "private, max-age=60, stale-while-revalidate=300",
+} as const;
+
 export async function GET(request: NextRequest) {
   if (!hasServerSupabaseEnv()) {
     return NextResponse.json({ error: "Supabase not configured" }, { status: 503 });
@@ -103,16 +107,19 @@ export async function GET(request: NextRequest) {
     });
 
     if (!isShortletListing) {
-      return NextResponse.json({
-        ok: true,
-        route: routeLabel,
-        listingId,
-        from,
-        to,
-        blockedRanges: [],
-        bookedRanges: [],
-        timezone: typeof propertyData.timezone === "string" ? propertyData.timezone : null,
-      });
+      return NextResponse.json(
+        {
+          ok: true,
+          route: routeLabel,
+          listingId,
+          from,
+          to,
+          blockedRanges: [],
+          bookedRanges: [],
+          timezone: typeof propertyData.timezone === "string" ? propertyData.timezone : null,
+        },
+        { headers: availabilityCacheHeaders }
+      );
     }
 
     const blocked = await listBlockedRangesForProperty({
@@ -122,29 +129,32 @@ export async function GET(request: NextRequest) {
       to,
     });
 
-    return NextResponse.json({
-      ok: true,
-      route: routeLabel,
-      listingId,
-      from,
-      to,
-      blockedRanges: blocked.blocks.map((row) => ({
-        start: row.from,
-        end: row.to,
-        source:
-          typeof row.reason === "string" && row.reason.trim().length > 0
-            ? row.reason.toLowerCase().includes("maint")
-              ? "maintenance"
-              : "host_block"
-            : "host_block",
-      })),
-      bookedRanges: blocked.bookings.map((row) => ({
-        start: row.from,
-        end: row.to,
-        bookingId: row.id,
-      })),
-      timezone: typeof propertyData.timezone === "string" ? propertyData.timezone : null,
-    });
+    return NextResponse.json(
+      {
+        ok: true,
+        route: routeLabel,
+        listingId,
+        from,
+        to,
+        blockedRanges: blocked.blocks.map((row) => ({
+          start: row.from,
+          end: row.to,
+          source:
+            typeof row.reason === "string" && row.reason.trim().length > 0
+              ? row.reason.toLowerCase().includes("maint")
+                ? "maintenance"
+                : "host_block"
+              : "host_block",
+        })),
+        bookedRanges: blocked.bookings.map((row) => ({
+          start: row.from,
+          end: row.to,
+          bookingId: row.id,
+        })),
+        timezone: typeof propertyData.timezone === "string" ? propertyData.timezone : null,
+      },
+      { headers: availabilityCacheHeaders }
+    );
   } catch (error) {
     return NextResponse.json(
       {

@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  applyPrepBufferToUnavailableRanges,
   expandRangesToDisabledDates,
   isRangeValid,
   nextValidEndDate,
+  resolveAvailabilityConflicts,
   validateRangeSelection,
 } from "@/lib/shortlet/availability";
 
@@ -90,4 +92,40 @@ void test("nextValidEndDate finds nearest end date respecting min/max nights and
     }),
     null
   );
+});
+
+void test("resolveAvailabilityConflicts flags overlap but allows back-to-back when checkout is exclusive", () => {
+  const unavailable = [{ start: "2026-05-10", end: "2026-05-12", source: "booking" as const }];
+  const overlap = resolveAvailabilityConflicts({
+    checkIn: "2026-05-11",
+    checkOut: "2026-05-13",
+    unavailableRanges: unavailable,
+    prepDays: 0,
+  });
+  assert.equal(overlap.hasConflict, true);
+  assert.deepEqual(overlap.conflictingDates, ["2026-05-11"]);
+
+  const backToBack = resolveAvailabilityConflicts({
+    checkIn: "2026-05-12",
+    checkOut: "2026-05-14",
+    unavailableRanges: unavailable,
+    prepDays: 0,
+  });
+  assert.equal(backToBack.hasConflict, false);
+  assert.deepEqual(backToBack.conflictingDates, []);
+});
+
+void test("prep buffer extends booked end date and blocks immediate back-to-back when configured", () => {
+  const unavailable = [{ start: "2026-07-10", end: "2026-07-12", source: "booking" as const }];
+  const effective = applyPrepBufferToUnavailableRanges(unavailable, 1);
+  assert.equal(effective[0]?.end, "2026-07-13");
+
+  const withPrepConflict = resolveAvailabilityConflicts({
+    checkIn: "2026-07-12",
+    checkOut: "2026-07-14",
+    unavailableRanges: unavailable,
+    prepDays: 1,
+  });
+  assert.equal(withPrepConflict.hasConflict, true);
+  assert.deepEqual(withPrepConflict.conflictingDates, ["2026-07-12"]);
 });

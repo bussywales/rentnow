@@ -144,6 +144,100 @@ void test("stripe init rejects already paid bookings", async () => {
   assert.equal(upsertCalled, false);
 });
 
+void test("paystack init returns availability_conflict when dates are no longer available", async () => {
+  const deps: InitShortletPaystackDeps = {
+    hasServiceRoleEnv: () => true,
+    hasPaystackServerEnv: () => true,
+    requireRole: async () =>
+      ({
+        ok: true,
+        user: { id: "tenant-1", email: "tenant@example.com" } as never,
+        role: "tenant",
+        supabase: {} as never,
+      }) as Awaited<ReturnType<InitShortletPaystackDeps["requireRole"]>>,
+    getShortletPaymentsProviderFlags: async () => ({ stripeEnabled: true, paystackEnabled: true }),
+    getShortletPaymentCheckoutContext: async () => makeBookingContext(),
+    getSiteUrl: async () => "https://example.com",
+    getPaystackServerConfig: () => ({ secretKey: "sk_test", publicKey: "pk_test", webhookSecret: "wh_test" }),
+    initializeTransaction: async () => ({
+      authorizationUrl: "https://paystack.example/checkout",
+      accessCode: "ac_1",
+      reference: "ps_ref_1",
+    }),
+    upsertShortletPaymentIntent: async (input) => {
+      void input;
+      return {
+        payment: makeBookingContext().payment as never,
+        alreadySucceeded: false,
+      };
+    },
+    resolveShortletAvailabilityConflict: async () => ({
+      hasConflict: true,
+      conflictingDates: ["2026-03-20"],
+      conflictingRanges: [{ start: "2026-03-20", end: "2026-03-21", source: "booking" }],
+      prepDays: 0,
+    }),
+  };
+
+  const response = await postInitShortletPaystackResponse(
+    makeRequest("http://localhost/api/shortlet/payments/paystack/init", {
+      booking_id: "11111111-1111-4111-8111-111111111111",
+    }),
+    deps
+  );
+  const payload = (await response.json()) as { code?: string; conflicting_dates?: string[] };
+  assert.equal(response.status, 409);
+  assert.equal(payload.code, "availability_conflict");
+  assert.deepEqual(payload.conflicting_dates, ["2026-03-20"]);
+});
+
+void test("stripe init returns availability_conflict when dates are no longer available", async () => {
+  const deps: InitShortletStripeDeps = {
+    hasServiceRoleEnv: () => true,
+    requireRole: async () =>
+      ({
+        ok: true,
+        user: { id: "tenant-1", email: "tenant@example.com" } as never,
+        role: "tenant",
+        supabase: {} as never,
+      }) as Awaited<ReturnType<InitShortletStripeDeps["requireRole"]>>,
+    getShortletPaymentsProviderFlags: async () => ({ stripeEnabled: true, paystackEnabled: false }),
+    getShortletPaymentCheckoutContext: async () => makeBookingContext(),
+    getProviderModes: async () => ({ stripeMode: "test", paystackMode: "test", flutterwaveMode: "test" }),
+    getStripeConfigForMode: () => ({ mode: "test", secretKey: "sk_test", webhookSecret: "wh_test" }),
+    getStripeClient: () =>
+      ({
+        checkout: {
+          sessions: {
+            create: async () => ({ id: "cs_1", url: "https://stripe.example/checkout" }),
+          },
+        },
+      }) as never,
+    getSiteUrl: async () => "https://example.com",
+    upsertShortletPaymentIntent: async (input) => {
+      void input;
+      return { payment: makeBookingContext().payment as never, alreadySucceeded: false };
+    },
+    resolveShortletAvailabilityConflict: async () => ({
+      hasConflict: true,
+      conflictingDates: ["2026-03-21"],
+      conflictingRanges: [{ start: "2026-03-21", end: "2026-03-22", source: "booking" }],
+      prepDays: 0,
+    }),
+  };
+
+  const response = await postInitShortletStripeResponse(
+    makeRequest("http://localhost/api/shortlet/payments/stripe/init", {
+      booking_id: "11111111-1111-4111-8111-111111111111",
+    }),
+    deps
+  );
+  const payload = (await response.json()) as { code?: string; conflicting_dates?: string[] };
+  assert.equal(response.status, 409);
+  assert.equal(payload.code, "availability_conflict");
+  assert.deepEqual(payload.conflicting_dates, ["2026-03-21"]);
+});
+
 void test("provider toggles disable init endpoints", async () => {
   const authOk = async () =>
     ({

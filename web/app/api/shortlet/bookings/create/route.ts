@@ -6,8 +6,12 @@ import {
   createShortletBookingViaRpc,
   getShortletSettingsForProperty,
 } from "@/lib/shortlet/shortlet.server";
-import { mapBookingCreateError } from "@/lib/shortlet/bookings";
+import {
+  isAvailabilityConflictErrorMessage,
+  mapBookingCreateError,
+} from "@/lib/shortlet/bookings";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
+import { resolveShortletAvailabilityConflict } from "@/lib/shortlet/availability.server";
 import {
   getShortletPaymentsProviderFlags,
   type ShortletPaymentProviderUnavailableReason,
@@ -19,6 +23,9 @@ const providerUnavailableErrorCode = "SHORTLET_PAYMENT_PROVIDER_UNAVAILABLE";
 const invalidDatesErrorCode = "SHORTLET_INVALID_DATES";
 const invalidGuestsErrorCode = "SHORTLET_INVALID_GUESTS";
 const invalidPayloadErrorCode = "SHORTLET_INVALID_PAYLOAD";
+const availabilityConflictCode = "availability_conflict";
+const availabilityConflictMessage =
+  "Selected dates are no longer available. Please choose different dates.";
 
 type CreateRouteError = {
   message?: string;
@@ -51,6 +58,26 @@ export function buildProviderUnavailableResponse(reason: string) {
     {
       error: providerUnavailableErrorCode,
       reason,
+    },
+    { status: 409 }
+  );
+}
+
+export function buildAvailabilityConflictResponse(input: {
+  conflictingDates: string[];
+  conflictingRanges?: Array<{
+    start: string;
+    end: string;
+    source?: string | null;
+    bookingId?: string | null;
+  }>;
+}) {
+  return NextResponse.json(
+    {
+      error: availabilityConflictMessage,
+      code: availabilityConflictCode,
+      conflicting_dates: input.conflictingDates,
+      conflicting_ranges: input.conflictingRanges ?? [],
     },
     { status: 409 }
   );
@@ -284,6 +311,25 @@ export async function POST(request: NextRequest) {
       checkOut: check_out,
     });
 
+    const preflightConflict = await resolveShortletAvailabilityConflict({
+      client: supabase,
+      propertyId: property_id,
+      checkIn: check_in,
+      checkOut: check_out,
+    });
+    if (preflightConflict.hasConflict) {
+      console.info("[shortlet-bookings/create] availability_conflict preflight", {
+        propertyId: property_id,
+        checkIn: check_in,
+        checkOut: check_out,
+        conflictingDates: preflightConflict.conflictingDates,
+      });
+      return buildAvailabilityConflictResponse({
+        conflictingDates: preflightConflict.conflictingDates,
+        conflictingRanges: preflightConflict.conflictingRanges,
+      });
+    }
+
     let created: Awaited<ReturnType<typeof createShortletBookingViaRpc>>;
     try {
       created = await createShortletBookingViaRpc({
@@ -308,6 +354,18 @@ export async function POST(request: NextRequest) {
           status: typeof rpcErr?.status === "number" ? rpcErr.status : null,
         },
       });
+      if (isAvailabilityConflictErrorMessage(String(rpcErr?.message || ""))) {
+        const raceConflict = await resolveShortletAvailabilityConflict({
+          client: supabase,
+          propertyId: property_id,
+          checkIn: check_in,
+          checkOut: check_out,
+        });
+        return buildAvailabilityConflictResponse({
+          conflictingDates: raceConflict.conflictingDates,
+          conflictingRanges: raceConflict.conflictingRanges,
+        });
+      }
       throw rpcError;
     }
 
@@ -414,6 +472,26 @@ export async function POST(request: NextRequest) {
       );
     }
     const message = error instanceof Error ? error.message : "Unable to create booking";
+    if (isAvailabilityConflictErrorMessage(message)) {
+      try {
+        const supabase = await createServerSupabaseClient();
+        const conflict = await resolveShortletAvailabilityConflict({
+          client: supabase,
+          propertyId: property_id,
+          checkIn: check_in,
+          checkOut: check_out,
+        });
+        return buildAvailabilityConflictResponse({
+          conflictingDates: conflict.conflictingDates,
+          conflictingRanges: conflict.conflictingRanges,
+        });
+      } catch {
+        return buildAvailabilityConflictResponse({
+          conflictingDates: [],
+          conflictingRanges: [],
+        });
+      }
+    }
     const mapped = mapBookingCreateError(message);
     const responseCode = typeof err?.code === "string" ? err.code : "BOOKING_PAYMENT_PREP_FAILED";
     const responseReason = typeof err?.reason === "string" ? err.reason : null;

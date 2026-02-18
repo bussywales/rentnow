@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildAvailabilityConflictResponse,
   buildProviderUnavailableResponse,
   calculateBookingNightsFromDates,
   resolveBookingGuests,
@@ -34,4 +35,21 @@ void test("booking create mode derivation prefers payload then settings then req
   assert.equal(resolveBookingMode("instant", "request"), "instant");
   assert.equal(resolveBookingMode(undefined, "instant"), "instant");
   assert.equal(resolveBookingMode(undefined, "unknown"), "request");
+});
+
+void test("booking create availability conflict response returns code and conflicting dates", async () => {
+  const response = buildAvailabilityConflictResponse({
+    conflictingDates: ["2026-08-10", "2026-08-11"],
+    conflictingRanges: [{ start: "2026-08-10", end: "2026-08-12", source: "booking" }],
+  });
+  const payload = (await response.json()) as {
+    code?: string;
+    conflicting_dates?: string[];
+    conflicting_ranges?: Array<{ start: string; end: string }>;
+  };
+
+  assert.equal(response.status, 409);
+  assert.equal(payload.code, "availability_conflict");
+  assert.deepEqual(payload.conflicting_dates, ["2026-08-10", "2026-08-11"]);
+  assert.equal(payload.conflicting_ranges?.[0]?.start, "2026-08-10");
 });
