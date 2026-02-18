@@ -1,0 +1,87 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  matchesTrustFilters,
+  parseShortletSearchBounds,
+  unavailablePropertyIdsForDateRange,
+} from "@/lib/shortlet/search";
+import type { Property } from "@/lib/types";
+
+function buildProperty(partial: Partial<Property>): Property {
+  return {
+    id: "property-1",
+    owner_id: "owner-1",
+    title: "Shortlet",
+    city: "Lagos",
+    rental_type: "short_let",
+    listing_intent: "shortlet",
+    price: 100000,
+    currency: "NGN",
+    bedrooms: 2,
+    bathrooms: 2,
+    furnished: true,
+    ...partial,
+  };
+}
+
+void test("date overlap helper excludes unavailable listings and allows back-to-back", () => {
+  const unavailable = unavailablePropertyIdsForDateRange({
+    checkIn: "2026-03-10",
+    checkOut: "2026-03-12",
+    bookedOverlaps: [
+      { property_id: "a", start: "2026-03-09", end: "2026-03-11" },
+      { property_id: "b", start: "2026-03-12", end: "2026-03-14" },
+    ],
+    blockedOverlaps: [{ property_id: "c", start: "2026-03-10", end: "2026-03-10" }],
+  });
+
+  assert.equal(unavailable.has("a"), true);
+  assert.equal(unavailable.has("b"), false);
+  assert.equal(unavailable.has("c"), false);
+});
+
+void test("trust filters require amenities and verified host signals", () => {
+  const property = buildProperty({
+    amenities: ["wifi", "inverter", "borehole", "security", "gated estate"],
+  });
+  const passes = matchesTrustFilters({
+    property,
+    trustFilters: {
+      powerBackup: true,
+      waterBorehole: true,
+      security: true,
+      wifi: true,
+      verifiedHost: true,
+    },
+    verifiedHostIds: new Set(["owner-1"]),
+  });
+  assert.equal(passes, true);
+
+  const fails = matchesTrustFilters({
+    property: buildProperty({
+      owner_id: "owner-2",
+      amenities: ["wifi"],
+    }),
+    trustFilters: {
+      powerBackup: true,
+      waterBorehole: false,
+      security: false,
+      wifi: true,
+      verifiedHost: true,
+    },
+    verifiedHostIds: new Set<string>(),
+  });
+  assert.equal(fails, false);
+});
+
+void test("bounds parser accepts valid bounds and rejects invalid input", () => {
+  assert.deepEqual(parseShortletSearchBounds("6.9,6.3,3.7,3.2"), {
+    north: 6.9,
+    south: 6.3,
+    east: 3.7,
+    west: 3.2,
+  });
+  assert.equal(parseShortletSearchBounds("bad"), null);
+  assert.equal(parseShortletSearchBounds("6.3,6.9,3.7,3.2"), null);
+});
+

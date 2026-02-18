@@ -25,6 +25,12 @@ test("tenant nav includes Trips", () => {
   assert.ok(trips, "expected trips link for tenant role");
 });
 
+test("main nav exposes shortlets discovery entry point", () => {
+  const links = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: false, role: null });
+  const shortlets = links.find((link) => link.href === "/shortlets");
+  assert.ok(shortlets, "expected shortlets nav link");
+});
+
 test("host bookings nav badge appears when awaiting approvals exist", () => {
   const withBadge = applyHostBookingsBadge(MAIN_NAV_LINKS, 3);
   const bookingsLink = withBadge.find((link) => link.href === "/host/bookings");

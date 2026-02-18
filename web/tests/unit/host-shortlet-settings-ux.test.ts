@@ -18,6 +18,12 @@ const conversionCardPath = path.join(
   "host",
   "HostShortletConversionCard.tsx"
 );
+const settingsFormPath = path.join(
+  process.cwd(),
+  "components",
+  "host",
+  "HostShortletSettingsForm.tsx"
+);
 const settingsApiPath = path.join(
   process.cwd(),
   "app",
@@ -40,4 +46,18 @@ void test("shortlet settings api returns structured shortlet guard code", () => 
   const routeSource = fs.readFileSync(settingsApiPath, "utf8");
   assert.match(routeSource, /SHORTLET_LISTING_REQUIRED/);
   assert.match(routeSource, /reason:\s*shortletManageState\.reason/);
+});
+
+void test("host settings ui avoids confusing non-shortlet warning copy", () => {
+  const conversionSource = fs.readFileSync(conversionCardPath, "utf8");
+  const settingsFormSource = fs.readFileSync(settingsFormPath, "utf8");
+
+  assert.equal(
+    conversionSource.includes("Only shortlet listings can use shortlet availability settings."),
+    false
+  );
+  assert.equal(
+    settingsFormSource.includes("Only shortlet listings can use shortlet availability settings."),
+    false
+  );
 });
