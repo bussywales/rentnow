@@ -4,6 +4,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { readActingAsFromCookies } from "@/lib/acting-as.server";
+import { resolveShortletManageState } from "@/lib/shortlet/manage-state";
 import { HostShortletBlocksManager } from "@/components/host/HostShortletBlocksManager";
 
 export const dynamic = "force-dynamic";
@@ -43,14 +44,35 @@ export default async function HostShortletBlocksPage() {
 
   const { data: propertyRows } = await client
     .from("properties")
-    .select("id,title")
+    .select(
+      "id,title,listing_intent,rental_type,currency,shortlet_settings(property_id,nightly_price_minor,booking_mode)"
+    )
     .eq("owner_id", ownerId)
     .limit(500);
+  const manageableProperties = (
+    (propertyRows as
+      | Array<{
+          id?: string;
+          title?: string | null;
+          listing_intent?: string | null;
+          rental_type?: string | null;
+          currency?: string | null;
+          shortlet_settings?: Array<{
+            booking_mode?: string | null;
+            nightly_price_minor?: number | null;
+          }> | null;
+        }>
+      | null) ?? []
+  ).filter((row) =>
+    resolveShortletManageState({
+      listing_intent: row.listing_intent,
+      rental_type: row.rental_type,
+      listing_currency: row.currency,
+      shortlet_settings: row.shortlet_settings ?? null,
+    }).isManageable
+  );
   const propertyMap = new Map<string, string | null>(
-    ((propertyRows as Array<{ id: string; title?: string | null }> | null) ?? []).map((row) => [
-      row.id,
-      row.title ?? null,
-    ])
+    manageableProperties.map((row) => [String(row.id || ""), row.title ?? null])
   );
   const properties = Array.from(propertyMap.entries()).map(([id, title]) => ({ id, title }));
   const propertyIds = Array.from(propertyMap.keys());

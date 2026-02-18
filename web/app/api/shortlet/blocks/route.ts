@@ -5,7 +5,7 @@ import { requireRole } from "@/lib/authz";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { canHostManageShortletBooking } from "@/lib/shortlet/access";
-import { mapLegacyListingIntent } from "@/lib/shortlet/shortlet.server";
+import { resolveShortletManageState } from "@/lib/shortlet/manage-state";
 
 const routeLabel = "/api/shortlet/blocks";
 
@@ -47,7 +47,9 @@ export async function POST(request: NextRequest) {
   const supabase = await createServerSupabaseClient();
   const { data: propertyRow, error: propertyError } = await supabase
     .from("properties")
-    .select("id,owner_id,listing_intent")
+    .select(
+      "id,owner_id,listing_intent,rental_type,currency,shortlet_settings(property_id,nightly_price_minor,booking_mode)"
+    )
     .eq("id", parsed.data.property_id)
     .maybeSingle();
 
@@ -55,10 +57,38 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Listing not found" }, { status: 404 });
   }
 
-  const listingIntent = mapLegacyListingIntent(propertyRow.listing_intent);
-  if (listingIntent !== "shortlet") {
+  const shortletManageState = resolveShortletManageState({
+    listing_intent: propertyRow.listing_intent,
+    rental_type: propertyRow.rental_type,
+    shortlet_settings: propertyRow.shortlet_settings as
+      | Array<{ booking_mode?: string | null; nightly_price_minor?: number | null }>
+      | null
+      | undefined,
+    listing_currency: propertyRow.currency,
+  });
+
+  console.info("[api/shortlet/blocks] guard", {
+    role: auth.role,
+    actorUserId: auth.user.id,
+    listingId: parsed.data.property_id,
+    listingOwnerId: String(propertyRow.owner_id || ""),
+    listingIntent: propertyRow.listing_intent ?? null,
+    normalizedListingIntent: shortletManageState.normalizedListingIntent,
+    rentalType: propertyRow.rental_type ?? null,
+    hasShortletSignal: shortletManageState.hasShortletSignal,
+    hasShortletSettingsSignal: shortletManageState.hasSettingsSignal,
+    shortletManageable: shortletManageState.isManageable,
+    shortletReason: shortletManageState.reason,
+    listingCurrency: shortletManageState.listingCurrency,
+  });
+
+  if (!shortletManageState.isManageable) {
     return NextResponse.json(
-      { error: "Only shortlet listings can be blocked." },
+      {
+        error: "Only shortlet listings can be blocked.",
+        code: "SHORTLET_LISTING_REQUIRED",
+        reason: shortletManageState.reason,
+      },
       { status: 409 }
     );
   }

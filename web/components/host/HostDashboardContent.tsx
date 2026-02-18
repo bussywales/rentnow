@@ -50,7 +50,7 @@ import {
   type FeaturedEligibilityCode,
   type FeaturedEligibilitySettings,
 } from "@/lib/featured/eligibility";
-import { isShortletProperty } from "@/lib/shortlet/discovery";
+import { resolveShortletManageState } from "@/lib/shortlet/manage-state";
 import { getPublicVisibilityDiagnostics } from "@/lib/properties/public-visibility-diagnostics";
 import { resolveHostWorkspaceSectionFromLocation } from "@/lib/host/bookings-navigation";
 import { countAwaitingApprovalBookings } from "@/lib/shortlet/host-bookings-inbox";
@@ -143,6 +143,25 @@ function resolveNightlyPriceMinorForListing(
 
   const nightly = (rawSettings as Record<string, unknown>).nightly_price_minor;
   return typeof nightly === "number" ? nightly : null;
+}
+
+function resolveShortletManageStateForListing(
+  property: DashboardListing,
+  shortletSetting: HostShortletSettingSummary | null
+) {
+  return resolveShortletManageState({
+    listing_intent: property.listing_intent,
+    rental_type: property.rental_type,
+    listing_currency: property.currency,
+    shortlet_settings: shortletSetting
+      ? [
+          {
+            booking_mode: shortletSetting.booking_mode,
+            nightly_price_minor: shortletSetting.nightly_price_minor,
+          },
+        ]
+      : property.shortlet_settings ?? null,
+  });
 }
 
 function buildFeaturedFixItems(propertyId: string, codes: FeaturedEligibilityCode[]): FeaturedFixItem[] {
@@ -312,18 +331,10 @@ export function HostDashboardContent({
       localListings
         .map((property) => {
           const shortletSetting = shortletSettingsByPropertyId.get(property.id) ?? null;
-          const isShortletListing = isShortletProperty({
-            listing_intent: property.listing_intent,
-            rental_type: property.rental_type,
-            shortlet_settings: shortletSetting
-              ? [
-                  {
-                    booking_mode: shortletSetting.booking_mode,
-                    nightly_price_minor: shortletSetting.nightly_price_minor,
-                  },
-                ]
-              : property.shortlet_settings ?? null,
-          });
+          const shortletManageState = resolveShortletManageStateForListing(
+            property,
+            shortletSetting
+          );
           const nightlyPriceMinor = resolveNightlyPriceMinorForListing(
             property,
             shortletSetting
@@ -332,7 +343,7 @@ export function HostDashboardContent({
             typeof nightlyPriceMinor === "number" && nightlyPriceMinor > 0;
           return {
             propertyId: property.id,
-            isMissingNightlyPrice: isShortletListing && !hasNightlyPrice,
+            isMissingNightlyPrice: shortletManageState.isManageable && !hasNightlyPrice,
           };
         })
         .filter((item) => item.isMissingNightlyPrice)
@@ -923,18 +934,11 @@ export function HostDashboardContent({
             const featureError = featureErrors[property.id] ?? null;
             const isDemo = !!property.is_demo;
             const shortletSetting = shortletSettingsByPropertyId.get(property.id) ?? null;
-            const isShortletListing = isShortletProperty({
-              listing_intent: property.listing_intent,
-              rental_type: property.rental_type,
-              shortlet_settings: shortletSetting
-                ? [
-                    {
-                      booking_mode: shortletSetting.booking_mode,
-                      nightly_price_minor: shortletSetting.nightly_price_minor,
-                    },
-                  ]
-                : property.shortlet_settings ?? null,
-            });
+            const shortletManageState = resolveShortletManageStateForListing(
+              property,
+              shortletSetting
+            );
+            const isShortletListing = shortletManageState.isManageable;
             const nightlyPriceMinor = resolveNightlyPriceMinorForListing(property, shortletSetting);
             const hasNightlyPrice =
               typeof nightlyPriceMinor === "number" && nightlyPriceMinor > 0;
@@ -1144,6 +1148,25 @@ export function HostDashboardContent({
                           <Button size="sm">Set nightly price</Button>
                         </Link>
                       ) : null}
+                    </div>
+                  </div>
+                ) : shortletManageState.requiresConversion ? (
+                  <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-amber-800">
+                      Shortlet setup needed
+                    </p>
+                    <p className="mt-1 text-xs text-amber-900">
+                      This listing has shortlet signals but is not marked as a shortlet yet.
+                    </p>
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <Link href={`/host/shortlets/${property.id}/settings`}>
+                        <Button size="sm">Convert this listing to a shortlet</Button>
+                      </Link>
+                      <Link href={`/dashboard/properties/${property.id}?step=basics`}>
+                        <Button size="sm" variant="secondary">
+                          Edit basics
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 ) : null}

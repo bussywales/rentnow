@@ -1,9 +1,13 @@
 import { redirect } from "next/navigation";
+import { cookies, headers } from "next/headers";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { readActingAsFromCookies } from "@/lib/acting-as.server";
-import { mapLegacyListingIntent } from "@/lib/shortlet/shortlet.server";
+import { MARKET_COOKIE_NAME, formatMarketLabel, resolveMarketFromRequest } from "@/lib/market/market";
+import { getMarketSettings } from "@/lib/market/market.server";
+import { resolveShortletManageState } from "@/lib/shortlet/manage-state";
+import { HostShortletConversionCard } from "@/components/host/HostShortletConversionCard";
 import { HostShortletSettingsForm } from "@/components/host/HostShortletSettingsForm";
 
 export const dynamic = "force-dynamic";
@@ -46,7 +50,9 @@ export default async function HostShortletSettingsPage({
   const client = hasServiceRoleEnv() ? createServiceRoleClient() : supabase;
   const { data: propertyRow } = await client
     .from("properties")
-    .select("id,owner_id,title,city,currency,listing_intent,rental_type")
+    .select(
+      "id,owner_id,title,city,currency,listing_intent,rental_type,shortlet_settings(property_id,nightly_price_minor,booking_mode)"
+    )
     .eq("id", propertyId)
     .maybeSingle();
 
@@ -54,10 +60,57 @@ export default async function HostShortletSettingsPage({
     redirect("/host");
   }
 
-  const listingIntent = mapLegacyListingIntent(propertyRow.listing_intent);
-  const isShortlet = listingIntent === "shortlet" || String(propertyRow.rental_type || "") === "short_let";
-  if (!isShortlet) {
-    redirect(`/dashboard/properties/${encodeURIComponent(propertyId)}?step=basics`);
+  const requestHeaders = await headers();
+  const requestCookies = await cookies();
+  const marketSettings = await getMarketSettings(supabase);
+  const selectedMarket = resolveMarketFromRequest({
+    headers: requestHeaders,
+    cookieValue: requestCookies.get(MARKET_COOKIE_NAME)?.value ?? null,
+    appSettings: marketSettings,
+  });
+
+  const shortletManageState = resolveShortletManageState({
+    listing_intent: propertyRow.listing_intent,
+    rental_type: propertyRow.rental_type,
+    shortlet_settings: propertyRow.shortlet_settings as
+      | Array<{ booking_mode?: string | null; nightly_price_minor?: number | null }>
+      | null
+      | undefined,
+    listing_currency: propertyRow.currency,
+    selected_market_country: selectedMarket.country,
+    selected_market_currency: selectedMarket.currency,
+  });
+
+  console.info("[host/shortlets/settings] guard", {
+    role,
+    actorUserId: user.id,
+    listingId: propertyId,
+    listingOwnerId: String(propertyRow.owner_id || ""),
+    listingIntent: propertyRow.listing_intent ?? null,
+    normalizedListingIntent: shortletManageState.normalizedListingIntent,
+    rentalType: propertyRow.rental_type ?? null,
+    hasShortletSignal: shortletManageState.hasShortletSignal,
+    hasShortletSettingsSignal: shortletManageState.hasSettingsSignal,
+    shortletManageable: shortletManageState.isManageable,
+    shortletReason: shortletManageState.reason,
+    listingCurrency: shortletManageState.listingCurrency,
+    selectedMarketCountry: shortletManageState.selectedMarketCountry,
+    selectedMarketCurrency: shortletManageState.selectedMarketCurrency,
+  });
+
+  if (!shortletManageState.isManageable) {
+    return (
+      <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4 py-4">
+        <HostShortletConversionCard
+          propertyId={propertyId}
+          propertyTitle={typeof propertyRow.title === "string" ? propertyRow.title : null}
+          propertyCity={typeof propertyRow.city === "string" ? propertyRow.city : null}
+          listingCurrency={typeof propertyRow.currency === "string" ? propertyRow.currency : "NGN"}
+          selectedMarketLabel={formatMarketLabel(selectedMarket)}
+          showMarketMismatchHint={shortletManageState.marketMismatch}
+        />
+      </div>
+    );
   }
 
   const { data: settingsRow } = await client
@@ -73,6 +126,8 @@ export default async function HostShortletSettingsPage({
         propertyTitle={typeof propertyRow.title === "string" ? propertyRow.title : null}
         propertyCity={typeof propertyRow.city === "string" ? propertyRow.city : null}
         currency={typeof propertyRow.currency === "string" ? propertyRow.currency : "NGN"}
+        selectedMarketLabel={formatMarketLabel(selectedMarket)}
+        marketMismatchHint={shortletManageState.marketMismatch}
         initialSettings={{
           booking_mode: settingsRow?.booking_mode === "instant" ? "instant" : "request",
           nightly_price_minor:

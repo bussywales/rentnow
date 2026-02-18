@@ -10,6 +10,8 @@ type Props = {
   propertyTitle: string | null;
   propertyCity: string | null;
   currency: string;
+  selectedMarketLabel?: string | null;
+  marketMismatchHint?: boolean;
   initialSettings: {
     booking_mode: "instant" | "request";
     nightly_price_minor: number | null;
@@ -36,6 +38,8 @@ export function HostShortletSettingsForm({
   propertyTitle,
   propertyCity,
   currency,
+  selectedMarketLabel = null,
+  marketMismatchHint = false,
   initialSettings,
 }: Props) {
   const [bookingMode, setBookingMode] = useState<"instant" | "request">(
@@ -103,6 +107,12 @@ export function HostShortletSettingsForm({
         <p className="text-sm text-slate-600">
           {propertyCity || "Unknown city"} · Currency {currency || "NGN"}
         </p>
+        {marketMismatchHint ? (
+          <p className="mt-1 text-xs text-amber-700">
+            Selected market: {selectedMarketLabel || "Different market"}.
+            {" "}Switch market in the header to match this listing currency when reviewing shortlet setup.
+          </p>
+        ) : null}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
