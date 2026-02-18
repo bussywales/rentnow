@@ -182,6 +182,62 @@ export function canContinueToPayment(input: {
   );
 }
 
+export type ShortletCalendarOverlayState = {
+  calendarOpen: boolean;
+  draftRange: DateRange | undefined;
+};
+
+function cloneDate(value: Date): Date {
+  return new Date(value.getTime());
+}
+
+function cloneRange(value: DateRange | undefined): DateRange | undefined {
+  if (!value?.from) return undefined;
+  return {
+    from: cloneDate(value.from),
+    to: value.to ? cloneDate(value.to) : undefined,
+  };
+}
+
+export function openShortletCalendarOverlay(selectedRange: DateRange | undefined): ShortletCalendarOverlayState {
+  return {
+    calendarOpen: true,
+    draftRange: cloneRange(selectedRange),
+  };
+}
+
+export function closeShortletCalendarOverlay(draftRange: DateRange | undefined): ShortletCalendarOverlayState {
+  return {
+    calendarOpen: false,
+    draftRange: cloneRange(draftRange),
+  };
+}
+
+export function applyShortletDraftRange(draftRange: DateRange | undefined): {
+  selectedRange: DateRange;
+  checkIn: string;
+  checkOut: string;
+} | null {
+  if (!draftRange?.from || !draftRange.to) return null;
+  return {
+    selectedRange: {
+      from: cloneDate(draftRange.from),
+      to: cloneDate(draftRange.to),
+    },
+    checkIn: toDateKey(draftRange.from),
+    checkOut: toDateKey(draftRange.to),
+  };
+}
+
+export function clearShortletDateRangeState() {
+  return {
+    selectedRange: undefined,
+    draftRange: undefined,
+    checkIn: "",
+    checkOut: "",
+  } as const;
+}
+
 export function ShortletBookingWidget(props: {
   propertyId: string;
   listingTitle: string;
@@ -190,8 +246,10 @@ export function ShortletBookingWidget(props: {
 }) {
   const router = useRouter();
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [isMobileCalendar, setIsMobileCalendar] = useState(false);
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(undefined);
+  const [draftRange, setDraftRange] = useState<DateRange | undefined>(undefined);
   const [checkIn, setCheckIn] = useState<string>("");
   const [checkOut, setCheckOut] = useState<string>("");
   const [loading, setLoading] = useState(false);
@@ -204,6 +262,7 @@ export function ShortletBookingWidget(props: {
   const [unavailableRanges, setUnavailableRanges] = useState<ShortletUnavailableRange[]>([]);
   const [conflictingDates, setConflictingDates] = useState<string[]>([]);
   const [selectionHint, setSelectionHint] = useState<string | null>(null);
+  const [availabilityNotice, setAvailabilityNotice] = useState<string | null>(null);
   const loadedWindowKeysRef = useRef<Set<string>>(new Set());
 
   const today = useMemo(() => {
@@ -212,6 +271,27 @@ export function ShortletBookingWidget(props: {
     return value;
   }, []);
   const todayDateKey = useMemo(() => toDateKey(today), [today]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const sync = () => {
+      setIsMobileCalendar(media.matches);
+    };
+    sync();
+    media.addEventListener("change", sync);
+    return () => {
+      media.removeEventListener("change", sync);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!calendarOpen || !isMobileCalendar) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [calendarOpen, isMobileCalendar]);
 
   const minNights = availability?.settings?.minNights ?? 1;
   const maxNights = availability?.settings?.maxNights ?? null;
@@ -459,60 +539,125 @@ export function ShortletBookingWidget(props: {
     [disabledSet, today]
   );
   const conflictingDateSet = useMemo(() => new Set(conflictingDates), [conflictingDates]);
+  const draftValidation = useMemo(() => {
+    if (!draftRange?.from || !draftRange.to) {
+      return { valid: false, reason: null as ShortletRangeValidationReason | null };
+    }
+    return validateRangeSelection({
+      checkIn: toDateKey(draftRange.from),
+      checkOut: toDateKey(draftRange.to),
+      disabledSet,
+      minNights,
+      maxNights,
+    });
+  }, [disabledSet, draftRange, maxNights, minNights]);
 
-  const applyRangeSelection = useCallback(
+  const openCalendarPicker = useCallback(() => {
+    const nextState = openShortletCalendarOverlay(selectedRange);
+    setCalendarOpen(nextState.calendarOpen);
+    setDraftRange(nextState.draftRange);
+    setError(null);
+    setNotice(null);
+    setAvailabilityNotice(null);
+    setSelectionHint(null);
+    setConflictingDates([]);
+  }, [selectedRange]);
+
+  const closeCalendarPicker = useCallback(() => {
+    const nextState = closeShortletCalendarOverlay(draftRange);
+    setCalendarOpen(nextState.calendarOpen);
+    setDraftRange(nextState.draftRange);
+    setSelectionHint(null);
+  }, [draftRange]);
+
+  const onDraftRangeSelect = useCallback(
     (next: DateRange | undefined) => {
       setError(null);
       setNotice(null);
+      setAvailabilityNotice(null);
       setConflictingDates([]);
 
       if (!next?.from) {
-        setSelectedRange(undefined);
-        setCheckIn("");
-        setCheckOut("");
+        setDraftRange(undefined);
         setSelectionHint(null);
         return;
       }
 
-      const nextCheckIn = toDateKey(next.from);
+      const draft = {
+        from: next.from,
+        to: next.to,
+      } satisfies DateRange;
+      setDraftRange(draft);
+
       if (!next.to) {
-        setSelectedRange({ from: next.from, to: undefined });
-        setCheckIn(nextCheckIn);
-        setCheckOut("");
         setSelectionHint(null);
         return;
       }
 
-      const nextCheckOut = toDateKey(next.to);
       const validation = validateRangeSelection({
-        checkIn: nextCheckIn,
-        checkOut: nextCheckOut,
+        checkIn: toDateKey(next.from),
+        checkOut: toDateKey(next.to),
         disabledSet,
         minNights,
         maxNights,
       });
-
       if (!validation.valid) {
-        setSelectedRange({ from: next.from, to: undefined });
-        setCheckIn(nextCheckIn);
-        setCheckOut("");
         setSelectionHint(
           resolveRangeHint(validation.reason, {
             minNights,
             maxNights,
-          })
+          }) ?? "Unavailable. Choose different dates."
         );
         return;
       }
-
-      setSelectedRange({ from: next.from, to: next.to });
-      setCheckIn(nextCheckIn);
-      setCheckOut(nextCheckOut);
       setSelectionHint(null);
-      setCalendarOpen(false);
     },
     [disabledSet, maxNights, minNights]
   );
+
+  const applyDraftRangeSelection = useCallback(() => {
+    const applied = applyShortletDraftRange(draftRange);
+    if (!applied) {
+      setSelectionHint("Choose both check-in and check-out dates.");
+      return;
+    }
+
+    const validation = validateRangeSelection({
+      checkIn: applied.checkIn,
+      checkOut: applied.checkOut,
+      disabledSet,
+      minNights,
+      maxNights,
+    });
+    if (!validation.valid) {
+      setSelectionHint(
+        resolveRangeHint(validation.reason, {
+          minNights,
+          maxNights,
+        }) ?? "Unavailable. Choose different dates."
+      );
+      return;
+    }
+
+    setSelectedRange(applied.selectedRange);
+    setCheckIn(applied.checkIn);
+    setCheckOut(applied.checkOut);
+    setSelectionHint(null);
+    setAvailabilityNotice(null);
+    closeCalendarPicker();
+  }, [closeCalendarPicker, disabledSet, draftRange, maxNights, minNights]);
+
+  const clearDateSelection = useCallback(() => {
+    const cleared = clearShortletDateRangeState();
+    setSelectedRange(cleared.selectedRange);
+    setDraftRange(cleared.draftRange);
+    setCheckIn(cleared.checkIn);
+    setCheckOut(cleared.checkOut);
+    setConflictingDates([]);
+    setSelectionHint(null);
+    setAvailabilityNotice(null);
+    setError(null);
+  }, []);
 
   async function handleCreateBooking() {
     if (!checkIn || !checkOut || creating || !currentValidation.valid) return;
@@ -543,16 +688,26 @@ export function ShortletBookingWidget(props: {
           const conflictDates = Array.isArray(payload.conflicting_dates)
             ? payload.conflicting_dates.filter((value) => typeof value === "string")
             : [];
-          setCalendarOpen(true);
+          const conflictRanges = Array.isArray(payload.conflicting_ranges)
+            ? payload.conflicting_ranges
+                .filter((row): row is NonNullable<BookingCreateResponse["conflicting_ranges"]>[number] => !!row)
+                .map((row) => ({
+                  start: row.start,
+                  end: row.end,
+                  source: row.source ?? "booking",
+                  bookingId: row.bookingId ?? null,
+                }))
+            : [];
+          const nextOverlayState = openShortletCalendarOverlay(selectedRange);
+          setCalendarOpen(nextOverlayState.calendarOpen);
+          setDraftRange(nextOverlayState.draftRange);
           setConflictingDates(conflictDates);
-          setSelectionHint("Those dates just became unavailable. Pick a new range.");
+          setAvailabilityNotice("Just booked — refreshed. Choose different dates.");
+          setSelectionHint("Unavailable. Choose different dates.");
           await prefetchAvailabilityMonths(selectedRange?.from ?? calendarMonth, { force: true });
-          const conflictPreview = conflictDates.slice(0, 3).map(formatDisplayDate).join(", ");
-          setError(
-            conflictPreview
-              ? `Selected dates are no longer available (${conflictPreview}).`
-              : payload.error || "Selected dates are no longer available."
-          );
+          if (conflictRanges.length > 0) {
+            setUnavailableRanges((previous) => dedupeUnavailableRanges(previous, conflictRanges));
+          }
           return;
         }
         throw new Error(payload?.error || "Unable to create booking");
@@ -592,119 +747,138 @@ export function ShortletBookingWidget(props: {
           : "Instant confirmation after successful payment when dates are available."}
       </p>
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
-        <label className="text-sm text-slate-700">
-          <span className="mb-1 block text-xs uppercase tracking-[0.14em] text-slate-500">Check in</span>
-          <button
-            type="button"
-            onClick={() => {
-              setCalendarOpen(true);
-            }}
-            className="flex h-11 w-full items-center justify-between rounded-lg border border-slate-300 px-3 text-left text-sm text-slate-700 hover:border-slate-400"
-          >
-            <span>{checkIn ? formatDisplayDate(checkIn) : "Select date"}</span>
-            <span className="text-xs text-slate-400">Calendar</span>
-          </button>
-        </label>
-        <label className="text-sm text-slate-700">
-          <span className="mb-1 block text-xs uppercase tracking-[0.14em] text-slate-500">Check out</span>
-          <button
-            type="button"
-            onClick={() => {
-              setCalendarOpen(true);
-            }}
-            className="flex h-11 w-full items-center justify-between rounded-lg border border-slate-300 px-3 text-left text-sm text-slate-700 hover:border-slate-400"
-          >
-            <span>{checkOut ? formatDisplayDate(checkOut) : "Select date"}</span>
-            <span className="text-xs text-slate-400">Calendar</span>
-          </button>
-        </label>
-      </div>
+      <div className="relative mt-3" data-testid="shortlet-calendar-shell">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm text-slate-700">
+            <span className="mb-1 block text-xs uppercase tracking-[0.14em] text-slate-500">Check in</span>
+            <button
+              type="button"
+              onClick={openCalendarPicker}
+              className="flex h-11 w-full items-center justify-between rounded-lg border border-slate-300 px-3 text-left text-sm text-slate-700 hover:border-slate-400"
+              data-testid="shortlet-checkin-trigger"
+            >
+              <span>{checkIn ? formatDisplayDate(checkIn) : "Select date"}</span>
+              <span className="text-xs text-slate-400">Calendar</span>
+            </button>
+          </label>
+          <label className="text-sm text-slate-700">
+            <span className="mb-1 block text-xs uppercase tracking-[0.14em] text-slate-500">Check out</span>
+            <button
+              type="button"
+              onClick={openCalendarPicker}
+              className="flex h-11 w-full items-center justify-between rounded-lg border border-slate-300 px-3 text-left text-sm text-slate-700 hover:border-slate-400"
+              data-testid="shortlet-checkout-trigger"
+            >
+              <span>{checkOut ? formatDisplayDate(checkOut) : "Select date"}</span>
+              <span className="text-xs text-slate-400">Calendar</span>
+            </button>
+          </label>
+        </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button
-          type="button"
-          variant="secondary"
-          onClick={() => {
-            setCalendarOpen((previous) => !previous);
-          }}
-        >
-          {calendarOpen ? "Hide calendar" : "Choose dates"}
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          onClick={() => {
-            setSelectedRange(undefined);
-            setCheckIn("");
-            setCheckOut("");
-            setConflictingDates([]);
-            setSelectionHint(null);
-          }}
-          disabled={!checkIn && !checkOut}
-        >
-          Clear range
-        </Button>
-      </div>
-
-      {calendarOpen ? (
-        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/40 p-2 sm:p-3">
-          {calendarLoading && unavailableRanges.length < 1 ? (
-            <div className="space-y-3 px-3 py-2" aria-hidden="true">
-              <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
-              <div className="grid grid-cols-7 gap-2">
-                {Array.from({ length: 35 }).map((_, index) => (
-                  <div key={`cal-skeleton-${index}`} className="h-8 w-full animate-pulse rounded bg-slate-200" />
-                ))}
+        {calendarOpen ? (
+          <>
+            <button
+              type="button"
+              aria-label="Close date picker"
+              onClick={closeCalendarPicker}
+              className="fixed inset-0 z-40 bg-slate-900/25"
+              data-testid="shortlet-calendar-overlay"
+            />
+            <div
+              className={
+                isMobileCalendar
+                  ? "fixed inset-x-0 bottom-0 z-50 px-2 pb-2"
+                  : "absolute left-0 right-0 top-full z-50 mt-2"
+              }
+              data-testid={isMobileCalendar ? "shortlet-calendar-sheet" : "shortlet-calendar-popover"}
+            >
+              <div
+                className={
+                  isMobileCalendar
+                    ? "max-h-[82dvh] overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-3 shadow-2xl"
+                    : "rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
+                }
+              >
+                {calendarLoading && unavailableRanges.length < 1 ? (
+                  <div className="space-y-3 px-2 py-2" aria-hidden="true">
+                    <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
+                    <div className="grid grid-cols-7 gap-2">
+                      {Array.from({ length: 35 }).map((_, index) => (
+                        <div key={`cal-skeleton-${index}`} className="h-8 w-full animate-pulse rounded bg-slate-200" />
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <Calendar
+                    mode="range"
+                    month={calendarMonth}
+                    selected={draftRange}
+                    onSelect={onDraftRangeSelect}
+                    onMonthChange={setCalendarMonth}
+                    disabled={disabledDaysMatcher}
+                    modifiers={{
+                      conflict: (date: Date) => conflictingDateSet.has(toDateKey(date)),
+                    }}
+                    modifiersClassNames={{
+                      conflict: "bg-rose-100 text-rose-700 ring-1 ring-rose-200 font-semibold",
+                    }}
+                    classNames={{
+                      month_caption: "mb-1 flex items-center justify-between gap-2",
+                      nav: "inline-flex items-center gap-1",
+                      button_previous:
+                        "inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100",
+                      button_next:
+                        "inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100",
+                    }}
+                    excludeDisabled
+                    numberOfMonths={1}
+                    fixedWeeks
+                    onDayClick={(_, modifiers) => {
+                      if (modifiers.disabled) {
+                        setSelectionHint("Unavailable. Choose different dates.");
+                      }
+                    }}
+                  />
+                )}
+                <div className="mt-2 flex flex-wrap gap-2 px-1">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
+                    <span className="h-2 w-2 rounded-full bg-sky-500" />
+                    Selected
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
+                    <span className="h-2 w-2 rounded-full bg-slate-300" />
+                    Unavailable
+                  </span>
+                  {conflictingDates.length > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
+                      <span className="h-2 w-2 rounded-full bg-rose-500" />
+                      Just booked
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-2 px-1 text-xs text-slate-500">
+                  Grey dates are unavailable because they are booked, blocked, or in the past.
+                </p>
+                <div className="mt-3 flex items-center justify-end gap-2">
+                  <Button type="button" variant="ghost" onClick={clearDateSelection} disabled={!checkIn && !checkOut && !draftRange}>
+                    Clear
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={applyDraftRangeSelection}
+                    disabled={!draftRange?.from || !draftRange?.to || !draftValidation.valid}
+                  >
+                    Apply dates
+                  </Button>
+                </div>
               </div>
             </div>
-          ) : (
-            <Calendar
-              mode="range"
-              month={calendarMonth}
-              selected={selectedRange}
-              onSelect={applyRangeSelection}
-              onMonthChange={setCalendarMonth}
-              disabled={disabledDaysMatcher}
-              modifiers={{
-                conflict: (date: Date) => conflictingDateSet.has(toDateKey(date)),
-              }}
-              modifiersClassNames={{
-                conflict: "bg-rose-100 text-rose-700 ring-1 ring-rose-200 font-semibold",
-              }}
-              excludeDisabled
-              numberOfMonths={1}
-              fixedWeeks
-              onDayClick={(_, modifiers) => {
-                if (modifiers.disabled) {
-                  setSelectionHint("Those dates include unavailable nights. Choose different dates.");
-                }
-              }}
-            />
-          )}
-          <div className="mt-2 flex flex-wrap gap-2 px-1">
-            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
-              <span className="h-2 w-2 rounded-full bg-sky-500" />
-              Selected
-            </span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
-              <span className="h-2 w-2 rounded-full bg-slate-300" />
-              Unavailable
-            </span>
-            {conflictingDates.length > 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
-                <span className="h-2 w-2 rounded-full bg-rose-500" />
-                Conflicting dates
-              </span>
-            ) : null}
-          </div>
-          <p className="mt-2 px-1 text-xs text-slate-500">
-            Grey dates are unavailable because they are booked, blocked, or in the past. Back-to-back check-out/check-in is allowed unless prep days apply.
-          </p>
-        </div>
-      ) : null}
+          </>
+        ) : null}
+      </div>
 
-      {currentRangeHint ? <p className="mt-2 text-xs text-amber-700">{currentRangeHint}</p> : null}
+      {availabilityNotice ? <p className="mt-2 text-xs text-amber-700">{availabilityNotice}</p> : null}
+      {currentRangeHint ? <p className="mt-2 text-xs text-slate-500">{currentRangeHint}</p> : null}
 
       {loadingAny ? (
         <p className="mt-3 text-sm text-slate-500">Checking availability...</p>
@@ -724,7 +898,7 @@ export function ShortletBookingWidget(props: {
           ) : (
             <p>
               {hasNightlyPriceConfigured
-                ? "Select valid dates to see pricing."
+                ? "Select your stay dates to see pricing."
                 : "Nightly pricing is not configured for this shortlet yet."}
             </p>
           )}
@@ -765,6 +939,9 @@ export function ShortletBookingWidget(props: {
           </Link>
         ) : null}
       </div>
+      {!checkIn || !checkOut ? (
+        <p className="mt-2 text-xs text-slate-500">Select check-in and check-out dates to continue.</p>
+      ) : null}
       <p className="mt-2 text-xs text-slate-500">{modeCtaLabel} will be finalised after checkout.</p>
 
       {notice ? (
