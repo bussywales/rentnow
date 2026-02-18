@@ -23,6 +23,7 @@ export const MAIN_NAV_LINKS: Array<{
   badgeCount?: number | null;
 }> = [
   { href: "/properties", label: "Browse" },
+  { href: "/shortlets", label: "Shortlets" },
   { href: "/tenant/saved", label: "Collections", requireAuth: true, requireRole: "tenant" },
   { href: "/trips", label: "Trips", requireAuth: true, requireRole: "tenant" },
   { href: "/favourites", label: "Collections", requireAuth: true, denyRoles: ["tenant"] },
