@@ -19,9 +19,16 @@ import {
 import {
   applyMapViewportChange,
   applySearchThisArea,
+  createDefaultShortletAdvancedFilters,
   createShortletMapSearchAreaState,
+  listShortletActiveFilterTags,
+  readShortletAdvancedFiltersFromParams,
+  removeShortletAdvancedFilterTag,
   resolveSelectedListingId,
+  SHORTLET_QUICK_FILTER_KEYS,
   toggleShortletSearchView,
+  type ShortletAdvancedFilterState,
+  writeShortletAdvancedFiltersToParams,
 } from "@/lib/shortlet/search-ui-state";
 import { resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
 
@@ -58,6 +65,10 @@ const TRUST_FILTERS: Array<{ key: TrustFilterKey; label: string }> = [
   { key: "wifi", label: "Wi-Fi" },
   { key: "verifiedHost", label: "Verified host" },
 ];
+
+const QUICK_FILTERS = TRUST_FILTERS.filter((item) =>
+  SHORTLET_QUICK_FILTER_KEYS.includes(item.key as (typeof SHORTLET_QUICK_FILTER_KEYS)[number])
+);
 
 function firstValue(value: string | string[] | undefined): string | null {
   if (Array.isArray(value)) return value[0] ?? null;
@@ -171,6 +182,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const [mobileView, setMobileView] = useState<"list" | "map">(parsedUi.view);
   const [mapAreaState, setMapAreaState] = useState(() => createShortletMapSearchAreaState(parsedBounds));
   const [mobileMapOpen, setMobileMapOpen] = useState(parsedUi.view === "map");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [draftAdvancedFilters, setDraftAdvancedFilters] = useState<ShortletAdvancedFilterState>(() =>
+    readShortletAdvancedFiltersFromParams(stableSearchParams)
+  );
 
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
@@ -186,6 +201,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   useEffect(() => {
     setMapAreaState(createShortletMapSearchAreaState(parsedBounds));
   }, [parsedBounds]);
+
+  useEffect(() => {
+    setDraftAdvancedFilters(readShortletAdvancedFiltersFromParams(stableSearchParams));
+  }, [stableSearchParams]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -222,6 +241,17 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     return () => controller.abort();
   }, [requestSearchQuery]);
 
+  useEffect(() => {
+    if (!filtersOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setFiltersOpen(false);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [filtersOpen]);
+
   const updateUrl = useCallback(
     (mutate: (next: URLSearchParams) => void) => {
       const next = new URLSearchParams(searchParamsKey);
@@ -234,15 +264,6 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     },
     [mobileView, parsedUi.market, pathname, router, searchParamsKey]
   );
-
-  const toggleTrustFilter = (key: TrustFilterKey) => {
-    updateUrl((next) => {
-      const param = key;
-      const current = next.get(param);
-      if (current === "1") next.delete(param);
-      else next.set(param, "1");
-    });
-  };
 
   const onSubmitSearch = () => {
     updateUrl((next) => {
@@ -258,6 +279,25 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     });
   };
 
+  const applyAdvancedFilters = useCallback(
+    (filters: ShortletAdvancedFilterState) => {
+      updateUrl((next) => {
+        writeShortletAdvancedFiltersToParams(next, filters);
+      });
+    },
+    [updateUrl]
+  );
+
+  const toggleQuickFilter = useCallback(
+    (key: TrustFilterKey) => {
+      const currentFilters = readShortletAdvancedFiltersFromParams(stableSearchParams);
+      const nextFilters = { ...currentFilters, [key]: !currentFilters[key] };
+      setDraftAdvancedFilters((previous) => ({ ...previous, [key]: nextFilters[key] }));
+      applyAdvancedFilters(nextFilters);
+    },
+    [applyAdvancedFilters, stableSearchParams]
+  );
+
   const onSelectListing = (listingId: string) => {
     setSelectedListingId((current) =>
       resolveSelectedListingId(current, {
@@ -268,6 +308,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     if (row) {
       row.scrollIntoView({ behavior: "smooth", block: "center" });
     }
+  };
+
+  const openFiltersDrawer = () => {
+    setDraftAdvancedFilters(readShortletAdvancedFiltersFromParams(stableSearchParams));
+    setFiltersOpen(true);
   };
 
   const openMapView = () => {
@@ -284,13 +329,24 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     updateUrl((next) => next.set("view", "list"));
   };
 
+  const appliedAdvancedFilters = useMemo(
+    () => readShortletAdvancedFiltersFromParams(stableSearchParams),
+    [stableSearchParams]
+  );
   const trustFilterState = useMemo(
     () =>
       new Set(
-        TRUST_FILTERS.filter((item) => stableSearchParams.get(item.key) === "1").map((item) => item.key)
+        TRUST_FILTERS.filter((item) => appliedAdvancedFilters[item.key]).map((item) => item.key)
       ),
-    [stableSearchParams]
+    [appliedAdvancedFilters]
   );
+  const activeFilterTags = useMemo(
+    () => listShortletActiveFilterTags(appliedAdvancedFilters),
+    [appliedAdvancedFilters]
+  );
+  const appliedFilterCount = activeFilterTags.length;
+  const visibleFilterTags = activeFilterTags.slice(0, 3);
+  const hiddenFilterTagCount = Math.max(0, activeFilterTags.length - visibleFilterTags.length);
 
   const mapListings = useMemo(
     () =>
@@ -331,24 +387,27 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           Search by area, landmark, and dates. Map prices are nightly and availability-aware.
         </p>
 
-        <div className="mt-3 grid gap-2 md:grid-cols-5">
+        <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.65fr)_auto_auto_minmax(0,0.85fr)]">
           <Input
             value={queryDraft}
             onChange={(event) => setQueryDraft(event.target.value)}
             placeholder="Area, landmark, city"
             aria-label="Where"
+            className="h-11"
           />
           <Input
             type="date"
             value={checkInDraft}
             onChange={(event) => setCheckInDraft(event.target.value)}
             aria-label="Check-in"
+            className="h-11"
           />
           <Input
             type="date"
             value={checkOutDraft}
             onChange={(event) => setCheckOutDraft(event.target.value)}
             aria-label="Check-out"
+            className="h-11"
           />
           <Input
             type="number"
@@ -357,19 +416,45 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             onChange={(event) => setGuestsDraft(event.target.value)}
             aria-label="Guests"
             placeholder="Guests"
+            className="h-11"
           />
-          <Button onClick={onSubmitSearch}>Search shortlets</Button>
+          <Button onClick={onSubmitSearch} className="h-11 whitespace-nowrap">
+            Search
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={openFiltersDrawer}
+            className="h-11 whitespace-nowrap"
+            data-testid="shortlets-filters-button"
+          >
+            {appliedFilterCount > 0 ? `Filters (${appliedFilterCount})` : "Filters"}
+          </Button>
+          <Select
+            value={parsedUi.sort}
+            onChange={(event) => updateUrl((next) => next.set("sort", event.target.value))}
+            className="h-11 min-w-[170px]"
+            aria-label="Sort"
+          >
+            <option value="recommended">Recommended</option>
+            <option value="price_low">Price: low to high</option>
+            <option value="price_high">Price: high to low</option>
+            <option value="newest">Newest</option>
+          </Select>
         </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          {TRUST_FILTERS.map((filter) => {
+        <div
+          className="mt-3 flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap pb-1"
+          data-testid="shortlets-quick-filters"
+        >
+          {QUICK_FILTERS.map((filter) => {
             const active = trustFilterState.has(filter.key);
             return (
               <button
                 key={filter.key}
                 type="button"
-                onClick={() => toggleTrustFilter(filter.key)}
-                className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                onClick={() => toggleQuickFilter(filter.key)}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                   active
                     ? "border-sky-500 bg-sky-50 text-sky-700"
                     : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
@@ -379,35 +464,141 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               </button>
             );
           })}
-          <Select
-            value={parsedUi.bookingMode}
-            onChange={(event) =>
-              updateUrl((next) => {
-                const value = event.target.value;
-                if (value === "instant" || value === "request") next.set("bookingMode", value);
-                else next.delete("bookingMode");
-              })
-            }
-            className="h-8 w-[160px]"
-            aria-label="Booking mode"
-          >
-            <option value="">All booking modes</option>
-            <option value="instant">Instant book</option>
-            <option value="request">Request to book</option>
-          </Select>
-          <Select
-            value={parsedUi.sort}
-            onChange={(event) => updateUrl((next) => next.set("sort", event.target.value))}
-            className="h-8 w-[180px]"
-            aria-label="Sort"
-          >
-            <option value="recommended">Recommended</option>
-            <option value="price_low">Price: low to high</option>
-            <option value="price_high">Price: high to low</option>
-            <option value="newest">Newest</option>
-          </Select>
         </div>
+
+        {activeFilterTags.length > 0 ? (
+          <div
+            className="mt-2 flex min-w-0 items-center gap-2 overflow-hidden"
+            data-testid="shortlets-active-filter-summary"
+          >
+            {visibleFilterTags.map((tag) => (
+              <button
+                key={tag.id}
+                type="button"
+                onClick={() =>
+                  updateUrl((next) => {
+                    removeShortletAdvancedFilterTag(next, tag);
+                  })
+                }
+                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700"
+                title={`Remove ${tag.label}`}
+              >
+                <span>{tag.label}</span>
+                <span aria-hidden="true">×</span>
+              </button>
+            ))}
+            {hiddenFilterTagCount > 0 ? (
+              <span className="truncate text-xs text-slate-500">+{hiddenFilterTagCount} more</span>
+            ) : null}
+          </div>
+        ) : null}
       </section>
+
+      {filtersOpen ? (
+        <>
+          <button
+            type="button"
+            aria-label="Close filters"
+            className="fixed inset-0 z-40 bg-slate-900/30"
+            onClick={() => setFiltersOpen(false)}
+            data-testid="shortlets-filters-overlay"
+          />
+          <div className="pointer-events-none fixed inset-0 z-50 flex items-end md:items-stretch md:justify-end">
+            <aside
+              className="pointer-events-auto flex max-h-[86vh] w-full flex-col rounded-t-2xl border border-slate-200 bg-white shadow-2xl md:h-full md:max-h-none md:w-[420px] md:rounded-none md:border-l md:border-t-0"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Shortlet filters"
+              data-testid="shortlets-filters-drawer"
+            >
+              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">Filters</p>
+                  <p className="text-xs text-slate-500">Refine shortlets without cluttering the map view.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setFiltersOpen(false)}
+                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
+                  aria-label="Close filters"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4">
+                <section className="space-y-2">
+                  <h2 className="text-sm font-semibold text-slate-900">Amenities and trust</h2>
+                  <div className="space-y-2">
+                    {TRUST_FILTERS.map((filter) => (
+                      <label
+                        key={`drawer-filter-${filter.key}`}
+                        className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700"
+                      >
+                        <span>{filter.label}</span>
+                        <input
+                          type="checkbox"
+                          checked={draftAdvancedFilters[filter.key]}
+                          onChange={(event) =>
+                            setDraftAdvancedFilters((current) => ({
+                              ...current,
+                              [filter.key]: event.target.checked,
+                            }))
+                          }
+                          className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="space-y-2">
+                  <h2 className="text-sm font-semibold text-slate-900">Booking mode</h2>
+                  <Select
+                    value={draftAdvancedFilters.bookingMode}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setDraftAdvancedFilters((current) => ({
+                        ...current,
+                        bookingMode: value === "instant" || value === "request" ? value : "",
+                      }));
+                    }}
+                    aria-label="Booking mode filter"
+                  >
+                    <option value="">All booking modes</option>
+                    <option value="instant">Instant book</option>
+                    <option value="request">Request to book</option>
+                  </Select>
+                </section>
+              </div>
+
+              <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    const cleared = createDefaultShortletAdvancedFilters();
+                    setDraftAdvancedFilters(cleared);
+                    applyAdvancedFilters(cleared);
+                    setFiltersOpen(false);
+                  }}
+                >
+                  Clear all
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => {
+                    applyAdvancedFilters(draftAdvancedFilters);
+                    setFiltersOpen(false);
+                  }}
+                >
+                  Apply
+                </Button>
+              </div>
+            </aside>
+          </div>
+        </>
+      ) : null}
 
       {error ? (
         <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">

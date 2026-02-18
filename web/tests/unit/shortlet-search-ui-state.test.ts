@@ -3,10 +3,15 @@ import assert from "node:assert/strict";
 import {
   applyMapViewportChange,
   applySearchThisArea,
+  createDefaultShortletAdvancedFilters,
   createShortletMapSearchAreaState,
+  listShortletActiveFilterTags,
+  readShortletAdvancedFiltersFromParams,
+  removeShortletAdvancedFilterTag,
   resolveSelectedListingId,
   shouldAutoFitShortletMap,
   toggleShortletSearchView,
+  writeShortletAdvancedFiltersToParams,
 } from "@/lib/shortlet/search-ui-state";
 
 void test("map move marks area dirty but does not auto-apply bounds", () => {
@@ -119,5 +124,53 @@ void test("auto-fit skips unchanged result sets and non-explicit interactions", 
       lastFitRequestKey: "market=NG",
     }),
     false
+  );
+});
+
+void test("advanced filters can round-trip through URL search params", () => {
+  const params = new URLSearchParams("q=ikeja");
+  const nextFilters = createDefaultShortletAdvancedFilters();
+  nextFilters.powerBackup = true;
+  nextFilters.bookingMode = "request";
+
+  writeShortletAdvancedFiltersToParams(params, nextFilters);
+  const parsed = readShortletAdvancedFiltersFromParams(params);
+
+  assert.equal(parsed.powerBackup, true);
+  assert.equal(parsed.bookingMode, "request");
+  assert.equal(params.get("powerBackup"), "1");
+  assert.equal(params.get("bookingMode"), "request");
+});
+
+void test("remove filter tag clears only the selected URL param", () => {
+  const params = new URLSearchParams(
+    "powerBackup=1&bookingMode=instant&waterBorehole=1"
+  );
+
+  removeShortletAdvancedFilterTag(params, {
+    id: "bookingMode",
+    label: "Instant book",
+    param: "bookingMode",
+    value: "instant",
+  });
+
+  assert.equal(params.has("bookingMode"), false);
+  assert.equal(params.get("powerBackup"), "1");
+  assert.equal(params.get("waterBorehole"), "1");
+});
+
+void test("active filter tags expose trust filters and booking mode labels", () => {
+  const tags = listShortletActiveFilterTags({
+    powerBackup: true,
+    waterBorehole: false,
+    security: false,
+    wifi: true,
+    verifiedHost: true,
+    bookingMode: "instant",
+  });
+
+  assert.deepEqual(
+    tags.map((tag) => tag.label),
+    ["Power backup", "Wi-Fi", "Verified host", "Instant book"]
   );
 });
