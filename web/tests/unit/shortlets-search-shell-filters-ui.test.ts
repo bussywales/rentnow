@@ -70,7 +70,7 @@ void test("map camera intent only updates on explicit search actions", () => {
   assert.ok(contents.includes("cameraIntentNonce"));
   assert.ok(contents.includes("resolveShortletMapCameraIntent"));
   assert.ok(contents.includes("hasBoundsChanged: true"));
-  assert.ok(contents.includes("hasLocationChanged: queryDraft.trim() !== parsedUi.q.trim()"));
+  assert.ok(contents.includes("hasLocationChanged: queryDraft.trim() !== parsedUi.where.trim()"));
   assert.ok(contents.includes("resolvedFitRequestKey={resolvedMapFitRequestKey}"));
 });
 
@@ -80,4 +80,13 @@ void test("mobile map toggle and list layout avoid covering listing actions", ()
   assert.ok(contents.includes("space-y-3 pb-20 lg:hidden"));
   assert.ok(contents.includes("fixed bottom-5 left-1/2"));
   assert.ok(contents.includes("-translate-x-1/2"));
+});
+
+void test("shortlets shell heading copy follows destination-driven messaging", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("Find shortlets anywhere"));
+  assert.ok(contents.includes("Find shortlets across Nigeria"));
+  assert.ok(contents.includes("Find shortlets in ${activeDestination}"));
+  assert.ok(contents.includes("Prices shown in {marketCurrency}"));
 });

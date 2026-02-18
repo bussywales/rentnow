@@ -11,9 +11,11 @@ import { PropertyCardSkeleton } from "@/components/properties/PropertyCardSkelet
 import { ShortletsSearchMap } from "@/components/shortlets/search/ShortletsSearchMap";
 import { ShortletsSearchListCard } from "@/components/shortlets/search/ShortletsSearchListCard";
 import {
+  isNigeriaDestinationQuery,
   parseSearchView,
+  parseShortletSearchBbox,
   parseShortletSearchBounds,
-  serializeShortletSearchBounds,
+  serializeShortletSearchBbox,
   type ShortletSearchBounds,
 } from "@/lib/shortlet/search";
 import {
@@ -95,8 +97,9 @@ function firstValue(value: string | string[] | undefined): string | null {
 function readQueryParamsFromSearchParams(searchParams: URLSearchParams) {
   const market = (searchParams.get("market") ?? "NG").trim().toUpperCase();
   const guests = normalizeShortletGuestsParam(searchParams.get("guests"));
+  const where = searchParams.get("where") ?? searchParams.get("q") ?? "";
   return {
-    q: searchParams.get("q") ?? "",
+    where,
     checkIn: searchParams.get("checkIn") ?? "",
     checkOut: searchParams.get("checkOut") ?? "",
     guests: String(guests),
@@ -141,12 +144,12 @@ function formatCompactDate(dateValue: string): string {
   }).format(new Date(parsed));
 }
 
-function getMarketLabel(countryCode: string): string {
-  if (countryCode === "NG") return "Nigeria";
-  if (countryCode === "GB") return "the UK";
-  if (countryCode === "KE") return "Kenya";
-  if (countryCode === "US") return "the US";
-  return countryCode;
+function getMarketCurrency(countryCode: string): string {
+  if (countryCode === "NG") return "NGN";
+  if (countryCode === "GB") return "GBP";
+  if (countryCode === "KE") return "KES";
+  if (countryCode === "US") return "USD";
+  return "NGN";
 }
 
 function normalizeSearchItemImageFields(item: SearchItem): SearchItem {
@@ -183,7 +186,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     [stableSearchParams]
   );
   const parsedBounds = useMemo(
-    () => parseShortletSearchBounds(stableSearchParams.get("bounds")),
+    () =>
+      parseShortletSearchBbox(stableSearchParams.get("bbox")) ??
+      parseShortletSearchBounds(stableSearchParams.get("bounds")),
     [stableSearchParams]
   );
   const requestSearchParams = useMemo(() => {
@@ -207,7 +212,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     return next.toString();
   }, [parsedUi.market, searchParamsKey]);
 
-  const [queryDraft, setQueryDraft] = useState(parsedUi.q);
+  const [queryDraft, setQueryDraft] = useState(parsedUi.where);
   const [checkInDraft, setCheckInDraft] = useState(parsedUi.checkIn);
   const [checkOutDraft, setCheckOutDraft] = useState(parsedUi.checkOut);
   const [guestsDraft, setGuestsDraft] = useState(parsedUi.guests);
@@ -244,7 +249,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const quickFiltersPopoverRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
-    setQueryDraft(parsedUi.q);
+    setQueryDraft(parsedUi.where);
     setCheckInDraft(parsedUi.checkIn);
     setCheckOutDraft(parsedUi.checkOut);
     setGuestsDraft(parsedUi.guests);
@@ -391,14 +396,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
 
   const onSubmitSearch = () => {
     const intent = resolveShortletMapCameraIntent({
-      hasLocationChanged: queryDraft.trim() !== parsedUi.q.trim(),
+      hasLocationChanged: queryDraft.trim() !== parsedUi.where.trim(),
       hasBoundsChanged: false,
     });
     setCameraIntent(intent);
     setCameraIntentNonce((current) => current + 1);
     updateUrl((next) => {
-      if (queryDraft.trim()) next.set("q", queryDraft.trim());
-      else next.delete("q");
+      if (queryDraft.trim()) next.set("where", queryDraft.trim());
+      else next.delete("where");
+      next.delete("q");
       if (checkInDraft) next.set("checkIn", checkInDraft);
       else next.delete("checkIn");
       if (checkOutDraft) next.set("checkOut", checkOutDraft);
@@ -561,7 +567,13 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const guestsSummary = formatShortletGuestsLabel(guestsDraft);
   const showCompactSearch = isCompactSearch && !isSearchHeaderInView;
 
-  const marketLabel = getMarketLabel(parsedUi.market);
+  const marketCurrency = getMarketCurrency(parsedUi.market);
+  const activeDestination = parsedUi.where.trim();
+  const heading = activeDestination
+    ? isNigeriaDestinationQuery(activeDestination)
+      ? "Find shortlets across Nigeria"
+      : `Find shortlets in ${activeDestination}`
+    : "Find shortlets anywhere";
 
   return (
     <div className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-4 px-4 py-4">
@@ -626,9 +638,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Shortlets</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Find shortlets across {marketLabel}</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">{heading}</h1>
         <p className="mt-1 text-sm text-slate-600">
           Search by area, landmark, and dates. Map prices are nightly and availability-aware.
+        </p>
+        <p className="mt-1 text-xs text-slate-500">
+          Prices shown in {marketCurrency}. Market changes pricing context, not destination.
         </p>
 
         <div
@@ -1029,10 +1044,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     setCameraIntentNonce((current) => current + 1);
                     setMapAreaState((current) => {
                       const next = applySearchThisArea(current);
-                      const encoded = serializeShortletSearchBounds(next.activeBounds);
+                      const encoded = serializeShortletSearchBbox(next.activeBounds);
                       updateUrl((params) => {
-                        if (encoded) params.set("bounds", encoded);
-                        else params.delete("bounds");
+                        if (encoded) params.set("bbox", encoded);
+                        else params.delete("bbox");
+                        params.delete("bounds");
                       });
                       return next;
                     });
@@ -1147,10 +1163,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     setCameraIntentNonce((current) => current + 1);
                     setMapAreaState((current) => {
                       const next = applySearchThisArea(current);
-                      const encoded = serializeShortletSearchBounds(next.activeBounds);
+                      const encoded = serializeShortletSearchBbox(next.activeBounds);
                       updateUrl((params) => {
-                        if (encoded) params.set("bounds", encoded);
-                        else params.delete("bounds");
+                        if (encoded) params.set("bbox", encoded);
+                        else params.delete("bbox");
+                        params.delete("bounds");
                       });
                       return next;
                     });
