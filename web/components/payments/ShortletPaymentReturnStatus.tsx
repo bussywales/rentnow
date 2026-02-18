@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   SHORTLET_STATUS_POLL_TIMEOUT_MS,
   getPollingStopReason,
@@ -11,6 +11,8 @@ import {
   resolveShortletReturnUiState,
   shouldPoll,
 } from "@/lib/shortlet/return-status";
+import { resolveRealtimeBookingStatusUpdate } from "@/lib/shortlet/return-realtime";
+import { createBrowserSupabaseClient, hasBrowserSupabaseEnv } from "@/lib/supabase/client";
 
 type StatusPayload = {
   ok?: boolean;
@@ -31,6 +33,7 @@ type StatusPayload = {
 
 const STATUS_POLL_INTERVAL_MS = 5000;
 const STATUS_POLL_MAX_MS = SHORTLET_STATUS_POLL_TIMEOUT_MS;
+const PENDING_HOST_FALLBACK_POLL_INTERVAL_MS = 25_000;
 const FORCE_RECHECK_THROTTLE_MS = 4000;
 
 function formatMoney(currency: string, amountMinor: number) {
@@ -73,8 +76,32 @@ export function ShortletPaymentReturnStatus(props: {
   const [forceRechecking, setForceRechecking] = useState(false);
   const [verifyAttempted, setVerifyAttempted] = useState(false);
   const [forceRecheckMessage, setForceRecheckMessage] = useState<string | null>(null);
+  const [realtimeSubscribed, setRealtimeSubscribed] = useState(false);
   const previousStatusRef = useRef<string | null>(null);
   const lastForceRecheckAtRef = useRef(0);
+
+  const fetchStatusSnapshot = useCallback(
+    async (options?: { clearLoading?: boolean }) => {
+      try {
+        const response = await fetch(
+          `/api/shortlet/payments/status?booking_id=${encodeURIComponent(props.bookingId)}`,
+          { credentials: "include" }
+        );
+        const data = (await response.json().catch(() => ({}))) as StatusPayload;
+        setPayload(data);
+        setLastCheckedAt(Date.now());
+        return data;
+      } catch (error) {
+        setPayload({
+          error: error instanceof Error ? error.message : "Unable to load payment status",
+        });
+        return null;
+      } finally {
+        if (options?.clearLoading) setLoading(false);
+      }
+    },
+    [props.bookingId]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -92,28 +119,9 @@ export function ShortletPaymentReturnStatus(props: {
       verifyOnMount: shouldVerifyPaystack,
     });
 
-    const loadStatus = async () => {
-      try {
-        const response = await fetch(
-          `/api/shortlet/payments/status?booking_id=${encodeURIComponent(props.bookingId)}`,
-          { credentials: "include" }
-        );
-        const data = (await response.json().catch(() => ({}))) as StatusPayload;
-        if (!cancelled) {
-          setPayload(data);
-          setLastCheckedAt(Date.now());
-        }
-        return data;
-      } catch (error) {
-        if (!cancelled) {
-          setPayload({
-            error: error instanceof Error ? error.message : "Unable to load payment status",
-          });
-        }
-        return null;
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+    const loadStatus = async (options?: { clearLoading?: boolean }) => {
+      const data = await fetchStatusSnapshot(options);
+      return cancelled ? null : data;
     };
 
     const runVerifyOnce = async () => {
@@ -201,7 +209,7 @@ export function ShortletPaymentReturnStatus(props: {
 
     const run = async () => {
       await runVerifyOnce();
-      const firstPayload = await loadStatus();
+      const firstPayload = await loadStatus({ clearLoading: true });
       if (!cancelled) scheduleNext(firstPayload);
     };
 
@@ -211,7 +219,7 @@ export function ShortletPaymentReturnStatus(props: {
       cancelled = true;
       if (pollTimer) window.clearTimeout(pollTimer);
     };
-  }, [props.bookingId, props.provider, props.providerReference]);
+  }, [fetchStatusSnapshot, props.bookingId, props.provider, props.providerReference]);
 
   useEffect(() => {
     if (!payload) return;
@@ -227,21 +235,122 @@ export function ShortletPaymentReturnStatus(props: {
     });
   }, [payload, props.bookingId]);
 
+  const bookingStatus = normalizeShortletBookingStatus(payload?.booking?.status);
+  const paymentStatus = normalizeShortletPaymentStatus(payload?.payment?.status);
+
+  useEffect(() => {
+    if (bookingStatus !== "pending") {
+      setRealtimeSubscribed(false);
+      return;
+    }
+    if (!hasBrowserSupabaseEnv()) {
+      setRealtimeSubscribed(false);
+      return;
+    }
+
+    const supabase = createBrowserSupabaseClient() as unknown as {
+      channel?: (name: string) => {
+        on: (
+          eventType: "postgres_changes",
+          filter: {
+            event: "UPDATE";
+            schema: "public";
+            table: "shortlet_bookings";
+            filter: string;
+          },
+          callback: (payload: Record<string, unknown>) => void
+        ) => {
+          subscribe: (statusCallback?: (status: string) => void) => unknown;
+          unsubscribe?: () => unknown;
+        };
+      };
+      removeChannel?: (channel: unknown) => Promise<unknown>;
+    };
+
+    if (typeof supabase.channel !== "function") {
+      setRealtimeSubscribed(false);
+      return;
+    }
+
+    let active = true;
+    const channelName = `shortlet-return-${props.bookingId}`;
+    const channel = supabase
+      .channel(channelName)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "shortlet_bookings",
+          filter: `id=eq.${props.bookingId}`,
+        },
+        (eventPayload) => {
+          if (!active) return;
+          const nextStatus = resolveRealtimeBookingStatusUpdate({
+            old: (eventPayload.old as { status?: string | null } | null) ?? null,
+            new: (eventPayload.new as { status?: string | null } | null) ?? null,
+          });
+          if (!nextStatus) return;
+
+          console.log("[/payments/shortlet/return] realtime-booking-update", {
+            bookingId: props.bookingId,
+            nextStatus,
+          });
+          setPayload((current) => {
+            if (!current) return current;
+            return {
+              ...current,
+              booking: {
+                ...(current.booking ?? {}),
+                id: current.booking?.id ?? props.bookingId,
+                status: nextStatus,
+              },
+            };
+          });
+          void fetchStatusSnapshot();
+        }
+      )
+      .subscribe((status) => {
+        if (!active) return;
+        const subscribed = status === "SUBSCRIBED";
+        setRealtimeSubscribed(subscribed);
+        console.log("[/payments/shortlet/return] realtime-subscription", {
+          bookingId: props.bookingId,
+          status,
+        });
+      });
+
+    return () => {
+      active = false;
+      setRealtimeSubscribed(false);
+      if (typeof supabase.removeChannel === "function") {
+        void supabase.removeChannel(channel);
+        return;
+      }
+      if (
+        channel &&
+        typeof channel === "object" &&
+        "unsubscribe" in channel &&
+        typeof channel.unsubscribe === "function"
+      ) {
+        void channel.unsubscribe();
+      }
+    };
+  }, [bookingStatus, fetchStatusSnapshot, props.bookingId]);
+
+  useEffect(() => {
+    if (bookingStatus !== "pending" || realtimeSubscribed) return;
+    const timer = window.setInterval(() => {
+      void fetchStatusSnapshot();
+    }, PENDING_HOST_FALLBACK_POLL_INTERVAL_MS);
+    return () => window.clearInterval(timer);
+  }, [bookingStatus, fetchStatusSnapshot, realtimeSubscribed]);
+
   const runManualRefresh = async () => {
     setRefreshing(true);
     try {
-      const response = await fetch(
-        `/api/shortlet/payments/status?booking_id=${encodeURIComponent(props.bookingId)}`,
-        { credentials: "include" }
-      );
-      const data = (await response.json().catch(() => ({}))) as StatusPayload;
-      setPayload(data);
-      setLastCheckedAt(Date.now());
+      await fetchStatusSnapshot();
       setTimedOut(false);
-    } catch (error) {
-      setPayload({
-        error: error instanceof Error ? error.message : "Unable to refresh payment status",
-      });
     } finally {
       setRefreshing(false);
     }
@@ -285,8 +394,6 @@ export function ShortletPaymentReturnStatus(props: {
     });
   }, [payload]);
 
-  const bookingStatus = normalizeShortletBookingStatus(payload?.booking?.status);
-  const paymentStatus = normalizeShortletPaymentStatus(payload?.payment?.status);
   const isPaymentSucceededPendingFinalisation =
     paymentStatus === "succeeded" && bookingStatus === "pending_payment";
 
