@@ -11,6 +11,7 @@ import { resolveShortletBookingMode, resolveShortletNightlyPriceMinor } from "@/
 type Props = {
   property: Property & {
     primaryImageUrl?: string | null;
+    verifiedHost?: boolean;
   };
   href: string;
   selected?: boolean;
@@ -25,16 +26,17 @@ const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=80";
 
 function formatNightlyPrice(currency: string, nightlyMinor: number | null): string {
-  if (typeof nightlyMinor !== "number" || nightlyMinor <= 0) return "Nightly price unavailable";
+  if (typeof nightlyMinor !== "number" || nightlyMinor <= 0) return "Price on request";
   const value = nightlyMinor / 100;
   try {
-    return new Intl.NumberFormat("en-NG", {
+    const formatted = new Intl.NumberFormat("en-NG", {
       style: "currency",
       currency: currency || "NGN",
       maximumFractionDigits: 0,
     }).format(value);
+    return `${formatted} / night`;
   } catch {
-    return `${currency || "NGN"} ${value.toFixed(0)}`;
+    return `${currency || "NGN"} ${value.toFixed(0)} / night`;
   }
 }
 
@@ -62,6 +64,8 @@ export function ShortletsSearchListCard({
   const nightlyMinor = resolveShortletNightlyPriceMinor(property);
   const priceLabel = formatNightlyPrice(property.currency, nightlyMinor);
   const showNewBadge = useMemo(() => isNewListing(property.created_at), [property.created_at]);
+  const ctaLabel = bookingMode === "instant" ? "Reserve" : bookingMode === "request" ? "Request" : "View";
+  const badgeLabel = property.verifiedHost ? "Verified" : property.is_featured ? "Featured" : showNewBadge ? "New" : null;
 
   return (
     <article
@@ -90,18 +94,17 @@ export function ShortletsSearchListCard({
         <div className="space-y-2 px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             <p className="truncate text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{location}</p>
-            <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-              {bookingMode === "instant" ? "Instant" : "Request"}
-            </span>
+            {badgeLabel ? (
+              <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                {badgeLabel}
+              </span>
+            ) : null}
           </div>
           <h3 className="line-clamp-1 text-base font-semibold text-slate-900">{property.title}</h3>
           <div className="flex items-center justify-between gap-2">
-            <p className="truncate text-sm font-semibold text-slate-900">
-              {priceLabel}
-              <span className="font-normal text-slate-500"> / night</span>
-            </p>
-            <span className="shrink-0 rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] text-slate-500">
-              {showNewBadge ? "New" : "Top stay"}
+            <p className="truncate text-sm font-semibold text-slate-900">{priceLabel}</p>
+            <span className="inline-flex h-8 items-center rounded-full bg-slate-900 px-3 text-xs font-semibold text-white">
+              {ctaLabel}
             </span>
           </div>
         </div>

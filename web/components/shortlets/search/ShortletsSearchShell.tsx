@@ -40,6 +40,7 @@ type SearchItem = Property & {
   coverImageUrl?: string | null;
   imageCount?: number;
   imageUrls?: string[];
+  verifiedHost?: boolean;
 };
 
 type SearchResponse = {

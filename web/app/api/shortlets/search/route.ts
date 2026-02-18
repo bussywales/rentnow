@@ -233,7 +233,10 @@ export async function GET(request: NextRequest) {
     const to = from + filters.pageSize;
     const items = mapShortletSearchRowsToResultItems(
       sorted.slice(from, to) as unknown as ShortletSearchPropertyRow[]
-    );
+    ).map((item) => ({
+      ...item,
+      verifiedHost: verifiedHostIds.has(item.owner_id),
+    }));
     const mapItems = items
       .filter((item) => item.hasCoords)
       .map((item) => ({
