@@ -38,3 +38,23 @@ void test("shortlet widget defines separate availability modifiers for past, boo
   assert.ok(contents.includes("booked: (date: Date) => unavailableBySource.booked.has(toDateKey(date))"));
   assert.ok(contents.includes("blocked: (date: Date) => unavailableBySource.blocked.has(toDateKey(date))"));
 });
+
+void test("shortlet widget prevents selection of unavailable days at daypicker level", () => {
+  const filePath = path.join(process.cwd(), "components", "properties", "ShortletBookingWidget.tsx");
+  const contents = fs.readFileSync(filePath, "utf8");
+
+  assert.ok(contents.includes("disabled={isUnavailableDate}"));
+  assert.ok(contents.includes("excludeDisabled"));
+  assert.ok(contents.includes("if (modifiers.disabled)"));
+});
+
+void test("shortlet widget legend explains available, selected, booked, blocked and past states", () => {
+  const filePath = path.join(process.cwd(), "components", "properties", "ShortletBookingWidget.tsx");
+  const contents = fs.readFileSync(filePath, "utf8");
+
+  assert.ok(contents.includes("Available"));
+  assert.ok(contents.includes("Selected"));
+  assert.ok(contents.includes("Booked"));
+  assert.ok(contents.includes("Blocked"));
+  assert.ok(contents.includes("Past"));
+});

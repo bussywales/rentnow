@@ -61,6 +61,7 @@ type CalendarWindow = {
 
 const AVAILABILITY_WINDOW_DAYS = 180;
 const CALENDAR_DISABLED_HORIZON_DAYS = 720;
+const AVAILABILITY_PREFETCH_MONTH_OFFSETS = [-2, -1, 0, 1, 2] as const;
 const availabilityWindowCache = new Map<string, CalendarAvailabilityResponse>();
 const availabilityConflictCode = "availability_conflict";
 
@@ -130,6 +131,10 @@ function buildCalendarWindow(month: Date): CalendarWindow {
     from,
     to,
   };
+}
+
+function withMonthOffset(baseMonth: Date, offset: number): Date {
+  return new Date(baseMonth.getFullYear(), baseMonth.getMonth() + offset, 1);
 }
 
 function dedupeUnavailableRanges(
@@ -369,7 +374,7 @@ export function ShortletBookingWidget(props: {
   const [checkOut, setCheckOut] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [metaLoading, setMetaLoading] = useState(false);
-  const [calendarLoading, setCalendarLoading] = useState(false);
+  const [calendarLoadCount, setCalendarLoadCount] = useState(0);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -439,6 +444,7 @@ export function ShortletBookingWidget(props: {
 
   const minNights = availability?.settings?.minNights ?? 1;
   const maxNights = availability?.settings?.maxNights ?? null;
+  const calendarLoading = calendarLoadCount > 0;
 
   const disabledSet = useMemo(
     () =>
@@ -496,7 +502,7 @@ export function ShortletBookingWidget(props: {
         return;
       }
 
-      setCalendarLoading(true);
+      setCalendarLoadCount((count) => count + 1);
       try {
         const response = await fetch(
           `/api/shortlet/availability?listingId=${encodeURIComponent(props.propertyId)}&from=${encodeURIComponent(window.from)}&to=${encodeURIComponent(window.to)}`,
@@ -528,7 +534,7 @@ export function ShortletBookingWidget(props: {
       } catch (windowError) {
         setError(windowError instanceof Error ? windowError.message : "Unable to load calendar availability");
       } finally {
-        setCalendarLoading(false);
+        setCalendarLoadCount((count) => Math.max(0, count - 1));
       }
     },
     [props.propertyId]
@@ -537,11 +543,11 @@ export function ShortletBookingWidget(props: {
   const prefetchAvailabilityMonths = useCallback(
     async (baseMonth: Date, options?: { force?: boolean }) => {
       const monthStart = new Date(baseMonth.getFullYear(), baseMonth.getMonth(), 1);
-      const nextMonth = new Date(baseMonth.getFullYear(), baseMonth.getMonth() + 1, 1);
-      await Promise.all([
-        loadAvailabilityWindow(monthStart, options),
-        loadAvailabilityWindow(nextMonth, options),
-      ]);
+      await Promise.all(
+        AVAILABILITY_PREFETCH_MONTH_OFFSETS.map((offset) =>
+          loadAvailabilityWindow(withMonthOffset(monthStart, offset), options)
+        )
+      );
     },
     [loadAvailabilityWindow]
   );
@@ -790,6 +796,10 @@ export function ShortletBookingWidget(props: {
       setNotice(null);
       setAvailabilityNotice(null);
       setConflictingDates([]);
+      if (calendarLoading) {
+        setSelectionHint("Loading latest availability...");
+        return;
+      }
 
       const derived = deriveShortletDraftSelection({
         next,
@@ -801,7 +811,7 @@ export function ShortletBookingWidget(props: {
       setDraftRange(derived.draftRange);
       setSelectionHint(derived.hint);
     },
-    [disabledSet, maxNights, minNights, todayDateKey]
+    [calendarLoading, disabledSet, maxNights, minNights, todayDateKey]
   );
 
   const applyDraftRangeSelection = useCallback(() => {
@@ -1032,17 +1042,29 @@ export function ShortletBookingWidget(props: {
                       conflict: (date: Date) => conflictingDateSet.has(toDateKey(date)),
                     }}
                     modifiersClassNames={{
-                      past: "bg-slate-50 text-slate-300",
-                      booked: "bg-slate-100 text-slate-400 line-through",
-                      blocked: "bg-slate-100 text-slate-400",
-                      unavailable: "bg-slate-50 text-slate-300",
+                      past: "!bg-slate-50 !text-slate-300",
+                      booked: "!bg-rose-100 !text-rose-700 line-through",
+                      blocked: "!bg-amber-100 !text-amber-700",
+                      unavailable: "!bg-slate-100 !text-slate-400",
                       conflict: "bg-rose-100 text-rose-700 ring-1 ring-rose-200 font-semibold",
                     }}
                     excludeDisabled
                     numberOfMonths={1}
                     fixedWeeks
-                    onDayClick={(_, modifiers) => {
+                    onDayClick={(date, modifiers) => {
                       if (modifiers.disabled) {
+                        if (toDateKey(date) < todayDateKey || modifiers.past) {
+                          setSelectionHint("Past dates are not bookable.");
+                          return;
+                        }
+                        if (modifiers.booked) {
+                          setSelectionHint("Booked. Choose different dates.");
+                          return;
+                        }
+                        if (modifiers.blocked) {
+                          setSelectionHint("Blocked by host. Choose different dates.");
+                          return;
+                        }
                         setSelectionHint("Unavailable. Choose different dates.");
                       }
                     }}
@@ -1050,11 +1072,27 @@ export function ShortletBookingWidget(props: {
                 )}
                 <div className="mt-2 flex flex-wrap gap-2 px-1">
                   <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
+                    <span className="h-2 w-2 rounded-full border border-slate-300 bg-white" />
+                    Available
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
                     <span className="h-2 w-2 rounded-full bg-sky-500" />
                     Selected
                   </span>
                   <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
+                    <span className="h-2 w-2 rounded-full bg-rose-500" />
+                    Booked
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
+                    <span className="h-2 w-2 rounded-full bg-amber-500" />
+                    Blocked
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
                     <span className="h-2 w-2 rounded-full bg-slate-300" />
+                    Past
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded-full border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
+                    <span className="h-2 w-2 rounded-full bg-slate-500" />
                     Unavailable
                   </span>
                   {conflictingDates.length > 0 ? (
@@ -1065,7 +1103,7 @@ export function ShortletBookingWidget(props: {
                   ) : null}
                 </div>
                 <p className="mt-2 px-1 text-xs text-slate-500">
-                  Grey dates are unavailable because they are booked, blocked, or in the past.
+                  Unavailable dates are disabled. You can only apply a range with selectable nights.
                 </p>
                 <div
                   className={
@@ -1085,7 +1123,7 @@ export function ShortletBookingWidget(props: {
                   <Button
                     type="button"
                     onClick={applyDraftRangeSelection}
-                    disabled={!draftRange?.from || !draftRange?.to || !draftValidation.valid}
+                    disabled={calendarLoading || !draftRange?.from || !draftRange?.to || !draftValidation.valid}
                   >
                     Apply dates
                   </Button>

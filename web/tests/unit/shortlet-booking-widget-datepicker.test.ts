@@ -123,6 +123,52 @@ void test("unavailable date is treated as unselectable", () => {
   );
 });
 
+void test("past date is treated as unavailable even when not in disabled set", () => {
+  assert.equal(
+    isShortletDateUnavailable({
+      date: new Date("2026-07-01T00:00:00.000Z"),
+      todayDateKey: "2026-07-02",
+      disabledSet: new Set<string>(),
+    }),
+    true
+  );
+});
+
+void test("draft selection rejects disabled start date", () => {
+  const disabledSet = new Set<string>(["2026-07-10"]);
+  const derived = deriveShortletDraftSelection({
+    next: {
+      from: new Date("2026-07-10T00:00:00.000Z"),
+      to: undefined,
+    },
+    todayDateKey: "2026-07-01",
+    disabledSet,
+    minNights: 1,
+    maxNights: null,
+  });
+
+  assert.equal(derived.isValid, false);
+  assert.equal(derived.draftRange, undefined);
+});
+
+void test("draft selection rejects disabled end date and keeps start only", () => {
+  const disabledSet = new Set<string>(["2026-07-12"]);
+  const derived = deriveShortletDraftSelection({
+    next: {
+      from: new Date("2026-07-11T00:00:00.000Z"),
+      to: new Date("2026-07-12T00:00:00.000Z"),
+    },
+    todayDateKey: "2026-07-01",
+    disabledSet,
+    minNights: 1,
+    maxNights: null,
+  });
+
+  assert.equal(derived.isValid, false);
+  assert.ok(derived.draftRange?.from);
+  assert.equal(derived.draftRange?.to, undefined);
+});
+
 void test("range selection cannot include an unavailable date", () => {
   const disabledSet = new Set<string>(["2026-07-12"]);
   const derived = deriveShortletDraftSelection({
