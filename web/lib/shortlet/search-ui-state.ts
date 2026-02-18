@@ -239,10 +239,10 @@ export function normalizeShortletGuestsParam(value: string | null | undefined): 
   return Math.max(1, Math.trunc(parsed));
 }
 
-export function formatShortletGuestsLabel(value: number | null | undefined): string {
-  const guests = normalizeShortletGuestsParam(
-    typeof value === "number" ? String(value) : value == null ? null : String(value)
-  );
+export function formatShortletGuestsLabel(
+  value: number | string | null | undefined
+): string {
+  const guests = normalizeShortletGuestsParam(value == null ? null : String(value));
   return `${guests} ${guests === 1 ? "guest" : "guests"}`;
 }
 
