@@ -8,7 +8,9 @@ import {
   listShortletActiveFilterTags,
   readShortletAdvancedFiltersFromParams,
   removeShortletAdvancedFilterTag,
+  resolveShortletMapMarkerVisualState,
   resolveSelectedListingId,
+  shouldUseCompactShortletSearchPill,
   shouldAutoFitShortletMap,
   toggleShortletSearchView,
   writeShortletAdvancedFiltersToParams,
@@ -172,5 +174,41 @@ void test("active filter tags expose trust filters and booking mode labels", () 
   assert.deepEqual(
     tags.map((tag) => tag.label),
     ["Power backup", "Wi-Fi", "Verified host", "Instant book"]
+  );
+});
+
+void test("compact sticky pill toggles when scroll crosses threshold", () => {
+  assert.equal(shouldUseCompactShortletSearchPill(0), false);
+  assert.equal(shouldUseCompactShortletSearchPill(120), true);
+  assert.equal(shouldUseCompactShortletSearchPill(90, 120), false);
+  assert.equal(shouldUseCompactShortletSearchPill(121, 120), true);
+});
+
+void test("map marker state prioritizes selected over hovered", () => {
+  assert.deepEqual(
+    resolveShortletMapMarkerVisualState({
+      listingId: "a",
+      selectedListingId: "a",
+      hoveredListingId: "a",
+    }),
+    { mode: "selected", emphasized: true, zIndexOffset: 2000 }
+  );
+
+  assert.deepEqual(
+    resolveShortletMapMarkerVisualState({
+      listingId: "b",
+      selectedListingId: "a",
+      hoveredListingId: "b",
+    }),
+    { mode: "hovered", emphasized: true, zIndexOffset: 1000 }
+  );
+
+  assert.deepEqual(
+    resolveShortletMapMarkerVisualState({
+      listingId: "c",
+      selectedListingId: "a",
+      hoveredListingId: "b",
+    }),
+    { mode: "default", emphasized: false, zIndexOffset: 0 }
   );
 });

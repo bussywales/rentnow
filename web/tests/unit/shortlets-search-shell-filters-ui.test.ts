@@ -41,3 +41,13 @@ void test("shortlets shell closes drawer with escape key support", () => {
   assert.ok(contents.includes("window.addEventListener(\"keydown\", onKeyDown)"));
   assert.ok(contents.includes("if (event.key === \"Escape\")"));
 });
+
+void test("shortlets shell exposes compact sticky pill summary controls", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes('data-testid="shortlets-compact-search-pill"'));
+  assert.ok(contents.includes("whereSummary"));
+  assert.ok(contents.includes("datesSummary"));
+  assert.ok(contents.includes("guestsSummary"));
+  assert.ok(contents.includes("shouldUseCompactShortletSearchPill(window.scrollY)"));
+});

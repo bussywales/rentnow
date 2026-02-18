@@ -14,13 +14,17 @@ type Props = {
   listings: Array<{
     id: string;
     title: string;
+    city: string;
     currency: string;
     nightlyPriceMinor: number | null;
+    primaryImageUrl: string | null;
     latitude: number | null;
     longitude: number | null;
   }>;
   selectedListingId: string | null;
+  hoveredListingId: string | null;
   onSelectListing: (listingId: string) => void;
+  onHoverListing: (listingId: string | null) => void;
   onBoundsChanged: (bounds: { north: number; south: number; east: number; west: number }) => void;
   marketCountry: string;
   resultHash: string;

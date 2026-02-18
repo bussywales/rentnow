@@ -4,7 +4,11 @@ import { useEffect, useMemo, useRef } from "react";
 import L from "leaflet";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
-import { shouldAutoFitShortletMap } from "@/lib/shortlet/search-ui-state";
+import { cn } from "@/components/ui/cn";
+import {
+  resolveShortletMapMarkerVisualState,
+  shouldAutoFitShortletMap,
+} from "@/lib/shortlet/search-ui-state";
 
 type MapBounds = {
   north: number;
@@ -16,8 +20,10 @@ type MapBounds = {
 type MapListing = {
   id: string;
   title: string;
+  city: string;
   currency: string;
   nightlyPriceMinor: number | null;
+  primaryImageUrl: string | null;
   latitude: number | null;
   longitude: number | null;
 };
@@ -25,7 +31,9 @@ type MapListing = {
 type Props = {
   listings: MapListing[];
   selectedListingId: string | null;
+  hoveredListingId: string | null;
   onSelectListing: (listingId: string) => void;
+  onHoverListing: (listingId: string | null) => void;
   onBoundsChanged: (bounds: MapBounds) => void;
   marketCountry: string;
   resultHash: string;
@@ -56,11 +64,17 @@ function formatPinPrice(currency: string, nightlyPriceMinor: number | null): str
   }
 }
 
-function createPricePinIcon(label: string, selected: boolean): L.DivIcon {
-  const bg = selected ? "#0f172a" : "#ffffff";
-  const color = selected ? "#ffffff" : "#0f172a";
-  const border = selected ? "#0f172a" : "#cbd5e1";
-  const html = `<span style="display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;border:1px solid ${border};background:${bg};color:${color};font-size:12px;font-weight:700;line-height:1;padding:8px 10px;box-shadow:0 2px 12px rgba(15,23,42,0.18);white-space:nowrap;">${label}</span>`;
+function createPricePinIcon(
+  label: string,
+  mode: "default" | "hovered" | "selected"
+): L.DivIcon {
+  const selected = mode === "selected";
+  const hovered = mode === "hovered";
+  const bg = selected ? "#0f172a" : hovered ? "#e0f2fe" : "#ffffff";
+  const color = selected ? "#ffffff" : hovered ? "#0369a1" : "#0f172a";
+  const border = selected ? "#0f172a" : hovered ? "#0ea5e9" : "#cbd5e1";
+  const scale = selected ? 1.08 : hovered ? 1.04 : 1;
+  const html = `<span style="display:inline-flex;align-items:center;justify-content:center;border-radius:9999px;border:1px solid ${border};background:${bg};color:${color};font-size:12px;font-weight:700;line-height:1;padding:8px 10px;box-shadow:0 2px 12px rgba(15,23,42,0.18);white-space:nowrap;transform:scale(${scale});">${label}</span>`;
   return L.divIcon({
     html,
     className: "shortlet-price-pin",
@@ -210,7 +224,9 @@ function ReportBounds({
 export function ShortletsSearchMapClient({
   listings,
   selectedListingId,
+  hoveredListingId,
   onSelectListing,
+  onHoverListing,
   onBoundsChanged,
   marketCountry,
   resultHash,
@@ -231,9 +247,13 @@ export function ShortletsSearchMapClient({
   const defaultCenter: [number, number] =
     marketCountry === "NG" ? NIGERIA_DEFAULT_CENTER : markers[0] ?? DEFAULT_WORLD_CENTER;
   const defaultZoom = marketCountry === "NG" ? NIGERIA_DEFAULT_ZOOM : 2;
+  const selectedListing = useMemo(
+    () => listings.find((listing) => listing.id === selectedListingId) ?? null,
+    [listings, selectedListingId]
+  );
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
       <MapContainer
         center={defaultCenter}
         zoom={defaultZoom}
@@ -261,24 +281,61 @@ export function ShortletsSearchMapClient({
           suppressedBoundsUpdatesRef={suppressedBoundsUpdatesRef}
         />
         {mapListings.map((listing) => {
-          const selected = selectedListingId === listing.id;
+          const markerState = resolveShortletMapMarkerVisualState({
+            listingId: listing.id,
+            selectedListingId,
+            hoveredListingId,
+          });
           const pinIcon = createPricePinIcon(
             formatPinPrice(listing.currency, listing.nightlyPriceMinor),
-            selected
+            markerState.mode
           );
           return (
             <Marker
               key={listing.id}
               position={[listing.latitude, listing.longitude]}
               icon={pinIcon}
+              zIndexOffset={markerState.zIndexOffset}
               eventHandlers={{
                 click: () => onSelectListing(listing.id),
+                mouseover: () => onHoverListing(listing.id),
+                mouseout: () => onHoverListing(null),
               }}
               title={listing.title}
             />
           );
         })}
       </MapContainer>
+      {selectedListing ? (
+        <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-[450] sm:right-auto sm:w-[320px]">
+          <div className="pointer-events-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+            <div className="flex items-center gap-3 p-3">
+              <div className="h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100">
+                {selectedListing.primaryImageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={selectedListing.primaryImageUrl}
+                    alt={selectedListing.title}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="h-full w-full bg-slate-200" />
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                  {selectedListing.city}
+                </p>
+                <p className="line-clamp-1 text-sm font-semibold text-slate-900">{selectedListing.title}</p>
+                <p className={cn("text-xs font-semibold text-slate-700")}>
+                  {formatPinPrice(selectedListing.currency, selectedListing.nightlyPriceMinor)} / night
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

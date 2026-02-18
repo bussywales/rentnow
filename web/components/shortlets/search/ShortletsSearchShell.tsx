@@ -7,9 +7,9 @@ import type { Property } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyCardSkeleton } from "@/components/properties/PropertyCardSkeleton";
 import { ShortletsSearchMap } from "@/components/shortlets/search/ShortletsSearchMap";
+import { ShortletsSearchListCard } from "@/components/shortlets/search/ShortletsSearchListCard";
 import {
   parseSearchView,
   parseShortletSearchBounds,
@@ -25,6 +25,7 @@ import {
   readShortletAdvancedFiltersFromParams,
   removeShortletAdvancedFilterTag,
   resolveSelectedListingId,
+  shouldUseCompactShortletSearchPill,
   SHORTLET_QUICK_FILTER_KEYS,
   toggleShortletSearchView,
   type ShortletAdvancedFilterState,
@@ -32,18 +33,19 @@ import {
 } from "@/lib/shortlet/search-ui-state";
 import { resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
 
+type SearchItem = Property & {
+  primaryImageUrl?: string | null;
+  coverImageUrl?: string | null;
+  imageCount?: number;
+  imageUrls?: string[];
+};
+
 type SearchResponse = {
   ok: boolean;
   page: number;
   pageSize: number;
   total: number;
-  items: Array<
-    Property & {
-      coverImageUrl?: string | null;
-      imageCount?: number;
-      imageUrls?: string[];
-    }
-  >;
+  items: SearchItem[];
   nearbyAlternatives: Array<{ label: string; hint: string }>;
 };
 
@@ -114,8 +116,19 @@ function formatMoney(currency: string, nightlyMinor: number | null): string {
   }
 }
 
-function normalizeSearchItemImageFields(item: SearchResponse["items"][number]): Property {
-  const coverImageUrl = item.coverImageUrl ?? item.cover_image_url ?? null;
+function formatCompactDate(dateValue: string): string {
+  if (!dateValue) return "";
+  const parsed = Date.parse(`${dateValue}T00:00:00.000Z`);
+  if (!Number.isFinite(parsed)) return dateValue;
+  return new Intl.DateTimeFormat("en-NG", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(parsed));
+}
+
+function normalizeSearchItemImageFields(item: SearchItem): SearchItem {
+  const primaryImageUrl = item.primaryImageUrl ?? null;
+  const coverImageUrl = item.coverImageUrl ?? item.cover_image_url ?? primaryImageUrl;
   const images =
     item.images ??
     (item.imageUrls ?? []).map((imageUrl, index) => ({
@@ -125,6 +138,7 @@ function normalizeSearchItemImageFields(item: SearchResponse["items"][number]): 
 
   return {
     ...item,
+    primaryImageUrl,
     cover_image_url: coverImageUrl,
     images,
   };
@@ -179,10 +193,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
+  const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "map">(parsedUi.view);
   const [mapAreaState, setMapAreaState] = useState(() => createShortletMapSearchAreaState(parsedBounds));
   const [mobileMapOpen, setMobileMapOpen] = useState(parsedUi.view === "map");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [isCompactSearch, setIsCompactSearch] = useState(false);
   const [quickFiltersCollapsed, setQuickFiltersCollapsed] = useState(false);
   const [quickFiltersPopoverOpen, setQuickFiltersPopoverOpen] = useState(false);
   const [draftAdvancedFilters, setDraftAdvancedFilters] = useState<ShortletAdvancedFilterState>(() =>
@@ -190,6 +206,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   );
 
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const whereInputRef = useRef<HTMLInputElement | null>(null);
+  const checkInInputRef = useRef<HTMLInputElement | null>(null);
+  const checkOutInputRef = useRef<HTMLInputElement | null>(null);
+  const guestsInputRef = useRef<HTMLInputElement | null>(null);
   const quickFiltersMeasureRef = useRef<HTMLDivElement | null>(null);
   const quickFiltersPopoverRef = useRef<HTMLDivElement | null>(null);
 
@@ -209,6 +229,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   useEffect(() => {
     setDraftAdvancedFilters(readShortletAdvancedFiltersFromParams(stableSearchParams));
   }, [stableSearchParams]);
+
+  useEffect(() => {
+    const onScroll = () => {
+      setIsCompactSearch(shouldUseCompactShortletSearchPill(window.scrollY));
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   const recomputeQuickFilterCollapse = useCallback(() => {
     const measureNode = quickFiltersMeasureRef.current;
@@ -323,6 +352,24 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     });
   };
 
+  const focusExpandedControl = useCallback(
+    (field: "where" | "checkIn" | "checkOut" | "guests") => {
+      const inputRef =
+        field === "where"
+          ? whereInputRef
+          : field === "checkIn"
+            ? checkInInputRef
+            : field === "checkOut"
+              ? checkOutInputRef
+              : guestsInputRef;
+      const target = inputRef.current;
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => target.focus(), 220);
+    },
+    []
+  );
+
   const applyAdvancedFilters = useCallback(
     (filters: ShortletAdvancedFilterState) => {
       updateUrl((next) => {
@@ -343,6 +390,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   );
 
   const onSelectListing = (listingId: string) => {
+    setHoveredListingId(listingId);
     setSelectedListingId((current) =>
       resolveSelectedListingId(current, {
         pinId: listingId,
@@ -353,6 +401,19 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       row.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
+
+  const onHoverListingFromMap = useCallback((listingId: string | null) => {
+    setHoveredListingId(listingId);
+    if (!listingId) return;
+    const row = cardRefs.current[listingId];
+    if (!row) return;
+    const rect = row.getBoundingClientRect();
+    const nearTopEdge = rect.bottom >= -120 && rect.bottom < 140;
+    const nearBottomEdge = rect.top <= window.innerHeight + 120 && rect.top > window.innerHeight - 140;
+    if (nearTopEdge || nearBottomEdge) {
+      row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }
+  }, []);
 
   const openFiltersDrawer = () => {
     setDraftAdvancedFilters(readShortletAdvancedFiltersFromParams(stableSearchParams));
@@ -401,8 +462,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       (results?.items ?? []).map((item) => ({
         id: item.id,
         title: item.title,
+        city: item.city,
         currency: item.currency,
         nightlyPriceMinor: resolveShortletNightlyPriceMinor(item),
+        primaryImageUrl: item.primaryImageUrl ?? item.cover_image_url ?? null,
         latitude: typeof item.latitude === "number" ? item.latitude : null,
         longitude: typeof item.longitude === "number" ? item.longitude : null,
       })),
@@ -425,9 +488,80 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   }, [results?.items, selectedListingId]);
 
   const searchAreaDirty = mapAreaState.mapDirty;
+  const whereSummary = queryDraft.trim() || "Where";
+  const datesSummary =
+    checkInDraft && checkOutDraft
+      ? `${formatCompactDate(checkInDraft)} - ${formatCompactDate(checkOutDraft)}`
+      : checkInDraft
+        ? `${formatCompactDate(checkInDraft)} - Checkout`
+        : "Dates";
+  const guestCount = Number(guestsDraft);
+  const guestsSummary =
+    Number.isFinite(guestCount) && guestCount > 0
+      ? `${Math.trunc(guestCount)} ${Math.trunc(guestCount) === 1 ? "guest" : "guests"}`
+      : "Guests";
 
   return (
     <div className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-4 px-4 py-4">
+      <div
+        className={`pointer-events-none fixed inset-x-0 top-20 z-30 flex justify-center px-4 transition-all duration-200 ${
+          isCompactSearch ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+        }`}
+        data-testid="shortlets-compact-search-pill"
+        aria-hidden={!isCompactSearch}
+      >
+        <div className="pointer-events-auto w-full max-w-[1200px] rounded-full border border-slate-200 bg-white/95 px-2 py-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 md:flex-nowrap">
+            <button
+              type="button"
+              onClick={() => focusExpandedControl("where")}
+              className="inline-flex h-9 min-w-0 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            >
+              <span className="truncate">{whereSummary}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => focusExpandedControl("checkIn")}
+              className="inline-flex h-9 min-w-0 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            >
+              <span className="truncate">{datesSummary}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => focusExpandedControl("guests")}
+              className="inline-flex h-9 min-w-0 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            >
+              <span className="truncate">{guestsSummary}</span>
+            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <Select
+                value={parsedUi.sort}
+                onChange={(event) => updateUrl((next) => next.set("sort", event.target.value))}
+                className="h-9 w-[126px] text-xs"
+                aria-label="Sort compact"
+              >
+                <option value="recommended">Recommended</option>
+                <option value="price_low">Price low-high</option>
+                <option value="price_high">Price high-low</option>
+                <option value="newest">Newest</option>
+              </Select>
+              <Button onClick={onSubmitSearch} size="sm" className="h-9 whitespace-nowrap">
+                Search
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={openFiltersDrawer}
+                className="h-9 whitespace-nowrap"
+              >
+                {appliedFilterCount > 0 ? `Filters (${appliedFilterCount})` : "Filters"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Shortlets</p>
         <h1 className="text-2xl font-semibold text-slate-900">Find shortlets across Nigeria</h1>
@@ -437,6 +571,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
 
         <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.65fr)_auto_auto_minmax(0,0.85fr)]">
           <Input
+            ref={whereInputRef}
             value={queryDraft}
             onChange={(event) => setQueryDraft(event.target.value)}
             placeholder="Area, landmark, city"
@@ -444,6 +579,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             className="h-11"
           />
           <Input
+            ref={checkInInputRef}
             type="date"
             value={checkInDraft}
             onChange={(event) => setCheckInDraft(event.target.value)}
@@ -451,6 +587,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             className="h-11"
           />
           <Input
+            ref={checkOutInputRef}
             type="date"
             value={checkOutDraft}
             onChange={(event) => setCheckOutDraft(event.target.value)}
@@ -458,6 +595,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             className="h-11"
           />
           <Input
+            ref={guestsInputRef}
             type="number"
             min={1}
             value={guestsDraft}
@@ -735,27 +873,33 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             <div className="grid gap-3">
               {results.items.map((property) => {
                 const selected = property.id === selectedListingId;
+                const highlighted = selected || property.id === hoveredListingId;
                 return (
                   <div
                     key={property.id}
                     ref={(node) => {
                       cardRefs.current[property.id] = node;
                     }}
-                    onMouseEnter={() =>
+                    className={`rounded-2xl border ${
+                      highlighted ? "border-sky-300 ring-2 ring-sky-100" : "border-transparent"
+                    }`}
+                    onMouseEnter={() => setHoveredListingId(property.id)}
+                    onMouseLeave={() => setHoveredListingId(null)}
+                    onClick={() =>
                       setSelectedListingId((current) =>
                         resolveSelectedListingId(current, { cardId: property.id })
                       )
                     }
-                    className={`rounded-2xl border ${
-                      selected ? "border-sky-300 ring-2 ring-sky-100" : "border-transparent"
-                    }`}
                   >
-                    <PropertyCard
+                    <ShortletsSearchListCard
                       property={property}
                       href={`/properties/${property.id}?back=${encodeURIComponent(
                         `/shortlets?${backLinkQuery}`
                       )}#cta`}
-                      showSave
+                      selected={selected}
+                      highlighted={property.id === hoveredListingId}
+                      onFocus={() => setHoveredListingId(property.id)}
+                      onBlur={() => setHoveredListingId(null)}
                     />
                   </div>
                 );
@@ -781,7 +925,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             <ShortletsSearchMap
               listings={mapListings}
               selectedListingId={selectedListingId}
+              hoveredListingId={hoveredListingId}
               onSelectListing={onSelectListing}
+              onHoverListing={onHoverListingFromMap}
               onBoundsChanged={(bounds) =>
                 setMapAreaState((current) => applyMapViewportChange(current, bounds as ShortletSearchBounds))
               }
@@ -828,6 +974,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           <div className="grid gap-3">
             {results.items.map((property) => {
               const selected = property.id === selectedListingId;
+              const highlighted = selected || property.id === hoveredListingId;
               return (
                 <div
                   key={property.id}
@@ -835,20 +982,25 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     cardRefs.current[property.id] = node;
                   }}
                   className={`rounded-2xl border ${
-                    selected ? "border-sky-300 ring-2 ring-sky-100" : "border-transparent"
+                    highlighted ? "border-sky-300 ring-2 ring-sky-100" : "border-transparent"
                   }`}
                   onClick={() =>
                     setSelectedListingId((current) =>
                       resolveSelectedListingId(current, { cardId: property.id })
                     )
                   }
+                  onMouseEnter={() => setHoveredListingId(property.id)}
+                  onMouseLeave={() => setHoveredListingId(null)}
                 >
-                  <PropertyCard
+                  <ShortletsSearchListCard
                     property={property}
                     href={`/properties/${property.id}?back=${encodeURIComponent(
                       `/shortlets?${backLinkQuery}`
                     )}#cta`}
-                    showSave
+                    selected={selected}
+                    highlighted={property.id === hoveredListingId}
+                    onFocus={() => setHoveredListingId(property.id)}
+                    onBlur={() => setHoveredListingId(null)}
                   />
                 </div>
               );
@@ -881,7 +1033,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             <ShortletsSearchMap
               listings={mapListings}
               selectedListingId={selectedListingId}
+              hoveredListingId={hoveredListingId}
               onSelectListing={onSelectListing}
+              onHoverListing={onHoverListingFromMap}
               onBoundsChanged={(bounds) =>
                 setMapAreaState((current) => applyMapViewportChange(current, bounds as ShortletSearchBounds))
               }

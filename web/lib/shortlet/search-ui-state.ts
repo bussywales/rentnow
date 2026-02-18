@@ -16,6 +16,12 @@ export type ShortletMapAutoFitInput = {
   lastFitRequestKey: string | null;
 };
 
+export type ShortletMapMarkerVisualState = {
+  mode: "default" | "hovered" | "selected";
+  emphasized: boolean;
+  zIndexOffset: number;
+};
+
 export type ShortletBookingModeFilter = "" | "instant" | "request";
 
 export type ShortletAdvancedFilterState = {
@@ -214,4 +220,23 @@ export function shouldAutoFitShortletMap(input: ShortletMapAutoFitInput): boolea
   if (explicitSearch) return true;
 
   return !input.hasUserMovedMap;
+}
+
+export function shouldUseCompactShortletSearchPill(scrollY: number, thresholdPx = 96): boolean {
+  if (!Number.isFinite(scrollY)) return false;
+  return scrollY > thresholdPx;
+}
+
+export function resolveShortletMapMarkerVisualState(input: {
+  listingId: string;
+  selectedListingId: string | null;
+  hoveredListingId: string | null;
+}): ShortletMapMarkerVisualState {
+  if (input.selectedListingId === input.listingId) {
+    return { mode: "selected", emphasized: true, zIndexOffset: 2000 };
+  }
+  if (input.hoveredListingId === input.listingId) {
+    return { mode: "hovered", emphasized: true, zIndexOffset: 1000 };
+  }
+  return { mode: "default", emphasized: false, zIndexOffset: 0 };
 }
