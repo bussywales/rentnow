@@ -73,3 +73,11 @@ void test("map camera intent only updates on explicit search actions", () => {
   assert.ok(contents.includes("hasLocationChanged: queryDraft.trim() !== parsedUi.q.trim()"));
   assert.ok(contents.includes("resolvedFitRequestKey={resolvedMapFitRequestKey}"));
 });
+
+void test("mobile map toggle and list layout avoid covering listing actions", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("space-y-3 pb-20 lg:hidden"));
+  assert.ok(contents.includes("fixed bottom-5 left-1/2"));
+  assert.ok(contents.includes("-translate-x-1/2"));
+});

@@ -58,7 +58,11 @@ export function ShortletsSearchListCard({
   onFocus,
   onBlur,
 }: Props) {
-  const [imageSrc, setImageSrc] = useState(property.primaryImageUrl || property.cover_image_url || FALLBACK_IMAGE);
+  const primaryImageSrc = property.primaryImageUrl || property.cover_image_url || FALLBACK_IMAGE;
+  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
+  const [loadedImageSrc, setLoadedImageSrc] = useState<string | null>(null);
+  const imageSrc = failedImageSrc === primaryImageSrc ? FALLBACK_IMAGE : primaryImageSrc;
+  const imageLoaded = loadedImageSrc === imageSrc;
   const location = formatLocationLabel(property.city, property.neighbourhood);
   const bookingMode = resolveShortletBookingMode(property);
   const nightlyMinor = resolveShortletNightlyPriceMinor(property);
@@ -82,13 +86,20 @@ export function ShortletsSearchListCard({
     >
       <Link href={href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
         <div className="relative h-44 w-full sm:h-48">
+          {!imageLoaded ? <div className="absolute inset-0 animate-pulse bg-slate-100" aria-hidden="true" /> : null}
           <Image
             src={imageSrc}
             alt={property.title}
             fill
             sizes="(max-width: 1024px) 100vw, 520px"
-            className="object-cover"
-            onError={() => setImageSrc(FALLBACK_IMAGE)}
+            className={`object-cover transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
+            onLoad={() => setLoadedImageSrc(imageSrc)}
+            onError={() => {
+              setLoadedImageSrc(null);
+              if (imageSrc !== FALLBACK_IMAGE) {
+                setFailedImageSrc(primaryImageSrc);
+              }
+            }}
           />
         </div>
         <div className="space-y-2 px-4 py-3">

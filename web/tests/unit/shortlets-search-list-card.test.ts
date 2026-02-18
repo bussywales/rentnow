@@ -23,8 +23,10 @@ void test("shortlets search card keeps layout calm with clamped title and no des
 void test("shortlets search card uses primary image first with fallback on error", () => {
   const contents = fs.readFileSync(cardPath, "utf8");
 
-  assert.ok(contents.includes("property.primaryImageUrl || property.cover_image_url || FALLBACK_IMAGE"));
-  assert.ok(contents.includes("onError={() => setImageSrc(FALLBACK_IMAGE)}"));
+  assert.ok(contents.includes("const primaryImageSrc = property.primaryImageUrl || property.cover_image_url || FALLBACK_IMAGE"));
+  assert.ok(contents.includes("animate-pulse bg-slate-100"));
+  assert.ok(contents.includes("onLoad={() => setLoadedImageSrc(imageSrc)}"));
+  assert.ok(contents.includes("setFailedImageSrc(primaryImageSrc);"));
 });
 
 void test("shortlets search card renders one primary CTA and one priority badge", () => {

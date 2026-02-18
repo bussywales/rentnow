@@ -118,7 +118,7 @@ function createSearchParamsFromInitial(initial: Props["initialSearchParams"]): U
 }
 
 function formatMoney(currency: string, nightlyMinor: number | null): string {
-  if (typeof nightlyMinor !== "number" || nightlyMinor <= 0) return "Nightly price unavailable";
+  if (typeof nightlyMinor !== "number" || nightlyMinor <= 0) return "Price on request";
   const major = nightlyMinor / 100;
   try {
     return new Intl.NumberFormat("en-NG", {
@@ -1046,7 +1046,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         </section>
       </div>
 
-      <div className="space-y-3 lg:hidden">
+      <div className="space-y-3 pb-20 lg:hidden">
         <p className="text-sm text-slate-600">
           {loading ? "Loading stays..." : `${results?.total ?? 0} stays found`}
         </p>
@@ -1102,7 +1102,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       <button
         type="button"
         onClick={openMapView}
-        className="fixed bottom-5 right-4 z-20 inline-flex h-11 items-center rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg lg:hidden"
+        className="fixed bottom-5 left-1/2 z-20 inline-flex h-11 -translate-x-1/2 items-center rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg lg:hidden"
       >
         Map
       </button>
