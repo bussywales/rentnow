@@ -5,6 +5,7 @@ import {
   applySearchThisArea,
   createShortletMapSearchAreaState,
   resolveSelectedListingId,
+  shouldAutoFitShortletMap,
   toggleShortletSearchView,
 } from "@/lib/shortlet/search-ui-state";
 
@@ -65,3 +66,58 @@ void test("mobile map toggle flips view between list and map", () => {
   assert.equal(toggleShortletSearchView("map"), "list");
 });
 
+void test("auto-fit runs on first load and explicit search changes", () => {
+  assert.equal(
+    shouldAutoFitShortletMap({
+      hasMarkers: true,
+      hasAutoFitOnce: false,
+      resultHash: "ng|2|a,b",
+      lastResultHash: null,
+      hasUserMovedMap: false,
+      fitRequestKey: "market=NG",
+      lastFitRequestKey: null,
+    }),
+    true
+  );
+
+  assert.equal(
+    shouldAutoFitShortletMap({
+      hasMarkers: true,
+      hasAutoFitOnce: true,
+      resultHash: "ng|3|a,b,c",
+      lastResultHash: "ng|2|a,b",
+      hasUserMovedMap: true,
+      fitRequestKey: "market=NG&bounds=1,2,3,4",
+      lastFitRequestKey: "market=NG",
+    }),
+    true
+  );
+});
+
+void test("auto-fit skips unchanged result sets and non-explicit interactions", () => {
+  assert.equal(
+    shouldAutoFitShortletMap({
+      hasMarkers: true,
+      hasAutoFitOnce: true,
+      resultHash: "ng|2|a,b",
+      lastResultHash: "ng|2|a,b",
+      hasUserMovedMap: false,
+      fitRequestKey: "market=NG",
+      lastFitRequestKey: "market=NG",
+    }),
+    false
+  );
+
+  assert.equal(
+    shouldAutoFitShortletMap({
+      hasMarkers: true,
+      hasAutoFitOnce: true,
+      resultHash: "ng|3|a,b,c",
+      lastResultHash: "ng|2|a,b",
+      hasUserMovedMap: true,
+      fitRequestKey: "market=NG",
+      lastFitRequestKey: "market=NG",
+    }),
+    false
+  );
+});

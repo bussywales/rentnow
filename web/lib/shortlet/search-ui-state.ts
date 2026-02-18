@@ -6,6 +6,16 @@ export type ShortletMapSearchAreaState = {
   mapDirty: boolean;
 };
 
+export type ShortletMapAutoFitInput = {
+  hasMarkers: boolean;
+  hasAutoFitOnce: boolean;
+  resultHash: string;
+  lastResultHash: string | null;
+  hasUserMovedMap: boolean;
+  fitRequestKey: string;
+  lastFitRequestKey: string | null;
+};
+
 function boundsEqual(left: ShortletSearchBounds | null, right: ShortletSearchBounds | null): boolean {
   if (!left && !right) return true;
   if (!left || !right) return false;
@@ -72,4 +82,17 @@ export function resolveSelectedListingId(
 
 export function toggleShortletSearchView(current: "list" | "map"): "list" | "map" {
   return current === "map" ? "list" : "map";
+}
+
+export function shouldAutoFitShortletMap(input: ShortletMapAutoFitInput): boolean {
+  if (!input.hasMarkers) return false;
+  if (input.resultHash === input.lastResultHash) return false;
+  if (!input.hasAutoFitOnce) return true;
+
+  const explicitSearch =
+    input.lastFitRequestKey === null || input.fitRequestKey !== input.lastFitRequestKey;
+
+  if (explicitSearch) return true;
+
+  return !input.hasUserMovedMap;
 }

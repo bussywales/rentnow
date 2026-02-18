@@ -60,11 +60,13 @@ function firstValue(value: string | string[] | undefined): string | null {
 }
 
 function readQueryParamsFromSearchParams(searchParams: URLSearchParams) {
+  const market = (searchParams.get("market") ?? "NG").trim().toUpperCase();
   return {
     q: searchParams.get("q") ?? "",
     checkIn: searchParams.get("checkIn") ?? "",
     checkOut: searchParams.get("checkOut") ?? "",
     guests: searchParams.get("guests") ?? "1",
+    market: /^[A-Z]{2}$/.test(market) ? market : "NG",
     sort: searchParams.get("sort") ?? "recommended",
     bookingMode: searchParams.get("bookingMode") ?? "",
     view: parseSearchView(searchParams.get("view")),
@@ -114,6 +116,26 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     () => parseShortletSearchBounds(stableSearchParams.get("bounds")),
     [stableSearchParams]
   );
+  const requestSearchParams = useMemo(() => {
+    const next = new URLSearchParams(stableSearchParams.toString());
+    next.delete("view");
+    if (!next.get("market")) next.set("market", parsedUi.market);
+    if (!next.get("page")) next.set("page", "1");
+    if (!next.get("pageSize")) next.set("pageSize", "24");
+    return next;
+  }, [parsedUi.market, stableSearchParams]);
+  const requestSearchQuery = requestSearchParams.toString();
+  const mapFitRequestKey = useMemo(() => {
+    const next = new URLSearchParams(requestSearchQuery);
+    next.delete("page");
+    next.delete("pageSize");
+    return next.toString();
+  }, [requestSearchQuery]);
+  const backLinkQuery = useMemo(() => {
+    const next = new URLSearchParams(searchParamsKey);
+    if (!next.get("market")) next.set("market", parsedUi.market);
+    return next.toString();
+  }, [parsedUi.market, searchParamsKey]);
 
   const [queryDraft, setQueryDraft] = useState(parsedUi.q);
   const [checkInDraft, setCheckInDraft] = useState(parsedUi.checkIn);
@@ -149,11 +171,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams(stableSearchParams.toString());
-        if (!params.get("page")) params.set("page", "1");
-        if (!params.get("pageSize")) params.set("pageSize", "24");
-        params.delete("view");
-        const response = await fetch(`/api/shortlets/search?${params.toString()}`, {
+        const response = await fetch(`/api/shortlets/search?${requestSearchQuery}`, {
           credentials: "include",
           signal: controller.signal,
         });
@@ -176,18 +194,19 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     };
     void run();
     return () => controller.abort();
-  }, [stableSearchParams]);
+  }, [requestSearchQuery]);
 
   const updateUrl = useCallback(
     (mutate: (next: URLSearchParams) => void) => {
       const next = new URLSearchParams(searchParamsKey);
       mutate(next);
+      if (!next.get("market")) next.set("market", parsedUi.market);
       if (!next.get("view")) next.set("view", mobileView);
       next.set("page", "1");
       const query = next.toString();
       router.replace(query ? `${pathname}?${query}` : pathname);
     },
-    [mobileView, pathname, router, searchParamsKey]
+    [mobileView, parsedUi.market, pathname, router, searchParamsKey]
   );
 
   const toggleTrustFilter = (key: TrustFilterKey) => {
@@ -259,6 +278,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       })),
     [results?.items]
   );
+  const mapResultHash = useMemo(() => {
+    const ids = mapListings.map((listing) => listing.id).join(",");
+    return `${parsedUi.market}|${mapListings.length}|${ids}`;
+  }, [mapListings, parsedUi.market]);
 
   const selectedSummary = useMemo(() => {
     const match = results?.items.find((item) => item.id === selectedListingId) ?? null;
@@ -404,7 +427,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     <PropertyCard
                       property={property}
                       href={`/properties/${property.id}?back=${encodeURIComponent(
-                        `/shortlets?${searchParamsKey}`
+                        `/shortlets?${backLinkQuery}`
                       )}#cta`}
                       showSave
                     />
@@ -436,6 +459,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               onBoundsChanged={(bounds) =>
                 setMapAreaState((current) => applyMapViewportChange(current, bounds as ShortletSearchBounds))
               }
+              marketCountry={parsedUi.market}
+              resultHash={mapResultHash}
+              fitRequestKey={mapFitRequestKey}
               height="min(76vh, 800px)"
             />
             {searchAreaDirty ? (
@@ -494,7 +520,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                   <PropertyCard
                     property={property}
                     href={`/properties/${property.id}?back=${encodeURIComponent(
-                      `/shortlets?${searchParamsKey}`
+                      `/shortlets?${backLinkQuery}`
                     )}#cta`}
                     showSave
                   />
@@ -533,6 +559,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               onBoundsChanged={(bounds) =>
                 setMapAreaState((current) => applyMapViewportChange(current, bounds as ShortletSearchBounds))
               }
+              marketCountry={parsedUi.market}
+              resultHash={mapResultHash}
+              fitRequestKey={mapFitRequestKey}
               height="100%"
             />
             {searchAreaDirty ? (
@@ -575,7 +604,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                       </p>
                       <Link
                         href={`/properties/${property.id}?back=${encodeURIComponent(
-                          `/shortlets?${searchParamsKey}`
+                          `/shortlets?${backLinkQuery}`
                         )}#cta`}
                         className="mt-2 inline-flex text-xs font-semibold text-sky-700"
                       >

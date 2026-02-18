@@ -1,7 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  filterShortletListingsByMarket,
   matchesTrustFilters,
+  parseShortletSearchFilters,
   parseShortletSearchBounds,
   unavailablePropertyIdsForDateRange,
 } from "@/lib/shortlet/search";
@@ -85,3 +87,34 @@ void test("bounds parser accepts valid bounds and rejects invalid input", () => 
   assert.equal(parseShortletSearchBounds("6.3,6.9,3.7,3.2"), null);
 });
 
+void test("market=NG returns only NG listings", () => {
+  const rows: Property[] = [
+    buildProperty({
+      id: "ng-1",
+      country_code: "NG",
+      country: "Nigeria",
+      latitude: 9.08,
+      longitude: 8.67,
+    }),
+    buildProperty({
+      id: "gb-1",
+      country_code: "GB",
+      country: "United Kingdom",
+      latitude: 51.5,
+      longitude: -0.12,
+    }),
+    buildProperty({
+      id: "unknown-1",
+      country_code: null,
+      country: null,
+    }),
+  ];
+
+  const filtered = filterShortletListingsByMarket(rows, "NG");
+  assert.deepEqual(filtered.map((row) => row.id), ["ng-1"]);
+});
+
+void test("shortlet search defaults market to NG", () => {
+  const parsed = parseShortletSearchFilters(new URLSearchParams("q=lekki"));
+  assert.equal(parsed.marketCountry, "NG");
+});

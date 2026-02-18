@@ -22,10 +22,12 @@ type Props = {
   selectedListingId: string | null;
   onSelectListing: (listingId: string) => void;
   onBoundsChanged: (bounds: { north: number; south: number; east: number; west: number }) => void;
+  marketCountry: string;
+  resultHash: string;
+  fitRequestKey: string;
   height?: string;
 };
 
 export function ShortletsSearchMap(props: Props) {
   return <ShortletsSearchMapClient {...props} />;
 }
-

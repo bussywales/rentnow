@@ -27,6 +27,7 @@ export type ShortletSearchFilters = {
   checkIn: string | null;
   checkOut: string | null;
   guests: number;
+  marketCountry: string;
   bounds: ShortletSearchBounds | null;
   sort: ShortletSearchSort;
   trust: ShortletSearchTrustFilters;
@@ -54,6 +55,16 @@ const WATER_BOREHOLE_TOKENS = ["borehole", "water"];
 const SECURITY_TOKENS = ["security", "guard", "gated", "gated estate", "cctv"];
 
 const WIFI_TOKENS = ["wifi", "wi-fi", "internet", "fibre", "fiber"];
+
+const COUNTRY_ALIAS_TO_CODE: Record<string, string> = {
+  ng: "NG",
+  nigeria: "NG",
+  gb: "GB",
+  uk: "GB",
+  "united kingdom": "GB",
+  ke: "KE",
+  kenya: "KE",
+};
 
 function asBoolean(value: string | null): boolean {
   if (!value) return false;
@@ -90,6 +101,26 @@ function parseDate(value: string | null): string | null {
   return value;
 }
 
+function normalizeCountryCodeOrAlias(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = String(value).trim();
+  if (!normalized) return null;
+  const key = normalized.toLowerCase();
+  const alias = COUNTRY_ALIAS_TO_CODE[key];
+  if (alias) return alias;
+  const upper = normalized.toUpperCase();
+  if (/^[A-Z]{2}$/.test(upper)) return upper;
+  return null;
+}
+
+function parseMarketCountry(params: URLSearchParams): string {
+  return (
+    normalizeCountryCodeOrAlias(params.get("market")) ??
+    normalizeCountryCodeOrAlias(params.get("country")) ??
+    "NG"
+  );
+}
+
 export function parseShortletSearchBounds(value: string | null): ShortletSearchBounds | null {
   if (!value) return null;
   const parts = value.split(",").map((part) => Number(part.trim()));
@@ -111,6 +142,7 @@ export function parseShortletSearchFilters(params: URLSearchParams): ShortletSea
     checkIn: parseDate(params.get("checkIn")),
     checkOut: parseDate(params.get("checkOut")),
     guests: parsePositiveInt(params.get("guests"), 1),
+    marketCountry: parseMarketCountry(params),
     bounds: parseShortletSearchBounds(params.get("bounds")),
     sort: parseSort(params.get("sort")),
     trust: {
@@ -167,6 +199,28 @@ export function matchesShortletSearchQuery(property: Property, q: string | null)
     .map((value) => String(value || "").toLowerCase())
     .join(" ");
   return haystack.includes(needle);
+}
+
+function resolvePropertyCountryCode(property: Pick<Property, "country_code" | "country">): string | null {
+  return (
+    normalizeCountryCodeOrAlias(property.country_code ?? null) ??
+    normalizeCountryCodeOrAlias(property.country ?? null)
+  );
+}
+
+export function matchesShortletMarketCountry(
+  property: Pick<Property, "country_code" | "country">,
+  marketCountry: string
+): boolean {
+  const normalizedMarketCountry = normalizeCountryCodeOrAlias(marketCountry);
+  if (!normalizedMarketCountry) return true;
+  const propertyCountryCode = resolvePropertyCountryCode(property);
+  if (!propertyCountryCode) return false;
+  return propertyCountryCode === normalizedMarketCountry;
+}
+
+export function filterShortletListingsByMarket(rows: Property[], marketCountry: string): Property[] {
+  return rows.filter((row) => matchesShortletMarketCountry(row, marketCountry));
 }
 
 export function matchesTrustFilters(input: {
@@ -280,4 +334,3 @@ export function filterToShortletListings(rows: Property[]): Property[] {
 export function parseSearchView(value: string | null): "list" | "map" {
   return value === "map" ? "map" : "list";
 }
-

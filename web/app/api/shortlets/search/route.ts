@@ -4,6 +4,7 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { searchProperties } from "@/lib/search";
 import {
+  filterShortletListingsByMarket,
   filterToShortletListings,
   isWithinBounds,
   matchesShortletSearchQuery,
@@ -84,7 +85,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message || "Unable to search shortlets." }, { status: 400 });
     }
 
-    const sourceRows = filterToShortletListings((data as Property[] | null) ?? []);
+    const sourceRows = filterShortletListingsByMarket(
+      filterToShortletListings((data as Property[] | null) ?? []),
+      filters.marketCountry
+    );
     const ownerIds = Array.from(new Set(sourceRows.map((row) => row.owner_id).filter(Boolean)));
 
     const verifiedHostIds = new Set<string>();
@@ -174,6 +178,7 @@ export async function GET(request: NextRequest) {
         checkIn: filters.checkIn,
         checkOut: filters.checkOut,
         guests: filters.guests,
+        marketCountry: filters.marketCountry,
         bounds: filters.bounds,
         sort: filters.sort,
         trust: filters.trust,
@@ -200,4 +205,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
