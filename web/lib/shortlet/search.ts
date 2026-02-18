@@ -63,6 +63,7 @@ export type ShortletSearchResultItem = Property & {
   coverImageUrl: string | null;
   imageCount: number;
   imageUrls: string[];
+  hasCoords: boolean;
 };
 
 type ShortletSearchSortContext = {
@@ -92,6 +93,13 @@ const COUNTRY_ALIAS_TO_CODE: Record<string, string> = {
   "united kingdom": "GB",
   ke: "KE",
   kenya: "KE",
+};
+
+const MARKET_DEFAULT_CURRENCIES: Record<string, string[]> = {
+  NG: ["NGN"],
+  GB: ["GBP"],
+  KE: ["KES"],
+  US: ["USD"],
 };
 
 function asBoolean(value: string | null): boolean {
@@ -147,6 +155,14 @@ function parseMarketCountry(params: URLSearchParams): string {
     normalizeCountryCodeOrAlias(params.get("country")) ??
     "NG"
   );
+}
+
+function normalizeCurrencyCode(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const normalized = String(value).trim().toUpperCase();
+  if (!normalized) return null;
+  if (normalized === "₦") return "NGN";
+  return normalized;
 }
 
 export function parseShortletSearchBounds(value: string | null): ShortletSearchBounds | null {
@@ -237,14 +253,20 @@ function resolvePropertyCountryCode(property: Pick<Property, "country_code" | "c
 }
 
 export function matchesShortletMarketCountry(
-  property: Pick<Property, "country_code" | "country">,
+  property: Pick<Property, "country_code" | "country" | "currency">,
   marketCountry: string
 ): boolean {
   const normalizedMarketCountry = normalizeCountryCodeOrAlias(marketCountry);
   if (!normalizedMarketCountry) return true;
   const propertyCountryCode = resolvePropertyCountryCode(property);
-  if (!propertyCountryCode) return false;
-  return propertyCountryCode === normalizedMarketCountry;
+  if (propertyCountryCode) {
+    return propertyCountryCode === normalizedMarketCountry;
+  }
+
+  const propertyCurrency = normalizeCurrencyCode(property.currency);
+  if (!propertyCurrency) return false;
+  const expectedCurrencies = MARKET_DEFAULT_CURRENCIES[normalizedMarketCountry] ?? [];
+  return expectedCurrencies.includes(propertyCurrency);
 }
 
 export function filterShortletListingsByMarket(rows: Property[], marketCountry: string): Property[] {
@@ -297,6 +319,36 @@ export function unavailablePropertyIdsForDateRange(input: {
     }
   }
   return unavailable;
+}
+
+export function filterShortletRowsByDateAvailability(input: {
+  rows: Property[];
+  checkIn: string | null;
+  checkOut: string | null;
+  bookedOverlaps: ReadonlyArray<ShortletOverlapRow>;
+  blockedOverlaps: ReadonlyArray<ShortletOverlapRow>;
+}): {
+  rows: Property[];
+  unavailablePropertyIds: Set<string>;
+} {
+  if (!input.checkIn || !input.checkOut || input.checkIn >= input.checkOut) {
+    return {
+      rows: input.rows,
+      unavailablePropertyIds: new Set<string>(),
+    };
+  }
+
+  const unavailablePropertyIds = unavailablePropertyIdsForDateRange({
+    checkIn: input.checkIn,
+    checkOut: input.checkOut,
+    bookedOverlaps: input.bookedOverlaps,
+    blockedOverlaps: input.blockedOverlaps,
+  });
+
+  return {
+    rows: input.rows.filter((row) => !unavailablePropertyIds.has(row.id)),
+    unavailablePropertyIds,
+  };
 }
 
 export function sortShortletSearchResults(
@@ -459,6 +511,11 @@ export function mapShortletSearchRowsToResultItems(
     const coverImageUrl = primaryImageUrl;
     const imageUrls = orderedImages.slice(0, 5).map((img) => img.image_url);
     const imageCount = orderedImages.length;
+    const hasCoords =
+      typeof row.latitude === "number" &&
+      Number.isFinite(row.latitude) &&
+      typeof row.longitude === "number" &&
+      Number.isFinite(row.longitude);
 
     const rest: Property = { ...row };
     delete (rest as Property & { property_images?: ShortletSearchImageRow[] }).property_images;
@@ -470,6 +527,7 @@ export function mapShortletSearchRowsToResultItems(
       coverImageUrl,
       imageCount,
       imageUrls,
+      hasCoords,
     };
   });
 }

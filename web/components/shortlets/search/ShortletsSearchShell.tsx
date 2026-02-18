@@ -46,6 +46,16 @@ type SearchResponse = {
   pageSize: number;
   total: number;
   items: SearchItem[];
+  mapItems?: Array<{
+    id: string;
+    title: string;
+    city: string;
+    currency: string;
+    nightlyPriceMinor: number | null;
+    primaryImageUrl: string | null;
+    latitude: number | null;
+    longitude: number | null;
+  }>;
   nearbyAlternatives: Array<{ label: string; hint: string }>;
 };
 
@@ -124,6 +134,14 @@ function formatCompactDate(dateValue: string): string {
     month: "short",
     day: "numeric",
   }).format(new Date(parsed));
+}
+
+function getMarketLabel(countryCode: string): string {
+  if (countryCode === "NG") return "Nigeria";
+  if (countryCode === "GB") return "the UK";
+  if (countryCode === "KE") return "Kenya";
+  if (countryCode === "US") return "the US";
+  return countryCode;
 }
 
 function normalizeSearchItemImageFields(item: SearchItem): SearchItem {
@@ -458,8 +476,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const hiddenFilterTagCount = Math.max(0, activeFilterTags.length - visibleFilterTags.length);
 
   const mapListings = useMemo(
-    () =>
-      (results?.items ?? []).map((item) => ({
+    () => {
+      if (results?.mapItems?.length) {
+        return results.mapItems.map((item) => ({
+          ...item,
+          latitude: typeof item.latitude === "number" ? item.latitude : null,
+          longitude: typeof item.longitude === "number" ? item.longitude : null,
+        }));
+      }
+      return (results?.items ?? []).map((item) => ({
         id: item.id,
         title: item.title,
         city: item.city,
@@ -468,8 +493,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         primaryImageUrl: item.primaryImageUrl ?? item.cover_image_url ?? null,
         latitude: typeof item.latitude === "number" ? item.latitude : null,
         longitude: typeof item.longitude === "number" ? item.longitude : null,
-      })),
-    [results?.items]
+      }));
+    },
+    [results?.items, results?.mapItems]
   );
   const mapResultHash = useMemo(() => {
     const ids = mapListings.map((listing) => listing.id).join(",");
@@ -500,6 +526,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     Number.isFinite(guestCount) && guestCount > 0
       ? `${Math.trunc(guestCount)} ${Math.trunc(guestCount) === 1 ? "guest" : "guests"}`
       : "Guests";
+
+  const marketLabel = getMarketLabel(parsedUi.market);
 
   return (
     <div className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-4 px-4 py-4">
@@ -564,7 +592,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Shortlets</p>
-        <h1 className="text-2xl font-semibold text-slate-900">Find shortlets across Nigeria</h1>
+        <h1 className="text-2xl font-semibold text-slate-900">Find shortlets across {marketLabel}</h1>
         <p className="mt-1 text-sm text-slate-600">
           Search by area, landmark, and dates. Map prices are nightly and availability-aware.
         </p>

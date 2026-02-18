@@ -2,21 +2,22 @@ import { NextResponse, type NextRequest } from "next/server";
 import type { Property } from "@/lib/types";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { getUserRole } from "@/lib/authz";
+import { normalizeRole } from "@/lib/roles";
 import { searchProperties } from "@/lib/search";
 import {
+  filterShortletRowsByDateAvailability,
   filterShortletListingsByMarket,
-  filterToShortletListings,
   isWithinBounds,
   mapShortletSearchRowsToResultItems,
   matchesShortletSearchQuery,
   matchesTrustFilters,
   parseShortletSearchFilters,
   sortShortletSearchResults,
-  unavailablePropertyIdsForDateRange,
   type ShortletSearchPropertyRow,
   type ShortletOverlapRow,
 } from "@/lib/shortlet/search";
-import { resolveShortletBookingMode } from "@/lib/shortlet/discovery";
+import { resolveShortletBookingMode, resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
 
 const routeLabel = "/api/shortlets/search";
 const MAX_SOURCE_ROWS = 600;
@@ -42,6 +43,23 @@ function parseOverlapRows(input: Array<Record<string, unknown>> | null, startKey
   );
 }
 
+type DebugReason =
+  | "market_mismatch"
+  | "query_mismatch"
+  | "bounds_mismatch"
+  | "trust_filter_mismatch"
+  | "booking_mode_mismatch"
+  | "availability_conflict";
+
+function appendReason(map: Map<string, Set<DebugReason>>, propertyId: string, reason: DebugReason) {
+  const existing = map.get(propertyId);
+  if (existing) {
+    existing.add(reason);
+    return;
+  }
+  map.set(propertyId, new Set([reason]));
+}
+
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
@@ -60,6 +78,23 @@ export async function GET(request: NextRequest) {
 
   try {
     const supabase = await createServerSupabaseClient();
+    const debugRequested = request.nextUrl.searchParams.get("debug") === "1";
+    let viewerRole: ReturnType<typeof normalizeRole> = null;
+    if (debugRequested && process.env.NODE_ENV !== "production") {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (user) {
+          viewerRole = normalizeRole(await getUserRole(supabase, user.id));
+        }
+      } catch {
+        viewerRole = null;
+      }
+    }
+    const debugEnabled =
+      debugRequested && process.env.NODE_ENV !== "production" && viewerRole === "admin";
+
     const { data, error } = await searchProperties(
       {
         city: null,
@@ -87,10 +122,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message || "Unable to search shortlets." }, { status: 400 });
     }
 
-    const sourceRows = filterShortletListingsByMarket(
-      filterToShortletListings((data as Property[] | null) ?? []),
-      filters.marketCountry
-    );
+    const baselineRows = ((data as Property[] | null) ?? []).map((row) => ({ ...row }));
+    const sourceRows = filterShortletListingsByMarket(baselineRows, filters.marketCountry);
+    const debugReasons = new Map<string, Set<DebugReason>>();
+    if (debugEnabled) {
+      const sourceIds = new Set(sourceRows.map((row) => row.id));
+      for (const row of baselineRows) {
+        if (!sourceIds.has(row.id)) appendReason(debugReasons, row.id, "market_mismatch");
+      }
+    }
     const ownerIds = Array.from(new Set(sourceRows.map((row) => row.owner_id).filter(Boolean)));
 
     const verifiedHostIds = new Set<string>();
@@ -106,16 +146,29 @@ export async function GET(request: NextRequest) {
     }
 
     let rows = sourceRows.filter((property) => {
-      if (!matchesShortletSearchQuery(property, filters.q)) return false;
-      if (!isWithinBounds(property, filters.bounds)) return false;
-      if (!matchesTrustFilters({ property, trustFilters: filters.trust, verifiedHostIds })) return false;
+      if (!matchesShortletSearchQuery(property, filters.q)) {
+        if (debugEnabled) appendReason(debugReasons, property.id, "query_mismatch");
+        return false;
+      }
+      if (!isWithinBounds(property, filters.bounds)) {
+        if (debugEnabled) appendReason(debugReasons, property.id, "bounds_mismatch");
+        return false;
+      }
+      if (!matchesTrustFilters({ property, trustFilters: filters.trust, verifiedHostIds })) {
+        if (debugEnabled) appendReason(debugReasons, property.id, "trust_filter_mismatch");
+        return false;
+      }
       if (filters.provider.bookingMode) {
         const bookingMode = resolveShortletBookingMode(property);
-        if (bookingMode !== filters.provider.bookingMode) return false;
+        if (bookingMode !== filters.provider.bookingMode) {
+          if (debugEnabled) appendReason(debugReasons, property.id, "booking_mode_mismatch");
+          return false;
+        }
       }
       return true;
     });
 
+    let unavailablePropertyIds = new Set<string>();
     if (hasDateRange && rows.length > 0) {
       const propertyIds = rows.map((row) => row.id);
       const queryClient = hasServiceRoleEnv()
@@ -149,13 +202,20 @@ export async function GET(request: NextRequest) {
         "date_to"
       );
 
-      const unavailablePropertyIds = unavailablePropertyIdsForDateRange({
-        checkIn: filters.checkIn as string,
-        checkOut: filters.checkOut as string,
+      const availabilityFiltered = filterShortletRowsByDateAvailability({
+        rows,
+        checkIn: filters.checkIn,
+        checkOut: filters.checkOut,
         bookedOverlaps,
         blockedOverlaps,
       });
-      rows = rows.filter((row) => !unavailablePropertyIds.has(row.id));
+      rows = availabilityFiltered.rows;
+      unavailablePropertyIds = availabilityFiltered.unavailablePropertyIds;
+      if (debugEnabled) {
+        for (const propertyId of unavailablePropertyIds) {
+          appendReason(debugReasons, propertyId, "availability_conflict");
+        }
+      }
     }
 
     const recommendedCenter = filters.bounds
@@ -174,16 +234,29 @@ export async function GET(request: NextRequest) {
     const items = mapShortletSearchRowsToResultItems(
       sorted.slice(from, to) as unknown as ShortletSearchPropertyRow[]
     );
+    const mapItems = items
+      .filter((item) => item.hasCoords)
+      .map((item) => ({
+        id: item.id,
+        title: item.title,
+        city: item.city,
+        currency: item.currency,
+        nightlyPriceMinor: resolveShortletNightlyPriceMinor(item),
+        primaryImageUrl: item.primaryImageUrl ?? item.cover_image_url ?? null,
+        latitude: item.latitude,
+        longitude: item.longitude,
+      }));
 
     const hasNearbySuggestion = total === 0 && !!filters.bounds;
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       ok: true,
       route: routeLabel,
       page: filters.page,
       pageSize: filters.pageSize,
       total,
       items,
+      mapItems,
       nearbyAlternatives: hasNearbySuggestion
         ? [{ label: "Expand map area", hint: "Try searching a wider area nearby." }]
         : [],
@@ -200,7 +273,38 @@ export async function GET(request: NextRequest) {
       },
     };
 
-    const cacheControl = hasDateRange
+    if (debugEnabled) {
+      const finalIds = new Set(sorted.map((row) => row.id));
+      const missingFromBaseline = baselineRows
+        .filter((row) => !finalIds.has(row.id))
+        .map((row) => ({
+          id: row.id,
+          title: row.title,
+          country_code: row.country_code ?? null,
+          country: row.country ?? null,
+          currency: row.currency ?? null,
+          hasCoords:
+            typeof row.latitude === "number" &&
+            Number.isFinite(row.latitude) &&
+            typeof row.longitude === "number" &&
+            Number.isFinite(row.longitude),
+          reasons: Array.from(debugReasons.get(row.id) ?? []),
+        }));
+
+      payload.__debug = {
+        baselineCount: baselineRows.length,
+        marketCount: sourceRows.length,
+        filteredCount: sorted.length,
+        pagedCount: items.length,
+        mapCount: mapItems.length,
+        availabilityConflictCount: unavailablePropertyIds.size,
+        missingFromBaseline: missingFromBaseline.slice(0, 100),
+      };
+    }
+
+    const cacheControl = debugEnabled
+      ? "private, no-store"
+      : hasDateRange
       ? "private, no-store"
       : "public, s-maxage=120, stale-while-revalidate=300";
 

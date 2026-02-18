@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  filterShortletRowsByDateAvailability,
   filterShortletListingsByMarket,
   mapShortletSearchRowsToResultItems,
   matchesTrustFilters,
@@ -114,7 +115,7 @@ void test("market=NG returns only NG listings", () => {
   ];
 
   const filtered = filterShortletListingsByMarket(rows, "NG");
-  assert.deepEqual(filtered.map((row) => row.id), ["ng-1"]);
+  assert.deepEqual(filtered.map((row) => row.id), ["ng-1", "unknown-1"]);
 });
 
 void test("shortlet search defaults market to NG", () => {
@@ -180,6 +181,93 @@ void test("shortlet search result items expose canonical cover image fields", ()
     "https://example.com/img-2.jpg",
   ]);
   assert.equal(mapped.images?.[0]?.image_url, "https://example.com/img-1.jpg");
+  assert.equal(mapped.hasCoords, false);
+});
+
+void test("map/list decoupling keeps list items without coords while map can skip them", () => {
+  const rows = [
+    buildProperty({
+      id: "coords",
+      latitude: 6.52,
+      longitude: 3.37,
+      cover_image_url: "https://example.com/coords.jpg",
+    }),
+    buildProperty({
+      id: "no-coords",
+      latitude: null,
+      longitude: null,
+      cover_image_url: "https://example.com/no-coords.jpg",
+    }),
+  ];
+  const mapped = mapShortletSearchRowsToResultItems(rows);
+  assert.equal(mapped.length, 2);
+  assert.deepEqual(
+    mapped.filter((item) => item.hasCoords).map((item) => item.id),
+    ["coords"]
+  );
+});
+
+void test("availability filtering applies only when valid date range is present", () => {
+  const rows = [
+    buildProperty({ id: "available" }),
+    buildProperty({ id: "busy" }),
+  ];
+  const bookedOverlaps = [{ property_id: "busy", start: "2026-03-10", end: "2026-03-12" }];
+
+  const withoutDates = filterShortletRowsByDateAvailability({
+    rows,
+    checkIn: null,
+    checkOut: null,
+    bookedOverlaps,
+    blockedOverlaps: [],
+  });
+  assert.deepEqual(
+    withoutDates.rows.map((row) => row.id).sort(),
+    ["available", "busy"]
+  );
+
+  const withDates = filterShortletRowsByDateAvailability({
+    rows,
+    checkIn: "2026-03-10",
+    checkOut: "2026-03-11",
+    bookedOverlaps,
+    blockedOverlaps: [],
+  });
+  assert.deepEqual(withDates.rows.map((row) => row.id), ["available"]);
+  assert.equal(withDates.unavailablePropertyIds.has("busy"), true);
+});
+
+void test("no-date shortlet baseline remains abundant for nigeria market", () => {
+  const baselineRows: Property[] = Array.from({ length: 7 }).map((_, index) =>
+    buildProperty({
+      id: `listing-${index + 1}`,
+      country_code: index < 4 ? "NG" : null,
+      country: index < 4 ? "Nigeria" : null,
+      currency: "NGN",
+      latitude: index % 2 === 0 ? 6.5 + index * 0.01 : null,
+      longitude: index % 2 === 0 ? 3.3 + index * 0.01 : null,
+      shortlet_settings:
+        index % 3 === 0
+          ? [{ booking_mode: "request", nightly_price_minor: 45000 + index * 1000 }]
+          : [],
+    })
+  );
+
+  const marketRows = filterShortletListingsByMarket(baselineRows, "NG");
+  assert.equal(marketRows.length, baselineRows.length);
+
+  const availabilityUnconstrained = filterShortletRowsByDateAvailability({
+    rows: marketRows,
+    checkIn: null,
+    checkOut: null,
+    bookedOverlaps: [
+      { property_id: "listing-1", start: "2026-03-10", end: "2026-03-12" },
+      { property_id: "listing-2", start: "2026-03-11", end: "2026-03-13" },
+    ],
+    blockedOverlaps: [{ property_id: "listing-3", start: "2026-03-10", end: "2026-03-11" }],
+  });
+
+  assert.equal(availabilityUnconstrained.rows.length, baselineRows.length);
 });
 
 void test("primary image resolver supports cover, images array, and property_images cascade", () => {
