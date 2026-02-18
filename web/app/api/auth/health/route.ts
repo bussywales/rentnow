@@ -20,10 +20,20 @@ export async function GET() {
   try {
     const supabase = await createServerSupabaseClient();
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user: initialUser },
+    } = await supabase.auth.getUser();
 
-    const user = session?.user;
+    let user = initialUser;
+    if (!user) {
+      const { data: refreshed } = await supabase.auth.refreshSession();
+      if (refreshed?.session) {
+        const {
+          data: { user: refreshedUser },
+        } = await supabase.auth.getUser();
+        user = refreshedUser;
+      }
+    }
+
     if (!user) {
       return jsonResponse({ ok: false }, 401);
     }

@@ -133,17 +133,28 @@ export async function GET(req: NextRequest) {
   if (!supabase) return res; // Demo mode: allow through.
 
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user: initialUser },
+  } = await supabase.auth.getUser();
+  let user = initialUser ?? null;
 
-  if (!session?.user) {
+  if (!user) {
+    const { data: refreshed } = await supabase.auth.refreshSession();
+    if (refreshed?.session) {
+      const {
+        data: { user: refreshedUser },
+      } = await supabase.auth.getUser();
+      user = refreshedUser ?? null;
+    }
+  }
+
+  if (!user) {
     return buildRedirect(req, "/auth/required", "auth");
   }
 
   const { data: profile } = await supabase
     .from("profiles")
     .select("role")
-    .eq("id", session.user.id)
+    .eq("id", user.id)
     .maybeSingle();
 
   const role = profile?.role as UserRole | undefined;

@@ -223,22 +223,18 @@ export async function requireAdminRole({
   }
 
   const {
-    data: { session: activeSession },
-  } = await supabase.auth.getSession();
-  let user = activeSession?.user ?? null;
+    data: { user: initialUser },
+  } = await supabase.auth.getUser();
+  let user = initialUser ?? null;
 
   if (!user) {
-    const {
-      data: { session: refreshedSession },
-    } = await supabase.auth.refreshSession();
-    user = refreshedSession?.user ?? null;
-  }
-
-  if (!user) {
-    const {
-      data: { user: fallbackUser },
-    } = await supabase.auth.getUser();
-    user = fallbackUser ?? null;
+    const { data: refreshedSession } = await supabase.auth.refreshSession();
+    if (refreshedSession?.session) {
+      const {
+        data: { user: refreshedUser },
+      } = await supabase.auth.getUser();
+      user = refreshedUser ?? null;
+    }
   }
 
   if (!user) {

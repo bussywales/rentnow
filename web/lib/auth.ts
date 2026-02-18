@@ -7,27 +7,30 @@ export async function getSession() {
   try {
     const supabase = await createServerSupabaseClient();
     const {
-      data: { session },
+      data: { user: initialUser },
       error,
-    } = await supabase.auth.getSession();
+    } = await supabase.auth.getUser();
 
     if (error) {
       console.error("Error fetching session user", error.message);
     }
 
-    let user = session?.user as User | null | undefined;
+    let user = initialUser as User | null | undefined;
     if (!user) {
-      const {
-        data: { session: refreshed },
-      } = await supabase.auth.refreshSession();
-      user = refreshed?.user as User | null | undefined;
-    }
-
-    if (!user) {
-      const {
-        data: { user: fallbackUser },
-      } = await supabase.auth.getUser();
-      user = fallbackUser as User | null | undefined;
+      const { data: refreshed, error: refreshError } = await supabase.auth.refreshSession();
+      if (refreshError) {
+        console.error("Error refreshing session user", refreshError.message);
+      }
+      if (refreshed?.session) {
+        const {
+          data: { user: refreshedUser },
+          error: refreshedUserError,
+        } = await supabase.auth.getUser();
+        if (refreshedUserError) {
+          console.error("Error fetching refreshed session user", refreshedUserError.message);
+        }
+        user = refreshedUser as User | null | undefined;
+      }
     }
 
     return user ? ({ user } as { user: User }) : null;

@@ -43,18 +43,12 @@ export async function GET(request: NextRequest) {
       data: { user },
       error,
     } = await supabase.auth.getUser();
-
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
-
-    const errorMessage = error?.message || sessionError?.message || null;
+    const errorMessage = error?.message || null;
 
     return NextResponse.json({
       ready: true,
       user,
-      sessionUserId: session?.user?.id ?? null,
+      sessionUserId: user?.id ?? null,
       error: errorMessage,
       bootstrap,
       cookieNames,
