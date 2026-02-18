@@ -104,13 +104,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     [initialSearchParams]
   );
   const effectiveSearchParams = searchParams ?? initialParams;
+  const searchParamsKey = effectiveSearchParams.toString();
+  const stableSearchParams = useMemo(() => new URLSearchParams(searchParamsKey), [searchParamsKey]);
   const parsedUi = useMemo(
-    () => readQueryParamsFromSearchParams(effectiveSearchParams),
-    [effectiveSearchParams]
+    () => readQueryParamsFromSearchParams(stableSearchParams),
+    [stableSearchParams]
   );
   const parsedBounds = useMemo(
-    () => parseShortletSearchBounds(effectiveSearchParams.get("bounds")),
-    [effectiveSearchParams]
+    () => parseShortletSearchBounds(stableSearchParams.get("bounds")),
+    [stableSearchParams]
   );
 
   const [queryDraft, setQueryDraft] = useState(parsedUi.q);
@@ -147,7 +149,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       setLoading(true);
       setError(null);
       try {
-        const params = new URLSearchParams(effectiveSearchParams.toString());
+        const params = new URLSearchParams(stableSearchParams.toString());
         if (!params.get("page")) params.set("page", "1");
         if (!params.get("pageSize")) params.set("pageSize", "24");
         params.delete("view");
@@ -174,18 +176,18 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     };
     void run();
     return () => controller.abort();
-  }, [effectiveSearchParams]);
+  }, [stableSearchParams]);
 
   const updateUrl = useCallback(
     (mutate: (next: URLSearchParams) => void) => {
-      const next = new URLSearchParams(effectiveSearchParams.toString());
+      const next = new URLSearchParams(searchParamsKey);
       mutate(next);
       if (!next.get("view")) next.set("view", mobileView);
       next.set("page", "1");
       const query = next.toString();
       router.replace(query ? `${pathname}?${query}` : pathname);
     },
-    [effectiveSearchParams, mobileView, pathname, router]
+    [mobileView, pathname, router, searchParamsKey]
   );
 
   const toggleTrustFilter = (key: TrustFilterKey) => {
@@ -240,11 +242,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const trustFilterState = useMemo(
     () =>
       new Set(
-        TRUST_FILTERS.filter((item) => effectiveSearchParams.get(item.key) === "1").map(
-          (item) => item.key
-        )
+        TRUST_FILTERS.filter((item) => stableSearchParams.get(item.key) === "1").map((item) => item.key)
       ),
-    [effectiveSearchParams]
+    [stableSearchParams]
   );
 
   const mapListings = useMemo(
@@ -404,7 +404,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     <PropertyCard
                       property={property}
                       href={`/properties/${property.id}?back=${encodeURIComponent(
-                        `/shortlets?${effectiveSearchParams.toString()}`
+                        `/shortlets?${searchParamsKey}`
                       )}#cta`}
                       showSave
                     />
@@ -494,7 +494,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                   <PropertyCard
                     property={property}
                     href={`/properties/${property.id}?back=${encodeURIComponent(
-                      `/shortlets?${effectiveSearchParams.toString()}`
+                      `/shortlets?${searchParamsKey}`
                     )}#cta`}
                     showSave
                   />
@@ -575,7 +575,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                       </p>
                       <Link
                         href={`/properties/${property.id}?back=${encodeURIComponent(
-                          `/shortlets?${effectiveSearchParams.toString()}`
+                          `/shortlets?${searchParamsKey}`
                         )}#cta`}
                         className="mt-2 inline-flex text-xs font-semibold text-sky-700"
                       >
@@ -592,4 +592,3 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     </div>
   );
 }
-
