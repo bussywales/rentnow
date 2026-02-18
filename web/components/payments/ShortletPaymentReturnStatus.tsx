@@ -350,6 +350,11 @@ export function ShortletPaymentReturnStatus(props: {
           Payment was not successful. You can retry checkout.
         </p>
       ) : null}
+      {state === "refunded" ? (
+        <p className="mt-4 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          This payment was refunded. This booking is now closed.
+        </p>
+      ) : null}
       {state === "closed" ? (
         <p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
           This booking is closed.

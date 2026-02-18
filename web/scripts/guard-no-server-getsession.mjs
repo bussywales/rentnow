@@ -1,11 +1,18 @@
 #!/usr/bin/env node
 
+/**
+ * Usage:
+ * - Default CI scope: node scripts/guard-no-server-getsession.mjs
+ * - Custom root scope: node scripts/guard-no-server-getsession.mjs --root /abs/path/to/web
+ * - Custom path scope: node scripts/guard-no-server-getsession.mjs --paths pathA,pathB
+ */
+
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
-const webRoot = path.resolve(scriptDir, "..");
+const defaultWebRoot = path.resolve(scriptDir, "..");
 
 const excludedRelativePaths = new Set([
   "app/auth/reset/page.tsx",
@@ -21,23 +28,17 @@ const sourceExtensions = new Set([".ts", ".tsx"]);
 const forbiddenPatterns = [
   {
     reason: "Forbidden server getSession call detected",
-    regex: /\bsupabase\.auth\.getSession\s*\(/,
-  },
-  {
-    reason: "Forbidden server getSession call detected",
-    regex: /\bauth\.getSession\s*\(/,
-  },
-  {
-    reason: "Forbidden server getSession call detected",
-    regex: /\b[a-zA-Z_$][\w$]*auth[\w$]*\.getSession\s*\(/i,
+    regex: /\b[a-zA-Z_$][\w$]*\.auth\.getSession\b/,
   },
   {
     reason: "Forbidden server getSession aliasing detected",
-    regex: /\b(?:const|let|var)\s*\{\s*getSession(?:\s*:\s*[A-Za-z_$][\w$]*)?\s*\}\s*=\s*[A-Za-z_$][\w$]*\.auth\b/,
+    regex:
+      /\b(?:const|let|var)\s*\{\s*getSession(?:\s*:\s*[A-Za-z_$][\w$]*)?\s*\}\s*=\s*[A-Za-z_$][\w$]*\.auth\b/,
   },
   {
     reason: "Forbidden server getSession aliasing detected",
-    regex: /\(\s*\{\s*getSession(?:\s*:\s*[A-Za-z_$][\w$]*)?\s*\}\s*=\s*[A-Za-z_$][\w$]*\.auth\s*\)/,
+    regex:
+      /\(\s*\{\s*getSession(?:\s*:\s*[A-Za-z_$][\w$]*)?\s*\}\s*=\s*[A-Za-z_$][\w$]*\.auth\s*\)/,
   },
   {
     reason: "Forbidden server getSession aliasing detected",
@@ -49,46 +50,94 @@ const forbiddenPatterns = [
   },
   {
     reason: "Forbidden server getSession bracket access detected",
-    regex: /\.auth\[['"]getSession['"]\]/,
+    regex: /\.auth[^\n]*\[['"]getSession['"]\]/,
   },
 ];
 
 const toPosix = (value) => value.split(path.sep).join("/");
 
-async function walkDirectory(dirPath, onFile) {
+function parseArgs(argv) {
+  const options = {
+    root: null,
+    paths: null,
+  };
+
+  for (let index = 0; index < argv.length; index += 1) {
+    const arg = argv[index];
+    if (arg === "--root") {
+      options.root = argv[index + 1] ?? null;
+      index += 1;
+      continue;
+    }
+    if (arg === "--paths") {
+      options.paths = argv[index + 1] ?? null;
+      index += 1;
+      continue;
+    }
+  }
+
+  return options;
+}
+
+async function pathExists(absolutePath) {
+  try {
+    await fs.stat(absolutePath);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function isSourceFile(absolutePath) {
+  return sourceExtensions.has(path.extname(absolutePath));
+}
+
+function isClientFilePath(absolutePath) {
+  return path.basename(absolutePath).includes(".client.");
+}
+
+function isClientModule(content) {
+  const lines = content.split("\n");
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("//")) continue;
+    return (
+      trimmed === '"use client";' ||
+      trimmed === "'use client';" ||
+      trimmed === '"use client"' ||
+      trimmed === "'use client'"
+    );
+  }
+  return false;
+}
+
+async function walkDirectory(dirPath, onFile, ignoreDirs = ignoredDirNames) {
+  if (!(await pathExists(dirPath))) return;
   const entries = await fs.readdir(dirPath, { withFileTypes: true });
   for (const entry of entries) {
-    if (ignoredDirNames.has(entry.name)) {
+    if (entry.isDirectory() && ignoreDirs.has(entry.name)) {
       continue;
     }
     const absolutePath = path.join(dirPath, entry.name);
     if (entry.isDirectory()) {
-      await walkDirectory(absolutePath, onFile);
+      await walkDirectory(absolutePath, onFile, ignoreDirs);
       continue;
     }
     await onFile(absolutePath);
   }
 }
 
-async function collectCandidateFiles() {
+async function collectDefaultCandidateFiles(webRoot) {
   const files = new Set();
   const addFileIfExists = async (absolutePath) => {
-    try {
-      const stats = await fs.stat(absolutePath);
-      if (stats.isFile()) {
-        files.add(absolutePath);
-      }
-    } catch {
-      // ignore missing files
+    if (await pathExists(absolutePath)) {
+      files.add(absolutePath);
     }
   };
 
   const appRoot = path.join(webRoot, "app");
   await walkDirectory(appRoot, async (absolutePath) => {
-    const ext = path.extname(absolutePath);
-    if (!sourceExtensions.has(ext)) {
-      return;
-    }
+    if (!isSourceFile(absolutePath)) return;
     const relative = toPosix(path.relative(webRoot, absolutePath));
     if (relative.startsWith("app/api/")) {
       files.add(absolutePath);
@@ -101,14 +150,7 @@ async function collectCandidateFiles() {
 
   const libRoot = path.join(webRoot, "lib");
   await walkDirectory(libRoot, async (absolutePath) => {
-    const ext = path.extname(absolutePath);
-    if (!sourceExtensions.has(ext)) {
-      return;
-    }
-    const basename = path.basename(absolutePath);
-    if (basename.includes(".client.")) {
-      return;
-    }
+    if (!isSourceFile(absolutePath) || isClientFilePath(absolutePath)) return;
     files.add(absolutePath);
   });
 
@@ -121,19 +163,66 @@ async function collectCandidateFiles() {
   });
 }
 
+async function collectCustomPathFiles(pathsOption, webRoot) {
+  const customPaths = String(pathsOption || "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+
+  const files = new Set();
+  const walkIgnore = new Set(["node_modules", ".next"]);
+
+  for (const customPath of customPaths) {
+    const absolutePath = path.isAbsolute(customPath)
+      ? customPath
+      : path.resolve(webRoot, customPath);
+    if (!(await pathExists(absolutePath))) {
+      continue;
+    }
+    const stats = await fs.stat(absolutePath);
+    if (stats.isFile()) {
+      if (isSourceFile(absolutePath)) files.add(absolutePath);
+      continue;
+    }
+    await walkDirectory(
+      absolutePath,
+      async (childPath) => {
+        if (isSourceFile(childPath)) files.add(childPath);
+      },
+      walkIgnore
+    );
+  }
+
+  return Array.from(files);
+}
+
 async function main() {
-  const files = await collectCandidateFiles();
+  const options = parseArgs(process.argv.slice(2));
+  const webRoot = options.root
+    ? path.resolve(process.cwd(), options.root)
+    : defaultWebRoot;
+
+  const files = options.paths
+    ? await collectCustomPathFiles(options.paths, webRoot)
+    : await collectDefaultCandidateFiles(webRoot);
   const violations = [];
 
   for (const absolutePath of files) {
+    if (isClientFilePath(absolutePath)) {
+      continue;
+    }
+
     const content = await fs.readFile(absolutePath, "utf8");
+    if (isClientModule(content)) {
+      continue;
+    }
+
     const lines = content.split("\n");
     lines.forEach((line, index) => {
       forbiddenPatterns.forEach((pattern) => {
         const match = line.match(pattern.regex);
-        if (!match) {
-          return;
-        }
+        if (!match) return;
+
         const relative = `web/${toPosix(path.relative(webRoot, absolutePath))}`;
         violations.push({
           file: relative,

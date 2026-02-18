@@ -18,6 +18,7 @@ export type ShortletReturnUiState =
   | "pending"
   | "confirmed"
   | "failed"
+  | "refunded"
   | "closed";
 
 export const SHORTLET_STATUS_POLL_TIMEOUT_MS = 60_000;
@@ -197,12 +198,13 @@ export function resolveShortletReturnUiState(input: {
   const bookingStatus = normalizeShortletBookingStatus(input.bookingStatus);
   const paymentStatus = normalizeShortletPaymentStatus(input.paymentStatus);
 
+  if (paymentStatus === "refunded") return "refunded" as const;
   if (bookingStatus === "confirmed") return "confirmed" as const;
   if (bookingStatus === "pending") return "pending" as const;
   if (bookingStatus && TERMINAL_BOOKING_STATUSES.has(bookingStatus)) {
     return "closed" as const;
   }
-  if (paymentStatus && FAILURE_PAYMENT_STATUSES.has(paymentStatus)) {
+  if (paymentStatus === "failed") {
     return "failed" as const;
   }
   return "processing" as const;

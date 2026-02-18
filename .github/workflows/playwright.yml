@@ -43,7 +43,8 @@ jobs:
         run: npm ci
 
       - name: Run server auth guard
-        run: npm run guard:no-server-getsession
+        working-directory: .
+        run: npm --prefix web run guard:no-server-getsession
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
