@@ -6,6 +6,8 @@ import {
   matchesTrustFilters,
   parseShortletSearchFilters,
   parseShortletSearchBounds,
+  resolveShortletPrimaryImageUrl,
+  sortShortletSearchResults,
   unavailablePropertyIdsForDateRange,
 } from "@/lib/shortlet/search";
 import type { Property } from "@/lib/types";
@@ -120,6 +122,31 @@ void test("shortlet search defaults market to NG", () => {
   assert.equal(parsed.marketCountry, "NG");
 });
 
+void test("recommended shortlet sorting prioritizes verified hosts and value", () => {
+  const rows: Property[] = [
+    buildProperty({
+      id: "a",
+      owner_id: "owner-a",
+      shortlet_settings: [{ booking_mode: "request", nightly_price_minor: 70000 }],
+      latitude: 6.5,
+      longitude: 3.3,
+    }),
+    buildProperty({
+      id: "b",
+      owner_id: "owner-b",
+      shortlet_settings: [{ booking_mode: "instant", nightly_price_minor: 65000 }],
+      latitude: 6.51,
+      longitude: 3.31,
+    }),
+  ];
+
+  const sorted = sortShortletSearchResults(rows, "recommended", {
+    verifiedHostIds: new Set(["owner-a"]),
+    recommendedCenter: { latitude: 6.5, longitude: 3.3 },
+  });
+  assert.deepEqual(sorted.map((item) => item.id), ["a", "b"]);
+});
+
 void test("shortlet search result items expose canonical cover image fields", () => {
   const rows = [
     {
@@ -144,6 +171,7 @@ void test("shortlet search result items expose canonical cover image fields", ()
 
   const [mapped] = mapShortletSearchRowsToResultItems(rows);
   assert.ok(mapped);
+  assert.equal(mapped.primaryImageUrl, "https://example.com/img-1.jpg");
   assert.equal(mapped.coverImageUrl, "https://example.com/img-1.jpg");
   assert.equal(mapped.cover_image_url, "https://example.com/img-1.jpg");
   assert.equal(mapped.imageCount, 2);
@@ -152,4 +180,42 @@ void test("shortlet search result items expose canonical cover image fields", ()
     "https://example.com/img-2.jpg",
   ]);
   assert.equal(mapped.images?.[0]?.image_url, "https://example.com/img-1.jpg");
+});
+
+void test("primary image resolver supports cover, images array, and property_images cascade", () => {
+  const fromCover = resolveShortletPrimaryImageUrl(
+    buildProperty({
+      cover_image_url: "https://example.com/cover.jpg",
+    }) as Property & {
+      property_images?: Array<{ id?: string; image_url?: string; position?: number }>;
+    }
+  );
+  assert.equal(fromCover, "https://example.com/cover.jpg");
+
+  const fromImages = resolveShortletPrimaryImageUrl(
+    buildProperty({
+      cover_image_url: null,
+      images: [
+        { id: "img-1", image_url: "https://example.com/images-array.jpg", position: 0 },
+      ],
+    }) as Property & {
+      property_images?: Array<{ id?: string; image_url?: string; position?: number }>;
+    }
+  );
+  assert.equal(fromImages, "https://example.com/images-array.jpg");
+
+  const fromPropertyImages = resolveShortletPrimaryImageUrl(
+    {
+      ...buildProperty({
+        cover_image_url: null,
+        images: [],
+      }),
+      property_images: [
+        { id: "img-2", image_url: "https://example.com/property-images.jpg", position: 0 },
+      ],
+    } as Property & {
+      property_images?: Array<{ id?: string; image_url?: string; position?: number }>;
+    }
+  );
+  assert.equal(fromPropertyImages, "https://example.com/property-images.jpg");
 });

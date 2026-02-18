@@ -59,9 +59,15 @@ export type ShortletSearchPropertyRow = Property & {
 };
 
 export type ShortletSearchResultItem = Property & {
+  primaryImageUrl: string | null;
   coverImageUrl: string | null;
   imageCount: number;
   imageUrls: string[];
+};
+
+type ShortletSearchSortContext = {
+  verifiedHostIds?: ReadonlySet<string>;
+  recommendedCenter?: { latitude: number; longitude: number } | null;
 };
 
 const POWER_BACKUP_TOKENS = [
@@ -295,13 +301,25 @@ export function unavailablePropertyIdsForDateRange(input: {
 
 export function sortShortletSearchResults(
   rows: Property[],
-  sort: ShortletSearchSort
+  sort: ShortletSearchSort,
+  context: ShortletSearchSortContext = {}
 ): Property[] {
   const withNightly = rows.map((property, index) => ({
     property,
     index,
     nightly: resolveShortletNightlyPriceMinor(property),
     createdAtMs: Date.parse(String(property.created_at || "")) || 0,
+    verifiedHost: !!context.verifiedHostIds?.has(property.owner_id),
+    distanceToCenter: (() => {
+      if (!context.recommendedCenter) return Number.POSITIVE_INFINITY;
+      const { latitude, longitude } = context.recommendedCenter;
+      if (typeof property.latitude !== "number" || typeof property.longitude !== "number") {
+        return Number.POSITIVE_INFINITY;
+      }
+      const latDiff = property.latitude - latitude;
+      const lngDiff = property.longitude - longitude;
+      return Math.hypot(latDiff, lngDiff);
+    })(),
   }));
 
   if (sort === "price_low") {
@@ -334,6 +352,9 @@ export function sortShortletSearchResults(
 
   return withNightly
     .sort((left, right) => {
+      if (left.verifiedHost !== right.verifiedHost) {
+        return left.verifiedHost ? -1 : 1;
+      }
       const leftMode = resolveShortletBookingMode(left.property);
       const rightMode = resolveShortletBookingMode(right.property);
       if (leftMode !== rightMode) {
@@ -343,6 +364,9 @@ export function sortShortletSearchResults(
       const leftPrice = left.nightly ?? Number.MAX_SAFE_INTEGER;
       const rightPrice = right.nightly ?? Number.MAX_SAFE_INTEGER;
       if (leftPrice !== rightPrice) return leftPrice - rightPrice;
+      if (left.distanceToCenter !== right.distanceToCenter) {
+        return left.distanceToCenter - right.distanceToCenter;
+      }
       if (left.createdAtMs !== right.createdAtMs) return right.createdAtMs - left.createdAtMs;
       return left.index - right.index;
     })
@@ -357,25 +381,82 @@ export function parseSearchView(value: string | null): "list" | "map" {
   return value === "map" ? "map" : "list";
 }
 
+function normalizeImageRows(
+  rows: Array<{
+    id?: string | null;
+    image_url?: string | null;
+    position?: number | null;
+    created_at?: string | null;
+    width?: number | null;
+    height?: number | null;
+    bytes?: number | null;
+    format?: string | null;
+  }>
+) {
+  return rows
+    .map((img) => ({
+      id: String(img.id || img.image_url || ""),
+      image_url: String(img.image_url || ""),
+      position: typeof img.position === "number" ? img.position : null,
+      created_at: img.created_at ?? undefined,
+      width: typeof img.width === "number" ? img.width : null,
+      height: typeof img.height === "number" ? img.height : null,
+      bytes: typeof img.bytes === "number" ? img.bytes : null,
+      format: img.format ?? null,
+    }))
+    .filter((img) => img.id && img.image_url);
+}
+
+function extractImageRowsFromProperty(
+  row: ShortletSearchPropertyRow
+): Array<{
+  id?: string | null;
+  image_url?: string | null;
+  position?: number | null;
+  created_at?: string | null;
+  width?: number | null;
+  height?: number | null;
+  bytes?: number | null;
+  format?: string | null;
+}> {
+  const fromPropertyImages = (row.property_images ?? []) as Array<{
+    id?: string | null;
+    image_url?: string | null;
+    position?: number | null;
+    created_at?: string | null;
+    width?: number | null;
+    height?: number | null;
+    bytes?: number | null;
+    format?: string | null;
+  }>;
+  const fromImages = ((row.images as Property["images"] | undefined) ?? []).map((img) => ({
+    id: img.id,
+    image_url: img.image_url,
+    position: img.position ?? null,
+    created_at: img.created_at ?? null,
+    width: img.width ?? null,
+    height: img.height ?? null,
+    bytes: img.bytes ?? null,
+    format: img.format ?? null,
+  }));
+  return [...fromPropertyImages, ...fromImages];
+}
+
+export function resolveShortletPrimaryImageUrl(row: ShortletSearchPropertyRow): string | null {
+  const rawRows = extractImageRowsFromProperty(row);
+  const ordered = orderImagesWithCover(row.cover_image_url, normalizeImageRows(rawRows));
+  return row.cover_image_url || ordered[0]?.image_url || null;
+}
+
 export function mapShortletSearchRowsToResultItems(
   rows: ShortletSearchPropertyRow[]
 ): ShortletSearchResultItem[] {
   return rows.map((row) => {
-    const propertyImages = (row.property_images ?? [])
-      .map((img) => ({
-        id: String(img.id || img.image_url || ""),
-        image_url: String(img.image_url || ""),
-        position: typeof img.position === "number" ? img.position : null,
-        created_at: img.created_at ?? undefined,
-        width: typeof img.width === "number" ? img.width : null,
-        height: typeof img.height === "number" ? img.height : null,
-        bytes: typeof img.bytes === "number" ? img.bytes : null,
-        format: img.format ?? null,
-      }))
-      .filter((img) => img.id && img.image_url);
-
-    const orderedImages = orderImagesWithCover(row.cover_image_url, propertyImages);
-    const coverImageUrl = row.cover_image_url || orderedImages[0]?.image_url || null;
+    const rawRows = extractImageRowsFromProperty(row);
+    const normalizedImages = normalizeImageRows(rawRows);
+    const primaryImageUrl = resolveShortletPrimaryImageUrl(row);
+    const orderedImages = orderImagesWithCover(primaryImageUrl, normalizedImages);
+    const coverImageUrl = primaryImageUrl;
     const imageUrls = orderedImages.slice(0, 5).map((img) => img.image_url);
     const imageCount = orderedImages.length;
 
@@ -385,6 +466,7 @@ export function mapShortletSearchRowsToResultItems(
       ...rest,
       cover_image_url: coverImageUrl,
       images: orderedImages,
+      primaryImageUrl,
       coverImageUrl,
       imageCount,
       imageUrls,

@@ -158,7 +158,16 @@ export async function GET(request: NextRequest) {
       rows = rows.filter((row) => !unavailablePropertyIds.has(row.id));
     }
 
-    const sorted = sortShortletSearchResults(rows, filters.sort);
+    const recommendedCenter = filters.bounds
+      ? {
+          latitude: (filters.bounds.north + filters.bounds.south) / 2,
+          longitude: (filters.bounds.east + filters.bounds.west) / 2,
+        }
+      : null;
+    const sorted = sortShortletSearchResults(rows, filters.sort, {
+      verifiedHostIds,
+      recommendedCenter,
+    });
     const total = sorted.length;
     const from = (filters.page - 1) * filters.pageSize;
     const to = from + filters.pageSize;
@@ -166,17 +175,6 @@ export async function GET(request: NextRequest) {
       sorted.slice(from, to) as unknown as ShortletSearchPropertyRow[]
     );
 
-    if (process.env.NODE_ENV !== "production") {
-      console.info("[api/shortlets/search] image-sample", {
-        sample: items.slice(0, 3).map((item) => ({
-          id: item.id,
-          title: item.title,
-          coverImageUrl: item.coverImageUrl,
-          imageCount: item.imageCount,
-          firstPhotoUrl: item.imageUrls[0] ?? null,
-        })),
-      });
-    }
     const hasNearbySuggestion = total === 0 && !!filters.bounds;
 
     const payload = {
