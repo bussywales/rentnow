@@ -238,6 +238,100 @@ export function clearShortletDateRangeState() {
   } as const;
 }
 
+export function isShortletDateUnavailable(input: {
+  date: Date;
+  todayDateKey: string;
+  disabledSet: ReadonlySet<string>;
+}): boolean {
+  const dateKey = toDateKey(input.date);
+  return dateKey < input.todayDateKey || input.disabledSet.has(dateKey);
+}
+
+export function deriveShortletDraftSelection(input: {
+  next: DateRange | undefined;
+  todayDateKey: string;
+  disabledSet: ReadonlySet<string>;
+  minNights: number;
+  maxNights: number | null;
+}): {
+  draftRange: DateRange | undefined;
+  hint: string | null;
+  isValid: boolean;
+} {
+  if (!input.next?.from) {
+    return {
+      draftRange: undefined,
+      hint: null,
+      isValid: false,
+    };
+  }
+
+  if (
+    isShortletDateUnavailable({
+      date: input.next.from,
+      todayDateKey: input.todayDateKey,
+      disabledSet: input.disabledSet,
+    })
+  ) {
+    return {
+      draftRange: undefined,
+      hint: "Unavailable. Choose different dates.",
+      isValid: false,
+    };
+  }
+
+  if (!input.next.to) {
+    return {
+      draftRange: { from: input.next.from, to: undefined },
+      hint: null,
+      isValid: false,
+    };
+  }
+
+  if (
+    isShortletDateUnavailable({
+      date: input.next.to,
+      todayDateKey: input.todayDateKey,
+      disabledSet: input.disabledSet,
+    })
+  ) {
+    return {
+      draftRange: { from: input.next.from, to: undefined },
+      hint: "Unavailable. Choose different dates.",
+      isValid: false,
+    };
+  }
+
+  const validation = validateRangeSelection({
+    checkIn: toDateKey(input.next.from),
+    checkOut: toDateKey(input.next.to),
+    disabledSet: input.disabledSet,
+    minNights: input.minNights,
+    maxNights: input.maxNights,
+  });
+
+  if (!validation.valid) {
+    return {
+      draftRange: { from: input.next.from, to: undefined },
+      hint:
+        resolveRangeHint(validation.reason, {
+          minNights: input.minNights,
+          maxNights: input.maxNights,
+        }) ?? "Unavailable. Choose different dates.",
+      isValid: false,
+    };
+  }
+
+  return {
+    draftRange: {
+      from: input.next.from,
+      to: input.next.to,
+    },
+    hint: null,
+    isValid: true,
+  };
+}
+
 export function ShortletBookingWidget(props: {
   propertyId: string;
   listingTitle: string;
@@ -531,12 +625,14 @@ export function ShortletBookingWidget(props: {
     };
   }, [pricing]);
 
-  const disabledDaysMatcher = useMemo(
-    () => [
-      { before: today },
-      (date: Date) => disabledSet.has(toDateKey(date)),
-    ],
-    [disabledSet, today]
+  const isUnavailableDate = useCallback(
+    (date: Date) =>
+      isShortletDateUnavailable({
+        date,
+        todayDateKey,
+        disabledSet,
+      }),
+    [disabledSet, todayDateKey]
   );
   const conflictingDateSet = useMemo(() => new Set(conflictingDates), [conflictingDates]);
   const draftValidation = useMemo(() => {
@@ -577,42 +673,17 @@ export function ShortletBookingWidget(props: {
       setAvailabilityNotice(null);
       setConflictingDates([]);
 
-      if (!next?.from) {
-        setDraftRange(undefined);
-        setSelectionHint(null);
-        return;
-      }
-
-      const draft = {
-        from: next.from,
-        to: next.to,
-      } satisfies DateRange;
-      setDraftRange(draft);
-
-      if (!next.to) {
-        setSelectionHint(null);
-        return;
-      }
-
-      const validation = validateRangeSelection({
-        checkIn: toDateKey(next.from),
-        checkOut: toDateKey(next.to),
+      const derived = deriveShortletDraftSelection({
+        next,
+        todayDateKey,
         disabledSet,
         minNights,
         maxNights,
       });
-      if (!validation.valid) {
-        setSelectionHint(
-          resolveRangeHint(validation.reason, {
-            minNights,
-            maxNights,
-          }) ?? "Unavailable. Choose different dates."
-        );
-        return;
-      }
-      setSelectionHint(null);
+      setDraftRange(derived.draftRange);
+      setSelectionHint(derived.hint);
     },
-    [disabledSet, maxNights, minNights]
+    [disabledSet, maxNights, minNights, todayDateKey]
   );
 
   const applyDraftRangeSelection = useCallback(() => {
@@ -815,20 +886,14 @@ export function ShortletBookingWidget(props: {
                     selected={draftRange}
                     onSelect={onDraftRangeSelect}
                     onMonthChange={setCalendarMonth}
-                    disabled={disabledDaysMatcher}
+                    disabled={isUnavailableDate}
                     modifiers={{
+                      unavailable: isUnavailableDate,
                       conflict: (date: Date) => conflictingDateSet.has(toDateKey(date)),
                     }}
                     modifiersClassNames={{
+                      unavailable: "bg-slate-50 text-slate-300",
                       conflict: "bg-rose-100 text-rose-700 ring-1 ring-rose-200 font-semibold",
-                    }}
-                    classNames={{
-                      month_caption: "mb-1 flex items-center justify-between gap-2",
-                      nav: "inline-flex items-center gap-1",
-                      button_previous:
-                        "inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100",
-                      button_next:
-                        "inline-flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100",
                     }}
                     excludeDisabled
                     numberOfMonths={1}
@@ -859,8 +924,19 @@ export function ShortletBookingWidget(props: {
                 <p className="mt-2 px-1 text-xs text-slate-500">
                   Grey dates are unavailable because they are booked, blocked, or in the past.
                 </p>
-                <div className="mt-3 flex items-center justify-end gap-2">
-                  <Button type="button" variant="ghost" onClick={clearDateSelection} disabled={!checkIn && !checkOut && !draftRange}>
+                <div
+                  className={
+                    isMobileCalendar
+                      ? "sticky bottom-0 mt-3 flex items-center justify-end gap-2 border-t border-slate-200 bg-white pt-3"
+                      : "mt-3 flex items-center justify-end gap-2"
+                  }
+                >
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={clearDateSelection}
+                    disabled={!checkIn && !checkOut && !draftRange}
+                  >
                     Clear
                   </Button>
                   <Button

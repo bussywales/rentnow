@@ -5,6 +5,8 @@ import {
   canContinueToPayment,
   clearShortletDateRangeState,
   closeShortletCalendarOverlay,
+  deriveShortletDraftSelection,
+  isShortletDateUnavailable,
   openShortletCalendarOverlay,
   resolveRangeHint,
 } from "@/components/properties/ShortletBookingWidget";
@@ -107,4 +109,33 @@ void test("continue CTA stays disabled until a valid range is selected", () => {
     }),
     false
   );
+});
+
+void test("unavailable date is treated as unselectable", () => {
+  const disabledSet = new Set<string>(["2026-07-10"]);
+  assert.equal(
+    isShortletDateUnavailable({
+      date: new Date("2026-07-10T00:00:00.000Z"),
+      todayDateKey: "2026-07-01",
+      disabledSet,
+    }),
+    true
+  );
+});
+
+void test("range selection cannot include an unavailable date", () => {
+  const disabledSet = new Set<string>(["2026-07-12"]);
+  const derived = deriveShortletDraftSelection({
+    next: {
+      from: new Date("2026-07-11T00:00:00.000Z"),
+      to: new Date("2026-07-13T00:00:00.000Z"),
+    },
+    todayDateKey: "2026-07-01",
+    disabledSet,
+    minNights: 1,
+    maxNights: null,
+  });
+
+  assert.equal(derived.isValid, false);
+  assert.equal(derived.draftRange?.to, undefined);
 });
