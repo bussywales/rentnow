@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import {
   formatRespondByCountdownLabel,
+  parseHostBookingInboxFilterParam,
   parseHostBookingQueryParam,
   resolveHostBookingInboxFilter,
   resolveRespondByIso,
@@ -95,6 +97,7 @@ export function HostShortletBookingsPanel(props: {
   settingsRows?: HostShortletSettingSummary[];
   focusBookingId?: string | null;
 }) {
+  const searchParams = useSearchParams();
   const [rows, setRows] = useState<HostShortletBookingSummary[]>(props.initialRows);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -142,6 +145,13 @@ export function HostShortletBookingsPanel(props: {
 
     return () => window.clearTimeout(clearTimer);
   }, [props.focusBookingId, rows]);
+
+  useEffect(() => {
+    if (parseHostBookingQueryParam(props.focusBookingId)) return;
+    const requestedFilter = parseHostBookingInboxFilterParam(searchParams?.get("view"));
+    if (!requestedFilter) return;
+    setFilter(requestedFilter);
+  }, [props.focusBookingId, searchParams]);
 
   const bookingModeByProperty = useMemo(() => {
     return new Map((props.settingsRows || []).map((row) => [row.property_id, row.booking_mode]));

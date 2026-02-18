@@ -39,6 +39,11 @@ export function useHostDashboardView(userId?: string | null) {
     () => parseHostDashboardView(searchParams.get("view")),
     [searchParams]
   );
+  const isBookingsContext = useMemo(() => {
+    const tab = String(searchParams.get("tab") || "").trim().toLowerCase();
+    const section = String(searchParams.get("section") || "").trim().toLowerCase();
+    return tab === "bookings" || section === "bookings";
+  }, [searchParams]);
   const storedView = useMemo(() => {
     if (typeof window === "undefined") return null;
     return window.localStorage.getItem(storageKey);
@@ -54,12 +59,13 @@ export function useHostDashboardView(userId?: string | null) {
   }, [storageKey, view]);
 
   useEffect(() => {
+    if (isBookingsContext) return;
     if (urlView && urlView === view) return;
     const params = new URLSearchParams(searchParams.toString());
     params.set("view", view);
     const nextUrl = `${pathname}?${params.toString()}`;
     router.replace(nextUrl);
-  }, [pathname, router, searchParams, urlView, view]);
+  }, [isBookingsContext, pathname, router, searchParams, urlView, view]);
 
   const setAndPersist = (nextView: HostDashboardView) => {
     if (typeof window !== "undefined") {

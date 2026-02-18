@@ -21,6 +21,7 @@ type DrawerLink = {
   href: string;
   label: string;
   showUnread?: boolean;
+  badgeCount?: number | null;
 };
 
 const LOGGED_OUT_LINKS: DrawerLink[] = [
@@ -50,7 +51,11 @@ export function buildMobileNavLinks(
   }
 ): DrawerLink[] {
   const resolved = resolveNavLinks(links, { isAuthed, role });
-  const next: DrawerLink[] = [...resolved];
+  const next: DrawerLink[] = resolved.map((link) => ({
+    href: link.href,
+    label: link.label,
+    badgeCount: link.badgeCount ?? null,
+  }));
   if (!next.find((link) => link.href === "/profile")) {
     next.unshift({ href: "/profile", label: "Profile" });
   }
@@ -234,12 +239,19 @@ export function NavMobileDrawerClient({
                         }`}
                         onClick={() => setOpen(false)}
                       >
-                        <span>{link.label}</span>
-                        {link.showUnread && unreadCount > 0 && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span>{link.label}</span>
+                          {(link.badgeCount ?? 0) > 0 ? (
+                            <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                              {link.badgeCount}
+                            </span>
+                          ) : null}
+                        </span>
+                        {link.showUnread && unreadCount > 0 ? (
                           <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
                             {unreadCount}
                           </span>
-                        )}
+                        ) : null}
                       </Link>
                     );
                   })}

@@ -12,6 +12,7 @@ export type NavLink = {
   requireAuth?: boolean;
   requireRole?: UserRole | "super_admin";
   denyRoles?: UserRole[];
+  badgeCount?: number | null;
 };
 
 type Props = {
@@ -48,6 +49,7 @@ export function resolveNavLinks(
 }
 
 export function isActiveHref(pathname: string, href: string) {
+  const normalizedHref = href.split("?")[0] || href;
   if (href === "/tenant") {
     return pathname === "/tenant";
   }
@@ -59,7 +61,7 @@ export function isActiveHref(pathname: string, href: string) {
     if (!pathname.startsWith("/admin/")) return false;
     return !pathname.startsWith("/admin/support") && !pathname.startsWith("/admin/settings");
   }
-  return pathname === href || pathname.startsWith(`${href}/`);
+  return pathname === normalizedHref || pathname.startsWith(`${normalizedHref}/`);
 }
 
 export function NavLinksClient({ links, initialAuthed, initialRole }: Props) {
@@ -84,7 +86,14 @@ export function NavLinksClient({ links, initialAuthed, initialRole }: Props) {
               active ? "font-semibold text-slate-900" : "text-slate-700"
             }`}
           >
-            {link.label}
+            <span className="inline-flex items-center gap-1.5">
+              <span>{link.label}</span>
+              {(link.badgeCount ?? 0) > 0 ? (
+                <span className="rounded-full bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-slate-900">
+                  {link.badgeCount}
+                </span>
+              ) : null}
+            </span>
           </Link>
         );
       })}

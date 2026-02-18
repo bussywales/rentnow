@@ -1,10 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  countAwaitingApprovalBookings,
   formatRespondByCountdownLabel,
+  isAwaitingApprovalBooking,
   parseHostBookingQueryParam,
+  parseHostBookingInboxFilterParam,
   resolveHostBookingInboxFilter,
   rowMatchesHostBookingInboxFilter,
+  shouldDefaultHostToBookingsInbox,
   type HostBookingInboxRow,
 } from "@/lib/shortlet/host-bookings-inbox";
 
@@ -36,6 +40,16 @@ void test("resolveHostBookingInboxFilter maps bookings into inbox buckets", () =
   assert.equal(resolveHostBookingInboxFilter(bookingRow({ status: "declined" }), now), "closed");
   assert.equal(resolveHostBookingInboxFilter(bookingRow({ status: "cancelled" }), now), "closed");
   assert.equal(resolveHostBookingInboxFilter(bookingRow({ status: "expired" }), now), "closed");
+  assert.equal(
+    resolveHostBookingInboxFilter(
+      bookingRow({
+        status: "pending",
+        respond_by: "2026-03-10T08:59:00.000Z",
+      }),
+      now
+    ),
+    "closed"
+  );
 });
 
 void test("rowMatchesHostBookingInboxFilter respects selected filter", () => {
@@ -64,4 +78,87 @@ void test("respond-by countdown copy always references 12-hour window", () => {
     /12-hour response window/
   );
   assert.match(formatRespondByCountdownLabel(null, nowMs), /12 hours/);
+});
+
+void test("awaiting approval helpers enforce response window", () => {
+  const now = new Date("2026-03-10T09:00:00.000Z");
+  assert.equal(
+    isAwaitingApprovalBooking(
+      bookingRow({ status: "pending", respond_by: "2026-03-10T10:00:00.000Z" }),
+      now
+    ),
+    true
+  );
+  assert.equal(
+    isAwaitingApprovalBooking(
+      bookingRow({ status: "pending", respond_by: "2026-03-10T08:00:00.000Z" }),
+      now
+    ),
+    false
+  );
+  assert.equal(
+    countAwaitingApprovalBookings(
+      [
+        bookingRow({ status: "pending", respond_by: "2026-03-10T10:00:00.000Z" }),
+        bookingRow({ status: "pending", respond_by: "2026-03-10T08:00:00.000Z" }),
+        bookingRow({ status: "confirmed" }),
+      ],
+      now
+    ),
+    1
+  );
+});
+
+void test("default host bookings behaviour triggers only for urgent pending approvals", () => {
+  assert.equal(
+    shouldDefaultHostToBookingsInbox({
+      awaitingApprovalCount: 2,
+      tab: null,
+      section: null,
+      bookingId: null,
+    }),
+    true
+  );
+  assert.equal(
+    shouldDefaultHostToBookingsInbox({
+      awaitingApprovalCount: 2,
+      tab: "bookings",
+      section: null,
+      bookingId: null,
+    }),
+    false
+  );
+  assert.equal(
+    shouldDefaultHostToBookingsInbox({
+      awaitingApprovalCount: 0,
+      tab: null,
+      section: null,
+      bookingId: null,
+    }),
+    false
+  );
+  assert.equal(
+    shouldDefaultHostToBookingsInbox({
+      awaitingApprovalCount: 2,
+      tab: "listings",
+      section: null,
+      bookingId: null,
+    }),
+    false
+  );
+  assert.equal(
+    shouldDefaultHostToBookingsInbox({
+      awaitingApprovalCount: 2,
+      tab: null,
+      section: null,
+      bookingId: "6fd8d9f3-f3df-4d6f-bd5f-e4b4f640e6ea",
+    }),
+    true
+  );
+});
+
+void test("host booking view param parser supports awaiting alias", () => {
+  assert.equal(parseHostBookingInboxFilterParam("awaiting"), "awaiting_approval");
+  assert.equal(parseHostBookingInboxFilterParam("upcoming"), "upcoming");
+  assert.equal(parseHostBookingInboxFilterParam("all"), null);
 });

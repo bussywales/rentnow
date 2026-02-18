@@ -53,6 +53,7 @@ import {
 import { isShortletProperty } from "@/lib/shortlet/discovery";
 import { getPublicVisibilityDiagnostics } from "@/lib/properties/public-visibility-diagnostics";
 import { resolveHostWorkspaceSectionFromLocation } from "@/lib/host/bookings-navigation";
+import { countAwaitingApprovalBookings } from "@/lib/shortlet/host-bookings-inbox";
 
 function normalizeStatus(property: {
   status?: string | null;
@@ -204,6 +205,7 @@ export function HostDashboardContent({
   shortletBookings = [],
   shortletEarnings = [],
   shortletSettings = [],
+  initialWorkspaceSection = "listings",
 }: {
   listings: DashboardListing[];
   trustMarkers: TrustMarkerState | null;
@@ -215,6 +217,7 @@ export function HostDashboardContent({
   shortletBookings?: HostShortletBookingSummary[];
   shortletEarnings?: HostShortletEarningSummary[];
   shortletSettings?: HostShortletSettingSummary[];
+  initialWorkspaceSection?: "listings" | "bookings";
 }) {
   const searchParams = useSearchParams();
   const [search, setSearch] = useState("");
@@ -248,7 +251,9 @@ export function HostDashboardContent({
   const [featuredRequestModalKey, setFeaturedRequestModalKey] = useState(0);
   const [expandedFeaturedRequestNotes, setExpandedFeaturedRequestNotes] = useState<Record<string, boolean>>({});
   const [openFixChecklistByProperty, setOpenFixChecklistByProperty] = useState<Record<string, boolean>>({});
-  const [workspaceSection, setWorkspaceSection] = useState<"listings" | "bookings">("listings");
+  const [workspaceSection, setWorkspaceSection] = useState<"listings" | "bookings">(
+    initialWorkspaceSection
+  );
   const [pendingShortletCountFromApi, setPendingShortletCountFromApi] = useState<number | null>(null);
   const focusBookingId = searchParams?.get("booking");
 
@@ -291,7 +296,7 @@ export function HostDashboardContent({
   }, [featuredRequestSettings, featuredRequestTarget, featuredRequestsByProperty]);
   const allSelected = sorted.length > 0 && selectedIds.length === sorted.length;
   const pendingShortletCount = useMemo(
-    () => shortletBookings.filter((row) => row.status === "pending").length,
+    () => countAwaitingApprovalBookings(shortletBookings),
     [shortletBookings]
   );
   const pendingRequestCount =
@@ -366,12 +371,14 @@ export function HostDashboardContent({
     const applyFromLocation = () => {
       const requestedTab = searchParams?.get("tab");
       const requestedSection = searchParams?.get("section");
+      const requestedBooking = searchParams?.get("booking");
       const hash = typeof window !== "undefined" ? window.location.hash : null;
       setWorkspaceSection((current) =>
         resolveHostWorkspaceSectionFromLocation(current, {
           tab: requestedTab,
           section: requestedSection,
           hash,
+          booking: requestedBooking,
         })
       );
     };
@@ -813,19 +820,42 @@ export function HostDashboardContent({
           Bookings ({pendingRequestCount})
         </button>
       </div>
-      {pendingRequestCount > 0 ? (
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          <span className="min-w-0 break-words">
-            You have {pendingRequestCount} booking request{pendingRequestCount === 1 ? "" : "s"} awaiting approval.
-          </span>
-          <Link
-            href="/host?tab=bookings#host-bookings"
-            className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100"
-          >
-            Review bookings
-          </Link>
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Action centre</p>
+            {pendingRequestCount > 0 ? (
+              <>
+                <p className="text-sm font-semibold text-slate-900">Booking requests awaiting your approval</p>
+                <p className="text-sm text-slate-600">
+                  Respond within 12 hours to avoid auto-expiry.
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-semibold text-slate-900">No requests awaiting approval</p>
+                <p className="text-sm text-slate-600">
+                  New shortlet booking requests will appear here first.
+                </p>
+              </>
+            )}
+          </div>
+          <div className="flex min-w-0 flex-wrap gap-2">
+            <Link
+              href="/host?tab=bookings&view=awaiting#host-bookings"
+              className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+            >
+              Review requests
+            </Link>
+            <Link
+              href="/host?tab=bookings#host-bookings"
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            >
+              View all bookings
+            </Link>
+          </div>
         </div>
-      ) : null}
+      </section>
       {missingShortletPriceCount > 0 ? (
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
           <span className="min-w-0 break-words">

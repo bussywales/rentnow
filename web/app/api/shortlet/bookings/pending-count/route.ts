@@ -4,6 +4,7 @@ import { readActingAsFromRequest } from "@/lib/acting-as";
 import { requireRole } from "@/lib/authz";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { countAwaitingApprovalBookings } from "@/lib/shortlet/host-bookings-inbox";
 
 const routeLabel = "/api/shortlet/bookings/pending-count";
 
@@ -18,19 +19,18 @@ type QueryClient = {
 
 type QueryBuilder = {
   eq: (column: string, value: string) => QueryBuilder;
-  in: (column: string, values: string[]) => Promise<{
-    count: number | null;
-    error: { message?: string } | null;
-  }>;
+  in: (column: string, values: string[]) => QueryBuilder;
+  order?: (
+    column: string,
+    options?: { ascending?: boolean }
+  ) => QueryBuilder;
   limit: (value: number) => Promise<{ data: Array<Record<string, unknown>> | null }>;
 };
 
-type CountQueryResult = {
-  count: number | null;
-  error: { message?: string } | null;
+type ListQueryResult = {
+  data: Array<Record<string, unknown>> | null;
+  error?: { message?: string } | null;
 };
-
-type ListQueryResult = { data: Array<Record<string, unknown>> | null };
 
 async function listOwnedShortletPropertyIds(client: QueryClient, ownerId: string) {
   const result = await (
@@ -50,19 +50,29 @@ async function listOwnedShortletPropertyIds(client: QueryClient, ownerId: string
 
 async function countPendingForProperties(client: QueryClient, propertyIds: string[]) {
   if (!propertyIds.length) return 0;
-
-  const result = await (
-    client
+  const selectPendingRows = async (columns: string) =>
+    (client
       .from("shortlet_bookings")
-      .select("id", { count: "exact", head: true })
+      .select(columns)
       .eq("status", "pending")
-      .in("property_id", propertyIds) as Promise<CountQueryResult>
-  );
+      .in("property_id", propertyIds)
+      .limit(800) as Promise<ListQueryResult>);
 
+  let result = await selectPendingRows("id,status,respond_by,expires_at");
+  if (result.error && result.error.message?.toLowerCase().includes("respond_by")) {
+    result = await selectPendingRows("id,status,expires_at");
+  }
   if (result.error) {
     throw new Error(result.error.message || "Unable to load pending count");
   }
-  return result.count ?? 0;
+
+  const rows = (result.data ?? []).map((row) => ({
+    id: String(row.id || ""),
+    status: String(row.status || ""),
+    respond_by: typeof row.respond_by === "string" ? row.respond_by : null,
+    expires_at: typeof row.expires_at === "string" ? row.expires_at : null,
+  }));
+  return countAwaitingApprovalBookings(rows);
 }
 
 export type ShortletPendingCountDeps = {

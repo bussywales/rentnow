@@ -11,6 +11,7 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
 import { getHelpDocsForRole } from "@/lib/help/docs";
+import { countAwaitingApprovalBookings } from "@/lib/shortlet/host-bookings-inbox";
 
 export const MAIN_NAV_LINKS: Array<{
   href: string;
@@ -19,6 +20,7 @@ export const MAIN_NAV_LINKS: Array<{
   requireAuth?: boolean;
   requireRole?: UserRole | "super_admin";
   denyRoles?: UserRole[];
+  badgeCount?: number | null;
 }> = [
   { href: "/properties", label: "Browse" },
   { href: "/tenant/saved", label: "Collections", requireAuth: true, requireRole: "tenant" },
@@ -31,6 +33,12 @@ export const MAIN_NAV_LINKS: Array<{
   {
     href: "/dashboard/analytics",
     label: "Dashboard",
+    requireAuth: true,
+    denyRoles: ["tenant", "admin"],
+  },
+  {
+    href: "/host?tab=bookings",
+    label: "Bookings",
     requireAuth: true,
     denyRoles: ["tenant", "admin"],
   },
@@ -48,6 +56,19 @@ export const MAIN_NAV_LINKS: Array<{
   { href: "/admin/settings", label: "Settings", requireAuth: true, requireRole: "admin" },
 ];
 
+export function applyHostBookingsBadge(
+  links: typeof MAIN_NAV_LINKS,
+  awaitingApprovalCount: number
+) {
+  return links.map((link) => {
+    if (link.href !== "/host?tab=bookings") return link;
+    return {
+      ...link,
+      badgeCount: awaitingApprovalCount > 0 ? awaitingApprovalCount : null,
+    };
+  });
+}
+
 export async function MainNav({
   marketSelectorEnabled,
 }: {
@@ -55,6 +76,7 @@ export async function MainNav({
 }) {
   let initialAuthed = false;
   let role: UserRole | "super_admin" | null = null;
+  let hostAwaitingApprovalCount = 0;
 
   if (hasServerSupabaseEnv()) {
     try {
@@ -73,6 +95,57 @@ export async function MainNav({
             .eq("id", userId)
             .maybeSingle();
           role = normalizeRole(profile?.role) as UserRole | "super_admin" | null;
+
+          if (role === "landlord" || role === "agent") {
+            const { data: shortletProperties } = await supabase
+              .from("properties")
+              .select("id")
+              .eq("owner_id", userId)
+              .eq("listing_intent", "shortlet")
+              .limit(600);
+
+            const propertyIds = (shortletProperties ?? [])
+              .map((row) => String(row.id || ""))
+              .filter(Boolean);
+
+            if (propertyIds.length) {
+              const bookingsWithRespondBy = await supabase
+                .from("shortlet_bookings")
+                .select("id,status,respond_by,expires_at")
+                .eq("status", "pending")
+                .in("property_id", propertyIds)
+                .order("created_at", { ascending: false })
+                .limit(800);
+
+              let bookingsError = bookingsWithRespondBy.error;
+              let bookingsRows: Array<Record<string, unknown>> =
+                (bookingsWithRespondBy.data as Array<Record<string, unknown>> | null) ?? [];
+
+              if (bookingsError?.message?.toLowerCase().includes("respond_by")) {
+                const bookingsWithoutRespondBy = await supabase
+                  .from("shortlet_bookings")
+                  .select("id,status,expires_at")
+                  .eq("status", "pending")
+                  .in("property_id", propertyIds)
+                  .order("created_at", { ascending: false })
+                  .limit(800);
+                bookingsError = bookingsWithoutRespondBy.error;
+                bookingsRows =
+                  (bookingsWithoutRespondBy.data as Array<Record<string, unknown>> | null) ?? [];
+              }
+
+              if (!bookingsError) {
+                hostAwaitingApprovalCount = countAwaitingApprovalBookings(
+                  bookingsRows.map((row) => ({
+                    id: String(row.id || ""),
+                    status: String(row.status || ""),
+                    respond_by: typeof row.respond_by === "string" ? row.respond_by : null,
+                    expires_at: typeof row.expires_at === "string" ? row.expires_at : null,
+                  }))
+                );
+              }
+            }
+          }
         }
       }
     } catch (err) {
@@ -117,6 +190,7 @@ export async function MainNav({
       body: doc.body,
     })),
   };
+  const navLinks = applyHostBookingsBadge(MAIN_NAV_LINKS, hostAwaitingApprovalCount);
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/95 backdrop-blur-lg shadow-[0_1px_10px_rgba(15,23,42,0.06)]">
@@ -128,7 +202,7 @@ export async function MainNav({
 
         <nav className="hidden items-center gap-6 text-sm text-slate-700 md:flex">
           <NavLinksClient
-            links={MAIN_NAV_LINKS.filter((link) => link.href !== "/admin/insights")}
+            links={navLinks.filter((link) => link.href !== "/admin/insights")}
             initialAuthed={initialAuthed}
             initialRole={role}
           />
@@ -143,7 +217,7 @@ export async function MainNav({
           <ProductUpdatesBell initialAuthed={initialAuthed} />
           <NavAuthClient initialAuthed={initialAuthed} />
           <NavMobileDrawerClient
-            links={MAIN_NAV_LINKS}
+            links={navLinks}
             initialAuthed={initialAuthed}
             initialRole={role}
             marketSelectorEnabled={marketSelectorEnabled}

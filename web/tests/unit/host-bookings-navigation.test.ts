@@ -49,6 +49,22 @@ void test("bookings target resolves from host-bookings hash", () => {
   );
 });
 
+void test("bookings target resolves from booking query param", () => {
+  assert.equal(
+    isBookingsTargetFromLocation({ tab: null, section: null, booking: "booking-id", hash: null }),
+    true
+  );
+  assert.equal(
+    resolveHostWorkspaceSectionFromLocation("listings", {
+      tab: null,
+      section: null,
+      booking: "booking-id",
+      hash: null,
+    }),
+    "bookings"
+  );
+});
+
 void test("unknown tab keeps current section", () => {
   assert.equal(
     resolveHostWorkspaceSectionFromLocation("bookings", {

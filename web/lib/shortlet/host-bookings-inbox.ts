@@ -9,6 +9,19 @@ export type HostBookingInboxFilter =
   | "past"
   | "closed";
 
+export function parseHostBookingInboxFilterParam(
+  value: string | null | undefined
+): HostBookingInboxFilter | null {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (normalized === "awaiting" || normalized === "awaiting_approval" || normalized === "pending") {
+    return "awaiting_approval";
+  }
+  if (normalized === "upcoming") return "upcoming";
+  if (normalized === "past") return "past";
+  if (normalized === "closed" || normalized === "cancelled") return "closed";
+  return null;
+}
+
 export type HostBookingInboxRow = {
   id: string;
   status: string;
@@ -17,6 +30,13 @@ export type HostBookingInboxRow = {
   respond_by?: string | null;
   expires_at?: string | null;
 };
+
+function parseDateMs(value: string | null | undefined): number | null {
+  const raw = String(value || "").trim();
+  if (!raw) return null;
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -48,6 +68,21 @@ function resolveStatus(status: string | null | undefined): ShortletBookingStatus
   return normalizeShortletBookingStatus(status);
 }
 
+export function isAwaitingApprovalBooking(
+  row: Pick<HostBookingInboxRow, "status" | "respond_by" | "expires_at">,
+  nowInput?: Date
+) {
+  const status = resolveStatus(row.status);
+  if (status !== "pending" && status !== "pending_payment") return false;
+
+  const nowMs = (nowInput ?? new Date()).getTime();
+  const respondByMs = parseDateMs(row.respond_by);
+  const expiresAtMs = parseDateMs(row.expires_at);
+  const deadlineMs = respondByMs ?? expiresAtMs;
+  if (deadlineMs !== null && deadlineMs <= nowMs) return false;
+  return true;
+}
+
 export function parseHostBookingQueryParam(value: string | null | undefined): string | null {
   const normalized = String(value || "").trim();
   if (!normalized) return null;
@@ -64,6 +99,7 @@ export function resolveHostBookingInboxFilter(
   if (!status) return "closed";
 
   if (status === "pending" || status === "pending_payment") {
+    if (!isAwaitingApprovalBooking(row, now)) return "closed";
     return "awaiting_approval";
   }
   if (status === "declined" || status === "cancelled" || status === "expired") {
@@ -87,6 +123,25 @@ export function rowMatchesHostBookingInboxFilter(
   nowInput?: Date
 ) {
   return resolveHostBookingInboxFilter(row, nowInput) === filter;
+}
+
+export function countAwaitingApprovalBookings(rows: HostBookingInboxRow[], nowInput?: Date) {
+  const now = nowInput ?? new Date();
+  return rows.filter((row) => isAwaitingApprovalBooking(row, now)).length;
+}
+
+export function shouldDefaultHostToBookingsInbox(input: {
+  awaitingApprovalCount: number;
+  tab?: string | null;
+  section?: string | null;
+  bookingId?: string | null;
+}) {
+  if (input.awaitingApprovalCount <= 0) return false;
+  if (parseHostBookingQueryParam(input.bookingId || null)) return true;
+  const tab = String(input.tab || "").trim().toLowerCase();
+  const section = String(input.section || "").trim().toLowerCase();
+  const hasSection = tab === "bookings" || tab === "listings" || section === "bookings" || section === "listings";
+  return !hasSection;
 }
 
 export function resolveRespondByIso(row: HostBookingInboxRow): string | null {

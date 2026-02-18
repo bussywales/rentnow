@@ -4,6 +4,7 @@ type HostWorkspaceLocationInput = {
   tab?: string | null;
   section?: string | null;
   hash?: string | null;
+  booking?: string | null;
 };
 
 function normalizeSectionParam(value: string | null | undefined): HostWorkspaceSection | null {
@@ -23,9 +24,11 @@ export function isBookingsTargetFromLocation(input: {
   tab?: string | null;
   section?: string | null;
   hash?: string | null;
+  booking?: string | null;
 }) {
   const sectionParam = resolveHostWorkspaceParam(input);
   if (sectionParam === "bookings") return true;
+  if (String(input.booking || "").trim()) return true;
 
   const hash = (input.hash || "").replace(/^#/, "").trim().toLowerCase();
   return hash === "host-bookings";
@@ -37,6 +40,7 @@ export function resolveHostWorkspaceSectionFromLocation(
     tab?: string | null;
     section?: string | null;
     hash?: string | null;
+    booking?: string | null;
   }
 ): HostWorkspaceSection {
   const sectionParam = resolveHostWorkspaceParam(input);
