@@ -183,11 +183,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const [mapAreaState, setMapAreaState] = useState(() => createShortletMapSearchAreaState(parsedBounds));
   const [mobileMapOpen, setMobileMapOpen] = useState(parsedUi.view === "map");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [quickFiltersCollapsed, setQuickFiltersCollapsed] = useState(false);
+  const [quickFiltersPopoverOpen, setQuickFiltersPopoverOpen] = useState(false);
   const [draftAdvancedFilters, setDraftAdvancedFilters] = useState<ShortletAdvancedFilterState>(() =>
     readShortletAdvancedFiltersFromParams(stableSearchParams)
   );
 
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const quickFiltersMeasureRef = useRef<HTMLDivElement | null>(null);
+  const quickFiltersPopoverRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setQueryDraft(parsedUi.q);
@@ -205,6 +209,28 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   useEffect(() => {
     setDraftAdvancedFilters(readShortletAdvancedFiltersFromParams(stableSearchParams));
   }, [stableSearchParams]);
+
+  const recomputeQuickFilterCollapse = useCallback(() => {
+    const measureNode = quickFiltersMeasureRef.current;
+    if (!measureNode) return;
+    setQuickFiltersCollapsed(measureNode.scrollWidth > measureNode.clientWidth + 1);
+  }, []);
+
+  useEffect(() => {
+    recomputeQuickFilterCollapse();
+    window.addEventListener("resize", recomputeQuickFilterCollapse);
+    return () => window.removeEventListener("resize", recomputeQuickFilterCollapse);
+  }, [recomputeQuickFilterCollapse]);
+
+  useEffect(() => {
+    recomputeQuickFilterCollapse();
+  }, [recomputeQuickFilterCollapse, searchParamsKey]);
+
+  useEffect(() => {
+    if (!quickFiltersCollapsed) {
+      setQuickFiltersPopoverOpen(false);
+    }
+  }, [quickFiltersCollapsed]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -251,6 +277,24 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [filtersOpen]);
+
+  useEffect(() => {
+    if (!quickFiltersPopoverOpen) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (!quickFiltersPopoverRef.current) return;
+      if (quickFiltersPopoverRef.current.contains(event.target as Node)) return;
+      setQuickFiltersPopoverOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setQuickFiltersPopoverOpen(false);
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [quickFiltersPopoverOpen]);
 
   const updateUrl = useCallback(
     (mutate: (next: URLSearchParams) => void) => {
@@ -339,6 +383,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         TRUST_FILTERS.filter((item) => appliedAdvancedFilters[item.key]).map((item) => item.key)
       ),
     [appliedAdvancedFilters]
+  );
+  const activeQuickFilterCount = useMemo(
+    () => QUICK_FILTERS.filter((filter) => trustFilterState.has(filter.key)).length,
+    [trustFilterState]
   );
   const activeFilterTags = useMemo(
     () => listShortletActiveFilterTags(appliedAdvancedFilters),
@@ -443,32 +491,93 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           </Select>
         </div>
 
-        <div
-          className="mt-3 flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap pb-1"
-          data-testid="shortlets-quick-filters"
-        >
-          {QUICK_FILTERS.map((filter) => {
-            const active = trustFilterState.has(filter.key);
-            return (
-              <button
-                key={filter.key}
-                type="button"
-                onClick={() => toggleQuickFilter(filter.key)}
-                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                  active
-                    ? "border-sky-500 bg-sky-50 text-sky-700"
-                    : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                }`}
+        <div className="relative mt-3 min-w-0">
+          <div
+            ref={quickFiltersMeasureRef}
+            className="pointer-events-none invisible absolute inset-x-0 top-0 flex h-9 min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap"
+            aria-hidden="true"
+          >
+            {QUICK_FILTERS.map((filter) => (
+              <span
+                key={`quick-filter-measure-${filter.key}`}
+                className="shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold"
               >
                 {filter.label}
-              </button>
-            );
-          })}
+              </span>
+            ))}
+          </div>
+
+          {quickFiltersCollapsed ? (
+            <div ref={quickFiltersPopoverRef} className="relative" data-testid="shortlets-quick-filters-collapsed">
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setQuickFiltersPopoverOpen((current) => !current)}
+                className="h-9 whitespace-nowrap"
+                data-testid="shortlets-quick-filters-button"
+              >
+                {activeQuickFilterCount > 0 ? `Quick filters (${activeQuickFilterCount})` : "Quick filters"}
+              </Button>
+              {quickFiltersPopoverOpen ? (
+                <div
+                  className="absolute left-0 top-full z-20 mt-2 w-[240px] rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+                  role="dialog"
+                  aria-label="Quick filters"
+                  data-testid="shortlets-quick-filters-popover"
+                >
+                  <div className="space-y-1">
+                    {QUICK_FILTERS.map((filter) => {
+                      const active = trustFilterState.has(filter.key);
+                      return (
+                        <button
+                          key={`quick-filter-popover-${filter.key}`}
+                          type="button"
+                          onClick={() => toggleQuickFilter(filter.key)}
+                          className={`flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-xs font-semibold transition ${
+                            active
+                              ? "border-sky-500 bg-sky-50 text-sky-700"
+                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                          }`}
+                        >
+                          <span>{filter.label}</span>
+                          <span aria-hidden="true">{active ? "✓" : ""}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div
+              className="flex h-9 min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap"
+              data-testid="shortlets-quick-filters"
+            >
+              {QUICK_FILTERS.map((filter) => {
+                const active = trustFilterState.has(filter.key);
+                return (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    onClick={() => toggleQuickFilter(filter.key)}
+                    className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                      active
+                        ? "border-sky-500 bg-sky-50 text-sky-700"
+                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
 
         {activeFilterTags.length > 0 ? (
           <div
-            className="mt-2 flex min-w-0 items-center gap-2 overflow-hidden"
+            className="mt-2 flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap"
             data-testid="shortlets-active-filter-summary"
           >
             {visibleFilterTags.map((tag) => (

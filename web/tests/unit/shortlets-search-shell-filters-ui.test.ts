@@ -20,8 +20,10 @@ void test("shortlets shell quick filters are constrained to a single horizontal 
   const contents = fs.readFileSync(shellPath, "utf8");
 
   assert.ok(contents.includes('data-testid="shortlets-quick-filters"'));
-  assert.ok(contents.includes("overflow-x-auto whitespace-nowrap"));
-  assert.ok(contents.includes("shrink-0 rounded-full border"));
+  assert.ok(contents.includes("overflow-hidden whitespace-nowrap"));
+  assert.ok(contents.includes('data-testid="shortlets-quick-filters-button"'));
+  assert.ok(contents.includes('data-testid="shortlets-quick-filters-popover"'));
+  assert.ok(contents.includes("quickFiltersCollapsed ?"));
 });
 
 void test("shortlets shell supports active filter summary with overflow collapse", () => {
@@ -29,6 +31,7 @@ void test("shortlets shell supports active filter summary with overflow collapse
 
   assert.ok(contents.includes('data-testid="shortlets-active-filter-summary"'));
   assert.ok(contents.includes("+{hiddenFilterTagCount} more"));
+  assert.ok(contents.includes("overflow-hidden whitespace-nowrap"));
   assert.ok(contents.includes("removeShortletAdvancedFilterTag"));
 });
 
