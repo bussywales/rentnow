@@ -7,10 +7,10 @@ import { normalizeRole } from "@/lib/roles";
 import { searchProperties } from "@/lib/search";
 import {
   filterShortletRowsByDateAvailability,
-  filterShortletListingsByMarket,
+  isNigeriaDestinationQuery,
   isWithinBounds,
   mapShortletSearchRowsToResultItems,
-  matchesShortletSearchQuery,
+  matchesShortletDestination,
   matchesTrustFilters,
   parseShortletSearchFilters,
   sortShortletSearchResults,
@@ -44,9 +44,8 @@ function parseOverlapRows(input: Array<Record<string, unknown>> | null, startKey
 }
 
 type DebugReason =
-  | "market_mismatch"
-  | "query_mismatch"
-  | "bounds_mismatch"
+  | "destination_mismatch"
+  | "bbox_mismatch"
   | "trust_filter_mismatch"
   | "booking_mode_mismatch"
   | "availability_conflict";
@@ -123,15 +122,8 @@ export async function GET(request: NextRequest) {
     }
 
     const baselineRows = ((data as Property[] | null) ?? []).map((row) => ({ ...row }));
-    const sourceRows = filterShortletListingsByMarket(baselineRows, filters.marketCountry);
     const debugReasons = new Map<string, Set<DebugReason>>();
-    if (debugEnabled) {
-      const sourceIds = new Set(sourceRows.map((row) => row.id));
-      for (const row of baselineRows) {
-        if (!sourceIds.has(row.id)) appendReason(debugReasons, row.id, "market_mismatch");
-      }
-    }
-    const ownerIds = Array.from(new Set(sourceRows.map((row) => row.owner_id).filter(Boolean)));
+    const ownerIds = Array.from(new Set(baselineRows.map((row) => row.owner_id).filter(Boolean)));
 
     const verifiedHostIds = new Set<string>();
     if (ownerIds.length > 0) {
@@ -145,15 +137,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    let rows = sourceRows.filter((property) => {
-      if (!matchesShortletSearchQuery(property, filters.q)) {
-        if (debugEnabled) appendReason(debugReasons, property.id, "query_mismatch");
-        return false;
+    const destinationFilteredRows = baselineRows.filter((property) => {
+      const matchesDestination = matchesShortletDestination(property, filters.where);
+      if (!matchesDestination && debugEnabled) {
+        appendReason(debugReasons, property.id, "destination_mismatch");
       }
-      if (!isWithinBounds(property, filters.bounds)) {
-        if (debugEnabled) appendReason(debugReasons, property.id, "bounds_mismatch");
-        return false;
+      return matchesDestination;
+    });
+
+    const bboxFilteredRows = destinationFilteredRows.filter((property) => {
+      const withinBounds = isWithinBounds(property, filters.bounds);
+      if (!withinBounds && debugEnabled) {
+        appendReason(debugReasons, property.id, "bbox_mismatch");
       }
+      return withinBounds;
+    });
+
+    let rows = bboxFilteredRows.filter((property) => {
       if (!matchesTrustFilters({ property, trustFilters: filters.trust, verifiedHostIds })) {
         if (debugEnabled) appendReason(debugReasons, property.id, "trust_filter_mismatch");
         return false;
@@ -227,6 +227,7 @@ export async function GET(request: NextRequest) {
     const sorted = sortShortletSearchResults(rows, filters.sort, {
       verifiedHostIds,
       recommendedCenter,
+      applyNigeriaBoost: !filters.where || isNigeriaDestinationQuery(filters.where),
     });
     const total = sorted.length;
     const from = (filters.page - 1) * filters.pageSize;
@@ -264,11 +265,12 @@ export async function GET(request: NextRequest) {
         ? [{ label: "Expand map area", hint: "Try searching a wider area nearby." }]
         : [],
       filters: {
-        q: filters.q,
+        where: filters.where,
         checkIn: filters.checkIn,
         checkOut: filters.checkOut,
         guests: filters.guests,
         marketCountry: filters.marketCountry,
+        bbox: filters.bounds,
         bounds: filters.bounds,
         sort: filters.sort,
         trust: filters.trust,
@@ -296,8 +298,9 @@ export async function GET(request: NextRequest) {
 
       payload.__debug = {
         baselineCount: baselineRows.length,
-        marketCount: sourceRows.length,
-        filteredCount: sorted.length,
+        destinationFiltered: destinationFilteredRows.length,
+        bboxFiltered: bboxFilteredRows.length,
+        final: sorted.length,
         pagedCount: items.length,
         mapCount: mapItems.length,
         availabilityConflictCount: unavailablePropertyIds.size,

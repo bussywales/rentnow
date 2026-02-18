@@ -24,7 +24,7 @@ export type ShortletSearchProviderFilters = {
 };
 
 export type ShortletSearchFilters = {
-  q: string | null;
+  where: string | null;
   checkIn: string | null;
   checkOut: string | null;
   guests: number;
@@ -69,6 +69,7 @@ export type ShortletSearchResultItem = Property & {
 type ShortletSearchSortContext = {
   verifiedHostIds?: ReadonlySet<string>;
   recommendedCenter?: { latitude: number; longitude: number } | null;
+  applyNigeriaBoost?: boolean;
 };
 
 const POWER_BACKUP_TOKENS = [
@@ -175,19 +176,41 @@ export function parseShortletSearchBounds(value: string | null): ShortletSearchB
   return { north, south, east, west };
 }
 
+export function parseShortletSearchBbox(value: string | null): ShortletSearchBounds | null {
+  if (!value) return null;
+  const parts = value.split(",").map((part) => Number(part.trim()));
+  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) return null;
+  const [minLng, minLat, maxLng, maxLat] = parts;
+  if (maxLat <= minLat || maxLng <= minLng) return null;
+  if (maxLat > 90 || minLat < -90 || maxLng > 180 || minLng < -180) return null;
+  return {
+    north: maxLat,
+    south: minLat,
+    east: maxLng,
+    west: minLng,
+  };
+}
+
 export function serializeShortletSearchBounds(bounds: ShortletSearchBounds | null): string | null {
   if (!bounds) return null;
   return [bounds.north, bounds.south, bounds.east, bounds.west].join(",");
 }
 
+export function serializeShortletSearchBbox(bounds: ShortletSearchBounds | null): string | null {
+  if (!bounds) return null;
+  return [bounds.west, bounds.south, bounds.east, bounds.north].join(",");
+}
+
 export function parseShortletSearchFilters(params: URLSearchParams): ShortletSearchFilters {
+  const where = normalizeQ(params.get("where") ?? params.get("q"));
+  const bounds = parseShortletSearchBbox(params.get("bbox")) ?? parseShortletSearchBounds(params.get("bounds"));
   return {
-    q: normalizeQ(params.get("q")),
+    where,
     checkIn: parseDate(params.get("checkIn")),
     checkOut: parseDate(params.get("checkOut")),
     guests: parsePositiveInt(params.get("guests"), 1),
     marketCountry: parseMarketCountry(params),
-    bounds: parseShortletSearchBounds(params.get("bounds")),
+    bounds,
     sort: parseSort(params.get("sort")),
     trust: {
       powerBackup: asBoolean(params.get("powerBackup")),
@@ -245,6 +268,25 @@ export function matchesShortletSearchQuery(property: Property, q: string | null)
   return haystack.includes(needle);
 }
 
+export function matchesShortletDestination(property: Property, where: string | null): boolean {
+  if (!where) return true;
+  const needle = where.toLowerCase();
+  const haystack = [
+    property.city,
+    property.neighbourhood,
+    property.address,
+    property.location_label,
+    property.admin_area_1,
+    property.admin_area_2,
+    property.state_region,
+    property.country,
+    property.country_code,
+  ]
+    .map((value) => String(value || "").toLowerCase())
+    .join(" ");
+  return haystack.includes(needle);
+}
+
 function resolvePropertyCountryCode(property: Pick<Property, "country_code" | "country">): string | null {
   return (
     normalizeCountryCodeOrAlias(property.country_code ?? null) ??
@@ -271,6 +313,12 @@ export function matchesShortletMarketCountry(
 
 export function filterShortletListingsByMarket(rows: Property[], marketCountry: string): Property[] {
   return rows.filter((row) => matchesShortletMarketCountry(row, marketCountry));
+}
+
+export function isNigeriaDestinationQuery(where: string | null): boolean {
+  const normalized = String(where || "").trim().toLowerCase();
+  if (!normalized) return false;
+  return normalized === "ng" || normalized.includes("nigeria");
 }
 
 export function matchesTrustFilters(input: {
@@ -362,6 +410,7 @@ export function sortShortletSearchResults(
     nightly: resolveShortletNightlyPriceMinor(property),
     createdAtMs: Date.parse(String(property.created_at || "")) || 0,
     verifiedHost: !!context.verifiedHostIds?.has(property.owner_id),
+    countryCode: resolvePropertyCountryCode(property),
     distanceToCenter: (() => {
       if (!context.recommendedCenter) return Number.POSITIVE_INFINITY;
       const { latitude, longitude } = context.recommendedCenter;
@@ -404,6 +453,13 @@ export function sortShortletSearchResults(
 
   return withNightly
     .sort((left, right) => {
+      if (context.applyNigeriaBoost) {
+        const leftIsNigeria = left.countryCode === "NG";
+        const rightIsNigeria = right.countryCode === "NG";
+        if (leftIsNigeria !== rightIsNigeria) {
+          return leftIsNigeria ? -1 : 1;
+        }
+      }
       if (left.verifiedHost !== right.verifiedHost) {
         return left.verifiedHost ? -1 : 1;
       }

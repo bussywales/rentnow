@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   filterShortletRowsByDateAvailability,
-  filterShortletListingsByMarket,
+  isWithinBounds,
+  matchesShortletDestination,
   mapShortletSearchRowsToResultItems,
   matchesTrustFilters,
+  parseShortletSearchBbox,
   parseShortletSearchFilters,
   parseShortletSearchBounds,
   resolveShortletPrimaryImageUrl,
@@ -91,7 +93,7 @@ void test("bounds parser accepts valid bounds and rejects invalid input", () => 
   assert.equal(parseShortletSearchBounds("6.3,6.9,3.7,3.2"), null);
 });
 
-void test("market=NG returns only NG listings", () => {
+void test("where empty keeps global listings and where=nigeria narrows to nigeria", () => {
   const rows: Property[] = [
     buildProperty({
       id: "ng-1",
@@ -114,13 +116,49 @@ void test("market=NG returns only NG listings", () => {
     }),
   ];
 
-  const filtered = filterShortletListingsByMarket(rows, "NG");
-  assert.deepEqual(filtered.map((row) => row.id), ["ng-1", "unknown-1"]);
+  const globalRows = rows.filter((row) => matchesShortletDestination(row, null));
+  assert.deepEqual(
+    globalRows.map((row) => row.id),
+    ["ng-1", "gb-1", "unknown-1"]
+  );
+
+  const nigeriaRows = rows.filter((row) => matchesShortletDestination(row, "Nigeria"));
+  assert.deepEqual(nigeriaRows.map((row) => row.id), ["ng-1"]);
 });
 
 void test("shortlet search defaults market to NG", () => {
-  const parsed = parseShortletSearchFilters(new URLSearchParams("q=lekki"));
+  const parsed = parseShortletSearchFilters(new URLSearchParams("where=lekki"));
   assert.equal(parsed.marketCountry, "NG");
+});
+
+void test("shortlet search supports bbox and where params", () => {
+  const parsed = parseShortletSearchFilters(
+    new URLSearchParams(
+      "where=abuja&bbox=7.7,9.0,7.9,9.2&market=NG"
+    )
+  );
+  assert.equal(parsed.where, "abuja");
+  assert.deepEqual(parsed.bounds, {
+    north: 9.2,
+    south: 9.0,
+    east: 7.9,
+    west: 7.7,
+  });
+});
+
+void test("bbox parser accepts lng/lat order and bounds checks filter by coordinates", () => {
+  const bounds = parseShortletSearchBbox("3.2,6.2,3.9,6.8");
+  assert.deepEqual(bounds, {
+    north: 6.8,
+    south: 6.2,
+    east: 3.9,
+    west: 3.2,
+  });
+
+  const inside = buildProperty({ latitude: 6.5, longitude: 3.5 });
+  const outside = buildProperty({ latitude: 8.0, longitude: 4.1 });
+  assert.equal(isWithinBounds(inside, bounds), true);
+  assert.equal(isWithinBounds(outside, bounds), false);
 });
 
 void test("recommended shortlet sorting prioritizes verified hosts and value", () => {
@@ -253,11 +291,8 @@ void test("no-date shortlet baseline remains abundant for nigeria market", () =>
     })
   );
 
-  const marketRows = filterShortletListingsByMarket(baselineRows, "NG");
-  assert.equal(marketRows.length, baselineRows.length);
-
   const availabilityUnconstrained = filterShortletRowsByDateAvailability({
-    rows: marketRows,
+    rows: baselineRows,
     checkIn: null,
     checkOut: null,
     bookedOverlaps: [
