@@ -1,10 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/Button";
+import { Calendar } from "@/components/ui/calendar";
 import { resolveShortletBookingCtaLabel } from "@/lib/shortlet/booking-cta";
+import {
+  expandRangesToDisabledDates,
+  toDateKey,
+  type ShortletRangeValidationReason,
+  type ShortletUnavailableRange,
+  validateRangeSelection,
+} from "@/lib/shortlet/availability";
 
 type AvailabilityResponse = {
   bookingMode: "instant" | "request";
@@ -34,6 +43,26 @@ type AvailabilityResponse = {
   } | null;
 };
 
+type CalendarAvailabilityResponse = {
+  ok: boolean;
+  listingId: string;
+  from: string;
+  to: string;
+  blockedRanges: Array<{ start: string; end: string; source: string }>;
+  bookedRanges: Array<{ start: string; end: string; bookingId?: string | null }>;
+  timezone?: string | null;
+};
+
+type CalendarWindow = {
+  monthKey: string;
+  from: string;
+  to: string;
+};
+
+const AVAILABILITY_WINDOW_DAYS = 180;
+const CALENDAR_DISABLED_HORIZON_DAYS = 720;
+const availabilityWindowCache = new Map<string, CalendarAvailabilityResponse>();
+
 function formatMoney(currency: string, amountMinor: number): string {
   const amount = Math.max(0, Math.trunc(amountMinor || 0)) / 100;
   try {
@@ -47,21 +76,96 @@ function formatMoney(currency: string, amountMinor: number): string {
   }
 }
 
-function getDefaultDate(offsetDays: number): string {
-  const value = new Date();
-  value.setHours(0, 0, 0, 0);
-  value.setDate(value.getDate() + offsetDays);
-  return value.toISOString().slice(0, 10);
+function formatDisplayDate(dateKey: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) return dateKey;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (!Number.isFinite(date.getTime())) return dateKey;
+  return new Intl.DateTimeFormat("en-GB", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(date);
 }
 
-function calculateNights(checkIn: string, checkOut: string): number | null {
-  if (!checkIn || !checkOut) return null;
-  const start = new Date(`${checkIn}T00:00:00Z`);
-  const end = new Date(`${checkOut}T00:00:00Z`);
-  if (!Number.isFinite(start.getTime()) || !Number.isFinite(end.getTime())) return null;
-  const diff = (end.getTime() - start.getTime()) / (24 * 60 * 60 * 1000);
-  if (!Number.isFinite(diff) || diff < 1 || !Number.isInteger(diff)) return null;
-  return diff;
+function addDaysToDateKey(dateKey: string, days: number): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey);
+  if (!match) return dateKey;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const utc = new Date(Date.UTC(year, month - 1, day));
+  utc.setUTCDate(utc.getUTCDate() + days);
+  const nextYear = utc.getUTCFullYear();
+  const nextMonth = String(utc.getUTCMonth() + 1).padStart(2, "0");
+  const nextDay = String(utc.getUTCDate()).padStart(2, "0");
+  return `${nextYear}-${nextMonth}-${nextDay}`;
+}
+
+function buildCalendarWindow(month: Date): CalendarWindow {
+  const monthStart = new Date(Date.UTC(month.getFullYear(), month.getMonth(), 1));
+  const from = toDateKey(new Date(monthStart.getUTCFullYear(), monthStart.getUTCMonth(), monthStart.getUTCDate()));
+  const to = addDaysToDateKey(from, AVAILABILITY_WINDOW_DAYS);
+  return {
+    monthKey: `${monthStart.getUTCFullYear()}-${String(monthStart.getUTCMonth() + 1).padStart(2, "0")}`,
+    from,
+    to,
+  };
+}
+
+function dedupeUnavailableRanges(
+  previous: ReadonlyArray<ShortletUnavailableRange>,
+  incoming: ReadonlyArray<ShortletUnavailableRange>
+): ShortletUnavailableRange[] {
+  const map = new Map<string, ShortletUnavailableRange>();
+  for (const row of previous) {
+    const key = `${row.start}:${row.end}:${row.source ?? ""}:${row.bookingId ?? ""}`;
+    map.set(key, row);
+  }
+  for (const row of incoming) {
+    const key = `${row.start}:${row.end}:${row.source ?? ""}:${row.bookingId ?? ""}`;
+    map.set(key, row);
+  }
+  return Array.from(map.values());
+}
+
+export function resolveRangeHint(
+  reason: ShortletRangeValidationReason | null,
+  options: { minNights: number; maxNights: number | null }
+): string | null {
+  if (!reason) return null;
+  if (reason === "includes_unavailable_night") {
+    return "Those dates include unavailable nights. Choose different dates.";
+  }
+  if (reason === "min_nights") {
+    return `Minimum stay is ${options.minNights} night${options.minNights === 1 ? "" : "s"}.`;
+  }
+  if (reason === "max_nights" && options.maxNights && options.maxNights > 0) {
+    return `Maximum stay is ${options.maxNights} night${options.maxNights === 1 ? "" : "s"}.`;
+  }
+  if (reason === "checkout_before_checkin") {
+    return "Check-out must be after check-in.";
+  }
+  return null;
+}
+
+export function canContinueToPayment(input: {
+  hasNightlyPriceConfigured: boolean;
+  hasPricing: boolean;
+  isRangeValid: boolean;
+  loading: boolean;
+}): boolean {
+  return (
+    input.hasNightlyPriceConfigured &&
+    input.hasPricing &&
+    input.isRangeValid &&
+    !input.loading
+  );
 }
 
 export function ShortletBookingWidget(props: {
@@ -71,18 +175,179 @@ export function ShortletBookingWidget(props: {
   loginHref: string;
 }) {
   const router = useRouter();
-  const [checkIn, setCheckIn] = useState<string>(getDefaultDate(1));
-  const [checkOut, setCheckOut] = useState<string>(getDefaultDate(3));
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(undefined);
+  const [checkIn, setCheckIn] = useState<string>("");
+  const [checkOut, setCheckOut] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [calendarLoading, setCalendarLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [availability, setAvailability] = useState<AvailabilityResponse | null>(null);
+  const [unavailableRanges, setUnavailableRanges] = useState<ShortletUnavailableRange[]>([]);
+  const [selectionHint, setSelectionHint] = useState<string | null>(null);
+  const loadedWindowKeysRef = useRef<Set<string>>(new Set());
+
+  const today = useMemo(() => {
+    const value = new Date();
+    value.setHours(0, 0, 0, 0);
+    return value;
+  }, []);
+  const todayDateKey = useMemo(() => toDateKey(today), [today]);
+
+  const minNights = availability?.settings?.minNights ?? 1;
+  const maxNights = availability?.settings?.maxNights ?? null;
+
+  const disabledSet = useMemo(
+    () =>
+      expandRangesToDisabledDates(
+        unavailableRanges,
+        todayDateKey,
+        addDaysToDateKey(todayDateKey, CALENDAR_DISABLED_HORIZON_DAYS)
+      ),
+    [todayDateKey, unavailableRanges]
+  );
+
+  const currentValidation = useMemo(
+    () =>
+      validateRangeSelection({
+        checkIn,
+        checkOut,
+        disabledSet,
+        minNights,
+        maxNights,
+      }),
+    [checkIn, checkOut, disabledSet, minNights, maxNights]
+  );
+
+  const loadingAny = loading || metaLoading || calendarLoading;
+
+  const loadAvailabilityWindow = useCallback(
+    async (month: Date) => {
+      const window = buildCalendarWindow(month);
+      const cacheKey = `${props.propertyId}:${window.monthKey}`;
+      if (loadedWindowKeysRef.current.has(cacheKey)) {
+        return;
+      }
+
+      const cached = availabilityWindowCache.get(cacheKey);
+      if (cached) {
+        loadedWindowKeysRef.current.add(cacheKey);
+        const mapped: ShortletUnavailableRange[] = [
+          ...cached.blockedRanges.map((row) => ({
+            start: row.start,
+            end: row.end,
+            source: row.source,
+          })),
+          ...cached.bookedRanges.map((row) => ({
+            start: row.start,
+            end: row.end,
+            source: "booking",
+            bookingId: row.bookingId ?? null,
+          })),
+        ];
+        setUnavailableRanges((previous) => dedupeUnavailableRanges(previous, mapped));
+        return;
+      }
+
+      setCalendarLoading(true);
+      try {
+        const response = await fetch(
+          `/api/shortlet/availability?listingId=${encodeURIComponent(props.propertyId)}&from=${encodeURIComponent(window.from)}&to=${encodeURIComponent(window.to)}`,
+          {
+            credentials: "include",
+          }
+        );
+        const payload = (await response.json().catch(() => null)) as CalendarAvailabilityResponse | null;
+        if (!response.ok || !payload?.ok) {
+          throw new Error("Unable to load calendar availability");
+        }
+
+        availabilityWindowCache.set(cacheKey, payload);
+        loadedWindowKeysRef.current.add(cacheKey);
+        const mapped: ShortletUnavailableRange[] = [
+          ...payload.blockedRanges.map((row) => ({
+            start: row.start,
+            end: row.end,
+            source: row.source,
+          })),
+          ...payload.bookedRanges.map((row) => ({
+            start: row.start,
+            end: row.end,
+            source: "booking",
+            bookingId: row.bookingId ?? null,
+          })),
+        ];
+        setUnavailableRanges((previous) => dedupeUnavailableRanges(previous, mapped));
+      } catch (windowError) {
+        setError(windowError instanceof Error ? windowError.message : "Unable to load calendar availability");
+      } finally {
+        setCalendarLoading(false);
+      }
+    },
+    [props.propertyId]
+  );
+
+  useEffect(() => {
+    void loadAvailabilityWindow(new Date());
+  }, [loadAvailabilityWindow]);
+
+  useEffect(() => {
+    if (!calendarOpen) return;
+    void loadAvailabilityWindow(calendarMonth);
+  }, [calendarMonth, calendarOpen, loadAvailabilityWindow]);
 
   useEffect(() => {
     let active = true;
-    const load = async () => {
-      if (!checkIn || !checkOut) return;
+    const loadMeta = async () => {
+      setMetaLoading(true);
+      try {
+        const response = await fetch(`/api/properties/${encodeURIComponent(props.propertyId)}/availability`, {
+          credentials: "include",
+        });
+        const payload = (await response.json().catch(() => null)) as AvailabilityResponse | null;
+        if (!response.ok || !payload) {
+          throw new Error("Unable to load booking settings");
+        }
+        if (active) {
+          setAvailability(payload);
+        }
+      } catch (metaError) {
+        if (active) {
+          setAvailability(null);
+          setError(metaError instanceof Error ? metaError.message : "Unable to load booking settings");
+        }
+      } finally {
+        if (active) {
+          setMetaLoading(false);
+        }
+      }
+    };
+
+    void loadMeta();
+    return () => {
+      active = false;
+    };
+  }, [props.propertyId]);
+
+  useEffect(() => {
+    let active = true;
+    const loadPricing = async () => {
+      if (!checkIn || !checkOut || !currentValidation.valid) {
+        setAvailability((previous) =>
+          previous
+            ? {
+                ...previous,
+                pricing: null,
+              }
+            : previous
+        );
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
@@ -94,34 +359,56 @@ export function ShortletBookingWidget(props: {
         );
         const payload = (await response.json().catch(() => null)) as AvailabilityResponse | null;
         if (!response.ok || !payload) {
-          throw new Error("Unable to load availability");
+          throw new Error("Unable to load pricing for selected dates");
         }
-        if (active) setAvailability(payload);
+        if (active) {
+          setAvailability((previous) => ({
+            ...(previous ?? payload),
+            ...payload,
+            settings: payload.settings ?? previous?.settings ?? null,
+            bookingMode: payload.bookingMode ?? previous?.bookingMode ?? "request",
+          }));
+        }
       } catch (loadError) {
         if (active) {
-          setAvailability(null);
-          setError(loadError instanceof Error ? loadError.message : "Unable to load availability");
+          setAvailability((previous) =>
+            previous
+              ? {
+                  ...previous,
+                  pricing: null,
+                }
+              : previous
+          );
+          setError(loadError instanceof Error ? loadError.message : "Unable to load pricing for selected dates");
         }
       } finally {
-        if (active) setLoading(false);
+        if (active) {
+          setLoading(false);
+        }
       }
     };
-    void load();
+
+    void loadPricing();
     return () => {
       active = false;
     };
-  }, [checkIn, checkOut, props.propertyId]);
+  }, [checkIn, checkOut, currentValidation.valid, props.propertyId]);
 
   const bookingMode = availability?.bookingMode ?? "request";
   const isRequestMode = bookingMode === "request";
   const modeCtaLabel = resolveShortletBookingCtaLabel(bookingMode);
   const ctaLabel = "Continue to payment";
-  const blockedCount = availability?.blockedRanges?.length ?? 0;
   const pricing = availability?.pricing ?? null;
   const hasNightlyPriceConfigured =
     typeof availability?.settings?.nightlyPriceMinor === "number" &&
     availability.settings.nightlyPriceMinor > 0;
-  const canSubmit = hasNightlyPriceConfigured && !!pricing && blockedCount === 0;
+  const canSubmit = canContinueToPayment({
+    hasNightlyPriceConfigured,
+    hasPricing: !!pricing,
+    isRangeValid: currentValidation.valid,
+    loading: loadingAny,
+  });
+
   const priceSummary = useMemo(() => {
     if (!pricing) return null;
     return {
@@ -133,12 +420,73 @@ export function ShortletBookingWidget(props: {
     };
   }, [pricing]);
 
+  const disabledDaysMatcher = useMemo(
+    () => [
+      { before: today },
+      (date: Date) => disabledSet.has(toDateKey(date)),
+    ],
+    [disabledSet, today]
+  );
+
+  const applyRangeSelection = useCallback(
+    (next: DateRange | undefined) => {
+      setError(null);
+      setNotice(null);
+
+      if (!next?.from) {
+        setSelectedRange(undefined);
+        setCheckIn("");
+        setCheckOut("");
+        setSelectionHint(null);
+        return;
+      }
+
+      const nextCheckIn = toDateKey(next.from);
+      if (!next.to) {
+        setSelectedRange({ from: next.from, to: undefined });
+        setCheckIn(nextCheckIn);
+        setCheckOut("");
+        setSelectionHint(null);
+        return;
+      }
+
+      const nextCheckOut = toDateKey(next.to);
+      const validation = validateRangeSelection({
+        checkIn: nextCheckIn,
+        checkOut: nextCheckOut,
+        disabledSet,
+        minNights,
+        maxNights,
+      });
+
+      if (!validation.valid) {
+        setSelectedRange({ from: next.from, to: undefined });
+        setCheckIn(nextCheckIn);
+        setCheckOut("");
+        setSelectionHint(
+          resolveRangeHint(validation.reason, {
+            minNights,
+            maxNights,
+          })
+        );
+        return;
+      }
+
+      setSelectedRange({ from: next.from, to: next.to });
+      setCheckIn(nextCheckIn);
+      setCheckOut(nextCheckOut);
+      setSelectionHint(null);
+      setCalendarOpen(false);
+    },
+    [disabledSet, maxNights, minNights]
+  );
+
   async function handleCreateBooking() {
-    if (!checkIn || !checkOut || creating) return;
+    if (!checkIn || !checkOut || creating || !currentValidation.valid) return;
     setCreating(true);
     setError(null);
     setNotice(null);
-    const payloadNights = pricing?.nights ?? calculateNights(checkIn, checkOut) ?? 1;
+    const payloadNights = pricing?.nights ?? currentValidation.nights ?? 1;
     const payloadGuests = 1;
     const payloadMode = bookingMode === "instant" ? "instant" : "request";
     try {
@@ -175,6 +523,14 @@ export function ShortletBookingWidget(props: {
     }
   }
 
+  const blockedCount = availability?.blockedRanges?.length ?? 0;
+  const currentRangeHint =
+    selectionHint ??
+    resolveRangeHint(currentValidation.reason, {
+      minNights,
+      maxNights,
+    });
+
   return (
     <div id="cta" className="scroll-mt-28 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
@@ -192,27 +548,84 @@ export function ShortletBookingWidget(props: {
       <div className="mt-3 grid gap-3 sm:grid-cols-2">
         <label className="text-sm text-slate-700">
           <span className="mb-1 block text-xs uppercase tracking-[0.14em] text-slate-500">Check in</span>
-          <input
-            type="date"
-            value={checkIn}
-            onChange={(event) => setCheckIn(event.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            min={getDefaultDate(0)}
-          />
+          <button
+            type="button"
+            onClick={() => {
+              setCalendarOpen(true);
+            }}
+            className="flex h-11 w-full items-center justify-between rounded-lg border border-slate-300 px-3 text-left text-sm text-slate-700 hover:border-slate-400"
+          >
+            <span>{checkIn ? formatDisplayDate(checkIn) : "Select date"}</span>
+            <span className="text-xs text-slate-400">Calendar</span>
+          </button>
         </label>
         <label className="text-sm text-slate-700">
           <span className="mb-1 block text-xs uppercase tracking-[0.14em] text-slate-500">Check out</span>
-          <input
-            type="date"
-            value={checkOut}
-            onChange={(event) => setCheckOut(event.target.value)}
-            className="w-full rounded-lg border border-slate-300 px-3 py-2"
-            min={checkIn || getDefaultDate(1)}
-          />
+          <button
+            type="button"
+            onClick={() => {
+              setCalendarOpen(true);
+            }}
+            className="flex h-11 w-full items-center justify-between rounded-lg border border-slate-300 px-3 text-left text-sm text-slate-700 hover:border-slate-400"
+          >
+            <span>{checkOut ? formatDisplayDate(checkOut) : "Select date"}</span>
+            <span className="text-xs text-slate-400">Calendar</span>
+          </button>
         </label>
       </div>
 
-      {loading ? (
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={() => {
+            setCalendarOpen((previous) => !previous);
+          }}
+        >
+          {calendarOpen ? "Hide calendar" : "Choose dates"}
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            setSelectedRange(undefined);
+            setCheckIn("");
+            setCheckOut("");
+            setSelectionHint(null);
+          }}
+          disabled={!checkIn && !checkOut}
+        >
+          Clear range
+        </Button>
+      </div>
+
+      {calendarOpen ? (
+        <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/40 p-2 sm:p-3">
+          <Calendar
+            mode="range"
+            month={calendarMonth}
+            selected={selectedRange}
+            onSelect={applyRangeSelection}
+            onMonthChange={setCalendarMonth}
+            disabled={disabledDaysMatcher}
+            excludeDisabled
+            numberOfMonths={1}
+            fixedWeeks
+            onDayClick={(_, modifiers) => {
+              if (modifiers.disabled) {
+                setSelectionHint("Those dates include unavailable nights. Choose different dates.");
+              }
+            }}
+          />
+          <p className="px-1 text-xs text-slate-500">
+            Grey dates are unavailable because they are booked, blocked, or in the past.
+          </p>
+        </div>
+      ) : null}
+
+      {currentRangeHint ? <p className="mt-2 text-xs text-amber-700">{currentRangeHint}</p> : null}
+
+      {loadingAny ? (
         <p className="mt-3 text-sm text-slate-500">Checking availability...</p>
       ) : (
         <div className="mt-3 space-y-1 text-sm text-slate-700">
@@ -225,9 +638,7 @@ export function ShortletBookingWidget(props: {
               {priceSummary.cleaning ? <p>Cleaning fee: {priceSummary.cleaning}</p> : null}
               {priceSummary.deposit ? <p>Deposit: {priceSummary.deposit}</p> : null}
               <p className="font-semibold text-slate-900">Total: {priceSummary.total}</p>
-              <p className="text-xs text-slate-500">
-                Deposit is included in total for this pilot.
-              </p>
+              <p className="text-xs text-slate-500">Deposit is included in total for this pilot.</p>
             </>
           ) : (
             <p>
@@ -238,7 +649,7 @@ export function ShortletBookingWidget(props: {
           )}
           {blockedCount > 0 ? (
             <p className="text-xs text-amber-700">
-              {blockedCount} blocked range{blockedCount === 1 ? "" : "s"} overlap this period.
+              Some selected dates are no longer available. Choose a different range.
             </p>
           ) : null}
         </div>
@@ -248,7 +659,7 @@ export function ShortletBookingWidget(props: {
         {props.isAuthenticated ? (
           <Button
             onClick={handleCreateBooking}
-            disabled={creating || loading || !checkIn || !checkOut || !canSubmit}
+            disabled={creating || loadingAny || !checkIn || !checkOut || !canSubmit}
           >
             {creating ? "Submitting..." : ctaLabel}
           </Button>
@@ -272,17 +683,12 @@ export function ShortletBookingWidget(props: {
           </Link>
         ) : null}
       </div>
-      <p className="mt-2 text-xs text-slate-500">
-        {modeCtaLabel} will be finalised after checkout.
-      </p>
+      <p className="mt-2 text-xs text-slate-500">{modeCtaLabel} will be finalised after checkout.</p>
 
       {notice ? (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-emerald-700">
           <p>{notice}</p>
-          <Link
-            href="/trips"
-            className="font-semibold text-emerald-800 underline underline-offset-2"
-          >
+          <Link href="/trips" className="font-semibold text-emerald-800 underline underline-offset-2">
             My trips
           </Link>
         </div>
