@@ -20,3 +20,21 @@ void test("shortlet widget calendar actions are apply and clear", () => {
   assert.ok(contents.includes("Clear"));
   assert.equal(contents.includes("Hide calendar"), false);
 });
+
+void test("shortlet widget calendar popup exposes dialog semantics and close control", () => {
+  const filePath = path.join(process.cwd(), "components", "properties", "ShortletBookingWidget.tsx");
+  const contents = fs.readFileSync(filePath, "utf8");
+
+  assert.ok(contents.includes('role="dialog"'));
+  assert.ok(contents.includes('aria-modal="true"'));
+  assert.ok(contents.includes('aria-label="Close calendar"'));
+});
+
+void test("shortlet widget defines separate availability modifiers for past, booked and blocked", () => {
+  const filePath = path.join(process.cwd(), "components", "properties", "ShortletBookingWidget.tsx");
+  const contents = fs.readFileSync(filePath, "utf8");
+
+  assert.ok(contents.includes("past: (date: Date) => toDateKey(date) < todayDateKey"));
+  assert.ok(contents.includes("booked: (date: Date) => unavailableBySource.booked.has(toDateKey(date))"));
+  assert.ok(contents.includes("blocked: (date: Date) => unavailableBySource.blocked.has(toDateKey(date))"));
+});

@@ -238,6 +238,26 @@ export function clearShortletDateRangeState() {
   } as const;
 }
 
+function expandRangeDateKeys(start: string, end: string): string[] {
+  const startMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(start);
+  const endMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(end);
+  if (!startMatch || !endMatch) return [];
+
+  const startDate = new Date(Date.UTC(Number(startMatch[1]), Number(startMatch[2]) - 1, Number(startMatch[3])));
+  const endDate = new Date(Date.UTC(Number(endMatch[1]), Number(endMatch[2]) - 1, Number(endMatch[3])));
+  if (!Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime()) || startDate >= endDate) {
+    return [];
+  }
+
+  const keys: string[] = [];
+  const cursor = new Date(startDate.getTime());
+  while (cursor < endDate) {
+    keys.push(`${cursor.getUTCFullYear()}-${String(cursor.getUTCMonth() + 1).padStart(2, "0")}-${String(cursor.getUTCDate()).padStart(2, "0")}`);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return keys;
+}
+
 export function isShortletDateUnavailable(input: {
   date: Date;
   todayDateKey: string;
@@ -341,6 +361,7 @@ export function ShortletBookingWidget(props: {
   const router = useRouter();
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [isMobileCalendar, setIsMobileCalendar] = useState(false);
+  const [calendarPlacement, setCalendarPlacement] = useState<"top" | "bottom">("bottom");
   const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
   const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(undefined);
   const [draftRange, setDraftRange] = useState<DateRange | undefined>(undefined);
@@ -358,6 +379,8 @@ export function ShortletBookingWidget(props: {
   const [selectionHint, setSelectionHint] = useState<string | null>(null);
   const [availabilityNotice, setAvailabilityNotice] = useState<string | null>(null);
   const loadedWindowKeysRef = useRef<Set<string>>(new Set());
+  const checkInTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const calendarDialogRef = useRef<HTMLDivElement | null>(null);
 
   const today = useMemo(() => {
     const value = new Date();
@@ -386,6 +409,33 @@ export function ShortletBookingWidget(props: {
       document.body.style.overflow = previousOverflow;
     };
   }, [calendarOpen, isMobileCalendar]);
+
+  const syncCalendarPlacement = useCallback(() => {
+    if (isMobileCalendar) return;
+    const trigger = checkInTriggerRef.current;
+    if (!trigger) return;
+
+    const triggerRect = trigger.getBoundingClientRect();
+    const estimatedDialogHeight = 500;
+    const openAbove =
+      triggerRect.bottom + estimatedDialogHeight > window.innerHeight &&
+      triggerRect.top > estimatedDialogHeight;
+    setCalendarPlacement(openAbove ? "top" : "bottom");
+  }, [isMobileCalendar]);
+
+  useEffect(() => {
+    if (!calendarOpen) return;
+    syncCalendarPlacement();
+    if (isMobileCalendar) return;
+
+    const onViewportChange = () => syncCalendarPlacement();
+    window.addEventListener("resize", onViewportChange);
+    window.addEventListener("scroll", onViewportChange, true);
+    return () => {
+      window.removeEventListener("resize", onViewportChange);
+      window.removeEventListener("scroll", onViewportChange, true);
+    };
+  }, [calendarOpen, isMobileCalendar, syncCalendarPlacement]);
 
   const minNights = availability?.settings?.minNights ?? 1;
   const maxNights = availability?.settings?.maxNights ?? null;
@@ -625,6 +675,19 @@ export function ShortletBookingWidget(props: {
     };
   }, [pricing]);
 
+  const unavailableBySource = useMemo(() => {
+    const booked = new Set<string>();
+    const blocked = new Set<string>();
+    for (const range of unavailableRanges) {
+      const keys = expandRangeDateKeys(range.start, range.end);
+      const target = range.source === "booking" || !!range.bookingId ? booked : blocked;
+      for (const key of keys) {
+        target.add(key);
+      }
+    }
+    return { booked, blocked };
+  }, [unavailableRanges]);
+
   const isUnavailableDate = useCallback(
     (date: Date) =>
       isShortletDateUnavailable({
@@ -652,12 +715,18 @@ export function ShortletBookingWidget(props: {
     const nextState = openShortletCalendarOverlay(selectedRange);
     setCalendarOpen(nextState.calendarOpen);
     setDraftRange(nextState.draftRange);
+    if (selectedRange?.from) {
+      setCalendarMonth(selectedRange.from);
+    }
     setError(null);
     setNotice(null);
     setAvailabilityNotice(null);
     setSelectionHint(null);
     setConflictingDates([]);
-  }, [selectedRange]);
+    requestAnimationFrame(() => {
+      syncCalendarPlacement();
+    });
+  }, [selectedRange, syncCalendarPlacement]);
 
   const closeCalendarPicker = useCallback(() => {
     const nextState = closeShortletCalendarOverlay(draftRange);
@@ -665,6 +734,55 @@ export function ShortletBookingWidget(props: {
     setDraftRange(nextState.draftRange);
     setSelectionHint(null);
   }, [draftRange]);
+
+  useEffect(() => {
+    if (!calendarOpen) return;
+
+    const dialog = calendarDialogRef.current;
+    if (!dialog) return;
+
+    const focusableSelector =
+      'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const getFocusableElements = () =>
+      Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)).filter(
+        (element) => !element.hasAttribute("disabled") && element.getAttribute("aria-hidden") !== "true"
+      );
+
+    const focusable = getFocusableElements();
+    focusable[0]?.focus();
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!calendarOpen) return;
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeCalendarPicker();
+        return;
+      }
+      if (event.key !== "Tab") return;
+
+      const nextFocusable = getFocusableElements();
+      if (nextFocusable.length < 1) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = nextFocusable[0];
+      const last = nextFocusable[nextFocusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && active === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [calendarOpen, closeCalendarPicker]);
 
   const onDraftRangeSelect = useCallback(
     (next: DateRange | undefined) => {
@@ -825,6 +943,7 @@ export function ShortletBookingWidget(props: {
             <button
               type="button"
               onClick={openCalendarPicker}
+              ref={checkInTriggerRef}
               className="flex h-11 w-full items-center justify-between rounded-lg border border-slate-300 px-3 text-left text-sm text-slate-700 hover:border-slate-400"
               data-testid="shortlet-checkin-trigger"
             >
@@ -858,18 +977,36 @@ export function ShortletBookingWidget(props: {
             <div
               className={
                 isMobileCalendar
-                  ? "fixed inset-x-0 bottom-0 z-50 px-2 pb-2"
-                  : "absolute left-0 right-0 top-full z-50 mt-2"
+                  ? "fixed inset-0 z-50 flex flex-col"
+                  : calendarPlacement === "top"
+                    ? "absolute bottom-full left-0 right-0 z-50 mb-2"
+                    : "absolute left-0 right-0 top-full z-50 mt-2"
               }
               data-testid={isMobileCalendar ? "shortlet-calendar-sheet" : "shortlet-calendar-popover"}
             >
               <div
+                ref={calendarDialogRef}
+                role="dialog"
+                aria-modal="true"
+                aria-label="Choose your stay dates"
+                tabIndex={-1}
                 className={
                   isMobileCalendar
-                    ? "max-h-[82dvh] overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-3 shadow-2xl"
+                    ? "mt-auto h-[100dvh] overflow-y-auto border border-slate-200 bg-white p-3 shadow-2xl"
                     : "rounded-xl border border-slate-200 bg-white p-3 shadow-xl"
                 }
               >
+                <div className="mb-1 flex items-center justify-between gap-2 px-1">
+                  <p className="text-sm font-semibold text-slate-900">Choose dates</p>
+                  <button
+                    type="button"
+                    onClick={closeCalendarPicker}
+                    className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    aria-label="Close calendar"
+                  >
+                    ×
+                  </button>
+                </div>
                 {calendarLoading && unavailableRanges.length < 1 ? (
                   <div className="space-y-3 px-2 py-2" aria-hidden="true">
                     <div className="h-4 w-40 animate-pulse rounded bg-slate-200" />
@@ -888,10 +1025,16 @@ export function ShortletBookingWidget(props: {
                     onMonthChange={setCalendarMonth}
                     disabled={isUnavailableDate}
                     modifiers={{
+                      past: (date: Date) => toDateKey(date) < todayDateKey,
+                      booked: (date: Date) => unavailableBySource.booked.has(toDateKey(date)),
+                      blocked: (date: Date) => unavailableBySource.blocked.has(toDateKey(date)),
                       unavailable: isUnavailableDate,
                       conflict: (date: Date) => conflictingDateSet.has(toDateKey(date)),
                     }}
                     modifiersClassNames={{
+                      past: "bg-slate-50 text-slate-300",
+                      booked: "bg-slate-100 text-slate-400 line-through",
+                      blocked: "bg-slate-100 text-slate-400",
                       unavailable: "bg-slate-50 text-slate-300",
                       conflict: "bg-rose-100 text-rose-700 ring-1 ring-rose-200 font-semibold",
                     }}
@@ -927,7 +1070,7 @@ export function ShortletBookingWidget(props: {
                 <div
                   className={
                     isMobileCalendar
-                      ? "sticky bottom-0 mt-3 flex items-center justify-end gap-2 border-t border-slate-200 bg-white pt-3"
+                      ? "sticky bottom-0 mt-3 flex items-center justify-end gap-2 border-t border-slate-200 bg-white py-3"
                       : "mt-3 flex items-center justify-end gap-2"
                   }
                 >
