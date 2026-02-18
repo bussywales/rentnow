@@ -46,8 +46,20 @@ void test("shortlets shell exposes compact sticky pill summary controls", () => 
   const contents = fs.readFileSync(shellPath, "utf8");
 
   assert.ok(contents.includes('data-testid="shortlets-compact-search-pill"'));
+  assert.ok(contents.includes("showCompactSearch"));
+  assert.ok(contents.includes("IntersectionObserver"));
+  assert.ok(contents.includes('data-testid="shortlets-expanded-search-controls"'));
   assert.ok(contents.includes("whereSummary"));
   assert.ok(contents.includes("datesSummary"));
   assert.ok(contents.includes("guestsSummary"));
   assert.ok(contents.includes("shouldUseCompactShortletSearchPill(window.scrollY)"));
+});
+
+void test("guests control always renders readable guest labels", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("formatShortletGuestsLabel"));
+  assert.ok(contents.includes('aria-label="Guests"'));
+  assert.ok(contents.includes("guests-option-"));
+  assert.equal(contents.includes('type="number"'), false);
 });

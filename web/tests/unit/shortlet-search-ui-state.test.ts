@@ -5,7 +5,9 @@ import {
   applySearchThisArea,
   createDefaultShortletAdvancedFilters,
   createShortletMapSearchAreaState,
+  formatShortletGuestsLabel,
   listShortletActiveFilterTags,
+  normalizeShortletGuestsParam,
   readShortletAdvancedFiltersFromParams,
   removeShortletAdvancedFilterTag,
   resolveShortletMapMarkerVisualState,
@@ -182,6 +184,16 @@ void test("compact sticky pill toggles when scroll crosses threshold", () => {
   assert.equal(shouldUseCompactShortletSearchPill(120), true);
   assert.equal(shouldUseCompactShortletSearchPill(90, 120), false);
   assert.equal(shouldUseCompactShortletSearchPill(121, 120), true);
+});
+
+void test("guests helpers normalize URL params and generate clear labels", () => {
+  assert.equal(normalizeShortletGuestsParam(undefined), 1);
+  assert.equal(normalizeShortletGuestsParam(""), 1);
+  assert.equal(normalizeShortletGuestsParam("0"), 1);
+  assert.equal(normalizeShortletGuestsParam("2.9"), 2);
+  assert.equal(formatShortletGuestsLabel(1), "1 guest");
+  assert.equal(formatShortletGuestsLabel(3), "3 guests");
+  assert.equal(formatShortletGuestsLabel("4"), "4 guests");
 });
 
 void test("map marker state prioritizes selected over hovered", () => {

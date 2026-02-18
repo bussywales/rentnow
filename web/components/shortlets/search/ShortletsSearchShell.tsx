@@ -21,7 +21,9 @@ import {
   applySearchThisArea,
   createDefaultShortletAdvancedFilters,
   createShortletMapSearchAreaState,
+  formatShortletGuestsLabel,
   listShortletActiveFilterTags,
+  normalizeShortletGuestsParam,
   readShortletAdvancedFiltersFromParams,
   removeShortletAdvancedFilterTag,
   resolveSelectedListingId,
@@ -90,11 +92,12 @@ function firstValue(value: string | string[] | undefined): string | null {
 
 function readQueryParamsFromSearchParams(searchParams: URLSearchParams) {
   const market = (searchParams.get("market") ?? "NG").trim().toUpperCase();
+  const guests = normalizeShortletGuestsParam(searchParams.get("guests"));
   return {
     q: searchParams.get("q") ?? "",
     checkIn: searchParams.get("checkIn") ?? "",
     checkOut: searchParams.get("checkOut") ?? "",
-    guests: searchParams.get("guests") ?? "1",
+    guests: String(guests),
     market: /^[A-Z]{2}$/.test(market) ? market : "NG",
     sort: searchParams.get("sort") ?? "recommended",
     bookingMode: searchParams.get("bookingMode") ?? "",
@@ -217,6 +220,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const [mobileMapOpen, setMobileMapOpen] = useState(parsedUi.view === "map");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [isCompactSearch, setIsCompactSearch] = useState(false);
+  const [isSearchHeaderInView, setIsSearchHeaderInView] = useState(true);
   const [quickFiltersCollapsed, setQuickFiltersCollapsed] = useState(false);
   const [quickFiltersPopoverOpen, setQuickFiltersPopoverOpen] = useState(false);
   const [draftAdvancedFilters, setDraftAdvancedFilters] = useState<ShortletAdvancedFilterState>(() =>
@@ -227,7 +231,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const whereInputRef = useRef<HTMLInputElement | null>(null);
   const checkInInputRef = useRef<HTMLInputElement | null>(null);
   const checkOutInputRef = useRef<HTMLInputElement | null>(null);
-  const guestsInputRef = useRef<HTMLInputElement | null>(null);
+  const guestsInputRef = useRef<HTMLSelectElement | null>(null);
+  const expandedSearchHeaderRef = useRef<HTMLDivElement | null>(null);
   const quickFiltersMeasureRef = useRef<HTMLDivElement | null>(null);
   const quickFiltersPopoverRef = useRef<HTMLDivElement | null>(null);
 
@@ -255,6 +260,26 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    const node = expandedSearchHeaderRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") {
+      setIsSearchHeaderInView(true);
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsSearchHeaderInView(entry.isIntersecting && entry.intersectionRatio >= 0.35);
+      },
+      {
+        threshold: [0, 0.35, 0.6, 1],
+      }
+    );
+
+    observer.observe(node);
+    return () => observer.disconnect();
   }, []);
 
   const recomputeQuickFilterCollapse = useCallback(() => {
@@ -364,9 +389,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       else next.delete("checkIn");
       if (checkOutDraft) next.set("checkOut", checkOutDraft);
       else next.delete("checkOut");
-      const guests = Number(guestsDraft);
-      if (Number.isFinite(guests) && guests > 0) next.set("guests", String(Math.trunc(guests)));
-      else next.delete("guests");
+      next.set("guests", String(normalizeShortletGuestsParam(guestsDraft)));
     });
   };
 
@@ -521,11 +544,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       : checkInDraft
         ? `${formatCompactDate(checkInDraft)} - Checkout`
         : "Dates";
-  const guestCount = Number(guestsDraft);
-  const guestsSummary =
-    Number.isFinite(guestCount) && guestCount > 0
-      ? `${Math.trunc(guestCount)} ${Math.trunc(guestCount) === 1 ? "guest" : "guests"}`
-      : "Guests";
+  const guestsSummary = formatShortletGuestsLabel(guestsDraft);
+  const showCompactSearch = isCompactSearch && !isSearchHeaderInView;
 
   const marketLabel = getMarketLabel(parsedUi.market);
 
@@ -533,10 +553,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     <div className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-4 px-4 py-4">
       <div
         className={`pointer-events-none fixed inset-x-0 top-20 z-30 flex justify-center px-4 transition-all duration-200 ${
-          isCompactSearch ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
+          showCompactSearch ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
         }`}
         data-testid="shortlets-compact-search-pill"
-        aria-hidden={!isCompactSearch}
+        aria-hidden={!showCompactSearch}
       >
         <div className="pointer-events-auto w-full max-w-[1200px] rounded-full border border-slate-200 bg-white/95 px-2 py-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur">
           <div className="flex min-w-0 flex-wrap items-center gap-2 md:flex-nowrap">
@@ -597,7 +617,13 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           Search by area, landmark, and dates. Map prices are nightly and availability-aware.
         </p>
 
-        <div className="mt-3 grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.65fr)_auto_auto_minmax(0,0.85fr)]">
+        <div
+          ref={expandedSearchHeaderRef}
+          className="mt-3"
+          data-testid="shortlets-expanded-search-controls"
+          aria-hidden={showCompactSearch}
+        >
+          <div className="grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.75fr)_auto_auto_minmax(0,0.85fr)]">
           <Input
             ref={whereInputRef}
             value={queryDraft}
@@ -622,16 +648,23 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             aria-label="Check-out"
             className="h-11"
           />
-          <Input
+          <Select
             ref={guestsInputRef}
-            type="number"
-            min={1}
             value={guestsDraft}
             onChange={(event) => setGuestsDraft(event.target.value)}
             aria-label="Guests"
-            placeholder="Guests"
             className="h-11"
-          />
+          >
+            {Array.from({ length: 16 }).map((_, index) => {
+              const guestsCount = index + 1;
+              const label = formatShortletGuestsLabel(guestsCount);
+              return (
+                <option key={`guests-option-${guestsCount}`} value={guestsCount}>
+                  {label}
+                </option>
+              );
+            })}
+          </Select>
           <Button onClick={onSubmitSearch} className="h-11 whitespace-nowrap">
             Search
           </Button>
@@ -655,6 +688,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             <option value="price_high">Price: high to low</option>
             <option value="newest">Newest</option>
           </Select>
+        </div>
         </div>
 
         <div className="relative mt-3 min-w-0">
