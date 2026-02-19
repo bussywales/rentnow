@@ -33,6 +33,7 @@ type Props = {
   fitRequestKey: string;
   resolvedFitRequestKey: string;
   height?: string;
+  invalidateNonce?: number;
 };
 
 export function ShortletsSearchMap(props: Props) {

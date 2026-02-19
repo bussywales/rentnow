@@ -42,6 +42,7 @@ type Props = {
   fitRequestKey: string;
   resolvedFitRequestKey: string;
   height?: string;
+  invalidateNonce?: number;
 };
 
 const NIGERIA_DEFAULT_CENTER: [number, number] = [9.082, 8.6753];
@@ -130,7 +131,8 @@ function AutoFitToMarkers({
   cameraIntentNonce,
   fitRequestKey,
   resolvedFitRequestKey,
-  suppressedBoundsUpdatesRef,
+  suppressBoundsUpdatesRef,
+  invalidateNonce,
 }: {
   markers: Array<[number, number]>;
   marketCountry: string;
@@ -139,7 +141,8 @@ function AutoFitToMarkers({
   cameraIntentNonce: number;
   fitRequestKey: string;
   resolvedFitRequestKey: string;
-  suppressedBoundsUpdatesRef: { current: number };
+  suppressBoundsUpdatesRef: { current: number };
+  invalidateNonce?: number;
 }) {
   const map = useMap();
   const lastHandledIntentNonceRef = useRef<number>(0);
@@ -152,7 +155,7 @@ function AutoFitToMarkers({
       cancelAnimationFrame(raf);
       clearTimeout(timeout);
     };
-  }, [map, fitRequestKey, markers.length]);
+  }, [invalidateNonce, map, fitRequestKey, markers.length]);
 
   useEffect(() => {
     if (resolvedFitRequestKey !== fitRequestKey) return;
@@ -169,7 +172,7 @@ function AutoFitToMarkers({
     });
 
     if (shouldAutoFit) {
-      suppressedBoundsUpdatesRef.current = 2;
+      suppressBoundsUpdatesRef.current = 1;
       fitMapToMarkers({ map, markers, marketCountry });
       lastFittedResultHashRef.current = resultHash;
     }
@@ -184,7 +187,7 @@ function AutoFitToMarkers({
     marketCountry,
     resolvedFitRequestKey,
     resultHash,
-    suppressedBoundsUpdatesRef,
+    suppressBoundsUpdatesRef,
   ]);
 
   return null;
@@ -192,22 +195,15 @@ function AutoFitToMarkers({
 
 function ReportBounds({
   onBoundsChanged,
-  suppressedBoundsUpdatesRef,
+  suppressBoundsUpdatesRef,
 }: {
   onBoundsChanged: (bounds: MapBounds) => void;
-  suppressedBoundsUpdatesRef: { current: number };
+  suppressBoundsUpdatesRef: { current: number };
 }) {
   const map = useMapEvents({
     moveend() {
-      if (suppressedBoundsUpdatesRef.current > 0) {
-        suppressedBoundsUpdatesRef.current -= 1;
-        return;
-      }
-      onBoundsChanged(resolveBounds(map));
-    },
-    zoomend() {
-      if (suppressedBoundsUpdatesRef.current > 0) {
-        suppressedBoundsUpdatesRef.current -= 1;
+      if (suppressBoundsUpdatesRef.current > 0) {
+        suppressBoundsUpdatesRef.current -= 1;
         return;
       }
       onBoundsChanged(resolveBounds(map));
@@ -235,8 +231,9 @@ export function ShortletsSearchMapClient({
   fitRequestKey,
   resolvedFitRequestKey,
   height = "min(70vh, 760px)",
+  invalidateNonce = 0,
 }: Props) {
-  const suppressedBoundsUpdatesRef = useRef(0);
+  const suppressBoundsUpdatesRef = useRef(0);
   const mapListings = listings.filter(
     (listing): listing is MapListing & { latitude: number; longitude: number } =>
       typeof listing.latitude === "number" && typeof listing.longitude === "number"
@@ -255,11 +252,14 @@ export function ShortletsSearchMapClient({
   );
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+    <div
+      className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+      style={{ height }}
+    >
       <MapContainer
         center={defaultCenter}
         zoom={defaultZoom}
-        style={{ height }}
+        style={{ height: "100%" }}
         className="w-full"
         scrollWheelZoom
       >
@@ -275,11 +275,12 @@ export function ShortletsSearchMapClient({
           cameraIntentNonce={cameraIntentNonce}
           fitRequestKey={fitRequestKey}
           resolvedFitRequestKey={resolvedFitRequestKey}
-          suppressedBoundsUpdatesRef={suppressedBoundsUpdatesRef}
+          suppressBoundsUpdatesRef={suppressBoundsUpdatesRef}
+          invalidateNonce={invalidateNonce}
         />
         <ReportBounds
           onBoundsChanged={onBoundsChanged}
-          suppressedBoundsUpdatesRef={suppressedBoundsUpdatesRef}
+          suppressBoundsUpdatesRef={suppressBoundsUpdatesRef}
         />
         {mapListings.map((listing) => {
           const markerState = resolveShortletMapMarkerVisualState({

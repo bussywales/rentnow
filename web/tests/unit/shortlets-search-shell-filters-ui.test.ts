@@ -124,3 +124,38 @@ void test("shortlets shell supports opt-in map move search toggle", () => {
   assert.ok(contents.includes("mapMoveDebounceRef"));
   assert.ok(contents.includes("mapAuto"));
 });
+
+void test("map move search auto mode writes bbox and triggers URL refresh path", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("if (mapMoveSearchMode === \"auto\")"));
+  assert.ok(contents.includes("setMapMoveUpdating(true)"));
+  assert.ok(contents.includes("serializeShortletSearchBbox(nextBounds)"));
+  assert.ok(contents.includes("writeShortletMapMoveSearchMode(next, \"auto\")"));
+  assert.ok(contents.includes("updateUrl((next) => {"));
+});
+
+void test("map move search manual mode keeps search-this-area flow", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("applyMapViewportChange(current, nextBounds)"));
+  assert.ok(contents.includes("!isMapMoveSearchEnabled && searchAreaDirty"));
+  assert.ok(contents.includes("onSearchThisArea"));
+});
+
+void test("mobile map overlay renders full-screen structure with explicit height and close controls", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes('data-testid="shortlets-mobile-map"'));
+  assert.ok(contents.includes("fixed inset-0 z-40"));
+  assert.ok(contents.includes('style={{ height: "calc(100vh - 84px)" }}'));
+  assert.ok(contents.includes('aria-label="Close map"'));
+  assert.ok(contents.includes("mobileListScrollYRef.current = window.scrollY"));
+  assert.ok(contents.includes("window.scrollTo({ top: mobileListScrollYRef.current, behavior: \"auto\" })"));
+});
+
+void test("map bbox URL updates use replace semantics without pushing history", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })"));
+});

@@ -263,6 +263,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const quickFiltersMeasureRef = useRef<HTMLDivElement | null>(null);
   const quickFiltersPopoverRef = useRef<HTMLDivElement | null>(null);
   const mapMoveDebounceRef = useRef<number | null>(null);
+  const mobileListScrollYRef = useRef(0);
+  const [mobileMapInvalidateNonce, setMobileMapInvalidateNonce] = useState(0);
 
   useEffect(() => {
     setQueryDraft(parsedUi.where);
@@ -418,7 +420,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       next.set("page", "1");
       const query = next.toString();
       if (query === searchParamsKey) return false;
-      router.replace(query ? `${pathname}?${query}` : pathname);
+      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
       return true;
     },
     [mobileView, parsedUi.market, pathname, router, searchParamsKey]
@@ -607,9 +609,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   };
 
   const openMapView = () => {
+    mobileListScrollYRef.current = window.scrollY;
     const nextView = toggleShortletSearchView("list");
     setMobileView(nextView);
     setMobileMapOpen(true);
+    setMobileMapInvalidateNonce((current) => current + 1);
     updateUrl((next) => next.set("view", "map"));
   };
 
@@ -618,6 +622,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     setMobileView(nextView);
     setMobileMapOpen(false);
     updateUrl((next) => next.set("view", "list"));
+    requestAnimationFrame(() => {
+      window.scrollTo({ top: mobileListScrollYRef.current, behavior: "auto" });
+    });
   };
 
   const appliedAdvancedFilters = useMemo(
@@ -1227,6 +1234,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               fitRequestKey={mapFitRequestKey}
               resolvedFitRequestKey={resolvedMapFitRequestKey}
               height="min(76vh, 800px)"
+              invalidateNonce={0}
             />
             {!isMapMoveSearchEnabled && searchAreaDirty ? (
               <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">
@@ -1317,11 +1325,21 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                 Search as I move the map
               </label>
             </div>
-            <Button variant="secondary" size="sm" onClick={openListView}>
-              List
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="secondary" size="sm" onClick={openListView}>
+                List
+              </Button>
+              <button
+                type="button"
+                aria-label="Close map"
+                onClick={openListView}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
+              >
+                ×
+              </button>
+            </div>
           </div>
-          <div className="relative min-h-0 flex-1">
+          <div className="relative min-h-0" style={{ height: "calc(100vh - 84px)" }}>
             <ShortletsSearchMap
               listings={mapListings}
               selectedListingId={selectedListingId}
@@ -1335,7 +1353,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               cameraIntentNonce={cameraIntentNonce}
               fitRequestKey={mapFitRequestKey}
               resolvedFitRequestKey={resolvedMapFitRequestKey}
-              height="100%"
+              height="calc(100vh - 84px)"
+              invalidateNonce={mobileMapInvalidateNonce}
             />
             {!isMapMoveSearchEnabled && searchAreaDirty ? (
               <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">
