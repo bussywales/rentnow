@@ -82,6 +82,17 @@ void test("mobile map toggle and list layout avoid covering listing actions", ()
   assert.ok(contents.includes("-translate-x-1/2"));
 });
 
+void test("desktop list grid adapts when map panel is open or hidden", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("const [desktopMapOpen, setDesktopMapOpen] = useState(true)"));
+  assert.ok(contents.includes('data-testid="shortlets-desktop-map-toggle"'));
+  assert.ok(contents.includes("desktopCardsGridClass"));
+  assert.ok(contents.includes("[grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]"));
+  assert.ok(contents.includes("[grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]"));
+  assert.ok(contents.includes('data-testid="shortlets-desktop-results-grid"'));
+});
+
 void test("shortlets shell heading copy follows destination-driven messaging", () => {
   const contents = fs.readFileSync(shellPath, "utf8");
 

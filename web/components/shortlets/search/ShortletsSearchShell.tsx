@@ -230,6 +230,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   >("initial");
   const [cameraIntentNonce, setCameraIntentNonce] = useState(1);
   const [mobileMapOpen, setMobileMapOpen] = useState(parsedUi.view === "map");
+  const [desktopMapOpen, setDesktopMapOpen] = useState(true);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [isCompactSearch, setIsCompactSearch] = useState(false);
   const [isSearchHeaderInView, setIsSearchHeaderInView] = useState(true);
@@ -566,6 +567,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         : "Dates";
   const guestsSummary = formatShortletGuestsLabel(guestsDraft);
   const showCompactSearch = isCompactSearch && !isSearchHeaderInView;
+  const desktopLayoutClass = desktopMapOpen
+    ? "hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+    : "hidden gap-4 lg:grid lg:grid-cols-1";
+  const desktopCardsGridClass = desktopMapOpen
+    ? "grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]"
+    : "grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]";
 
   const marketCurrency = getMarketCurrency(parsedUi.market);
   const activeDestination = parsedUi.where.trim();
@@ -944,24 +951,35 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         </div>
       ) : null}
 
-      <div className="hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+      <div className={desktopLayoutClass}>
         <section className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm text-slate-600">
               {loading ? "Loading stays..." : `${results?.total ?? 0} stays found`}
             </p>
-            {results?.total === 0 && !!parsedUi.checkIn && !!parsedUi.checkOut ? (
-              <p className="text-xs text-slate-500">Try nearby dates or expand map area.</p>
-            ) : null}
+            <div className="flex items-center gap-2">
+              {results?.total === 0 && !!parsedUi.checkIn && !!parsedUi.checkOut ? (
+                <p className="text-xs text-slate-500">Try nearby dates or expand map area.</p>
+              ) : null}
+              <Button
+                type="button"
+                variant="secondary"
+                size="sm"
+                onClick={() => setDesktopMapOpen((current) => !current)}
+                data-testid="shortlets-desktop-map-toggle"
+              >
+                {desktopMapOpen ? "Hide map" : "Show map"}
+              </Button>
+            </div>
           </div>
           {loading && !(results?.items.length ?? 0) ? (
-            <div className="grid gap-3">
+            <div className={desktopCardsGridClass}>
               {Array.from({ length: 6 }).map((_, index) => (
                 <PropertyCardSkeleton key={`shortlet-list-skeleton-${index}`} />
               ))}
             </div>
           ) : results?.items.length ? (
-            <div className="grid gap-3">
+            <div className={desktopCardsGridClass} data-testid="shortlets-desktop-results-grid">
               {results.items.map((property) => {
                 const selected = property.id === selectedListingId;
                 const highlighted = selected || property.id === hoveredListingId;
@@ -1011,7 +1029,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           )}
         </section>
 
-        <section className="sticky top-20 h-fit">
+        {desktopMapOpen ? (
+          <section className="sticky top-20 h-fit">
           <div className="relative">
             <ShortletsSearchMap
               listings={mapListings}
@@ -1059,7 +1078,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               </div>
             ) : null}
           </div>
-        </section>
+          </section>
+        ) : null}
       </div>
 
       <div className="space-y-3 pb-20 lg:hidden">

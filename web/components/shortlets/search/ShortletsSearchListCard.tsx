@@ -1,16 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import Image from "next/image";
+import { useMemo } from "react";
 import Link from "next/link";
 import type { Property } from "@/lib/types";
 import { cn } from "@/components/ui/cn";
 import { formatLocationLabel } from "@/lib/property-discovery";
 import { resolveShortletBookingMode, resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
+import { ShortletsSearchCardCarousel } from "@/components/shortlets/search/ShortletsSearchCardCarousel";
 
 type Props = {
   property: Property & {
     primaryImageUrl?: string | null;
+    imageUrls?: string[];
+    imageCount?: number;
     verifiedHost?: boolean;
   };
   href: string;
@@ -58,11 +60,6 @@ export function ShortletsSearchListCard({
   onFocus,
   onBlur,
 }: Props) {
-  const primaryImageSrc = property.primaryImageUrl || property.cover_image_url || FALLBACK_IMAGE;
-  const [failedImageSrc, setFailedImageSrc] = useState<string | null>(null);
-  const [loadedImageSrc, setLoadedImageSrc] = useState<string | null>(null);
-  const imageSrc = failedImageSrc === primaryImageSrc ? FALLBACK_IMAGE : primaryImageSrc;
-  const imageLoaded = loadedImageSrc === imageSrc;
   const location = formatLocationLabel(property.city, property.neighbourhood);
   const bookingMode = resolveShortletBookingMode(property);
   const nightlyMinor = resolveShortletNightlyPriceMinor(property);
@@ -84,24 +81,16 @@ export function ShortletsSearchListCard({
       onBlur={onBlur}
       data-testid="shortlets-search-list-card"
     >
+      <ShortletsSearchCardCarousel
+        title={property.title}
+        href={href}
+        coverImageUrl={property.cover_image_url}
+        primaryImageUrl={property.primaryImageUrl}
+        imageUrls={property.imageUrls}
+        images={property.images ?? undefined}
+        fallbackImage={FALLBACK_IMAGE}
+      />
       <Link href={href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
-        <div className="relative h-44 w-full sm:h-48">
-          {!imageLoaded ? <div className="absolute inset-0 animate-pulse bg-slate-100" aria-hidden="true" /> : null}
-          <Image
-            src={imageSrc}
-            alt={property.title}
-            fill
-            sizes="(max-width: 1024px) 100vw, 520px"
-            className={`object-cover transition-opacity duration-300 ${imageLoaded ? "opacity-100" : "opacity-0"}`}
-            onLoad={() => setLoadedImageSrc(imageSrc)}
-            onError={() => {
-              setLoadedImageSrc(null);
-              if (imageSrc !== FALLBACK_IMAGE) {
-                setFailedImageSrc(primaryImageSrc);
-              }
-            }}
-          />
-        </div>
         <div className="space-y-2 px-4 py-3">
           <div className="flex items-center justify-between gap-2">
             <p className="truncate text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">{location}</p>
