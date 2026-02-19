@@ -35,6 +35,7 @@ import { getTenantPlanForTier } from "@/lib/plans";
 import type { Profile, Property } from "@/lib/types";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { orderImagesWithCover } from "@/lib/properties/images";
+import { resolveBackHref } from "@/lib/properties/back-href";
 import { derivePhotoTrust } from "@/lib/properties/photo-trust";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { isListingExpired } from "@/lib/properties/expiry";
@@ -84,36 +85,6 @@ function getSearchParamValue(
   const value = params[key];
   if (Array.isArray(value)) return value[0];
   return value;
-}
-
-function resolveBackHref(
-  params: SearchParams | undefined,
-  referer: string | null
-): string | null {
-  const rawBack = getSearchParamValue(params, "back");
-  if (rawBack) {
-    try {
-      const decoded = decodeURIComponent(rawBack);
-      if (decoded.startsWith("/properties")) {
-        return decoded;
-      }
-    } catch {
-      if (rawBack.startsWith("/properties")) {
-        return rawBack;
-      }
-    }
-  }
-
-  if (!referer) return null;
-  try {
-    const url = new URL(referer);
-    if (url.pathname === "/properties") {
-      return `${url.pathname}${url.search}`;
-    }
-  } catch {
-    return null;
-  }
-  return null;
 }
 
 async function getProperty(
