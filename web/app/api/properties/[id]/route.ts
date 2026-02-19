@@ -58,6 +58,11 @@ type ImageMetaPayload = Record<
     height?: number;
     bytes?: number;
     format?: string | null;
+    storage_path?: string | null;
+    original_storage_path?: string | null;
+    thumb_storage_path?: string | null;
+    card_storage_path?: string | null;
+    hero_storage_path?: string | null;
     exif?: { hasGps?: boolean | null; capturedAt?: string | null };
   }
 >;
@@ -152,6 +157,11 @@ export const updateSchema = z.object({
             height: z.number().int().positive().optional(),
             bytes: z.number().int().nonnegative().optional(),
             format: z.string().optional().nullable(),
+            storage_path: z.string().optional().nullable(),
+            original_storage_path: z.string().optional().nullable(),
+            thumb_storage_path: z.string().optional().nullable(),
+            card_storage_path: z.string().optional().nullable(),
+            hero_storage_path: z.string().optional().nullable(),
             exif: z
               .object({
                 hasGps: z.boolean().optional().nullable(),
@@ -371,7 +381,7 @@ export async function GET(
 
   const buildQuery = (includePosition: boolean) => {
     const baseFields =
-      "id, image_url, created_at, width, height, bytes, format, blurhash, exif_has_gps, exif_captured_at";
+      "id, image_url, created_at, width, height, bytes, format, blurhash, storage_path, original_storage_path, thumb_storage_path, card_storage_path, hero_storage_path, exif_has_gps, exif_captured_at";
     const imageFields = includePosition
       ? `position, ${baseFields}`
       : baseFields;

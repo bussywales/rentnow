@@ -96,7 +96,21 @@ export async function GET(request: Request) {
 
     const typed = (data ?? []) as Array<
       Property & {
-        property_images?: Array<{ id: string; image_url: string; position?: number; created_at?: string }>;
+        property_images?: Array<{
+          id: string;
+          image_url: string;
+          position?: number;
+          created_at?: string;
+          width?: number | null;
+          height?: number | null;
+          bytes?: number | null;
+          format?: string | null;
+          storage_path?: string | null;
+          original_storage_path?: string | null;
+          thumb_storage_path?: string | null;
+          card_storage_path?: string | null;
+          hero_storage_path?: string | null;
+        }>;
       }
     >;
     const queryInfo: LocationQueryInfo = filters.city
@@ -133,6 +147,15 @@ export async function GET(request: Request) {
             height: (img as { height?: number | null }).height ?? null,
             bytes: (img as { bytes?: number | null }).bytes ?? null,
             format: (img as { format?: string | null }).format ?? null,
+            storage_path: (img as { storage_path?: string | null }).storage_path ?? null,
+            original_storage_path:
+              (img as { original_storage_path?: string | null }).original_storage_path ?? null,
+            thumb_storage_path:
+              (img as { thumb_storage_path?: string | null }).thumb_storage_path ?? null,
+            card_storage_path:
+              (img as { card_storage_path?: string | null }).card_storage_path ?? null,
+            hero_storage_path:
+              (img as { hero_storage_path?: string | null }).hero_storage_path ?? null,
           }))
         ),
         checkin_signal: buildCheckinSignal(latestCheckins.get(row.id) ?? null, { flagEnabled }),

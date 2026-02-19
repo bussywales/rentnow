@@ -36,7 +36,18 @@ import {
 const routeLabel = "/api/properties";
 type ImageMetaPayload = Record<
   string,
-  { width?: number; height?: number; bytes?: number; format?: string | null; blurhash?: string | null }
+  {
+    width?: number;
+    height?: number;
+    bytes?: number;
+    format?: string | null;
+    blurhash?: string | null;
+    storage_path?: string | null;
+    original_storage_path?: string | null;
+    thumb_storage_path?: string | null;
+    card_storage_path?: string | null;
+    hero_storage_path?: string | null;
+  }
 >;
 // Exported for tests to validate draft vs publish payloads.
 export const propertySchema = z
@@ -130,6 +141,11 @@ export const propertySchema = z
             height: z.number().int().positive().optional(),
             bytes: z.number().int().nonnegative().optional(),
             format: z.string().optional().nullable(),
+            storage_path: z.string().optional().nullable(),
+            original_storage_path: z.string().optional().nullable(),
+            thumb_storage_path: z.string().optional().nullable(),
+            card_storage_path: z.string().optional().nullable(),
+            hero_storage_path: z.string().optional().nullable(),
             exif: z
               .object({
                 hasGps: z.boolean().optional().nullable(),
@@ -571,7 +587,7 @@ export async function GET(request: NextRequest) {
 
       const buildOwnerQuery = (includePosition: boolean) => {
         const baseFields =
-          "image_url,id,created_at,width,height,bytes,format,blurhash,exif_has_gps,exif_captured_at";
+          "image_url,id,created_at,width,height,bytes,format,blurhash,storage_path,original_storage_path,thumb_storage_path,card_storage_path,hero_storage_path,exif_has_gps,exif_captured_at";
         const imageFields = includePosition
           ? `position,${baseFields}`
           : baseFields;
@@ -698,8 +714,8 @@ export async function GET(request: NextRequest) {
       includeExpiryFilter: boolean = true
     ) => {
       const imageFields = includePosition
-        ? "image_url,id,position,created_at,width,height,bytes,format"
-        : "image_url,id,created_at,width,height,bytes,format";
+        ? "image_url,id,position,created_at,width,height,bytes,format,storage_path,original_storage_path,thumb_storage_path,card_storage_path,hero_storage_path"
+        : "image_url,id,created_at,width,height,bytes,format,storage_path,original_storage_path,thumb_storage_path,card_storage_path,hero_storage_path";
       let query = supabase
         .from("properties")
         .select(`*, property_images(${imageFields}), shortlet_settings(property_id,booking_mode,nightly_price_minor)`, {

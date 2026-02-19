@@ -88,6 +88,11 @@ export interface PropertyImage {
   height?: number | null;
   bytes?: number | null;
   format?: string | null;
+  storage_path?: string | null;
+  original_storage_path?: string | null;
+  thumb_storage_path?: string | null;
+  card_storage_path?: string | null;
+  hero_storage_path?: string | null;
   exif_has_gps?: boolean | null;
   exif_captured_at?: string | null;
 }

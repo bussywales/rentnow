@@ -58,8 +58,8 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     includeExpiryFilter: boolean = true
   ) => {
     const imageFields = includePosition
-      ? "id,image_url,position,created_at,width,height,bytes,format"
-      : "id,image_url,created_at,width,height,bytes,format";
+      ? "id,image_url,position,created_at,width,height,bytes,format,storage_path,original_storage_path,thumb_storage_path,card_storage_path,hero_storage_path"
+      : "id,image_url,created_at,width,height,bytes,format,storage_path,original_storage_path,thumb_storage_path,card_storage_path,hero_storage_path";
 
     const nowIso = new Date().toISOString();
     let query = supabase

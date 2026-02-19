@@ -140,7 +140,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
     let query = supabase
       .from("properties")
       .select(
-        "*, property_images(image_url,id), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at), shortlet_settings(property_id,booking_mode,nightly_price_minor)"
+        "*, property_images(image_url,id,position,created_at,width,height,bytes,format,storage_path,original_storage_path,thumb_storage_path,card_storage_path,hero_storage_path,exif_has_gps,exif_captured_at), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at), shortlet_settings(property_id,booking_mode,nightly_price_minor)"
       )
       .eq("id", cleanId);
 
@@ -151,7 +151,23 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
     const { data, error } = await query.maybeSingle();
     if (!error && data) {
       const typed = data as Property & {
-        property_images?: Array<{ id: string; image_url: string }>;
+        property_images?: Array<{
+          id: string;
+          image_url: string;
+          position?: number | null;
+          created_at?: string | null;
+          width?: number | null;
+          height?: number | null;
+          bytes?: number | null;
+          format?: string | null;
+          storage_path?: string | null;
+          original_storage_path?: string | null;
+          thumb_storage_path?: string | null;
+          card_storage_path?: string | null;
+          hero_storage_path?: string | null;
+          exif_has_gps?: boolean | null;
+          exif_captured_at?: string | null;
+        }>;
         property_videos?: Array<{
           id: string;
           video_url: string;
@@ -167,6 +183,19 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
         images: typed.property_images?.map((img) => ({
           id: img.id,
           image_url: img.image_url,
+          position: img.position ?? null,
+          created_at: img.created_at ?? undefined,
+          width: img.width ?? null,
+          height: img.height ?? null,
+          bytes: img.bytes ?? null,
+          format: img.format ?? null,
+          storage_path: img.storage_path ?? null,
+          original_storage_path: img.original_storage_path ?? null,
+          thumb_storage_path: img.thumb_storage_path ?? null,
+          card_storage_path: img.card_storage_path ?? null,
+          hero_storage_path: img.hero_storage_path ?? null,
+          exif_has_gps: img.exif_has_gps ?? null,
+          exif_captured_at: img.exif_captured_at ?? null,
         })),
         property_videos: typed.property_videos ?? null,
       };
