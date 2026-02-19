@@ -27,9 +27,12 @@ import {
   listShortletActiveFilterTags,
   normalizeShortletGuestsParam,
   readShortletAdvancedFiltersFromParams,
+  resolveShortletPendingMapAreaLabel,
+  resolveShortletResultsLabel,
   removeShortletAdvancedFilterTag,
   resolveShortletMapCameraIntent,
   resolveSelectedListingId,
+  isShortletBboxApplied,
   shouldUseCompactShortletSearchPill,
   SHORTLET_QUICK_FILTER_KEYS,
   toggleShortletSearchView,
@@ -567,6 +570,14 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         : "Dates";
   const guestsSummary = formatShortletGuestsLabel(guestsDraft);
   const showCompactSearch = isCompactSearch && !isSearchHeaderInView;
+  const isBboxApplied = useMemo(
+    () => isShortletBboxApplied(stableSearchParams.get("bbox")),
+    [stableSearchParams]
+  );
+  const resultsLabel = loading
+    ? "Loading stays..."
+    : resolveShortletResultsLabel({ total: results?.total ?? 0, isBboxApplied });
+  const pendingMapAreaLabel = resolveShortletPendingMapAreaLabel(searchAreaDirty);
   const desktopLayoutClass = desktopMapOpen
     ? "hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
     : "hidden gap-4 lg:grid lg:grid-cols-1";
@@ -954,9 +965,14 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       <div className={desktopLayoutClass}>
         <section className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-600">
-              {loading ? "Loading stays..." : `${results?.total ?? 0} stays found`}
-            </p>
+            <div>
+              <p className="text-sm text-slate-600" data-testid="shortlets-results-label">
+                {resultsLabel}
+              </p>
+              {desktopMapOpen && pendingMapAreaLabel ? (
+                <p className="mt-1 text-xs text-slate-500">{pendingMapAreaLabel}</p>
+              ) : null}
+            </div>
             <div className="flex items-center gap-2">
               {results?.total === 0 && !!parsedUi.checkIn && !!parsedUi.checkOut ? (
                 <p className="text-xs text-slate-500">Try nearby dates or expand map area.</p>
@@ -1083,9 +1099,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       </div>
 
       <div className="space-y-3 pb-20 lg:hidden">
-        <p className="text-sm text-slate-600">
-          {loading ? "Loading stays..." : `${results?.total ?? 0} stays found`}
-        </p>
+        <div>
+          <p className="text-sm text-slate-600">{resultsLabel}</p>
+          {pendingMapAreaLabel ? <p className="mt-1 text-xs text-slate-500">{pendingMapAreaLabel}</p> : null}
+        </div>
         {loading && !(results?.items.length ?? 0) ? (
           <div className="grid gap-3">
             {Array.from({ length: 4 }).map((_, index) => (

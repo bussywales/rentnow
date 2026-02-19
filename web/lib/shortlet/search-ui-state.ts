@@ -233,6 +233,29 @@ export function shouldUseCompactShortletSearchPill(scrollY: number, thresholdPx 
   return scrollY > thresholdPx;
 }
 
+export function isShortletBboxApplied(value: string | null | undefined): boolean {
+  if (!value) return false;
+  const parts = String(value)
+    .split(",")
+    .map((part) => Number(part.trim()));
+  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) return false;
+  const [minLng, minLat, maxLng, maxLat] = parts;
+  return maxLat > minLat && maxLng > minLng;
+}
+
+export function resolveShortletResultsLabel(input: {
+  total: number;
+  isBboxApplied: boolean;
+}): string {
+  const safeTotal = Math.max(0, Math.trunc(Number(input.total) || 0));
+  if (input.isBboxApplied) return `${safeTotal} stays within map area`;
+  return `${safeTotal} stays found`;
+}
+
+export function resolveShortletPendingMapAreaLabel(mapDirty: boolean): string | null {
+  return mapDirty ? "Showing all results — Search this area to update." : null;
+}
+
 export function normalizeShortletGuestsParam(value: string | null | undefined): number {
   const parsed = Number(value);
   if (!Number.isFinite(parsed) || parsed <= 0) return 1;

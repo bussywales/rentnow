@@ -101,3 +101,14 @@ void test("shortlets shell heading copy follows destination-driven messaging", (
   assert.ok(contents.includes("Find shortlets in ${activeDestination}"));
   assert.ok(contents.includes("Prices shown in {marketCurrency}"));
 });
+
+void test("shortlets shell result summary reflects bbox-applied map-area state", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("isShortletBboxApplied"));
+  assert.ok(contents.includes("resolveShortletResultsLabel"));
+  assert.ok(contents.includes("resolveShortletPendingMapAreaLabel"));
+  assert.ok(contents.includes("isBboxApplied"));
+  assert.ok(contents.includes("pendingMapAreaLabel"));
+  assert.ok(contents.includes('data-testid="shortlets-results-label"'));
+});

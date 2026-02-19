@@ -6,9 +6,12 @@ import {
   createDefaultShortletAdvancedFilters,
   createShortletMapSearchAreaState,
   formatShortletGuestsLabel,
+  isShortletBboxApplied,
   listShortletActiveFilterTags,
   normalizeShortletGuestsParam,
   readShortletAdvancedFiltersFromParams,
+  resolveShortletPendingMapAreaLabel,
+  resolveShortletResultsLabel,
   removeShortletAdvancedFilterTag,
   resolveShortletMapCameraIntent,
   resolveShortletMapMarkerVisualState,
@@ -261,4 +264,25 @@ void test("map marker state prioritizes selected over hovered", () => {
     }),
     { mode: "default", emphasized: false, zIndexOffset: 0 }
   );
+});
+
+void test("bbox applied helper only marks valid bbox values as applied", () => {
+  assert.equal(isShortletBboxApplied(null), false);
+  assert.equal(isShortletBboxApplied(""), false);
+  assert.equal(isShortletBboxApplied("7.7,9.0,7.9,9.2"), true);
+  assert.equal(isShortletBboxApplied("bad"), false);
+  assert.equal(isShortletBboxApplied("8,8,7,7"), false);
+});
+
+void test("results label reflects whether map area is applied", () => {
+  assert.equal(resolveShortletResultsLabel({ total: 8, isBboxApplied: false }), "8 stays found");
+  assert.equal(
+    resolveShortletResultsLabel({ total: 3, isBboxApplied: true }),
+    "3 stays within map area"
+  );
+});
+
+void test("pending map area label appears only when map bounds changed", () => {
+  assert.equal(resolveShortletPendingMapAreaLabel(true), "Showing all results — Search this area to update.");
+  assert.equal(resolveShortletPendingMapAreaLabel(false), null);
 });
