@@ -10,12 +10,24 @@ void test("places suggest boosts nigeria in NG market but keeps global matches",
   });
 
   assert.ok(suggestions.length > 0);
+  assert.equal(suggestions[0]?.label, "Lagos");
   assert.equal(suggestions[0]?.countryCode, "NG");
   assert.ok(
     suggestions.some(
       (item) => item.countryCode && item.countryCode !== "NG"
     )
   );
+});
+
+void test("places suggest ranks popular hubs ahead of lower-popularity matches", () => {
+  const suggestions = getPlaceSuggestions({
+    q: "lag",
+    market: "NG",
+    limit: 8,
+  });
+
+  assert.ok(suggestions.length > 0);
+  assert.equal(suggestions[0]?.label, "Lagos");
 });
 
 void test("places suggest applies limits and prefix ranking", () => {

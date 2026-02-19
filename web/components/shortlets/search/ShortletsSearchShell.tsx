@@ -188,6 +188,28 @@ function getMarketCurrency(countryCode: string): string {
   return "NGN";
 }
 
+function clampLatitude(value: number): number {
+  return Math.max(-85, Math.min(85, value));
+}
+
+function clampLongitude(value: number): number {
+  if (value > 180) return 180;
+  if (value < -180) return -180;
+  return value;
+}
+
+function buildNearbySearchBbox(lat: number, lng: number): string {
+  const latDelta = 0.2;
+  const lngDelta = Math.max(0.2, 0.2 / Math.cos((lat * Math.PI) / 180));
+  const bounds: ShortletSearchBounds = {
+    south: clampLatitude(lat - latDelta),
+    north: clampLatitude(lat + latDelta),
+    west: clampLongitude(lng - lngDelta),
+    east: clampLongitude(lng + lngDelta),
+  };
+  return serializeShortletSearchBbox(bounds) ?? "";
+}
+
 function normalizeSearchItemImageFields(item: SearchItem): SearchItem {
   const primaryImageUrl = item.primaryImageUrl ?? null;
   const coverImageUrl = item.coverImageUrl ?? item.cover_image_url ?? primaryImageUrl;
@@ -273,6 +295,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     parsedUi.mapAutoSearch ? "auto" : "manual"
   );
   const [mapMoveUpdating, setMapMoveUpdating] = useState(false);
+  const [nearbySearching, setNearbySearching] = useState(false);
   const [showDelayedUpdatingIndicator, setShowDelayedUpdatingIndicator] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [isCompactSearch, setIsCompactSearch] = useState(false);
@@ -577,6 +600,78 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     },
     [buildCurrentPresetParams, parsedUi.where, persistRecentSearch, updateUrl]
   );
+
+  const onSearchNearby = useCallback(async () => {
+    if (nearbySearching) return;
+    setNearbySearching(true);
+
+    try {
+      if (typeof window === "undefined" || !("geolocation" in navigator)) {
+        return;
+      }
+
+      const nearbyCoords = await new Promise<{ lat: number; lng: number } | null>((resolve) => {
+        let settled = false;
+        const complete = (value: { lat: number; lng: number } | null) => {
+          if (settled) return;
+          settled = true;
+          resolve(value);
+        };
+        const timeout = window.setTimeout(() => complete(null), 8_000);
+
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            window.clearTimeout(timeout);
+            complete({
+              lat: position.coords.latitude,
+              lng: position.coords.longitude,
+            });
+          },
+          () => {
+            window.clearTimeout(timeout);
+            complete(null);
+          },
+          {
+            enableHighAccuracy: false,
+            timeout: 7_000,
+            maximumAge: 5 * 60 * 1000,
+          }
+        );
+      });
+
+      if (!nearbyCoords) {
+        return;
+      }
+
+      const lat = Number(nearbyCoords.lat.toFixed(6));
+      const lng = Number(nearbyCoords.lng.toFixed(6));
+      const bbox = buildNearbySearchBbox(lat, lng);
+
+      setCameraIntent("location_change");
+      setCameraIntentNonce((current) => current + 1);
+      updateUrl((next) => {
+        next.delete("where");
+        next.delete("q");
+        next.set("placeId", "nearby-current");
+        next.set("lat", String(lat));
+        next.set("lng", String(lng));
+        if (bbox) next.set("bbox", bbox);
+        else next.delete("bbox");
+        next.delete("bounds");
+      });
+
+      const recentParams = buildCurrentPresetParams({
+        where: null,
+        placeId: "nearby-current",
+        lat: String(lat),
+        lng: String(lng),
+        bbox: bbox || null,
+      });
+      persistRecentSearch(recentParams);
+    } finally {
+      setNearbySearching(false);
+    }
+  }, [buildCurrentPresetParams, nearbySearching, persistRecentSearch, updateUrl]);
 
   const onApplySearchPreset = useCallback(
     (preset: ShortletSearchPreset) => {
@@ -887,7 +982,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
 
   const searchAreaDirty = mapAreaState.mapDirty;
   const isMapMoveSearchEnabled = mapMoveSearchMode === "auto";
-  const whereSummary = queryDraft.trim() || "Where";
+  const hasNearbyPlaceId = parsedUi.placeId.startsWith("nearby-current");
+  const whereSummary = queryDraft.trim() || (hasNearbyPlaceId ? "Nearby" : "Where");
   const datesSummary =
     checkInDraft && checkOutDraft
       ? `${formatCompactDate(checkInDraft)} - ${formatCompactDate(checkOutDraft)}`
@@ -921,6 +1017,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
 
   const marketCurrency = getMarketCurrency(parsedUi.market);
   const activeDestination = parsedUi.where.trim();
+  const hasDateSelection = Boolean(parsedUi.checkIn || parsedUi.checkOut);
   const heading = activeDestination
     ? isNigeriaDestinationQuery(activeDestination)
       ? "Find shortlets across Nigeria"
@@ -1015,6 +1112,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             onSaveCurrent={onSaveCurrentSearch}
             onClearRecents={onClearRecentSearches}
             onRemoveSaved={onRemoveSavedSearch}
+            onRequestNearby={onSearchNearby}
             recentPresets={recentSearches}
             savedPresets={savedSearches}
           />
@@ -1437,18 +1535,37 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               </p>
               <p className="mt-1">
                 {isBboxApplied
-                  ? "Try zooming out or Search this area somewhere nearby."
+                  ? "Try zooming out or clear the map area."
                   : activeDestination
                     ? "Try nearby areas or remove dates."
                     : "Try setting dates, destination, or filters."}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
-                <Button type="button" variant="secondary" size="sm" onClick={clearDates}>
-                  Clear dates
-                </Button>
-                <Button type="button" variant="secondary" size="sm" onClick={clearAdvancedFilters}>
-                  Clear filters
-                </Button>
+                {isBboxApplied ? (
+                  <Button type="button" variant="secondary" size="sm" onClick={clearMapArea}>
+                    Zoom out / clear map area
+                  </Button>
+                ) : null}
+                {hasDateSelection ? (
+                  <>
+                    <Button type="button" variant="secondary" size="sm" onClick={clearDates}>
+                      Clear dates
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => void onSearchNearby()}
+                      disabled={nearbySearching}
+                    >
+                      {nearbySearching ? "Finding nearby..." : "Search nearby"}
+                    </Button>
+                  </>
+                ) : (
+                  <Button type="button" variant="secondary" size="sm" onClick={clearAdvancedFilters}>
+                    Clear filters
+                  </Button>
+                )}
               </div>
               {results?.nearbyAlternatives?.length ? (
                 <ul className="mt-2 list-disc space-y-1 pl-5">
@@ -1581,18 +1698,37 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             </p>
             <p className="mt-1">
               {isBboxApplied
-                ? "Try zooming out or Search this area elsewhere."
+                ? "Try zooming out or clear the map area."
                 : activeDestination
                   ? "Try nearby areas or remove dates."
                   : "Try setting dates, destination, or filters."}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
-              <Button type="button" variant="secondary" size="sm" onClick={clearDates}>
-                Clear dates
-              </Button>
-              <Button type="button" variant="secondary" size="sm" onClick={clearAdvancedFilters}>
-                Clear filters
-              </Button>
+              {isBboxApplied ? (
+                <Button type="button" variant="secondary" size="sm" onClick={clearMapArea}>
+                  Zoom out / clear map area
+                </Button>
+              ) : null}
+              {hasDateSelection ? (
+                <>
+                  <Button type="button" variant="secondary" size="sm" onClick={clearDates}>
+                    Clear dates
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => void onSearchNearby()}
+                    disabled={nearbySearching}
+                  >
+                    {nearbySearching ? "Finding nearby..." : "Search nearby"}
+                  </Button>
+                </>
+              ) : (
+                <Button type="button" variant="secondary" size="sm" onClick={clearAdvancedFilters}>
+                  Clear filters
+                </Button>
+              )}
             </div>
           </div>
         )}

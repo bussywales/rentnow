@@ -31,12 +31,14 @@ type Props = {
   onSaveCurrent: () => void;
   onClearRecents: () => void;
   onRemoveSaved: (id: string) => void;
+  onRequestNearby: () => Promise<void>;
   recentPresets: ShortletSearchPreset[];
   savedPresets: ShortletSearchPreset[];
 };
 
 type Option =
   | { id: string; kind: "preset"; source: "recent" | "saved"; preset: ShortletSearchPreset; label: string; subtitle?: string }
+  | { id: string; kind: "nearby"; label: string; subtitle?: string }
   | { id: string; kind: "suggestion"; suggestion: WhereSuggestion; label: string; subtitle?: string }
   | { id: string; kind: "free_text"; label: string; subtitle?: string };
 
@@ -51,6 +53,7 @@ export function WhereTypeahead({
   onSaveCurrent,
   onClearRecents,
   onRemoveSaved,
+  onRequestNearby,
   recentPresets,
   savedPresets,
 }: Props) {
@@ -130,6 +133,12 @@ export function WhereTypeahead({
         subtitle: "Saved search",
       });
     }
+    next.push({
+      id: "nearby-current-location",
+      kind: "nearby",
+      label: "Search nearby",
+      subtitle: "Use your current location",
+    });
     for (const suggestion of suggestions) {
       next.push({
         id: `suggestion-${suggestion.placeId ?? suggestion.label}`,
@@ -165,6 +174,10 @@ export function WhereTypeahead({
         setOpen(false);
         return;
       }
+      if (option.kind === "nearby") {
+        void onRequestNearby().finally(() => setOpen(false));
+        return;
+      }
       if (option.kind === "suggestion") {
         onSelectSuggestion(option.suggestion);
         setOpen(false);
@@ -175,7 +188,7 @@ export function WhereTypeahead({
       });
       setOpen(false);
     },
-    [onApplyPreset, onSelectSuggestion, value]
+    [onApplyPreset, onRequestNearby, onSelectSuggestion, value]
   );
 
   const openWhenUseful = useCallback(() => {

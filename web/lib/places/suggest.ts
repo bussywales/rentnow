@@ -54,9 +54,11 @@ function scoreEntry(entry: PlaceSeedEntry, input: PlaceSuggestionInput): number 
   const strength = matchStrength(entry, input.q);
   if (strength <= 0) return -1;
 
-  let score = strength;
+  let score = 0;
   const popularity = Number.isFinite(entry.popularity) ? Number(entry.popularity) : 0;
-  score += Math.min(40, Math.max(0, popularity / 3));
+  // Keep suggestions relevant, but prioritize popular hubs once a match exists.
+  score += Math.min(220, Math.max(0, popularity * 2));
+  score += Math.min(60, strength);
 
   if (entry.countryCode === "NG") {
     score += market === "NG" ? 30 : 14;

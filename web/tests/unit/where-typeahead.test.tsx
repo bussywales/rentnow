@@ -24,6 +24,7 @@ void test("where typeahead renders dropdown with recents and saved actions", () 
   assert.ok(contents.includes('data-testid="where-typeahead-dropdown"'));
   assert.ok(contents.includes("Save this search"));
   assert.ok(contents.includes("Clear recents"));
+  assert.ok(contents.includes("Search nearby"));
   assert.ok(contents.includes("Remove"));
   assert.ok(contents.includes("Search \"${query}\" worldwide"));
 });
@@ -31,6 +32,7 @@ void test("where typeahead renders dropdown with recents and saved actions", () 
 void test("where typeahead requests backend suggestions and supports loading/empty states", () => {
   const contents = fs.readFileSync(typeaheadPath, "utf8");
   assert.ok(contents.includes("/api/places/suggest"));
+  assert.ok(contents.includes("onRequestNearby"));
   assert.ok(contents.includes("Searching…"));
   assert.ok(contents.includes("No matches — try a nearby city."));
 });
