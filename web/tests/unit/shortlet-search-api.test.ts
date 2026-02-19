@@ -306,6 +306,7 @@ void test("no-date shortlet baseline remains abundant for nigeria market", () =>
 });
 
 void test("primary image resolver supports cover, images array, and property_images cascade", () => {
+  process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
   const fromCover = resolveShortletPrimaryImageUrl(
     buildProperty({
       cover_image_url: "https://example.com/cover.jpg",
@@ -341,4 +342,32 @@ void test("primary image resolver supports cover, images array, and property_ima
     }
   );
   assert.equal(fromPropertyImages, "https://example.com/property-images.jpg");
+
+  const fromDerivativePath = resolveShortletPrimaryImageUrl(
+    {
+      ...buildProperty({
+        cover_image_url: null,
+        images: [],
+      }),
+      property_images: [
+        {
+          id: "img-3",
+          image_url: "https://example.com/legacy-original.jpg",
+          position: 0,
+          card_storage_path: "properties/p-1/img-3/card.webp",
+        },
+      ],
+    } as Property & {
+      property_images?: Array<{
+        id?: string;
+        image_url?: string;
+        position?: number;
+        card_storage_path?: string | null;
+      }>;
+    }
+  );
+  assert.equal(
+    fromDerivativePath,
+    "https://example.supabase.co/storage/v1/object/public/property-images/properties/p-1/img-3/card.webp"
+  );
 });

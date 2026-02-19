@@ -20,7 +20,16 @@ void test("property_images metadata columns and constraints are sane", async (t)
     .select("column_name,data_type")
     .eq("table_schema", "public")
     .eq("table_name", "property_images")
-    .in("column_name", ["bytes", "width", "height"]);
+    .in("column_name", [
+      "bytes",
+      "width",
+      "height",
+      "storage_path",
+      "original_storage_path",
+      "thumb_storage_path",
+      "card_storage_path",
+      "hero_storage_path",
+    ]);
   assert.ifError(colsError ?? undefined);
   const map: Record<string, string> = {};
   cols?.forEach((row) => {
@@ -29,6 +38,11 @@ void test("property_images metadata columns and constraints are sane", async (t)
   assert.equal(map.bytes, "bigint", "bytes should be bigint");
   assert.equal(map.width, "integer", "width should be integer");
   assert.equal(map.height, "integer", "height should be integer");
+  assert.equal(map.storage_path, "text", "storage_path should be text");
+  assert.equal(map.original_storage_path, "text", "original_storage_path should be text");
+  assert.equal(map.thumb_storage_path, "text", "thumb_storage_path should be text");
+  assert.equal(map.card_storage_path, "text", "card_storage_path should be text");
+  assert.equal(map.hero_storage_path, "text", "hero_storage_path should be text");
 
   // Check constraints exist and clauses are correct
   const { data: checks, error: checkError } = await supabase

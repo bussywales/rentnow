@@ -28,3 +28,14 @@ void test("sanitizeImageMeta ignores NaN and nulls", () => {
   assert.equal(sanitized.height, null);
   assert.equal(sanitized.bytes, null);
 });
+
+void test("sanitizeImageMeta keeps storage paths and rejects external urls", () => {
+  const sanitized = sanitizeImageMeta({
+    storage_path: "properties/p-1/img-1/original.jpg",
+    card_storage_path: "https://cdn.example.com/card.webp",
+    hero_storage_path: "/properties/p-1/img-1/hero.webp",
+  });
+  assert.equal(sanitized.storage_path, "properties/p-1/img-1/original.jpg");
+  assert.equal(sanitized.card_storage_path, null);
+  assert.equal(sanitized.hero_storage_path, "properties/p-1/img-1/hero.webp");
+});

@@ -4,7 +4,6 @@ import {
   classifyPhotoQuality,
   isPhotoLowQuality,
   PHOTO_MAX_BYTES,
-  PHOTO_BLOCK_MIN_HEIGHT,
   PHOTO_BLOCK_MIN_WIDTH,
   PHOTO_WARN_MIN_WIDTH,
 } from "@/lib/properties/photo-quality";
@@ -23,31 +22,31 @@ void test("classifyPhotoQuality blocks oversized files", () => {
     bytes: PHOTO_MAX_BYTES + 1,
   });
   assert.equal(res.status, "block");
-  assert.match(res.reason ?? "", /10MB/i);
+  assert.match(res.reason ?? "", /20MB/i);
 });
 
-void test("classifyPhotoQuality blocks small dimensions", () => {
+void test("classifyPhotoQuality blocks low-width images", () => {
   const res = classifyPhotoQuality({
     type: "image/jpeg",
     width: PHOTO_BLOCK_MIN_WIDTH - 1,
-    height: PHOTO_BLOCK_MIN_HEIGHT - 1,
+    height: 2400,
     bytes: 1000,
   });
   assert.equal(res.status, "block");
   assert.match(res.reason ?? "", /Too small/i);
 });
 
-void test("classifyPhotoQuality warns on missing dimensions", () => {
+void test("classifyPhotoQuality blocks invalid/corrupt images when dimensions are missing", () => {
   const res = classifyPhotoQuality({ type: "image/jpeg", bytes: 1000 });
-  assert.equal(res.status, "warn");
-  assert.match(res.label, /Low resolution/i);
+  assert.equal(res.status, "block");
+  assert.match(res.reason ?? "", /Invalid|corrupt/i);
 });
 
 void test("classifyPhotoQuality warns below recommended width", () => {
   const res = classifyPhotoQuality({
     type: "image/jpeg",
     width: PHOTO_WARN_MIN_WIDTH - 1,
-    height: PHOTO_BLOCK_MIN_HEIGHT + 200,
+    height: 1200,
     bytes: 1000,
   });
   assert.equal(res.status, "warn");
@@ -58,7 +57,7 @@ void test("classifyPhotoQuality returns great quality for large images", () => {
   const res = classifyPhotoQuality({
     type: "image/jpeg",
     width: PHOTO_WARN_MIN_WIDTH + 200,
-    height: PHOTO_BLOCK_MIN_HEIGHT + 400,
+    height: 1800,
     bytes: 1000,
   });
   assert.equal(res.status, "great");
