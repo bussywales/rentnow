@@ -7,8 +7,10 @@ import {
   createShortletMapSearchAreaState,
   formatShortletGuestsLabel,
   isShortletBboxApplied,
+  isShortletMapMoveSearchEnabled,
   listShortletActiveFilterTags,
   normalizeShortletGuestsParam,
+  parseShortletMapMoveSearchMode,
   readShortletAdvancedFiltersFromParams,
   resolveShortletPendingMapAreaLabel,
   resolveShortletResultsLabel,
@@ -19,6 +21,7 @@ import {
   shouldUseCompactShortletSearchPill,
   shouldAutoFitShortletMap,
   toggleShortletSearchView,
+  writeShortletMapMoveSearchMode,
   writeShortletAdvancedFiltersToParams,
 } from "@/lib/shortlet/search-ui-state";
 
@@ -289,4 +292,22 @@ void test("results label reflects whether map area is applied", () => {
 void test("pending map area label appears only when map bounds changed", () => {
   assert.equal(resolveShortletPendingMapAreaLabel(true), "Showing all results — Search this area to update.");
   assert.equal(resolveShortletPendingMapAreaLabel(false), null);
+});
+
+void test("map move search mode parser handles auto/manual safely", () => {
+  assert.equal(parseShortletMapMoveSearchMode("1"), "auto");
+  assert.equal(parseShortletMapMoveSearchMode("true"), "auto");
+  assert.equal(parseShortletMapMoveSearchMode("0"), "manual");
+  assert.equal(parseShortletMapMoveSearchMode(null), "manual");
+  assert.equal(isShortletMapMoveSearchEnabled("1"), true);
+  assert.equal(isShortletMapMoveSearchEnabled(undefined), false);
+});
+
+void test("map move search mode writes URL params for auto and manual modes", () => {
+  const params = new URLSearchParams("where=abuja");
+  writeShortletMapMoveSearchMode(params, "auto");
+  assert.equal(params.get("mapAuto"), "1");
+
+  writeShortletMapMoveSearchMode(params, "manual");
+  assert.equal(params.has("mapAuto"), false);
 });

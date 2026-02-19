@@ -114,3 +114,13 @@ void test("shortlets shell result summary reflects bbox-applied map-area state",
   assert.ok(contents.includes("pendingMapAreaLabel"));
   assert.ok(contents.includes('data-testid="shortlets-results-label"'));
 });
+
+void test("shortlets shell supports opt-in map move search toggle", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("Search as I move the map"));
+  assert.ok(contents.includes('data-testid="shortlets-map-move-toggle"'));
+  assert.ok(contents.includes("mapMoveSearchMode"));
+  assert.ok(contents.includes("mapMoveDebounceRef"));
+  assert.ok(contents.includes("mapAuto"));
+});

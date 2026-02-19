@@ -22,6 +22,8 @@ export type ShortletMapMarkerVisualState = {
   zIndexOffset: number;
 };
 
+export type ShortletMapMoveSearchMode = "manual" | "auto";
+
 export type ShortletBookingModeFilter = "" | "instant" | "request";
 
 export type ShortletAdvancedFilterState = {
@@ -220,6 +222,29 @@ export function resolveSelectedListingId(
 
 export function toggleShortletSearchView(current: "list" | "map"): "list" | "map" {
   return current === "map" ? "list" : "map";
+}
+
+export function parseShortletMapMoveSearchMode(
+  value: string | null | undefined
+): ShortletMapMoveSearchMode {
+  return value === "1" || value === "true" ? "auto" : "manual";
+}
+
+export function isShortletMapMoveSearchEnabled(
+  value: string | null | undefined
+): boolean {
+  return parseShortletMapMoveSearchMode(value) === "auto";
+}
+
+export function writeShortletMapMoveSearchMode(
+  params: URLSearchParams,
+  mode: ShortletMapMoveSearchMode
+): void {
+  if (mode === "auto") {
+    params.set("mapAuto", "1");
+    return;
+  }
+  params.delete("mapAuto");
 }
 
 export function shouldAutoFitShortletMap(input: ShortletMapAutoFitInput): boolean {

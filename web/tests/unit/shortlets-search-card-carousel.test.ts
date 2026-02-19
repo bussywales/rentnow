@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  resolveShortletsCarouselIndexFromScroll,
   resolveShortletsCarouselImageSources,
   shouldRenderShortletsCarouselArrows,
   shouldRenderShortletsCarouselDots,
@@ -39,4 +40,31 @@ void test("shortlets card carousel image resolver uses explicit imageUrls for sw
   });
 
   assert.deepEqual(sources, ["https://example.com/one.jpg", "https://example.com/two.jpg"]);
+});
+
+void test("shortlets card carousel resolves active index from scroll position", () => {
+  assert.equal(
+    resolveShortletsCarouselIndexFromScroll({
+      scrollLeft: 0,
+      viewportWidth: 320,
+      totalImages: 5,
+    }),
+    0
+  );
+  assert.equal(
+    resolveShortletsCarouselIndexFromScroll({
+      scrollLeft: 350,
+      viewportWidth: 320,
+      totalImages: 5,
+    }),
+    1
+  );
+  assert.equal(
+    resolveShortletsCarouselIndexFromScroll({
+      scrollLeft: 1650,
+      viewportWidth: 320,
+      totalImages: 5,
+    }),
+    4
+  );
 });

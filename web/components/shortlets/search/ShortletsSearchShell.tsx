@@ -24,6 +24,7 @@ import {
   createDefaultShortletAdvancedFilters,
   createShortletMapSearchAreaState,
   formatShortletGuestsLabel,
+  isShortletMapMoveSearchEnabled,
   listShortletActiveFilterTags,
   normalizeShortletGuestsParam,
   readShortletAdvancedFiltersFromParams,
@@ -36,7 +37,9 @@ import {
   shouldUseCompactShortletSearchPill,
   SHORTLET_QUICK_FILTER_KEYS,
   toggleShortletSearchView,
+  writeShortletMapMoveSearchMode,
   type ShortletAdvancedFilterState,
+  type ShortletMapMoveSearchMode,
   writeShortletAdvancedFiltersToParams,
 } from "@/lib/shortlet/search-ui-state";
 import { resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
@@ -112,6 +115,7 @@ function readQueryParamsFromSearchParams(searchParams: URLSearchParams) {
     market: /^[A-Z]{2}$/.test(market) ? market : "NG",
     sort: searchParams.get("sort") ?? "recommended",
     bookingMode: searchParams.get("bookingMode") ?? "",
+    mapAutoSearch: isShortletMapMoveSearchEnabled(searchParams.get("mapAuto")),
     view: parseSearchView(searchParams.get("view")),
   };
 }
@@ -237,6 +241,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const [cameraIntentNonce, setCameraIntentNonce] = useState(1);
   const [mobileMapOpen, setMobileMapOpen] = useState(parsedUi.view === "map");
   const [desktopMapOpen, setDesktopMapOpen] = useState(true);
+  const [mapMoveSearchMode, setMapMoveSearchMode] = useState<ShortletMapMoveSearchMode>(
+    parsedUi.mapAutoSearch ? "auto" : "manual"
+  );
+  const [mapMoveUpdating, setMapMoveUpdating] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [isCompactSearch, setIsCompactSearch] = useState(false);
   const [isSearchHeaderInView, setIsSearchHeaderInView] = useState(true);
@@ -254,6 +262,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const expandedSearchHeaderRef = useRef<HTMLDivElement | null>(null);
   const quickFiltersMeasureRef = useRef<HTMLDivElement | null>(null);
   const quickFiltersPopoverRef = useRef<HTMLDivElement | null>(null);
+  const mapMoveDebounceRef = useRef<number | null>(null);
 
   useEffect(() => {
     setQueryDraft(parsedUi.where);
@@ -262,6 +271,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     setGuestsDraft(parsedUi.guests);
     setMobileView(parsedUi.view);
     setMobileMapOpen(parsedUi.view === "map");
+    setMapMoveSearchMode(parsedUi.mapAutoSearch ? "auto" : "manual");
   }, [parsedUi]);
 
   useEffect(() => {
@@ -352,7 +362,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         if (controller.signal.aborted) return;
         setError(fetchError instanceof Error ? fetchError.message : "Unable to fetch shortlets.");
       } finally {
-        if (!controller.signal.aborted) setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setMapMoveUpdating(false);
+        }
       }
     };
     void run();
@@ -388,6 +401,14 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     };
   }, [quickFiltersPopoverOpen]);
 
+  useEffect(() => {
+    return () => {
+      if (mapMoveDebounceRef.current !== null) {
+        window.clearTimeout(mapMoveDebounceRef.current);
+      }
+    };
+  }, []);
+
   const updateUrl = useCallback(
     (mutate: (next: URLSearchParams) => void) => {
       const next = new URLSearchParams(searchParamsKey);
@@ -396,7 +417,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       if (!next.get("view")) next.set("view", mobileView);
       next.set("page", "1");
       const query = next.toString();
+      if (query === searchParamsKey) return false;
       router.replace(query ? `${pathname}?${query}` : pathname);
+      return true;
     },
     [mobileView, parsedUi.market, pathname, router, searchParamsKey]
   );
@@ -447,6 +470,67 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     [updateUrl]
   );
 
+  const applyBoundsSearchToUrl = useCallback(
+    (bounds: ShortletSearchBounds | null) => {
+      const encoded = serializeShortletSearchBbox(bounds);
+      const changed = updateUrl((params) => {
+        if (encoded) params.set("bbox", encoded);
+        else params.delete("bbox");
+        params.delete("bounds");
+      });
+      return changed;
+    },
+    [updateUrl]
+  );
+
+  const onSearchThisArea = useCallback(() => {
+    const nextAreaState = applySearchThisArea(mapAreaState);
+    setMapAreaState(nextAreaState);
+    setCameraIntent(
+      resolveShortletMapCameraIntent({
+        hasLocationChanged: false,
+        hasBoundsChanged: true,
+      })
+    );
+    setCameraIntentNonce((current) => current + 1);
+    void applyBoundsSearchToUrl(nextAreaState.activeBounds);
+  }, [applyBoundsSearchToUrl, mapAreaState]);
+
+  const onToggleMapMoveSearch = useCallback(
+    (enabled: boolean) => {
+      const mode: ShortletMapMoveSearchMode = enabled ? "auto" : "manual";
+      setMapMoveSearchMode(mode);
+      if (mapMoveDebounceRef.current !== null) {
+        window.clearTimeout(mapMoveDebounceRef.current);
+        mapMoveDebounceRef.current = null;
+      }
+      if (!enabled) {
+        setMapMoveUpdating(false);
+        updateUrl((next) => writeShortletMapMoveSearchMode(next, "manual"));
+        return;
+      }
+
+      setMapMoveUpdating(true);
+      const nextBounds = mapAreaState.draftBounds ?? mapAreaState.activeBounds ?? null;
+      setMapAreaState({
+        activeBounds: nextBounds,
+        draftBounds: nextBounds,
+        mapDirty: false,
+      });
+      const changed = updateUrl((next) => {
+        writeShortletMapMoveSearchMode(next, "auto");
+        const encoded = serializeShortletSearchBbox(nextBounds);
+        if (encoded) next.set("bbox", encoded);
+        else next.delete("bbox");
+        next.delete("bounds");
+      });
+      if (!changed) {
+        setMapMoveUpdating(false);
+      }
+    },
+    [mapAreaState.activeBounds, mapAreaState.draftBounds, updateUrl]
+  );
+
   const toggleQuickFilter = useCallback(
     (key: TrustFilterKey) => {
       const currentFilters = readShortletAdvancedFiltersFromParams(stableSearchParams);
@@ -455,6 +539,40 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       applyAdvancedFilters(nextFilters);
     },
     [applyAdvancedFilters, stableSearchParams]
+  );
+
+  const onMapBoundsChanged = useCallback(
+    (bounds: { north: number; south: number; east: number; west: number }) => {
+      const nextBounds = bounds as ShortletSearchBounds;
+      if (mapMoveSearchMode === "auto") {
+        setMapAreaState({
+          activeBounds: nextBounds,
+          draftBounds: nextBounds,
+          mapDirty: false,
+        });
+        if (mapMoveDebounceRef.current !== null) {
+          window.clearTimeout(mapMoveDebounceRef.current);
+        }
+        setMapMoveUpdating(true);
+        mapMoveDebounceRef.current = window.setTimeout(() => {
+          mapMoveDebounceRef.current = null;
+          const changed = updateUrl((next) => {
+            writeShortletMapMoveSearchMode(next, "auto");
+            const encoded = serializeShortletSearchBbox(nextBounds);
+            if (encoded) next.set("bbox", encoded);
+            else next.delete("bbox");
+            next.delete("bounds");
+          });
+          if (!changed) {
+            setMapMoveUpdating(false);
+          }
+        }, 450);
+        return;
+      }
+
+      setMapAreaState((current) => applyMapViewportChange(current, nextBounds));
+    },
+    [mapMoveSearchMode, updateUrl]
   );
 
   const onSelectListing = (listingId: string) => {
@@ -564,6 +682,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   }, [results?.items, selectedListingId]);
 
   const searchAreaDirty = mapAreaState.mapDirty;
+  const isMapMoveSearchEnabled = mapMoveSearchMode === "auto";
   const whereSummary = queryDraft.trim() || "Where";
   const datesSummary =
     checkInDraft && checkOutDraft
@@ -580,7 +699,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const resultsLabel = loading
     ? "Loading stays..."
     : resolveShortletResultsLabel({ total: results?.total ?? 0, isBboxApplied });
-  const pendingMapAreaLabel = resolveShortletPendingMapAreaLabel(searchAreaDirty);
+  const pendingMapAreaLabel = isMapMoveSearchEnabled
+    ? mapMoveUpdating || loading
+      ? "Updating results..."
+      : "Map movement updates results automatically."
+    : resolveShortletPendingMapAreaLabel(searchAreaDirty);
   const desktopLayoutClass = desktopMapOpen
     ? "hidden gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
     : "hidden gap-4 lg:grid lg:grid-cols-1";
@@ -994,10 +1117,22 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                 <p className="mt-1 text-xs text-slate-500">{pendingMapAreaLabel}</p>
               ) : null}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               {results?.total === 0 && !!parsedUi.checkIn && !!parsedUi.checkOut ? (
                 <p className="text-xs text-slate-500">Try nearby dates or expand map area.</p>
               ) : null}
+              <label
+                className="inline-flex items-center gap-2 text-xs font-medium text-slate-600"
+                data-testid="shortlets-map-move-toggle"
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  checked={isMapMoveSearchEnabled}
+                  onChange={(event) => onToggleMapMoveSearch(event.target.checked)}
+                />
+                Search as I move the map
+              </label>
               <Button
                 type="button"
                 variant="secondary"
@@ -1014,6 +1149,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               {Array.from({ length: 6 }).map((_, index) => (
                 <PropertyCardSkeleton key={`shortlet-list-skeleton-${index}`} />
               ))}
+            </div>
+          ) : isMapMoveSearchEnabled && loading ? (
+            <div className="space-y-2">
+              <div className="h-9 animate-pulse rounded-xl border border-slate-200 bg-slate-100" />
+              <div className={desktopCardsGridClass}>
+                {Array.from({ length: 4 }).map((_, index) => (
+                  <PropertyCardSkeleton key={`shortlet-auto-skeleton-${index}`} />
+                ))}
+              </div>
             </div>
           ) : results?.items.length ? (
             <div className={desktopCardsGridClass} data-testid="shortlets-desktop-results-grid">
@@ -1075,9 +1219,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               hoveredListingId={hoveredListingId}
               onSelectListing={onSelectListing}
               onHoverListing={onHoverListingFromMap}
-              onBoundsChanged={(bounds) =>
-                setMapAreaState((current) => applyMapViewportChange(current, bounds as ShortletSearchBounds))
-              }
+              onBoundsChanged={onMapBoundsChanged}
               marketCountry={parsedUi.market}
               resultHash={mapResultHash}
               cameraIntent={cameraIntent}
@@ -1086,30 +1228,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               resolvedFitRequestKey={resolvedMapFitRequestKey}
               height="min(76vh, 800px)"
             />
-            {searchAreaDirty ? (
+            {!isMapMoveSearchEnabled && searchAreaDirty ? (
               <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">
-                <Button
-                  className="pointer-events-auto"
-                  onClick={() => {
-                    setCameraIntent(
-                      resolveShortletMapCameraIntent({
-                        hasLocationChanged: false,
-                        hasBoundsChanged: true,
-                      })
-                    );
-                    setCameraIntentNonce((current) => current + 1);
-                    setMapAreaState((current) => {
-                      const next = applySearchThisArea(current);
-                      const encoded = serializeShortletSearchBbox(next.activeBounds);
-                      updateUrl((params) => {
-                        if (encoded) params.set("bbox", encoded);
-                        else params.delete("bbox");
-                        params.delete("bounds");
-                      });
-                      return next;
-                    });
-                  }}
-                >
+                <Button className="pointer-events-auto" onClick={onSearchThisArea}>
                   Search this area
                 </Button>
               </div>
@@ -1184,7 +1305,18 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       {mobileMapOpen ? (
         <div className="fixed inset-0 z-40 flex flex-col bg-white lg:hidden" data-testid="shortlets-mobile-map">
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-            <p className="text-sm font-semibold text-slate-900">Map view</p>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Map view</p>
+              <label className="mt-1 inline-flex items-center gap-2 text-xs text-slate-600">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  checked={isMapMoveSearchEnabled}
+                  onChange={(event) => onToggleMapMoveSearch(event.target.checked)}
+                />
+                Search as I move the map
+              </label>
+            </div>
             <Button variant="secondary" size="sm" onClick={openListView}>
               List
             </Button>
@@ -1196,9 +1328,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               hoveredListingId={hoveredListingId}
               onSelectListing={onSelectListing}
               onHoverListing={onHoverListingFromMap}
-              onBoundsChanged={(bounds) =>
-                setMapAreaState((current) => applyMapViewportChange(current, bounds as ShortletSearchBounds))
-              }
+              onBoundsChanged={onMapBoundsChanged}
               marketCountry={parsedUi.market}
               resultHash={mapResultHash}
               cameraIntent={cameraIntent}
@@ -1207,30 +1337,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               resolvedFitRequestKey={resolvedMapFitRequestKey}
               height="100%"
             />
-            {searchAreaDirty ? (
+            {!isMapMoveSearchEnabled && searchAreaDirty ? (
               <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">
-                <Button
-                  className="pointer-events-auto"
-                  onClick={() => {
-                    setCameraIntent(
-                      resolveShortletMapCameraIntent({
-                        hasLocationChanged: false,
-                        hasBoundsChanged: true,
-                      })
-                    );
-                    setCameraIntentNonce((current) => current + 1);
-                    setMapAreaState((current) => {
-                      const next = applySearchThisArea(current);
-                      const encoded = serializeShortletSearchBbox(next.activeBounds);
-                      updateUrl((params) => {
-                        if (encoded) params.set("bbox", encoded);
-                        else params.delete("bbox");
-                        params.delete("bounds");
-                      });
-                      return next;
-                    });
-                  }}
-                >
+                <Button className="pointer-events-auto" onClick={onSearchThisArea}>
                   Search this area
                 </Button>
               </div>
