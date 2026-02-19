@@ -1,6 +1,7 @@
 ---
 title: "Additive property image optimisation pipeline on Supabase Storage"
 audiences:
+  - TENANT
   - HOST
   - AGENT
   - ADMIN
