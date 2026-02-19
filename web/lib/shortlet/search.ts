@@ -1,6 +1,7 @@
 import { isShortletProperty, resolveShortletBookingMode, resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
 import type { Property } from "@/lib/types";
 import { orderImagesWithCover } from "@/lib/properties/images";
+import { resolvePropertyImageUrl } from "@/lib/properties/image-url";
 
 export type ShortletSearchSort = "recommended" | "price_low" | "price_high" | "newest";
 
@@ -52,6 +53,11 @@ type ShortletSearchImageRow = {
   height?: number | null;
   bytes?: number | null;
   format?: string | null;
+  storage_path?: string | null;
+  original_storage_path?: string | null;
+  thumb_storage_path?: string | null;
+  card_storage_path?: string | null;
+  hero_storage_path?: string | null;
 };
 
 export type ShortletSearchPropertyRow = Property & {
@@ -499,6 +505,11 @@ function normalizeImageRows(
     height?: number | null;
     bytes?: number | null;
     format?: string | null;
+    storage_path?: string | null;
+    original_storage_path?: string | null;
+    thumb_storage_path?: string | null;
+    card_storage_path?: string | null;
+    hero_storage_path?: string | null;
   }>
 ) {
   return rows
@@ -511,6 +522,11 @@ function normalizeImageRows(
       height: typeof img.height === "number" ? img.height : null,
       bytes: typeof img.bytes === "number" ? img.bytes : null,
       format: img.format ?? null,
+      storage_path: img.storage_path ?? null,
+      original_storage_path: img.original_storage_path ?? null,
+      thumb_storage_path: img.thumb_storage_path ?? null,
+      card_storage_path: img.card_storage_path ?? null,
+      hero_storage_path: img.hero_storage_path ?? null,
     }))
     .filter((img) => img.id && img.image_url);
 }
@@ -526,6 +542,11 @@ function extractImageRowsFromProperty(
   height?: number | null;
   bytes?: number | null;
   format?: string | null;
+  storage_path?: string | null;
+  original_storage_path?: string | null;
+  thumb_storage_path?: string | null;
+  card_storage_path?: string | null;
+  hero_storage_path?: string | null;
 }> {
   const fromPropertyImages = (row.property_images ?? []) as Array<{
     id?: string | null;
@@ -536,6 +557,11 @@ function extractImageRowsFromProperty(
     height?: number | null;
     bytes?: number | null;
     format?: string | null;
+    storage_path?: string | null;
+    original_storage_path?: string | null;
+    thumb_storage_path?: string | null;
+    card_storage_path?: string | null;
+    hero_storage_path?: string | null;
   }>;
   const fromImages = ((row.images as Property["images"] | undefined) ?? []).map((img) => ({
     id: img.id,
@@ -546,6 +572,11 @@ function extractImageRowsFromProperty(
     height: img.height ?? null,
     bytes: img.bytes ?? null,
     format: img.format ?? null,
+    storage_path: img.storage_path ?? null,
+    original_storage_path: img.original_storage_path ?? null,
+    thumb_storage_path: img.thumb_storage_path ?? null,
+    card_storage_path: img.card_storage_path ?? null,
+    hero_storage_path: img.hero_storage_path ?? null,
   }));
   return [...fromPropertyImages, ...fromImages];
 }
@@ -553,7 +584,11 @@ function extractImageRowsFromProperty(
 export function resolveShortletPrimaryImageUrl(row: ShortletSearchPropertyRow): string | null {
   const rawRows = extractImageRowsFromProperty(row);
   const ordered = orderImagesWithCover(row.cover_image_url, normalizeImageRows(rawRows));
-  return row.cover_image_url || ordered[0]?.image_url || null;
+  const firstImage = ordered[0];
+  if (firstImage) {
+    return resolvePropertyImageUrl(firstImage, "card") ?? firstImage.image_url;
+  }
+  return row.cover_image_url || null;
 }
 
 export function mapShortletSearchRowsToResultItems(
@@ -565,7 +600,9 @@ export function mapShortletSearchRowsToResultItems(
     const primaryImageUrl = resolveShortletPrimaryImageUrl(row);
     const orderedImages = orderImagesWithCover(primaryImageUrl, normalizedImages);
     const coverImageUrl = primaryImageUrl;
-    const imageUrls = orderedImages.slice(0, 5).map((img) => img.image_url);
+    const imageUrls = orderedImages
+      .slice(0, 5)
+      .map((img) => resolvePropertyImageUrl(img, "card") ?? img.image_url);
     const imageCount = orderedImages.length;
     const hasCoords =
       typeof row.latitude === "number" &&

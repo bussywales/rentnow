@@ -1,5 +1,6 @@
 import type { Property } from "@/lib/types";
 import { coverBelongsToImages } from "./cover";
+import { resolvePropertyImageUrl } from "@/lib/properties/image-url";
 
 type MinimalImage = {
   id: string;
@@ -10,6 +11,11 @@ type MinimalImage = {
   height?: number | null;
   bytes?: number | null;
   format?: string | null;
+  storage_path?: string | null;
+  original_storage_path?: string | null;
+  thumb_storage_path?: string | null;
+  card_storage_path?: string | null;
+  hero_storage_path?: string | null;
 };
 
 export function orderImagesWithCover(
@@ -40,5 +46,9 @@ export function getPrimaryImageUrl(property: Property): string | null {
     property.cover_image_url,
     property.images as MinimalImage[] | undefined
   );
-  return ordered[0]?.image_url || null;
+  const firstImage = ordered[0];
+  if (firstImage) {
+    return resolvePropertyImageUrl(firstImage, "card") ?? firstImage.image_url;
+  }
+  return property.cover_image_url ?? null;
 }

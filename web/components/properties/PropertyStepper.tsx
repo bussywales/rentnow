@@ -13,7 +13,6 @@ import { pickRecommendedCover } from "@/lib/properties/recommended-cover";
 import {
   classifyPhotoQuality,
   PHOTO_ALLOWED_MIME_TYPES,
-  PHOTO_BLOCK_MIN_HEIGHT,
   PHOTO_BLOCK_MIN_WIDTH,
   PHOTO_MAX_BYTES,
   PHOTO_WARN_MIN_WIDTH,
@@ -103,6 +102,11 @@ type ResolvedAuth = {
 type ImageMeta = CoverMeta & {
   bytes?: number | null;
   format?: string | null;
+  storage_path?: string | null;
+  original_storage_path?: string | null;
+  thumb_storage_path?: string | null;
+  card_storage_path?: string | null;
+  hero_storage_path?: string | null;
   exif_has_gps?: boolean | null;
   exif_captured_at?: string | null;
   exif?: { hasGps?: boolean | null; capturedAt?: string | null };
@@ -160,6 +164,8 @@ const sizeUnits: { label: string; value: SizeUnit }[] = [
 
 const STORAGE_BUCKET =
   process.env.NEXT_PUBLIC_SUPABASE_STORAGE_BUCKET || "property-images";
+const IMAGE_OPTIMISATION_CLIENT_HINT =
+  process.env.NEXT_PUBLIC_IMAGE_OPTIMISATION_ENABLED === "true";
 
 const MAX_UPLOAD_BYTES = PHOTO_MAX_BYTES;
 const COORDINATES_HELP = {
@@ -279,6 +285,15 @@ export function PropertyStepper({
         height: (img as { height?: number | null }).height ?? undefined,
         bytes: (img as { bytes?: number | null }).bytes ?? undefined,
         format: (img as { format?: string | null }).format ?? undefined,
+        storage_path: (img as { storage_path?: string | null }).storage_path ?? undefined,
+        original_storage_path:
+          (img as { original_storage_path?: string | null }).original_storage_path ?? undefined,
+        thumb_storage_path:
+          (img as { thumb_storage_path?: string | null }).thumb_storage_path ?? undefined,
+        card_storage_path:
+          (img as { card_storage_path?: string | null }).card_storage_path ?? undefined,
+        hero_storage_path:
+          (img as { hero_storage_path?: string | null }).hero_storage_path ?? undefined,
         exif_has_gps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? undefined,
         exif_captured_at:
           (img as { exif_captured_at?: string | null }).exif_captured_at ?? undefined,
@@ -430,6 +445,11 @@ export function PropertyStepper({
           height?: number;
           bytes?: number;
           format?: string | null;
+          storage_path?: string | null;
+          original_storage_path?: string | null;
+          thumb_storage_path?: string | null;
+          card_storage_path?: string | null;
+          hero_storage_path?: string | null;
           exif?: { hasGps?: boolean | null; capturedAt?: string | null };
         }
       > = {};
@@ -448,6 +468,11 @@ export function PropertyStepper({
             ? value.bytes
             : undefined;
         const format = value.format ?? undefined;
+        const storage_path = value.storage_path ?? undefined;
+        const original_storage_path = value.original_storage_path ?? undefined;
+        const thumb_storage_path = value.thumb_storage_path ?? undefined;
+        const card_storage_path = value.card_storage_path ?? undefined;
+        const hero_storage_path = value.hero_storage_path ?? undefined;
         const exifHasGps =
           typeof value.exif_has_gps === "boolean"
             ? value.exif_has_gps
@@ -467,12 +492,28 @@ export function PropertyStepper({
                 ...(exifCaptured !== undefined ? { capturedAt: exifCaptured } : {}),
               }
             : undefined;
-        if (width || height || bytes || format || exif) {
+        if (
+          width ||
+          height ||
+          bytes ||
+          format ||
+          storage_path ||
+          original_storage_path ||
+          thumb_storage_path ||
+          card_storage_path ||
+          hero_storage_path ||
+          exif
+        ) {
           cleaned[url] = {
             ...(width ? { width } : {}),
             ...(height ? { height } : {}),
             ...(bytes ? { bytes } : {}),
             ...(format !== undefined ? { format } : {}),
+            ...(storage_path !== undefined ? { storage_path } : {}),
+            ...(original_storage_path !== undefined ? { original_storage_path } : {}),
+            ...(thumb_storage_path !== undefined ? { thumb_storage_path } : {}),
+            ...(card_storage_path !== undefined ? { card_storage_path } : {}),
+            ...(hero_storage_path !== undefined ? { hero_storage_path } : {}),
             ...(exif ? { exif } : {}),
           };
         }
@@ -1304,16 +1345,16 @@ export function PropertyStepper({
   );
 
   const saveDraft = useCallback(async (statusOverride?: PropertyStatus) => {
-    if (!canCreateDraft) return;
+    if (!canCreateDraft) return null;
     setErrorCode(null);
     const supabase = getSupabase();
-    if (!supabase) return;
+    if (!supabase) return null;
 
     const { user, accessToken } = await resolveAuthUser(supabase);
     if (!user) {
       setError("Please log in to save a listing.");
       setErrorCode("not_authenticated");
-      return;
+      return null;
     }
 
     const restPayload = { ...payload } as FormState;
@@ -1415,12 +1456,17 @@ export function PropertyStepper({
         const json = await res.json().catch(() => ({}));
         if (json?.id) {
           setPropertyId(json.id);
+          lastAutoSaved.current = requestKey;
+          setDraftNotice(status === "draft" ? "Draft saved." : null);
+          markSaved();
+          return json.id as string;
         }
       }
 
       lastAutoSaved.current = requestKey;
       setDraftNotice(status === "draft" ? "Draft saved." : null);
       markSaved();
+      return propertyId ?? null;
     } catch (err) {
       markSaveError(() => saveDraft(statusOverride));
       throw err;
@@ -2219,26 +2265,56 @@ export function PropertyStepper({
       });
       URL.revokeObjectURL(objectUrl);
 
-      const maxDim = 2000;
-      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
-      const targetW = Math.max(1, Math.round(img.width * scale));
-      const targetH = Math.max(1, Math.round(img.height * scale));
+      const maxLongEdge = 2560;
+      let targetWidth = img.width;
+      let targetHeight = img.height;
+      const longEdge = Math.max(img.width, img.height);
+      if (longEdge > maxLongEdge) {
+        const scale = maxLongEdge / longEdge;
+        targetWidth = Math.max(1, Math.round(img.width * scale));
+        targetHeight = Math.max(1, Math.round(img.height * scale));
+      }
 
       const canvas = document.createElement("canvas");
-      canvas.width = targetW;
-      canvas.height = targetH;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) throw new Error("Canvas not supported");
-      ctx.drawImage(img, 0, 0, targetW, targetH);
+      const draw = (width: number, height: number) => {
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) throw new Error("Canvas not supported");
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(img, 0, 0, width, height);
+      };
+      draw(targetWidth, targetHeight);
 
-      const blob: Blob | null = await new Promise((resolve) =>
-        canvas.toBlob(resolve, "image/webp", 0.72)
-      );
-      if (!blob) throw new Error("Compression failed");
+      const qualitySteps = [0.84, 0.78, 0.72, 0.66, 0.6];
+      const targetTypicalBytes = 1_200_000;
+      const hardCapBytes = 2_000_000;
+      let chosenBlob: Blob | null = null;
 
-      if (blob.size >= file.size) return file;
+      for (const quality of qualitySteps) {
+        const blob: Blob | null = await new Promise((resolve) =>
+          canvas.toBlob(resolve, "image/webp", quality)
+        );
+        if (!blob) continue;
+        chosenBlob = blob;
+        if (blob.size <= targetTypicalBytes) break;
+      }
 
-      return new File([blob], file.name.replace(/\.[^.]+$/, ".webp"), {
+      while (chosenBlob && chosenBlob.size > hardCapBytes && targetWidth > 800 && targetHeight > 800) {
+        targetWidth = Math.max(800, Math.round(targetWidth * 0.88));
+        targetHeight = Math.max(800, Math.round(targetHeight * 0.88));
+        draw(targetWidth, targetHeight);
+        const blob: Blob | null = await new Promise((resolve) =>
+          canvas.toBlob(resolve, "image/webp", 0.62)
+        );
+        if (!blob) break;
+        chosenBlob = blob;
+      }
+
+      if (!chosenBlob) return file;
+      if (chosenBlob.size >= file.size && file.size <= hardCapBytes) return file;
+
+      return new File([chosenBlob], file.name.replace(/\.[^.]+$/, ".webp"), {
         type: "image/webp",
         lastModified: Date.now(),
       });
@@ -2253,7 +2329,7 @@ export function PropertyStepper({
     const supabase = getSupabase();
     if (!supabase) return;
 
-    const { user } = await resolveAuthUser(supabase);
+    const { user, accessToken } = await resolveAuthUser(supabase);
     if (!user) {
       setError("Please log in to upload photos.");
       return;
@@ -2281,6 +2357,14 @@ export function PropertyStepper({
     const uploaded: string[] = [];
     let metas: ImageMeta[] = [];
     try {
+      let targetPropertyId = propertyId;
+      const shouldTryOptimisedPipeline = IMAGE_OPTIMISATION_CLIENT_HINT;
+      if (shouldTryOptimisedPipeline && !targetPropertyId) {
+        const savedId = await saveDraft("draft");
+        if (typeof savedId === "string" && savedId) {
+          targetPropertyId = savedId;
+        }
+      }
       metas = await Promise.all(
         allowedFiles.map(async (file) => {
           const cached = fileChecks[getFileKey(file)]?.meta;
@@ -2290,7 +2374,7 @@ export function PropertyStepper({
       for (let i = 0; i < allowedFiles.length; i += 1) {
         const file = allowedFiles[i];
         if (file.size > MAX_UPLOAD_BYTES) {
-          throw new Error(`File ${file.name} exceeds 10MB limit.`);
+          throw new Error(`File ${file.name} exceeds ${Math.round(MAX_UPLOAD_BYTES / (1024 * 1024))}MB limit.`);
         }
         if (
           !PHOTO_ALLOWED_MIME_TYPES.includes(
@@ -2300,18 +2384,75 @@ export function PropertyStepper({
           throw new Error(`File ${file.name} is not a supported image type.`);
         }
         const toUpload = await compressImage(file);
-        const path = `${user.id}/${Date.now()}-${toUpload.name}`;
-        const { error: uploadError } = await supabase.storage
-          .from(STORAGE_BUCKET)
-          .upload(path, toUpload);
-        if (uploadError) throw new Error(uploadError.message);
+        let url: string | null = null;
+        let returnedMeta: ImageMeta | null = null;
+        if (shouldTryOptimisedPipeline && targetPropertyId) {
+          const formData = new FormData();
+          formData.append("file", toUpload);
+          const optimisedResponse = await fetch(
+            `/api/properties/${targetPropertyId}/images/optimise`,
+            {
+              method: "POST",
+              headers: {
+                ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+              },
+              body: formData,
+            }
+          );
+          const optimisedData = (await optimisedResponse.json().catch(() => null)) as
+            | {
+                code?: string;
+                error?: string;
+                image?: {
+                  image_url?: string | null;
+                  width?: number | null;
+                  height?: number | null;
+                  bytes?: number | null;
+                  format?: string | null;
+                  storage_path?: string | null;
+                  original_storage_path?: string | null;
+                  thumb_storage_path?: string | null;
+                  card_storage_path?: string | null;
+                  hero_storage_path?: string | null;
+                };
+              }
+            | null;
+          if (optimisedResponse.ok && optimisedData?.image?.image_url) {
+            url = optimisedData.image.image_url;
+            returnedMeta = {
+              width: optimisedData.image.width ?? null,
+              height: optimisedData.image.height ?? null,
+              bytes: optimisedData.image.bytes ?? null,
+              format: optimisedData.image.format ?? null,
+              storage_path: optimisedData.image.storage_path ?? null,
+              original_storage_path: optimisedData.image.original_storage_path ?? null,
+              thumb_storage_path: optimisedData.image.thumb_storage_path ?? null,
+              card_storage_path: optimisedData.image.card_storage_path ?? null,
+              hero_storage_path: optimisedData.image.hero_storage_path ?? null,
+            };
+          } else if (optimisedData?.code && optimisedData.code !== "IMAGE_OPTIMISATION_DISABLED") {
+            throw new Error(optimisedData.error || "Unable to optimise image upload.");
+          }
+        }
 
-        const { data: publicUrl } = supabase.storage
-          .from(STORAGE_BUCKET)
-          .getPublicUrl(path);
-        const url = publicUrl.publicUrl;
+        if (!url) {
+          const path = `${user.id}/${Date.now()}-${toUpload.name}`;
+          const { error: uploadError } = await supabase.storage
+            .from(STORAGE_BUCKET)
+            .upload(path, toUpload);
+          if (uploadError) throw new Error(uploadError.message);
+
+          const { data: publicUrl } = supabase.storage
+            .from(STORAGE_BUCKET)
+            .getPublicUrl(path);
+          url = publicUrl.publicUrl;
+        }
+        if (!url) {
+          throw new Error("Unable to resolve uploaded image URL.");
+        }
+
         uploaded.push(url);
-        const meta = metas[i];
+        const meta = returnedMeta ?? metas[i];
         if (meta) {
           setImageMeta((prev) => ({ ...prev, [url]: meta }));
         }
@@ -3969,7 +4110,7 @@ export function PropertyStepper({
               </div>
             )}
             <p className="text-xs text-slate-600">
-              Files under {PHOTO_BLOCK_MIN_WIDTH}×{PHOTO_BLOCK_MIN_HEIGHT}px are blocked. Uploads go to the `{STORAGE_BUCKET}` bucket.
+              Files under {PHOTO_BLOCK_MIN_WIDTH}px wide are blocked. Uploads are auto-optimised and stored in the `{STORAGE_BUCKET}` bucket.
             </p>
             {uploading && (
               <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100">

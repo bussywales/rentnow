@@ -14,6 +14,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
 import { orderImagesWithCover } from "@/lib/properties/images";
+import { resolvePropertyImageUrl } from "@/lib/properties/image-url";
 import type { PropertyImage } from "@/lib/types";
 
 type Props = {
@@ -53,7 +54,7 @@ export function resolvePropertyImageSources({
 }): string[] {
   const ordered = orderImagesWithCover(coverImageUrl, images ?? []);
   const orderedUrls = ordered
-    .map((image) => image.image_url)
+    .map((image) => resolvePropertyImageUrl(image, "card") ?? image.image_url)
     .filter((imageUrl): imageUrl is string => typeof imageUrl === "string" && imageUrl.length > 0);
   const seededUrls = [primaryImageUrl, ...orderedUrls].filter(
     (imageUrl): imageUrl is string => typeof imageUrl === "string" && imageUrl.length > 0
