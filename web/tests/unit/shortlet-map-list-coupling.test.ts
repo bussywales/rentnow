@@ -5,6 +5,7 @@ import {
   createMapListCouplingState,
   setMapListHover,
   setMapListSelected,
+  shouldSoftPanHoveredMarker,
   shouldScrollCardIntoView,
 } from "@/lib/shortlet/map-list-coupling";
 
@@ -36,6 +37,33 @@ void test("marker-driven selection should trigger card scroll", () => {
     shouldScrollCardIntoView({
       source: "list",
       selectedId: "listing-1",
+    }),
+    false
+  );
+});
+
+void test("hover soft-pan only runs for new out-of-viewport markers", () => {
+  assert.equal(
+    shouldSoftPanHoveredMarker({
+      hoveredListingId: "listing-1",
+      lastHoveredListingId: null,
+      isInsidePaddedViewport: false,
+    }),
+    true
+  );
+  assert.equal(
+    shouldSoftPanHoveredMarker({
+      hoveredListingId: "listing-1",
+      lastHoveredListingId: "listing-1",
+      isInsidePaddedViewport: false,
+    }),
+    false
+  );
+  assert.equal(
+    shouldSoftPanHoveredMarker({
+      hoveredListingId: "listing-2",
+      lastHoveredListingId: "listing-1",
+      isInsidePaddedViewport: true,
     }),
     false
   );

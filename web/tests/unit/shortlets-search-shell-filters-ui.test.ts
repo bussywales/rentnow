@@ -123,6 +123,8 @@ void test("shortlets shell result summary reflects bbox-applied map-area state",
   assert.ok(contents.includes("isBboxApplied"));
   assert.ok(contents.includes("pendingMapAreaLabel"));
   assert.ok(contents.includes('data-testid="shortlets-results-label"'));
+  assert.ok(contents.includes("Clear map area"));
+  assert.ok(contents.includes('data-testid="shortlets-clear-map-area"'));
 });
 
 void test("shortlets shell supports opt-in map move search toggle", () => {
@@ -133,6 +135,8 @@ void test("shortlets shell supports opt-in map move search toggle", () => {
   assert.ok(contents.includes("mapMoveSearchMode"));
   assert.ok(contents.includes("mapMoveDebounceRef"));
   assert.ok(contents.includes("mapAuto"));
+  assert.ok(contents.includes("showDelayedUpdatingIndicator"));
+  assert.ok(contents.includes("Refreshing map results…"));
 });
 
 void test("map move search auto mode writes bbox and triggers URL refresh path", () => {
@@ -160,8 +164,17 @@ void test("mobile map overlay renders full-screen structure with explicit height
   assert.ok(contents.includes("fixed inset-0 z-40"));
   assert.ok(contents.includes('style={{ height: "calc(100vh - 84px)" }}'));
   assert.ok(contents.includes('aria-label="Close map"'));
+  assert.ok(contents.includes("Back to results"));
   assert.ok(contents.includes("mobileListScrollYRef.current = window.scrollY"));
   assert.ok(contents.includes("window.scrollTo({ top: mobileListScrollYRef.current, behavior: \"auto\" })"));
+});
+
+void test("desktop loading keeps stable container and shows refresh skeleton while fetching", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("min-h-[420px]"));
+  assert.ok(contents.includes('data-testid="shortlets-desktop-loading-skeleton"'));
+  assert.ok(contents.includes('data-testid="shortlets-desktop-refresh-skeleton"'));
 });
 
 void test("map bbox URL updates use replace semantics without pushing history", () => {

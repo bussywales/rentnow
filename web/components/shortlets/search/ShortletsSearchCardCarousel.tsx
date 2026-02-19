@@ -30,6 +30,10 @@ export function shouldRenderShortletsCarouselArrows(totalImages: number): boolea
   return totalImages > 1;
 }
 
+export function shouldRenderShortletsCarouselControls(totalImages: number): boolean {
+  return totalImages > 1;
+}
+
 export function resolveShortletsCarouselImageSources(input: {
   coverImageUrl?: string | null;
   primaryImageUrl?: string | null;
@@ -56,12 +60,12 @@ export function resolveShortletsCarouselImageSources(input: {
 
 export function resolveShortletsCarouselIndexFromScroll(input: {
   scrollLeft: number;
-  viewportWidth: number;
+  slideWidth: number;
   totalImages: number;
 }): number {
-  if (!Number.isFinite(input.viewportWidth) || input.viewportWidth <= 0) return 0;
+  if (!Number.isFinite(input.slideWidth) || input.slideWidth <= 0) return 0;
   if (input.totalImages <= 1) return 0;
-  const raw = Math.round(input.scrollLeft / input.viewportWidth);
+  const raw = Math.round(input.scrollLeft / input.slideWidth);
   return Math.max(0, Math.min(input.totalImages - 1, raw));
 }
 
@@ -96,6 +100,7 @@ export function ShortletsSearchCardCarousel({
   const [dragging, setDragging] = useState(false);
   const showDots = shouldRenderShortletsCarouselDots(imageSources.length);
   const showArrows = shouldRenderShortletsCarouselArrows(imageSources.length);
+  const showControls = shouldRenderShortletsCarouselControls(imageSources.length);
   const activeIndex = Math.max(
     0,
     Math.min(imageSources.length > 0 ? imageSources.length - 1 : 0, selectedIndex)
@@ -109,18 +114,35 @@ export function ShortletsSearchCardCarousel({
     };
   }, []);
 
+  useEffect(() => {
+    if (imageSources.length <= 1) return;
+    const neighbors = [imageSources[activeIndex - 1], imageSources[activeIndex + 1]].filter(Boolean);
+    for (const source of neighbors) {
+      const preload = new window.Image();
+      preload.src = source as string;
+    }
+  }, [activeIndex, imageSources]);
+
+  const resolveSlideWidth = useCallback((): number => {
+    const viewport = viewportRef.current;
+    if (!viewport) return 0;
+    const firstSlide = viewport.firstElementChild as HTMLElement | null;
+    return firstSlide?.offsetWidth ?? viewport.clientWidth;
+  }, []);
+
   const scrollToIndex = useCallback(
     (nextIndex: number, behavior: ScrollBehavior = "smooth") => {
       const viewport = viewportRef.current;
       if (!viewport) return;
       const clamped = Math.max(0, Math.min(imageSources.length - 1, nextIndex));
+      const slideWidth = resolveSlideWidth();
       viewport.scrollTo({
-        left: clamped * viewport.clientWidth,
+        left: clamped * slideWidth,
         behavior,
       });
       setSelectedIndex(clamped);
     },
-    [imageSources.length]
+    [imageSources.length, resolveSlideWidth]
   );
 
   const syncIndexFromScroll = useCallback(() => {
@@ -128,11 +150,11 @@ export function ShortletsSearchCardCarousel({
     if (!viewport) return;
     const nextIndex = resolveShortletsCarouselIndexFromScroll({
       scrollLeft: viewport.scrollLeft,
-      viewportWidth: viewport.clientWidth,
+      slideWidth: resolveSlideWidth(),
       totalImages: imageSources.length,
     });
     setSelectedIndex(nextIndex);
-  }, [imageSources.length]);
+  }, [imageSources.length, resolveSlideWidth]);
 
   const onViewportScroll = useCallback(() => {
     if (scrollRafRef.current) return;
@@ -183,13 +205,13 @@ export function ShortletsSearchCardCarousel({
       if (Math.abs(dragDeltaRef.current) > DRAG_SUPPRESS_CLICK_PX) {
         const nextIndex = resolveShortletsCarouselIndexFromScroll({
           scrollLeft: viewport?.scrollLeft ?? 0,
-          viewportWidth: viewport?.clientWidth ?? 0,
+          slideWidth: resolveSlideWidth(),
           totalImages: imageSources.length,
         });
         scrollToIndex(nextIndex);
       }
     },
-    [imageSources.length, scrollToIndex, syncIndexFromScroll]
+    [imageSources.length, resolveSlideWidth, scrollToIndex, syncIndexFromScroll]
   );
 
   const onSlideClickCapture = useCallback((event: ReactMouseEvent<HTMLAnchorElement>) => {
@@ -209,6 +231,7 @@ export function ShortletsSearchCardCarousel({
         className={cn(
           "flex h-full w-full snap-x snap-mandatory overflow-x-auto scroll-smooth touch-pan-y",
           "[scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden",
+          showControls ? "md:pr-[18px]" : "",
           dragging ? "cursor-grabbing" : "cursor-grab"
         )}
         style={{ WebkitOverflowScrolling: "touch" }}
@@ -222,7 +245,10 @@ export function ShortletsSearchCardCarousel({
           <Link
             key={`shortlets-search-slide-${index}`}
             href={href}
-            className="relative block h-full w-full shrink-0 snap-start focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            className={cn(
+              "relative block h-full shrink-0 snap-start focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500",
+              showControls ? "w-[calc(100%-14px)] md:w-[calc(100%-18px)]" : "w-full"
+            )}
             onClickCapture={onSlideClickCapture}
           >
             <Image
@@ -243,7 +269,7 @@ export function ShortletsSearchCardCarousel({
           <button
             type="button"
             aria-label="Previous photo"
-            className="absolute left-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 group-hover:inline-flex"
+            className="absolute left-2 top-1/2 z-10 hidden h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 group-hover:inline-flex"
             onClick={() => scrollToIndex(activeIndex - 1)}
           >
             ‹
@@ -251,7 +277,7 @@ export function ShortletsSearchCardCarousel({
           <button
             type="button"
             aria-label="Next photo"
-            className="absolute right-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 group-hover:inline-flex"
+            className="absolute right-2 top-1/2 z-10 hidden h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/90 text-slate-700 shadow-sm transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 group-hover:inline-flex"
             onClick={() => scrollToIndex(activeIndex + 1)}
           >
             ›
@@ -260,14 +286,14 @@ export function ShortletsSearchCardCarousel({
       ) : null}
       {showDots ? (
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1"
+          className="absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1"
           data-testid="shortlets-search-card-carousel-dots"
         >
           {imageSources.map((_, index) => (
             <button
               key={`shortlets-carousel-dot-${index}`}
               type="button"
-              className={`h-1.5 w-1.5 rounded-full ${
+              className={`h-1.5 w-1.5 rounded-full transition ${
                 index === activeIndex ? "bg-white" : "bg-white/55"
               }`}
               aria-label={`View photo ${index + 1}`}

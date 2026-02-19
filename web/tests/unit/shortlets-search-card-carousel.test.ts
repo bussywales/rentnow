@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  shouldRenderShortletsCarouselControls,
   resolveShortletsCarouselIndexFromScroll,
   resolveShortletsCarouselImageSources,
   shouldRenderShortletsCarouselArrows,
@@ -16,6 +17,8 @@ void test("shortlets card carousel shows dots only when image count is greater t
 void test("shortlets card carousel shows arrows when there are multiple images", () => {
   assert.equal(shouldRenderShortletsCarouselArrows(1), false);
   assert.equal(shouldRenderShortletsCarouselArrows(2), true);
+  assert.equal(shouldRenderShortletsCarouselControls(1), false);
+  assert.equal(shouldRenderShortletsCarouselControls(2), true);
 });
 
 void test("shortlets card carousel image resolver falls back safely to primary image", () => {
@@ -46,7 +49,7 @@ void test("shortlets card carousel resolves active index from scroll position", 
   assert.equal(
     resolveShortletsCarouselIndexFromScroll({
       scrollLeft: 0,
-      viewportWidth: 320,
+      slideWidth: 320,
       totalImages: 5,
     }),
     0
@@ -54,7 +57,7 @@ void test("shortlets card carousel resolves active index from scroll position", 
   assert.equal(
     resolveShortletsCarouselIndexFromScroll({
       scrollLeft: 350,
-      viewportWidth: 320,
+      slideWidth: 320,
       totalImages: 5,
     }),
     1
@@ -62,7 +65,7 @@ void test("shortlets card carousel resolves active index from scroll position", 
   assert.equal(
     resolveShortletsCarouselIndexFromScroll({
       scrollLeft: 1650,
-      viewportWidth: 320,
+      slideWidth: 320,
       totalImages: 5,
     }),
     4

@@ -273,6 +273,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     parsedUi.mapAutoSearch ? "auto" : "manual"
   );
   const [mapMoveUpdating, setMapMoveUpdating] = useState(false);
+  const [showDelayedUpdatingIndicator, setShowDelayedUpdatingIndicator] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [isCompactSearch, setIsCompactSearch] = useState(false);
   const [isSearchHeaderInView, setIsSearchHeaderInView] = useState(true);
@@ -450,6 +451,18 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    const isRefreshing = mapMoveUpdating || loading;
+    if (!isRefreshing) {
+      setShowDelayedUpdatingIndicator(false);
+      return;
+    }
+    const timeout = window.setTimeout(() => {
+      setShowDelayedUpdatingIndicator(true);
+    }, 320);
+    return () => window.clearTimeout(timeout);
+  }, [loading, mapMoveUpdating]);
 
   useEffect(() => {
     if (!highlightedListingId) return;
@@ -788,6 +801,21 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     });
   }, [updateUrl]);
 
+  const clearMapArea = useCallback(() => {
+    setMapAreaState(() => ({
+      activeBounds: null,
+      draftBounds: null,
+      mapDirty: false,
+    }));
+    setCameraIntent("user_search_area");
+    setCameraIntentNonce((current) => current + 1);
+    updateUrl((next) => {
+      next.delete("bbox");
+      next.delete("bounds");
+      next.set("page", "1");
+    });
+  }, [updateUrl]);
+
   const clearAdvancedFilters = useCallback(() => {
     const cleared = createDefaultShortletAdvancedFilters();
     setDraftAdvancedFilters(cleared);
@@ -876,8 +904,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     ? "Loading stays..."
     : resolveShortletResultsLabel({ total: results?.total ?? 0, isBboxApplied });
   const pendingMapAreaLabel = isMapMoveSearchEnabled
-    ? mapMoveUpdating || loading
-      ? "Updating results..."
+    ? showDelayedUpdatingIndicator
+      ? "Refreshing map results…"
       : "Map movement updates results automatically."
     : resolveShortletPendingMapAreaLabel(searchAreaDirty);
   const desktopLayoutClass = desktopMapOpen
@@ -1301,6 +1329,16 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               {desktopMapOpen && pendingMapAreaLabel ? (
                 <p className="mt-1 text-xs text-slate-500">{pendingMapAreaLabel}</p>
               ) : null}
+              {isBboxApplied ? (
+                <button
+                  type="button"
+                  onClick={clearMapArea}
+                  className="mt-2 inline-flex h-7 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                  data-testid="shortlets-clear-map-area"
+                >
+                  Clear map area
+                </button>
+              ) : null}
             </div>
             <div className="flex items-center gap-3">
               {results?.total === 0 && !!parsedUi.checkIn && !!parsedUi.checkOut ? (
@@ -1330,63 +1368,63 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             </div>
           </div>
           {loading && !(results?.items.length ?? 0) ? (
-            <div className={desktopCardsGridClass}>
+            <div className={`${desktopCardsGridClass} min-h-[420px]`} data-testid="shortlets-desktop-loading-skeleton">
               {Array.from({ length: 6 }).map((_, index) => (
                 <PropertyCardSkeleton key={`shortlet-list-skeleton-${index}`} />
               ))}
             </div>
-          ) : isMapMoveSearchEnabled && loading ? (
-            <div className="space-y-2">
-              <div className="h-9 animate-pulse rounded-xl border border-slate-200 bg-slate-100" />
-              <div className={desktopCardsGridClass}>
-                {Array.from({ length: 4 }).map((_, index) => (
-                  <PropertyCardSkeleton key={`shortlet-auto-skeleton-${index}`} />
-                ))}
-              </div>
-            </div>
           ) : results?.items.length ? (
-            <div className={desktopCardsGridClass} data-testid="shortlets-desktop-results-grid">
-              {results.items.map((property) => {
-                const selected = property.id === selectedListingId;
-                const highlighted =
-                  selected || property.id === hoveredListingId || property.id === highlightedListingId;
-                return (
-                  <div
-                    key={property.id}
-                    ref={(node) => {
-                      cardRefs.current[property.id] = node;
-                    }}
-                    className={`rounded-2xl border ${
-                      highlighted ? "border-sky-300 ring-2 ring-sky-100" : "border-transparent"
-                    }`}
-                    onMouseEnter={() =>
-                      setCouplingState((current) => setMapListHover(current, property.id, "list"))
-                    }
-                    onMouseLeave={() =>
-                      setCouplingState((current) => clearMapListHover(current))
-                    }
-                    onClick={() =>
-                      setCouplingState((current) => setMapListSelected(current, property.id, "list"))
-                    }
-                    data-listing-id={property.id}
-                  >
-                    <ShortletsSearchListCard
-                      property={property}
-                      href={`/properties/${property.id}?back=${encodeURIComponent(
-                        `/shortlets?${backLinkQuery}`
-                      )}#cta`}
-                      selected={selected}
-                      highlighted={property.id === hoveredListingId}
-                      onFocus={() =>
+            <div className="space-y-3 min-h-[420px]">
+              <div className={desktopCardsGridClass} data-testid="shortlets-desktop-results-grid">
+                {results.items.map((property) => {
+                  const selected = property.id === selectedListingId;
+                  const highlighted =
+                    selected || property.id === hoveredListingId || property.id === highlightedListingId;
+                  return (
+                    <div
+                      key={property.id}
+                      ref={(node) => {
+                        cardRefs.current[property.id] = node;
+                      }}
+                      className={`h-full rounded-2xl border ${
+                        highlighted ? "border-sky-300 ring-2 ring-sky-100" : "border-transparent"
+                      }`}
+                      onMouseEnter={() =>
                         setCouplingState((current) => setMapListHover(current, property.id, "list"))
                       }
-                      onBlur={() =>
+                      onMouseLeave={() =>
                         setCouplingState((current) => clearMapListHover(current))
                       }
-                    />
-                  </div>
-                );
-              })}
+                      onClick={() =>
+                        setCouplingState((current) => setMapListSelected(current, property.id, "list"))
+                      }
+                      data-listing-id={property.id}
+                    >
+                      <ShortletsSearchListCard
+                        property={property}
+                        href={`/properties/${property.id}?back=${encodeURIComponent(
+                          `/shortlets?${backLinkQuery}`
+                        )}#cta`}
+                        selected={selected}
+                        highlighted={property.id === hoveredListingId}
+                        onFocus={() =>
+                          setCouplingState((current) => setMapListHover(current, property.id, "list"))
+                        }
+                        onBlur={() =>
+                          setCouplingState((current) => clearMapListHover(current))
+                        }
+                      />
+                    </div>
+                  );
+                })}
+              </div>
+              {loading ? (
+                <div className={desktopCardsGridClass} data-testid="shortlets-desktop-refresh-skeleton">
+                  {Array.from({ length: 2 }).map((_, index) => (
+                    <PropertyCardSkeleton key={`shortlet-refresh-skeleton-${index}`} />
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
@@ -1450,6 +1488,19 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                 </Button>
               </div>
             ) : null}
+            {isBboxApplied ? (
+              <div className="pointer-events-none absolute left-3 top-3 flex">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="pointer-events-auto"
+                  onClick={clearMapArea}
+                >
+                  Clear map area
+                </Button>
+              </div>
+            ) : null}
           </div>
           </section>
         ) : null}
@@ -1459,6 +1510,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         <div>
           <p className="text-sm text-slate-600">{resultsLabel}</p>
           {pendingMapAreaLabel ? <p className="mt-1 text-xs text-slate-500">{pendingMapAreaLabel}</p> : null}
+          {isBboxApplied ? (
+            <button
+              type="button"
+              onClick={clearMapArea}
+              className="mt-2 inline-flex h-7 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+            >
+              Clear map area
+            </button>
+          ) : null}
         </div>
         {loading && !(results?.items.length ?? 0) ? (
           <div className="grid gap-3">
@@ -1478,7 +1538,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                   ref={(node) => {
                     cardRefs.current[property.id] = node;
                   }}
-                  className={`rounded-2xl border ${
+                  className={`h-full rounded-2xl border ${
                     highlighted ? "border-sky-300 ring-2 ring-sky-100" : "border-transparent"
                   }`}
                   onClick={() =>
@@ -1563,7 +1623,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             </div>
             <div className="flex items-center gap-2">
               <Button variant="secondary" size="sm" onClick={openListView}>
-                List
+                Back to results
               </Button>
               <button
                 type="button"
@@ -1597,6 +1657,19 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">
                 <Button className="pointer-events-auto" onClick={onSearchThisArea}>
                   Search this area
+                </Button>
+              </div>
+            ) : null}
+            {isBboxApplied ? (
+              <div className="pointer-events-none absolute left-3 top-3 flex">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  className="pointer-events-auto"
+                  onClick={clearMapArea}
+                >
+                  Clear map area
                 </Button>
               </div>
             ) : null}

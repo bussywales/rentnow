@@ -9,6 +9,7 @@ import {
   resolveShortletMapMarkerVisualState,
   shouldAutoFitShortletMap,
 } from "@/lib/shortlet/search-ui-state";
+import { shouldSoftPanHoveredMarker } from "@/lib/shortlet/map-list-coupling";
 
 type MapBounds = {
   north: number;
@@ -244,6 +245,43 @@ function CenterToPreferred({
   return null;
 }
 
+function SoftPanToHoveredListing({
+  hoveredListingId,
+  listings,
+}: {
+  hoveredListingId: string | null;
+  listings: Array<MapListing & { latitude: number; longitude: number }>;
+}) {
+  const map = useMap();
+  const lastHoveredIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!hoveredListingId) {
+      lastHoveredIdRef.current = null;
+      return;
+    }
+    if (hoveredListingId === lastHoveredIdRef.current) return;
+    const listing = listings.find((row) => row.id === hoveredListingId);
+    if (!listing) return;
+    const paddedBounds = map.getBounds().pad(-0.12);
+    const target = L.latLng(listing.latitude, listing.longitude);
+    const shouldPan = shouldSoftPanHoveredMarker({
+      hoveredListingId,
+      lastHoveredListingId: lastHoveredIdRef.current,
+      isInsidePaddedViewport: paddedBounds.contains(target),
+    });
+    if (shouldPan) {
+      map.panTo(target, {
+        animate: true,
+        duration: 0.35,
+      });
+    }
+    lastHoveredIdRef.current = hoveredListingId;
+  }, [hoveredListingId, listings, map]);
+
+  return null;
+}
+
 export function ShortletsSearchMapClient({
   listings,
   selectedListingId,
@@ -313,6 +351,7 @@ export function ShortletsSearchMapClient({
           cameraIntentNonce={cameraIntentNonce}
           suppressBoundsUpdatesRef={suppressBoundsUpdatesRef}
         />
+        <SoftPanToHoveredListing hoveredListingId={hoveredListingId} listings={mapListings} />
         <ReportBounds
           onBoundsChanged={onBoundsChanged}
           suppressBoundsUpdatesRef={suppressBoundsUpdatesRef}

@@ -59,3 +59,14 @@ export function shouldScrollCardIntoView(input: {
 }): boolean {
   return input.source === "map" && !!input.selectedId;
 }
+
+export function shouldSoftPanHoveredMarker(input: {
+  hoveredListingId: string | null;
+  lastHoveredListingId: string | null;
+  isInsidePaddedViewport: boolean;
+}): boolean {
+  if (!input.hoveredListingId) return false;
+  if (input.hoveredListingId === input.lastHoveredListingId) return false;
+  if (input.isInsidePaddedViewport) return false;
+  return true;
+}
