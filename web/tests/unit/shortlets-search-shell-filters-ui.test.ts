@@ -104,6 +104,16 @@ void test("shortlets shell heading copy follows destination-driven messaging", (
   assert.ok(contents.includes("Prices shown in {marketCurrency}"));
 });
 
+void test("shortlets shell uses where typeahead with recent and saved search hooks", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("WhereTypeahead"));
+  assert.ok(contents.includes("recentSearches"));
+  assert.ok(contents.includes("savedSearches"));
+  assert.ok(contents.includes("onSelectWhereSuggestion"));
+  assert.ok(contents.includes("onApplySearchPreset"));
+});
+
 void test("shortlets shell result summary reflects bbox-applied map-area state", () => {
   const contents = fs.readFileSync(shellPath, "utf8");
 

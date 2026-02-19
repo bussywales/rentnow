@@ -10,6 +10,7 @@ import { Select } from "@/components/ui/Select";
 import { PropertyCardSkeleton } from "@/components/properties/PropertyCardSkeleton";
 import { ShortletsSearchMap } from "@/components/shortlets/search/ShortletsSearchMap";
 import { ShortletsSearchListCard } from "@/components/shortlets/search/ShortletsSearchListCard";
+import { WhereTypeahead, type WhereSuggestion } from "@/components/shortlets/search/WhereTypeahead";
 import {
   isNigeriaDestinationQuery,
   parseSearchView,
@@ -32,7 +33,6 @@ import {
   resolveShortletResultsLabel,
   removeShortletAdvancedFilterTag,
   resolveShortletMapCameraIntent,
-  resolveSelectedListingId,
   isShortletBboxApplied,
   shouldUseCompactShortletSearchPill,
   SHORTLET_QUICK_FILTER_KEYS,
@@ -43,6 +43,26 @@ import {
   writeShortletAdvancedFiltersToParams,
 } from "@/lib/shortlet/search-ui-state";
 import { resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
+import {
+  addRecentSearchPreset,
+  buildShortletPresetLabel,
+  clearRecentSearchPresets,
+  createPresetParamsFromSearchParams,
+  presetParamsToSearchParams,
+  readRecentSearchPresets,
+  readSavedSearchPresets,
+  removeSavedSearchPreset,
+  saveSearchPreset,
+  type ShortletSearchPreset,
+} from "@/lib/shortlet/search-presets";
+import {
+  clearMapListHover,
+  createMapListCouplingState,
+  setMapListHover,
+  setMapListSelected,
+  shouldScrollCardIntoView,
+  type MapListCouplingState,
+} from "@/lib/shortlet/map-list-coupling";
 
 type SearchItem = Property & {
   primaryImageUrl?: string | null;
@@ -107,8 +127,14 @@ function readQueryParamsFromSearchParams(searchParams: URLSearchParams) {
   const market = (searchParams.get("market") ?? "NG").trim().toUpperCase();
   const guests = normalizeShortletGuestsParam(searchParams.get("guests"));
   const where = searchParams.get("where") ?? searchParams.get("q") ?? "";
+  const placeId = searchParams.get("placeId") ?? "";
+  const lat = Number(searchParams.get("lat"));
+  const lng = Number(searchParams.get("lng"));
   return {
     where,
+    placeId,
+    lat: Number.isFinite(lat) ? lat : null,
+    lng: Number.isFinite(lng) ? lng : null,
     checkIn: searchParams.get("checkIn") ?? "",
     checkOut: searchParams.get("checkOut") ?? "",
     guests: String(guests),
@@ -230,8 +256,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const [results, setResults] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedListingId, setSelectedListingId] = useState<string | null>(null);
-  const [hoveredListingId, setHoveredListingId] = useState<string | null>(null);
+  const [couplingState, setCouplingState] = useState<MapListCouplingState>(() =>
+    createMapListCouplingState(null)
+  );
+  const [highlightedListingId, setHighlightedListingId] = useState<string | null>(null);
   const [mobileView, setMobileView] = useState<"list" | "map">(parsedUi.view);
   const [mapAreaState, setMapAreaState] = useState(() => createShortletMapSearchAreaState(parsedBounds));
   const [resolvedMapFitRequestKey, setResolvedMapFitRequestKey] = useState(mapFitRequestKey);
@@ -253,6 +281,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const [draftAdvancedFilters, setDraftAdvancedFilters] = useState<ShortletAdvancedFilterState>(() =>
     readShortletAdvancedFiltersFromParams(stableSearchParams)
   );
+  const [recentSearches, setRecentSearches] = useState<ShortletSearchPreset[]>([]);
+  const [savedSearches, setSavedSearches] = useState<ShortletSearchPreset[]>([]);
 
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const whereInputRef = useRef<HTMLInputElement | null>(null);
@@ -283,6 +313,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   useEffect(() => {
     setDraftAdvancedFilters(readShortletAdvancedFiltersFromParams(stableSearchParams));
   }, [stableSearchParams]);
+
+  useEffect(() => {
+    setRecentSearches(readRecentSearchPresets());
+    setSavedSearches(readSavedSearchPresets());
+  }, []);
 
   useEffect(() => {
     const onScroll = () => {
@@ -355,10 +390,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           items: typed.items.map((item) => normalizeSearchItemImageFields(item)),
         });
         setResolvedMapFitRequestKey(mapFitRequestKey);
-        setSelectedListingId((current) => {
+        setCouplingState((current) => {
           const normalized = typed.items;
-          if (current && normalized.some((item) => item.id === current)) return current;
-          return normalized[0]?.id ?? null;
+          if (current.selectedId && normalized.some((item) => item.id === current.selectedId)) {
+            return current;
+          }
+          return {
+            ...current,
+            selectedId: normalized[0]?.id ?? null,
+          };
         });
       } catch (fetchError) {
         if (controller.signal.aborted) return;
@@ -411,6 +451,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!highlightedListingId) return;
+    const timeout = window.setTimeout(() => setHighlightedListingId(null), 1500);
+    return () => window.clearTimeout(timeout);
+  }, [highlightedListingId]);
+
   const updateUrl = useCallback(
     (mutate: (next: URLSearchParams) => void) => {
       const next = new URLSearchParams(searchParamsKey);
@@ -426,6 +472,35 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     [mobileView, parsedUi.market, pathname, router, searchParamsKey]
   );
 
+  const buildCurrentPresetParams = useCallback(
+    (overrides?: Record<string, string | null | undefined>) => {
+      const next = new URLSearchParams(stableSearchParams.toString());
+      next.set("where", queryDraft.trim());
+      next.set("guests", String(normalizeShortletGuestsParam(guestsDraft)));
+      if (checkInDraft) next.set("checkIn", checkInDraft);
+      else next.delete("checkIn");
+      if (checkOutDraft) next.set("checkOut", checkOutDraft);
+      else next.delete("checkOut");
+      if (!next.get("market")) next.set("market", parsedUi.market);
+      if (overrides) {
+        for (const [key, value] of Object.entries(overrides)) {
+          if (value == null || value === "") next.delete(key);
+          else next.set(key, value);
+        }
+      }
+      return createPresetParamsFromSearchParams(next);
+    },
+    [checkInDraft, checkOutDraft, guestsDraft, parsedUi.market, queryDraft, stableSearchParams]
+  );
+
+  const persistRecentSearch = useCallback(
+    (params?: Record<string, string>) => {
+      const nextParams = params ?? buildCurrentPresetParams();
+      setRecentSearches(addRecentSearchPreset(nextParams));
+    },
+    [buildCurrentPresetParams]
+  );
+
   const onSubmitSearch = () => {
     const intent = resolveShortletMapCameraIntent({
       hasLocationChanged: queryDraft.trim() !== parsedUi.where.trim(),
@@ -434,16 +509,94 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     setCameraIntent(intent);
     setCameraIntentNonce((current) => current + 1);
     updateUrl((next) => {
+      const hasLocationChanged = queryDraft.trim() !== parsedUi.where.trim();
       if (queryDraft.trim()) next.set("where", queryDraft.trim());
       else next.delete("where");
       next.delete("q");
+      if (hasLocationChanged) {
+        next.delete("placeId");
+        next.delete("lat");
+        next.delete("lng");
+        next.delete("bbox");
+        next.delete("bounds");
+      }
       if (checkInDraft) next.set("checkIn", checkInDraft);
       else next.delete("checkIn");
       if (checkOutDraft) next.set("checkOut", checkOutDraft);
       else next.delete("checkOut");
       next.set("guests", String(normalizeShortletGuestsParam(guestsDraft)));
     });
+    persistRecentSearch();
   };
+
+  const onSelectWhereSuggestion = useCallback(
+    (suggestion: WhereSuggestion) => {
+      const nextWhere = suggestion.label.trim();
+      setQueryDraft(nextWhere);
+      const intent = resolveShortletMapCameraIntent({
+        hasLocationChanged: nextWhere !== parsedUi.where.trim(),
+        hasBoundsChanged: false,
+      });
+      setCameraIntent(intent);
+      setCameraIntentNonce((current) => current + 1);
+      updateUrl((next) => {
+        if (nextWhere) next.set("where", nextWhere);
+        else next.delete("where");
+        next.delete("q");
+        if (suggestion.placeId) next.set("placeId", suggestion.placeId);
+        else next.delete("placeId");
+        if (Number.isFinite(suggestion.lat)) next.set("lat", String(suggestion.lat));
+        else next.delete("lat");
+        if (Number.isFinite(suggestion.lng)) next.set("lng", String(suggestion.lng));
+        else next.delete("lng");
+        next.delete("bbox");
+        next.delete("bounds");
+      });
+
+      const recentParams = buildCurrentPresetParams({
+        where: nextWhere,
+        placeId: suggestion.placeId ?? null,
+        lat: Number.isFinite(suggestion.lat) ? String(suggestion.lat) : null,
+        lng: Number.isFinite(suggestion.lng) ? String(suggestion.lng) : null,
+        bbox: null,
+      });
+      persistRecentSearch(recentParams);
+    },
+    [buildCurrentPresetParams, parsedUi.where, persistRecentSearch, updateUrl]
+  );
+
+  const onApplySearchPreset = useCallback(
+    (preset: ShortletSearchPreset) => {
+      const presetParams = presetParamsToSearchParams(preset.params);
+      if (!presetParams.get("market")) presetParams.set("market", parsedUi.market);
+      if (!presetParams.get("view")) presetParams.set("view", mobileView);
+      presetParams.set("page", "1");
+      setQueryDraft(preset.params.where ?? "");
+      setCheckInDraft(preset.params.checkIn ?? "");
+      setCheckOutDraft(preset.params.checkOut ?? "");
+      setGuestsDraft(String(normalizeShortletGuestsParam(preset.params.guests ?? "1")));
+      setCameraIntent("location_change");
+      setCameraIntentNonce((current) => current + 1);
+      router.replace(`${pathname}?${presetParams.toString()}`, { scroll: false });
+      persistRecentSearch(preset.params);
+    },
+    [mobileView, parsedUi.market, pathname, persistRecentSearch, router]
+  );
+
+  const onSaveCurrentSearch = useCallback(() => {
+    const params = buildCurrentPresetParams();
+    const label = buildShortletPresetLabel(params);
+    setSavedSearches(saveSearchPreset(params, label));
+  }, [buildCurrentPresetParams]);
+
+  const onClearRecentSearches = useCallback(() => {
+    clearRecentSearchPresets();
+    setRecentSearches([]);
+  }, []);
+
+  const onRemoveSavedSearch = useCallback((id: string) => {
+    setSavedSearches(removeSavedSearchPreset(id));
+  }, []);
 
   const focusExpandedControl = useCallback(
     (field: "where" | "checkIn" | "checkOut" | "guests") => {
@@ -578,20 +731,18 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   );
 
   const onSelectListing = (listingId: string) => {
-    setHoveredListingId(listingId);
-    setSelectedListingId((current) =>
-      resolveSelectedListingId(current, {
-        pinId: listingId,
-      })
-    );
+    setCouplingState((current) => setMapListSelected(current, listingId, "map"));
+    setHighlightedListingId(listingId);
     const row = cardRefs.current[listingId];
-    if (row) {
+    if (row && shouldScrollCardIntoView({ source: "map", selectedId: listingId })) {
       row.scrollIntoView({ behavior: "smooth", block: "center" });
     }
   };
 
   const onHoverListingFromMap = useCallback((listingId: string | null) => {
-    setHoveredListingId(listingId);
+    setCouplingState((current) =>
+      listingId ? setMapListHover(current, listingId, "map") : clearMapListHover(current)
+    );
     if (!listingId) return;
     const row = cardRefs.current[listingId];
     if (!row) return;
@@ -627,6 +778,22 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     });
   };
 
+  const clearDates = useCallback(() => {
+    setCheckInDraft("");
+    setCheckOutDraft("");
+    updateUrl((next) => {
+      next.delete("checkIn");
+      next.delete("checkOut");
+      next.set("page", "1");
+    });
+  }, [updateUrl]);
+
+  const clearAdvancedFilters = useCallback(() => {
+    const cleared = createDefaultShortletAdvancedFilters();
+    setDraftAdvancedFilters(cleared);
+    applyAdvancedFilters(cleared);
+  }, [applyAdvancedFilters]);
+
   const appliedAdvancedFilters = useMemo(
     () => readShortletAdvancedFiltersFromParams(stableSearchParams),
     [stableSearchParams]
@@ -649,6 +816,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const appliedFilterCount = activeFilterTags.length;
   const visibleFilterTags = activeFilterTags.slice(0, 3);
   const hiddenFilterTagCount = Math.max(0, activeFilterTags.length - visibleFilterTags.length);
+  const selectedListingId = couplingState.selectedId;
+  const hoveredListingId = couplingState.hoverId;
 
   const mapListings = useMemo(
     () => {
@@ -717,6 +886,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const desktopCardsGridClass = desktopMapOpen
     ? "grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]"
     : "grid gap-3 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]";
+  const preferredCenter =
+    typeof parsedUi.lat === "number" && typeof parsedUi.lng === "number"
+      ? ([parsedUi.lat, parsedUi.lng] as [number, number])
+      : null;
 
   const marketCurrency = getMarketCurrency(parsedUi.market);
   const activeDestination = parsedUi.where.trim();
@@ -804,13 +977,18 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           aria-hidden={showCompactSearch}
         >
           <div className="grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.75fr)_auto_auto_minmax(0,0.85fr)]">
-          <Input
-            ref={whereInputRef}
+          <WhereTypeahead
+            inputRef={whereInputRef}
             value={queryDraft}
-            onChange={(event) => setQueryDraft(event.target.value)}
-            placeholder="Area, landmark, city"
-            aria-label="Where"
-            className="h-11"
+            market={parsedUi.market}
+            onValueChange={setQueryDraft}
+            onSelectSuggestion={onSelectWhereSuggestion}
+            onApplyPreset={onApplySearchPreset}
+            onSaveCurrent={onSaveCurrentSearch}
+            onClearRecents={onClearRecentSearches}
+            onRemoveSaved={onRemoveSavedSearch}
+            recentPresets={recentSearches}
+            savedPresets={savedSearches}
           />
           <Input
             ref={checkInInputRef}
@@ -1170,7 +1348,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             <div className={desktopCardsGridClass} data-testid="shortlets-desktop-results-grid">
               {results.items.map((property) => {
                 const selected = property.id === selectedListingId;
-                const highlighted = selected || property.id === hoveredListingId;
+                const highlighted =
+                  selected || property.id === hoveredListingId || property.id === highlightedListingId;
                 return (
                   <div
                     key={property.id}
@@ -1180,13 +1359,16 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     className={`rounded-2xl border ${
                       highlighted ? "border-sky-300 ring-2 ring-sky-100" : "border-transparent"
                     }`}
-                    onMouseEnter={() => setHoveredListingId(property.id)}
-                    onMouseLeave={() => setHoveredListingId(null)}
-                    onClick={() =>
-                      setSelectedListingId((current) =>
-                        resolveSelectedListingId(current, { cardId: property.id })
-                      )
+                    onMouseEnter={() =>
+                      setCouplingState((current) => setMapListHover(current, property.id, "list"))
                     }
+                    onMouseLeave={() =>
+                      setCouplingState((current) => clearMapListHover(current))
+                    }
+                    onClick={() =>
+                      setCouplingState((current) => setMapListSelected(current, property.id, "list"))
+                    }
+                    data-listing-id={property.id}
                   >
                     <ShortletsSearchListCard
                       property={property}
@@ -1195,8 +1377,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                       )}#cta`}
                       selected={selected}
                       highlighted={property.id === hoveredListingId}
-                      onFocus={() => setHoveredListingId(property.id)}
-                      onBlur={() => setHoveredListingId(null)}
+                      onFocus={() =>
+                        setCouplingState((current) => setMapListHover(current, property.id, "list"))
+                      }
+                      onBlur={() =>
+                        setCouplingState((current) => clearMapListHover(current))
+                      }
                     />
                   </div>
                 );
@@ -1204,8 +1390,28 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             </div>
           ) : (
             <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-              <p className="font-semibold text-slate-900">No shortlets found for this search.</p>
-              <p className="mt-1">Try nearby dates, remove some filters, or expand the map area.</p>
+              <p className="font-semibold text-slate-900">
+                {isBboxApplied
+                  ? "No stays in this map area."
+                  : activeDestination
+                    ? `No stays found in ${activeDestination}.`
+                    : "No shortlets found yet."}
+              </p>
+              <p className="mt-1">
+                {isBboxApplied
+                  ? "Try zooming out or Search this area somewhere nearby."
+                  : activeDestination
+                    ? "Try nearby areas or remove dates."
+                    : "Try setting dates, destination, or filters."}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button type="button" variant="secondary" size="sm" onClick={clearDates}>
+                  Clear dates
+                </Button>
+                <Button type="button" variant="secondary" size="sm" onClick={clearAdvancedFilters}>
+                  Clear filters
+                </Button>
+              </div>
               {results?.nearbyAlternatives?.length ? (
                 <ul className="mt-2 list-disc space-y-1 pl-5">
                   {results.nearbyAlternatives.map((item) => (
@@ -1233,6 +1439,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               cameraIntentNonce={cameraIntentNonce}
               fitRequestKey={mapFitRequestKey}
               resolvedFitRequestKey={resolvedMapFitRequestKey}
+              preferredCenter={preferredCenter}
               height="min(76vh, 800px)"
               invalidateNonce={0}
             />
@@ -1263,7 +1470,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           <div className="grid gap-3">
             {results.items.map((property) => {
               const selected = property.id === selectedListingId;
-              const highlighted = selected || property.id === hoveredListingId;
+              const highlighted =
+                selected || property.id === hoveredListingId || property.id === highlightedListingId;
               return (
                 <div
                   key={property.id}
@@ -1274,12 +1482,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     highlighted ? "border-sky-300 ring-2 ring-sky-100" : "border-transparent"
                   }`}
                   onClick={() =>
-                    setSelectedListingId((current) =>
-                      resolveSelectedListingId(current, { cardId: property.id })
-                    )
+                    setCouplingState((current) => setMapListSelected(current, property.id, "list"))
                   }
-                  onMouseEnter={() => setHoveredListingId(property.id)}
-                  onMouseLeave={() => setHoveredListingId(null)}
+                  onMouseEnter={() =>
+                    setCouplingState((current) => setMapListHover(current, property.id, "list"))
+                  }
+                  onMouseLeave={() =>
+                    setCouplingState((current) => clearMapListHover(current))
+                  }
+                  data-listing-id={property.id}
                 >
                   <ShortletsSearchListCard
                     property={property}
@@ -1288,8 +1499,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     )}#cta`}
                     selected={selected}
                     highlighted={property.id === hoveredListingId}
-                    onFocus={() => setHoveredListingId(property.id)}
-                    onBlur={() => setHoveredListingId(null)}
+                    onFocus={() =>
+                      setCouplingState((current) => setMapListHover(current, property.id, "list"))
+                    }
+                    onBlur={() =>
+                      setCouplingState((current) => clearMapListHover(current))
+                    }
                   />
                 </div>
               );
@@ -1297,7 +1512,28 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           </div>
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
-            No shortlets found for this search.
+            <p className="font-semibold text-slate-900">
+              {isBboxApplied
+                ? "No stays in this map area."
+                : activeDestination
+                  ? `No stays found in ${activeDestination}.`
+                  : "No shortlets found yet."}
+            </p>
+            <p className="mt-1">
+              {isBboxApplied
+                ? "Try zooming out or Search this area elsewhere."
+                : activeDestination
+                  ? "Try nearby areas or remove dates."
+                  : "Try setting dates, destination, or filters."}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button type="button" variant="secondary" size="sm" onClick={clearDates}>
+                Clear dates
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={clearAdvancedFilters}>
+                Clear filters
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -1353,6 +1589,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               cameraIntentNonce={cameraIntentNonce}
               fitRequestKey={mapFitRequestKey}
               resolvedFitRequestKey={resolvedMapFitRequestKey}
+              preferredCenter={preferredCenter}
               height="calc(100vh - 84px)"
               invalidateNonce={mobileMapInvalidateNonce}
             />

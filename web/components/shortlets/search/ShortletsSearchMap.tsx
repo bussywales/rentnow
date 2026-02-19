@@ -32,6 +32,7 @@ type Props = {
   cameraIntentNonce: number;
   fitRequestKey: string;
   resolvedFitRequestKey: string;
+  preferredCenter?: [number, number] | null;
   height?: string;
   invalidateNonce?: number;
 };

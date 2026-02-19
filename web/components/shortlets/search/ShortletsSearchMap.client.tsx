@@ -41,6 +41,7 @@ type Props = {
   cameraIntentNonce: number;
   fitRequestKey: string;
   resolvedFitRequestKey: string;
+  preferredCenter?: [number, number] | null;
   height?: string;
   invalidateNonce?: number;
 };
@@ -217,6 +218,32 @@ function ReportBounds({
   return null;
 }
 
+function CenterToPreferred({
+  preferredCenter,
+  cameraIntent,
+  cameraIntentNonce,
+  suppressBoundsUpdatesRef,
+}: {
+  preferredCenter: [number, number] | null;
+  cameraIntent: "initial" | "idle" | "user_search" | "user_search_area" | "location_change";
+  cameraIntentNonce: number;
+  suppressBoundsUpdatesRef: { current: number };
+}) {
+  const map = useMap();
+  const lastIntentRef = useRef(0);
+
+  useEffect(() => {
+    if (!preferredCenter) return;
+    if (cameraIntent !== "location_change") return;
+    if (cameraIntentNonce === lastIntentRef.current) return;
+    suppressBoundsUpdatesRef.current = 1;
+    map.setView(preferredCenter, Math.max(map.getZoom(), 8), { animate: false });
+    lastIntentRef.current = cameraIntentNonce;
+  }, [cameraIntent, cameraIntentNonce, map, preferredCenter, suppressBoundsUpdatesRef]);
+
+  return null;
+}
+
 export function ShortletsSearchMapClient({
   listings,
   selectedListingId,
@@ -230,6 +257,7 @@ export function ShortletsSearchMapClient({
   cameraIntentNonce,
   fitRequestKey,
   resolvedFitRequestKey,
+  preferredCenter = null,
   height = "min(70vh, 760px)",
   invalidateNonce = 0,
 }: Props) {
@@ -244,7 +272,8 @@ export function ShortletsSearchMapClient({
   );
 
   const defaultCenter: [number, number] =
-    marketCountry === "NG" ? NIGERIA_DEFAULT_CENTER : markers[0] ?? DEFAULT_WORLD_CENTER;
+    preferredCenter ??
+    (marketCountry === "NG" ? NIGERIA_DEFAULT_CENTER : markers[0] ?? DEFAULT_WORLD_CENTER);
   const defaultZoom = marketCountry === "NG" ? NIGERIA_DEFAULT_ZOOM : 2;
   const selectedListing = useMemo(
     () => listings.find((listing) => listing.id === selectedListingId) ?? null,
@@ -277,6 +306,12 @@ export function ShortletsSearchMapClient({
           resolvedFitRequestKey={resolvedFitRequestKey}
           suppressBoundsUpdatesRef={suppressBoundsUpdatesRef}
           invalidateNonce={invalidateNonce}
+        />
+        <CenterToPreferred
+          preferredCenter={preferredCenter}
+          cameraIntent={cameraIntent}
+          cameraIntentNonce={cameraIntentNonce}
+          suppressBoundsUpdatesRef={suppressBoundsUpdatesRef}
         />
         <ReportBounds
           onBoundsChanged={onBoundsChanged}
