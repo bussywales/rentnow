@@ -140,7 +140,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
     let query = supabase
       .from("properties")
       .select(
-        "*, property_images(image_url,id,position,created_at,width,height,bytes,format,storage_path,original_storage_path,thumb_storage_path,card_storage_path,hero_storage_path,exif_has_gps,exif_captured_at), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at), shortlet_settings(property_id,booking_mode,nightly_price_minor)"
+        "*, property_images(image_url,id,position,created_at,width,height,bytes,format,storage_path,original_storage_path,thumb_storage_path,card_storage_path,hero_storage_path,exif_has_gps,exif_captured_at), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at), shortlet_settings(property_id,booking_mode,nightly_price_minor,cancellation_policy)"
       )
       .eq("id", cleanId);
 

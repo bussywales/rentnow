@@ -44,7 +44,7 @@ type DiscoveryContext = {
 };
 
 const IMAGE_SELECT = "id,image_url,position,created_at,width,height,bytes,format";
-const BASE_SELECT = `*, property_images(${IMAGE_SELECT}), shortlet_settings(property_id,booking_mode,nightly_price_minor)`;
+const BASE_SELECT = `*, property_images(${IMAGE_SELECT}), shortlet_settings(property_id,booking_mode,nightly_price_minor,cancellation_policy)`;
 
 function mapPropertyRows(rows: PropertyRow[] | null | undefined): Property[] {
   return (rows ?? []).map((row) => ({

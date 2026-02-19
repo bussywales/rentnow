@@ -30,6 +30,7 @@ export type ShortletAdvancedFilterState = {
   security: boolean;
   wifi: boolean;
   verifiedHost: boolean;
+  freeCancellation: boolean;
   bookingMode: ShortletBookingModeFilter;
 };
 
@@ -43,7 +44,7 @@ export type ShortletActiveFilterTag = {
 export const SHORTLET_QUICK_FILTER_KEYS = ["powerBackup", "waterBorehole", "security"] as const;
 
 const TRUST_FILTER_LABELS: Record<
-  Exclude<keyof ShortletAdvancedFilterState, "bookingMode">,
+  Exclude<keyof ShortletAdvancedFilterState, "bookingMode" | "freeCancellation">,
   string
 > = {
   powerBackup: "Power backup",
@@ -60,6 +61,7 @@ export function createDefaultShortletAdvancedFilters(): ShortletAdvancedFilterSt
     security: false,
     wifi: false,
     verifiedHost: false,
+    freeCancellation: false,
     bookingMode: "",
   };
 }
@@ -77,6 +79,7 @@ export function readShortletAdvancedFiltersFromParams(
     security: parseBoolFlag(params.get("security")),
     wifi: parseBoolFlag(params.get("wifi")),
     verifiedHost: parseBoolFlag(params.get("verifiedHost")),
+    freeCancellation: parseBoolFlag(params.get("freeCancellation")),
     bookingMode:
       params.get("bookingMode") === "instant" || params.get("bookingMode") === "request"
         ? (params.get("bookingMode") as ShortletBookingModeFilter)
@@ -93,6 +96,8 @@ export function writeShortletAdvancedFiltersToParams(
     if (filters[key]) params.set(key, "1");
     else params.delete(key);
   }
+  if (filters.freeCancellation) params.set("freeCancellation", "1");
+  else params.delete("freeCancellation");
   if (filters.bookingMode) params.set("bookingMode", filters.bookingMode);
   else params.delete("bookingMode");
 }
@@ -135,6 +140,14 @@ export function listShortletActiveFilterTags(
       label: "Request to book",
       param: "bookingMode",
       value: "request",
+    });
+  }
+  if (filters.freeCancellation) {
+    tags.push({
+      id: "freeCancellation",
+      label: "Free cancellation",
+      param: "freeCancellation",
+      value: "1",
     });
   }
 

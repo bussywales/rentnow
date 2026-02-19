@@ -46,6 +46,7 @@ void test("shortlet settings api returns structured shortlet guard code", () => 
   const routeSource = fs.readFileSync(settingsApiPath, "utf8");
   assert.match(routeSource, /SHORTLET_LISTING_REQUIRED/);
   assert.match(routeSource, /reason:\s*shortletManageState\.reason/);
+  assert.match(routeSource, /cancellation_policy/);
 });
 
 void test("host settings ui avoids confusing non-shortlet warning copy", () => {
@@ -60,4 +61,6 @@ void test("host settings ui avoids confusing non-shortlet warning copy", () => {
     settingsFormSource.includes("Only shortlet listings can use shortlet availability settings."),
     false
   );
+  assert.match(settingsFormSource, /Cancellation policy/);
+  assert.match(settingsFormSource, /flexible_48h/);
 });

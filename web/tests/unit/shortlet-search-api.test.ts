@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   filterShortletRowsByDateAvailability,
   isWithinBounds,
+  matchesFreeCancellationFilter,
   matchesShortletDestination,
   mapShortletSearchRowsToResultItems,
   matchesTrustFilters,
@@ -80,6 +81,39 @@ void test("trust filters require amenities and verified host signals", () => {
     verifiedHostIds: new Set<string>(),
   });
   assert.equal(fails, false);
+});
+
+void test("free cancellation filter keeps flexible policies and excludes strict", () => {
+  const flexible = buildProperty({
+    id: "flexible",
+    shortlet_settings: [{ cancellation_policy: "flexible_48h" }],
+  });
+  const strict = buildProperty({
+    id: "strict",
+    shortlet_settings: [{ cancellation_policy: "strict" }],
+  });
+
+  assert.equal(
+    matchesFreeCancellationFilter({
+      property: flexible,
+      freeCancellationOnly: true,
+    }),
+    true
+  );
+  assert.equal(
+    matchesFreeCancellationFilter({
+      property: strict,
+      freeCancellationOnly: true,
+    }),
+    false
+  );
+  assert.equal(
+    matchesFreeCancellationFilter({
+      property: strict,
+      freeCancellationOnly: false,
+    }),
+    true
+  );
 });
 
 void test("bounds parser accepts valid bounds and rejects invalid input", () => {

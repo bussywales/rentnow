@@ -388,7 +388,7 @@ export async function GET(
     let query = supabase
       .from("properties")
       .select(
-        `*, property_images(${imageFields}), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at), shortlet_settings(property_id,booking_mode,nightly_price_minor)`
+        `*, property_images(${imageFields}), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at), shortlet_settings(property_id,booking_mode,nightly_price_minor,cancellation_policy)`
       )
       .eq("id", id);
     if (includePosition) {
@@ -1021,7 +1021,7 @@ export async function PUT(
       const settingsClient = adminClient ?? supabase;
       const { data: existingSettings } = await settingsClient
         .from("shortlet_settings")
-        .select("nightly_price_minor,booking_mode")
+        .select("nightly_price_minor,booking_mode,cancellation_policy")
         .eq("property_id", id)
         .maybeSingle();
       const nightlyPriceMinor =
@@ -1036,6 +1036,7 @@ export async function PUT(
           property_id: id,
           nightly_price_minor: nightlyPriceMinor,
           booking_mode: bookingMode,
+          cancellation_policy: existingSettings?.cancellation_policy ?? "flexible_48h",
           updated_at: new Date().toISOString(),
         },
         { onConflict: "property_id" }

@@ -47,6 +47,9 @@ type SearchItem = Property & {
   imageCount?: number;
   imageUrls?: string[];
   verifiedHost?: boolean;
+  cancellationPolicy?: "flexible_24h" | "flexible_48h" | "moderate_5d" | "strict";
+  cancellationLabel?: string;
+  freeCancellation?: boolean;
 };
 
 type SearchResponse = {
@@ -925,6 +928,24 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     <option value="instant">Instant book</option>
                     <option value="request">Request to book</option>
                   </Select>
+                </section>
+
+                <section className="space-y-2">
+                  <h2 className="text-sm font-semibold text-slate-900">Cancellation</h2>
+                  <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
+                    <span>Free cancellation</span>
+                    <input
+                      type="checkbox"
+                      checked={draftAdvancedFilters.freeCancellation}
+                      onChange={(event) =>
+                        setDraftAdvancedFilters((current) => ({
+                          ...current,
+                          freeCancellation: event.target.checked,
+                        }))
+                      }
+                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                    />
+                  </label>
                 </section>
               </div>
 

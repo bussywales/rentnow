@@ -17,6 +17,7 @@ void test("shortlets search card keeps layout calm with clamped title and no des
   assert.ok(contents.includes("line-clamp-1 text-base font-semibold"));
   assert.ok(contents.includes("Price on request"));
   assert.ok(contents.includes("/ night"));
+  assert.ok(contents.includes("cancellationLabel"));
   assert.equal(contents.includes("property.description"), false);
 });
 

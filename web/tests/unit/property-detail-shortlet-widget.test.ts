@@ -32,7 +32,17 @@ void test("property detail wiring supports #cta anchor scroll and API shortlet s
     "expected #cta hash scroll helper on property detail page"
   );
   assert.ok(
-    routeContents.includes("shortlet_settings(property_id,booking_mode,nightly_price_minor)"),
+    routeContents.includes(
+      "shortlet_settings(property_id,booking_mode,nightly_price_minor,cancellation_policy)"
+    ),
     "expected property detail API to include shortlet settings payload"
+  );
+  assert.ok(
+    routeContents.includes("cancellation_policy"),
+    "expected property detail API to include shortlet cancellation policy"
+  );
+  assert.ok(
+    pageContents.includes("cancellationLabel={shortletCancellationLabel ?? undefined}"),
+    "expected booking widget to receive shortlet cancellation label"
   );
 });

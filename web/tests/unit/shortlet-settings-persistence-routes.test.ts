@@ -12,4 +12,21 @@ void test("property create and update routes upsert shortlet_settings", () => {
 
   assert.match(createRoute, /\.from\("shortlet_settings"\)\.upsert\(/);
   assert.match(updateRoute, /\.from\("shortlet_settings"\)\.upsert\(/);
+  assert.match(createRoute, /cancellation_policy:\s*"flexible_48h"/);
+});
+
+void test("shortlet settings route persists cancellation policy updates", () => {
+  const settingsRoutePath = path.join(
+    process.cwd(),
+    "app",
+    "api",
+    "shortlet",
+    "settings",
+    "[propertyId]",
+    "route.ts"
+  );
+  const settingsRoute = fs.readFileSync(settingsRoutePath, "utf8");
+
+  assert.match(settingsRoute, /cancellation_policy/);
+  assert.match(settingsRoute, /payload\.cancellation_policy \?\? "flexible_48h"/);
 });

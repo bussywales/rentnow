@@ -430,6 +430,7 @@ export async function POST(request: Request) {
           property_id: propertyId,
           booking_mode: shortletPersistence.bookingMode,
           nightly_price_minor: shortletPersistence.nightlyPriceMinor,
+          cancellation_policy: "flexible_48h",
           updated_at: new Date().toISOString(),
         },
         { onConflict: "property_id" }
@@ -594,7 +595,7 @@ export async function GET(request: NextRequest) {
         let query = supabase
           .from("properties")
           .select(
-            `*, property_images(${imageFields}), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at), shortlet_settings(property_id,booking_mode,nightly_price_minor)`
+            `*, property_images(${imageFields}), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at), shortlet_settings(property_id,booking_mode,nightly_price_minor,cancellation_policy)`
           )
           .order("created_at", { ascending: false });
         if (includePosition) {
@@ -718,7 +719,7 @@ export async function GET(request: NextRequest) {
         : "image_url,id,created_at,width,height,bytes,format,storage_path,original_storage_path,thumb_storage_path,card_storage_path,hero_storage_path";
       let query = supabase
         .from("properties")
-        .select(`*, property_images(${imageFields}), shortlet_settings(property_id,booking_mode,nightly_price_minor)`, {
+        .select(`*, property_images(${imageFields}), shortlet_settings(property_id,booking_mode,nightly_price_minor,cancellation_policy)`, {
           count: shouldPaginate ? "exact" : undefined,
         })
         .eq("is_approved", true)

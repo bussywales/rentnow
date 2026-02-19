@@ -51,7 +51,7 @@ export default async function HostShortletSettingsPage({
   const { data: propertyRow } = await client
     .from("properties")
     .select(
-      "id,owner_id,title,city,currency,listing_intent,rental_type,shortlet_settings(property_id,nightly_price_minor,booking_mode)"
+      "id,owner_id,title,city,currency,listing_intent,rental_type,shortlet_settings(property_id,nightly_price_minor,booking_mode,cancellation_policy)"
     )
     .eq("id", propertyId)
     .maybeSingle();
@@ -115,7 +115,7 @@ export default async function HostShortletSettingsPage({
 
   const { data: settingsRow } = await client
     .from("shortlet_settings")
-    .select("booking_mode,nightly_price_minor,cleaning_fee_minor,deposit_minor")
+    .select("booking_mode,nightly_price_minor,cleaning_fee_minor,deposit_minor,cancellation_policy")
     .eq("property_id", propertyId)
     .maybeSingle();
 
@@ -142,6 +142,13 @@ export default async function HostShortletSettingsPage({
             typeof settingsRow?.deposit_minor === "number"
               ? Math.trunc(settingsRow.deposit_minor)
               : 0,
+          cancellation_policy:
+            settingsRow?.cancellation_policy === "flexible_24h" ||
+            settingsRow?.cancellation_policy === "flexible_48h" ||
+            settingsRow?.cancellation_policy === "moderate_5d" ||
+            settingsRow?.cancellation_policy === "strict"
+              ? settingsRow.cancellation_policy
+              : "flexible_48h",
         }}
       />
     </div>

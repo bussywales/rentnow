@@ -55,6 +55,10 @@ import {
 } from "@/lib/market/market";
 import { ShortletBookingWidget } from "@/components/properties/ShortletBookingWidget";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
+import {
+  formatShortletCancellationLabel,
+  resolveShortletCancellationPolicy,
+} from "@/lib/shortlet/cancellation";
 import { CtaHashAnchorClient } from "@/components/properties/CtaHashAnchorClient";
 
 type Params = { id?: string };
@@ -535,6 +539,13 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   const listingIntent = normalizeListingIntent(property.listing_intent) ?? "rent_lease";
   const isSaleListing = isSaleIntent(listingIntent);
   const isShortletListing = isShortletProperty(property);
+  const shortletCancellationLabel = isShortletListing
+    ? formatShortletCancellationLabel(
+        resolveShortletCancellationPolicy({
+          shortlet_settings: property.shortlet_settings ?? null,
+        })
+      )
+    : null;
   const isFeaturedActive =
     !!property.is_featured &&
     (!property.featured_until || Date.parse(property.featured_until) > Date.now());
@@ -871,6 +882,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               listingTitle={property.title}
               isAuthenticated={!isGuest}
               loginHref={loginRedirect}
+              cancellationLabel={shortletCancellationLabel ?? undefined}
             />
           )}
           {showPublicActions && !expiredReadOnly && !isSaleListing && !isShortletListing && (

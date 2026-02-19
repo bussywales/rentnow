@@ -362,6 +362,7 @@ export function ShortletBookingWidget(props: {
   listingTitle: string;
   isAuthenticated: boolean;
   loginHref: string;
+  cancellationLabel?: string;
 }) {
   const router = useRouter();
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -945,6 +946,9 @@ export function ShortletBookingWidget(props: {
           ? "Host approval is required after payment succeeds."
           : "Instant confirmation after successful payment when dates are available."}
       </p>
+      {props.cancellationLabel ? (
+        <p className="mt-1 text-xs text-slate-500">{props.cancellationLabel}</p>
+      ) : null}
 
       <div className="relative mt-3" data-testid="shortlet-calendar-shell">
         <div className="grid gap-3 sm:grid-cols-2">

@@ -65,7 +65,7 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     let query = supabase
       .from("properties")
       .select(
-        `*, property_images(${imageFields}), shortlet_settings(property_id,booking_mode,nightly_price_minor)`,
+        `*, property_images(${imageFields}), shortlet_settings(property_id,booking_mode,nightly_price_minor,cancellation_policy)`,
         { count: "exact" }
       )
       .eq("is_approved", true)

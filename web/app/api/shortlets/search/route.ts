@@ -10,6 +10,7 @@ import {
   isNigeriaDestinationQuery,
   isWithinBounds,
   mapShortletSearchRowsToResultItems,
+  matchesFreeCancellationFilter,
   matchesShortletDestination,
   matchesTrustFilters,
   parseShortletSearchFilters,
@@ -48,6 +49,7 @@ type DebugReason =
   | "bbox_mismatch"
   | "trust_filter_mismatch"
   | "booking_mode_mismatch"
+  | "free_cancellation_mismatch"
   | "availability_conflict";
 
 function appendReason(map: Map<string, Set<DebugReason>>, propertyId: string, reason: DebugReason) {
@@ -165,6 +167,15 @@ export async function GET(request: NextRequest) {
           return false;
         }
       }
+      if (
+        !matchesFreeCancellationFilter({
+          property,
+          freeCancellationOnly: filters.provider.freeCancellation,
+        })
+      ) {
+        if (debugEnabled) appendReason(debugReasons, property.id, "free_cancellation_mismatch");
+        return false;
+      }
       return true;
     });
 
@@ -275,6 +286,7 @@ export async function GET(request: NextRequest) {
         sort: filters.sort,
         trust: filters.trust,
         bookingMode: filters.provider.bookingMode,
+        freeCancellation: filters.provider.freeCancellation,
       },
     };
 

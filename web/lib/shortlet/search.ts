@@ -2,6 +2,12 @@ import { isShortletProperty, resolveShortletBookingMode, resolveShortletNightlyP
 import type { Property } from "@/lib/types";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import { resolvePropertyImageUrl } from "@/lib/properties/image-url";
+import {
+  formatShortletCancellationLabel,
+  isFreeCancellationPolicy,
+  resolveShortletCancellationPolicy,
+  type ShortletCancellationPolicy,
+} from "@/lib/shortlet/cancellation";
 
 export type ShortletSearchSort = "recommended" | "price_low" | "price_high" | "newest";
 
@@ -22,6 +28,7 @@ export type ShortletSearchTrustFilters = {
 
 export type ShortletSearchProviderFilters = {
   bookingMode: "instant" | "request" | null;
+  freeCancellation: boolean;
 };
 
 export type ShortletSearchFilters = {
@@ -70,6 +77,9 @@ export type ShortletSearchResultItem = Property & {
   imageCount: number;
   imageUrls: string[];
   hasCoords: boolean;
+  cancellationPolicy: ShortletCancellationPolicy;
+  cancellationLabel: string;
+  freeCancellation: boolean;
 };
 
 type ShortletSearchSortContext = {
@@ -227,6 +237,7 @@ export function parseShortletSearchFilters(params: URLSearchParams): ShortletSea
     },
     provider: {
       bookingMode: parseBookingMode(params.get("bookingMode")),
+      freeCancellation: asBoolean(params.get("freeCancellation")),
     },
     page: Math.max(1, parsePositiveInt(params.get("page"), 1)),
     pageSize: Math.min(48, Math.max(1, parsePositiveInt(params.get("pageSize"), 24))),
@@ -349,6 +360,17 @@ export function matchesTrustFilters(input: {
     return false;
   }
   return true;
+}
+
+export function matchesFreeCancellationFilter(input: {
+  property: Property;
+  freeCancellationOnly: boolean;
+}): boolean {
+  if (!input.freeCancellationOnly) return true;
+  const policy = resolveShortletCancellationPolicy({
+    shortlet_settings: input.property.shortlet_settings ?? null,
+  });
+  return isFreeCancellationPolicy(policy);
 }
 
 function overlaps(startA: string, endA: string, startB: string, endB: string): boolean {
@@ -609,6 +631,11 @@ export function mapShortletSearchRowsToResultItems(
       Number.isFinite(row.latitude) &&
       typeof row.longitude === "number" &&
       Number.isFinite(row.longitude);
+    const cancellationPolicy = resolveShortletCancellationPolicy({
+      shortlet_settings: row.shortlet_settings ?? null,
+    });
+    const cancellationLabel = formatShortletCancellationLabel(cancellationPolicy);
+    const freeCancellation = isFreeCancellationPolicy(cancellationPolicy);
 
     const rest: Property = { ...row };
     delete (rest as Property & { property_images?: ShortletSearchImageRow[] }).property_images;
@@ -621,6 +648,9 @@ export function mapShortletSearchRowsToResultItems(
       imageCount,
       imageUrls,
       hasCoords,
+      cancellationPolicy,
+      cancellationLabel,
+      freeCancellation,
     };
   });
 }

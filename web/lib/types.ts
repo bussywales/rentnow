@@ -188,6 +188,7 @@ export interface Property {
     property_id?: string | null;
     booking_mode?: "instant" | "request" | null;
     nightly_price_minor?: number | null;
+    cancellation_policy?: "flexible_24h" | "flexible_48h" | "moderate_5d" | "strict" | null;
   }> | null;
 }
 

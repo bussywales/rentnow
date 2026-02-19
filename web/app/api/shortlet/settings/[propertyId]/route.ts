@@ -12,6 +12,9 @@ const routeLabel = "/api/shortlet/settings/[propertyId]";
 const payloadSchema = z.object({
   booking_mode: z.enum(["instant", "request"]),
   nightly_price_minor: z.number().int().positive(),
+  cancellation_policy: z
+    .enum(["flexible_24h", "flexible_48h", "moderate_5d", "strict"])
+    .optional(),
   cleaning_fee_minor: z.number().int().min(0).optional(),
   deposit_minor: z.number().int().min(0).optional(),
   min_nights: z.number().int().min(1).optional(),
@@ -67,7 +70,7 @@ export async function PATCH(
   const { data: propertyRow, error: propertyError } = await viewerClient
     .from("properties")
     .select(
-      "id,owner_id,listing_intent,rental_type,currency,shortlet_settings(property_id,nightly_price_minor,booking_mode)"
+      "id,owner_id,listing_intent,rental_type,currency,shortlet_settings(property_id,nightly_price_minor,booking_mode,cancellation_policy)"
     )
     .eq("id", propertyId)
     .maybeSingle();
@@ -80,7 +83,11 @@ export async function PATCH(
     listing_intent: propertyRow.listing_intent,
     rental_type: propertyRow.rental_type,
     shortlet_settings: propertyRow.shortlet_settings as
-      | Array<{ booking_mode?: string | null; nightly_price_minor?: number | null }>
+      | Array<{
+          booking_mode?: string | null;
+          nightly_price_minor?: number | null;
+          cancellation_policy?: string | null;
+        }>
       | null
       | undefined,
     listing_currency: propertyRow.currency,
@@ -159,6 +166,7 @@ export async function PATCH(
         property_id: propertyId,
         booking_mode: payload.booking_mode,
         nightly_price_minor: payload.nightly_price_minor,
+        cancellation_policy: payload.cancellation_policy ?? "flexible_48h",
         cleaning_fee_minor: payload.cleaning_fee_minor ?? 0,
         deposit_minor: payload.deposit_minor ?? 0,
         min_nights: payload.min_nights ?? 1,
@@ -169,7 +177,7 @@ export async function PATCH(
       { onConflict: "property_id" }
     )
     .select(
-      "property_id,booking_mode,nightly_price_minor,cleaning_fee_minor,deposit_minor,min_nights,max_nights,advance_notice_hours,prep_days"
+      "property_id,booking_mode,nightly_price_minor,cancellation_policy,cleaning_fee_minor,deposit_minor,min_nights,max_nights,advance_notice_hours,prep_days"
     )
     .maybeSingle();
 
@@ -185,6 +193,13 @@ export async function PATCH(
       property_id: String(updated.property_id || ""),
       booking_mode: updated.booking_mode === "instant" ? "instant" : "request",
       nightly_price_minor: Number(updated.nightly_price_minor || 0),
+      cancellation_policy:
+        updated.cancellation_policy === "flexible_24h" ||
+        updated.cancellation_policy === "flexible_48h" ||
+        updated.cancellation_policy === "moderate_5d" ||
+        updated.cancellation_policy === "strict"
+          ? updated.cancellation_policy
+          : "flexible_48h",
       cleaning_fee_minor: Number(updated.cleaning_fee_minor || 0),
       deposit_minor: Number(updated.deposit_minor || 0),
       min_nights: Number(updated.min_nights || 1),

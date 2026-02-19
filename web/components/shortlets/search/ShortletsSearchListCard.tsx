@@ -14,6 +14,8 @@ type Props = {
     imageUrls?: string[];
     imageCount?: number;
     verifiedHost?: boolean;
+    cancellationPolicy?: "flexible_24h" | "flexible_48h" | "moderate_5d" | "strict";
+    cancellationLabel?: string;
   };
   href: string;
   selected?: boolean;
@@ -67,6 +69,7 @@ export function ShortletsSearchListCard({
   const showNewBadge = useMemo(() => isNewListing(property.created_at), [property.created_at]);
   const ctaLabel = bookingMode === "instant" ? "Reserve" : bookingMode === "request" ? "Request" : "View";
   const badgeLabel = property.verifiedHost ? "Verified" : property.is_featured ? "Featured" : showNewBadge ? "New" : null;
+  const cancellationLabel = property.cancellationLabel ?? "Cancellation policy: Strict";
 
   return (
     <article
@@ -107,6 +110,7 @@ export function ShortletsSearchListCard({
               {ctaLabel}
             </span>
           </div>
+          <p className="truncate text-xs text-slate-500">{cancellationLabel}</p>
         </div>
       </Link>
     </article>

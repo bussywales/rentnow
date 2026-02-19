@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import type { ShortletCancellationPolicy } from "@/lib/shortlet/cancellation";
 
 type Props = {
   propertyId: string;
@@ -17,6 +18,7 @@ type Props = {
     nightly_price_minor: number | null;
     cleaning_fee_minor?: number | null;
     deposit_minor?: number | null;
+    cancellation_policy?: ShortletCancellationPolicy | null;
   };
 };
 
@@ -54,6 +56,9 @@ export function HostShortletSettingsForm({
     String(initialSettings.cleaning_fee_minor ?? 0)
   );
   const [depositMinor, setDepositMinor] = useState<string>(String(initialSettings.deposit_minor ?? 0));
+  const [cancellationPolicy, setCancellationPolicy] = useState<ShortletCancellationPolicy>(
+    initialSettings.cancellation_policy ?? "flexible_48h"
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -83,6 +88,7 @@ export function HostShortletSettingsForm({
           nightly_price_minor: nightly,
           cleaning_fee_minor: Math.max(0, Math.trunc(Number(cleaningFeeMinor || "0"))),
           deposit_minor: Math.max(0, Math.trunc(Number(depositMinor || "0"))),
+          cancellation_policy: cancellationPolicy,
         }),
       });
       const payload = (await response.json().catch(() => null)) as
@@ -136,6 +142,25 @@ export function HostShortletSettingsForm({
           />
           Request to book
         </label>
+      </div>
+
+      <div className="space-y-2">
+        <label htmlFor="cancellation-policy" className="text-sm font-medium text-slate-700">
+          Cancellation policy
+        </label>
+        <select
+          id="cancellation-policy"
+          className="h-11 w-full rounded-lg border border-slate-300 px-3 text-sm text-slate-700 focus:border-sky-500 focus:outline-none"
+          value={cancellationPolicy}
+          onChange={(event) =>
+            setCancellationPolicy(event.target.value as ShortletCancellationPolicy)
+          }
+        >
+          <option value="flexible_24h">Free cancellation until 24h before check-in</option>
+          <option value="flexible_48h">Free cancellation until 48h before check-in</option>
+          <option value="moderate_5d">Free cancellation until 5 days before check-in</option>
+          <option value="strict">Strict (no free cancellation)</option>
+        </select>
       </div>
 
       <div className="space-y-2">

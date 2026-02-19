@@ -14,6 +14,8 @@ void test("shortlets shell renders a filters drawer with apply and clear actions
   assert.ok(contents.includes("Apply"));
   assert.ok(contents.includes("Clear all"));
   assert.ok(contents.includes("setFiltersOpen(false)"));
+  assert.ok(contents.includes("Free cancellation"));
+  assert.ok(contents.includes("freeCancellation"));
 });
 
 void test("shortlets shell quick filters are constrained to a single horizontal row", () => {

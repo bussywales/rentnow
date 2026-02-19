@@ -177,14 +177,17 @@ void test("advanced filters can round-trip through URL search params", () => {
   const nextFilters = createDefaultShortletAdvancedFilters();
   nextFilters.powerBackup = true;
   nextFilters.bookingMode = "request";
+  nextFilters.freeCancellation = true;
 
   writeShortletAdvancedFiltersToParams(params, nextFilters);
   const parsed = readShortletAdvancedFiltersFromParams(params);
 
   assert.equal(parsed.powerBackup, true);
   assert.equal(parsed.bookingMode, "request");
+  assert.equal(parsed.freeCancellation, true);
   assert.equal(params.get("powerBackup"), "1");
   assert.equal(params.get("bookingMode"), "request");
+  assert.equal(params.get("freeCancellation"), "1");
 });
 
 void test("remove filter tag clears only the selected URL param", () => {
@@ -211,12 +214,13 @@ void test("active filter tags expose trust filters and booking mode labels", () 
     security: false,
     wifi: true,
     verifiedHost: true,
+    freeCancellation: true,
     bookingMode: "instant",
   });
 
   assert.deepEqual(
     tags.map((tag) => tag.label),
-    ["Power backup", "Wi-Fi", "Verified host", "Instant book"]
+    ["Power backup", "Wi-Fi", "Verified host", "Instant book", "Free cancellation"]
   );
 });
 
