@@ -33,6 +33,7 @@ import {
   listShortletActiveFilterTags,
   normalizeShortletGuestsParam,
   parsePriceDisplayParam,
+  preserveExplicitShortletMarketParam,
   readShortletAdvancedFiltersFromParams,
   resolveShortletPendingMapAreaLabel,
   resolveShortletResultsLabel,
@@ -303,11 +304,14 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const requestSearchParams = useMemo(() => {
     const next = new URLSearchParams(stableSearchParams.toString());
     next.delete("view");
-    if (!next.get("market")) next.set("market", parsedUi.market);
+    preserveExplicitShortletMarketParam({
+      nextParams: next,
+      sourceParams: stableSearchParams,
+    });
     if (!next.get("page")) next.set("page", "1");
     if (!next.get("pageSize")) next.set("pageSize", "24");
     return next;
-  }, [parsedUi.market, stableSearchParams]);
+  }, [stableSearchParams]);
   const requestSearchQuery = requestSearchParams.toString();
   const mapFitRequestKey = useMemo(() => {
     const next = new URLSearchParams(requestSearchQuery);
@@ -317,9 +321,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   }, [requestSearchQuery]);
   const backLinkQuery = useMemo(() => {
     const next = new URLSearchParams(searchParamsKey);
-    if (!next.get("market")) next.set("market", parsedUi.market);
+    preserveExplicitShortletMarketParam({
+      nextParams: next,
+      sourceParams: stableSearchParams,
+    });
     return next.toString();
-  }, [parsedUi.market, searchParamsKey]);
+  }, [searchParamsKey, stableSearchParams]);
   const buildPropertyHref = useCallback(
     (propertyId: string) => {
       const params = new URLSearchParams();
@@ -627,7 +634,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     (mutate: (next: URLSearchParams) => void) => {
       const next = new URLSearchParams(searchParamsKey);
       mutate(next);
-      if (!next.get("market")) next.set("market", parsedUi.market);
+      preserveExplicitShortletMarketParam({
+        nextParams: next,
+        sourceParams: stableSearchParams,
+      });
       if (!next.get("view")) next.set("view", mobileView);
       next.set("page", "1");
       const query = next.toString();
@@ -635,7 +645,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
       return true;
     },
-    [mobileView, parsedUi.market, pathname, router, searchParamsKey]
+    [mobileView, pathname, router, searchParamsKey, stableSearchParams]
   );
 
   const buildCurrentPresetParams = useCallback(
@@ -647,7 +657,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       else next.delete("checkIn");
       if (checkOutDraft) next.set("checkOut", checkOutDraft);
       else next.delete("checkOut");
-      if (!next.get("market")) next.set("market", parsedUi.market);
+      preserveExplicitShortletMarketParam({
+        nextParams: next,
+        sourceParams: stableSearchParams,
+      });
       if (overrides) {
         for (const [key, value] of Object.entries(overrides)) {
           if (value == null || value === "") next.delete(key);
@@ -656,7 +669,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       }
       return createPresetParamsFromSearchParams(next);
     },
-    [checkInDraft, checkOutDraft, guestsDraft, parsedUi.market, queryDraft, stableSearchParams]
+    [checkInDraft, checkOutDraft, guestsDraft, queryDraft, stableSearchParams]
   );
 
   const persistRecentSearch = useCallback(
@@ -865,7 +878,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const onApplySearchPreset = useCallback(
     (preset: ShortletSearchPreset) => {
       const presetParams = presetParamsToSearchParams(preset.params);
-      if (!presetParams.get("market")) presetParams.set("market", parsedUi.market);
+      preserveExplicitShortletMarketParam({
+        nextParams: presetParams,
+        sourceParams: stableSearchParams,
+      });
       if (!presetParams.get("priceDisplay")) {
         presetParams.set("priceDisplay", formatPriceDisplayParam(parsedUi.priceDisplay));
       }
@@ -880,7 +896,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       router.replace(`${pathname}?${presetParams.toString()}`, { scroll: false });
       persistRecentSearch(preset.params);
     },
-    [mobileView, parsedUi.market, parsedUi.priceDisplay, pathname, persistRecentSearch, router]
+    [mobileView, parsedUi.priceDisplay, pathname, persistRecentSearch, router, stableSearchParams]
   );
 
   const onSaveCurrentSearch = useCallback(() => {

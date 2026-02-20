@@ -15,6 +15,7 @@ import {
   normalizeShortletGuestsParam,
   parsePriceDisplayParam,
   parseShortletMapMoveSearchMode,
+  preserveExplicitShortletMarketParam,
   readShortletAdvancedFiltersFromParams,
   resolveShortletPendingMapAreaLabel,
   resolveShortletResultsLabel,
@@ -357,6 +358,32 @@ void test("saved view helpers parse and write URL param safely", () => {
 
   writeShortletSavedViewParam(params, false);
   assert.equal(params.has("saved"), false);
+});
+
+void test("market param preservation avoids silent injection while keeping explicit selection", () => {
+  const sourceWithoutMarket = new URLSearchParams("where=lagos");
+  const nextWithoutMarket = new URLSearchParams("where=abuja&checkIn=2026-03-10");
+  preserveExplicitShortletMarketParam({
+    sourceParams: sourceWithoutMarket,
+    nextParams: nextWithoutMarket,
+  });
+  assert.equal(nextWithoutMarket.has("market"), false);
+
+  const sourceWithMarket = new URLSearchParams("where=lagos&market=NG");
+  const nextWithSourceMarket = new URLSearchParams("where=abuja");
+  preserveExplicitShortletMarketParam({
+    sourceParams: sourceWithMarket,
+    nextParams: nextWithSourceMarket,
+  });
+  assert.equal(nextWithSourceMarket.get("market"), "NG");
+
+  const explicitSelection = new URLSearchParams("where=london");
+  preserveExplicitShortletMarketParam({
+    sourceParams: sourceWithoutMarket,
+    nextParams: explicitSelection,
+    explicitMarket: "uk",
+  });
+  assert.equal(explicitSelection.get("market"), "UK");
 });
 
 void test("price display parser/formatter round-trips and defaults safely", () => {

@@ -218,6 +218,7 @@ void test("map move search auto mode writes bbox and triggers URL refresh path",
   assert.ok(contents.includes("serializeShortletSearchBbox(nextBounds)"));
   assert.ok(contents.includes("writeShortletMapMoveSearchMode(next, \"auto\")"));
   assert.ok(contents.includes("updateUrl((next) => {"));
+  assert.ok(contents.includes("preserveExplicitShortletMarketParam"));
 });
 
 void test("map move search manual mode keeps search-this-area flow", () => {
@@ -266,4 +267,11 @@ void test("map bbox URL updates use replace semantics without pushing history", 
   const contents = fs.readFileSync(shellPath, "utf8");
 
   assert.ok(contents.includes("router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })"));
+});
+
+void test("shortlets shell does not silently inject market during unrelated URL updates", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("preserveExplicitShortletMarketParam"));
+  assert.equal(contents.includes('if (!next.get("market")) next.set("market", parsedUi.market);'), false);
 });

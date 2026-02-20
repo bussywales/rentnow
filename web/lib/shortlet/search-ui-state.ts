@@ -351,6 +351,37 @@ export function formatShortletGuestsLabel(
   return `${guests} ${guests === 1 ? "guest" : "guests"}`;
 }
 
+function normalizeMarketParam(value: string | null | undefined): string | null {
+  const normalized = String(value || "").trim().toUpperCase();
+  if (!/^[A-Z]{2}$/.test(normalized)) return null;
+  return normalized;
+}
+
+export function preserveExplicitShortletMarketParam(input: {
+  nextParams: URLSearchParams;
+  sourceParams: URLSearchParams;
+  explicitMarket?: string | null;
+}): void {
+  const explicit = normalizeMarketParam(input.explicitMarket);
+  if (explicit) {
+    input.nextParams.set("market", explicit);
+    return;
+  }
+
+  const sourceMarket = normalizeMarketParam(input.sourceParams.get("market"));
+  if (!sourceMarket) {
+    input.nextParams.delete("market");
+    return;
+  }
+
+  const nextMarket = normalizeMarketParam(input.nextParams.get("market"));
+  if (!nextMarket) {
+    input.nextParams.set("market", sourceMarket);
+    return;
+  }
+  input.nextParams.set("market", nextMarket);
+}
+
 export function resolveShortletMapMarkerVisualState(input: {
   listingId: string;
   selectedListingId: string | null;
