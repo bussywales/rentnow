@@ -50,7 +50,7 @@ import {
   type ShortletMapMoveSearchMode,
   writeShortletAdvancedFiltersToParams,
 } from "@/lib/shortlet/search-ui-state";
-import { resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
+import { resolveShortletBookingMode, resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
 import {
   addRecentSearchPreset,
   buildShortletPresetLabel,
@@ -224,7 +224,9 @@ function createDateRangeFromDraftValues(checkIn: string, checkOut: string): Date
   return { from, to };
 }
 
-function hasCompleteValidDateRange(range: DateRange | undefined): boolean {
+function hasCompleteValidDateRange(
+  range: DateRange | undefined
+): range is DateRange & { from: Date; to: Date } {
   if (!range?.from || !range.to) return false;
   return toDateKey(range.from) < toDateKey(range.to);
 }
@@ -562,11 +564,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   useEffect(() => {
     if (!searchDatesOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeSearchDatePicker();
+      if (event.key === "Escape") setSearchDatesOpen(false);
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [closeSearchDatePicker, searchDatesOpen]);
+  }, [searchDatesOpen]);
 
   useEffect(() => {
     if (!searchDatesOpen || isMobileDatePicker) return;
@@ -574,11 +576,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       const target = event.target as Node;
       if (searchDatesPopoverRef.current?.contains(target)) return;
       if (datesTriggerRef.current?.contains(target)) return;
-      closeSearchDatePicker();
+      setSearchDatesOpen(false);
     };
     window.addEventListener("mousedown", onPointerDown);
     return () => window.removeEventListener("mousedown", onPointerDown);
-  }, [closeSearchDatePicker, isMobileDatePicker, searchDatesOpen]);
+  }, [isMobileDatePicker, searchDatesOpen]);
 
   useEffect(() => {
     if (!searchDatesOpen || !isMobileDatePicker) return;
@@ -620,50 +622,6 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     const timeout = window.setTimeout(() => setSavedToast(null), 1200);
     return () => window.clearTimeout(timeout);
   }, [savedToast]);
-
-  useEffect(() => {
-    if (!mobileMapOpen) return;
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-
-    const dialog = mobileMapDialogRef.current;
-    const focusableSelector =
-      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
-    const focusable = dialog ? Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)) : [];
-    const firstFocusable = focusable[0] ?? mobileMapPrimaryActionRef.current ?? dialog;
-    const lastFocusable = focusable[focusable.length - 1] ?? firstFocusable;
-    window.setTimeout(() => {
-      firstFocusable?.focus();
-    }, 0);
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        openListView();
-        return;
-      }
-      if (event.key !== "Tab") return;
-      if (!dialog) return;
-      const activeElement = document.activeElement as HTMLElement | null;
-      if (event.shiftKey) {
-        if (activeElement === firstFocusable || !dialog.contains(activeElement)) {
-          event.preventDefault();
-          lastFocusable?.focus();
-        }
-        return;
-      }
-      if (activeElement === lastFocusable || !dialog.contains(activeElement)) {
-        event.preventDefault();
-        firstFocusable?.focus();
-      }
-    };
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [mobileMapOpen, openListView]);
 
   const updateUrl = useCallback(
     (mutate: (next: URLSearchParams) => void) => {
@@ -1126,6 +1084,50 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       focusTarget?.focus();
     });
   }, [updateUrl]);
+
+  useEffect(() => {
+    if (!mobileMapOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const dialog = mobileMapDialogRef.current;
+    const focusableSelector =
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusable = dialog ? Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)) : [];
+    const firstFocusable = focusable[0] ?? mobileMapPrimaryActionRef.current ?? dialog;
+    const lastFocusable = focusable[focusable.length - 1] ?? firstFocusable;
+    window.setTimeout(() => {
+      firstFocusable?.focus();
+    }, 0);
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        openListView();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      if (!dialog) return;
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (event.shiftKey) {
+        if (activeElement === firstFocusable || !dialog.contains(activeElement)) {
+          event.preventDefault();
+          lastFocusable?.focus();
+        }
+        return;
+      }
+      if (activeElement === lastFocusable || !dialog.contains(activeElement)) {
+        event.preventDefault();
+        firstFocusable?.focus();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileMapOpen, openListView]);
 
   const clearDates = useCallback(() => {
     clearSearchDateRangeDraft();
