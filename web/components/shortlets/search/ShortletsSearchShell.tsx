@@ -94,6 +94,8 @@ type SearchResponse = {
   nearbyAlternatives: Array<{ label: string; hint: string }>;
 };
 
+type ShortletSortOption = "recommended" | "price_asc" | "price_desc" | "rating" | "newest";
+
 type Props = {
   initialSearchParams?: Record<string, string | string[] | undefined>;
 };
@@ -123,6 +125,14 @@ function firstValue(value: string | string[] | undefined): string | null {
   return null;
 }
 
+function normalizeShortletSortParam(value: string | null): ShortletSortOption {
+  if (value === "price_low" || value === "price_asc") return "price_asc";
+  if (value === "price_high" || value === "price_desc") return "price_desc";
+  if (value === "rating") return "rating";
+  if (value === "newest") return "newest";
+  return "recommended";
+}
+
 function readQueryParamsFromSearchParams(searchParams: URLSearchParams) {
   const market = (searchParams.get("market") ?? "NG").trim().toUpperCase();
   const guests = normalizeShortletGuestsParam(searchParams.get("guests"));
@@ -139,7 +149,7 @@ function readQueryParamsFromSearchParams(searchParams: URLSearchParams) {
     checkOut: searchParams.get("checkOut") ?? "",
     guests: String(guests),
     market: /^[A-Z]{2}$/.test(market) ? market : "NG",
-    sort: searchParams.get("sort") ?? "recommended",
+    sort: normalizeShortletSortParam(searchParams.get("sort")),
     bookingMode: searchParams.get("bookingMode") ?? "",
     mapAutoSearch: isShortletMapMoveSearchEnabled(searchParams.get("mapAuto")),
     view: parseSearchView(searchParams.get("view")),
@@ -1064,8 +1074,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                 aria-label="Sort compact"
               >
                 <option value="recommended">Recommended</option>
-                <option value="price_low">Price low-high</option>
-                <option value="price_high">Price high-low</option>
+                <option value="price_asc">Price low-high</option>
+                <option value="price_desc">Price high-low</option>
+                <option value="rating">Rating</option>
                 <option value="newest">Newest</option>
               </Select>
               <Button onClick={onSubmitSearch} size="sm" className="h-9 whitespace-nowrap">
@@ -1168,8 +1179,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             aria-label="Sort"
           >
             <option value="recommended">Recommended</option>
-            <option value="price_low">Price: low to high</option>
-            <option value="price_high">Price: high to low</option>
+            <option value="price_asc">Price: low to high</option>
+            <option value="price_desc">Price: high to low</option>
+            <option value="rating">Rating</option>
             <option value="newest">Newest</option>
           </Select>
         </div>

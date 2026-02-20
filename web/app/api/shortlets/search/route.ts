@@ -239,6 +239,7 @@ export async function GET(request: NextRequest) {
       verifiedHostIds,
       recommendedCenter,
       applyNigeriaBoost: !filters.where || isNigeriaDestinationQuery(filters.where),
+      hasDateRange,
     });
     const total = sorted.length;
     const from = (filters.page - 1) * filters.pageSize;

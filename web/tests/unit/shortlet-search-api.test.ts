@@ -10,7 +10,9 @@ import {
   parseShortletSearchBbox,
   parseShortletSearchFilters,
   parseShortletSearchBounds,
+  scoreShortletRecommendedListing,
   resolveShortletPrimaryImageUrl,
+  isShortletPlaceholderImageUrl,
   sortShortletSearchResults,
   unavailablePropertyIdsForDateRange,
 } from "@/lib/shortlet/search";
@@ -180,6 +182,16 @@ void test("shortlet search supports bbox and where params", () => {
   });
 });
 
+void test("shortlet search sort parser accepts legacy and canonical sort params", () => {
+  const legacy = parseShortletSearchFilters(new URLSearchParams("sort=price_low"));
+  const canonical = parseShortletSearchFilters(new URLSearchParams("sort=price_asc"));
+  const rating = parseShortletSearchFilters(new URLSearchParams("sort=rating"));
+
+  assert.equal(legacy.sort, "price_asc");
+  assert.equal(canonical.sort, "price_asc");
+  assert.equal(rating.sort, "rating");
+});
+
 void test("bbox parser accepts lng/lat order and bounds checks filter by coordinates", () => {
   const bounds = parseShortletSearchBbox("3.2,6.2,3.9,6.8");
   assert.deepEqual(bounds, {
@@ -218,6 +230,74 @@ void test("recommended shortlet sorting prioritizes verified hosts and value", (
     recommendedCenter: { latitude: 6.5, longitude: 3.3 },
   });
   assert.deepEqual(sorted.map((item) => item.id), ["a", "b"]);
+});
+
+void test("rating sort gracefully falls back when rating data is missing", () => {
+  const rows: Property[] = [
+    buildProperty({ id: "older", created_at: "2026-01-01T00:00:00.000Z" }),
+    buildProperty({ id: "newer", created_at: "2026-02-01T00:00:00.000Z" }),
+  ];
+
+  const sorted = sortShortletSearchResults(rows, "rating");
+  assert.deepEqual(sorted.map((row) => row.id), ["newer", "older"]);
+});
+
+void test("recommended sort is deterministic and keeps priced listings above price-on-request ties", () => {
+  const rows: Property[] = [
+    buildProperty({
+      id: "priced",
+      owner_id: "owner-z",
+      shortlet_settings: [{ booking_mode: "request", nightly_price_minor: 50000 }],
+      created_at: "2026-02-18T12:00:00.000Z",
+      updated_at: "2026-02-18T12:00:00.000Z",
+    }),
+    buildProperty({
+      id: "request-price-on-request",
+      owner_id: "owner-y",
+      shortlet_settings: [{ booking_mode: "request", nightly_price_minor: null }],
+      created_at: "2026-02-18T12:00:00.000Z",
+      updated_at: "2026-02-18T12:00:00.000Z",
+    }),
+  ];
+
+  const firstRun = sortShortletSearchResults(rows, "recommended");
+  const secondRun = sortShortletSearchResults(rows, "recommended");
+  assert.deepEqual(firstRun.map((row) => row.id), ["priced", "request-price-on-request"]);
+  assert.deepEqual(secondRun.map((row) => row.id), ["priced", "request-price-on-request"]);
+});
+
+void test("recommended scoring rewards trust, images, and instant mode", () => {
+  const trusted = buildProperty({
+    id: "trusted",
+    owner_id: "owner-trusted",
+    shortlet_settings: [{ booking_mode: "request", nightly_price_minor: 45000 }],
+    cover_image_url: "https://cdn.example.com/real-card.jpg",
+  });
+  const instant = buildProperty({
+    id: "instant",
+    owner_id: "owner-instant",
+    shortlet_settings: [{ booking_mode: "instant", nightly_price_minor: 45000 }],
+    cover_image_url: "https://images.unsplash.com/photo-1505691938895-1758d7feb511",
+  });
+
+  const trustedScore = scoreShortletRecommendedListing({
+    property: trusted,
+    verifiedHost: true,
+    hasDateRange: true,
+    applyNigeriaBoost: false,
+    primaryImageUrl: trusted.cover_image_url,
+  });
+  const instantScore = scoreShortletRecommendedListing({
+    property: instant,
+    verifiedHost: false,
+    hasDateRange: true,
+    applyNigeriaBoost: false,
+    primaryImageUrl: instant.cover_image_url,
+  });
+
+  assert.equal(isShortletPlaceholderImageUrl(trusted.cover_image_url), false);
+  assert.equal(isShortletPlaceholderImageUrl(instant.cover_image_url), true);
+  assert.equal(trustedScore > instantScore, true);
 });
 
 void test("shortlet search result items expose canonical cover image fields", () => {

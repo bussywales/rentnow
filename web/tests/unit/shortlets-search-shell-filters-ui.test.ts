@@ -55,6 +55,9 @@ void test("shortlets shell exposes compact sticky pill summary controls", () => 
   assert.ok(contents.includes("datesSummary"));
   assert.ok(contents.includes("guestsSummary"));
   assert.ok(contents.includes("shouldUseCompactShortletSearchPill(window.scrollY)"));
+  assert.ok(contents.includes('<option value="price_asc">Price low-high</option>'));
+  assert.ok(contents.includes('<option value="price_desc">Price high-low</option>'));
+  assert.ok(contents.includes('<option value="rating">Rating</option>'));
 });
 
 void test("guests control always renders readable guest labels", () => {

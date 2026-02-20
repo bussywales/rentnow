@@ -9,7 +9,12 @@ import {
   type ShortletCancellationPolicy,
 } from "@/lib/shortlet/cancellation";
 
-export type ShortletSearchSort = "recommended" | "price_low" | "price_high" | "newest";
+export type ShortletSearchSort =
+  | "recommended"
+  | "price_asc"
+  | "price_desc"
+  | "rating"
+  | "newest";
 
 export type ShortletSearchBounds = {
   north: number;
@@ -86,6 +91,7 @@ type ShortletSearchSortContext = {
   verifiedHostIds?: ReadonlySet<string>;
   recommendedCenter?: { latitude: number; longitude: number } | null;
   applyNigeriaBoost?: boolean;
+  hasDateRange?: boolean;
 };
 
 const POWER_BACKUP_TOKENS = [
@@ -119,6 +125,13 @@ const MARKET_DEFAULT_CURRENCIES: Record<string, string[]> = {
   US: ["USD"],
 };
 
+const SHORTLET_IMAGE_PLACEHOLDER_PATTERNS = [
+  "images.unsplash.com/photo-1505691938895-1758d7feb511",
+  "placeholder",
+  "placehold.co",
+  "via.placeholder.com",
+];
+
 function asBoolean(value: string | null): boolean {
   if (!value) return false;
   const normalized = value.trim().toLowerCase();
@@ -137,8 +150,9 @@ function parsePositiveInt(value: string | null, fallback: number): number {
 }
 
 function parseSort(value: string | null): ShortletSearchSort {
-  if (value === "price_low") return "price_low";
-  if (value === "price_high") return "price_high";
+  if (value === "price_low" || value === "price_asc") return "price_asc";
+  if (value === "price_high" || value === "price_desc") return "price_desc";
+  if (value === "rating") return "rating";
   if (value === "newest") return "newest";
   return "recommended";
 }
@@ -180,6 +194,69 @@ function normalizeCurrencyCode(value: string | null | undefined): string | null 
   if (!normalized) return null;
   if (normalized === "₦") return "NGN";
   return normalized;
+}
+
+function parseTimestampMs(value: unknown): number {
+  const parsed = Date.parse(String(value || ""));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+export function resolveShortletListingRating(property: Property): number | null {
+  const record = property as unknown as Record<string, unknown>;
+  const candidates = [
+    record.average_rating,
+    record.rating,
+    record.review_rating,
+    record.host_rating,
+  ];
+  for (const value of candidates) {
+    const numeric = Number(value);
+    if (Number.isFinite(numeric) && numeric > 0) return numeric;
+  }
+  return null;
+}
+
+export function isShortletPlaceholderImageUrl(value: string | null | undefined): boolean {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return true;
+  return SHORTLET_IMAGE_PLACEHOLDER_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+export type ShortletRecommendedScoreInput = {
+  property: Property;
+  verifiedHost: boolean;
+  hasDateRange: boolean;
+  applyNigeriaBoost: boolean;
+  primaryImageUrl: string | null;
+  recommendedCenter?: { latitude: number; longitude: number } | null;
+};
+
+export function scoreShortletRecommendedListing(input: ShortletRecommendedScoreInput): number {
+  let score = 0;
+  const bookingMode = resolveShortletBookingMode(input.property);
+  const nightlyMinor = resolveShortletNightlyPriceMinor(input.property);
+  const hasPrice = typeof nightlyMinor === "number" && nightlyMinor > 0;
+  const hasQualityImage = !isShortletPlaceholderImageUrl(input.primaryImageUrl);
+  const countryCode = resolvePropertyCountryCode(input.property);
+
+  if (input.applyNigeriaBoost && countryCode === "NG") score += 80;
+  if (input.verifiedHost) score += 320;
+  if (hasQualityImage) score += 220;
+  if (input.hasDateRange) score += 140;
+  if (bookingMode === "instant") score += 80;
+  if (bookingMode === "request") score += 30;
+  if (hasPrice) score += 60;
+
+  if (input.recommendedCenter) {
+    if (typeof input.property.latitude === "number" && typeof input.property.longitude === "number") {
+      const latDiff = input.property.latitude - input.recommendedCenter.latitude;
+      const lngDiff = input.property.longitude - input.recommendedCenter.longitude;
+      const distance = Math.hypot(latDiff, lngDiff);
+      score += Math.max(0, 40 - distance * 240);
+    }
+  }
+
+  return score;
 }
 
 export function parseShortletSearchBounds(value: string | null): ShortletSearchBounds | null {
@@ -432,13 +509,15 @@ export function sortShortletSearchResults(
   sort: ShortletSearchSort,
   context: ShortletSearchSortContext = {}
 ): Property[] {
+  const hasDateRange = !!context.hasDateRange;
   const withNightly = rows.map((property, index) => ({
     property,
     index,
     nightly: resolveShortletNightlyPriceMinor(property),
-    createdAtMs: Date.parse(String(property.created_at || "")) || 0,
+    createdAtMs: parseTimestampMs(property.created_at),
+    updatedAtMs: parseTimestampMs(property.updated_at),
+    rating: resolveShortletListingRating(property),
     verifiedHost: !!context.verifiedHostIds?.has(property.owner_id),
-    countryCode: resolvePropertyCountryCode(property),
     distanceToCenter: (() => {
       if (!context.recommendedCenter) return Number.POSITIVE_INFINITY;
       const { latitude, longitude } = context.recommendedCenter;
@@ -449,62 +528,93 @@ export function sortShortletSearchResults(
       const lngDiff = property.longitude - longitude;
       return Math.hypot(latDiff, lngDiff);
     })(),
+    bookingMode: resolveShortletBookingMode(property),
+    hasPrice: (() => {
+      const nightly = resolveShortletNightlyPriceMinor(property);
+      return typeof nightly === "number" && nightly > 0;
+    })(),
+    primaryImageUrl: resolveShortletPrimaryImageUrl(property as ShortletSearchPropertyRow),
+    recommendedScore: 0,
   }));
+  for (const row of withNightly) {
+    row.recommendedScore = scoreShortletRecommendedListing({
+      property: row.property,
+      verifiedHost: row.verifiedHost,
+      hasDateRange,
+      applyNigeriaBoost: !!context.applyNigeriaBoost,
+      primaryImageUrl: row.primaryImageUrl,
+      recommendedCenter: context.recommendedCenter,
+    });
+  }
 
-  if (sort === "price_low") {
+  const stableTieBreak = (
+    left: (typeof withNightly)[number],
+    right: (typeof withNightly)[number]
+  ): number => {
+    if (left.updatedAtMs !== right.updatedAtMs) return right.updatedAtMs - left.updatedAtMs;
+    if (left.createdAtMs !== right.createdAtMs) return right.createdAtMs - left.createdAtMs;
+    if (left.property.id !== right.property.id) {
+      return String(left.property.id).localeCompare(String(right.property.id));
+    }
+    return left.index - right.index;
+  };
+
+  if (sort === "price_asc") {
     return withNightly
       .sort((left, right) => {
         const leftPrice = left.nightly ?? Number.MAX_SAFE_INTEGER;
         const rightPrice = right.nightly ?? Number.MAX_SAFE_INTEGER;
         if (leftPrice !== rightPrice) return leftPrice - rightPrice;
-        return right.createdAtMs - left.createdAtMs;
+        return stableTieBreak(left, right);
       })
       .map((entry) => entry.property);
   }
 
-  if (sort === "price_high") {
+  if (sort === "price_desc") {
     return withNightly
       .sort((left, right) => {
         const leftPrice = left.nightly ?? 0;
         const rightPrice = right.nightly ?? 0;
         if (leftPrice !== rightPrice) return rightPrice - leftPrice;
-        return right.createdAtMs - left.createdAtMs;
+        return stableTieBreak(left, right);
       })
       .map((entry) => entry.property);
   }
 
   if (sort === "newest") {
     return withNightly
-      .sort((left, right) => right.createdAtMs - left.createdAtMs)
+      .sort((left, right) => {
+        if (left.createdAtMs !== right.createdAtMs) return right.createdAtMs - left.createdAtMs;
+        return stableTieBreak(left, right);
+      })
+      .map((entry) => entry.property);
+  }
+
+  if (sort === "rating") {
+    return withNightly
+      .sort((left, right) => {
+        const leftRating = left.rating ?? -1;
+        const rightRating = right.rating ?? -1;
+        if (leftRating !== rightRating) return rightRating - leftRating;
+        return stableTieBreak(left, right);
+      })
       .map((entry) => entry.property);
   }
 
   return withNightly
     .sort((left, right) => {
-      if (context.applyNigeriaBoost) {
-        const leftIsNigeria = left.countryCode === "NG";
-        const rightIsNigeria = right.countryCode === "NG";
-        if (leftIsNigeria !== rightIsNigeria) {
-          return leftIsNigeria ? -1 : 1;
-        }
+      if (left.recommendedScore !== right.recommendedScore) {
+        return right.recommendedScore - left.recommendedScore;
       }
-      if (left.verifiedHost !== right.verifiedHost) {
-        return left.verifiedHost ? -1 : 1;
+      if (left.hasPrice !== right.hasPrice) return left.hasPrice ? -1 : 1;
+      if (left.bookingMode !== right.bookingMode) {
+        if (left.bookingMode === "instant") return -1;
+        if (right.bookingMode === "instant") return 1;
       }
-      const leftMode = resolveShortletBookingMode(left.property);
-      const rightMode = resolveShortletBookingMode(right.property);
-      if (leftMode !== rightMode) {
-        if (leftMode === "instant") return -1;
-        if (rightMode === "instant") return 1;
-      }
-      const leftPrice = left.nightly ?? Number.MAX_SAFE_INTEGER;
-      const rightPrice = right.nightly ?? Number.MAX_SAFE_INTEGER;
-      if (leftPrice !== rightPrice) return leftPrice - rightPrice;
       if (left.distanceToCenter !== right.distanceToCenter) {
         return left.distanceToCenter - right.distanceToCenter;
       }
-      if (left.createdAtMs !== right.createdAtMs) return right.createdAtMs - left.createdAtMs;
-      return left.index - right.index;
+      return stableTieBreak(left, right);
     })
     .map((entry) => entry.property);
 }
