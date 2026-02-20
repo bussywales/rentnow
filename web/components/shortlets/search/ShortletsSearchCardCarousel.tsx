@@ -16,6 +16,7 @@ type Props = {
   imageUrls?: string[] | null;
   images?: PropertyImage[] | null;
   fallbackImage: string;
+  prioritizeFirstImage?: boolean;
 };
 
 const BLUR_DATA_URL =
@@ -32,6 +33,22 @@ export function shouldRenderShortletsCarouselArrows(totalImages: number): boolea
 
 export function shouldRenderShortletsCarouselControls(totalImages: number): boolean {
   return totalImages > 1;
+}
+
+export function resolveShortletsCarouselImageLoading(input: {
+  index: number;
+  prioritizeFirstImage?: boolean;
+}): {
+  priority: boolean;
+  loading: "eager" | "lazy";
+  fetchPriority: "high" | "auto";
+} {
+  const shouldPrioritize = Boolean(input.prioritizeFirstImage) && input.index === 0;
+  return {
+    priority: shouldPrioritize,
+    loading: shouldPrioritize ? "eager" : "lazy",
+    fetchPriority: shouldPrioritize ? "high" : "auto",
+  };
 }
 
 export function resolveShortletsCarouselImageSources(input: {
@@ -77,6 +94,7 @@ export function ShortletsSearchCardCarousel({
   imageUrls,
   images,
   fallbackImage,
+  prioritizeFirstImage = false,
 }: Props) {
   const imageSources = useMemo(
     () =>
@@ -251,6 +269,12 @@ export function ShortletsSearchCardCarousel({
             )}
             onClickCapture={onSlideClickCapture}
           >
+            {(() => {
+              const loadingProfile = resolveShortletsCarouselImageLoading({
+                index,
+                prioritizeFirstImage,
+              });
+              return (
             <Image
               src={source}
               alt={title}
@@ -259,8 +283,12 @@ export function ShortletsSearchCardCarousel({
               sizes="(max-width: 1024px) 100vw, (max-width: 1400px) 48vw, 33vw"
               placeholder="blur"
               blurDataURL={BLUR_DATA_URL}
-              priority={index === 0}
+              priority={loadingProfile.priority}
+              loading={loadingProfile.loading}
+              fetchPriority={loadingProfile.fetchPriority}
             />
+              );
+            })()}
           </Link>
         ))}
       </div>

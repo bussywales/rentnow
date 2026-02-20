@@ -41,6 +41,7 @@ type Props = {
   selected?: boolean;
   highlighted?: boolean;
   isSaved?: boolean;
+  prioritizeFirstImage?: boolean;
   onToggleSaved?: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
@@ -169,6 +170,7 @@ export function ShortletsSearchListCard({
   selected = false,
   highlighted = false,
   isSaved = false,
+  prioritizeFirstImage = false,
   onToggleSaved,
   onMouseEnter,
   onMouseLeave,
@@ -252,6 +254,7 @@ export function ShortletsSearchListCard({
         imageUrls={property.imageUrls}
         images={property.images ?? undefined}
         fallbackImage={FALLBACK_IMAGE}
+        prioritizeFirstImage={prioritizeFirstImage}
       />
       <Link href={href} className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
         <div className="flex min-h-[164px] flex-col gap-2 px-4 py-3">

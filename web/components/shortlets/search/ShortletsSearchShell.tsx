@@ -2004,7 +2004,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           ) : filteredTotal > 0 ? (
             <div className="space-y-3 min-h-[420px]">
               <div className={desktopCardsGridClass} data-testid="shortlets-desktop-results-grid">
-                {filteredItems.map((property) => {
+                {filteredItems.map((property, index) => {
                   const selected = property.id === selectedListingId;
                   const highlighted =
                     selected || property.id === hoveredListingId || property.id === highlightedListingId;
@@ -2032,6 +2032,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                         property={property}
                         priceDisplayMode={totalPriceDisplayActive ? "total" : "nightly"}
                         href={buildPropertyHref(property.id)}
+                        prioritizeFirstImage={index < 2}
                         selected={selected}
                         highlighted={property.id === hoveredListingId}
                         isSaved={savedIds.has(property.id)}
@@ -2197,7 +2198,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           </div>
         ) : filteredTotal > 0 ? (
           <div className="grid gap-3">
-            {filteredItems.map((property) => {
+            {filteredItems.map((property, index) => {
               const selected = property.id === selectedListingId;
               const highlighted =
                 selected || property.id === hoveredListingId || property.id === highlightedListingId;
@@ -2225,6 +2226,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     property={property}
                     priceDisplayMode={totalPriceDisplayActive ? "total" : "nightly"}
                     href={buildPropertyHref(property.id)}
+                    prioritizeFirstImage={index < 1}
                     selected={selected}
                     highlighted={property.id === hoveredListingId}
                     isSaved={savedIds.has(property.id)}

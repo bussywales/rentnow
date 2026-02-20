@@ -25,6 +25,7 @@ void test("shortlets search card keeps a calm hierarchy with stable height and 2
   assert.ok(contents.includes("Price on request"));
   assert.ok(contents.includes("Includes fees"));
   assert.ok(contents.includes("Pricing details"));
+  assert.ok(contents.includes("prioritizeFirstImage"));
   assert.equal(contents.includes("Calm, bookable stay"), false);
   assert.equal(contents.includes("property.description"), false);
 });

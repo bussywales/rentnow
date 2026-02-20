@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  resolveShortletsCarouselImageLoading,
   shouldRenderShortletsCarouselControls,
   resolveShortletsCarouselIndexFromScroll,
   resolveShortletsCarouselImageSources,
@@ -69,5 +70,43 @@ void test("shortlets card carousel resolves active index from scroll position", 
       totalImages: 5,
     }),
     4
+  );
+});
+
+void test("shortlets card carousel image loading profile only prioritises first image when requested", () => {
+  assert.deepEqual(
+    resolveShortletsCarouselImageLoading({
+      index: 0,
+      prioritizeFirstImage: true,
+    }),
+    {
+      priority: true,
+      loading: "eager",
+      fetchPriority: "high",
+    }
+  );
+
+  assert.deepEqual(
+    resolveShortletsCarouselImageLoading({
+      index: 1,
+      prioritizeFirstImage: true,
+    }),
+    {
+      priority: false,
+      loading: "lazy",
+      fetchPriority: "auto",
+    }
+  );
+
+  assert.deepEqual(
+    resolveShortletsCarouselImageLoading({
+      index: 0,
+      prioritizeFirstImage: false,
+    }),
+    {
+      priority: false,
+      loading: "lazy",
+      fetchPriority: "auto",
+    }
   );
 });

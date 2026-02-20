@@ -150,6 +150,8 @@ void test("desktop list grid adapts when map panel is open or hidden", () => {
   assert.ok(contents.includes("[grid-template-columns:repeat(auto-fit,minmax(260px,1fr))]"));
   assert.ok(contents.includes("[grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]"));
   assert.ok(contents.includes('data-testid="shortlets-desktop-results-grid"'));
+  assert.ok(contents.includes("prioritizeFirstImage={index < 2}"));
+  assert.ok(contents.includes("prioritizeFirstImage={index < 1}"));
 });
 
 void test("shortlets shell heading copy follows destination-driven messaging", () => {
