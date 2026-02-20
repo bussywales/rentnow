@@ -326,6 +326,9 @@ void test("shortlet search result items expose canonical cover image fields", ()
   assert.ok(mapped);
   assert.equal(mapped.primaryImageUrl, "https://example.com/img-1.jpg");
   assert.equal(mapped.mapPreviewImageUrl, "https://example.com/img-1.jpg");
+  assert.equal(mapped.thumbImageUrl, "https://example.com/img-1.jpg");
+  assert.equal(mapped.cardImageUrl, "https://example.com/img-1.jpg");
+  assert.equal(mapped.heroImageUrl, "https://example.com/img-1.jpg");
   assert.equal(mapped.coverImageUrl, "https://example.com/img-1.jpg");
   assert.equal(mapped.cover_image_url, "https://example.com/img-1.jpg");
   assert.equal(mapped.imageCount, 2);

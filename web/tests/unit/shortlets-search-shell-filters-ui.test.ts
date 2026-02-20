@@ -185,6 +185,15 @@ void test("shortlets shell carries selected dates into property detail links", (
   assert.ok(contents.includes('params.set("back", `/shortlets?${backLinkQuery}`)'));
 });
 
+void test("shortlets shell normalizes derivative image fields for map and list payloads", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("thumbImageUrl"));
+  assert.ok(contents.includes("cardImageUrl"));
+  assert.ok(contents.includes("heroImageUrl"));
+  assert.ok(contents.includes("mapPreviewImageUrl"));
+});
+
 void test("shortlets shell result summary reflects bbox-applied map-area state", () => {
   const contents = fs.readFileSync(shellPath, "utf8");
 
