@@ -13,6 +13,11 @@ import {
 } from "@/lib/shortlet/search-ui-state";
 import { shouldSoftPanHoveredMarker } from "@/lib/shortlet/map-list-coupling";
 import { isShortletBookableFromPricing, resolveShortletBookabilityCta } from "@/lib/shortlet/pricing";
+import {
+  createShortletMarkerIconCache,
+  formatShortletPinPrice,
+  type ShortletMarkerVisualMode,
+} from "@/lib/shortlet/map-marker-icons";
 
 type MapBounds = {
   north: number;
@@ -75,26 +80,9 @@ const NIGERIA_DEFAULT_ZOOM = 6;
 const DEFAULT_SINGLE_PIN_ZOOM = 12;
 const MAX_REASONABLE_NIGERIA_SPAN_DEGREES = 8;
 
-function formatPinPrice(currency: string, nightlyPriceMinor: number | null): string {
-  if (typeof nightlyPriceMinor !== "number" || nightlyPriceMinor <= 0) return "₦—";
-  const major = nightlyPriceMinor / 100;
-  if (currency === "NGN") {
-    return `₦${major.toLocaleString("en-NG", { maximumFractionDigits: 0 })}`;
-  }
-  try {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: currency || "NGN",
-      maximumFractionDigits: 0,
-    }).format(major);
-  } catch {
-    return `₦${major.toLocaleString("en-NG", { maximumFractionDigits: 0 })}`;
-  }
-}
-
 function createPricePinIcon(
   label: string,
-  mode: "default" | "hovered" | "selected"
+  mode: ShortletMarkerVisualMode
 ): L.DivIcon {
   const selected = mode === "selected";
   const hovered = mode === "hovered";
@@ -326,6 +314,7 @@ export function ShortletsSearchMapClient({
     (listing): listing is MapListing & { latitude: number; longitude: number } =>
       typeof listing.latitude === "number" && typeof listing.longitude === "number"
   );
+  const markerIconCache = useMemo(() => createShortletMarkerIconCache<L.DivIcon>(), []);
   const markers = useMemo(
     () => mapListings.map((listing) => [listing.latitude, listing.longitude] as [number, number]),
     [mapListings]
@@ -384,10 +373,12 @@ export function ShortletsSearchMapClient({
             selectedListingId,
             hoveredListingId,
           });
-          const pinIcon = createPricePinIcon(
-            formatPinPrice(listing.currency, listing.nightlyPriceMinor),
-            markerState.mode
-          );
+          const label = formatShortletPinPrice(listing.currency, listing.nightlyPriceMinor);
+          const pinIcon = markerIconCache.get({
+            label,
+            mode: markerState.mode,
+            create: () => createPricePinIcon(label, markerState.mode),
+          });
           return (
             <Marker
               key={listing.id}
@@ -429,7 +420,7 @@ export function ShortletsSearchMapClient({
                 </p>
                 <p className="line-clamp-1 text-sm font-semibold text-slate-900">{selectedListing.title}</p>
                 <p className={cn("text-xs font-semibold text-slate-700")}>
-                  {formatPinPrice(selectedListing.currency, selectedListing.nightlyPriceMinor)} / night
+                  {formatShortletPinPrice(selectedListing.currency, selectedListing.nightlyPriceMinor)} / night
                 </p>
                 <div className="mt-2">
                   <Link
