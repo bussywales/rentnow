@@ -59,6 +59,27 @@ void test("shortlets shell closes drawer with escape key support", () => {
   assert.ok(contents.includes("if (event.key === \"Escape\")"));
 });
 
+void test("shortlets shell uses premium date-range picker controls instead of native date inputs", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.equal(contents.includes('type="date"'), false);
+  assert.ok(contents.includes('data-testid="shortlets-date-range-trigger"'));
+  assert.ok(contents.includes('data-testid="shortlets-date-range-popover"'));
+  assert.ok(contents.includes('data-testid="shortlets-date-range-sheet"'));
+  assert.ok(contents.includes("Apply dates"));
+  assert.ok(contents.includes("clearSearchDateRangeDraft"));
+  assert.ok(contents.includes("Calendar"));
+});
+
+void test("shortlets shell prevents invalid date ranges before search submit", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("hasInvalidDateDraft"));
+  assert.ok(contents.includes("checkInDraft >= checkOutDraft"));
+  assert.ok(contents.includes("Choose a valid check-in and check-out range."));
+  assert.ok(contents.includes("openSearchDatePicker()"));
+});
+
 void test("shortlets shell exposes compact sticky pill summary controls", () => {
   const contents = fs.readFileSync(shellPath, "utf8");
 

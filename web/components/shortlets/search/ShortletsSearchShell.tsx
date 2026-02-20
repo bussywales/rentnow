@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { DateRange } from "react-day-picker";
 import type { Property } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { Calendar } from "@/components/ui/calendar";
 import { PropertyCardSkeleton } from "@/components/properties/PropertyCardSkeleton";
 import { ShortletsSearchMap } from "@/components/shortlets/search/ShortletsSearchMap";
 import { ShortletsSearchListCard } from "@/components/shortlets/search/ShortletsSearchListCard";
@@ -19,6 +20,7 @@ import {
   serializeShortletSearchBbox,
   type ShortletSearchBounds,
 } from "@/lib/shortlet/search";
+import { fromDateKey, toDateKey } from "@/lib/shortlet/availability";
 import {
   applyMapViewportChange,
   applySearchThisArea,
@@ -212,6 +214,20 @@ function formatCompactDate(dateValue: string): string {
   }).format(new Date(parsed));
 }
 
+function createDateRangeFromDraftValues(checkIn: string, checkOut: string): DateRange | undefined {
+  const from = fromDateKey(checkIn);
+  const to = fromDateKey(checkOut);
+  if (!from) return undefined;
+  if (!to) return { from, to: undefined };
+  if (toDateKey(from) >= toDateKey(to)) return { from, to: undefined };
+  return { from, to };
+}
+
+function hasCompleteValidDateRange(range: DateRange | undefined): boolean {
+  if (!range?.from || !range.to) return false;
+  return toDateKey(range.from) < toDateKey(range.to);
+}
+
 function getMarketCurrency(countryCode: string): string {
   if (countryCode === "NG") return "NGN";
   if (countryCode === "GB") return "GBP";
@@ -317,6 +333,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const [checkInDraft, setCheckInDraft] = useState(parsedUi.checkIn);
   const [checkOutDraft, setCheckOutDraft] = useState(parsedUi.checkOut);
   const [guestsDraft, setGuestsDraft] = useState(parsedUi.guests);
+  const [searchDatesOpen, setSearchDatesOpen] = useState(false);
+  const [searchDateRangeDraft, setSearchDateRangeDraft] = useState<DateRange | undefined>(() =>
+    createDateRangeFromDraftValues(parsedUi.checkIn, parsedUi.checkOut)
+  );
+  const [searchDateHint, setSearchDateHint] = useState<string | null>(null);
+  const [isMobileDatePicker, setIsMobileDatePicker] = useState(false);
 
   const [results, setResults] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -355,12 +377,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
 
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const whereInputRef = useRef<HTMLInputElement | null>(null);
-  const checkInInputRef = useRef<HTMLInputElement | null>(null);
-  const checkOutInputRef = useRef<HTMLInputElement | null>(null);
+  const datesTriggerRef = useRef<HTMLButtonElement | null>(null);
   const guestsInputRef = useRef<HTMLSelectElement | null>(null);
   const expandedSearchHeaderRef = useRef<HTMLDivElement | null>(null);
   const quickFiltersMeasureRef = useRef<HTMLDivElement | null>(null);
   const quickFiltersPopoverRef = useRef<HTMLDivElement | null>(null);
+  const searchDatesPopoverRef = useRef<HTMLDivElement | null>(null);
   const mapMoveDebounceRef = useRef<number | null>(null);
   const mobileListScrollYRef = useRef(0);
   const [mobileMapInvalidateNonce, setMobileMapInvalidateNonce] = useState(0);
@@ -369,11 +391,21 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     setQueryDraft(parsedUi.where);
     setCheckInDraft(parsedUi.checkIn);
     setCheckOutDraft(parsedUi.checkOut);
+    setSearchDateRangeDraft(createDateRangeFromDraftValues(parsedUi.checkIn, parsedUi.checkOut));
+    setSearchDateHint(null);
     setGuestsDraft(parsedUi.guests);
     setMobileView(parsedUi.view);
     setMobileMapOpen(parsedUi.view === "map");
     setMapMoveSearchMode(parsedUi.mapAutoSearch ? "auto" : "manual");
   }, [parsedUi]);
+
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 767px)");
+    const sync = () => setIsMobileDatePicker(media.matches);
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
 
   useEffect(() => {
     setMapAreaState(createShortletMapSearchAreaState(parsedBounds));
@@ -523,6 +555,36 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   }, [quickFiltersPopoverOpen]);
 
   useEffect(() => {
+    if (!searchDatesOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeSearchDatePicker();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [closeSearchDatePicker, searchDatesOpen]);
+
+  useEffect(() => {
+    if (!searchDatesOpen || isMobileDatePicker) return;
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (searchDatesPopoverRef.current?.contains(target)) return;
+      if (datesTriggerRef.current?.contains(target)) return;
+      closeSearchDatePicker();
+    };
+    window.addEventListener("mousedown", onPointerDown);
+    return () => window.removeEventListener("mousedown", onPointerDown);
+  }, [closeSearchDatePicker, isMobileDatePicker, searchDatesOpen]);
+
+  useEffect(() => {
+    if (!searchDatesOpen || !isMobileDatePicker) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isMobileDatePicker, searchDatesOpen]);
+
+  useEffect(() => {
     return () => {
       if (mapMoveDebounceRef.current !== null) {
         window.clearTimeout(mapMoveDebounceRef.current);
@@ -598,7 +660,66 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     [buildCurrentPresetParams]
   );
 
+  const openSearchDatePicker = useCallback(() => {
+    setSearchDateRangeDraft(createDateRangeFromDraftValues(checkInDraft, checkOutDraft));
+    setSearchDateHint(null);
+    setSearchDatesOpen(true);
+  }, [checkInDraft, checkOutDraft]);
+
+  const closeSearchDatePicker = useCallback(() => {
+    setSearchDatesOpen(false);
+  }, []);
+
+  const onSearchDateRangeSelect = useCallback((next: DateRange | undefined) => {
+    if (!next?.from) {
+      setSearchDateRangeDraft(undefined);
+      setSearchDateHint(null);
+      return;
+    }
+    if (!next.to) {
+      setSearchDateRangeDraft({ from: next.from, to: undefined });
+      setSearchDateHint(null);
+      return;
+    }
+    if (toDateKey(next.from) >= toDateKey(next.to)) {
+      setSearchDateRangeDraft({ from: next.from, to: undefined });
+      setSearchDateHint("Check-out must be after check-in.");
+      return;
+    }
+    setSearchDateRangeDraft({ from: next.from, to: next.to });
+    setSearchDateHint(null);
+  }, []);
+
+  const applySearchDateRange = useCallback(() => {
+    if (!hasCompleteValidDateRange(searchDateRangeDraft)) {
+      setSearchDateHint("Choose a valid check-in and check-out range.");
+      return;
+    }
+    const nextCheckIn = toDateKey(searchDateRangeDraft.from);
+    const nextCheckOut = toDateKey(searchDateRangeDraft.to!);
+    setCheckInDraft(nextCheckIn);
+    setCheckOutDraft(nextCheckOut);
+    setSearchDateHint(null);
+    closeSearchDatePicker();
+  }, [closeSearchDatePicker, searchDateRangeDraft]);
+
+  const clearSearchDateRangeDraft = useCallback(() => {
+    setSearchDateRangeDraft(undefined);
+    setSearchDateHint(null);
+    setCheckInDraft("");
+    setCheckOutDraft("");
+  }, []);
+
   const onSubmitSearch = () => {
+    const hasAnyDateDraft = Boolean(checkInDraft || checkOutDraft);
+    const hasInvalidDateDraft =
+      hasAnyDateDraft && (!checkInDraft || !checkOutDraft || checkInDraft >= checkOutDraft);
+    if (hasInvalidDateDraft) {
+      setSearchDateHint("Choose a valid check-in and check-out range.");
+      openSearchDatePicker();
+      return;
+    }
+    setSearchDateHint(null);
     const intent = resolveShortletMapCameraIntent({
       hasLocationChanged: queryDraft.trim() !== parsedUi.where.trim(),
       hasBoundsChanged: false,
@@ -772,20 +893,23 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
 
   const focusExpandedControl = useCallback(
     (field: "where" | "checkIn" | "checkOut" | "guests") => {
-      const inputRef =
-        field === "where"
-          ? whereInputRef
-          : field === "checkIn"
-            ? checkInInputRef
-            : field === "checkOut"
-              ? checkOutInputRef
-              : guestsInputRef;
+      if (field === "checkIn" || field === "checkOut") {
+        const target = datesTriggerRef.current;
+        if (!target) return;
+        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        window.setTimeout(() => {
+          target.focus();
+          openSearchDatePicker();
+        }, 220);
+        return;
+      }
+      const inputRef = field === "where" ? whereInputRef : guestsInputRef;
       const target = inputRef.current;
       if (!target) return;
       target.scrollIntoView({ behavior: "smooth", block: "center" });
       window.setTimeout(() => target.focus(), 220);
     },
-    []
+    [openSearchDatePicker]
   );
 
   const applyAdvancedFilters = useCallback(
@@ -951,14 +1075,13 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   };
 
   const clearDates = useCallback(() => {
-    setCheckInDraft("");
-    setCheckOutDraft("");
+    clearSearchDateRangeDraft();
     updateUrl((next) => {
       next.delete("checkIn");
       next.delete("checkOut");
       next.set("page", "1");
     });
-  }, [updateUrl]);
+  }, [clearSearchDateRangeDraft, updateUrl]);
 
   const onTogglePriceDisplay = useCallback(
     (enabled: boolean) => {
@@ -1279,7 +1402,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           data-testid="shortlets-expanded-search-controls"
           aria-hidden={showCompactSearch}
         >
-          <div className="grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.75fr)_auto_auto_minmax(0,0.85fr)]">
+          <div className="grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.15fr)_minmax(0,0.75fr)_auto_auto_minmax(0,0.85fr)]">
           <WhereTypeahead
             inputRef={whereInputRef}
             value={queryDraft}
@@ -1294,22 +1417,59 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             recentPresets={recentSearches}
             savedPresets={savedSearches}
           />
-          <Input
-            ref={checkInInputRef}
-            type="date"
-            value={checkInDraft}
-            onChange={(event) => setCheckInDraft(event.target.value)}
-            aria-label="Check-in"
-            className="h-11"
-          />
-          <Input
-            ref={checkOutInputRef}
-            type="date"
-            value={checkOutDraft}
-            onChange={(event) => setCheckOutDraft(event.target.value)}
-            aria-label="Check-out"
-            className="h-11"
-          />
+          <div className="relative">
+            <button
+              ref={datesTriggerRef}
+              type="button"
+              onClick={openSearchDatePicker}
+              aria-label="Select dates"
+              aria-haspopup="dialog"
+              aria-expanded={searchDatesOpen}
+              className="flex h-11 w-full items-center justify-between rounded-md border border-slate-300 bg-white px-3 text-left text-sm text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              data-testid="shortlets-date-range-trigger"
+            >
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Dates</span>
+              <span className="truncate pl-2 font-semibold text-slate-800">{datesSummary}</span>
+            </button>
+            {searchDateHint ? (
+              <p className="mt-1 text-xs text-slate-500" data-testid="shortlets-date-range-hint">
+                {searchDateHint}
+              </p>
+            ) : null}
+            {searchDatesOpen && !isMobileDatePicker ? (
+              <div
+                ref={searchDatesPopoverRef}
+                role="dialog"
+                aria-modal="false"
+                aria-label="Select dates"
+                className="absolute left-0 top-[calc(100%+8px)] z-30 w-[min(620px,calc(100vw-2rem))] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_16px_45px_rgba(15,23,42,0.2)]"
+                data-testid="shortlets-date-range-popover"
+              >
+                <Calendar
+                  mode="range"
+                  selected={searchDateRangeDraft}
+                  numberOfMonths={2}
+                  disabled={{ before: new Date() }}
+                  onSelect={onSearchDateRangeSelect}
+                  defaultMonth={searchDateRangeDraft?.from ?? new Date()}
+                  className="rounded-xl border border-slate-100 bg-white"
+                />
+                <div className="mt-2 flex items-center justify-end gap-2 border-t border-slate-100 pt-2">
+                  <Button type="button" variant="secondary" size="sm" onClick={clearSearchDateRangeDraft}>
+                    Clear
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={applySearchDateRange}
+                    disabled={!hasCompleteValidDateRange(searchDateRangeDraft)}
+                  >
+                    Apply dates
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+          </div>
           <Select
             ref={guestsInputRef}
             value={guestsDraft}
@@ -1644,6 +1804,59 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             </aside>
           </div>
         </>
+      ) : null}
+
+      {searchDatesOpen && isMobileDatePicker ? (
+        <div
+          className="fixed inset-0 z-[70] flex flex-col bg-white md:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Select dates"
+          data-testid="shortlets-date-range-sheet"
+        >
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Select dates</p>
+              <p className="text-xs text-slate-500">Choose check-in and check-out for your stay.</p>
+            </div>
+            <button
+              type="button"
+              aria-label="Close date picker"
+              onClick={closeSearchDatePicker}
+              className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
+            >
+              ×
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto px-3 py-3">
+            <Calendar
+              mode="range"
+              selected={searchDateRangeDraft}
+              numberOfMonths={1}
+              disabled={{ before: new Date() }}
+              onSelect={onSearchDateRangeSelect}
+              defaultMonth={searchDateRangeDraft?.from ?? new Date()}
+              className="mx-auto max-w-sm rounded-xl border border-slate-100 bg-white"
+            />
+            {searchDateHint ? (
+              <p className="mt-2 text-xs text-slate-500" data-testid="shortlets-date-range-hint-mobile">
+                {searchDateHint}
+              </p>
+            ) : null}
+          </div>
+          <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
+            <Button type="button" variant="secondary" onClick={clearSearchDateRangeDraft}>
+              Clear
+            </Button>
+            <Button
+              type="button"
+              onClick={applySearchDateRange}
+              disabled={!hasCompleteValidDateRange(searchDateRangeDraft)}
+            >
+              Apply dates
+            </Button>
+          </div>
+        </div>
       ) : null}
 
       {error ? (
