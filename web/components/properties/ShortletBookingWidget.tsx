@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/Button";
 import { Calendar } from "@/components/ui/calendar";
 import {
   expandRangesToDisabledDates,
+  resolveShortletAvailabilityPrefetchSchedule,
+  scheduleShortletDeferredTask,
+  shouldFetchShortletAvailabilityWindow,
   toDateKey,
   type ShortletRangeValidationReason,
   type ShortletUnavailableRange,
@@ -60,7 +63,6 @@ type CalendarWindow = {
 
 const AVAILABILITY_WINDOW_DAYS = 180;
 const CALENDAR_DISABLED_HORIZON_DAYS = 720;
-const AVAILABILITY_PREFETCH_MONTH_OFFSETS = [-2, -1, 0, 1, 2] as const;
 const availabilityWindowCache = new Map<string, CalendarAvailabilityResponse>();
 const availabilityConflictCode = "availability_conflict";
 
@@ -415,6 +417,8 @@ export function ShortletBookingWidget(props: {
   const [selectionHint, setSelectionHint] = useState<string | null>(null);
   const [availabilityNotice, setAvailabilityNotice] = useState<string | null>(null);
   const loadedWindowKeysRef = useRef<Set<string>>(new Set());
+  const inFlightWindowRequestsRef = useRef<Map<string, Promise<void>>>(new Map());
+  const deferredPrefetchCancelRef = useRef<(() => void) | null>(null);
   const checkInTriggerRef = useRef<HTMLButtonElement | null>(null);
   const calendarDialogRef = useRef<HTMLDivElement | null>(null);
 
@@ -502,95 +506,155 @@ export function ShortletBookingWidget(props: {
   const loadingAny = loading || metaLoading || calendarLoading;
 
   const loadAvailabilityWindow = useCallback(
-    async (month: Date, options?: { force?: boolean }) => {
+    async (month: Date, options?: { force?: boolean; trackLoading?: boolean }) => {
       const window = buildCalendarWindow(month);
       const cacheKey = `${props.propertyId}:${window.monthKey}`;
+      const inFlightRequests = inFlightWindowRequestsRef.current;
+      const loadedWindowKeys = loadedWindowKeysRef.current;
+      const trackLoading = options?.trackLoading !== false;
+
       if (options?.force) {
-        loadedWindowKeysRef.current.delete(cacheKey);
+        loadedWindowKeys.delete(cacheKey);
         availabilityWindowCache.delete(cacheKey);
       }
-      if (loadedWindowKeysRef.current.has(cacheKey)) {
+
+      const shouldFetch = shouldFetchShortletAvailabilityWindow({
+        cacheKey,
+        loadedWindowKeys,
+        inFlightWindowKeys: new Set(inFlightRequests.keys()),
+        force: options?.force,
+      });
+      if (!shouldFetch) {
+        const existingRequest = inFlightRequests.get(cacheKey);
+        if (existingRequest) {
+          await existingRequest;
+        }
         return;
       }
 
-      const cached = availabilityWindowCache.get(cacheKey);
-      if (cached) {
-        loadedWindowKeysRef.current.add(cacheKey);
-        const mapped: ShortletUnavailableRange[] = [
-          ...cached.blockedRanges.map((row) => ({
-            start: row.start,
-            end: row.end,
-            source: row.source,
-          })),
-          ...cached.bookedRanges.map((row) => ({
-            start: row.start,
-            end: row.end,
-            source: "booking",
-            bookingId: row.bookingId ?? null,
-          })),
-        ];
-        setUnavailableRanges((previous) => dedupeUnavailableRanges(previous, mapped));
-        return;
-      }
-
-      setCalendarLoadCount((count) => count + 1);
-      try {
-        const response = await fetch(
-          `/api/shortlet/availability?listingId=${encodeURIComponent(props.propertyId)}&from=${encodeURIComponent(window.from)}&to=${encodeURIComponent(window.to)}`,
-          {
-            credentials: "include",
-          }
-        );
-        const payload = (await response.json().catch(() => null)) as CalendarAvailabilityResponse | null;
-        if (!response.ok || !payload?.ok) {
-          throw new Error("Unable to load calendar availability");
+      const requestPromise = (async () => {
+        const cached = availabilityWindowCache.get(cacheKey);
+        if (cached) {
+          loadedWindowKeys.add(cacheKey);
+          const mapped: ShortletUnavailableRange[] = [
+            ...cached.blockedRanges.map((row) => ({
+              start: row.start,
+              end: row.end,
+              source: row.source,
+            })),
+            ...cached.bookedRanges.map((row) => ({
+              start: row.start,
+              end: row.end,
+              source: "booking",
+              bookingId: row.bookingId ?? null,
+            })),
+          ];
+          setUnavailableRanges((previous) => dedupeUnavailableRanges(previous, mapped));
+          return;
         }
 
-        availabilityWindowCache.set(cacheKey, payload);
-        loadedWindowKeysRef.current.add(cacheKey);
-        const mapped: ShortletUnavailableRange[] = [
-          ...payload.blockedRanges.map((row) => ({
-            start: row.start,
-            end: row.end,
-            source: row.source,
-          })),
-          ...payload.bookedRanges.map((row) => ({
-            start: row.start,
-            end: row.end,
-            source: "booking",
-            bookingId: row.bookingId ?? null,
-          })),
-        ];
-        setUnavailableRanges((previous) => dedupeUnavailableRanges(previous, mapped));
-      } catch (windowError) {
-        setError(windowError instanceof Error ? windowError.message : "Unable to load calendar availability");
+        if (trackLoading) {
+          setCalendarLoadCount((count) => count + 1);
+        }
+        try {
+          const response = await fetch(
+            `/api/shortlet/availability?listingId=${encodeURIComponent(props.propertyId)}&from=${encodeURIComponent(window.from)}&to=${encodeURIComponent(window.to)}`,
+            {
+              credentials: "include",
+            }
+          );
+          const payload = (await response.json().catch(() => null)) as CalendarAvailabilityResponse | null;
+          if (!response.ok || !payload?.ok) {
+            throw new Error("Unable to load calendar availability");
+          }
+
+          availabilityWindowCache.set(cacheKey, payload);
+          loadedWindowKeys.add(cacheKey);
+          const mapped: ShortletUnavailableRange[] = [
+            ...payload.blockedRanges.map((row) => ({
+              start: row.start,
+              end: row.end,
+              source: row.source,
+            })),
+            ...payload.bookedRanges.map((row) => ({
+              start: row.start,
+              end: row.end,
+              source: "booking",
+              bookingId: row.bookingId ?? null,
+            })),
+          ];
+          setUnavailableRanges((previous) => dedupeUnavailableRanges(previous, mapped));
+        } catch (windowError) {
+          setError(windowError instanceof Error ? windowError.message : "Unable to load calendar availability");
+        } finally {
+          if (trackLoading) {
+            setCalendarLoadCount((count) => Math.max(0, count - 1));
+          }
+        }
+      })();
+
+      inFlightRequests.set(cacheKey, requestPromise);
+      try {
+        await requestPromise;
       } finally {
-        setCalendarLoadCount((count) => Math.max(0, count - 1));
+        inFlightRequests.delete(cacheKey);
       }
     },
     [props.propertyId]
   );
 
   const prefetchAvailabilityMonths = useCallback(
-    async (baseMonth: Date, options?: { force?: boolean }) => {
+    async (
+      baseMonth: Date,
+      options?: { force?: boolean; deferDeferred?: boolean }
+    ) => {
       const monthStart = new Date(baseMonth.getFullYear(), baseMonth.getMonth(), 1);
+      const schedule = resolveShortletAvailabilityPrefetchSchedule();
       await Promise.all(
-        AVAILABILITY_PREFETCH_MONTH_OFFSETS.map((offset) =>
-          loadAvailabilityWindow(withMonthOffset(monthStart, offset), options)
+        schedule.immediateOffsets.map((offset) =>
+          loadAvailabilityWindow(withMonthOffset(monthStart, offset), {
+            force: options?.force,
+            trackLoading: true,
+          })
         )
       );
+
+      const runDeferredPrefetch = () => {
+        void Promise.all(
+          schedule.deferredOffsets.map((offset) =>
+            loadAvailabilityWindow(withMonthOffset(monthStart, offset), {
+              force: options?.force,
+              trackLoading: false,
+            })
+          )
+        );
+      };
+
+      deferredPrefetchCancelRef.current?.();
+      if (options?.deferDeferred === false) {
+        runDeferredPrefetch();
+        return;
+      }
+      deferredPrefetchCancelRef.current = scheduleShortletDeferredTask(runDeferredPrefetch);
     },
     [loadAvailabilityWindow]
   );
 
   useEffect(() => {
-    void prefetchAvailabilityMonths(new Date());
+    void prefetchAvailabilityMonths(new Date(), { deferDeferred: true });
   }, [prefetchAvailabilityMonths]);
 
   useEffect(() => {
     if (!calendarOpen) return;
-    void prefetchAvailabilityMonths(calendarMonth);
+    void prefetchAvailabilityMonths(calendarMonth, { deferDeferred: true });
   }, [calendarMonth, calendarOpen, prefetchAvailabilityMonths]);
+
+  useEffect(
+    () => () => {
+      deferredPrefetchCancelRef.current?.();
+    },
+    []
+  );
 
   useEffect(() => {
     let active = true;

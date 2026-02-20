@@ -25,6 +25,73 @@ export type ShortletAvailabilityConflictResult = {
   conflictingRanges: ShortletUnavailableRange[];
 };
 
+export type ShortletAvailabilityPrefetchSchedule = {
+  immediateOffsets: number[];
+  deferredOffsets: number[];
+};
+
+export const SHORTLET_AVAILABILITY_PREFETCH_IMMEDIATE_OFFSETS = [0, 1] as const;
+export const SHORTLET_AVAILABILITY_PREFETCH_DEFERRED_OFFSETS = [-2, -1, 2] as const;
+
+type DeferredIdleCallbackHandle = number;
+type DeferredTaskScheduler = (task: () => void) => () => void;
+
+export function resolveShortletAvailabilityPrefetchSchedule(): ShortletAvailabilityPrefetchSchedule {
+  return {
+    immediateOffsets: [...SHORTLET_AVAILABILITY_PREFETCH_IMMEDIATE_OFFSETS],
+    deferredOffsets: [...SHORTLET_AVAILABILITY_PREFETCH_DEFERRED_OFFSETS],
+  };
+}
+
+export function shouldFetchShortletAvailabilityWindow(input: {
+  cacheKey: string;
+  loadedWindowKeys: ReadonlySet<string>;
+  inFlightWindowKeys: ReadonlySet<string>;
+  force?: boolean;
+}): boolean {
+  if (!input.cacheKey) return false;
+  if (input.force) return true;
+  if (input.loadedWindowKeys.has(input.cacheKey)) return false;
+  if (input.inFlightWindowKeys.has(input.cacheKey)) return false;
+  return true;
+}
+
+function scheduleDeferredTaskWithIdle(task: () => void): () => void {
+  type GlobalWithIdleCallbacks = typeof globalThis & {
+    requestIdleCallback?: (
+      callback: (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void,
+      options?: { timeout?: number }
+    ) => DeferredIdleCallbackHandle;
+    cancelIdleCallback?: (handle: DeferredIdleCallbackHandle) => void;
+  };
+
+  const root = globalThis as GlobalWithIdleCallbacks;
+  if (typeof root.requestIdleCallback === "function") {
+    const handle = root.requestIdleCallback(() => {
+      task();
+    }, { timeout: 600 });
+    return () => {
+      if (typeof root.cancelIdleCallback === "function") {
+        root.cancelIdleCallback(handle);
+      }
+    };
+  }
+
+  const timeoutHandle = setTimeout(() => {
+    task();
+  }, 120);
+  return () => {
+    clearTimeout(timeoutHandle);
+  };
+}
+
+export function scheduleShortletDeferredTask(
+  task: () => void,
+  scheduler: DeferredTaskScheduler = scheduleDeferredTaskWithIdle
+): () => void {
+  return scheduler(task);
+}
+
 function parseDateKey(value: string): { year: number; month: number; day: number } | null {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return null;

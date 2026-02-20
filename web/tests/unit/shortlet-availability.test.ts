@@ -5,7 +5,10 @@ import {
   expandRangesToDisabledDates,
   isRangeValid,
   nextValidEndDate,
+  resolveShortletAvailabilityPrefetchSchedule,
   resolveAvailabilityConflicts,
+  scheduleShortletDeferredTask,
+  shouldFetchShortletAvailabilityWindow,
   validateRangeSelection,
 } from "@/lib/shortlet/availability";
 
@@ -128,4 +131,74 @@ void test("prep buffer extends booked end date and blocks immediate back-to-back
   });
   assert.equal(withPrepConflict.hasConflict, true);
   assert.deepEqual(withPrepConflict.conflictingDates, ["2026-07-12"]);
+});
+
+void test("progressive prefetch schedule keeps initial requests minimal", () => {
+  const schedule = resolveShortletAvailabilityPrefetchSchedule();
+  assert.deepEqual(schedule.immediateOffsets, [0, 1]);
+  assert.deepEqual(schedule.deferredOffsets, [-2, -1, 2]);
+});
+
+void test("deferred prefetch tasks run later and support cancellation", async () => {
+  let queuedTask: (() => void) | null = null;
+  let runCount = 0;
+
+  const cancel = scheduleShortletDeferredTask(
+    () => {
+      runCount += 1;
+    },
+    (task) => {
+      queuedTask = task;
+      return () => {
+        queuedTask = null;
+      };
+    }
+  );
+
+  assert.equal(runCount, 0);
+  assert.ok(queuedTask);
+  queuedTask?.();
+  assert.equal(runCount, 1);
+
+  cancel();
+  assert.equal(queuedTask, null);
+});
+
+void test("availability window fetch guard dedupes loaded and in-flight requests", () => {
+  const loadedWindowKeys = new Set<string>(["property-1:2026-03"]);
+  const inFlightWindowKeys = new Set<string>(["property-1:2026-04"]);
+
+  assert.equal(
+    shouldFetchShortletAvailabilityWindow({
+      cacheKey: "property-1:2026-03",
+      loadedWindowKeys,
+      inFlightWindowKeys,
+    }),
+    false
+  );
+  assert.equal(
+    shouldFetchShortletAvailabilityWindow({
+      cacheKey: "property-1:2026-04",
+      loadedWindowKeys,
+      inFlightWindowKeys,
+    }),
+    false
+  );
+  assert.equal(
+    shouldFetchShortletAvailabilityWindow({
+      cacheKey: "property-1:2026-05",
+      loadedWindowKeys,
+      inFlightWindowKeys,
+    }),
+    true
+  );
+  assert.equal(
+    shouldFetchShortletAvailabilityWindow({
+      cacheKey: "property-1:2026-03",
+      loadedWindowKeys,
+      inFlightWindowKeys,
+      force: true,
+    }),
+    true
+  );
 });
