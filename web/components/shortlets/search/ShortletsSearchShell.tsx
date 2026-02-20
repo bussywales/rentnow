@@ -384,6 +384,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const quickFiltersMeasureRef = useRef<HTMLDivElement | null>(null);
   const quickFiltersPopoverRef = useRef<HTMLDivElement | null>(null);
   const searchDatesPopoverRef = useRef<HTMLDivElement | null>(null);
+  const mobileMapTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const mobileMapDialogRef = useRef<HTMLDivElement | null>(null);
+  const mobileMapPrimaryActionRef = useRef<HTMLButtonElement | null>(null);
+  const mobileMapRestoreFocusRef = useRef<HTMLElement | null>(null);
   const mapMoveDebounceRef = useRef<number | null>(null);
   const mobileListScrollYRef = useRef(0);
   const [mobileMapInvalidateNonce, setMobileMapInvalidateNonce] = useState(0);
@@ -616,6 +620,50 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     const timeout = window.setTimeout(() => setSavedToast(null), 1200);
     return () => window.clearTimeout(timeout);
   }, [savedToast]);
+
+  useEffect(() => {
+    if (!mobileMapOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const dialog = mobileMapDialogRef.current;
+    const focusableSelector =
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    const focusable = dialog ? Array.from(dialog.querySelectorAll<HTMLElement>(focusableSelector)) : [];
+    const firstFocusable = focusable[0] ?? mobileMapPrimaryActionRef.current ?? dialog;
+    const lastFocusable = focusable[focusable.length - 1] ?? firstFocusable;
+    window.setTimeout(() => {
+      firstFocusable?.focus();
+    }, 0);
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        openListView();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      if (!dialog) return;
+      const activeElement = document.activeElement as HTMLElement | null;
+      if (event.shiftKey) {
+        if (activeElement === firstFocusable || !dialog.contains(activeElement)) {
+          event.preventDefault();
+          lastFocusable?.focus();
+        }
+        return;
+      }
+      if (activeElement === lastFocusable || !dialog.contains(activeElement)) {
+        event.preventDefault();
+        firstFocusable?.focus();
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [mobileMapOpen, openListView]);
 
   const updateUrl = useCallback(
     (mutate: (next: URLSearchParams) => void) => {
@@ -1056,24 +1104,28 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     setFiltersOpen(true);
   };
 
-  const openMapView = () => {
+  const openMapView = useCallback(() => {
+    mobileMapRestoreFocusRef.current =
+      document.activeElement instanceof HTMLElement ? document.activeElement : mobileMapTriggerRef.current;
     mobileListScrollYRef.current = window.scrollY;
     const nextView = toggleShortletSearchView("list");
     setMobileView(nextView);
     setMobileMapOpen(true);
     setMobileMapInvalidateNonce((current) => current + 1);
     updateUrl((next) => next.set("view", "map"));
-  };
+  }, [updateUrl]);
 
-  const openListView = () => {
+  const openListView = useCallback(() => {
     const nextView = toggleShortletSearchView("map");
     setMobileView(nextView);
     setMobileMapOpen(false);
     updateUrl((next) => next.set("view", "list"));
     requestAnimationFrame(() => {
       window.scrollTo({ top: mobileListScrollYRef.current, behavior: "auto" });
+      const focusTarget = mobileMapTriggerRef.current ?? mobileMapRestoreFocusRef.current;
+      focusTarget?.focus();
     });
-  };
+  }, [updateUrl]);
 
   const clearDates = useCallback(() => {
     clearSearchDateRangeDraft();
@@ -1326,6 +1378,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-4 px-4 py-4">
+      <div
+        aria-hidden={mobileMapOpen}
+        {...(mobileMapOpen ? ({ inert: "" } as Record<string, string>) : {})}
+        data-testid="shortlets-shell-background"
+      >
       {showCompactSearch ? (
         <div
           className="pointer-events-none fixed inset-x-0 top-20 z-30 flex translate-y-0 justify-center px-4 opacity-100 transition-all duration-200"
@@ -2217,21 +2274,36 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       </div>
 
       <button
+        ref={mobileMapTriggerRef}
         type="button"
         onClick={openMapView}
+        aria-haspopup="dialog"
+        aria-expanded={mobileMapOpen}
+        aria-controls="shortlets-mobile-map-modal"
         className="fixed bottom-5 left-1/2 z-20 inline-flex h-11 -translate-x-1/2 items-center rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg lg:hidden"
+        data-testid="shortlets-open-map"
       >
         Map
       </button>
+      </div>
 
       {mobileMapOpen ? (
-        <div className="fixed inset-0 z-40 flex flex-col bg-white lg:hidden" data-testid="shortlets-mobile-map">
+        <div
+          id="shortlets-mobile-map-modal"
+          ref={mobileMapDialogRef}
+          className="fixed inset-0 z-40 flex flex-col bg-white lg:hidden"
+          data-testid="shortlets-mobile-map"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Map results"
+          tabIndex={-1}
+        >
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-slate-900">Map view</p>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="secondary" size="sm" onClick={openListView}>
+              <Button ref={mobileMapPrimaryActionRef} variant="secondary" size="sm" onClick={openListView}>
                 Back to results
               </Button>
               <button

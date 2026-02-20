@@ -233,11 +233,25 @@ void test("mobile map overlay renders full-screen structure with explicit height
 
   assert.ok(contents.includes('data-testid="shortlets-mobile-map"'));
   assert.ok(contents.includes("fixed inset-0 z-40"));
+  assert.ok(contents.includes('id="shortlets-mobile-map-modal"'));
+  assert.ok(contents.includes('role="dialog"'));
+  assert.ok(contents.includes('aria-modal="true"'));
+  assert.ok(contents.includes('data-testid="shortlets-shell-background"'));
+  assert.ok(contents.includes('{ inert: "" } as Record<string, string>'));
+  assert.ok(contents.includes('data-testid="shortlets-open-map"'));
+  assert.ok(contents.includes('aria-haspopup="dialog"'));
+  assert.ok(contents.includes('aria-controls="shortlets-mobile-map-modal"'));
+  assert.ok(contents.includes('ref={mobileMapPrimaryActionRef}'));
   assert.ok(contents.includes('style={{ height: "calc(100vh - 84px)" }}'));
   assert.ok(contents.includes('aria-label="Close map"'));
   assert.ok(contents.includes("Back to results"));
   assert.ok(contents.includes("mobileListScrollYRef.current = window.scrollY"));
   assert.ok(contents.includes("window.scrollTo({ top: mobileListScrollYRef.current, behavior: \"auto\" })"));
+  assert.ok(contents.includes("document.body.style.overflow = \"hidden\""));
+  assert.ok(contents.includes("focusableSelector"));
+  assert.ok(contents.includes("if (event.key !== \"Tab\")"));
+  assert.ok(contents.includes("if (event.key === \"Escape\")"));
+  assert.ok(contents.includes("mobileMapRestoreFocusRef"));
 });
 
 void test("desktop loading keeps stable container and shows refresh skeleton while fetching", () => {
