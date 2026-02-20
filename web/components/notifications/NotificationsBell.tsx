@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { resolveUnreadNotificationsCount } from "@/lib/notifications/badge";
+import { createVisibilityAwarePollController } from "@/lib/notifications/polling";
 import { cn } from "@/components/ui/cn";
 import type { UserRole } from "@/lib/types";
 
@@ -48,6 +49,9 @@ function formatRelativeTime(value: string) {
 export function NotificationsBell({ initialAuthed, initialRole }: Props) {
   const router = useRouter();
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const bellButtonRef = useRef<HTMLButtonElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+  const pollControllerRef = useRef<ReturnType<typeof createVisibilityAwarePollController> | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,6 +66,7 @@ export function NotificationsBell({ initialAuthed, initialRole }: Props) {
     initialRole === "super_admin";
 
   const viewAllHref = initialRole === "tenant" ? "/trips" : "/host/bookings#host-bookings";
+  const panelId = "notifications-panel";
 
   const refresh = useCallback(async () => {
     if (!initialAuthed || !canShow) return;
@@ -107,21 +112,43 @@ export function NotificationsBell({ initialAuthed, initialRole }: Props) {
     }
   }, [canShow, initialAuthed]);
 
+  const closePanel = useCallback((restoreFocus = true) => {
+    setOpen(false);
+    if (!restoreFocus) return;
+    window.requestAnimationFrame(() => {
+      bellButtonRef.current?.focus();
+    });
+  }, []);
+
   useEffect(() => {
     if (!initialAuthed || !canShow) return undefined;
 
-    void refresh();
-    const timer = window.setInterval(() => {
-      void refresh();
-    }, REFRESH_MS);
+    const controller = createVisibilityAwarePollController({
+      intervalMs: REFRESH_MS,
+      onTick: refresh,
+    });
+    pollControllerRef.current = controller;
+    controller.start();
 
-    return () => window.clearInterval(timer);
+    return () => {
+      controller.dispose();
+      pollControllerRef.current = null;
+    };
   }, [canShow, initialAuthed, refresh]);
 
   useEffect(() => {
+    const controller = pollControllerRef.current;
+    if (!controller) return;
+
+    controller.setEnabled(open);
     if (!open) return;
-    void refresh();
-  }, [open, refresh]);
+    void controller.triggerOnce().catch(() => undefined);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    panelRef.current?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -130,14 +157,29 @@ export function NotificationsBell({ initialAuthed, initialRole }: Props) {
       const target = event.target;
       if (!(target instanceof Node)) return;
       if (wrapperRef.current?.contains(target)) return;
-      setOpen(false);
+      closePanel();
     };
 
     document.addEventListener("mousedown", closeOnOutside);
     return () => {
       document.removeEventListener("mousedown", closeOnOutside);
     };
-  }, [open]);
+  }, [closePanel, open]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      closePanel();
+    };
+
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [closePanel, open]);
 
   const hasItems = items.length > 0;
   const sortedItems = useMemo(
@@ -150,10 +192,13 @@ export function NotificationsBell({ initialAuthed, initialRole }: Props) {
   return (
     <div ref={wrapperRef} className="relative">
       <button
+        ref={bellButtonRef}
         type="button"
         onClick={() => setOpen((value) => !value)}
         className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
         aria-label="Open notifications"
+        aria-expanded={open}
+        aria-controls={panelId}
         data-testid="notifications-bell"
       >
         <svg
@@ -179,7 +224,14 @@ export function NotificationsBell({ initialAuthed, initialRole }: Props) {
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-40 mt-2 w-[22rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
+        <div
+          ref={panelRef}
+          id={panelId}
+          role="dialog"
+          aria-label="Notifications"
+          tabIndex={-1}
+          className="absolute right-0 z-40 mt-2 w-[22rem] max-w-[calc(100vw-1rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl"
+        >
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <p className="text-sm font-semibold text-slate-900">Notifications</p>
             {unreadCount > 0 ? (
@@ -214,7 +266,7 @@ export function NotificationsBell({ initialAuthed, initialRole }: Props) {
                       );
                       setUnreadCount((prev) => (item.is_read ? prev : Math.max(0, prev - 1)));
                       await markRead([item.id]);
-                      setOpen(false);
+                      closePanel(false);
                       router.push(item.href || viewAllHref);
                     }}
                     className={cn(
@@ -247,7 +299,7 @@ export function NotificationsBell({ initialAuthed, initialRole }: Props) {
             <Link
               href={viewAllHref}
               className="text-xs font-semibold text-sky-700 hover:text-sky-900"
-              onClick={() => setOpen(false)}
+              onClick={() => closePanel(false)}
             >
               View all
             </Link>
