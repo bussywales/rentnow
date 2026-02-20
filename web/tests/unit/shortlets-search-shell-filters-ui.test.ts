@@ -16,8 +16,10 @@ void test("shortlets shell renders a filters drawer with apply and clear actions
   assert.ok(contents.includes("setFiltersOpen(false)"));
   assert.ok(contents.includes("Free cancellation"));
   assert.ok(contents.includes("freeCancellation"));
-  assert.ok(contents.includes("Price display"));
+  assert.ok(contents.includes("View options"));
   assert.ok(contents.includes("Display total price"));
+  assert.ok(contents.includes("Search as I move the map"));
+  assert.ok(contents.includes("Saved only"));
 });
 
 void test("shortlets shell quick filters are constrained to a single horizontal row", () => {
@@ -67,7 +69,7 @@ void test("shortlets shell exposes compact sticky pill summary controls", () => 
   assert.ok(contents.includes("whereSummary"));
   assert.ok(contents.includes("datesSummary"));
   assert.ok(contents.includes("guestsSummary"));
-  assert.ok(contents.includes('data-testid="shortlets-price-display-toggle-compact"'));
+  assert.equal(contents.includes('data-testid="shortlets-price-display-toggle-compact"'), false);
   assert.ok(contents.includes("shouldUseCompactShortletSearchPill(window.scrollY)"));
   assert.ok(contents.includes('<option value="price_asc">Price low-high</option>'));
   assert.ok(contents.includes('<option value="price_desc">Price high-low</option>'));
@@ -131,7 +133,9 @@ void test("shortlets shell heading copy follows destination-driven messaging", (
   assert.ok(contents.includes("Find shortlets anywhere"));
   assert.ok(contents.includes("Find shortlets across Nigeria"));
   assert.ok(contents.includes("Find shortlets in ${activeDestination}"));
-  assert.ok(contents.includes("Prices shown in {marketCurrency}"));
+  assert.ok(contents.includes("pricingContextCopy"));
+  assert.ok(contents.includes("Prices vary by listing."));
+  assert.ok(contents.includes("Prices shown in ${marketCurrency}. Market changes pricing context, not destination."));
 });
 
 void test("shortlets shell uses where typeahead with recent and saved search hooks", () => {
@@ -165,6 +169,8 @@ void test("shortlets shell result summary reflects bbox-applied map-area state",
   assert.ok(contents.includes('data-testid="shortlets-results-label"'));
   assert.ok(contents.includes("Clear map area"));
   assert.ok(contents.includes('data-testid="shortlets-clear-map-area"'));
+  assert.ok(contents.includes("showExploreMapHint"));
+  assert.ok(contents.includes("Explore the map, then use Search this area."));
 });
 
 void test("shortlets shell supports opt-in map move search toggle", () => {

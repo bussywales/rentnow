@@ -1160,12 +1160,23 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     hasDates: hasValidPriceDates,
     priceDisplay: parsedUi.priceDisplay,
   });
+  const activeDrawerToggleCount =
+    Number(isMapMoveSearchEnabled) + Number(totalPriceDisplayActive) + Number(savedOnlyActive);
+  const hasActiveDrawerIndicator = appliedFilterCount > 0 || activeDrawerToggleCount > 0;
   const hasDateSelection = Boolean(parsedUi.checkIn || parsedUi.checkOut);
   const heading = activeDestination
     ? isNigeriaDestinationQuery(activeDestination)
       ? "Find shortlets across Nigeria"
       : `Find shortlets in ${activeDestination}`
     : "Find shortlets anywhere";
+  const currencyCodesInResults = new Set(
+    filteredItems.map((item) => String(item.currency || "").trim().toUpperCase()).filter(Boolean)
+  );
+  const pricingContextCopy =
+    currencyCodesInResults.size > 1
+      ? "Prices vary by listing."
+      : `Prices shown in ${marketCurrency}. Market changes pricing context, not destination.`;
+  const showExploreMapHint = !isBboxApplied && !activeDestination;
 
   return (
     <div className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-4 px-4 py-4">
@@ -1200,20 +1211,6 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               <span className="truncate">{guestsSummary}</span>
             </button>
             <div className="ml-auto flex items-center gap-2">
-              <label
-                className="inline-flex items-center gap-2 whitespace-nowrap text-xs font-medium text-slate-600"
-                data-testid="shortlets-price-display-toggle-compact"
-              >
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                  checked={totalPriceDisplayActive}
-                  disabled={!hasValidPriceDates}
-                  onChange={(event) => onTogglePriceDisplay(event.target.checked)}
-                  aria-label="Display total price"
-                />
-                Display total price
-              </label>
               <Select
                 value={parsedUi.sort}
                 onChange={(event) => updateUrl((next) => next.set("sort", event.target.value))}
@@ -1236,7 +1233,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                 onClick={openFiltersDrawer}
                 className="h-9 whitespace-nowrap"
               >
-                {appliedFilterCount > 0 ? `Filters (${appliedFilterCount})` : "Filters"}
+                <span className="inline-flex items-center gap-1.5">
+                  <span>{appliedFilterCount > 0 ? `Filters (${appliedFilterCount})` : "Filters"}</span>
+                  {hasActiveDrawerIndicator ? (
+                    <span
+                      className="h-2 w-2 rounded-full bg-sky-500"
+                      data-testid="shortlets-filters-active-indicator-compact"
+                    />
+                  ) : null}
+                </span>
               </Button>
             </div>
           </div>
@@ -1249,9 +1254,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         <p className="mt-1 text-sm text-slate-600">
           Search by area, landmark, and dates. Map prices are nightly and availability-aware.
         </p>
-        <p className="mt-1 text-xs text-slate-500">
-          Prices shown in {marketCurrency}. Market changes pricing context, not destination.
-        </p>
+        <p className="mt-1 text-xs text-slate-500">{pricingContextCopy}</p>
 
         <div
           ref={expandedSearchHeaderRef}
@@ -1259,7 +1262,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           data-testid="shortlets-expanded-search-controls"
           aria-hidden={showCompactSearch}
         >
-          <div className="grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.75fr)_auto_auto_minmax(0,1.1fr)_minmax(0,0.85fr)]">
+          <div className="grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.75fr)_auto_auto_minmax(0,0.85fr)]">
           <WhereTypeahead
             inputRef={whereInputRef}
             value={queryDraft}
@@ -1317,29 +1320,16 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             className="h-11 whitespace-nowrap"
             data-testid="shortlets-filters-button"
           >
-            {appliedFilterCount > 0 ? `Filters (${appliedFilterCount})` : "Filters"}
+            <span className="inline-flex items-center gap-1.5">
+              <span>{appliedFilterCount > 0 ? `Filters (${appliedFilterCount})` : "Filters"}</span>
+              {hasActiveDrawerIndicator ? (
+                <span
+                  className="h-2 w-2 rounded-full bg-sky-500"
+                  data-testid="shortlets-filters-active-indicator"
+                />
+              ) : null}
+            </span>
           </Button>
-          <div className="flex min-w-0 flex-col justify-center gap-1">
-            <label
-              className="inline-flex items-center gap-2 text-xs font-medium text-slate-600"
-              data-testid="shortlets-price-display-toggle"
-            >
-              <input
-                type="checkbox"
-                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                checked={totalPriceDisplayActive}
-                disabled={!hasValidPriceDates}
-                onChange={(event) => onTogglePriceDisplay(event.target.checked)}
-                aria-label="Display total price"
-              />
-              Display total price
-            </label>
-            {!hasValidPriceDates ? (
-              <p className="text-[11px] text-slate-500" data-testid="shortlets-price-display-helper">
-                Select dates to see total price.
-              </p>
-            ) : null}
-          </div>
           <Select
             value={parsedUi.sort}
             onChange={(event) => updateUrl((next) => next.set("sort", event.target.value))}
@@ -1371,7 +1361,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             ))}
           </div>
 
-          <div className="flex min-w-0 items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
             <div className="min-w-0 flex-1">
               {quickFiltersCollapsed ? (
                 <div
@@ -1444,19 +1434,6 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                 </div>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => setSavedView(!savedOnlyActive)}
-              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                savedOnlyActive
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-              }`}
-              data-testid="shortlets-saved-toggle"
-              aria-pressed={savedOnlyActive}
-            >
-              Saved
-            </button>
           </div>
         </div>
 
@@ -1584,7 +1561,17 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                 </section>
 
                 <section className="space-y-2">
-                  <h2 className="text-sm font-semibold text-slate-900">Price display</h2>
+                  <h2 className="text-sm font-semibold text-slate-900">View options</h2>
+                  <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
+                    <span>Search as I move the map</span>
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                      checked={isMapMoveSearchEnabled}
+                      onChange={(event) => onToggleMapMoveSearch(event.target.checked)}
+                      data-testid="shortlets-map-move-toggle"
+                    />
+                  </label>
                   <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
                     <span>Display total price</span>
                     <input
@@ -1593,11 +1580,24 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                       disabled={!hasValidPriceDates}
                       onChange={(event) => onTogglePriceDisplay(event.target.checked)}
                       className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                      data-testid="shortlets-price-display-toggle"
                     />
                   </label>
                   {!hasValidPriceDates ? (
-                    <p className="text-xs text-slate-500">Select dates to see total price.</p>
+                    <p className="text-xs text-slate-500" data-testid="shortlets-price-display-helper">
+                      Select dates to see total price.
+                    </p>
                   ) : null}
+                  <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
+                    <span>Saved only</span>
+                    <input
+                      type="checkbox"
+                      checked={savedOnlyActive}
+                      onChange={(event) => setSavedView(event.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                      data-testid="shortlets-saved-toggle"
+                    />
+                  </label>
                 </section>
               </div>
 
@@ -1660,18 +1660,6 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               {filteredTotal === 0 && !!parsedUi.checkIn && !!parsedUi.checkOut ? (
                 <p className="text-xs text-slate-500">Try nearby dates or expand map area.</p>
               ) : null}
-              <label
-                className="inline-flex items-center gap-2 text-xs font-medium text-slate-600"
-                data-testid="shortlets-map-move-toggle"
-              >
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                  checked={isMapMoveSearchEnabled}
-                  onChange={(event) => onToggleMapMoveSearch(event.target.checked)}
-                />
-                Search as I move the map
-              </label>
               <Button
                 type="button"
                 variant="secondary"
@@ -1831,6 +1819,13 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               height="min(76vh, 800px)"
               invalidateNonce={0}
             />
+            {showExploreMapHint ? (
+              <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">
+                <span className="rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[11px] font-medium text-slate-600 shadow-sm">
+                  Explore the map, then use Search this area.
+                </span>
+              </div>
+            ) : null}
             {!isMapMoveSearchEnabled && searchAreaDirty ? (
               <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">
                 <Button className="pointer-events-auto" onClick={onSearchThisArea}>
@@ -1995,15 +1990,6 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
               <p className="text-sm font-semibold text-slate-900">Map view</p>
-              <label className="mt-1 inline-flex items-center gap-2 text-xs text-slate-600">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                  checked={isMapMoveSearchEnabled}
-                  onChange={(event) => onToggleMapMoveSearch(event.target.checked)}
-                />
-                Search as I move the map
-              </label>
             </div>
             <div className="flex items-center gap-2">
               <Button variant="secondary" size="sm" onClick={openListView}>
@@ -2037,6 +2023,13 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               height="calc(100vh - 84px)"
               invalidateNonce={mobileMapInvalidateNonce}
             />
+            {showExploreMapHint ? (
+              <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">
+                <span className="rounded-full border border-slate-200 bg-white/90 px-3 py-1 text-[11px] font-medium text-slate-600 shadow-sm">
+                  Explore the map, then use Search this area.
+                </span>
+              </div>
+            ) : null}
             {!isMapMoveSearchEnabled && searchAreaDirty ? (
               <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">
                 <Button className="pointer-events-auto" onClick={onSearchThisArea}>
