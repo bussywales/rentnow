@@ -269,6 +269,7 @@ export async function GET(request: NextRequest) {
         currency: item.currency,
         nightlyPriceMinor: item.nightlyPriceMinor,
         primaryImageUrl: item.primaryImageUrl ?? item.cover_image_url ?? null,
+        mapPreviewImageUrl: item.mapPreviewImageUrl ?? item.primaryImageUrl ?? item.cover_image_url ?? null,
         latitude: item.latitude,
         longitude: item.longitude,
       }));

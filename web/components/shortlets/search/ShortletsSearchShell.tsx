@@ -76,6 +76,7 @@ import { getSavedIds, toggleSaved } from "@/lib/shortlet/saved.client";
 
 type SearchItem = Property & {
   primaryImageUrl?: string | null;
+  mapPreviewImageUrl?: string | null;
   coverImageUrl?: string | null;
   imageCount?: number;
   imageUrls?: string[];
@@ -113,6 +114,7 @@ type SearchResponse = {
     pricingMode?: "nightly" | "price_on_request";
     bookingMode?: "instant" | "request";
     primaryImageUrl: string | null;
+    mapPreviewImageUrl?: string | null;
     latitude: number | null;
     longitude: number | null;
   }>;
@@ -264,6 +266,7 @@ function buildNearbySearchBbox(lat: number, lng: number): string {
 
 function normalizeSearchItemImageFields(item: SearchItem): SearchItem {
   const primaryImageUrl = item.primaryImageUrl ?? null;
+  const mapPreviewImageUrl = item.mapPreviewImageUrl ?? primaryImageUrl;
   const coverImageUrl = item.coverImageUrl ?? item.cover_image_url ?? primaryImageUrl;
   const images =
     item.images ??
@@ -275,6 +278,7 @@ function normalizeSearchItemImageFields(item: SearchItem): SearchItem {
   return {
     ...item,
     primaryImageUrl,
+    mapPreviewImageUrl,
     cover_image_url: coverImageUrl,
     images,
   };
@@ -1271,6 +1275,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               resolveShortletBookingMode(filteredById.get(item.id) ?? {}) ??
               item.bookingMode ??
               "request",
+            mapPreviewImageUrl:
+              filteredById.get(item.id)?.mapPreviewImageUrl ??
+              item.mapPreviewImageUrl ??
+              item.primaryImageUrl ??
+              null,
             latitude: typeof item.latitude === "number" ? item.latitude : null,
             longitude: typeof item.longitude === "number" ? item.longitude : null,
             href: buildPropertyHref(item.id),
@@ -1285,6 +1294,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         pricingMode: item.pricingMode ?? "nightly",
         bookingMode: resolveShortletBookingMode(item) ?? "request",
         primaryImageUrl: item.primaryImageUrl ?? item.cover_image_url ?? null,
+        mapPreviewImageUrl: item.mapPreviewImageUrl ?? item.primaryImageUrl ?? item.cover_image_url ?? null,
         latitude: typeof item.latitude === "number" ? item.latitude : null,
         longitude: typeof item.longitude === "number" ? item.longitude : null,
         href: buildPropertyHref(item.id),

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import L from "leaflet";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -29,6 +30,7 @@ type MapListing = {
   pricingMode: "nightly" | "price_on_request";
   bookingMode: "instant" | "request";
   primaryImageUrl: string | null;
+  mapPreviewImageUrl?: string | null;
   latitude: number | null;
   longitude: number | null;
   href: string;
@@ -407,12 +409,14 @@ export function ShortletsSearchMapClient({
           <div className="pointer-events-auto overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-xl">
             <div className="flex items-center gap-3 p-3">
               <div className="h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-slate-100">
-                {selectedListing.primaryImageUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={selectedListing.primaryImageUrl}
+                {selectedListing.mapPreviewImageUrl || selectedListing.primaryImageUrl ? (
+                  <Image
+                    src={selectedListing.mapPreviewImageUrl ?? selectedListing.primaryImageUrl ?? ""}
                     alt={selectedListing.title}
+                    width={80}
+                    height={56}
                     className="h-full w-full object-cover"
+                    sizes="80px"
                     loading="lazy"
                   />
                 ) : (

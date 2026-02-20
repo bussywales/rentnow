@@ -79,6 +79,7 @@ export type ShortletSearchPropertyRow = Property & {
 
 export type ShortletSearchResultItem = Property & {
   primaryImageUrl: string | null;
+  mapPreviewImageUrl: string | null;
   coverImageUrl: string | null;
   imageCount: number;
   imageUrls: string[];
@@ -756,6 +757,11 @@ export function mapShortletSearchRowsToResultItems(
     const primaryImageUrl = resolveShortletPrimaryImageUrl(row);
     const orderedImages = orderImagesWithCover(primaryImageUrl, normalizedImages);
     const coverImageUrl = primaryImageUrl;
+    const mapPreviewImageUrl = (() => {
+      const firstImage = orderedImages[0];
+      if (!firstImage) return primaryImageUrl;
+      return resolvePropertyImageUrl(firstImage, "thumb") ?? resolvePropertyImageUrl(firstImage, "card") ?? firstImage.image_url;
+    })();
     const imageUrls = orderedImages
       .slice(0, 5)
       .map((img) => resolvePropertyImageUrl(img, "card") ?? img.image_url);
@@ -791,6 +797,7 @@ export function mapShortletSearchRowsToResultItems(
       cover_image_url: coverImageUrl,
       images: orderedImages,
       primaryImageUrl,
+      mapPreviewImageUrl,
       coverImageUrl,
       imageCount,
       imageUrls,

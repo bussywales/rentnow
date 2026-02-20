@@ -19,6 +19,8 @@ void test("shortlets map preview exposes click-through CTA aligned to true booka
   assert.ok(contents.includes("resolveShortletBookabilityCta"));
   assert.ok(contents.includes('data-testid="shortlets-map-preview-cta"'));
   assert.ok(contents.includes("href={selectedListing.href}"));
+  assert.ok(contents.includes("mapPreviewImageUrl"));
   assert.ok(contents.includes("bookingMode: selectedListing.bookingMode"));
   assert.ok(contents.includes("pricingMode: selectedListing.pricingMode"));
+  assert.equal(contents.includes("<img"), false);
 });
