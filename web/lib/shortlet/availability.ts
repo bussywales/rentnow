@@ -30,16 +30,23 @@ export type ShortletAvailabilityPrefetchSchedule = {
   deferredOffsets: number[];
 };
 
+export type ShortletAvailabilityPrefetchPhase = "initial" | "interaction";
+
 export const SHORTLET_AVAILABILITY_PREFETCH_IMMEDIATE_OFFSETS = [0, 1] as const;
 export const SHORTLET_AVAILABILITY_PREFETCH_DEFERRED_OFFSETS = [-2, -1, 2] as const;
 
 type DeferredIdleCallbackHandle = number;
 type DeferredTaskScheduler = (task: () => void) => () => void;
 
-export function resolveShortletAvailabilityPrefetchSchedule(): ShortletAvailabilityPrefetchSchedule {
+export function resolveShortletAvailabilityPrefetchSchedule(
+  phase: ShortletAvailabilityPrefetchPhase = "initial"
+): ShortletAvailabilityPrefetchSchedule {
   return {
     immediateOffsets: [...SHORTLET_AVAILABILITY_PREFETCH_IMMEDIATE_OFFSETS],
-    deferredOffsets: [...SHORTLET_AVAILABILITY_PREFETCH_DEFERRED_OFFSETS],
+    deferredOffsets:
+      phase === "interaction"
+        ? [...SHORTLET_AVAILABILITY_PREFETCH_DEFERRED_OFFSETS]
+        : [],
   };
 }
 

@@ -134,9 +134,13 @@ void test("prep buffer extends booked end date and blocks immediate back-to-back
 });
 
 void test("progressive prefetch schedule keeps initial requests minimal", () => {
-  const schedule = resolveShortletAvailabilityPrefetchSchedule();
-  assert.deepEqual(schedule.immediateOffsets, [0, 1]);
-  assert.deepEqual(schedule.deferredOffsets, [-2, -1, 2]);
+  const initialSchedule = resolveShortletAvailabilityPrefetchSchedule("initial");
+  assert.deepEqual(initialSchedule.immediateOffsets, [0, 1]);
+  assert.deepEqual(initialSchedule.deferredOffsets, []);
+
+  const interactionSchedule = resolveShortletAvailabilityPrefetchSchedule("interaction");
+  assert.deepEqual(interactionSchedule.immediateOffsets, [0, 1]);
+  assert.deepEqual(interactionSchedule.deferredOffsets, [-2, -1, 2]);
 });
 
 void test("deferred prefetch tasks run later and support cancellation", async () => {

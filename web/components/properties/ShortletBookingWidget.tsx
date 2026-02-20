@@ -7,6 +7,7 @@ import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/Button";
 import { Calendar } from "@/components/ui/calendar";
 import {
+  type ShortletAvailabilityPrefetchPhase,
   expandRangesToDisabledDates,
   resolveShortletAvailabilityPrefetchSchedule,
   scheduleShortletDeferredTask,
@@ -606,10 +607,14 @@ export function ShortletBookingWidget(props: {
   const prefetchAvailabilityMonths = useCallback(
     async (
       baseMonth: Date,
-      options?: { force?: boolean; deferDeferred?: boolean }
+      options?: {
+        force?: boolean;
+        deferDeferred?: boolean;
+        phase?: ShortletAvailabilityPrefetchPhase;
+      }
     ) => {
       const monthStart = new Date(baseMonth.getFullYear(), baseMonth.getMonth(), 1);
-      const schedule = resolveShortletAvailabilityPrefetchSchedule();
+      const schedule = resolveShortletAvailabilityPrefetchSchedule(options?.phase ?? "initial");
       await Promise.all(
         schedule.immediateOffsets.map((offset) =>
           loadAvailabilityWindow(withMonthOffset(monthStart, offset), {
@@ -641,12 +646,18 @@ export function ShortletBookingWidget(props: {
   );
 
   useEffect(() => {
-    void prefetchAvailabilityMonths(new Date(), { deferDeferred: true });
+    void prefetchAvailabilityMonths(new Date(), {
+      phase: "initial",
+      deferDeferred: false,
+    });
   }, [prefetchAvailabilityMonths]);
 
   useEffect(() => {
     if (!calendarOpen) return;
-    void prefetchAvailabilityMonths(calendarMonth, { deferDeferred: true });
+    void prefetchAvailabilityMonths(calendarMonth, {
+      phase: "interaction",
+      deferDeferred: true,
+    });
   }, [calendarMonth, calendarOpen, prefetchAvailabilityMonths]);
 
   useEffect(
@@ -997,7 +1008,11 @@ export function ShortletBookingWidget(props: {
           setConflictingDates(conflictDates);
           setAvailabilityNotice("Just booked — refreshed. Choose different dates.");
           setSelectionHint("Unavailable. Choose different dates.");
-          await prefetchAvailabilityMonths(selectedRange?.from ?? calendarMonth, { force: true });
+          await prefetchAvailabilityMonths(selectedRange?.from ?? calendarMonth, {
+            force: true,
+            phase: "interaction",
+            deferDeferred: false,
+          });
           if (conflictRanges.length > 0) {
             setUnavailableRanges((previous) => dedupeUnavailableRanges(previous, conflictRanges));
           }
