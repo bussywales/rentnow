@@ -8,17 +8,17 @@ import { searchProperties } from "@/lib/search";
 import {
   filterShortletRowsByDateAvailability,
   isNigeriaDestinationQuery,
-  isWithinBounds,
   mapShortletSearchRowsToResultItems,
-  matchesFreeCancellationFilter,
-  matchesShortletDestination,
-  matchesTrustFilters,
   parseShortletSearchFilters,
   sortShortletSearchResults,
   type ShortletSearchPropertyRow,
   type ShortletOverlapRow,
 } from "@/lib/shortlet/search";
-import { resolveShortletBookingMode } from "@/lib/shortlet/discovery";
+import {
+  appendShortletPipelineReason,
+  runShortletPreAvailabilityPipeline,
+  type ShortletPipelineDebugReason,
+} from "@/lib/shortlet/search-pipeline";
 
 const routeLabel = "/api/shortlets/search";
 const MAX_SOURCE_ROWS = 600;
@@ -35,6 +35,8 @@ type ProfileTrustRow = {
   bank_verified?: boolean | null;
 };
 
+type RouteDebugReason = ShortletPipelineDebugReason | "availability_conflict";
+
 function isDateRangeValid(checkIn: string, checkOut: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(checkIn) && /^\d{4}-\d{2}-\d{2}$/.test(checkOut) && checkIn < checkOut;
 }
@@ -47,23 +49,6 @@ function parseOverlapRows(input: Array<Record<string, unknown>> | null, startKey
   })) as ShortletOverlapRow[]).filter(
     (row) => !!row.property_id && /^\d{4}-\d{2}-\d{2}$/.test(row.start) && /^\d{4}-\d{2}-\d{2}$/.test(row.end)
   );
-}
-
-type DebugReason =
-  | "destination_mismatch"
-  | "bbox_mismatch"
-  | "trust_filter_mismatch"
-  | "booking_mode_mismatch"
-  | "free_cancellation_mismatch"
-  | "availability_conflict";
-
-function appendReason(map: Map<string, Set<DebugReason>>, propertyId: string, reason: DebugReason) {
-  const existing = map.get(propertyId);
-  if (existing) {
-    existing.add(reason);
-    return;
-  }
-  map.set(propertyId, new Set([reason]));
 }
 
 export const dynamic = "force-dynamic";
@@ -129,7 +114,6 @@ export async function GET(request: NextRequest) {
     }
 
     const baselineRows = ((data as Property[] | null) ?? []).map((row) => ({ ...row }));
-    const debugReasons = new Map<string, Set<DebugReason>>();
     const ownerIds = Array.from(new Set(baselineRows.map((row) => row.owner_id).filter(Boolean)));
 
     const verifiedHostIds = new Set<string>();
@@ -144,45 +128,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const destinationFilteredRows = baselineRows.filter((property) => {
-      const matchesDestination = matchesShortletDestination(property, filters.where);
-      if (!matchesDestination && debugEnabled) {
-        appendReason(debugReasons, property.id, "destination_mismatch");
-      }
-      return matchesDestination;
+    const preAvailabilityPipeline = runShortletPreAvailabilityPipeline({
+      baselineRows,
+      filters,
+      verifiedHostIds,
+      debugEnabled,
     });
-
-    const bboxFilteredRows = destinationFilteredRows.filter((property) => {
-      const withinBounds = isWithinBounds(property, filters.bounds);
-      if (!withinBounds && debugEnabled) {
-        appendReason(debugReasons, property.id, "bbox_mismatch");
-      }
-      return withinBounds;
-    });
-
-    let rows = bboxFilteredRows.filter((property) => {
-      if (!matchesTrustFilters({ property, trustFilters: filters.trust, verifiedHostIds })) {
-        if (debugEnabled) appendReason(debugReasons, property.id, "trust_filter_mismatch");
-        return false;
-      }
-      if (filters.provider.bookingMode) {
-        const bookingMode = resolveShortletBookingMode(property);
-        if (bookingMode !== filters.provider.bookingMode) {
-          if (debugEnabled) appendReason(debugReasons, property.id, "booking_mode_mismatch");
-          return false;
-        }
-      }
-      if (
-        !matchesFreeCancellationFilter({
-          property,
-          freeCancellationOnly: filters.provider.freeCancellation,
-        })
-      ) {
-        if (debugEnabled) appendReason(debugReasons, property.id, "free_cancellation_mismatch");
-        return false;
-      }
-      return true;
-    });
+    let rows = preAvailabilityPipeline.providerFilteredRows;
+    const debugReasons = preAvailabilityPipeline.debugReasons as Map<string, Set<RouteDebugReason>>;
 
     let unavailablePropertyIds = new Set<string>();
     if (hasDateRange && rows.length > 0) {
@@ -229,7 +182,7 @@ export async function GET(request: NextRequest) {
       unavailablePropertyIds = availabilityFiltered.unavailablePropertyIds;
       if (debugEnabled) {
         for (const propertyId of unavailablePropertyIds) {
-          appendReason(debugReasons, propertyId, "availability_conflict");
+          appendShortletPipelineReason(debugReasons, propertyId, "availability_conflict");
         }
       }
     }
@@ -327,9 +280,10 @@ export async function GET(request: NextRequest) {
         }));
 
       payload.__debug = {
-        baselineCount: baselineRows.length,
-        destinationFiltered: destinationFilteredRows.length,
-        bboxFiltered: bboxFilteredRows.length,
+        baselineCount: preAvailabilityPipeline.stageCounts.baselineCount,
+        destinationFiltered: preAvailabilityPipeline.stageCounts.destinationFilteredCount,
+        bboxFiltered: preAvailabilityPipeline.stageCounts.bboxFilteredCount,
+        providerFiltered: preAvailabilityPipeline.stageCounts.providerFilteredCount,
         final: sorted.length,
         pagedCount: items.length,
         mapCount: mapItems.length,
