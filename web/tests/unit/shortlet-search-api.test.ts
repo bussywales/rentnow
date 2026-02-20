@@ -336,6 +336,8 @@ void test("shortlet search result items expose canonical cover image fields", ()
   assert.equal(mapped.nightlyPrice, null);
   assert.equal(mapped.nights, null);
   assert.equal(mapped.subtotal, null);
+  assert.equal(mapped.feeTotal, null);
+  assert.equal(mapped.feesIncluded, false);
   assert.equal(mapped.total, null);
   assert.equal(mapped.images?.[0]?.image_url, "https://example.com/img-1.jpg");
   assert.equal(mapped.hasCoords, false);
@@ -373,7 +375,35 @@ void test("shortlet search mapping includes nightly and date totals when check-i
     cleaningFee: 0,
     taxes: 0,
   });
+  assert.equal(mapped.feeTotal, 0);
+  assert.equal(mapped.feesIncluded, false);
   assert.equal(mapped.total, 135000);
+});
+
+void test("shortlet search mapping marks feesIncluded when fee total is positive", () => {
+  const rows = [
+    {
+      ...buildProperty({
+        id: "priced-with-fees",
+        shortlet_settings: [{ nightly_price_minor: 5000000, booking_mode: "request" }],
+      }),
+      property_images: [],
+    },
+  ];
+
+  const [mapped] = mapShortletSearchRowsToResultItems(rows, {
+    checkIn: "2026-03-10",
+    checkOut: "2026-03-12",
+    feePolicy: {
+      serviceFeePct: 2.5,
+      cleaningFee: 6000,
+      taxPct: 1,
+    },
+  });
+
+  assert.equal(mapped.feeTotal, 9500);
+  assert.equal(mapped.feesIncluded, true);
+  assert.equal(mapped.total, 109500);
 });
 
 void test("map/list decoupling keeps list items without coords while map can skip them", () => {

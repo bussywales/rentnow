@@ -16,6 +16,8 @@ void test("shortlets shell renders a filters drawer with apply and clear actions
   assert.ok(contents.includes("setFiltersOpen(false)"));
   assert.ok(contents.includes("Free cancellation"));
   assert.ok(contents.includes("freeCancellation"));
+  assert.ok(contents.includes("Price display"));
+  assert.ok(contents.includes("Display total price"));
 });
 
 void test("shortlets shell quick filters are constrained to a single horizontal row", () => {
@@ -65,10 +67,24 @@ void test("shortlets shell exposes compact sticky pill summary controls", () => 
   assert.ok(contents.includes("whereSummary"));
   assert.ok(contents.includes("datesSummary"));
   assert.ok(contents.includes("guestsSummary"));
+  assert.ok(contents.includes('data-testid="shortlets-price-display-toggle-compact"'));
   assert.ok(contents.includes("shouldUseCompactShortletSearchPill(window.scrollY)"));
   assert.ok(contents.includes('<option value="price_asc">Price low-high</option>'));
   assert.ok(contents.includes('<option value="price_desc">Price high-low</option>'));
   assert.ok(contents.includes('<option value="rating">Rating</option>'));
+});
+
+void test("price display toggle is URL-driven and disabled until dates are selected", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("parsePriceDisplayParam"));
+  assert.ok(contents.includes("formatPriceDisplayParam"));
+  assert.ok(contents.includes("isTotalPriceEnabled"));
+  assert.ok(contents.includes('data-testid="shortlets-price-display-toggle"'));
+  assert.ok(contents.includes('data-testid="shortlets-price-display-helper"'));
+  assert.ok(contents.includes("Select dates to see total price."));
+  assert.ok(contents.includes('next.set("priceDisplay", formatPriceDisplayParam(enabled ? "total" : "nightly"))'));
+  assert.ok(contents.includes("priceDisplay: parsePriceDisplayParam(searchParams.get(\"priceDisplay\"))"));
 });
 
 void test("guests control always renders readable guest labels", () => {

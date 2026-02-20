@@ -23,7 +23,7 @@ void test("shortlets search card keeps a calm hierarchy with stable height and 2
   assert.ok(contents.includes("line-clamp-2 min-h-[2.8rem]"));
   assert.ok(contents.includes("min-h-[164px]"));
   assert.ok(contents.includes("Price on request"));
-  assert.ok(contents.includes("Fees shown at checkout"));
+  assert.ok(contents.includes("Includes fees"));
   assert.ok(contents.includes("Pricing details"));
   assert.equal(contents.includes("property.description"), false);
 });
@@ -81,7 +81,7 @@ void test("shortlets card badge follows free-cancellation > verified-host > inst
   );
 });
 
-void test("shortlets card pricing shows nightly label and total when date totals are available", () => {
+void test("shortlets card pricing resolves nightly and total labels for display toggle modes", () => {
   const withTotals = resolveShortletsCardPricing({
     currency: "NGN",
     nightlyPriceMinor: 4500000,
@@ -92,9 +92,21 @@ void test("shortlets card pricing shows nightly label and total when date totals
   });
 
   assert.equal(withTotals.nightlyLabel.includes("/ night"), true);
-  assert.equal(withTotals.totalLabel?.includes("3 nights"), true);
-  assert.equal(withTotals.feesHint, "Fees shown at checkout");
+  assert.equal(withTotals.totalLabel?.includes(" total"), true);
+  assert.equal(withTotals.nightsLabel, "3 nights");
+  assert.equal(withTotals.feesHint, null);
   assert.equal(withTotals.hasBreakdown, true);
+
+  const withFees = resolveShortletsCardPricing({
+    currency: "NGN",
+    nightlyPriceMinor: 5000000,
+    nights: 2,
+    subtotal: 100000,
+    fees: { serviceFee: 2500, cleaningFee: 6000, taxes: 1000 },
+    total: 109500,
+  });
+  assert.equal(withFees.feesHint, "Includes fees");
+  assert.equal(withFees.nightlySecondaryLabel?.includes("/ night"), true);
 
   const priceOnRequest = resolveShortletsCardPricing({
     currency: "NGN",
@@ -103,5 +115,6 @@ void test("shortlets card pricing shows nightly label and total when date totals
   });
   assert.equal(priceOnRequest.nightlyLabel, "Price on request");
   assert.equal(priceOnRequest.totalLabel, null);
+  assert.equal(priceOnRequest.nightlySecondaryLabel, null);
   assert.equal(priceOnRequest.hasBreakdown, false);
 });

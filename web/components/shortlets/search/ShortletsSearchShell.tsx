@@ -24,10 +24,13 @@ import {
   applySearchThisArea,
   createDefaultShortletAdvancedFilters,
   createShortletMapSearchAreaState,
+  formatPriceDisplayParam,
   formatShortletGuestsLabel,
   isShortletMapMoveSearchEnabled,
+  isTotalPriceEnabled,
   listShortletActiveFilterTags,
   normalizeShortletGuestsParam,
+  parsePriceDisplayParam,
   readShortletAdvancedFiltersFromParams,
   resolveShortletPendingMapAreaLabel,
   resolveShortletResultsLabel,
@@ -87,6 +90,8 @@ type SearchItem = Property & {
     taxes?: number | null;
   } | null;
   total?: number | null;
+  feeTotal?: number | null;
+  feesIncluded?: boolean;
 };
 
 type SearchResponse = {
@@ -164,6 +169,7 @@ function readQueryParamsFromSearchParams(searchParams: URLSearchParams) {
     guests: String(guests),
     market: /^[A-Z]{2}$/.test(market) ? market : "NG",
     sort: normalizeShortletSortParam(searchParams.get("sort")),
+    priceDisplay: parsePriceDisplayParam(searchParams.get("priceDisplay")),
     bookingMode: searchParams.get("bookingMode") ?? "",
     mapAutoSearch: isShortletMapMoveSearchEnabled(searchParams.get("mapAuto")),
     view: parseSearchView(searchParams.get("view")),
@@ -730,6 +736,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     (preset: ShortletSearchPreset) => {
       const presetParams = presetParamsToSearchParams(preset.params);
       if (!presetParams.get("market")) presetParams.set("market", parsedUi.market);
+      if (!presetParams.get("priceDisplay")) {
+        presetParams.set("priceDisplay", formatPriceDisplayParam(parsedUi.priceDisplay));
+      }
       if (!presetParams.get("view")) presetParams.set("view", mobileView);
       presetParams.set("page", "1");
       setQueryDraft(preset.params.where ?? "");
@@ -741,7 +750,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       router.replace(`${pathname}?${presetParams.toString()}`, { scroll: false });
       persistRecentSearch(preset.params);
     },
-    [mobileView, parsedUi.market, pathname, persistRecentSearch, router]
+    [mobileView, parsedUi.market, parsedUi.priceDisplay, pathname, persistRecentSearch, router]
   );
 
   const onSaveCurrentSearch = useCallback(() => {
@@ -949,6 +958,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     });
   }, [updateUrl]);
 
+  const onTogglePriceDisplay = useCallback(
+    (enabled: boolean) => {
+      updateUrl((next) => {
+        next.set("priceDisplay", formatPriceDisplayParam(enabled ? "total" : "nightly"));
+      });
+    },
+    [updateUrl]
+  );
+
   const clearMapArea = useCallback(() => {
     setMapAreaState(() => ({
       activeBounds: null,
@@ -1131,6 +1149,17 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
 
   const marketCurrency = getMarketCurrency(parsedUi.market);
   const activeDestination = parsedUi.where.trim();
+  const hasValidPriceDates = Boolean(
+    parsedUi.checkIn &&
+      parsedUi.checkOut &&
+      /^\d{4}-\d{2}-\d{2}$/.test(parsedUi.checkIn) &&
+      /^\d{4}-\d{2}-\d{2}$/.test(parsedUi.checkOut) &&
+      parsedUi.checkIn < parsedUi.checkOut
+  );
+  const totalPriceDisplayActive = isTotalPriceEnabled({
+    hasDates: hasValidPriceDates,
+    priceDisplay: parsedUi.priceDisplay,
+  });
   const hasDateSelection = Boolean(parsedUi.checkIn || parsedUi.checkOut);
   const heading = activeDestination
     ? isNigeriaDestinationQuery(activeDestination)
@@ -1171,6 +1200,20 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               <span className="truncate">{guestsSummary}</span>
             </button>
             <div className="ml-auto flex items-center gap-2">
+              <label
+                className="inline-flex items-center gap-2 whitespace-nowrap text-xs font-medium text-slate-600"
+                data-testid="shortlets-price-display-toggle-compact"
+              >
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  checked={totalPriceDisplayActive}
+                  disabled={!hasValidPriceDates}
+                  onChange={(event) => onTogglePriceDisplay(event.target.checked)}
+                  aria-label="Display total price"
+                />
+                Display total price
+              </label>
               <Select
                 value={parsedUi.sort}
                 onChange={(event) => updateUrl((next) => next.set("sort", event.target.value))}
@@ -1216,7 +1259,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           data-testid="shortlets-expanded-search-controls"
           aria-hidden={showCompactSearch}
         >
-          <div className="grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.75fr)_auto_auto_minmax(0,0.85fr)]">
+          <div className="grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.95fr)_minmax(0,0.95fr)_minmax(0,0.75fr)_auto_auto_minmax(0,1.1fr)_minmax(0,0.85fr)]">
           <WhereTypeahead
             inputRef={whereInputRef}
             value={queryDraft}
@@ -1276,6 +1319,27 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           >
             {appliedFilterCount > 0 ? `Filters (${appliedFilterCount})` : "Filters"}
           </Button>
+          <div className="flex min-w-0 flex-col justify-center gap-1">
+            <label
+              className="inline-flex items-center gap-2 text-xs font-medium text-slate-600"
+              data-testid="shortlets-price-display-toggle"
+            >
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                checked={totalPriceDisplayActive}
+                disabled={!hasValidPriceDates}
+                onChange={(event) => onTogglePriceDisplay(event.target.checked)}
+                aria-label="Display total price"
+              />
+              Display total price
+            </label>
+            {!hasValidPriceDates ? (
+              <p className="text-[11px] text-slate-500" data-testid="shortlets-price-display-helper">
+                Select dates to see total price.
+              </p>
+            ) : null}
+          </div>
           <Select
             value={parsedUi.sort}
             onChange={(event) => updateUrl((next) => next.set("sort", event.target.value))}
@@ -1518,6 +1582,23 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     />
                   </label>
                 </section>
+
+                <section className="space-y-2">
+                  <h2 className="text-sm font-semibold text-slate-900">Price display</h2>
+                  <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
+                    <span>Display total price</span>
+                    <input
+                      type="checkbox"
+                      checked={totalPriceDisplayActive}
+                      disabled={!hasValidPriceDates}
+                      onChange={(event) => onTogglePriceDisplay(event.target.checked)}
+                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                    />
+                  </label>
+                  {!hasValidPriceDates ? (
+                    <p className="text-xs text-slate-500">Select dates to see total price.</p>
+                  ) : null}
+                </section>
               </div>
 
               <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
@@ -1637,6 +1718,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     >
                       <ShortletsSearchListCard
                         property={property}
+                        priceDisplayMode={totalPriceDisplayActive ? "total" : "nightly"}
                         href={buildPropertyHref(property.id)}
                         selected={selected}
                         highlighted={property.id === hoveredListingId}
@@ -1822,6 +1904,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                 >
                   <ShortletsSearchListCard
                     property={property}
+                    priceDisplayMode={totalPriceDisplayActive ? "total" : "nightly"}
                     href={buildPropertyHref(property.id)}
                     selected={selected}
                     highlighted={property.id === hoveredListingId}

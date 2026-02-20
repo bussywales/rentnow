@@ -29,8 +29,11 @@ type Props = {
       taxes?: number | null;
     } | null;
     total?: number | null;
+    feeTotal?: number | null;
+    feesIncluded?: boolean;
   };
   href: string;
+  priceDisplayMode?: "nightly" | "total";
   selected?: boolean;
   highlighted?: boolean;
   isSaved?: boolean;
@@ -62,6 +65,8 @@ type ShortletsCardPricingInput = {
 export function resolveShortletsCardPricing(input: ShortletsCardPricingInput): {
   nightlyLabel: string;
   totalLabel: string | null;
+  nightlySecondaryLabel: string | null;
+  nightsLabel: string | null;
   feesHint: string | null;
   hasBreakdown: boolean;
 } {
@@ -76,6 +81,8 @@ export function resolveShortletsCardPricing(input: ShortletsCardPricingInput): {
     return {
       nightlyLabel: "Price on request",
       totalLabel: null,
+      nightlySecondaryLabel: null,
+      nightsLabel: null,
       feesHint: null,
       hasBreakdown: false,
     };
@@ -88,18 +95,21 @@ export function resolveShortletsCardPricing(input: ShortletsCardPricingInput): {
     return {
       nightlyLabel,
       totalLabel: null,
+      nightlySecondaryLabel: null,
+      nightsLabel: null,
       feesHint: null,
       hasBreakdown: false,
     };
   }
 
   const fees = input.fees ?? null;
-  const feesTotal =
-    Number(fees?.serviceFee ?? 0) + Number(fees?.cleaningFee ?? 0) + Number(fees?.taxes ?? 0);
+  const feesTotal = Number(fees?.serviceFee ?? 0) + Number(fees?.cleaningFee ?? 0) + Number(fees?.taxes ?? 0);
   return {
     nightlyLabel,
-    totalLabel: `Total: ${formatMoney(total, input.currency)} (${nights} night${nights === 1 ? "" : "s"})`,
-    feesHint: feesTotal > 0 ? "Includes estimated fees" : "Fees shown at checkout",
+    totalLabel: `${formatMoney(total, input.currency)} total`,
+    nightlySecondaryLabel: nightlyLabel,
+    nightsLabel: `${nights} night${nights === 1 ? "" : "s"}`,
+    feesHint: feesTotal > 0 ? "Includes fees" : null,
     hasBreakdown: true,
   };
 }
@@ -149,6 +159,7 @@ export function resolveShortletsSearchCardBadge(input: {
 export function ShortletsSearchListCard({
   property,
   href,
+  priceDisplayMode = "nightly",
   selected = false,
   highlighted = false,
   isSaved = false,
@@ -172,6 +183,10 @@ export function ShortletsSearchListCard({
     fees: property.fees,
     total: property.total,
   });
+  const showTotalPricePrimary = priceDisplayMode === "total" && !!pricing.totalLabel;
+  const primaryPriceLabel = showTotalPricePrimary ? pricing.totalLabel : pricing.nightlyLabel;
+  const secondaryPriceLabel = showTotalPricePrimary ? pricing.nightlySecondaryLabel : null;
+  const showFeesHint = showTotalPricePrimary && !!pricing.feesHint;
   const showNewBadge = useMemo(() => isNewListing(property.created_at), [property.created_at]);
   const ctaLabel = bookingMode === "instant" ? "Reserve" : bookingMode === "request" ? "Request" : "View";
   const highlightLabel = useMemo(
@@ -241,7 +256,7 @@ export function ShortletsSearchListCard({
           <div className="flex items-start justify-between gap-2">
             <div className="group/pricing relative min-w-0">
               <div className="flex items-center gap-2">
-                <p className="truncate text-sm font-semibold text-slate-900">{pricing.nightlyLabel}</p>
+                <p className="truncate text-sm font-semibold text-slate-900">{primaryPriceLabel}</p>
                 {pricing.hasBreakdown ? (
                   <button
                     type="button"
@@ -258,10 +273,13 @@ export function ShortletsSearchListCard({
                   </button>
                 ) : null}
               </div>
-              {pricing.totalLabel ? (
-                <p className="truncate text-xs font-medium text-slate-600">{pricing.totalLabel}</p>
+              {secondaryPriceLabel ? (
+                <p className="truncate text-xs font-medium text-slate-600">{secondaryPriceLabel}</p>
               ) : null}
-              {pricing.feesHint ? (
+              {showTotalPricePrimary && pricing.nightsLabel ? (
+                <p className="truncate text-[11px] text-slate-500">{pricing.nightsLabel}</p>
+              ) : null}
+              {showFeesHint ? (
                 <p className="truncate text-[11px] text-slate-500">{pricing.feesHint}</p>
               ) : null}
               {pricing.hasBreakdown ? (

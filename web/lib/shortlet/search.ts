@@ -96,6 +96,8 @@ export type ShortletSearchResultItem = Property & {
     cleaningFee: number;
     taxes: number;
   } | null;
+  feeTotal: number | null;
+  feesIncluded: boolean;
   total: number | null;
 };
 
@@ -778,6 +780,9 @@ export function mapShortletSearchRowsToResultItems(
           feePolicy: options?.feePolicy ?? null,
         })
       : null;
+    const feeTotal = feeBreakdown
+      ? feeBreakdown.serviceFee + feeBreakdown.cleaningFee + feeBreakdown.taxes
+      : null;
 
     const rest: Property = { ...row };
     delete (rest as Property & { property_images?: ShortletSearchImageRow[] }).property_images;
@@ -805,6 +810,8 @@ export function mapShortletSearchRowsToResultItems(
             taxes: feeBreakdown.taxes,
           }
         : null,
+      feeTotal,
+      feesIncluded: Number(feeTotal ?? 0) > 0,
       total: feeBreakdown?.total ?? null,
     };
   });
