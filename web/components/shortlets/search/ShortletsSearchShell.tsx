@@ -36,6 +36,7 @@ import {
   readShortletAdvancedFiltersFromParams,
   resolveShortletPendingMapAreaLabel,
   resolveShortletResultsLabel,
+  resolveShortletSearchControlVisibility,
   removeShortletAdvancedFilterTag,
   resolveShortletMapCameraIntent,
   isShortletBboxApplied,
@@ -1260,7 +1261,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         ? `${formatCompactDate(checkInDraft)} - Checkout`
         : "Dates";
   const guestsSummary = formatShortletGuestsLabel(guestsDraft);
-  const showCompactSearch = isCompactSearch && !isSearchHeaderInView;
+  const searchControlVisibility = resolveShortletSearchControlVisibility({
+    isCompactSearch,
+    isSearchHeaderInView,
+  });
+  const showCompactSearch = searchControlVisibility.compactActive;
+  const showExpandedSearch = searchControlVisibility.expandedActive;
   const isBboxApplied = useMemo(
     () => isShortletBboxApplied(stableSearchParams.get("bbox")),
     [stableSearchParams]
@@ -1320,73 +1326,74 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-4 px-4 py-4">
-      <div
-        className={`pointer-events-none fixed inset-x-0 top-20 z-30 flex justify-center px-4 transition-all duration-200 ${
-          showCompactSearch ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
-        }`}
-        data-testid="shortlets-compact-search-pill"
-        aria-hidden={!showCompactSearch}
-      >
-        <div className="pointer-events-auto w-full max-w-[1200px] rounded-full border border-slate-200 bg-white/95 px-2 py-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur">
-          <div className="flex min-w-0 flex-wrap items-center gap-2 md:flex-nowrap">
-            <button
-              type="button"
-              onClick={() => focusExpandedControl("where")}
-              className="inline-flex h-9 min-w-0 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-            >
-              <span className="truncate">{whereSummary}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => focusExpandedControl("checkIn")}
-              className="inline-flex h-9 min-w-0 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-            >
-              <span className="truncate">{datesSummary}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => focusExpandedControl("guests")}
-              className="inline-flex h-9 min-w-0 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-            >
-              <span className="truncate">{guestsSummary}</span>
-            </button>
-            <div className="ml-auto flex items-center gap-2">
-              <Select
-                value={parsedUi.sort}
-                onChange={(event) => updateUrl((next) => next.set("sort", event.target.value))}
-                className="h-9 w-[126px] text-xs"
-                aria-label="Sort compact"
-              >
-                <option value="recommended">Recommended</option>
-                <option value="price_asc">Price low-high</option>
-                <option value="price_desc">Price high-low</option>
-                <option value="rating">Rating</option>
-                <option value="newest">Newest</option>
-              </Select>
-              <Button onClick={onSubmitSearch} size="sm" className="h-9 whitespace-nowrap">
-                Search
-              </Button>
-              <Button
+      {showCompactSearch ? (
+        <div
+          className="pointer-events-none fixed inset-x-0 top-20 z-30 flex translate-y-0 justify-center px-4 opacity-100 transition-all duration-200"
+          data-testid="shortlets-compact-search-pill"
+          data-active="true"
+          aria-hidden={false}
+        >
+          <div className="pointer-events-auto w-full max-w-[1200px] rounded-full border border-slate-200 bg-white/95 px-2 py-2 shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur">
+            <div className="flex min-w-0 flex-wrap items-center gap-2 md:flex-nowrap">
+              <button
                 type="button"
-                variant="secondary"
-                size="sm"
-                onClick={openFiltersDrawer}
-                className="h-9 whitespace-nowrap"
+                onClick={() => focusExpandedControl("where")}
+                className="inline-flex h-9 min-w-0 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
               >
-                <span className="inline-flex items-center gap-1.5">
-                  <span>{appliedFilterCount > 0 ? `Filters (${appliedFilterCount})` : "Filters"}</span>
-                  {hasActiveDrawerIndicator ? (
-                    <span
-                      className="h-2 w-2 rounded-full bg-sky-500"
-                      data-testid="shortlets-filters-active-indicator-compact"
-                    />
-                  ) : null}
-                </span>
-              </Button>
+                <span className="truncate">{whereSummary}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => focusExpandedControl("checkIn")}
+                className="inline-flex h-9 min-w-0 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              >
+                <span className="truncate">{datesSummary}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => focusExpandedControl("guests")}
+                className="inline-flex h-9 min-w-0 items-center rounded-full border border-slate-200 bg-white px-3 text-xs font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              >
+                <span className="truncate">{guestsSummary}</span>
+              </button>
+              <div className="ml-auto flex items-center gap-2">
+                <Select
+                  value={parsedUi.sort}
+                  onChange={(event) => updateUrl((next) => next.set("sort", event.target.value))}
+                  className="h-9 w-[126px] text-xs"
+                  aria-label="Sort compact"
+                >
+                  <option value="recommended">Recommended</option>
+                  <option value="price_asc">Price low-high</option>
+                  <option value="price_desc">Price high-low</option>
+                  <option value="rating">Rating</option>
+                  <option value="newest">Newest</option>
+                </Select>
+                <Button onClick={onSubmitSearch} size="sm" className="h-9 whitespace-nowrap">
+                  Search
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  onClick={openFiltersDrawer}
+                  className="h-9 whitespace-nowrap"
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    <span>{appliedFilterCount > 0 ? `Filters (${appliedFilterCount})` : "Filters"}</span>
+                    {hasActiveDrawerIndicator ? (
+                      <span
+                        className="h-2 w-2 rounded-full bg-sky-500"
+                        data-testid="shortlets-filters-active-indicator-compact"
+                      />
+                    ) : null}
+                  </span>
+                </Button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : null}
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">Shortlets</p>
@@ -1400,7 +1407,9 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           ref={expandedSearchHeaderRef}
           className="mt-3"
           data-testid="shortlets-expanded-search-controls"
-          aria-hidden={showCompactSearch}
+          aria-hidden={!showExpandedSearch}
+          data-active={showExpandedSearch ? "true" : "false"}
+          {...(!showExpandedSearch ? ({ inert: "" } as Record<string, string>) : {})}
         >
           <div className="grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.15fr)_minmax(0,0.75fr)_auto_auto_minmax(0,0.85fr)]">
           <WhereTypeahead

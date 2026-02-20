@@ -84,8 +84,12 @@ void test("shortlets shell exposes compact sticky pill summary controls", () => 
   const contents = fs.readFileSync(shellPath, "utf8");
 
   assert.ok(contents.includes('data-testid="shortlets-compact-search-pill"'));
+  assert.ok(contents.includes("resolveShortletSearchControlVisibility"));
+  assert.ok(contents.includes('data-active="true"'));
+  assert.ok(contents.includes('data-active={showExpandedSearch ? "true" : "false"}'));
+  assert.ok(contents.includes('{ inert: "" } as Record<string, string>'));
   assert.ok(contents.includes("showCompactSearch"));
-  assert.ok(contents.includes("IntersectionObserver"));
+  assert.ok(contents.includes("showExpandedSearch"));
   assert.ok(contents.includes('data-testid="shortlets-expanded-search-controls"'));
   assert.ok(contents.includes("whereSummary"));
   assert.ok(contents.includes("datesSummary"));

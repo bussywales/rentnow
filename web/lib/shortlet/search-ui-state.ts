@@ -304,6 +304,17 @@ export function shouldUseCompactShortletSearchPill(scrollY: number, thresholdPx 
   return scrollY > thresholdPx;
 }
 
+export function resolveShortletSearchControlVisibility(input: {
+  isCompactSearch: boolean;
+  isSearchHeaderInView: boolean;
+}): { compactActive: boolean; expandedActive: boolean } {
+  const compactActive = input.isCompactSearch && !input.isSearchHeaderInView;
+  return {
+    compactActive,
+    expandedActive: !compactActive,
+  };
+}
+
 export function isShortletBboxApplied(value: string | null | undefined): boolean {
   if (!value) return false;
   const parts = String(value)

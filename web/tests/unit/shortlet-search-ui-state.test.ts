@@ -20,6 +20,7 @@ import {
   resolveShortletResultsLabel,
   removeShortletAdvancedFilterTag,
   resolveShortletMapCameraIntent,
+  resolveShortletSearchControlVisibility,
   resolveShortletMapMarkerVisualState,
   resolveSelectedListingId,
   shouldUseCompactShortletSearchPill,
@@ -237,6 +238,32 @@ void test("compact sticky pill toggles when scroll crosses threshold", () => {
   assert.equal(shouldUseCompactShortletSearchPill(120), true);
   assert.equal(shouldUseCompactShortletSearchPill(90, 120), false);
   assert.equal(shouldUseCompactShortletSearchPill(121, 120), true);
+});
+
+void test("search control visibility activates only one focusable control set at a time", () => {
+  assert.deepEqual(
+    resolveShortletSearchControlVisibility({
+      isCompactSearch: true,
+      isSearchHeaderInView: false,
+    }),
+    { compactActive: true, expandedActive: false }
+  );
+
+  assert.deepEqual(
+    resolveShortletSearchControlVisibility({
+      isCompactSearch: true,
+      isSearchHeaderInView: true,
+    }),
+    { compactActive: false, expandedActive: true }
+  );
+
+  assert.deepEqual(
+    resolveShortletSearchControlVisibility({
+      isCompactSearch: false,
+      isSearchHeaderInView: false,
+    }),
+    { compactActive: false, expandedActive: true }
+  );
 });
 
 void test("guests helpers normalize URL params and generate clear labels", () => {
