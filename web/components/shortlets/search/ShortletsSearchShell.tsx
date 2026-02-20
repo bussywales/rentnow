@@ -106,6 +106,8 @@ type SearchResponse = {
     city: string;
     currency: string;
     nightlyPriceMinor: number | null;
+    pricingMode?: "nightly" | "price_on_request";
+    bookingMode?: "instant" | "request";
     primaryImageUrl: string | null;
     latitude: number | null;
     longitude: number | null;
@@ -1058,14 +1060,26 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
 
   const mapListings = useMemo(
     () => {
+      const filteredById = new Map(filteredItems.map((item) => [item.id, item]));
       if (results?.mapItems?.length) {
         const allowedIds = new Set(filteredItems.map((item) => item.id));
         return results.mapItems
           .filter((item) => allowedIds.has(item.id))
           .map((item) => ({
-          ...item,
-          latitude: typeof item.latitude === "number" ? item.latitude : null,
-          longitude: typeof item.longitude === "number" ? item.longitude : null,
+            ...item,
+            pricingMode:
+              filteredById.get(item.id)?.pricingMode ??
+              item.pricingMode ??
+              (typeof item.nightlyPriceMinor === "number" && item.nightlyPriceMinor > 0
+                ? "nightly"
+                : "price_on_request"),
+            bookingMode:
+              resolveShortletBookingMode(filteredById.get(item.id) ?? {}) ??
+              item.bookingMode ??
+              "request",
+            latitude: typeof item.latitude === "number" ? item.latitude : null,
+            longitude: typeof item.longitude === "number" ? item.longitude : null,
+            href: buildPropertyHref(item.id),
           }));
       }
       return filteredItems.map((item) => ({
@@ -1074,12 +1088,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         city: item.city,
         currency: item.currency,
         nightlyPriceMinor: resolveShortletNightlyPriceMinor(item),
+        pricingMode: item.pricingMode ?? "nightly",
+        bookingMode: resolveShortletBookingMode(item) ?? "request",
         primaryImageUrl: item.primaryImageUrl ?? item.cover_image_url ?? null,
         latitude: typeof item.latitude === "number" ? item.latitude : null,
         longitude: typeof item.longitude === "number" ? item.longitude : null,
+        href: buildPropertyHref(item.id),
       }));
     },
-    [filteredItems, results?.mapItems]
+    [buildPropertyHref, filteredItems, results?.mapItems]
   );
   const mapResultHash = useMemo(() => {
     const ids = mapListings.map((listing) => listing.id).join(",");

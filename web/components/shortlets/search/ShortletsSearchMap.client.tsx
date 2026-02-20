@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
+import Link from "next/link";
 import L from "leaflet";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
@@ -10,6 +11,7 @@ import {
   shouldAutoFitShortletMap,
 } from "@/lib/shortlet/search-ui-state";
 import { shouldSoftPanHoveredMarker } from "@/lib/shortlet/map-list-coupling";
+import { isShortletBookableFromPricing, resolveShortletBookabilityCta } from "@/lib/shortlet/pricing";
 
 type MapBounds = {
   north: number;
@@ -24,10 +26,28 @@ type MapListing = {
   city: string;
   currency: string;
   nightlyPriceMinor: number | null;
+  pricingMode: "nightly" | "price_on_request";
+  bookingMode: "instant" | "request";
   primaryImageUrl: string | null;
   latitude: number | null;
   longitude: number | null;
+  href: string;
 };
+
+export function resolveShortletsMapPreviewCtaLabel(input: {
+  bookingMode: "instant" | "request";
+  nightlyPriceMinor: number | null;
+  pricingMode: "nightly" | "price_on_request";
+}): "Reserve" | "Request" | "View" {
+  const isBookable = isShortletBookableFromPricing({
+    nightlyPriceMinor: input.nightlyPriceMinor,
+    pricingMode: input.pricingMode,
+  });
+  return resolveShortletBookabilityCta({
+    bookingMode: input.bookingMode,
+    isBookable,
+  });
+}
 
 type Props = {
   listings: MapListing[];
@@ -407,6 +427,19 @@ export function ShortletsSearchMapClient({
                 <p className={cn("text-xs font-semibold text-slate-700")}>
                   {formatPinPrice(selectedListing.currency, selectedListing.nightlyPriceMinor)} / night
                 </p>
+                <div className="mt-2">
+                  <Link
+                    href={selectedListing.href}
+                    className="inline-flex items-center rounded-full bg-slate-900 px-3 py-1 text-[11px] font-semibold text-white hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    data-testid="shortlets-map-preview-cta"
+                  >
+                    {resolveShortletsMapPreviewCtaLabel({
+                      bookingMode: selectedListing.bookingMode,
+                      nightlyPriceMinor: selectedListing.nightlyPriceMinor,
+                      pricingMode: selectedListing.pricingMode,
+                    })}
+                  </Link>
+                </div>
               </div>
             </div>
           </div>

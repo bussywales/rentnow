@@ -33,6 +33,10 @@ export type ShortletCalculatedFees = {
   total: number;
 };
 
+export type ShortletPricingMode = "nightly" | "price_on_request" | null | undefined;
+
+export type ShortletBookingMode = "instant" | "request" | null | undefined;
+
 function roundMoney(value: number): number {
   if (!Number.isFinite(value)) return 0;
   return Math.round(value * 100) / 100;
@@ -155,4 +159,26 @@ export function hasDateOverlap(a: DateRangeInput, b: DateRangeInput): boolean {
 
   if (aEnd <= aStart || bEnd <= bStart) return false;
   return aStart < bEnd && bStart < aEnd;
+}
+
+export function isShortletBookableFromPricing(input: {
+  nightlyPriceMinor?: number | null;
+  nightlyPrice?: number | null;
+  pricingMode?: ShortletPricingMode;
+}): boolean {
+  if (input.pricingMode === "price_on_request") return false;
+  const nightlyMinor = Number(input.nightlyPriceMinor);
+  if (Number.isFinite(nightlyMinor) && nightlyMinor > 0) return true;
+  const nightlyMajor = Number(input.nightlyPrice);
+  return Number.isFinite(nightlyMajor) && nightlyMajor > 0;
+}
+
+export function resolveShortletBookabilityCta(input: {
+  bookingMode?: ShortletBookingMode;
+  isBookable: boolean;
+}): "Reserve" | "Request" | "View" {
+  if (!input.isBookable) return "View";
+  if (input.bookingMode === "instant") return "Reserve";
+  if (input.bookingMode === "request") return "Request";
+  return "View";
 }

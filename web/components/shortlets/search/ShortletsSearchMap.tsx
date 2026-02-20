@@ -17,9 +17,12 @@ type Props = {
     city: string;
     currency: string;
     nightlyPriceMinor: number | null;
+    pricingMode: "nightly" | "price_on_request";
+    bookingMode: "instant" | "request";
     primaryImageUrl: string | null;
     latitude: number | null;
     longitude: number | null;
+    href: string;
   }>;
   selectedListingId: string | null;
   hoveredListingId: string | null;

@@ -133,3 +133,11 @@ void test("shortlets card pricing resolves nightly and total labels for display 
   assert.equal(priceOnRequest.nightlySecondaryLabel, null);
   assert.equal(priceOnRequest.hasBreakdown, false);
 });
+
+void test("shortlets card CTA is derived from bookability and booking mode", () => {
+  const contents = fs.readFileSync(cardPath, "utf8");
+
+  assert.ok(contents.includes("isShortletBookableFromPricing"));
+  assert.ok(contents.includes("resolveShortletBookabilityCta"));
+  assert.equal(contents.includes("bookingMode === \"instant\" ? \"Reserve\" : bookingMode === \"request\" ? \"Request\" : \"View\""), false);
+});

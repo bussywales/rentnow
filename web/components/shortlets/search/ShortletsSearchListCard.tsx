@@ -6,7 +6,11 @@ import type { Property } from "@/lib/types";
 import { cn } from "@/components/ui/cn";
 import { formatLocationLabel } from "@/lib/property-discovery";
 import { resolveShortletBookingMode, resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
-import { formatMoney } from "@/lib/shortlet/pricing";
+import {
+  formatMoney,
+  isShortletBookableFromPricing,
+  resolveShortletBookabilityCta,
+} from "@/lib/shortlet/pricing";
 import { ShortletsSearchCardCarousel } from "@/components/shortlets/search/ShortletsSearchCardCarousel";
 
 type Props = {
@@ -190,7 +194,15 @@ export function ShortletsSearchListCard({
   const secondaryPriceLabel = showTotalPricePrimary ? pricing.nightlySecondaryLabel : null;
   const showFeesHint = showTotalPricePrimary && !!pricing.feesHint;
   const showNewBadge = useMemo(() => isNewListing(property.created_at), [property.created_at]);
-  const ctaLabel = bookingMode === "instant" ? "Reserve" : bookingMode === "request" ? "Request" : "View";
+  const isBookable = isShortletBookableFromPricing({
+    nightlyPrice: property.nightlyPrice,
+    nightlyPriceMinor: property.nightlyPriceMinor ?? nightlyMinor,
+    pricingMode: property.pricingMode,
+  });
+  const ctaLabel = resolveShortletBookabilityCta({
+    bookingMode,
+    isBookable,
+  });
   const highlightLabel = useMemo(
     () => resolveShortletsSearchCardHighlight(property.amenities),
     [property.amenities]
