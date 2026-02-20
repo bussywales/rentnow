@@ -14,27 +14,27 @@ export function Footer() {
           <div className="grid grid-cols-2 gap-2">
             <a
               className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-sky-600"
-              href="/help"
-            >
-              Help
-            </a>
-            <a
-              className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-sky-600"
               href="/about"
             >
               About
             </a>
             <a
               className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-sky-600"
-              href={`mailto:${BRAND_SUPPORT_EMAIL}`}
+              href="/help"
             >
-              Contact
+              Help
             </a>
             <a
               className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-sky-600"
               href="/legal"
             >
               Legal
+            </a>
+            <a
+              className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold text-slate-600 hover:bg-slate-50 hover:text-sky-600"
+              href={`mailto:${BRAND_SUPPORT_EMAIL}`}
+            >
+              Contact
             </a>
           </div>
           <details className="group rounded-lg border border-slate-200 bg-slate-50/60 px-3 py-2">
@@ -53,6 +53,9 @@ export function Footer() {
               <a className="inline-flex min-h-9 items-center rounded-md px-2 text-slate-600 hover:bg-white hover:text-sky-600" href="/help/referrals">
                 Referral FAQ
               </a>
+              <a className="inline-flex min-h-9 items-center rounded-md px-2 text-slate-600 hover:bg-white hover:text-sky-600" href="/legal/disclaimer">
+                Disclaimer
+              </a>
               <span className="px-2 text-[11px] text-slate-400 whitespace-nowrap">
                 Built by Xthetic Studio UK
               </span>
@@ -70,14 +73,14 @@ export function Footer() {
           <a className="hover:text-sky-600" href="/help/referrals">
             Referral FAQ
           </a>
+          <a className="hover:text-sky-600" href="/legal/disclaimer">
+            Disclaimer
+          </a>
           <a
             className="hover:text-sky-600"
             href={`mailto:${BRAND_SUPPORT_EMAIL}`}
           >
             Contact
-          </a>
-          <a className="hover:text-sky-600" href="/legal">
-            Legal
           </a>
           <span className="text-slate-400 whitespace-nowrap">Built by Xthetic Studio UK</span>
         </div>
