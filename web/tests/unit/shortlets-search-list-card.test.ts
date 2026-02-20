@@ -25,6 +25,16 @@ void test("shortlets search card keeps a calm hierarchy with stable height and 2
   assert.equal(contents.includes("property.description"), false);
 });
 
+void test("shortlets card exposes accessible save-heart controls without shifting card layout", () => {
+  const contents = fs.readFileSync(cardPath, "utf8");
+
+  assert.ok(contents.includes("Save to shortlist"));
+  assert.ok(contents.includes("Remove from shortlist"));
+  assert.ok(contents.includes("aria-pressed={isSaved}"));
+  assert.ok(contents.includes("event.stopPropagation()"));
+  assert.ok(contents.includes("absolute right-3 top-3 z-20"));
+});
+
 void test("shortlets card highlight prioritises power backup then security then borehole", () => {
   assert.equal(
     resolveShortletsSearchCardHighlight(["wifi", "generator", "security"]),

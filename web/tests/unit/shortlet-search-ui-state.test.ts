@@ -8,6 +8,7 @@ import {
   formatShortletGuestsLabel,
   isShortletBboxApplied,
   isShortletMapMoveSearchEnabled,
+  isShortletSavedViewEnabled,
   listShortletActiveFilterTags,
   normalizeShortletGuestsParam,
   parseShortletMapMoveSearchMode,
@@ -22,6 +23,7 @@ import {
   shouldAutoFitShortletMap,
   toggleShortletSearchView,
   writeShortletMapMoveSearchMode,
+  writeShortletSavedViewParam,
   writeShortletAdvancedFiltersToParams,
 } from "@/lib/shortlet/search-ui-state";
 
@@ -310,4 +312,19 @@ void test("map move search mode writes URL params for auto and manual modes", ()
 
   writeShortletMapMoveSearchMode(params, "manual");
   assert.equal(params.has("mapAuto"), false);
+});
+
+void test("saved view helpers parse and write URL param safely", () => {
+  const params = new URLSearchParams("where=lagos");
+
+  assert.equal(isShortletSavedViewEnabled(null), false);
+  assert.equal(isShortletSavedViewEnabled("0"), false);
+  assert.equal(isShortletSavedViewEnabled("1"), true);
+  assert.equal(isShortletSavedViewEnabled("true"), true);
+
+  writeShortletSavedViewParam(params, true);
+  assert.equal(params.get("saved"), "1");
+
+  writeShortletSavedViewParam(params, false);
+  assert.equal(params.has("saved"), false);
 });

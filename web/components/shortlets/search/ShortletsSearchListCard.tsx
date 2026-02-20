@@ -21,6 +21,8 @@ type Props = {
   href: string;
   selected?: boolean;
   highlighted?: boolean;
+  isSaved?: boolean;
+  onToggleSaved?: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
   onFocus?: () => void;
@@ -92,6 +94,8 @@ export function ShortletsSearchListCard({
   href,
   selected = false,
   highlighted = false,
+  isSaved = false,
+  onToggleSaved,
   onMouseEnter,
   onMouseLeave,
   onFocus,
@@ -116,7 +120,7 @@ export function ShortletsSearchListCard({
   return (
     <article
       className={cn(
-        "h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition",
+        "relative h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition",
         highlighted && "border-sky-300 ring-2 ring-sky-100",
         selected && "border-sky-400 ring-2 ring-sky-200"
       )}
@@ -126,6 +130,21 @@ export function ShortletsSearchListCard({
       onBlur={onBlur}
       data-testid="shortlets-search-list-card"
     >
+      <button
+        type="button"
+        aria-label={isSaved ? "Remove from shortlist" : "Save to shortlist"}
+        aria-pressed={isSaved}
+        onClick={(event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          onToggleSaved?.();
+        }}
+        className="absolute right-3 top-3 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-sm transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+      >
+        <span className={cn("text-base leading-none", isSaved ? "text-rose-500" : "text-slate-600")}>
+          {isSaved ? "♥" : "♡"}
+        </span>
+      </button>
       <ShortletsSearchCardCarousel
         title={property.title}
         href={href}

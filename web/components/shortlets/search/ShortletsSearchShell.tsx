@@ -34,10 +34,12 @@ import {
   removeShortletAdvancedFilterTag,
   resolveShortletMapCameraIntent,
   isShortletBboxApplied,
+  isShortletSavedViewEnabled,
   shouldUseCompactShortletSearchPill,
   SHORTLET_QUICK_FILTER_KEYS,
   toggleShortletSearchView,
   writeShortletMapMoveSearchMode,
+  writeShortletSavedViewParam,
   type ShortletAdvancedFilterState,
   type ShortletMapMoveSearchMode,
   writeShortletAdvancedFiltersToParams,
@@ -63,6 +65,7 @@ import {
   shouldScrollCardIntoView,
   type MapListCouplingState,
 } from "@/lib/shortlet/map-list-coupling";
+import { getSavedIds, toggleSaved } from "@/lib/shortlet/saved.client";
 
 type SearchItem = Property & {
   primaryImageUrl?: string | null;
@@ -306,6 +309,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   );
   const [mapMoveUpdating, setMapMoveUpdating] = useState(false);
   const [nearbySearching, setNearbySearching] = useState(false);
+  const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set<string>());
+  const [savedToast, setSavedToast] = useState<"Saved" | "Removed" | null>(null);
   const [showDelayedUpdatingIndicator, setShowDelayedUpdatingIndicator] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [isCompactSearch, setIsCompactSearch] = useState(false);
@@ -351,6 +356,16 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   useEffect(() => {
     setRecentSearches(readRecentSearchPresets());
     setSavedSearches(readSavedSearchPresets());
+    setSavedIds(new Set(getSavedIds()));
+  }, []);
+
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key && event.key !== "shortlets:saved") return;
+      setSavedIds(new Set(getSavedIds()));
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
   }, []);
 
   useEffect(() => {
@@ -502,6 +517,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     const timeout = window.setTimeout(() => setHighlightedListingId(null), 1500);
     return () => window.clearTimeout(timeout);
   }, [highlightedListingId]);
+
+  useEffect(() => {
+    if (!savedToast) return;
+    const timeout = window.setTimeout(() => setSavedToast(null), 1200);
+    return () => window.clearTimeout(timeout);
+  }, [savedToast]);
 
   const updateUrl = useCallback(
     (mutate: (next: URLSearchParams) => void) => {
@@ -927,6 +948,39 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     applyAdvancedFilters(cleared);
   }, [applyAdvancedFilters]);
 
+  const setSavedView = useCallback(
+    (enabled: boolean) => {
+      updateUrl((next) => {
+        writeShortletSavedViewParam(next, enabled);
+        next.set("page", "1");
+      });
+    },
+    [updateUrl]
+  );
+
+  const onToggleSavedListing = useCallback((listingId: string) => {
+    const next = toggleSaved(listingId);
+    setSavedIds(new Set(next.ids));
+    setSavedToast(next.saved ? "Saved" : "Removed");
+  }, []);
+
+  const onSearchNigeria = useCallback(() => {
+    const destination = "Nigeria";
+    setQueryDraft(destination);
+    setCameraIntent("location_change");
+    setCameraIntentNonce((current) => current + 1);
+    updateUrl((next) => {
+      next.set("where", destination);
+      next.delete("placeId");
+      next.delete("lat");
+      next.delete("lng");
+      next.delete("bbox");
+      next.delete("bounds");
+      writeShortletSavedViewParam(next, false);
+      next.set("page", "1");
+    });
+  }, [updateUrl]);
+
   const appliedAdvancedFilters = useMemo(
     () => readShortletAdvancedFiltersFromParams(stableSearchParams),
     [stableSearchParams]
@@ -949,19 +1003,32 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   const appliedFilterCount = activeFilterTags.length;
   const visibleFilterTags = activeFilterTags.slice(0, 3);
   const hiddenFilterTagCount = Math.max(0, activeFilterTags.length - visibleFilterTags.length);
+  const savedOnlyActive = useMemo(
+    () => isShortletSavedViewEnabled(stableSearchParams.get("saved")),
+    [stableSearchParams]
+  );
+  const filteredItems = useMemo(() => {
+    const items = results?.items ?? [];
+    if (!savedOnlyActive) return items;
+    return items.filter((item) => savedIds.has(item.id));
+  }, [results?.items, savedIds, savedOnlyActive]);
+  const filteredTotal = filteredItems.length;
   const selectedListingId = couplingState.selectedId;
   const hoveredListingId = couplingState.hoverId;
 
   const mapListings = useMemo(
     () => {
       if (results?.mapItems?.length) {
-        return results.mapItems.map((item) => ({
+        const allowedIds = new Set(filteredItems.map((item) => item.id));
+        return results.mapItems
+          .filter((item) => allowedIds.has(item.id))
+          .map((item) => ({
           ...item,
           latitude: typeof item.latitude === "number" ? item.latitude : null,
           longitude: typeof item.longitude === "number" ? item.longitude : null,
-        }));
+          }));
       }
-      return (results?.items ?? []).map((item) => ({
+      return filteredItems.map((item) => ({
         id: item.id,
         title: item.title,
         city: item.city,
@@ -972,7 +1039,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         longitude: typeof item.longitude === "number" ? item.longitude : null,
       }));
     },
-    [results?.items, results?.mapItems]
+    [filteredItems, results?.mapItems]
   );
   const mapResultHash = useMemo(() => {
     const ids = mapListings.map((listing) => listing.id).join(",");
@@ -980,7 +1047,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   }, [mapListings, parsedUi.market]);
 
   const selectedSummary = useMemo(() => {
-    const match = results?.items.find((item) => item.id === selectedListingId) ?? null;
+    const match = filteredItems.find((item) => item.id === selectedListingId) ?? null;
     if (!match) return null;
     return {
       id: match.id,
@@ -988,7 +1055,19 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       city: match.city,
       nightly: formatMoney(match.currency, resolveShortletNightlyPriceMinor(match)),
     };
-  }, [results?.items, selectedListingId]);
+  }, [filteredItems, selectedListingId]);
+
+  useEffect(() => {
+    setCouplingState((current) => {
+      if (current.selectedId && filteredItems.some((item) => item.id === current.selectedId)) {
+        return current;
+      }
+      return {
+        ...current,
+        selectedId: filteredItems[0]?.id ?? null,
+      };
+    });
+  }, [filteredItems]);
 
   const searchAreaDirty = mapAreaState.mapDirty;
   const isMapMoveSearchEnabled = mapMoveSearchMode === "auto";
@@ -1008,7 +1087,10 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
   );
   const resultsLabel = loading
     ? "Loading stays..."
-    : resolveShortletResultsLabel({ total: results?.total ?? 0, isBboxApplied });
+    : resolveShortletResultsLabel({
+        total: savedOnlyActive ? filteredTotal : (results?.total ?? 0),
+        isBboxApplied,
+      });
   const pendingMapAreaLabel = isMapMoveSearchEnabled
     ? showDelayedUpdatingIndicator
       ? "Refreshing map results…"
@@ -1203,72 +1285,93 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             ))}
           </div>
 
-          {quickFiltersCollapsed ? (
-            <div ref={quickFiltersPopoverRef} className="relative" data-testid="shortlets-quick-filters-collapsed">
-              <Button
-                type="button"
-                variant="secondary"
-                size="sm"
-                onClick={() => setQuickFiltersPopoverOpen((current) => !current)}
-                className="h-9 whitespace-nowrap"
-                data-testid="shortlets-quick-filters-button"
-              >
-                {activeQuickFilterCount > 0 ? `Quick filters (${activeQuickFilterCount})` : "Quick filters"}
-              </Button>
-              {quickFiltersPopoverOpen ? (
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              {quickFiltersCollapsed ? (
                 <div
-                  className="absolute left-0 top-full z-20 mt-2 w-[240px] rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
-                  role="dialog"
-                  aria-label="Quick filters"
-                  data-testid="shortlets-quick-filters-popover"
+                  ref={quickFiltersPopoverRef}
+                  className="relative"
+                  data-testid="shortlets-quick-filters-collapsed"
                 >
-                  <div className="space-y-1">
-                    {QUICK_FILTERS.map((filter) => {
-                      const active = trustFilterState.has(filter.key);
-                      return (
-                        <button
-                          key={`quick-filter-popover-${filter.key}`}
-                          type="button"
-                          onClick={() => toggleQuickFilter(filter.key)}
-                          className={`flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-xs font-semibold transition ${
-                            active
-                              ? "border-sky-500 bg-sky-50 text-sky-700"
-                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                          }`}
-                        >
-                          <span>{filter.label}</span>
-                          <span aria-hidden="true">{active ? "✓" : ""}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-            </div>
-          ) : (
-            <div
-              className="flex h-9 min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap"
-              data-testid="shortlets-quick-filters"
-            >
-              {QUICK_FILTERS.map((filter) => {
-                const active = trustFilterState.has(filter.key);
-                return (
-                  <button
-                    key={filter.key}
+                  <Button
                     type="button"
-                    onClick={() => toggleQuickFilter(filter.key)}
-                    className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                      active
-                        ? "border-sky-500 bg-sky-50 text-sky-700"
-                        : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
-                    }`}
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setQuickFiltersPopoverOpen((current) => !current)}
+                    className="h-9 whitespace-nowrap"
+                    data-testid="shortlets-quick-filters-button"
                   >
-                    {filter.label}
-                  </button>
-                );
-              })}
+                    {activeQuickFilterCount > 0 ? `Quick filters (${activeQuickFilterCount})` : "Quick filters"}
+                  </Button>
+                  {quickFiltersPopoverOpen ? (
+                    <div
+                      className="absolute left-0 top-full z-20 mt-2 w-[240px] rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+                      role="dialog"
+                      aria-label="Quick filters"
+                      data-testid="shortlets-quick-filters-popover"
+                    >
+                      <div className="space-y-1">
+                        {QUICK_FILTERS.map((filter) => {
+                          const active = trustFilterState.has(filter.key);
+                          return (
+                            <button
+                              key={`quick-filter-popover-${filter.key}`}
+                              type="button"
+                              onClick={() => toggleQuickFilter(filter.key)}
+                              className={`flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-xs font-semibold transition ${
+                                active
+                                  ? "border-sky-500 bg-sky-50 text-sky-700"
+                                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                              }`}
+                            >
+                              <span>{filter.label}</span>
+                              <span aria-hidden="true">{active ? "✓" : ""}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div
+                  className="flex h-9 min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap"
+                  data-testid="shortlets-quick-filters"
+                >
+                  {QUICK_FILTERS.map((filter) => {
+                    const active = trustFilterState.has(filter.key);
+                    return (
+                      <button
+                        key={filter.key}
+                        type="button"
+                        onClick={() => toggleQuickFilter(filter.key)}
+                        className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                          active
+                            ? "border-sky-500 bg-sky-50 text-sky-700"
+                            : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50"
+                        }`}
+                      >
+                        {filter.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          )}
+            <button
+              type="button"
+              onClick={() => setSavedView(!savedOnlyActive)}
+              className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                savedOnlyActive
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+              }`}
+              data-testid="shortlets-saved-toggle"
+              aria-pressed={savedOnlyActive}
+            >
+              Saved
+            </button>
+          </div>
         </div>
 
         {activeFilterTags.length > 0 ? (
@@ -1451,7 +1554,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               ) : null}
             </div>
             <div className="flex items-center gap-3">
-              {results?.total === 0 && !!parsedUi.checkIn && !!parsedUi.checkOut ? (
+              {filteredTotal === 0 && !!parsedUi.checkIn && !!parsedUi.checkOut ? (
                 <p className="text-xs text-slate-500">Try nearby dates or expand map area.</p>
               ) : null}
               <label
@@ -1477,16 +1580,16 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               </Button>
             </div>
           </div>
-          {loading && !(results?.items.length ?? 0) ? (
+          {loading && filteredTotal === 0 ? (
             <div className={`${desktopCardsGridClass} min-h-[420px]`} data-testid="shortlets-desktop-loading-skeleton">
               {Array.from({ length: 6 }).map((_, index) => (
                 <PropertyCardSkeleton key={`shortlet-list-skeleton-${index}`} />
               ))}
             </div>
-          ) : results?.items.length ? (
+          ) : filteredTotal > 0 ? (
             <div className="space-y-3 min-h-[420px]">
               <div className={desktopCardsGridClass} data-testid="shortlets-desktop-results-grid">
-                {results.items.map((property) => {
+                {filteredItems.map((property) => {
                   const selected = property.id === selectedListingId;
                   const highlighted =
                     selected || property.id === hoveredListingId || property.id === highlightedListingId;
@@ -1517,6 +1620,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                         )}#cta`}
                         selected={selected}
                         highlighted={property.id === hoveredListingId}
+                        isSaved={savedIds.has(property.id)}
+                        onToggleSaved={() => onToggleSavedListing(property.id)}
                         onFocus={() =>
                           setCouplingState((current) => setMapListHover(current, property.id, "list"))
                         }
@@ -1539,26 +1644,40 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
           ) : (
             <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
               <p className="font-semibold text-slate-900">
-                {isBboxApplied
+                {savedOnlyActive
+                  ? "No saved stays yet."
+                  : isBboxApplied
                   ? "No stays in this map area."
                   : activeDestination
                     ? `No stays found in ${activeDestination}.`
                     : "No shortlets found yet."}
               </p>
               <p className="mt-1">
-                {isBboxApplied
+                {savedOnlyActive
+                  ? "Save shortlets with the heart icon and they will appear here."
+                  : isBboxApplied
                   ? "Try zooming out or clear the map area."
                   : activeDestination
                     ? "Try nearby areas or remove dates."
                     : "Try setting dates, destination, or filters."}
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
+                {savedOnlyActive ? (
+                  <>
+                    <Button type="button" variant="secondary" size="sm" onClick={() => setSavedView(false)}>
+                      Browse stays
+                    </Button>
+                    <Button type="button" variant="secondary" size="sm" onClick={onSearchNigeria}>
+                      Search Nigeria
+                    </Button>
+                  </>
+                ) : null}
                 {isBboxApplied ? (
                   <Button type="button" variant="secondary" size="sm" onClick={clearMapArea}>
                     Zoom out / clear map area
                   </Button>
                 ) : null}
-                {hasDateSelection ? (
+                {!savedOnlyActive && hasDateSelection ? (
                   <>
                     <Button type="button" variant="secondary" size="sm" onClick={clearDates}>
                       Clear dates
@@ -1573,11 +1692,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                       {nearbySearching ? "Finding nearby..." : "Search nearby"}
                     </Button>
                   </>
-                ) : (
+                ) : !savedOnlyActive ? (
                   <Button type="button" variant="secondary" size="sm" onClick={clearAdvancedFilters}>
                     Clear filters
                   </Button>
-                )}
+                ) : null}
               </div>
               {results?.nearbyAlternatives?.length ? (
                 <ul className="mt-2 list-disc space-y-1 pl-5">
@@ -1649,15 +1768,15 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             </button>
           ) : null}
         </div>
-        {loading && !(results?.items.length ?? 0) ? (
+        {loading && filteredTotal === 0 ? (
           <div className="grid gap-3">
             {Array.from({ length: 4 }).map((_, index) => (
               <PropertyCardSkeleton key={`shortlet-mobile-skeleton-${index}`} />
             ))}
           </div>
-        ) : results?.items.length ? (
+        ) : filteredTotal > 0 ? (
           <div className="grid gap-3">
-            {results.items.map((property) => {
+            {filteredItems.map((property) => {
               const selected = property.id === selectedListingId;
               const highlighted =
                 selected || property.id === hoveredListingId || property.id === highlightedListingId;
@@ -1688,6 +1807,8 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     )}#cta`}
                     selected={selected}
                     highlighted={property.id === hoveredListingId}
+                    isSaved={savedIds.has(property.id)}
+                    onToggleSaved={() => onToggleSavedListing(property.id)}
                     onFocus={() =>
                       setCouplingState((current) => setMapListHover(current, property.id, "list"))
                     }
@@ -1702,26 +1823,40 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
         ) : (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
             <p className="font-semibold text-slate-900">
-              {isBboxApplied
+              {savedOnlyActive
+                ? "No saved stays yet."
+                : isBboxApplied
                 ? "No stays in this map area."
                 : activeDestination
                   ? `No stays found in ${activeDestination}.`
                   : "No shortlets found yet."}
             </p>
             <p className="mt-1">
-              {isBboxApplied
+              {savedOnlyActive
+                ? "Save shortlets with the heart icon and they will appear here."
+                : isBboxApplied
                 ? "Try zooming out or clear the map area."
                 : activeDestination
                   ? "Try nearby areas or remove dates."
                   : "Try setting dates, destination, or filters."}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
+              {savedOnlyActive ? (
+                <>
+                  <Button type="button" variant="secondary" size="sm" onClick={() => setSavedView(false)}>
+                    Browse stays
+                  </Button>
+                  <Button type="button" variant="secondary" size="sm" onClick={onSearchNigeria}>
+                    Search Nigeria
+                  </Button>
+                </>
+              ) : null}
               {isBboxApplied ? (
                 <Button type="button" variant="secondary" size="sm" onClick={clearMapArea}>
                   Zoom out / clear map area
                 </Button>
               ) : null}
-              {hasDateSelection ? (
+              {!savedOnlyActive && hasDateSelection ? (
                 <>
                   <Button type="button" variant="secondary" size="sm" onClick={clearDates}>
                     Clear dates
@@ -1736,11 +1871,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     {nearbySearching ? "Finding nearby..." : "Search nearby"}
                   </Button>
                 </>
-              ) : (
+              ) : !savedOnlyActive ? (
                 <Button type="button" variant="secondary" size="sm" onClick={clearAdvancedFilters}>
                   Clear filters
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
         )}
@@ -1823,7 +1958,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
             ) : null}
             <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-slate-200 bg-white/95 p-3 backdrop-blur">
               <div className="flex snap-x gap-3 overflow-x-auto pb-1">
-                {(results?.items ?? []).map((property) => {
+                {filteredItems.map((property) => {
                   const selected = selectedSummary?.id === property.id;
                   const nightlyPrice = resolveShortletNightlyPriceMinor(property);
                   return (
@@ -1853,6 +1988,17 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               </div>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {savedToast ? (
+        <div
+          className="pointer-events-none fixed bottom-20 left-1/2 z-[60] -translate-x-1/2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-lg"
+          role="status"
+          aria-live="polite"
+          data-testid="shortlets-saved-toast"
+        >
+          {savedToast}
         </div>
       ) : null}
     </div>

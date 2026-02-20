@@ -236,6 +236,10 @@ export function isShortletMapMoveSearchEnabled(
   return parseShortletMapMoveSearchMode(value) === "auto";
 }
 
+export function isShortletSavedViewEnabled(value: string | null | undefined): boolean {
+  return value === "1" || value === "true";
+}
+
 export function writeShortletMapMoveSearchMode(
   params: URLSearchParams,
   mode: ShortletMapMoveSearchMode
@@ -245,6 +249,14 @@ export function writeShortletMapMoveSearchMode(
     return;
   }
   params.delete("mapAuto");
+}
+
+export function writeShortletSavedViewParam(params: URLSearchParams, enabled: boolean): void {
+  if (enabled) {
+    params.set("saved", "1");
+    return;
+  }
+  params.delete("saved");
 }
 
 export function shouldAutoFitShortletMap(input: ShortletMapAutoFitInput): boolean {

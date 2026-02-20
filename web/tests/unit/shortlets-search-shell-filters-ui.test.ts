@@ -37,6 +37,17 @@ void test("shortlets shell supports active filter summary with overflow collapse
   assert.ok(contents.includes("removeShortletAdvancedFilterTag"));
 });
 
+void test("shortlets shell supports saved-only view toggle and friendly empty state actions", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes('data-testid="shortlets-saved-toggle"'));
+  assert.ok(contents.includes("writeShortletSavedViewParam"));
+  assert.ok(contents.includes("No saved stays yet."));
+  assert.ok(contents.includes("Browse stays"));
+  assert.ok(contents.includes("Search Nigeria"));
+  assert.ok(contents.includes('data-testid="shortlets-saved-toast"'));
+});
+
 void test("shortlets shell closes drawer with escape key support", () => {
   const contents = fs.readFileSync(shellPath, "utf8");
 
