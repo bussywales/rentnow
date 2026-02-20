@@ -18,10 +18,15 @@ import {
   type ShortletSearchPropertyRow,
   type ShortletOverlapRow,
 } from "@/lib/shortlet/search";
-import { resolveShortletBookingMode, resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
+import { resolveShortletBookingMode } from "@/lib/shortlet/discovery";
 
 const routeLabel = "/api/shortlets/search";
 const MAX_SOURCE_ROWS = 600;
+const SEARCH_FEE_POLICY = {
+  serviceFeePct: 0,
+  cleaningFee: 0,
+  taxPct: 0,
+} as const;
 
 type ProfileTrustRow = {
   id: string;
@@ -245,7 +250,12 @@ export async function GET(request: NextRequest) {
     const from = (filters.page - 1) * filters.pageSize;
     const to = from + filters.pageSize;
     const items = mapShortletSearchRowsToResultItems(
-      sorted.slice(from, to) as unknown as ShortletSearchPropertyRow[]
+      sorted.slice(from, to) as unknown as ShortletSearchPropertyRow[],
+      {
+        checkIn: filters.checkIn,
+        checkOut: filters.checkOut,
+        feePolicy: SEARCH_FEE_POLICY,
+      }
     ).map((item) => ({
       ...item,
       verifiedHost: verifiedHostIds.has(item.owner_id),
@@ -257,7 +267,7 @@ export async function GET(request: NextRequest) {
         title: item.title,
         city: item.city,
         currency: item.currency,
-        nightlyPriceMinor: resolveShortletNightlyPriceMinor(item),
+        nightlyPriceMinor: item.nightlyPriceMinor,
         primaryImageUrl: item.primaryImageUrl ?? item.cover_image_url ?? null,
         latitude: item.latitude,
         longitude: item.longitude,

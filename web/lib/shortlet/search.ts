@@ -2,6 +2,7 @@ import { isShortletProperty, resolveShortletBookingMode, resolveShortletNightlyP
 import type { Property } from "@/lib/types";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import { resolvePropertyImageUrl } from "@/lib/properties/image-url";
+import { calcFees, calcNights, calcSubtotal } from "@/lib/shortlet/pricing";
 import {
   formatShortletCancellationLabel,
   isFreeCancellationPolicy,
@@ -85,6 +86,17 @@ export type ShortletSearchResultItem = Property & {
   cancellationPolicy: ShortletCancellationPolicy;
   cancellationLabel: string;
   freeCancellation: boolean;
+  nightlyPrice: number | null;
+  nightlyPriceMinor: number | null;
+  pricingMode: "nightly" | "price_on_request";
+  nights: number | null;
+  subtotal: number | null;
+  fees: {
+    serviceFee: number;
+    cleaningFee: number;
+    taxes: number;
+  } | null;
+  total: number | null;
 };
 
 type ShortletSearchSortContext = {
@@ -724,8 +736,18 @@ export function resolveShortletPrimaryImageUrl(row: ShortletSearchPropertyRow): 
 }
 
 export function mapShortletSearchRowsToResultItems(
-  rows: ShortletSearchPropertyRow[]
+  rows: ShortletSearchPropertyRow[],
+  options?: {
+    checkIn?: string | null;
+    checkOut?: string | null;
+    feePolicy?: {
+      serviceFeePct?: number | null;
+      cleaningFee?: number | null;
+      taxPct?: number | null;
+    } | null;
+  }
 ): ShortletSearchResultItem[] {
+  const nights = calcNights(options?.checkIn ?? null, options?.checkOut ?? null);
   return rows.map((row) => {
     const rawRows = extractImageRowsFromProperty(row);
     const normalizedImages = normalizeImageRows(rawRows);
@@ -746,6 +768,16 @@ export function mapShortletSearchRowsToResultItems(
     });
     const cancellationLabel = formatShortletCancellationLabel(cancellationPolicy);
     const freeCancellation = isFreeCancellationPolicy(cancellationPolicy);
+    const nightlyMinor = resolveShortletNightlyPriceMinor(row);
+    const nightlyPrice = typeof nightlyMinor === "number" && nightlyMinor > 0 ? nightlyMinor / 100 : null;
+    const pricingMode = nightlyPrice && nightlyPrice > 0 ? "nightly" : "price_on_request";
+    const subtotal = nights > 0 && nightlyPrice ? calcSubtotal(nights, nightlyPrice) : null;
+    const feeBreakdown = subtotal
+      ? calcFees({
+          subtotal,
+          feePolicy: options?.feePolicy ?? null,
+        })
+      : null;
 
     const rest: Property = { ...row };
     delete (rest as Property & { property_images?: ShortletSearchImageRow[] }).property_images;
@@ -761,6 +793,19 @@ export function mapShortletSearchRowsToResultItems(
       cancellationPolicy,
       cancellationLabel,
       freeCancellation,
+      nightlyPrice,
+      nightlyPriceMinor: nightlyMinor,
+      pricingMode,
+      nights: subtotal ? nights : null,
+      subtotal,
+      fees: feeBreakdown
+        ? {
+            serviceFee: feeBreakdown.serviceFee,
+            cleaningFee: feeBreakdown.cleaningFee,
+            taxes: feeBreakdown.taxes,
+          }
+        : null,
+      total: feeBreakdown?.total ?? null,
     };
   });
 }
