@@ -2,7 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { Property } from "@/lib/types";
 import type { ShortletSearchFilters } from "@/lib/shortlet/search";
-import { runShortletPreAvailabilityPipeline } from "@/lib/shortlet/search-pipeline";
+import {
+  runShortletLocationPipeline,
+  runShortletPreAvailabilityPipeline,
+  runShortletProviderPipeline,
+} from "@/lib/shortlet/search-pipeline";
 
 function buildProperty(partial: Partial<Property>): Property {
   return {
@@ -115,4 +119,52 @@ void test("pre-availability pipeline stays deterministic across repeated runs", 
   );
   assert.equal(first.debugReasons.size, 0);
   assert.equal(second.debugReasons.size, 0);
+});
+
+void test("split location/provider stages stay parity-safe with combined pipeline", () => {
+  const baselineRows: Property[] = [
+    buildProperty({ id: "eligible" }),
+    buildProperty({ id: "destination-miss", city: "London", country: "United Kingdom", country_code: "GB" }),
+    buildProperty({
+      id: "provider-miss",
+      shortlet_settings: [{ booking_mode: "instant", cancellation_policy: "strict" }],
+    }),
+  ];
+
+  const combined = runShortletPreAvailabilityPipeline({
+    baselineRows,
+    filters: FILTERS,
+    verifiedHostIds: new Set<string>(),
+    debugEnabled: true,
+  });
+
+  const location = runShortletLocationPipeline({
+    baselineRows,
+    filters: FILTERS,
+    debugEnabled: true,
+  });
+  const split = runShortletProviderPipeline({
+    rows: location.bboxFilteredRows,
+    verifiedHostIds: new Set<string>(),
+    filters: FILTERS,
+    debugEnabled: true,
+    debugReasons: location.debugReasons,
+  });
+
+  assert.deepEqual(
+    split.providerFilteredRows.map((row) => row.id),
+    combined.providerFilteredRows.map((row) => row.id)
+  );
+  assert.deepEqual(
+    location.destinationFilteredRows.map((row) => row.id),
+    combined.destinationFilteredRows.map((row) => row.id)
+  );
+  assert.deepEqual(
+    location.bboxFilteredRows.map((row) => row.id),
+    combined.bboxFilteredRows.map((row) => row.id)
+  );
+  assert.deepEqual(
+    Array.from(split.debugReasons.entries()).map(([id, reasons]) => [id, Array.from(reasons)]),
+    Array.from(combined.debugReasons.entries()).map(([id, reasons]) => [id, Array.from(reasons)])
+  );
 });

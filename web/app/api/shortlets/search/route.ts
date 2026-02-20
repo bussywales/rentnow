@@ -16,7 +16,8 @@ import {
 } from "@/lib/shortlet/search";
 import {
   appendShortletPipelineReason,
-  runShortletPreAvailabilityPipeline,
+  runShortletLocationPipeline,
+  runShortletProviderPipeline,
   type ShortletPipelineDebugReason,
 } from "@/lib/shortlet/search-pipeline";
 
@@ -114,7 +115,14 @@ export async function GET(request: NextRequest) {
     }
 
     const baselineRows = ((data as Property[] | null) ?? []).map((row) => ({ ...row }));
-    const ownerIds = Array.from(new Set(baselineRows.map((row) => row.owner_id).filter(Boolean)));
+    const locationPipeline = runShortletLocationPipeline({
+      baselineRows,
+      filters,
+      debugEnabled,
+    });
+    const ownerIds = Array.from(
+      new Set(locationPipeline.bboxFilteredRows.map((row) => row.owner_id).filter(Boolean))
+    );
 
     const verifiedHostIds = new Set<string>();
     if (ownerIds.length > 0) {
@@ -128,14 +136,15 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const preAvailabilityPipeline = runShortletPreAvailabilityPipeline({
-      baselineRows,
+    const providerPipeline = runShortletProviderPipeline({
+      rows: locationPipeline.bboxFilteredRows,
       filters,
       verifiedHostIds,
+      debugReasons: locationPipeline.debugReasons,
       debugEnabled,
     });
-    let rows = preAvailabilityPipeline.providerFilteredRows;
-    const debugReasons = preAvailabilityPipeline.debugReasons as Map<string, Set<RouteDebugReason>>;
+    let rows = providerPipeline.providerFilteredRows;
+    const debugReasons = providerPipeline.debugReasons as Map<string, Set<RouteDebugReason>>;
 
     let unavailablePropertyIds = new Set<string>();
     if (hasDateRange && rows.length > 0) {
@@ -280,10 +289,10 @@ export async function GET(request: NextRequest) {
         }));
 
       payload.__debug = {
-        baselineCount: preAvailabilityPipeline.stageCounts.baselineCount,
-        destinationFiltered: preAvailabilityPipeline.stageCounts.destinationFilteredCount,
-        bboxFiltered: preAvailabilityPipeline.stageCounts.bboxFilteredCount,
-        providerFiltered: preAvailabilityPipeline.stageCounts.providerFilteredCount,
+        baselineCount: baselineRows.length,
+        destinationFiltered: locationPipeline.destinationFilteredRows.length,
+        bboxFiltered: locationPipeline.bboxFilteredRows.length,
+        providerFiltered: providerPipeline.providerFilteredRows.length,
         final: sorted.length,
         pagedCount: items.length,
         mapCount: mapItems.length,

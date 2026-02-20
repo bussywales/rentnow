@@ -22,6 +22,11 @@ export type ShortletPipelineStageCounts = {
   providerFilteredCount: number;
 };
 
+type ShortletPipelineBaseInput = {
+  filters: ShortletSearchFilters;
+  debugEnabled: boolean;
+};
+
 export function appendShortletPipelineReason<TReason extends string>(
   map: Map<string, Set<TReason>>,
   propertyId: string,
@@ -35,12 +40,9 @@ export function appendShortletPipelineReason<TReason extends string>(
   map.set(propertyId, new Set([reason]));
 }
 
-export function runShortletPreAvailabilityPipeline(input: {
+export function runShortletLocationPipeline(input: {
   baselineRows: Property[];
-  filters: ShortletSearchFilters;
-  verifiedHostIds: ReadonlySet<string>;
-  debugEnabled: boolean;
-}) {
+} & ShortletPipelineBaseInput) {
   const debugReasons = new Map<string, Set<ShortletPipelineDebugReason>>();
 
   const destinationFilteredRows = input.baselineRows.filter((property) => {
@@ -59,7 +61,19 @@ export function runShortletPreAvailabilityPipeline(input: {
     return withinBounds;
   });
 
-  const providerFilteredRows = bboxFilteredRows.filter((property) => {
+  return {
+    destinationFilteredRows,
+    bboxFilteredRows,
+    debugReasons,
+  };
+}
+
+export function runShortletProviderPipeline(input: {
+  rows: Property[];
+  verifiedHostIds: ReadonlySet<string>;
+  debugReasons: Map<string, Set<ShortletPipelineDebugReason>>;
+} & ShortletPipelineBaseInput) {
+  const providerFilteredRows = input.rows.filter((property) => {
     if (
       !matchesTrustFilters({
         property,
@@ -68,7 +82,7 @@ export function runShortletPreAvailabilityPipeline(input: {
       })
     ) {
       if (input.debugEnabled) {
-        appendShortletPipelineReason(debugReasons, property.id, "trust_filter_mismatch");
+        appendShortletPipelineReason(input.debugReasons, property.id, "trust_filter_mismatch");
       }
       return false;
     }
@@ -77,7 +91,7 @@ export function runShortletPreAvailabilityPipeline(input: {
       const bookingMode = resolveShortletBookingMode(property);
       if (bookingMode !== input.filters.provider.bookingMode) {
         if (input.debugEnabled) {
-          appendShortletPipelineReason(debugReasons, property.id, "booking_mode_mismatch");
+          appendShortletPipelineReason(input.debugReasons, property.id, "booking_mode_mismatch");
         }
         return false;
       }
@@ -90,7 +104,7 @@ export function runShortletPreAvailabilityPipeline(input: {
       })
     ) {
       if (input.debugEnabled) {
-        appendShortletPipelineReason(debugReasons, property.id, "free_cancellation_mismatch");
+        appendShortletPipelineReason(input.debugReasons, property.id, "free_cancellation_mismatch");
       }
       return false;
     }
@@ -98,16 +112,34 @@ export function runShortletPreAvailabilityPipeline(input: {
     return true;
   });
 
+  return { providerFilteredRows, debugReasons: input.debugReasons };
+}
+
+export function runShortletPreAvailabilityPipeline(input: {
+  baselineRows: Property[];
+  filters: ShortletSearchFilters;
+  verifiedHostIds: ReadonlySet<string>;
+  debugEnabled: boolean;
+}) {
+  const locationPipeline = runShortletLocationPipeline(input);
+  const providerPipeline = runShortletProviderPipeline({
+    rows: locationPipeline.bboxFilteredRows,
+    verifiedHostIds: input.verifiedHostIds,
+    debugReasons: locationPipeline.debugReasons,
+    filters: input.filters,
+    debugEnabled: input.debugEnabled,
+  });
+
   return {
-    destinationFilteredRows,
-    bboxFilteredRows,
-    providerFilteredRows,
-    debugReasons,
+    destinationFilteredRows: locationPipeline.destinationFilteredRows,
+    bboxFilteredRows: locationPipeline.bboxFilteredRows,
+    providerFilteredRows: providerPipeline.providerFilteredRows,
+    debugReasons: providerPipeline.debugReasons,
     stageCounts: {
       baselineCount: input.baselineRows.length,
-      destinationFilteredCount: destinationFilteredRows.length,
-      bboxFilteredCount: bboxFilteredRows.length,
-      providerFilteredCount: providerFilteredRows.length,
+      destinationFilteredCount: locationPipeline.destinationFilteredRows.length,
+      bboxFilteredCount: locationPipeline.bboxFilteredRows.length,
+      providerFilteredCount: providerPipeline.providerFilteredRows.length,
     } satisfies ShortletPipelineStageCounts,
   };
 }
