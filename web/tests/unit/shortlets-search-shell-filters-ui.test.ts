@@ -128,6 +128,16 @@ void test("shortlets shell uses where typeahead with recent and saved search hoo
   assert.ok(contents.includes("onApplySearchPreset"));
 });
 
+void test("shortlets shell carries selected dates into property detail links", () => {
+  const contents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(contents.includes("const buildPropertyHref"));
+  assert.ok(contents.includes('params.set("checkIn", parsedUi.checkIn)'));
+  assert.ok(contents.includes('params.set("checkOut", parsedUi.checkOut)'));
+  assert.ok(contents.includes('params.set("guests", parsedUi.guests)'));
+  assert.ok(contents.includes('params.set("back", `/shortlets?${backLinkQuery}`)'));
+});
+
 void test("shortlets shell result summary reflects bbox-applied map-area state", () => {
   const contents = fs.readFileSync(shellPath, "utf8");
 

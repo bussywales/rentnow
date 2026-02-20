@@ -4,6 +4,28 @@ export type ShortletFeePolicy = {
   taxPct?: number | null;
 };
 
+export type ShortletPricingInput = {
+  checkIn: string;
+  checkOut: string;
+  nightlyPriceMinor: number;
+  cleaningFeeMinor?: number | null;
+  depositMinor?: number | null;
+};
+
+export type ShortletPricingBreakdown = {
+  nights: number;
+  nightlyPriceMinor: number;
+  subtotalMinor: number;
+  cleaningFeeMinor: number;
+  depositMinor: number;
+  totalAmountMinor: number;
+};
+
+export type DateRangeInput = {
+  from: string;
+  to: string;
+};
+
 export type ShortletCalculatedFees = {
   serviceFee: number;
   cleaningFee: number;
@@ -38,6 +60,14 @@ function parseDateKey(value: string | null | undefined): Date | null {
   return date;
 }
 
+function parseDateOnly(value: string): Date {
+  const parsed = parseDateKey(value);
+  if (!parsed) {
+    throw new Error("INVALID_DATE");
+  }
+  return parsed;
+}
+
 export function calcNights(checkIn: string | null | undefined, checkOut: string | null | undefined): number {
   const from = parseDateKey(checkIn);
   const to = parseDateKey(checkOut);
@@ -47,11 +77,40 @@ export function calcNights(checkIn: string | null | undefined, checkOut: string 
   return Math.floor(diffMs / (24 * 60 * 60 * 1000));
 }
 
+export function calculateNights(checkIn: string, checkOut: string): number {
+  const nights = calcNights(checkIn, checkOut);
+  if (!Number.isFinite(nights) || nights < 1) {
+    throw new Error("INVALID_NIGHTS");
+  }
+  return nights;
+}
+
 export function calcSubtotal(nights: number | null | undefined, nightly: number | null | undefined): number {
   const normalizedNights = Number.isFinite(Number(nights)) ? Math.max(0, Math.trunc(Number(nights))) : 0;
   const normalizedNightly = normalizeAmount(nightly);
   if (normalizedNights <= 0 || normalizedNightly <= 0) return 0;
   return roundMoney(normalizedNights * normalizedNightly);
+}
+
+export function calculateShortletPricing(input: ShortletPricingInput): ShortletPricingBreakdown {
+  const nights = calculateNights(input.checkIn, input.checkOut);
+  const nightlyPriceMinor = Math.trunc(input.nightlyPriceMinor || 0);
+  if (!Number.isFinite(nightlyPriceMinor) || nightlyPriceMinor <= 0) {
+    throw new Error("NIGHTLY_PRICE_REQUIRED");
+  }
+  const cleaningFeeMinor = Math.max(0, Math.trunc(input.cleaningFeeMinor || 0));
+  const depositMinor = Math.max(0, Math.trunc(input.depositMinor || 0));
+  const subtotalMinor = nightlyPriceMinor * nights;
+  const totalAmountMinor = subtotalMinor + cleaningFeeMinor + depositMinor;
+
+  return {
+    nights,
+    nightlyPriceMinor,
+    subtotalMinor,
+    cleaningFeeMinor,
+    depositMinor,
+    totalAmountMinor,
+  };
 }
 
 export function calcFees(input: {
@@ -86,4 +145,14 @@ export function formatMoney(amount: number | null | undefined, currency: string 
   } catch {
     return `${normalizedCurrency} ${normalizedAmount.toFixed(2)}`;
   }
+}
+
+export function hasDateOverlap(a: DateRangeInput, b: DateRangeInput): boolean {
+  const aStart = parseDateOnly(a.from);
+  const aEnd = parseDateOnly(a.to);
+  const bStart = parseDateOnly(b.from);
+  const bEnd = parseDateOnly(b.to);
+
+  if (aEnd <= aStart || bEnd <= bStart) return false;
+  return aStart < bEnd && bStart < aEnd;
 }

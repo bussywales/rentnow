@@ -76,6 +76,17 @@ type SearchItem = Property & {
   cancellationPolicy?: "flexible_24h" | "flexible_48h" | "moderate_5d" | "strict";
   cancellationLabel?: string;
   freeCancellation?: boolean;
+  nightlyPrice?: number | null;
+  nightlyPriceMinor?: number | null;
+  pricingMode?: "nightly" | "price_on_request";
+  nights?: number | null;
+  subtotal?: number | null;
+  fees?: {
+    serviceFee?: number | null;
+    cleaningFee?: number | null;
+    taxes?: number | null;
+  } | null;
+  total?: number | null;
 };
 
 type SearchResponse = {
@@ -282,6 +293,17 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
     if (!next.get("market")) next.set("market", parsedUi.market);
     return next.toString();
   }, [parsedUi.market, searchParamsKey]);
+  const buildPropertyHref = useCallback(
+    (propertyId: string) => {
+      const params = new URLSearchParams();
+      params.set("back", `/shortlets?${backLinkQuery}`);
+      if (parsedUi.checkIn) params.set("checkIn", parsedUi.checkIn);
+      if (parsedUi.checkOut) params.set("checkOut", parsedUi.checkOut);
+      if (parsedUi.guests) params.set("guests", parsedUi.guests);
+      return `/properties/${propertyId}?${params.toString()}#cta`;
+    },
+    [backLinkQuery, parsedUi.checkIn, parsedUi.checkOut, parsedUi.guests]
+  );
 
   const [queryDraft, setQueryDraft] = useState(parsedUi.where);
   const [checkInDraft, setCheckInDraft] = useState(parsedUi.checkIn);
@@ -1615,9 +1637,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     >
                       <ShortletsSearchListCard
                         property={property}
-                        href={`/properties/${property.id}?back=${encodeURIComponent(
-                          `/shortlets?${backLinkQuery}`
-                        )}#cta`}
+                        href={buildPropertyHref(property.id)}
                         selected={selected}
                         highlighted={property.id === hoveredListingId}
                         isSaved={savedIds.has(property.id)}
@@ -1802,9 +1822,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                 >
                   <ShortletsSearchListCard
                     property={property}
-                    href={`/properties/${property.id}?back=${encodeURIComponent(
-                      `/shortlets?${backLinkQuery}`
-                    )}#cta`}
+                    href={buildPropertyHref(property.id)}
                     selected={selected}
                     highlighted={property.id === hoveredListingId}
                     isSaved={savedIds.has(property.id)}
@@ -1975,9 +1993,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                         {property.city} · {formatMoney(property.currency, nightlyPrice)}
                       </p>
                       <Link
-                        href={`/properties/${property.id}?back=${encodeURIComponent(
-                          `/shortlets?${backLinkQuery}`
-                        )}#cta`}
+                        href={buildPropertyHref(property.id)}
                         className="mt-2 inline-flex text-xs font-semibold text-sky-700"
                       >
                         Open listing

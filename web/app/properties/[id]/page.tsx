@@ -91,6 +91,18 @@ function getSearchParamValue(
   return value;
 }
 
+function parseShortletDateParam(value: string | undefined): string | null {
+  const normalized = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+  return normalized;
+}
+
+function parseShortletGuestsParam(value: string | undefined): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 1;
+  return Math.max(1, Math.trunc(parsed));
+}
+
 async function getProperty(
   id: string | undefined,
   options?: { source?: string | null; requestHeaders?: Headers }
@@ -256,6 +268,15 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   });
   const backHref = resolveBackHref(resolvedSearchParams, headerList.get("referer"));
   const sourceParam = getSearchParamValue(resolvedSearchParams, "source") ?? null;
+  const initialShortletCheckIn = parseShortletDateParam(
+    getSearchParamValue(resolvedSearchParams, "checkIn")
+  );
+  const initialShortletCheckOut = parseShortletDateParam(
+    getSearchParamValue(resolvedSearchParams, "checkOut")
+  );
+  const initialShortletGuests = parseShortletGuestsParam(
+    getSearchParamValue(resolvedSearchParams, "guests")
+  );
   const forwardedHeaders = new Headers();
   const cookieHeader = headerList.get("cookie");
   const userAgentHeader = headerList.get("user-agent");
@@ -883,6 +904,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               isAuthenticated={!isGuest}
               loginHref={loginRedirect}
               cancellationLabel={shortletCancellationLabel ?? undefined}
+              initialCheckIn={initialShortletCheckIn}
+              initialCheckOut={initialShortletCheckOut}
+              initialGuests={initialShortletGuests}
             />
           )}
           {showPublicActions && !expiredReadOnly && !isSaleListing && !isShortletListing && (

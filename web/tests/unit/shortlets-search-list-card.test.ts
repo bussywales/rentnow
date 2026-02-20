@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  resolveShortletsCardPricing,
   resolveShortletsSearchCardBadge,
   resolveShortletsSearchCardHighlight,
 } from "@/components/shortlets/search/ShortletsSearchListCard";
@@ -22,6 +23,8 @@ void test("shortlets search card keeps a calm hierarchy with stable height and 2
   assert.ok(contents.includes("line-clamp-2 min-h-[2.8rem]"));
   assert.ok(contents.includes("min-h-[164px]"));
   assert.ok(contents.includes("Price on request"));
+  assert.ok(contents.includes("Fees shown at checkout"));
+  assert.ok(contents.includes("Pricing details"));
   assert.equal(contents.includes("property.description"), false);
 });
 
@@ -76,4 +79,29 @@ void test("shortlets card badge follows free-cancellation > verified-host > inst
     }),
     "Instant book"
   );
+});
+
+void test("shortlets card pricing shows nightly label and total when date totals are available", () => {
+  const withTotals = resolveShortletsCardPricing({
+    currency: "NGN",
+    nightlyPriceMinor: 4500000,
+    nights: 3,
+    subtotal: 135000,
+    fees: { serviceFee: 0, cleaningFee: 0, taxes: 0 },
+    total: 135000,
+  });
+
+  assert.equal(withTotals.nightlyLabel.includes("/ night"), true);
+  assert.equal(withTotals.totalLabel?.includes("3 nights"), true);
+  assert.equal(withTotals.feesHint, "Fees shown at checkout");
+  assert.equal(withTotals.hasBreakdown, true);
+
+  const priceOnRequest = resolveShortletsCardPricing({
+    currency: "NGN",
+    pricingMode: "price_on_request",
+    nightlyPriceMinor: null,
+  });
+  assert.equal(priceOnRequest.nightlyLabel, "Price on request");
+  assert.equal(priceOnRequest.totalLabel, null);
+  assert.equal(priceOnRequest.hasBreakdown, false);
 });

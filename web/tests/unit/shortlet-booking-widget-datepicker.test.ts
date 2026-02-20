@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import {
   applyShortletDraftRange,
   canContinueToPayment,
@@ -184,4 +186,14 @@ void test("range selection cannot include an unavailable date", () => {
 
   assert.equal(derived.isValid, false);
   assert.equal(derived.draftRange?.to, undefined);
+});
+
+void test("booking widget copy clarifies payment timing and host response SLA", () => {
+  const filePath = path.join(process.cwd(), "components", "properties", "ShortletBookingWidget.tsx");
+  const contents = fs.readFileSync(filePath, "utf8");
+
+  assert.ok(contents.includes("You won&apos;t be charged yet. Payment happens in the next step."));
+  assert.ok(contents.includes("Host will respond within 12 hours."));
+  assert.ok(contents.includes("Instant confirmation."));
+  assert.ok(contents.includes('const ctaLabel = bookingMode === "instant" ? "Reserve" : "Request"'));
 });

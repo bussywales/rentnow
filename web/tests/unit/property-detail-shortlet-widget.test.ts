@@ -45,4 +45,16 @@ void test("property detail wiring supports #cta anchor scroll and API shortlet s
     pageContents.includes("cancellationLabel={shortletCancellationLabel ?? undefined}"),
     "expected booking widget to receive shortlet cancellation label"
   );
+  assert.ok(
+    pageContents.includes("initialCheckIn={initialShortletCheckIn}"),
+    "expected booking widget to receive carried check-in date from shortlets search"
+  );
+  assert.ok(
+    pageContents.includes("initialCheckOut={initialShortletCheckOut}"),
+    "expected booking widget to receive carried check-out date from shortlets search"
+  );
+  assert.ok(
+    pageContents.includes("initialGuests={initialShortletGuests}"),
+    "expected booking widget to receive carried guests value from shortlets search"
+  );
 });

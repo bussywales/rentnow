@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/Button";
 import { Calendar } from "@/components/ui/calendar";
-import { resolveShortletBookingCtaLabel } from "@/lib/shortlet/booking-cta";
 import {
   expandRangesToDisabledDates,
   toDateKey,
@@ -120,6 +119,15 @@ function addDaysToDateKey(dateKey: string, days: number): string {
   const nextMonth = String(utc.getUTCMonth() + 1).padStart(2, "0");
   const nextDay = String(utc.getUTCDate()).padStart(2, "0");
   return `${nextYear}-${nextMonth}-${nextDay}`;
+}
+
+function parseDateKey(value: string | null | undefined): Date | null {
+  const normalized = String(value || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+  const [year, month, day] = normalized.split("-").map((part) => Number(part));
+  const parsed = new Date(Date.UTC(year, month - 1, day));
+  if (!Number.isFinite(parsed.getTime())) return null;
+  return parsed;
 }
 
 function buildCalendarWindow(month: Date): CalendarWindow {
@@ -363,16 +371,38 @@ export function ShortletBookingWidget(props: {
   isAuthenticated: boolean;
   loginHref: string;
   cancellationLabel?: string;
+  initialCheckIn?: string | null;
+  initialCheckOut?: string | null;
+  initialGuests?: number;
 }) {
   const router = useRouter();
+  const initialCheckIn = parseDateKey(props.initialCheckIn ?? null);
+  const initialCheckOut = parseDateKey(props.initialCheckOut ?? null);
+  const hasValidInitialRange =
+    !!initialCheckIn && !!initialCheckOut && initialCheckOut.getTime() > initialCheckIn.getTime();
+  const initialRange = hasValidInitialRange
+    ? {
+        from: new Date(initialCheckIn as Date),
+        to: new Date(initialCheckOut as Date),
+      }
+    : undefined;
+  const initialGuests = Number.isFinite(Number(props.initialGuests))
+    ? Math.max(1, Math.trunc(Number(props.initialGuests)))
+    : 1;
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [isMobileCalendar, setIsMobileCalendar] = useState(false);
   const [calendarPlacement, setCalendarPlacement] = useState<"top" | "bottom">("bottom");
-  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
-  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(undefined);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(
+    hasValidInitialRange ? new Date(initialCheckIn as Date) : new Date()
+  );
+  const [selectedRange, setSelectedRange] = useState<DateRange | undefined>(initialRange);
   const [draftRange, setDraftRange] = useState<DateRange | undefined>(undefined);
-  const [checkIn, setCheckIn] = useState<string>("");
-  const [checkOut, setCheckOut] = useState<string>("");
+  const [checkIn, setCheckIn] = useState<string>(
+    hasValidInitialRange ? toDateKey(initialCheckIn as Date) : ""
+  );
+  const [checkOut, setCheckOut] = useState<string>(
+    hasValidInitialRange ? toDateKey(initialCheckOut as Date) : ""
+  );
   const [loading, setLoading] = useState(false);
   const [metaLoading, setMetaLoading] = useState(false);
   const [calendarLoadCount, setCalendarLoadCount] = useState(0);
@@ -658,8 +688,7 @@ export function ShortletBookingWidget(props: {
 
   const bookingMode = availability?.bookingMode ?? "request";
   const isRequestMode = bookingMode === "request";
-  const modeCtaLabel = resolveShortletBookingCtaLabel(bookingMode);
-  const ctaLabel = "Continue to payment";
+  const ctaLabel = bookingMode === "instant" ? "Reserve" : "Request";
   const pricing = availability?.pricing ?? null;
   const hasNightlyPriceConfigured =
     typeof availability?.settings?.nightlyPriceMinor === "number" &&
@@ -865,7 +894,7 @@ export function ShortletBookingWidget(props: {
     setError(null);
     setNotice(null);
     const payloadNights = pricing?.nights ?? currentValidation.nights ?? 1;
-    const payloadGuests = 1;
+    const payloadGuests = initialGuests;
     const payloadMode = bookingMode === "instant" ? "instant" : "request";
     try {
       const response = await fetch("/api/shortlet/bookings/create", {
@@ -1202,8 +1231,14 @@ export function ShortletBookingWidget(props: {
       </div>
       {!checkIn || !checkOut ? (
         <p className="mt-2 text-xs text-slate-500">Select check-in and check-out dates to continue.</p>
-      ) : null}
-      <p className="mt-2 text-xs text-slate-500">{modeCtaLabel} will be finalised after checkout.</p>
+      ) : (
+        <p className="mt-2 text-xs text-slate-500">You won&apos;t be charged yet. Payment happens in the next step.</p>
+      )}
+      <p className="mt-2 text-xs text-slate-500">
+        {bookingMode === "instant"
+          ? "Instant confirmation."
+          : "Host will respond within 12 hours."}
+      </p>
 
       {notice ? (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-emerald-700">
