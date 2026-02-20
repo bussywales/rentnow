@@ -97,9 +97,17 @@ void test("awaiting approval helpers enforce response window", () => {
     false
   );
   assert.equal(
+    isAwaitingApprovalBooking(
+      bookingRow({ status: "pending_payment", respond_by: "2026-03-10T10:00:00.000Z" }),
+      now
+    ),
+    false
+  );
+  assert.equal(
     countAwaitingApprovalBookings(
       [
         bookingRow({ status: "pending", respond_by: "2026-03-10T10:00:00.000Z" }),
+        bookingRow({ status: "pending_payment", respond_by: "2026-03-10T10:30:00.000Z" }),
         bookingRow({ status: "pending", respond_by: "2026-03-10T08:00:00.000Z" }),
         bookingRow({ status: "confirmed" }),
       ],
@@ -161,4 +169,30 @@ void test("host booking view param parser supports awaiting alias", () => {
   assert.equal(parseHostBookingInboxFilterParam("awaiting"), "awaiting_approval");
   assert.equal(parseHostBookingInboxFilterParam("upcoming"), "upcoming");
   assert.equal(parseHostBookingInboxFilterParam("all"), null);
+});
+
+void test("pending_payment is excluded from host actionable awaiting-approval bucket", () => {
+  const now = new Date("2026-03-10T09:00:00.000Z");
+
+  assert.equal(
+    resolveHostBookingInboxFilter(
+      bookingRow({
+        status: "pending_payment",
+        respond_by: "2026-03-10T12:00:00.000Z",
+      }),
+      now
+    ),
+    "closed"
+  );
+
+  assert.equal(
+    resolveHostBookingInboxFilter(
+      bookingRow({
+        status: "pending",
+        respond_by: "2026-03-10T12:00:00.000Z",
+      }),
+      now
+    ),
+    "awaiting_approval"
+  );
 });

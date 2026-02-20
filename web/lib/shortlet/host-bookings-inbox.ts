@@ -31,6 +31,8 @@ export type HostBookingInboxRow = {
   expires_at?: string | null;
 };
 
+export const HOST_INBOX_HIDDEN_STATUSES = ["pending_payment"] as const;
+
 function parseDateMs(value: string | null | undefined): number | null {
   const raw = String(value || "").trim();
   if (!raw) return null;
@@ -73,7 +75,7 @@ export function isAwaitingApprovalBooking(
   nowInput?: Date
 ) {
   const status = resolveStatus(row.status);
-  if (status !== "pending" && status !== "pending_payment") return false;
+  if (status !== "pending") return false;
 
   const nowMs = (nowInput ?? new Date()).getTime();
   const respondByMs = parseDateMs(row.respond_by);
@@ -98,9 +100,12 @@ export function resolveHostBookingInboxFilter(
   const status = resolveStatus(row.status);
   if (!status) return "closed";
 
-  if (status === "pending" || status === "pending_payment") {
+  if (status === "pending") {
     if (!isAwaitingApprovalBooking(row, now)) return "closed";
     return "awaiting_approval";
+  }
+  if (status === "pending_payment") {
+    return "closed";
   }
   if (status === "declined" || status === "cancelled" || status === "expired") {
     return "closed";

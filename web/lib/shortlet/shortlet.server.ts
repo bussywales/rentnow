@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { canCancelBooking } from "@/lib/shortlet/bookings";
+import { HOST_INBOX_HIDDEN_STATUSES } from "@/lib/shortlet/host-bookings-inbox";
 import { isBookingEligibleForPayout, resolveMarkPaidTransition } from "@/lib/shortlet/payouts";
 
 export type ShortletBookingMode = "instant" | "request";
@@ -207,7 +208,7 @@ export async function listHostShortletBookings(input: {
     .from("shortlet_bookings")
     .select(primarySelect)
     .eq("host_user_id", input.hostUserId)
-    .neq("status", "pending_payment")
+    .neq("status", HOST_INBOX_HIDDEN_STATUSES[0])
     .order("created_at", { ascending: false })
     .limit(limit);
   let data = primaryResult.data as Array<Record<string, unknown>> | null;
@@ -222,7 +223,7 @@ export async function listHostShortletBookings(input: {
       .from("shortlet_bookings")
       .select(fallbackSelect)
       .eq("host_user_id", input.hostUserId)
-      .neq("status", "pending_payment")
+      .neq("status", HOST_INBOX_HIDDEN_STATUSES[0])
       .order("created_at", { ascending: false })
       .limit(limit);
     data = fallbackResult.data as Array<Record<string, unknown>> | null;
