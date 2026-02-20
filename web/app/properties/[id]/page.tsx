@@ -7,6 +7,7 @@ import { MessageThreadClient } from "@/components/messaging/MessageThreadClient"
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
 import { PropertyCard } from "@/components/properties/PropertyCard";
+import { HostIdentityBlock } from "@/components/properties/HostIdentityBlock";
 import { SaveButton } from "@/components/properties/SaveButton";
 import { PropertyTrustCues } from "@/components/properties/PropertyTrustCues";
 import { PublicPropertyShareButton } from "@/components/properties/PublicPropertyShareButton";
@@ -850,18 +851,12 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
               </div>
               <div>
                 <p className="text-sm font-semibold text-slate-900">Hosted by</p>
-                {hostProfileIsPublicAdvertiser && property.owner_id ? (
-                  <Link
-                    href={hostProfileHref ?? `/u/${property.owner_id}`}
-                    className="text-xs font-semibold text-slate-700 underline-offset-4 hover:text-sky-700 hover:underline"
-                  >
-                    {hostProfileName || "View advertiser profile"}
-                  </Link>
-                ) : (
-                  <p className="text-xs text-slate-600 break-all">
-                    {property.owner_id ? `Host ID: ${property.owner_id}` : "Demo host"}
-                  </p>
-                )}
+                <HostIdentityBlock
+                  hostProfileIsPublicAdvertiser={hostProfileIsPublicAdvertiser}
+                  ownerId={property.owner_id}
+                  hostProfileHref={hostProfileHref}
+                  hostProfileName={hostProfileName}
+                />
                 <p className="text-xs text-slate-500">
                   Based in {hostProfileCity || property.city}
                 </p>
