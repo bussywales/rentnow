@@ -7,6 +7,7 @@ import {
   type TrustMarkerState,
 } from "@/lib/trust-markers";
 import { useVerificationRequirements } from "@/lib/trust-verification.client";
+import { VerifiedHostInfoTooltip } from "@/components/trust/VerifiedHostInfoTooltip";
 
 type Props = {
   markers?: TrustMarkerState | null;
@@ -20,15 +21,17 @@ export function TrustIdentityPill({ markers, className }: Props) {
   if (!label) return null;
 
   return (
-    <span
-      data-testid="trust-identity-pill"
-      className={cn(
-        "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold",
-        verified ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600",
-        className
-      )}
-    >
-      {label}
+    <span className={cn("inline-flex items-center gap-1", className)}>
+      <span
+        data-testid="trust-identity-pill"
+        className={cn(
+          "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold",
+          verified ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+        )}
+      >
+        {label}
+      </span>
+      {verified ? <VerifiedHostInfoTooltip /> : null}
     </span>
   );
 }

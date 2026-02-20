@@ -12,6 +12,7 @@ import {
   resolveShortletBookabilityCta,
 } from "@/lib/shortlet/pricing";
 import { ShortletsSearchCardCarousel } from "@/components/shortlets/search/ShortletsSearchCardCarousel";
+import { VerifiedHostInfoTooltip } from "@/components/trust/VerifiedHostInfoTooltip";
 
 type Props = {
   property: Property & {
@@ -263,8 +264,11 @@ export function ShortletsSearchListCard({
               {location}
             </p>
             {badgeLabel ? (
-              <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                {badgeLabel}
+              <span className="shrink-0 inline-flex items-center gap-1">
+                <span className="rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                  {badgeLabel}
+                </span>
+                {badgeLabel === "Verified host" ? <VerifiedHostInfoTooltip /> : null}
               </span>
             ) : null}
           </div>
