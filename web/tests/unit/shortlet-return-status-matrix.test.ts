@@ -32,6 +32,7 @@ function expectedUiState(
   paymentStatus: ShortletPaymentStatus | null
 ) {
   if (paymentStatus === "refunded") return "refunded";
+  if (bookingStatus === "pending_payment" && paymentStatus === "succeeded") return "finalising";
   if (bookingStatus === "confirmed") return "confirmed";
   if (bookingStatus === "pending") return "pending";
   if (
@@ -91,5 +92,12 @@ void test("regression race: succeeded + pending_payment must keep polling", () =
       elapsedMs: 5_000,
     }),
     true
+  );
+  assert.equal(
+    resolveShortletReturnUiState({
+      bookingStatus: "pending_payment",
+      paymentStatus: "succeeded",
+    }),
+    "finalising"
   );
 });

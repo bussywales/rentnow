@@ -15,6 +15,7 @@ export type ShortletPaymentStatus =
 
 export type ShortletReturnUiState =
   | "processing"
+  | "finalising"
   | "pending"
   | "confirmed"
   | "failed"
@@ -186,9 +187,30 @@ export function resolvePollingAction(input: {
   });
   if (!shouldStop) return "continue" as const;
   if (input.elapsedMs >= timeoutMs) {
-    return input.timeoutFinalFetchDone ? "stop" as const : "final_fetch_then_stop" as const;
+    return input.timeoutFinalFetchDone
+      ? ("stop" as const)
+      : ("final_fetch_then_wait_then_stop" as const);
   }
   return "stop" as const;
+}
+
+export function isShortletPaymentFinalisingState(input: {
+  bookingStatus: string | null | undefined;
+  paymentStatus: string | null | undefined;
+}) {
+  const bookingStatus = normalizeShortletBookingStatus(input.bookingStatus);
+  const paymentStatus = normalizeShortletPaymentStatus(input.paymentStatus);
+  return bookingStatus === "pending_payment" && paymentStatus === "succeeded";
+}
+
+export function resolveShortletTimeoutMessage(input: {
+  bookingStatus: string | null | undefined;
+  paymentStatus: string | null | undefined;
+}) {
+  if (isShortletPaymentFinalisingState(input)) {
+    return "Payment received. Final confirmation is taking longer than usual. This does not mean your payment failed.";
+  }
+  return "Confirmation is taking longer than usual. Recheck now or contact support if this keeps happening.";
 }
 
 export function resolveShortletReturnUiState(input: {
@@ -199,6 +221,9 @@ export function resolveShortletReturnUiState(input: {
   const paymentStatus = normalizeShortletPaymentStatus(input.paymentStatus);
 
   if (paymentStatus === "refunded") return "refunded" as const;
+  if (isShortletPaymentFinalisingState({ bookingStatus, paymentStatus })) {
+    return "finalising" as const;
+  }
   if (bookingStatus === "confirmed") return "confirmed" as const;
   if (bookingStatus === "pending") return "pending" as const;
   if (bookingStatus && TERMINAL_BOOKING_STATUSES.has(bookingStatus)) {

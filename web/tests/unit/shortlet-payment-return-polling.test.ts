@@ -5,6 +5,7 @@ import {
   SHORTLET_PAYMENT_STATUS_VALUES,
   resolvePollingAction,
   resolveShortletReturnUiState,
+  resolveShortletTimeoutMessage,
   shouldPoll,
 } from "@/lib/shortlet/return-status";
 
@@ -104,7 +105,7 @@ void test("timeout triggers one final fetch action, then stop", () => {
       elapsedMs: 60_000,
       timeoutFinalFetchDone: false,
     }),
-    "final_fetch_then_stop"
+    "final_fetch_then_wait_then_stop"
   );
   assert.equal(
     resolvePollingAction({
@@ -124,6 +125,13 @@ void test("return UI state maps pending host-approval and terminal states correc
       bookingStatus: "pending",
     }),
     "pending"
+  );
+  assert.equal(
+    resolveShortletReturnUiState({
+      paymentStatus: "succeeded",
+      bookingStatus: "pending_payment",
+    }),
+    "finalising"
   );
   assert.equal(
     resolveShortletReturnUiState({
@@ -149,4 +157,22 @@ void test("return UI state maps pending host-approval and terminal states correc
       "closed"
     );
   }
+});
+
+void test("timeout copy keeps confidence when payment already succeeded", () => {
+  assert.match(
+    resolveShortletTimeoutMessage({
+      bookingStatus: "pending_payment",
+      paymentStatus: "succeeded",
+    }),
+    /does not mean your payment failed/i
+  );
+
+  assert.match(
+    resolveShortletTimeoutMessage({
+      bookingStatus: "pending_payment",
+      paymentStatus: "initiated",
+    }),
+    /taking longer than usual/i
+  );
 });

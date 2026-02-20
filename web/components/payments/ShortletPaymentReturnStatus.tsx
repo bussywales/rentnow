@@ -9,6 +9,7 @@ import {
   normalizeShortletPaymentStatus,
   resolvePollingAction,
   resolveShortletReturnUiState,
+  resolveShortletTimeoutMessage,
   shouldPoll,
 } from "@/lib/shortlet/return-status";
 import { resolveRealtimeBookingStatusUpdate } from "@/lib/shortlet/return-realtime";
@@ -35,6 +36,7 @@ const STATUS_POLL_INTERVAL_MS = 5000;
 const STATUS_POLL_MAX_MS = SHORTLET_STATUS_POLL_TIMEOUT_MS;
 const PENDING_HOST_FALLBACK_POLL_INTERVAL_MS = 25_000;
 const FORCE_RECHECK_THROTTLE_MS = 4000;
+const TIMEOUT_GRACE_RECHECK_DELAY_MS = 3000;
 
 function formatMoney(currency: string, amountMinor: number) {
   const amount = Math.max(0, Math.trunc(amountMinor || 0)) / 100;
@@ -168,11 +170,47 @@ export function ShortletPaymentReturnStatus(props: {
           elapsedMs,
           timeoutMs: STATUS_POLL_MAX_MS,
         });
-        if (action === "final_fetch_then_stop") {
+        if (action === "final_fetch_then_wait_then_stop") {
           timeoutFinalFetchDone = true;
           void (async () => {
             const finalPayload = await loadStatus();
             if (cancelled) return;
+
+            const isFinalisingAfterFinalFetch =
+              normalizeShortletPaymentStatus(finalPayload?.payment?.status) === "succeeded" &&
+              normalizeShortletBookingStatus(finalPayload?.booking?.status) === "pending_payment";
+
+            if (isFinalisingAfterFinalFetch) {
+              console.log("[/payments/shortlet/return] timeout-grace-recheck", {
+                bookingId: props.bookingId,
+                waitMs: TIMEOUT_GRACE_RECHECK_DELAY_MS,
+              });
+              await new Promise<void>((resolve) => {
+                window.setTimeout(() => resolve(), TIMEOUT_GRACE_RECHECK_DELAY_MS);
+              });
+              if (cancelled) return;
+              const gracePayload = await loadStatus();
+              if (cancelled) return;
+              const graceReason = getPollingStopReason({
+                paymentStatus: gracePayload?.payment?.status ?? null,
+                bookingStatus: gracePayload?.booking?.status ?? null,
+                elapsedMs: Date.now() - startedAt,
+                timeoutMs: STATUS_POLL_MAX_MS,
+              });
+              const timedOutAfterGraceRecheck = graceReason === "timeout";
+              setTimedOut(timedOutAfterGraceRecheck);
+              console.log("[/payments/shortlet/return] polling-stop", {
+                bookingId: props.bookingId,
+                reason: timedOutAfterGraceRecheck
+                  ? "timeout_after_grace_recheck"
+                  : "terminal_after_grace_recheck",
+                elapsedMs: Date.now() - startedAt,
+                bookingStatus: gracePayload?.booking?.status ?? null,
+                paymentStatus: gracePayload?.payment?.status ?? null,
+              });
+              return;
+            }
+
             const finalReason = getPollingStopReason({
               paymentStatus: finalPayload?.payment?.status ?? null,
               bookingStatus: finalPayload?.booking?.status ?? null,
@@ -394,11 +432,22 @@ export function ShortletPaymentReturnStatus(props: {
     });
   }, [payload]);
 
-  const isPaymentSucceededPendingFinalisation =
-    paymentStatus === "succeeded" && bookingStatus === "pending_payment";
+  const isPaymentSucceededPendingFinalisation = state === "finalising";
 
-  const canRetryPayment = !["confirmed", "pending"].includes(state);
-  const showTimeoutState = timedOut && state === "processing";
+  const canRetryPayment =
+    !["confirmed", "pending", "finalising"].includes(state) && paymentStatus !== "succeeded";
+  const showTimeoutState = timedOut && (state === "processing" || state === "finalising");
+  const timeoutMessage = resolveShortletTimeoutMessage({
+    bookingStatus,
+    paymentStatus,
+  });
+  const refreshButtonLabel = refreshing
+    ? showTimeoutState
+      ? "Rechecking..."
+      : "Refreshing..."
+    : showTimeoutState
+      ? "Recheck now"
+      : "Refresh status";
 
   if (loading) {
     return (
@@ -430,7 +479,7 @@ export function ShortletPaymentReturnStatus(props: {
       <p className="mt-1 text-sm text-slate-600">Booking ID: {props.bookingId}</p>
       {amountLabel ? <p className="text-sm text-slate-600">Total: {amountLabel}</p> : null}
 
-      {state === "processing" ? (
+      {state === "processing" || state === "finalising" ? (
         <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
           {isPaymentSucceededPendingFinalisation
             ? "Payment received. Finalising your booking..."
@@ -439,7 +488,7 @@ export function ShortletPaymentReturnStatus(props: {
       ) : null}
       {showTimeoutState ? (
         <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-          Confirmation is taking longer than usual. You can refresh status now or contact support.
+          {timeoutMessage}
         </p>
       ) : null}
       {state === "pending" ? (
@@ -478,7 +527,7 @@ export function ShortletPaymentReturnStatus(props: {
           disabled={refreshing || forceRechecking}
           className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
         >
-          {refreshing ? "Refreshing..." : "Refresh status"}
+          {refreshButtonLabel}
         </button>
         {String(props.provider || "").toLowerCase() === "paystack" &&
         String(props.providerReference || "").trim().length > 0 ? (
