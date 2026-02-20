@@ -6,6 +6,9 @@ import Image from "next/image";
 import L from "leaflet";
 import { MapContainer, Marker, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import { cn } from "@/components/ui/cn";
 import {
   resolveShortletMapMarkerVisualState,
@@ -13,6 +16,10 @@ import {
 } from "@/lib/shortlet/search-ui-state";
 import { shouldSoftPanHoveredMarker } from "@/lib/shortlet/map-list-coupling";
 import { isShortletBookableFromPricing, resolveShortletBookabilityCta } from "@/lib/shortlet/pricing";
+import {
+  retainSelectedShortletMarkerId,
+  shouldEnableShortletMapClustering,
+} from "@/lib/shortlet/map-clustering";
 import {
   createShortletMarkerIconCache,
   formatShortletPinPrice,
@@ -292,6 +299,94 @@ function SoftPanToHoveredListing({
   return null;
 }
 
+function ClusteredMarkerLayer({
+  enabled,
+  listings,
+  selectedListingId,
+  hoveredListingId,
+  markerIconCache,
+  onSelectListing,
+  onHoverListing,
+}: {
+  enabled: boolean;
+  listings: Array<MapListing & { latitude: number; longitude: number }>;
+  selectedListingId: string | null;
+  hoveredListingId: string | null;
+  markerIconCache: ReturnType<typeof createShortletMarkerIconCache<L.DivIcon>>;
+  onSelectListing: (listingId: string) => void;
+  onHoverListing: (listingId: string | null) => void;
+}) {
+  const map = useMap();
+  const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
+
+  useEffect(() => {
+    if (!enabled) {
+      if (clusterGroupRef.current) {
+        map.removeLayer(clusterGroupRef.current);
+        clusterGroupRef.current = null;
+      }
+      return;
+    }
+
+    if (!clusterGroupRef.current) {
+      clusterGroupRef.current = L.markerClusterGroup({
+        maxClusterRadius: 56,
+        disableClusteringAtZoom: 14,
+        spiderfyOnMaxZoom: true,
+        showCoverageOnHover: false,
+      });
+      map.addLayer(clusterGroupRef.current);
+    }
+
+    return () => {
+      if (clusterGroupRef.current) {
+        map.removeLayer(clusterGroupRef.current);
+        clusterGroupRef.current = null;
+      }
+    };
+  }, [enabled, map]);
+
+  useEffect(() => {
+    if (!enabled || !clusterGroupRef.current) return;
+
+    const group = clusterGroupRef.current;
+    group.clearLayers();
+
+    for (const listing of listings) {
+      const markerState = resolveShortletMapMarkerVisualState({
+        listingId: listing.id,
+        selectedListingId,
+        hoveredListingId,
+      });
+      const label = formatShortletPinPrice(listing.currency, listing.nightlyPriceMinor);
+      const icon = markerIconCache.get({
+        label,
+        mode: markerState.mode,
+        create: () => createPricePinIcon(label, markerState.mode),
+      });
+      const marker = L.marker([listing.latitude, listing.longitude], {
+        icon,
+        title: listing.title,
+        zIndexOffset: markerState.zIndexOffset,
+      });
+      marker.on("click", () => onSelectListing(listing.id));
+      marker.on("mouseover", () => onHoverListing(listing.id));
+      marker.on("mouseout", () => onHoverListing(null));
+      group.addLayer(marker);
+    }
+  }, [
+    enabled,
+    hoveredListingId,
+    listings,
+    markerIconCache,
+    onHoverListing,
+    onSelectListing,
+    selectedListingId,
+  ]);
+
+  return null;
+}
+
 export function ShortletsSearchMapClient({
   listings,
   selectedListingId,
@@ -318,6 +413,19 @@ export function ShortletsSearchMapClient({
   const markers = useMemo(
     () => mapListings.map((listing) => [listing.latitude, listing.longitude] as [number, number]),
     [mapListings]
+  );
+  const mapMarkerIds = useMemo(() => mapListings.map((listing) => listing.id), [mapListings]);
+  const selectedMapMarkerId = useMemo(
+    () =>
+      retainSelectedShortletMarkerId({
+        selectedListingId,
+        markerIds: mapMarkerIds,
+      }),
+    [mapMarkerIds, selectedListingId]
+  );
+  const clusteringEnabled = useMemo(
+    () => shouldEnableShortletMapClustering(mapListings.length),
+    [mapListings.length]
   );
 
   const defaultCenter: [number, number] =
@@ -367,33 +475,45 @@ export function ShortletsSearchMapClient({
           onBoundsChanged={onBoundsChanged}
           suppressBoundsUpdatesRef={suppressBoundsUpdatesRef}
         />
-        {mapListings.map((listing) => {
-          const markerState = resolveShortletMapMarkerVisualState({
-            listingId: listing.id,
-            selectedListingId,
-            hoveredListingId,
-          });
-          const label = formatShortletPinPrice(listing.currency, listing.nightlyPriceMinor);
-          const pinIcon = markerIconCache.get({
-            label,
-            mode: markerState.mode,
-            create: () => createPricePinIcon(label, markerState.mode),
-          });
-          return (
-            <Marker
-              key={listing.id}
-              position={[listing.latitude, listing.longitude]}
-              icon={pinIcon}
-              zIndexOffset={markerState.zIndexOffset}
-              eventHandlers={{
-                click: () => onSelectListing(listing.id),
-                mouseover: () => onHoverListing(listing.id),
-                mouseout: () => onHoverListing(null),
-              }}
-              title={listing.title}
-            />
-          );
-        })}
+        {clusteringEnabled ? (
+          <ClusteredMarkerLayer
+            enabled
+            listings={mapListings}
+            selectedListingId={selectedMapMarkerId}
+            hoveredListingId={hoveredListingId}
+            markerIconCache={markerIconCache}
+            onSelectListing={onSelectListing}
+            onHoverListing={onHoverListing}
+          />
+        ) : (
+          mapListings.map((listing) => {
+            const markerState = resolveShortletMapMarkerVisualState({
+              listingId: listing.id,
+              selectedListingId: selectedMapMarkerId,
+              hoveredListingId,
+            });
+            const label = formatShortletPinPrice(listing.currency, listing.nightlyPriceMinor);
+            const pinIcon = markerIconCache.get({
+              label,
+              mode: markerState.mode,
+              create: () => createPricePinIcon(label, markerState.mode),
+            });
+            return (
+              <Marker
+                key={listing.id}
+                position={[listing.latitude, listing.longitude]}
+                icon={pinIcon}
+                zIndexOffset={markerState.zIndexOffset}
+                eventHandlers={{
+                  click: () => onSelectListing(listing.id),
+                  mouseover: () => onHoverListing(listing.id),
+                  mouseout: () => onHoverListing(null),
+                }}
+                title={listing.title}
+              />
+            );
+          })
+        )}
       </MapContainer>
       {selectedListing ? (
         <div className="pointer-events-none absolute bottom-3 left-3 right-3 z-[450] sm:right-auto sm:w-[320px]">
