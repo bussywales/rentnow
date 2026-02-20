@@ -73,14 +73,14 @@ export function Footer() {
           <a className="hover:text-sky-600" href="/help/referrals">
             Referral FAQ
           </a>
-          <a className="hover:text-sky-600" href="/legal/disclaimer">
-            Disclaimer
-          </a>
           <a
             className="hover:text-sky-600"
             href={`mailto:${BRAND_SUPPORT_EMAIL}`}
           >
             Contact
+          </a>
+          <a className="hover:text-sky-600" href="/legal/disclaimer">
+            Disclaimer
           </a>
           <span className="text-slate-400 whitespace-nowrap">Built by Xthetic Studio UK</span>
         </div>
