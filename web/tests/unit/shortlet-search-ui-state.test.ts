@@ -5,12 +5,15 @@ import {
   applySearchThisArea,
   createDefaultShortletAdvancedFilters,
   createShortletMapSearchAreaState,
+  formatPriceDisplayParam,
   formatShortletGuestsLabel,
   isShortletBboxApplied,
   isShortletMapMoveSearchEnabled,
   isShortletSavedViewEnabled,
+  isTotalPriceEnabled,
   listShortletActiveFilterTags,
   normalizeShortletGuestsParam,
+  parsePriceDisplayParam,
   parseShortletMapMoveSearchMode,
   readShortletAdvancedFiltersFromParams,
   resolveShortletPendingMapAreaLabel,
@@ -327,4 +330,21 @@ void test("saved view helpers parse and write URL param safely", () => {
 
   writeShortletSavedViewParam(params, false);
   assert.equal(params.has("saved"), false);
+});
+
+void test("price display parser/formatter round-trips and defaults safely", () => {
+  assert.equal(parsePriceDisplayParam(null), "nightly");
+  assert.equal(parsePriceDisplayParam("nightly"), "nightly");
+  assert.equal(parsePriceDisplayParam("total"), "total");
+  assert.equal(parsePriceDisplayParam("TOTAL"), "nightly");
+  assert.equal(parsePriceDisplayParam("invalid"), "nightly");
+
+  assert.equal(formatPriceDisplayParam("nightly"), "nightly");
+  assert.equal(formatPriceDisplayParam("total"), "total");
+});
+
+void test("total price enablement requires both dates and total mode", () => {
+  assert.equal(isTotalPriceEnabled({ hasDates: false, priceDisplay: "total" }), false);
+  assert.equal(isTotalPriceEnabled({ hasDates: true, priceDisplay: "nightly" }), false);
+  assert.equal(isTotalPriceEnabled({ hasDates: true, priceDisplay: "total" }), true);
 });

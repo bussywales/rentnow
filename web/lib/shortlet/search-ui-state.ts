@@ -23,6 +23,7 @@ export type ShortletMapMarkerVisualState = {
 };
 
 export type ShortletMapMoveSearchMode = "manual" | "auto";
+export type ShortletPriceDisplayMode = "nightly" | "total";
 
 export type ShortletBookingModeFilter = "" | "instant" | "request";
 
@@ -257,6 +258,26 @@ export function writeShortletSavedViewParam(params: URLSearchParams, enabled: bo
     return;
   }
   params.delete("saved");
+}
+
+export function parsePriceDisplayParam(
+  value: string | null | undefined
+): ShortletPriceDisplayMode {
+  if (value === "total") return "total";
+  return "nightly";
+}
+
+export function formatPriceDisplayParam(
+  value: ShortletPriceDisplayMode
+): "nightly" | "total" {
+  return value === "total" ? "total" : "nightly";
+}
+
+export function isTotalPriceEnabled(input: {
+  hasDates: boolean;
+  priceDisplay: ShortletPriceDisplayMode;
+}): boolean {
+  return input.hasDates && input.priceDisplay === "total";
 }
 
 export function shouldAutoFitShortletMap(input: ShortletMapAutoFitInput): boolean {
