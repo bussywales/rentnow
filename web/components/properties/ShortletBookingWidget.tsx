@@ -1239,6 +1239,12 @@ export function ShortletBookingWidget(props: {
           ? "Instant confirmation."
           : "Host will respond within 12 hours."}
       </p>
+      <p className="mt-1 text-xs text-slate-500">
+        Marketplace disclaimer applies.{" "}
+        <Link href="/legal/disclaimer" className="font-medium text-slate-600 underline underline-offset-2 hover:text-slate-800">
+          Read disclaimer
+        </Link>
+      </p>
 
       {notice ? (
         <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-emerald-700">

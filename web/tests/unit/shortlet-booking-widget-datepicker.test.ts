@@ -195,5 +195,7 @@ void test("booking widget copy clarifies payment timing and host response SLA", 
   assert.ok(contents.includes("You won&apos;t be charged yet. Payment happens in the next step."));
   assert.ok(contents.includes("Host will respond within 12 hours."));
   assert.ok(contents.includes("Instant confirmation."));
+  assert.ok(contents.includes("Marketplace disclaimer applies."));
+  assert.ok(contents.includes('href="/legal/disclaimer"'));
   assert.ok(contents.includes('const ctaLabel = bookingMode === "instant" ? "Reserve" : "Request"'));
 });
