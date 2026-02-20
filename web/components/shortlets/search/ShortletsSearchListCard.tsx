@@ -148,11 +148,13 @@ export function resolveShortletsSearchCardHighlight(amenities: string[] | null |
 export function resolveShortletsSearchCardBadge(input: {
   freeCancellation?: boolean;
   verifiedHost?: boolean;
-  bookingMode: ReturnType<typeof resolveShortletBookingMode>;
+  featured?: boolean;
+  isNew?: boolean;
 }): string | null {
   if (input.freeCancellation) return "Free cancellation";
   if (input.verifiedHost) return "Verified host";
-  if (input.bookingMode === "instant") return "Instant book";
+  if (input.featured) return "Featured";
+  if (input.isNew) return "New";
   return null;
 }
 
@@ -193,11 +195,14 @@ export function ShortletsSearchListCard({
     () => resolveShortletsSearchCardHighlight(property.amenities),
     [property.amenities]
   );
+  const isFeaturedListing = Boolean((property as Property & { featured?: boolean }).featured);
   const badgeLabel = resolveShortletsSearchCardBadge({
     freeCancellation: property.freeCancellation,
     verifiedHost: property.verifiedHost,
-    bookingMode,
+    featured: isFeaturedListing,
+    isNew: showNewBadge,
   });
+  const detailsChipLabel = !badgeLabel ? highlightLabel : null;
 
   return (
     <article
@@ -221,7 +226,7 @@ export function ShortletsSearchListCard({
           event.stopPropagation();
           onToggleSaved?.();
         }}
-        className="absolute right-3 top-3 z-20 inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-sm transition hover:bg-white focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+        className="absolute right-3 top-3 z-20 inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200/80 bg-white/85 text-slate-600 shadow-sm backdrop-blur transition hover:bg-white active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
       >
         <span className={cn("text-base leading-none", isSaved ? "text-rose-500" : "text-slate-600")}>
           {isSaved ? "♥" : "♡"}
@@ -245,10 +250,6 @@ export function ShortletsSearchListCard({
             {badgeLabel ? (
               <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
                 {badgeLabel}
-              </span>
-            ) : showNewBadge ? (
-              <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
-                New
               </span>
             ) : null}
           </div>
@@ -311,11 +312,13 @@ export function ShortletsSearchListCard({
               {ctaLabel}
             </span>
           </div>
-          {highlightLabel ? (
-            <p className="truncate text-xs text-slate-500">{highlightLabel}</p>
-          ) : (
-            <p className="truncate text-xs text-slate-500">Calm, bookable stay</p>
-          )}
+          {detailsChipLabel ? (
+            <div className="pt-0.5">
+              <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-500">
+                {detailsChipLabel}
+              </span>
+            </div>
+          ) : null}
         </div>
       </Link>
     </article>

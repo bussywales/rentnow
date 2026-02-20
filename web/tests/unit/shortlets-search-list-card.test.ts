@@ -25,6 +25,7 @@ void test("shortlets search card keeps a calm hierarchy with stable height and 2
   assert.ok(contents.includes("Price on request"));
   assert.ok(contents.includes("Includes fees"));
   assert.ok(contents.includes("Pricing details"));
+  assert.equal(contents.includes("Calm, bookable stay"), false);
   assert.equal(contents.includes("property.description"), false);
 });
 
@@ -36,6 +37,8 @@ void test("shortlets card exposes accessible save-heart controls without shiftin
   assert.ok(contents.includes("aria-pressed={isSaved}"));
   assert.ok(contents.includes("event.stopPropagation()"));
   assert.ok(contents.includes("absolute right-3 top-3 z-20"));
+  assert.ok(contents.includes("h-8 w-8"));
+  assert.ok(contents.includes("bg-white/85"));
 });
 
 void test("shortlets card highlight prioritises power backup then security then borehole", () => {
@@ -54,12 +57,13 @@ void test("shortlets card highlight prioritises power backup then security then 
   assert.equal(resolveShortletsSearchCardHighlight(["wifi"]), null);
 });
 
-void test("shortlets card badge follows free-cancellation > verified-host > instant-book priority", () => {
+void test("shortlets card badge follows free-cancellation > verified-host > featured/new priority", () => {
   assert.equal(
     resolveShortletsSearchCardBadge({
       freeCancellation: true,
       verifiedHost: true,
-      bookingMode: "instant",
+      featured: true,
+      isNew: true,
     }),
     "Free cancellation"
   );
@@ -67,7 +71,8 @@ void test("shortlets card badge follows free-cancellation > verified-host > inst
     resolveShortletsSearchCardBadge({
       freeCancellation: false,
       verifiedHost: true,
-      bookingMode: "instant",
+      featured: true,
+      isNew: true,
     }),
     "Verified host"
   );
@@ -75,9 +80,19 @@ void test("shortlets card badge follows free-cancellation > verified-host > inst
     resolveShortletsSearchCardBadge({
       freeCancellation: false,
       verifiedHost: false,
-      bookingMode: "instant",
+      featured: true,
+      isNew: true,
     }),
-    "Instant book"
+    "Featured"
+  );
+  assert.equal(
+    resolveShortletsSearchCardBadge({
+      freeCancellation: false,
+      verifiedHost: false,
+      featured: false,
+      isNew: true,
+    }),
+    "New"
   );
 });
 
