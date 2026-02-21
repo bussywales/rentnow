@@ -86,6 +86,7 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
         onKeyDown={handleKey}
         aria-label="Property photos"
       >
+        {/* TODO(roadmap): add tap-to-zoom + full-screen gallery mode with thumbnail sync preserved. */}
         <PropertyImageCarousel
           title={title}
           images={safeImages}
