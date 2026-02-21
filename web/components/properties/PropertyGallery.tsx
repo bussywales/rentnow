@@ -94,6 +94,7 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
           sizes="(max-width: 768px) 100vw, 640px"
           className="h-full"
           rootTestId="property-detail-gallery-carousel"
+          enableActiveSlideMotion
           onSelectedIndexChange={setSelectedIndex}
           onCarouselReady={setCarouselController}
           countBadgeClassName="top-3"
@@ -108,41 +109,53 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
         )}
       </div>
       {showNav && (
-        <div className="flex w-full max-w-full min-w-0 gap-2 overflow-x-auto pb-1">
-          {safeImages.map((img, idx) => (
-            <button
-              key={img.id || idx}
-              ref={(node) => {
-                thumbRefs.current[idx] = node;
-              }}
-              type="button"
-              onClick={() => {
-                const targetIndex = resolveThumbnailTargetIndex(idx, safeImages.length);
-                setSelectedIndex(targetIndex);
-                carouselController?.scrollTo(targetIndex);
-              }}
-              className={cn(
-                "relative h-16 w-24 flex-none overflow-hidden rounded-lg border transition",
-                idx === activeIndex
-                  ? "border-sky-500 ring-2 ring-sky-200"
-                  : "border-slate-200 hover:border-slate-300"
-              )}
-              data-testid="property-gallery-thumbnail"
-              data-active={idx === activeIndex ? "true" : "false"}
-              aria-label={`Photo ${idx + 1}`}
-            >
-              <Image
-                src={resolveSrc(img, idx)}
-                alt={`${title} thumbnail ${idx + 1}`}
-                fill
-                className="object-cover"
-                sizes="96px"
-                placeholder="blur"
-                blurDataURL={blurDataURL}
-                onError={() => markBroken(img, idx)}
-              />
-            </button>
-          ))}
+        <div className="relative">
+          <div
+            className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-6 bg-gradient-to-r from-white via-white/70 to-transparent"
+            aria-hidden
+            data-testid="property-gallery-thumbnail-fade-left"
+          />
+          <div
+            className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-6 bg-gradient-to-l from-white via-white/70 to-transparent"
+            aria-hidden
+            data-testid="property-gallery-thumbnail-fade-right"
+          />
+          <div className="flex w-full max-w-full min-w-0 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {safeImages.map((img, idx) => (
+              <button
+                key={img.id || idx}
+                ref={(node) => {
+                  thumbRefs.current[idx] = node;
+                }}
+                type="button"
+                onClick={() => {
+                  const targetIndex = resolveThumbnailTargetIndex(idx, safeImages.length);
+                  setSelectedIndex(targetIndex);
+                  carouselController?.scrollTo(targetIndex);
+                }}
+                className={cn(
+                  "relative h-16 w-24 flex-none overflow-hidden rounded-lg border transition",
+                  idx === activeIndex
+                    ? "border-sky-500 ring-2 ring-sky-200"
+                    : "border-slate-200 hover:border-slate-300"
+                )}
+                data-testid="property-gallery-thumbnail"
+                data-active={idx === activeIndex ? "true" : "false"}
+                aria-label={`Photo ${idx + 1}`}
+              >
+                <Image
+                  src={resolveSrc(img, idx)}
+                  alt={`${title} thumbnail ${idx + 1}`}
+                  fill
+                  className="object-cover"
+                  sizes="96px"
+                  placeholder="blur"
+                  blurDataURL={blurDataURL}
+                  onError={() => markBroken(img, idx)}
+                />
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>

@@ -102,6 +102,7 @@ export function UnifiedImageCarousel({
   showCountBadge,
   showArrows,
   showDots,
+  enableActiveSlideMotion = false,
   rootTestId = "unified-image-carousel",
   dotsTestId = "unified-image-carousel-dots",
   blurDataURL = BLUR_DATA_URL,
@@ -154,6 +155,7 @@ export function UnifiedImageCarousel({
   const shouldShowArrows = showArrows ?? shouldShowControls;
   const shouldShowCountBadge = showCountBadge ?? shouldRenderUnifiedImageCarouselCountBadge(totalImages);
   const shouldShowDots = showDots ?? shouldRenderUnifiedImageCarouselDots(totalImages);
+  const shouldAnimateSlides = enableActiveSlideMotion && shouldShowControls;
   const countIndex = Math.min(selectedIndex + 1, totalImages);
   const canScrollPrev = selectedIndex > 0;
   const canScrollNext = selectedIndex < totalImages - 1;
@@ -248,10 +250,18 @@ export function UnifiedImageCarousel({
       onClickCapture={handleClickCapture}
       data-testid={rootTestId}
     >
-      <div className="h-full overflow-hidden" ref={emblaRef} onWheel={handleWheel}>
+      <div
+        className={cn(
+          "h-full overflow-hidden",
+          shouldShowControls && "cursor-grab active:cursor-grabbing"
+        )}
+        ref={emblaRef}
+        onWheel={handleWheel}
+      >
         <div className="flex h-full touch-pan-y">
           {imageItems.map((item, index) => {
             const slideKey = item.id ?? `${item.src}-${index}`;
+            const isActiveSlide = index === selectedIndex;
             const imageElement = (
               <Image
                 src={item.src}
@@ -272,7 +282,15 @@ export function UnifiedImageCarousel({
             return (
               <div
                 key={slideKey}
-                className={cn("relative h-full min-w-0 shrink-0 grow-0 basis-full", slideClassName)}
+                className={cn(
+                  "relative h-full min-w-0 shrink-0 grow-0 basis-full",
+                  shouldAnimateSlides &&
+                    "transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none",
+                  shouldAnimateSlides && isActiveSlide && "scale-[1.005] opacity-100",
+                  shouldAnimateSlides && !isActiveSlide && "scale-[0.995] opacity-95",
+                  slideClassName
+                )}
+                data-active-slide={isActiveSlide ? "true" : "false"}
               >
                 {href ? (
                   <Link href={href} className="block h-full w-full" draggable={false} aria-label={`View ${item.alt}`}>

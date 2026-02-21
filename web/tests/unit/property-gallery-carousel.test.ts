@@ -30,8 +30,16 @@ void test("detail gallery keeps thumbnail and swipe selection in sync via shared
   const contents = fs.readFileSync(propertyGalleryPath, "utf8");
 
   assert.ok(contents.includes('rootTestId="property-detail-gallery-carousel"'));
+  assert.ok(contents.includes("enableActiveSlideMotion"));
   assert.ok(contents.includes("onSelectedIndexChange={setSelectedIndex}"));
   assert.ok(contents.includes("carouselController?.scrollTo(targetIndex)"));
   assert.ok(contents.includes("carouselController?.scrollPrev()"));
   assert.ok(contents.includes("carouselController?.scrollNext()"));
+});
+
+void test("detail gallery thumbnail rail includes premium fade edges", () => {
+  const contents = fs.readFileSync(propertyGalleryPath, "utf8");
+
+  assert.ok(contents.includes("property-gallery-thumbnail-fade-left"));
+  assert.ok(contents.includes("property-gallery-thumbnail-fade-right"));
 });
