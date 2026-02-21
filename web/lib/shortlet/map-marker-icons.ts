@@ -1,3 +1,5 @@
+import { SHORTLETS_MARKER_ICON_CACHE_ENABLED } from "@/lib/shortlet/map-perf-config";
+
 export type ShortletMarkerVisualMode = "default" | "hovered" | "selected";
 
 export function formatShortletPinPrice(currency: string, nightlyPriceMinor: number | null): string {
@@ -17,14 +19,18 @@ export function formatShortletPinPrice(currency: string, nightlyPriceMinor: numb
   }
 }
 
-export function createShortletMarkerIconCache<TIcon>() {
+export function createShortletMarkerIconCache<TIcon>(options?: { enabled?: boolean }) {
   const cache = new Map<string, TIcon>();
+  const cacheEnabled = options?.enabled ?? SHORTLETS_MARKER_ICON_CACHE_ENABLED;
   return {
     get(input: {
       label: string;
       mode: ShortletMarkerVisualMode;
       create: () => TIcon;
     }): TIcon {
+      if (!cacheEnabled) {
+        return input.create();
+      }
       const key = `${input.mode}::${input.label}`;
       const existing = cache.get(key);
       if (existing) return existing;

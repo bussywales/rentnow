@@ -1,9 +1,15 @@
-export const SHORTLET_MAP_CLUSTER_THRESHOLD = 80;
+import {
+  SHORTLETS_CLUSTER_ENABLED,
+  SHORTLETS_CLUSTER_THRESHOLD,
+} from "@/lib/shortlet/map-perf-config";
 
 export function shouldEnableShortletMapClustering(
   markerCount: number,
-  threshold = SHORTLET_MAP_CLUSTER_THRESHOLD
+  options?: { threshold?: number; enabled?: boolean }
 ): boolean {
+  const enabled = options?.enabled ?? SHORTLETS_CLUSTER_ENABLED;
+  if (!enabled) return false;
+  const threshold = options?.threshold ?? SHORTLETS_CLUSTER_THRESHOLD;
   if (!Number.isFinite(markerCount) || markerCount <= 0) return false;
   return markerCount >= threshold;
 }

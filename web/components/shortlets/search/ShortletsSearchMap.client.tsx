@@ -25,6 +25,11 @@ import {
   formatShortletPinPrice,
   type ShortletMarkerVisualMode,
 } from "@/lib/shortlet/map-marker-icons";
+import {
+  SHORTLETS_CLUSTER_ENABLED,
+  SHORTLETS_CLUSTER_THRESHOLD,
+  SHORTLETS_MARKER_ICON_CACHE_ENABLED,
+} from "@/lib/shortlet/map-perf-config";
 
 type MapBounds = {
   north: number;
@@ -79,6 +84,7 @@ type Props = {
   preferredCenter?: [number, number] | null;
   height?: string;
   invalidateNonce?: number;
+  perfDebug?: boolean;
 };
 
 const NIGERIA_DEFAULT_CENTER: [number, number] = [9.082, 8.6753];
@@ -403,13 +409,21 @@ export function ShortletsSearchMapClient({
   preferredCenter = null,
   height = "min(70vh, 760px)",
   invalidateNonce = 0,
+  perfDebug = false,
 }: Props) {
   const suppressBoundsUpdatesRef = useRef(0);
+  const perfLogKeyRef = useRef<string | null>(null);
   const mapListings = listings.filter(
     (listing): listing is MapListing & { latitude: number; longitude: number } =>
       typeof listing.latitude === "number" && typeof listing.longitude === "number"
   );
-  const markerIconCache = useMemo(() => createShortletMarkerIconCache<L.DivIcon>(), []);
+  const markerIconCache = useMemo(
+    () =>
+      createShortletMarkerIconCache<L.DivIcon>({
+        enabled: SHORTLETS_MARKER_ICON_CACHE_ENABLED,
+      }),
+    []
+  );
   const markers = useMemo(
     () => mapListings.map((listing) => [listing.latitude, listing.longitude] as [number, number]),
     [mapListings]
@@ -424,9 +438,33 @@ export function ShortletsSearchMapClient({
     [mapMarkerIds, selectedListingId]
   );
   const clusteringEnabled = useMemo(
-    () => shouldEnableShortletMapClustering(mapListings.length),
+    () =>
+      shouldEnableShortletMapClustering(mapListings.length, {
+        threshold: SHORTLETS_CLUSTER_THRESHOLD,
+        enabled: SHORTLETS_CLUSTER_ENABLED,
+      }),
     [mapListings.length]
   );
+
+  useEffect(() => {
+    if (!perfDebug) return;
+    const key = [
+      mapListings.length,
+      String(clusteringEnabled),
+      String(SHORTLETS_CLUSTER_ENABLED),
+      SHORTLETS_CLUSTER_THRESHOLD,
+      String(SHORTLETS_MARKER_ICON_CACHE_ENABLED),
+    ].join(":");
+    if (perfLogKeyRef.current === key) return;
+    perfLogKeyRef.current = key;
+    console.log("[shortlets/map] perf", {
+      markerCount: mapListings.length,
+      clusterEnabled: SHORTLETS_CLUSTER_ENABLED,
+      clusterThreshold: SHORTLETS_CLUSTER_THRESHOLD,
+      iconCacheEnabled: SHORTLETS_MARKER_ICON_CACHE_ENABLED,
+      usingCluster: clusteringEnabled,
+    });
+  }, [clusteringEnabled, mapListings.length, perfDebug]);
 
   const defaultCenter: [number, number] =
     preferredCenter ??

@@ -129,6 +129,7 @@ type ShortletSortOption = "recommended" | "price_asc" | "price_desc" | "rating" 
 
 type Props = {
   initialSearchParams?: Record<string, string | string[] | undefined>;
+  initialViewerRole?: "tenant" | "landlord" | "agent" | "admin" | null;
 };
 
 type TrustFilterKey =
@@ -294,7 +295,7 @@ function normalizeSearchItemImageFields(item: SearchItem): SearchItem {
   };
 }
 
-export function ShortletsSearchShell({ initialSearchParams }: Props) {
+export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = null }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -315,6 +316,12 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
       parseShortletSearchBounds(stableSearchParams.get("bounds")),
     [stableSearchParams]
   );
+  const mapPerfDebugEnabled = useMemo(() => {
+    const debugRequested = stableSearchParams.get("debug") === "1";
+    if (!debugRequested) return false;
+    if (process.env.NODE_ENV !== "production") return true;
+    return initialViewerRole === "admin";
+  }, [initialViewerRole, stableSearchParams]);
   const requestSearchParams = useMemo(() => {
     const next = new URLSearchParams(stableSearchParams.toString());
     next.delete("view");
@@ -2163,6 +2170,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               preferredCenter={preferredCenter}
               height="min(76vh, 800px)"
               invalidateNonce={0}
+              perfDebug={mapPerfDebugEnabled}
             />
             {showExploreMapHint ? (
               <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">
@@ -2387,6 +2395,7 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
               preferredCenter={preferredCenter}
               height="calc(100vh - 84px)"
               invalidateNonce={mobileMapInvalidateNonce}
+              perfDebug={mapPerfDebugEnabled}
             />
             {showExploreMapHint ? (
               <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">

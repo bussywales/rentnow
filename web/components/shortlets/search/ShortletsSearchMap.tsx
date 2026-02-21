@@ -38,6 +38,7 @@ type Props = {
   preferredCenter?: [number, number] | null;
   height?: string;
   invalidateNonce?: number;
+  perfDebug?: boolean;
 };
 
 export function ShortletsSearchMap(props: Props) {
