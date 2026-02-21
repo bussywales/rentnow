@@ -11,6 +11,14 @@ type SearchOptions = {
   featuredOnly?: boolean;
   createdAfter?: string | null;
   includeDemo?: boolean;
+  locationQuery?: string | null;
+  bounds?: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  } | null;
+  boundsRequireCoords?: boolean;
 };
 
 type QueryWithOr<T> = {
@@ -27,6 +35,33 @@ export function applyStayFilterToQuery<T extends QueryWithOr<T>>(
   });
   if (normalizedSelection.stay !== "shortlet") return query;
   return query.or("listing_intent.eq.shortlet,rental_type.eq.short_let");
+}
+
+function sanitizeIlikeTerm(value: string): string {
+  return value
+    .trim()
+    .replace(/[,\(\)]/g, " ")
+    .replace(/\s+/g, " ")
+    .slice(0, 80);
+}
+
+export function buildSearchLocationIlikeClause(
+  rawQuery: string | null | undefined
+): string | null {
+  const cleaned = sanitizeIlikeTerm(String(rawQuery || ""));
+  if (!cleaned) return null;
+  const pattern = `%${cleaned}%`;
+  return [
+    `city.ilike.${pattern}`,
+    `neighbourhood.ilike.${pattern}`,
+    `address.ilike.${pattern}`,
+    `location_label.ilike.${pattern}`,
+    `admin_area_1.ilike.${pattern}`,
+    `admin_area_2.ilike.${pattern}`,
+    `state_region.ilike.${pattern}`,
+    `country.ilike.${pattern}`,
+    `country_code.ilike.${pattern}`,
+  ].join(",");
 }
 
 export async function searchProperties(filters: ParsedSearchFilters, options: SearchOptions = {}) {
@@ -91,6 +126,23 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     }
     if (filters.city) {
       query = query.ilike("city", `%${filters.city}%`);
+    }
+    if (options.locationQuery) {
+      const locationClause = buildSearchLocationIlikeClause(options.locationQuery);
+      if (locationClause) {
+        query = query.or(locationClause);
+      }
+    }
+    if (options.bounds) {
+      const { north, south, east, west } = options.bounds;
+      if (options.boundsRequireCoords !== false) {
+        query = query.not("latitude", "is", null).not("longitude", "is", null);
+      }
+      query = query
+        .gte("latitude", south)
+        .lte("latitude", north)
+        .gte("longitude", west)
+        .lte("longitude", east);
     }
     const listingIntents =
       normalizedSelection.stay === "shortlet"

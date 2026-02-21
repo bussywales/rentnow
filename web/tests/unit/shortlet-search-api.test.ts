@@ -433,6 +433,23 @@ void test("map/list decoupling keeps list items without coords while map can ski
   );
 });
 
+void test("bbox map-area filtering excludes listings without coordinates", () => {
+  const bounds = parseShortletSearchBbox("3.2,6.2,3.9,6.8");
+  const withCoords = buildProperty({
+    id: "with-coords",
+    latitude: 6.5,
+    longitude: 3.4,
+  });
+  const noCoords = buildProperty({
+    id: "no-coords",
+    latitude: null,
+    longitude: null,
+  });
+
+  assert.equal(isWithinBounds(withCoords, bounds), true);
+  assert.equal(isWithinBounds(noCoords, bounds), false);
+});
+
 void test("availability filtering applies only when valid date range is present", () => {
   const rows = [
     buildProperty({ id: "available" }),

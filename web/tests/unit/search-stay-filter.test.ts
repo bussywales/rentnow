@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { applyStayFilterToQuery } from "@/lib/search";
+import { applyStayFilterToQuery, buildSearchLocationIlikeClause } from "@/lib/search";
 
 test("applyStayFilterToQuery adds shortlet-only clause when stay=shortlet", () => {
   let capturedClause: string | null = null;
@@ -41,4 +41,16 @@ test("applyStayFilterToQuery is a no-op for sale intent", () => {
 
   applyStayFilterToQuery(query, { listingIntent: "buy", stay: "shortlet" });
   assert.equal(called, false);
+});
+
+test("buildSearchLocationIlikeClause returns null for empty search", () => {
+  assert.equal(buildSearchLocationIlikeClause("   "), null);
+});
+
+test("buildSearchLocationIlikeClause builds multi-field ilike clause", () => {
+  const clause = buildSearchLocationIlikeClause("Lekki, Lagos");
+  assert.ok(clause);
+  assert.match(clause as string, /city\.ilike\.\%Lekki Lagos\%/);
+  assert.match(clause as string, /country\.ilike\.\%Lekki Lagos\%/);
+  assert.match(clause as string, /country_code\.ilike\.\%Lekki Lagos\%/);
 });

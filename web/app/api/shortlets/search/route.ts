@@ -24,6 +24,10 @@ import {
   paginateShortletRows,
   resolveShortletPagination,
 } from "@/lib/shortlet/search-pagination";
+import {
+  createShortletSearchDebugMetrics,
+  resolveShortletSourceRowsLimit,
+} from "@/lib/shortlet/search-route-performance";
 
 const routeLabel = "/api/shortlets/search";
 const MAX_SOURCE_ROWS = 600;
@@ -72,6 +76,11 @@ export async function GET(request: NextRequest) {
     defaultLimit: filters.pageSize,
     maxLimit: 80,
   });
+  const sourceRowsLimit = resolveShortletSourceRowsLimit({
+    offset: pagination.offset,
+    limit: pagination.limit,
+    maxRows: MAX_SOURCE_ROWS,
+  });
   const hasDateRange = !!filters.checkIn && !!filters.checkOut;
   if (hasDateRange && !isDateRangeValid(filters.checkIn as string, filters.checkOut as string)) {
     return NextResponse.json(
@@ -80,6 +89,7 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  const startedAt = Date.now();
   try {
     const supabase = await createServerSupabaseClient();
     const debugRequested = request.nextUrl.searchParams.get("debug") === "1";
@@ -117,8 +127,11 @@ export async function GET(request: NextRequest) {
       },
       {
         page: 1,
-        pageSize: MAX_SOURCE_ROWS,
+        pageSize: sourceRowsLimit,
         includeDemo: false,
+        locationQuery: filters.where,
+        bounds: filters.bounds,
+        boundsRequireCoords: !!filters.bounds,
       }
     );
 
@@ -132,20 +145,31 @@ export async function GET(request: NextRequest) {
       filters,
       debugEnabled,
     });
-    const ownerIds = Array.from(
-      new Set(locationPipeline.bboxFilteredRows.map((row) => row.owner_id).filter(Boolean))
-    );
-
     const verifiedHostIds = new Set<string>();
-    if (ownerIds.length > 0) {
+    let profileLookupsCount = 0;
+    const loadVerifiedHostIds = async (ownerIds: string[]): Promise<void> => {
+      const dedupedOwnerIds = Array.from(
+        new Set(
+          ownerIds
+            .map((ownerId) => String(ownerId || "").trim())
+            .filter(Boolean)
+            .filter((ownerId) => !verifiedHostIds.has(ownerId))
+        )
+      );
+      if (!dedupedOwnerIds.length) return;
+      profileLookupsCount += dedupedOwnerIds.length;
       const { data: profileRows } = await supabase
         .from("profiles")
         .select("id,email_verified,phone_verified,bank_verified")
-        .in("id", ownerIds);
+        .in("id", dedupedOwnerIds);
       for (const row of ((profileRows as ProfileTrustRow[] | null) ?? [])) {
         const trusted = !!row.email_verified || !!row.phone_verified || !!row.bank_verified;
         if (trusted) verifiedHostIds.add(String(row.id || ""));
       }
+    };
+
+    if (filters.trust.verifiedHost) {
+      await loadVerifiedHostIds(locationPipeline.bboxFilteredRows.map((row) => row.owner_id));
     }
 
     const providerPipeline = runShortletProviderPipeline({
@@ -157,6 +181,10 @@ export async function GET(request: NextRequest) {
     });
     let rows = providerPipeline.providerFilteredRows;
     const debugReasons = providerPipeline.debugReasons as Map<string, Set<RouteDebugReason>>;
+
+    if (filters.sort === "recommended" && rows.length > 0 && !filters.trust.verifiedHost) {
+      await loadVerifiedHostIds(rows.map((row) => row.owner_id));
+    }
 
     let unavailablePropertyIds = new Set<string>();
     if (hasDateRange && rows.length > 0) {
@@ -253,6 +281,14 @@ export async function GET(request: NextRequest) {
       }));
 
     const hasNearbySuggestion = paged.total === 0 && !!filters.bounds;
+    const debugMetrics = createShortletSearchDebugMetrics({
+      dbRowsFetched: baselineRows.length,
+      postFilterCount: rows.length,
+      availabilityPruned: unavailablePropertyIds.size,
+      profileLookupsCount,
+      finalCount: sorted.length,
+      durationMs: Date.now() - startedAt,
+    });
 
     const payload: Record<string, unknown> = {
       ok: true,
@@ -314,6 +350,8 @@ export async function GET(request: NextRequest) {
         nextCursor: paged.nextCursor,
         mapCount: mapItems.length,
         availabilityConflictCount: unavailablePropertyIds.size,
+        sourceRowsLimit,
+        ...debugMetrics,
         missingFromBaseline: missingFromBaseline.slice(0, 100),
       };
     }
