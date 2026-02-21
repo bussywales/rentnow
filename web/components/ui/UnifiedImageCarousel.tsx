@@ -7,6 +7,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
 import {
+  accumulateWheelDelta,
   applyInertialSnapHint,
   resolveWheelDelta,
   resolveWheelDirectionFromAccumulatedDelta,
@@ -14,7 +15,7 @@ import {
   shouldThrottleWheelNavigation,
   shouldTreatWheelAsHorizontal,
   WHEEL_GESTURE_IDLE_RESET_MS,
-} from "@/lib/carousel/interaction";
+} from "@/lib/ui/carousel-interactions";
 import { resolveImageLoadingProfile } from "@/lib/images/loading-profile";
 
 export type UnifiedImageCarouselItem = {
@@ -58,7 +59,7 @@ export {
   shouldTreatWheelAsHorizontal as shouldHandleCarouselWheelGesture,
   resolveWheelDirection as resolveCarouselWheelDirection,
   shouldThrottleWheelNavigation as shouldThrottleCarouselWheelNavigation,
-} from "@/lib/carousel/interaction";
+} from "@/lib/ui/carousel-interactions";
 
 export function shouldRenderUnifiedImageCarouselControls(totalImages: number): boolean {
   return totalImages > 1;
@@ -229,7 +230,10 @@ export function UnifiedImageCarousel({
       }
       wheelLastEventAtRef.current = now;
 
-      wheelAccumulatorRef.current += resolveWheelDelta(event);
+      wheelAccumulatorRef.current = accumulateWheelDelta({
+        accumulatedDelta: wheelAccumulatorRef.current,
+        nextDelta: resolveWheelDelta(event),
+      });
       const direction = resolveWheelDirectionFromAccumulatedDelta(wheelAccumulatorRef.current);
       if (!direction) return;
 
@@ -278,7 +282,7 @@ export function UnifiedImageCarousel({
         )}
         ref={setViewportRef}
       >
-        <div className="flex h-full touch-pan-y">
+        <div className="flex h-full touch-pan-y overscroll-x-contain">
           {imageItems.map((item, index) => {
             const slideKey = item.id ?? `${item.src}-${index}`;
             const isActiveSlide = index === selectedIndex;

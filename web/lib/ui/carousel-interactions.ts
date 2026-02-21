@@ -37,10 +37,15 @@ export function shouldTreatWheelAsHorizontal(input: CarouselWheelInput): boolean
     return verticalMagnitude >= HORIZONTAL_WHEEL_THRESHOLD_PX;
   }
 
-  return (
-    horizontalMagnitude >= HORIZONTAL_WHEEL_THRESHOLD_PX ||
-    horizontalMagnitude >= verticalMagnitude * HORIZONTAL_VS_VERTICAL_RATIO
-  );
+  if (horizontalMagnitude >= HORIZONTAL_WHEEL_THRESHOLD_PX) {
+    return true;
+  }
+
+  if (horizontalMagnitude <= 0) {
+    return false;
+  }
+
+  return horizontalMagnitude >= verticalMagnitude * HORIZONTAL_VS_VERTICAL_RATIO;
 }
 
 export function resolveWheelDirection(input: CarouselWheelInput): CarouselWheelDirection | null {
@@ -57,6 +62,23 @@ export function resolveWheelDirectionFromAccumulatedDelta(
   if (accumulatedDelta > HORIZONTAL_WHEEL_THRESHOLD_PX) return "next";
   if (accumulatedDelta < -HORIZONTAL_WHEEL_THRESHOLD_PX) return "prev";
   return null;
+}
+
+export function accumulateWheelDelta(input: {
+  accumulatedDelta: number;
+  nextDelta: number;
+}): number {
+  const accumulatedDelta = Number.isFinite(input.accumulatedDelta) ? input.accumulatedDelta : 0;
+  const nextDelta = Number.isFinite(input.nextDelta) ? input.nextDelta : 0;
+
+  if (nextDelta === 0) return accumulatedDelta;
+  if (accumulatedDelta === 0) return nextDelta;
+
+  if (Math.sign(accumulatedDelta) !== Math.sign(nextDelta)) {
+    return nextDelta;
+  }
+
+  return accumulatedDelta + nextDelta;
 }
 
 export function shouldThrottleWheelNavigation(input: {
