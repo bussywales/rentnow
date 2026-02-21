@@ -17,6 +17,7 @@ published_at: "2026-02-21"
 
 - Updated the shared carousel wheel/gesture handler so horizontal swipe works in both directions on desktop devices (including Magic Mouse and trackpad).
 - Added a non-passive wheel listener on the carousel viewport to ensure horizontal gestures can reliably prevent default browser scroll when appropriate.
+- Improved wheel gesture reliability on detail galleries by accumulating fine-grained trackpad deltas and allowing instant reverse-direction swipes without getting blocked by same-direction cooldown.
 - Kept vertical page scrolling behavior intact when horizontal intent is not detected.
 
 ## Why this matters

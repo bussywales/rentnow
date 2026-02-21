@@ -46,6 +46,7 @@ const DRAG_NAVIGATION_THRESHOLD_PX = 8;
 const TRACKPAD_SCROLL_THROTTLE_MS = 160;
 const HORIZONTAL_WHEEL_THRESHOLD_PX = 6;
 const HORIZONTAL_VS_VERTICAL_RATIO = 1.2;
+const WHEEL_GESTURE_IDLE_RESET_MS = 220;
 
 export function shouldRenderUnifiedImageCarouselControls(totalImages: number): boolean {
   return totalImages > 1;
@@ -93,7 +94,7 @@ export function shouldHandleCarouselWheelGesture(input: {
   }
 
   return (
-    horizontalMagnitude > HORIZONTAL_WHEEL_THRESHOLD_PX ||
+    horizontalMagnitude >= HORIZONTAL_WHEEL_THRESHOLD_PX ||
     horizontalMagnitude >= verticalMagnitude * HORIZONTAL_VS_VERTICAL_RATIO
   );
 }
@@ -108,6 +109,19 @@ export function resolveCarouselWheelDirection(input: {
   if (horizontalDelta > 0) return "next";
   if (horizontalDelta < 0) return "prev";
   return null;
+}
+
+export function shouldThrottleCarouselWheelNavigation(input: {
+  nowMs: number;
+  lastTriggeredAtMs: number;
+  nextDirection: "next" | "prev";
+  lastDirection: "next" | "prev" | null;
+  throttleMs?: number;
+}): boolean {
+  const throttleMs = input.throttleMs ?? TRACKPAD_SCROLL_THROTTLE_MS;
+  const withinCooldown = input.nowMs - input.lastTriggeredAtMs < throttleMs;
+  if (!withinCooldown) return false;
+  return input.nextDirection === input.lastDirection;
 }
 
 export function UnifiedImageCarousel({
@@ -135,6 +149,9 @@ export function UnifiedImageCarousel({
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const suppressClickRef = useRef(false);
   const wheelThrottleRef = useRef(0);
+  const wheelDirectionRef = useRef<"next" | "prev" | null>(null);
+  const wheelAccumulatorRef = useRef(0);
+  const wheelLastEventAtRef = useRef(0);
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
@@ -256,14 +273,36 @@ export function UnifiedImageCarousel({
     const handleWheel = (event: WheelEvent) => {
       if (!shouldHandleCarouselWheelGesture(event)) return;
 
-      const direction = resolveCarouselWheelDirection(event);
+      event.preventDefault();
+      const now = Date.now();
+
+      if (now - wheelLastEventAtRef.current > WHEEL_GESTURE_IDLE_RESET_MS) {
+        wheelAccumulatorRef.current = 0;
+      }
+      wheelLastEventAtRef.current = now;
+
+      wheelAccumulatorRef.current += resolveCarouselWheelDelta(event);
+      const direction =
+        wheelAccumulatorRef.current > HORIZONTAL_WHEEL_THRESHOLD_PX
+          ? "next"
+          : wheelAccumulatorRef.current < -HORIZONTAL_WHEEL_THRESHOLD_PX
+            ? "prev"
+            : null;
       if (!direction) return;
 
-      event.preventDefault();
-
-      const now = Date.now();
-      if (now - wheelThrottleRef.current < TRACKPAD_SCROLL_THROTTLE_MS) return;
+      if (
+        shouldThrottleCarouselWheelNavigation({
+          nowMs: now,
+          lastTriggeredAtMs: wheelThrottleRef.current,
+          nextDirection: direction,
+          lastDirection: wheelDirectionRef.current,
+        })
+      ) {
+        return;
+      }
       wheelThrottleRef.current = now;
+      wheelDirectionRef.current = direction;
+      wheelAccumulatorRef.current = 0;
       suppressClickRef.current = true;
 
       if (direction === "next") {
