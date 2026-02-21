@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent, PointerEvent, WheelEvent } from "react";
+import type { MouseEvent, PointerEvent } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import Image from "next/image";
 import Link from "next/link";
@@ -44,7 +44,8 @@ const BLUR_DATA_URL =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 const DRAG_NAVIGATION_THRESHOLD_PX = 8;
 const TRACKPAD_SCROLL_THROTTLE_MS = 160;
-const HORIZONTAL_WHEEL_THRESHOLD_PX = 8;
+const HORIZONTAL_WHEEL_THRESHOLD_PX = 6;
+const HORIZONTAL_VS_VERTICAL_RATIO = 1.2;
 
 export function shouldRenderUnifiedImageCarouselControls(totalImages: number): boolean {
   return totalImages > 1;
@@ -84,10 +85,29 @@ export function shouldHandleCarouselWheelGesture(input: {
   shiftKey?: boolean;
 }): boolean {
   const horizontalDelta = resolveCarouselWheelDelta(input);
-  if (Math.abs(horizontalDelta) < HORIZONTAL_WHEEL_THRESHOLD_PX) return false;
+  const horizontalMagnitude = Math.abs(horizontalDelta);
+  const verticalMagnitude = Number.isFinite(input.deltaY) ? Math.abs(input.deltaY) : 0;
 
-  const verticalDelta = Number.isFinite(input.deltaY) ? Math.abs(input.deltaY) : 0;
-  return input.shiftKey ? true : Math.abs(horizontalDelta) >= verticalDelta;
+  if (input.shiftKey) {
+    return verticalMagnitude >= HORIZONTAL_WHEEL_THRESHOLD_PX;
+  }
+
+  return (
+    horizontalMagnitude > HORIZONTAL_WHEEL_THRESHOLD_PX ||
+    horizontalMagnitude >= verticalMagnitude * HORIZONTAL_VS_VERTICAL_RATIO
+  );
+}
+
+export function resolveCarouselWheelDirection(input: {
+  deltaX: number;
+  deltaY: number;
+  shiftKey?: boolean;
+}): "next" | "prev" | null {
+  const horizontalDelta = resolveCarouselWheelDelta(input);
+  if (Math.abs(horizontalDelta) < HORIZONTAL_WHEEL_THRESHOLD_PX) return null;
+  if (horizontalDelta > 0) return "next";
+  if (horizontalDelta < 0) return "prev";
+  return null;
 }
 
 export function UnifiedImageCarousel({
@@ -115,6 +135,7 @@ export function UnifiedImageCarousel({
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const suppressClickRef = useRef(false);
   const wheelThrottleRef = useRef(0);
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     dragFree: false,
@@ -220,10 +241,24 @@ export function UnifiedImageCarousel({
     suppressClickRef.current = false;
   }, []);
 
-  const handleWheel = useCallback(
-    (event: WheelEvent<HTMLDivElement>) => {
-      if (!shouldShowControls || !emblaApi) return;
+  const setViewportRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      viewportRef.current = node;
+      emblaRef(node);
+    },
+    [emblaRef]
+  );
+
+  useEffect(() => {
+    const viewportNode = viewportRef.current;
+    if (!viewportNode || !shouldShowControls || !emblaApi) return;
+
+    const handleWheel = (event: WheelEvent) => {
       if (!shouldHandleCarouselWheelGesture(event)) return;
+
+      const direction = resolveCarouselWheelDirection(event);
+      if (!direction) return;
+
       event.preventDefault();
 
       const now = Date.now();
@@ -231,14 +266,18 @@ export function UnifiedImageCarousel({
       wheelThrottleRef.current = now;
       suppressClickRef.current = true;
 
-      if (resolveCarouselWheelDelta(event) > 0) {
+      if (direction === "next") {
         emblaApi.scrollNext();
       } else {
         emblaApi.scrollPrev();
       }
-    },
-    [emblaApi, shouldShowControls]
-  );
+    };
+
+    viewportNode.addEventListener("wheel", handleWheel, { passive: false });
+    return () => {
+      viewportNode.removeEventListener("wheel", handleWheel);
+    };
+  }, [emblaApi, shouldShowControls]);
 
   return (
     <div
@@ -255,8 +294,7 @@ export function UnifiedImageCarousel({
           "h-full overflow-hidden",
           shouldShowControls && "cursor-grab active:cursor-grabbing"
         )}
-        ref={emblaRef}
-        onWheel={handleWheel}
+        ref={setViewportRef}
       >
         <div className="flex h-full touch-pan-y">
           {imageItems.map((item, index) => {
