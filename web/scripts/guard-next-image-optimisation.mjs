@@ -121,22 +121,19 @@ async function main() {
 
   for (const absolutePath of targets) {
     const content = await fs.readFile(absolutePath, "utf8");
-    const basename = path.basename(absolutePath).toLowerCase();
+    const file = relativeForReport(webRoot, absolutePath);
 
-    if (basename.startsWith("next.config.")) {
-      const violation = checkNextConfig(content);
-      if (violation) {
-        violations.push({
-          file: relativeForReport(webRoot, absolutePath),
-          ...violation,
-        });
-      }
-      continue;
+    const configViolation = checkNextConfig(content);
+    if (configViolation) {
+      violations.push({
+        file,
+        ...configViolation,
+      });
     }
 
     for (const violation of checkRawImgUsage(content)) {
       violations.push({
-        file: relativeForReport(webRoot, absolutePath),
+        file,
         ...violation,
       });
     }
