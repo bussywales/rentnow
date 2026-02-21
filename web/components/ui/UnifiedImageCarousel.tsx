@@ -48,6 +48,10 @@ export function shouldRenderUnifiedImageCarouselControls(totalImages: number): b
   return totalImages > 1;
 }
 
+export function shouldRenderUnifiedImageCarouselCountBadge(totalImages: number): boolean {
+  return shouldRenderUnifiedImageCarouselControls(totalImages);
+}
+
 export function shouldRenderUnifiedImageCarouselDots(totalImages: number): boolean {
   return totalImages > 3;
 }
@@ -118,7 +122,7 @@ export function UnifiedImageCarousel({
   const totalImages = imageItems.length;
   const shouldShowControls = shouldRenderUnifiedImageCarouselControls(totalImages);
   const shouldShowArrows = showArrows ?? shouldShowControls;
-  const shouldShowCountBadge = showCountBadge ?? shouldShowControls;
+  const shouldShowCountBadge = showCountBadge ?? shouldRenderUnifiedImageCarouselCountBadge(totalImages);
   const shouldShowDots = showDots ?? shouldRenderUnifiedImageCarouselDots(totalImages);
   const countIndex = Math.min(selectedIndex + 1, totalImages);
   const canScrollPrev = selectedIndex > 0;

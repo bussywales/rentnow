@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  shouldRenderUnifiedImageCarouselCountBadge,
   shouldRenderUnifiedImageCarouselControls,
   shouldRenderUnifiedImageCarouselDots,
   shouldSuppressCarouselClickAfterDrag,
@@ -10,6 +11,8 @@ void test("unified image carousel controls and badge visibility only activate fo
   assert.equal(shouldRenderUnifiedImageCarouselControls(0), false);
   assert.equal(shouldRenderUnifiedImageCarouselControls(1), false);
   assert.equal(shouldRenderUnifiedImageCarouselControls(2), true);
+  assert.equal(shouldRenderUnifiedImageCarouselCountBadge(1), false);
+  assert.equal(shouldRenderUnifiedImageCarouselCountBadge(2), true);
 });
 
 void test("unified image carousel dots follow a consistent threshold", () => {

@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import {
   resolveShortletsCarouselImageLoading,
   shouldRenderShortletsCarouselControls,
@@ -7,7 +9,16 @@ import {
   resolveShortletsCarouselImageSources,
   shouldRenderShortletsCarouselArrows,
   shouldRenderShortletsCarouselDots,
+  shouldSuppressShortletsCarouselNavigationAfterSwipe,
 } from "@/components/shortlets/search/ShortletsSearchCardCarousel";
+
+const shortletsCarouselPath = path.join(
+  process.cwd(),
+  "components",
+  "shortlets",
+  "search",
+  "ShortletsSearchCardCarousel.tsx"
+);
 
 void test("shortlets card carousel shows dots only when image count is greater than three", () => {
   assert.equal(shouldRenderShortletsCarouselDots(1), false);
@@ -109,4 +120,17 @@ void test("shortlets card carousel image loading profile only prioritises first 
       fetchPriority: "auto",
     }
   );
+});
+
+void test("shortlets card carousel suppresses navigation after swipe gestures", () => {
+  assert.equal(shouldSuppressShortletsCarouselNavigationAfterSwipe(4), false);
+  assert.equal(shouldSuppressShortletsCarouselNavigationAfterSwipe(9), true);
+});
+
+void test("shortlets card carousel uses unified carousel foundation with shared control markers", () => {
+  const contents = fs.readFileSync(shortletsCarouselPath, "utf8");
+
+  assert.ok(contents.includes("UnifiedImageCarousel"));
+  assert.ok(contents.includes('rootTestId="shortlets-search-card-carousel"'));
+  assert.ok(contents.includes('dotsTestId="shortlets-search-card-carousel-dots"'));
 });
