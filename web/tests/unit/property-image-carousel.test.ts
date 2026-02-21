@@ -52,4 +52,5 @@ void test("property image carousel uses unified carousel foundation with shared 
   assert.ok(contents.includes("UnifiedImageCarousel"));
   assert.ok(contents.includes('rootTestId={rootTestId}'));
   assert.ok(contents.includes("showArrows={shouldRenderImageCountBadge(carouselItems.length)}"));
+  assert.ok(contents.includes("prioritizeFirstImage={prioritizeFirstImage}"));
 });

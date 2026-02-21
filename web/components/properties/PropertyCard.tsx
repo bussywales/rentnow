@@ -83,6 +83,7 @@ type Props = {
   viewerRole?: UserRole | null;
   fastResponder?: boolean;
   socialProof?: ListingSocialProof | null;
+  prioritizeFirstImage?: boolean;
 };
 
 export function PropertyCard({
@@ -97,6 +98,7 @@ export function PropertyCard({
   viewerRole,
   fastResponder = false,
   socialProof = null,
+  prioritizeFirstImage = false,
 }: Props) {
   const { market } = useMarketPreference();
   const fallbackImage =
@@ -176,6 +178,7 @@ export function PropertyCard({
         fallbackImage={fallbackImage}
         blurDataURL={blurDataURL}
         sizes="(max-width: 768px) 100vw, 320px"
+        prioritizeFirstImage={prioritizeFirstImage}
       />
       <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
         {showSave && (

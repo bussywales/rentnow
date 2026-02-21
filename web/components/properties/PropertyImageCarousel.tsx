@@ -25,6 +25,7 @@ type Props = {
   rootTestId?: string;
   dotsTestId?: string;
   showDots?: boolean;
+  prioritizeFirstImage?: boolean;
   slideClassName?: string;
   enableActiveSlideMotion?: boolean;
   onSelectedIndexChange?: (index: number) => void;
@@ -74,6 +75,7 @@ export function PropertyImageCarousel({
   rootTestId = "property-image-carousel",
   dotsTestId,
   showDots = false,
+  prioritizeFirstImage = false,
   slideClassName,
   enableActiveSlideMotion = false,
   onSelectedIndexChange,
@@ -117,6 +119,7 @@ export function PropertyImageCarousel({
       rootTestId={rootTestId}
       dotsTestId={dotsTestId}
       enableActiveSlideMotion={enableActiveSlideMotion}
+      prioritizeFirstImage={prioritizeFirstImage}
       onSelectedIndexChange={onSelectedIndexChange}
       onCarouselReady={onCarouselReady}
     />

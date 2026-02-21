@@ -73,6 +73,7 @@ import {
   type MapListCouplingState,
 } from "@/lib/shortlet/map-list-coupling";
 import { getSavedIds, toggleSaved } from "@/lib/shortlet/saved.client";
+import { shouldPriorityImage } from "@/lib/images/loading-profile";
 
 type SearchItem = Property & {
   primaryImageUrl?: string | null;
@@ -2047,7 +2048,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                         property={property}
                         priceDisplayMode={totalPriceDisplayActive ? "total" : "nightly"}
                         href={buildPropertyHref(property.id)}
-                        prioritizeFirstImage={index < 2}
+                        prioritizeFirstImage={shouldPriorityImage({
+                          surface: "shortlets_list",
+                          viewport: "desktop",
+                          index,
+                        })}
                         selected={selected}
                         highlighted={property.id === hoveredListingId}
                         isSaved={savedIds.has(property.id)}
@@ -2241,7 +2246,11 @@ export function ShortletsSearchShell({ initialSearchParams }: Props) {
                     property={property}
                     priceDisplayMode={totalPriceDisplayActive ? "total" : "nightly"}
                     href={buildPropertyHref(property.id)}
-                    prioritizeFirstImage={index < 1}
+                    prioritizeFirstImage={shouldPriorityImage({
+                      surface: "shortlets_list",
+                      viewport: "mobile",
+                      index,
+                    })}
                     selected={selected}
                     highlighted={property.id === hoveredListingId}
                     isSaved={savedIds.has(property.id)}

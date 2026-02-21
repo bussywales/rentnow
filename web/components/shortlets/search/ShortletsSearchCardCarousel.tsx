@@ -8,6 +8,7 @@ import {
   shouldRenderUnifiedImageCarouselDots,
 } from "@/components/ui/UnifiedImageCarousel";
 import { shouldSuppressCarouselClickAfterDrag } from "@/lib/carousel/interaction";
+import { resolveImageLoadingProfile } from "@/lib/images/loading-profile";
 import type { PropertyImage } from "@/lib/types";
 
 type Props = {
@@ -46,11 +47,7 @@ export function resolveShortletsCarouselImageLoading(input: {
   fetchPriority: "high" | "auto";
 } {
   const shouldPrioritize = Boolean(input.prioritizeFirstImage) && input.index === 0;
-  return {
-    priority: shouldPrioritize,
-    loading: shouldPrioritize ? "eager" : "lazy",
-    fetchPriority: shouldPrioritize ? "high" : "auto",
-  };
+  return resolveImageLoadingProfile(shouldPrioritize);
 }
 
 export function resolveShortletsCarouselImageSources(input: {

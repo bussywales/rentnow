@@ -49,6 +49,7 @@ import {
 } from "@/lib/properties/listing-intent-ui";
 import { mapSearchFilterToListingIntents, normalizeListingIntent } from "@/lib/listing-intents";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
+import { shouldPriorityImage } from "@/lib/images/loading-profile";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
   searchParams?: SearchParams | Promise<SearchParams>;
@@ -936,7 +937,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
 
       {properties.length > 0 ? (
         <div className="grid gap-5 md:grid-cols-3" data-testid="properties-grid">
-          {properties.map((property) => (
+          {properties.map((property, index) => (
             <div key={property.id} className="h-full" data-testid="property-card">
               <PropertyCard
                 property={property}
@@ -948,6 +949,11 @@ export default async function PropertiesPage({ searchParams }: Props) {
                 viewerRole={role}
                 fastResponder={fastResponderByHost[property.owner_id]}
                 socialProof={socialProofByListing[property.id] ?? null}
+                prioritizeFirstImage={shouldPriorityImage({
+                  surface: "properties_list",
+                  viewport: "desktop",
+                  index,
+                })}
               />
             </div>
           ))}
@@ -967,7 +973,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
             Nearby alternatives with higher bedroom counts. Turn on “Include similar options” in More options to merge these into the main grid.
           </p>
           <div className="mt-4 grid gap-5 md:grid-cols-3" data-testid="properties-other-options-grid">
-            {otherOptionProperties.map((property) => (
+            {otherOptionProperties.map((property, index) => (
               <div key={property.id} className="h-full" data-testid="property-card-other-option">
                 <PropertyCard
                   property={property}
@@ -979,6 +985,11 @@ export default async function PropertiesPage({ searchParams }: Props) {
                   viewerRole={role}
                   fastResponder={fastResponderByHost[property.owner_id]}
                   socialProof={socialProofByListing[property.id] ?? null}
+                  prioritizeFirstImage={shouldPriorityImage({
+                    surface: "properties_list",
+                    viewport: "desktop",
+                    index,
+                  })}
                 />
               </div>
             ))}

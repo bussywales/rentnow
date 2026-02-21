@@ -15,6 +15,7 @@ import {
   shouldTreatWheelAsHorizontal,
   WHEEL_GESTURE_IDLE_RESET_MS,
 } from "@/lib/carousel/interaction";
+import { resolveImageLoadingProfile } from "@/lib/images/loading-profile";
 
 export type UnifiedImageCarouselItem = {
   id?: string;
@@ -281,6 +282,7 @@ export function UnifiedImageCarousel({
           {imageItems.map((item, index) => {
             const slideKey = item.id ?? `${item.src}-${index}`;
             const isActiveSlide = index === selectedIndex;
+            const imageLoading = resolveImageLoadingProfile(prioritizeFirstImage && index === 0);
             const imageElement = (
               <Image
                 src={item.src}
@@ -288,9 +290,9 @@ export function UnifiedImageCarousel({
                 fill
                 className={cn("select-none object-cover", imageClassName)}
                 sizes={sizes}
-                priority={prioritizeFirstImage && index === 0}
-                loading={prioritizeFirstImage && index === 0 ? "eager" : "lazy"}
-                fetchPriority={prioritizeFirstImage && index === 0 ? "high" : "auto"}
+                priority={imageLoading.priority}
+                loading={imageLoading.loading}
+                fetchPriority={imageLoading.fetchPriority}
                 placeholder="blur"
                 blurDataURL={blurDataURL}
                 draggable={false}

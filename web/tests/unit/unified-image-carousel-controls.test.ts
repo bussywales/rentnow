@@ -86,6 +86,8 @@ void test("unified image carousel wheel throttle blocks repeated direction but a
 void test("unified image carousel consumes the shared interaction policy module", () => {
   const contents = fs.readFileSync(unifiedCarouselPath, "utf8");
   assert.ok(contents.includes('from "@/lib/carousel/interaction"'));
+  assert.ok(contents.includes('from "@/lib/images/loading-profile"'));
   assert.ok(contents.includes("shouldTreatWheelAsHorizontal(event)"));
   assert.ok(contents.includes("resolveWheelDirectionFromAccumulatedDelta"));
+  assert.ok(contents.includes("resolveImageLoadingProfile"));
 });
