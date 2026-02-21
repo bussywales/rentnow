@@ -5,7 +5,7 @@ process.env.BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA ??= "true";
 
 const nextConfig: NextConfig = {
   images: {
-    unoptimized: true,
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
         protocol: "https",
