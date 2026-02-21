@@ -20,6 +20,10 @@ import {
   runShortletProviderPipeline,
   type ShortletPipelineDebugReason,
 } from "@/lib/shortlet/search-pipeline";
+import {
+  paginateShortletRows,
+  resolveShortletPagination,
+} from "@/lib/shortlet/search-pagination";
 
 const routeLabel = "/api/shortlets/search";
 const MAX_SOURCE_ROWS = 600;
@@ -60,6 +64,14 @@ export async function GET(request: NextRequest) {
   }
 
   const filters = parseShortletSearchFilters(request.nextUrl.searchParams);
+  const pagination = resolveShortletPagination({
+    page: filters.page,
+    pageSize: filters.pageSize,
+    limitParam: request.nextUrl.searchParams.get("limit"),
+    cursorParam: request.nextUrl.searchParams.get("cursor"),
+    defaultLimit: filters.pageSize,
+    maxLimit: 80,
+  });
   const hasDateRange = !!filters.checkIn && !!filters.checkOut;
   if (hasDateRange && !isDateRangeValid(filters.checkIn as string, filters.checkOut as string)) {
     return NextResponse.json(
@@ -208,11 +220,9 @@ export async function GET(request: NextRequest) {
       applyNigeriaBoost: !filters.where || isNigeriaDestinationQuery(filters.where),
       hasDateRange,
     });
-    const total = sorted.length;
-    const from = (filters.page - 1) * filters.pageSize;
-    const to = from + filters.pageSize;
+    const paged = paginateShortletRows(sorted, pagination);
     const items = mapShortletSearchRowsToResultItems(
-      sorted.slice(from, to) as unknown as ShortletSearchPropertyRow[],
+      paged.items as unknown as ShortletSearchPropertyRow[],
       {
         checkIn: filters.checkIn,
         checkOut: filters.checkOut,
@@ -242,14 +252,17 @@ export async function GET(request: NextRequest) {
         longitude: item.longitude,
       }));
 
-    const hasNearbySuggestion = total === 0 && !!filters.bounds;
+    const hasNearbySuggestion = paged.total === 0 && !!filters.bounds;
 
     const payload: Record<string, unknown> = {
       ok: true,
       route: routeLabel,
-      page: filters.page,
-      pageSize: filters.pageSize,
-      total,
+      page: pagination.page,
+      pageSize: pagination.pageSize,
+      limit: pagination.limit,
+      cursor: pagination.cursor,
+      nextCursor: paged.nextCursor,
+      total: paged.total,
       items,
       mapItems,
       nearbyAlternatives: hasNearbySuggestion
@@ -295,6 +308,10 @@ export async function GET(request: NextRequest) {
         providerFiltered: providerPipeline.providerFilteredRows.length,
         final: sorted.length,
         pagedCount: items.length,
+        paginationMode: pagination.mode,
+        paginationOffset: paged.offset,
+        paginationLimit: paged.limit,
+        nextCursor: paged.nextCursor,
         mapCount: mapItems.length,
         availabilityConflictCount: unavailablePropertyIds.size,
         missingFromBaseline: missingFromBaseline.slice(0, 100),
