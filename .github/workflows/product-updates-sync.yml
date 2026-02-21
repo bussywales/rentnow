@@ -34,6 +34,9 @@ jobs:
       - name: Run server auth guard
         run: npm --prefix web run guard:no-server-getsession
 
+      - name: Run next image optimisation guard
+        run: npm --prefix web run guard:next-image-optimisation
+
       - name: Call product updates sync endpoint
         env:
           APP_URL: ${{ secrets.APP_URL }}

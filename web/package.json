@@ -15,6 +15,7 @@
     "lint": "node -e \"require('fs').mkdirSync('test-results',{recursive:true})\" && BROWSERSLIST_IGNORE_OLD_DATA=true BASELINE_BROWSER_MAPPING_IGNORE_OLD_DATA=true eslint",
     "lint:ci": "node ./scripts/run-lint-ci.mjs",
     "guard:no-server-getsession": "node ./scripts/guard-no-server-getsession.mjs",
+    "guard:next-image-optimisation": "node ./scripts/guard-next-image-optimisation.mjs",
     "test:ci": "npm run guard:no-server-getsession && npm run lint && npm run test && npm run build",
     "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "doctor": "node ./scripts/doctor.mjs",

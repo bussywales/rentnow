@@ -46,6 +46,10 @@ jobs:
         working-directory: .
         run: npm --prefix web run guard:no-server-getsession
 
+      - name: Run next image optimisation guard
+        working-directory: .
+        run: npm --prefix web run guard:next-image-optimisation
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
