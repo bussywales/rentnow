@@ -39,6 +39,22 @@ void test("marker icon cache creates distinct references across modes", () => {
   assert.notEqual(hovered, selected);
 });
 
+void test("marker icon cache can be disabled and returns fresh instances", () => {
+  const cache = createShortletMarkerIconCache<{ id: string }>({ enabled: false });
+  const first = cache.get({
+    label: "₦45,000",
+    mode: "default",
+    create: () => ({ id: "first" }),
+  });
+  const second = cache.get({
+    label: "₦45,000",
+    mode: "default",
+    create: () => ({ id: "second" }),
+  });
+  assert.notEqual(first, second);
+  assert.equal(second.id, "second");
+});
+
 void test("pin price formatter returns stable fallback and currency-aware labels", () => {
   assert.equal(formatShortletPinPrice("NGN", null), "₦—");
   assert.equal(formatShortletPinPrice("NGN", 4500000), "₦45,000");
