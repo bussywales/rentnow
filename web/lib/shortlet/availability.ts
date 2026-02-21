@@ -1,3 +1,11 @@
+import {
+  PREFETCH_DEBOUNCE_MS,
+  PREFETCH_DEFERRED_MONTH_OFFSETS,
+  PREFETCH_ENABLED,
+  PREFETCH_IMMEDIATE_MONTH_OFFSETS,
+  PREFETCH_MAX_INFLIGHT,
+} from "@/lib/shortlet/availability-prefetch-config";
+
 export type ShortletUnavailableRange = {
   start: string;
   end: string;
@@ -32,22 +40,49 @@ export type ShortletAvailabilityPrefetchSchedule = {
 
 export type ShortletAvailabilityPrefetchPhase = "initial" | "interaction";
 
-export const SHORTLET_AVAILABILITY_PREFETCH_IMMEDIATE_OFFSETS = [0, 1] as const;
-export const SHORTLET_AVAILABILITY_PREFETCH_DEFERRED_OFFSETS = [-2, -1, 2] as const;
+export const SHORTLET_AVAILABILITY_PREFETCH_IMMEDIATE_OFFSETS = [...PREFETCH_IMMEDIATE_MONTH_OFFSETS] as const;
+export const SHORTLET_AVAILABILITY_PREFETCH_DEFERRED_OFFSETS = [...PREFETCH_DEFERRED_MONTH_OFFSETS] as const;
 
 type DeferredIdleCallbackHandle = number;
 type DeferredTaskScheduler = (task: () => void) => () => void;
 
 export function resolveShortletAvailabilityPrefetchSchedule(
-  phase: ShortletAvailabilityPrefetchPhase = "initial"
+  phase: ShortletAvailabilityPrefetchPhase = "initial",
+  policy?: {
+    enabled?: boolean;
+    immediateOffsets?: ReadonlyArray<number>;
+    deferredOffsets?: ReadonlyArray<number>;
+  }
 ): ShortletAvailabilityPrefetchSchedule {
+  const enabled = policy?.enabled ?? PREFETCH_ENABLED;
+  if (!enabled) {
+    return {
+      immediateOffsets: [],
+      deferredOffsets: [],
+    };
+  }
+  const immediateOffsets = policy?.immediateOffsets ?? PREFETCH_IMMEDIATE_MONTH_OFFSETS;
+  const deferredOffsets = policy?.deferredOffsets ?? PREFETCH_DEFERRED_MONTH_OFFSETS;
   return {
-    immediateOffsets: [...SHORTLET_AVAILABILITY_PREFETCH_IMMEDIATE_OFFSETS],
+    immediateOffsets: [...immediateOffsets],
     deferredOffsets:
       phase === "interaction"
-        ? [...SHORTLET_AVAILABILITY_PREFETCH_DEFERRED_OFFSETS]
+        ? [...deferredOffsets]
         : [],
   };
+}
+
+export function buildShortletPrefetchOffsetBatches(
+  offsets: ReadonlyArray<number>,
+  maxInflight: number = PREFETCH_MAX_INFLIGHT
+): number[][] {
+  const limit = Math.max(1, Math.trunc(maxInflight || 1));
+  const queue = offsets.map((offset) => Math.trunc(offset)).filter((offset) => Number.isFinite(offset));
+  const batches: number[][] = [];
+  for (let index = 0; index < queue.length; index += limit) {
+    batches.push(queue.slice(index, index + limit));
+  }
+  return batches;
 }
 
 export function shouldFetchShortletAvailabilityWindow(input: {
@@ -76,7 +111,7 @@ function scheduleDeferredTaskWithIdle(task: () => void): () => void {
   if (typeof root.requestIdleCallback === "function") {
     const handle = root.requestIdleCallback(() => {
       task();
-    }, { timeout: 600 });
+    }, { timeout: PREFETCH_DEBOUNCE_MS * 3 });
     return () => {
       if (typeof root.cancelIdleCallback === "function") {
         root.cancelIdleCallback(handle);
@@ -86,7 +121,7 @@ function scheduleDeferredTaskWithIdle(task: () => void): () => void {
 
   const timeoutHandle = setTimeout(() => {
     task();
-  }, 120);
+  }, PREFETCH_DEBOUNCE_MS);
   return () => {
     clearTimeout(timeoutHandle);
   };

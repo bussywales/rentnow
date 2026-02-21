@@ -7,6 +7,7 @@ import type { DateRange } from "react-day-picker";
 import { Button } from "@/components/ui/Button";
 import { Calendar } from "@/components/ui/calendar";
 import {
+  buildShortletPrefetchOffsetBatches,
   type ShortletAvailabilityPrefetchPhase,
   expandRangesToDisabledDates,
   resolveShortletAvailabilityPrefetchSchedule,
@@ -17,6 +18,10 @@ import {
   type ShortletUnavailableRange,
   validateRangeSelection,
 } from "@/lib/shortlet/availability";
+import {
+  PREFETCH_ENABLED,
+  PREFETCH_MAX_INFLIGHT,
+} from "@/lib/shortlet/availability-prefetch-config";
 
 type AvailabilityResponse = {
   bookingMode: "instant" | "request";
@@ -162,6 +167,15 @@ function dedupeUnavailableRanges(
     map.set(key, row);
   }
   return Array.from(map.values());
+}
+
+function shouldEnableAvailabilityDebugLogs(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return new URLSearchParams(window.location.search).get("debug") === "1";
+  } catch {
+    return false;
+  }
 }
 
 export function resolveRangeHint(
@@ -420,8 +434,13 @@ export function ShortletBookingWidget(props: {
   const loadedWindowKeysRef = useRef<Set<string>>(new Set());
   const inFlightWindowRequestsRef = useRef<Map<string, Promise<void>>>(new Map());
   const deferredPrefetchCancelRef = useRef<(() => void) | null>(null);
+  const availabilityDebugEnabledRef = useRef(false);
   const checkInTriggerRef = useRef<HTMLButtonElement | null>(null);
   const calendarDialogRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    availabilityDebugEnabledRef.current = shouldEnableAvailabilityDebugLogs();
+  }, []);
 
   const today = useMemo(() => {
     const value = new Date();
@@ -513,6 +532,18 @@ export function ShortletBookingWidget(props: {
       const inFlightRequests = inFlightWindowRequestsRef.current;
       const loadedWindowKeys = loadedWindowKeysRef.current;
       const trackLoading = options?.trackLoading !== false;
+      const debugLog = (
+        event: "cache_hit" | "inflight_deduped" | "executed",
+        extra?: Record<string, unknown>
+      ) => {
+        if (!availabilityDebugEnabledRef.current) return;
+        console.log("[shortlet/availability]", {
+          event,
+          cacheKey,
+          monthKey: window.monthKey,
+          ...extra,
+        });
+      };
 
       if (options?.force) {
         loadedWindowKeys.delete(cacheKey);
@@ -528,7 +559,14 @@ export function ShortletBookingWidget(props: {
       if (!shouldFetch) {
         const existingRequest = inFlightRequests.get(cacheKey);
         if (existingRequest) {
+          debugLog("inflight_deduped", {
+            loaded: loadedWindowKeys.has(cacheKey),
+          });
           await existingRequest;
+        } else {
+          debugLog("cache_hit", {
+            loaded: loadedWindowKeys.has(cacheKey),
+          });
         }
         return;
       }
@@ -536,6 +574,9 @@ export function ShortletBookingWidget(props: {
       const requestPromise = (async () => {
         const cached = availabilityWindowCache.get(cacheKey);
         if (cached) {
+          debugLog("cache_hit", {
+            loaded: loadedWindowKeys.has(cacheKey),
+          });
           loadedWindowKeys.add(cacheKey);
           const mapped: ShortletUnavailableRange[] = [
             ...cached.blockedRanges.map((row) => ({
@@ -557,6 +598,11 @@ export function ShortletBookingWidget(props: {
         if (trackLoading) {
           setCalendarLoadCount((count) => count + 1);
         }
+        debugLog("executed", {
+          loaded: loadedWindowKeys.has(cacheKey),
+          trackLoading,
+          force: !!options?.force,
+        });
         try {
           const response = await fetch(
             `/api/shortlet/availability?listingId=${encodeURIComponent(props.propertyId)}&from=${encodeURIComponent(window.from)}&to=${encodeURIComponent(window.to)}`,
@@ -613,29 +659,34 @@ export function ShortletBookingWidget(props: {
         phase?: ShortletAvailabilityPrefetchPhase;
       }
     ) => {
+      if (!PREFETCH_ENABLED) return;
       const monthStart = new Date(baseMonth.getFullYear(), baseMonth.getMonth(), 1);
       const schedule = resolveShortletAvailabilityPrefetchSchedule(options?.phase ?? "initial");
-      await Promise.all(
-        schedule.immediateOffsets.map((offset) =>
-          loadAvailabilityWindow(withMonthOffset(monthStart, offset), {
-            force: options?.force,
-            trackLoading: true,
-          })
-        )
-      );
+      const runBatches = async (offsets: number[], trackLoading: boolean) => {
+        const batches = buildShortletPrefetchOffsetBatches(offsets, PREFETCH_MAX_INFLIGHT);
+        for (const batch of batches) {
+          await Promise.all(
+            batch.map((offset) =>
+              loadAvailabilityWindow(withMonthOffset(monthStart, offset), {
+                force: options?.force,
+                trackLoading,
+              })
+            )
+          );
+        }
+      };
+
+      await runBatches(schedule.immediateOffsets, true);
 
       const runDeferredPrefetch = () => {
-        void Promise.all(
-          schedule.deferredOffsets.map((offset) =>
-            loadAvailabilityWindow(withMonthOffset(monthStart, offset), {
-              force: options?.force,
-              trackLoading: false,
-            })
-          )
-        );
+        void runBatches(schedule.deferredOffsets, false);
       };
 
       deferredPrefetchCancelRef.current?.();
+      if (!schedule.deferredOffsets.length) {
+        deferredPrefetchCancelRef.current = null;
+        return;
+      }
       if (options?.deferDeferred === false) {
         runDeferredPrefetch();
         return;
