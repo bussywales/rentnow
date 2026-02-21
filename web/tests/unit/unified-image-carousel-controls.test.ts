@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   resolveCarouselWheelDelta,
+  resolveCarouselWheelDirection,
   shouldHandleCarouselWheelGesture,
   shouldRenderUnifiedImageCarouselCountBadge,
   shouldRenderUnifiedImageCarouselControls,
@@ -38,4 +39,14 @@ void test("unified image carousel handles only meaningful horizontal wheel gestu
   assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 24, deltaY: 2, shiftKey: false }), true);
   assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 2, deltaY: 24, shiftKey: false }), false);
   assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 0, deltaY: 40, shiftKey: true }), true);
+});
+
+void test("unified image carousel wheel direction mapping supports both directions", () => {
+  assert.equal(resolveCarouselWheelDirection({ deltaX: 18, deltaY: 1, shiftKey: false }), "next");
+  assert.equal(resolveCarouselWheelDirection({ deltaX: -18, deltaY: 1, shiftKey: false }), "prev");
+});
+
+void test("unified image carousel wheel direction mapping supports shift+wheel fallback both directions", () => {
+  assert.equal(resolveCarouselWheelDirection({ deltaX: 0, deltaY: 24, shiftKey: true }), "next");
+  assert.equal(resolveCarouselWheelDirection({ deltaX: 0, deltaY: -24, shiftKey: true }), "prev");
 });
