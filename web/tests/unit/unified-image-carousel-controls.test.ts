@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   resolveCarouselWheelDelta,
   resolveCarouselWheelDirection,
+  shouldThrottleCarouselWheelNavigation,
   shouldHandleCarouselWheelGesture,
   shouldRenderUnifiedImageCarouselCountBadge,
   shouldRenderUnifiedImageCarouselControls,
@@ -39,6 +40,7 @@ void test("unified image carousel handles only meaningful horizontal wheel gestu
   assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 24, deltaY: 2, shiftKey: false }), true);
   assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 2, deltaY: 24, shiftKey: false }), false);
   assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 0, deltaY: 40, shiftKey: true }), true);
+  assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 1, deltaY: 18, shiftKey: false }), false);
 });
 
 void test("unified image carousel wheel direction mapping supports both directions", () => {
@@ -49,4 +51,28 @@ void test("unified image carousel wheel direction mapping supports both directio
 void test("unified image carousel wheel direction mapping supports shift+wheel fallback both directions", () => {
   assert.equal(resolveCarouselWheelDirection({ deltaX: 0, deltaY: 24, shiftKey: true }), "next");
   assert.equal(resolveCarouselWheelDirection({ deltaX: 0, deltaY: -24, shiftKey: true }), "prev");
+});
+
+void test("unified image carousel wheel throttle blocks repeated direction but allows instant direction reversal", () => {
+  assert.equal(
+    shouldThrottleCarouselWheelNavigation({
+      nowMs: 1_000,
+      lastTriggeredAtMs: 920,
+      nextDirection: "next",
+      lastDirection: "next",
+      throttleMs: 160,
+    }),
+    true
+  );
+
+  assert.equal(
+    shouldThrottleCarouselWheelNavigation({
+      nowMs: 1_000,
+      lastTriggeredAtMs: 920,
+      nextDirection: "prev",
+      lastDirection: "next",
+      throttleMs: 160,
+    }),
+    false
+  );
 });
