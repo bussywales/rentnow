@@ -1,15 +1,21 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import {
-  resolveCarouselWheelDelta,
-  resolveCarouselWheelDirection,
-  shouldThrottleCarouselWheelNavigation,
-  shouldHandleCarouselWheelGesture,
   shouldRenderUnifiedImageCarouselCountBadge,
   shouldRenderUnifiedImageCarouselControls,
   shouldRenderUnifiedImageCarouselDots,
-  shouldSuppressCarouselClickAfterDrag,
 } from "@/components/ui/UnifiedImageCarousel";
+import {
+  resolveWheelDelta,
+  resolveWheelDirection,
+  shouldSuppressCarouselClickAfterDrag,
+  shouldThrottleWheelNavigation,
+  shouldTreatWheelAsHorizontal,
+} from "@/lib/carousel/interaction";
+
+const unifiedCarouselPath = path.join(process.cwd(), "components", "ui", "UnifiedImageCarousel.tsx");
 
 void test("unified image carousel controls and badge visibility only activate for multi-image sets", () => {
   assert.equal(shouldRenderUnifiedImageCarouselControls(0), false);
@@ -32,30 +38,30 @@ void test("unified image carousel suppresses click navigation only after drag th
 });
 
 void test("unified image carousel resolves horizontal wheel deltas for trackpad and shift-scroll", () => {
-  assert.equal(resolveCarouselWheelDelta({ deltaX: 36, deltaY: 4, shiftKey: false }), 36);
-  assert.equal(resolveCarouselWheelDelta({ deltaX: 0, deltaY: 48, shiftKey: true }), 48);
+  assert.equal(resolveWheelDelta({ deltaX: 36, deltaY: 4, shiftKey: false }), 36);
+  assert.equal(resolveWheelDelta({ deltaX: 0, deltaY: 48, shiftKey: true }), 48);
 });
 
 void test("unified image carousel handles only meaningful horizontal wheel gestures", () => {
-  assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 24, deltaY: 2, shiftKey: false }), true);
-  assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 2, deltaY: 24, shiftKey: false }), false);
-  assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 0, deltaY: 40, shiftKey: true }), true);
-  assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 1, deltaY: 18, shiftKey: false }), false);
+  assert.equal(shouldTreatWheelAsHorizontal({ deltaX: 24, deltaY: 2, shiftKey: false }), true);
+  assert.equal(shouldTreatWheelAsHorizontal({ deltaX: 2, deltaY: 24, shiftKey: false }), false);
+  assert.equal(shouldTreatWheelAsHorizontal({ deltaX: 0, deltaY: 40, shiftKey: true }), true);
+  assert.equal(shouldTreatWheelAsHorizontal({ deltaX: 1, deltaY: 18, shiftKey: false }), false);
 });
 
 void test("unified image carousel wheel direction mapping supports both directions", () => {
-  assert.equal(resolveCarouselWheelDirection({ deltaX: 18, deltaY: 1, shiftKey: false }), "next");
-  assert.equal(resolveCarouselWheelDirection({ deltaX: -18, deltaY: 1, shiftKey: false }), "prev");
+  assert.equal(resolveWheelDirection({ deltaX: 18, deltaY: 1, shiftKey: false }), "next");
+  assert.equal(resolveWheelDirection({ deltaX: -18, deltaY: 1, shiftKey: false }), "prev");
 });
 
 void test("unified image carousel wheel direction mapping supports shift+wheel fallback both directions", () => {
-  assert.equal(resolveCarouselWheelDirection({ deltaX: 0, deltaY: 24, shiftKey: true }), "next");
-  assert.equal(resolveCarouselWheelDirection({ deltaX: 0, deltaY: -24, shiftKey: true }), "prev");
+  assert.equal(resolveWheelDirection({ deltaX: 0, deltaY: 24, shiftKey: true }), "next");
+  assert.equal(resolveWheelDirection({ deltaX: 0, deltaY: -24, shiftKey: true }), "prev");
 });
 
 void test("unified image carousel wheel throttle blocks repeated direction but allows instant direction reversal", () => {
   assert.equal(
-    shouldThrottleCarouselWheelNavigation({
+    shouldThrottleWheelNavigation({
       nowMs: 1_000,
       lastTriggeredAtMs: 920,
       nextDirection: "next",
@@ -66,7 +72,7 @@ void test("unified image carousel wheel throttle blocks repeated direction but a
   );
 
   assert.equal(
-    shouldThrottleCarouselWheelNavigation({
+    shouldThrottleWheelNavigation({
       nowMs: 1_000,
       lastTriggeredAtMs: 920,
       nextDirection: "prev",
@@ -75,4 +81,11 @@ void test("unified image carousel wheel throttle blocks repeated direction but a
     }),
     false
   );
+});
+
+void test("unified image carousel consumes the shared interaction policy module", () => {
+  const contents = fs.readFileSync(unifiedCarouselPath, "utf8");
+  assert.ok(contents.includes('from "@/lib/carousel/interaction"'));
+  assert.ok(contents.includes("shouldTreatWheelAsHorizontal(event)"));
+  assert.ok(contents.includes("resolveWheelDirectionFromAccumulatedDelta"));
 });

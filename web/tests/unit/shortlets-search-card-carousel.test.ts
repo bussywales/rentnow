@@ -131,6 +131,8 @@ void test("shortlets card carousel uses unified carousel foundation with shared 
   const contents = fs.readFileSync(shortletsCarouselPath, "utf8");
 
   assert.ok(contents.includes("UnifiedImageCarousel"));
+  assert.ok(contents.includes('from "@/lib/carousel/interaction"'));
+  assert.ok(contents.includes("shouldSuppressCarouselClickAfterDrag"));
   assert.ok(contents.includes('rootTestId="shortlets-search-card-carousel"'));
   assert.ok(contents.includes('dotsTestId="shortlets-search-card-carousel-dots"'));
 });

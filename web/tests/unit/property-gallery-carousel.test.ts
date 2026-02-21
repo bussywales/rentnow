@@ -31,6 +31,8 @@ void test("detail gallery keeps thumbnail and swipe selection in sync via shared
 
   assert.ok(contents.includes('rootTestId="property-detail-gallery-carousel"'));
   assert.ok(contents.includes("enableActiveSlideMotion"));
+  assert.ok(contents.includes('if (e.key === "ArrowLeft")'));
+  assert.ok(contents.includes('if (e.key === "ArrowRight")'));
   assert.ok(contents.includes("onSelectedIndexChange={setSelectedIndex}"));
   assert.ok(contents.includes("carouselController?.scrollTo(targetIndex)"));
   assert.ok(contents.includes("carouselController?.scrollPrev()"));
