@@ -2,13 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   applyInertialSnapHint,
+  accumulateWheelDelta,
   resolveWheelDelta,
   resolveWheelDirection,
   resolveWheelDirectionFromAccumulatedDelta,
   shouldSuppressCarouselClickAfterDrag,
   shouldThrottleWheelNavigation,
   shouldTreatWheelAsHorizontal,
-} from "@/lib/carousel/interaction";
+} from "@/lib/ui/carousel-interactions";
 
 void test("wheel direction resolves bidirectionally from horizontal deltas", () => {
   assert.equal(resolveWheelDirection({ deltaX: 120, deltaY: 0, shiftKey: false }), "next");
@@ -34,6 +35,23 @@ void test("accumulated deltas resolve direction after threshold crossings", () =
   assert.equal(resolveWheelDirectionFromAccumulatedDelta(3), null);
   assert.equal(resolveWheelDirectionFromAccumulatedDelta(7), "next");
   assert.equal(resolveWheelDirectionFromAccumulatedDelta(-7), "prev");
+});
+
+void test("accumulated wheel deltas reset to latest input when direction reverses", () => {
+  assert.equal(
+    accumulateWheelDelta({
+      accumulatedDelta: 10,
+      nextDelta: -2,
+    }),
+    -2
+  );
+  assert.equal(
+    accumulateWheelDelta({
+      accumulatedDelta: -10,
+      nextDelta: 2,
+    }),
+    2
+  );
 });
 
 void test("click suppression threshold is symmetric for both drag directions", () => {

@@ -8,12 +8,13 @@ import {
   shouldRenderUnifiedImageCarouselDots,
 } from "@/components/ui/UnifiedImageCarousel";
 import {
+  accumulateWheelDelta,
   resolveWheelDelta,
   resolveWheelDirection,
   shouldSuppressCarouselClickAfterDrag,
   shouldThrottleWheelNavigation,
   shouldTreatWheelAsHorizontal,
-} from "@/lib/carousel/interaction";
+} from "@/lib/ui/carousel-interactions";
 
 const unifiedCarouselPath = path.join(process.cwd(), "components", "ui", "UnifiedImageCarousel.tsx");
 
@@ -59,6 +60,23 @@ void test("unified image carousel wheel direction mapping supports shift+wheel f
   assert.equal(resolveWheelDirection({ deltaX: 0, deltaY: -24, shiftKey: true }), "prev");
 });
 
+void test("unified image carousel wheel accumulation resets when direction changes", () => {
+  assert.equal(
+    accumulateWheelDelta({
+      accumulatedDelta: 16,
+      nextDelta: -5,
+    }),
+    -5
+  );
+  assert.equal(
+    accumulateWheelDelta({
+      accumulatedDelta: -20,
+      nextDelta: 7,
+    }),
+    7
+  );
+});
+
 void test("unified image carousel wheel throttle blocks repeated direction but allows instant direction reversal", () => {
   assert.equal(
     shouldThrottleWheelNavigation({
@@ -85,9 +103,10 @@ void test("unified image carousel wheel throttle blocks repeated direction but a
 
 void test("unified image carousel consumes the shared interaction policy module", () => {
   const contents = fs.readFileSync(unifiedCarouselPath, "utf8");
-  assert.ok(contents.includes('from "@/lib/carousel/interaction"'));
+  assert.ok(contents.includes('from "@/lib/ui/carousel-interactions"'));
   assert.ok(contents.includes('from "@/lib/images/loading-profile"'));
   assert.ok(contents.includes("shouldTreatWheelAsHorizontal(event)"));
+  assert.ok(contents.includes("accumulateWheelDelta"));
   assert.ok(contents.includes("resolveWheelDirectionFromAccumulatedDelta"));
   assert.ok(contents.includes("resolveImageLoadingProfile"));
 });
