@@ -93,6 +93,7 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
           blurDataURL={blurDataURL}
           sizes="(max-width: 768px) 100vw, 640px"
           className="h-full"
+          rootTestId="property-detail-gallery-carousel"
           onSelectedIndexChange={setSelectedIndex}
           onCarouselReady={setCarouselController}
           countBadgeClassName="top-3"
@@ -150,6 +151,10 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
 
 export function shouldRenderGalleryControls(totalImages: number): boolean {
   return shouldRenderImageCountBadge(totalImages);
+}
+
+export function shouldRenderGalleryThumbnails(totalImages: number): boolean {
+  return shouldRenderGalleryControls(totalImages);
 }
 
 export function resolveThumbnailTargetIndex(index: number, totalImages: number): number {

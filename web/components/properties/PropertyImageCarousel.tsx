@@ -22,6 +22,11 @@ type Props = {
   className?: string;
   imageClassName?: string;
   countBadgeClassName?: string;
+  rootTestId?: string;
+  dotsTestId?: string;
+  showDots?: boolean;
+  slideClassName?: string;
+  enableActiveSlideMotion?: boolean;
   onSelectedIndexChange?: (index: number) => void;
   onCarouselReady?: (controller: PropertyImageCarouselController | null) => void;
 };
@@ -66,6 +71,11 @@ export function PropertyImageCarousel({
   className,
   imageClassName,
   countBadgeClassName,
+  rootTestId = "property-image-carousel",
+  dotsTestId,
+  showDots = false,
+  slideClassName,
+  enableActiveSlideMotion = false,
   onSelectedIndexChange,
   onCarouselReady,
 }: Props) {
@@ -99,11 +109,14 @@ export function PropertyImageCarousel({
       blurDataURL={blurDataURL}
       className={cn("h-full", className)}
       imageClassName={imageClassName}
+      slideClassName={slideClassName}
       countBadgeClassName={cn("top-14", countBadgeClassName)}
       showCountBadge={shouldRenderImageCountBadge(carouselItems.length)}
       showArrows={shouldRenderImageCountBadge(carouselItems.length)}
-      showDots={false}
-      rootTestId="property-image-carousel"
+      showDots={showDots}
+      rootTestId={rootTestId}
+      dotsTestId={dotsTestId}
+      enableActiveSlideMotion={enableActiveSlideMotion}
       onSelectedIndexChange={onSelectedIndexChange}
       onCarouselReady={onCarouselReady}
     />

@@ -31,6 +31,7 @@ type Props = {
   showCountBadge?: boolean;
   showArrows?: boolean;
   showDots?: boolean;
+  enableActiveSlideMotion?: boolean;
   rootTestId?: string;
   dotsTestId?: string;
   blurDataURL?: string;
@@ -42,7 +43,8 @@ type Props = {
 const BLUR_DATA_URL =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 const DRAG_NAVIGATION_THRESHOLD_PX = 8;
-const TRACKPAD_SCROLL_THROTTLE_MS = 280;
+const TRACKPAD_SCROLL_THROTTLE_MS = 160;
+const HORIZONTAL_WHEEL_THRESHOLD_PX = 8;
 
 export function shouldRenderUnifiedImageCarouselControls(totalImages: number): boolean {
   return totalImages > 1;
@@ -58,6 +60,34 @@ export function shouldRenderUnifiedImageCarouselDots(totalImages: number): boole
 
 export function shouldSuppressCarouselClickAfterDrag(pointerDistancePx: number): boolean {
   return pointerDistancePx > DRAG_NAVIGATION_THRESHOLD_PX;
+}
+
+export function resolveCarouselWheelDelta(input: {
+  deltaX: number;
+  deltaY: number;
+  shiftKey?: boolean;
+}): number {
+  const horizontalFromTrackpad = Number.isFinite(input.deltaX) ? input.deltaX : 0;
+  const horizontalFromShiftScroll =
+    input.shiftKey && Number.isFinite(input.deltaY) ? input.deltaY : 0;
+
+  if (Math.abs(horizontalFromShiftScroll) > Math.abs(horizontalFromTrackpad)) {
+    return horizontalFromShiftScroll;
+  }
+
+  return horizontalFromTrackpad;
+}
+
+export function shouldHandleCarouselWheelGesture(input: {
+  deltaX: number;
+  deltaY: number;
+  shiftKey?: boolean;
+}): boolean {
+  const horizontalDelta = resolveCarouselWheelDelta(input);
+  if (Math.abs(horizontalDelta) < HORIZONTAL_WHEEL_THRESHOLD_PX) return false;
+
+  const verticalDelta = Number.isFinite(input.deltaY) ? Math.abs(input.deltaY) : 0;
+  return input.shiftKey ? true : Math.abs(horizontalDelta) >= verticalDelta;
 }
 
 export function UnifiedImageCarousel({
@@ -191,14 +221,15 @@ export function UnifiedImageCarousel({
   const handleWheel = useCallback(
     (event: WheelEvent<HTMLDivElement>) => {
       if (!shouldShowControls || !emblaApi) return;
-      if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+      if (!shouldHandleCarouselWheelGesture(event)) return;
       event.preventDefault();
 
       const now = Date.now();
       if (now - wheelThrottleRef.current < TRACKPAD_SCROLL_THROTTLE_MS) return;
       wheelThrottleRef.current = now;
+      suppressClickRef.current = true;
 
-      if (event.deltaX > 0) {
+      if (resolveCarouselWheelDelta(event) > 0) {
         emblaApi.scrollNext();
       } else {
         emblaApi.scrollPrev();

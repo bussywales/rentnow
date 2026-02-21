@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  resolveCarouselWheelDelta,
+  shouldHandleCarouselWheelGesture,
   shouldRenderUnifiedImageCarouselCountBadge,
   shouldRenderUnifiedImageCarouselControls,
   shouldRenderUnifiedImageCarouselDots,
@@ -25,4 +27,15 @@ void test("unified image carousel suppresses click navigation only after drag th
   assert.equal(shouldSuppressCarouselClickAfterDrag(4), false);
   assert.equal(shouldSuppressCarouselClickAfterDrag(8), false);
   assert.equal(shouldSuppressCarouselClickAfterDrag(9), true);
+});
+
+void test("unified image carousel resolves horizontal wheel deltas for trackpad and shift-scroll", () => {
+  assert.equal(resolveCarouselWheelDelta({ deltaX: 36, deltaY: 4, shiftKey: false }), 36);
+  assert.equal(resolveCarouselWheelDelta({ deltaX: 0, deltaY: 48, shiftKey: true }), 48);
+});
+
+void test("unified image carousel handles only meaningful horizontal wheel gestures", () => {
+  assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 24, deltaY: 2, shiftKey: false }), true);
+  assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 2, deltaY: 24, shiftKey: false }), false);
+  assert.equal(shouldHandleCarouselWheelGesture({ deltaX: 0, deltaY: 40, shiftKey: true }), true);
 });
