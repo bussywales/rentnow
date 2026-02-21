@@ -6,8 +6,8 @@ import {
   UnifiedImageCarousel,
   shouldRenderUnifiedImageCarouselControls,
   shouldRenderUnifiedImageCarouselDots,
-  shouldSuppressCarouselClickAfterDrag,
 } from "@/components/ui/UnifiedImageCarousel";
+import { shouldSuppressCarouselClickAfterDrag } from "@/lib/carousel/interaction";
 import type { PropertyImage } from "@/lib/types";
 
 type Props = {

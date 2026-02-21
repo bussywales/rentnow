@@ -6,6 +6,15 @@ import useEmblaCarousel from "embla-carousel-react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
+import {
+  applyInertialSnapHint,
+  resolveWheelDelta,
+  resolveWheelDirectionFromAccumulatedDelta,
+  shouldSuppressCarouselClickAfterDrag,
+  shouldThrottleWheelNavigation,
+  shouldTreatWheelAsHorizontal,
+  WHEEL_GESTURE_IDLE_RESET_MS,
+} from "@/lib/carousel/interaction";
 
 export type UnifiedImageCarouselItem = {
   id?: string;
@@ -42,11 +51,13 @@ type Props = {
 
 const BLUR_DATA_URL =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
-const DRAG_NAVIGATION_THRESHOLD_PX = 8;
-const TRACKPAD_SCROLL_THROTTLE_MS = 160;
-const HORIZONTAL_WHEEL_THRESHOLD_PX = 6;
-const HORIZONTAL_VS_VERTICAL_RATIO = 1.2;
-const WHEEL_GESTURE_IDLE_RESET_MS = 220;
+export {
+  shouldSuppressCarouselClickAfterDrag,
+  resolveWheelDelta as resolveCarouselWheelDelta,
+  shouldTreatWheelAsHorizontal as shouldHandleCarouselWheelGesture,
+  resolveWheelDirection as resolveCarouselWheelDirection,
+  shouldThrottleWheelNavigation as shouldThrottleCarouselWheelNavigation,
+} from "@/lib/carousel/interaction";
 
 export function shouldRenderUnifiedImageCarouselControls(totalImages: number): boolean {
   return totalImages > 1;
@@ -58,70 +69,6 @@ export function shouldRenderUnifiedImageCarouselCountBadge(totalImages: number):
 
 export function shouldRenderUnifiedImageCarouselDots(totalImages: number): boolean {
   return totalImages > 3;
-}
-
-export function shouldSuppressCarouselClickAfterDrag(pointerDistancePx: number): boolean {
-  return pointerDistancePx > DRAG_NAVIGATION_THRESHOLD_PX;
-}
-
-export function resolveCarouselWheelDelta(input: {
-  deltaX: number;
-  deltaY: number;
-  shiftKey?: boolean;
-}): number {
-  const horizontalFromTrackpad = Number.isFinite(input.deltaX) ? input.deltaX : 0;
-  const horizontalFromShiftScroll =
-    input.shiftKey && Number.isFinite(input.deltaY) ? input.deltaY : 0;
-
-  if (Math.abs(horizontalFromShiftScroll) > Math.abs(horizontalFromTrackpad)) {
-    return horizontalFromShiftScroll;
-  }
-
-  return horizontalFromTrackpad;
-}
-
-export function shouldHandleCarouselWheelGesture(input: {
-  deltaX: number;
-  deltaY: number;
-  shiftKey?: boolean;
-}): boolean {
-  const horizontalDelta = resolveCarouselWheelDelta(input);
-  const horizontalMagnitude = Math.abs(horizontalDelta);
-  const verticalMagnitude = Number.isFinite(input.deltaY) ? Math.abs(input.deltaY) : 0;
-
-  if (input.shiftKey) {
-    return verticalMagnitude >= HORIZONTAL_WHEEL_THRESHOLD_PX;
-  }
-
-  return (
-    horizontalMagnitude >= HORIZONTAL_WHEEL_THRESHOLD_PX ||
-    horizontalMagnitude >= verticalMagnitude * HORIZONTAL_VS_VERTICAL_RATIO
-  );
-}
-
-export function resolveCarouselWheelDirection(input: {
-  deltaX: number;
-  deltaY: number;
-  shiftKey?: boolean;
-}): "next" | "prev" | null {
-  const horizontalDelta = resolveCarouselWheelDelta(input);
-  if (Math.abs(horizontalDelta) < HORIZONTAL_WHEEL_THRESHOLD_PX) return null;
-  if (horizontalDelta > 0) return "next";
-  if (horizontalDelta < 0) return "prev";
-  return null;
-}
-
-export function shouldThrottleCarouselWheelNavigation(input: {
-  nowMs: number;
-  lastTriggeredAtMs: number;
-  nextDirection: "next" | "prev";
-  lastDirection: "next" | "prev" | null;
-  throttleMs?: number;
-}): boolean {
-  const throttleMs = input.throttleMs ?? TRACKPAD_SCROLL_THROTTLE_MS;
-  const withinCooldown = input.nowMs - input.lastTriggeredAtMs < throttleMs;
-  if (!withinCooldown) return false;
-  return input.nextDirection === input.lastDirection;
 }
 
 export function UnifiedImageCarousel({
@@ -271,7 +218,7 @@ export function UnifiedImageCarousel({
     if (!viewportNode || !shouldShowControls || !emblaApi) return;
 
     const handleWheel = (event: WheelEvent) => {
-      if (!shouldHandleCarouselWheelGesture(event)) return;
+      if (!shouldTreatWheelAsHorizontal(event)) return;
 
       event.preventDefault();
       const now = Date.now();
@@ -281,17 +228,12 @@ export function UnifiedImageCarousel({
       }
       wheelLastEventAtRef.current = now;
 
-      wheelAccumulatorRef.current += resolveCarouselWheelDelta(event);
-      const direction =
-        wheelAccumulatorRef.current > HORIZONTAL_WHEEL_THRESHOLD_PX
-          ? "next"
-          : wheelAccumulatorRef.current < -HORIZONTAL_WHEEL_THRESHOLD_PX
-            ? "prev"
-            : null;
+      wheelAccumulatorRef.current += resolveWheelDelta(event);
+      const direction = resolveWheelDirectionFromAccumulatedDelta(wheelAccumulatorRef.current);
       if (!direction) return;
 
       if (
-        shouldThrottleCarouselWheelNavigation({
+        shouldThrottleWheelNavigation({
           nowMs: now,
           lastTriggeredAtMs: wheelThrottleRef.current,
           nextDirection: direction,
@@ -363,8 +305,10 @@ export function UnifiedImageCarousel({
                   "relative h-full min-w-0 shrink-0 grow-0 basis-full",
                   shouldAnimateSlides &&
                     "transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none",
-                  shouldAnimateSlides && isActiveSlide && "scale-[1.005] opacity-100",
-                  shouldAnimateSlides && !isActiveSlide && "scale-[0.995] opacity-95",
+                  applyInertialSnapHint({
+                    enabled: shouldAnimateSlides,
+                    isActive: isActiveSlide,
+                  }),
                   slideClassName
                 )}
                 data-active-slide={isActiveSlide ? "true" : "false"}
