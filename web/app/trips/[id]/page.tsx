@@ -5,6 +5,7 @@ import { TripTimeline } from "@/components/trips/TripTimeline";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { resolveGuestCheckinVisibility } from "@/lib/shortlet/checkin-visibility";
+import { normalizeShortletPaymentStatus } from "@/lib/shortlet/return-status";
 import { resolveTripTimelineSteps } from "@/lib/shortlet/trip-timeline";
 import {
   getGuestShortletCheckinDetailsForBooking,
@@ -107,10 +108,11 @@ export default async function TripDetailPage({
     client,
     bookingId: booking.id,
   }).catch(() => null);
+  const normalizedPaymentStatus = normalizeShortletPaymentStatus(paymentStatus);
 
   const timeline = resolveTripTimelineSteps({
     bookingStatus: booking.status,
-    paymentStatus,
+    paymentStatus: normalizedPaymentStatus,
     bookingMode,
     checkIn: booking.check_in,
     checkOut: booking.check_out,
@@ -128,7 +130,7 @@ export default async function TripDetailPage({
   const isConfirmed = booking.status === "confirmed" || booking.status === "completed";
   const checkinVisibility = resolveGuestCheckinVisibility({
     bookingStatus: booking.status,
-    paymentStatus,
+    paymentStatus: normalizedPaymentStatus,
   });
   const checkinDetails = await getGuestShortletCheckinDetailsForBooking({
     client,
