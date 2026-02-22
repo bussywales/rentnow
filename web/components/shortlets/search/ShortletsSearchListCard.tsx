@@ -223,8 +223,8 @@ export function ShortletsSearchListCard({
     <article
       className={cn(
         "relative h-full w-full max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition",
-        highlighted && "border-sky-300 ring-2 ring-sky-100",
-        selected && "border-sky-400 ring-2 ring-sky-200"
+        highlighted && "border-sky-300 ring-1 ring-inset ring-sky-200",
+        selected && "border-sky-400 ring-1 ring-inset ring-sky-300"
       )}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}

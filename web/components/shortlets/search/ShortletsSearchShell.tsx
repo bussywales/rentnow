@@ -460,6 +460,17 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   }, []);
 
   useEffect(() => {
+    const previousHtmlOverflowX = document.documentElement.style.overflowX;
+    const previousBodyOverflowX = document.body.style.overflowX;
+    document.documentElement.style.overflowX = "hidden";
+    document.body.style.overflowX = "hidden";
+    return () => {
+      document.documentElement.style.overflowX = previousHtmlOverflowX;
+      document.body.style.overflowX = previousBodyOverflowX;
+    };
+  }, []);
+
+  useEffect(() => {
     const onStorage = (event: StorageEvent) => {
       if (event.key && event.key !== "shortlets:saved") return;
       setSavedIds(new Set(getSavedIds()));
@@ -1504,11 +1515,11 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
               >
                 <span className="truncate">{guestsSummary}</span>
               </button>
-              <div className="ml-auto flex items-center gap-2">
+              <div className="flex w-full flex-wrap items-center justify-end gap-2 md:ml-auto md:w-auto md:flex-nowrap">
                 <Select
                   value={parsedUi.sort}
                   onChange={(event) => updateUrl((next) => next.set("sort", event.target.value))}
-                  className="h-9 w-[126px] text-xs"
+                  className="h-9 min-w-0 flex-1 text-xs md:w-[126px] md:flex-none"
                   aria-label="Sort compact"
                 >
                   <option value="recommended">Recommended</option>
@@ -2144,9 +2155,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
                       ref={(node) => {
                         cardRefs.current[property.id] = node;
                       }}
-                      className={`h-full rounded-2xl border ${
-                        highlighted ? "border-sky-300 ring-2 ring-sky-100" : "border-transparent"
-                      }`}
+                      className="h-full"
                       onMouseEnter={() =>
                         setCouplingState((current) => setMapListHover(current, property.id, "list"))
                       }
@@ -2168,7 +2177,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
                           index,
                         })}
                         selected={selected}
-                        highlighted={property.id === hoveredListingId}
+                        highlighted={highlighted}
                         isSaved={savedIds.has(property.id)}
                         onToggleSaved={() => onToggleSavedListing(property.id)}
                         onFocus={() =>
@@ -2343,9 +2352,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
                   ref={(node) => {
                     cardRefs.current[property.id] = node;
                   }}
-                  className={`h-full w-full max-w-full overflow-hidden rounded-2xl border ${
-                    highlighted ? "border-sky-300 ring-2 ring-sky-100" : "border-transparent"
-                  }`}
+                  className="mx-auto h-full w-full max-w-[calc(100vw-2rem)] overflow-hidden"
                   onClick={() =>
                     setCouplingState((current) => setMapListSelected(current, property.id, "list"))
                   }
@@ -2367,7 +2374,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
                       index,
                     })}
                     selected={selected}
-                    highlighted={property.id === hoveredListingId}
+                    highlighted={highlighted}
                     isSaved={savedIds.has(property.id)}
                     onToggleSaved={() => onToggleSavedListing(property.id)}
                     onFocus={() =>
