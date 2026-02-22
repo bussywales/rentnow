@@ -22,7 +22,7 @@ export const dynamic = "force-dynamic";
 const routeLabel = "/api/internal/shortlet/send-reminders";
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
-type InternalReminderDeps = {
+export type InternalReminderDeps = {
   hasServiceRoleEnv: typeof hasServiceRoleEnv;
   createServiceRoleClient: typeof createServiceRoleClient;
   getCronSecret: () => string;
@@ -31,6 +31,18 @@ type InternalReminderDeps = {
   createNotification: typeof createNotification;
   getSiteUrl: typeof getSiteUrl;
 };
+
+function logReminderRunSummary(input: {
+  route: string;
+  scanned: number;
+  due: number;
+  sent: number;
+  skipped: number;
+  errorsCount: number;
+  asOf: string;
+}) {
+  console.info("[shortlet/reminders] run", input);
+}
 
 const defaultDeps: InternalReminderDeps = {
   hasServiceRoleEnv,
@@ -187,15 +199,28 @@ export async function postShortletSendRemindersResponse(
     .filter((row): row is ShortletReminderBookingCandidate => !!row && !!row.bookingId));
 
   if (!candidates.length) {
-    return NextResponse.json({
+    const payload = {
       ok: true,
       route: routeLabel,
       scanned: 0,
       due: 0,
       sent: 0,
+      skipped: 0,
       skippedAlreadySent: 0,
+      errorsCount: 0,
       errors: [],
+      asOf: todayKey,
+    };
+    logReminderRunSummary({
+      route: routeLabel,
+      scanned: payload.scanned,
+      due: payload.due,
+      sent: payload.sent,
+      skipped: payload.skipped,
+      errorsCount: payload.errorsCount,
+      asOf: payload.asOf,
     });
+    return NextResponse.json(payload);
   }
 
   const bookingIds = candidates.map((row) => row.bookingId);
@@ -347,16 +372,28 @@ export async function postShortletSendRemindersResponse(
     }
   }
 
-  return NextResponse.json({
+  const payload = {
     ok: true,
     route: routeLabel,
     scanned: candidates.length,
     due: dispatches.length,
     sent,
+    skipped: skippedAlreadySent,
     skippedAlreadySent,
+    errorsCount: errors.length,
     errors,
     asOf: todayKey,
+  };
+  logReminderRunSummary({
+    route: routeLabel,
+    scanned: payload.scanned,
+    due: payload.due,
+    sent: payload.sent,
+    skipped: payload.skipped,
+    errorsCount: payload.errorsCount,
+    asOf: payload.asOf,
   });
+  return NextResponse.json(payload);
 }
 
 export async function POST(request: NextRequest) {
