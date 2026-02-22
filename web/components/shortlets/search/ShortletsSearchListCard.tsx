@@ -222,7 +222,7 @@ export function ShortletsSearchListCard({
   return (
     <article
       className={cn(
-        "relative h-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition",
+        "relative h-full w-full max-w-full overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition",
         highlighted && "border-sky-300 ring-2 ring-sky-100",
         selected && "border-sky-400 ring-2 ring-sky-200"
       )}
@@ -257,8 +257,11 @@ export function ShortletsSearchListCard({
         fallbackImage={FALLBACK_IMAGE}
         prioritizeFirstImage={prioritizeFirstImage}
       />
-      <Link href={href} className="block h-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500">
-        <div className="flex min-h-[164px] flex-col gap-2 px-4 py-3">
+      <Link
+        href={href}
+        className="block h-full w-full max-w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+      >
+        <div className="flex min-h-[146px] flex-col gap-1.5 px-3 py-2.5 sm:min-h-[164px] sm:gap-2 sm:px-4 sm:py-3">
           <div className="flex items-center justify-between gap-2">
             <p className="truncate text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
               {location}
@@ -272,7 +275,9 @@ export function ShortletsSearchListCard({
               </span>
             ) : null}
           </div>
-          <h3 className="line-clamp-2 min-h-[2.8rem] text-base font-semibold text-slate-900">{property.title}</h3>
+          <h3 className="line-clamp-2 min-h-[2.45rem] text-[15px] font-semibold text-slate-900 sm:min-h-[2.8rem] sm:text-base">
+            {property.title}
+          </h3>
           <div className="flex items-start justify-between gap-2">
             <div className="group/pricing relative min-w-0">
               <div className="flex items-center gap-2">
@@ -327,7 +332,7 @@ export function ShortletsSearchListCard({
                 </div>
               ) : null}
             </div>
-            <span className="inline-flex h-8 items-center rounded-full bg-slate-900 px-3 text-xs font-semibold text-white">
+            <span className="inline-flex h-8 shrink-0 items-center rounded-full bg-slate-900 px-3 text-xs font-semibold text-white">
               {ctaLabel}
             </span>
           </div>

@@ -15,13 +15,22 @@ const cardPath = path.join(
   "search",
   "ShortletsSearchListCard.tsx"
 );
+const carouselPath = path.join(
+  process.cwd(),
+  "components",
+  "shortlets",
+  "search",
+  "ShortletsSearchCardCarousel.tsx"
+);
 
 void test("shortlets search card keeps a calm hierarchy with stable height and 2-line title clamp", () => {
   const contents = fs.readFileSync(cardPath, "utf8");
+  const carouselContents = fs.readFileSync(carouselPath, "utf8");
 
-  assert.ok(contents.includes("h-full overflow-hidden rounded-2xl"));
-  assert.ok(contents.includes("line-clamp-2 min-h-[2.8rem]"));
-  assert.ok(contents.includes("min-h-[164px]"));
+  assert.ok(contents.includes("h-full w-full max-w-full overflow-hidden rounded-2xl"));
+  assert.ok(contents.includes("line-clamp-2 min-h-[2.45rem] text-[15px]"));
+  assert.ok(contents.includes("sm:min-h-[164px]"));
+  assert.ok(carouselContents.includes('className="h-[184px] w-full max-w-full bg-slate-100 sm:h-48"'));
   assert.ok(contents.includes("Price on request"));
   assert.ok(contents.includes("Includes fees"));
   assert.ok(contents.includes("Pricing details"));

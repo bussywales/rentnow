@@ -1428,7 +1428,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   const showExploreMapHint = !isBboxApplied && !activeDestination;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-4 px-4 py-4">
+    <div className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-4 overflow-x-hidden px-4 py-4 lg:overflow-x-visible">
       <div
         aria-hidden={mobileMapOpen}
         {...(mobileMapOpen ? ({ inert: "" } as Record<string, string>) : {})}
@@ -2204,7 +2204,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
         ) : null}
       </div>
 
-      <div className="space-y-3 pb-20 lg:hidden">
+      <div className="w-full max-w-full space-y-3 pb-20 lg:hidden">
         <div>
           <p className="text-sm text-slate-600">{resultsLabel}</p>
           {pendingMapAreaLabel ? <p className="mt-1 text-xs text-slate-500">{pendingMapAreaLabel}</p> : null}
@@ -2219,13 +2219,13 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
           ) : null}
         </div>
         {loading && filteredTotal === 0 ? (
-          <div className="grid gap-3">
+          <div className="grid w-full max-w-full gap-3">
             {Array.from({ length: 4 }).map((_, index) => (
               <PropertyCardSkeleton key={`shortlet-mobile-skeleton-${index}`} />
             ))}
           </div>
         ) : filteredTotal > 0 ? (
-          <div className="grid gap-3">
+          <div className="grid w-full max-w-full gap-3">
             {filteredItems.map((property, index) => {
               const selected = property.id === selectedListingId;
               const highlighted =
@@ -2236,7 +2236,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
                   ref={(node) => {
                     cardRefs.current[property.id] = node;
                   }}
-                  className={`h-full rounded-2xl border ${
+                  className={`h-full w-full max-w-full overflow-hidden rounded-2xl border ${
                     highlighted ? "border-sky-300 ring-2 ring-sky-100" : "border-transparent"
                   }`}
                   onClick={() =>
