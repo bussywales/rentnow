@@ -24,6 +24,9 @@ export const smokeSelectors = {
   hostBookingDrawer: "host-booking-drawer",
   hostBookingApprove: "host-booking-approve",
   hostBookingDecline: "host-booking-decline",
+  hostCalendarPage: "host-calendar-page",
+  hostCalendar: "host-calendar",
+  hostCheckinAgenda: "host-checkin-agenda",
 } as const;
 
 export function shortletsResultLabelText(total: number, withinMapArea: boolean): RegExp {
