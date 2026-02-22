@@ -22,14 +22,20 @@ void test("shortlets shell renders a filters drawer with apply and clear actions
   assert.ok(contents.includes("Saved only"));
 });
 
-void test("shortlets shell quick filters are constrained to a single horizontal row", () => {
+void test("shortlets shell quick filters use a premium compact pill with apply/close controls", () => {
   const contents = fs.readFileSync(shellPath, "utf8");
 
   assert.ok(contents.includes('data-testid="shortlets-quick-filters"'));
   assert.ok(contents.includes("overflow-hidden whitespace-nowrap"));
-  assert.ok(contents.includes('data-testid="shortlets-quick-filters-button"'));
+  assert.ok(contents.includes('data-testid="shortlets-quick-filters-pill"'));
+  assert.ok(contents.includes('data-testid="shortlets-quick-filters-pill-count"'));
   assert.ok(contents.includes('data-testid="shortlets-quick-filters-popover"'));
-  assert.ok(contents.includes("quickFiltersCollapsed ?"));
+  assert.ok(contents.includes('data-testid="shortlets-quick-filters-sheet"'));
+  assert.ok(contents.includes("useCompactQuickFiltersControl ?"));
+  assert.ok(contents.includes("openQuickFiltersPanel"));
+  assert.ok(contents.includes("toggleQuickFilterDraft"));
+  assert.ok(contents.includes("applyQuickFiltersDraft"));
+  assert.equal(contents.includes('data-testid="shortlets-quick-filters-button"'), false);
 });
 
 void test("shortlets shell supports active filter summary with overflow collapse", () => {

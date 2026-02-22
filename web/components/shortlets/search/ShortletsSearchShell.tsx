@@ -399,7 +399,10 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   const [isCompactSearch, setIsCompactSearch] = useState(false);
   const [isSearchHeaderInView, setIsSearchHeaderInView] = useState(true);
   const [quickFiltersCollapsed, setQuickFiltersCollapsed] = useState(false);
-  const [quickFiltersPopoverOpen, setQuickFiltersPopoverOpen] = useState(false);
+  const [quickFiltersPanelOpen, setQuickFiltersPanelOpen] = useState(false);
+  const [quickFiltersDraftState, setQuickFiltersDraftState] = useState<Set<TrustFilterKey>>(
+    () => new Set<TrustFilterKey>()
+  );
   const [draftAdvancedFilters, setDraftAdvancedFilters] = useState<ShortletAdvancedFilterState>(() =>
     readShortletAdvancedFiltersFromParams(stableSearchParams)
   );
@@ -511,12 +514,6 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   }, [recomputeQuickFilterCollapse, searchParamsKey]);
 
   useEffect(() => {
-    if (!quickFiltersCollapsed) {
-      setQuickFiltersPopoverOpen(false);
-    }
-  }, [quickFiltersCollapsed]);
-
-  useEffect(() => {
     const controller = new AbortController();
     const run = async () => {
       setLoading(true);
@@ -572,22 +569,27 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   }, [filtersOpen]);
 
   useEffect(() => {
-    if (!quickFiltersPopoverOpen) return;
+    if (!quickFiltersPanelOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setQuickFiltersPanelOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+
+    if (isMobileDatePicker) {
+      return () => window.removeEventListener("keydown", onKeyDown);
+    }
+
     const onPointerDown = (event: MouseEvent) => {
       if (!quickFiltersPopoverRef.current) return;
       if (quickFiltersPopoverRef.current.contains(event.target as Node)) return;
-      setQuickFiltersPopoverOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setQuickFiltersPopoverOpen(false);
+      setQuickFiltersPanelOpen(false);
     };
     window.addEventListener("mousedown", onPointerDown);
-    window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("mousedown", onPointerDown);
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [quickFiltersPopoverOpen]);
+  }, [isMobileDatePicker, quickFiltersPanelOpen]);
 
   useEffect(() => {
     if (!searchDatesOpen) return;
@@ -1036,6 +1038,38 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
     [applyAdvancedFilters, stableSearchParams]
   );
 
+  const openQuickFiltersPanel = useCallback(() => {
+    const currentFilters = readShortletAdvancedFiltersFromParams(stableSearchParams);
+    setQuickFiltersDraftState(
+      new Set(
+        QUICK_FILTERS.filter((filter) => currentFilters[filter.key]).map(
+          (filter) => filter.key
+        )
+      )
+    );
+    setQuickFiltersPanelOpen(true);
+  }, [stableSearchParams]);
+
+  const toggleQuickFilterDraft = useCallback((key: TrustFilterKey) => {
+    setQuickFiltersDraftState((previous) => {
+      const next = new Set(previous);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const applyQuickFiltersDraft = useCallback(() => {
+    const currentFilters = readShortletAdvancedFiltersFromParams(stableSearchParams);
+    const nextFilters: ShortletAdvancedFilterState = { ...currentFilters };
+    for (const filter of QUICK_FILTERS) {
+      nextFilters[filter.key] = quickFiltersDraftState.has(filter.key);
+    }
+    setDraftAdvancedFilters(nextFilters);
+    applyAdvancedFilters(nextFilters);
+    setQuickFiltersPanelOpen(false);
+  }, [applyAdvancedFilters, quickFiltersDraftState, stableSearchParams]);
+
   const onMapBoundsChanged = useCallback(
     (bounds: { north: number; south: number; east: number; west: number }) => {
       const nextBounds = bounds as ShortletSearchBounds;
@@ -1370,6 +1404,12 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   });
   const showCompactSearch = searchControlVisibility.compactActive;
   const showExpandedSearch = searchControlVisibility.expandedActive;
+  const useCompactQuickFiltersControl = quickFiltersCollapsed || showCompactSearch;
+  useEffect(() => {
+    if (!useCompactQuickFiltersControl) {
+      setQuickFiltersPanelOpen(false);
+    }
+  }, [useCompactQuickFiltersControl]);
   const isBboxApplied = useMemo(
     () => isShortletBboxApplied(stableSearchParams.get("bbox")),
     [stableSearchParams]
@@ -1657,38 +1697,53 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
 
           <div className="flex min-w-0 items-center gap-2">
             <div className="min-w-0 flex-1">
-              {quickFiltersCollapsed ? (
+              {useCompactQuickFiltersControl ? (
                 <div
                   ref={quickFiltersPopoverRef}
                   className="relative"
                   data-testid="shortlets-quick-filters-collapsed"
                 >
-                  <Button
+                  <button
                     type="button"
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => setQuickFiltersPopoverOpen((current) => !current)}
-                    className="h-9 whitespace-nowrap"
-                    data-testid="shortlets-quick-filters-button"
+                    onClick={() =>
+                      quickFiltersPanelOpen ? setQuickFiltersPanelOpen(false) : openQuickFiltersPanel()
+                    }
+                    className="inline-flex h-9 items-center gap-2 rounded-full border border-slate-200 bg-white px-3.5 text-xs font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    data-testid="shortlets-quick-filters-pill"
                   >
-                    {activeQuickFilterCount > 0 ? `Quick filters (${activeQuickFilterCount})` : "Quick filters"}
-                  </Button>
-                  {quickFiltersPopoverOpen ? (
+                    <span>Quick filters</span>
+                    {activeQuickFilterCount > 0 ? (
+                      <span
+                        className="inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-sky-600 px-1.5 text-[11px] font-semibold text-white"
+                        data-testid="shortlets-quick-filters-pill-count"
+                      >
+                        {activeQuickFilterCount}
+                      </span>
+                    ) : null}
+                    <span aria-hidden="true" className="text-[11px] text-slate-400">
+                      ▾
+                    </span>
+                  </button>
+                  {quickFiltersPanelOpen && !isMobileDatePicker ? (
                     <div
-                      className="absolute left-0 top-full z-20 mt-2 w-[240px] rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+                      className="absolute left-0 top-full z-20 mt-2 w-[280px] rounded-2xl border border-slate-200 bg-white p-3 shadow-[0_18px_42px_rgba(15,23,42,0.16)]"
                       role="dialog"
                       aria-label="Quick filters"
                       data-testid="shortlets-quick-filters-popover"
                     >
-                      <div className="space-y-1">
+                      <div className="mb-2">
+                        <p className="text-sm font-semibold text-slate-900">Quick filters</p>
+                        <p className="text-xs text-slate-500">Choose up to three essentials.</p>
+                      </div>
+                      <div className="space-y-1.5">
                         {QUICK_FILTERS.map((filter) => {
-                          const active = trustFilterState.has(filter.key);
+                          const active = quickFiltersDraftState.has(filter.key);
                           return (
                             <button
                               key={`quick-filter-popover-${filter.key}`}
                               type="button"
-                              onClick={() => toggleQuickFilter(filter.key)}
-                              className={`flex w-full items-center justify-between rounded-lg border px-2.5 py-2 text-left text-xs font-semibold transition ${
+                              onClick={() => toggleQuickFilterDraft(filter.key)}
+                              className={`flex w-full items-center justify-between rounded-xl border px-3 py-2 text-left text-xs font-semibold transition ${
                                 active
                                   ? "border-sky-500 bg-sky-50 text-sky-700"
                                   : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
@@ -1699,6 +1754,14 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
                             </button>
                           );
                         })}
+                      </div>
+                      <div className="mt-3 flex items-center justify-end gap-2 border-t border-slate-100 pt-2">
+                        <Button type="button" variant="secondary" size="sm" onClick={() => setQuickFiltersPanelOpen(false)}>
+                          Close
+                        </Button>
+                        <Button type="button" size="sm" onClick={applyQuickFiltersDraft}>
+                          Apply
+                        </Button>
                       </div>
                     </div>
                   ) : null}
@@ -1729,6 +1792,50 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
               )}
             </div>
           </div>
+          {quickFiltersPanelOpen && isMobileDatePicker ? (
+            <div className="fixed inset-0 z-40 flex items-end lg:hidden" data-testid="shortlets-quick-filters-sheet">
+              <button
+                type="button"
+                aria-label="Close quick filters"
+                className="absolute inset-0 bg-slate-900/30"
+                onClick={() => setQuickFiltersPanelOpen(false)}
+              />
+              <div className="relative w-full rounded-t-3xl border border-slate-200 bg-white p-4 shadow-[0_-10px_35px_rgba(15,23,42,0.18)]">
+                <div className="mb-3">
+                  <p className="text-base font-semibold text-slate-900">Quick filters</p>
+                  <p className="text-xs text-slate-500">Refine essentials without opening full filters.</p>
+                </div>
+                <div className="space-y-2">
+                  {QUICK_FILTERS.map((filter) => {
+                    const active = quickFiltersDraftState.has(filter.key);
+                    return (
+                      <button
+                        key={`quick-filter-sheet-${filter.key}`}
+                        type="button"
+                        onClick={() => toggleQuickFilterDraft(filter.key)}
+                        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition ${
+                          active
+                            ? "border-sky-500 bg-sky-50 text-sky-700"
+                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                        }`}
+                      >
+                        <span>{filter.label}</span>
+                        <span aria-hidden="true">{active ? "✓" : ""}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-4 flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+                  <Button type="button" variant="secondary" size="sm" onClick={() => setQuickFiltersPanelOpen(false)}>
+                    Close
+                  </Button>
+                  <Button type="button" size="sm" onClick={applyQuickFiltersDraft}>
+                    Apply
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {activeFilterTags.length > 0 ? (
