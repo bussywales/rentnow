@@ -149,6 +149,9 @@ export default async function HostCalendarPage({ searchParams }: PageProps) {
         initialBookings={bookings.map((row) => ({
           id: row.id,
           property_id: row.property_id,
+          property_title: row.property_title,
+          guest_name: row.guest_name,
+          guest_user_id: row.guest_user_id,
           check_in: row.check_in,
           check_out: row.check_out,
           status: row.status,

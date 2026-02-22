@@ -1,9 +1,15 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/Button";
-import { buildHostCalendarAvailability, type HostCalendarBlockRow, type HostCalendarBookingRow } from "@/lib/shortlet/host-calendar";
+import {
+  buildAgendaForDay,
+  buildHostCalendarAvailability,
+  type HostCalendarBlockRow,
+  type HostCalendarBookingRow,
+} from "@/lib/shortlet/host-calendar";
 import { fromDateKey, toDateKey } from "@/lib/shortlet/availability";
 import type { DateRange } from "react-day-picker";
 
@@ -25,6 +31,17 @@ function isPastDate(date: Date) {
   return toDateKey(date) < todayKey;
 }
 
+function formatAgendaHeading(dayIso: string | null) {
+  if (!dayIso) return "Agenda";
+  const parsed = fromDateKey(dayIso);
+  if (!parsed) return "Agenda";
+  return `Agenda — ${parsed.toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  })}`;
+}
+
 export function HostCalendar(props: {
   properties: HostCalendarProperty[];
   initialBlocks: HostCalendarBlockRow[];
@@ -42,6 +59,7 @@ export function HostCalendar(props: {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [selectedDayIso, setSelectedDayIso] = useState<string | null>(null);
 
   const propertyLabelById = useMemo(
     () => new Map(props.properties.map((row) => [row.id, row.title || row.id])),
@@ -62,6 +80,16 @@ export function HostCalendar(props: {
     () => blocks.filter((row) => row.property_id === propertyId),
     [blocks, propertyId]
   );
+
+  const agenda = useMemo(() => {
+    if (!selectedDayIso) return null;
+    return buildAgendaForDay({
+      dayIso: selectedDayIso,
+      bookings: props.initialBookings,
+      blocks,
+      propertyTitleById: propertyLabelById,
+    });
+  }, [blocks, propertyLabelById, props.initialBookings, selectedDayIso]);
 
   async function onAddBlock() {
     if (busy) return;
@@ -192,6 +220,9 @@ export function HostCalendar(props: {
                 setError(null);
                 setNotice(null);
               }}
+              onDayClick={(day) => {
+                setSelectedDayIso(toDateKey(day));
+              }}
               disabled={(date) => {
                 const key = toDateKey(date);
                 return (
@@ -212,9 +243,9 @@ export function HostCalendar(props: {
             />
             <div className="border-t border-slate-200 px-3 py-3 text-xs text-slate-600">
               <div className="flex flex-wrap items-center gap-3">
-                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-slate-300" /> Available</span>
                 <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-300" /> Booked</span>
                 <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-300" /> Blocked</span>
+                <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-sky-400" /> Today</span>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button size="sm" onClick={() => void onAddBlock()} disabled={busy || !range?.from || !range?.to}>
@@ -257,6 +288,119 @@ export function HostCalendar(props: {
           </aside>
         </div>
       )}
+
+      {agenda ? (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/40"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Day agenda"
+          onClick={() => setSelectedDayIso(null)}
+        >
+          <div
+            className="fixed inset-x-0 bottom-0 max-h-[85vh] overflow-y-auto rounded-t-2xl bg-white p-4 shadow-2xl sm:inset-y-0 sm:right-0 sm:left-auto sm:w-[430px] sm:max-h-none sm:rounded-none sm:rounded-l-2xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3 border-b border-slate-200 pb-3">
+              <div>
+                <h3 className="text-base font-semibold text-slate-900">{formatAgendaHeading(agenda.dayIso)}</h3>
+                <p className="text-xs text-slate-500">Arrivals, departures, in-progress stays, and blocks.</p>
+              </div>
+              <button
+                type="button"
+                className="rounded-md border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600"
+                onClick={() => setSelectedDayIso(null)}
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="mt-3 space-y-3 text-sm">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Arrivals</p>
+                {agenda.arrivals.length ? (
+                  <div className="mt-2 space-y-2">
+                    {agenda.arrivals.map((item) => (
+                      <div key={`arrival-${item.bookingId}`} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                        <p className="font-semibold text-slate-900">{item.propertyTitle}</p>
+                        <p className="text-xs text-slate-600">{item.guestLabel} · {item.status}</p>
+                        <Link
+                          href={`/host/bookings?booking=${encodeURIComponent(item.bookingId)}`}
+                          className="mt-1 inline-block text-xs font-semibold text-sky-700 underline underline-offset-2"
+                        >
+                          Open booking
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500">No arrivals.</p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Departures</p>
+                {agenda.departures.length ? (
+                  <div className="mt-2 space-y-2">
+                    {agenda.departures.map((item) => (
+                      <div key={`departure-${item.bookingId}`} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                        <p className="font-semibold text-slate-900">{item.propertyTitle}</p>
+                        <p className="text-xs text-slate-600">{item.guestLabel} · {item.status}</p>
+                        <Link
+                          href={`/host/bookings?booking=${encodeURIComponent(item.bookingId)}`}
+                          className="mt-1 inline-block text-xs font-semibold text-sky-700 underline underline-offset-2"
+                        >
+                          Open booking
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500">No departures.</p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Stays in progress</p>
+                {agenda.inProgress.length ? (
+                  <div className="mt-2 space-y-2">
+                    {agenda.inProgress.map((item) => (
+                      <div key={`in-progress-${item.bookingId}`} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                        <p className="font-semibold text-slate-900">{item.propertyTitle}</p>
+                        <p className="text-xs text-slate-600">{item.guestLabel} · {item.status}</p>
+                        <Link
+                          href={`/host/bookings?booking=${encodeURIComponent(item.bookingId)}`}
+                          className="mt-1 inline-block text-xs font-semibold text-sky-700 underline underline-offset-2"
+                        >
+                          Open booking
+                        </Link>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500">No active stays.</p>
+                )}
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">Blocks</p>
+                {agenda.blocks.length ? (
+                  <div className="mt-2 space-y-2">
+                    {agenda.blocks.map((item) => (
+                      <div key={`block-${item.blockId}`} className="rounded-lg border border-amber-200 bg-amber-50 p-2">
+                        <p className="font-semibold text-slate-900">{item.propertyTitle}</p>
+                        <p className="text-xs text-slate-600">{item.reason || "Host block"}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500">No blocks.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </section>
   );
 }
