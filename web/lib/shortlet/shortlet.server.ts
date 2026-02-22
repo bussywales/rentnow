@@ -521,17 +521,23 @@ export async function listHostShortletEarningsTimeline(input: {
       .order("created_at", { ascending: false })
       .limit(limit * 4);
 
-  let paymentResult = await selectPayments("booking_id,status,updated_at,created_at");
+  type PaymentQueryResult = {
+    data: Array<Record<string, unknown>> | null;
+    error: { message?: string } | null;
+  };
+  let paymentResult = (await selectPayments(
+    "booking_id,status,updated_at,created_at"
+  )) as unknown as PaymentQueryResult;
   if (
     paymentResult.error &&
-    paymentResult.error.message.toLowerCase().includes("updated_at")
+    String(paymentResult.error.message || "").toLowerCase().includes("updated_at")
   ) {
-    paymentResult = await input.client
+    paymentResult = (await input.client
       .from("shortlet_payments")
       .select("booking_id,status,created_at")
       .in("booking_id", bookingIds)
       .order("created_at", { ascending: false })
-      .limit(limit * 4);
+      .limit(limit * 4)) as unknown as PaymentQueryResult;
   }
   if (paymentResult.error) {
     throw new Error(paymentResult.error.message || "Unable to load shortlet payments");

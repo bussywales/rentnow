@@ -50,7 +50,7 @@ function toDateValue(dateIso: string) {
 
 function isUpcomingTimelineItem(item: HostEarningsTimelineItem, todayMs: number) {
   const checkInMs = toDateValue(item.checkIn);
-  if (!Number.isFinite(checkInMs)) return false;
+  if (checkInMs === null) return false;
   if (item.bookingStatus === "pending") return true;
   if (item.bookingStatus === "pending_payment") return true;
   return item.payoutStatus !== "paid" && checkInMs >= todayMs;
