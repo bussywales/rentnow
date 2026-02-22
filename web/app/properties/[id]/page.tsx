@@ -61,6 +61,7 @@ import {
   resolveShortletCancellationPolicy,
 } from "@/lib/shortlet/cancellation";
 import { CtaHashAnchorClient } from "@/components/properties/CtaHashAnchorClient";
+import { resolvePropertyDetailWithFallback } from "@/lib/properties/property-detail-resilience";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -106,7 +107,11 @@ function parseShortletGuestsParam(value: string | undefined): number {
 
 async function getProperty(
   id: string | undefined,
-  options?: { source?: string | null; requestHeaders?: Headers }
+  options?: {
+    source?: string | null;
+    requestHeaders?: Headers;
+    includeDemoListings?: boolean;
+  }
 ): Promise<{ property: Property | null; error: string | null; apiUrl: string | null }> {
   if (!id) {
     return { property: null, error: "Invalid property id", apiUrl: null };
@@ -123,60 +128,125 @@ async function getProperty(
   }
   let apiError: string | null = null;
 
-  try {
-    const res = await fetch(requestUrl.toString(), {
-      headers: options?.requestHeaders,
-      next: { revalidate: 60 },
-    });
-    if (!res.ok) {
-      let responseError: string | null = null;
+  const mapPropertyPayload = (
+    data: Property & {
+      property_images?: Array<{ id: string; image_url: string }>;
+    }
+  ) => ({
+    ...data,
+    images: orderImagesWithCover(
+      data.cover_image_url,
+      data.property_images?.map((img) => ({
+        id: img.id || img.image_url,
+        image_url: img.image_url,
+        position: (img as { position?: number }).position,
+        created_at: (img as { created_at?: string | null }).created_at ?? undefined,
+        width: (img as { width?: number | null }).width ?? null,
+        height: (img as { height?: number | null }).height ?? null,
+        bytes: (img as { bytes?: number | null }).bytes ?? null,
+        format: (img as { format?: string | null }).format ?? null,
+        exif_has_gps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? null,
+        exif_captured_at:
+          (img as { exif_captured_at?: string | null }).exif_captured_at ?? null,
+      }))
+    ),
+  });
+
+  const result = await resolvePropertyDetailWithFallback({
+    primary: async () => {
       try {
-        const body = await res.json();
-        responseError = body?.error || null;
-      } catch {
-        responseError = null;
-      }
-      apiError = responseError
-        ? `API ${res.status}: ${responseError}`
-        : `API responded with ${res.status}`;
-    } else {
-      const json = await res.json();
-      const data = json.property as
-        | (Property & { property_images?: Array<{ id: string; image_url: string }> })
-        | null;
-      if (data) {
+        const res = await fetch(requestUrl.toString(), {
+          headers: options?.requestHeaders,
+          next: { revalidate: 60 },
+        });
+        if (!res.ok) {
+          let responseError: string | null = null;
+          try {
+            const body = await res.json();
+            responseError = body?.error || null;
+          } catch {
+            responseError = null;
+          }
+          apiError = responseError
+            ? `API ${res.status}: ${responseError}`
+            : `API responded with ${res.status}`;
+          return {
+            property: null,
+            error: apiError,
+            apiUrl: requestUrl.toString(),
+          };
+        }
+
+        const json = await res.json();
+        const data = json.property as
+          | (Property & { property_images?: Array<{ id: string; image_url: string }> })
+          | null;
+        if (!data) {
+          return {
+            property: null,
+            error: "Property not found",
+            apiUrl: requestUrl.toString(),
+          };
+        }
+
         console.log("[property detail] fetched via API", {
           id: cleanId,
           title: data.title,
           apiUrl: requestUrl.toString(),
         });
         return {
-          property: {
-            ...data,
-            images: orderImagesWithCover(
-              data.cover_image_url,
-              data.property_images?.map((img) => ({
-                id: img.id || img.image_url,
-                image_url: img.image_url,
-                position: (img as { position?: number }).position,
-                created_at: (img as { created_at?: string | null }).created_at ?? undefined,
-                width: (img as { width?: number | null }).width ?? null,
-                height: (img as { height?: number | null }).height ?? null,
-                bytes: (img as { bytes?: number | null }).bytes ?? null,
-                format: (img as { format?: string | null }).format ?? null,
-                exif_has_gps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? null,
-                exif_captured_at:
-                  (img as { exif_captured_at?: string | null }).exif_captured_at ?? null,
-              }))
-            ),
-          },
+          property: mapPropertyPayload(data),
           error: null,
           apiUrl: requestUrl.toString(),
         };
+      } catch (err) {
+        apiError = err instanceof Error ? err.message : "Unknown error while fetching property";
+        return {
+          property: null,
+          error: apiError,
+          apiUrl: requestUrl.toString(),
+        };
       }
+    },
+    fallback: async () => {
+      if (!hasServerSupabaseEnv()) return null;
+      const supabase = await createServerSupabaseClient();
+      let query = supabase
+        .from("properties")
+        .select(
+          "*, property_images(id,image_url,position,created_at,width,height,bytes,format,storage_path,original_storage_path,thumb_storage_path,card_storage_path,hero_storage_path,exif_has_gps,exif_captured_at), property_videos(id, video_url, storage_path, bytes, format, created_at, updated_at), shortlet_settings(property_id,booking_mode,nightly_price_minor,cancellation_policy)"
+        )
+        .eq("id", cleanId)
+        .eq("is_approved", true)
+        .eq("is_active", true)
+        .eq("status", "live")
+        .maybeSingle();
+
+      if (!options?.includeDemoListings) {
+        query = query.eq("is_demo", false);
+      }
+
+      const { data, error } = await query;
+      if (error || !data) return null;
+      return mapPropertyPayload(
+        data as Property & { property_images?: Array<{ id: string; image_url: string }> }
+      );
+    },
+  });
+
+  if (result.property) {
+    if (result.usedFallback) {
+      console.warn("[property detail] API fetch failed; served via DB fallback", {
+        id: cleanId,
+        apiUrl: requestUrl.toString(),
+        error: apiError,
+      });
     }
-  } catch (err) {
-    apiError = err instanceof Error ? err.message : "Unknown error while fetching property";
+    return {
+      property: result.property,
+      error: null,
+      apiUrl: requestUrl.toString(),
+    };
   }
 
   if (DEV_MOCKS) {
@@ -186,7 +256,11 @@ async function getProperty(
     }
   }
 
-  return { property: null, error: apiError ?? "Listing not found", apiUrl: requestUrl.toString() };
+  return {
+    property: null,
+    error: apiError ?? "Listing not found",
+    apiUrl: requestUrl.toString(),
+  };
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -253,6 +327,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   const envPresence = getEnvPresence();
   const supabaseReady = hasServerSupabaseEnv();
   const profile = supabaseReady ? await getProfile() : null;
+  const includeDemoListings = includeDemoListingsForViewer({
+    viewerRole: normalizeRole(profile?.role),
+  });
   const listingCta = getListingCta(normalizeRole(profile?.role));
   const siteUrl = await getCanonicalBaseUrl();
   const id = await extractId(params);
@@ -292,6 +369,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
     const result = await getProperty(id, {
       source: sourceParam,
       requestHeaders: forwardedHeaders,
+      includeDemoListings,
     });
     property = result.property;
     fetchError = result.error;
@@ -310,7 +388,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
       <div className="mx-auto flex max-w-3xl flex-col gap-4 px-4">
         <ErrorState
           title="Listing not found"
-          description="This listing isn't available right now. Verify the URL or check that the site URL env is set correctly for API calls."
+          description="This listing isn't available right now. Please verify the URL or try another listing."
           retryAction={
             <>
               <Link href={retryHref}>
