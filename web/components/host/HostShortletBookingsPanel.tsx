@@ -19,6 +19,7 @@ import {
   groupAwaitingBookings,
   type HostInboxSlaTier,
 } from "@/lib/shortlet/host-inbox-triage";
+import { resolveShortletBookingStatusLabel } from "@/lib/shortlet/return-status";
 import type {
   HostShortletBookingSummary,
   HostShortletSettingSummary,
@@ -82,6 +83,14 @@ function statusTone(status: HostShortletBookingSummary["status"]) {
     return "text-rose-700 bg-rose-50 border-rose-200";
   }
   return "text-slate-700 bg-slate-50 border-slate-200";
+}
+
+function resolveHostStatusBannerCopy(row: HostShortletBookingSummary, nowMs: number) {
+  const label = resolveShortletBookingStatusLabel(row.status);
+  if (row.status === "pending") {
+    return `Status: ${label} — ${formatTimeRemaining(resolveRespondByIso(row), nowMs)}`;
+  }
+  return `Status: ${label}`;
 }
 
 function slaTone(tier: HostInboxSlaTier) {
@@ -646,7 +655,7 @@ export function HostShortletBookingsPanel(props: {
                           <td className="px-3 py-2 text-slate-700">{formatMoney(row.currency, row.total_amount_minor)}</td>
                           <td className="px-3 py-2">
                             <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusTone(row.status)}`}>
-                              {row.status}
+                              {resolveShortletBookingStatusLabel(row.status)}
                             </span>
                           </td>
                           <td className="px-3 py-2 text-xs text-slate-600">{formatDateTime(row.created_at)}</td>
@@ -740,7 +749,7 @@ export function HostShortletBookingsPanel(props: {
                           <p className="text-xs text-slate-500">{row.city || "Unknown city"}</p>
                         </button>
                         <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusTone(row.status)}`}>
-                          {row.status}
+                          {resolveShortletBookingStatusLabel(row.status)}
                         </span>
                       </div>
                       {filter === "awaiting_approval" ? (
@@ -876,7 +885,7 @@ export function HostShortletBookingsPanel(props: {
                   <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Status</p>
                   <p>
                     <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusTone(selectedRow.status)}`}>
-                      {selectedRow.status}
+                      {resolveShortletBookingStatusLabel(selectedRow.status)}
                     </span>
                   </p>
                 </div>
@@ -930,6 +939,12 @@ export function HostShortletBookingsPanel(props: {
                 const checkinSentAt = selectedCoordination?.sentAt;
                 return (
                   <>
+                    <div
+                      className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700"
+                      data-testid="host-booking-status-banner"
+                    >
+                      {resolveHostStatusBannerCopy(selectedRow, nowMs)}
+                    </div>
                     <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
                       Host response window for request bookings is 12 hours.
                     </div>

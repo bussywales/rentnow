@@ -815,6 +815,9 @@ export function ShortletBookingWidget(props: {
   const bookingMode = availability?.bookingMode ?? "request";
   const isRequestMode = bookingMode === "request";
   const ctaLabel = bookingMode === "instant" ? "Reserve" : "Request";
+  const statusBannerCopy = isRequestMode
+    ? "Status: Request — Pending approval after payment."
+    : "Status: Confirmed after successful payment.";
   const pricing = availability?.pricing ?? null;
   const hasNightlyPriceConfigured =
     typeof availability?.settings?.nightlyPriceMinor === "number" &&
@@ -1108,6 +1111,12 @@ export function ShortletBookingWidget(props: {
         {isRequestMode
           ? "Host approval is required after payment succeeds."
           : "Instant confirmation after successful payment when dates are available."}
+      </p>
+      <p
+        className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700"
+        data-testid="shortlet-booking-status-banner"
+      >
+        {statusBannerCopy}
       </p>
       {props.cancellationLabel ? (
         <p className="mt-1 text-xs text-slate-500">{props.cancellationLabel}</p>

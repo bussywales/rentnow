@@ -197,5 +197,8 @@ void test("booking widget copy clarifies payment timing and host response SLA", 
   assert.ok(contents.includes("Instant confirmation."));
   assert.ok(contents.includes("Marketplace disclaimer applies."));
   assert.ok(contents.includes('href="/legal/disclaimer"'));
+  assert.ok(contents.includes('data-testid="shortlet-booking-status-banner"'));
+  assert.ok(contents.includes("Status: Request — Pending approval after payment."));
+  assert.ok(contents.includes("Status: Confirmed after successful payment."));
   assert.ok(contents.includes('const ctaLabel = bookingMode === "instant" ? "Reserve" : "Request"'));
 });

@@ -22,7 +22,9 @@ void test("trip detail page is wired to shared timeline resolver", () => {
 void test("trip timeline component exposes support and listing actions", () => {
   const contents = fs.readFileSync(componentPath, "utf8");
   assert.ok(contents.includes('data-testid="trip-timeline"'));
+  assert.ok(contents.includes('data-testid="trip-status-banner"'));
   assert.ok(contents.includes("View listing"));
   assert.ok(contents.includes("props.timeline.nextActions.map"));
+  assert.ok(contents.includes("Status: Pending approval"));
   assert.ok(contents.includes("Host response deadline"));
 });

@@ -22,6 +22,33 @@ function formatDeadline(value: string | null | undefined) {
   return date.toLocaleString();
 }
 
+function resolveTripStatusBanner(current: TripTimelineStep) {
+  if (
+    current === "payment_initiated" ||
+    current === "payment_confirming" ||
+    current === "request_sent"
+  ) {
+    return "Status: Request";
+  }
+  if (current === "awaiting_host_approval") {
+    return "Status: Pending approval";
+  }
+  if (
+    current === "reservation_confirmed" ||
+    current === "upcoming" ||
+    current === "in_stay"
+  ) {
+    return "Status: Confirmed";
+  }
+  if (current === "cancelled") return "Status: Cancelled";
+  if (current === "expired") return "Status: Expired";
+  if (current === "declined") return "Status: Declined";
+  if (current === "completed") return "Status: Completed";
+  if (current === "payment_failed") return "Status: Payment failed";
+  if (current === "refunded") return "Status: Refunded";
+  return "Status: Request";
+}
+
 export function TripTimeline(props: {
   timeline: TimelineModel;
   listingHref: string;
@@ -29,6 +56,7 @@ export function TripTimeline(props: {
 }) {
   const respondByLabel = formatDeadline(props.respondByIso);
   const showRespondBy = props.timeline.current === "awaiting_host_approval";
+  const statusBanner = resolveTripStatusBanner(props.timeline.current);
 
   return (
     <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="trip-timeline">
@@ -41,6 +69,13 @@ export function TripTimeline(props: {
           View listing
         </Link>
       </div>
+
+      <p
+        className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs font-medium text-slate-700"
+        data-testid="trip-status-banner"
+      >
+        {statusBanner}
+      </p>
 
       <ol className="mt-3 space-y-2">
         {props.timeline.steps.map((step) => (
