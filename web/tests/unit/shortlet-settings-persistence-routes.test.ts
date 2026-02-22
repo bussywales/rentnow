@@ -29,4 +29,9 @@ void test("shortlet settings route persists cancellation policy updates", () => 
 
   assert.match(settingsRoute, /cancellation_policy/);
   assert.match(settingsRoute, /payload\.cancellation_policy \?\? "flexible_48h"/);
+  assert.match(settingsRoute, /checkin_instructions/);
+  assert.match(settingsRoute, /access_method/);
+  assert.match(settingsRoute, /house_rules/);
+  assert.match(settingsRoute, /pets_allowed/);
+  assert.match(settingsRoute, /emergency_notes/);
 });
