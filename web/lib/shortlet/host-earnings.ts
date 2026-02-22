@@ -242,7 +242,7 @@ export function buildHostEarningsTimeline(input: {
             bookingEligibleForPayout,
           })
         : undefined;
-    const payoutRequestStatus =
+    const payoutRequestStatus: HostEarningsTimelineItem["payoutRequestStatus"] =
       payoutStatus === "pending"
         ? payout?.requestedAt
           ? "requested"
