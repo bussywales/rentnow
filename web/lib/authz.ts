@@ -33,15 +33,31 @@ type RequireOwnershipInput = {
   allowRoles?: UserRole[];
 };
 
+const QUIET_AUTH_DENY_REASONS = new Set(["missing_user", "invalid_cookie", "session_set_failed"]);
+
+export function shouldLogAuthzDeny(input: {
+  status: 401 | 403;
+  reason: string;
+  nodeEnv?: string | undefined;
+  debugAuthNoise?: string | undefined;
+}) {
+  if (input.debugAuthNoise === "1") return true;
+  if ((input.nodeEnv ?? process.env.NODE_ENV) !== "production") return true;
+  if (input.status === 401 && QUIET_AUTH_DENY_REASONS.has(input.reason)) return false;
+  return true;
+}
+
 function deny({ request, route, startTime, status, reason }: DenyInput) {
-  logFailure({
-    request,
-    route,
-    status,
-    startTime,
-    level: "warn",
-    error: `deny:${reason}`,
-  });
+  if (shouldLogAuthzDeny({ status, reason })) {
+    logFailure({
+      request,
+      route,
+      status,
+      startTime,
+      level: "warn",
+      error: `deny:${reason}`,
+    });
+  }
   const message = status === 401 ? "Unauthorized" : "Forbidden";
   return NextResponse.json({ error: message }, { status });
 }

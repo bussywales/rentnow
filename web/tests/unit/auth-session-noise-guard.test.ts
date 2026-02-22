@@ -52,11 +52,15 @@ void test("resolveSessionUserFromSupabase does not log errors for expected missi
   }
 });
 
-void test("resolveSessionUserFromSupabase still logs unexpected auth failures", async () => {
-  const originalConsoleError = console.error;
-  const errorLogs: string[] = [];
-  console.error = (...args: unknown[]) => {
-    errorLogs.push(String(args[0] || ""));
+void test("resolveSessionUserFromSupabase keeps unexpected auth failures quiet in production", async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  delete process.env.DEBUG_AUTH_NOISE;
+  process.env.NODE_ENV = "production";
+
+  const originalConsoleWarn = console.warn;
+  const warnLogs: string[] = [];
+  console.warn = (...args: unknown[]) => {
+    warnLogs.push(String(args[0] || ""));
   };
 
   try {
@@ -74,8 +78,48 @@ void test("resolveSessionUserFromSupabase still logs unexpected auth failures", 
     });
 
     assert.equal(user, null);
-    assert.equal(errorLogs.includes("Error fetching session user"), true);
+    assert.equal(warnLogs.length, 0);
   } finally {
-    console.error = originalConsoleError;
+    console.warn = originalConsoleWarn;
+    process.env.NODE_ENV = previousNodeEnv;
+  }
+});
+
+void test("resolveSessionUserFromSupabase emits diagnostics when DEBUG_AUTH_NOISE=1", async () => {
+  const previousNodeEnv = process.env.NODE_ENV;
+  const previousDebugNoise = process.env.DEBUG_AUTH_NOISE;
+  process.env.NODE_ENV = "production";
+  process.env.DEBUG_AUTH_NOISE = "1";
+
+  const originalConsoleWarn = console.warn;
+  const warnLogs: string[] = [];
+  console.warn = (...args: unknown[]) => {
+    warnLogs.push(String(args[0] || ""));
+  };
+
+  try {
+    const user = await resolveSessionUserFromSupabase({
+      auth: {
+        getUser: async () => ({
+          data: { user: null },
+          error: { message: "network timeout" },
+        }),
+        refreshSession: async () => ({
+          data: { session: null },
+          error: null,
+        }),
+      },
+    });
+
+    assert.equal(user, null);
+    assert.equal(warnLogs.some((entry) => entry.includes("[auth] getUser failed")), true);
+  } finally {
+    console.warn = originalConsoleWarn;
+    process.env.NODE_ENV = previousNodeEnv;
+    if (typeof previousDebugNoise === "undefined") {
+      delete process.env.DEBUG_AUTH_NOISE;
+    } else {
+      process.env.DEBUG_AUTH_NOISE = previousDebugNoise;
+    }
   }
 });

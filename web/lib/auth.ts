@@ -23,7 +23,30 @@ const EXPECTED_MISSING_SESSION_MARKERS = [
   "session missing",
   "invalid refresh token",
   "refresh token not found",
+  "refresh token has expired",
+  "session from session_id claim in jwt does not exist",
+  "jwt expired",
+  "invalid jwt",
 ] as const;
+
+function shouldEmitAuthDiagnostics() {
+  if (process.env.DEBUG_AUTH_NOISE === "1") return true;
+  return process.env.NODE_ENV !== "production";
+}
+
+function logAuthDiagnostic(
+  level: "warn" | "info",
+  message: string,
+  details?: Record<string, unknown>
+) {
+  if (!shouldEmitAuthDiagnostics()) return;
+  const logger = level === "warn" ? console.warn : console.info;
+  if (details) {
+    logger(message, details);
+    return;
+  }
+  logger(message);
+}
 
 export function isExpectedMissingSessionErrorMessage(
   value: string | null | undefined
@@ -45,7 +68,7 @@ export async function resolveSessionUserFromSupabase(
     } = await supabase.auth.getUser();
 
     if (error && !isExpectedMissingSessionErrorMessage(error.message)) {
-      console.error("Error fetching session user", error.message);
+      logAuthDiagnostic("warn", "[auth] getUser failed", { message: error.message ?? null });
     }
 
     let user = initialUser as User | null | undefined;
@@ -55,7 +78,9 @@ export async function resolveSessionUserFromSupabase(
         refreshError &&
         !isExpectedMissingSessionErrorMessage(refreshError.message)
       ) {
-        console.error("Error refreshing session user", refreshError.message);
+        logAuthDiagnostic("warn", "[auth] refreshSession failed", {
+          message: refreshError.message ?? null,
+        });
       }
       if (refreshed?.session) {
         const {
@@ -66,7 +91,9 @@ export async function resolveSessionUserFromSupabase(
           refreshedUserError &&
           !isExpectedMissingSessionErrorMessage(refreshedUserError.message)
         ) {
-          console.error("Error fetching refreshed session user", refreshedUserError.message);
+          logAuthDiagnostic("warn", "[auth] getUser after refresh failed", {
+            message: refreshedUserError.message ?? null,
+          });
         }
         user = refreshedUser as User | null | undefined;
       }
@@ -74,7 +101,9 @@ export async function resolveSessionUserFromSupabase(
 
     return user ?? null;
   } catch (err) {
-    console.warn("Session fetch failed; returning null", err);
+    logAuthDiagnostic("warn", "[auth] resolve session user threw; returning null", {
+      error: err instanceof Error ? err.message : String(err),
+    });
     return null;
   }
 }
