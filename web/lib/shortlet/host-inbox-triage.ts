@@ -1,4 +1,4 @@
-import { resolveRespondByIso, type HostBookingInboxRow } from "@/lib/shortlet/host-bookings-inbox";
+import type { HostBookingInboxRow } from "@/lib/shortlet/host-bookings-inbox";
 
 export type HostInboxSlaTier = "critical" | "warning" | "ok" | "expired";
 
@@ -37,8 +37,16 @@ export function formatTimeRemaining(respondByIso: string | null | undefined, now
 
 type AwaitingRow = Pick<HostBookingInboxRow, "id" | "respond_by" | "expires_at">;
 
+function resolveRespondDeadlineIso(row: AwaitingRow): string | null {
+  const respondBy = String(row.respond_by || "").trim();
+  if (respondBy) return respondBy;
+  const expiresAt = String(row.expires_at || "").trim();
+  if (expiresAt) return expiresAt;
+  return null;
+}
+
 function resolveDeadlineMs(row: AwaitingRow): number {
-  const parsed = parseIsoMs(resolveRespondByIso(row));
+  const parsed = parseIsoMs(resolveRespondDeadlineIso(row));
   return parsed ?? Number.POSITIVE_INFINITY;
 }
 
@@ -47,7 +55,7 @@ export function groupAwaitingBookings<T extends AwaitingRow>(rows: T[], now = Da
   const later: T[] = [];
 
   for (const row of rows) {
-    const tier = getSlaTier(resolveRespondByIso(row), now);
+    const tier = getSlaTier(resolveRespondDeadlineIso(row), now);
     if (tier === "critical" || tier === "warning" || tier === "expired") {
       urgent.push(row);
       continue;
@@ -60,4 +68,3 @@ export function groupAwaitingBookings<T extends AwaitingRow>(rows: T[], now = Da
 
   return { urgent, later };
 }
-
