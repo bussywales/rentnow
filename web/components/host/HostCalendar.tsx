@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/Button";
+import type { HostAgendaItem } from "@/lib/shortlet/host-agenda.server";
 import {
   buildAgendaForDay,
   buildHostCalendarAvailability,
@@ -46,6 +47,11 @@ export function HostCalendar(props: {
   properties: HostCalendarProperty[];
   initialBlocks: HostCalendarBlockRow[];
   initialBookings: HostCalendarBookingRow[];
+  initialAgenda: {
+    today: HostAgendaItem[];
+    tomorrow: HostAgendaItem[];
+    next7Days: HostAgendaItem[];
+  };
   initialPropertyId?: string | null;
 }) {
   const [blocks, setBlocks] = useState<HostCalendarBlockRow[]>(props.initialBlocks);
@@ -60,6 +66,11 @@ export function HostCalendar(props: {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selectedDayIso, setSelectedDayIso] = useState<string | null>(null);
+  const [agendaTab, setAgendaTab] = useState<"today" | "tomorrow" | "next7Days">(() => {
+    if (props.initialAgenda.today.length) return "today";
+    if (props.initialAgenda.tomorrow.length) return "tomorrow";
+    return "next7Days";
+  });
 
   const propertyLabelById = useMemo(
     () => new Map(props.properties.map((row) => [row.id, row.title || row.id])),
@@ -90,6 +101,12 @@ export function HostCalendar(props: {
       propertyTitleById: propertyLabelById,
     });
   }, [blocks, propertyLabelById, props.initialBookings, selectedDayIso]);
+  const agendaTabs = [
+    { key: "today" as const, label: "Today", rows: props.initialAgenda.today },
+    { key: "tomorrow" as const, label: "Tomorrow", rows: props.initialAgenda.tomorrow },
+    { key: "next7Days" as const, label: "Next 7 days", rows: props.initialAgenda.next7Days },
+  ];
+  const activeAgendaRows = agendaTabs.find((row) => row.key === agendaTab)?.rows ?? [];
 
   async function onAddBlock() {
     if (busy) return;
@@ -210,7 +227,7 @@ export function HostCalendar(props: {
           No shortlet listings available for calendar management yet.
         </p>
       ) : (
-        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <div className="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
           <div className="rounded-xl border border-slate-200">
             <Calendar
               mode="range"
@@ -260,32 +277,90 @@ export function HostCalendar(props: {
             </div>
           </div>
 
-          <aside className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-            <h3 className="text-sm font-semibold text-slate-900">Existing blocks</h3>
-            <p className="mt-1 text-xs text-slate-500">
-              {propertyLabelById.get(propertyId) || "Listing"}
-            </p>
-            {propertyBlocks.length ? (
-              <div className="mt-3 space-y-2">
-                {propertyBlocks.map((row) => (
-                  <div key={row.id} className="rounded-lg border border-slate-200 bg-white p-2 text-xs">
-                    <p className="font-semibold text-slate-800">{row.date_from} to {row.date_to}</p>
-                    <p className="text-slate-500">{row.reason || "No reason"}</p>
-                    <button
-                      type="button"
-                      className="mt-2 text-xs font-semibold text-sky-700 underline underline-offset-2"
-                      disabled={removingId === row.id}
-                      onClick={() => void onRemoveBlock(row.id)}
-                    >
-                      {removingId === row.id ? "Removing..." : "Unblock"}
-                    </button>
-                  </div>
+          <div className="space-y-4">
+            <aside className="rounded-xl border border-slate-200 bg-slate-50/60 p-3" data-testid="host-checkin-agenda">
+              <h3 className="text-sm font-semibold text-slate-900">Check-in agenda</h3>
+              <p className="mt-1 text-xs text-slate-500">Prioritize arrivals and approvals in the next few days.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {agendaTabs.map((tab) => (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    onClick={() => setAgendaTab(tab.key)}
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold ${
+                      agendaTab === tab.key
+                        ? "border-sky-600 bg-sky-600 text-white"
+                        : "border-slate-200 bg-white text-slate-700"
+                    }`}
+                  >
+                    {tab.label} ({tab.rows.length})
+                  </button>
                 ))}
               </div>
-            ) : (
-              <p className="mt-3 text-xs text-slate-500">No blocks for this listing.</p>
-            )}
-          </aside>
+              {activeAgendaRows.length ? (
+                <div className="mt-3 space-y-2">
+                  {activeAgendaRows.map((item) => (
+                    <div key={item.bookingId} className="rounded-lg border border-slate-200 bg-white p-2 text-xs">
+                      <p className="font-semibold text-slate-800">{item.title}</p>
+                      <p className="text-slate-500">{item.city || "Unknown city"}</p>
+                      <p className="mt-1 text-slate-600">
+                        {item.checkIn} to {item.checkOut}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center justify-between gap-2">
+                        <span
+                          className={`rounded-full border px-2 py-0.5 font-semibold ${
+                            item.status === "pending"
+                              ? "border-amber-200 bg-amber-50 text-amber-700"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-700"
+                          }`}
+                        >
+                          {item.status}
+                        </span>
+                        <span className="text-slate-500">{item.guestLabel}</span>
+                      </div>
+                      <Link
+                        href={`/host/bookings?booking=${item.bookingId}`}
+                        className="mt-2 inline-flex rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        {item.status === "pending" ? "Review booking" : "View guest info"}
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 rounded-lg border border-dashed border-slate-300 p-3 text-xs text-slate-500">
+                  No check-ins in this window.
+                </p>
+              )}
+            </aside>
+
+            <aside className="rounded-xl border border-slate-200 bg-slate-50/60 p-3">
+              <h3 className="text-sm font-semibold text-slate-900">Existing blocks</h3>
+              <p className="mt-1 text-xs text-slate-500">
+                {propertyLabelById.get(propertyId) || "Listing"}
+              </p>
+              {propertyBlocks.length ? (
+                <div className="mt-3 space-y-2">
+                  {propertyBlocks.map((row) => (
+                    <div key={row.id} className="rounded-lg border border-slate-200 bg-white p-2 text-xs">
+                      <p className="font-semibold text-slate-800">{row.date_from} to {row.date_to}</p>
+                      <p className="text-slate-500">{row.reason || "No reason"}</p>
+                      <button
+                        type="button"
+                        className="mt-2 text-xs font-semibold text-sky-700 underline underline-offset-2"
+                        disabled={removingId === row.id}
+                        onClick={() => void onRemoveBlock(row.id)}
+                      >
+                        {removingId === row.id ? "Removing..." : "Unblock"}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-xs text-slate-500">No blocks for this listing.</p>
+              )}
+            </aside>
+          </div>
         </div>
       )}
 

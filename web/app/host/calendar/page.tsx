@@ -8,6 +8,7 @@ import { getUserRole } from "@/lib/authz";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { resolveShortletManageState } from "@/lib/shortlet/manage-state";
+import { getHostAgenda } from "@/lib/shortlet/host-agenda.server";
 import { listHostShortletBookings } from "@/lib/shortlet/shortlet.server";
 import { Button } from "@/components/ui/Button";
 
@@ -122,6 +123,10 @@ export default async function HostCalendarPage({ searchParams }: PageProps) {
     hostUserId: ownerId,
     limit: 400,
   });
+  const agenda = await getHostAgenda({
+    userId: ownerId,
+    now: new Date(),
+  }).catch(() => ({ today: [], tomorrow: [], next7Days: [] }));
 
   return (
     <div className="space-y-4" data-testid="host-calendar-page">
@@ -156,6 +161,7 @@ export default async function HostCalendarPage({ searchParams }: PageProps) {
           check_out: row.check_out,
           status: row.status,
         }))}
+        initialAgenda={agenda}
         initialPropertyId={initialPropertyId}
       />
     </div>
