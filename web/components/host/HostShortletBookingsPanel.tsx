@@ -138,6 +138,7 @@ export function HostShortletBookingsPanel(props: {
   const [showBulkDeclineConfirm, setShowBulkDeclineConfirm] = useState(false);
   const [laterExpanded, setLaterExpanded] = useState(true);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [sendingCheckinId, setSendingCheckinId] = useState<string | null>(null);
   const [notesLoading, setNotesLoading] = useState(false);
   const [notesError, setNotesError] = useState<string | null>(null);
   const [selectedNotes, setSelectedNotes] = useState<BookingNote[]>([]);
@@ -239,6 +240,9 @@ export function HostShortletBookingsPanel(props: {
 
   const bookingModeByProperty = useMemo(() => {
     return new Map((props.settingsRows || []).map((row) => [row.property_id, row.booking_mode]));
+  }, [props.settingsRows]);
+  const hasCheckinByProperty = useMemo(() => {
+    return new Map((props.settingsRows || []).map((row) => [row.property_id, !!row.has_checkin_details]));
   }, [props.settingsRows]);
 
   const filteredRows = useMemo(
@@ -378,6 +382,30 @@ export function HostShortletBookingsPanel(props: {
       setError(decideError instanceof Error ? decideError.message : "Unable to update booking");
     } finally {
       setBusyId(null);
+    }
+  }
+
+  async function sendCheckinDetailsNow(row: HostShortletBookingSummary) {
+    if (!row.id || sendingCheckinId || busyId || bulkBusy) return;
+    setSendingCheckinId(row.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const response = await fetch(`/api/shortlet/bookings/${row.id}/send-checkin`, {
+        method: "POST",
+        credentials: "include",
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; alreadySent?: boolean; error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || "Unable to send check-in details");
+      }
+      setNotice(payload?.alreadySent ? "Check-in details were already shared." : "Check-in details shared.");
+    } catch (sendError) {
+      setError(sendError instanceof Error ? sendError.message : "Unable to send check-in details");
+    } finally {
+      setSendingCheckinId(null);
     }
   }
 
@@ -906,6 +934,18 @@ export function HostShortletBookingsPanel(props: {
                       >
                         Manage availability
                       </Link>
+                      {selectedRow.status === "confirmed" &&
+                      hasCheckinByProperty.get(selectedRow.property_id) ? (
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => void sendCheckinDetailsNow(selectedRow)}
+                          disabled={sendingCheckinId === selectedRow.id}
+                          data-testid="host-booking-send-checkin"
+                        >
+                          {sendingCheckinId === selectedRow.id ? "Sending..." : "Send check-in details now"}
+                        </Button>
+                      ) : null}
                     </div>
                     {!actionState.canRespond && actionState.reason ? (
                       <p className="text-xs text-slate-500">{actionState.reason}</p>

@@ -92,6 +92,7 @@ export type HostShortletSettingSummary = {
   max_nights: number | null;
   advance_notice_hours: number;
   prep_days: number;
+  has_checkin_details?: boolean;
 };
 
 export type GuestShortletBookingSummary = {
@@ -329,7 +330,7 @@ export async function listHostShortletSettings(input: {
   const { data: settingsRows, error: settingsError } = await input.client
     .from("shortlet_settings")
     .select(
-      "property_id,booking_mode,nightly_price_minor,cleaning_fee_minor,deposit_minor,min_nights,max_nights,advance_notice_hours,prep_days"
+      "property_id,booking_mode,nightly_price_minor,cleaning_fee_minor,deposit_minor,min_nights,max_nights,advance_notice_hours,prep_days,checkin_instructions,checkin_window_start,checkin_window_end,checkout_time,access_method,access_code_hint,parking_info,wifi_info,house_rules,quiet_hours_start,quiet_hours_end,emergency_notes"
     )
     .in("property_id", propertyIds);
 
@@ -379,6 +380,20 @@ export async function listHostShortletSettings(input: {
         typeof settings?.prep_days === "number"
           ? Number(settings.prep_days)
           : 0,
+      has_checkin_details: Boolean(
+        (typeof settings?.checkin_instructions === "string" && settings.checkin_instructions.trim()) ||
+          (typeof settings?.checkin_window_start === "string" && settings.checkin_window_start.trim()) ||
+          (typeof settings?.checkin_window_end === "string" && settings.checkin_window_end.trim()) ||
+          (typeof settings?.checkout_time === "string" && settings.checkout_time.trim()) ||
+          (typeof settings?.access_method === "string" && settings.access_method.trim()) ||
+          (typeof settings?.access_code_hint === "string" && settings.access_code_hint.trim()) ||
+          (typeof settings?.parking_info === "string" && settings.parking_info.trim()) ||
+          (typeof settings?.wifi_info === "string" && settings.wifi_info.trim()) ||
+          (typeof settings?.house_rules === "string" && settings.house_rules.trim()) ||
+          (typeof settings?.quiet_hours_start === "string" && settings.quiet_hours_start.trim()) ||
+          (typeof settings?.quiet_hours_end === "string" && settings.quiet_hours_end.trim()) ||
+          (typeof settings?.emergency_notes === "string" && settings.emergency_notes.trim())
+      ),
     } satisfies HostShortletSettingSummary;
   });
 }
