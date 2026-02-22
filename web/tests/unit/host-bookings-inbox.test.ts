@@ -12,6 +12,7 @@ import {
   shouldDefaultHostToBookingsInbox,
   type HostBookingInboxRow,
 } from "@/lib/shortlet/host-bookings-inbox";
+import { groupAwaitingBookings } from "@/lib/shortlet/host-inbox-triage";
 
 function bookingRow(overrides: Partial<HostBookingInboxRow>): HostBookingInboxRow {
   return {
@@ -272,4 +273,28 @@ void test("host inbox upcoming and closed/past sort with policy order", () => {
     "67f0744d-7969-46d9-8d37-6ab2fbb05517",
     "5f9affea-4ca6-44ff-b169-04ace42d5f42",
   ]);
+});
+
+void test("awaiting bookings split into urgent and later groups", () => {
+  const nowMs = Date.parse("2026-03-10T09:00:00.000Z");
+  const rows = sortHostBookingInboxRows(
+    [
+      bookingRow({
+        id: "later-1",
+        respond_by: "2026-03-10T15:00:00.000Z",
+      }),
+      bookingRow({
+        id: "urgent-1",
+        respond_by: "2026-03-10T09:45:00.000Z",
+      }),
+      bookingRow({
+        id: "urgent-2",
+        respond_by: "2026-03-10T11:30:00.000Z",
+      }),
+    ],
+    "awaiting_approval"
+  );
+  const grouped = groupAwaitingBookings(rows, nowMs);
+  assert.deepEqual(grouped.urgent.map((row) => row.id), ["urgent-1", "urgent-2"]);
+  assert.deepEqual(grouped.later.map((row) => row.id), ["later-1"]);
 });

@@ -1,11 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import {
-  formatRespondByCountdownLabel,
   parseHostBookingInboxFilterParam,
   parseHostBookingQueryParam,
   resolveHostBookingInboxFilter,
@@ -14,6 +13,12 @@ import {
   sortHostBookingInboxRows,
   type HostBookingInboxFilter,
 } from "@/lib/shortlet/host-bookings-inbox";
+import {
+  formatTimeRemaining,
+  getSlaTier,
+  groupAwaitingBookings,
+  type HostInboxSlaTier,
+} from "@/lib/shortlet/host-inbox-triage";
 import type {
   HostShortletBookingSummary,
   HostShortletSettingSummary,
@@ -57,6 +62,13 @@ function statusTone(status: HostShortletBookingSummary["status"]) {
     return "text-rose-700 bg-rose-50 border-rose-200";
   }
   return "text-slate-700 bg-slate-50 border-slate-200";
+}
+
+function slaTone(tier: HostInboxSlaTier) {
+  if (tier === "critical") return "border-rose-200 bg-rose-50 text-rose-700";
+  if (tier === "warning") return "border-amber-200 bg-amber-50 text-amber-700";
+  if (tier === "expired") return "border-slate-300 bg-slate-100 text-slate-700";
+  return "border-emerald-200 bg-emerald-50 text-emerald-700";
 }
 
 function maskGuestLabel(row: HostShortletBookingSummary): string {
@@ -106,6 +118,11 @@ export function HostShortletBookingsPanel(props: {
   const [filter, setFilter] = useState<HostBookingInboxFilter>("awaiting_approval");
   const [selectedBookingId, setSelectedBookingId] = useState<string | null>(null);
   const [highlightBookingId, setHighlightBookingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState<string | null>(null);
+  const [showBulkDeclineConfirm, setShowBulkDeclineConfirm] = useState(false);
+  const [laterExpanded, setLaterExpanded] = useState(true);
   const [nowMs, setNowMs] = useState(() => Date.now());
 
   useEffect(() => {
@@ -130,6 +147,10 @@ export function HostShortletBookingsPanel(props: {
     setFilter(resolveHostBookingInboxFilter(target));
     setSelectedBookingId(target.id);
     setHighlightBookingId(target.id);
+    const targetTier = getSlaTier(resolveRespondByIso(target), nowMs);
+    if (resolveHostBookingInboxFilter(target) === "awaiting_approval" && targetTier === "ok") {
+      setLaterExpanded(true);
+    }
 
     const clearTimer = window.setTimeout(() => {
       setHighlightBookingId((current) => (current === target.id ? null : current));
@@ -145,7 +166,7 @@ export function HostShortletBookingsPanel(props: {
     });
 
     return () => window.clearTimeout(clearTimer);
-  }, [props.focusBookingId, rows]);
+  }, [nowMs, props.focusBookingId, rows]);
 
   useEffect(() => {
     if (parseHostBookingQueryParam(props.focusBookingId)) return;
@@ -153,6 +174,11 @@ export function HostShortletBookingsPanel(props: {
     if (!requestedFilter) return;
     setFilter(requestedFilter);
   }, [props.focusBookingId, searchParams]);
+
+  useEffect(() => {
+    setSelectedIds([]);
+    setBulkProgress(null);
+  }, [filter]);
 
   const bookingModeByProperty = useMemo(() => {
     return new Map((props.settingsRows || []).map((row) => [row.property_id, row.booking_mode]));
@@ -166,6 +192,58 @@ export function HostShortletBookingsPanel(props: {
       ),
     [filter, rows]
   );
+
+  useEffect(() => {
+    const visible = new Set(filteredRows.map((row) => row.id));
+    setSelectedIds((prev) => prev.filter((id) => visible.has(id)));
+  }, [filteredRows]);
+
+  const awaitingGroups = useMemo(
+    () =>
+      filter === "awaiting_approval"
+        ? groupAwaitingBookings(filteredRows, nowMs)
+        : { urgent: [] as HostShortletBookingSummary[], later: [] as HostShortletBookingSummary[] },
+    [filter, filteredRows, nowMs]
+  );
+
+  useEffect(() => {
+    if (filter !== "awaiting_approval") return;
+    if (!awaitingGroups.urgent.length && !awaitingGroups.later.length) return;
+    const defaultExpanded = awaitingGroups.urgent.length === 0;
+    setLaterExpanded((prev) => (prev ? prev : defaultExpanded));
+  }, [awaitingGroups.later.length, awaitingGroups.urgent.length, filter]);
+
+  const rowSections = useMemo(() => {
+    if (filter !== "awaiting_approval") {
+      return [{ key: "all", label: null, rows: filteredRows, collapsible: false, count: filteredRows.length }];
+    }
+    const sections: Array<{
+      key: string;
+      label: string | null;
+      rows: HostShortletBookingSummary[];
+      collapsible: boolean;
+      count: number;
+    }> = [];
+    if (awaitingGroups.urgent.length) {
+      sections.push({
+        key: "urgent",
+        label: "Urgent",
+        rows: awaitingGroups.urgent,
+        collapsible: false,
+        count: awaitingGroups.urgent.length,
+      });
+    }
+    if (awaitingGroups.later.length) {
+      sections.push({
+        key: "later",
+        label: "Later",
+        rows: laterExpanded ? awaitingGroups.later : [],
+        collapsible: true,
+        count: awaitingGroups.later.length,
+      });
+    }
+    return sections;
+  }, [awaitingGroups.later, awaitingGroups.urgent, filter, filteredRows, laterExpanded]);
 
   const counts = useMemo(() => {
     return {
@@ -181,14 +259,52 @@ export function HostShortletBookingsPanel(props: {
     [rows, selectedBookingId]
   );
 
-  async function decide(row: HostShortletBookingSummary, action: BookingAction) {
-    if (!row.id || busyId) return;
+  async function executeDecision(
+    row: HostShortletBookingSummary,
+    action: BookingAction,
+    options?: { reason?: string; silentNotice?: boolean }
+  ) {
     const bookingMode = bookingModeByProperty.get(row.property_id) || "request";
     const actionState = resolveRespondActionState({ status: row.status, bookingMode });
     if (!actionState.canRespond) {
-      setError(actionState.reason);
-      return;
+      throw new Error(actionState.reason || "Booking cannot be updated");
     }
+
+    const endpoint = action === "approve" ? "approve" : "decline";
+    const response = await fetch(`/api/shortlet/bookings/${row.id}/${endpoint}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(options?.reason ? { reason: options.reason } : {}),
+    });
+    const payload = (await response.json().catch(() => null)) as
+      | { booking?: { status?: HostShortletBookingSummary["status"] }; error?: string }
+      | null;
+    if (!response.ok) {
+      throw new Error(payload?.error || "Unable to update booking");
+    }
+    const fallbackStatus = action === "approve" ? "confirmed" : "declined";
+    const nextStatus = payload?.booking?.status ?? fallbackStatus;
+    setRows((prev) =>
+      prev.map((item) =>
+        item.id === row.id
+          ? {
+              ...item,
+              status: nextStatus,
+              respond_by: null,
+              expires_at: null,
+              updated_at: new Date().toISOString(),
+            }
+          : item
+      )
+    );
+    if (!options?.silentNotice) {
+      setNotice(action === "approve" ? "Booking approved." : "Booking declined.");
+    }
+  }
+
+  async function decide(row: HostShortletBookingSummary, action: BookingAction) {
+    if (!row.id || busyId || bulkBusy) return;
 
     setBusyId(row.id);
     setError(null);
@@ -199,40 +315,56 @@ export function HostShortletBookingsPanel(props: {
         action === "decline"
           ? window.prompt("Reason for decline (optional)", "Dates not available")?.trim() || undefined
           : undefined;
-      const endpoint = action === "approve" ? "approve" : "decline";
-      const response = await fetch(`/api/shortlet/bookings/${row.id}/${endpoint}`, {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(reason ? { reason } : {}),
-      });
-      const payload = (await response.json().catch(() => null)) as
-        | { booking?: { status?: HostShortletBookingSummary["status"] }; error?: string }
-        | null;
-      if (!response.ok) {
-        throw new Error(payload?.error || "Unable to update booking");
-      }
-      const fallbackStatus = action === "approve" ? "confirmed" : "declined";
-      const nextStatus = payload?.booking?.status ?? fallbackStatus;
-      setRows((prev) =>
-        prev.map((item) =>
-          item.id === row.id
-            ? {
-                ...item,
-                status: nextStatus,
-                respond_by: null,
-                expires_at: null,
-                updated_at: new Date().toISOString(),
-              }
-            : item
-        )
-      );
-      setNotice(action === "approve" ? "Booking approved." : "Booking declined.");
+      await executeDecision(row, action, { reason });
+      setSelectedIds((prev) => prev.filter((id) => id !== row.id));
     } catch (decideError) {
       setError(decideError instanceof Error ? decideError.message : "Unable to update booking");
     } finally {
       setBusyId(null);
     }
+  }
+
+  async function runBulkAction(action: BookingAction) {
+    if (bulkBusy || busyId) return;
+    const selectedRows = filteredRows.filter((row) => selectedIds.includes(row.id));
+    if (!selectedRows.length) return;
+
+    setBulkBusy(true);
+    setBulkProgress(`0/${selectedRows.length} completed`);
+    setError(null);
+    setNotice(null);
+
+    const completedIds: string[] = [];
+    for (let index = 0; index < selectedRows.length; index += 1) {
+      const row = selectedRows[index];
+      try {
+        await executeDecision(row, action, {
+          reason: action === "decline" ? "Declined by host (bulk action)." : undefined,
+          silentNotice: true,
+        });
+        completedIds.push(row.id);
+        setBulkProgress(`${index + 1}/${selectedRows.length} completed`);
+      } catch (bulkError) {
+        const reason = bulkError instanceof Error ? bulkError.message : "Unable to update booking";
+        setError(
+          `Bulk ${action} stopped at ${index + 1}/${selectedRows.length} for ${
+            row.property_title || row.id
+          }: ${reason}`
+        );
+        break;
+      }
+    }
+
+    setSelectedIds((prev) => prev.filter((id) => !completedIds.includes(id)));
+    if (completedIds.length === selectedRows.length) {
+      setNotice(
+        action === "approve"
+          ? `Bulk approve completed (${completedIds.length}).`
+          : `Bulk decline completed (${completedIds.length}).`
+      );
+    }
+    setBulkBusy(false);
+    setBulkProgress(null);
   }
 
   const filters: Array<{ key: HostBookingInboxFilter; label: string }> = [
@@ -241,6 +373,24 @@ export function HostShortletBookingsPanel(props: {
     { key: "past", label: "Past" },
     { key: "closed", label: "Closed" },
   ];
+
+  function toggleSelected(id: string, checked: boolean) {
+    setSelectedIds((prev) => {
+      if (checked) return prev.includes(id) ? prev : [...prev, id];
+      return prev.filter((rowId) => rowId !== id);
+    });
+  }
+
+  function renderSlaBadge(row: HostShortletBookingSummary) {
+    if (filter !== "awaiting_approval") return null;
+    const respondByIso = resolveRespondByIso(row);
+    const tier = getSlaTier(respondByIso, nowMs);
+    return (
+      <span className={`inline-flex rounded-full border px-2 py-1 text-[11px] font-semibold ${slaTone(tier)}`}>
+        {formatTimeRemaining(respondByIso, nowMs)}
+      </span>
+    );
+  }
 
   return (
     <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="host-bookings-inbox">
@@ -282,12 +432,39 @@ export function HostShortletBookingsPanel(props: {
       {error ? <p className="mt-3 text-sm text-rose-600">{error}</p> : null}
       {notice ? <p className="mt-3 text-sm text-emerald-700">{notice}</p> : null}
 
-      {filteredRows.length ? (
+      {rowSections.some((section) => section.rows.length > 0 || section.count > 0) ? (
         <>
+          {filter === "awaiting_approval" && selectedIds.length ? (
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-sm font-medium text-slate-700">{selectedIds.length} selected</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => void runBulkAction("approve")}
+                    disabled={bulkBusy || busyId !== null}
+                  >
+                    {bulkBusy ? "Processing..." : "Bulk approve"}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => setShowBulkDeclineConfirm(true)}
+                    disabled={bulkBusy || busyId !== null}
+                  >
+                    Bulk decline
+                  </Button>
+                </div>
+              </div>
+              {bulkProgress ? <p className="mt-2 text-xs text-slate-500">{bulkProgress}</p> : null}
+            </div>
+          ) : null}
+
           <div className="mt-4 hidden overflow-x-auto rounded-xl border border-slate-200 md:block">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-[11px] uppercase tracking-[0.12em] text-slate-500">
                 <tr>
+                  <th className="w-10 px-3 py-2">{filter === "awaiting_approval" ? "Pick" : ""}</th>
                   <th className="px-3 py-2">Listing</th>
                   <th className="px-3 py-2">Dates</th>
                   <th className="px-3 py-2">Nights</th>
@@ -300,7 +477,140 @@ export function HostShortletBookingsPanel(props: {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {filteredRows.map((row) => {
+                {rowSections.map((section) => (
+                  <Fragment key={section.key}>
+                    {section.label ? (
+                      <tr key={`${section.key}-header`} className="bg-slate-50/80">
+                        <td colSpan={10} className="px-3 py-2">
+                          <div className="flex items-center justify-between gap-2 text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                            <span>
+                              {section.label} ({section.count})
+                            </span>
+                            {section.collapsible ? (
+                              <button
+                                type="button"
+                                className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600"
+                                onClick={() => setLaterExpanded((prev) => !prev)}
+                              >
+                                {laterExpanded ? "Collapse" : "Expand"}
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null}
+                    {section.rows.map((row) => {
+                      const bookingMode = bookingModeByProperty.get(row.property_id) || "request";
+                      const actionState = resolveRespondActionState({
+                        status: row.status,
+                        bookingMode,
+                      });
+                      const respondByIso = resolveRespondByIso(row);
+                      const rowHighlighted = highlightBookingId === row.id;
+                      const isSelected = selectedIds.includes(row.id);
+                      return (
+                        <tr
+                          key={row.id}
+                          id={`host-booking-row-${row.id}`}
+                          className={rowHighlighted ? "bg-sky-50/70" : undefined}
+                          data-testid="host-booking-row"
+                          data-respond-by={respondByIso || ""}
+                        >
+                          <td className="px-3 py-2 align-top">
+                            {filter === "awaiting_approval" ? (
+                              <input
+                                type="checkbox"
+                                aria-label={`Select booking ${row.id}`}
+                                className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600"
+                                checked={isSelected}
+                                disabled={bulkBusy || !actionState.canRespond}
+                                onChange={(event) => toggleSelected(row.id, event.currentTarget.checked)}
+                              />
+                            ) : null}
+                          </td>
+                          <td className="px-3 py-2">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedBookingId(row.id)}
+                              className="min-w-0 text-left"
+                            >
+                              <div className="truncate font-semibold text-slate-900">{row.property_title || "Shortlet listing"}</div>
+                              <div className="truncate text-xs text-slate-500">{row.city || "Unknown city"}</div>
+                            </button>
+                          </td>
+                          <td className="px-3 py-2 text-slate-700">
+                            {formatDate(row.check_in)} to {formatDate(row.check_out)}
+                          </td>
+                          <td className="px-3 py-2 text-slate-700">{row.nights}</td>
+                          <td className="px-3 py-2 text-slate-700">{maskGuestLabel(row)}</td>
+                          <td className="px-3 py-2 text-slate-700">{formatMoney(row.currency, row.total_amount_minor)}</td>
+                          <td className="px-3 py-2">
+                            <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusTone(row.status)}`}>
+                              {row.status}
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-xs text-slate-600">{formatDateTime(row.created_at)}</td>
+                          <td className="px-3 py-2 text-xs text-slate-600">{renderSlaBadge(row) || "—"}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex flex-wrap justify-end gap-2">
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() => setSelectedBookingId(row.id)}
+                                data-testid="host-booking-view"
+                              >
+                                View
+                              </Button>
+                              {actionState.canRespond ? (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    onClick={() => void decide(row, "approve")}
+                                    disabled={busyId === row.id || bulkBusy}
+                                  >
+                                    {busyId === row.id ? "Updating..." : "Approve"}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="secondary"
+                                    onClick={() => void decide(row, "decline")}
+                                    disabled={busyId === row.id || bulkBusy}
+                                  >
+                                    Decline
+                                  </Button>
+                                </>
+                              ) : null}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </Fragment>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="mt-4 space-y-2 md:hidden">
+            {rowSections.map((section) => (
+              <div key={`mobile-${section.key}`} className="space-y-2">
+                {section.label ? (
+                  <div className="flex items-center justify-between px-1">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-500">
+                      {section.label} ({section.count})
+                    </p>
+                    {section.collapsible ? (
+                      <button
+                        type="button"
+                        className="rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-600"
+                        onClick={() => setLaterExpanded((prev) => !prev)}
+                      >
+                        {laterExpanded ? "Collapse" : "Expand"}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+                    {section.rows.map((row) => {
                   const bookingMode = bookingModeByProperty.get(row.property_id) || "request";
                   const actionState = resolveRespondActionState({
                     status: row.status,
@@ -308,149 +618,86 @@ export function HostShortletBookingsPanel(props: {
                   });
                   const respondByIso = resolveRespondByIso(row);
                   const rowHighlighted = highlightBookingId === row.id;
+                  const isSelected = selectedIds.includes(row.id);
+
                   return (
-                    <tr
+                    <div
                       key={row.id}
                       id={`host-booking-row-${row.id}`}
-                      className={rowHighlighted ? "bg-sky-50/70" : undefined}
+                      className={`rounded-xl border p-3 ${
+                        rowHighlighted ? "border-sky-300 bg-sky-50/70" : "border-slate-200"
+                      }`}
                       data-testid="host-booking-row"
                       data-respond-by={respondByIso || ""}
                     >
-                      <td className="px-3 py-2">
+                      <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                         <button
                           type="button"
                           onClick={() => setSelectedBookingId(row.id)}
                           className="min-w-0 text-left"
                         >
-                          <div className="truncate font-semibold text-slate-900">{row.property_title || "Shortlet listing"}</div>
-                          <div className="truncate text-xs text-slate-500">{row.city || "Unknown city"}</div>
+                          <p className="truncate font-semibold text-slate-900">{row.property_title || "Shortlet listing"}</p>
+                          <p className="text-xs text-slate-500">{row.city || "Unknown city"}</p>
                         </button>
-                      </td>
-                      <td className="px-3 py-2 text-slate-700">
-                        {formatDate(row.check_in)} to {formatDate(row.check_out)}
-                      </td>
-                      <td className="px-3 py-2 text-slate-700">{row.nights}</td>
-                      <td className="px-3 py-2 text-slate-700">{maskGuestLabel(row)}</td>
-                      <td className="px-3 py-2 text-slate-700">{formatMoney(row.currency, row.total_amount_minor)}</td>
-                      <td className="px-3 py-2">
-                        <span className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${statusTone(row.status)}`}>
+                        <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusTone(row.status)}`}>
                           {row.status}
                         </span>
-                      </td>
-                      <td className="px-3 py-2 text-xs text-slate-600">{formatDateTime(row.created_at)}</td>
-                      <td className="px-3 py-2 text-xs text-slate-600">
-                        {row.status === "pending"
-                          ? formatRespondByCountdownLabel(respondByIso, nowMs)
-                          : "—"}
-                      </td>
-                      <td className="px-3 py-2">
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => setSelectedBookingId(row.id)}
-                            data-testid="host-booking-view"
-                          >
-                            View
-                          </Button>
-                          {actionState.canRespond ? (
-                            <>
-                              <Button size="sm" onClick={() => void decide(row, "approve")} disabled={busyId === row.id}>
-                                {busyId === row.id ? "Updating..." : "Approve"}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => void decide(row, "decline")}
-                                disabled={busyId === row.id}
-                              >
-                                Decline
-                              </Button>
-                            </>
-                          ) : null}
+                      </div>
+                      {filter === "awaiting_approval" ? (
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          {renderSlaBadge(row)}
+                          <input
+                            type="checkbox"
+                            aria-label={`Select booking ${row.id}`}
+                            className="h-4 w-4 rounded border-slate-300 text-sky-600"
+                            checked={isSelected}
+                            disabled={bulkBusy || !actionState.canRespond}
+                            onChange={(event) => toggleSelected(row.id, event.currentTarget.checked)}
+                          />
                         </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-
-          <div className="mt-4 space-y-2 md:hidden">
-            {filteredRows.map((row) => {
-              const bookingMode = bookingModeByProperty.get(row.property_id) || "request";
-              const actionState = resolveRespondActionState({
-                status: row.status,
-                bookingMode,
-              });
-              const respondByIso = resolveRespondByIso(row);
-              const rowHighlighted = highlightBookingId === row.id;
-
-              return (
-                <div
-                  key={row.id}
-                  id={`host-booking-row-${row.id}`}
-                  className={`rounded-xl border p-3 ${
-                    rowHighlighted ? "border-sky-300 bg-sky-50/70" : "border-slate-200"
-                  }`}
-                  data-testid="host-booking-row"
-                  data-respond-by={respondByIso || ""}
-                >
-                  <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedBookingId(row.id)}
-                      className="min-w-0 text-left"
-                    >
-                      <p className="truncate font-semibold text-slate-900">{row.property_title || "Shortlet listing"}</p>
-                      <p className="text-xs text-slate-500">{row.city || "Unknown city"}</p>
-                    </button>
-                    <span className={`rounded-full border px-2 py-1 text-xs font-semibold ${statusTone(row.status)}`}>
-                      {row.status}
-                    </span>
-                  </div>
-                  <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
-                    <p>Dates: {formatDate(row.check_in)} to {formatDate(row.check_out)}</p>
-                    <p>Nights: {row.nights}</p>
-                    <p>Guest: {maskGuestLabel(row)}</p>
-                    <p>Total: {formatMoney(row.currency, row.total_amount_minor)}</p>
-                    <p>Created: {formatDateTime(row.created_at)}</p>
-                    <p>
-                      Respond by:{" "}
-                      {row.status === "pending"
-                        ? formatRespondByCountdownLabel(respondByIso, nowMs)
-                        : "—"}
-                    </p>
-                  </div>
-                  <div className="mt-3 flex min-w-0 flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => setSelectedBookingId(row.id)}
-                      data-testid="host-booking-view"
-                    >
-                      View details
-                    </Button>
-                    {actionState.canRespond ? (
-                      <>
-                        <Button size="sm" onClick={() => void decide(row, "approve")} disabled={busyId === row.id}>
-                          {busyId === row.id ? "Updating..." : "Approve"}
-                        </Button>
+                      ) : null}
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-slate-600">
+                        <p>Dates: {formatDate(row.check_in)} to {formatDate(row.check_out)}</p>
+                        <p>Nights: {row.nights}</p>
+                        <p>Guest: {maskGuestLabel(row)}</p>
+                        <p>Total: {formatMoney(row.currency, row.total_amount_minor)}</p>
+                        <p>Created: {formatDateTime(row.created_at)}</p>
+                        <p>Respond by: {renderSlaBadge(row) ? formatTimeRemaining(respondByIso, nowMs) : "—"}</p>
+                      </div>
+                      <div className="mt-3 flex min-w-0 flex-wrap gap-2">
                         <Button
                           size="sm"
                           variant="secondary"
-                          onClick={() => void decide(row, "decline")}
-                          disabled={busyId === row.id}
+                          onClick={() => setSelectedBookingId(row.id)}
+                          data-testid="host-booking-view"
                         >
-                          Decline
+                          View details
                         </Button>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              );
-            })}
+                        {actionState.canRespond ? (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => void decide(row, "approve")}
+                              disabled={busyId === row.id || bulkBusy}
+                            >
+                              {busyId === row.id ? "Updating..." : "Approve"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => void decide(row, "decline")}
+                              disabled={busyId === row.id || bulkBusy}
+                            >
+                              Decline
+                            </Button>
+                          </>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
           </div>
         </>
       ) : (
@@ -458,6 +705,42 @@ export function HostShortletBookingsPanel(props: {
           No bookings in this view yet.
         </div>
       )}
+
+      {showBulkDeclineConfirm ? (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Confirm bulk decline"
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-4 shadow-2xl">
+            <h4 className="text-base font-semibold text-slate-900">Decline {selectedIds.length} requests?</h4>
+            <p className="mt-2 text-sm text-slate-600">
+              This will sequentially decline selected pending requests and stop if any request fails.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => setShowBulkDeclineConfirm(false)}
+                disabled={bulkBusy}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  setShowBulkDeclineConfirm(false);
+                  void runBulkAction("decline");
+                }}
+                disabled={bulkBusy}
+              >
+                Confirm decline
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {selectedRow ? (
         <div
@@ -523,7 +806,7 @@ export function HostShortletBookingsPanel(props: {
                   <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Respond by</p>
                   <p className="font-medium text-slate-900">
                     {selectedRow.status === "pending"
-                      ? formatRespondByCountdownLabel(resolveRespondByIso(selectedRow), nowMs)
+                      ? formatTimeRemaining(resolveRespondByIso(selectedRow), nowMs)
                       : "Not required"}
                   </p>
                 </div>
