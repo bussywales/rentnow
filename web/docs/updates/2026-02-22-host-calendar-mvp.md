@@ -2,6 +2,7 @@
 title: "Host calendar MVP for shortlet availability"
 audiences:
   - HOST
+  - TENANT
   - AGENT
 areas:
   - Host
