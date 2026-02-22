@@ -4,8 +4,10 @@ import { TripCoordinationPanel } from "@/components/trips/TripCoordinationPanel"
 import { TripTimeline } from "@/components/trips/TripTimeline";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getServerAuthUser } from "@/lib/auth/server-session";
+import { resolveGuestCheckinVisibility } from "@/lib/shortlet/checkin-visibility";
 import { resolveTripTimelineSteps } from "@/lib/shortlet/trip-timeline";
 import {
+  getGuestShortletCheckinDetailsForBooking,
   getGuestShortletBookingById,
   getLatestShortletPaymentStatusForBooking,
 } from "@/lib/shortlet/shortlet.server";
@@ -30,6 +32,17 @@ function formatDate(value: string | null | undefined): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return value;
   return date.toLocaleDateString();
+}
+
+function formatTime(value: string | null | undefined): string {
+  if (!value) return "—";
+  const [hourText, minuteText = "00"] = value.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`;
 }
 
 function resolveSnapshotAmount(snapshot: Record<string, unknown>, key: string): number | null {
@@ -113,6 +126,16 @@ export default async function TripDetailPage({
 
   const isPendingPayment = booking.status === "pending_payment";
   const isConfirmed = booking.status === "confirmed" || booking.status === "completed";
+  const checkinVisibility = resolveGuestCheckinVisibility({
+    bookingStatus: booking.status,
+    paymentStatus,
+  });
+  const checkinDetails = await getGuestShortletCheckinDetailsForBooking({
+    client,
+    bookingId: booking.id,
+    guestUserId: user.id,
+    visibilityLevel: checkinVisibility.level,
+  }).catch(() => null);
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4">
@@ -197,6 +220,117 @@ export default async function TripDetailPage({
           >
             Need help?
           </Link>
+        </div>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="trip-checkin-details">
+        <h2 className="text-lg font-semibold text-slate-900">Check-in details</h2>
+        {!checkinVisibility.canShow ? (
+          <p className="mt-2 text-sm text-slate-600">
+            Check-in details and house rules will be shared after payment is confirmed.
+          </p>
+        ) : checkinVisibility.level === "limited" ? (
+          <p className="mt-2 text-sm text-slate-600">
+            Your payment is confirmed. Full arrival instructions are shared once the host approves your request.
+          </p>
+        ) : (
+          <p className="mt-2 text-sm text-slate-600">
+            Your booking is confirmed. Use these arrival details for a smooth check-in.
+          </p>
+        )}
+
+        {checkinVisibility.canShow ? (
+          <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
+            <p>
+              <span className="font-semibold text-slate-900">Check-in window:</span>{" "}
+              {checkinDetails?.checkin_window_start || checkinDetails?.checkin_window_end
+                ? `${formatTime(checkinDetails?.checkin_window_start)} - ${formatTime(checkinDetails?.checkin_window_end)}`
+                : "Flexible"}
+            </p>
+            <p>
+              <span className="font-semibold text-slate-900">Checkout time:</span>{" "}
+              {formatTime(checkinDetails?.checkout_time)}
+            </p>
+            {checkinVisibility.level === "full" && checkinDetails?.access_method ? (
+              <p>
+                <span className="font-semibold text-slate-900">Access:</span> {checkinDetails.access_method}
+              </p>
+            ) : null}
+            {checkinVisibility.level === "full" && checkinDetails?.access_code_hint ? (
+              <p>
+                <span className="font-semibold text-slate-900">Access hint:</span> {checkinDetails.access_code_hint}
+              </p>
+            ) : null}
+            {checkinVisibility.level === "full" && checkinDetails?.parking_info ? (
+              <p className="sm:col-span-2">
+                <span className="font-semibold text-slate-900">Parking:</span> {checkinDetails.parking_info}
+              </p>
+            ) : null}
+            {checkinVisibility.level === "full" && checkinDetails?.wifi_info ? (
+              <p className="sm:col-span-2">
+                <span className="font-semibold text-slate-900">Wi-Fi:</span> {checkinDetails.wifi_info}
+              </p>
+            ) : null}
+            {checkinVisibility.level === "full" && checkinDetails?.checkin_instructions ? (
+              <p className="sm:col-span-2">
+                <span className="font-semibold text-slate-900">Arrival instructions:</span>{" "}
+                {checkinDetails.checkin_instructions}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+          <p className="font-semibold text-slate-900">House rules</p>
+          {checkinVisibility.canShow ? (
+            <div className="mt-2 space-y-1">
+              {checkinDetails?.house_rules ? <p>{checkinDetails.house_rules}</p> : <p>Follow the listing and host guidance during your stay.</p>}
+              <p>
+                <span className="font-semibold text-slate-900">Quiet hours:</span>{" "}
+                {checkinDetails?.quiet_hours_start || checkinDetails?.quiet_hours_end
+                  ? `${formatTime(checkinDetails?.quiet_hours_start)} - ${formatTime(checkinDetails?.quiet_hours_end)}`
+                  : "Not specified"}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-900">Pets:</span>{" "}
+                {checkinDetails?.pets_allowed === null
+                  ? "Not specified"
+                  : checkinDetails.pets_allowed
+                    ? "Allowed"
+                    : "Not allowed"}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-900">Smoking:</span>{" "}
+                {checkinDetails?.smoking_allowed === null
+                  ? "Not specified"
+                  : checkinDetails.smoking_allowed
+                    ? "Allowed"
+                    : "Not allowed"}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-900">Parties:</span>{" "}
+                {checkinDetails?.parties_allowed === null
+                  ? "Not specified"
+                  : checkinDetails.parties_allowed
+                    ? "Allowed"
+                    : "Not allowed"}
+              </p>
+              {checkinDetails?.max_guests_override ? (
+                <p>
+                  <span className="font-semibold text-slate-900">Max guests:</span>{" "}
+                  {checkinDetails.max_guests_override}
+                </p>
+              ) : null}
+              {checkinVisibility.level === "full" && checkinDetails?.emergency_notes ? (
+                <p>
+                  <span className="font-semibold text-slate-900">Emergency notes:</span>{" "}
+                  {checkinDetails.emergency_notes}
+                </p>
+              ) : null}
+            </div>
+          ) : (
+            <p className="mt-2">House rules will appear after payment succeeds.</p>
+          )}
         </div>
       </section>
 

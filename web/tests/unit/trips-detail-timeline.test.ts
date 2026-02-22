@@ -9,8 +9,11 @@ const componentPath = path.join(process.cwd(), "components", "trips", "TripTimel
 void test("trip detail page is wired to shared timeline resolver", () => {
   const contents = fs.readFileSync(pagePath, "utf8");
   assert.ok(contents.includes("resolveTripTimelineSteps"));
+  assert.ok(contents.includes("resolveGuestCheckinVisibility"));
   assert.ok(contents.includes("getLatestShortletPaymentStatusForBooking"));
+  assert.ok(contents.includes("getGuestShortletCheckinDetailsForBooking"));
   assert.ok(contents.includes("<TripTimeline"));
+  assert.ok(contents.includes('data-testid="trip-checkin-details"'));
 });
 
 void test("trip timeline component exposes support and listing actions", () => {

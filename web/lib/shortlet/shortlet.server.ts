@@ -1,6 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { canCancelBooking } from "@/lib/shortlet/bookings";
+import {
+  redactCheckinDetailsForGuest,
+  type GuestCheckinVisibilityLevel,
+  type ShortletCheckinDetails,
+} from "@/lib/shortlet/checkin-visibility";
 import { HOST_INBOX_HIDDEN_STATUSES } from "@/lib/shortlet/host-bookings-inbox";
 import { isBookingEligibleForPayout, resolveMarkPaidTransition } from "@/lib/shortlet/payouts";
 import {
@@ -112,6 +117,8 @@ export type GuestShortletBookingDetail = GuestShortletBookingSummary & {
   payment_reference: string | null;
   updated_at: string;
 };
+
+export type GuestShortletCheckinDetails = ShortletCheckinDetails;
 
 export type AdminShortletBookingSummary = {
   id: string;
@@ -827,6 +834,85 @@ export async function getLatestShortletPaymentStatusForBooking(input: {
   }
 
   return typeof row?.status === "string" ? row.status : null;
+}
+
+function mapShortletCheckinSettingsRow(
+  row: Record<string, unknown>
+): GuestShortletCheckinDetails {
+  return {
+    checkin_instructions:
+      typeof row.checkin_instructions === "string" ? row.checkin_instructions : null,
+    checkin_window_start:
+      typeof row.checkin_window_start === "string" ? row.checkin_window_start : null,
+    checkin_window_end:
+      typeof row.checkin_window_end === "string" ? row.checkin_window_end : null,
+    checkout_time:
+      typeof row.checkout_time === "string" ? row.checkout_time : null,
+    access_method:
+      typeof row.access_method === "string" ? row.access_method : null,
+    access_code_hint:
+      typeof row.access_code_hint === "string" ? row.access_code_hint : null,
+    parking_info:
+      typeof row.parking_info === "string" ? row.parking_info : null,
+    wifi_info: typeof row.wifi_info === "string" ? row.wifi_info : null,
+    house_rules: typeof row.house_rules === "string" ? row.house_rules : null,
+    quiet_hours_start:
+      typeof row.quiet_hours_start === "string" ? row.quiet_hours_start : null,
+    quiet_hours_end:
+      typeof row.quiet_hours_end === "string" ? row.quiet_hours_end : null,
+    pets_allowed: typeof row.pets_allowed === "boolean" ? row.pets_allowed : null,
+    smoking_allowed:
+      typeof row.smoking_allowed === "boolean" ? row.smoking_allowed : null,
+    parties_allowed:
+      typeof row.parties_allowed === "boolean" ? row.parties_allowed : null,
+    max_guests_override:
+      typeof row.max_guests_override === "number"
+        ? Math.trunc(row.max_guests_override)
+        : null,
+    emergency_notes:
+      typeof row.emergency_notes === "string" ? row.emergency_notes : null,
+  } satisfies GuestShortletCheckinDetails;
+}
+
+export async function getGuestShortletCheckinDetailsForBooking(input: {
+  client: SupabaseClient;
+  bookingId: string;
+  guestUserId: string;
+  visibilityLevel: GuestCheckinVisibilityLevel;
+}): Promise<GuestShortletCheckinDetails | null> {
+  if (input.visibilityLevel === "none") return null;
+  if (!input.bookingId || !input.guestUserId) return null;
+
+  const { data: bookingRow, error: bookingError } = await input.client
+    .from("shortlet_bookings")
+    .select("id,property_id,guest_user_id")
+    .eq("id", input.bookingId)
+    .eq("guest_user_id", input.guestUserId)
+    .maybeSingle();
+
+  if (bookingError) {
+    throw new Error(bookingError.message || "Unable to load booking for check-in details");
+  }
+  if (!bookingRow) return null;
+
+  const propertyId = String((bookingRow as Record<string, unknown>).property_id || "");
+  if (!propertyId) return null;
+
+  const { data: settingsRow, error: settingsError } = await input.client
+    .from("shortlet_settings")
+    .select(
+      "checkin_instructions,checkin_window_start,checkin_window_end,checkout_time,access_method,access_code_hint,parking_info,wifi_info,house_rules,quiet_hours_start,quiet_hours_end,pets_allowed,smoking_allowed,parties_allowed,max_guests_override,emergency_notes"
+    )
+    .eq("property_id", propertyId)
+    .maybeSingle();
+
+  if (settingsError) {
+    throw new Error(settingsError.message || "Unable to load shortlet check-in settings");
+  }
+  if (!settingsRow) return null;
+
+  const normalized = mapShortletCheckinSettingsRow(settingsRow as Record<string, unknown>);
+  return redactCheckinDetailsForGuest(normalized, input.visibilityLevel);
 }
 
 export async function listAdminShortletPayouts(input: {
