@@ -138,6 +138,9 @@ export default async function TripDetailPage({
     guestUserId: user.id,
     visibilityLevel: checkinVisibility.level,
   }).catch(() => null);
+  const petsAllowed = checkinDetails?.pets_allowed ?? null;
+  const smokingAllowed = checkinDetails?.smoking_allowed ?? null;
+  const partiesAllowed = checkinDetails?.parties_allowed ?? null;
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4">
@@ -295,25 +298,25 @@ export default async function TripDetailPage({
               </p>
               <p>
                 <span className="font-semibold text-slate-900">Pets:</span>{" "}
-                {checkinDetails?.pets_allowed === null
+                {petsAllowed === null
                   ? "Not specified"
-                  : checkinDetails.pets_allowed
+                  : petsAllowed
                     ? "Allowed"
                     : "Not allowed"}
               </p>
               <p>
                 <span className="font-semibold text-slate-900">Smoking:</span>{" "}
-                {checkinDetails?.smoking_allowed === null
+                {smokingAllowed === null
                   ? "Not specified"
-                  : checkinDetails.smoking_allowed
+                  : smokingAllowed
                     ? "Allowed"
                     : "Not allowed"}
               </p>
               <p>
                 <span className="font-semibold text-slate-900">Parties:</span>{" "}
-                {checkinDetails?.parties_allowed === null
+                {partiesAllowed === null
                   ? "Not specified"
-                  : checkinDetails.parties_allowed
+                  : partiesAllowed
                     ? "Allowed"
                     : "Not allowed"}
               </p>
