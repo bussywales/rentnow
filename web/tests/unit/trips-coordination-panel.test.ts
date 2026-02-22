@@ -13,6 +13,11 @@ void test("trip coordination panel renders guest note form and support actions",
   const contents = fs.readFileSync(filePath, "utf8");
 
   assert.ok(contents.includes('data-testid="trip-coordination-panel"'));
+  assert.ok(contents.includes("Your stay"));
+  assert.ok(contents.includes('data-testid="trip-host-note-pinned"'));
+  assert.ok(contents.includes('data-testid="trip-stay-details"'));
+  assert.ok(contents.includes('data-testid="trip-house-rules"'));
+  assert.ok(contents.includes("Host will send check-in details within"));
   assert.ok(contents.includes("Send host a note"));
   assert.ok(contents.includes("/api/shortlet/bookings/${props.bookingId}/note"));
   assert.ok(contents.includes("Report an issue"));

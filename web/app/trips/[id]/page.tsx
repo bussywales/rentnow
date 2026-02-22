@@ -35,17 +35,6 @@ function formatDate(value: string | null | undefined): string {
   return date.toLocaleDateString();
 }
 
-function formatTime(value: string | null | undefined): string {
-  if (!value) return "—";
-  const [hourText, minuteText = "00"] = value.split(":");
-  const hour = Number(hourText);
-  const minute = Number(minuteText);
-  if (!Number.isFinite(hour) || !Number.isFinite(minute)) return value;
-  const suffix = hour >= 12 ? "PM" : "AM";
-  const hour12 = hour % 12 || 12;
-  return `${hour12}:${String(minute).padStart(2, "0")} ${suffix}`;
-}
-
 function resolveSnapshotAmount(snapshot: Record<string, unknown>, key: string): number | null {
   const value = snapshot[key];
   if (typeof value !== "number" || !Number.isFinite(value)) return null;
@@ -138,10 +127,35 @@ export default async function TripDetailPage({
     guestUserId: user.id,
     visibilityLevel: checkinVisibility.level,
   }).catch(() => null);
-  const petsAllowed = checkinDetails?.pets_allowed ?? null;
-  const smokingAllowed = checkinDetails?.smoking_allowed ?? null;
-  const partiesAllowed = checkinDetails?.parties_allowed ?? null;
-
+  const latestHostNote = await (async () => {
+    try {
+      const { data } = await client
+        .from("shortlet_booking_notes")
+        .select("topic,message,created_at")
+        .eq("booking_id", booking.id)
+        .eq("role", "host")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (!data) return null;
+      const row = data as Record<string, unknown>;
+      const message = typeof row.message === "string" ? row.message.trim() : "";
+      if (!message) return null;
+      const topic =
+        row.topic === "check_in" ||
+        row.topic === "question" ||
+        row.topic === "arrival_time"
+          ? row.topic
+          : "other";
+      return {
+        message,
+        topic,
+        createdAt: typeof row.created_at === "string" ? row.created_at : "",
+      };
+    } catch {
+      return null;
+    }
+  })();
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 px-4 py-4">
       <TripTimeline
@@ -228,122 +242,17 @@ export default async function TripDetailPage({
         </div>
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="trip-checkin-details">
-        <h2 className="text-lg font-semibold text-slate-900">Check-in details</h2>
-        {!checkinVisibility.canShow ? (
-          <p className="mt-2 text-sm text-slate-600">
-            Check-in details and house rules will be shared after payment is confirmed.
-          </p>
-        ) : checkinVisibility.level === "limited" ? (
-          <p className="mt-2 text-sm text-slate-600">
-            Your payment is confirmed. Full arrival instructions are shared once the host approves your request.
-          </p>
-        ) : (
-          <p className="mt-2 text-sm text-slate-600">
-            Your booking is confirmed. Use these arrival details for a smooth check-in.
-          </p>
-        )}
-
-        {checkinVisibility.canShow ? (
-          <div className="mt-4 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-            <p>
-              <span className="font-semibold text-slate-900">Check-in window:</span>{" "}
-              {checkinDetails?.checkin_window_start || checkinDetails?.checkin_window_end
-                ? `${formatTime(checkinDetails?.checkin_window_start)} - ${formatTime(checkinDetails?.checkin_window_end)}`
-                : "Flexible"}
-            </p>
-            <p>
-              <span className="font-semibold text-slate-900">Checkout time:</span>{" "}
-              {formatTime(checkinDetails?.checkout_time)}
-            </p>
-            {checkinVisibility.level === "full" && checkinDetails?.access_method ? (
-              <p>
-                <span className="font-semibold text-slate-900">Access:</span> {checkinDetails.access_method}
-              </p>
-            ) : null}
-            {checkinVisibility.level === "full" && checkinDetails?.access_code_hint ? (
-              <p>
-                <span className="font-semibold text-slate-900">Access hint:</span> {checkinDetails.access_code_hint}
-              </p>
-            ) : null}
-            {checkinVisibility.level === "full" && checkinDetails?.parking_info ? (
-              <p className="sm:col-span-2">
-                <span className="font-semibold text-slate-900">Parking:</span> {checkinDetails.parking_info}
-              </p>
-            ) : null}
-            {checkinVisibility.level === "full" && checkinDetails?.wifi_info ? (
-              <p className="sm:col-span-2">
-                <span className="font-semibold text-slate-900">Wi-Fi:</span> {checkinDetails.wifi_info}
-              </p>
-            ) : null}
-            {checkinVisibility.level === "full" && checkinDetails?.checkin_instructions ? (
-              <p className="sm:col-span-2">
-                <span className="font-semibold text-slate-900">Arrival instructions:</span>{" "}
-                {checkinDetails.checkin_instructions}
-              </p>
-            ) : null}
-          </div>
-        ) : null}
-
-        <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-          <p className="font-semibold text-slate-900">House rules</p>
-          {checkinVisibility.canShow ? (
-            <div className="mt-2 space-y-1">
-              {checkinDetails?.house_rules ? <p>{checkinDetails.house_rules}</p> : <p>Follow the listing and host guidance during your stay.</p>}
-              <p>
-                <span className="font-semibold text-slate-900">Quiet hours:</span>{" "}
-                {checkinDetails?.quiet_hours_start || checkinDetails?.quiet_hours_end
-                  ? `${formatTime(checkinDetails?.quiet_hours_start)} - ${formatTime(checkinDetails?.quiet_hours_end)}`
-                  : "Not specified"}
-              </p>
-              <p>
-                <span className="font-semibold text-slate-900">Pets:</span>{" "}
-                {petsAllowed === null
-                  ? "Not specified"
-                  : petsAllowed
-                    ? "Allowed"
-                    : "Not allowed"}
-              </p>
-              <p>
-                <span className="font-semibold text-slate-900">Smoking:</span>{" "}
-                {smokingAllowed === null
-                  ? "Not specified"
-                  : smokingAllowed
-                    ? "Allowed"
-                    : "Not allowed"}
-              </p>
-              <p>
-                <span className="font-semibold text-slate-900">Parties:</span>{" "}
-                {partiesAllowed === null
-                  ? "Not specified"
-                  : partiesAllowed
-                    ? "Allowed"
-                    : "Not allowed"}
-              </p>
-              {checkinDetails?.max_guests_override ? (
-                <p>
-                  <span className="font-semibold text-slate-900">Max guests:</span>{" "}
-                  {checkinDetails.max_guests_override}
-                </p>
-              ) : null}
-              {checkinVisibility.level === "full" && checkinDetails?.emergency_notes ? (
-                <p>
-                  <span className="font-semibold text-slate-900">Emergency notes:</span>{" "}
-                  {checkinDetails.emergency_notes}
-                </p>
-              ) : null}
-            </div>
-          ) : (
-            <p className="mt-2">House rules will appear after payment succeeds.</p>
-          )}
-        </div>
-      </section>
-
-      <TripCoordinationPanel
-        bookingId={booking.id}
-        bookingStatus={booking.status}
-        propertyId={booking.property_id}
-      />
+      {checkinVisibility.canShow ? (
+        <TripCoordinationPanel
+          bookingId={booking.id}
+          bookingStatus={booking.status}
+          propertyId={booking.property_id}
+          visibilityLevel={checkinVisibility.level}
+          checkinDetails={checkinDetails}
+          respondByIso={booking.expires_at}
+          latestHostNote={latestHostNote}
+        />
+      ) : null}
     </div>
   );
 }

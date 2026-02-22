@@ -12,8 +12,11 @@ void test("trip detail page is wired to shared timeline resolver", () => {
   assert.ok(contents.includes("resolveGuestCheckinVisibility"));
   assert.ok(contents.includes("getLatestShortletPaymentStatusForBooking"));
   assert.ok(contents.includes("getGuestShortletCheckinDetailsForBooking"));
+  assert.ok(contents.includes(".from(\"shortlet_booking_notes\")"));
+  assert.ok(contents.includes(".eq(\"role\", \"host\")"));
   assert.ok(contents.includes("<TripTimeline"));
-  assert.ok(contents.includes('data-testid="trip-checkin-details"'));
+  assert.ok(contents.includes("checkinVisibility.canShow ? ("));
+  assert.ok(contents.includes("<TripCoordinationPanel"));
 });
 
 void test("trip timeline component exposes support and listing actions", () => {
