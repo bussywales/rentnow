@@ -20,11 +20,11 @@ jobs:
       - name: Call shortlet reminders endpoint
         env:
           APP_URL_SECRET: ${{ secrets.APP_URL }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           set -euo pipefail
 
           APP_URL="${APP_URL_SECRET:-https://www.propatyhub.com}"
+          CRON_SECRET="${{ secrets.CRON_SECRET }}"
           if [ -z "${CRON_SECRET:-}" ]; then
             echo "Missing required secret: CRON_SECRET"
             exit 1
@@ -58,7 +58,7 @@ jobs:
               -D "${RESPONSE_HEADERS}" \
               -w "%{http_code}" \
               -X POST "${REMINDERS_URL}" \
-              -H "x-cron-secret: ${CRON_SECRET}" \
+              -H "x-cron-secret: ${{ secrets.CRON_SECRET }}" \
               -H "content-type: application/json" \
               --data '{}' \
               -v 2>"${CURL_VERBOSE}")"
