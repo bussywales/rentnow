@@ -40,6 +40,12 @@ type BookingNoteRow = {
   created_at: string;
 };
 
+type BookingCoordinationSummary = {
+  checkinStatus: "sent" | "not_sent" | "unavailable";
+  canSendCheckin: boolean;
+  sentAt: string | null;
+};
+
 async function defaultLoadBooking(
   supabase: SupabaseClient,
   bookingId: string
@@ -154,6 +160,73 @@ async function defaultInsertNote(input: {
   };
 }
 
+function hasShareableCheckinDetails(
+  row:
+    | {
+        checkin_instructions?: string | null;
+        checkin_window_start?: string | null;
+        checkin_window_end?: string | null;
+        checkout_time?: string | null;
+        access_method?: string | null;
+        access_code_hint?: string | null;
+        parking_info?: string | null;
+        wifi_info?: string | null;
+        house_rules?: string | null;
+      }
+    | null
+    | undefined
+) {
+  if (!row) return false;
+  return Boolean(
+    (row.checkin_instructions && row.checkin_instructions.trim()) ||
+      (row.checkin_window_start && row.checkin_window_start.trim()) ||
+      (row.checkin_window_end && row.checkin_window_end.trim()) ||
+      (row.checkout_time && row.checkout_time.trim()) ||
+      (row.access_method && row.access_method.trim()) ||
+      (row.access_code_hint && row.access_code_hint.trim()) ||
+      (row.parking_info && row.parking_info.trim()) ||
+      (row.wifi_info && row.wifi_info.trim()) ||
+      (row.house_rules && row.house_rules.trim())
+  );
+}
+
+async function defaultResolveCoordinationSummary(
+  supabase: SupabaseClient,
+  booking: BookingRow
+): Promise<BookingCoordinationSummary> {
+  const { data: settingsRow } = await supabase
+    .from("shortlet_settings")
+    .select(
+      "checkin_instructions,checkin_window_start,checkin_window_end,checkout_time,access_method,access_code_hint,parking_info,wifi_info,house_rules"
+    )
+    .eq("property_id", booking.property_id)
+    .maybeSingle();
+  const hasCheckin = hasShareableCheckinDetails(settingsRow ?? null);
+
+  let sentAt: string | null = null;
+  try {
+    const { data } = await supabase
+      .from("shortlet_reminder_events")
+      .select("sent_at")
+      .eq("booking_id", booking.id)
+      .eq("event_key", "manual_checkin_shared")
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    sentAt = typeof (data as Record<string, unknown> | null)?.sent_at === "string"
+      ? String((data as Record<string, unknown>).sent_at)
+      : null;
+  } catch {
+    sentAt = null;
+  }
+
+  return {
+    checkinStatus: hasCheckin ? (sentAt ? "sent" : "not_sent") : "unavailable",
+    canSendCheckin: booking.status === "confirmed" && hasCheckin && !sentAt,
+    sentAt,
+  };
+}
+
 async function resolveUserEmail(userId: string): Promise<string | null> {
   if (!hasServiceRoleEnv()) return null;
   try {
@@ -175,6 +248,7 @@ export type ShortletBookingNoteRouteDeps = {
   createNotification: typeof createNotification;
   notifyHostGuestNote: typeof notifyHostGuestNote;
   resolveUserEmail: typeof resolveUserEmail;
+  resolveCoordinationSummary: typeof defaultResolveCoordinationSummary;
 };
 
 const defaultDeps: ShortletBookingNoteRouteDeps = {
@@ -187,6 +261,7 @@ const defaultDeps: ShortletBookingNoteRouteDeps = {
   createNotification,
   notifyHostGuestNote,
   resolveUserEmail,
+  resolveCoordinationSummary: defaultResolveCoordinationSummary,
 };
 
 async function canViewNotes(input: {
@@ -253,7 +328,21 @@ export async function getShortletBookingNoteResponse(
 
   try {
     const notes = await deps.listNotes(auth.supabase, id);
-    return NextResponse.json({ ok: true, notes });
+    let coordination: BookingCoordinationSummary = {
+      checkinStatus: "unavailable",
+      canSendCheckin: false,
+      sentAt: null,
+    };
+    try {
+      coordination = await deps.resolveCoordinationSummary(auth.supabase, booking);
+    } catch {
+      coordination = {
+        checkinStatus: "unavailable",
+        canSendCheckin: false,
+        sentAt: null,
+      };
+    }
+    return NextResponse.json({ ok: true, notes, coordination });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unable to load notes";
     return NextResponse.json({ error: message }, { status: 500 });

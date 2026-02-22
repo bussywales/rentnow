@@ -141,7 +141,7 @@ export default async function TripDetailPage({
       const row = data as Record<string, unknown>;
       const message = typeof row.message === "string" ? row.message.trim() : "";
       if (!message) return null;
-      const topic =
+      const topic: "check_in" | "question" | "arrival_time" | "other" =
         row.topic === "check_in" ||
         row.topic === "question" ||
         row.topic === "arrival_time"

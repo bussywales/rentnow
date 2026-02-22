@@ -57,6 +57,11 @@ void test("tenant can post a booking note and host notifications are triggered",
       emailCalled = true;
     },
     resolveUserEmail: async () => "host@example.com",
+    resolveCoordinationSummary: async () => ({
+      checkinStatus: "not_sent",
+      canSendCheckin: false,
+      sentAt: null,
+    }),
   };
 
   const request = new NextRequest("http://localhost/api/shortlet/bookings/booking-1/note", {
@@ -111,6 +116,11 @@ void test("host can read booking notes for owned listings", async () => {
     createNotification: async () => ({ inserted: true, duplicate: false }),
     notifyHostGuestNote: async () => {},
     resolveUserEmail: async () => null,
+    resolveCoordinationSummary: async () => ({
+      checkinStatus: "not_sent",
+      canSendCheckin: true,
+      sentAt: null,
+    }),
   };
 
   const request = new NextRequest("http://localhost/api/shortlet/bookings/booking-1/note", {
@@ -127,6 +137,7 @@ void test("host can read booking notes for owned listings", async () => {
   assert.equal(response.status, 200);
   assert.equal(Array.isArray(body.notes), true);
   assert.equal(body.notes.length, 1);
+  assert.equal(body.coordination.checkinStatus, "not_sent");
 });
 
 void test("guest note route preserves auth rejection from requireRole", async () => {
@@ -146,6 +157,11 @@ void test("guest note route preserves auth rejection from requireRole", async ()
     createNotification: async () => ({ inserted: true, duplicate: false }),
     notifyHostGuestNote: async () => {},
     resolveUserEmail: async () => null,
+    resolveCoordinationSummary: async () => ({
+      checkinStatus: "unavailable",
+      canSendCheckin: false,
+      sentAt: null,
+    }),
   };
 
   const response = await getShortletBookingNoteResponse(

@@ -33,6 +33,12 @@ type BookingNote = {
   created_at: string;
 };
 
+type BookingCoordination = {
+  checkinStatus: "sent" | "not_sent" | "unavailable";
+  canSendCheckin: boolean;
+  sentAt: string | null;
+};
+
 function formatMoney(currency: string, amountMinor: number): string {
   const amount = Math.max(0, Math.trunc(amountMinor || 0)) / 100;
   try {
@@ -142,6 +148,7 @@ export function HostShortletBookingsPanel(props: {
   const [notesLoading, setNotesLoading] = useState(false);
   const [notesError, setNotesError] = useState<string | null>(null);
   const [selectedNotes, setSelectedNotes] = useState<BookingNote[]>([]);
+  const [selectedCoordination, setSelectedCoordination] = useState<BookingCoordination | null>(null);
 
   useEffect(() => {
     setRows(props.initialRows);
@@ -198,6 +205,7 @@ export function HostShortletBookingsPanel(props: {
       setSelectedNotes([]);
       setNotesError(null);
       setNotesLoading(false);
+      setSelectedCoordination(null);
       return;
     }
 
@@ -212,17 +220,19 @@ export function HostShortletBookingsPanel(props: {
     })
       .then(async (response) => {
         const payload = (await response.json().catch(() => null)) as
-          | { notes?: BookingNote[]; error?: string }
+          | { notes?: BookingNote[]; error?: string; coordination?: BookingCoordination }
           | null;
         if (!active) return;
         if (!response.ok) {
           throw new Error(payload?.error || "Unable to load guest notes");
         }
         setSelectedNotes(Array.isArray(payload?.notes) ? payload.notes : []);
+        setSelectedCoordination(payload?.coordination ?? null);
       })
       .catch((loadError) => {
         if (!active) return;
         setNotesError(loadError instanceof Error ? loadError.message : "Unable to load guest notes");
+        setSelectedCoordination(null);
       })
       .finally(() => {
         if (active) setNotesLoading(false);
@@ -401,6 +411,11 @@ export function HostShortletBookingsPanel(props: {
       if (!response.ok) {
         throw new Error(payload?.error || "Unable to send check-in details");
       }
+      setSelectedCoordination((current) => ({
+        checkinStatus: "sent",
+        canSendCheckin: false,
+        sentAt: current?.sentAt ?? new Date().toISOString(),
+      }));
       setNotice(payload?.alreadySent ? "Check-in details were already shared." : "Check-in details shared.");
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Unable to send check-in details");
@@ -903,6 +918,16 @@ export function HostShortletBookingsPanel(props: {
                   status: selectedRow.status,
                   bookingMode,
                 });
+                const fallbackHasCheckin = Boolean(hasCheckinByProperty.get(selectedRow.property_id));
+                const checkinStatus =
+                  selectedCoordination?.checkinStatus ??
+                  (fallbackHasCheckin ? "not_sent" : "unavailable");
+                const canSendCheckin =
+                  selectedCoordination?.canSendCheckin ??
+                  (selectedRow.status === "confirmed" && fallbackHasCheckin);
+                const shouldRenderSendCheckin =
+                  selectedRow.status === "confirmed" && checkinStatus !== "unavailable";
+                const checkinSentAt = selectedCoordination?.sentAt;
                 return (
                   <>
                     <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600">
@@ -934,22 +959,44 @@ export function HostShortletBookingsPanel(props: {
                       >
                         Manage availability
                       </Link>
-                      {selectedRow.status === "confirmed" &&
-                      hasCheckinByProperty.get(selectedRow.property_id) ? (
+                      {shouldRenderSendCheckin ? (
                         <Button
                           size="sm"
                           variant="secondary"
                           onClick={() => void sendCheckinDetailsNow(selectedRow)}
-                          disabled={sendingCheckinId === selectedRow.id}
+                          disabled={sendingCheckinId === selectedRow.id || checkinStatus === "sent" || !canSendCheckin}
                           data-testid="host-booking-send-checkin"
                         >
-                          {sendingCheckinId === selectedRow.id ? "Sending..." : "Send check-in details now"}
+                          {sendingCheckinId === selectedRow.id
+                            ? "Sending..."
+                            : checkinStatus === "sent"
+                              ? "Check-in details sent"
+                              : "Send check-in details now"}
                         </Button>
                       ) : null}
                     </div>
                     {!actionState.canRespond && actionState.reason ? (
                       <p className="text-xs text-slate-500">{actionState.reason}</p>
                     ) : null}
+
+                    <div
+                      className="rounded-xl border border-slate-200 bg-white p-3"
+                      data-testid="host-booking-checkin-status"
+                    >
+                      <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Check-in details status</p>
+                      <p className="mt-2 text-xs text-slate-700">
+                        {checkinStatus === "sent"
+                          ? "sent"
+                          : checkinStatus === "not_sent"
+                            ? "not sent"
+                            : "not configured"}
+                      </p>
+                      {checkinSentAt ? (
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          Last shared: {formatDateTime(checkinSentAt)}
+                        </p>
+                      ) : null}
+                    </div>
 
                     <div className="rounded-xl border border-slate-200 bg-white p-3" data-testid="host-booking-guest-notes">
                       <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Guest notes</p>
