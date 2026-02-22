@@ -141,11 +141,11 @@ function labelForStep(step: TripTimelineStep): string {
     case "payment_confirming":
       return "Payment confirming";
     case "request_sent":
-      return "Request sent";
+      return "Request";
     case "awaiting_host_approval":
-      return "Awaiting host approval";
+      return "Pending approval";
     case "reservation_confirmed":
-      return "Reservation confirmed";
+      return "Confirmed";
     case "upcoming":
       return "Upcoming";
     case "in_stay":
@@ -172,9 +172,9 @@ function helperCopyForStep(current: TripTimelineStep): {
 } {
   if (current === "awaiting_host_approval" || current === "request_sent") {
     return {
-      helperTitle: "Host decision in progress",
+      helperTitle: "Pending approval",
       helperBody:
-        "Your host has up to 12 hours to respond. We will notify you as soon as they approve or decline.",
+        "Request sent. Your host has up to 12 hours to respond. We will notify you as soon as they approve or decline.",
       nextActions: [
         { label: "Back to trips", href: "/trips", kind: "primary" },
         { label: "Need help?", href: "/help", kind: "secondary" },
@@ -184,7 +184,7 @@ function helperCopyForStep(current: TripTimelineStep): {
 
   if (current === "reservation_confirmed" || current === "upcoming") {
     return {
-      helperTitle: "Reservation confirmed",
+      helperTitle: "Confirmed",
       helperBody: "Your stay is confirmed. Review trip details and prepare for check-in.",
       nextActions: [
         { label: "Back to trips", href: "/trips", kind: "primary" },

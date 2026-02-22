@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import {
   SHORTLET_BOOKING_STATUS_VALUES,
   SHORTLET_PAYMENT_STATUS_VALUES,
+  resolveShortletBookingStatusLabel,
+  resolveShortletReturnUiStateLabel,
   type ShortletBookingStatus,
   type ShortletPaymentStatus,
   resolveShortletReturnUiState,
@@ -100,4 +102,18 @@ void test("regression race: succeeded + pending_payment must keep polling", () =
     }),
     "finalising"
   );
+});
+
+void test("booking status labels avoid ambiguous pending wording", () => {
+  assert.equal(resolveShortletBookingStatusLabel("pending_payment"), "Request");
+  assert.equal(resolveShortletBookingStatusLabel("pending"), "Pending approval");
+  assert.equal(resolveShortletBookingStatusLabel("confirmed"), "Confirmed");
+  assert.equal(resolveShortletBookingStatusLabel("cancelled"), "Cancelled");
+  assert.equal(resolveShortletBookingStatusLabel("expired"), "Expired");
+});
+
+void test("return ui state labels use explicit approval wording", () => {
+  assert.equal(resolveShortletReturnUiStateLabel("processing"), "Request");
+  assert.equal(resolveShortletReturnUiStateLabel("pending"), "Pending approval");
+  assert.equal(resolveShortletReturnUiStateLabel("confirmed"), "Confirmed");
 });

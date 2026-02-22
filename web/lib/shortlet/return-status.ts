@@ -234,3 +234,29 @@ export function resolveShortletReturnUiState(input: {
   }
   return "processing" as const;
 }
+
+export function resolveShortletBookingStatusLabel(
+  status: string | null | undefined
+) {
+  const normalized = normalizeShortletBookingStatus(status);
+  if (normalized === "pending_payment") return "Request";
+  if (normalized === "pending") return "Pending approval";
+  if (normalized === "confirmed") return "Confirmed";
+  if (normalized === "declined") return "Declined";
+  if (normalized === "cancelled") return "Cancelled";
+  if (normalized === "expired") return "Expired";
+  if (normalized === "completed") return "Completed";
+  return "Status unavailable";
+}
+
+export function resolveShortletReturnUiStateLabel(
+  state: ShortletReturnUiState
+) {
+  if (state === "processing") return "Request";
+  if (state === "finalising") return "Request";
+  if (state === "pending") return "Pending approval";
+  if (state === "confirmed") return "Confirmed";
+  if (state === "failed") return "Payment failed";
+  if (state === "refunded") return "Refunded";
+  return "Closed";
+}
