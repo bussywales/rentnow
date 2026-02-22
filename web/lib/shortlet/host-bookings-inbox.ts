@@ -29,6 +29,8 @@ export type HostBookingInboxRow = {
   check_out?: string | null;
   respond_by?: string | null;
   expires_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
 };
 
 export const HOST_INBOX_HIDDEN_STATUSES = ["pending_payment"] as const;
@@ -133,6 +135,65 @@ export function rowMatchesHostBookingInboxFilter(
 export function countAwaitingApprovalBookings(rows: HostBookingInboxRow[], nowInput?: Date) {
   const now = nowInput ?? new Date();
   return rows.filter((row) => isAwaitingApprovalBooking(row, now)).length;
+}
+
+function compareAsc(a: number | null, b: number | null) {
+  if (a === null && b === null) return 0;
+  if (a === null) return 1;
+  if (b === null) return -1;
+  return a - b;
+}
+
+function compareDesc(a: number | null, b: number | null) {
+  return compareAsc(b, a);
+}
+
+function parseDateOnlyMs(value: string | null | undefined): number | null {
+  const parsed = parseIsoDateOnly(value);
+  return parsed ? parsed.getTime() : null;
+}
+
+export function sortHostBookingInboxRows<T extends HostBookingInboxRow>(
+  rows: T[],
+  filter: HostBookingInboxFilter
+) {
+  const sorted = [...rows];
+  if (filter === "awaiting_approval") {
+    sorted.sort((a, b) => {
+      const respondCompare = compareAsc(
+        parseDateMs(resolveRespondByIso(a)),
+        parseDateMs(resolveRespondByIso(b))
+      );
+      if (respondCompare !== 0) return respondCompare;
+      const createdCompare = compareAsc(parseDateMs(a.created_at), parseDateMs(b.created_at));
+      if (createdCompare !== 0) return createdCompare;
+      return String(a.id || "").localeCompare(String(b.id || ""));
+    });
+    return sorted;
+  }
+
+  if (filter === "upcoming") {
+    sorted.sort((a, b) => {
+      const checkInCompare = compareAsc(
+        parseDateOnlyMs(a.check_in),
+        parseDateOnlyMs(b.check_in)
+      );
+      if (checkInCompare !== 0) return checkInCompare;
+      const createdCompare = compareAsc(parseDateMs(a.created_at), parseDateMs(b.created_at));
+      if (createdCompare !== 0) return createdCompare;
+      return String(a.id || "").localeCompare(String(b.id || ""));
+    });
+    return sorted;
+  }
+
+  sorted.sort((a, b) => {
+    const updatedCompare = compareDesc(parseDateMs(a.updated_at), parseDateMs(b.updated_at));
+    if (updatedCompare !== 0) return updatedCompare;
+    const createdCompare = compareDesc(parseDateMs(a.created_at), parseDateMs(b.created_at));
+    if (createdCompare !== 0) return createdCompare;
+    return String(a.id || "").localeCompare(String(b.id || ""));
+  });
+  return sorted;
 }
 
 export function shouldDefaultHostToBookingsInbox(input: {

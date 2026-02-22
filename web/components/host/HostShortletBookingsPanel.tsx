@@ -11,6 +11,7 @@ import {
   resolveHostBookingInboxFilter,
   resolveRespondByIso,
   rowMatchesHostBookingInboxFilter,
+  sortHostBookingInboxRows,
   type HostBookingInboxFilter,
 } from "@/lib/shortlet/host-bookings-inbox";
 import type {
@@ -158,7 +159,11 @@ export function HostShortletBookingsPanel(props: {
   }, [props.settingsRows]);
 
   const filteredRows = useMemo(
-    () => rows.filter((row) => rowMatchesHostBookingInboxFilter(row, filter)),
+    () =>
+      sortHostBookingInboxRows(
+        rows.filter((row) => rowMatchesHostBookingInboxFilter(row, filter)),
+        filter
+      ),
     [filter, rows]
   );
 
@@ -217,6 +222,7 @@ export function HostShortletBookingsPanel(props: {
                 status: nextStatus,
                 respond_by: null,
                 expires_at: null,
+                updated_at: new Date().toISOString(),
               }
             : item
         )

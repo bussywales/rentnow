@@ -63,6 +63,7 @@ export type HostShortletBookingSummary = {
   respond_by?: string | null;
   expires_at: string | null;
   created_at: string;
+  updated_at: string;
 };
 
 export type HostShortletSettingSummary = {
@@ -201,14 +202,15 @@ export async function listHostShortletBookings(input: {
 }) {
   const limit = Math.max(1, Math.min(100, Math.trunc(input.limit ?? 100)));
   const primarySelect =
-    "id,property_id,guest_user_id,check_in,check_out,nights,status,total_amount_minor,currency,respond_by,expires_at,created_at,properties!inner(title,city)";
+    "id,property_id,guest_user_id,check_in,check_out,nights,status,total_amount_minor,currency,respond_by,expires_at,created_at,updated_at,properties!inner(title,city)";
   const fallbackSelect =
-    "id,property_id,guest_user_id,check_in,check_out,nights,status,total_amount_minor,currency,expires_at,created_at,properties!inner(title,city)";
+    "id,property_id,guest_user_id,check_in,check_out,nights,status,total_amount_minor,currency,expires_at,created_at,updated_at,properties!inner(title,city)";
   const primaryResult = await input.client
     .from("shortlet_bookings")
     .select(primarySelect)
     .eq("host_user_id", input.hostUserId)
     .neq("status", HOST_INBOX_HIDDEN_STATUSES[0])
+    .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(limit);
   let data = primaryResult.data as Array<Record<string, unknown>> | null;
@@ -224,6 +226,7 @@ export async function listHostShortletBookings(input: {
       .select(fallbackSelect)
       .eq("host_user_id", input.hostUserId)
       .neq("status", HOST_INBOX_HIDDEN_STATUSES[0])
+      .order("updated_at", { ascending: false })
       .order("created_at", { ascending: false })
       .limit(limit);
     data = fallbackResult.data as Array<Record<string, unknown>> | null;
@@ -252,6 +255,7 @@ export async function listHostShortletBookings(input: {
       respond_by: typeof row.respond_by === "string" ? row.respond_by : null,
       expires_at: typeof row.expires_at === "string" ? row.expires_at : null,
       created_at: String(row.created_at || ""),
+      updated_at: String(row.updated_at || row.created_at || ""),
     } satisfies HostShortletBookingSummary;
   })) as HostShortletBookingSummary[];
 

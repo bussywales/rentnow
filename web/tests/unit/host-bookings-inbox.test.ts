@@ -8,6 +8,7 @@ import {
   parseHostBookingInboxFilterParam,
   resolveHostBookingInboxFilter,
   rowMatchesHostBookingInboxFilter,
+  sortHostBookingInboxRows,
   shouldDefaultHostToBookingsInbox,
   type HostBookingInboxRow,
 } from "@/lib/shortlet/host-bookings-inbox";
@@ -20,6 +21,8 @@ function bookingRow(overrides: Partial<HostBookingInboxRow>): HostBookingInboxRo
     check_out: "2026-03-14",
     respond_by: null,
     expires_at: null,
+    created_at: "2026-03-09T09:00:00.000Z",
+    updated_at: "2026-03-09T09:00:00.000Z",
     ...overrides,
   };
 }
@@ -195,4 +198,78 @@ void test("pending_payment is excluded from host actionable awaiting-approval bu
     ),
     "awaiting_approval"
   );
+});
+
+void test("host inbox awaiting approval sort prioritizes earliest respond-by then created_at", () => {
+  const sorted = sortHostBookingInboxRows(
+    [
+      bookingRow({
+        id: "0cd3477c-7847-4fcb-a7c9-bca2ce5f9ef4",
+        respond_by: "2026-03-10T14:00:00.000Z",
+        created_at: "2026-03-10T09:00:00.000Z",
+      }),
+      bookingRow({
+        id: "ae985f80-f4fb-44c0-995d-e29f3cc2efe4",
+        respond_by: "2026-03-10T12:00:00.000Z",
+        created_at: "2026-03-10T11:00:00.000Z",
+      }),
+      bookingRow({
+        id: "1455af0d-0f56-4343-af94-f01d4f3f4432",
+        respond_by: "2026-03-10T12:00:00.000Z",
+        created_at: "2026-03-10T08:00:00.000Z",
+      }),
+    ],
+    "awaiting_approval"
+  );
+
+  assert.deepEqual(
+    sorted.map((row) => row.id),
+    [
+      "1455af0d-0f56-4343-af94-f01d4f3f4432",
+      "ae985f80-f4fb-44c0-995d-e29f3cc2efe4",
+      "0cd3477c-7847-4fcb-a7c9-bca2ce5f9ef4",
+    ]
+  );
+});
+
+void test("host inbox upcoming and closed/past sort with policy order", () => {
+  const upcoming = sortHostBookingInboxRows(
+    [
+      bookingRow({
+        id: "6286a15e-8704-4fbb-8b49-b88045f8e2ff",
+        status: "confirmed",
+        check_in: "2026-03-15",
+      }),
+      bookingRow({
+        id: "d4bf8d97-ad4a-4b78-b79f-aee7d2b4d8f0",
+        status: "confirmed",
+        check_in: "2026-03-12",
+      }),
+    ],
+    "upcoming"
+  );
+  assert.deepEqual(upcoming.map((row) => row.id), [
+    "d4bf8d97-ad4a-4b78-b79f-aee7d2b4d8f0",
+    "6286a15e-8704-4fbb-8b49-b88045f8e2ff",
+  ]);
+
+  const closed = sortHostBookingInboxRows(
+    [
+      bookingRow({
+        id: "5f9affea-4ca6-44ff-b169-04ace42d5f42",
+        status: "declined",
+        updated_at: "2026-03-11T10:00:00.000Z",
+      }),
+      bookingRow({
+        id: "67f0744d-7969-46d9-8d37-6ab2fbb05517",
+        status: "declined",
+        updated_at: "2026-03-12T10:00:00.000Z",
+      }),
+    ],
+    "closed"
+  );
+  assert.deepEqual(closed.map((row) => row.id), [
+    "67f0744d-7969-46d9-8d37-6ab2fbb05517",
+    "5f9affea-4ca6-44ff-b169-04ace42d5f42",
+  ]);
 });
