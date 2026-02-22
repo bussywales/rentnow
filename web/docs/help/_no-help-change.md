@@ -6,3 +6,4 @@ Add a dated entry for each PR that uses this exemption:
 
 - `YYYY-MM-DD: <short reason why no help docs changed>`
 - `2026-02-20: Shortlets URL/state and return confidence updates adjust behaviour copy without introducing new help workflows.`
+- `2026-02-22: Smoke test selectors were added to existing payments and host UI components with no workflow/content change that requires help docs.`

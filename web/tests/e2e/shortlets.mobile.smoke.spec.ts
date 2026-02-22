@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { smokeSelectors } from "./utils/selectors";
 import { mockShortletsSearch } from "./utils/network";
+import { waitForShortletsResultsSettled } from "./utils/waits";
 
 test.use({
   viewport: { width: 390, height: 844 },
@@ -36,6 +37,7 @@ test.describe("shortlets mobile smoke", () => {
     await expect(page.getByTestId(smokeSelectors.shortletsFiltersButton)).toContainText(
       /Filters \(1\)/i
     );
+    await waitForShortletsResultsSettled(page);
 
     await page.getByTestId(smokeSelectors.shortletsMapOpen).click({ force: true });
     await expect(page.getByTestId(smokeSelectors.shortletsMobileMap)).toBeVisible();

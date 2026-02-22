@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import type { Locator, Page } from "@playwright/test";
 import { smokeSelectors } from "./utils/selectors";
 import { mockShortletsSearch } from "./utils/network";
+import { waitForShortletsResultsSettled, waitForUrlParam } from "./utils/waits";
 
 async function dragMap(page: Page, mapLocator: Locator) {
   const box = await mapLocator.boundingBox();
@@ -42,6 +43,8 @@ test.describe("shortlets desktop map behaviour", () => {
 
     const map = page.getByTestId(smokeSelectors.shortletsMap).locator(".leaflet-container");
     await dragMap(page, map);
+    await waitForUrlParam(page, "bbox");
+    await waitForShortletsResultsSettled(page);
 
     await openFilters(page);
     if (await autoToggle.isChecked()) {
@@ -51,13 +54,13 @@ test.describe("shortlets desktop map behaviour", () => {
 
     const bboxInManualMode = new URL(page.url()).searchParams.get("bbox");
     await dragMap(page, map);
-    await page.waitForTimeout(900);
     expect(new URL(page.url()).searchParams.get("bbox")).toBe(bboxInManualMode);
 
     const searchArea = page.getByTestId(smokeSelectors.shortletsSearchThisArea).first();
     await expect(searchArea).toBeVisible();
     await searchArea.click();
 
-    await expect.poll(() => new URL(page.url()).searchParams.get("bbox"), { timeout: 8_000 }).not.toBeNull();
+    await waitForUrlParam(page, "bbox", { previousValue: bboxInManualMode });
+    await waitForShortletsResultsSettled(page);
   });
 });

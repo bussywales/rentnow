@@ -2329,7 +2329,9 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
 
       <div className="w-full max-w-full space-y-3 pb-20 lg:hidden">
         <div>
-          <p className="text-sm text-slate-600">{resultsLabel}</p>
+          <p className="text-sm text-slate-600" data-testid="shortlets-results-label">
+            {resultsLabel}
+          </p>
           {pendingMapAreaLabel ? <p className="mt-1 text-xs text-slate-500">{pendingMapAreaLabel}</p> : null}
           {isBboxApplied ? (
             <button
