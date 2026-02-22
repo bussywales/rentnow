@@ -65,7 +65,11 @@ function parseArrayValue(frontmatter: string, key: string): string[] | null {
 void test("update notes enforce required frontmatter contract", async () => {
   const entries = await fs.readdir(UPDATES_DIR);
   const markdownFiles = entries.filter(
-    (name) => name.endsWith(".md") && name !== "README.md" && name !== "_TEMPLATE.md"
+    (name) =>
+      name.endsWith(".md") &&
+      name !== "README.md" &&
+      name !== "_TEMPLATE.md" &&
+      name !== "__invalid-import-note-test__.md"
   );
 
   const failures: string[] = [];
