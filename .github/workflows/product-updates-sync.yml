@@ -37,6 +37,9 @@ jobs:
       - name: Run next image optimisation guard
         run: npm --prefix web run guard:next-image-optimisation
 
+      - name: Run shortlets perf budgets guard
+        run: npm --prefix web run guard:shortlets-perf
+
       - name: Call product updates sync endpoint
         env:
           APP_URL: ${{ secrets.APP_URL }}

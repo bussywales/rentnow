@@ -50,6 +50,10 @@ jobs:
         working-directory: .
         run: npm --prefix web run guard:next-image-optimisation
 
+      - name: Run shortlets perf budgets guard
+        working-directory: .
+        run: npm --prefix web run guard:shortlets-perf
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
