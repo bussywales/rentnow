@@ -34,6 +34,9 @@ void test("host earnings timeline actions are transparent and host-friendly", ()
 
   assert.match(contents, /Open booking/);
   assert.match(contents, /Request payout/);
+  assert.match(contents, /api\/host\/shortlets\/payouts\/request/);
+  assert.match(contents, /Payout request sent to admin queue/);
+  assert.match(contents, /Requested/);
   assert.match(contents, /View details/);
   assert.match(contents, /Payouts are processed manually during pilot/);
   assert.match(contents, /No earnings records in this view yet\./);

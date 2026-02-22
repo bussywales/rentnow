@@ -75,6 +75,12 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
   const [tab, setTab] = useState<EarningsTab>("available");
   const [detailsItem, setDetailsItem] = useState<HostEarningsTimelineItem | null>(null);
   const [requestPayoutItem, setRequestPayoutItem] = useState<HostEarningsTimelineItem | null>(null);
+  const [requestPayoutMethod, setRequestPayoutMethod] = useState("bank_transfer");
+  const [requestPayoutNote, setRequestPayoutNote] = useState("");
+  const [requestingBookingId, setRequestingBookingId] = useState<string | null>(null);
+  const [requestNotice, setRequestNotice] = useState<string | null>(null);
+  const [requestError, setRequestError] = useState<string | null>(null);
+  const [requestedBookingIds, setRequestedBookingIds] = useState<Record<string, true>>({});
   const rows = props.timeline.items;
   const currency = rows[0]?.currency || "NGN";
   const todayMs = useMemo(() => {
@@ -85,6 +91,53 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
     () => resolveRowsForTab({ tab, rows, todayMs }),
     [rows, tab, todayMs]
   );
+
+  function openRequestModal(row: HostEarningsTimelineItem) {
+    setRequestError(null);
+    setRequestNotice(null);
+    setRequestPayoutMethod("bank_transfer");
+    setRequestPayoutNote("");
+    setRequestPayoutItem(row);
+  }
+
+  async function submitPayoutRequest() {
+    if (!requestPayoutItem || requestingBookingId) return;
+    setRequestError(null);
+    setRequestNotice(null);
+    setRequestingBookingId(requestPayoutItem.bookingId);
+    try {
+      const response = await fetch("/api/host/shortlets/payouts/request", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookingId: requestPayoutItem.bookingId,
+          payoutMethod: requestPayoutMethod,
+          note: requestPayoutNote.trim() || undefined,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; alreadyRequested?: boolean; error?: string }
+        | null;
+      if (!response.ok) {
+        throw new Error(payload?.error || "Unable to request payout");
+      }
+      setRequestedBookingIds((prev) => ({
+        ...prev,
+        [requestPayoutItem.bookingId]: true,
+      }));
+      setRequestNotice(
+        payload?.alreadyRequested
+          ? "Payout request already exists in the admin queue."
+          : "Payout request sent to admin queue."
+      );
+      setRequestPayoutItem(null);
+    } catch (error) {
+      setRequestError(error instanceof Error ? error.message : "Unable to request payout");
+    } finally {
+      setRequestingBookingId(null);
+    }
+  }
 
   return (
     <section className="space-y-4" data-testid="host-earnings-timeline">
@@ -182,6 +235,11 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
                     {row.payoutReason ? <p className="mt-1 text-slate-500">{row.payoutReason}</p> : null}
                   </td>
                   <td className="px-3 py-3">
+                    {requestedBookingIds[row.bookingId] ? (
+                      <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-sky-700">
+                        Requested
+                      </p>
+                    ) : null}
                     {row.bookingStatus === "pending" ? (
                       <Link
                         href={`/host/bookings?booking=${encodeURIComponent(row.bookingId)}#host-bookings`}
@@ -193,9 +251,10 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
                       <button
                         type="button"
                         className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
-                        onClick={() => setRequestPayoutItem(row)}
+                        onClick={() => openRequestModal(row)}
+                        disabled={!!requestedBookingIds[row.bookingId]}
                       >
-                        Request payout
+                        {requestedBookingIds[row.bookingId] ? "Requested" : "Request payout"}
                       </button>
                     ) : row.payoutStatus === "paid" ? (
                       <button
@@ -231,24 +290,61 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
             className="mx-auto mt-24 max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl"
             data-testid="host-earnings-request-payout-modal"
           >
-            <h3 className="text-lg font-semibold text-slate-900">Payout request received</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Request payout</h3>
             <p className="mt-2 text-sm text-slate-600">
-              Payouts are processed manually during pilot. Share this booking reference with support to speed up processing.
+              Payouts are processed manually during pilot. Send this request to add it to the admin payout queue.
             </p>
-            <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">
-              Booking: {requestPayoutItem.bookingId}
-            </p>
-            <div className="mt-4 flex justify-end">
+            <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-700">Booking: {requestPayoutItem.bookingId}</p>
+            <label className="mt-3 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Payout method
+              <select
+                value={requestPayoutMethod}
+                onChange={(event) => setRequestPayoutMethod(event.target.value)}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700"
+              >
+                <option value="bank_transfer">Bank transfer</option>
+                <option value="mobile_money">Mobile money</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label className="mt-3 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+              Note (optional)
+              <textarea
+                value={requestPayoutNote}
+                onChange={(event) => setRequestPayoutNote(event.target.value)}
+                rows={3}
+                maxLength={500}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700"
+                placeholder="Any payout context for admin ops."
+              />
+            </label>
+            {requestError ? <p className="mt-2 text-sm text-rose-600">{requestError}</p> : null}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700"
+                onClick={() => setRequestPayoutItem(null)}
+                disabled={requestingBookingId === requestPayoutItem.bookingId}
+              >
+                Cancel
+              </button>
               <button
                 type="button"
                 className="rounded-lg bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white"
-                onClick={() => setRequestPayoutItem(null)}
+                onClick={() => void submitPayoutRequest()}
+                disabled={requestingBookingId === requestPayoutItem.bookingId}
               >
-                Close
+                {requestingBookingId === requestPayoutItem.bookingId ? "Sending..." : "Send request"}
               </button>
             </div>
           </div>
         </div>
+      ) : null}
+
+      {requestNotice ? (
+        <p className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-semibold text-sky-700">
+          {requestNotice}
+        </p>
       ) : null}
 
       {detailsItem ? (
