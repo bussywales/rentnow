@@ -157,8 +157,16 @@ async function defaultReserveManualShareEvent(
       event_key: "manual_checkin_shared",
     });
   if (!error) return { duplicate: false };
-  if (error.code === "23505") return { duplicate: true };
-  throw new Error(error.message || "Unable to reserve check-in share event");
+  const errorCode =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: unknown }).code ?? "")
+      : "";
+  if (errorCode === "23505") return { duplicate: true };
+  const errorMessage =
+    typeof error === "object" && error && "message" in error
+      ? String((error as { message?: unknown }).message ?? "")
+      : "";
+  throw new Error(errorMessage || "Unable to reserve check-in share event");
 }
 
 async function defaultResolveUserEmail(

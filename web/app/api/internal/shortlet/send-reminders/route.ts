@@ -105,8 +105,16 @@ async function reserveReminderEvent(input: {
     .from("shortlet_reminder_events")
     .insert({ booking_id: input.bookingId, event_key: input.eventKey });
   if (!error) return { duplicate: false };
-  if (error.code === "23505") return { duplicate: true };
-  throw new Error(error.message || "Unable to reserve reminder event");
+  const errorCode =
+    typeof error === "object" && error && "code" in error
+      ? String((error as { code?: unknown }).code ?? "")
+      : "";
+  if (errorCode === "23505") return { duplicate: true };
+  const errorMessage =
+    typeof error === "object" && error && "message" in error
+      ? String((error as { message?: unknown }).message ?? "")
+      : "";
+  throw new Error(errorMessage || "Unable to reserve reminder event");
 }
 
 export async function postShortletSendRemindersResponse(
@@ -145,7 +153,7 @@ export async function postShortletSendRemindersResponse(
     .lte("check_in", next8DaysKey)
     .gte("check_out", yesterdayKey)
     .order("check_in", { ascending: true })
-    .limit(600);
+    .range(0, 599);
 
   if (bookingError) {
     return NextResponse.json({ error: bookingError.message || "Unable to load bookings" }, { status: 500 });
@@ -197,7 +205,7 @@ export async function postShortletSendRemindersResponse(
     .in("booking_id", bookingIds)
     .order("updated_at", { ascending: false })
     .order("created_at", { ascending: false })
-    .limit(Math.max(bookingIds.length * 3, 120));
+    .range(0, Math.max(bookingIds.length * 3, 120) - 1);
   if (
     paymentResult.error &&
     String(paymentResult.error.message || "").toLowerCase().includes("updated_at")
@@ -207,7 +215,7 @@ export async function postShortletSendRemindersResponse(
       .select("booking_id,status,created_at")
       .in("booking_id", bookingIds)
       .order("created_at", { ascending: false })
-      .limit(Math.max(bookingIds.length * 3, 120));
+      .range(0, Math.max(bookingIds.length * 3, 120) - 1);
   }
   if (paymentResult.error) {
     return NextResponse.json({ error: paymentResult.error.message || "Unable to load payments" }, { status: 500 });

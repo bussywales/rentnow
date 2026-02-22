@@ -51,7 +51,8 @@ function parseDateOnly(input: string): Date | null {
   return date;
 }
 
-function addHours(base: Date, hours: number) {
+function addHours(base: Date | null, hours: number) {
+  if (!base) return null;
   return new Date(base.getTime() + hours * 60 * 60 * 1000);
 }
 

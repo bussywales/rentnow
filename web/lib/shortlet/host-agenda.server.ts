@@ -160,7 +160,7 @@ export async function getHostAgenda(
     .eq("host_user_id", opts.userId)
     .in("status", ["pending", "confirmed"])
     .order("check_in", { ascending: true })
-    .limit(500);
+    .range(0, 499);
 
   if (error) {
     throw new Error(error.message || "Unable to load host agenda bookings");
@@ -211,7 +211,7 @@ export async function getHostAgenda(
       .in("booking_id", bookingIds)
       .order(withUpdatedAt ? "updated_at" : "created_at", { ascending: false })
       .order("created_at", { ascending: false })
-      .limit(Math.max(bookingIds.length * 3, 150));
+      .range(0, Math.max(bookingIds.length * 3, 150) - 1);
 
   let paymentsResult = await paymentsSelect(true);
   if (
