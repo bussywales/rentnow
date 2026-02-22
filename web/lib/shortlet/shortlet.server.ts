@@ -152,6 +152,11 @@ export type AdminShortletPayoutSummary = {
   paid_reference: string | null;
   paid_by: string | null;
   note: string | null;
+  request_status: "requested" | "not_requested";
+  requested_at: string | null;
+  requested_by: string | null;
+  requested_method: string | null;
+  requested_note: string | null;
   created_at: string;
   booking_check_in: string | null;
   booking_check_out: string | null;
@@ -578,7 +583,7 @@ export async function listHostShortletEarningsTimeline(input: {
 
   const { data: payoutRows, error: payoutsError } = await input.client
     .from("shortlet_payouts")
-    .select("booking_id,amount_minor,status,paid_at,paid_method,paid_reference,created_at")
+    .select("id,booking_id,amount_minor,status,paid_at,paid_method,paid_reference,created_at")
     .eq("host_user_id", input.hostUserId)
     .in("booking_id", bookingIds)
     .order("created_at", { ascending: false })
@@ -588,20 +593,86 @@ export async function listHostShortletEarningsTimeline(input: {
     throw new Error(payoutsError.message || "Unable to load shortlet payouts");
   }
 
-  const payouts = (((payoutRows as Array<Record<string, unknown>> | null) ?? [])
+  const payoutCandidates = (((payoutRows as Array<Record<string, unknown>> | null) ?? [])
     .map((row) => {
+      const payoutId = String(row.id || "");
       const bookingId = String(row.booking_id || "");
-      if (!bookingId) return null;
+      if (!payoutId || !bookingId) return null;
       return {
+        payoutId,
         bookingId,
         amountMinor: Math.max(0, Math.trunc(Number(row.amount_minor || 0))),
         status: row.status === "paid" ? "paid" : "eligible",
         paidAt: typeof row.paid_at === "string" ? row.paid_at : null,
         paidMethod: typeof row.paid_method === "string" ? row.paid_method : null,
         paidReference: typeof row.paid_reference === "string" ? row.paid_reference : null,
-      } satisfies HostEarningsTimelinePayoutRow;
+      } as const;
     })
-    .filter((row): row is HostEarningsTimelinePayoutRow => !!row));
+    .filter((row): row is {
+      payoutId: string;
+      bookingId: string;
+      amountMinor: number;
+      status: "eligible" | "paid";
+      paidAt: string | null;
+      paidMethod: string | null;
+      paidReference: string | null;
+    } => !!row));
+
+  const bookingIdByPayoutId = new Map<string, string>(
+    payoutCandidates.map((row) => [row.payoutId, row.bookingId])
+  );
+  const payoutIds = payoutCandidates.map((row) => row.payoutId);
+  const requestByBookingId = new Map<
+    string,
+    { requestedAt: string; requestedBy: string | null; requestedMethod: string | null; requestedNote: string | null }
+  >();
+
+  if (payoutIds.length) {
+    const { data: requestRows, error: requestError } = await input.client
+      .from("shortlet_payout_audit")
+      .select("payout_id,created_at,actor_user_id,meta")
+      .eq("action", "request_payout")
+      .in("payout_id", payoutIds)
+      .order("created_at", { ascending: false })
+      .limit(limit * 4);
+
+    if (requestError) {
+      throw new Error(requestError.message || "Unable to load payout requests");
+    }
+
+    for (const row of ((requestRows as Array<Record<string, unknown>> | null) ?? [])) {
+      const payoutId = String(row.payout_id || "");
+      const bookingId = bookingIdByPayoutId.get(payoutId);
+      if (!bookingId || requestByBookingId.has(bookingId)) continue;
+      const meta =
+        row.meta && typeof row.meta === "object"
+          ? (row.meta as Record<string, unknown>)
+          : {};
+      requestByBookingId.set(bookingId, {
+        requestedAt: String(row.created_at || ""),
+        requestedBy: typeof row.actor_user_id === "string" ? row.actor_user_id : null,
+        requestedMethod:
+          typeof meta.payout_method === "string" ? String(meta.payout_method) : null,
+        requestedNote: typeof meta.note === "string" ? String(meta.note) : null,
+      });
+    }
+  }
+
+  const payouts = payoutCandidates.map((row) => {
+    const request = requestByBookingId.get(row.bookingId);
+    return {
+      bookingId: row.bookingId,
+      amountMinor: row.amountMinor,
+      status: row.status,
+      paidAt: row.paidAt,
+      paidMethod: row.paidMethod,
+      paidReference: row.paidReference,
+      requestedAt: request?.requestedAt ?? null,
+      requestedByUserId: request?.requestedBy ?? null,
+      requestedMethod: request?.requestedMethod ?? null,
+      requestedNote: request?.requestedNote ?? null,
+    } satisfies HostEarningsTimelinePayoutRow;
+  });
 
   return buildHostEarningsTimeline({
     bookings,
@@ -933,6 +1004,7 @@ export async function getGuestShortletCheckinDetailsForBooking(input: {
 export async function listAdminShortletPayouts(input: {
   client: SupabaseClient;
   status?: "eligible" | "paid" | "all";
+  queue?: "requested" | "all";
   limit?: number;
 }) {
   const limit = Math.max(1, Math.min(500, Math.trunc(input.limit ?? 200)));
@@ -975,6 +1047,11 @@ export async function listAdminShortletPayouts(input: {
       paid_reference: typeof row.paid_reference === "string" ? row.paid_reference : null,
       paid_by: typeof row.paid_by === "string" ? row.paid_by : null,
       note: typeof row.note === "string" ? row.note : null,
+      request_status: "not_requested" as const,
+      requested_at: null,
+      requested_by: null,
+      requested_method: null,
+      requested_note: null,
       created_at: String(row.created_at || ""),
       booking_check_in: typeof booking?.check_in === "string" ? booking.check_in : null,
       booking_check_out: typeof booking?.check_out === "string" ? booking.check_out : null,
@@ -995,7 +1072,65 @@ export async function listAdminShortletPayouts(input: {
     });
   }
 
-  return rows;
+  const payoutIds = rows.map((row) => row.id).filter(Boolean);
+  const requestByPayoutId = new Map<
+    string,
+    { requestedAt: string; requestedBy: string | null; requestedMethod: string | null; requestedNote: string | null }
+  >();
+
+  if (payoutIds.length) {
+    const { data: requestRows, error: requestError } = await input.client
+      .from("shortlet_payout_audit")
+      .select("payout_id,created_at,actor_user_id,meta")
+      .eq("action", "request_payout")
+      .in("payout_id", payoutIds)
+      .order("created_at", { ascending: false })
+      .limit(limit * 3);
+
+    if (requestError) {
+      throw new Error(requestError.message || "Unable to load payout request metadata");
+    }
+
+    for (const row of ((requestRows as Array<Record<string, unknown>> | null) ?? [])) {
+      const payoutId = String(row.payout_id || "");
+      if (!payoutId || requestByPayoutId.has(payoutId)) continue;
+      const meta =
+        row.meta && typeof row.meta === "object"
+          ? (row.meta as Record<string, unknown>)
+          : {};
+      requestByPayoutId.set(payoutId, {
+        requestedAt: String(row.created_at || ""),
+        requestedBy: typeof row.actor_user_id === "string" ? row.actor_user_id : null,
+        requestedMethod:
+          typeof meta.payout_method === "string" ? String(meta.payout_method) : null,
+        requestedNote: typeof meta.note === "string" ? String(meta.note) : null,
+      });
+    }
+  }
+
+  let enrichedRows = rows
+    .map((row) => {
+      const request = requestByPayoutId.get(row.id);
+      return {
+        ...row,
+        request_status: request ? "requested" : "not_requested",
+        requested_at: request?.requestedAt ?? null,
+        requested_by: request?.requestedBy ?? null,
+        requested_method: request?.requestedMethod ?? null,
+        requested_note: request?.requestedNote ?? null,
+      } satisfies AdminShortletPayoutSummary;
+    })
+    .sort((a, b) => {
+      const aTime = Date.parse(a.requested_at || a.created_at || "");
+      const bTime = Date.parse(b.requested_at || b.created_at || "");
+      return Number.isFinite(bTime) && Number.isFinite(aTime) ? bTime - aTime : 0;
+    });
+
+  if (input.queue === "requested") {
+    enrichedRows = enrichedRows.filter((row) => row.request_status === "requested");
+  }
+
+  return enrichedRows;
 }
 
 export async function listBlockedRangesForProperty(input: {

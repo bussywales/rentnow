@@ -235,7 +235,7 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
                     {row.payoutReason ? <p className="mt-1 text-slate-500">{row.payoutReason}</p> : null}
                   </td>
                   <td className="px-3 py-3">
-                    {requestedBookingIds[row.bookingId] ? (
+                    {requestedBookingIds[row.bookingId] || row.payoutRequestStatus === "requested" ? (
                       <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.1em] text-sky-700">
                         Requested
                       </p>
@@ -252,9 +252,13 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
                         type="button"
                         className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
                         onClick={() => openRequestModal(row)}
-                        disabled={!!requestedBookingIds[row.bookingId]}
+                        disabled={
+                          !!requestedBookingIds[row.bookingId] || row.payoutRequestStatus === "requested"
+                        }
                       >
-                        {requestedBookingIds[row.bookingId] ? "Requested" : "Request payout"}
+                        {requestedBookingIds[row.bookingId] || row.payoutRequestStatus === "requested"
+                          ? "Requested"
+                          : "Request payout"}
                       </button>
                     ) : row.payoutStatus === "paid" ? (
                       <button

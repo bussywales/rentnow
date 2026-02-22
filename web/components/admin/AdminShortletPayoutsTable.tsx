@@ -23,6 +23,10 @@ export function AdminShortletPayoutsTable(props: { initialRows: AdminShortletPay
   const [error, setError] = useState<string | null>(null);
 
   const eligibleCount = useMemo(() => rows.filter((row) => row.status === "eligible").length, [rows]);
+  const requestedCount = useMemo(
+    () => rows.filter((row) => row.request_status === "requested").length,
+    [rows]
+  );
 
   async function markPaid(row: AdminShortletPayoutSummary) {
     if (busyId) return;
@@ -95,7 +99,13 @@ export function AdminShortletPayoutsTable(props: { initialRows: AdminShortletPay
   return (
     <div className="space-y-3">
       <div className="rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
-        Eligible payouts: <span className="font-semibold text-slate-900">{eligibleCount}</span>
+        <span>
+          Requested payouts: <span className="font-semibold text-slate-900">{requestedCount}</span>
+        </span>
+        <span className="mx-2 text-slate-300">•</span>
+        <span>
+          Eligible payouts: <span className="font-semibold text-slate-900">{eligibleCount}</span>
+        </span>
       </div>
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
       <div className="overflow-x-auto rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -103,6 +113,7 @@ export function AdminShortletPayoutsTable(props: { initialRows: AdminShortletPay
           <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.14em] text-slate-500">
             <tr>
               <th className="px-4 py-3">Status</th>
+              <th className="px-4 py-3">Request</th>
               <th className="px-4 py-3">Property</th>
               <th className="px-4 py-3">Booking</th>
               <th className="px-4 py-3">Amount</th>
@@ -120,6 +131,22 @@ export function AdminShortletPayoutsTable(props: { initialRows: AdminShortletPay
                     </span>
                     {row.paid_at ? (
                       <div className="mt-1 text-[11px] text-slate-500">{new Date(row.paid_at).toLocaleString()}</div>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-3 text-xs text-slate-700">
+                    <div className="inline-flex rounded-full border border-slate-200 px-2 py-1 font-semibold">
+                      {row.request_status === "requested" ? "Requested" : "Not requested"}
+                    </div>
+                    {row.requested_at ? (
+                      <div className="mt-1 text-[11px] text-slate-500">
+                        {new Date(row.requested_at).toLocaleString()}
+                      </div>
+                    ) : null}
+                    {row.requested_method ? (
+                      <div className="mt-1 text-[11px] text-slate-500">Method: {row.requested_method}</div>
+                    ) : null}
+                    {row.requested_note ? (
+                      <div className="mt-1 text-[11px] text-slate-500">Note: {row.requested_note}</div>
                     ) : null}
                   </td>
                   <td className="px-4 py-3">
@@ -149,7 +176,7 @@ export function AdminShortletPayoutsTable(props: { initialRows: AdminShortletPay
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="px-4 py-6 text-slate-500">
+                <td colSpan={7} className="px-4 py-6 text-slate-500">
                   No payouts found for this filter.
                 </td>
               </tr>

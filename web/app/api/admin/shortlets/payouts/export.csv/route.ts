@@ -32,6 +32,8 @@ export async function GET(request: NextRequest) {
 
   const statusParam = request.nextUrl.searchParams.get("status");
   const status = statusParam === "paid" ? "paid" : statusParam === "all" ? "all" : "eligible";
+  const queueParam = request.nextUrl.searchParams.get("queue");
+  const queue = queueParam === "all" ? "all" : "requested";
 
   const db = hasServiceRoleEnv()
     ? (createServiceRoleClient() as unknown as UntypedAdminClient)
@@ -40,6 +42,7 @@ export async function GET(request: NextRequest) {
   const rows = await listAdminShortletPayouts({
     client: db as unknown as SupabaseClient,
     status,
+    queue,
     limit: 1000,
   });
 
@@ -60,6 +63,11 @@ export async function GET(request: NextRequest) {
     "paid_reference",
     "paid_by",
     "note",
+    "request_status",
+    "requested_at",
+    "requested_by",
+    "requested_method",
+    "requested_note",
   ];
 
   const lines = [
@@ -82,6 +90,11 @@ export async function GET(request: NextRequest) {
         row.paid_reference,
         row.paid_by,
         row.note,
+        row.request_status,
+        row.requested_at,
+        row.requested_by,
+        row.requested_method,
+        row.requested_note,
       ]
         .map(csvEscape)
         .join(",")
@@ -92,7 +105,7 @@ export async function GET(request: NextRequest) {
     status: 200,
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename=\"shortlet-payouts-${status}.csv\"`,
+      "Content-Disposition": `attachment; filename=\"shortlet-payouts-${status}-${queue}.csv\"`,
       "Cache-Control": "no-store",
     },
   });

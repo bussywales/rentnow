@@ -36,10 +36,12 @@ async function requireAdmin() {
 export default async function AdminShortletPayoutsPage({ searchParams }: PageProps) {
   const params = await searchParams;
   const status = firstValue(params.status) || "eligible";
+  const queue = firstValue(params.queue) === "all" ? "all" : "requested";
   const client = await requireAdmin();
   const rows = await listAdminShortletPayouts({
     client: client as unknown as SupabaseClient,
     status: status === "paid" ? "paid" : status === "all" ? "all" : "eligible",
+    queue,
     limit: 300,
   });
 
@@ -64,6 +66,13 @@ export default async function AdminShortletPayoutsPage({ searchParams }: PagePro
       <form className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex min-w-[200px] flex-col gap-1 text-sm text-slate-700">
+            <span className="text-xs uppercase tracking-[0.14em] text-slate-500">Queue</span>
+            <select name="queue" defaultValue={queue} className="rounded-lg border border-slate-300 px-3 py-2">
+              <option value="requested">Requested</option>
+              <option value="all">All payouts</option>
+            </select>
+          </label>
+          <label className="flex min-w-[200px] flex-col gap-1 text-sm text-slate-700">
             <span className="text-xs uppercase tracking-[0.14em] text-slate-500">Status</span>
             <select name="status" defaultValue={status} className="rounded-lg border border-slate-300 px-3 py-2">
               <option value="eligible">Eligible</option>
@@ -75,7 +84,9 @@ export default async function AdminShortletPayoutsPage({ searchParams }: PagePro
             Apply
           </button>
           <Link
-            href={`/api/admin/shortlets/payouts/export.csv?status=${encodeURIComponent(status || "eligible")}`}
+            href={`/api/admin/shortlets/payouts/export.csv?status=${encodeURIComponent(
+              status || "eligible"
+            )}&queue=${encodeURIComponent(queue)}`}
             className="inline-flex h-10 items-center justify-center rounded-lg border border-slate-300 px-4 text-sm font-semibold text-slate-700"
           >
             Export CSV

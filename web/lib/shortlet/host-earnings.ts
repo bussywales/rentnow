@@ -32,6 +32,10 @@ export type HostEarningsTimelinePayoutRow = {
   paidAt: string | null;
   paidMethod: string | null;
   paidReference: string | null;
+  requestedAt: string | null;
+  requestedByUserId: string | null;
+  requestedMethod: string | null;
+  requestedNote: string | null;
 };
 
 export type HostEarningsTimelineItem = {
@@ -50,6 +54,10 @@ export type HostEarningsTimelineItem = {
   currency: string;
   payoutStatus: "not_eligible" | "pending" | "paid";
   payoutReason?: string;
+  payoutRequestStatus?: "requested" | "not_requested";
+  payoutRequestedAt?: string;
+  payoutRequestedMethod?: string;
+  payoutRequestedNote?: string;
   paidAt?: string;
   payoutMethod?: string;
   payoutReference?: string;
@@ -234,6 +242,12 @@ export function buildHostEarningsTimeline(input: {
             bookingEligibleForPayout,
           })
         : undefined;
+    const payoutRequestStatus =
+      payoutStatus === "pending"
+        ? payout?.requestedAt
+          ? "requested"
+          : "not_requested"
+        : undefined;
 
     return {
       bookingId: booking.bookingId,
@@ -251,6 +265,10 @@ export function buildHostEarningsTimeline(input: {
       currency: booking.currency,
       payoutStatus,
       payoutReason,
+      payoutRequestStatus,
+      payoutRequestedAt: payout?.requestedAt ?? undefined,
+      payoutRequestedMethod: payout?.requestedMethod ?? undefined,
+      payoutRequestedNote: payout?.requestedNote ?? undefined,
       paidAt: payout?.paidAt ?? undefined,
       payoutMethod: payout?.paidMethod ?? undefined,
       payoutReference: payout?.paidReference ?? undefined,

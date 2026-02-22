@@ -150,6 +150,10 @@ void test("host earnings timeline maps payout eligibility and reasons", () => {
         paidAt: "2026-02-21T12:00:00.000Z",
         paidMethod: "bank_transfer",
         paidReference: "PO-001",
+        requestedAt: "2026-02-20T12:00:00.000Z",
+        requestedByUserId: "host-1",
+        requestedMethod: "bank_transfer",
+        requestedNote: "Send in cycle",
       },
     ],
   });
