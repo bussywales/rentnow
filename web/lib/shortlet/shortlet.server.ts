@@ -3,6 +3,15 @@ import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { canCancelBooking } from "@/lib/shortlet/bookings";
 import { HOST_INBOX_HIDDEN_STATUSES } from "@/lib/shortlet/host-bookings-inbox";
 import { isBookingEligibleForPayout, resolveMarkPaidTransition } from "@/lib/shortlet/payouts";
+import {
+  buildHostEarningsTimeline,
+  normalizeTimelineBookingStatus,
+  normalizeTimelinePaymentStatus,
+  type HostEarningsTimeline,
+  type HostEarningsTimelineBookingRow,
+  type HostEarningsTimelinePaymentRow,
+  type HostEarningsTimelinePayoutRow,
+} from "@/lib/shortlet/host-earnings";
 
 export type ShortletBookingMode = "instant" | "request";
 
@@ -414,6 +423,164 @@ export async function listHostShortletEarnings(input: {
       note: typeof row.note === "string" ? row.note : null,
     } satisfies HostShortletEarningSummary;
   })) as HostShortletEarningSummary[];
+}
+
+export async function listHostShortletEarningsTimeline(input: {
+  client: SupabaseClient;
+  hostUserId: string;
+  limit?: number;
+  now?: Date;
+}): Promise<HostEarningsTimeline> {
+  const limit = Math.max(1, Math.min(240, Math.trunc(input.limit ?? 160)));
+  const { data: propertyRows, error: propertyError } = await input.client
+    .from("properties")
+    .select("id")
+    .eq("owner_id", input.hostUserId)
+    .eq("listing_intent", "shortlet")
+    .limit(600);
+
+  if (propertyError) {
+    throw new Error(propertyError.message || "Unable to load shortlet properties");
+  }
+
+  const propertyIds = (((propertyRows as Array<Record<string, unknown>> | null) ?? [])
+    .map((row) => String(row.id || ""))
+    .filter(Boolean));
+
+  if (!propertyIds.length) {
+    return buildHostEarningsTimeline({
+      bookings: [],
+      payments: [],
+      payouts: [],
+      now: input.now,
+    });
+  }
+
+  const { data: bookingRows, error: bookingsError } = await input.client
+    .from("shortlet_bookings")
+    .select(
+      "id,property_id,check_in,check_out,nights,status,total_amount_minor,currency,pricing_snapshot_json,created_at,properties!inner(title,city)"
+    )
+    .eq("host_user_id", input.hostUserId)
+    .in("property_id", propertyIds)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (bookingsError) {
+    throw new Error(bookingsError.message || "Unable to load shortlet bookings for earnings");
+  }
+
+  const bookings = (((bookingRows as Array<Record<string, unknown>> | null) ?? [])
+    .map((row) => {
+      const status = normalizeTimelineBookingStatus(String(row.status || ""));
+      if (!status) return null;
+      const relation = row.properties as
+        | { title?: string | null; city?: string | null }
+        | Array<{ title?: string | null; city?: string | null }>
+        | null
+        | undefined;
+      const property = Array.isArray(relation) ? (relation[0] ?? null) : relation ?? null;
+      const bookingId = String(row.id || "");
+      const propertyId = String(row.property_id || "");
+      if (!bookingId || !propertyId) return null;
+      return {
+        bookingId,
+        propertyId,
+        title: property?.title || "Shortlet listing",
+        city: property?.city ?? null,
+        checkIn: String(row.check_in || ""),
+        checkOut: String(row.check_out || ""),
+        nights: Math.max(0, Math.trunc(Number(row.nights || 0))),
+        bookingStatus: status,
+        totalMinor: Math.max(0, Math.trunc(Number(row.total_amount_minor || 0))),
+        currency: String(row.currency || "NGN"),
+        pricingSnapshot:
+          row.pricing_snapshot_json && typeof row.pricing_snapshot_json === "object"
+            ? (row.pricing_snapshot_json as Record<string, unknown>)
+            : {},
+      } satisfies HostEarningsTimelineBookingRow;
+    })
+    .filter((row): row is HostEarningsTimelineBookingRow => !!row));
+
+  const bookingIds = bookings.map((row) => row.bookingId);
+  if (!bookingIds.length) {
+    return buildHostEarningsTimeline({
+      bookings: [],
+      payments: [],
+      payouts: [],
+      now: input.now,
+    });
+  }
+
+  const selectPayments = async (columns: string) =>
+    input.client
+      .from("shortlet_payments")
+      .select(columns)
+      .in("booking_id", bookingIds)
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .limit(limit * 4);
+
+  let paymentResult = await selectPayments("booking_id,status,updated_at,created_at");
+  if (
+    paymentResult.error &&
+    paymentResult.error.message.toLowerCase().includes("updated_at")
+  ) {
+    paymentResult = await input.client
+      .from("shortlet_payments")
+      .select("booking_id,status,created_at")
+      .in("booking_id", bookingIds)
+      .order("created_at", { ascending: false })
+      .limit(limit * 4);
+  }
+  if (paymentResult.error) {
+    throw new Error(paymentResult.error.message || "Unable to load shortlet payments");
+  }
+
+  const payments = (((paymentResult.data as Array<Record<string, unknown>> | null) ?? [])
+    .map((row) => {
+      const bookingId = String(row.booking_id || "");
+      if (!bookingId) return null;
+      return {
+        bookingId,
+        status: normalizeTimelinePaymentStatus(String(row.status || "")),
+      } satisfies HostEarningsTimelinePaymentRow;
+    })
+    .filter((row): row is HostEarningsTimelinePaymentRow => !!row));
+
+  const { data: payoutRows, error: payoutsError } = await input.client
+    .from("shortlet_payouts")
+    .select("booking_id,amount_minor,status,paid_at,paid_method,paid_reference,created_at")
+    .eq("host_user_id", input.hostUserId)
+    .in("booking_id", bookingIds)
+    .order("created_at", { ascending: false })
+    .limit(limit * 2);
+
+  if (payoutsError) {
+    throw new Error(payoutsError.message || "Unable to load shortlet payouts");
+  }
+
+  const payouts = (((payoutRows as Array<Record<string, unknown>> | null) ?? [])
+    .map((row) => {
+      const bookingId = String(row.booking_id || "");
+      if (!bookingId) return null;
+      return {
+        bookingId,
+        amountMinor: Math.max(0, Math.trunc(Number(row.amount_minor || 0))),
+        status: row.status === "paid" ? "paid" : "eligible",
+        paidAt: typeof row.paid_at === "string" ? row.paid_at : null,
+        paidMethod: typeof row.paid_method === "string" ? row.paid_method : null,
+        paidReference: typeof row.paid_reference === "string" ? row.paid_reference : null,
+      } satisfies HostEarningsTimelinePayoutRow;
+    })
+    .filter((row): row is HostEarningsTimelinePayoutRow => !!row));
+
+  return buildHostEarningsTimeline({
+    bookings,
+    payments,
+    payouts,
+    now: input.now,
+  });
 }
 
 export async function listAdminShortletBookings(input: {
