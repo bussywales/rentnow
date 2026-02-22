@@ -219,14 +219,13 @@ async function getProperty(
         .eq("id", cleanId)
         .eq("is_approved", true)
         .eq("is_active", true)
-        .eq("status", "live")
-        .maybeSingle();
+        .eq("status", "live");
 
       if (!options?.includeDemoListings) {
         query = query.eq("is_demo", false);
       }
 
-      const { data, error } = await query;
+      const { data, error } = await query.maybeSingle();
       if (error || !data) return null;
       return mapPropertyPayload(
         data as Property & { property_images?: Array<{ id: string; image_url: string }> }

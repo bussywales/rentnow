@@ -114,7 +114,8 @@ export function HostCalendar(props: {
         throw new Error(payload?.error || "Unable to block dates");
       }
 
-      setBlocks((prev) => [...prev, payload.block].sort((a, b) => a.date_from.localeCompare(b.date_from)));
+      const newBlock: HostCalendarBlockRow = payload.block;
+      setBlocks((prev) => [...prev, newBlock].sort((a, b) => a.date_from.localeCompare(b.date_from)));
       setRange(undefined);
       setNotice("Dates blocked.");
     } catch (submitError) {
