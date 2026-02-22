@@ -243,7 +243,7 @@ export function HostShortletBookingsPanel(props: {
   ];
 
   return (
-    <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+    <section className="min-w-0 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="host-bookings-inbox">
       <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Host shortlets</p>
@@ -313,6 +313,8 @@ export function HostShortletBookingsPanel(props: {
                       key={row.id}
                       id={`host-booking-row-${row.id}`}
                       className={rowHighlighted ? "bg-sky-50/70" : undefined}
+                      data-testid="host-booking-row"
+                      data-respond-by={respondByIso || ""}
                     >
                       <td className="px-3 py-2">
                         <button
@@ -347,6 +349,7 @@ export function HostShortletBookingsPanel(props: {
                             size="sm"
                             variant="secondary"
                             onClick={() => setSelectedBookingId(row.id)}
+                            data-testid="host-booking-view"
                           >
                             View
                           </Button>
@@ -391,6 +394,8 @@ export function HostShortletBookingsPanel(props: {
                   className={`rounded-xl border p-3 ${
                     rowHighlighted ? "border-sky-300 bg-sky-50/70" : "border-slate-200"
                   }`}
+                  data-testid="host-booking-row"
+                  data-respond-by={respondByIso || ""}
                 >
                   <div className="flex min-w-0 flex-wrap items-start justify-between gap-2">
                     <button
@@ -419,7 +424,12 @@ export function HostShortletBookingsPanel(props: {
                     </p>
                   </div>
                   <div className="mt-3 flex min-w-0 flex-wrap gap-2">
-                    <Button size="sm" variant="secondary" onClick={() => setSelectedBookingId(row.id)}>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => setSelectedBookingId(row.id)}
+                      data-testid="host-booking-view"
+                    >
                       View details
                     </Button>
                     {actionState.canRespond ? (
@@ -455,6 +465,7 @@ export function HostShortletBookingsPanel(props: {
           role="dialog"
           aria-modal="true"
           aria-label="Booking details"
+          data-testid="host-booking-drawer"
         >
           <div className="h-[86vh] w-full overflow-hidden rounded-t-2xl bg-white shadow-2xl sm:h-auto sm:max-h-[88vh] sm:max-w-xl sm:rounded-2xl">
             <div className="flex items-start justify-between border-b border-slate-200 px-4 py-3">
@@ -535,6 +546,7 @@ export function HostShortletBookingsPanel(props: {
                         onClick={() => void decide(selectedRow, "approve")}
                         disabled={busyId === selectedRow.id || !actionState.canRespond}
                         title={actionState.reason ?? undefined}
+                        data-testid="host-booking-approve"
                       >
                         {busyId === selectedRow.id ? "Updating..." : "Approve"}
                       </Button>
@@ -544,6 +556,7 @@ export function HostShortletBookingsPanel(props: {
                         onClick={() => void decide(selectedRow, "decline")}
                         disabled={busyId === selectedRow.id || !actionState.canRespond}
                         title={actionState.reason ?? undefined}
+                        data-testid="host-booking-decline"
                       >
                         Decline
                       </Button>

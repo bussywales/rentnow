@@ -451,7 +451,10 @@ export function ShortletPaymentReturnStatus(props: {
 
   if (loading) {
     return (
-      <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+        data-testid="shortlet-return-status"
+      >
         <p className="text-sm text-slate-600">Checking payment status...</p>
       </section>
     );
@@ -459,7 +462,10 @@ export function ShortletPaymentReturnStatus(props: {
 
   if (payload?.error) {
     return (
-      <section className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+      <section
+        className="rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700"
+        data-testid="shortlet-return-status"
+      >
         {payload.error}
       </section>
     );
@@ -474,13 +480,16 @@ export function ShortletPaymentReturnStatus(props: {
       : null;
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm" data-testid="shortlet-return-status">
       <h1 className="text-xl font-semibold text-slate-900">Shortlet payment status</h1>
       <p className="mt-1 text-sm text-slate-600">Booking ID: {props.bookingId}</p>
       {amountLabel ? <p className="text-sm text-slate-600">Total: {amountLabel}</p> : null}
 
       {state === "processing" || state === "finalising" ? (
-        <p className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700">
+        <p
+          className="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700"
+          data-testid={state === "finalising" ? "shortlet-return-finalising" : undefined}
+        >
           {isPaymentSucceededPendingFinalisation
             ? "Payment received. Finalising your booking..."
             : "We are still confirming your payment."}
@@ -492,12 +501,18 @@ export function ShortletPaymentReturnStatus(props: {
         </p>
       ) : null}
       {state === "pending" ? (
-        <p className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700">
+        <p
+          className="mt-4 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700"
+          data-testid="shortlet-return-pending"
+        >
           Payment received. Your booking request is waiting for host approval within 12 hours.
         </p>
       ) : null}
       {state === "confirmed" ? (
-        <p className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+        <p
+          className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700"
+          data-testid="shortlet-return-confirmed"
+        >
           Payment received and your reservation is confirmed.
         </p>
       ) : null}

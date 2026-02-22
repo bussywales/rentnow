@@ -1479,7 +1479,10 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   const showExploreMapHint = !isBboxApplied && !activeDestination;
 
   return (
-    <div className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-4 overflow-x-hidden px-4 py-4 lg:overflow-x-visible">
+    <div
+      className="mx-auto flex w-full max-w-[1200px] min-w-0 flex-col gap-4 overflow-x-hidden px-4 py-4 lg:overflow-x-visible"
+      data-testid="shortlets-search-shell"
+    >
       <div
         aria-hidden={mobileMapOpen}
         {...(mobileMapOpen ? ({ inert: "" } as Record<string, string>) : {})}
@@ -2297,7 +2300,11 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
             ) : null}
             {!isMapMoveSearchEnabled && searchAreaDirty ? (
               <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">
-                <Button className="pointer-events-auto" onClick={onSearchThisArea}>
+                <Button
+                  className="pointer-events-auto"
+                  onClick={onSearchThisArea}
+                  data-testid="shortlets-search-this-area"
+                >
                   Search this area
                 </Button>
               </div>
@@ -2487,6 +2494,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
                 aria-label="Close map"
                 onClick={openListView}
                 className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
+                data-testid="shortlets-map-close"
               >
                 ×
               </button>
@@ -2520,7 +2528,11 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
             ) : null}
             {!isMapMoveSearchEnabled && searchAreaDirty ? (
               <div className="pointer-events-none absolute left-0 right-0 top-3 flex justify-center">
-                <Button className="pointer-events-auto" onClick={onSearchThisArea}>
+                <Button
+                  className="pointer-events-auto"
+                  onClick={onSearchThisArea}
+                  data-testid="shortlets-search-this-area"
+                >
                   Search this area
                 </Button>
               </div>
