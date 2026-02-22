@@ -24,6 +24,7 @@ jobs:
       E2E_HOST_EMAIL: ${{ secrets.E2E_HOST_EMAIL || secrets.PLAYWRIGHT_HOST_EMAIL || '' }}
       E2E_HOST_PASSWORD: ${{ secrets.E2E_HOST_PASSWORD || secrets.PLAYWRIGHT_HOST_PASSWORD || '' }}
       PLAYWRIGHT_ALLOW_WRITE: ${{ secrets.PLAYWRIGHT_ALLOW_WRITE || 'false' }}
+      PLAYWRIGHT_CRON_SECRET: ${{ secrets.CRON_SECRET || '' }}
       NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL || secrets.SUPABASE_URL || '' }}
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY || secrets.SUPABASE_ANON_KEY || '' }}
       SUPABASE_URL: ${{ secrets.SUPABASE_URL || '' }}

@@ -9,6 +9,8 @@ export default defineConfig({
   ...baseConfig,
   testDir: "./tests/e2e",
   testMatch: "**/*.smoke.spec.ts",
+  retries: process.env.CI ? 1 : 0,
+  forbidOnly: !!process.env.CI,
   reporter: [["line"]],
   fullyParallel: false,
   workers: 1,
