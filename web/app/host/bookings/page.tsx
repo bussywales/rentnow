@@ -94,6 +94,9 @@ export default async function HostBookingsPage({ searchParams }: PageProps) {
           </p>
         </div>
         <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <Link href="/host/calendar">
+            <Button variant="secondary" size="sm">Calendar</Button>
+          </Link>
           <Link href="/host/shortlets/blocks">
             <Button variant="secondary" size="sm">Manage availability</Button>
           </Link>
