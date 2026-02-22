@@ -2,6 +2,7 @@ import { getSiteUrl } from "@/lib/env";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import {
   buildHostBookingApprovedEmail,
+  buildHostGuestNoteEmail,
   buildHostNewBookingRequestEmail,
   buildHostNewReservationEmail,
   buildTenantBookingApprovedEmail,
@@ -20,6 +21,12 @@ type NotificationPayload = {
   amountMinor: number;
   currency: string;
   bookingId: string;
+};
+
+type GuestNotePayload = NotificationPayload & {
+  topic: string;
+  message: string;
+  guestLabel?: string | null;
 };
 
 type ShortletNotificationEventType =
@@ -307,4 +314,22 @@ export async function notifyTenantBookingExpired(input: {
     recipientEmail: input.email,
     payload: input.payload,
   });
+}
+
+export async function notifyHostGuestNote(input: {
+  hostUserId: string | null;
+  email: string | null;
+  payload: GuestNotePayload;
+}) {
+  if (!shortletEmailsEnabled()) return;
+  if (!input.email || !input.hostUserId) return;
+
+  const base = await buildBaseInput(input.payload);
+  const { subject, html } = buildHostGuestNoteEmail({
+    ...base,
+    topic: input.payload.topic,
+    message: input.payload.message,
+    guestLabel: input.payload.guestLabel,
+  });
+  await sendEmail(input.email, subject, html);
 }

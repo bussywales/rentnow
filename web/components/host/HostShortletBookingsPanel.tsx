@@ -25,6 +25,13 @@ import type {
 } from "@/lib/shortlet/shortlet.server";
 
 type BookingAction = "approve" | "decline";
+type BookingNote = {
+  id: string;
+  role: "tenant" | "host";
+  topic: "check_in" | "question" | "arrival_time" | "other";
+  message: string;
+  created_at: string;
+};
 
 function formatMoney(currency: string, amountMinor: number): string {
   const amount = Math.max(0, Math.trunc(amountMinor || 0)) / 100;
@@ -51,6 +58,13 @@ function formatDateTime(value: string | null | undefined): string {
   const date = new Date(value);
   if (!Number.isFinite(date.getTime())) return value;
   return date.toLocaleString();
+}
+
+function formatNoteTopic(topic: BookingNote["topic"]) {
+  if (topic === "check_in") return "Check-in";
+  if (topic === "arrival_time") return "Arrival time";
+  if (topic === "question") return "Question";
+  return "Other";
 }
 
 function statusTone(status: HostShortletBookingSummary["status"]) {
@@ -124,6 +138,9 @@ export function HostShortletBookingsPanel(props: {
   const [showBulkDeclineConfirm, setShowBulkDeclineConfirm] = useState(false);
   const [laterExpanded, setLaterExpanded] = useState(true);
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [notesLoading, setNotesLoading] = useState(false);
+  const [notesError, setNotesError] = useState<string | null>(null);
+  const [selectedNotes, setSelectedNotes] = useState<BookingNote[]>([]);
 
   useEffect(() => {
     setRows(props.initialRows);
@@ -174,6 +191,46 @@ export function HostShortletBookingsPanel(props: {
     if (!requestedFilter) return;
     setFilter(requestedFilter);
   }, [props.focusBookingId, searchParams]);
+
+  useEffect(() => {
+    if (!selectedBookingId) {
+      setSelectedNotes([]);
+      setNotesError(null);
+      setNotesLoading(false);
+      return;
+    }
+
+    let active = true;
+    setNotesLoading(true);
+    setNotesError(null);
+
+    void fetch(`/api/shortlet/bookings/${selectedBookingId}/note`, {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    })
+      .then(async (response) => {
+        const payload = (await response.json().catch(() => null)) as
+          | { notes?: BookingNote[]; error?: string }
+          | null;
+        if (!active) return;
+        if (!response.ok) {
+          throw new Error(payload?.error || "Unable to load guest notes");
+        }
+        setSelectedNotes(Array.isArray(payload?.notes) ? payload.notes : []);
+      })
+      .catch((loadError) => {
+        if (!active) return;
+        setNotesError(loadError instanceof Error ? loadError.message : "Unable to load guest notes");
+      })
+      .finally(() => {
+        if (active) setNotesLoading(false);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [selectedBookingId]);
 
   useEffect(() => {
     setSelectedIds([]);
@@ -853,6 +910,31 @@ export function HostShortletBookingsPanel(props: {
                     {!actionState.canRespond && actionState.reason ? (
                       <p className="text-xs text-slate-500">{actionState.reason}</p>
                     ) : null}
+
+                    <div className="rounded-xl border border-slate-200 bg-white p-3" data-testid="host-booking-guest-notes">
+                      <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Guest notes</p>
+                      {notesLoading ? (
+                        <p className="mt-2 text-xs text-slate-500">Loading notes...</p>
+                      ) : notesError ? (
+                        <p className="mt-2 text-xs text-rose-600">{notesError}</p>
+                      ) : selectedNotes.length ? (
+                        <ul className="mt-2 space-y-2">
+                          {selectedNotes.map((note) => (
+                            <li key={note.id} className="rounded-lg border border-slate-200 bg-slate-50 p-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-500">
+                                <span className="font-semibold uppercase tracking-[0.1em]">
+                                  {formatNoteTopic(note.topic)}
+                                </span>
+                                <span>{formatDateTime(note.created_at)}</span>
+                              </div>
+                              <p className="mt-1 text-xs text-slate-700">{note.message}</p>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="mt-2 text-xs text-slate-500">No guest notes yet.</p>
+                      )}
+                    </div>
                   </>
                 );
               })()}

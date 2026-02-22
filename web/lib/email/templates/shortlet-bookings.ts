@@ -23,6 +23,12 @@ type ShortletEmailBase = {
   siteUrl: string;
 };
 
+type ShortletGuestNoteEmail = ShortletEmailBase & {
+  topic: string;
+  message: string;
+  guestLabel?: string | null;
+};
+
 function renderBaseLines(input: ShortletEmailBase, statusLabel: string) {
   return `
     <ul style="margin:12px 0 0;padding-left:18px;color:#334155;line-height:1.6">
@@ -163,6 +169,25 @@ export function buildTenantBookingExpiredEmail(input: ShortletEmailBase) {
     input.siteUrl,
     "/trips",
     "Open my trips"
+  );
+  return { subject, html };
+}
+
+export function buildHostGuestNoteEmail(input: ShortletGuestNoteEmail) {
+  const subject = `Guest note received: ${input.propertyTitle}`;
+  const safeMessage = input.message
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
+  const html = wrapHtml(
+    "Guest sent a note",
+    `<p style="margin:0 0 8px;color:#334155">A guest left an update for this booking.</p>${renderBaseLines(input, "Guest note received")}
+    <p style="margin:12px 0 0;color:#334155"><strong>Topic:</strong> ${input.topic}</p>
+    <p style="margin:8px 0 0;color:#334155"><strong>Guest:</strong> ${input.guestLabel || "Tenant"}</p>
+    <p style="margin:8px 0 0;color:#0f172a;line-height:1.6"><strong>Message:</strong><br/>${safeMessage}</p>`,
+    input.siteUrl,
+    `/host/bookings?booking=${input.bookingId}#host-bookings`,
+    "Open bookings inbox"
   );
   return { subject, html };
 }

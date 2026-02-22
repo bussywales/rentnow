@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { TripCoordinationPanel } from "@/components/trips/TripCoordinationPanel";
 import { TripTimeline } from "@/components/trips/TripTimeline";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getServerAuthUser } from "@/lib/auth/server-session";
@@ -198,6 +199,12 @@ export default async function TripDetailPage({
           </Link>
         </div>
       </section>
+
+      <TripCoordinationPanel
+        bookingId={booking.id}
+        bookingStatus={booking.status}
+        propertyId={booking.property_id}
+      />
     </div>
   );
 }
