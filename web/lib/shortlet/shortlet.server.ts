@@ -789,6 +789,46 @@ export async function getGuestShortletBookingById(input: {
   } satisfies GuestShortletBookingDetail;
 }
 
+export async function getLatestShortletPaymentStatusForBooking(input: {
+  client: SupabaseClient;
+  bookingId: string;
+}): Promise<string | null> {
+  if (!input.bookingId) return null;
+
+  const primary = await input.client
+    .from("shortlet_payments")
+    .select("status,updated_at,created_at")
+    .eq("booking_id", input.bookingId)
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  let row = primary.data as Record<string, unknown> | null;
+  let error = primary.error;
+
+  if (
+    error &&
+    String(error.message || "").toLowerCase().includes("updated_at")
+  ) {
+    const fallback = await input.client
+      .from("shortlet_payments")
+      .select("status,created_at")
+      .eq("booking_id", input.bookingId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    row = fallback.data as Record<string, unknown> | null;
+    error = fallback.error;
+  }
+
+  if (error) {
+    throw new Error(error.message || "Unable to load payment status");
+  }
+
+  return typeof row?.status === "string" ? row.status : null;
+}
+
 export async function listAdminShortletPayouts(input: {
   client: SupabaseClient;
   status?: "eligible" | "paid" | "all";
