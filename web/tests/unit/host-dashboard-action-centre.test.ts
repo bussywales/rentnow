@@ -17,4 +17,6 @@ void test("host action centre copy and links are present", () => {
   assert.match(contents, /Respond within 12 hours to avoid auto-expiry\./);
   assert.match(contents, /\/host\/bookings\?view=awaiting#host-bookings/);
   assert.match(contents, /\/host\/bookings#host-bookings/);
+  assert.match(contents, /available to payout\./);
+  assert.match(contents, /\/host\/earnings/);
 });

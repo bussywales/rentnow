@@ -322,6 +322,18 @@ export function HostDashboardContent({
     typeof pendingShortletCountFromApi === "number"
       ? pendingShortletCountFromApi
       : pendingShortletCount;
+  const availablePayoutMinor = useMemo(
+    () =>
+      shortletEarnings
+        .filter((row) => row.payout_status === "eligible")
+        .reduce((sum, row) => sum + Math.max(0, Math.trunc(row.amount_minor || 0)), 0),
+    [shortletEarnings]
+  );
+  const payoutCurrency = shortletEarnings[0]?.currency || "NGN";
+  const availablePayoutLabel = useMemo(
+    () => formatFeaturedMinorAmount(availablePayoutMinor, payoutCurrency),
+    [availablePayoutMinor, payoutCurrency]
+  );
   const shortletSettingsByPropertyId = useMemo(
     () => new Map(shortletSettings.map((row) => [row.property_id, row])),
     [shortletSettings]
@@ -867,6 +879,27 @@ export function HostDashboardContent({
           </div>
         </div>
       </section>
+      {availablePayoutMinor > 0 ? (
+        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs uppercase tracking-[0.2em] text-emerald-800">Payout status</p>
+              <p className="text-sm font-semibold text-emerald-950">
+                You have {availablePayoutLabel} available to payout.
+              </p>
+              <p className="text-sm text-emerald-800">
+                Open earnings to request manual payout processing during pilot.
+              </p>
+            </div>
+            <Link
+              href="/host/earnings"
+              className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
+            >
+              Open earnings
+            </Link>
+          </div>
+        </section>
+      ) : null}
       {missingShortletPriceCount > 0 ? (
         <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
           <span className="min-w-0 break-words">

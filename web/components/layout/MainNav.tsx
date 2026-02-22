@@ -43,6 +43,12 @@ export const MAIN_NAV_LINKS: Array<{
     requireAuth: true,
     denyRoles: ["tenant", "admin"],
   },
+  {
+    href: "/host/earnings",
+    label: "Earnings",
+    requireAuth: true,
+    denyRoles: ["tenant", "admin"],
+  },
   { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
   {
     href: "/admin/insights",
