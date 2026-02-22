@@ -70,7 +70,33 @@ jobs:
             cat "${RESPONSE_BODY}" || true
             echo ""
 
-            if [ "${curl_exit}" -eq 0 ] && [[ "${http_code}" =~ ^2[0-9][0-9]$ ]]; then
+            response_ok=0
+            set +e
+            node -e '
+              const fs = require("fs");
+              const responsePath = process.argv[1];
+              const raw = fs.readFileSync(responsePath, "utf8");
+              let payload;
+              try {
+                payload = JSON.parse(raw);
+              } catch (error) {
+                console.error("Response body is not valid JSON.");
+                process.exit(1);
+              }
+              if (!payload || payload.ok !== true) {
+                console.error("Reminders endpoint returned ok != true.");
+                process.exit(1);
+              }
+              const skipped = Number(payload.skipped ?? payload.skippedAlreadySent ?? 0);
+              const errors = Number(payload.errorsCount ?? (Array.isArray(payload.errors) ? payload.errors.length : 0));
+              const sent = Number(payload.sent ?? 0);
+              const due = Number(payload.due ?? 0);
+              console.log(`Run summary: due=${due} sent=${sent} skipped=${skipped} errors=${errors}`);
+            ' "${RESPONSE_BODY}"
+            response_ok=$?
+            set -e
+
+            if [ "${curl_exit}" -eq 0 ] && [[ "${http_code}" =~ ^2[0-9][0-9]$ ]] && [ "${response_ok}" -eq 0 ]; then
               success=1
               break
             fi
@@ -79,6 +105,8 @@ jobs:
             if [ "${curl_exit}" -ne 0 ]; then
               retry_allowed=1
             elif [[ "${http_code}" =~ ^5[0-9][0-9]$ ]]; then
+              retry_allowed=1
+            elif [ "${response_ok}" -ne 0 ]; then
               retry_allowed=1
             fi
 
