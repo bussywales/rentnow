@@ -119,7 +119,7 @@ export default async function TripDetailPage({
       <TripTimeline
         timeline={timeline}
         listingHref={`/properties/${booking.property_id}`}
-        respondByIso={booking.respond_by ?? booking.expires_at}
+        respondByIso={booking.expires_at}
       />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">

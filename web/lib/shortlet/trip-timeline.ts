@@ -296,7 +296,7 @@ export function resolveTripTimelineSteps(input: {
     return { key: step, label: labelForStep(step), status: "todo" };
   });
 
-  const steps =
+  const steps: TripTimelineStepState[] =
     currentIndex >= 0
       ? baseSteps
       : [

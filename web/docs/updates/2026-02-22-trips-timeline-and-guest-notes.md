@@ -2,7 +2,7 @@
 title: "Trip timeline and guest-to-host coordination notes"
 audiences:
   - TENANT
-  - LANDLORD
+  - HOST
   - AGENT
   - ADMIN
 areas:
