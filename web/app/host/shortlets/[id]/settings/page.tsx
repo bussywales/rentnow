@@ -115,7 +115,9 @@ export default async function HostShortletSettingsPage({
 
   const { data: settingsRow } = await client
     .from("shortlet_settings")
-    .select("booking_mode,nightly_price_minor,cleaning_fee_minor,deposit_minor,cancellation_policy")
+    .select(
+      "booking_mode,nightly_price_minor,cleaning_fee_minor,deposit_minor,cancellation_policy,checkin_instructions,checkin_window_start,checkin_window_end,checkout_time,access_method,access_code_hint,parking_info,wifi_info,house_rules,quiet_hours_start,quiet_hours_end,pets_allowed,smoking_allowed,parties_allowed,max_guests_override,emergency_notes"
+    )
     .eq("property_id", propertyId)
     .maybeSingle();
 
@@ -149,6 +151,68 @@ export default async function HostShortletSettingsPage({
             settingsRow?.cancellation_policy === "strict"
               ? settingsRow.cancellation_policy
               : "flexible_48h",
+          checkin_instructions:
+            typeof settingsRow?.checkin_instructions === "string"
+              ? settingsRow.checkin_instructions
+              : null,
+          checkin_window_start:
+            typeof settingsRow?.checkin_window_start === "string"
+              ? settingsRow.checkin_window_start
+              : null,
+          checkin_window_end:
+            typeof settingsRow?.checkin_window_end === "string"
+              ? settingsRow.checkin_window_end
+              : null,
+          checkout_time:
+            typeof settingsRow?.checkout_time === "string"
+              ? settingsRow.checkout_time
+              : null,
+          access_method:
+            typeof settingsRow?.access_method === "string"
+              ? settingsRow.access_method
+              : null,
+          access_code_hint:
+            typeof settingsRow?.access_code_hint === "string"
+              ? settingsRow.access_code_hint
+              : null,
+          parking_info:
+            typeof settingsRow?.parking_info === "string"
+              ? settingsRow.parking_info
+              : null,
+          wifi_info:
+            typeof settingsRow?.wifi_info === "string" ? settingsRow.wifi_info : null,
+          house_rules:
+            typeof settingsRow?.house_rules === "string"
+              ? settingsRow.house_rules
+              : null,
+          quiet_hours_start:
+            typeof settingsRow?.quiet_hours_start === "string"
+              ? settingsRow.quiet_hours_start
+              : null,
+          quiet_hours_end:
+            typeof settingsRow?.quiet_hours_end === "string"
+              ? settingsRow.quiet_hours_end
+              : null,
+          pets_allowed:
+            typeof settingsRow?.pets_allowed === "boolean"
+              ? settingsRow.pets_allowed
+              : null,
+          smoking_allowed:
+            typeof settingsRow?.smoking_allowed === "boolean"
+              ? settingsRow.smoking_allowed
+              : null,
+          parties_allowed:
+            typeof settingsRow?.parties_allowed === "boolean"
+              ? settingsRow.parties_allowed
+              : null,
+          max_guests_override:
+            typeof settingsRow?.max_guests_override === "number"
+              ? Math.trunc(settingsRow.max_guests_override)
+              : null,
+          emergency_notes:
+            typeof settingsRow?.emergency_notes === "string"
+              ? settingsRow.emergency_notes
+              : null,
         }}
       />
     </div>
