@@ -1,0 +1,111 @@
+name: Shortlet Reminders
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: shortlet-reminders
+  cancel-in-progress: true
+
+jobs:
+  reminders:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Call shortlet reminders endpoint
+        env:
+          APP_URL_SECRET: ${{ secrets.APP_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+
+          APP_URL="${APP_URL_SECRET:-https://www.propatyhub.com}"
+          if [ -z "${CRON_SECRET:-}" ]; then
+            echo "Missing required secret: CRON_SECRET"
+            exit 1
+          fi
+
+          REMINDERS_URL="${APP_URL%/}/api/internal/shortlet/send-reminders"
+          echo "Reminders URL: ${REMINDERS_URL}"
+
+          DEBUG_DIR="${GITHUB_WORKSPACE}/.cron-debug/shortlet-reminders"
+          mkdir -p "${DEBUG_DIR}"
+          RESPONSE_BODY="${DEBUG_DIR}/response-body.json"
+          RESPONSE_HEADERS="${DEBUG_DIR}/response-headers.txt"
+          CURL_VERBOSE="${DEBUG_DIR}/curl-verbose.log"
+
+          ATTEMPTS=2
+          SLEEP_SECONDS=8
+          attempt=1
+          success=0
+          http_code=""
+          curl_exit=0
+
+          while [ "${attempt}" -le "${ATTEMPTS}" ]; do
+            : > "${RESPONSE_BODY}"
+            : > "${RESPONSE_HEADERS}"
+            : > "${CURL_VERBOSE}"
+
+            echo "Attempt ${attempt}/${ATTEMPTS}"
+            set +e
+            http_code="$(curl -sS \
+              -o "${RESPONSE_BODY}" \
+              -D "${RESPONSE_HEADERS}" \
+              -w "%{http_code}" \
+              -X POST "${REMINDERS_URL}" \
+              -H "x-cron-secret: ${CRON_SECRET}" \
+              -H "content-type: application/json" \
+              --data '{}' \
+              -v 2>"${CURL_VERBOSE}")"
+            curl_exit=$?
+            set -e
+
+            echo "HTTP status: ${http_code:-curl_error}"
+            echo "Response JSON:"
+            cat "${RESPONSE_BODY}" || true
+            echo ""
+
+            if [ "${curl_exit}" -eq 0 ] && [[ "${http_code}" =~ ^2[0-9][0-9]$ ]]; then
+              success=1
+              break
+            fi
+
+            retry_allowed=0
+            if [ "${curl_exit}" -ne 0 ]; then
+              retry_allowed=1
+            elif [[ "${http_code}" =~ ^5[0-9][0-9]$ ]]; then
+              retry_allowed=1
+            fi
+
+            if [ "${attempt}" -lt "${ATTEMPTS}" ] && [ "${retry_allowed}" -eq 1 ]; then
+              echo "Network/5xx failure detected, retrying once in ${SLEEP_SECONDS}s..."
+              sleep "${SLEEP_SECONDS}"
+            else
+              break
+            fi
+
+            attempt=$((attempt + 1))
+          done
+
+          if [ "${success}" -ne 1 ]; then
+            echo "Shortlet reminders call failed."
+            echo "Final HTTP status: ${http_code:-curl_error}, curl exit: ${curl_exit}"
+            exit 1
+          fi
+
+      - name: Upload reminder failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shortlet-reminders-failure-artifacts
+          path: |
+            .cron-debug/shortlet-reminders/response-body.json
+            .cron-debug/shortlet-reminders/response-headers.txt
+            .cron-debug/shortlet-reminders/curl-verbose.log
+          if-no-files-found: warn
+          retention-days: 7
