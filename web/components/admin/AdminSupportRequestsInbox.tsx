@@ -1,0 +1,270 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Button } from "@/components/ui/Button";
+
+type SupportRequestItem = {
+  id: string;
+  createdAt: string | null;
+  category: string;
+  email: string | null;
+  name: string | null;
+  status: string;
+  role: string | null;
+  message: string;
+  excerpt: string;
+  escalated: boolean;
+  metadata: Record<string, unknown>;
+  transcript: Array<{ role: "user" | "assistant"; content: string }>;
+};
+
+type SupportRequestsResponse = {
+  ok: boolean;
+  items: SupportRequestItem[];
+  pagination: {
+    total: number;
+    hasMore: boolean;
+  };
+};
+
+function formatTime(value: string | null) {
+  if (!value) return "n/a";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString("en-NG", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function categoryLabel(value: string) {
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
+export function AdminSupportRequestsInbox() {
+  const [status, setStatus] = useState<"open" | "all">("open");
+  const [escalatedOnly, setEscalatedOnly] = useState(true);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [rows, setRows] = useState<SupportRequestItem[]>([]);
+  const [total, setTotal] = useState(0);
+  const [selected, setSelected] = useState<SupportRequestItem | null>(null);
+
+  const queryString = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("status", status);
+    if (escalatedOnly) params.set("escalated", "1");
+    params.set("limit", "30");
+    params.set("offset", "0");
+    return params.toString();
+  }, [escalatedOnly, status]);
+
+  const load = useCallback(async (signal?: AbortSignal) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/support/requests?${queryString}`, {
+        signal,
+        cache: "no-store",
+      });
+      const body = (await response.json().catch(() => null)) as SupportRequestsResponse | { error?: string } | null;
+      if (!response.ok) {
+        setError((body as { error?: string } | null)?.error || "Unable to load support requests.");
+        setRows([]);
+        setTotal(0);
+        return;
+      }
+      const payload = body as SupportRequestsResponse;
+      setRows(Array.isArray(payload.items) ? payload.items : []);
+      setTotal(payload.pagination?.total ?? 0);
+    } catch (requestError) {
+      if (signal?.aborted) return;
+      setError(requestError instanceof Error ? requestError.message : "Unable to load support requests.");
+      setRows([]);
+      setTotal(0);
+    } finally {
+      if (!signal?.aborted) {
+        setLoading(false);
+      }
+    }
+  }, [queryString]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    void load(controller.signal);
+    return () => controller.abort();
+  }, [load]);
+
+  return (
+    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="admin-support-inbox">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h3 className="text-lg font-semibold text-slate-900">AI escalations inbox</h3>
+          <p className="text-sm text-slate-600">
+            Newest support requests with escalation signal, metadata, and transcript context.
+          </p>
+        </div>
+        <Button size="sm" variant="secondary" onClick={() => void load()}>
+          Refresh
+        </Button>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+        <label className="flex items-center gap-2">
+          <span className="text-slate-600">Status</span>
+          <select
+            value={status}
+            onChange={(event) => setStatus(event.target.value === "all" ? "all" : "open")}
+            className="rounded-md border border-slate-200 px-2 py-1"
+            data-testid="admin-support-status-filter"
+          >
+            <option value="open">Open</option>
+            <option value="all">All</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-slate-600">
+          <input
+            type="checkbox"
+            checked={escalatedOnly}
+            onChange={(event) => setEscalatedOnly(event.target.checked)}
+            data-testid="admin-support-escalated-filter"
+          />
+          Escalated only
+        </label>
+        <span className="text-xs text-slate-500">Total: {total}</span>
+      </div>
+
+      {loading ? (
+        <p className="mt-4 text-sm text-slate-500">Loading support requests…</p>
+      ) : null}
+      {error ? (
+        <p className="mt-4 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {error}
+        </p>
+      ) : null}
+      {!loading && !error && rows.length === 0 ? (
+        <p className="mt-4 text-sm text-slate-600">No requests match this filter yet.</p>
+      ) : null}
+
+      {!loading && !error && rows.length > 0 ? (
+        <div className="mt-4 overflow-x-auto">
+          <table className="min-w-full text-left text-sm">
+            <thead className="text-xs uppercase tracking-wide text-slate-500">
+              <tr className="border-b border-slate-200">
+                <th className="px-2 py-2">Created</th>
+                <th className="px-2 py-2">Category</th>
+                <th className="px-2 py-2">Role</th>
+                <th className="px-2 py-2">Email</th>
+                <th className="px-2 py-2">Excerpt</th>
+                <th className="px-2 py-2">Flags</th>
+                <th className="px-2 py-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody data-testid="admin-support-rows">
+              {rows.map((row) => (
+                <tr key={row.id} className="border-b border-slate-100 align-top">
+                  <td className="px-2 py-2 text-xs text-slate-600">{formatTime(row.createdAt)}</td>
+                  <td className="px-2 py-2">{categoryLabel(row.category)}</td>
+                  <td className="px-2 py-2">{row.role || "unknown"}</td>
+                  <td className="px-2 py-2">{row.email || "n/a"}</td>
+                  <td className="max-w-[340px] px-2 py-2 text-slate-700">{row.excerpt || "—"}</td>
+                  <td className="px-2 py-2">
+                    <div className="flex flex-wrap gap-1">
+                      {row.escalated ? (
+                        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+                          Escalated
+                        </span>
+                      ) : null}
+                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
+                        {row.status}
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-2 py-2">
+                    <Button size="sm" variant="secondary" onClick={() => setSelected(row)}>
+                      View
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {selected ? (
+        <div className="fixed inset-0 z-[80]" data-testid="admin-support-drawer">
+          <button
+            type="button"
+            className="absolute inset-0 bg-slate-900/40"
+            aria-label="Close support request drawer"
+            onClick={() => setSelected(null)}
+          />
+          <aside className="absolute right-0 top-0 h-full w-full max-w-[540px] overflow-y-auto border-l border-slate-200 bg-white p-5 shadow-xl">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Support request</p>
+                <h4 className="mt-1 text-lg font-semibold text-slate-900">{selected.id}</h4>
+              </div>
+              <Button size="sm" variant="secondary" onClick={() => setSelected(null)}>
+                Close
+              </Button>
+            </div>
+
+            <div className="mt-4 space-y-2 text-sm text-slate-700">
+              <p>
+                <span className="font-semibold text-slate-900">Created:</span> {formatTime(selected.createdAt)}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-900">Category:</span> {categoryLabel(selected.category)}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-900">Role:</span> {selected.role || "unknown"}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-900">Email:</span> {selected.email || "n/a"}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-900">Status:</span> {selected.status}
+              </p>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Message</p>
+              <pre className="mt-2 whitespace-pre-wrap rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800">
+                {selected.message || "n/a"}
+              </pre>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Metadata</p>
+              <pre className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700">
+                {JSON.stringify(selected.metadata || {}, null, 2)}
+              </pre>
+            </div>
+
+            <div className="mt-4">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">AI transcript</p>
+              {selected.transcript.length ? (
+                <ul className="mt-2 space-y-2">
+                  {selected.transcript.map((item, index) => (
+                    <li key={`${item.role}:${index}`} className="rounded-lg border border-slate-200 bg-white p-2 text-sm">
+                      <p className="text-xs font-semibold uppercase text-slate-500">{item.role}</p>
+                      <p className="mt-1 text-slate-700">{item.content}</p>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2 text-sm text-slate-600">No transcript attached.</p>
+              )}
+            </div>
+          </aside>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+

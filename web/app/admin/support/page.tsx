@@ -52,6 +52,7 @@ import {
 } from "@/lib/admin/tenant-push-observability";
 import { AdminPushTestButton } from "@/components/admin/AdminPushTestButton";
 import { AdminPushReadiness } from "@/components/admin/AdminPushReadiness";
+import { AdminSupportRequestsInbox } from "@/components/admin/AdminSupportRequestsInbox";
 
 export const dynamic = "force-dynamic";
 
@@ -771,6 +772,8 @@ export default async function AdminSupportPage({ searchParams }: SupportProps) {
         <h1 className="text-3xl font-semibold text-slate-900">Support & Diagnostics</h1>
         <p className="text-sm text-slate-600">Only visible to admins. Quick checks and tools for debugging.</p>
       </div>
+
+      <AdminSupportRequestsInbox />
 
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div className="space-y-1">
