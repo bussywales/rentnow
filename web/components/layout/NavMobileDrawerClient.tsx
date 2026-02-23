@@ -24,8 +24,12 @@ type DrawerLink = {
   badgeCount?: number | null;
 };
 
+type DrawerLinkGroup = {
+  title: "Main" | "Help & Support" | "Company" | "Legal";
+  links: DrawerLink[];
+};
+
 const LOGGED_OUT_LINKS: DrawerLink[] = [
-  { href: "/help", label: "Help Centre" },
   { href: "/onboarding", label: "Become a host" },
   { href: "/agents", label: "Find an agent" },
   { href: "/auth/login", label: "Log in" },
@@ -67,13 +71,97 @@ export function buildMobileNavLinks(
     if (!next.find((link) => link.href === helpHref)) {
       next.push({ href: helpHref, label: "Help Centre" });
     }
+  } else if (!next.find((link) => link.href === "/help")) {
+    next.push({ href: "/help", label: "Help Centre" });
   }
-  if (!next.find((link) => link.href === "/support")) {
-    if (role !== "admin" && role !== "super_admin") {
-      next.push({ href: "/support", label: "Contact support" });
-    }
+  if (
+    !next.find((link) => link.href === "/support") &&
+    role !== "admin" &&
+    role !== "super_admin"
+  ) {
+    next.push({ href: "/support", label: "Contact support" });
+  }
+  if (
+    !next.find((link) => link.href === "/admin/support") &&
+    (role === "admin" || role === "super_admin")
+  ) {
+    next.push({ href: "/admin/support", label: "Admin support" });
   }
   return next;
+}
+
+const COMPANY_LINKS: DrawerLink[] = [
+  { href: "/about", label: "About" },
+  { href: "/help/referrals", label: "Referral FAQ" },
+];
+
+const LEGAL_LINKS: DrawerLink[] = [
+  { href: "/legal", label: "Legal" },
+  { href: "/legal/disclaimer", label: "Disclaimer" },
+];
+
+function dedupeLinks(links: DrawerLink[]): DrawerLink[] {
+  const seen = new Set<string>();
+  const next: DrawerLink[] = [];
+  for (const link of links) {
+    if (seen.has(link.href)) continue;
+    seen.add(link.href);
+    next.push(link);
+  }
+  return next;
+}
+
+export function buildMobileNavLinkGroups(
+  links: NavLink[],
+  {
+    isAuthed,
+    role,
+  }: {
+    isAuthed: boolean;
+    role: UserRole | "super_admin" | null;
+  }
+): DrawerLinkGroup[] {
+  const baseLinks = isAuthed ? buildMobileNavLinks(links, { isAuthed, role }) : LOGGED_OUT_LINKS;
+  const helpHref = isAuthed ? getRoleHelpHref(role) : "/help";
+  const supportHref = role === "admin" || role === "super_admin" ? "/admin/support" : "/support";
+  const adminLegalLink =
+    role === "admin" || role === "super_admin"
+      ? [{ href: "/admin/legal", label: "Admin legal" }]
+      : [];
+
+  const groupedHrefs = new Set<string>([
+    helpHref,
+    supportHref,
+    "/about",
+    "/help/referrals",
+    "/legal",
+    "/legal/disclaimer",
+    "/admin/legal",
+    "/admin/support",
+  ]);
+
+  const mainLinks = baseLinks.filter((link) => !groupedHrefs.has(link.href));
+  const helpSupportLinks = dedupeLinks([
+    baseLinks.find((link) => link.href === helpHref) ?? { href: helpHref, label: "Help Centre" },
+    baseLinks.find((link) => link.href === supportHref) ??
+      (supportHref === "/admin/support"
+        ? { href: "/admin/support", label: "Admin support" }
+        : { href: "/support", label: "Contact support" }),
+  ]);
+  const companyLinks = dedupeLinks(COMPANY_LINKS);
+  const legalLinks = dedupeLinks([
+    ...LEGAL_LINKS,
+    ...(baseLinks.find((link) => link.href === "/admin/legal") ? adminLegalLink : []),
+  ]);
+
+  const groups: DrawerLinkGroup[] = [
+    { title: "Main", links: mainLinks },
+    { title: "Help & Support", links: helpSupportLinks },
+    { title: "Company", links: companyLinks },
+    { title: "Legal", links: legalLinks },
+  ];
+
+  return groups.filter((group) => group.links.length > 0);
 }
 
 export function NavMobileDrawerClient({
@@ -93,8 +181,8 @@ export function NavMobileDrawerClient({
   const closeButtonRef = useRef<HTMLButtonElement | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
-  const drawerLinks = useMemo(
-    () => (isAuthed ? buildMobileNavLinks(links, { isAuthed, role }) : LOGGED_OUT_LINKS),
+  const drawerGroups = useMemo(
+    () => buildMobileNavLinkGroups(links, { isAuthed, role }),
     [isAuthed, links, role]
   );
 
@@ -224,37 +312,44 @@ export function NavMobileDrawerClient({
                     <MarketSelector enabled compact />
                   </div>
                 ) : null}
-                <nav className="flex flex-col gap-2">
-                  {drawerLinks.map((link) => {
-                    const active = isActiveHref(pathname, link.href);
-                    return (
-                      <Link
-                        key={link.href}
-                        href={link.href}
-                        aria-current={active ? "page" : undefined}
-                        className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
-                          active
-                            ? "bg-slate-100 font-semibold text-slate-900"
-                            : "text-slate-700 hover:bg-slate-50"
-                        }`}
-                        onClick={() => setOpen(false)}
-                      >
-                        <span className="inline-flex items-center gap-1.5">
-                          <span>{link.label}</span>
-                          {(link.badgeCount ?? 0) > 0 ? (
-                            <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
-                              {link.badgeCount}
+                <nav className="flex flex-col gap-4">
+                  {drawerGroups.map((group) => (
+                    <section key={group.title} className="space-y-1">
+                      <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                        {group.title}
+                      </h3>
+                      {group.links.map((link) => {
+                        const active = isActiveHref(pathname, link.href);
+                        return (
+                          <Link
+                            key={`${group.title}-${link.href}`}
+                            href={link.href}
+                            aria-current={active ? "page" : undefined}
+                            className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
+                              active
+                                ? "bg-slate-100 font-semibold text-slate-900"
+                                : "text-slate-700 hover:bg-slate-50"
+                            }`}
+                            onClick={() => setOpen(false)}
+                          >
+                            <span className="inline-flex items-center gap-1.5">
+                              <span>{link.label}</span>
+                              {(link.badgeCount ?? 0) > 0 ? (
+                                <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                                  {link.badgeCount}
+                                </span>
+                              ) : null}
                             </span>
-                          ) : null}
-                        </span>
-                        {link.showUnread && unreadCount > 0 ? (
-                          <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
-                            {unreadCount}
-                          </span>
-                        ) : null}
-                      </Link>
-                    );
-                  })}
+                            {link.showUnread && unreadCount > 0 ? (
+                              <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                                {unreadCount}
+                              </span>
+                            ) : null}
+                          </Link>
+                        );
+                      })}
+                    </section>
+                  ))}
                 </nav>
               </div>
               {isAuthed ? (

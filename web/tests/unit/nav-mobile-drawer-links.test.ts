@@ -1,7 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { MAIN_NAV_LINKS } from "@/components/layout/MainNav";
-import { buildMobileNavLinks } from "@/components/layout/NavMobileDrawerClient";
+import {
+  buildMobileNavLinkGroups,
+  buildMobileNavLinks,
+} from "@/components/layout/NavMobileDrawerClient";
 
 void test("mobile drawer links are role-aware", () => {
   const adminLinks = buildMobileNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "admin" });
@@ -59,4 +62,38 @@ void test("mobile drawer links are role-aware", () => {
     tenantLinks.find((link) => link.href === "/tenant/saved"),
     "tenant should see Saved link"
   );
+});
+
+void test("mobile drawer groups include Help & Support, Company, and Legal sections", () => {
+  const groups = buildMobileNavLinkGroups(MAIN_NAV_LINKS, { isAuthed: true, role: "tenant" });
+  const titles = groups.map((group) => group.title);
+
+  assert.ok(titles.includes("Main"));
+  assert.ok(titles.includes("Help & Support"));
+  assert.ok(titles.includes("Company"));
+  assert.ok(titles.includes("Legal"));
+
+  const helpGroup = groups.find((group) => group.title === "Help & Support");
+  assert.ok(helpGroup?.links.find((link) => link.href === "/help/tenant"));
+  assert.ok(helpGroup?.links.find((link) => link.href === "/support"));
+
+  const companyGroup = groups.find((group) => group.title === "Company");
+  assert.ok(companyGroup?.links.find((link) => link.href === "/about"));
+  assert.ok(companyGroup?.links.find((link) => link.href === "/help/referrals"));
+
+  const legalGroup = groups.find((group) => group.title === "Legal");
+  assert.ok(legalGroup?.links.find((link) => link.href === "/legal"));
+  assert.ok(legalGroup?.links.find((link) => link.href === "/legal/disclaimer"));
+});
+
+void test("admin mobile drawer retains admin support and legal access via grouped sections", () => {
+  const groups = buildMobileNavLinkGroups(MAIN_NAV_LINKS, { isAuthed: true, role: "admin" });
+  const mainGroup = groups.find((group) => group.title === "Main");
+  const helpGroup = groups.find((group) => group.title === "Help & Support");
+  const legalGroup = groups.find((group) => group.title === "Legal");
+
+  assert.ok(mainGroup?.links.find((link) => link.href === "/admin"));
+  assert.ok(helpGroup?.links.find((link) => link.href === "/admin/support"));
+  assert.ok(legalGroup?.links.find((link) => link.href === "/admin/legal"));
+  assert.ok(legalGroup?.links.find((link) => link.href === "/legal/disclaimer"));
 });
