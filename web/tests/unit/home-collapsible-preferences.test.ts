@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  buildHomeCollapsedStorageKey,
   parseCollapsedPreference,
   readCollapsedPreference,
   toggleCollapsedPreference,
@@ -46,6 +47,25 @@ void test("toggle helper flips collapsed state and persists storage value", () =
   assert.equal(readCollapsedPreference(storage, "home:test:key", false), true);
 });
 
+void test("home collapsible storage keys are scoped by role and user", () => {
+  const landlordKey = buildHomeCollapsedStorageKey({
+    role: "landlord",
+    userId: "host_1",
+    section: "workspace-tools",
+    version: "v2",
+  });
+  const agentKey = buildHomeCollapsedStorageKey({
+    role: "agent",
+    userId: "agent_1",
+    section: "workspace-tools",
+    version: "v2",
+  });
+
+  assert.equal(landlordKey, "home:landlord:host_1:workspace-tools:collapsed:v2");
+  assert.equal(agentKey, "home:agent:agent_1:workspace-tools:collapsed:v2");
+  assert.notEqual(landlordKey, agentKey);
+});
+
 void test("home pages wire role-specific localStorage keys for collapsible sections", () => {
   const tenantPath = path.join(process.cwd(), "app", "tenant", "home", "page.tsx");
   const hostPath = path.join(process.cwd(), "app", "host", "page.tsx");
@@ -65,10 +85,13 @@ void test("home pages wire role-specific localStorage keys for collapsible secti
   assert.match(hostContents, /home:host:trust-status:collapsed:v1/);
   assert.match(hostContents, /HomeCollapsibleSection/);
 
-  assert.match(homeContents, /home:host:workspace-tools:collapsed:v1/);
-  assert.match(homeContents, /home:host:getting-started:collapsed:v1/);
-  assert.match(homeContents, /home:host:snapshot:collapsed:v1/);
-  assert.match(homeContents, /home:host:demand-alerts:collapsed:v1/);
+  assert.match(homeContents, /buildHomeCollapsedStorageKey/);
+  assert.match(homeContents, /section: "workspace-tools"/);
+  assert.match(homeContents, /section: "getting-started"/);
+  assert.match(homeContents, /section: "snapshot"/);
+  assert.match(homeContents, /section: "analytics-preview"/);
+  assert.match(homeContents, /section: "demand-alerts"/);
+  assert.match(homeContents, /version: "v2"/);
   assert.match(homeContents, /HomeCollapsibleSection/);
   assert.match(homeContents, /HostGettingStartedSection/);
 

@@ -15,6 +15,7 @@ void test("/home renders featured/new/saved/viewed rails before technical panels
   const workspaceToolsIndex = contents.indexOf('testId="home-workspace-tools"');
   const checklistIndex = contents.indexOf('testId="home-getting-started"');
   const snapshotIndex = contents.indexOf('testId="home-snapshot-panel"');
+  const analyticsIndex = contents.indexOf('testId="home-analytics-panel"');
   const demandAlertsIndex = contents.indexOf('testId="home-demand-alerts"');
 
   assert.ok(featuredStripIndex >= 0, "expected featured strip marker");
@@ -25,6 +26,7 @@ void test("/home renders featured/new/saved/viewed rails before technical panels
   assert.ok(workspaceToolsIndex >= 0, "expected workspace tools marker");
   assert.ok(checklistIndex >= 0, "expected checklist marker");
   assert.ok(snapshotIndex >= 0, "expected snapshot marker");
+  assert.ok(analyticsIndex >= 0, "expected analytics marker");
   assert.ok(demandAlertsIndex >= 0, "expected demand alerts marker");
 
   assert.ok(featuredStripIndex < workspaceToolsIndex, "expected featured strip above technical tools");
@@ -33,6 +35,7 @@ void test("/home renders featured/new/saved/viewed rails before technical panels
   assert.ok(mostViewedIndex < workspaceToolsIndex, "expected most-viewed rail above technical tools");
   assert.ok(forYouGridIndex < checklistIndex, "expected for-you grid above checklist");
   assert.ok(forYouGridIndex < snapshotIndex, "expected for-you grid above snapshot");
+  assert.ok(forYouGridIndex < analyticsIndex, "expected for-you grid above analytics");
   assert.ok(forYouGridIndex < demandAlertsIndex, "expected for-you grid above demand alerts");
 });
 

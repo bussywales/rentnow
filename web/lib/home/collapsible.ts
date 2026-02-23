@@ -3,6 +3,24 @@ export type StorageLike = {
   setItem: (key: string, value: string) => void;
 };
 
+export type HomeCollapsedSection =
+  | "workspace-tools"
+  | "getting-started"
+  | "snapshot"
+  | "demand-alerts"
+  | "analytics-preview";
+
+export function buildHomeCollapsedStorageKey(input: {
+  role: "agent" | "landlord";
+  userId?: string | null;
+  section: HomeCollapsedSection;
+  version?: string;
+}): string {
+  const version = input.version || "v1";
+  const identityScope = input.userId ? `${input.role}:${input.userId}` : input.role;
+  return `home:${identityScope}:${input.section}:collapsed:${version}`;
+}
+
 export function parseCollapsedPreference(
   value: string | null,
   defaultCollapsed = true

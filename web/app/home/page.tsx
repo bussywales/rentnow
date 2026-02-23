@@ -10,6 +10,7 @@ import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
 import { summarizeChecklist } from "@/lib/checklists/role-checklists";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import { resolveServerRole } from "@/lib/auth/role";
+import { buildHomeCollapsedStorageKey } from "@/lib/home/collapsible";
 import { loadHomeFeedRails } from "@/lib/home/home-feed.server";
 import { fetchOwnerListings } from "@/lib/properties/owner-listings";
 import { computeDashboardListings, type DashboardListing } from "@/lib/properties/host-dashboard";
@@ -39,11 +40,6 @@ type Snapshot = {
   pendingListings: number;
   updatedThisWeek: number;
 };
-
-const HOME_WORKSPACE_TOOLS_COLLAPSED_KEY = "home:host:workspace-tools:collapsed:v1";
-const HOME_GETTING_STARTED_COLLAPSED_KEY = "home:host:getting-started:collapsed:v1";
-const HOME_SNAPSHOT_COLLAPSED_KEY = "home:host:snapshot:collapsed:v1";
-const HOME_DEMAND_ALERTS_COLLAPSED_KEY = "home:host:demand-alerts:collapsed:v1";
 
 function formatCount(value: number): string {
   return Math.max(0, Number(value || 0)).toLocaleString();
@@ -139,6 +135,38 @@ export default async function HomeWorkspacePage() {
     mostViewed: (listingsResult.data || []).slice(0, 6),
     shortletsToBook: (listingsResult.data || []).slice(0, 6),
   }));
+  const collapsedKeys = {
+    workspaceTools: buildHomeCollapsedStorageKey({
+      role,
+      userId: user.id,
+      section: "workspace-tools",
+      version: "v2",
+    }),
+    gettingStarted: buildHomeCollapsedStorageKey({
+      role,
+      userId: user.id,
+      section: "getting-started",
+      version: "v2",
+    }),
+    snapshot: buildHomeCollapsedStorageKey({
+      role,
+      userId: user.id,
+      section: "snapshot",
+      version: "v2",
+    }),
+    demandAlerts: buildHomeCollapsedStorageKey({
+      role,
+      userId: user.id,
+      section: "demand-alerts",
+      version: "v2",
+    }),
+    analyticsPreview: buildHomeCollapsedStorageKey({
+      role,
+      userId: user.id,
+      section: "analytics-preview",
+      version: "v2",
+    }),
+  };
 
   return (
     <div
@@ -233,7 +261,7 @@ export default async function HomeWorkspacePage() {
       <HomeCollapsibleSection
         title="Workspace tools"
         description="Operational controls are always available, but no longer block your feed."
-        storageKey={HOME_WORKSPACE_TOOLS_COLLAPSED_KEY}
+        storageKey={collapsedKeys.workspaceTools}
         defaultCollapsed
         testId="home-workspace-tools"
       >
@@ -256,7 +284,7 @@ export default async function HomeWorkspacePage() {
             ? `${checklistRemaining} items to complete.`
             : "All key setup milestones are complete."
         }
-        storageKey={HOME_GETTING_STARTED_COLLAPSED_KEY}
+        storageKey={collapsedKeys.gettingStarted}
         defaultCollapsed
         testId="home-getting-started"
       >
@@ -274,7 +302,7 @@ export default async function HomeWorkspacePage() {
       <HomeCollapsibleSection
         title="Snapshot"
         description="Current portfolio health at a glance."
-        storageKey={HOME_SNAPSHOT_COLLAPSED_KEY}
+        storageKey={collapsedKeys.snapshot}
         defaultCollapsed
         testId="home-snapshot-panel"
       >
@@ -299,9 +327,38 @@ export default async function HomeWorkspacePage() {
       </HomeCollapsibleSection>
 
       <HomeCollapsibleSection
+        title="Analytics preview"
+        description="Compact demand diagnostics for this week."
+        storageKey={collapsedKeys.analyticsPreview}
+        defaultCollapsed
+        testId="home-analytics-panel"
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Featured feed cards</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">{formatCount(feedRails.featured.length)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Shortlets to book</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">{formatCount(feedRails.shortletsToBook.length)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Most saved candidates</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">{formatCount(feedRails.mostSaved.length)}</p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs uppercase tracking-[0.16em] text-slate-500">New demand matches</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">
+              {formatCount(savedSearchSummary.totalNewMatches)}
+            </p>
+          </div>
+        </div>
+      </HomeCollapsibleSection>
+
+      <HomeCollapsibleSection
         title="Demand alerts"
         description="Saved-search signals and tenant demand, without overwhelming the top of page."
-        storageKey={HOME_DEMAND_ALERTS_COLLAPSED_KEY}
+        storageKey={collapsedKeys.demandAlerts}
         defaultCollapsed
         testId="home-demand-alerts"
       >
