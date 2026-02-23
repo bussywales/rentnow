@@ -571,7 +571,7 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
 
   const renderEmptyState = () => {
     const isNewTab = selectedTab === "new";
-    const linkHref = isAdmin ? "/admin/listings" : "/dashboard/properties";
+    const linkHref = isAdmin ? "/admin/listings" : "/host/properties";
     return (
       <div className="rounded-3xl border border-dashed border-slate-200 bg-white p-8 text-center">
         <p className="text-base font-semibold text-slate-900">
