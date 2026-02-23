@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
@@ -44,7 +44,6 @@ export function HomeListingRail({
 }: Props) {
   const railRef = useRef<HTMLDivElement | null>(null);
   const [hasOverflow, setHasOverflow] = useState(false);
-  const stableImageSrcByListingId = useMemo(() => new Map<string, string | null>(), []);
 
   useEffect(() => {
     const rail = railRef.current;
@@ -129,12 +128,7 @@ export function HomeListingRail({
           className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-1 pr-4 scroll-px-4 sm:px-6 sm:pr-6 sm:scroll-px-6"
         >
           {listings.map((listing, index) => {
-            const stableSrcKey = listing.id || `${listing.title}-${index}`;
-            const currentSrc = getPrimaryImageUrl(listing);
-            if (currentSrc && !stableImageSrcByListingId.has(stableSrcKey)) {
-              stableImageSrcByListingId.set(stableSrcKey, currentSrc);
-            }
-            const imageUrl = stableImageSrcByListingId.get(stableSrcKey) || currentSrc;
+            const imageUrl = getPrimaryImageUrl(listing);
             const loadingProfile = resolveImageLoadingProfile(
               shouldPriorityImage({
                 surface: "properties_list",
