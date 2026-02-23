@@ -985,7 +985,7 @@ export function HostDashboardContent({
             </div>
           </HostHomePanel>
           {sorted.length ? (
-            <div className="grid min-w-0 gap-4 md:grid-cols-2">
+            <div className="grid min-w-0 w-full overflow-x-hidden gap-4 md:grid-cols-2">
           {sorted.map((property) => {
             const status = normalizeStatus(property);
             const normalizedStatus = normalizePropertyStatus(status) ?? status;

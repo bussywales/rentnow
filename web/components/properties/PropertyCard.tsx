@@ -163,9 +163,9 @@ export function PropertyCard({
   const imageBlock = (
     <div
       className={cn(
-        "relative",
+        "relative overflow-hidden bg-slate-100",
         compact
-          ? "h-40 w-full shrink-0 flex-none min-[360px]:h-32 min-[360px]:w-32"
+          ? "aspect-[4/3] w-full shrink-0 flex-none"
           : "aspect-[4/3] w-full"
       )}
     >
@@ -215,8 +215,8 @@ export function PropertyCard({
   return (
     <div
       className={cn(
-        "card h-full min-w-0 overflow-hidden rounded-2xl bg-white transition hover:-translate-y-0.5 hover:shadow-xl",
-        compact && "flex flex-col min-[360px]:flex-row"
+        "card h-full min-w-0 w-full max-w-full overflow-hidden rounded-2xl bg-white transition hover:-translate-y-0.5 hover:shadow-xl",
+        compact && "flex flex-col"
       )}
       data-testid="property-card"
     >
