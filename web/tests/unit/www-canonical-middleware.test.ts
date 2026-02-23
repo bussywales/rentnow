@@ -30,3 +30,10 @@ void test("host=localhost does not redirect", () => {
   assert.equal(redirect, null);
 });
 
+void test("preview hosts are not redirected by canonical rule", () => {
+  const redirect = resolveWwwCanonicalRedirect(
+    new URL("https://rentnow-ashem.vercel.app/dashboard/properties/abc?x=1"),
+    "production"
+  );
+  assert.equal(redirect, null);
+});

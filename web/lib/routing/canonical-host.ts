@@ -5,11 +5,16 @@ export function resolveWwwCanonicalRedirect(
   requestUrl: URL,
   runtimeEnv: string = process.env.NODE_ENV ?? ""
 ): URL | null {
+  const hostname = requestUrl.hostname.toLowerCase();
   if (runtimeEnv === "development") {
     return null;
   }
 
-  if (requestUrl.hostname.toLowerCase() !== LEGACY_ROOT_HOST) {
+  if (hostname === "localhost" || hostname.endsWith(".localhost")) {
+    return null;
+  }
+
+  if (hostname !== LEGACY_ROOT_HOST) {
     return null;
   }
 
@@ -19,4 +24,3 @@ export function resolveWwwCanonicalRedirect(
   canonical.port = "";
   return canonical;
 }
-
