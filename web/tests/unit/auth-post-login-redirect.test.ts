@@ -5,9 +5,9 @@ import {
   resolvePostLoginRedirect,
 } from "@/lib/auth/post-login-redirect";
 
-void test("agent and landlord default post-login destination is /host", () => {
-  assert.equal(resolvePostLoginRedirect({ role: "agent" }), "/host");
-  assert.equal(resolvePostLoginRedirect({ role: "landlord" }), "/host");
+void test("agent and landlord default post-login destination is /home", () => {
+  assert.equal(resolvePostLoginRedirect({ role: "agent" }), "/home");
+  assert.equal(resolvePostLoginRedirect({ role: "landlord" }), "/home");
 });
 
 void test("tenant and admin default post-login destinations stay role-specific", () => {

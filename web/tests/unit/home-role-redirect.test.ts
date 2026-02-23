@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-void test("/home redirects roles to their canonical workspaces", () => {
+void test("/home keeps host-side roles on the visual landing while redirecting tenant/admin", () => {
   const homePath = path.join(process.cwd(), "app", "home", "page.tsx");
   const contents = fs.readFileSync(homePath, "utf8");
 
@@ -24,11 +24,11 @@ void test("/home redirects roles to their canonical workspaces", () => {
     "expected admin redirect to /admin"
   );
   assert.ok(
-    contents.includes('if (role === "agent" || role === "landlord")'),
-    "expected host-side role branch"
+    !contents.includes('redirect("/host")'),
+    "expected host-side roles to stay on /home"
   );
   assert.ok(
-    contents.includes('redirect("/host")'),
-    "expected host-side roles to redirect to /host"
+    contents.includes("data-testid=\"home-visual-landing\""),
+    "expected visual landing marker on /home"
   );
 });

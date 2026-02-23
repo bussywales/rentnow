@@ -33,7 +33,7 @@ export function resolvePostLoginRedirect({
   }
 
   if (role === "agent" || role === "landlord") {
-    return "/host";
+    return "/home";
   }
 
   return "/dashboard";
