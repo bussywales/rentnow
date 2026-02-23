@@ -16,6 +16,11 @@ const QUICK_ACTIONS: Array<{ id: string; label: string; href: string }> = [
 export function SupportWidget() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [chatInput, setChatInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
+  const [assistantBusy, setAssistantBusy] = useState(false);
+  const [shouldEscalate, setShouldEscalate] = useState(false);
+  const [escalationReason, setEscalationReason] = useState<string | null>(null);
   const [suggested, setSuggested] = useState<Array<{ title: string; href: string; snippet: string }>>([]);
   const [searching, setSearching] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -89,6 +94,72 @@ export function SupportWidget() {
       clearTimeout(timeout);
     };
   }, [open, query]);
+
+  const handleAssistantSend = useCallback(async () => {
+    const message = chatInput.trim();
+    if (!message || assistantBusy) return;
+
+    const nextHistory = [...chatMessages, { role: "user" as const, content: message }];
+    setChatMessages(nextHistory);
+    setChatInput("");
+    setAssistantBusy(true);
+
+    try {
+      const response = await fetch("/api/support/assistant", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message,
+          history: chatMessages,
+        }),
+      });
+
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        setChatMessages((prev) => [
+          ...prev,
+          {
+            role: "assistant",
+            content: "I could not process that right now. Please open full support so we can help directly.",
+          },
+        ]);
+        setShouldEscalate(true);
+        setEscalationReason("assistant_error");
+        return;
+      }
+
+      const assistantReply =
+        typeof body?.answer === "string" && body.answer.trim().length
+          ? body.answer.trim()
+          : "I found related help guidance above.";
+      setChatMessages((prev) => [...prev, { role: "assistant", content: assistantReply }]);
+      setShouldEscalate(Boolean(body?.shouldEscalate));
+      setEscalationReason(typeof body?.escalationReason === "string" ? body.escalationReason : null);
+      if (Array.isArray(body?.suggestedArticles) && body.suggestedArticles.length > 0) {
+        setSuggested(
+          body.suggestedArticles.map(
+            (item: { title?: string; href?: string; snippet?: string }) => ({
+              title: item.title || "Support article",
+              href: item.href || "/support",
+              snippet: item.snippet || "",
+            })
+          )
+        );
+      }
+    } catch {
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: "Network issue detected. Please try again or escalate to support.",
+        },
+      ]);
+      setShouldEscalate(true);
+      setEscalationReason("network_error");
+    } finally {
+      setAssistantBusy(false);
+    }
+  }, [assistantBusy, chatInput, chatMessages]);
 
   return (
     <div className="fixed bottom-4 right-4 z-[55] sm:bottom-6 sm:right-6" data-testid="support-widget">
@@ -173,6 +244,73 @@ export function SupportWidget() {
             >
               Open full support page
             </Link>
+          </div>
+
+          <div className="mt-3 rounded-xl border border-slate-200 bg-white p-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Ask assistant</p>
+              {assistantBusy ? <p className="text-xs text-slate-400">Thinking…</p> : null}
+            </div>
+
+            <div className="mt-2 max-h-40 space-y-2 overflow-y-auto pr-1" data-testid="support-widget-chat-thread">
+              {chatMessages.length === 0 ? (
+                <p className="text-xs text-slate-500">
+                  Ask a support question and I&apos;ll answer from our help docs.
+                </p>
+              ) : (
+                chatMessages.map((message, index) => (
+                  <div
+                    key={`${message.role}:${index}`}
+                    className={`rounded-lg px-3 py-2 text-xs ${
+                      message.role === "user"
+                        ? "ml-6 bg-sky-50 text-sky-900"
+                        : "mr-6 bg-slate-100 text-slate-700"
+                    }`}
+                  >
+                    {message.content}
+                  </div>
+                ))
+              )}
+            </div>
+
+            <div className="mt-2 flex gap-2">
+              <input
+                value={chatInput}
+                onChange={(event) => setChatInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" || event.shiftKey) return;
+                  event.preventDefault();
+                  void handleAssistantSend();
+                }}
+                placeholder="Ask about bookings, payments, approvals..."
+                className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
+                data-testid="support-widget-chat-input"
+              />
+              <Button
+                type="button"
+                onClick={() => void handleAssistantSend()}
+                disabled={assistantBusy || chatInput.trim().length < 2}
+                size="sm"
+              >
+                Ask
+              </Button>
+            </div>
+
+            {shouldEscalate ? (
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+                <p className="text-xs text-amber-800">
+                  This looks like it needs human follow-up{escalationReason ? ` (${escalationReason})` : ""}.
+                </p>
+                <Link
+                  href="/support"
+                  onClick={close}
+                  className="mt-1 inline-flex text-xs font-semibold text-amber-900 underline underline-offset-4"
+                  data-testid="support-widget-escalate"
+                >
+                  Escalate to Support
+                </Link>
+              </div>
+            ) : null}
           </div>
         </div>
       ) : (

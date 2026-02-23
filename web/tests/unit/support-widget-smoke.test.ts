@@ -18,8 +18,10 @@ void test("support widget exposes open, close, quick actions, and /support fallb
   assert.match(source, /data-testid="support-widget-toggle"/);
   assert.match(source, /data-testid="support-widget-panel"/);
   assert.match(source, /data-testid="support-widget-search"/);
+  assert.match(source, /data-testid="support-widget-chat-thread"/);
+  assert.match(source, /data-testid="support-widget-chat-input"/);
+  assert.match(source, /data-testid="support-widget-escalate"/);
   assert.match(source, /Open full support page/);
   assert.match(source, /href="\/support"/);
   assert.match(source, /if\s*\(event\.key === "Escape"\)/);
 });
-
