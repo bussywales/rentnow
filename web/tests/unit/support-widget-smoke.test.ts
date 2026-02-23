@@ -21,6 +21,8 @@ void test("support widget exposes open, close, quick actions, and /support fallb
   assert.match(source, /data-testid="support-widget-chat-thread"/);
   assert.match(source, /data-testid="support-widget-chat-input"/);
   assert.match(source, /data-testid="support-widget-escalate"/);
+  assert.match(source, /data-testid="support-widget-ticket"/);
+  assert.match(source, /fetch\("\/api\/support\/escalate"/);
   assert.match(source, /Open full support page/);
   assert.match(source, /href="\/support"/);
   assert.match(source, /if\s*\(event\.key === "Escape"\)/);

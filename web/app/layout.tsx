@@ -21,6 +21,8 @@ import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 import { getMarketSettings } from "@/lib/market/market.server";
 import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/market";
 import { MarketPreferenceProvider } from "@/components/layout/MarketPreferenceProvider";
+import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { normalizeRole } from "@/lib/roles";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -86,6 +88,31 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  let supportPrefillName: string | null = null;
+  let supportPrefillEmail: string | null = null;
+  let supportPrefillRole: string | null = null;
+
+  if (hasServerSupabaseEnv()) {
+    try {
+      const supabase = await createServerSupabaseClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        supportPrefillEmail = user.email ?? null;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name,role")
+          .eq("id", user.id)
+          .maybeSingle();
+        supportPrefillName = profile?.full_name ?? null;
+        supportPrefillRole = normalizeRole(profile?.role);
+      }
+    } catch {
+      // Keep support prefill optional if auth resolution fails.
+    }
+  }
+
   const demoBadgeEnabled = await getAppSettingBool(APP_SETTING_KEYS.demoBadgeEnabled, true);
   const demoWatermarkEnabled = await getAppSettingBool(
     APP_SETTING_KEYS.demoWatermarkEnabled,
@@ -124,7 +151,11 @@ export default async function RootLayout({
           <OfflineIndicator />
           <PwaServiceWorker />
           <main className="min-h-[80vh] pb-24 pt-6">{children}</main>
-          <SupportWidget />
+          <SupportWidget
+            prefillName={supportPrefillName}
+            prefillEmail={supportPrefillEmail}
+            prefillRole={supportPrefillRole}
+          />
           <Footer />
           <LegalDisclaimerBanner />
         </MarketPreferenceProvider>

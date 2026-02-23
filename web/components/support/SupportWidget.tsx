@@ -13,7 +13,25 @@ const QUICK_ACTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "contact-support", label: "Contact support", href: "/support" },
 ];
 
-export function SupportWidget() {
+type Props = {
+  prefillName?: string | null;
+  prefillEmail?: string | null;
+  prefillRole?: string | null;
+};
+
+function mapEscalationReasonToCategory(reason: string | null) {
+  if (!reason) return "general";
+  if (reason.includes("charge")) return "billing";
+  if (reason.includes("keyword")) return "safety";
+  if (reason.includes("booking")) return "listing";
+  return "general";
+}
+
+export function SupportWidget({
+  prefillName = null,
+  prefillEmail = null,
+  prefillRole = null,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [chatInput, setChatInput] = useState("");
@@ -21,6 +39,13 @@ export function SupportWidget() {
   const [assistantBusy, setAssistantBusy] = useState(false);
   const [shouldEscalate, setShouldEscalate] = useState(false);
   const [escalationReason, setEscalationReason] = useState<string | null>(null);
+  const [contactName, setContactName] = useState(prefillName ?? "");
+  const [contactEmail, setContactEmail] = useState(prefillEmail ?? "");
+  const [escalationNote, setEscalationNote] = useState("");
+  const [showEscalationForm, setShowEscalationForm] = useState(false);
+  const [escalating, setEscalating] = useState(false);
+  const [escalationTicketId, setEscalationTicketId] = useState<string | null>(null);
+  const [escalationError, setEscalationError] = useState<string | null>(null);
   const [suggested, setSuggested] = useState<Array<{ title: string; href: string; snippet: string }>>([]);
   const [searching, setSearching] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -95,6 +120,13 @@ export function SupportWidget() {
     };
   }, [open, query]);
 
+  useEffect(() => {
+    if (!shouldEscalate || escalationNote.trim()) return;
+    const latestUserMessage = [...chatMessages].reverse().find((item) => item.role === "user");
+    if (!latestUserMessage?.content) return;
+    setEscalationNote(latestUserMessage.content);
+  }, [chatMessages, escalationNote, shouldEscalate]);
+
   const handleAssistantSend = useCallback(async () => {
     const message = chatInput.trim();
     if (!message || assistantBusy) return;
@@ -160,6 +192,58 @@ export function SupportWidget() {
       setAssistantBusy(false);
     }
   }, [assistantBusy, chatInput, chatMessages]);
+
+  const handleEscalateSubmit = useCallback(async () => {
+    if (!shouldEscalate || escalating) return;
+    const message = escalationNote.trim();
+    if (message.length < 10) {
+      setEscalationError("Add a bit more detail before escalating.");
+      return;
+    }
+    if (!contactEmail.trim()) {
+      setEscalationError("Email is required so support can reply.");
+      return;
+    }
+
+    setEscalationError(null);
+    setEscalating(true);
+    try {
+      const response = await fetch("/api/support/escalate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          category: mapEscalationReasonToCategory(escalationReason),
+          name: contactName.trim() || null,
+          email: contactEmail.trim(),
+          role: prefillRole || null,
+          message,
+          pageUrl: typeof window !== "undefined" ? window.location.href : null,
+          escalationReason,
+          aiTranscript: chatMessages,
+        }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok) {
+        setEscalationError(body?.error || "Unable to escalate right now.");
+        return;
+      }
+      setEscalationTicketId(typeof body?.requestId === "string" ? body.requestId : "submitted");
+      setShowEscalationForm(false);
+    } catch {
+      setEscalationError("Unable to escalate right now.");
+    } finally {
+      setEscalating(false);
+    }
+  }, [
+    shouldEscalate,
+    escalating,
+    escalationNote,
+    contactEmail,
+    escalationReason,
+    contactName,
+    prefillRole,
+    chatMessages,
+  ]);
 
   return (
     <div className="fixed bottom-4 right-4 z-[55] sm:bottom-6 sm:right-6" data-testid="support-widget">
@@ -301,14 +385,49 @@ export function SupportWidget() {
                 <p className="text-xs text-amber-800">
                   This looks like it needs human follow-up{escalationReason ? ` (${escalationReason})` : ""}.
                 </p>
-                <Link
-                  href="/support"
-                  onClick={close}
-                  className="mt-1 inline-flex text-xs font-semibold text-amber-900 underline underline-offset-4"
-                  data-testid="support-widget-escalate"
-                >
-                  Escalate to Support
-                </Link>
+                {escalationTicketId ? (
+                  <p className="mt-1 text-xs font-semibold text-emerald-800" data-testid="support-widget-ticket">
+                    Ticket received — reference #{escalationTicketId}
+                  </p>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowEscalationForm((prev) => !prev)}
+                    className="mt-1 inline-flex text-xs font-semibold text-amber-900 underline underline-offset-4"
+                    data-testid="support-widget-escalate"
+                  >
+                    Escalate to Support
+                  </button>
+                )}
+
+                {showEscalationForm ? (
+                  <div className="mt-2 space-y-2 rounded-lg border border-amber-200 bg-white p-2">
+                    <input
+                      value={contactName}
+                      onChange={(event) => setContactName(event.target.value)}
+                      placeholder="Name (optional)"
+                      className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-sky-500"
+                    />
+                    <input
+                      value={contactEmail}
+                      onChange={(event) => setContactEmail(event.target.value)}
+                      placeholder="Email"
+                      type="email"
+                      className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-sky-500"
+                    />
+                    <textarea
+                      value={escalationNote}
+                      onChange={(event) => setEscalationNote(event.target.value)}
+                      rows={3}
+                      placeholder="Tell us what is failing and what you already tried."
+                      className="w-full rounded-md border border-slate-200 px-2 py-1.5 text-xs outline-none focus:border-sky-500"
+                    />
+                    {escalationError ? <p className="text-xs text-rose-600">{escalationError}</p> : null}
+                    <Button type="button" size="sm" onClick={() => void handleEscalateSubmit()} disabled={escalating}>
+                      {escalating ? "Sending…" : "Send to support"}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
