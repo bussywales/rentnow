@@ -155,7 +155,7 @@ export function HostFeaturedStrip({
         ) : null}
         <div
           ref={railRef}
-          className="flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-1 pr-4 scroll-px-4 sm:px-6 sm:pr-6 sm:scroll-px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-1 pr-4 scroll-px-4 sm:px-6 sm:pr-6 sm:scroll-px-6"
         >
           {featuredListings.map((listing, index) => {
             const imageUrl = getPrimaryImageUrl(listing);
@@ -172,7 +172,7 @@ export function HostFeaturedStrip({
             return (
               <article
                 key={listing.id}
-                className="w-[220px] max-w-full shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-white sm:w-[240px] lg:w-[280px]"
+                className="w-[220px] max-w-full shrink-0 snap-start snap-always overflow-hidden rounded-2xl border border-slate-200 bg-white sm:w-[240px] lg:w-[280px]"
                 data-testid={`host-featured-strip-card-${listing.id}`}
               >
                 <Link

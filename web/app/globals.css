@@ -71,3 +71,13 @@ body[data-demo-watermark-enabled="false"] .property-demo-watermark {
 body[data-featured-listings-enabled="false"] .property-featured-badge {
   display: none !important;
 }
+
+/* Hide scrollbar while preserving scroll interactions */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
