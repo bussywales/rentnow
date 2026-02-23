@@ -1,4 +1,7 @@
 export const smokeSelectors = {
+  homeVisualLanding: "home-visual-landing",
+  homeFeaturedStrip: "home-featured-strip",
+  homeForYouGrid: "home-for-you-grid",
   shortletsShell: "shortlets-search-shell",
   shortletsStickyPill: "shortlets-compact-search-pill",
   shortletsFiltersButton: "shortlets-filters-button",
@@ -31,6 +34,10 @@ export const smokeSelectors = {
   hostLeadsFilters: "host-leads-filters",
   hostLeadsResults: "host-leads-results",
   hostLeadsFilterStatus: "host-leads-filter-status",
+  hostPropertiesPage: "host-properties-page",
+  hostPropertiesManager: "host-properties-manager",
+  hostPropertiesResults: "host-properties-manager-results",
+  hostPropertiesFilterLive: "host-properties-filter-live",
   adminShortletsOpsRoot: "admin-shortlets-ops",
   adminShortletsOpsRefresh: "admin-shortlets-ops-refresh",
   adminShortletsOpsMetrics: "admin-shortlets-ops-metrics",
