@@ -1,0 +1,20 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
+
+void test("host listings mosaic grid uses responsive editorial columns", () => {
+  const filePath = path.join(process.cwd(), "components", "host", "HostListingsMasonryGrid.tsx");
+  const source = fs.readFileSync(filePath, "utf8");
+
+  assert.match(source, /grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3/);
+});
+
+void test("host listings mosaic tiles enforce aspect rhythm and max media height", () => {
+  const filePath = path.join(process.cwd(), "components", "host", "HostListingsMasonryGrid.tsx");
+  const source = fs.readFileSync(filePath, "utf8");
+
+  assert.match(source, /getHostListingTileAspectClass\(pattern\)/);
+  assert.match(source, /max-h-\[60vh\]/);
+  assert.match(source, /className="h-full w-full object-cover transition duration-300"/);
+});

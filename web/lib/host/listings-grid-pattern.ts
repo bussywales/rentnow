@@ -1,29 +1,26 @@
-export type HostListingTilePattern = "tall" | "square" | "wide";
-
-const HOST_LISTINGS_GRID_CYCLE: HostListingTilePattern[] = [
-  "tall",
-  "square",
-  "square",
-  "wide",
-  "square",
-  "tall",
-];
+export type HostListingTilePattern = "portrait" | "square" | "landscape";
 
 export function getHostListingTilePattern(index: number): HostListingTilePattern {
   if (!Number.isFinite(index) || index < 0) {
-    return HOST_LISTINGS_GRID_CYCLE[0];
+    return "portrait";
   }
-  return HOST_LISTINGS_GRID_CYCLE[Math.floor(index) % HOST_LISTINGS_GRID_CYCLE.length];
+
+  const position = Math.floor(index) + 1;
+  if (position % 7 === 0) {
+    return "landscape";
+  }
+  if (position % 5 === 0) {
+    return "square";
+  }
+  return "portrait";
 }
 
-export function getHostListingTileClass(pattern: HostListingTilePattern): string {
-  if (pattern === "tall") {
-    return "row-span-36 md:row-span-38";
+export function getHostListingTileAspectClass(pattern: HostListingTilePattern): string {
+  if (pattern === "landscape") {
+    return "aspect-[16/9]";
   }
-
-  if (pattern === "wide") {
-    return "row-span-30 md:col-span-2 md:row-span-32 xl:col-span-2";
+  if (pattern === "square") {
+    return "aspect-square";
   }
-
-  return "row-span-30 md:row-span-32";
+  return "aspect-[4/5]";
 }

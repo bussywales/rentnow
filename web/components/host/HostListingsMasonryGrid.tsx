@@ -8,7 +8,7 @@ import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import { resolveImageLoadingProfile, shouldPriorityImage } from "@/lib/images/loading-profile";
 import {
-  getHostListingTileClass,
+  getHostListingTileAspectClass,
   getHostListingTilePattern,
 } from "@/lib/host/listings-grid-pattern";
 import type { DashboardListing } from "@/lib/properties/host-dashboard";
@@ -80,7 +80,7 @@ export function HostListingsMasonryGrid({ listings }: Props) {
         </Link>
       </div>
 
-      <div className="grid auto-rows-[8px] grid-cols-2 gap-2.5 md:grid-cols-3 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {visibleListings.map((listing, index) => {
           const imageUrl = getPrimaryImageUrl(listing);
           const pattern = getHostListingTilePattern(index);
@@ -98,12 +98,18 @@ export function HostListingsMasonryGrid({ listings }: Props) {
             <article
               key={listing.id}
               className={cn(
-                "group relative min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 transition duration-200 hover:-translate-y-0.5 hover:shadow-md",
-                getHostListingTileClass(pattern)
+                "group relative min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 transition duration-200",
+                "w-full max-w-full"
               )}
               data-testid={`host-home-listings-grid-card-${listing.id}`}
             >
-              <div className="absolute inset-0">
+              <div
+                className={cn(
+                  "relative w-full max-w-full overflow-hidden bg-slate-100",
+                  "max-h-[60vh]",
+                  getHostListingTileAspectClass(pattern)
+                )}
+              >
                 <div
                   className={cn(
                     "absolute inset-0 z-[1] animate-pulse bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 transition-opacity duration-300",
@@ -117,7 +123,7 @@ export function HostListingsMasonryGrid({ listings }: Props) {
                     alt={listing.title}
                     fill
                     sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                    className="object-cover transition duration-300 group-hover:scale-[1.02]"
+                    className="h-full w-full object-cover transition duration-300"
                     priority={loadingProfile.priority}
                     loading={loadingProfile.loading}
                     fetchPriority={loadingProfile.fetchPriority}
@@ -128,27 +134,26 @@ export function HostListingsMasonryGrid({ listings }: Props) {
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-slate-200 to-slate-100" />
                 )}
-              </div>
+                <div className="absolute inset-x-0 top-0 z-[1] flex items-start justify-between p-2.5">
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur ${statusChipClass(
+                      listing.status ?? null
+                    )}`}
+                  >
+                    {mapStatusLabel(listing.status)}
+                  </span>
+                </div>
 
-              <div className="absolute inset-x-0 top-0 z-[1] flex items-start justify-between p-2.5">
-                <span
-                  className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold backdrop-blur ${statusChipClass(
-                    listing.status ?? null
-                  )}`}
-                >
-                  {mapStatusLabel(listing.status)}
-                </span>
-              </div>
-
-              <div className="absolute inset-x-0 bottom-0 z-[1] bg-gradient-to-t from-slate-950/85 via-slate-950/45 to-transparent p-2.5">
-                <h3 className="line-clamp-1 text-sm font-semibold text-white">{listing.title}</h3>
-                <p className="line-clamp-1 text-xs text-slate-200">{listingLocationText(listing)}</p>
-                <Link
-                  href={`/dashboard/properties/${listing.id}`}
-                  className="mt-2 inline-flex items-center rounded-md bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 md:translate-y-1 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:group-focus-within:translate-y-0 md:group-focus-within:opacity-100"
-                >
-                  Open listing
-                </Link>
+                <div className="absolute inset-x-0 bottom-0 z-[1] bg-gradient-to-t from-slate-950/85 via-slate-950/45 to-transparent p-2.5">
+                  <h3 className="line-clamp-1 text-sm font-semibold text-white">{listing.title}</h3>
+                  <p className="line-clamp-1 text-xs text-slate-200">{listingLocationText(listing)}</p>
+                  <Link
+                    href={`/dashboard/properties/${listing.id}`}
+                    className="mt-2 inline-flex items-center rounded-md bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                  >
+                    Open listing
+                  </Link>
+                </div>
               </div>
             </article>
           );

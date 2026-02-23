@@ -1,33 +1,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  getHostListingTileClass,
+  getHostListingTileAspectClass,
   getHostListingTilePattern,
 } from "@/lib/host/listings-grid-pattern";
 
 void test("host listings grid uses deterministic repeating tile pattern", () => {
   const actual = Array.from({ length: 12 }, (_, index) => getHostListingTilePattern(index));
   assert.deepEqual(actual, [
-    "tall",
+    "portrait",
+    "portrait",
+    "portrait",
+    "portrait",
     "square",
+    "portrait",
+    "landscape",
+    "portrait",
+    "portrait",
     "square",
-    "wide",
-    "square",
-    "tall",
-    "tall",
-    "square",
-    "square",
-    "wide",
-    "square",
-    "tall",
+    "portrait",
+    "portrait",
   ]);
 });
 
-void test("host listings grid maps each pattern to stable row/col classes", () => {
-  assert.equal(getHostListingTileClass("tall"), "row-span-36 md:row-span-38");
-  assert.equal(getHostListingTileClass("square"), "row-span-30 md:row-span-32");
-  assert.equal(
-    getHostListingTileClass("wide"),
-    "row-span-30 md:col-span-2 md:row-span-32 xl:col-span-2"
-  );
+void test("host listings grid maps patterns to stable editorial aspect classes", () => {
+  assert.equal(getHostListingTileAspectClass("portrait"), "aspect-[4/5]");
+  assert.equal(getHostListingTileAspectClass("square"), "aspect-square");
+  assert.equal(getHostListingTileAspectClass("landscape"), "aspect-[16/9]");
 });
