@@ -28,6 +28,14 @@ void test("mobile drawer links are role-aware", () => {
     "non-admin host role should see Earnings link"
   );
   assert.ok(
+    userLinks.find((link) => link.href === "/host/calendar"),
+    "non-admin host role should see Calendar link"
+  );
+  assert.ok(
+    userLinks.find((link) => link.href === "/host/listings"),
+    "non-admin host role should see Listings link"
+  );
+  assert.ok(
     userLinks.find((link) => link.href === "/help/landlord"),
     "landlord should see landlord help link"
   );
@@ -46,5 +54,9 @@ void test("mobile drawer links are role-aware", () => {
   assert.ok(
     tenantLinks.find((link) => link.href === "/trips"),
     "tenant should see Trips link"
+  );
+  assert.ok(
+    tenantLinks.find((link) => link.href === "/tenant/saved"),
+    "tenant should see Saved link"
   );
 });

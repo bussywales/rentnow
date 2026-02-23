@@ -1,16 +1,14 @@
+import Link from "next/link";
 import { NavAuthClient } from "@/components/layout/NavAuthClient";
 import { NavLinksClient } from "@/components/layout/NavLinksClient";
 import { NavMobileDrawerClient } from "@/components/layout/NavMobileDrawerClient";
 import { BrandLogo } from "@/components/branding/BrandLogo";
-import { HelpDrawer } from "@/components/help/HelpDrawer";
-import { ProductUpdatesBell } from "@/components/updates/ProductUpdatesBell";
 import { ProductUpdatesOnboarding } from "@/components/updates/ProductUpdatesOnboarding";
 import { MarketSelector } from "@/components/layout/MarketSelector";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
-import { getHelpDocsForRole } from "@/lib/help/docs";
 import { countAwaitingApprovalBookings } from "@/lib/shortlet/host-bookings-inbox";
 
 export const MAIN_NAV_LINKS: Array<{
@@ -22,10 +20,12 @@ export const MAIN_NAV_LINKS: Array<{
   denyRoles?: UserRole[];
   badgeCount?: number | null;
 }> = [
-  { href: "/properties", label: "Browse" },
+  { href: "/properties", label: "Properties" },
   { href: "/shortlets", label: "Shortlets" },
-  { href: "/tenant/saved", label: "Collections", requireAuth: true, requireRole: "tenant" },
+  { href: "/tenant/saved", label: "Saved", requireAuth: true, requireRole: "tenant" },
   { href: "/trips", label: "Trips", requireAuth: true, requireRole: "tenant" },
+  { href: "/host/calendar", label: "Calendar", requireAuth: true, denyRoles: ["tenant", "admin"] },
+  { href: "/host/listings", label: "Listings", requireAuth: true, denyRoles: ["tenant", "admin"] },
   { href: "/favourites", label: "Collections", requireAuth: true, denyRoles: ["tenant"] },
   { href: "/tenant/home", label: "Home", requireAuth: true, requireRole: "tenant" },
   { href: "/saved-searches", label: "Saved searches", requireAuth: true, denyRoles: ["admin"] },
@@ -62,6 +62,38 @@ export const MAIN_NAV_LINKS: Array<{
   { href: "/admin/legal", label: "Legal", requireAuth: true, requireRole: "admin" },
   { href: "/admin/settings", label: "Settings", requireAuth: true, requireRole: "admin" },
 ];
+
+const DESKTOP_PRIMARY_LINKS = {
+  guest: ["/shortlets", "/properties"],
+  tenant: ["/shortlets", "/properties", "/trips", "/tenant/saved"],
+  host: ["/host/bookings", "/host/calendar", "/host/listings", "/host/earnings"],
+  admin: ["/admin"],
+} as const;
+
+export function resolveDesktopTopNavLinks(
+  links: typeof MAIN_NAV_LINKS,
+  {
+    isAuthed,
+    role,
+  }: {
+    isAuthed: boolean;
+    role: UserRole | "super_admin" | null;
+  }
+) {
+  const roleKey =
+    !isAuthed || !role
+      ? "guest"
+      : role === "tenant"
+        ? "tenant"
+        : role === "admin" || role === "super_admin"
+          ? "admin"
+          : "host";
+  const orderedHrefs = DESKTOP_PRIMARY_LINKS[roleKey];
+  const byHref = new Map(links.map((link) => [link.href, link]));
+  return orderedHrefs
+    .map((href) => byHref.get(href))
+    .filter((link): link is (typeof links)[number] => Boolean(link));
+}
 
 export function applyHostBookingsBadge(
   links: typeof MAIN_NAV_LINKS,
@@ -160,44 +192,11 @@ export async function MainNav({
     }
   }
 
-  const [tenantDocs, landlordDocs, agentDocs, adminDocs] = await Promise.all([
-    getHelpDocsForRole("tenant"),
-    getHelpDocsForRole("landlord"),
-    getHelpDocsForRole("agent"),
-    getHelpDocsForRole("admin"),
-  ]);
-
-  const helpDocsByRole = {
-    tenant: tenantDocs.map((doc) => ({
-      slug: doc.slug,
-      title: doc.title,
-      description: doc.description,
-      updatedAt: doc.updatedAt,
-      body: doc.body,
-    })),
-    landlord: landlordDocs.map((doc) => ({
-      slug: doc.slug,
-      title: doc.title,
-      description: doc.description,
-      updatedAt: doc.updatedAt,
-      body: doc.body,
-    })),
-    agent: agentDocs.map((doc) => ({
-      slug: doc.slug,
-      title: doc.title,
-      description: doc.description,
-      updatedAt: doc.updatedAt,
-      body: doc.body,
-    })),
-    admin: adminDocs.map((doc) => ({
-      slug: doc.slug,
-      title: doc.title,
-      description: doc.description,
-      updatedAt: doc.updatedAt,
-      body: doc.body,
-    })),
-  };
   const navLinks = applyHostBookingsBadge(MAIN_NAV_LINKS, hostAwaitingApprovalCount);
+  const desktopLinks = resolveDesktopTopNavLinks(navLinks, {
+    isAuthed: initialAuthed,
+    role,
+  });
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/95 backdrop-blur-lg shadow-[0_1px_10px_rgba(15,23,42,0.06)]">
@@ -208,20 +207,22 @@ export async function MainNav({
         </div>
 
         <nav className="hidden items-center gap-6 text-sm text-slate-700 md:flex">
-          <NavLinksClient
-            links={navLinks.filter((link) => link.href !== "/admin/insights")}
-            initialAuthed={initialAuthed}
-            initialRole={role}
-          />
+          <NavLinksClient links={desktopLinks} initialAuthed={initialAuthed} initialRole={role} />
         </nav>
 
         <div className="flex items-center gap-2">
           <div className="hidden sm:block">
             <MarketSelector enabled={marketSelectorEnabled} />
           </div>
-          <HelpDrawer initialAuthed={initialAuthed} initialRole={role} docsByRole={helpDocsByRole} />
           <NotificationsBell initialAuthed={initialAuthed} initialRole={role} />
-          <ProductUpdatesBell initialAuthed={initialAuthed} />
+          {initialAuthed ? (
+            <Link
+              href="/profile"
+              className="hidden rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 md:inline-flex"
+            >
+              Profile
+            </Link>
+          ) : null}
           <NavAuthClient initialAuthed={initialAuthed} />
           <NavMobileDrawerClient
             links={navLinks}

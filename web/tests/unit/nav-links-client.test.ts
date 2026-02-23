@@ -1,34 +1,45 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { MAIN_NAV_LINKS, applyHostBookingsBadge } from "@/components/layout/MainNav";
+import {
+  MAIN_NAV_LINKS,
+  applyHostBookingsBadge,
+  resolveDesktopTopNavLinks,
+} from "@/components/layout/MainNav";
 import { resolveNavLinks } from "@/components/layout/NavLinksClient";
 
-test("admin nav shows Admin and hides Dashboard", () => {
-  const links = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "admin" });
+test("admin desktop nav stays minimal", () => {
+  const links = resolveDesktopTopNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "admin" });
   const labels = links.map((link) => link.label);
   assert.ok(labels.includes("Admin"));
-  assert.ok(labels.includes("Insights"));
-  assert.ok(!labels.includes("Dashboard"));
+  assert.deepEqual(labels, ["Admin"]);
 });
 
-test("non-admin nav keeps Dashboard", () => {
-  const links = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "landlord" });
-  const labels = links.map((link) => link.label);
-  assert.ok(labels.includes("Dashboard"));
-  assert.ok(!labels.includes("Insights"));
+test("host desktop nav keeps bookings, calendar, listings, and earnings", () => {
+  const links = resolveDesktopTopNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "landlord" });
+  assert.deepEqual(
+    links.map((link) => link.href),
+    ["/host/bookings", "/host/calendar", "/host/listings", "/host/earnings"]
+  );
 });
 
-test("tenant nav includes Trips", () => {
-  const links = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "tenant" });
-  const trips = links.find((link) => link.href === "/trips");
-  assert.ok(trips, "expected trips link for tenant role");
+test("tenant desktop nav keeps shortlets, properties, trips, and saved", () => {
+  const links = resolveDesktopTopNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "tenant" });
+  assert.deepEqual(
+    links.map((link) => link.href),
+    ["/shortlets", "/properties", "/trips", "/tenant/saved"]
+  );
 });
 
-test("main nav exposes shortlets discovery entry point", () => {
-  const links = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: false, role: null });
-  const shortlets = links.find((link) => link.href === "/shortlets");
-  assert.ok(shortlets, "expected shortlets nav link");
+test("guest desktop nav exposes shortlets and properties only", () => {
+  const links = resolveDesktopTopNavLinks(MAIN_NAV_LINKS, { isAuthed: false, role: null });
+  assert.deepEqual(links.map((link) => link.href), ["/shortlets", "/properties"]);
+});
+
+test("resolveNavLinks still allows extended admin links for drawer contexts", () => {
+  const links = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "admin" });
+  assert.ok(links.find((link) => link.href === "/admin/support"));
+  assert.ok(links.find((link) => link.href === "/admin/legal"));
 });
 
 test("host bookings nav badge appears when awaiting approvals exist", () => {
