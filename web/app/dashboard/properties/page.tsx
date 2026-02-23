@@ -30,5 +30,5 @@ function buildQueryString(params: SearchParams): string {
 export default async function DashboardPropertiesRedirectPage({ searchParams }: Props) {
   const resolved = searchParams ? await searchParams : {};
   const query = buildQueryString(resolved);
-  redirect(query ? `/host/properties?${query}` : "/host/properties");
+  redirect(query ? `/host/listings?${query}` : "/host/listings");
 }

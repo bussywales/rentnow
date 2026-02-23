@@ -31,10 +31,11 @@ export function normalizePropertyId(id: string | undefined): string | null {
   return normalized;
 }
 
-export function buildHostPropertyEditHref(id: string, params: SearchParams): string {
+export function buildHostPropertyAvailabilityHref(id: string, params: SearchParams): string {
   const cleanId = encodeURIComponent(id);
   const query = buildQueryString(params);
-  const base = `/host/properties/${cleanId}/edit`;
+  // Availability is the closest host-native management route for listing-specific operations.
+  const base = `/host/properties/${cleanId}/availability`;
   return query ? `${base}?${query}` : base;
 }
 
@@ -58,8 +59,8 @@ export function resolveLegacyDashboardPropertyRedirect(input: {
 
   const cleanId = normalizePropertyId(input.propertyId);
   if (!cleanId) {
-    return "/host/properties";
+    return "/host/listings";
   }
 
-  return buildHostPropertyEditHref(cleanId, input.searchParams);
+  return buildHostPropertyAvailabilityHref(cleanId, input.searchParams);
 }

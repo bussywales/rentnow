@@ -2,10 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   resolveLegacyDashboardPropertyRedirect,
-  buildHostPropertyEditHref,
+  buildHostPropertyAvailabilityHref,
 } from "@/lib/routing/dashboard-properties-legacy";
 
-void test("authed landlord dashboard edit route redirects to canonical host editor", () => {
+void test("authed landlord dashboard edit route redirects to canonical host availability surface", () => {
   const target = resolveLegacyDashboardPropertyRedirect({
     userPresent: true,
     role: "landlord",
@@ -15,7 +15,7 @@ void test("authed landlord dashboard edit route redirects to canonical host edit
 
   assert.equal(
     target,
-    "/host/properties/a0708ca9-2b3c-406a-9d6f-c625d05a8d12/edit?step=photos&back=%2Fhost%2Flistings%3Fview%3Dall"
+    "/host/properties/a0708ca9-2b3c-406a-9d6f-c625d05a8d12/availability?step=photos&back=%2Fhost%2Flistings%3Fview%3Dall"
   );
 });
 
@@ -41,8 +41,8 @@ void test("tenant dashboard edit route redirects to tenant-safe route", () => {
   assert.equal(target, "/tenant/home");
 });
 
-void test("host edit href builder preserves query params", () => {
-  const href = buildHostPropertyEditHref("listing-123", {
+void test("host availability href builder preserves query params", () => {
+  const href = buildHostPropertyAvailabilityHref("listing-123", {
     step: "submit",
     back: "/host/properties",
     tag: ["a", "b"],
@@ -50,7 +50,6 @@ void test("host edit href builder preserves query params", () => {
 
   assert.equal(
     href,
-    "/host/properties/listing-123/edit?step=submit&back=%2Fhost%2Fproperties&tag=a&tag=b"
+    "/host/properties/listing-123/availability?step=submit&back=%2Fhost%2Fproperties&tag=a&tag=b"
   );
 });
-
