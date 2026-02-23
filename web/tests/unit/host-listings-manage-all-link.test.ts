@@ -7,17 +7,16 @@ function readComponent(relativePath: string): string {
   return fs.readFileSync(path.join(process.cwd(), relativePath), "utf8");
 }
 
-void test("host listings feed Manage all links point to canonical listings manager route", () => {
+void test("host listings feed Manage all links point to canonical host listings route", () => {
   const masonry = readComponent("components/host/HostListingsMasonryGrid.tsx");
   const rail = readComponent("components/host/HostListingsRail.tsx");
 
   assert.match(
     masonry,
-    /<Link[\s\S]*?href="\/host\/properties"[\s\S]*?>\s*Manage all\s*<\/Link>/m
+    /<Link[\s\S]*?href="\/host\/listings"[\s\S]*?>\s*Manage all\s*<\/Link>/m
   );
   assert.match(
     rail,
-    /<Link[\s\S]*?href="\/host\/properties"[\s\S]*?>\s*Manage all\s*<\/Link>/m
+    /<Link[\s\S]*?href="\/host\/listings"[\s\S]*?>\s*Manage all\s*<\/Link>/m
   );
 });
-
