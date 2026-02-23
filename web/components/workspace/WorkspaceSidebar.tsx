@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { cn } from "@/components/ui/cn";
 import {
-  getWorkspaceSidebarItems,
+  getWorkspaceSidebarSections,
   type WorkspaceRole,
 } from "@/lib/workspace/sidebar-model";
 
@@ -35,13 +35,13 @@ export function WorkspaceSidebar({
   showToggle = true,
 }: WorkspaceSidebarProps) {
   const pathname = usePathname() || "/";
-  const items = getWorkspaceSidebarItems({
+  const sections = getWorkspaceSidebarSections({
     role,
     awaitingApprovalCount,
     unreadMessages,
   });
 
-  if (!items.length) return null;
+  if (!sections.length) return null;
 
   return (
     <aside
@@ -72,44 +72,53 @@ export function WorkspaceSidebar({
         ) : null}
       </div>
 
-      <nav className="space-y-1" aria-label="Workspace">
-        {items.map((item) => {
-          const active = isActive(pathname, item.href);
-          return (
-            <Link
-              key={item.key}
-              href={item.href}
-              onClick={onNavigate}
-              aria-current={active ? "page" : undefined}
-              className={cn(
-                "flex items-center justify-between rounded-lg px-2.5 py-2 text-sm transition",
-                active
-                  ? "bg-sky-50 font-semibold text-sky-700"
-                  : "text-slate-700 hover:bg-slate-50"
-              )}
-            >
-              <span className="inline-flex min-w-0 items-center gap-2">
-                <span
+      <nav className="space-y-3" aria-label="Workspace">
+        {sections.map((section) => (
+          <div key={section.key} className="space-y-1">
+            {!collapsed ? (
+              <p className="px-2.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
+                {section.label}
+              </p>
+            ) : null}
+            {section.items.map((item) => {
+              const active = isActive(pathname, item.href);
+              return (
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  onClick={onNavigate}
+                  aria-current={active ? "page" : undefined}
                   className={cn(
-                    "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
+                    "flex items-center justify-between rounded-lg px-2.5 py-2 text-sm transition",
                     active
-                      ? "border-sky-300 bg-sky-100 text-sky-700"
-                      : "border-slate-300 bg-slate-100 text-slate-700"
+                      ? "bg-sky-50 font-semibold text-sky-700"
+                      : "text-slate-700 hover:bg-slate-50"
                   )}
-                  aria-hidden="true"
                 >
-                  {item.label.charAt(0)}
-                </span>
-                {!collapsed ? <span className="truncate">{item.label}</span> : null}
-              </span>
-              {(item.badgeCount ?? 0) > 0 ? (
-                <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
-                  {item.badgeCount}
-                </span>
-              ) : null}
-            </Link>
-          );
-        })}
+                  <span className="inline-flex min-w-0 items-center gap-2">
+                    <span
+                      className={cn(
+                        "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-[11px] font-semibold",
+                        active
+                          ? "border-sky-300 bg-sky-100 text-sky-700"
+                          : "border-slate-300 bg-slate-100 text-slate-700"
+                      )}
+                      aria-hidden="true"
+                    >
+                      {item.label.charAt(0)}
+                    </span>
+                    {!collapsed ? <span className="truncate">{item.label}</span> : null}
+                  </span>
+                  {(item.badgeCount ?? 0) > 0 ? (
+                    <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                      {item.badgeCount}
+                    </span>
+                  ) : null}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </nav>
     </aside>
   );

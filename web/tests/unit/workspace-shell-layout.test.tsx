@@ -22,3 +22,17 @@ void test("workspace shell keeps mobile nav in drawer while desktop stays non-ov
   assert.match(source, /md:hidden/);
   assert.match(source, /hidden min-w-0 md:block/);
 });
+
+void test("workspace sidebar renders grouped headings in the intended order", () => {
+  const filePath = path.join(process.cwd(), "components", "workspace", "WorkspaceSidebar.tsx");
+  const source = fs.readFileSync(filePath, "utf8");
+
+  const coreIndex = source.indexOf("{section.label}");
+  const sectionLoopIndex = source.indexOf("sections.map((section)");
+  const navIndex = source.indexOf("<nav");
+  assert.ok(navIndex >= 0);
+  assert.ok(sectionLoopIndex > navIndex);
+  assert.ok(coreIndex > sectionLoopIndex);
+  assert.match(source, /space-y-3/);
+  assert.match(source, /text-\[10px\]/);
+});

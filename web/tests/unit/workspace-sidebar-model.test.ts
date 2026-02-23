@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   getWorkspaceSidebarItems,
+  getWorkspaceSidebarSections,
   normalizeWorkspaceRole,
 } from "@/lib/workspace/sidebar-model";
 
@@ -13,12 +14,14 @@ void test("normalizeWorkspaceRole handles known roles and super_admin sentinel",
 });
 
 void test("landlord sidebar items are limited to core host workspace links", () => {
-  const items = getWorkspaceSidebarItems({
+  const sections = getWorkspaceSidebarSections({
     role: "landlord",
     awaitingApprovalCount: 4,
     unreadMessages: 9,
   });
+  const items = sections.flatMap((section) => section.items);
 
+  assert.deepEqual(sections.map((section) => section.label), ["Core"]);
   assert.deepEqual(
     items.map((item) => item.href),
     ["/host", "/host/listings", "/host/bookings", "/host/calendar", "/host/earnings"]
@@ -32,17 +35,24 @@ void test("landlord sidebar items are limited to core host workspace links", () 
 });
 
 void test("agent sidebar extends landlord links with agent workspace links", () => {
-  const items = getWorkspaceSidebarItems({
+  const sections = getWorkspaceSidebarSections({
     role: "agent",
     awaitingApprovalCount: 2,
     unreadMessages: 3,
   });
+  const items = sections.flatMap((section) => section.items);
 
+  assert.deepEqual(sections.map((section) => section.label), [
+    "Core",
+    "Agent tools",
+    "Legacy tools",
+  ]);
   assert.ok(items.some((item) => item.href === "/profile/clients"));
   assert.ok(items.some((item) => item.href === "/dashboard/leads"));
   assert.ok(items.some((item) => item.href === "/dashboard/referrals"));
   assert.ok(items.some((item) => item.href === "/dashboard/messages"));
   assert.ok(items.some((item) => item.href === "/dashboard/agent-network"));
+  assert.ok(items.some((item) => item.href === "/dashboard/analytics"));
   assert.equal(items.find((item) => item.href === "/dashboard/messages")?.badgeCount, 3);
 });
 
