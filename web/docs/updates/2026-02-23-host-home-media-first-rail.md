@@ -1,7 +1,7 @@
 ---
 title: "Host home now opens with a media-first listings rail"
 audiences:
-  - LANDLORD
+  - HOST
   - AGENT
 areas:
   - Host

@@ -1,7 +1,7 @@
 ---
 title: "Host home secondary panels now use progressive disclosure"
 audiences:
-  - LANDLORD
+  - HOST
   - AGENT
 areas:
   - Host
