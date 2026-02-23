@@ -1,6 +1,7 @@
 ---
 title: "Host listings grid media rhythm polish"
 audiences:
+  - TENANT
   - HOST
   - AGENT
 areas:

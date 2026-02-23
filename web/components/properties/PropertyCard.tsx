@@ -180,6 +180,12 @@ export function PropertyCard({
         sizes="(max-width: 768px) 100vw, 320px"
         prioritizeFirstImage={prioritizeFirstImage}
       />
+      {compact && (
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/25 to-transparent"
+          aria-hidden="true"
+        />
+      )}
       <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
         {showSave && (
           <SaveButton propertyId={property.id} initialSaved={initialSaved} variant="icon" />
