@@ -8,12 +8,15 @@ import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { getPaygConfig } from "@/lib/billing/payg";
 import { consumeListingCredit, issueTrialCreditsIfEligible } from "@/lib/billing/listing-credits.server";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
+import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
 import { hasPinnedLocation } from "@/lib/properties/validation";
 import { requireLegalAcceptance } from "@/lib/legal/guard.server";
 import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/property-events.server";
 import { logFailure } from "@/lib/observability";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
 import { normalizeShortletNightlyPriceMinor } from "@/lib/shortlet/listing-setup";
+import { buildLiveApprovalUpdate } from "@/lib/properties/expiry";
+import { getListingExpiryDays } from "@/lib/properties/expiry.server";
 
 export const dynamic = "force-dynamic";
 
@@ -53,6 +56,7 @@ export type ListingSubmitDeps = {
   consumeListingCredit: typeof consumeListingCredit;
   issueTrialCreditsIfEligible: typeof issueTrialCreditsIfEligible;
   getAppSettingBool: typeof getAppSettingBool;
+  getListingExpiryDays: typeof getListingExpiryDays;
   requireLegalAcceptance: typeof requireLegalAcceptance;
   logPropertyEvent: typeof logPropertyEvent;
   resolveEventSessionKey: typeof resolveEventSessionKey;
@@ -72,6 +76,7 @@ const defaultDeps: ListingSubmitDeps = {
   consumeListingCredit,
   issueTrialCreditsIfEligible,
   getAppSettingBool,
+  getListingExpiryDays,
   requireLegalAcceptance,
   logPropertyEvent,
   resolveEventSessionKey,
@@ -309,19 +314,33 @@ export async function postPropertySubmitResponse(
     }
   }
 
-  const nowIso = new Date().toISOString();
+  const autoApproveEnabled = await deps.getAppSettingBool(
+    APP_SETTING_KEYS.listingsAutoApproveEnabled,
+    false
+  );
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const nextStatus = autoApproveEnabled ? "live" : "pending";
+  const autoApproveUpdate = autoApproveEnabled
+    ? buildLiveApprovalUpdate({
+        now,
+        expiryDays: await deps.getListingExpiryDays(),
+      })
+    : null;
   const { error: updateError } = await supabase
     .from("properties")
     .update({
-      status: "pending",
-      is_active: true,
-      is_approved: false,
-      approved_at: null,
-      rejected_at: null,
+      ...(autoApproveUpdate ?? {
+        status: "pending",
+        is_active: true,
+        is_approved: false,
+        approved_at: null,
+        rejected_at: null,
+      }),
       paused_at: null,
       paused_reason: null,
       expired_at: null,
-      expires_at: null,
+      expires_at: autoApproveUpdate?.expires_at ?? null,
       submitted_at: listing.submitted_at ?? nowIso,
       status_updated_at: nowIso,
       updated_at: nowIso,
@@ -342,7 +361,31 @@ export async function postPropertySubmitResponse(
     );
   }
 
-  return NextResponse.json({ ok: true, status: "pending", idempotencyKey });
+  if (autoApproveEnabled) {
+    await deps.logPropertyEvent({
+      supabase,
+      propertyId,
+      eventType: "listing_auto_approved",
+      actorUserId: auth.user.id,
+      actorRole: role,
+      sessionKey,
+      meta: {
+        settingKey: APP_SETTING_KEYS.listingsAutoApproveEnabled,
+      },
+    });
+    console.info("[listing-submit] auto-approved", {
+      propertyId,
+      actorId: auth.user.id,
+      at: nowIso,
+    });
+  }
+
+  return NextResponse.json({
+    ok: true,
+    status: nextStatus,
+    idempotencyKey,
+    autoApproved: autoApproveEnabled,
+  });
 }
 
 export async function POST(request: NextRequest, context: { params: Promise<{ id: string }> }) {
