@@ -57,7 +57,7 @@ export function HostFeaturedStrip({
   mosaicTargetId = "host-home-listings-grid",
 }: Props) {
   const railRef = useRef<HTMLDivElement | null>(null);
-  const stableImageSrcByListingIdRef = useRef<Map<string, string | null>>(new Map());
+  const stableImageSrcByListingId = useMemo(() => new Map<string, string | null>(), []);
   const [loadedById, setLoadedById] = useState<Record<string, boolean>>({});
   const [hasOverflow, setHasOverflow] = useState(false);
   const featuredListings = useMemo(
@@ -109,15 +109,15 @@ export function HostFeaturedStrip({
 
   return (
     <section
-      className="space-y-2 overflow-x-hidden rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
+      className="space-y-3 overflow-x-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
       data-testid="host-featured-strip"
     >
       <div className="flex items-center justify-between gap-3 px-1">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            Featured
+            Featured listings
           </p>
-          <h2 className="text-base font-semibold text-slate-900">Top listing spotlight</h2>
+          <h2 className="text-base font-semibold text-slate-900">Curated highlights</h2>
         </div>
         <button
           type="button"
@@ -135,7 +135,7 @@ export function HostFeaturedStrip({
               type="button"
               aria-label="Scroll featured listings left"
               onClick={() => scrollRail("prev")}
-              className="absolute left-4 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 opacity-0 shadow-sm transition hover:bg-white md:inline-flex md:group-hover:opacity-100"
+              className="absolute left-5 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 opacity-0 shadow-sm transition hover:bg-white md:inline-flex md:group-hover:opacity-100"
             >
               ‹
             </button>
@@ -143,7 +143,7 @@ export function HostFeaturedStrip({
               type="button"
               aria-label="Scroll featured listings right"
               onClick={() => scrollRail("next")}
-              className="absolute right-4 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 opacity-0 shadow-sm transition hover:bg-white md:inline-flex md:group-hover:opacity-100"
+              className="absolute right-5 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 opacity-0 shadow-sm transition hover:bg-white md:inline-flex md:group-hover:opacity-100"
             >
               ›
             </button>
@@ -151,17 +151,17 @@ export function HostFeaturedStrip({
         ) : null}
         {hasOverflow ? (
           <>
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-[1] hidden w-8 bg-gradient-to-r from-white to-transparent md:block" />
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] hidden w-8 bg-gradient-to-l from-white to-transparent md:block" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-[1] hidden w-10 bg-gradient-to-r from-white to-transparent md:block" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] hidden w-10 bg-gradient-to-l from-white to-transparent md:block" />
           </>
         ) : null}
         <div
           ref={railRef}
-          className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-1 pr-4 scroll-px-4 sm:px-6 sm:pr-6 sm:scroll-px-6"
+          className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-5 pb-1 pr-5 scroll-px-5 sm:px-7 sm:pr-7 sm:scroll-px-7"
         >
           {featuredListings.map((listing, index) => {
             const imageUrl = resolveStableListingImageSrc(
-              stableImageSrcByListingIdRef.current,
+              stableImageSrcByListingId,
               listing.id,
               getPrimaryImageUrl(listing)
             );
@@ -243,7 +243,7 @@ export function HostFeaturedStrip({
               </article>
             );
           })}
-          <div className="w-4 shrink-0 sm:w-6" aria-hidden="true" />
+          <div className="w-5 shrink-0 sm:w-7" aria-hidden="true" />
         </div>
       </div>
     </section>

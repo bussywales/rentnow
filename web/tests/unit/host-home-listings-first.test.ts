@@ -32,6 +32,6 @@ void test("host listings grid card keeps media + primary action markers", () => 
   const contents = fs.readFileSync(gridPath, "utf8");
 
   assert.match(contents, /data-testid="host-home-listings-grid"/);
-  assert.match(contents, /grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3/);
+  assert.match(contents, /grid-cols-1 gap-3\.5 md:grid-cols-2 md:gap-4 lg:grid-cols-3/);
   assert.match(contents, /Open listing/);
 });

@@ -7,7 +7,9 @@ void test("host listings mosaic grid uses responsive editorial columns", () => {
   const filePath = path.join(process.cwd(), "components", "host", "HostListingsMasonryGrid.tsx");
   const source = fs.readFileSync(filePath, "utf8");
 
-  assert.match(source, /grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3/);
+  assert.match(source, /grid-cols-1 gap-3\.5 md:grid-cols-2 md:gap-4 lg:grid-cols-3/);
+  assert.match(source, /All listings/);
+  assert.match(source, /Portfolio mosaic/);
 });
 
 void test("host listings mosaic tiles enforce aspect rhythm and max media height", () => {

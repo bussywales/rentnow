@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
@@ -45,7 +45,7 @@ function listingLocationText(listing: DashboardListing) {
 }
 
 export function HostListingsMasonryGrid({ listings }: Props) {
-  const stableImageSrcByListingIdRef = useRef<Map<string, string | null>>(new Map());
+  const stableImageSrcByListingId = useMemo(() => new Map<string, string | null>(), []);
   const visibleListings = listings.slice(0, MAX_GRID_LISTINGS);
   const [loadedById, setLoadedById] = useState<Record<string, boolean>>({});
 
@@ -66,15 +66,15 @@ export function HostListingsMasonryGrid({ listings }: Props) {
   return (
     <section
       id="host-home-listings-grid"
-      className="-mx-4 space-y-3 rounded-none bg-slate-50/70 px-4 py-3 sm:mx-0 sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-white sm:p-3 sm:shadow-sm"
+      className="-mx-4 space-y-2.5 rounded-none bg-slate-50/70 px-4 py-3.5 sm:mx-0 sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-white sm:p-4 sm:shadow-sm"
       data-testid="host-home-listings-grid"
     >
       <div className="flex items-center justify-between gap-3 px-1">
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
-            My listings
+            All listings
           </p>
-          <h2 className="text-lg font-semibold text-slate-900">Your media feed</h2>
+          <h2 className="text-lg font-semibold text-slate-900">Portfolio mosaic</h2>
         </div>
         <Link
           href="/host/listings"
@@ -84,10 +84,10 @@ export function HostListingsMasonryGrid({ listings }: Props) {
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 md:gap-4 lg:grid-cols-3">
         {visibleListings.map((listing, index) => {
           const imageUrl = resolveStableListingImageSrc(
-            stableImageSrcByListingIdRef.current,
+            stableImageSrcByListingId,
             listing.id,
             getPrimaryImageUrl(listing)
           );
