@@ -33,3 +33,13 @@ void test("workspace home wires featured rail component with the visual landing 
     "expected most-viewed rail section marker"
   );
 });
+
+void test("home listing rail keeps premium snap + peek class contract", () => {
+  const railPath = path.join(process.cwd(), "components", "home", "HomeListingRail.tsx");
+  const railSource = fs.readFileSync(railPath, "utf8");
+
+  assert.match(railSource, /scrollbar-none/);
+  assert.match(railSource, /scroll-px-4/);
+  assert.match(railSource, /snap-start snap-always/);
+  assert.match(railSource, /aspect-\[4\/3\]/);
+});

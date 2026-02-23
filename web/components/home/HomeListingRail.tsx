@@ -118,9 +118,15 @@ export function HomeListingRail({
             </button>
           </>
         ) : null}
+        {hasOverflow ? (
+          <>
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-[1] hidden w-8 bg-gradient-to-r from-white to-transparent md:block" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] hidden w-8 bg-gradient-to-l from-white to-transparent md:block" />
+          </>
+        ) : null}
         <div
           ref={railRef}
-          className="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-1 pr-4 scroll-px-4 sm:px-6 sm:pr-6 sm:scroll-px-6"
         >
           {listings.map((listing, index) => {
             const stableSrcKey = listing.id || `${listing.title}-${index}`;
@@ -141,7 +147,7 @@ export function HomeListingRail({
             return (
               <article
                 key={listing.id}
-                className="w-[220px] max-w-full shrink-0 snap-start overflow-hidden rounded-2xl border border-slate-200 bg-white sm:w-[240px] lg:w-[280px]"
+                className="w-[220px] max-w-full shrink-0 snap-start snap-always overflow-hidden rounded-2xl border border-slate-200 bg-white transition duration-200 hover:-translate-y-0.5 hover:shadow-md focus-within:-translate-y-0.5 focus-within:shadow-md sm:w-[240px] lg:w-[280px]"
                 data-home-rail-card
                 data-testid={`${
                   sectionTestId === "home-featured-strip"
@@ -178,6 +184,7 @@ export function HomeListingRail({
               </article>
             );
           })}
+          <div className="w-4 shrink-0 sm:w-6" aria-hidden="true" />
         </div>
       </div>
     </section>
