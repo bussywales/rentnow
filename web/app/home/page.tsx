@@ -228,6 +228,10 @@ export default async function HomeWorkspacePage() {
     redirect("/admin");
   }
 
+  if (role === "agent" || role === "landlord") {
+    redirect("/host");
+  }
+
   if (role !== "agent" && role !== "landlord") {
     redirect("/forbidden?reason=role");
   }
