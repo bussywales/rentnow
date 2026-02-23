@@ -1,188 +1,29 @@
-import { redirect } from "next/navigation";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
-import { resolveServerRole } from "@/lib/auth/role";
-import { LeadInboxClient } from "@/components/leads/LeadInboxClient";
-import type { LeadStatus } from "@/lib/leads/types";
+"use client";
 
-export const dynamic = "force-dynamic";
+import Link from "next/link";
+import { useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
-type LeadRow = {
-  id: string;
-  property_id: string;
-  thread_id?: string | null;
-  status: LeadStatus;
-  created_at?: string | null;
-  updated_at?: string | null;
-  intent?: string | null;
-  budget_min?: number | null;
-  budget_max?: number | null;
-  financing_status?: string | null;
-  timeline?: string | null;
-  message?: string | null;
-  contact_exchange_flags?: Record<string, unknown> | null;
-  properties?: {
-    id?: string | null;
-    title?: string | null;
-    city?: string | null;
-    state_region?: string | null;
-    listing_intent?: string | null;
-  } | null;
-  buyer?: { id?: string | null; full_name?: string | null } | null;
-  lead_attributions?: {
-    id?: string | null;
-    client_page_id?: string | null;
-    agent_user_id?: string | null;
-    presenting_agent_id?: string | null;
-    owner_user_id?: string | null;
-    listing_id?: string | null;
-    source?: string | null;
-    created_at?: string | null;
-    client_page?: {
-      id?: string | null;
-      client_slug?: string | null;
-      client_name?: string | null;
-      client_requirements?: string | null;
-      agent_slug?: string | null;
-    } | null;
-  }[] | null;
-  presenting_agent_profile?: {
-    id?: string | null;
-    full_name?: string | null;
-    display_name?: string | null;
-    business_name?: string | null;
-  } | null;
-  commission_agreement?: {
-    id?: string | null;
-    listing_id?: string | null;
-    presenting_agent_id?: string | null;
-    status?: string | null;
-    commission_type?: string | null;
-    commission_value?: number | null;
-    currency?: string | null;
-  } | null;
-};
+export default function DashboardLeadsLegacyRedirectPage() {
+  const searchParams = useSearchParams();
 
-export default async function DashboardLeadsPage() {
-  if (!hasServerSupabaseEnv()) return null;
-
-  const { user, role } = await resolveServerRole();
-  if (!user) redirect("/auth/login?reason=auth");
-
-  if (role === "tenant") {
-    redirect("/dashboard/messages");
-  }
-
-  const supabase = await createServerSupabaseClient();
-  const { data, error } = await supabase
-    .from("listing_leads")
-    .select(
-      `id, property_id, thread_id, status, intent, budget_min, budget_max, financing_status, timeline, message, contact_exchange_flags, created_at, updated_at,
-      properties:properties(id, title, city, state_region, listing_intent),
-      buyer:profiles!listing_leads_buyer_id_fkey(id, full_name),
-      lead_attributions:lead_attributions(id, client_page_id, agent_user_id, presenting_agent_id, owner_user_id, listing_id, source, created_at,
-        client_page:agent_client_pages(id, client_slug, client_name, client_requirements, agent_slug)
-      )`
-    )
-    .eq("owner_id", user.id)
-    .order("created_at", { ascending: false });
-
-  const rows = ((data as LeadRow[]) || []).map((row) => ({ ...row }));
-
-  const attributionPairs = rows
-    .map((row) => {
-      const attr = row.lead_attributions?.[0];
-      if (!attr?.presenting_agent_id) return null;
-      return {
-        presenting_agent_id: attr.presenting_agent_id,
-        listing_id: attr.listing_id ?? row.property_id,
-      };
-    })
-    .filter(Boolean) as { presenting_agent_id: string; listing_id: string }[];
-
-  const presentingIds = Array.from(
-    new Set(attributionPairs.map((pair) => pair.presenting_agent_id))
-  );
-  const listingIds = Array.from(new Set(attributionPairs.map((pair) => pair.listing_id)));
-
-  const { data: presentingProfiles } = presentingIds.length
-    ? await supabase
-        .from("profiles")
-        .select("id, full_name, display_name, business_name")
-        .in("id", presentingIds)
-    : { data: [] };
-
-  type PresentingProfile = {
-    id: string;
-    full_name?: string | null;
-    display_name?: string | null;
-    business_name?: string | null;
-  };
-
-  const presentingMap = new Map(
-    ((presentingProfiles as PresentingProfile[] | null) ?? []).map((profile) => [
-      profile.id,
-      profile,
-    ])
-  );
-
-  const { data: agreements } = listingIds.length
-    ? await supabase
-        .from("agent_commission_agreements")
-        .select("id, listing_id, presenting_agent_id, status, commission_type, commission_value, currency")
-        .in("listing_id", listingIds)
-    : { data: [] };
-
-  type AgreementRow = {
-    id: string;
-    listing_id: string;
-    presenting_agent_id: string;
-    status?: string | null;
-    commission_type?: string | null;
-    commission_value?: number | null;
-    currency?: string | null;
-  };
-
-  const agreementMap = new Map(
-    ((agreements as AgreementRow[] | null) ?? []).map((agreement) => [
-      `${agreement.listing_id}:${agreement.presenting_agent_id}`,
-      agreement,
-    ])
-  );
-
-  const enrichedLeads = rows.map((lead) => {
-    const attr = lead.lead_attributions?.[0];
-    const presentingId = attr?.presenting_agent_id ?? null;
-    const listingId = attr?.listing_id ?? lead.property_id;
-    const agreement =
-      presentingId && listingId
-        ? agreementMap.get(`${listingId}:${presentingId}`) ?? null
-        : null;
-    return {
-      ...lead,
-      presenting_agent_profile: presentingId ? presentingMap.get(presentingId) ?? null : null,
-      commission_agreement: agreement ?? null,
-    };
-  });
+  useEffect(() => {
+    const query = searchParams?.toString();
+    const hash = typeof window !== "undefined" ? window.location.hash : "";
+    const target = `/host/leads${query ? `?${query}` : ""}${hash}`;
+    window.location.replace(target);
+  }, [searchParams]);
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-semibold text-slate-900">Leads</h1>
-        <p className="text-sm text-slate-600">
-          New buy enquiries submitted for your listings. Open a lead to continue in Messages.
-        </p>
-      </div>
-      {error ? (
-        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
-          {error.message}
-        </div>
-      ) : (
-        <LeadInboxClient
-          leads={enrichedLeads}
-          viewerRole={role as "landlord" | "agent"}
-          viewerId={user.id}
-        />
-      )}
+    <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">
+      <p className="font-medium text-slate-900">Leads has moved into the host workspace.</p>
+      <p className="mt-1">Redirecting to /host/leads…</p>
+      <Link
+        href="/host/leads"
+        className="mt-3 inline-flex rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+      >
+        Continue now
+      </Link>
     </div>
   );
 }
