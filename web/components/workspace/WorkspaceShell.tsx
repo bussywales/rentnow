@@ -34,12 +34,8 @@ export function WorkspaceShell({
   unreadMessages?: number;
   contentClassName?: string;
 }) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(readCollapsedFromStorage);
   const [mobileOpen, setMobileOpen] = useState(false);
-
-  useEffect(() => {
-    setCollapsed(readCollapsedFromStorage());
-  }, []);
 
   useEffect(() => {
     if (!mobileOpen) return;
