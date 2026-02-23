@@ -34,7 +34,7 @@ import { HostPaymentsPanel } from "@/components/host/HostPaymentsPanel";
 import { HostShortletBookingsPanel } from "@/components/host/HostShortletBookingsPanel";
 import { HostShortletWorkspace } from "@/components/host/HostShortletWorkspace";
 import { HostBookingsHashAnchorClient } from "@/components/host/HostBookingsHashAnchorClient";
-import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
+import { HostHomePanel } from "@/components/host/HostHomePanel";
 import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import type { PropertyStatus } from "@/lib/types";
 import type { MissedDemandEstimate } from "@/lib/analytics/property-events";
@@ -122,8 +122,6 @@ type FeaturedFixItem = {
   href?: string;
   actionLabel?: string;
 };
-const HOST_OPS_ALERTS_COLLAPSED_KEY = "home:host:ops-alerts:collapsed:v1";
-
 function featuredRequestChipClass(status: FeaturedRequestState["status"] | "featured_active"): string {
   if (status === "featured_active") return "border-amber-200 bg-amber-50 text-amber-800";
   if (status === "pending") return "border-sky-200 bg-sky-50 text-sky-700";
@@ -357,6 +355,18 @@ export function HostDashboardContent({
     () => formatFeaturedMinorAmount(availablePayoutMinor, payoutCurrency),
     [availablePayoutMinor, payoutCurrency]
   );
+  const payoutEligibleCount = useMemo(
+    () => shortletEarnings.filter((row) => row.payout_status === "eligible").length,
+    [shortletEarnings]
+  );
+  const upcomingCheckInCount = useMemo(() => {
+    const now = Date.now();
+    return shortletBookings.filter((row) => {
+      const checkInMs = Date.parse(row.check_in);
+      if (!Number.isFinite(checkInMs) || checkInMs < now) return false;
+      return row.status === "confirmed" || row.status === "pending";
+    }).length;
+  }, [shortletBookings]);
   const shortletSettingsByPropertyId = useMemo(
     () => new Map(shortletSettings.map((row) => [row.property_id, row])),
     [shortletSettings]
@@ -391,6 +401,12 @@ export function HostDashboardContent({
     () => getHostListingAnalyticsPanelModel(listingAnalyticsMode),
     [listingAnalyticsMode]
   );
+  const hasUrgentOpsSignals =
+    pendingRequestCount > 0 || availablePayoutMinor > 0 || missingShortletPriceCount > 0;
+  const demandAlertsSummary =
+    pendingRequestCount > 0
+      ? `${pendingRequestCount} request${pendingRequestCount === 1 ? "" : "s"} awaiting response.`
+      : "No urgent approval alerts right now.";
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -885,6 +901,20 @@ export function HostDashboardContent({
       </div>
       {workspaceSection === "listings" ? (
         <>
+          <div
+            className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"
+            data-testid="host-home-essentials-row"
+          >
+            <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold text-amber-900">
+              Awaiting approvals {pendingRequestCount}
+            </span>
+            <span className="rounded-full bg-sky-100 px-2.5 py-1 text-[11px] font-semibold text-sky-800">
+              Upcoming check-ins {upcomingCheckInCount}
+            </span>
+            <span className="rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-800">
+              Payout eligible {payoutEligibleCount}
+            </span>
+          </div>
           <HostDashboardSavedViews
             view={view}
             onSelect={handleViewChange}
@@ -898,54 +928,62 @@ export function HostDashboardContent({
             selectAllChecked={allSelected}
             onToggleSelectAll={toggleSelectAll}
           />
-          <div
-            className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"
-            data-testid="host-home-listing-analytics-controls"
+          <HostHomePanel
+            panelKey="analytics_preview"
+            title="Analytics preview"
+            summary="Compact or expand listing metrics while triaging."
+            defaultOpen={false}
+            testId="host-home-listing-analytics-panel"
           >
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                Listing analytics
-              </p>
-              <p className="text-xs text-slate-600">
-                Keep metrics compact or expand details while triaging listings.
-              </p>
+            <div
+              className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"
+              data-testid="host-home-listing-analytics-controls"
+            >
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  Listing analytics
+                </p>
+                <p className="text-xs text-slate-600">
+                  Keep metrics compact or expand details while triaging listings.
+                </p>
+              </div>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  onClick={() => setListingAnalyticsCollapsed((current) => !current)}
+                >
+                  {listingAnalyticsCollapsed ? "Show analytics" : "Hide analytics"}
+                </button>
+                {!listingAnalyticsCollapsed ? (
+                  <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-0.5">
+                    <button
+                      type="button"
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        listingAnalyticsMode === "compact"
+                          ? "bg-slate-900 text-white"
+                          : "text-slate-700 hover:bg-white"
+                      }`}
+                      onClick={() => setListingAnalyticsMode("compact")}
+                    >
+                      Compact
+                    </button>
+                    <button
+                      type="button"
+                      className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        listingAnalyticsMode === "expanded"
+                          ? "bg-slate-900 text-white"
+                          : "text-slate-700 hover:bg-white"
+                      }`}
+                      onClick={() => setListingAnalyticsMode("expanded")}
+                    >
+                      Expanded
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </div>
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <button
-                type="button"
-                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-                onClick={() => setListingAnalyticsCollapsed((current) => !current)}
-              >
-                {listingAnalyticsCollapsed ? "Show analytics" : "Hide analytics"}
-              </button>
-              {!listingAnalyticsCollapsed ? (
-                <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-0.5">
-                  <button
-                    type="button"
-                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      listingAnalyticsMode === "compact"
-                        ? "bg-slate-900 text-white"
-                        : "text-slate-700 hover:bg-white"
-                    }`}
-                    onClick={() => setListingAnalyticsMode("compact")}
-                  >
-                    Compact
-                  </button>
-                  <button
-                    type="button"
-                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      listingAnalyticsMode === "expanded"
-                        ? "bg-slate-900 text-white"
-                        : "text-slate-700 hover:bg-white"
-                    }`}
-                    onClick={() => setListingAnalyticsMode("expanded")}
-                  >
-                    Expanded
-                  </button>
-                </div>
-              ) : null}
-            </div>
-          </div>
+          </HostHomePanel>
           {sorted.length ? (
             <div className="grid min-w-0 gap-4 md:grid-cols-2">
           {sorted.map((property) => {
@@ -1416,10 +1454,11 @@ export function HostDashboardContent({
           />
         </div>
       )}
-      <HomeCollapsibleSection
-        title="Operations alerts"
-        description="Approvals and payout reminders."
-        storageKey={HOST_OPS_ALERTS_COLLAPSED_KEY}
+      <HostHomePanel
+        panelKey="demand_alerts"
+        title="Demand alerts"
+        summary={demandAlertsSummary}
+        defaultOpen={hasUrgentOpsSignals}
         testId="host-home-ops-alerts-collapsible"
       >
         <div className="space-y-3">
@@ -1496,8 +1535,16 @@ export function HostDashboardContent({
             </div>
           ) : null}
         </div>
-      </HomeCollapsibleSection>
-      <HostPaymentsPanel />
+      </HostHomePanel>
+      <HostHomePanel
+        panelKey="snapshot"
+        title="Snapshot"
+        summary="Recent featured payments and visibility into monetisation actions."
+        defaultOpen={false}
+        testId="host-home-snapshot-collapsible"
+      >
+        <HostPaymentsPanel />
+      </HostHomePanel>
       {workspaceSection === "listings" ? (
         <ListingBulkActionsBar
           count={selectedIds.length}

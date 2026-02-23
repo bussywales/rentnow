@@ -77,6 +77,7 @@ export function HostGettingStartedSection({
       title={title}
       description={description}
       storageKey={storageKey}
+      defaultCollapsed={completed}
       testId={testId}
     >
       {completed ? (

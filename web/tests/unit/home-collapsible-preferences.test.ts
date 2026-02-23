@@ -63,6 +63,7 @@ void test("home pages wire role-specific localStorage keys for collapsible secti
   assert.match(hostContents, /home:host:trust-status:collapsed:v1/);
   assert.match(hostContents, /HomeCollapsibleSection/);
 
-  assert.match(hostDashboardContents, /home:host:ops-alerts:collapsed:v1/);
-  assert.match(hostDashboardContents, /HomeCollapsibleSection/);
+  assert.match(hostDashboardContents, /panelKey="demand_alerts"/);
+  assert.match(hostDashboardContents, /panelKey="analytics_preview"/);
+  assert.match(hostDashboardContents, /HostHomePanel/);
 });
