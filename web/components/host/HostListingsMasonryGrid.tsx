@@ -63,6 +63,7 @@ export function HostListingsMasonryGrid({ listings }: Props) {
 
   return (
     <section
+      id="host-home-listings-grid"
       className="-mx-4 space-y-3 rounded-none bg-slate-50/70 px-4 py-3 sm:mx-0 sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-white sm:p-3 sm:shadow-sm"
       data-testid="host-home-listings-grid"
     >

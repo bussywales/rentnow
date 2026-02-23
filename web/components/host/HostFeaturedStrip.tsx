@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
@@ -13,6 +13,7 @@ import type { DashboardListing } from "@/lib/properties/host-dashboard";
 
 type Props = {
   listings: DashboardListing[];
+  mosaicTargetId?: string;
 };
 
 function statusChipClass(status: string | null) {
@@ -50,13 +51,42 @@ function formatListingPrice(listing: DashboardListing): string {
   return formatter.format(amount);
 }
 
-export function HostFeaturedStrip({ listings }: Props) {
+export function HostFeaturedStrip({
+  listings,
+  mosaicTargetId = "host-home-listings-grid",
+}: Props) {
   const railRef = useRef<HTMLDivElement | null>(null);
   const [loadedById, setLoadedById] = useState<Record<string, boolean>>({});
+  const [hasOverflow, setHasOverflow] = useState(false);
   const featuredListings = useMemo(
     () => selectHostFeaturedStripListings(listings),
     [listings]
   );
+
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+
+    const checkOverflow = () => {
+      const nextHasOverflow = rail.scrollWidth - rail.clientWidth > 4;
+      setHasOverflow(nextHasOverflow);
+    };
+
+    checkOverflow();
+    const rafId = window.requestAnimationFrame(checkOverflow);
+    window.addEventListener("resize", checkOverflow);
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      resizeObserver = new ResizeObserver(checkOverflow);
+      resizeObserver.observe(rail);
+    }
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      window.removeEventListener("resize", checkOverflow);
+      resizeObserver?.disconnect();
+    };
+  }, [featuredListings.length]);
 
   const scrollRail = (direction: "prev" | "next") => {
     const rail = railRef.current;
@@ -68,6 +98,12 @@ export function HostFeaturedStrip({ listings }: Props) {
   };
 
   if (featuredListings.length === 0) return null;
+
+  const scrollToMosaic = () => {
+    const target = document.getElementById(mosaicTargetId);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   return (
     <section
@@ -81,25 +117,42 @@ export function HostFeaturedStrip({ listings }: Props) {
           </p>
           <h2 className="text-base font-semibold text-slate-900">Top listing spotlight</h2>
         </div>
+        <button
+          type="button"
+          onClick={scrollToMosaic}
+          className="text-xs font-semibold text-sky-700 hover:text-sky-800"
+        >
+          View all
+        </button>
       </div>
 
       <div className="group relative">
-        <button
-          type="button"
-          aria-label="Scroll featured listings left"
-          onClick={() => scrollRail("prev")}
-          className="absolute left-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-sm transition hover:bg-white md:inline-flex"
-        >
-          ‹
-        </button>
-        <button
-          type="button"
-          aria-label="Scroll featured listings right"
-          onClick={() => scrollRail("next")}
-          className="absolute right-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 shadow-sm transition hover:bg-white md:inline-flex"
-        >
-          ›
-        </button>
+        {hasOverflow ? (
+          <>
+            <button
+              type="button"
+              aria-label="Scroll featured listings left"
+              onClick={() => scrollRail("prev")}
+              className="absolute left-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 opacity-0 shadow-sm transition hover:bg-white md:inline-flex md:group-hover:opacity-100"
+            >
+              ‹
+            </button>
+            <button
+              type="button"
+              aria-label="Scroll featured listings right"
+              onClick={() => scrollRail("next")}
+              className="absolute right-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 opacity-0 shadow-sm transition hover:bg-white md:inline-flex md:group-hover:opacity-100"
+            >
+              ›
+            </button>
+          </>
+        ) : null}
+        {hasOverflow ? (
+          <>
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-[1] hidden w-8 bg-gradient-to-r from-white to-transparent md:block" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] hidden w-8 bg-gradient-to-l from-white to-transparent md:block" />
+          </>
+        ) : null}
         <div
           ref={railRef}
           className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"

@@ -87,3 +87,15 @@ void test("host listings feed renders featured strip only for view=all", () => {
   assert.match(feedSource, /dashboardView === "all"/);
   assert.match(feedSource, /<HostFeaturedStrip listings=\{listings\} \/>/);
 });
+
+void test("featured strip polish includes fade edges and desktop-only overflow arrows", () => {
+  const stripPath = path.join(process.cwd(), "components", "host", "HostFeaturedStrip.tsx");
+  const stripSource = fs.readFileSync(stripPath, "utf8");
+
+  assert.match(stripSource, /hasOverflow \? \(/);
+  assert.match(stripSource, /md:inline-flex md:group-hover:opacity-100/);
+  assert.match(stripSource, /bg-gradient-to-r from-white to-transparent/);
+  assert.match(stripSource, /bg-gradient-to-l from-white to-transparent/);
+  assert.match(stripSource, /View all/);
+  assert.match(stripSource, /host-home-listings-grid/);
+});

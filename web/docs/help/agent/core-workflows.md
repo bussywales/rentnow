@@ -2,7 +2,7 @@
 title: "Agent core workflows"
 description: "Portfolio workflow for listing quality, lead handling, and demand capture."
 order: 20
-updated_at: "2026-02-13"
+updated_at: "2026-02-23"
 ---
 
 ## Portfolio listing operations
@@ -23,6 +23,12 @@ updated_at: "2026-02-13"
 - Follow high-signal searches for your key markets.
 - Compare “new this week”, trending rails, and saved-search signals.
 - Adjust listing quality/pricing based on actual match patterns.
+
+## Host featured strip workflow
+
+- Use `/host?view=all` for a quick Featured strip pass before full portfolio review.
+- The strip keeps six spotlight cards visible for faster top-listing checks.
+- Use “View all” in the strip to jump directly into the full media mosaic.
 
 ## Cross-functional coordination
 
