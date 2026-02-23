@@ -10,6 +10,7 @@ import { PwaServiceWorker } from "@/components/layout/PwaServiceWorker";
 import { SessionBootstrap } from "@/components/analytics/SessionBootstrap";
 import { LegalDisclaimerBanner } from "@/components/legal/LegalDisclaimerBanner";
 import { LegalAcceptanceModalGate } from "@/components/legal/LegalAcceptanceModalGate";
+import { SupportWidget } from "@/components/support/SupportWidget";
 import {
   BRAND,
   BRAND_NAME,
@@ -123,6 +124,7 @@ export default async function RootLayout({
           <OfflineIndicator />
           <PwaServiceWorker />
           <main className="min-h-[80vh] pb-24 pt-6">{children}</main>
+          <SupportWidget />
           <Footer />
           <LegalDisclaimerBanner />
         </MarketPreferenceProvider>
