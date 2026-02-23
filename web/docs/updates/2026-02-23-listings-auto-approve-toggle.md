@@ -2,6 +2,7 @@
 title: "Admin toggle: auto-approve listings on submit"
 audiences:
   - ADMIN
+  - TENANT
   - HOST
   - AGENT
 areas:
@@ -26,4 +27,3 @@ published_at: "2026-02-23"
 
 - Admin: can enable or disable auto-approval from `/admin/settings`.
 - Host/Agent (landlord and agent roles): listing submit can publish immediately when enabled.
-

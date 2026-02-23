@@ -9,6 +9,7 @@ export const PROPERTY_EVENT_TYPES = [
   "client_page_lead_status_updated",
   "listing_submit_attempted",
   "listing_submit_blocked_no_credits",
+  "listing_auto_approved",
   "listing_payment_started",
   "listing_payment_succeeded",
   "listing_credit_consumed",
