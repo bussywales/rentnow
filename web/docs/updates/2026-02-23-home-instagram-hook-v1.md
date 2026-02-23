@@ -1,7 +1,7 @@
 ---
 title: "Home landing refreshed with listings-first visual hook"
 audiences:
-  - LANDLORD
+  - HOST
   - AGENT
 areas:
   - Home

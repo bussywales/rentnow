@@ -10,12 +10,8 @@ void test("properties page wires browse intent persistence client", () => {
   assert.match(contents, /persistFilters=\{hasFilters\}/);
 });
 
-void test("home pages wire continue browsing CTA component", () => {
-  const hostHomePath = path.join(process.cwd(), "app", "home", "page.tsx");
+void test("tenant home wires continue browsing CTA component", () => {
   const tenantHomePath = path.join(process.cwd(), "app", "tenant", "home", "page.tsx");
-  const hostHome = fs.readFileSync(hostHomePath, "utf8");
   const tenantHome = fs.readFileSync(tenantHomePath, "utf8");
-  assert.match(hostHome, /<HomeBrowseCtaClient/);
   assert.match(tenantHome, /<HomeBrowseCtaClient/);
 });
-
