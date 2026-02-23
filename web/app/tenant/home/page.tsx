@@ -46,10 +46,13 @@ import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
 import { NextBestActionsPanel } from "@/components/checklists/NextBestActionsPanel";
 import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 import { loadTenantChecklist } from "@/lib/checklists/role-checklists.server";
+import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
 
 export const dynamic = "force-dynamic";
 
 const MODULE_LIMIT = 10;
+const TENANT_GETTING_STARTED_COLLAPSED_KEY = "home:tenant:getting-started:collapsed:v1";
+const TENANT_INSIGHTS_COLLAPSED_KEY = "home:tenant:insights:collapsed:v1";
 
 const DEFAULT_CITY_BY_JURISDICTION: Record<string, string> = {
   NG: "Lagos",
@@ -617,47 +620,63 @@ export default async function TenantHomePage() {
         </section>
       )}
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900">
-              New matches for your saved searches
-            </h2>
-            <p className="text-sm text-slate-600">
-              Track fresh listings that match searches you follow.
-            </p>
+      <HomeCollapsibleSection
+        title="Search insights"
+        description="Saved-search updates and discovery signals."
+        storageKey={TENANT_INSIGHTS_COLLAPSED_KEY}
+        testId="tenant-home-insights-collapsible"
+      >
+        <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-900">
+                New matches for your saved searches
+              </h2>
+              <p className="text-sm text-slate-600">
+                Track fresh listings that match searches you follow.
+              </p>
+            </div>
+            <Link href="/saved-searches" className="text-sm font-semibold text-sky-700">
+              Manage saved searches
+            </Link>
           </div>
-          <Link href="/saved-searches" className="text-sm font-semibold text-sky-700">
-            Manage saved searches
-          </Link>
+          <p className="mt-3 text-sm text-slate-700">
+            {savedSearchSummary.totalNewMatches > 0
+              ? `${savedSearchSummary.totalNewMatches} new matches across your followed searches.`
+              : "No new matches yet. Follow a search from Browse to get updates here."}
+          </p>
+          {savedSearchSummary.searches.length > 0 ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {savedSearchSummary.searches.slice(0, 3).map((search) => (
+                <div
+                  key={search.id}
+                  className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
+                >
+                  <p className="text-sm font-semibold text-slate-900">{search.name}</p>
+                  <p className="text-xs text-slate-600">{search.newMatchesCount} new matches</p>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
-        <p className="mt-3 text-sm text-slate-700">
-          {savedSearchSummary.totalNewMatches > 0
-            ? `${savedSearchSummary.totalNewMatches} new matches across your followed searches.`
-            : "No new matches yet. Follow a search from Browse to get updates here."}
-        </p>
-        {savedSearchSummary.searches.length > 0 ? (
-          <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {savedSearchSummary.searches.slice(0, 3).map((search) => (
-              <div
-                key={search.id}
-                className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3"
-              >
-                <p className="text-sm font-semibold text-slate-900">{search.name}</p>
-                <p className="text-xs text-slate-600">{search.newMatchesCount} new matches</p>
-              </div>
-            ))}
-          </div>
-        ) : null}
-      </section>
+      </HomeCollapsibleSection>
 
-      <NextBestActionsPanel role="tenant" items={gettingStartedChecklist} />
+      <HomeCollapsibleSection
+        title="Getting started"
+        description="Checklist and recommended setup actions."
+        storageKey={TENANT_GETTING_STARTED_COLLAPSED_KEY}
+        testId="tenant-home-getting-started-collapsible"
+      >
+        <div className="space-y-4">
+          <NextBestActionsPanel role="tenant" items={gettingStartedChecklist} />
 
-      <RoleChecklistPanel
-        title="Getting started checklist"
-        subtitle="Complete a few core actions to get faster matches and better response rates."
-        items={gettingStartedChecklist}
-      />
+          <RoleChecklistPanel
+            title="Getting started checklist"
+            subtitle="Complete a few core actions to get faster matches and better response rates."
+            items={gettingStartedChecklist}
+          />
+        </div>
+      </HomeCollapsibleSection>
 
       <div className="flex justify-end">
         <HelpDrawerTrigger label="Need help?" testId="tenant-help-trigger" />

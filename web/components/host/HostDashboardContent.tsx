@@ -34,6 +34,7 @@ import { HostPaymentsPanel } from "@/components/host/HostPaymentsPanel";
 import { HostShortletBookingsPanel } from "@/components/host/HostShortletBookingsPanel";
 import { HostShortletWorkspace } from "@/components/host/HostShortletWorkspace";
 import { HostBookingsHashAnchorClient } from "@/components/host/HostBookingsHashAnchorClient";
+import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
 import { isPausedStatus, mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import type { PropertyStatus } from "@/lib/types";
 import type { MissedDemandEstimate } from "@/lib/analytics/property-events";
@@ -114,6 +115,7 @@ type FeaturedFixItem = {
   href?: string;
   actionLabel?: string;
 };
+const HOST_OPS_ALERTS_COLLAPSED_KEY = "home:host:ops-alerts:collapsed:v1";
 
 function featuredRequestChipClass(status: FeaturedRequestState["status"] | "featured_active"): string {
   if (status === "featured_active") return "border-amber-200 bg-amber-50 text-amber-800";
@@ -1310,78 +1312,87 @@ export function HostDashboardContent({
           />
         </div>
       )}
-      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Action centre</p>
-            {pendingRequestCount > 0 ? (
-              <>
-                <p className="text-sm font-semibold text-slate-900">Booking requests awaiting your approval</p>
-                <p className="text-sm text-slate-600">
-                  Respond within 12 hours to avoid auto-expiry.
-                </p>
-              </>
-            ) : (
-              <>
-                <p className="text-sm font-semibold text-slate-900">No requests awaiting approval</p>
-                <p className="text-sm text-slate-600">
-                  New shortlet booking requests will appear here first.
-                </p>
-              </>
-            )}
-          </div>
-          <div className="flex min-w-0 flex-wrap gap-2">
-            <Link
-              href="/host/bookings?view=awaiting#host-bookings"
-              className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
-            >
-              Review requests
-            </Link>
-            <Link
-              href="/host/bookings#host-bookings"
-              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
-            >
-              View all bookings
-            </Link>
-          </div>
-        </div>
-      </section>
-      {availablePayoutMinor > 0 ? (
-        <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
-          <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-xs uppercase tracking-[0.2em] text-emerald-800">Payout status</p>
-              <p className="text-sm font-semibold text-emerald-950">
-                You have {availablePayoutLabel} available to payout.
-              </p>
-              <p className="text-sm text-emerald-800">
-                Open earnings to request manual payout processing during pilot.
-              </p>
+      <HomeCollapsibleSection
+        title="Operations alerts"
+        description="Approvals and payout reminders."
+        storageKey={HOST_OPS_ALERTS_COLLAPSED_KEY}
+        testId="host-home-ops-alerts-collapsible"
+      >
+        <div className="space-y-3">
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Action centre</p>
+                {pendingRequestCount > 0 ? (
+                  <>
+                    <p className="text-sm font-semibold text-slate-900">Booking requests awaiting your approval</p>
+                    <p className="text-sm text-slate-600">
+                      Respond within 12 hours to avoid auto-expiry.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm font-semibold text-slate-900">No requests awaiting approval</p>
+                    <p className="text-sm text-slate-600">
+                      New shortlet booking requests will appear here first.
+                    </p>
+                  </>
+                )}
+              </div>
+              <div className="flex min-w-0 flex-wrap gap-2">
+                <Link
+                  href="/host/bookings?view=awaiting#host-bookings"
+                  className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100"
+                >
+                  Review requests
+                </Link>
+                <Link
+                  href="/host/bookings#host-bookings"
+                  className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  View all bookings
+                </Link>
+              </div>
             </div>
-            <Link
-              href="/host/earnings"
-              className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
-            >
-              Open earnings
-            </Link>
-          </div>
-        </section>
-      ) : null}
-      {missingShortletPriceCount > 0 ? (
-        <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
-          <span className="min-w-0 break-words">
-            Some shortlets are not bookable until nightly price is set.
-          </span>
-          {firstMissingShortletPropertyId ? (
-            <Link
-              href={`/host/shortlets/${firstMissingShortletPropertyId}/settings`}
-              className="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100"
-            >
-              Set nightly price
-            </Link>
+          </section>
+          {availablePayoutMinor > 0 ? (
+            <section className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 shadow-sm">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-xs uppercase tracking-[0.2em] text-emerald-800">Payout status</p>
+                  <p className="text-sm font-semibold text-emerald-950">
+                    You have {availablePayoutLabel} available to payout.
+                  </p>
+                  <p className="text-sm text-emerald-800">
+                    Open earnings to request manual payout processing during pilot.
+                  </p>
+                </div>
+                <Link
+                  href="/host/earnings"
+                  className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-semibold text-emerald-900 hover:bg-emerald-100"
+                >
+                  Open earnings
+                </Link>
+              </div>
+            </section>
+          ) : null}
+          {missingShortletPriceCount > 0 ? (
+            <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-800">
+              <span className="min-w-0 break-words">
+                Some shortlets are not bookable until nightly price is set.
+              </span>
+              {firstMissingShortletPropertyId ? (
+                <Link
+                  href={`/host/shortlets/${firstMissingShortletPropertyId}/settings`}
+                  className="rounded-lg border border-rose-300 bg-white px-3 py-1.5 text-xs font-semibold text-rose-800 hover:bg-rose-100"
+                >
+                  Set nightly price
+                </Link>
+              ) : null}
+            </div>
           ) : null}
         </div>
-      ) : null}
+      </HomeCollapsibleSection>
       <HostPaymentsPanel />
       {workspaceSection === "listings" ? (
         <ListingBulkActionsBar

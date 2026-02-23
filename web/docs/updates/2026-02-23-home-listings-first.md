@@ -2,7 +2,7 @@
 title: "Home workspaces now surface listings first"
 audiences:
   - TENANT
-  - LANDLORD
+  - HOST
   - AGENT
 areas:
   - Home

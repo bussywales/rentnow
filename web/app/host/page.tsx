@@ -38,6 +38,7 @@ import { NextBestActionsPanel } from "@/components/checklists/NextBestActionsPan
 import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
 import type { ChecklistItem } from "@/lib/checklists/role-checklists";
+import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
 import {
   listHostShortletBookings,
   listHostShortletEarnings,
@@ -58,6 +59,8 @@ export const dynamic = "force-dynamic";
 type PageProps = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
+const HOST_GETTING_STARTED_COLLAPSED_KEY = "home:host:getting-started:collapsed:v1";
+const HOST_TRUST_STATUS_COLLAPSED_KEY = "home:host:trust-status:collapsed:v1";
 
 function readSingleParam(
   params: Record<string, string | string[] | undefined>,
@@ -550,31 +553,45 @@ export default async function DashboardHome({ searchParams }: PageProps) {
         )}
       </div>
       {(role === "landlord" || role === "agent") && gettingStartedChecklist.length > 0 && (
-        <NextBestActionsPanel role={role} items={gettingStartedChecklist} />
-      )}
-      {(role === "landlord" || role === "agent") && gettingStartedChecklist.length > 0 && (
-        <RoleChecklistPanel
-          title="Getting started checklist"
-          subtitle="Operational milestones for listing quality, approvals, and responses."
-          items={gettingStartedChecklist}
-        />
+        <HomeCollapsibleSection
+          title="Getting started"
+          description="Operational milestones for listing quality, approvals, and responses."
+          storageKey={HOST_GETTING_STARTED_COLLAPSED_KEY}
+          testId="host-home-getting-started-collapsible"
+        >
+          <div className="space-y-4">
+            <NextBestActionsPanel role={role} items={gettingStartedChecklist} />
+            <RoleChecklistPanel
+              title="Getting started checklist"
+              subtitle="Operational milestones for listing quality, approvals, and responses."
+              items={gettingStartedChecklist}
+            />
+          </div>
+        </HomeCollapsibleSection>
       )}
       {(role === "landlord" || role === "agent") && trustMarkers && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900">Trust status</h3>
-          <p className="mt-1 text-sm text-slate-600">
-            Verification markers help tenants feel confident about your listing.
-          </p>
-          <div className="mt-3 space-y-2">
-            <TrustBadges markers={trustMarkers} />
-            <TrustReliability markers={trustMarkers} />
-            {trustMarkers.trust_updated_at && (
-              <p className="text-xs text-slate-500">
-                Last updated {new Date(trustMarkers.trust_updated_at).toLocaleDateString()}
-              </p>
-            )}
+        <HomeCollapsibleSection
+          title="Trust status"
+          description="Verification markers and reliability signals."
+          storageKey={HOST_TRUST_STATUS_COLLAPSED_KEY}
+          testId="host-home-trust-collapsible"
+        >
+          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <h3 className="text-lg font-semibold text-slate-900">Trust status</h3>
+            <p className="mt-1 text-sm text-slate-600">
+              Verification markers help tenants feel confident about your listing.
+            </p>
+            <div className="mt-3 space-y-2">
+              <TrustBadges markers={trustMarkers} />
+              <TrustReliability markers={trustMarkers} />
+              {trustMarkers.trust_updated_at && (
+                <p className="text-xs text-slate-500">
+                  Last updated {new Date(trustMarkers.trust_updated_at).toLocaleDateString()}
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        </HomeCollapsibleSection>
       )}
     </div>
   );
