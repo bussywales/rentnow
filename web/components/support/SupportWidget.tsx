@@ -16,6 +16,8 @@ const QUICK_ACTIONS: Array<{ id: string; label: string; href: string }> = [
 export function SupportWidget() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [suggested, setSuggested] = useState<Array<{ title: string; href: string; snippet: string }>>([]);
+  const [searching, setSearching] = useState(false);
   const panelRef = useRef<HTMLDivElement | null>(null);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -44,6 +46,49 @@ export function SupportWidget() {
     }
     triggerRef.current?.focus();
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      setSuggested([]);
+      setSearching(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = setTimeout(async () => {
+      setSearching(true);
+      try {
+        const response = await fetch(
+          `/api/support/help-search?q=${encodeURIComponent(trimmed)}&limit=4`,
+          { signal: controller.signal }
+        );
+        const body = await response.json().catch(() => null);
+        if (!response.ok) {
+          setSuggested([]);
+          return;
+        }
+        const results = Array.isArray(body?.results) ? body.results : [];
+        setSuggested(
+          results.map((item: { title?: string; href?: string; snippet?: string }) => ({
+            title: item.title || "Support article",
+            href: item.href || "/support",
+            snippet: item.snippet || "",
+          }))
+        );
+      } catch {
+        setSuggested([]);
+      } finally {
+        setSearching(false);
+      }
+    }, 220);
+
+    return () => {
+      controller.abort();
+      clearTimeout(timeout);
+    };
+  }, [open, query]);
 
   return (
     <div className="fixed bottom-4 right-4 z-[55] sm:bottom-6 sm:right-6" data-testid="support-widget">
@@ -89,6 +134,35 @@ export function SupportWidget() {
               </Link>
             ))}
           </div>
+
+          {query.trim().length >= 2 ? (
+            <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/80 p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                Suggested articles
+              </p>
+              {searching ? (
+                <p className="mt-2 text-xs text-slate-500">Searching help docs…</p>
+              ) : suggested.length ? (
+                <div className="mt-2 space-y-2" data-testid="support-widget-suggested-results">
+                  {suggested.map((item) => (
+                    <Link
+                      key={`${item.href}:${item.title}`}
+                      href={item.href}
+                      onClick={close}
+                      className="block rounded-lg border border-slate-200 bg-white px-3 py-2 transition hover:bg-slate-50"
+                    >
+                      <p className="text-sm font-semibold text-slate-900">{item.title}</p>
+                      {item.snippet ? (
+                        <p className="mt-0.5 line-clamp-2 text-xs text-slate-500">{item.snippet}</p>
+                      ) : null}
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-slate-500">No direct match yet. You can escalate to support.</p>
+              )}
+            </div>
+          ) : null}
 
           <div className="mt-3 border-t border-slate-100 pt-3">
             <Link
