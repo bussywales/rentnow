@@ -10,8 +10,8 @@ void test("host dashboard listing cards surface visibility diagnostics copy", ()
   assert.match(source, /getPublicVisibilityDiagnostics/);
   assert.match(source, /Why this listing is not visible/);
   assert.ok(
-    source.includes("Bookings ({pendingRequestCount})"),
-    "expected bookings tab badge copy"
+    source.includes("Use sidebar for primary navigation"),
+    "expected compact workspace guidance copy"
   );
   assert.ok(
     source.includes("awaiting approval"),
