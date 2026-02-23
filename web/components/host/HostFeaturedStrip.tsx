@@ -133,7 +133,7 @@ export function HostFeaturedStrip({
               type="button"
               aria-label="Scroll featured listings left"
               onClick={() => scrollRail("prev")}
-              className="absolute left-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 opacity-0 shadow-sm transition hover:bg-white md:inline-flex md:group-hover:opacity-100"
+              className="absolute left-4 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 opacity-0 shadow-sm transition hover:bg-white md:inline-flex md:group-hover:opacity-100"
             >
               ‹
             </button>
@@ -141,7 +141,7 @@ export function HostFeaturedStrip({
               type="button"
               aria-label="Scroll featured listings right"
               onClick={() => scrollRail("next")}
-              className="absolute right-2 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 opacity-0 shadow-sm transition hover:bg-white md:inline-flex md:group-hover:opacity-100"
+              className="absolute right-4 top-1/2 z-10 hidden h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-slate-200 bg-white/95 text-slate-700 opacity-0 shadow-sm transition hover:bg-white md:inline-flex md:group-hover:opacity-100"
             >
               ›
             </button>
@@ -155,7 +155,7 @@ export function HostFeaturedStrip({
         ) : null}
         <div
           ref={railRef}
-          className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          className="flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-1 pr-4 scroll-px-4 sm:px-6 sm:pr-6 sm:scroll-px-6 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {featuredListings.map((listing, index) => {
             const imageUrl = getPrimaryImageUrl(listing);
@@ -232,6 +232,7 @@ export function HostFeaturedStrip({
               </article>
             );
           })}
+          <div className="w-4 shrink-0 sm:w-6" aria-hidden="true" />
         </div>
       </div>
     </section>

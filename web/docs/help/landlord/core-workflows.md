@@ -30,6 +30,7 @@ updated_at: "2026-02-23"
 - Open `/host?view=all` to review the Featured strip above the media mosaic.
 - The strip prioritizes active featured listings and caps to six cards for quick triage.
 - Use the strip for top-of-day checks, then continue in the full mosaic for bulk actions.
+- Use horizontal swipe/trackpad scroll in the strip to peek adjacent spotlight cards before deep review.
 
 ## Demo vs real inventory
 
