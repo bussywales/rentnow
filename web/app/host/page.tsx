@@ -136,8 +136,16 @@ export default async function DashboardHome({ searchParams }: PageProps) {
   const requestedSection = readSingleParam(resolvedSearchParams, "section");
   const requestedBooking = readSingleParam(resolvedSearchParams, "booking");
 
-  if (requestedTab.toLowerCase() === "bookings" || requestedSection.toLowerCase() === "bookings") {
-    redirect(buildCanonicalHostBookingsHrefFromSearchParams(resolvedSearchParams));
+  if (
+    requestedTab.toLowerCase() === "bookings" ||
+    requestedSection.toLowerCase() === "bookings" ||
+    requestedBooking
+  ) {
+    redirect(
+      buildCanonicalHostBookingsHrefFromSearchParams(resolvedSearchParams, {
+        defaultView: requestedBooking ? "awaiting" : null,
+      })
+    );
   }
 
   const supabaseReady = hasServerSupabaseEnv();
