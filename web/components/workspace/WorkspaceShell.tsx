@@ -1,9 +1,15 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
 import { cn } from "@/components/ui/cn";
 import { WorkspaceSidebar } from "@/components/workspace/WorkspaceSidebar";
 import type { WorkspaceRole } from "@/lib/workspace/sidebar-model";
+import {
+  readLegacyBannerHidden,
+  shouldShowLegacyToolsBanner,
+  writeLegacyBannerHidden,
+} from "@/lib/workspace/legacy-banner";
 
 const WORKSPACE_SIDEBAR_COLLAPSED_KEY = "workspace:sidebar:collapsed:v1";
 
@@ -34,8 +40,10 @@ export function WorkspaceShell({
   unreadMessages?: number;
   contentClassName?: string;
 }) {
+  const pathname = usePathname() || "/";
   const [collapsed, setCollapsed] = useState(readCollapsedFromStorage);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [legacyBannerHidden, setLegacyBannerHidden] = useState(readLegacyBannerHidden);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -53,6 +61,12 @@ export function WorkspaceShell({
       return next;
     });
   };
+
+  const showLegacyBanner = shouldShowLegacyToolsBanner({
+    role,
+    pathname,
+    hidden: legacyBannerHidden,
+  });
 
   return (
     <div className="mx-auto min-w-0 max-w-6xl px-4">
@@ -117,6 +131,25 @@ export function WorkspaceShell({
                 <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Dashboard</p>
                 <p className="text-xl font-semibold">{title}</p>
                 {subtitle ? <p className="text-sm text-slate-200">{subtitle}</p> : null}
+              </div>
+            ) : null}
+            {showLegacyBanner ? (
+              <div
+                className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700"
+                data-testid="workspace-legacy-banner"
+              >
+                <p>You&apos;re viewing legacy tools. We&apos;re moving these into the new workspace.</p>
+                <button
+                  type="button"
+                  className="rounded-full border border-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                  data-testid="workspace-legacy-banner-hide"
+                  onClick={() => {
+                    setLegacyBannerHidden(true);
+                    writeLegacyBannerHidden(true);
+                  }}
+                >
+                  Hide
+                </button>
               </div>
             ) : null}
             {children}
