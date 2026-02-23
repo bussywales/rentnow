@@ -16,5 +16,16 @@ void test("host listings mosaic tiles enforce aspect rhythm and max media height
 
   assert.match(source, /getHostListingTileAspectClass\(pattern\)/);
   assert.match(source, /max-h-\[60vh\]/);
-  assert.match(source, /className="h-full w-full object-cover transition duration-300"/);
+  assert.match(source, /object-cover/);
+});
+
+void test("host listings mosaic uses branded placeholder tile when listing has no photo", () => {
+  const gridPath = path.join(process.cwd(), "components", "host", "HostListingsMasonryGrid.tsx");
+  const gridSource = fs.readFileSync(gridPath, "utf8");
+  const placeholderPath = path.join(process.cwd(), "components", "ui", "ListingImagePlaceholder.tsx");
+  const placeholderSource = fs.readFileSync(placeholderPath, "utf8");
+
+  assert.match(gridSource, /<ListingImagePlaceholder\s*\/>/);
+  assert.match(placeholderSource, /No photo yet/);
+  assert.match(placeholderSource, /bg-gradient-to-br/);
 });

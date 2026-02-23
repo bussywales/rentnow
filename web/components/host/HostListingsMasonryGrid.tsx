@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
+import { ListingImagePlaceholder } from "@/components/ui/ListingImagePlaceholder";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import { resolveImageLoadingProfile, shouldPriorityImage } from "@/lib/images/loading-profile";
@@ -98,7 +99,8 @@ export function HostListingsMasonryGrid({ listings }: Props) {
             <article
               key={listing.id}
               className={cn(
-                "group relative min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 transition duration-200",
+                "group relative min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 shadow-sm transition duration-200",
+                "hover:-translate-y-0.5 hover:shadow-md focus-within:-translate-y-0.5 focus-within:shadow-md",
                 "w-full max-w-full"
               )}
               data-testid={`host-home-listings-grid-card-${listing.id}`}
@@ -123,7 +125,7 @@ export function HostListingsMasonryGrid({ listings }: Props) {
                     alt={listing.title}
                     fill
                     sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                    className="h-full w-full object-cover transition duration-300"
+                    className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.01] group-focus-within:scale-[1.01]"
                     priority={loadingProfile.priority}
                     loading={loadingProfile.loading}
                     fetchPriority={loadingProfile.fetchPriority}
@@ -132,7 +134,7 @@ export function HostListingsMasonryGrid({ listings }: Props) {
                     }
                   />
                 ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-slate-200 to-slate-100" />
+                  <ListingImagePlaceholder />
                 )}
                 <div className="absolute inset-x-0 top-0 z-[1] flex items-start justify-between p-2.5">
                   <span
