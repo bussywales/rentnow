@@ -609,7 +609,7 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2" data-testid="host-leads-filter-status">
         {tabsWithCounts.map((tab) => (
           <button
             key={tab.key}
@@ -639,7 +639,10 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
         ))}
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-xs">
+      <div
+        className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-xs"
+        data-testid="host-leads-filters"
+      >
         <div className="flex flex-col gap-1">
           <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-400">
             Date range
@@ -726,11 +729,12 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
         </div>
       </div>
 
-      {filteredRows.length === 0 ? (
-        renderEmptyState()
-      ) : (
-        <div className="space-y-3">
-          {filteredRows.map((lead) => {
+      <div data-testid="host-leads-results">
+        {filteredRows.length === 0 ? (
+          renderEmptyState()
+        ) : (
+          <div className="space-y-3">
+            {filteredRows.map((lead) => {
             const isNew = lead.status === "NEW";
             const updatedAt = lead.updated_at ?? lead.created_at;
             const isRecentlyUpdated = !isNew && Date.now() - toTimestamp(updatedAt) < 24 * 60 * 60 * 1000;
@@ -797,9 +801,10 @@ export function LeadInboxClient({ leads, viewerRole, viewerId, isAdmin }: LeadIn
                 </div>
               </button>
             );
-          })}
-        </div>
-      )}
+            })}
+          </div>
+        )}
+      </div>
 
       {drawerOpen && selectedLead && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/30 lg:items-stretch lg:justify-end">

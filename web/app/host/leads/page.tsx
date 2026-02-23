@@ -169,7 +169,7 @@ export default async function HostLeadsPage() {
   });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-testid="host-leads-page">
       <div>
         <h1 className="text-2xl font-semibold text-slate-900">Leads</h1>
         <p className="text-sm text-slate-600">
