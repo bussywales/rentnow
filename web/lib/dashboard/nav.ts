@@ -15,7 +15,7 @@ export function getAgentDashboardNavItems(input: {
   return [
     { key: "listings", label: "My listings", href: "/host", show: showMyProperties },
     { key: "client-pages", label: "Client pages", href: "/profile/clients", show: true },
-    { key: "leads", label: "Leads", href: "/dashboard/leads", show: showMyProperties },
+    { key: "leads", label: "Leads", href: "/host/leads", show: showMyProperties },
     { key: "referrals", label: "Referrals", href: "/dashboard/referrals", show: true },
     {
       key: "agent-network",

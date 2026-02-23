@@ -122,7 +122,7 @@ export function buildHostChecklist(input: {
     {
       id: "host-enquiries",
       label: input.role === "agent" ? "Manage leads" : "Respond to enquiries",
-      href: "/dashboard/leads",
+      href: "/host/leads",
       status: resolveChecklistStatus(input.hasRespondedToEnquiries),
       note: input.role === "agent" ? `Keep ${roleLabel} response times tight.` : null,
     },

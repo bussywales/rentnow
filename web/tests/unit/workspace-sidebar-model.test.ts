@@ -48,7 +48,7 @@ void test("agent sidebar extends landlord links with agent workspace links", () 
     "Legacy tools",
   ]);
   assert.ok(items.some((item) => item.href === "/profile/clients"));
-  assert.ok(items.some((item) => item.href === "/dashboard/leads"));
+  assert.ok(items.some((item) => item.href === "/host/leads"));
   assert.ok(items.some((item) => item.href === "/dashboard/referrals"));
   assert.ok(items.some((item) => item.href === "/dashboard/messages"));
   assert.ok(items.some((item) => item.href === "/dashboard/agent-network"));

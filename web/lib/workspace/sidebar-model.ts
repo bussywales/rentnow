@@ -71,7 +71,7 @@ export function getWorkspaceSidebarSections(
 
   const agentToolsItems: WorkspaceSidebarItem[] = [
     { key: "clients", label: "Client pages", href: "/profile/clients" },
-    { key: "leads", label: "Leads", href: "/dashboard/leads" },
+    { key: "leads", label: "Leads", href: "/host/leads" },
     {
       key: "messages",
       label: "Messages",

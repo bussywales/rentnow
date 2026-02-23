@@ -60,4 +60,9 @@ test("host nav includes earnings entry point", () => {
   const links = resolveNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "landlord" });
   const earnings = links.find((link) => link.href === "/host/earnings");
   assert.ok(earnings, "expected earnings link for host role");
+  assert.equal(
+    links.some((link) => link.href === "/dashboard/leads"),
+    false,
+    "host nav should not expose legacy dashboard leads href"
+  );
 });

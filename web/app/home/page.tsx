@@ -49,7 +49,7 @@ type Snapshot = {
 
 const WORKSPACE_LINKS = [
   { href: "/host", label: "Listings" },
-  { href: "/dashboard/leads", label: "Leads" },
+  { href: "/host/leads", label: "Leads" },
   { href: "/dashboard/messages", label: "Messages" },
   { href: "/dashboard/referrals", label: "Referrals" },
 ] as const;
