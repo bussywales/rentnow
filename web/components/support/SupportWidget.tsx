@@ -298,7 +298,7 @@ export function SupportWidget({
               {searching ? (
                 <p className="mt-2 text-xs text-slate-500">Searching help docs…</p>
               ) : suggested.length ? (
-                <div className="mt-2 space-y-2" data-testid="support-widget-suggested-results">
+                <div className="mt-2 space-y-2" data-testid="support-widget-suggestions">
                   {suggested.map((item) => (
                     <Link
                       key={`${item.href}:${item.title}`}
@@ -368,13 +368,14 @@ export function SupportWidget({
                 }}
                 placeholder="Ask about bookings, payments, approvals..."
                 className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
-                data-testid="support-widget-chat-input"
+                data-testid="support-widget-input"
               />
               <Button
                 type="button"
                 onClick={() => void handleAssistantSend()}
                 disabled={assistantBusy || chatInput.trim().length < 2}
                 size="sm"
+                data-testid="support-widget-send"
               >
                 Ask
               </Button>
@@ -386,7 +387,10 @@ export function SupportWidget({
                   This looks like it needs human follow-up{escalationReason ? ` (${escalationReason})` : ""}.
                 </p>
                 {escalationTicketId ? (
-                  <p className="mt-1 text-xs font-semibold text-emerald-800" data-testid="support-widget-ticket">
+                  <p
+                    className="mt-1 text-xs font-semibold text-emerald-800"
+                    data-testid="support-widget-ticket-success"
+                  >
                     Ticket received — reference #{escalationTicketId}
                   </p>
                 ) : (
@@ -439,7 +443,7 @@ export function SupportWidget({
           onClick={() => setOpen(true)}
           className="inline-flex h-12 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-lg transition hover:bg-slate-50"
           aria-label="Open support widget"
-          data-testid="support-widget-toggle"
+          data-testid="support-widget-button"
         >
           Help
         </button>

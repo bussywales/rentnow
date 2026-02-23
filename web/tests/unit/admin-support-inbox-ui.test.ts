@@ -21,9 +21,11 @@ void test("admin support inbox component includes table and drawer metadata view
   const source = fs.readFileSync(componentPath, "utf8");
 
   assert.match(source, /data-testid="admin-support-inbox"/);
+  assert.match(source, /data-testid="admin-support-refresh"/);
+  assert.match(source, /data-testid="admin-support-table"/);
+  assert.match(source, /data-testid="admin-support-row"/);
   assert.match(source, /data-testid="admin-support-rows"/);
   assert.match(source, /data-testid="admin-support-drawer"/);
   assert.match(source, /AI transcript/);
   assert.match(source, /Metadata/);
 });
-

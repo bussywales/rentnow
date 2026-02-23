@@ -99,7 +99,10 @@ export function AdminSupportRequestsInbox() {
   }, [load]);
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="admin-support-inbox">
+    <section
+      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+      data-testid="admin-support-inbox"
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="text-lg font-semibold text-slate-900">AI escalations inbox</h3>
@@ -107,7 +110,12 @@ export function AdminSupportRequestsInbox() {
             Newest support requests with escalation signal, metadata, and transcript context.
           </p>
         </div>
-        <Button size="sm" variant="secondary" onClick={() => void load()}>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => void load()}
+          data-testid="admin-support-refresh"
+        >
           Refresh
         </Button>
       </div>
@@ -151,7 +159,7 @@ export function AdminSupportRequestsInbox() {
 
       {!loading && !error && rows.length > 0 ? (
         <div className="mt-4 overflow-x-auto">
-          <table className="min-w-full text-left text-sm">
+          <table className="min-w-full text-left text-sm" data-testid="admin-support-table">
             <thead className="text-xs uppercase tracking-wide text-slate-500">
               <tr className="border-b border-slate-200">
                 <th className="px-2 py-2">Created</th>
@@ -165,7 +173,11 @@ export function AdminSupportRequestsInbox() {
             </thead>
             <tbody data-testid="admin-support-rows">
               {rows.map((row) => (
-                <tr key={row.id} className="border-b border-slate-100 align-top">
+                <tr
+                  key={row.id}
+                  className="border-b border-slate-100 align-top"
+                  data-testid="admin-support-row"
+                >
                   <td className="px-2 py-2 text-xs text-slate-600">{formatTime(row.createdAt)}</td>
                   <td className="px-2 py-2">{categoryLabel(row.category)}</td>
                   <td className="px-2 py-2">{row.role || "unknown"}</td>
@@ -267,4 +279,3 @@ export function AdminSupportRequestsInbox() {
     </section>
   );
 }
-
