@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
@@ -43,6 +44,7 @@ function listingLocationText(listing: DashboardListing) {
 
 export function HostListingsMasonryGrid({ listings }: Props) {
   const visibleListings = listings.slice(0, MAX_GRID_LISTINGS);
+  const [loadedById, setLoadedById] = useState<Record<string, boolean>>({});
 
   if (!visibleListings.length) {
     return (
@@ -60,7 +62,7 @@ export function HostListingsMasonryGrid({ listings }: Props) {
 
   return (
     <section
-      className="space-y-3 rounded-2xl border border-slate-200 bg-white p-3 shadow-sm"
+      className="-mx-4 space-y-3 rounded-none bg-slate-50/70 px-4 py-3 sm:mx-0 sm:rounded-2xl sm:border sm:border-slate-200 sm:bg-white sm:p-3 sm:shadow-sm"
       data-testid="host-home-listings-grid"
     >
       <div className="flex items-center justify-between gap-3 px-1">
@@ -82,6 +84,7 @@ export function HostListingsMasonryGrid({ listings }: Props) {
         {visibleListings.map((listing, index) => {
           const imageUrl = getPrimaryImageUrl(listing);
           const pattern = getHostListingTilePattern(index);
+          const imageLoaded = loadedById[listing.id] ?? false;
           const loadingProfile = resolveImageLoadingProfile(
             shouldPriorityImage({
               surface: "properties_list",
@@ -95,22 +98,32 @@ export function HostListingsMasonryGrid({ listings }: Props) {
             <article
               key={listing.id}
               className={cn(
-                "group relative min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100",
+                "group relative min-w-0 overflow-hidden rounded-2xl border border-slate-200 bg-slate-100 transition duration-200 hover:-translate-y-0.5 hover:shadow-md",
                 getHostListingTileClass(pattern)
               )}
               data-testid={`host-home-listings-grid-card-${listing.id}`}
             >
               <div className="absolute inset-0">
+                <div
+                  className={cn(
+                    "absolute inset-0 z-[1] animate-pulse bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 transition-opacity duration-300",
+                    imageLoaded ? "opacity-0" : "opacity-100"
+                  )}
+                  aria-hidden="true"
+                />
                 {imageUrl ? (
                   <Image
                     src={imageUrl}
                     alt={listing.title}
                     fill
                     sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
-                    className="object-cover"
+                    className="object-cover transition duration-300 group-hover:scale-[1.02]"
                     priority={loadingProfile.priority}
                     loading={loadingProfile.loading}
                     fetchPriority={loadingProfile.fetchPriority}
+                    onLoad={() =>
+                      setLoadedById((current) => ({ ...current, [listing.id]: true }))
+                    }
                   />
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-slate-200 to-slate-100" />
@@ -132,7 +145,7 @@ export function HostListingsMasonryGrid({ listings }: Props) {
                 <p className="line-clamp-1 text-xs text-slate-200">{listingLocationText(listing)}</p>
                 <Link
                   href={`/dashboard/properties/${listing.id}`}
-                  className="mt-2 inline-flex items-center rounded-md bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-900"
+                  className="mt-2 inline-flex items-center rounded-md bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 md:translate-y-1 md:opacity-0 md:group-hover:translate-y-0 md:group-hover:opacity-100 md:group-focus-within:translate-y-0 md:group-focus-within:opacity-100"
                 >
                   Open listing
                 </Link>
