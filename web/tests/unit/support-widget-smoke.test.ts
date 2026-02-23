@@ -8,7 +8,8 @@ void test("support widget is mounted globally in app layout", () => {
   const source = fs.readFileSync(layoutPath, "utf8");
 
   assert.match(source, /SupportWidget/);
-  assert.match(source, /<SupportWidget\s*\/>/);
+  assert.match(source, /<SupportWidget/);
+  assert.match(source, /prefillEmail=\{supportPrefillEmail\}/);
 });
 
 void test("support widget exposes open, close, quick actions, and /support fallback", () => {
