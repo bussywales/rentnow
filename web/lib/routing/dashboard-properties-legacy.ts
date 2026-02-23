@@ -1,4 +1,5 @@
 import { canManageListings } from "@/lib/role-access";
+import type { UserRole } from "@/lib/types";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -39,7 +40,7 @@ export function buildHostPropertyEditHref(id: string, params: SearchParams): str
 
 export function resolveLegacyDashboardPropertyRedirect(input: {
   userPresent: boolean;
-  role: string | null;
+  role: UserRole | null;
   propertyId: string | undefined;
   searchParams: SearchParams;
 }): string {
@@ -62,4 +63,3 @@ export function resolveLegacyDashboardPropertyRedirect(input: {
 
   return buildHostPropertyEditHref(cleanId, input.searchParams);
 }
-

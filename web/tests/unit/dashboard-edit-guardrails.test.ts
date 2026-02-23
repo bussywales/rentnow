@@ -3,13 +3,14 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-void test("dashboard edit listing hides raw error details in prod", () => {
+void test("property edit listing hides raw error details in prod", () => {
   const pagePath = path.join(
     process.cwd(),
     "app",
-    "dashboard",
+    "host",
     "properties",
     "[id]",
+    "edit",
     "page.tsx"
   );
   const contents = fs.readFileSync(pagePath, "utf8");
