@@ -13,6 +13,11 @@ import {
   type ShortletReminderBookingCandidate,
   type ShortletReminderEventKey,
 } from "@/lib/shortlet/reminders.server";
+import {
+  createShortletJobRunKey,
+  finishShortletJobRun,
+  startShortletJobRun,
+} from "@/lib/shortlet/job-runs.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 import { toDateKey } from "@/lib/shortlet/availability";
@@ -21,6 +26,21 @@ export const dynamic = "force-dynamic";
 
 const routeLabel = "/api/internal/shortlet/send-reminders";
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
+const remindersJobName = "shortlet_reminders";
+
+type ReminderRunSummaryPayload = {
+  ok: true;
+  route: string;
+  runKey: string;
+  scanned: number;
+  due: number;
+  sent: number;
+  skipped: number;
+  skippedAlreadySent: number;
+  errorsCount: number;
+  errors: string[];
+  asOf: string;
+};
 
 export type InternalReminderDeps = {
   hasServiceRoleEnv: typeof hasServiceRoleEnv;
@@ -30,6 +50,9 @@ export type InternalReminderDeps = {
   sendEmail: typeof sendEmail;
   createNotification: typeof createNotification;
   getSiteUrl: typeof getSiteUrl;
+  startJobRun: typeof startShortletJobRun;
+  finishJobRun: typeof finishShortletJobRun;
+  createJobRunKey: typeof createShortletJobRunKey;
 };
 
 function logReminderRunSummary(input: {
@@ -52,11 +75,25 @@ const defaultDeps: InternalReminderDeps = {
   sendEmail,
   createNotification,
   getSiteUrl,
+  startJobRun: startShortletJobRun,
+  finishJobRun: finishShortletJobRun,
+  createJobRunKey: createShortletJobRunKey,
 };
 
 function hasValidCronSecret(request: NextRequest, expected: string) {
   if (!expected) return false;
   return request.headers.get("x-cron-secret") === expected;
+}
+
+function resolveReminderRunKey(request: NextRequest, deps: InternalReminderDeps, now: Date) {
+  const fromHeader = String(request.headers.get("x-run-key") || "").trim();
+  const fromQuery = String(request.nextUrl.searchParams.get("run_key") || "").trim();
+  if (fromHeader) return fromHeader.slice(0, 200);
+  if (fromQuery) return fromQuery.slice(0, 200);
+  return deps.createJobRunKey({
+    jobName: remindersJobName,
+    now,
+  });
 }
 
 function normalizePaymentStatus(value: unknown): ReminderPaymentStatus {
@@ -144,11 +181,10 @@ export async function postShortletSendRemindersResponse(
   const client = deps.createServiceRoleClient();
   const adminClient = client as unknown as UntypedAdminClient;
   const now = deps.now();
-  const todayKey = toDateKey(new Date(Date.UTC(
-    now.getUTCFullYear(),
-    now.getUTCMonth(),
-    now.getUTCDate()
-  )));
+  const runKey = resolveReminderRunKey(request, deps, now);
+  const todayKey = toDateKey(
+    new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  );
   const next8Days = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   next8Days.setUTCDate(next8Days.getUTCDate() + 8);
   const next8DaysKey = toDateKey(next8Days);
@@ -156,244 +192,326 @@ export async function postShortletSendRemindersResponse(
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
   const yesterdayKey = toDateKey(yesterday);
 
-  const { data: bookingRows, error: bookingError } = await adminClient
-    .from("shortlet_bookings")
-    .select(
-      "id,property_id,guest_user_id,host_user_id,check_in,check_out,nights,status,total_amount_minor,currency,properties!inner(title,city,shortlet_settings(booking_mode))"
-    )
-    .in("status", ["pending", "confirmed"])
-    .lte("check_in", next8DaysKey)
-    .gte("check_out", yesterdayKey)
-    .order("check_in", { ascending: true })
-    .range(0, 599);
-
-  if (bookingError) {
-    return NextResponse.json({ error: bookingError.message || "Unable to load bookings" }, { status: 500 });
+  try {
+    await deps.startJobRun({
+      client: adminClient,
+      jobName: remindersJobName,
+      runKey,
+      startedAt: now,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to start reminder job run";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 
-  const candidates = (((bookingRows as Array<Record<string, unknown>> | null) ?? [])
-    .map((row) => {
-      const relation = row.properties as
-        | Record<string, unknown>
-        | Array<Record<string, unknown>>
-        | null
-        | undefined;
-      const property = Array.isArray(relation) ? (relation[0] ?? null) : relation ?? null;
-      const status = String(row.status || "").trim().toLowerCase();
-      if (status !== "pending" && status !== "confirmed") return null;
-      return {
-        bookingId: String(row.id || ""),
-        propertyId: String(row.property_id || ""),
-        hostUserId: String(row.host_user_id || ""),
-        guestUserId: String(row.guest_user_id || ""),
-        propertyTitle: typeof property?.title === "string" ? property.title : "Shortlet listing",
-        city: typeof property?.city === "string" ? property.city : null,
-        checkIn: String(row.check_in || ""),
-        checkOut: String(row.check_out || ""),
-        nights: Math.max(0, Math.trunc(Number(row.nights || 0))),
-        amountMinor: Math.max(0, Math.trunc(Number(row.total_amount_minor || 0))),
-        currency: String(row.currency || "NGN"),
-        bookingStatus: status,
-      } as ShortletReminderBookingCandidate;
-    })
-    .filter((row): row is ShortletReminderBookingCandidate => !!row && !!row.bookingId));
+  const finishFailure = async (
+    message: string,
+    status = 500,
+    meta: Record<string, unknown> = {}
+  ) => {
+    try {
+      await deps.finishJobRun({
+        client: adminClient,
+        runKey,
+        status: "failed",
+        finishedAt: deps.now(),
+        meta,
+        error: message,
+      });
+    } catch (jobRunError) {
+      const reason =
+        jobRunError instanceof Error ? jobRunError.message : "Unable to persist failed reminder run";
+      console.warn("[shortlet/reminders] failed to persist run failure", { runKey, reason });
+    }
+    return NextResponse.json({ error: message, runKey }, { status });
+  };
 
-  if (!candidates.length) {
-    const payload = {
+  const finishSuccess = async (payload: Omit<ReminderRunSummaryPayload, "runKey">) => {
+    const result: ReminderRunSummaryPayload = { ...payload, runKey };
+    try {
+      await deps.finishJobRun({
+        client: adminClient,
+        runKey,
+        status: "succeeded",
+        finishedAt: deps.now(),
+        meta: {
+          scanned: result.scanned,
+          due: result.due,
+          sent: result.sent,
+          skipped: result.skipped,
+          errorsCount: result.errorsCount,
+          asOf: result.asOf,
+        },
+      });
+    } catch (jobRunError) {
+      const reason =
+        jobRunError instanceof Error ? jobRunError.message : "Unable to persist reminder run";
+      return finishFailure(reason, 500, {
+        scanned: result.scanned,
+        due: result.due,
+        sent: result.sent,
+        skipped: result.skipped,
+        errorsCount: result.errorsCount,
+        asOf: result.asOf,
+      });
+    }
+
+    logReminderRunSummary({
+      route: routeLabel,
+      scanned: result.scanned,
+      due: result.due,
+      sent: result.sent,
+      skipped: result.skipped,
+      errorsCount: result.errorsCount,
+      asOf: result.asOf,
+    });
+    return NextResponse.json(result);
+  };
+
+  try {
+    const { data: bookingRows, error: bookingError } = await adminClient
+      .from("shortlet_bookings")
+      .select(
+        "id,property_id,guest_user_id,host_user_id,check_in,check_out,nights,status,total_amount_minor,currency,properties!inner(title,city,shortlet_settings(booking_mode))"
+      )
+      .in("status", ["pending", "confirmed"])
+      .lte("check_in", next8DaysKey)
+      .gte("check_out", yesterdayKey)
+      .order("check_in", { ascending: true })
+      .range(0, 599);
+
+    if (bookingError) {
+      return finishFailure(bookingError.message || "Unable to load bookings", 500, {
+        scanned: 0,
+        due: 0,
+        sent: 0,
+        skipped: 0,
+        errorsCount: 1,
+        asOf: todayKey,
+      });
+    }
+
+    const candidates = (((bookingRows as Array<Record<string, unknown>> | null) ?? [])
+      .map((row) => {
+        const relation = row.properties as
+          | Record<string, unknown>
+          | Array<Record<string, unknown>>
+          | null
+          | undefined;
+        const property = Array.isArray(relation) ? (relation[0] ?? null) : relation ?? null;
+        const status = String(row.status || "").trim().toLowerCase();
+        if (status !== "pending" && status !== "confirmed") return null;
+        return {
+          bookingId: String(row.id || ""),
+          propertyId: String(row.property_id || ""),
+          hostUserId: String(row.host_user_id || ""),
+          guestUserId: String(row.guest_user_id || ""),
+          propertyTitle: typeof property?.title === "string" ? property.title : "Shortlet listing",
+          city: typeof property?.city === "string" ? property.city : null,
+          checkIn: String(row.check_in || ""),
+          checkOut: String(row.check_out || ""),
+          nights: Math.max(0, Math.trunc(Number(row.nights || 0))),
+          amountMinor: Math.max(0, Math.trunc(Number(row.total_amount_minor || 0))),
+          currency: String(row.currency || "NGN"),
+          bookingStatus: status,
+        } as ShortletReminderBookingCandidate;
+      })
+      .filter((row): row is ShortletReminderBookingCandidate => !!row && !!row.bookingId));
+
+    if (!candidates.length) {
+      return finishSuccess({
+        ok: true,
+        route: routeLabel,
+        scanned: 0,
+        due: 0,
+        sent: 0,
+        skipped: 0,
+        skippedAlreadySent: 0,
+        errorsCount: 0,
+        errors: [],
+        asOf: todayKey,
+      });
+    }
+
+    const bookingIds = candidates.map((row) => row.bookingId);
+    let paymentResult = await adminClient
+      .from("shortlet_payments")
+      .select("booking_id,status,updated_at,created_at")
+      .in("booking_id", bookingIds)
+      .order("updated_at", { ascending: false })
+      .order("created_at", { ascending: false })
+      .range(0, Math.max(bookingIds.length * 3, 120) - 1);
+    if (
+      paymentResult.error &&
+      String(paymentResult.error.message || "").toLowerCase().includes("updated_at")
+    ) {
+      paymentResult = await adminClient
+        .from("shortlet_payments")
+        .select("booking_id,status,created_at")
+        .in("booking_id", bookingIds)
+        .order("created_at", { ascending: false })
+        .range(0, Math.max(bookingIds.length * 3, 120) - 1);
+    }
+    if (paymentResult.error) {
+      return finishFailure(paymentResult.error.message || "Unable to load payments", 500, {
+        scanned: candidates.length,
+        due: 0,
+        sent: 0,
+        skipped: 0,
+        errorsCount: 1,
+        asOf: todayKey,
+      });
+    }
+
+    const latestPaymentStatusByBookingId = new Map<string, ReminderPaymentStatus>();
+    for (const row of ((paymentResult.data as Array<Record<string, unknown>> | null) ?? [])) {
+      const bookingId = String(row.booking_id || "");
+      if (!bookingId || latestPaymentStatusByBookingId.has(bookingId)) continue;
+      latestPaymentStatusByBookingId.set(bookingId, normalizePaymentStatus(row.status));
+    }
+
+    const allDispatches = resolveReminderDispatches({
+      candidates,
+      latestPaymentStatusByBookingId,
+      now,
+    });
+
+    const sentKeys = new Set<string>();
+    const { data: sentRows } = await adminClient
+      .from("shortlet_reminder_events")
+      .select("booking_id,event_key")
+      .in("booking_id", bookingIds);
+    for (const row of ((sentRows as Array<Record<string, unknown>> | null) ?? [])) {
+      const bookingId = String(row.booking_id || "");
+      const eventKey = String(row.event_key || "");
+      if (!bookingId || !eventKey) continue;
+      sentKeys.add(`${bookingId}:${eventKey}`);
+    }
+
+    const dispatches = filterUnsentReminderDispatches(allDispatches, sentKeys);
+    const siteUrl = await deps.getSiteUrl();
+    const bookingById = new Map(candidates.map((row) => [row.bookingId, row]));
+    const emailCache = new Map<string, string | null>();
+    const getEmail = async (userId: string) => {
+      if (emailCache.has(userId)) return emailCache.get(userId) ?? null;
+      const email = await resolveUserEmail(client, userId);
+      emailCache.set(userId, email);
+      return email;
+    };
+
+    let sent = 0;
+    let skippedAlreadySent = 0;
+    const errors: string[] = [];
+
+    for (const dispatch of dispatches) {
+      const booking = bookingById.get(dispatch.bookingId);
+      if (!booking) continue;
+      try {
+        const reserved = await reserveReminderEvent({
+          client: adminClient,
+          bookingId: dispatch.bookingId,
+          eventKey: dispatch.eventKey,
+        });
+        if (reserved.duplicate) {
+          skippedAlreadySent += 1;
+          continue;
+        }
+
+        if (dispatch.notifyGuest) {
+          const guestEmail = await getEmail(booking.guestUserId);
+          if (guestEmail) {
+            const emailTemplate =
+              dispatch.eventKey === "checkout_morning"
+                ? buildTenantCheckoutReminderEmail({
+                    propertyTitle: booking.propertyTitle,
+                    city: booking.city,
+                    checkIn: booking.checkIn,
+                    checkOut: booking.checkOut,
+                    nights: booking.nights,
+                    amountMinor: booking.amountMinor,
+                    currency: booking.currency,
+                    bookingId: booking.bookingId,
+                    siteUrl,
+                  })
+                : buildTenantCheckinReminderEmail({
+                    propertyTitle: booking.propertyTitle,
+                    city: booking.city,
+                    checkIn: booking.checkIn,
+                    checkOut: booking.checkOut,
+                    nights: booking.nights,
+                    amountMinor: booking.amountMinor,
+                    currency: booking.currency,
+                    bookingId: booking.bookingId,
+                    siteUrl,
+                    eventKey: dispatch.eventKey,
+                  });
+            await deps.sendEmail(guestEmail, emailTemplate.subject, emailTemplate.html);
+          }
+          await deps.createNotification({
+            userId: booking.guestUserId,
+            type: "shortlet_booking_host_update",
+            title: buildGuestReminderTitle(dispatch.eventKey, booking.propertyTitle),
+            body: buildGuestReminderBody(dispatch.eventKey),
+            href: `/trips/${booking.bookingId}`,
+            dedupeKey: `shortlet:${booking.bookingId}:reminder:${dispatch.eventKey}:guest`,
+          });
+        }
+
+        if (dispatch.notifyHost) {
+          const hostEmail = await getEmail(booking.hostUserId);
+          if (hostEmail) {
+            const hostTemplate = buildHostCheckinHeadsUpEmail({
+              propertyTitle: booking.propertyTitle,
+              city: booking.city,
+              checkIn: booking.checkIn,
+              checkOut: booking.checkOut,
+              nights: booking.nights,
+              amountMinor: booking.amountMinor,
+              currency: booking.currency,
+              bookingId: booking.bookingId,
+              siteUrl,
+            });
+            await deps.sendEmail(hostEmail, hostTemplate.subject, hostTemplate.html);
+          }
+          await deps.createNotification({
+            userId: booking.hostUserId,
+            type: "shortlet_booking_host_update",
+            title: `Check-in in 24 hours: ${booking.propertyTitle}`,
+            body: "Guest check-in is tomorrow. Review arrival readiness.",
+            href: `/host/bookings?booking=${booking.bookingId}`,
+            dedupeKey: `shortlet:${booking.bookingId}:reminder:checkin_24h:host`,
+          });
+        }
+
+        sent += 1;
+      } catch (error) {
+        errors.push(error instanceof Error ? error.message : "send_failed");
+      }
+    }
+
+    return finishSuccess({
       ok: true,
       route: routeLabel,
+      scanned: candidates.length,
+      due: dispatches.length,
+      sent,
+      skipped: skippedAlreadySent,
+      skippedAlreadySent,
+      errorsCount: errors.length,
+      errors,
+      asOf: todayKey,
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Unable to send reminders";
+    return finishFailure(message, 500, {
       scanned: 0,
       due: 0,
       sent: 0,
       skipped: 0,
-      skippedAlreadySent: 0,
-      errorsCount: 0,
-      errors: [],
+      errorsCount: 1,
       asOf: todayKey,
-    };
-    logReminderRunSummary({
-      route: routeLabel,
-      scanned: payload.scanned,
-      due: payload.due,
-      sent: payload.sent,
-      skipped: payload.skipped,
-      errorsCount: payload.errorsCount,
-      asOf: payload.asOf,
     });
-    return NextResponse.json(payload);
   }
-
-  const bookingIds = candidates.map((row) => row.bookingId);
-  let paymentResult = await adminClient
-    .from("shortlet_payments")
-    .select("booking_id,status,updated_at,created_at")
-    .in("booking_id", bookingIds)
-    .order("updated_at", { ascending: false })
-    .order("created_at", { ascending: false })
-    .range(0, Math.max(bookingIds.length * 3, 120) - 1);
-  if (
-    paymentResult.error &&
-    String(paymentResult.error.message || "").toLowerCase().includes("updated_at")
-  ) {
-    paymentResult = await adminClient
-      .from("shortlet_payments")
-      .select("booking_id,status,created_at")
-      .in("booking_id", bookingIds)
-      .order("created_at", { ascending: false })
-      .range(0, Math.max(bookingIds.length * 3, 120) - 1);
-  }
-  if (paymentResult.error) {
-    return NextResponse.json({ error: paymentResult.error.message || "Unable to load payments" }, { status: 500 });
-  }
-
-  const latestPaymentStatusByBookingId = new Map<string, ReminderPaymentStatus>();
-  for (const row of ((paymentResult.data as Array<Record<string, unknown>> | null) ?? [])) {
-    const bookingId = String(row.booking_id || "");
-    if (!bookingId || latestPaymentStatusByBookingId.has(bookingId)) continue;
-    latestPaymentStatusByBookingId.set(bookingId, normalizePaymentStatus(row.status));
-  }
-
-  const allDispatches = resolveReminderDispatches({
-    candidates,
-    latestPaymentStatusByBookingId,
-    now,
-  });
-
-  const sentKeys = new Set<string>();
-  const { data: sentRows } = await adminClient
-    .from("shortlet_reminder_events")
-    .select("booking_id,event_key")
-    .in("booking_id", bookingIds);
-  for (const row of ((sentRows as Array<Record<string, unknown>> | null) ?? [])) {
-    const bookingId = String(row.booking_id || "");
-    const eventKey = String(row.event_key || "");
-    if (!bookingId || !eventKey) continue;
-    sentKeys.add(`${bookingId}:${eventKey}`);
-  }
-
-  const dispatches = filterUnsentReminderDispatches(allDispatches, sentKeys);
-  const siteUrl = await deps.getSiteUrl();
-  const bookingById = new Map(candidates.map((row) => [row.bookingId, row]));
-  const emailCache = new Map<string, string | null>();
-  const getEmail = async (userId: string) => {
-    if (emailCache.has(userId)) return emailCache.get(userId) ?? null;
-    const email = await resolveUserEmail(client, userId);
-    emailCache.set(userId, email);
-    return email;
-  };
-
-  let sent = 0;
-  let skippedAlreadySent = 0;
-  const errors: string[] = [];
-
-  for (const dispatch of dispatches) {
-    const booking = bookingById.get(dispatch.bookingId);
-    if (!booking) continue;
-    try {
-      const reserved = await reserveReminderEvent({
-        client: adminClient,
-        bookingId: dispatch.bookingId,
-        eventKey: dispatch.eventKey,
-      });
-      if (reserved.duplicate) {
-        skippedAlreadySent += 1;
-        continue;
-      }
-
-      if (dispatch.notifyGuest) {
-        const guestEmail = await getEmail(booking.guestUserId);
-        if (guestEmail) {
-          const emailTemplate =
-            dispatch.eventKey === "checkout_morning"
-              ? buildTenantCheckoutReminderEmail({
-                  propertyTitle: booking.propertyTitle,
-                  city: booking.city,
-                  checkIn: booking.checkIn,
-                  checkOut: booking.checkOut,
-                  nights: booking.nights,
-                  amountMinor: booking.amountMinor,
-                  currency: booking.currency,
-                  bookingId: booking.bookingId,
-                  siteUrl,
-                })
-              : buildTenantCheckinReminderEmail({
-                  propertyTitle: booking.propertyTitle,
-                  city: booking.city,
-                  checkIn: booking.checkIn,
-                  checkOut: booking.checkOut,
-                  nights: booking.nights,
-                  amountMinor: booking.amountMinor,
-                  currency: booking.currency,
-                  bookingId: booking.bookingId,
-                  siteUrl,
-                  eventKey: dispatch.eventKey,
-                });
-          await deps.sendEmail(guestEmail, emailTemplate.subject, emailTemplate.html);
-        }
-        await deps.createNotification({
-          userId: booking.guestUserId,
-          type: "shortlet_booking_host_update",
-          title: buildGuestReminderTitle(dispatch.eventKey, booking.propertyTitle),
-          body: buildGuestReminderBody(dispatch.eventKey),
-          href: `/trips/${booking.bookingId}`,
-          dedupeKey: `shortlet:${booking.bookingId}:reminder:${dispatch.eventKey}:guest`,
-        });
-      }
-
-      if (dispatch.notifyHost) {
-        const hostEmail = await getEmail(booking.hostUserId);
-        if (hostEmail) {
-          const hostTemplate = buildHostCheckinHeadsUpEmail({
-            propertyTitle: booking.propertyTitle,
-            city: booking.city,
-            checkIn: booking.checkIn,
-            checkOut: booking.checkOut,
-            nights: booking.nights,
-            amountMinor: booking.amountMinor,
-            currency: booking.currency,
-            bookingId: booking.bookingId,
-            siteUrl,
-          });
-          await deps.sendEmail(hostEmail, hostTemplate.subject, hostTemplate.html);
-        }
-        await deps.createNotification({
-          userId: booking.hostUserId,
-          type: "shortlet_booking_host_update",
-          title: `Check-in in 24 hours: ${booking.propertyTitle}`,
-          body: "Guest check-in is tomorrow. Review arrival readiness.",
-          href: `/host/bookings?booking=${booking.bookingId}`,
-          dedupeKey: `shortlet:${booking.bookingId}:reminder:checkin_24h:host`,
-        });
-      }
-
-      sent += 1;
-    } catch (error) {
-      errors.push(error instanceof Error ? error.message : "send_failed");
-    }
-  }
-
-  const payload = {
-    ok: true,
-    route: routeLabel,
-    scanned: candidates.length,
-    due: dispatches.length,
-    sent,
-    skipped: skippedAlreadySent,
-    skippedAlreadySent,
-    errorsCount: errors.length,
-    errors,
-    asOf: todayKey,
-  };
-  logReminderRunSummary({
-    route: routeLabel,
-    scanned: payload.scanned,
-    due: payload.due,
-    sent: payload.sent,
-    skipped: payload.skipped,
-    errorsCount: payload.errorsCount,
-    asOf: payload.asOf,
-  });
-  return NextResponse.json(payload);
 }
 
 export async function POST(request: NextRequest) {
