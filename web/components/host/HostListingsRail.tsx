@@ -1,10 +1,11 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import { cn } from "@/components/ui/cn";
+import { HostListingActionsMenu } from "@/components/host/HostListingActionsMenu";
+import { resolveStableListingImageSrc } from "@/lib/host/listing-image-stability";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import type { DashboardListing } from "@/lib/properties/host-dashboard";
@@ -38,6 +39,7 @@ function listingLocationText(listing: DashboardListing) {
 
 export function HostListingsRail({ listings }: Props) {
   const railRef = useRef<HTMLDivElement | null>(null);
+  const stableImageSrcByListingId = useMemo(() => new Map<string, string | null>(), []);
   const [loadedById, setLoadedById] = useState<Record<string, boolean>>({});
 
   const scrollRail = (direction: "prev" | "next") => {
@@ -104,7 +106,11 @@ export function HostListingsRail({ listings }: Props) {
           className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {listings.map((listing) => {
-            const imageUrl = getPrimaryImageUrl(listing);
+            const imageUrl = resolveStableListingImageSrc(
+              stableImageSrcByListingId,
+              listing.id,
+              getPrimaryImageUrl(listing)
+            );
             const imageLoaded = loadedById[listing.id] ?? false;
             return (
               <article
@@ -115,20 +121,23 @@ export function HostListingsRail({ listings }: Props) {
                 <div className="relative h-44 w-full bg-slate-100">
                   <div
                     className={cn(
-                      "absolute inset-0 animate-pulse bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 transition-opacity duration-300",
+                      "absolute inset-0 bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 transition-opacity duration-300",
                       imageLoaded ? "opacity-0" : "opacity-100"
                     )}
                     aria-hidden="true"
                   />
                   {imageUrl ? (
                     <Image
+                      key={`listing-image-${listing.id}`}
                       src={imageUrl}
                       alt={listing.title}
                       fill
                       sizes="(max-width: 768px) 88vw, 320px"
                       className="object-cover"
                       onLoad={() =>
-                        setLoadedById((current) => ({ ...current, [listing.id]: true }))
+                        setLoadedById((current) =>
+                          current[listing.id] ? current : { ...current, [listing.id]: true }
+                        )
                       }
                     />
                   ) : (
@@ -150,11 +159,15 @@ export function HostListingsRail({ listings }: Props) {
                   </div>
                   <h3 className="line-clamp-2 text-sm font-semibold text-slate-900">{listing.title}</h3>
                   <p className="line-clamp-1 text-xs text-slate-500">{listingLocationText(listing)}</p>
-                  <Link href={`/host/properties/${listing.id}/edit`} className="mt-auto inline-flex">
-                    <Button size="sm" variant="secondary">
-                      Open listing
-                    </Button>
-                  </Link>
+                  <div className="mt-auto flex items-center justify-between gap-2">
+                    <Link
+                      href={`/host/properties/${listing.id}/edit`}
+                      className="inline-flex items-center rounded-md bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    >
+                      Manage
+                    </Link>
+                    <HostListingActionsMenu listingId={listing.id} />
+                  </div>
                 </div>
               </article>
             );

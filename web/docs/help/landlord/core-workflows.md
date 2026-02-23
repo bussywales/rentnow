@@ -32,6 +32,13 @@ updated_at: "2026-02-23"
 - Use the strip for top-of-day checks, then continue in the full mosaic for bulk actions.
 - Use horizontal swipe/trackpad scroll in the strip to peek adjacent spotlight cards before deep review.
 
+## Canonical listing management routes
+
+- Use `/host/listings` as the primary management surface for all inventory.
+- Use `/host/properties/[id]/availability` for availability controls.
+- Use `/host/shortlets/[id]/settings` for shortlet-specific setup.
+- In feed cards, use the primary `Manage` button for editing and the `...` menu for secondary actions.
+
 ## Demo vs real inventory
 
 - Demo listings are for sandbox/training only.

@@ -33,5 +33,6 @@ void test("host listings grid card keeps media + primary action markers", () => 
 
   assert.match(contents, /data-testid="host-home-listings-grid"/);
   assert.match(contents, /grid-cols-1 gap-3\.5 md:grid-cols-2 md:gap-4 lg:grid-cols-3/);
-  assert.match(contents, /Open listing/);
+  assert.match(contents, /Manage/);
+  assert.match(contents, /HostListingActionsMenu/);
 });

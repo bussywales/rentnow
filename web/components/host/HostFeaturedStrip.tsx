@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
 import { ListingImagePlaceholder } from "@/components/ui/ListingImagePlaceholder";
+import { HostListingActionsMenu } from "@/components/host/HostListingActionsMenu";
 import { resolveStableListingImageSrc } from "@/lib/host/listing-image-stability";
 import { resolveImageLoadingProfile, shouldPriorityImage } from "@/lib/images/loading-profile";
 import { selectHostFeaturedStripListings } from "@/lib/host/featured-strip";
@@ -240,6 +241,15 @@ export function HostFeaturedStrip({
                     </p>
                   </div>
                 </Link>
+                <div className="flex items-center justify-between gap-2 border-t border-slate-100 p-2.5">
+                  <Link
+                    href={`/host/properties/${listing.id}/edit`}
+                    className="inline-flex items-center rounded-md bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                  >
+                    Manage
+                  </Link>
+                  <HostListingActionsMenu listingId={listing.id} />
+                </div>
               </article>
             );
           })}

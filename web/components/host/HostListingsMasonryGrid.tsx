@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
+import { HostListingActionsMenu } from "@/components/host/HostListingActionsMenu";
 import { resolveStableListingImageSrc } from "@/lib/host/listing-image-stability";
 import { ListingImagePlaceholder } from "@/components/ui/ListingImagePlaceholder";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
@@ -162,12 +163,15 @@ export function HostListingsMasonryGrid({ listings, uniformMedia = false }: Prop
                 <div className="absolute inset-x-0 bottom-0 z-[1] bg-gradient-to-t from-slate-950/85 via-slate-950/45 to-transparent p-2.5">
                   <h3 className="line-clamp-1 text-sm font-semibold text-white">{listing.title}</h3>
                   <p className="line-clamp-1 text-xs text-slate-200">{listingLocationText(listing)}</p>
-                  <Link
-                    href={`/host/properties/${listing.id}/edit`}
-                    className="mt-2 inline-flex items-center rounded-md bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-                  >
-                    Open listing
-                  </Link>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <Link
+                      href={`/host/properties/${listing.id}/edit`}
+                      className="inline-flex items-center rounded-md bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-900 transition hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    >
+                      Manage
+                    </Link>
+                    <HostListingActionsMenu listingId={listing.id} tone="dark" />
+                  </div>
                 </div>
               </div>
             </article>

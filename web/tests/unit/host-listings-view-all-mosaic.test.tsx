@@ -19,6 +19,8 @@ void test("host listings mosaic tiles enforce aspect rhythm and max media height
   assert.match(source, /getHostListingTileAspectClass\(pattern\)/);
   assert.match(source, /max-h-\[60vh\]/);
   assert.match(source, /object-cover/);
+  assert.match(source, /HostListingActionsMenu/);
+  assert.match(source, /Manage/);
 });
 
 void test("host listings mosaic uses branded placeholder tile when listing has no photo", () => {
