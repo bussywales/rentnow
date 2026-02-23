@@ -4,10 +4,10 @@ import { buildEditorUrl } from "@/lib/properties/host-dashboard";
 
 void test("buildEditorUrl includes step query", () => {
   const url = buildEditorUrl("abc", undefined, { step: "photos" });
-  assert.equal(url, "/dashboard/properties/abc?step=photos");
+  assert.equal(url, "/host/properties/abc/edit?step=photos");
 });
 
 void test("buildEditorUrl includes focus query", () => {
   const url = buildEditorUrl("abc", undefined, { focus: "location" });
-  assert.equal(url, "/dashboard/properties/abc?focus=location");
+  assert.equal(url, "/host/properties/abc/edit?focus=location");
 });

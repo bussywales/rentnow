@@ -150,7 +150,7 @@ export function HostListingsRail({ listings }: Props) {
                   </div>
                   <h3 className="line-clamp-2 text-sm font-semibold text-slate-900">{listing.title}</h3>
                   <p className="line-clamp-1 text-xs text-slate-500">{listingLocationText(listing)}</p>
-                  <Link href={`/dashboard/properties/${listing.id}`} className="mt-auto inline-flex">
+                  <Link href={`/host/properties/${listing.id}/edit`} className="mt-auto inline-flex">
                     <Button size="sm" variant="secondary">
                       Open listing
                     </Button>

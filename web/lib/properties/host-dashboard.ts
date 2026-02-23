@@ -99,7 +99,7 @@ export function getLastUpdatedDate(listing: DashboardListing) {
 }
 
 export function buildEditorUrl(propertyId: string, topIssue?: ReadinessIssueCode, override?: { step?: string; focus?: string }) {
-  const base = `/dashboard/properties/${propertyId}`;
+  const base = `/host/properties/${propertyId}/edit`;
   const params = new URLSearchParams();
   const focus = override?.focus;
   const step = override?.step;

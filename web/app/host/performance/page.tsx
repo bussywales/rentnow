@@ -172,7 +172,7 @@ export default async function HostPerformancePage({
               >
                 <div className="min-w-0">
                   <Link
-                    href={`/dashboard/properties/${row.id}`}
+                    href={`/host/properties/${row.id}/edit`}
                     className="block truncate font-semibold text-slate-900"
                   >
                     {row.title}

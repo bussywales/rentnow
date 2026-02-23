@@ -178,7 +178,7 @@ function buildFeaturedFixItems(propertyId: string, codes: FeaturedEligibilityCod
       items.push({
         code,
         label: "Submit for approval.",
-        href: `/dashboard/properties/${propertyId}?step=submit`,
+        href: `/host/properties/${propertyId}/edit?step=submit`,
         actionLabel: "Submit now",
       });
       continue;
@@ -187,7 +187,7 @@ function buildFeaturedFixItems(propertyId: string, codes: FeaturedEligibilityCod
       items.push({
         code,
         label: "Activate or relaunch the listing.",
-        href: `/dashboard/properties/${propertyId}`,
+        href: `/host/properties/${propertyId}/edit`,
         actionLabel: "Open listing",
       });
       continue;
@@ -196,7 +196,7 @@ function buildFeaturedFixItems(propertyId: string, codes: FeaturedEligibilityCod
       items.push({
         code,
         label: "Add more listing photos.",
-        href: `/dashboard/properties/${propertyId}?step=photos`,
+        href: `/host/properties/${propertyId}/edit?step=photos`,
         actionLabel: "Add photos",
       });
       continue;
@@ -205,7 +205,7 @@ function buildFeaturedFixItems(propertyId: string, codes: FeaturedEligibilityCod
       items.push({
         code,
         label: "Improve the listing description.",
-        href: `/dashboard/properties/${propertyId}`,
+        href: `/host/properties/${propertyId}/edit`,
         actionLabel: "Edit description",
       });
       continue;
@@ -1149,7 +1149,7 @@ export function HostDashboardContent({
                   <PropertyCard
                     property={property}
                     compact
-                    href={`/dashboard/properties/${property.id}`}
+                    href={`/host/properties/${property.id}/edit`}
                     trustMarkers={trustMarkers}
                     trustVariant="admin"
                   />
@@ -1238,7 +1238,7 @@ export function HostDashboardContent({
                           Bookings
                         </Button>
                       </Link>
-                      <Link href={`/host/shortlets/blocks?property_id=${encodeURIComponent(property.id)}`}>
+                      <Link href={`/host/properties/${property.id}/availability`}>
                         <Button size="sm" variant="secondary">
                           Availability
                         </Button>
@@ -1267,7 +1267,7 @@ export function HostDashboardContent({
                       <Link href={`/host/shortlets/${property.id}/settings`}>
                         <Button size="sm">Convert this listing to a shortlet</Button>
                       </Link>
-                      <Link href={`/dashboard/properties/${property.id}?step=basics`}>
+                      <Link href={`/host/properties/${property.id}/edit?step=basics`}>
                         <Button size="sm" variant="secondary">
                           Edit basics
                         </Button>
@@ -1276,13 +1276,13 @@ export function HostDashboardContent({
                   </div>
                 ) : null}
                 <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2">
-                  <Link href={`/dashboard/properties/${property.id}`}>
+                  <Link href={`/host/properties/${property.id}/edit`}>
                     <Button size="sm" variant="secondary">
                       Edit listing
                     </Button>
                   </Link>
                   {!hasPhotos && (
-                    <Link href={`/dashboard/properties/${property.id}?step=photos`}>
+                    <Link href={`/host/properties/${property.id}/edit?step=photos`}>
                       <Button size="sm" variant="secondary">
                         Add photos
                       </Button>
@@ -1397,7 +1397,7 @@ export function HostDashboardContent({
                         Submit for approval
                       </Button>
                     ) : (
-                      <Link href={`/dashboard/properties/${property.id}?step=submit`}>
+                      <Link href={`/host/properties/${property.id}/edit?step=submit`}>
                         <Button size="sm" type="button">
                           Submit for approval
                         </Button>

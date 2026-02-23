@@ -182,7 +182,7 @@ export function HostFeaturedStrip({
                 data-testid={`host-featured-strip-card-${listing.id}`}
               >
                 <Link
-                  href={`/dashboard/properties/${listing.id}`}
+                  href={`/host/properties/${listing.id}/edit`}
                   className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
                 >
                   <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">

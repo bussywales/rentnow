@@ -92,7 +92,7 @@ export function HostShortletConversionCard({
           {busy ? "Converting..." : "Convert this listing to a shortlet"}
         </Button>
         <Link
-          href={`/dashboard/properties/${encodeURIComponent(propertyId)}?step=basics`}
+          href={`/host/properties/${encodeURIComponent(propertyId)}/edit?step=basics`}
           className="rounded-lg border border-amber-300 px-3 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100"
         >
           Edit listing basics

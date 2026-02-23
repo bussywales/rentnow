@@ -189,7 +189,7 @@ export function HostPropertiesManager({ listings }: Props) {
                       <td className="px-4 py-3 text-slate-600">{formatDateLabel(listing.updated_at || listing.created_at)}</td>
                       <td className="px-4 py-3 text-right">
                         <Link
-                          href={`/dashboard/properties/${listing.id}`}
+                          href={`/host/properties/${listing.id}/edit`}
                           className="text-xs font-semibold text-sky-700 hover:text-sky-800"
                         >
                           Open editor

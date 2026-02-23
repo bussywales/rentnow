@@ -163,7 +163,7 @@ export function HostListingsMasonryGrid({ listings, uniformMedia = false }: Prop
                   <h3 className="line-clamp-1 text-sm font-semibold text-white">{listing.title}</h3>
                   <p className="line-clamp-1 text-xs text-slate-200">{listingLocationText(listing)}</p>
                   <Link
-                    href={`/dashboard/properties/${listing.id}`}
+                    href={`/host/properties/${listing.id}/edit`}
                     className="mt-2 inline-flex items-center rounded-md bg-white/95 px-2.5 py-1 text-xs font-semibold text-slate-900 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
                   >
                     Open listing

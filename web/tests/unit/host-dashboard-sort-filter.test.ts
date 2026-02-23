@@ -72,6 +72,6 @@ void test("drafts filter matches draft status", () => {
 });
 
 void test("resume setup href maps top issue codes", () => {
-  assert.equal(resumeSetupHref("id", "LOCATION_WEAK"), "/dashboard/properties/id?focus=location");
-  assert.equal(resumeSetupHref("id", "NO_PHOTOS"), "/dashboard/properties/id?step=photos");
+  assert.equal(resumeSetupHref("id", "LOCATION_WEAK"), "/host/properties/id/edit?focus=location");
+  assert.equal(resumeSetupHref("id", "NO_PHOTOS"), "/host/properties/id/edit?step=photos");
 });
