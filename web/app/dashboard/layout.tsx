@@ -19,6 +19,7 @@ import { isAgentNetworkDiscoveryEnabled } from "@/lib/agents/agent-network";
 import { getAgentDashboardNavItems, type DashboardNavItem } from "@/lib/dashboard/nav";
 import { DashboardNavPills } from "@/components/dashboard/DashboardNavPills";
 import ReferralCaptureBootstrap from "@/components/referrals/ReferralCaptureBootstrap";
+import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 
 export default async function DashboardLayout({
   children,
@@ -139,19 +140,29 @@ export default async function DashboardLayout({
       })
     : defaultNavItems;
 
-  return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4">
-      <div className="rounded-2xl bg-slate-900 px-5 py-4 text-white shadow-lg">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">
-              Dashboard
-            </p>
-            <p className="text-xl font-semibold">{workspaceTitle}</p>
-            <p className="text-sm text-slate-200">{workspaceCopy}</p>
-          </div>
-          <DashboardNavPills items={navItems} unreadMessages={unreadMessages} />
+  if (isTenant) {
+    return (
+      <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4">
+        <div className="rounded-2xl bg-slate-900 px-5 py-4 text-white shadow-lg">
+          <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Dashboard</p>
+          <p className="text-xl font-semibold">{workspaceTitle}</p>
+          <p className="text-sm text-slate-200">{workspaceCopy}</p>
         </div>
+        {children}
+      </div>
+    );
+  }
+
+  return (
+    <WorkspaceShell
+      role={normalizedRole}
+      unreadMessages={unreadMessages}
+      title={workspaceTitle}
+      subtitle={workspaceCopy}
+      contentClassName="space-y-6"
+    >
+      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+        <DashboardNavPills items={navItems} unreadMessages={unreadMessages} />
       </div>
       {agentOnboarding && !agentOnboarding.completedAt && (
         <AgentOnboardingChecklist progress={agentOnboarding} />
@@ -173,6 +184,6 @@ export default async function DashboardLayout({
       {normalizedRole === "agent" && <ActingAsSelector />}
       <ReferralCaptureBootstrap />
       {children}
-    </div>
+    </WorkspaceShell>
   );
 }

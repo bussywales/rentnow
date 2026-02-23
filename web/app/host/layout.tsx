@@ -14,7 +14,7 @@ import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
 import { listThreadsForUser } from "@/lib/messaging/threads";
 import { isAgentNetworkDiscoveryEnabled } from "@/lib/agents/agent-network";
 import { countAwaitingApprovalBookings } from "@/lib/shortlet/host-bookings-inbox";
-import { HostSidebar } from "@/components/host/HostSidebar";
+import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 
 export default async function DashboardLayout({
   children,
@@ -163,53 +163,43 @@ export default async function DashboardLayout({
   const agentNetworkEnabled = isAgent ? await isAgentNetworkDiscoveryEnabled() : false;
 
   return (
-    <div className="mx-auto min-w-0 max-w-6xl px-4">
-      <div className="flex min-w-0 flex-col gap-4 py-4 md:flex-row md:items-start md:gap-6">
-        <div className="md:sticky md:top-20 md:w-64 md:shrink-0">
-          <HostSidebar
-            role={normalizedRole}
-            awaitingApprovalCount={hostAwaitingApprovalCount}
-            unreadMessages={unreadMessages}
-          />
-        </div>
-        <div className="min-w-0 flex-1 space-y-4">
-          <div className="rounded-2xl bg-slate-900 px-5 py-4 text-white shadow-lg">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">
-                  Dashboard
-                </p>
-                <p className="text-xl font-semibold">{workspaceTitle}</p>
-                <p className="text-sm text-slate-200">{workspaceCopy}</p>
-              </div>
-              {isAgent && agentNetworkEnabled ? (
-                <Link
-                  href="/dashboard/agent-network"
-                  className="inline-flex rounded-lg border border-cyan-200/40 bg-cyan-500/10 px-3 py-1.5 text-xs font-semibold text-cyan-100 transition hover:bg-cyan-500/20"
-                >
-                  Open agent network
-                </Link>
-              ) : null}
-            </div>
+    <WorkspaceShell
+      role={normalizedRole}
+      awaitingApprovalCount={hostAwaitingApprovalCount}
+      unreadMessages={unreadMessages}
+      title={workspaceTitle}
+      subtitle={workspaceCopy}
+      contentClassName="space-y-4"
+    >
+      {isAgent && agentNetworkEnabled ? (
+        <div className="rounded-2xl border border-cyan-200/40 bg-cyan-50 px-4 py-3 text-sm text-cyan-950">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="font-medium">Agent network is available for collaboration.</p>
+            <Link
+              href="/dashboard/agent-network"
+              className="inline-flex rounded-lg border border-cyan-300 bg-white px-3 py-1.5 text-xs font-semibold text-cyan-800 transition hover:bg-cyan-100"
+            >
+              Open agent network
+            </Link>
           </div>
-          {profileIncomplete && (
-            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-              <p className="font-semibold">Complete your profile to get listings approved faster.</p>
-              <p className="mt-1 text-amber-800">
-                Add a phone number and preferred contact so tenants can reach you quickly.
-              </p>
-              <Link
-                href={`/onboarding/${normalizedRole}`}
-                className="mt-2 inline-flex text-sm font-semibold text-amber-900 underline-offset-4 hover:underline"
-              >
-                Finish setup
-              </Link>
-            </div>
-          )}
-          {normalizedRole === "agent" && <ActingAsSelector />}
-          <div className="min-w-0">{children}</div>
         </div>
-      </div>
-    </div>
+      ) : null}
+      {profileIncomplete && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <p className="font-semibold">Complete your profile to get listings approved faster.</p>
+          <p className="mt-1 text-amber-800">
+            Add a phone number and preferred contact so tenants can reach you quickly.
+          </p>
+          <Link
+            href={`/onboarding/${normalizedRole}`}
+            className="mt-2 inline-flex text-sm font-semibold text-amber-900 underline-offset-4 hover:underline"
+          >
+            Finish setup
+          </Link>
+        </div>
+      )}
+      {normalizedRole === "agent" && <ActingAsSelector />}
+      <div className="min-w-0">{children}</div>
+    </WorkspaceShell>
   );
 }
