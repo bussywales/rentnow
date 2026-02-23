@@ -74,6 +74,9 @@ export default async function AdminShortletsPage({ searchParams }: PageProps) {
           <Link href="/admin/shortlets/payouts" className="underline underline-offset-4">
             Manual payouts queue
           </Link>
+          <Link href="/admin/shortlets/ops" className="underline underline-offset-4">
+            Ops console
+          </Link>
           <Link href="/admin" className="underline underline-offset-4">
             Admin home
           </Link>
