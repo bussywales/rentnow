@@ -17,6 +17,7 @@ import type { DashboardListing } from "@/lib/properties/host-dashboard";
 
 type Props = {
   listings: DashboardListing[];
+  uniformMedia?: boolean;
 };
 
 const MAX_GRID_LISTINGS = 12;
@@ -44,7 +45,7 @@ function listingLocationText(listing: DashboardListing) {
   return listing.location_label || listing.city || listing.admin_area_1 || "Location not set";
 }
 
-export function HostListingsMasonryGrid({ listings }: Props) {
+export function HostListingsMasonryGrid({ listings, uniformMedia = false }: Props) {
   const stableImageSrcByListingId = useMemo(() => new Map<string, string | null>(), []);
   const visibleListings = listings.slice(0, MAX_GRID_LISTINGS);
   const [loadedById, setLoadedById] = useState<Record<string, boolean>>({});
@@ -112,13 +113,13 @@ export function HostListingsMasonryGrid({ listings }: Props) {
               )}
               data-testid={`host-home-listings-grid-card-${listing.id}`}
             >
-              <div
-                className={cn(
-                  "relative w-full max-w-full overflow-hidden bg-slate-100",
-                  "max-h-[60vh]",
-                  getHostListingTileAspectClass(pattern)
-                )}
-              >
+                <div
+                  className={cn(
+                    "relative w-full max-w-full overflow-hidden bg-slate-100",
+                    "max-h-[60vh]",
+                    uniformMedia ? "aspect-[4/3]" : getHostListingTileAspectClass(pattern)
+                  )}
+                >
                 <div
                   className={cn(
                     "absolute inset-0 z-[1] bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200",

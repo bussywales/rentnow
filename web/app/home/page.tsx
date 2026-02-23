@@ -169,7 +169,7 @@ export default async function HomeWorkspacePage() {
             Open manager
           </Link>
         </div>
-        <HostListingsMasonryGrid listings={dashboardListings} />
+        <HostListingsMasonryGrid listings={dashboardListings} uniformMedia />
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="home-workspace-tools">
