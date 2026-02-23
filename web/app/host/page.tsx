@@ -502,33 +502,6 @@ export default async function DashboardHome({ searchParams }: PageProps) {
           <li>Confirm rent, availability, and contact details.</li>
         </ul>
       </div>
-      {(role === "landlord" || role === "agent") && gettingStartedChecklist.length > 0 && (
-        <NextBestActionsPanel role={role} items={gettingStartedChecklist} />
-      )}
-      {(role === "landlord" || role === "agent") && gettingStartedChecklist.length > 0 && (
-        <RoleChecklistPanel
-          title="Getting started checklist"
-          subtitle="Operational milestones for listing quality, approvals, and responses."
-          items={gettingStartedChecklist}
-        />
-      )}
-      {(role === "landlord" || role === "agent") && trustMarkers && (
-        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h3 className="text-lg font-semibold text-slate-900">Trust status</h3>
-          <p className="mt-1 text-sm text-slate-600">
-            Verification markers help tenants feel confident about your listing.
-          </p>
-          <div className="mt-3 space-y-2">
-            <TrustBadges markers={trustMarkers} />
-            <TrustReliability markers={trustMarkers} />
-            {trustMarkers.trust_updated_at && (
-              <p className="text-xs text-slate-500">
-                Last updated {new Date(trustMarkers.trust_updated_at).toLocaleDateString()}
-              </p>
-            )}
-          </div>
-        </div>
-      )}
       <div className="min-w-0 space-y-3">
         {dashboardError && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
@@ -576,6 +549,33 @@ export default async function DashboardHome({ searchParams }: PageProps) {
           </div>
         )}
       </div>
+      {(role === "landlord" || role === "agent") && gettingStartedChecklist.length > 0 && (
+        <NextBestActionsPanel role={role} items={gettingStartedChecklist} />
+      )}
+      {(role === "landlord" || role === "agent") && gettingStartedChecklist.length > 0 && (
+        <RoleChecklistPanel
+          title="Getting started checklist"
+          subtitle="Operational milestones for listing quality, approvals, and responses."
+          items={gettingStartedChecklist}
+        />
+      )}
+      {(role === "landlord" || role === "agent") && trustMarkers && (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="text-lg font-semibold text-slate-900">Trust status</h3>
+          <p className="mt-1 text-sm text-slate-600">
+            Verification markers help tenants feel confident about your listing.
+          </p>
+          <div className="mt-3 space-y-2">
+            <TrustBadges markers={trustMarkers} />
+            <TrustReliability markers={trustMarkers} />
+            {trustMarkers.trust_updated_at && (
+              <p className="text-xs text-slate-500">
+                Last updated {new Date(trustMarkers.trust_updated_at).toLocaleDateString()}
+              </p>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
