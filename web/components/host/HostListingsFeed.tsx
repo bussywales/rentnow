@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { HostListingsMasonryGrid } from "@/components/host/HostListingsMasonryGrid";
 import { HostListingsRail } from "@/components/host/HostListingsRail";
 import {
@@ -20,11 +20,9 @@ function getClientStorage() {
 }
 
 export function HostListingsFeed({ listings }: Props) {
-  const [view, setView] = useState<HostListingsView>("grid");
-
-  useEffect(() => {
-    setView(readHostListingsView(getClientStorage()));
-  }, []);
+  const [view, setView] = useState<HostListingsView>(() =>
+    readHostListingsView(getClientStorage())
+  );
 
   const switchView = (nextView: HostListingsView) => {
     const resolved = writeHostListingsView(getClientStorage(), nextView);
