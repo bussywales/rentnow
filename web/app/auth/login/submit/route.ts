@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { normalizeRole } from "@/lib/roles";
 import {
   applyServerAuthCookieDefaults,
   buildClientCookieOptions,
@@ -11,13 +12,13 @@ import {
   shouldSuppressAuthCookieClear,
   shouldLogCookieDebug,
 } from "@/lib/auth/cookie-guard";
+import {
+  normalizePostLoginPath,
+  resolvePostLoginRedirect,
+} from "@/lib/auth/post-login-redirect";
 
 function normalizeRedirect(value: FormDataEntryValue | null) {
-  const fallback = "/dashboard";
-  if (typeof value !== "string") return fallback;
-  const trimmed = value.trim();
-  if (!trimmed.startsWith("/") || trimmed.startsWith("//")) return fallback;
-  return trimmed;
+  return normalizePostLoginPath(typeof value === "string" ? value : null);
 }
 
 function getSupabaseEnv() {
@@ -107,6 +108,19 @@ export async function POST(request: NextRequest) {
       error?.message || "Unable to log in. Please try again."
     );
   }
+
+  let destination = redirectTo;
+  if (redirectTo === "/dashboard") {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .maybeSingle();
+    destination = resolvePostLoginRedirect({
+      role: normalizeRole(profile?.role),
+    });
+  }
+  response.headers.set("location", new URL(destination, baseUrl).toString());
 
   hostOnlyCookies.forEach(({ name, value, options }) => {
     response.headers.append("set-cookie", serializeCookie(name, value, options));

@@ -8,16 +8,12 @@ void test("dashboard route redirects by role", () => {
   const contents = fs.readFileSync(pagePath, "utf8");
 
   assert.ok(
-    contents.includes('redirect("/tenant/home")'),
-    "expected tenant redirect"
+    contents.includes("resolvePostLoginRedirect"),
+    "expected dashboard route to use shared post-login redirect resolver"
   );
   assert.ok(
-    contents.includes('redirect("/home")'),
-    "expected non-tenant redirect to /home"
-  );
-  assert.ok(
-    contents.includes('redirect("/admin")'),
-    "expected admin redirect to admin console"
+    contents.includes("redirect(resolvePostLoginRedirect({ role }))"),
+    "expected dashboard redirect to delegate to shared role mapping"
   );
 });
 

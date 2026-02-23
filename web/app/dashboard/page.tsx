@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { resolveServerRole } from "@/lib/auth/role";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
+import { resolvePostLoginRedirect } from "@/lib/auth/post-login-redirect";
 
 export const dynamic = "force-dynamic";
 
@@ -21,13 +22,5 @@ export default async function DashboardRouter() {
     redirect("/onboarding");
   }
 
-  if (role === "tenant") {
-    redirect("/tenant/home");
-  }
-  if (role === "admin") {
-    // Keep admin dashboard navigation in the admin console.
-    redirect("/admin");
-  }
-
-  redirect("/home");
+  redirect(resolvePostLoginRedirect({ role }));
 }
