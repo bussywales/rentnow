@@ -101,7 +101,7 @@ const defaultDeps: AdminSupportRequestsDeps = {
       .from("support_requests")
       .select("id,created_at,category,email,name,message,status,metadata")
       .order("created_at", { ascending: false })
-      .limit(fetchLimit);
+      .range(0, Math.max(0, fetchLimit - 1));
     if (error) {
       throw new Error(error.message || "Unable to load support requests.");
     }
@@ -172,4 +172,3 @@ export async function getAdminSupportRequestsResponse(
 export async function GET(request: NextRequest) {
   return getAdminSupportRequestsResponse(request, defaultDeps);
 }
-
