@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
+import { resolveStableListingImageSrc } from "@/lib/host/listing-image-stability";
 import { ListingImagePlaceholder } from "@/components/ui/ListingImagePlaceholder";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
@@ -44,6 +45,7 @@ function listingLocationText(listing: DashboardListing) {
 }
 
 export function HostListingsMasonryGrid({ listings }: Props) {
+  const stableImageSrcByListingIdRef = useRef<Map<string, string | null>>(new Map());
   const visibleListings = listings.slice(0, MAX_GRID_LISTINGS);
   const [loadedById, setLoadedById] = useState<Record<string, boolean>>({});
 
@@ -84,7 +86,11 @@ export function HostListingsMasonryGrid({ listings }: Props) {
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {visibleListings.map((listing, index) => {
-          const imageUrl = getPrimaryImageUrl(listing);
+          const imageUrl = resolveStableListingImageSrc(
+            stableImageSrcByListingIdRef.current,
+            listing.id,
+            getPrimaryImageUrl(listing)
+          );
           const pattern = getHostListingTilePattern(index);
           const imageLoaded = loadedById[listing.id] ?? false;
           const loadingProfile = resolveImageLoadingProfile(
@@ -115,13 +121,14 @@ export function HostListingsMasonryGrid({ listings }: Props) {
               >
                 <div
                   className={cn(
-                    "absolute inset-0 z-[1] animate-pulse bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 transition-opacity duration-300",
+                    "absolute inset-0 z-[1] bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200",
                     imageLoaded ? "opacity-0" : "opacity-100"
                   )}
                   aria-hidden="true"
                 />
                 {imageUrl ? (
                   <Image
+                    key={`listing-image-${listing.id}`}
                     src={imageUrl}
                     alt={listing.title}
                     fill
@@ -131,7 +138,11 @@ export function HostListingsMasonryGrid({ listings }: Props) {
                     loading={loadingProfile.loading}
                     fetchPriority={loadingProfile.fetchPriority}
                     onLoad={() =>
-                      setLoadedById((current) => ({ ...current, [listing.id]: true }))
+                      setLoadedById((current) =>
+                        current[listing.id]
+                          ? current
+                          : { ...current, [listing.id]: true }
+                      )
                     }
                   />
                 ) : (

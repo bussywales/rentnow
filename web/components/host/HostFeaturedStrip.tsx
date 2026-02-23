@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
 import { ListingImagePlaceholder } from "@/components/ui/ListingImagePlaceholder";
+import { resolveStableListingImageSrc } from "@/lib/host/listing-image-stability";
 import { resolveImageLoadingProfile, shouldPriorityImage } from "@/lib/images/loading-profile";
 import { selectHostFeaturedStripListings } from "@/lib/host/featured-strip";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
@@ -56,6 +57,7 @@ export function HostFeaturedStrip({
   mosaicTargetId = "host-home-listings-grid",
 }: Props) {
   const railRef = useRef<HTMLDivElement | null>(null);
+  const stableImageSrcByListingIdRef = useRef<Map<string, string | null>>(new Map());
   const [loadedById, setLoadedById] = useState<Record<string, boolean>>({});
   const [hasOverflow, setHasOverflow] = useState(false);
   const featuredListings = useMemo(
@@ -158,7 +160,11 @@ export function HostFeaturedStrip({
           className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-1 pr-4 scroll-px-4 sm:px-6 sm:pr-6 sm:scroll-px-6"
         >
           {featuredListings.map((listing, index) => {
-            const imageUrl = getPrimaryImageUrl(listing);
+            const imageUrl = resolveStableListingImageSrc(
+              stableImageSrcByListingIdRef.current,
+              listing.id,
+              getPrimaryImageUrl(listing)
+            );
             const imageLoaded = loadedById[listing.id] ?? false;
             const loadingProfile = resolveImageLoadingProfile(
               shouldPriorityImage({
@@ -182,13 +188,14 @@ export function HostFeaturedStrip({
                   <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
                     <div
                       className={cn(
-                        "absolute inset-0 z-[1] animate-pulse bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200 transition-opacity duration-300",
+                        "absolute inset-0 z-[1] bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200",
                         imageLoaded ? "opacity-0" : "opacity-100"
                       )}
                       aria-hidden="true"
                     />
                     {imageUrl ? (
                       <Image
+                        key={`listing-image-${listing.id}`}
                         src={imageUrl}
                         alt={listing.title}
                         fill
@@ -197,12 +204,16 @@ export function HostFeaturedStrip({
                         priority={loadingProfile.priority}
                         loading={loadingProfile.loading}
                         fetchPriority={loadingProfile.fetchPriority}
-                        onLoad={() =>
-                          setLoadedById((current) => ({
-                            ...current,
-                            [listing.id]: true,
-                          }))
-                        }
+                        onLoad={() => {
+                          setLoadedById((current) =>
+                            current[listing.id]
+                              ? current
+                              : {
+                                  ...current,
+                                  [listing.id]: true,
+                                }
+                          );
+                        }}
                       />
                     ) : (
                       <ListingImagePlaceholder />

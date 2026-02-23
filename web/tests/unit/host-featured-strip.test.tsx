@@ -75,6 +75,7 @@ void test("featured strip component uses native snap rail and fixed-cover media"
   assert.match(stripSource, /snap-x snap-mandatory/);
   assert.match(stripSource, /overflow-x-auto/);
   assert.match(stripSource, /scrollbar-none/);
+  assert.match(stripSource, /resolveStableListingImageSrc/);
   assert.match(stripSource, /scroll-px-4/);
   assert.match(stripSource, /sm:scroll-px-6/);
   assert.match(stripSource, /px-4/);
@@ -84,6 +85,8 @@ void test("featured strip component uses native snap rail and fixed-cover media"
   assert.match(stripSource, /w-\[220px\].*sm:w-\[240px\].*lg:w-\[280px\]/s);
   assert.match(stripSource, /snap-start/);
   assert.match(stripSource, /snap-always/);
+  assert.doesNotMatch(stripSource, /animate-pulse/);
+  assert.match(stripSource, /key=\{`listing-image-\$\{listing\.id\}`\}/);
   assert.match(stripSource, /w-4 shrink-0 sm:w-6/);
 });
 
