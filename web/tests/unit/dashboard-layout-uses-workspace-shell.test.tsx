@@ -11,5 +11,5 @@ void test("dashboard layout uses workspace shell for landlord and agent roles", 
   assert.match(source, /if \(isTenant\)/);
   assert.match(source, /role=\{normalizedRole\}/);
   assert.match(source, /title=\{workspaceTitle\}/);
-  assert.match(source, /DashboardNavPills/);
+  assert.doesNotMatch(source, /DashboardNavPills/);
 });

@@ -2,7 +2,6 @@ export const dynamic = "force-dynamic";
 
 import { getProfile, getSession } from "@/lib/auth";
 import { formatRoleLabel, normalizeRole } from "@/lib/roles";
-import { canManageListings, shouldShowSavedSearchNav } from "@/lib/role-access";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import type { ReactNode } from "react";
@@ -15,9 +14,6 @@ import { getLegalAcceptanceStatus } from "@/lib/legal/acceptance.server";
 import { resolveJurisdiction } from "@/lib/legal/jurisdiction.server";
 import { resolveAgentOnboardingProgress } from "@/lib/agents/agent-onboarding.server";
 import AgentOnboardingChecklist from "@/components/agents/AgentOnboardingChecklist";
-import { isAgentNetworkDiscoveryEnabled } from "@/lib/agents/agent-network";
-import { getAgentDashboardNavItems, type DashboardNavItem } from "@/lib/dashboard/nav";
-import { DashboardNavPills } from "@/components/dashboard/DashboardNavPills";
 import ReferralCaptureBootstrap from "@/components/referrals/ReferralCaptureBootstrap";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 
@@ -43,8 +39,6 @@ export default async function DashboardLayout({
 
   const normalizedRole = normalizeRole(profile?.role);
   const roleLabel = formatRoleLabel(normalizedRole);
-  const showMyProperties = canManageListings(normalizedRole);
-  const showSavedSearches = shouldShowSavedSearchNav();
   const isTenant = normalizedRole === "tenant";
   const isAgent = normalizedRole === "agent";
   const workspaceTitle = isTenant
@@ -110,36 +104,6 @@ export default async function DashboardLayout({
     });
   }
 
-  const defaultNavItems: DashboardNavItem[] = [
-    { key: "listings", label: "My listings", href: "/host", show: showMyProperties },
-    { key: "analytics", label: "Analytics", href: "/dashboard/analytics", show: showMyProperties },
-    { key: "billing", label: "Billing", href: "/dashboard/billing", show: !isTenant },
-    {
-      key: "saved-searches",
-      label: "Saved searches",
-      href: "/dashboard/saved-searches",
-      show: showSavedSearches,
-    },
-    { key: "messages", label: "Messages", href: "/dashboard/messages", show: true, showUnread: true },
-    { key: "leads", label: "Leads", href: "/dashboard/leads", show: showMyProperties },
-    {
-      key: "verification",
-      label: "Verification",
-      href: "/account/verification",
-      show: !isTenant,
-    },
-    { key: "viewings", label: "Viewings", href: "/dashboard/viewings", show: true },
-  ];
-
-  const agentNetworkEnabled = isAgent ? await isAgentNetworkDiscoveryEnabled() : false;
-  const navItems = isAgent
-    ? getAgentDashboardNavItems({
-        showMyProperties,
-        showSavedSearches,
-        showAgentNetwork: agentNetworkEnabled,
-      })
-    : defaultNavItems;
-
   if (isTenant) {
     return (
       <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4">
@@ -161,9 +125,6 @@ export default async function DashboardLayout({
       subtitle={workspaceCopy}
       contentClassName="space-y-6"
     >
-      <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <DashboardNavPills items={navItems} unreadMessages={unreadMessages} />
-      </div>
       {agentOnboarding && !agentOnboarding.completedAt && (
         <AgentOnboardingChecklist progress={agentOnboarding} />
       )}

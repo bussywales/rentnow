@@ -864,37 +864,23 @@ export function HostDashboardContent({
           <span className="font-semibold uppercase tracking-[0.12em] text-slate-500">
             Workspace
           </span>
-          <span className="hidden text-slate-400 sm:inline">Use sidebar for primary navigation</span>
+          <span className="hidden text-slate-400 sm:inline">
+            Use sidebar for primary navigation
+          </span>
         </div>
         <div className="inline-flex min-w-0 flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setWorkspaceSection("listings")}
-            className={`rounded-full px-2.5 py-1 font-semibold ${
-              workspaceSection === "listings"
-                ? "bg-sky-600 text-white"
-                : "border border-slate-200 bg-white text-slate-700"
-            }`}
-          >
-            Listings
-          </button>
-          <button
-            type="button"
-            onClick={() => setWorkspaceSection("bookings")}
-            className={`rounded-full px-2.5 py-1 font-semibold ${
-              workspaceSection === "bookings"
-                ? "bg-sky-600 text-white"
-                : "border border-slate-200 bg-white text-slate-700"
-            }`}
-          >
-            Bookings ({pendingRequestCount})
-          </button>
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold text-slate-700">
+            {workspaceSection === "bookings" ? "Bookings" : "Listings"}
+          </span>
           <Link
             href="/host/bookings?view=awaiting#host-bookings"
             className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 font-semibold text-slate-700 hover:bg-slate-100"
           >
             Open inbox
           </Link>
+          <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-900">
+            Awaiting {pendingRequestCount}
+          </span>
         </div>
       </div>
       {workspaceSection === "listings" ? (
