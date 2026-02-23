@@ -1,27 +1,37 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { HostFeaturedStrip } from "@/components/host/HostFeaturedStrip";
-import { HostListingsMasonryGrid } from "@/components/host/HostListingsMasonryGrid";
+import { HomeListingRail } from "@/components/home/HomeListingRail";
 import { HostGettingStartedSection } from "@/components/host/HostGettingStartedSection";
-import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
+import { HostListingsMasonryGrid } from "@/components/host/HostListingsMasonryGrid";
 import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
+import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
 import { Button } from "@/components/ui/Button";
+import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
+import { summarizeChecklist } from "@/lib/checklists/role-checklists";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import { resolveServerRole } from "@/lib/auth/role";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
+import { loadHomeFeedRails } from "@/lib/home/home-feed.server";
 import { fetchOwnerListings } from "@/lib/properties/owner-listings";
 import { computeDashboardListings, type DashboardListing } from "@/lib/properties/host-dashboard";
 import { isListingExpired } from "@/lib/properties/expiry";
 import { getSavedSearchSummaryForUser } from "@/lib/saved-searches/summary.server";
-import { summarizeChecklist } from "@/lib/checklists/role-checklists";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getTenantDiscoveryContext } from "@/lib/tenant/tenant-discovery.server";
 
 export const dynamic = "force-dynamic";
 
-const HOME_WORKSPACE_TOOLS_COLLAPSED_KEY = "home:host:workspace-tools:collapsed:v1";
-const HOME_GETTING_STARTED_COLLAPSED_KEY = "home:host:getting-started:collapsed:v1";
-const HOME_SNAPSHOT_COLLAPSED_KEY = "home:host:snapshot:collapsed:v1";
-const HOME_DEMAND_ALERTS_COLLAPSED_KEY = "home:host:demand-alerts:collapsed:v1";
+const WORKSPACE_LINKS = [
+  { href: "/host/properties", label: "Manage properties" },
+  { href: "/host/bookings", label: "Bookings" },
+  { href: "/host/calendar", label: "Calendar" },
+  { href: "/host/earnings", label: "Earnings" },
+] as const;
+
+const AGENT_QUICK_LINKS = [
+  { href: "/profile/clients", label: "Client pages" },
+  { href: "/host/leads", label: "Leads" },
+  { href: "/dashboard/messages", label: "Messages" },
+] as const;
 
 type Snapshot = {
   totalListings: number;
@@ -30,19 +40,16 @@ type Snapshot = {
   updatedThisWeek: number;
 };
 
-const WORKSPACE_LINKS = [
-  { href: "/host/properties", label: "Manage properties" },
-  { href: "/host/bookings", label: "Bookings" },
-  { href: "/host/leads", label: "Leads" },
-  { href: "/dashboard/messages", label: "Messages" },
-  { href: "/dashboard/referrals", label: "Referrals" },
-] as const;
+const HOME_WORKSPACE_TOOLS_COLLAPSED_KEY = "home:host:workspace-tools:collapsed:v1";
+const HOME_GETTING_STARTED_COLLAPSED_KEY = "home:host:getting-started:collapsed:v1";
+const HOME_SNAPSHOT_COLLAPSED_KEY = "home:host:snapshot:collapsed:v1";
+const HOME_DEMAND_ALERTS_COLLAPSED_KEY = "home:host:demand-alerts:collapsed:v1";
 
-function formatCount(value: number) {
+function formatCount(value: number): string {
   return Math.max(0, Number(value || 0)).toLocaleString();
 }
 
-function isActiveListing(listing: DashboardListing) {
+function isActiveListing(listing: DashboardListing): boolean {
   if (isListingExpired(listing)) return false;
   const status = String(listing.status || "").trim().toLowerCase();
   if (status) {
@@ -98,42 +105,55 @@ export default async function HomeWorkspacePage() {
   }
 
   const supabase = await createServerSupabaseClient();
-  const [listingsResult, gettingStartedChecklist, savedSearchSummary] = await Promise.all([
-    fetchOwnerListings({
-      supabase,
-      ownerId: user.id,
-      isAdmin: false,
-    }),
-    loadHostChecklist({
-      supabase,
-      userId: user.id,
-      role,
-    }),
-    getSavedSearchSummaryForUser({
-      supabase,
-      userId: user.id,
-    }).catch(() => ({ totalNewMatches: 0, searches: [] })),
-  ]);
+  const [listingsResult, gettingStartedChecklist, savedSearchSummary, discoveryContext] =
+    await Promise.all([
+      fetchOwnerListings({
+        supabase,
+        ownerId: user.id,
+        isAdmin: false,
+      }),
+      loadHostChecklist({
+        supabase,
+        userId: user.id,
+        role,
+      }),
+      getSavedSearchSummaryForUser({
+        supabase,
+        userId: user.id,
+      }).catch(() => ({ totalNewMatches: 0, searches: [] })),
+      getTenantDiscoveryContext(),
+    ]);
 
   const dashboardListings = computeDashboardListings(listingsResult.data || []);
   const listingSnapshot = buildSnapshot(dashboardListings);
   const checklistSummary = summarizeChecklist(gettingStartedChecklist);
   const checklistRemaining = Math.max(0, checklistSummary.total - checklistSummary.done);
 
+  const feedRails = await loadHomeFeedRails({
+    context: discoveryContext,
+    fallbackListings: listingsResult.data || [],
+  }).catch(() => ({
+    featured: (listingsResult.data || []).slice(0, 6),
+    newThisWeek: (listingsResult.data || []).slice(0, 6),
+    mostSaved: (listingsResult.data || []).slice(0, 6),
+    mostViewed: (listingsResult.data || []).slice(0, 6),
+    shortletsToBook: (listingsResult.data || []).slice(0, 6),
+  }));
+
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-1 sm:px-6 lg:px-8" data-testid="home-visual-landing">
-      <section
-        className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm"
-        data-testid="home-hero"
-      >
+    <div
+      className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-1 sm:px-6 lg:px-8"
+      data-testid="home-visual-landing"
+    >
+      <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="home-hero">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
             <p className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white">
               Workspace home
             </p>
-            <h1 className="text-3xl font-semibold text-slate-900">Make your next listing impossible to ignore.</h1>
+            <h1 className="text-3xl font-semibold text-slate-900">Lead with your strongest listings.</h1>
             <p className="text-sm text-slate-600">
-              Publish faster, keep approvals moving, and manage your portfolio from one visual workspace.
+              Keep your portfolio visible, ship updates faster, and jump into management workflows when you are ready.
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -145,32 +165,63 @@ export default async function HomeWorkspacePage() {
             </Link>
           </div>
         </div>
+        {role === "agent" ? (
+          <div
+            className="mt-4 flex flex-wrap items-center gap-2"
+            data-testid="home-agent-quick-chips"
+          >
+            {AGENT_QUICK_LINKS.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                className="inline-flex items-center rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+              >
+                {link.label}
+              </Link>
+            ))}
+          </div>
+        ) : null}
       </section>
 
-      <section className="space-y-3" data-testid="home-featured-strip">
-        <div className="flex items-end justify-between gap-3 px-1">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Featured</p>
-            <h2 className="text-xl font-semibold text-slate-900">Listings to spotlight now</h2>
-          </div>
-          <Link href="/host/properties" className="text-xs font-semibold text-sky-700 hover:text-sky-800">
-            Manage all
-          </Link>
-        </div>
-        {dashboardListings.length ? (
-          <HostFeaturedStrip listings={dashboardListings} mosaicTargetId="home-for-you-grid" />
-        ) : (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-4 py-6 text-sm text-slate-600">
-            Add your first listing to unlock a featured strip.
-          </div>
-        )}
-      </section>
+      <HomeListingRail
+        title="Featured listings"
+        subtitle="Top homes to spotlight"
+        href="/host/properties"
+        hrefLabel="Manage all"
+        listings={feedRails.featured}
+        source="home_featured"
+        sectionTestId="home-featured-strip"
+      />
+
+      <HomeListingRail
+        title="New this week"
+        subtitle="Fresh inventory worth reviewing"
+        listings={feedRails.newThisWeek}
+        source="home_new_this_week"
+        sectionTestId="home-rail-new-this-week"
+      />
+
+      <HomeListingRail
+        title="Most saved"
+        subtitle="Homes tenants are bookmarking"
+        listings={feedRails.mostSaved}
+        source="home_most_saved"
+        sectionTestId="home-rail-most-saved"
+      />
+
+      <HomeListingRail
+        title="Most viewed"
+        subtitle="Homes driving the strongest attention"
+        listings={feedRails.mostViewed}
+        source="home_most_viewed"
+        sectionTestId="home-rail-most-viewed"
+      />
 
       <section id="home-for-you-grid" className="space-y-3" data-testid="home-for-you-grid">
         <div className="flex items-end justify-between gap-3 px-1">
           <div>
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">For you</p>
-            <h2 className="text-xl font-semibold text-slate-900">Editorial portfolio grid</h2>
+            <h2 className="text-xl font-semibold text-slate-900">Portfolio mosaic</h2>
           </div>
           <Link href="/host/properties" className="text-xs font-semibold text-sky-700 hover:text-sky-800">
             Open manager
@@ -181,7 +232,7 @@ export default async function HomeWorkspacePage() {
 
       <HomeCollapsibleSection
         title="Workspace tools"
-        description="Technical controls stay available without crowding your listings feed."
+        description="Operational controls are always available, but no longer block your feed."
         storageKey={HOME_WORKSPACE_TOOLS_COLLAPSED_KEY}
         defaultCollapsed
         testId="home-workspace-tools"
@@ -249,7 +300,7 @@ export default async function HomeWorkspacePage() {
 
       <HomeCollapsibleSection
         title="Demand alerts"
-        description="Keep an eye on saved-search demand from tenants."
+        description="Saved-search signals and tenant demand, without overwhelming the top of page."
         storageKey={HOME_DEMAND_ALERTS_COLLAPSED_KEY}
         defaultCollapsed
         testId="home-demand-alerts"
@@ -277,7 +328,10 @@ export default async function HomeWorkspacePage() {
       </HomeCollapsibleSection>
 
       {listingsResult.error ? (
-        <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" data-testid="home-listing-fetch-warning">
+        <section
+          className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+          data-testid="home-listing-fetch-warning"
+        >
           We could not load some listing details right now. Please refresh to retry.
         </section>
       ) : null}

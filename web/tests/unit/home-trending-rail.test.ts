@@ -11,6 +11,9 @@ void test("tenant home keeps trending rail while host /home focuses on listings 
 
   assert.match(tenantHome, /trendingHomes\.length > 0/);
   assert.match(tenantHome, /Trending this week/);
-  assert.match(hostHome, /data-testid=\"home-featured-strip\"/);
+  assert.match(hostHome, /sectionTestId=\"home-featured-strip\"/);
+  assert.match(hostHome, /sectionTestId=\"home-rail-new-this-week\"/);
+  assert.match(hostHome, /sectionTestId=\"home-rail-most-saved\"/);
+  assert.match(hostHome, /sectionTestId=\"home-rail-most-viewed\"/);
   assert.match(hostHome, /data-testid=\"home-for-you-grid\"/);
 });
