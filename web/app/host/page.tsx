@@ -39,6 +39,7 @@ import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
 import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
 import type { ChecklistItem } from "@/lib/checklists/role-checklists";
 import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
+import { HostGettingStartedSection } from "@/components/host/HostGettingStartedSection";
 import {
   listHostShortletBookings,
   listHostShortletEarnings,
@@ -561,7 +562,10 @@ export default async function DashboardHome({ searchParams }: PageProps) {
         )}
       </div>
       {(role === "landlord" || role === "agent") && gettingStartedChecklist.length > 0 && (
-        <HomeCollapsibleSection
+        <HostGettingStartedSection
+          role={role}
+          hostUserId={hostUserId}
+          items={gettingStartedChecklist}
           title="Getting started"
           description="Operational milestones for listing quality, approvals, and responses."
           storageKey={HOST_GETTING_STARTED_COLLAPSED_KEY}
@@ -575,7 +579,7 @@ export default async function DashboardHome({ searchParams }: PageProps) {
               items={gettingStartedChecklist}
             />
           </div>
-        </HomeCollapsibleSection>
+        </HostGettingStartedSection>
       )}
       {(role === "landlord" || role === "agent") && trustMarkers && (
         <HomeCollapsibleSection
