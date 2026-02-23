@@ -40,7 +40,7 @@ import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
 import type { ChecklistItem } from "@/lib/checklists/role-checklists";
 import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
 import { HostGettingStartedSection } from "@/components/host/HostGettingStartedSection";
-import { HostListingsRail } from "@/components/host/HostListingsRail";
+import { HostListingsMasonryGrid } from "@/components/host/HostListingsMasonryGrid";
 import {
   listHostShortletBookings,
   listHostShortletEarnings,
@@ -467,7 +467,7 @@ export default async function DashboardHome({ searchParams }: PageProps) {
         </div>
       </section>
 
-      <HostListingsRail listings={dashboardListings} />
+      <HostListingsMasonryGrid listings={dashboardListings} />
 
       {plan && listingLimitReached && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
