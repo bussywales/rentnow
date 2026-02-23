@@ -55,6 +55,13 @@ import { resolveShortletManageState } from "@/lib/shortlet/manage-state";
 import { getPublicVisibilityDiagnostics } from "@/lib/properties/public-visibility-diagnostics";
 import { resolveHostWorkspaceSectionFromLocation } from "@/lib/host/bookings-navigation";
 import { countAwaitingApprovalBookings } from "@/lib/shortlet/host-bookings-inbox";
+import {
+  buildHostListingAnalyticsPreferenceKeys,
+  getHostListingAnalyticsPanelModel,
+  parseHostListingAnalyticsCollapsed,
+  parseHostListingAnalyticsMode,
+  type HostListingAnalyticsMode,
+} from "@/lib/host/listing-analytics-preferences";
 
 function normalizeStatus(property: {
   status?: string | null;
@@ -275,6 +282,20 @@ export function HostDashboardContent({
   const [workspaceSection, setWorkspaceSection] = useState<"listings" | "bookings">(
     initialWorkspaceSection
   );
+  const analyticsPreferenceKeys = useMemo(
+    () => buildHostListingAnalyticsPreferenceKeys(hostUserId),
+    [hostUserId]
+  );
+  const [listingAnalyticsMode, setListingAnalyticsMode] = useState<HostListingAnalyticsMode>(() => {
+    if (typeof window === "undefined") return "compact";
+    return parseHostListingAnalyticsMode(window.localStorage.getItem(analyticsPreferenceKeys.modeKey));
+  });
+  const [listingAnalyticsCollapsed, setListingAnalyticsCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return parseHostListingAnalyticsCollapsed(
+      window.localStorage.getItem(analyticsPreferenceKeys.collapsedKey)
+    );
+  });
   const [pendingShortletCountFromApi, setPendingShortletCountFromApi] = useState<number | null>(null);
   const focusBookingId = searchParams?.get("booking");
 
@@ -366,6 +387,23 @@ export function HostDashboardContent({
   );
   const missingShortletPriceCount = shortletsMissingNightlyPrice.length;
   const firstMissingShortletPropertyId = shortletsMissingNightlyPrice[0] ?? null;
+  const listingAnalyticsPanelModel = useMemo(
+    () => getHostListingAnalyticsPanelModel(listingAnalyticsMode),
+    [listingAnalyticsMode]
+  );
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(analyticsPreferenceKeys.modeKey, listingAnalyticsMode);
+  }, [analyticsPreferenceKeys.modeKey, listingAnalyticsMode]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(
+      analyticsPreferenceKeys.collapsedKey,
+      listingAnalyticsCollapsed ? "1" : "0"
+    );
+  }, [analyticsPreferenceKeys.collapsedKey, listingAnalyticsCollapsed]);
 
   useEffect(() => {
     let active = true;
@@ -874,6 +912,54 @@ export function HostDashboardContent({
             selectAllChecked={allSelected}
             onToggleSelectAll={toggleSelectAll}
           />
+          <div
+            className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2"
+            data-testid="host-home-listing-analytics-controls"
+          >
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                Listing analytics
+              </p>
+              <p className="text-xs text-slate-600">
+                Keep metrics compact or expand details while triaging listings.
+              </p>
+            </div>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                onClick={() => setListingAnalyticsCollapsed((current) => !current)}
+              >
+                {listingAnalyticsCollapsed ? "Show analytics" : "Hide analytics"}
+              </button>
+              {!listingAnalyticsCollapsed ? (
+                <div className="inline-flex rounded-full border border-slate-200 bg-slate-50 p-0.5">
+                  <button
+                    type="button"
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      listingAnalyticsMode === "compact"
+                        ? "bg-slate-900 text-white"
+                        : "text-slate-700 hover:bg-white"
+                    }`}
+                    onClick={() => setListingAnalyticsMode("compact")}
+                  >
+                    Compact
+                  </button>
+                  <button
+                    type="button"
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      listingAnalyticsMode === "expanded"
+                        ? "bg-slate-900 text-white"
+                        : "text-slate-700 hover:bg-white"
+                    }`}
+                    onClick={() => setListingAnalyticsMode("expanded")}
+                  >
+                    Expanded
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          </div>
           {sorted.length ? (
             <div className="grid min-w-0 gap-4 md:grid-cols-2">
           {sorted.map((property) => {
@@ -1054,17 +1140,35 @@ export function HostDashboardContent({
                   {HOST_DASHBOARD_COPY.lastUpdatedLabel}:{" "}
                   {formatRelativeTime(getLastUpdatedDate(property))}
                 </div>
-                {performance && (
-                  <div className="mt-3 rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                    <div className="font-semibold text-slate-700">Demand last 7d</div>
-                    <div className="mt-1 text-[11px] text-slate-600 break-words">
-                      Views {performance.views} · Saves {performance.saves} · Leads {performance.leads}
-                    </div>
-                    {(isPaused || isExpired) && missedDemandLabel && (
-                      <div className="mt-1 text-[11px] text-slate-500 break-words">{missedDemandLabel}</div>
+                {performance && !listingAnalyticsCollapsed ? (
+                  <div
+                    className={`mt-3 rounded-xl border border-slate-100 bg-slate-50 text-xs text-slate-600 ${listingAnalyticsPanelModel.containerClassName}`}
+                    data-testid={`host-listing-analytics-panel-${property.id}`}
+                    data-density={listingAnalyticsMode}
+                  >
+                    {listingAnalyticsMode === "compact" ? (
+                      <p className="text-[11px] text-slate-700 break-words">
+                        Views {performance.views} · Saves {performance.saves} · Leads {performance.leads}
+                      </p>
+                    ) : (
+                      <>
+                        <div className="font-semibold text-slate-700">Demand last 7d</div>
+                        <div className="mt-1 text-[11px] text-slate-600 break-words">
+                          Views {performance.views} · Saves {performance.saves} · Leads {performance.leads}
+                        </div>
+                        <div className="mt-1 text-[11px] text-slate-500 break-words">
+                          Lead rate{" "}
+                          {performance.views > 0
+                            ? `${Math.round((performance.leads / Math.max(1, performance.views)) * 100)}%`
+                            : "N/A"}
+                        </div>
+                        {(isPaused || isExpired) && missedDemandLabel ? (
+                          <div className="mt-1 text-[11px] text-slate-500 break-words">{missedDemandLabel}</div>
+                        ) : null}
+                      </>
                     )}
                   </div>
-                )}
+                ) : null}
                 <div className="mt-2">
                   <ListingReadinessBadge readiness={readiness} improveHref={improveHref} />
                 </div>
