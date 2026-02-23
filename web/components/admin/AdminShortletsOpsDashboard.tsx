@@ -132,6 +132,7 @@ export function AdminShortletsOpsDashboard() {
             }}
             className="inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 px-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
             disabled={refreshing}
+            data-testid="admin-shortlets-ops-refresh"
           >
             {refreshing ? "Refreshing..." : "Refresh"}
           </button>
@@ -143,7 +144,10 @@ export function AdminShortletsOpsDashboard() {
         ) : null}
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+      <div
+        className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
+        data-testid="admin-shortlets-ops-metrics"
+      >
         <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
           <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Reminders</p>
           <p className="mt-2 text-2xl font-semibold text-slate-900">{remindersHealth}</p>

@@ -22,7 +22,10 @@ export default async function AdminShortletsOpsPage() {
   await requireAdmin();
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4">
+    <div
+      className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4"
+      data-testid="admin-shortlets-ops"
+    >
       <div className="rounded-2xl bg-slate-900 px-5 py-4 text-white shadow-lg">
         <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Admin</p>
         <p className="text-xl font-semibold">Shortlets Ops</p>
