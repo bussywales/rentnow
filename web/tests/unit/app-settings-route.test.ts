@@ -229,6 +229,13 @@ void test("validateSettingValueByKey accepts market defaults and toggles", () =>
   assert.equal(validateSettingValueByKey("market_selector_enabled", { enabled: false }), true);
 });
 
+void test("validateSettingValueByKey accepts listings auto-approve toggle payload", () => {
+  assert.equal(
+    validateSettingValueByKey("listings_auto_approve_enabled", { enabled: true }),
+    true
+  );
+});
+
 void test("validateSettingValueByKey rejects invalid market defaults", () => {
   assert.equal(validateSettingValueByKey("default_market_country", { value: "NIG" }), false);
   assert.equal(validateSettingValueByKey("default_market_currency", { value: "NG" }), false);

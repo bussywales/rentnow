@@ -91,6 +91,11 @@ const DESCRIPTIONS: Partial<Record<AppSettingKey, { title: string; helper: strin
     title: "Shortlet auto payouts",
     helper: "Pilot placeholder only. Keep disabled until automated settlement is launched.",
   },
+  [APP_SETTING_KEYS.listingsAutoApproveEnabled]: {
+    title: "Listings auto-approve on submit",
+    helper:
+      "When enabled, submitted listings are approved immediately and go live without manual review.",
+  },
 };
 
 export default function AdminSettingsFeatureFlags({ settings }: Props) {

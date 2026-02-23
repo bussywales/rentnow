@@ -58,6 +58,7 @@ export const APP_SETTING_KEYS = {
   shortletPaymentsStripeEnabled: "shortlet_payments_stripe_enabled",
   shortletPaymentsPaystackEnabled: "shortlet_payments_paystack_enabled",
   shortletAutoPayoutsEnabled: "shortlet_auto_payouts_enabled",
+  listingsAutoApproveEnabled: "listings_auto_approve_enabled",
 } as const;
 
 export type AppSettingKey = (typeof APP_SETTING_KEYS)[keyof typeof APP_SETTING_KEYS];
