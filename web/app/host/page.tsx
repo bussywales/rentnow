@@ -40,6 +40,7 @@ import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
 import type { ChecklistItem } from "@/lib/checklists/role-checklists";
 import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
 import { HostGettingStartedSection } from "@/components/host/HostGettingStartedSection";
+import { HostListingsRail } from "@/components/host/HostListingsRail";
 import {
   listHostShortletBookings,
   listHostShortletEarnings,
@@ -364,6 +365,10 @@ export default async function DashboardHome({ searchParams }: PageProps) {
         ? "Your session has expired. Please log in again."
         : "We couldn't load your listings right now. Please try again."
     : null;
+  const bookingsHref =
+    awaitingApprovalCount > 0
+      ? "/host/bookings?view=awaiting#host-bookings"
+      : "/host/bookings#host-bookings";
   let performanceById: Record<
     string,
     {
@@ -419,29 +424,50 @@ export default async function DashboardHome({ searchParams }: PageProps) {
 
   return (
     <div className="min-w-0 space-y-4">
-      <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">My listings</h2>
-          <p className="text-sm text-slate-600">
-            Listings you own. Approvals required for public visibility.
-          </p>
-        </div>
-        <div className="flex min-w-0 flex-wrap items-center gap-3">
-          <HelpDrawerTrigger label="Need help?" testId="host-help-trigger" />
-          {listingLimitReached ? (
-            <Button variant="secondary" disabled>
-              Max listings reached
-            </Button>
-          ) : (
-            <Link href="/dashboard/properties/new">
-              <Button>New listing</Button>
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        data-testid="host-home-hero"
+      >
+        <div className="flex min-w-0 flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              Workspace home
+            </p>
+            <h1 className="mt-1 text-2xl font-semibold text-slate-900">Welcome back</h1>
+            <p className="mt-1 text-sm text-slate-600">
+              Keep listings moving with a media-first feed, then open operations when needed.
+            </p>
+            <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 text-xs">
+              <span className="rounded-full bg-amber-100 px-2.5 py-1 font-semibold text-amber-900">
+                Awaiting approvals {awaitingApprovalCount}
+              </span>
+              <span className="rounded-full bg-slate-100 px-2.5 py-1 font-semibold text-slate-700">
+                Active listings {activeCount}
+              </span>
+            </div>
+          </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {listingLimitReached ? (
+              <Button variant="secondary" disabled>
+                Max listings reached
+              </Button>
+            ) : (
+              <Link href="/dashboard/properties/new">
+                <Button>New listing</Button>
+              </Link>
+            )}
+            <Link href={bookingsHref}>
+              <Button variant="secondary">Open bookings</Button>
             </Link>
-          )}
-          <Link href="/help/host/performance">
-            <Button variant="ghost">Performance guide</Button>
-          </Link>
+            <HelpDrawerTrigger label="Need help?" testId="host-help-trigger" />
+            <Link href="/help/host/performance">
+              <Button variant="ghost">Performance guide</Button>
+            </Link>
+          </div>
         </div>
-      </div>
+      </section>
+
+      <HostListingsRail listings={dashboardListings} />
 
       {plan && listingLimitReached && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
