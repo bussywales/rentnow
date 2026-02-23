@@ -2,6 +2,8 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { HostFeaturedStrip } from "@/components/host/HostFeaturedStrip";
 import { HostListingsMasonryGrid } from "@/components/host/HostListingsMasonryGrid";
+import { HostGettingStartedSection } from "@/components/host/HostGettingStartedSection";
+import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
 import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
 import { Button } from "@/components/ui/Button";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
@@ -15,6 +17,11 @@ import { getSavedSearchSummaryForUser } from "@/lib/saved-searches/summary.serve
 import { summarizeChecklist } from "@/lib/checklists/role-checklists";
 
 export const dynamic = "force-dynamic";
+
+const HOME_WORKSPACE_TOOLS_COLLAPSED_KEY = "home:host:workspace-tools:collapsed:v1";
+const HOME_GETTING_STARTED_COLLAPSED_KEY = "home:host:getting-started:collapsed:v1";
+const HOME_SNAPSHOT_COLLAPSED_KEY = "home:host:snapshot:collapsed:v1";
+const HOME_DEMAND_ALERTS_COLLAPSED_KEY = "home:host:demand-alerts:collapsed:v1";
 
 type Snapshot = {
   totalListings: number;
@@ -172,23 +179,36 @@ export default async function HomeWorkspacePage() {
         <HostListingsMasonryGrid listings={dashboardListings} uniformMedia />
       </section>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="home-workspace-tools">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900">Workspace tools</h2>
-            <p className="text-sm text-slate-600">Technical controls stay available without crowding your listings feed.</p>
-          </div>
-        </div>
-        <div className="mt-4 flex flex-wrap gap-2">
+      <HomeCollapsibleSection
+        title="Workspace tools"
+        description="Technical controls stay available without crowding your listings feed."
+        storageKey={HOME_WORKSPACE_TOOLS_COLLAPSED_KEY}
+        defaultCollapsed
+        testId="home-workspace-tools"
+      >
+        <div className="flex flex-wrap gap-2">
           {WORKSPACE_LINKS.map((link) => (
             <Link key={link.href} href={link.href}>
               <Button variant="secondary">{link.label}</Button>
             </Link>
           ))}
         </div>
-      </section>
+      </HomeCollapsibleSection>
 
-      <section data-testid="home-getting-started">
+      <HostGettingStartedSection
+        role={role}
+        hostUserId={user.id}
+        items={gettingStartedChecklist}
+        title="Getting started checklist"
+        description={
+          checklistRemaining > 0
+            ? `${checklistRemaining} items to complete.`
+            : "All key setup milestones are complete."
+        }
+        storageKey={HOME_GETTING_STARTED_COLLAPSED_KEY}
+        defaultCollapsed
+        testId="home-getting-started"
+      >
         <RoleChecklistPanel
           title="Getting started checklist"
           subtitle={
@@ -198,16 +218,16 @@ export default async function HomeWorkspacePage() {
           }
           items={gettingStartedChecklist}
         />
-      </section>
+      </HostGettingStartedSection>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="home-snapshot-panel">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900">Snapshot</h2>
-            <p className="text-sm text-slate-600">Current portfolio health at a glance.</p>
-          </div>
-        </div>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <HomeCollapsibleSection
+        title="Snapshot"
+        description="Current portfolio health at a glance."
+        storageKey={HOME_SNAPSHOT_COLLAPSED_KEY}
+        defaultCollapsed
+        testId="home-snapshot-panel"
+      >
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
             <p className="text-xs uppercase tracking-[0.16em] text-slate-500">Total listings</p>
             <p className="mt-1 text-2xl font-semibold text-slate-900">{formatCount(listingSnapshot.totalListings)}</p>
@@ -225,23 +245,25 @@ export default async function HomeWorkspacePage() {
             <p className="mt-1 text-2xl font-semibold text-slate-900">{formatCount(listingSnapshot.updatedThisWeek)}</p>
           </div>
         </div>
-      </section>
+      </HomeCollapsibleSection>
 
-      <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="home-demand-alerts">
+      <HomeCollapsibleSection
+        title="Demand alerts"
+        description="Keep an eye on saved-search demand from tenants."
+        storageKey={HOME_DEMAND_ALERTS_COLLAPSED_KEY}
+        defaultCollapsed
+        testId="home-demand-alerts"
+      >
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-semibold text-slate-900">Demand alerts</h2>
-            <p className="text-sm text-slate-600">Keep an eye on saved-search demand from tenants.</p>
+          <div className="text-sm text-slate-700">
+            {savedSearchSummary.totalNewMatches > 0
+              ? `${savedSearchSummary.totalNewMatches} new matches across followed searches.`
+              : "No new matches yet. Follow searches from Browse to track demand."}
           </div>
           <Link href="/saved-searches" className="text-sm font-semibold text-sky-700">
             Manage searches
           </Link>
         </div>
-        <p className="mt-3 text-sm text-slate-700">
-          {savedSearchSummary.totalNewMatches > 0
-            ? `${savedSearchSummary.totalNewMatches} new matches across followed searches.`
-            : "No new matches yet. Follow searches from Browse to track demand."}
-        </p>
         {savedSearchSummary.searches.length > 0 ? (
           <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {savedSearchSummary.searches.slice(0, 3).map((search) => (
@@ -252,7 +274,7 @@ export default async function HomeWorkspacePage() {
             ))}
           </div>
         ) : null}
-      </section>
+      </HomeCollapsibleSection>
 
       {listingsResult.error ? (
         <section className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800" data-testid="home-listing-fetch-warning">

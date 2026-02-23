@@ -49,10 +49,12 @@ void test("toggle helper flips collapsed state and persists storage value", () =
 void test("home pages wire role-specific localStorage keys for collapsible sections", () => {
   const tenantPath = path.join(process.cwd(), "app", "tenant", "home", "page.tsx");
   const hostPath = path.join(process.cwd(), "app", "host", "page.tsx");
+  const homePath = path.join(process.cwd(), "app", "home", "page.tsx");
   const hostDashboardPath = path.join(process.cwd(), "components", "host", "HostDashboardContent.tsx");
 
   const tenantContents = fs.readFileSync(tenantPath, "utf8");
   const hostContents = fs.readFileSync(hostPath, "utf8");
+  const homeContents = fs.readFileSync(homePath, "utf8");
   const hostDashboardContents = fs.readFileSync(hostDashboardPath, "utf8");
 
   assert.match(tenantContents, /home:tenant:getting-started:collapsed:v1/);
@@ -62,6 +64,13 @@ void test("home pages wire role-specific localStorage keys for collapsible secti
   assert.match(hostContents, /home:host:getting-started:collapsed:v1/);
   assert.match(hostContents, /home:host:trust-status:collapsed:v1/);
   assert.match(hostContents, /HomeCollapsibleSection/);
+
+  assert.match(homeContents, /home:host:workspace-tools:collapsed:v1/);
+  assert.match(homeContents, /home:host:getting-started:collapsed:v1/);
+  assert.match(homeContents, /home:host:snapshot:collapsed:v1/);
+  assert.match(homeContents, /home:host:demand-alerts:collapsed:v1/);
+  assert.match(homeContents, /HomeCollapsibleSection/);
+  assert.match(homeContents, /HostGettingStartedSection/);
 
   assert.match(hostDashboardContents, /panelKey="demand_alerts"/);
   assert.match(hostDashboardContents, /panelKey="analytics_preview"/);

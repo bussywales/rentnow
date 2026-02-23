@@ -9,10 +9,10 @@ void test("/home renders featured + for-you listing rails before technical panel
 
   const featuredStripIndex = contents.indexOf('data-testid="home-featured-strip"');
   const forYouGridIndex = contents.indexOf('data-testid="home-for-you-grid"');
-  const workspaceToolsIndex = contents.indexOf('data-testid="home-workspace-tools"');
-  const checklistIndex = contents.indexOf('data-testid="home-getting-started"');
-  const snapshotIndex = contents.indexOf('data-testid="home-snapshot-panel"');
-  const demandAlertsIndex = contents.indexOf('data-testid="home-demand-alerts"');
+  const workspaceToolsIndex = contents.indexOf('testId="home-workspace-tools"');
+  const checklistIndex = contents.indexOf('testId="home-getting-started"');
+  const snapshotIndex = contents.indexOf('testId="home-snapshot-panel"');
+  const demandAlertsIndex = contents.indexOf('testId="home-demand-alerts"');
 
   assert.ok(featuredStripIndex >= 0, "expected featured strip marker");
   assert.ok(forYouGridIndex >= 0, "expected for-you grid marker");

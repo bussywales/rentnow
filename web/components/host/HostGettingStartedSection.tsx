@@ -16,6 +16,7 @@ type Props = {
   title: string;
   description?: string;
   storageKey: string;
+  defaultCollapsed?: boolean;
   testId?: string;
   children: ReactNode;
 };
@@ -36,6 +37,7 @@ export function HostGettingStartedSection({
   title,
   description,
   storageKey,
+  defaultCollapsed,
   testId,
   children,
 }: Props) {
@@ -77,7 +79,7 @@ export function HostGettingStartedSection({
       title={title}
       description={description}
       storageKey={storageKey}
-      defaultCollapsed={completed}
+      defaultCollapsed={defaultCollapsed ?? completed}
       testId={testId}
     >
       {completed ? (
