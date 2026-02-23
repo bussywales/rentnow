@@ -8,7 +8,7 @@ void test("host home renders media-first hero and listings grid before technical
   const contents = fs.readFileSync(hostPagePath, "utf8");
 
   const heroIndex = contents.indexOf('data-testid="host-home-hero"');
-  const listingsGridIndex = contents.indexOf("<HostListingsMasonryGrid");
+  const listingsGridIndex = contents.indexOf("<HostListingsFeed");
   const approvalTipsIndex = contents.indexOf("Getting approved faster");
   const checklistIndex = contents.indexOf("<HostGettingStartedSection");
 
