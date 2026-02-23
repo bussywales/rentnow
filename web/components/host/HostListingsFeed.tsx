@@ -1,8 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { HostFeaturedStrip } from "@/components/host/HostFeaturedStrip";
 import { HostListingsMasonryGrid } from "@/components/host/HostListingsMasonryGrid";
 import { HostListingsRail } from "@/components/host/HostListingsRail";
+import { parseHostDashboardView } from "@/components/host/useHostDashboardView";
 import {
   readHostListingsView,
   writeHostListingsView,
@@ -20,9 +23,12 @@ function getClientStorage() {
 }
 
 export function HostListingsFeed({ listings }: Props) {
+  const searchParams = useSearchParams();
   const [view, setView] = useState<HostListingsView>(() =>
     readHostListingsView(getClientStorage())
   );
+  const dashboardView = parseHostDashboardView(searchParams?.get("view"));
+  const showFeaturedStrip = dashboardView === "all";
 
   const switchView = (nextView: HostListingsView) => {
     const resolved = writeHostListingsView(getClientStorage(), nextView);
@@ -58,7 +64,10 @@ export function HostListingsFeed({ listings }: Props) {
       {view === "rail" ? (
         <HostListingsRail listings={listings} />
       ) : (
-        <HostListingsMasonryGrid listings={listings} />
+        <div className="space-y-3">
+          {showFeaturedStrip ? <HostFeaturedStrip listings={listings} /> : null}
+          <HostListingsMasonryGrid listings={listings} />
+        </div>
       )}
     </section>
   );
