@@ -19,7 +19,7 @@ test("host desktop nav keeps bookings, calendar, listings, and earnings", () => 
   const links = resolveDesktopTopNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "landlord" });
   assert.deepEqual(
     links.map((link) => link.href),
-    ["/host/bookings", "/host/calendar", "/host/listings", "/host/earnings"]
+    ["/host/bookings", "/host/calendar", "/host/properties", "/host/earnings"]
   );
 });
 

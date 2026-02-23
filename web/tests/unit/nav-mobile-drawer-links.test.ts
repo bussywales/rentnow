@@ -35,7 +35,7 @@ void test("mobile drawer links are role-aware", () => {
     "non-admin host role should see Calendar link"
   );
   assert.ok(
-    userLinks.find((link) => link.href === "/host/listings"),
+    userLinks.find((link) => link.href === "/host/properties"),
     "non-admin host role should see Listings link"
   );
   assert.ok(

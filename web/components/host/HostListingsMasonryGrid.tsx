@@ -77,7 +77,7 @@ export function HostListingsMasonryGrid({ listings }: Props) {
           <h2 className="text-lg font-semibold text-slate-900">Portfolio mosaic</h2>
         </div>
         <Link
-          href="/host/listings"
+          href="/host/properties"
           className="text-xs font-semibold text-sky-700 hover:text-sky-800"
         >
           Manage all
