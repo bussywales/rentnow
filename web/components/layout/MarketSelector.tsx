@@ -19,17 +19,20 @@ export function MarketSelector({ enabled, compact = false }: Props) {
   const { market, setMarket } = useMarketPreference();
 
   const currentLabel = useMemo(() => formatMarketLabel(market), [market]);
+  const marketContextHint = "Market affects currency display, not where you can search.";
 
   if (!enabled) return null;
 
   return (
     <label className="inline-flex items-center gap-2 text-sm text-slate-700">
       {!compact ? <span className="hidden text-xs text-slate-500 sm:inline">Market</span> : null}
+      <span className="sr-only">{marketContextHint}</span>
       <select
         aria-label="Select market"
+        aria-description={marketContextHint}
         className="min-h-9 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
         value={serializeMarketCookieValue(market.country, market.currency)}
-        title={currentLabel}
+        title={`${currentLabel}. ${marketContextHint}`}
         onChange={(event) => {
           const selected = event.target.value;
           const match = MARKET_OPTIONS.find(
@@ -59,4 +62,3 @@ export function MarketSelector({ enabled, compact = false }: Props) {
     </label>
   );
 }
-

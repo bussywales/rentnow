@@ -325,6 +325,9 @@ export function NavMobileDrawerClient({
                       Market
                     </p>
                     <MarketSelector enabled compact />
+                    <p className="mt-2 text-[11px] text-slate-500">
+                      Market affects currency display, not where you can search.
+                    </p>
                   </div>
                 ) : null}
                 <nav className="flex flex-col gap-4">

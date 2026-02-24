@@ -174,7 +174,11 @@ void test("shortlets shell heading copy follows destination-driven messaging", (
   assert.ok(contents.includes("Find shortlets in ${activeDestination}"));
   assert.ok(contents.includes("pricingContextCopy"));
   assert.ok(contents.includes("Prices vary by listing."));
-  assert.ok(contents.includes("Prices shown in ${marketCurrency}. Market changes pricing context, not destination."));
+  assert.ok(
+    contents.includes(
+      "Prices shown in ${marketCurrency}. Market affects currency display, not where you can search."
+    )
+  );
 });
 
 void test("shortlets shell uses where typeahead with recent and saved search hooks", () => {

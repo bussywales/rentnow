@@ -1476,7 +1476,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   const pricingContextCopy =
     currencyCodesInResults.size > 1
       ? "Prices vary by listing."
-      : `Prices shown in ${marketCurrency}. Market changes pricing context, not destination.`;
+      : `Prices shown in ${marketCurrency}. Market affects currency display, not where you can search.`;
   const showExploreMapHint = !isBboxApplied && !activeDestination;
 
   return (
