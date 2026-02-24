@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { WorkspaceHomeFeed } from "@/components/home/WorkspaceHomeFeed";
+import { WorkspaceQuickActions } from "@/components/home/WorkspaceQuickActions";
 import { HostGettingStartedSection } from "@/components/host/HostGettingStartedSection";
 import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
 import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
@@ -11,6 +12,7 @@ import { summarizeChecklist } from "@/lib/checklists/role-checklists";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 import { resolveServerRole } from "@/lib/auth/role";
 import { buildHomeCollapsedStorageKey } from "@/lib/home/collapsible";
+import { getWorkspaceHomePrioritySummary } from "@/lib/home/workspace-priority.server";
 import { fetchOwnerListings } from "@/lib/properties/owner-listings";
 import { computeDashboardListings, type DashboardListing } from "@/lib/properties/host-dashboard";
 import { isListingExpired } from "@/lib/properties/expiry";
@@ -106,7 +108,7 @@ export default async function HomeWorkspacePage() {
   }
 
   const supabase = await createServerSupabaseClient();
-  const [listingsResult, gettingStartedChecklist, savedSearchSummary] =
+  const [listingsResult, gettingStartedChecklist, savedSearchSummary, prioritySummary] =
     await Promise.all([
       fetchOwnerListings({
         supabase,
@@ -122,6 +124,15 @@ export default async function HomeWorkspacePage() {
         supabase,
         userId: user.id,
       }).catch(() => ({ totalNewMatches: 0, searches: [] })),
+      getWorkspaceHomePrioritySummary({
+        client: supabase,
+        userId: user.id,
+        role,
+      }).catch(() => ({
+        newLeadsCount: null,
+        bookingsAwaitingApprovalCount: null,
+        upcomingCheckInsCount: null,
+      })),
     ]);
 
   const dashboardListings = computeDashboardListings(listingsResult.data || []);
@@ -135,10 +146,71 @@ export default async function HomeWorkspacePage() {
           : null,
     fallbackEmail: user.email ?? null,
   });
+  const heroPriorityParts: string[] = [];
+  if (role === "agent" && typeof prioritySummary.newLeadsCount === "number") {
+    heroPriorityParts.push(`${formatCount(prioritySummary.newLeadsCount)} leads awaiting response`);
+  }
+  if (listingSnapshot.pendingListings > 0) {
+    heroPriorityParts.push(`${formatCount(listingSnapshot.pendingListings)} pending listings`);
+  }
+  if (role === "landlord" && typeof prioritySummary.bookingsAwaitingApprovalCount === "number") {
+    heroPriorityParts.push(
+      `${formatCount(prioritySummary.bookingsAwaitingApprovalCount)} bookings awaiting approval`
+    );
+  }
   const heroPriorityLine =
-    listingSnapshot.pendingListings > 0
-      ? `You have ${formatCount(listingSnapshot.pendingListings)} listings pending approval.`
+    heroPriorityParts.length > 0
+      ? `You have ${heroPriorityParts.join(" • ")}.`
       : `You have ${formatCount(listingSnapshot.activeListings)} active listings in your portfolio.`;
+
+  const todayHighlights =
+    role === "agent"
+      ? [
+          ...(typeof prioritySummary.newLeadsCount === "number" && prioritySummary.newLeadsCount > 0
+            ? [
+                {
+                  label: `${formatCount(prioritySummary.newLeadsCount)} new leads`,
+                  href: "/host/leads",
+                },
+              ]
+            : []),
+          ...(listingSnapshot.pendingListings > 0
+            ? [
+                {
+                  label: `${formatCount(listingSnapshot.pendingListings)} pending listings`,
+                  href: "/host/listings?view=manage",
+                },
+              ]
+            : []),
+        ]
+      : [
+          ...(typeof prioritySummary.bookingsAwaitingApprovalCount === "number" &&
+          prioritySummary.bookingsAwaitingApprovalCount > 0
+            ? [
+                {
+                  label: `${formatCount(prioritySummary.bookingsAwaitingApprovalCount)} bookings awaiting approval`,
+                  href: "/host/bookings?view=awaiting_approval",
+                },
+              ]
+            : []),
+          ...(typeof prioritySummary.upcomingCheckInsCount === "number" &&
+          prioritySummary.upcomingCheckInsCount > 0
+            ? [
+                {
+                  label: `${formatCount(prioritySummary.upcomingCheckInsCount)} upcoming check-ins`,
+                  href: "/host/calendar",
+                },
+              ]
+            : []),
+          ...(listingSnapshot.pendingListings > 0
+            ? [
+                {
+                  label: `${formatCount(listingSnapshot.pendingListings)} pending listings`,
+                  href: "/host/listings?view=manage",
+                },
+              ]
+            : []),
+        ];
   const checklistSummary = summarizeChecklist(gettingStartedChecklist);
   const checklistRemaining = Math.max(0, checklistSummary.total - checklistSummary.done);
   const featuredCardsCount = Math.min(dashboardListings.length, 6);
@@ -197,6 +269,7 @@ export default async function HomeWorkspacePage() {
           priorityLine={heroPriorityLine}
           listings={dashboardListings}
         />
+        <WorkspaceQuickActions role={role} highlights={todayHighlights} />
 
         <HomeCollapsibleSection
           title="Workspace tools"
