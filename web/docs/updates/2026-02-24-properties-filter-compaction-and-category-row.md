@@ -2,6 +2,7 @@
 title: "Properties filters compacted with unified category row"
 audiences:
   - TENANT
+  - HOST
 areas:
   - Properties
   - Search
