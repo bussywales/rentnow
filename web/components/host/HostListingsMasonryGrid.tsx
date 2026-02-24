@@ -19,6 +19,8 @@ import type { DashboardListing } from "@/lib/properties/host-dashboard";
 type Props = {
   listings: DashboardListing[];
   uniformMedia?: boolean;
+  maxListings?: number;
+  showManageAllLink?: boolean;
 };
 
 const MAX_GRID_LISTINGS = 12;
@@ -46,9 +48,14 @@ function listingLocationText(listing: DashboardListing) {
   return listing.location_label || listing.city || listing.admin_area_1 || "Location not set";
 }
 
-export function HostListingsMasonryGrid({ listings, uniformMedia = false }: Props) {
+export function HostListingsMasonryGrid({
+  listings,
+  uniformMedia = false,
+  maxListings = MAX_GRID_LISTINGS,
+  showManageAllLink = true,
+}: Props) {
   const stableImageSrcByListingId = useMemo(() => new Map<string, string | null>(), []);
-  const visibleListings = listings.slice(0, MAX_GRID_LISTINGS);
+  const visibleListings = listings.slice(0, Math.max(0, maxListings));
   const [loadedById, setLoadedById] = useState<Record<string, boolean>>({});
 
   if (!visibleListings.length) {
@@ -78,12 +85,14 @@ export function HostListingsMasonryGrid({ listings, uniformMedia = false }: Prop
           </p>
           <h2 className="text-lg font-semibold text-slate-900">Portfolio mosaic</h2>
         </div>
-        <Link
-          href="/host/listings"
-          className="text-xs font-semibold text-sky-700 hover:text-sky-800"
-        >
-          Manage all
-        </Link>
+        {showManageAllLink ? (
+          <Link
+            href="/host/listings"
+            className="text-xs font-semibold text-sky-700 hover:text-sky-800"
+          >
+            Manage all
+          </Link>
+        ) : null}
       </div>
 
       <div className="grid grid-cols-1 gap-3.5 md:grid-cols-2 md:gap-4 lg:grid-cols-3">
