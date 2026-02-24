@@ -122,6 +122,7 @@ export default async function HomeWorkspacePage() {
   const readyListingsCount = dashboardListings.filter(
     (listing) => String(listing.status || "").toLowerCase() === "live"
   ).length;
+  const technicalPanelsCollapsedByDefault = true;
   const collapsedKeys = {
     workspaceTools: buildHomeCollapsedStorageKey({
       role,
@@ -153,6 +154,12 @@ export default async function HomeWorkspacePage() {
       section: "analytics-preview",
       version: "v2",
     }),
+    opsDiagnostics: buildHomeCollapsedStorageKey({
+      role,
+      userId: user.id,
+      section: "ops-diagnostics",
+      version: "v2",
+    }),
   };
 
   return (
@@ -164,7 +171,7 @@ export default async function HomeWorkspacePage() {
           title="Workspace tools"
           description="Operational controls are always available, but no longer block your feed."
           storageKey={collapsedKeys.workspaceTools}
-          defaultCollapsed
+          defaultCollapsed={technicalPanelsCollapsedByDefault}
           testId="home-workspace-tools"
         >
           <div className="flex flex-wrap gap-2">
@@ -187,7 +194,7 @@ export default async function HomeWorkspacePage() {
               : "All key setup milestones are complete."
           }
           storageKey={collapsedKeys.gettingStarted}
-          defaultCollapsed
+          defaultCollapsed={technicalPanelsCollapsedByDefault}
           testId="home-getting-started"
         >
           <RoleChecklistPanel
@@ -205,7 +212,7 @@ export default async function HomeWorkspacePage() {
           title="Snapshot"
           description="Current portfolio health at a glance."
           storageKey={collapsedKeys.snapshot}
-          defaultCollapsed
+          defaultCollapsed={technicalPanelsCollapsedByDefault}
           testId="home-snapshot-panel"
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -232,7 +239,7 @@ export default async function HomeWorkspacePage() {
           title="Analytics preview"
           description="Compact demand diagnostics for this week."
           storageKey={collapsedKeys.analyticsPreview}
-          defaultCollapsed
+          defaultCollapsed={technicalPanelsCollapsedByDefault}
           testId="home-analytics-panel"
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -261,7 +268,7 @@ export default async function HomeWorkspacePage() {
           title="Demand alerts"
           description="Saved-search signals and tenant demand, without overwhelming the top of page."
           storageKey={collapsedKeys.demandAlerts}
-          defaultCollapsed
+          defaultCollapsed={technicalPanelsCollapsedByDefault}
           testId="home-demand-alerts"
         >
           <div className="flex flex-wrap items-start justify-between gap-3">
@@ -286,14 +293,26 @@ export default async function HomeWorkspacePage() {
           ) : null}
         </HomeCollapsibleSection>
 
-        {listingsResult.error ? (
-          <section
-            className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
-            data-testid="home-listing-fetch-warning"
-          >
-            We could not load some listing details right now. Please refresh to retry.
-          </section>
-        ) : null}
+        <HomeCollapsibleSection
+          title="Ops diagnostics"
+          description="System checks and fetch reliability updates."
+          storageKey={collapsedKeys.opsDiagnostics}
+          defaultCollapsed={technicalPanelsCollapsedByDefault}
+          testId="home-ops-diagnostics"
+        >
+          {listingsResult.error ? (
+            <section
+              className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800"
+              data-testid="home-listing-fetch-warning"
+            >
+              We could not load some listing details right now. Please refresh to retry.
+            </section>
+          ) : (
+            <p className="text-sm text-slate-600" data-testid="home-ops-diagnostics-ok">
+              No active diagnostics issues right now.
+            </p>
+          )}
+        </HomeCollapsibleSection>
       </div>
     </WorkspaceShell>
   );

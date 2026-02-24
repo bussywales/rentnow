@@ -8,7 +8,8 @@ export type HomeCollapsedSection =
   | "getting-started"
   | "snapshot"
   | "demand-alerts"
-  | "analytics-preview";
+  | "analytics-preview"
+  | "ops-diagnostics";
 
 export function buildHomeCollapsedStorageKey(input: {
   role: "agent" | "landlord";

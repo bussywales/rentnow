@@ -91,6 +91,7 @@ void test("home pages wire role-specific localStorage keys for collapsible secti
   assert.match(homeContents, /section: "snapshot"/);
   assert.match(homeContents, /section: "analytics-preview"/);
   assert.match(homeContents, /section: "demand-alerts"/);
+  assert.match(homeContents, /section: "ops-diagnostics"/);
   assert.match(homeContents, /version: "v2"/);
   assert.match(homeContents, /HomeCollapsibleSection/);
   assert.match(homeContents, /HostGettingStartedSection/);
