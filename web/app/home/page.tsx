@@ -2,11 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { WorkspaceHomeFeed } from "@/components/home/WorkspaceHomeFeed";
 import { WorkspaceQuickActions } from "@/components/home/WorkspaceQuickActions";
+import { WorkspaceActivityRail } from "@/components/home/WorkspaceActivityRail";
 import { HostGettingStartedSection } from "@/components/host/HostGettingStartedSection";
 import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
 import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
 import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { Button } from "@/components/ui/Button";
+import { getWorkspaceActivityFeed } from "@/lib/activity/workspace-activity.server";
 import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
 import { summarizeChecklist } from "@/lib/checklists/role-checklists";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
@@ -17,7 +19,9 @@ import { fetchOwnerListings } from "@/lib/properties/owner-listings";
 import { computeDashboardListings, type DashboardListing } from "@/lib/properties/host-dashboard";
 import { isListingExpired } from "@/lib/properties/expiry";
 import { getSavedSearchSummaryForUser } from "@/lib/saved-searches/summary.server";
+import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 export const dynamic = "force-dynamic";
 const HOME_COLLAPSIBLE_KEY_VERSION = "v3";
@@ -137,6 +141,15 @@ export default async function HomeWorkspacePage() {
     ]);
 
   const dashboardListings = computeDashboardListings(listingsResult.data || []);
+  const activityClient = (hasServiceRoleEnv()
+    ? createServiceRoleClient()
+    : supabase) as unknown as UntypedAdminClient;
+  const workspaceActivity = await getWorkspaceActivityFeed({
+    client: activityClient,
+    userId: user.id,
+    role,
+    limit: 12,
+  }).catch(() => []);
   const listingSnapshot = buildSnapshot(dashboardListings);
   const displayName = resolveDisplayName({
     fullName:
@@ -271,6 +284,7 @@ export default async function HomeWorkspacePage() {
           listings={dashboardListings}
         />
         <WorkspaceQuickActions role={role} highlights={todayHighlights} />
+        <WorkspaceActivityRail role={role} items={workspaceActivity} />
 
         <HomeCollapsibleSection
           title="Workspace tools"
