@@ -17,7 +17,7 @@ void test("workspace sidebar model includes required persistent host links", () 
   const source = fs.readFileSync(sidebarPath, "utf8");
 
   assert.match(source, /href: "\/host"/);
-  assert.match(source, /href: "\/host\/properties"/);
+  assert.match(source, /href: "\/host\/listings"/);
   assert.match(source, /href: "\/host\/bookings"/);
   assert.match(source, /href: "\/host\/calendar"/);
   assert.match(source, /href: "\/host\/earnings"/);
