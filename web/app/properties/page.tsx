@@ -338,7 +338,6 @@ export default async function PropertiesPage({ searchParams }: Props) {
           }
       : null;
 
-  const filterChips = filtersToChips(filters);
   const activeCategory = resolvePropertiesBrowseCategory({
     categoryParam: readParam(resolvedSearchParams, "category"),
     intentParam: readParam(resolvedSearchParams, "intent"),
@@ -354,6 +353,19 @@ export default async function PropertiesPage({ searchParams }: Props) {
     listingIntent: activeCategoryContext.listingIntent,
     stay: activeCategoryContext.stay,
   };
+  const baseFilterChips = filtersToChips(filters);
+  const intentChipValue =
+    activeCategory === "shortlet"
+      ? "Shortlet"
+      : activeCategory === "off_plan"
+      ? "Off-plan"
+      : null;
+  const filterChips = intentChipValue
+    ? [
+        { label: "Intent", value: intentChipValue },
+        ...baseFilterChips.filter((chip) => chip.label !== "Intent" && chip.label !== "Stay type"),
+      ]
+    : baseFilterChips;
   const hasFilters =
     !!savedSearch ||
     featuredOnly ||

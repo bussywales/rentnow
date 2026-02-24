@@ -47,6 +47,16 @@ test("resolvePropertiesBrowseCategory maps existing stay and intent params", () 
     }),
     "shortlet"
   );
+  assert.equal(
+    resolvePropertiesBrowseCategory({
+      categoryParam: null,
+      intentParam: "off_plan",
+      stayParam: null,
+      listingIntentParam: null,
+      fallbackIntent: "rent",
+    }),
+    "off_plan"
+  );
 });
 
 test("buildPropertiesCategoryParams preserves compatible filters and clears conflicts", () => {
@@ -72,7 +82,7 @@ test("off-plan category sets exact listing intent", () => {
   assert.equal(context.exactListingIntent, "off_plan");
 
   const next = buildPropertiesCategoryParams(new URLSearchParams("city=Abuja"), "off_plan");
-  assert.equal(next.get("intent"), "buy");
+  assert.equal(next.get("intent"), "off_plan");
   assert.equal(next.get("listingIntent"), "off_plan");
   assert.equal(next.get("city"), "Abuja");
 });

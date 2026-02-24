@@ -93,6 +93,9 @@ export function resolvePropertiesBrowseCategory(input: {
   if (normalizedIntentParam === "shortlet" || normalizedIntentParam === "short_let") {
     return "shortlet";
   }
+  if (normalizedIntentParam === "off_plan" || normalizedIntentParam === "off-plan") {
+    return "off_plan";
+  }
   const normalizedListingIntent = normalizeListingIntent(input.listingIntentParam);
   if (normalizedListingIntent === "off_plan") return "off_plan";
   if (normalizedListingIntent === "shortlet") return "shortlet";
@@ -114,6 +117,8 @@ export function buildPropertiesCategoryParams(
   next.set("category", category);
   if (context.exactListingIntent === "shortlet") {
     next.set("intent", "shortlet");
+  } else if (context.exactListingIntent === "off_plan") {
+    next.set("intent", "off_plan");
   } else {
     next.set("intent", context.listingIntent);
   }
