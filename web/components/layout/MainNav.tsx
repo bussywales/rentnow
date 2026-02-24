@@ -3,6 +3,7 @@ import { NavAuthClient } from "@/components/layout/NavAuthClient";
 import { NavLinksClient } from "@/components/layout/NavLinksClient";
 import { NavMobileDrawerClient } from "@/components/layout/NavMobileDrawerClient";
 import { BrandLogo } from "@/components/branding/BrandLogo";
+import { ProductUpdatesBell } from "@/components/updates/ProductUpdatesBell";
 import { ProductUpdatesOnboarding } from "@/components/updates/ProductUpdatesOnboarding";
 import { MarketSelector } from "@/components/layout/MarketSelector";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
@@ -217,6 +218,7 @@ export async function MainNav({
             <MarketSelector enabled={marketSelectorEnabled} />
           </div>
           <NotificationsBell initialAuthed={initialAuthed} initialRole={role} />
+          <ProductUpdatesBell initialAuthed={initialAuthed} />
           {initialAuthed ? (
             <Link
               href="/profile"
