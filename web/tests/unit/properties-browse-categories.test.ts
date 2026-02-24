@@ -37,6 +37,16 @@ test("resolvePropertiesBrowseCategory maps existing stay and intent params", () 
     }),
     "shortlet"
   );
+  assert.equal(
+    resolvePropertiesBrowseCategory({
+      categoryParam: null,
+      intentParam: "shortlet",
+      stayParam: null,
+      listingIntentParam: null,
+      fallbackIntent: "rent",
+    }),
+    "shortlet"
+  );
 });
 
 test("buildPropertiesCategoryParams preserves compatible filters and clears conflicts", () => {
@@ -65,4 +75,13 @@ test("off-plan category sets exact listing intent", () => {
   assert.equal(next.get("intent"), "buy");
   assert.equal(next.get("listingIntent"), "off_plan");
   assert.equal(next.get("city"), "Abuja");
+});
+
+test("shortlet category sets canonical shortlet intent params", () => {
+  const next = buildPropertiesCategoryParams(new URLSearchParams("city=Lagos"), "shortlet");
+  assert.equal(next.get("category"), "shortlet");
+  assert.equal(next.get("intent"), "shortlet");
+  assert.equal(next.get("stay"), "shortlet");
+  assert.equal(next.get("listingIntent"), "shortlet");
+  assert.equal(next.get("city"), "Lagos");
 });

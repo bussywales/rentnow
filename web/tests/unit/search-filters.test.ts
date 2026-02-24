@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  filtersToChips,
   filtersToSearchParams,
   hasActiveFilters,
   parseFiltersFromParams,
@@ -119,6 +120,14 @@ test("stay shortlet parses from query and saved search", () => {
   const savedParsed = parseFiltersFromSavedSearch({ stay: "shortlet" });
   assert.equal(savedParsed.stay, "shortlet");
   assert.equal(savedParsed.listingIntent, "rent");
+
+  const parsedFromIntent = parseFiltersFromParams({ intent: "shortlet" });
+  assert.equal(parsedFromIntent.stay, "shortlet");
+  assert.equal(parsedFromIntent.listingIntent, "rent");
+
+  const savedParsedFromIntent = parseFiltersFromSavedSearch({ intent: "shortlet" });
+  assert.equal(savedParsedFromIntent.stay, "shortlet");
+  assert.equal(savedParsedFromIntent.listingIntent, "rent");
 });
 
 test("stay shortlet is cleared for sale intent", () => {
@@ -280,4 +289,24 @@ test("hasActiveFilters only returns true for real search filters", () => {
   assert.equal(hasActiveFilters({ ...emptyFilters, city: "Lagos" }), true);
   assert.equal(hasActiveFilters({ ...emptyFilters, minPrice: 50000 }), true);
   assert.equal(hasActiveFilters({ ...emptyFilters, bedrooms: 2 }), true);
+});
+
+test("filtersToChips renders shortlet as a single intent chip", () => {
+  const chips = filtersToChips({
+    city: null,
+    minPrice: null,
+    maxPrice: null,
+    currency: null,
+    bedrooms: null,
+    bedroomsMode: "exact",
+    includeSimilarOptions: false,
+    propertyType: null,
+    listingIntent: "rent",
+    stay: "shortlet",
+    rentalType: null,
+    furnished: null,
+    amenities: [],
+  });
+
+  assert.deepEqual(chips, [{ label: "Intent", value: "Shortlet" }]);
 });

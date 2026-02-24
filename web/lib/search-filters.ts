@@ -91,6 +91,12 @@ function parseStay(value: string | string[] | undefined | null): StayFilter | nu
   return null;
 }
 
+function isShortletIntentValue(value: string | null): boolean {
+  if (!value) return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized === "shortlet" || normalized === "short_let";
+}
+
 export function normalizeIntentStaySelection<T extends IntentStaySelection>(
   selection: T
 ): {
@@ -114,10 +120,11 @@ export function normalizeIntentStaySelection<T extends IntentStaySelection>(
 
 export function parseFiltersFromParams(params: SearchParamRecord): ParsedSearchFilters {
   const rentalType = firstValue(params.rentalType);
-  const listingIntent = parseIntent(
-    firstValue(params.intent) ?? firstValue(params.listingIntent)
-  );
-  const stay = parseStay(firstValue(params.stay) ?? firstValue(params.category));
+  const intentRaw = firstValue(params.intent) ?? firstValue(params.listingIntent);
+  const listingIntent = parseIntent(intentRaw);
+  const stay =
+    parseStay(firstValue(params.stay) ?? firstValue(params.category)) ??
+    (isShortletIntentValue(intentRaw) ? "shortlet" : null);
   const normalizedSelection = normalizeIntentStaySelection({
     listingIntent,
     stay,
@@ -234,16 +241,15 @@ export function filtersToChips(filters: ParsedSearchFilters): FilterChip[] {
       value: filters.propertyType,
     });
   }
-  if (normalizedSelection.listingIntent && normalizedSelection.listingIntent !== "all") {
+  if (normalizedSelection.stay === "shortlet") {
+    chips.push({
+      label: "Intent",
+      value: "Shortlet",
+    });
+  } else if (normalizedSelection.listingIntent && normalizedSelection.listingIntent !== "all") {
     chips.push({
       label: "Intent",
       value: normalizedSelection.listingIntent === "buy" ? "For sale" : "For rent",
-    });
-  }
-  if (normalizedSelection.stay === "shortlet") {
-    chips.push({
-      label: "Stay type",
-      value: "Shortlet",
     });
   }
   if (filters.rentalType) {
@@ -314,15 +320,19 @@ export function parseFiltersFromSavedSearch(params: Record<string, unknown>): Pa
     params.rentalType === "short_let" || params.rentalType === "long_term"
       ? (params.rentalType as RentalType)
       : null;
-  const listingIntent = parseIntent(
+  const intentRaw =
     typeof params.intent === "string"
       ? params.intent
       : typeof params.listingIntent === "string"
       ? params.listingIntent
-      : null
-  );
+      : null;
+  const listingIntent = parseIntent(intentRaw);
   const stay =
-    params.stay === "shortlet" || params.category === "shortlet" ? "shortlet" : null;
+    params.stay === "shortlet" ||
+    params.category === "shortlet" ||
+    isShortletIntentValue(intentRaw)
+      ? "shortlet"
+      : null;
   const normalizedSelection = normalizeIntentStaySelection({
     listingIntent,
     stay,

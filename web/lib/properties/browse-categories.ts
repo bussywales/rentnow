@@ -89,6 +89,10 @@ export function resolvePropertiesBrowseCategory(input: {
   fallbackIntent?: ListingIntentFilter;
 }): PropertiesBrowseCategory {
   if (isPropertiesBrowseCategory(input.categoryParam)) return input.categoryParam;
+  const normalizedIntentParam = input.intentParam?.trim().toLowerCase() ?? null;
+  if (normalizedIntentParam === "shortlet" || normalizedIntentParam === "short_let") {
+    return "shortlet";
+  }
   const normalizedListingIntent = normalizeListingIntent(input.listingIntentParam);
   if (normalizedListingIntent === "off_plan") return "off_plan";
   if (normalizedListingIntent === "shortlet") return "shortlet";
@@ -108,7 +112,11 @@ export function buildPropertiesCategoryParams(
   const context = getPropertiesCategoryContext(category);
 
   next.set("category", category);
-  next.set("intent", context.listingIntent);
+  if (context.exactListingIntent === "shortlet") {
+    next.set("intent", "shortlet");
+  } else {
+    next.set("intent", context.listingIntent);
+  }
   if (context.stay === "shortlet") {
     next.set("stay", "shortlet");
   } else {
