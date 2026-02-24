@@ -1,13 +1,53 @@
 import { BrandLogo } from "@/components/branding/BrandLogo";
 import { BRAND_NAME, BRAND_SUPPORT_EMAIL, BRAND_TAGLINE } from "@/lib/brand";
+import {
+  getEnabledBrandSocialLinks,
+  type BrandSocialLink,
+} from "@/lib/brand-socials";
 
-export function Footer() {
+const SOCIAL_MONOGRAM: Record<BrandSocialLink["platform"], string> = {
+  instagram: "IG",
+  youtube: "YT",
+  tiktok: "TT",
+  facebook: "FB",
+  whatsapp: "WA",
+};
+
+export function FooterSocialLinks({ socialLinks }: { socialLinks: BrandSocialLink[] }) {
+  if (!socialLinks.length) return null;
+
+  return (
+    <div className="flex items-center gap-2" data-testid="footer-social-links">
+      <span className="text-xs font-medium text-slate-500">Follow us</span>
+      <div className="flex items-center gap-1.5">
+        {socialLinks.map((link) => (
+          <a
+            key={link.platform}
+            href={link.href}
+            target="_blank"
+            rel="noreferrer noopener"
+            aria-label={`Follow us on ${link.label}`}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-[10px] font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
+          >
+            <span aria-hidden>{SOCIAL_MONOGRAM[link.platform]}</span>
+            <span className="sr-only">{link.label}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export async function Footer() {
+  const socialLinks = await getEnabledBrandSocialLinks();
+
   return (
     <footer className="border-t border-slate-200/70 bg-white">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-5 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:py-6">
         <div className="flex flex-col gap-1.5">
           <BrandLogo variant="minimal" size="xs" />
           <p className="text-xs text-slate-500">{BRAND_NAME} · {BRAND_TAGLINE}</p>
+          <FooterSocialLinks socialLinks={socialLinks} />
         </div>
 
         <div className="flex flex-col gap-2 sm:hidden">

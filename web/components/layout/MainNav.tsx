@@ -10,6 +10,7 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
 import { countAwaitingApprovalBookings } from "@/lib/shortlet/host-bookings-inbox";
+import { getEnabledBrandSocialLinks } from "@/lib/brand-socials";
 
 export const MAIN_NAV_LINKS: Array<{
   href: string;
@@ -197,6 +198,7 @@ export async function MainNav({
     isAuthed: initialAuthed,
     role,
   });
+  const socialLinks = await getEnabledBrandSocialLinks();
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/95 backdrop-blur-lg shadow-[0_1px_10px_rgba(15,23,42,0.06)]">
@@ -229,6 +231,7 @@ export async function MainNav({
             initialAuthed={initialAuthed}
             initialRole={role}
             marketSelectorEnabled={marketSelectorEnabled}
+            socialLinks={socialLinks}
           />
         </div>
       </div>

@@ -101,3 +101,38 @@ void test("admin mobile drawer retains admin support and legal access via groupe
   assert.ok(legalGroup?.links.find((link) => link.href === "/admin/legal"));
   assert.ok(legalGroup?.links.find((link) => link.href === "/legal/disclaimer"));
 });
+
+void test("mobile drawer hides connect group when no socials are configured", () => {
+  const groups = buildMobileNavLinkGroups(MAIN_NAV_LINKS, {
+    isAuthed: true,
+    role: "tenant",
+    socialLinks: [],
+  });
+  assert.equal(
+    groups.some((group) => group.title === "Connect with us"),
+    false
+  );
+});
+
+void test("mobile drawer shows connect group when socials are configured", () => {
+  const groups = buildMobileNavLinkGroups(MAIN_NAV_LINKS, {
+    isAuthed: true,
+    role: "tenant",
+    socialLinks: [
+      {
+        platform: "instagram",
+        label: "Instagram",
+        href: "https://instagram.com/propatyhub",
+      },
+      {
+        platform: "whatsapp",
+        label: "WhatsApp",
+        href: "https://wa.me/2348000000000",
+      },
+    ],
+  });
+  const connectGroup = groups.find((group) => group.title === "Connect with us");
+  assert.ok(connectGroup, "expected connect group");
+  assert.ok(connectGroup.links.find((link) => link.href === "https://instagram.com/propatyhub"));
+  assert.ok(connectGroup.links.find((link) => link.href === "https://wa.me/2348000000000"));
+});

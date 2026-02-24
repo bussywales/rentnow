@@ -9,12 +9,14 @@ import { normalizeRole } from "@/lib/roles";
 import { resolveNavLinks, type NavLink, isActiveHref } from "@/components/layout/NavLinksClient";
 import { BrandLogo } from "@/components/branding/BrandLogo";
 import { MarketSelector } from "@/components/layout/MarketSelector";
+import type { BrandSocialLink } from "@/lib/brand-socials";
 
 type Props = {
   links: NavLink[];
   initialAuthed: boolean;
   initialRole: UserRole | "super_admin" | null;
   marketSelectorEnabled: boolean;
+  socialLinks?: BrandSocialLink[];
 };
 
 type DrawerLink = {
@@ -22,10 +24,11 @@ type DrawerLink = {
   label: string;
   showUnread?: boolean;
   badgeCount?: number | null;
+  external?: boolean;
 };
 
 type DrawerLinkGroup = {
-  title: "Main" | "Help & Support" | "Company" | "Legal";
+  title: "Main" | "Help & Support" | "Connect with us" | "Company" | "Legal";
   links: DrawerLink[];
 };
 
@@ -116,9 +119,11 @@ export function buildMobileNavLinkGroups(
   {
     isAuthed,
     role,
+    socialLinks = [],
   }: {
     isAuthed: boolean;
     role: UserRole | "super_admin" | null;
+    socialLinks?: BrandSocialLink[];
   }
 ): DrawerLinkGroup[] {
   const baseLinks = isAuthed ? buildMobileNavLinks(links, { isAuthed, role }) : LOGGED_OUT_LINKS;
@@ -138,6 +143,7 @@ export function buildMobileNavLinkGroups(
     "/legal/disclaimer",
     "/admin/legal",
     "/admin/support",
+    ...socialLinks.map((link) => link.href),
   ]);
 
   const mainLinks = baseLinks.filter((link) => !groupedHrefs.has(link.href));
@@ -148,6 +154,13 @@ export function buildMobileNavLinkGroups(
         ? { href: "/admin/support", label: "Admin support" }
         : { href: "/support", label: "Contact support" }),
   ]);
+  const connectLinks = dedupeLinks(
+    socialLinks.map((link) => ({
+      href: link.href,
+      label: link.label,
+      external: true,
+    }))
+  );
   const companyLinks = dedupeLinks(COMPANY_LINKS);
   const legalLinks = dedupeLinks([
     ...LEGAL_LINKS,
@@ -157,6 +170,7 @@ export function buildMobileNavLinkGroups(
   const groups: DrawerLinkGroup[] = [
     { title: "Main", links: mainLinks },
     { title: "Help & Support", links: helpSupportLinks },
+    { title: "Connect with us", links: connectLinks },
     { title: "Company", links: companyLinks },
     { title: "Legal", links: legalLinks },
   ];
@@ -169,6 +183,7 @@ export function NavMobileDrawerClient({
   initialAuthed,
   initialRole,
   marketSelectorEnabled,
+  socialLinks = [],
 }: Props) {
   const normalizedRole =
     initialRole === "super_admin" ? "super_admin" : normalizeRole(initialRole);
@@ -182,8 +197,8 @@ export function NavMobileDrawerClient({
   const previousFocusRef = useRef<HTMLElement | null>(null);
 
   const drawerGroups = useMemo(
-    () => buildMobileNavLinkGroups(links, { isAuthed, role }),
-    [isAuthed, links, role]
+    () => buildMobileNavLinkGroups(links, { isAuthed, role, socialLinks }),
+    [isAuthed, links, role, socialLinks]
   );
 
   useEffect(() => {
@@ -325,6 +340,8 @@ export function NavMobileDrawerClient({
                             key={`${group.title}-${link.href}`}
                             href={link.href}
                             aria-current={active ? "page" : undefined}
+                            target={link.external ? "_blank" : undefined}
+                            rel={link.external ? "noreferrer noopener" : undefined}
                             className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
                               active
                                 ? "bg-slate-100 font-semibold text-slate-900"
