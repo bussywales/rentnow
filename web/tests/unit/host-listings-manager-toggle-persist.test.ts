@@ -7,7 +7,8 @@ import {
   writeHostListingsManagerView,
 } from "@/lib/host/listings-manager-view";
 
-void test("host listings manager view parser only accepts portfolio/manage values", () => {
+void test("host listings manager view parser supports legacy all alias and manager modes", () => {
+  assert.equal(parseHostListingsManagerView("all"), "portfolio");
   assert.equal(parseHostListingsManagerView("portfolio"), "portfolio");
   assert.equal(parseHostListingsManagerView("manage"), "manage");
   assert.equal(parseHostListingsManagerView("grid"), null);
@@ -23,7 +24,7 @@ void test("host listings manager toggle persists to local storage key", () => {
     },
   };
 
-  assert.equal(readHostListingsManagerView(storage), "portfolio");
+  assert.equal(readHostListingsManagerView(storage), "manage");
   assert.equal(writeHostListingsManagerView(storage, "manage"), "manage");
   assert.equal(store.get(HOST_LISTINGS_MANAGER_VIEW_STORAGE_KEY), "manage");
   assert.equal(readHostListingsManagerView(storage), "manage");
