@@ -41,6 +41,17 @@ export const smokeSelectors = {
   adminShortletsOpsRoot: "admin-shortlets-ops",
   adminShortletsOpsRefresh: "admin-shortlets-ops-refresh",
   adminShortletsOpsMetrics: "admin-shortlets-ops-metrics",
+  supportWidgetButton: "support-widget-button",
+  supportWidgetPanel: "support-widget-panel",
+  supportWidgetInput: "support-widget-input",
+  supportWidgetSend: "support-widget-send",
+  supportWidgetEscalate: "support-widget-escalate",
+  supportWidgetTicketSuccess: "support-widget-ticket-success",
+  supportWidgetSuggestions: "support-widget-suggestions",
+  adminSupportTable: "admin-support-table",
+  adminSupportRow: "admin-support-row",
+  adminSupportDrawer: "admin-support-drawer",
+  adminSupportRefresh: "admin-support-refresh",
 } as const;
 
 export function shortletsResultLabelText(total: number, withinMapArea: boolean): RegExp {
