@@ -5,15 +5,15 @@ import path from "node:path";
 
 void test("tenant home keeps trending rail while host /home focuses on listings feed rails", () => {
   const hostHomePath = path.join(process.cwd(), "app", "home", "page.tsx");
+  const hostFeedPath = path.join(process.cwd(), "components", "home", "WorkspaceHomeFeed.tsx");
   const tenantHomePath = path.join(process.cwd(), "app", "tenant", "home", "page.tsx");
   const hostHome = fs.readFileSync(hostHomePath, "utf8");
+  const hostFeed = fs.readFileSync(hostFeedPath, "utf8");
   const tenantHome = fs.readFileSync(tenantHomePath, "utf8");
 
   assert.match(tenantHome, /trendingHomes\.length > 0/);
   assert.match(tenantHome, /Trending this week/);
-  assert.match(hostHome, /sectionTestId=\"home-featured-strip\"/);
-  assert.match(hostHome, /sectionTestId=\"home-rail-new-this-week\"/);
-  assert.match(hostHome, /sectionTestId=\"home-rail-most-saved\"/);
-  assert.match(hostHome, /sectionTestId=\"home-rail-most-viewed\"/);
-  assert.match(hostHome, /data-testid=\"home-for-you-grid\"/);
+  assert.match(hostHome, /<WorkspaceHomeFeed role=\{role\} listings=\{dashboardListings\} \/>/);
+  assert.match(hostFeed, /data-testid=\"home-featured-strip\"/);
+  assert.match(hostFeed, /data-testid=\"home-for-you-grid\"/);
 });

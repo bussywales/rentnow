@@ -5,41 +5,22 @@ import path from "node:path";
 
 void test("workspace home wires featured rail component with the visual landing section", () => {
   const pagePath = path.join(process.cwd(), "app", "home", "page.tsx");
+  const feedPath = path.join(process.cwd(), "components", "home", "WorkspaceHomeFeed.tsx");
   const contents = fs.readFileSync(pagePath, "utf8");
+  const feedContents = fs.readFileSync(feedPath, "utf8");
 
-  assert.match(
-    contents,
-    /<HomeListingRail[\s\S]*title=\"Featured listings\"[\s\S]*sectionTestId=\"home-featured-strip\"/,
-    "expected featured home rail component wiring"
-  );
-  assert.match(
-    contents,
-    /sectionTestId=\"home-featured-strip\"/,
-    "expected featured strip section marker"
-  );
-  assert.match(
-    contents,
-    /sectionTestId=\"home-rail-new-this-week\"/,
-    "expected new-this-week rail section marker"
-  );
-  assert.match(
-    contents,
-    /sectionTestId=\"home-rail-most-saved\"/,
-    "expected most-saved rail section marker"
-  );
-  assert.match(
-    contents,
-    /sectionTestId=\"home-rail-most-viewed\"/,
-    "expected most-viewed rail section marker"
-  );
+  assert.match(contents, /<WorkspaceHomeFeed role=\{role\} listings=\{dashboardListings\} \/>/);
+  assert.match(feedContents, /data-testid=\"home-featured-strip\"/);
+  assert.match(feedContents, /<HostFeaturedStrip listings=\{listings\} mosaicTargetId=\"home-for-you-grid\" \/>/);
+  assert.match(feedContents, /data-testid=\"home-for-you-grid\"/);
 });
 
 void test("home listing rail keeps premium snap + peek class contract", () => {
-  const railPath = path.join(process.cwd(), "components", "home", "HomeListingRail.tsx");
+  const railPath = path.join(process.cwd(), "components", "host", "HostFeaturedStrip.tsx");
   const railSource = fs.readFileSync(railPath, "utf8");
 
   assert.match(railSource, /scrollbar-none/);
-  assert.match(railSource, /scroll-px-4/);
+  assert.match(railSource, /scroll-px-5/);
   assert.match(railSource, /snap-start snap-always/);
   assert.match(railSource, /aspect-\[4\/3\]/);
 });

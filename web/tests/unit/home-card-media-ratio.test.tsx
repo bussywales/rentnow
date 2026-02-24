@@ -4,12 +4,12 @@ import fs from "node:fs";
 import path from "node:path";
 
 void test("/home uses uniform media ratio mode for for-you grid cards", () => {
-  const homePath = path.join(process.cwd(), "app", "home", "page.tsx");
-  const source = fs.readFileSync(homePath, "utf8");
+  const feedPath = path.join(process.cwd(), "components", "home", "WorkspaceHomeFeed.tsx");
+  const source = fs.readFileSync(feedPath, "utf8");
 
   assert.match(
     source,
-    /<HostListingsMasonryGrid listings=\{dashboardListings\} uniformMedia \/>/,
+    /<HostListingsMasonryGrid listings=\{listings\} uniformMedia \/>/,
     "expected /home to opt into uniform media ratio mode"
   );
 });
