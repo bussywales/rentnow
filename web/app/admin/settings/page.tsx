@@ -31,6 +31,7 @@ import AdminSettingsFeaturedRequests from "@/components/admin/AdminSettingsFeatu
 import { DEFAULT_FEATURED_ELIGIBILITY_SETTINGS } from "@/lib/featured/eligibility";
 import AdminSettingsMarket from "@/components/admin/AdminSettingsMarket";
 import { DEFAULT_MARKET_SETTINGS } from "@/lib/market/market";
+import AdminSettingsBrandSocials from "@/components/admin/AdminSettingsBrandSocials";
 
 export const dynamic = "force-dynamic";
 
@@ -67,6 +68,11 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.defaultMarketCurrency,
       APP_SETTING_KEYS.marketAutoDetectEnabled,
       APP_SETTING_KEYS.marketSelectorEnabled,
+      APP_SETTING_KEYS.brandSocialInstagramUrl,
+      APP_SETTING_KEYS.brandSocialYoutubeUrl,
+      APP_SETTING_KEYS.brandSocialTiktokUrl,
+      APP_SETTING_KEYS.brandSocialFacebookUrl,
+      APP_SETTING_KEYS.brandSocialWhatsappLink,
       APP_SETTING_KEYS.shortletPaymentsStripeEnabled,
       APP_SETTING_KEYS.shortletPaymentsPaystackEnabled,
       APP_SETTING_KEYS.shortletAutoPayoutsEnabled,
@@ -180,6 +186,21 @@ export default async function AdminSettingsPage() {
   const marketSelectorRow = data?.find(
     (item) => item.key === APP_SETTING_KEYS.marketSelectorEnabled
   );
+  const brandSocialInstagramRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.brandSocialInstagramUrl
+  );
+  const brandSocialYoutubeRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.brandSocialYoutubeUrl
+  );
+  const brandSocialTiktokRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.brandSocialTiktokUrl
+  );
+  const brandSocialFacebookRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.brandSocialFacebookUrl
+  );
+  const brandSocialWhatsappRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.brandSocialWhatsappLink
+  );
 
   const marketSettings = {
     defaultCountry: parseAppSettingString(
@@ -198,6 +219,14 @@ export default async function AdminSettingsPage() {
       marketSelectorRow?.value,
       DEFAULT_MARKET_SETTINGS.selectorEnabled
     ),
+  };
+
+  const brandSocialSettings = {
+    instagramUrl: parseAppSettingString(brandSocialInstagramRow?.value, ""),
+    youtubeUrl: parseAppSettingString(brandSocialYoutubeRow?.value, ""),
+    tiktokUrl: parseAppSettingString(brandSocialTiktokRow?.value, ""),
+    facebookUrl: parseAppSettingString(brandSocialFacebookRow?.value, ""),
+    whatsappLink: parseAppSettingString(brandSocialWhatsappRow?.value, ""),
   };
 
   const paygFeaturedRow = data?.find(
@@ -341,6 +370,16 @@ export default async function AdminSettingsPage() {
           defaultCurrency: marketCurrencyRow?.updated_at ?? null,
           autoDetectEnabled: marketAutoDetectRow?.updated_at ?? null,
           selectorEnabled: marketSelectorRow?.updated_at ?? null,
+        }}
+      />
+      <AdminSettingsBrandSocials
+        settings={brandSocialSettings}
+        updatedAt={{
+          instagramUrl: brandSocialInstagramRow?.updated_at ?? null,
+          youtubeUrl: brandSocialYoutubeRow?.updated_at ?? null,
+          tiktokUrl: brandSocialTiktokRow?.updated_at ?? null,
+          facebookUrl: brandSocialFacebookRow?.updated_at ?? null,
+          whatsappLink: brandSocialWhatsappRow?.updated_at ?? null,
         }}
       />
       <AdminSettingsFeaturedRequests

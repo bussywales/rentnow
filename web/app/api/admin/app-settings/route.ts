@@ -35,6 +35,9 @@ const numericValueSchema = z.object({
 const textValueSchema = z.object({
   value: z.string().trim().min(1).max(16),
 });
+const socialValueSchema = z.object({
+  value: z.string().trim().max(2048),
+});
 
 const referralEnabledLevelsSchema = z.object({
   value: z.array(z.number().int().min(1).max(5)).min(1).max(5),
@@ -96,6 +99,7 @@ export const patchSchema = z.object({
     attributionWindowDaysSchema,
     numericValueSchema,
     textValueSchema,
+    socialValueSchema,
     referralEnabledLevelsSchema,
     referralRewardRulesSchema,
     referralTierThresholdSchema,
@@ -157,6 +161,11 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   const isDefaultMarketCurrency = key === APP_SETTING_KEYS.defaultMarketCurrency;
   const isMarketAutoDetectEnabled = key === APP_SETTING_KEYS.marketAutoDetectEnabled;
   const isMarketSelectorEnabled = key === APP_SETTING_KEYS.marketSelectorEnabled;
+  const isBrandSocialInstagram = key === APP_SETTING_KEYS.brandSocialInstagramUrl;
+  const isBrandSocialYoutube = key === APP_SETTING_KEYS.brandSocialYoutubeUrl;
+  const isBrandSocialTiktok = key === APP_SETTING_KEYS.brandSocialTiktokUrl;
+  const isBrandSocialFacebook = key === APP_SETTING_KEYS.brandSocialFacebookUrl;
+  const isBrandSocialWhatsapp = key === APP_SETTING_KEYS.brandSocialWhatsappLink;
   const isAlertsKillSwitchEnabled = key === APP_SETTING_KEYS.alertsKillSwitchEnabled;
   const isAlertsLastRunStatus = key === APP_SETTING_KEYS.alertsLastRunStatusJson;
 
@@ -216,6 +225,11 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   }
   if (isMarketAutoDetectEnabled) return enabledValueSchema.safeParse(value).success;
   if (isMarketSelectorEnabled) return enabledValueSchema.safeParse(value).success;
+  if (isBrandSocialInstagram) return socialValueSchema.safeParse(value).success;
+  if (isBrandSocialYoutube) return socialValueSchema.safeParse(value).success;
+  if (isBrandSocialTiktok) return socialValueSchema.safeParse(value).success;
+  if (isBrandSocialFacebook) return socialValueSchema.safeParse(value).success;
+  if (isBrandSocialWhatsapp) return socialValueSchema.safeParse(value).success;
   if (isAlertsKillSwitchEnabled) return enabledValueSchema.safeParse(value).success;
   if (isAlertsLastRunStatus) return alertsLastRunStatusSchema.safeParse(value).success;
   return enabledValueSchema.safeParse(value).success;

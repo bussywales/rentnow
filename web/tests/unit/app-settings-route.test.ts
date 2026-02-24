@@ -236,6 +236,27 @@ void test("validateSettingValueByKey accepts listings auto-approve toggle payloa
   );
 });
 
+void test("validateSettingValueByKey accepts brand socials payloads", () => {
+  assert.equal(
+    validateSettingValueByKey("brand_social_instagram_url", {
+      value: "https://instagram.com/propatyhub",
+    }),
+    true
+  );
+  assert.equal(
+    validateSettingValueByKey("brand_social_whatsapp_link", {
+      value: "2348000000000",
+    }),
+    true
+  );
+  assert.equal(
+    validateSettingValueByKey("brand_social_tiktok_url", {
+      value: "",
+    }),
+    true
+  );
+});
+
 void test("validateSettingValueByKey rejects invalid market defaults", () => {
   assert.equal(validateSettingValueByKey("default_market_country", { value: "NIG" }), false);
   assert.equal(validateSettingValueByKey("default_market_currency", { value: "NG" }), false);
