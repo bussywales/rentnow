@@ -41,6 +41,17 @@ void test("tenant dashboard shortlet settings redirects to tenant-safe route", (
   assert.equal(target, "/tenant/home");
 });
 
+void test("invalid dashboard shortlet id falls back to host listings manager view", () => {
+  const target = resolveLegacyDashboardShortletSettingsRedirect({
+    userPresent: true,
+    role: "landlord",
+    propertyId: "undefined",
+    searchParams: {},
+  });
+
+  assert.equal(target, "/host/listings?view=manage");
+});
+
 void test("host shortlet settings href builder preserves query params", () => {
   const href = buildHostShortletSettingsHref("listing-123", {
     tab: "arrival",

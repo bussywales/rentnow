@@ -41,6 +41,17 @@ void test("tenant dashboard edit route redirects to tenant-safe route", () => {
   assert.equal(target, "/tenant/home");
 });
 
+void test("invalid dashboard property id falls back to host listings manager view", () => {
+  const target = resolveLegacyDashboardPropertyRedirect({
+    userPresent: true,
+    role: "landlord",
+    propertyId: "   ",
+    searchParams: {},
+  });
+
+  assert.equal(target, "/host/listings?view=manage");
+});
+
 void test("host availability href builder preserves query params", () => {
   const href = buildHostPropertyAvailabilityHref("listing-123", {
     step: "submit",

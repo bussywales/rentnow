@@ -22,6 +22,10 @@ export function buildHostListingsRedirectHref(
     query.set(key, value);
   }
 
+  if (!query.get("view")) {
+    query.set("view", "manage");
+  }
+
   const queryString = query.toString();
-  return queryString ? `/host/listings?${queryString}` : "/host/listings";
+  return queryString ? `/host/listings?${queryString}` : "/host/listings?view=manage";
 }

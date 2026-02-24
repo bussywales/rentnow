@@ -57,7 +57,7 @@ export function resolveLegacyDashboardShortletSettingsRedirect(input: {
 
   const cleanId = normalizeShortletPropertyId(input.propertyId);
   if (!cleanId) {
-    return "/host/listings";
+    return "/host/listings?view=manage";
   }
 
   return buildHostShortletSettingsHref(cleanId, input.searchParams);

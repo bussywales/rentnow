@@ -29,5 +29,5 @@ void test("buildHostListingsRedirectHref drops empty values and falls back to ca
     status: [""],
   });
 
-  assert.equal(href, "/host/listings");
+  assert.equal(href, "/host/listings?view=manage");
 });

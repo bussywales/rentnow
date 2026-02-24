@@ -59,7 +59,7 @@ export function resolveLegacyDashboardPropertyRedirect(input: {
 
   const cleanId = normalizePropertyId(input.propertyId);
   if (!cleanId) {
-    return "/host/listings";
+    return "/host/listings?view=manage";
   }
 
   return buildHostPropertyAvailabilityHref(cleanId, input.searchParams);
