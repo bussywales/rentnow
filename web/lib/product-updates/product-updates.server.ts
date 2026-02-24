@@ -6,6 +6,7 @@ import {
   type ProductUpdateSummary,
 } from "@/lib/product-updates/audience";
 import type { ProductUpdateAudience } from "@/lib/product-updates/constants";
+import { resolveProductUpdateSummary } from "@/lib/product-updates/summary";
 
 export type ProductUpdateRow = {
   id: string;
@@ -43,7 +44,7 @@ export async function fetchPublishedProductUpdates({
   const audiences = getAllowedProductUpdateAudiences(role, { adminViewMode });
   let query = client
     .from("product_updates")
-    .select("id,title,summary,image_url,audience,published_at,created_at,updated_at")
+    .select("id,title,summary,body,image_url,audience,published_at,created_at,updated_at")
     .not("published_at", "is", null)
     .order("published_at", { ascending: false })
     .limit(limit);
@@ -54,7 +55,23 @@ export async function fetchPublishedProductUpdates({
 
   const { data, error } = await query;
   if (error) throw error;
-  return (data as ProductUpdateRow[]) ?? [];
+  const rows =
+    (data as Array<
+      ProductUpdateRow & {
+        body?: string | null;
+      }
+    >) ?? [];
+
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    summary: resolveProductUpdateSummary(row.summary, row.body ?? null),
+    image_url: row.image_url ?? null,
+    audience: row.audience,
+    published_at: row.published_at ?? null,
+    created_at: row.created_at ?? null,
+    updated_at: row.updated_at ?? null,
+  }));
 }
 
 export async function fetchPublishedProductUpdateIds({

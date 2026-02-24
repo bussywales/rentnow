@@ -1,3 +1,5 @@
+import { deriveSummaryFromMarkdownBody, resolveProductUpdateSummary } from "@/lib/product-updates/summary";
+
 export type UpdateNoteAudience = "ADMIN" | "HOST" | "TENANT" | "AGENT";
 
 export type ParsedUpdateNote = {
@@ -96,7 +98,10 @@ export function parseUpdateNote(raw: string): ParsedUpdateNote {
       ? parseListValue(record.areas)
       : [];
 
-  const summary = buildSummaryFromBody(body);
+  const summary = resolveProductUpdateSummary(
+    typeof record.summary === "string" ? record.summary : "",
+    body
+  );
 
   return {
     title,
@@ -111,12 +116,7 @@ export function parseUpdateNote(raw: string): ParsedUpdateNote {
 }
 
 export function buildSummaryFromBody(body: string): string {
-  if (!body) return "";
-  const paragraphs = body.split(/\n\s*\n/).map((part) => part.trim());
-  const first = paragraphs.find((part) => part.length > 0) || "";
-  if (!first) return "";
-  const normalized = first.replace(/\s+/g, " ").trim();
-  return normalized.length > 240 ? `${normalized.slice(0, 237)}...` : normalized;
+  return deriveSummaryFromMarkdownBody(body);
 }
 
 export function mapUpdateAudiencesToProductAudiences(audiences: UpdateNoteAudience[]) {

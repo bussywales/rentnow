@@ -12,6 +12,7 @@ import {
   PRODUCT_UPDATE_AUDIENCES,
   type ProductUpdateAudience,
 } from "@/lib/product-updates/constants";
+import { resolveProductUpdateSummary } from "@/lib/product-updates/summary";
 
 export type AdminProductUpdateRow = {
   id: string;
@@ -61,10 +62,9 @@ function statusLabel(published_at?: string | null) {
   return published_at ? "Published" : "Draft";
 }
 
-function normalizeSummary(value: string) {
-  const trimmed = value.trim();
-  if (trimmed.length <= 240) return trimmed;
-  return `${trimmed.slice(0, 240)}…`;
+function normalizeSummary(summary: string, body?: string | null) {
+  const resolved = resolveProductUpdateSummary(summary, body);
+  return resolved.length <= 240 ? resolved : `${resolved.slice(0, 240)}…`;
 }
 
 function AdminProductUpdateEditor({
@@ -490,7 +490,9 @@ export function AdminProductUpdatesPanel({
               <tr key={update.id} className="border-t border-slate-100" data-testid="admin-update-row">
                 <td className="px-4 py-3">
                   <div className="text-sm font-semibold text-slate-900">{update.title}</div>
-                  <div className="text-xs text-slate-500">{normalizeSummary(update.summary)}</div>
+                  <div className="text-xs text-slate-500">
+                    {normalizeSummary(update.summary, update.body ?? null)}
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-slate-700">
                   {PRODUCT_UPDATE_AUDIENCE_LABELS[update.audience]}
