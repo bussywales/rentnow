@@ -16,6 +16,9 @@ type SupportRequestRow = {
   message: string | null;
   status: string | null;
   metadata?: Record<string, unknown> | null;
+  claimed_by?: string | null;
+  claimed_at?: string | null;
+  resolved_at?: string | null;
 };
 
 type SupportRequestItem = {
@@ -31,7 +34,13 @@ type SupportRequestItem = {
   escalated: boolean;
   metadata: Record<string, unknown>;
   transcript: Array<{ role: "user" | "assistant"; content: string }>;
+  claimedBy: string | null;
+  claimedAt: string | null;
+  resolvedAt: string | null;
 };
+
+type AdminSupportStatusFilter = "open" | "all" | "new" | "in_progress" | "resolved";
+type AdminSupportAssignedFilter = "all" | "me" | "unassigned";
 
 function parseIntParam(value: string | null, fallback: number, min: number, max: number) {
   const parsed = Number.parseInt(value || "", 10);
@@ -82,7 +91,24 @@ function toItem(row: SupportRequestRow): SupportRequestItem {
     escalated: isEscalatedRequest(row),
     metadata,
     transcript: toTranscript(metadata),
+    claimedBy: typeof row.claimed_by === "string" ? row.claimed_by : null,
+    claimedAt: typeof row.claimed_at === "string" ? row.claimed_at : null,
+    resolvedAt: typeof row.resolved_at === "string" ? row.resolved_at : null,
   };
+}
+
+function resolveStatusFilter(value: string | null): AdminSupportStatusFilter {
+  if (value === "all") return "all";
+  if (value === "new") return "new";
+  if (value === "in_progress") return "in_progress";
+  if (value === "resolved") return "resolved";
+  return "open";
+}
+
+function resolveAssignedFilter(value: string | null): AdminSupportAssignedFilter {
+  if (value === "me") return "me";
+  if (value === "unassigned") return "unassigned";
+  return "all";
 }
 
 export type AdminSupportRequestsDeps = {
@@ -99,7 +125,7 @@ const defaultDeps: AdminSupportRequestsDeps = {
   async loadRows(client, fetchLimit) {
     const { data, error } = await client
       .from("support_requests")
-      .select("id,created_at,category,email,name,message,status,metadata")
+      .select("id,created_at,category,email,name,message,status,metadata,claimed_by,claimed_at,resolved_at")
       .order("created_at", { ascending: false })
       .range(0, Math.max(0, fetchLimit - 1));
     if (error) {
@@ -129,7 +155,8 @@ export async function getAdminSupportRequestsResponse(
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(request.url);
-  const status = searchParams.get("status") === "all" ? "all" : "open";
+  const status = resolveStatusFilter(searchParams.get("status"));
+  const assigned = resolveAssignedFilter(searchParams.get("assigned"));
   const escalatedOnly = searchParams.get("escalated") === "1";
   const limit = parseIntParam(searchParams.get("limit"), 20, 1, 100);
   const offset = parseIntParam(searchParams.get("offset"), 0, 0, 5000);
@@ -143,8 +170,12 @@ export async function getAdminSupportRequestsResponse(
     const rows = await deps.loadRows(client, fetchLimit);
     const mapped = rows.map(toItem);
     const filtered = mapped.filter((row) => {
-      if (status === "open" && row.status.toLowerCase() === "resolved") return false;
+      const normalizedStatus = row.status.toLowerCase();
+      if (status === "open" && normalizedStatus === "resolved") return false;
+      if (status !== "open" && status !== "all" && normalizedStatus !== status) return false;
       if (escalatedOnly && !row.escalated) return false;
+      if (assigned === "me" && row.claimedBy !== auth.user.id) return false;
+      if (assigned === "unassigned" && !!row.claimedBy) return false;
       return true;
     });
 
@@ -153,6 +184,7 @@ export async function getAdminSupportRequestsResponse(
       ok: true,
       filters: {
         status,
+        assigned,
         escalated: escalatedOnly,
         limit,
         offset,
