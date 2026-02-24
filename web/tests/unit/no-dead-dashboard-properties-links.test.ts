@@ -36,5 +36,8 @@ void test("manage-all style CTAs point to canonical /host/listings manager route
 
   assert.match(masonry, /href="\/host\/listings\?view=manage"/);
   assert.match(rail, /href="\/host\/listings\?view=manage"/);
-  assert.match(homeFeed, /href=\{role === "agent" \? "\/host\/leads" : "\/host\/listings\?view=manage"\}/);
+  assert.match(
+    homeFeed,
+    /<Link[\s\S]*?href="\/host\/listings\?view=manage"[\s\S]*?data-testid="home-feed-cta-manage-listings"/m
+  );
 });

@@ -20,5 +20,8 @@ void test("host listings feed Manage all links point to canonical host listings 
     rail,
     /<Link[\s\S]*?href="\/host\/listings\?view=manage"[\s\S]*?>\s*Manage all\s*<\/Link>/m
   );
-  assert.match(homeFeed, /href=\{role === "agent" \? "\/host\/leads" : "\/host\/listings\?view=manage"\}/);
+  assert.match(
+    homeFeed,
+    /<Link[\s\S]*?href="\/host\/listings\?view=manage"[\s\S]*?data-testid="home-feed-cta-manage-listings"/m
+  );
 });
