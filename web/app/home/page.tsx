@@ -37,6 +37,19 @@ function formatCount(value: number): string {
   return Math.max(0, Number(value || 0)).toLocaleString();
 }
 
+function resolveDisplayName(input: {
+  fullName?: string | null;
+  fallbackEmail?: string | null;
+}) {
+  const fullName = String(input.fullName || "").trim();
+  if (fullName) return fullName.split(/\s+/)[0] || "there";
+
+  const email = String(input.fallbackEmail || "").trim();
+  if (email.includes("@")) return email.split("@")[0] || "there";
+
+  return "there";
+}
+
 function isActiveListing(listing: DashboardListing): boolean {
   if (isListingExpired(listing)) return false;
   const status = String(listing.status || "").trim().toLowerCase();
@@ -113,6 +126,19 @@ export default async function HomeWorkspacePage() {
 
   const dashboardListings = computeDashboardListings(listingsResult.data || []);
   const listingSnapshot = buildSnapshot(dashboardListings);
+  const displayName = resolveDisplayName({
+    fullName:
+      typeof user.user_metadata?.full_name === "string"
+        ? user.user_metadata.full_name
+        : typeof user.user_metadata?.name === "string"
+          ? user.user_metadata.name
+          : null,
+    fallbackEmail: user.email ?? null,
+  });
+  const heroPriorityLine =
+    listingSnapshot.pendingListings > 0
+      ? `You have ${formatCount(listingSnapshot.pendingListings)} listings pending approval.`
+      : `You have ${formatCount(listingSnapshot.activeListings)} active listings in your portfolio.`;
   const checklistSummary = summarizeChecklist(gettingStartedChecklist);
   const checklistRemaining = Math.max(0, checklistSummary.total - checklistSummary.done);
   const featuredCardsCount = Math.min(dashboardListings.length, 6);
@@ -165,7 +191,12 @@ export default async function HomeWorkspacePage() {
   return (
     <WorkspaceShell role={role} contentClassName="space-y-5">
       <div className="flex flex-col gap-5 py-1" data-testid="home-visual-landing">
-        <WorkspaceHomeFeed role={role} listings={dashboardListings} />
+        <WorkspaceHomeFeed
+          role={role}
+          displayName={displayName}
+          priorityLine={heroPriorityLine}
+          listings={dashboardListings}
+        />
 
         <HomeCollapsibleSection
           title="Workspace tools"

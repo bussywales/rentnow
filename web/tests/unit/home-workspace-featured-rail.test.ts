@@ -9,10 +9,13 @@ void test("workspace home wires featured rail component with the visual landing 
   const contents = fs.readFileSync(pagePath, "utf8");
   const feedContents = fs.readFileSync(feedPath, "utf8");
 
-  assert.match(contents, /<WorkspaceHomeFeed role=\{role\} listings=\{dashboardListings\} \/>/);
+  assert.match(contents, /<WorkspaceHomeFeed[\s\S]*role=\{role\}/);
+  assert.match(contents, /displayName=\{displayName\}/);
+  assert.match(contents, /priorityLine=\{heroPriorityLine\}/);
   assert.match(feedContents, /data-testid=\"home-featured-strip\"/);
   assert.match(feedContents, /<HostFeaturedStrip listings=\{listings\} mosaicTargetId=\"home-for-you-grid\" \/>/);
   assert.match(feedContents, /data-testid=\"home-for-you-grid\"/);
+  assert.match(feedContents, /data-testid=\"home-workspace-priority-line\"/);
 });
 
 void test("home listing rail keeps premium snap + peek class contract", () => {

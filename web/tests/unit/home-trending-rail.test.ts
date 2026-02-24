@@ -13,7 +13,9 @@ void test("tenant home keeps trending rail while host /home focuses on listings 
 
   assert.match(tenantHome, /trendingHomes\.length > 0/);
   assert.match(tenantHome, /Trending this week/);
-  assert.match(hostHome, /<WorkspaceHomeFeed role=\{role\} listings=\{dashboardListings\} \/>/);
+  assert.match(hostHome, /<WorkspaceHomeFeed[\s\S]*role=\{role\}/);
+  assert.match(hostHome, /displayName=\{displayName\}/);
+  assert.match(hostHome, /priorityLine=\{heroPriorityLine\}/);
   assert.match(hostFeed, /data-testid=\"home-featured-strip\"/);
   assert.match(hostFeed, /data-testid=\"home-for-you-grid\"/);
 });

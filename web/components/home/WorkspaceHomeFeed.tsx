@@ -8,9 +8,13 @@ type WorkspaceHomeRole = "agent" | "landlord";
 
 export function WorkspaceHomeFeed({
   role,
+  displayName,
+  priorityLine,
   listings,
 }: {
   role: WorkspaceHomeRole;
+  displayName: string;
+  priorityLine: string;
   listings: DashboardListing[];
 }) {
   return (
@@ -24,25 +28,25 @@ export function WorkspaceHomeFeed({
             <p className="inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.2em] text-white">
               Workspace home
             </p>
-            <h1 className="text-3xl font-semibold text-slate-900">Lead with your strongest listings.</h1>
-            <p className="text-sm text-slate-600">
-              Publish faster, follow demand, and jump straight into daily actions.
+            <h1 className="text-3xl font-semibold text-slate-900">Good morning, {displayName}.</h1>
+            <p className="text-sm text-slate-600" data-testid="home-workspace-priority-line">
+              {priorityLine}
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link href="/dashboard/properties/new" data-testid="home-feed-cta-create-listing">
               <Button>Create listing</Button>
             </Link>
-            <Link href="/host/bookings" data-testid="home-feed-cta-view-bookings">
-              <Button variant="secondary">View bookings</Button>
+            <Link href="/host/listings?view=manage" data-testid="home-feed-cta-manage-listings">
+              <Button variant="secondary">Manage listings</Button>
             </Link>
             <Link
-              href={role === "agent" ? "/host/leads" : "/host/listings?view=manage"}
+              href={role === "agent" ? "/host/leads" : "/host/bookings"}
               data-testid={
-                role === "agent" ? "home-feed-cta-view-leads" : "home-feed-cta-manage-properties"
+                role === "agent" ? "home-feed-cta-view-leads" : "home-feed-cta-view-bookings"
               }
             >
-              <Button variant="secondary">{role === "agent" ? "View leads" : "Manage properties"}</Button>
+              <Button variant="secondary">{role === "agent" ? "View leads" : "View bookings"}</Button>
             </Link>
           </div>
         </div>
