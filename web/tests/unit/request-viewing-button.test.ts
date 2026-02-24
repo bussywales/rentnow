@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { deriveCtaState } from "@/components/viewings/RequestViewingButton";
+import {
+  deriveCtaState,
+  resolveViewingRequestErrorMessage,
+} from "@/components/viewings/RequestViewingButton";
 
 void test("CTA enabled for declined latest", () => {
   const state = deriveCtaState({
@@ -22,4 +25,21 @@ void test("CTA label remains request viewing for all statuses", () => {
     });
     assert.match(state.label.toLowerCase(), /request viewing/);
   }
+});
+
+void test("viewing request error copy maps auth and role responses", () => {
+  assert.equal(resolveViewingRequestErrorMessage(401, { error: "Unauthorized" }), "Please log in to request a viewing.");
+  assert.equal(
+    resolveViewingRequestErrorMessage(403, { error: "Forbidden" }),
+    "Viewing requests are currently available from tenant accounts."
+  );
+});
+
+void test("viewing request error copy preserves explicit API messages", () => {
+  assert.equal(
+    resolveViewingRequestErrorMessage(400, {
+      error: "One or more preferred times are not available for this property",
+    }),
+    "One or more preferred times are not available for this property"
+  );
 });

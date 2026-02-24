@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   buildViewingInsertPayload,
+  getViewingValidationErrorMessage,
   parseRequestPayload,
   validatePreferredTimesWithAvailability,
 } from "@/app/api/viewings/request/route";
@@ -140,4 +141,12 @@ void test("validatePreferredTimes rejects slots outside availability windows", (
     /not available/,
     "times not matching generated slots should be rejected"
   );
+});
+
+void test("viewing validation error helper returns safe user-facing messages", () => {
+  assert.equal(
+    getViewingValidationErrorMessage(new Error("One or more preferred times are not available for this property")),
+    "One or more preferred times are not available for this property"
+  );
+  assert.equal(getViewingValidationErrorMessage(new Error("database constraint violated")), null);
 });

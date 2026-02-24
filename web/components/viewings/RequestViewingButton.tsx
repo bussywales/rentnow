@@ -27,6 +27,26 @@ type LatestStatus = {
   no_show_reported_at?: string | null;
 };
 
+type ViewingRequestErrorBody = {
+  error?: string;
+  code?: string;
+};
+
+export function resolveViewingRequestErrorMessage(status: number, body: unknown) {
+  const payload = (body ?? null) as ViewingRequestErrorBody | null;
+  const apiError = typeof payload?.error === "string" ? payload.error.trim() : "";
+  if (status === 401) {
+    return "Please log in to request a viewing.";
+  }
+  if (status === 403 && (!apiError || apiError === "Forbidden")) {
+    return "Viewing requests are currently available from tenant accounts.";
+  }
+  if (apiError.length > 0) {
+    return apiError;
+  }
+  return "We couldn't send your request. Please try again.";
+}
+
 export function deriveCtaState(latest: LatestStatus | null) {
   const baseLabel = "Request viewing";
   if (!latest) return { label: baseLabel, disabled: false, note: null };
@@ -186,8 +206,9 @@ export function RequestViewingButton({ propertyId, timezone, city, disabled }: P
           message: message?.trim() ? message.trim() : undefined,
         }),
       });
+      const body = (await res.json().catch(() => null)) as ViewingRequestErrorBody | null;
       if (!res.ok) {
-        setError("We couldn't send your request. Please try again.");
+        setError(resolveViewingRequestErrorMessage(res.status, body));
       } else {
         setLatest({ id: "pending", status: "pending", created_at: new Date().toISOString() });
         setOpen(false);

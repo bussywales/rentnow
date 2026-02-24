@@ -94,6 +94,27 @@ export function buildViewingInsertPayload(
   };
 }
 
+const VIEWING_VALIDATION_ERROR_SNIPPETS = [
+  "preferred times",
+  "not available",
+  "invalid timezone",
+  "invalid preferred time",
+  "invalid date",
+  "availability windows must be within",
+  "invalid availability window",
+] as const;
+
+export function getViewingValidationErrorMessage(error: unknown): string | null {
+  if (!(error instanceof Error)) return null;
+  const message = error.message?.trim();
+  if (!message) return null;
+  const normalized = message.toLowerCase();
+  if (VIEWING_VALIDATION_ERROR_SNIPPETS.some((snippet) => normalized.includes(snippet))) {
+    return message;
+  }
+  return null;
+}
+
 async function handleViewingRequest(request: Request, handlerLabel: "request" | "legacy-alias") {
   const startTime = Date.now();
 
@@ -197,10 +218,19 @@ async function handleViewingRequest(request: Request, handlerLabel: "request" | 
       );
     }
 
-    const insertPayload = buildViewingInsertPayload(payload, auth.user.id, timeZone, {
-      rules: rules ?? [],
-      exceptions: exceptions ?? [],
-    });
+    let insertPayload: ReturnType<typeof buildViewingInsertPayload>;
+    try {
+      insertPayload = buildViewingInsertPayload(payload, auth.user.id, timeZone, {
+        rules: rules ?? [],
+        exceptions: exceptions ?? [],
+      });
+    } catch (error) {
+      const validationMessage = getViewingValidationErrorMessage(error);
+      if (validationMessage) {
+        return NextResponse.json({ error: validationMessage }, { status: 400 });
+      }
+      throw error;
+    }
 
     const { data, error } = await supabase
       .from("viewing_requests")
