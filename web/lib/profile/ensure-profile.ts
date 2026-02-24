@@ -1,6 +1,8 @@
 export type ProfileRecord = {
   id: string;
   role?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
   display_name?: string | null;
   full_name?: string | null;
   phone?: string | null;
@@ -12,7 +14,7 @@ export type ProfileRecord = {
 };
 
 export const PROFILE_SELECT_FIELDS =
-  "id, role, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio";
+  "id, role, first_name, last_name, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio";
 
 type SupabaseError = {
   message?: string | null;
@@ -72,6 +74,8 @@ export async function ensureProfileRow(input: EnsureProfileInput): Promise<Ensur
 
   const basePayload: Record<string, unknown> = {
     id: userId,
+    first_name: null,
+    last_name: null,
     display_name: null,
     full_name: null,
     phone: null,
@@ -94,6 +98,13 @@ export async function ensureProfileRow(input: EnsureProfileInput): Promise<Ensur
   if (insertError && isUnknownColumn(insertError, "agent_storefront_enabled")) {
     const rest = { ...payload };
     delete rest.agent_storefront_enabled;
+    insertError = (await client.from("profiles").upsert(rest, { onConflict: "id" })).error;
+  }
+
+  if (insertError && (isUnknownColumn(insertError, "first_name") || isUnknownColumn(insertError, "last_name"))) {
+    const rest = { ...payload };
+    delete rest.first_name;
+    delete rest.last_name;
     insertError = (await client.from("profiles").upsert(rest, { onConflict: "id" })).error;
   }
 

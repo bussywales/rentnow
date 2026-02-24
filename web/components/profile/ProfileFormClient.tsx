@@ -62,6 +62,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   const [displayName, setDisplayName] = useState(
     initialProfile?.display_name ?? initialProfile?.full_name ?? ""
   );
+  const [firstName, setFirstName] = useState(initialProfile?.first_name ?? "");
+  const [lastName, setLastName] = useState(initialProfile?.last_name ?? "");
   const [phone, setPhone] = useState(initialProfile?.phone ?? "");
   const [avatarUrl, setAvatarUrl] = useState(initialProfile?.avatar_url ?? null);
   const [agentStorefrontEnabled, setAgentStorefrontEnabled] = useState(
@@ -88,6 +90,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   const [success, setSuccess] = useState<string | null>(null);
   const [snapshot, setSnapshot] = useState({
     displayName: initialProfile?.display_name ?? initialProfile?.full_name ?? "",
+    firstName: initialProfile?.first_name ?? "",
+    lastName: initialProfile?.last_name ?? "",
     phone: initialProfile?.phone ?? "",
     avatarUrl: initialProfile?.avatar_url ?? null,
     agentStorefrontEnabled: initialProfile?.agent_storefront_enabled ?? true,
@@ -130,6 +134,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       setProfile(nextProfile);
       const nextName = nextProfile?.display_name ?? nextProfile?.full_name ?? "";
       setDisplayName(nextName);
+      setFirstName(nextProfile?.first_name ?? "");
+      setLastName(nextProfile?.last_name ?? "");
       setPhone(nextProfile?.phone ?? "");
       setAvatarUrl(nextProfile?.avatar_url ?? null);
       setAgentStorefrontEnabled(nextProfile?.agent_storefront_enabled ?? true);
@@ -145,6 +151,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       setCopyState(null);
       setSnapshot({
         displayName: nextName,
+        firstName: nextProfile?.first_name ?? "",
+        lastName: nextProfile?.last_name ?? "",
         phone: nextProfile?.phone ?? "",
         avatarUrl: nextProfile?.avatar_url ?? null,
         agentStorefrontEnabled: nextProfile?.agent_storefront_enabled ?? true,
@@ -189,6 +197,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   const hasChanges =
     !!profile &&
     (displayName.trim() !== snapshot.displayName ||
+      firstName.trim() !== snapshot.firstName ||
+      lastName.trim() !== snapshot.lastName ||
       phone.trim() !== snapshot.phone ||
       avatarUrl !== snapshot.avatarUrl ||
       (isAgent &&
@@ -315,6 +325,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
     setError(null);
     setSuccess(null);
     const payload = {
+      first_name: firstName.trim() || null,
+      last_name: lastName.trim() || null,
       display_name: displayName.trim() || null,
       full_name: displayName.trim() || null,
       phone: phone.trim() || null,
@@ -334,6 +346,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       setError("Unable to save changes. Please try again.");
     } else {
       setSnapshot({
+        firstName: payload.first_name ?? "",
+        lastName: payload.last_name ?? "",
         displayName: payload.display_name ?? "",
         phone: payload.phone ?? "",
         avatarUrl,
@@ -547,6 +561,27 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
               placeholder="Your name"
             />
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className="text-xs font-semibold text-slate-600">First name (private)</label>
+              <Input
+                value={firstName}
+                onChange={(event) => setFirstName(event.target.value)}
+                placeholder="First name"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-slate-600">Surname (private)</label>
+              <Input
+                value={lastName}
+                onChange={(event) => setLastName(event.target.value)}
+                placeholder="Surname"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-slate-500">
+            Used for support and account verification. Not shown publicly.
+          </p>
           <div>
             <label className="text-xs font-semibold text-slate-600">Phone</label>
             <Input

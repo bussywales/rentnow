@@ -58,6 +58,8 @@ export interface Profile {
   agent_slug?: string | null;
   agent_bio?: string | null;
   full_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
   display_name?: string | null;
   phone?: string | null;
   city?: string | null;
