@@ -55,12 +55,19 @@ export async function getWorkspaceActivityResponse(
   const client = deps.hasServiceRoleEnv()
     ? (deps.createServiceRoleClient() as unknown as UntypedAdminClient)
     : (auth.supabase as unknown as UntypedAdminClient);
+  const activityRole =
+    auth.role === "agent" || auth.role === "landlord" || auth.role === "admin"
+      ? auth.role
+      : null;
+  if (!activityRole) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
 
   try {
     const items = await deps.getWorkspaceActivityFeed({
       client,
       userId: auth.user.id,
-      role: auth.role,
+      role: activityRole,
       limit,
     });
 

@@ -60,6 +60,10 @@ function readString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
+function isPresent<T>(value: T | null | undefined): value is T {
+  return value != null;
+}
+
 function readPropertyMeta(row: Record<string, unknown>): { title: string; city: string } {
   const relation = row.properties;
   const property = Array.isArray(relation)
@@ -197,7 +201,7 @@ async function loadLeadEvents(input: WorkspaceActivityFeedInput, sourceLimit: nu
         badge: readString(row.status).toLowerCase() === "new" ? "New" : undefined,
       } satisfies WorkspaceActivityItem;
     })
-    .filter((row): row is WorkspaceActivityItem => !!row);
+    .filter(isPresent);
 }
 
 async function loadBookingEvents(input: WorkspaceActivityFeedInput, sourceLimit: number) {
@@ -237,7 +241,7 @@ async function loadBookingEvents(input: WorkspaceActivityFeedInput, sourceLimit:
         badge: urgent ? "Urgent" : "Awaiting",
       } satisfies WorkspaceActivityItem;
     })
-    .filter((row): row is WorkspaceActivityItem => !!row);
+    .filter(isPresent);
 }
 
 async function loadListingApprovalEvents(input: WorkspaceActivityFeedInput, sourceLimit: number) {
@@ -275,7 +279,7 @@ async function loadListingApprovalEvents(input: WorkspaceActivityFeedInput, sour
         badge: "Live",
       } satisfies WorkspaceActivityItem;
     })
-    .filter((row): row is WorkspaceActivityItem => !!row);
+    .filter(isPresent);
 }
 
 async function loadPayoutEvents(input: WorkspaceActivityFeedInput, sourceLimit: number) {
@@ -313,7 +317,7 @@ async function loadPayoutEvents(input: WorkspaceActivityFeedInput, sourceLimit: 
             badge: "Requested",
           } satisfies WorkspaceActivityItem;
         })
-        .filter((row): row is WorkspaceActivityItem => !!row));
+        .filter(isPresent));
 
   const paid = paidResult.error
     ? []
@@ -332,7 +336,7 @@ async function loadPayoutEvents(input: WorkspaceActivityFeedInput, sourceLimit: 
             badge: "Paid",
           } satisfies WorkspaceActivityItem;
         })
-        .filter((row): row is WorkspaceActivityItem => !!row));
+        .filter(isPresent));
 
   return [...requested, ...paid];
 }
@@ -368,7 +372,7 @@ async function loadSupportEscalationEvents(input: WorkspaceActivityFeedInput, so
         badge: status === "resolved" ? "Resolved" : "New",
       } satisfies WorkspaceActivityItem;
     })
-    .filter((row): row is WorkspaceActivityItem => !!row);
+    .filter(isPresent);
 }
 
 const defaultDeps: WorkspaceActivityFeedDeps = {
