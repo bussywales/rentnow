@@ -4,6 +4,7 @@ audiences:
   - TENANT
   - HOST
   - AGENT
+  - ADMIN
 areas:
   - Markets
   - Search

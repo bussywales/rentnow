@@ -29,7 +29,6 @@ export function MarketSelector({ enabled, compact = false }: Props) {
       <span className="sr-only">{marketContextHint}</span>
       <select
         aria-label="Select market"
-        aria-description={marketContextHint}
         className="min-h-9 rounded-lg border border-slate-200 bg-white px-2 py-1 text-sm text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-sky-500"
         value={serializeMarketCookieValue(market.country, market.currency)}
         title={`${currentLabel}. ${marketContextHint}`}
