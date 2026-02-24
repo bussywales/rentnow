@@ -13,10 +13,10 @@ void test("host listings feed Manage all links point to canonical host listings 
 
   assert.match(
     masonry,
-    /<Link[\s\S]*?href="\/host\/listings"[\s\S]*?>\s*Manage all\s*<\/Link>/m
+    /<Link[\s\S]*?href="\/host\/listings\?view=manage"[\s\S]*?>\s*Manage all\s*<\/Link>/m
   );
   assert.match(
     rail,
-    /<Link[\s\S]*?href="\/host\/listings"[\s\S]*?>\s*Manage all\s*<\/Link>/m
+    /<Link[\s\S]*?href="\/host\/listings\?view=manage"[\s\S]*?>\s*Manage all\s*<\/Link>/m
   );
 });

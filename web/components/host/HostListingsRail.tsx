@@ -76,7 +76,7 @@ export function HostListingsRail({ listings }: Props) {
           <h2 className="text-lg font-semibold text-slate-900">Your media feed</h2>
         </div>
         <Link
-          href="/host/listings"
+          href="/host/listings?view=manage"
           className="text-xs font-semibold text-sky-700 hover:text-sky-800"
         >
           Manage all

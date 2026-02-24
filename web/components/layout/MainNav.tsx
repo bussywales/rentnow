@@ -27,7 +27,7 @@ export const MAIN_NAV_LINKS: Array<{
   { href: "/tenant/saved", label: "Saved", requireAuth: true, requireRole: "tenant" },
   { href: "/trips", label: "Trips", requireAuth: true, requireRole: "tenant" },
   { href: "/host/calendar", label: "Calendar", requireAuth: true, denyRoles: ["tenant", "admin"] },
-  { href: "/host/properties", label: "Listings", requireAuth: true, denyRoles: ["tenant", "admin"] },
+  { href: "/host/listings", label: "Listings", requireAuth: true, denyRoles: ["tenant", "admin"] },
   { href: "/favourites", label: "Collections", requireAuth: true, denyRoles: ["tenant"] },
   { href: "/tenant/home", label: "Home", requireAuth: true, requireRole: "tenant" },
   { href: "/saved-searches", label: "Saved searches", requireAuth: true, denyRoles: ["admin"] },
@@ -68,7 +68,7 @@ export const MAIN_NAV_LINKS: Array<{
 const DESKTOP_PRIMARY_LINKS = {
   guest: ["/shortlets", "/properties"],
   tenant: ["/shortlets", "/properties", "/trips", "/tenant/saved"],
-  host: ["/host/bookings", "/host/calendar", "/host/properties", "/host/earnings"],
+  host: ["/host/bookings", "/host/calendar", "/host/listings", "/host/earnings"],
   admin: ["/admin"],
 } as const;
 

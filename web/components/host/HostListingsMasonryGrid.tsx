@@ -87,7 +87,7 @@ export function HostListingsMasonryGrid({
         </div>
         {showManageAllLink ? (
           <Link
-            href="/host/listings"
+            href="/host/listings?view=manage"
             className="text-xs font-semibold text-sky-700 hover:text-sky-800"
           >
             Manage all

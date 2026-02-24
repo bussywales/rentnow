@@ -36,7 +36,7 @@ function buildSidebarItems(awaitingApprovalCount: number): SidebarItem[] {
     { href: "/host", label: "Overview" },
     { href: "/host/bookings", label: "Bookings", badgeCount: awaitingApprovalCount || null },
     { href: "/host/calendar", label: "Calendar" },
-    { href: "/host/properties", label: "Listings" },
+    { href: "/host/listings", label: "Listings" },
     { href: "/host/earnings", label: "Earnings" },
   ];
 }
@@ -141,4 +141,3 @@ export function HostSidebar({
     </aside>
   );
 }
-

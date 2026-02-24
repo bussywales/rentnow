@@ -37,7 +37,7 @@ export function WorkspaceHomeFeed({
               <Button variant="secondary">View bookings</Button>
             </Link>
             <Link
-              href={role === "agent" ? "/host/leads" : "/host/properties"}
+              href={role === "agent" ? "/host/leads" : "/host/listings?view=manage"}
               data-testid={
                 role === "agent" ? "home-feed-cta-view-leads" : "home-feed-cta-manage-properties"
               }
@@ -58,7 +58,10 @@ export function WorkspaceHomeFeed({
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">For you</p>
             <h2 className="text-xl font-semibold text-slate-900">Portfolio mosaic</h2>
           </div>
-          <Link href="/host/properties" className="text-xs font-semibold text-sky-700 hover:text-sky-800">
+          <Link
+            href="/host/listings?view=manage"
+            className="text-xs font-semibold text-sky-700 hover:text-sky-800"
+          >
             Open manager
           </Link>
         </div>

@@ -24,7 +24,7 @@ void test("landlord sidebar items are limited to core host workspace links", () 
   assert.deepEqual(sections.map((section) => section.label), ["Core"]);
   assert.deepEqual(
     items.map((item) => item.href),
-    ["/host", "/host/properties", "/host/bookings", "/host/calendar", "/host/earnings"]
+    ["/host", "/host/listings", "/host/bookings", "/host/calendar", "/host/earnings"]
   );
   assert.equal(items.find((item) => item.href === "/host/bookings")?.badgeCount, 4);
   assert.equal(

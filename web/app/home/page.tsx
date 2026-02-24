@@ -20,7 +20,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 export const dynamic = "force-dynamic";
 
 const WORKSPACE_LINKS = [
-  { href: "/host/properties", label: "Manage properties" },
+  { href: "/host/listings", label: "Manage properties" },
   { href: "/host/bookings", label: "Bookings" },
   { href: "/host/calendar", label: "Calendar" },
   { href: "/host/earnings", label: "Earnings" },
