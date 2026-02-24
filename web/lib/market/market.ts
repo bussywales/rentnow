@@ -33,6 +33,7 @@ export const DEFAULT_MARKET_SETTINGS: MarketSettings = {
 export const MARKET_OPTIONS: MarketOption[] = [
   { country: "NG", currency: "NGN", label: "Nigeria" },
   { country: "GB", currency: "GBP", label: "United Kingdom" },
+  { country: "CA", currency: "CAD", label: "Canada" },
 ];
 
 const MARKET_COUNTRY_TO_CURRENCY = new Map(
@@ -211,6 +212,7 @@ export function formatCurrencySymbol(currency: string | null | undefined): strin
   const code = normalizeCurrencyCode(currency ?? null);
   if (code === "NGN") return "\u20A6";
   if (code === "GBP") return "\u00A3";
+  if (code === "CAD") return "CA$";
   if (code === "USD") return "$";
   if (code === "EUR") return "\u20AC";
   return code ?? DEFAULT_MARKET_SETTINGS.defaultCurrency;

@@ -242,6 +242,7 @@ function hasCompleteValidDateRange(
 function getMarketCurrency(countryCode: string): string {
   if (countryCode === "NG") return "NGN";
   if (countryCode === "GB") return "GBP";
+  if (countryCode === "CA") return "CAD";
   if (countryCode === "KE") return "KES";
   if (countryCode === "US") return "USD";
   return "NGN";

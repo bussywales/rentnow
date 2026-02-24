@@ -30,5 +30,5 @@ void test("market selector renders when enabled", () => {
   );
   assert.match(html, /Select market/i);
   assert.match(html, /Nigeria/i);
+  assert.match(html, /Canada/i);
 });
-

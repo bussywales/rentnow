@@ -25,9 +25,10 @@ type Props = {
 const COUNTRY_OPTIONS = [
   { code: "NG", label: "Nigeria" },
   { code: "GB", label: "United Kingdom" },
+  { code: "CA", label: "Canada" },
 ] as const;
 
-const CURRENCY_OPTIONS = ["NGN", "GBP", "USD", "EUR"] as const;
+const CURRENCY_OPTIONS = ["NGN", "GBP", "CAD", "USD", "EUR"] as const;
 
 export default function AdminSettingsMarket({ settings, updatedAt }: Props) {
   const [pending, startTransition] = useTransition();
@@ -210,4 +211,3 @@ export default function AdminSettingsMarket({ settings, updatedAt }: Props) {
     </section>
   );
 }
-
