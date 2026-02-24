@@ -26,6 +26,8 @@ void test("activity rail renders recent events for landlord and agent workspace 
   assert.match(html, /Booking request awaiting approval/);
   assert.match(html, /Urgent/);
   assert.match(html, /View all/);
+  assert.match(html, /data-testid=\"workspace-activity-rail\"/);
+  assert.match(html, /data-testid=\"workspace-activity-item\"/);
 });
 
 void test("activity rail is hidden for tenant role", () => {
