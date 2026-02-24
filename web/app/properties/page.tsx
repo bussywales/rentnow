@@ -863,8 +863,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
         </div>
       )}
 
-      <SmartSearchBox mode="browse" />
-      <AdvancedSearchPanel initialFilters={filters} />
+      <div className="space-y-3">
+        <SmartSearchBox mode="browse" />
+        <AdvancedSearchPanel initialFilters={filters} />
+      </div>
       <BrowseIntentClient
         persistFilters={hasFilters}
         showContinueBanner={showMarketHubSuggestions}
@@ -904,7 +906,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
         </div>
       )}
 
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2.5 text-sm text-slate-700 shadow-sm">
         <div>
           <p className="text-[10px] uppercase tracking-[0.2em] text-slate-500">Saved searches</p>
           <p className="text-sm text-slate-500">Save this filter set for alerts later.</p>
