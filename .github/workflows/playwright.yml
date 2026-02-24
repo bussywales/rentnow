@@ -78,8 +78,9 @@ jobs:
       - name: Run unit tests
         run: npm test
 
-      - name: Run Playwright smoke pack
-        run: npm run test:e2e:smoke
+      # Go-live smoke intentionally excludes flaky shortlets mobile spec until stabilised.
+      - name: Run Playwright go-live smoke pack
+        run: npm run test:e2e:golive
 
       - name: Run Playwright tests
         run: npm run test:e2e -- --reporter=dot
