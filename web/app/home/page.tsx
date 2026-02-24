@@ -20,6 +20,7 @@ import { getSavedSearchSummaryForUser } from "@/lib/saved-searches/summary.serve
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
+const HOME_COLLAPSIBLE_KEY_VERSION = "v3";
 
 const WORKSPACE_LINKS = [
   { href: "/host/listings", label: "Manage properties" },
@@ -226,37 +227,37 @@ export default async function HomeWorkspacePage() {
       role,
       userId: user.id,
       section: "workspace-tools",
-      version: "v2",
+      version: HOME_COLLAPSIBLE_KEY_VERSION,
     }),
     gettingStarted: buildHomeCollapsedStorageKey({
       role,
       userId: user.id,
       section: "getting-started",
-      version: "v2",
+      version: HOME_COLLAPSIBLE_KEY_VERSION,
     }),
     snapshot: buildHomeCollapsedStorageKey({
       role,
       userId: user.id,
       section: "snapshot",
-      version: "v2",
+      version: HOME_COLLAPSIBLE_KEY_VERSION,
     }),
     demandAlerts: buildHomeCollapsedStorageKey({
       role,
       userId: user.id,
       section: "demand-alerts",
-      version: "v2",
+      version: HOME_COLLAPSIBLE_KEY_VERSION,
     }),
     analyticsPreview: buildHomeCollapsedStorageKey({
       role,
       userId: user.id,
       section: "analytics-preview",
-      version: "v2",
+      version: HOME_COLLAPSIBLE_KEY_VERSION,
     }),
     opsDiagnostics: buildHomeCollapsedStorageKey({
       role,
       userId: user.id,
       section: "ops-diagnostics",
-      version: "v2",
+      version: HOME_COLLAPSIBLE_KEY_VERSION,
     }),
   };
 
