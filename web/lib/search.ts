@@ -1,6 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { includeDemoListingsForViewer } from "@/lib/properties/demo";
-import type { ParsedSearchFilters, RentalType } from "@/lib/types";
+import type { ListingIntent, ParsedSearchFilters, RentalType } from "@/lib/types";
 import { mapSearchFilterToListingIntents } from "@/lib/listing-intents";
 import { normalizeIntentStaySelection } from "@/lib/search-filters";
 
@@ -19,6 +19,7 @@ type SearchOptions = {
     west: number;
   } | null;
   boundsRequireCoords?: boolean;
+  exactListingIntent?: ListingIntent | null;
 };
 
 type QueryWithOr<T> = {
@@ -144,14 +145,18 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
         .gte("longitude", west)
         .lte("longitude", east);
     }
-    const listingIntents =
-      normalizedSelection.stay === "shortlet"
-        ? []
-        : mapSearchFilterToListingIntents(normalizedSelection.listingIntent ?? null);
-    if (listingIntents.length === 1) {
-      query = query.eq("listing_intent", listingIntents[0]);
-    } else if (listingIntents.length > 1) {
-      query = query.in("listing_intent", listingIntents);
+    if (options.exactListingIntent) {
+      query = query.eq("listing_intent", options.exactListingIntent);
+    } else {
+      const listingIntents =
+        normalizedSelection.stay === "shortlet"
+          ? []
+          : mapSearchFilterToListingIntents(normalizedSelection.listingIntent ?? null);
+      if (listingIntents.length === 1) {
+        query = query.eq("listing_intent", listingIntents[0]);
+      } else if (listingIntents.length > 1) {
+        query = query.in("listing_intent", listingIntents);
+      }
     }
     query = applyStayFilterToQuery(query, normalizedSelection);
     if (filters.bedrooms !== null) {

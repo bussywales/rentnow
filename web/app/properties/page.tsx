@@ -6,7 +6,6 @@ import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { AdvancedSearchPanel } from "@/components/properties/AdvancedSearchPanel";
 import { BrowseIntentClient } from "@/components/properties/BrowseIntentClient";
-import { ListingIntentToggle } from "@/components/properties/ListingIntentToggle";
 import { SavedSearchButton } from "@/components/search/SavedSearchButton";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
@@ -47,6 +46,12 @@ import {
   getIntentRecoveryOptions,
   getIntentSummaryCopy,
 } from "@/lib/properties/listing-intent-ui";
+import {
+  buildPropertiesCategoryParams,
+  getPropertiesCategoryContext,
+  PROPERTIES_BROWSE_CATEGORY_OPTIONS,
+  resolvePropertiesBrowseCategory,
+} from "@/lib/properties/browse-categories";
 import { mapSearchFilterToListingIntents, normalizeListingIntent } from "@/lib/listing-intents";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
 import { shouldPriorityImage } from "@/lib/images/loading-profile";
@@ -138,7 +143,12 @@ function buildSearchParams(
 function applyMockFilters(
   items: Property[],
   filters: ParsedSearchFilters,
-  options: { featuredOnly?: boolean; createdAfter?: string | null; includeDemo?: boolean } = {}
+  options: {
+    featuredOnly?: boolean;
+    createdAfter?: string | null;
+    includeDemo?: boolean;
+    exactListingIntent?: Property["listing_intent"] | null;
+  } = {}
 ): Property[] {
   return items.filter((property) => {
     if (!isListingPubliclyVisible(property)) return false;
@@ -165,6 +175,10 @@ function applyMockFilters(
       if (bedroomsMode === "exact" && property.bedrooms !== filters.bedrooms) return false;
     }
     if (filters.propertyType && property.listing_type !== filters.propertyType) return false;
+    if (options.exactListingIntent) {
+      const listingIntent = normalizeListingIntent(property.listing_intent);
+      if (listingIntent !== options.exactListingIntent) return false;
+    }
     if (filters.stay !== "shortlet" && filters.listingIntent && filters.listingIntent !== "all") {
       const expectedIntents = new Set(mapSearchFilterToListingIntents(filters.listingIntent));
       const listingIntent = normalizeListingIntent(property.listing_intent);
@@ -325,13 +339,28 @@ export default async function PropertiesPage({ searchParams }: Props) {
       : null;
 
   const filterChips = filtersToChips(filters);
+  const activeCategory = resolvePropertiesBrowseCategory({
+    categoryParam: readParam(resolvedSearchParams, "category"),
+    intentParam: readParam(resolvedSearchParams, "intent"),
+    stayParam: readParam(resolvedSearchParams, "stay") ?? readParam(resolvedSearchParams, "category"),
+    listingIntentParam: readParam(resolvedSearchParams, "listingIntent"),
+    fallbackIntent: resolvedIntent,
+  });
+  const activeCategoryContext = getPropertiesCategoryContext(activeCategory);
+  const hasCategoryFilter =
+    activeCategory !== "all" || activeCategoryContext.exactListingIntent !== null;
+  filters = {
+    ...filters,
+    listingIntent: activeCategoryContext.listingIntent,
+    stay: activeCategoryContext.stay,
+  };
   const hasFilters =
     !!savedSearch ||
     featuredOnly ||
     !!createdAfter ||
+    hasCategoryFilter ||
     hasActiveFilters(filters);
-  const isShortletStayOnly = filters.stay === "shortlet";
-  const showStayTypeToggle = resolvedIntent !== "buy";
+  const isShortletCategory = activeCategory === "shortlet";
   const savedSearchNoticeNode = savedSearchNotice ? (
     <div className="rounded-2xl border border-amber-200 bg-amber-50/70 px-4 py-3 text-sm text-amber-900 shadow-sm">
       <p className="font-semibold">{savedSearchNotice.title}</p>
@@ -368,29 +397,13 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const marketHubLinks = marketHubs.map((hub) => ({
     key: hub.key,
     label: hub.label,
-    href: buildMarketHubHref(hub, { intent: resolvedIntent }),
+    href: buildMarketHubHref(hub, { intent: filters.listingIntent ?? "rent" }),
   }));
   const showMarketHubSuggestions = !hasFilters && marketHubLinks.length > 0;
-  const shortletToggleHrefParams = buildSearchParams(resolvedSearchParams, {
-    stay: isShortletStayOnly ? null : "shortlet",
-    intent: isShortletStayOnly ? resolvedIntent : "rent",
-    page: "1",
+  const categoryBaseParams = buildSearchParams(resolvedSearchParams, {
     savedSearchId: null,
     source: null,
   });
-  const allStaysHrefParams = buildSearchParams(resolvedSearchParams, {
-    stay: null,
-    category: null,
-    page: "1",
-    savedSearchId: null,
-    source: null,
-  });
-  const shortletToggleHref = shortletToggleHrefParams.toString()
-    ? `/properties?${shortletToggleHrefParams.toString()}`
-    : "/properties";
-  const allStaysHref = allStaysHrefParams.toString()
-    ? `/properties?${allStaysHrefParams.toString()}`
-    : "/properties";
   const intentRecoveryBaseParams = buildSearchParams(resolvedSearchParams, {
     success: null,
   });
@@ -455,6 +468,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
         featuredOnly,
         createdAfter,
         includeDemo: includeDemoListings,
+        exactListingIntent: activeCategoryContext.exactListingIntent,
       });
       if (error) {
         fetchError = error.message;
@@ -535,6 +549,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
           featuredOnly,
           createdAfter,
           includeDemo: includeDemoListings,
+          exactListingIntent: activeCategoryContext.exactListingIntent,
         })
       : mockProperties.filter((property) => includeDemoListings || !property.is_demo);
     if (fallback.length) {
@@ -564,6 +579,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
           featuredOnly,
           createdAfter,
           includeDemo: includeDemoListings,
+          exactListingIntent: activeCategoryContext.exactListingIntent,
         }
       );
       if (!error && data) {
@@ -581,7 +597,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
           ...filters,
           bedroomsMode: "minimum",
         },
-        { includeDemo: includeDemoListings }
+        {
+          includeDemo: includeDemoListings,
+          exactListingIntent: activeCategoryContext.exactListingIntent,
+        }
       ).filter((item) => item.bedrooms > requestedBedrooms);
     }
   } else if (requestedBedrooms !== null) {
@@ -760,7 +779,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const showingLabel = exactOnlyMode ? "exact matches" : "homes";
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 px-4">
+    <div className="mx-auto w-full max-w-6xl space-y-4 px-4">
       {savedSearchNoticeNode}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -785,54 +804,42 @@ export default async function PropertiesPage({ searchParams }: Props) {
         </div>
       </div>
 
-      <div className="-mx-4 sticky top-16 z-20 border-y border-slate-200/70 bg-slate-50/95 px-4 py-2 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0">
-        <ListingIntentToggle currentIntent={resolvedIntent} hasUrlIntent={urlIntent !== undefined} />
-      </div>
-
-      {showStayTypeToggle ? (
-        <div className="space-y-2">
-          <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Stay type</p>
-            <Link
-              href={allStaysHref}
-              className={
-                isShortletStayOnly
-                  ? "rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
-                  : "rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
-              }
-            >
-              All stays
-            </Link>
-            <Link
-              href={shortletToggleHref}
-              className={
-                isShortletStayOnly
-                  ? "rounded-full border border-sky-200 bg-sky-50 px-3 py-1 text-xs font-semibold text-sky-700"
-                  : "rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 transition hover:border-slate-300"
-              }
-            >
-              Shortlets
-            </Link>
+      <div
+        className="-mx-4 sticky top-16 z-20 border-y border-slate-200/70 bg-slate-50/95 px-4 py-2 backdrop-blur sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:px-0 sm:py-0"
+        data-testid="properties-category-row"
+      >
+        <div className="overflow-x-auto py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="flex min-w-max items-center gap-2">
+            {PROPERTIES_BROWSE_CATEGORY_OPTIONS.map((option) => {
+              const params = buildPropertiesCategoryParams(categoryBaseParams, option.value);
+              const href = params.toString() ? `/properties?${params.toString()}` : "/properties";
+              const selected = option.value === activeCategory;
+              return (
+                <Link
+                  key={option.value}
+                  href={href}
+                  className={
+                    selected
+                      ? "rounded-full border border-slate-900 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm"
+                      : "rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-slate-300 hover:text-slate-900"
+                  }
+                  data-testid={`properties-category-${option.value}`}
+                >
+                  {option.label}
+                </Link>
+              );
+            })}
           </div>
-          <p className="text-xs text-slate-500">Shortlets are bookable nightly stays (rent only).</p>
         </div>
-      ) : null}
-
-      {showStayTypeToggle ? (
-        <div className="rounded-2xl border border-sky-100 bg-sky-50/80 px-4 py-3 text-sm text-slate-700 shadow-sm">
-          <p className="text-[10px] uppercase tracking-[0.2em] text-sky-700">Short stays</p>
-          <p className="mt-1 font-semibold text-slate-900">Need a nightly stay?</p>
-          <p className="text-slate-600">
-            Browse bookable shortlets with date availability and itemized pricing.
+        {!isShortletCategory ? (
+          <p className="mt-1 text-xs text-slate-500">
+            Need nightly stays?{" "}
+            <Link href="/shortlets" className="font-semibold text-sky-700 hover:underline">
+              Open shortlet browse
+            </Link>
           </p>
-          <Link
-            href={isShortletStayOnly ? allStaysHref : shortletToggleHref}
-            className="mt-2 inline-flex rounded-lg border border-sky-200 bg-white px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50"
-          >
-            {isShortletStayOnly ? "Back to all stays" : "Open shortlet browse"}
-          </Link>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       {savedSearch && (
         <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
