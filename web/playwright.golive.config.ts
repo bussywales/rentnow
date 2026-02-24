@@ -7,6 +7,7 @@ const useLocalServer =
 
 const goLiveSmokeSpecMatch = [
   "**/shortlets.desktop.map.smoke.spec.ts",
+  "**/shortlets.mobile.smoke.spec.ts",
   "**/property.booking.calendar.smoke.spec.ts",
   "**/shortlet.payment-return.smoke.spec.ts",
   "**/host.bookings.smoke.spec.ts",

@@ -3,6 +3,31 @@ import { smokeSelectors } from "./utils/selectors";
 import { mockShortletsSearch } from "./utils/network";
 import { waitForShortletsResults, waitForShortletsSearchResponse } from "./utils/waits";
 
+const KNOWN_BENIGN_CONSOLE_PATTERNS: RegExp[] = [
+  /Download the React DevTools/i,
+  /Failed to load resource: the server responded with a status of 401 \(Unauthorized\)/i,
+];
+
+function attachRuntimeErrorGuards(page: import("@playwright/test").Page) {
+  const runtimeErrors: string[] = [];
+
+  page.on("console", (message) => {
+    const text = message.text();
+    if (KNOWN_BENIGN_CONSOLE_PATTERNS.some((pattern) => pattern.test(text))) {
+      return;
+    }
+    if (message.type() === "error" || /Unhandled|TypeError|ReferenceError/i.test(text)) {
+      runtimeErrors.push(`[console:${message.type()}] ${text}`);
+    }
+  });
+
+  page.on("pageerror", (error) => {
+    runtimeErrors.push(`[pageerror] ${error.message}`);
+  });
+
+  return runtimeErrors;
+}
+
 test.use({
   viewport: { width: 390, height: 844 },
   isMobile: true,
@@ -11,6 +36,8 @@ test.use({
 
 test.describe("shortlets mobile smoke", () => {
   test("mobile discovery supports filters and map overlay", async ({ page }) => {
+    const runtimeErrors = attachRuntimeErrorGuards(page);
+
     const closeSupportPanelIfOpen = async () => {
       const supportPanel = page.getByTestId(smokeSelectors.supportWidgetPanel);
       if (!(await supportPanel.isVisible().catch(() => false))) return;
@@ -96,5 +123,9 @@ test.describe("shortlets mobile smoke", () => {
       return scroller.scrollHeight > window.innerHeight;
     });
     expect(isScrollable).toBeTruthy();
+    expect(
+      runtimeErrors,
+      `shortlets mobile smoke emitted runtime errors:\n${runtimeErrors.join("\n")}`
+    ).toEqual([]);
   });
 });
