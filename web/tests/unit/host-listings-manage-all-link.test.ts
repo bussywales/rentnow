@@ -10,6 +10,7 @@ function readComponent(relativePath: string): string {
 void test("host listings feed Manage all links point to canonical host listings route", () => {
   const masonry = readComponent("components/host/HostListingsMasonryGrid.tsx");
   const rail = readComponent("components/host/HostListingsRail.tsx");
+  const homeFeed = readComponent("components/home/WorkspaceHomeFeed.tsx");
 
   assert.match(
     masonry,
@@ -19,4 +20,5 @@ void test("host listings feed Manage all links point to canonical host listings 
     rail,
     /<Link[\s\S]*?href="\/host\/listings\?view=manage"[\s\S]*?>\s*Manage all\s*<\/Link>/m
   );
+  assert.match(homeFeed, /href=\{role === "agent" \? "\/host\/leads" : "\/host\/listings\?view=manage"\}/);
 });
