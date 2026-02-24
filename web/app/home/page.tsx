@@ -5,6 +5,7 @@ import { HostGettingStartedSection } from "@/components/host/HostGettingStartedS
 import { HostListingsMasonryGrid } from "@/components/host/HostListingsMasonryGrid";
 import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
 import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
+import { WorkspaceShell } from "@/components/workspace/WorkspaceShell";
 import { Button } from "@/components/ui/Button";
 import { loadHostChecklist } from "@/lib/checklists/role-checklists.server";
 import { summarizeChecklist } from "@/lib/checklists/role-checklists";
@@ -169,10 +170,8 @@ export default async function HomeWorkspacePage() {
   };
 
   return (
-    <div
-      className="mx-auto flex max-w-6xl flex-col gap-5 px-4 py-1 sm:px-6 lg:px-8"
-      data-testid="home-visual-landing"
-    >
+    <WorkspaceShell role={role} contentClassName="space-y-5">
+      <div className="flex flex-col gap-5 py-1" data-testid="home-visual-landing">
       <section className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm" data-testid="home-hero">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="space-y-2">
@@ -392,6 +391,7 @@ export default async function HomeWorkspacePage() {
           We could not load some listing details right now. Please refresh to retry.
         </section>
       ) : null}
-    </div>
+      </div>
+    </WorkspaceShell>
   );
 }
