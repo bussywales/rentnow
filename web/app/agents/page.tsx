@@ -1,14 +1,18 @@
+import { AgentsDirectoryClient } from "@/components/agents/AgentsDirectoryClient";
+import { searchAgentsDirectory } from "@/lib/agents/agents-directory.server";
+
 export const dynamic = "force-dynamic";
 
-export default function AgentsPage() {
+export default async function AgentsPage() {
+  const initialData = await searchAgentsDirectory({
+    verifiedOnly: true,
+    limit: 24,
+    offset: 0,
+  });
+
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-4 px-4 py-8 sm:px-6 lg:px-8">
-      <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Agents</p>
-      <h1 className="text-3xl font-semibold text-slate-900">Find a verified agent</h1>
-      <p className="text-sm text-slate-600">
-        We’re preparing the PropatyHub agent directory. Check back soon or explore listings in the
-        meantime.
-      </p>
+    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-8 sm:px-6 lg:px-8">
+      <AgentsDirectoryClient initialData={initialData} />
     </div>
   );
 }
