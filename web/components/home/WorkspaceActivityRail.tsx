@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import type { WorkspaceActivityItem } from "@/lib/activity/workspace-activity.server";
+import type {
+  WorkspaceActivityItem,
+  WorkspaceActivityType,
+} from "@/lib/activity/workspace-activity.server";
 
 type WorkspaceActivityRole = "agent" | "landlord" | "tenant";
 
@@ -15,6 +18,43 @@ function formatActivityAgeLabel(createdAtIso: string, nowMs = Date.now()) {
   if (deltaSeconds < 48 * 60 * 60) return "Yesterday";
   return `${Math.floor(deltaSeconds / (24 * 3600))}d ago`;
 }
+
+const typeBadgeStyles: Record<
+  WorkspaceActivityType,
+  {
+    icon: string;
+    className: string;
+  }
+> = {
+  lead_received: {
+    icon: "LD",
+    className: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  },
+  booking_request: {
+    icon: "BK",
+    className: "border-amber-200 bg-amber-50 text-amber-700",
+  },
+  listing_approved: {
+    icon: "LS",
+    className: "border-sky-200 bg-sky-50 text-sky-700",
+  },
+  payout_requested: {
+    icon: "PO",
+    className: "border-violet-200 bg-violet-50 text-violet-700",
+  },
+  payout_paid: {
+    icon: "PD",
+    className: "border-teal-200 bg-teal-50 text-teal-700",
+  },
+  support_escalated: {
+    icon: "SP",
+    className: "border-rose-200 bg-rose-50 text-rose-700",
+  },
+  message_received: {
+    icon: "MS",
+    className: "border-slate-200 bg-slate-100 text-slate-700",
+  },
+};
 
 export function WorkspaceActivityRail({
   role,
@@ -50,24 +90,45 @@ export function WorkspaceActivityRail({
         <ul className="space-y-2">
           {visibleItems.map((item) => (
             <li key={item.id} data-testid="workspace-activity-item">
-              <Link
-                href={item.href}
-                className="flex items-start justify-between gap-3 rounded-2xl border border-slate-200 px-3 py-2 transition-colors hover:border-sky-200 hover:bg-sky-50 md:px-3.5"
-              >
-                <div className="min-w-0 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-sky-500" aria-hidden />
-                    <p className="truncate text-sm font-semibold text-slate-900">{item.title}</p>
-                    {item.badge ? (
-                      <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">
-                        {item.badge}
+              <div className="rounded-2xl border border-slate-200 px-3 py-2 transition-colors hover:border-sky-200 hover:bg-sky-50 md:px-3.5">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span
+                        data-testid={`workspace-activity-badge-${item.type}`}
+                        className={[
+                          "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em]",
+                          typeBadgeStyles[item.type].className,
+                        ].join(" ")}
+                      >
+                        <span aria-hidden className="font-bold">
+                          {typeBadgeStyles[item.type].icon}
+                        </span>
+                        <span>{item.label}</span>
                       </span>
-                    ) : null}
+                      {item.badge ? (
+                        <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-slate-600">
+                          {item.badge}
+                        </span>
+                      ) : null}
+                    </div>
+                    <Link href={item.href} className="block truncate text-sm font-semibold text-slate-900 hover:text-sky-700">
+                      {item.title}
+                    </Link>
+                    {item.subtitle ? <p className="truncate text-xs text-slate-600">{item.subtitle}</p> : null}
                   </div>
-                  {item.subtitle ? <p className="truncate text-xs text-slate-600">{item.subtitle}</p> : null}
+                  <div className="flex shrink-0 flex-col items-end gap-1 text-right">
+                    <span className="text-xs text-slate-500">{formatActivityAgeLabel(item.createdAt)}</span>
+                    <Link
+                      href={item.href}
+                      data-testid="workspace-activity-cta"
+                      className="text-xs font-semibold text-sky-700 hover:text-sky-800"
+                    >
+                      {item.ctaLabel}
+                    </Link>
+                  </div>
                 </div>
-                <span className="shrink-0 text-xs text-slate-500">{formatActivityAgeLabel(item.createdAt)}</span>
-              </Link>
+              </div>
             </li>
           ))}
         </ul>
