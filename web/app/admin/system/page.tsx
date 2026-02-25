@@ -6,6 +6,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { RoleChecklistPanel } from "@/components/checklists/RoleChecklistPanel";
 import { NextBestActionsPanel } from "@/components/checklists/NextBestActionsPanel";
 import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
+import { AdminFxActions } from "@/components/admin/AdminFxActions";
 import {
   buildSystemHealthSettingsSnapshot,
   getSystemHealthEnvStatus,
@@ -236,6 +237,8 @@ export default async function AdminSystemPage() {
           </div>
         </dl>
       </section>
+
+      <AdminFxActions />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 className="text-sm font-semibold text-slate-900">PWA installability diagnostics</h2>
