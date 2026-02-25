@@ -35,6 +35,13 @@ void test("admin support inbox component includes table and drawer metadata view
   assert.match(source, /data-testid="admin-support-claim"/);
   assert.match(source, /data-testid="admin-support-status-action"/);
   assert.match(source, /data-testid="admin-support-drawer-status-action"/);
+  assert.match(source, /data-testid="admin-support-reply-template"/);
+  assert.match(source, /data-testid="admin-support-reply-subject"/);
+  assert.match(source, /data-testid="admin-support-reply-body"/);
+  assert.match(source, /data-testid="admin-support-reply-send"/);
+  assert.match(source, /data-testid="admin-support-reply-notice"/);
+  assert.match(source, /Reply to requester/);
+  assert.match(source, /Send reply/);
   assert.match(source, /AI transcript/);
   assert.match(source, /Metadata/);
 });

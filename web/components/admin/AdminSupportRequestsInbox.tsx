@@ -2,6 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import {
+  SUPPORT_CANNED_REPLIES,
+  buildSupportCannedReplyDraft,
+  type SupportCannedReplyTemplateId,
+} from "@/lib/support/canned-replies";
 
 type SupportRequestItem = {
   id: string;
@@ -70,6 +75,11 @@ export function AdminSupportRequestsInbox() {
   const [selected, setSelected] = useState<SupportRequestItem | null>(null);
   const [mutatingId, setMutatingId] = useState<string | null>(null);
   const [overdueFirst, setOverdueFirst] = useState(false);
+  const [replyTemplateId, setReplyTemplateId] = useState<SupportCannedReplyTemplateId | "">("");
+  const [replySubject, setReplySubject] = useState("");
+  const [replyBody, setReplyBody] = useState("");
+  const [sendingReply, setSendingReply] = useState(false);
+  const [replyNotice, setReplyNotice] = useState<{ tone: "success" | "error"; message: string } | null>(null);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -181,6 +191,99 @@ export function AdminSupportRequestsInbox() {
     void load(controller.signal);
     return () => controller.abort();
   }, [load]);
+
+  useEffect(() => {
+    setReplyTemplateId("");
+    setReplySubject("");
+    setReplyBody("");
+    setReplyNotice(null);
+  }, [selected?.id]);
+
+  const handleTemplateChange = useCallback(
+    (templateId: SupportCannedReplyTemplateId | "") => {
+      setReplyTemplateId(templateId);
+      if (!templateId || !selected) return;
+      const draft = buildSupportCannedReplyDraft({
+        templateId,
+        ticketId: selected.id,
+        requesterName: selected.name,
+      });
+      if (!draft) return;
+      setReplySubject(draft.subject);
+      setReplyBody(draft.body);
+      setReplyNotice(null);
+    },
+    [selected]
+  );
+
+  const sendReply = useCallback(async () => {
+    if (!selected) return;
+    if (!selected.email) {
+      setReplyNotice({
+        tone: "error",
+        message: "Requester email is missing. Add an email before sending a reply.",
+      });
+      return;
+    }
+
+    const subject = replySubject.trim();
+    const body = replyBody.trim();
+    if (subject.length < 3 || body.length < 10) {
+      setReplyNotice({
+        tone: "error",
+        message: "Subject and body are required before sending.",
+      });
+      return;
+    }
+
+    setSendingReply(true);
+    setReplyNotice(null);
+    try {
+      const response = await fetch(`/api/admin/support/requests/${encodeURIComponent(selected.id)}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateId: replyTemplateId || null,
+          subject,
+          body,
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as
+        | { ok?: boolean; error?: string; item?: { metadata?: Record<string, unknown> } }
+        | null;
+      if (!response.ok) {
+        setReplyNotice({
+          tone: "error",
+          message: payload?.error || "Unable to send reply right now.",
+        });
+        return;
+      }
+
+      const metadata = payload?.item?.metadata;
+      if (metadata && typeof metadata === "object") {
+        setSelected((current) =>
+          current && current.id === selected.id
+            ? {
+                ...current,
+                metadata,
+              }
+            : current
+        );
+      }
+      await load();
+      setReplyNotice({
+        tone: "success",
+        message: "Reply sent and logged in request metadata.",
+      });
+    } catch (requestError) {
+      setReplyNotice({
+        tone: "error",
+        message: requestError instanceof Error ? requestError.message : "Unable to send reply right now.",
+      });
+    } finally {
+      setSendingReply(false);
+    }
+  }, [load, replyBody, replySubject, replyTemplateId, selected]);
 
   return (
     <section
@@ -467,6 +570,82 @@ export function AdminSupportRequestsInbox() {
               ) : (
                 <p className="mt-2 text-sm text-slate-600">No transcript attached.</p>
               )}
+            </div>
+
+            <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 p-3">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Reply to requester</p>
+              <p className="mt-1 text-xs text-slate-600">
+                Choose a template, edit if needed, then send directly to {selected.email || "the requester"}.
+              </p>
+
+              <label className="mt-3 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Template
+                <select
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-2 text-sm font-normal text-slate-800"
+                  value={replyTemplateId}
+                  onChange={(event) =>
+                    handleTemplateChange((event.target.value as SupportCannedReplyTemplateId | "") || "")
+                  }
+                  data-testid="admin-support-reply-template"
+                >
+                  <option value="">Choose a reply template</option>
+                  {SUPPORT_CANNED_REPLIES.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="mt-3 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Subject
+                <input
+                  type="text"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2 py-2 text-sm font-normal text-slate-800"
+                  value={replySubject}
+                  onChange={(event) => {
+                    setReplySubject(event.target.value);
+                    if (replyNotice) setReplyNotice(null);
+                  }}
+                  placeholder="Reply subject"
+                  data-testid="admin-support-reply-subject"
+                />
+              </label>
+
+              <label className="mt-3 block text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+                Message
+                <textarea
+                  className="mt-1 min-h-[140px] w-full rounded-md border border-slate-200 bg-white px-2 py-2 text-sm font-normal text-slate-800"
+                  value={replyBody}
+                  onChange={(event) => {
+                    setReplyBody(event.target.value);
+                    if (replyNotice) setReplyNotice(null);
+                  }}
+                  placeholder="Write your reply"
+                  data-testid="admin-support-reply-body"
+                />
+              </label>
+
+              <div className="mt-3 flex items-center gap-2">
+                <Button
+                  size="sm"
+                  disabled={sendingReply || !selected.email}
+                  onClick={() => void sendReply()}
+                  data-testid="admin-support-reply-send"
+                >
+                  {sendingReply ? "Sending..." : "Send reply"}
+                </Button>
+                {!selected.email ? <span className="text-xs text-amber-700">Requester has no email on file.</span> : null}
+              </div>
+
+              {replyNotice ? (
+                <p
+                  className={`mt-2 text-xs ${replyNotice.tone === "success" ? "text-emerald-700" : "text-rose-700"}`}
+                  data-testid="admin-support-reply-notice"
+                >
+                  {replyNotice.message}
+                </p>
+              ) : null}
             </div>
           </aside>
         </div>
