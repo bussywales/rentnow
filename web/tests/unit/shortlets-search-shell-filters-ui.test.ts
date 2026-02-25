@@ -141,8 +141,7 @@ void test("mobile map toggle and list layout avoid covering listing actions", ()
   const contents = fs.readFileSync(shellPath, "utf8");
 
   assert.ok(contents.includes("space-y-3 pb-20 lg:hidden"));
-  assert.ok(contents.includes("fixed bottom-5 left-1/2"));
-  assert.ok(contents.includes("-translate-x-1/2"));
+  assert.ok(contents.includes("fixed bottom-4 right-4"));
   assert.ok(contents.includes("overflow-x-hidden px-4 py-4"));
   assert.ok(contents.includes('max-w-[calc(100vw-2rem)]'));
   assert.ok(contents.includes("document.documentElement.style.overflowX = \"hidden\""));

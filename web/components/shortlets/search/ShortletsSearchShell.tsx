@@ -2412,7 +2412,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
         aria-haspopup="dialog"
         aria-expanded={mobileMapOpen}
         aria-controls="shortlets-mobile-map-modal"
-        className="fixed bottom-5 left-1/2 z-20 inline-flex h-11 -translate-x-1/2 items-center rounded-full bg-slate-900 px-5 text-sm font-semibold text-white shadow-lg lg:hidden"
+        className="fixed bottom-4 right-4 z-20 inline-flex h-10 items-center rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm lg:hidden"
         data-testid="shortlets-open-map"
       >
         Map

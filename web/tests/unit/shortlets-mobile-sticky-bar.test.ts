@@ -16,12 +16,17 @@ void test("shortlets mobile sticky bar component renders the compact control set
   const contents = fs.readFileSync(stickyBarPath, "utf8");
 
   assert.ok(contents.includes('data-testid="shortlets-compact-search-pill"'));
+  assert.ok(contents.includes('data-testid="shortlets-mobile-sticky-controls-row"'));
   assert.ok(contents.includes("whereSummary"));
   assert.ok(contents.includes("datesSummary"));
   assert.ok(contents.includes("guestsSummary"));
   assert.ok(contents.includes("Sort compact"));
   assert.ok(contents.includes("Filters"));
   assert.ok(contents.includes("Search"));
+  assert.ok(contents.includes("rounded-2xl"));
+  assert.ok(contents.includes("h-8"));
+  assert.ok(contents.includes("scrollbar-none"));
+  assert.equal(contents.includes("backdrop-blur"), false);
 });
 
 void test("shortlets shell mounts only one compact sticky bar component", () => {
