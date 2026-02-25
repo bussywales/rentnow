@@ -48,19 +48,30 @@ test.describe("home mobile quick search smoke", () => {
 
     await page.getByTestId(smokeSelectors.homeMobileQuickSearchTrigger).click();
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchSheet)).toBeVisible();
+    await page.getByTestId(smokeSelectors.homeMobileQuickSearchIntentShortlet).click();
     await page.getByTestId(smokeSelectors.homeMobileQuickSearchCategoryShortlet).click();
+    await page.getByTestId(smokeSelectors.homeMobileQuickSearchDateThisWeekend).click();
+    await page.getByTestId(smokeSelectors.homeMobileQuickSearchGuestsIncrement).click();
+    await page.getByTestId(smokeSelectors.homeMobileQuickSearchGuestsIncrement).click();
+    await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchGuestsValue)).toHaveText("3");
     const locationInput = page.getByTestId(smokeSelectors.homeMobileQuickSearchLocation);
     await locationInput.fill("Lekki");
     await locationInput.press("Enter");
 
     await page.waitForURL(/\/shortlets(\?|$)/, { timeout: 20_000 });
     await expect(page.getByRole("heading", { name: /find shortlets/i })).toBeVisible();
+    const shortletsUrl = new URL(page.url());
+    expect(shortletsUrl.pathname).toBe("/shortlets");
+    expect(shortletsUrl.searchParams.get("guests")).toBe("3");
+    expect(shortletsUrl.searchParams.has("checkIn")).toBe(true);
+    expect(shortletsUrl.searchParams.has("checkOut")).toBe(true);
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await dismissDisclaimerIfPresent();
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickStart)).toBeVisible();
     await page.getByTestId(smokeSelectors.homeMobileQuickSearchTrigger).click();
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchSheet)).toBeVisible();
+    await page.getByTestId(smokeSelectors.homeMobileQuickSearchIntentRent).click();
     await page.getByTestId(smokeSelectors.homeMobileQuickSearchCategoryRent).click();
     await page.getByTestId(smokeSelectors.homeMobileQuickSearchPresetRentLagos).click();
     const rentLocationInput = page.getByTestId(smokeSelectors.homeMobileQuickSearchLocation);

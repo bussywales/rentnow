@@ -18,9 +18,18 @@ void test("mobile quick search sheet source contains category and preset rails",
 
   assert.match(source, /from \"@\/lib\/home\/mobile-featured-discovery\"/);
   assert.match(source, /data-testid="mobile-quicksearch-sheet"/);
+  assert.match(source, /data-testid="mobile-quicksearch-intent-rail"/);
+  assert.match(source, /data-testid={`mobile-quicksearch-intent-\$\{option\.key\}`}/);
   assert.match(source, /data-testid={`mobile-quicksearch-category-\$\{option\.key\}`}/);
   assert.match(source, /data-testid="mobile-quicksearch-presets"/);
   assert.match(source, /data-testid={`mobile-quicksearch-preset-\$\{preset\.id\}`}/);
+  assert.match(source, /data-testid="mobile-quicksearch-dates"/);
+  assert.match(source, /mobile-quicksearch-date-this-weekend/);
+  assert.match(source, /mobile-quicksearch-date-next-weekend/);
+  assert.match(source, /mobile-quicksearch-date-flexible/);
+  assert.match(source, /data-testid="mobile-quicksearch-guests"/);
+  assert.match(source, /data-testid="mobile-quicksearch-guests-increment"/);
+  assert.match(source, /data-testid="mobile-quicksearch-guests-value"/);
   assert.match(source, /data-testid="mobile-quicksearch-location-input"/);
   assert.match(source, /data-testid="mobile-quicksearch-search"/);
   assert.match(source, /data-testid="mobile-quicksearch-shortlets"/);
@@ -44,6 +53,10 @@ void test("mobile quick search sheet source closes and navigates on search submi
   assert.match(source, /router\.push\(searchHref\)/);
   assert.doesNotMatch(source, /window\.location\.assign\(searchHref\)/);
   assert.doesNotMatch(source, /export function buildMobileQuickSearchHref/);
+  assert.match(source, /intent: activeIntent/);
+  assert.match(source, /guests: guestsDraft/);
+  assert.match(source, /checkIn: checkInDraft/);
+  assert.match(source, /checkOut: checkOutDraft/);
   assert.match(source, /onOpenChange\(false\)/);
   assert.match(source, /<BottomSheet/);
   assert.match(source, /setSelectedShortletParams\(preset\.shortletParams \?\? null\)/);

@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 import {
   buildFeaturedDiscoveryHref,
+  buildMobileQuickSearchHref,
   getMobileFeaturedDiscoveryItems,
   validateMobileFeaturedDiscoveryCatalogue,
 } from "@/lib/home/mobile-featured-discovery";
@@ -92,6 +93,38 @@ void test("mobile featured discovery href mapping stays route-safe", () => {
   assert.match(rentHref, /^\/properties/);
   assert.match(rentHref, /intent=/);
   assert.match(rentHref, /category=/);
+});
+
+void test("mobile quick search href builder maps shortlet v2 params safely", () => {
+  const href = buildMobileQuickSearchHref({
+    category: "shortlet",
+    city: "Lekki",
+    intent: "shortlet",
+    guests: 3,
+    checkIn: "2026-02-27",
+    checkOut: "2026-03-01",
+  });
+  assert.match(href, /^\/shortlets\?/);
+  assert.match(href, /where=Lekki/);
+  assert.match(href, /guests=3/);
+  assert.match(href, /checkIn=2026-02-27/);
+  assert.match(href, /checkOut=2026-03-01/);
+});
+
+void test("mobile quick search href builder keeps property routes free of shortlet-only params", () => {
+  const href = buildMobileQuickSearchHref({
+    category: "rent",
+    city: "Abuja",
+    intent: "rent",
+    guests: 5,
+    checkIn: "2026-02-27",
+    checkOut: "2026-03-01",
+  });
+  assert.match(href, /^\/properties\?/);
+  assert.match(href, /city=Abuja/);
+  assert.equal(href.includes("guests="), false);
+  assert.equal(href.includes("checkIn="), false);
+  assert.equal(href.includes("checkOut="), false);
 });
 
 void test("mobile featured discovery catalogue validator filters invalid entries safely", () => {
