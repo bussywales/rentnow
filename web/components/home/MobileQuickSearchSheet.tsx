@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
@@ -66,16 +66,19 @@ type MobileQuickSearchSheetProps = {
 };
 
 export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearchSheetProps) {
-  const [category, setCategory] = useState<QuickSearchCategory>("rent");
-  const [city, setCity] = useState("");
-
-  useEffect(() => {
-    if (!open) return;
+  const initialState = useMemo(() => {
+    if (typeof window === "undefined") {
+      return { category: "rent" as QuickSearchCategory, city: "" };
+    }
     const recentIntent = getRecentBrowseIntent(14);
     const lastSearchParams = recentIntent?.lastSearchParams ?? null;
-    setCategory(resolveQuickSearchCategory(lastSearchParams));
-    setCity(resolveQuickSearchLocation(lastSearchParams));
-  }, [open]);
+    return {
+      category: resolveQuickSearchCategory(lastSearchParams),
+      city: resolveQuickSearchLocation(lastSearchParams),
+    };
+  }, []);
+  const [category, setCategory] = useState<QuickSearchCategory>(initialState.category);
+  const [city, setCity] = useState(initialState.city);
 
   const searchHref = useMemo(
     () =>
