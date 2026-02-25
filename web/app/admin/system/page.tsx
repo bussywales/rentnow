@@ -21,6 +21,16 @@ import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 export const dynamic = "force-dynamic";
 
+const PWA_MANIFEST_PATH = "/manifest.webmanifest";
+const PWA_START_URL = "/?source=pwa";
+const PWA_SCOPE = "/";
+const PWA_SW_PATH = "/sw.js";
+const PWA_ICON_PATHS = [
+  "/icons/icon-192.png",
+  "/icons/icon-512.png",
+  "/icons/icon-512-maskable.png",
+];
+
 function statusPill(enabled: boolean) {
   const tone = enabled
     ? "border-emerald-200 bg-emerald-50 text-emerald-700"
@@ -177,6 +187,7 @@ function VerificationCountsCard({
 export default async function AdminSystemPage() {
   const { settings, env, serverTimeUtc, opsChecklist, verificationRollup } = await loadAdminSystemHealth();
   const shortCommit = env.commitSha ? env.commitSha.slice(0, 8) : "unknown";
+  const manifestUrl = new URL(PWA_MANIFEST_PATH, BRAND.siteUrl).href;
 
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-6">
@@ -223,6 +234,64 @@ export default async function AdminSystemPage() {
             <dd>{statusPill(env.paystackSecretKeyPresent)}</dd>
           </div>
         </dl>
+      </section>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 className="text-sm font-semibold text-slate-900">PWA installability diagnostics</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Quick reference for Android install troubleshooting, including Samsung Internet checks.
+        </p>
+        <dl className="mt-3 space-y-2 text-sm text-slate-700">
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
+            <dt className="font-medium text-slate-900">Manifest URL</dt>
+            <dd>
+              <a href={manifestUrl} className="text-sky-700 underline underline-offset-2">
+                {manifestUrl}
+              </a>
+            </dd>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
+            <dt className="font-medium text-slate-900">start_url + scope</dt>
+            <dd>
+              <code>{PWA_START_URL}</code>
+              <span className="mx-2 text-slate-400">|</span>
+              <code>{PWA_SCOPE}</code>
+            </dd>
+          </div>
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 px-3 py-2">
+            <dt className="font-medium text-slate-900">Service worker</dt>
+            <dd>
+              <code>{PWA_SW_PATH}</code>
+              <span className="mx-2 text-slate-400">|</span>
+              <code>scope {PWA_SCOPE}</code>
+            </dd>
+          </div>
+          <div className="rounded-lg border border-slate-200 px-3 py-2">
+            <dt className="font-medium text-slate-900">Icon URLs</dt>
+            <dd className="mt-1 flex flex-wrap gap-2 text-xs">
+              {PWA_ICON_PATHS.map((iconPath) => {
+                const iconUrl = new URL(iconPath, BRAND.siteUrl).href;
+                return (
+                  <a
+                    key={iconPath}
+                    href={iconUrl}
+                    className="rounded-full border border-slate-300 px-2 py-1 text-slate-700 hover:border-sky-300 hover:text-sky-700"
+                  >
+                    {iconPath}
+                  </a>
+                );
+              })}
+            </dd>
+          </div>
+        </dl>
+        <div className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
+          <p className="font-medium text-slate-900">How to verify install</p>
+          <ol className="mt-1 list-decimal space-y-1 pl-4">
+            <li>Open Chrome/Edge DevTools → Application → Manifest and check installability warnings.</li>
+            <li>Verify <code>{PWA_MANIFEST_PATH}</code> and each icon URL returns 200 with image/png.</li>
+            <li>Open DevTools → Application → Service Workers and confirm {PWA_SW_PATH} controls {PWA_SCOPE}.</li>
+          </ol>
+        </div>
       </section>
 
       <SettingsSnapshot settings={settings} />

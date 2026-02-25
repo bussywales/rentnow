@@ -5,6 +5,7 @@ const PRECACHE_URLS = [
   "/icon.svg",
   "/icons/icon-192.png",
   "/icons/icon-512.png",
+  "/icons/icon-512-maskable.png",
 ];
 
 const SKIP_CACHE_PATHS = [
