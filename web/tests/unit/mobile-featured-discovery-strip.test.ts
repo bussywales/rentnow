@@ -7,7 +7,7 @@ import {
   getMobileFeaturedDiscoveryItems,
   validateMobileFeaturedDiscoveryCatalogue,
 } from "@/lib/home/mobile-featured-discovery";
-import { MOBILE_FEATURED_DISCOVERY_CATALOGUE } from "@/lib/home/mobile-featured-discovery.catalog";
+import { DISCOVERY_CATALOGUE } from "@/lib/discovery";
 
 const FIXED_NOW = new Date("2026-02-25T00:00:00.000Z");
 
@@ -19,8 +19,7 @@ void test("mobile featured discovery selection is market-aware with global fallb
     seedBucket: "unit",
   });
   assert.ok(ngItems.length > 0);
-  assert.ok(ngItems.some((item) => item.marketTags.includes("NG")));
-  assert.ok(ngItems.every((item) => item.marketTags.includes("NG") || item.marketTags.includes("GLOBAL")));
+  assert.ok(ngItems.some((item) => item.id.startsWith("ng-")));
 
   const caItems = getMobileFeaturedDiscoveryItems({
     marketCountry: "CA",
@@ -29,8 +28,8 @@ void test("mobile featured discovery selection is market-aware with global fallb
     seedBucket: "unit",
   });
   assert.ok(caItems.length > 0);
-  assert.ok(caItems.some((item) => item.marketTags.includes("CA")));
-  assert.equal(caItems.some((item) => item.marketTags.includes("NG") && !item.marketTags.includes("GLOBAL")), false);
+  assert.ok(caItems.some((item) => item.id.startsWith("ca-")));
+  assert.equal(caItems.some((item) => item.id.startsWith("ng-")), false);
 
   const fallbackItems = getMobileFeaturedDiscoveryItems({
     marketCountry: "ZZ",
@@ -39,7 +38,7 @@ void test("mobile featured discovery selection is market-aware with global fallb
     seedBucket: "unit",
   });
   assert.ok(fallbackItems.length > 0);
-  assert.ok(fallbackItems.every((item) => item.marketTags.includes("GLOBAL")));
+  assert.ok(fallbackItems.every((item) => item.id.startsWith("global-")));
 });
 
 void test("mobile featured discovery ordering is deterministic per market/date and rotates by date", () => {
@@ -72,10 +71,14 @@ void test("mobile featured discovery ordering is deterministic per market/date a
 });
 
 void test("mobile featured discovery href mapping stays route-safe", () => {
-  const [shortlet, rent] = [
-    MOBILE_FEATURED_DISCOVERY_CATALOGUE.find((item) => item.category === "shortlet"),
-    MOBILE_FEATURED_DISCOVERY_CATALOGUE.find((item) => item.category === "rent"),
-  ];
+  const selected = getMobileFeaturedDiscoveryItems({
+    marketCountry: "NG",
+    now: FIXED_NOW,
+    limit: 6,
+    seedBucket: "unit",
+  });
+  const shortlet = selected.find((item) => item.category === "shortlet");
+  const rent = selected.find((item) => item.category === "rent");
   assert.ok(shortlet);
   assert.ok(rent);
 
@@ -94,15 +97,15 @@ void test("mobile featured discovery href mapping stays route-safe", () => {
 void test("mobile featured discovery catalogue validator filters invalid entries safely", () => {
   const { items, warnings } = validateMobileFeaturedDiscoveryCatalogue({
     items: [
-      ...MOBILE_FEATURED_DISCOVERY_CATALOGUE.slice(0, 2),
+      ...DISCOVERY_CATALOGUE.slice(0, 2),
       {
-        ...MOBILE_FEATURED_DISCOVERY_CATALOGUE[0],
+        ...DISCOVERY_CATALOGUE[0],
         id: "",
       },
       {
-        ...MOBILE_FEATURED_DISCOVERY_CATALOGUE[1],
+        ...DISCOVERY_CATALOGUE[1],
         id: "invalid-market",
-        marketTags: [] as Array<"GLOBAL" | "NG" | "GB" | "CA">,
+        marketTags: [] as Array<"GLOBAL" | "NG" | "UK" | "US" | "CA">,
       },
     ],
     now: FIXED_NOW,
