@@ -31,6 +31,12 @@ type SupportRequestItem = {
 
 type SupportRequestsResponse = {
   ok: boolean;
+  summary?: {
+    new7d: number;
+    inProgress: number;
+    resolved7d: number;
+    overdue: number;
+  };
   items: SupportRequestItem[];
   pagination: {
     total: number;
@@ -72,6 +78,12 @@ export function AdminSupportRequestsInbox() {
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<SupportRequestItem[]>([]);
   const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState({
+    new7d: 0,
+    inProgress: 0,
+    resolved7d: 0,
+    overdue: 0,
+  });
   const [selected, setSelected] = useState<SupportRequestItem | null>(null);
   const [mutatingId, setMutatingId] = useState<string | null>(null);
   const [overdueFirst, setOverdueFirst] = useState(false);
@@ -91,6 +103,13 @@ export function AdminSupportRequestsInbox() {
     return params.toString();
   }, [assignedToMe, escalatedOnly, status]);
 
+  const exportHref = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set("status", status);
+    if (escalatedOnly) params.set("escalated", "1");
+    return `/api/admin/support/requests/export.csv?${params.toString()}`;
+  }, [escalatedOnly, status]);
+
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
@@ -104,16 +123,34 @@ export function AdminSupportRequestsInbox() {
         setError((body as { error?: string } | null)?.error || "Unable to load support requests.");
         setRows([]);
         setTotal(0);
+        setSummary({
+          new7d: 0,
+          inProgress: 0,
+          resolved7d: 0,
+          overdue: 0,
+        });
         return;
       }
       const payload = body as SupportRequestsResponse;
       setRows(Array.isArray(payload.items) ? payload.items : []);
       setTotal(payload.pagination?.total ?? 0);
+      setSummary({
+        new7d: Number(payload.summary?.new7d ?? 0),
+        inProgress: Number(payload.summary?.inProgress ?? 0),
+        resolved7d: Number(payload.summary?.resolved7d ?? 0),
+        overdue: Number(payload.summary?.overdue ?? 0),
+      });
     } catch (requestError) {
       if (signal?.aborted) return;
       setError(requestError instanceof Error ? requestError.message : "Unable to load support requests.");
       setRows([]);
       setTotal(0);
+      setSummary({
+        new7d: 0,
+        inProgress: 0,
+        resolved7d: 0,
+        overdue: 0,
+      });
     } finally {
       if (!signal?.aborted) {
         setLoading(false);
@@ -301,14 +338,56 @@ export function AdminSupportRequestsInbox() {
             Newest support requests with escalation signal, metadata, and transcript context.
           </p>
         </div>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={() => void load()}
-          data-testid="admin-support-refresh"
-        >
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => void load()}
+            data-testid="admin-support-refresh"
+          >
+            Refresh
+          </Button>
+          <a
+            href={exportHref}
+            className="inline-flex min-h-[2rem] items-center rounded-md border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:border-slate-300 hover:bg-slate-50"
+            data-testid="admin-support-export"
+          >
+            Export CSV
+          </a>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" data-testid="admin-support-analytics">
+        <article className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-500">New (7d)</p>
+          <p className="mt-1 text-2xl font-semibold text-slate-900" data-testid="admin-support-analytics-new7d">
+            {summary.new7d}
+          </p>
+        </article>
+        <article className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-500">In progress</p>
+          <p
+            className="mt-1 text-2xl font-semibold text-slate-900"
+            data-testid="admin-support-analytics-inprogress"
+          >
+            {summary.inProgress}
+          </p>
+        </article>
+        <article className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+          <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Resolved (7d)</p>
+          <p
+            className="mt-1 text-2xl font-semibold text-slate-900"
+            data-testid="admin-support-analytics-resolved7d"
+          >
+            {summary.resolved7d}
+          </p>
+        </article>
+        <article className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-3">
+          <p className="text-xs uppercase tracking-[0.14em] text-amber-700">Overdue</p>
+          <p className="mt-1 text-2xl font-semibold text-amber-800" data-testid="admin-support-analytics-overdue">
+            {summary.overdue}
+          </p>
+        </article>
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">

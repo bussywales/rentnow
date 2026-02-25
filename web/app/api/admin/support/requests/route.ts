@@ -42,6 +42,13 @@ type SupportRequestItem = {
   isOverdue: boolean;
 };
 
+type SupportRequestsSummary = {
+  new7d: number;
+  inProgress: number;
+  resolved7d: number;
+  overdue: number;
+};
+
 type AdminSupportStatusFilter = "open" | "all" | "new" | "in_progress" | "resolved" | "closed";
 type AdminSupportAssignedFilter = "all" | "me" | "unassigned";
 
@@ -138,6 +145,46 @@ function toItem(row: SupportRequestRow, nowMs: number): SupportRequestItem {
   };
 }
 
+function buildSupportRequestsSummary(items: SupportRequestItem[], nowMs: number): SupportRequestsSummary {
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+  const sevenDaysAgoMs = nowMs - sevenDaysMs;
+  const summary: SupportRequestsSummary = {
+    new7d: 0,
+    inProgress: 0,
+    resolved7d: 0,
+    overdue: 0,
+  };
+
+  for (const item of items) {
+    const status = String(item.status || "new")
+      .trim()
+      .toLowerCase();
+    const createdMs = Date.parse(String(item.createdAt || ""));
+    const resolvedMs = Date.parse(String(item.resolvedAt || ""));
+
+    if (status === "new" && Number.isFinite(createdMs) && createdMs >= sevenDaysAgoMs) {
+      summary.new7d += 1;
+    }
+
+    if (status === "in_progress") {
+      summary.inProgress += 1;
+    }
+
+    if (status === "resolved") {
+      const resolvedOrCreatedMs = Number.isFinite(resolvedMs) ? resolvedMs : createdMs;
+      if (Number.isFinite(resolvedOrCreatedMs) && resolvedOrCreatedMs >= sevenDaysAgoMs) {
+        summary.resolved7d += 1;
+      }
+    }
+
+    if (item.isOverdue) {
+      summary.overdue += 1;
+    }
+  }
+
+  return summary;
+}
+
 function resolveStatusFilter(value: string | null): AdminSupportStatusFilter {
   if (value === "all") return "all";
   if (value === "new") return "new";
@@ -212,6 +259,7 @@ export async function getAdminSupportRequestsResponse(
   try {
     const rows = await deps.loadRows(client, fetchLimit);
     const mapped = rows.map((row) => toItem(row, nowMs));
+    const summary = buildSupportRequestsSummary(mapped, nowMs);
     const filtered = mapped.filter((row) => {
       const normalizedStatus = row.status.toLowerCase();
       if (status === "open" && (normalizedStatus === "resolved" || normalizedStatus === "closed")) return false;
@@ -236,6 +284,7 @@ export async function getAdminSupportRequestsResponse(
         total: filtered.length,
         hasMore: offset + paginated.length < filtered.length,
       },
+      summary,
       items: paginated,
     });
   } catch (error) {

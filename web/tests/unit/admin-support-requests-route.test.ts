@@ -319,4 +319,107 @@ void test("admin support requests payload includes SLA fields", async () => {
     true
   );
   assert.equal(typeof body.items[0].isOverdue, "boolean");
+  assert.equal(typeof body.summary.new7d, "number");
+  assert.equal(typeof body.summary.inProgress, "number");
+  assert.equal(typeof body.summary.resolved7d, "number");
+  assert.equal(typeof body.summary.overdue, "number");
+});
+
+void test("admin support requests summary reports expected 7d/in-progress/overdue counts", async () => {
+  const now = Date.now();
+  const within7d = new Date(now - 2 * 60 * 60 * 1000).toISOString();
+  const oldDate = new Date(now - 12 * 24 * 60 * 60 * 1000).toISOString();
+  const overdueDate = new Date(now - 26 * 60 * 60 * 1000).toISOString();
+  const resolvedWithin7d = new Date(now - 24 * 60 * 60 * 1000).toISOString();
+
+  const deps: AdminSupportRequestsDeps = {
+    requireRole: async () =>
+      ({
+        ok: true,
+        role: "admin",
+        user: { id: "admin-1" } as never,
+        supabase: {} as never,
+      }) as Awaited<ReturnType<AdminSupportRequestsDeps["requireRole"]>>,
+    hasServiceRoleEnv: () => true,
+    createServiceRoleClient: () => ({}) as never,
+    loadRows: async () => [
+      {
+        id: "req-new-7d",
+        created_at: within7d,
+        category: "general",
+        email: "new@example.com",
+        name: "New",
+        message: "new request",
+        status: "new",
+        metadata: {},
+        claimed_by: null,
+        claimed_at: null,
+        resolved_at: null,
+      },
+      {
+        id: "req-new-old",
+        created_at: oldDate,
+        category: "general",
+        email: "old@example.com",
+        name: "Old",
+        message: "old request",
+        status: "new",
+        metadata: {},
+        claimed_by: null,
+        claimed_at: null,
+        resolved_at: null,
+      },
+      {
+        id: "req-in-progress",
+        created_at: within7d,
+        category: "general",
+        email: "inprogress@example.com",
+        name: "In Progress",
+        message: "active triage",
+        status: "in_progress",
+        metadata: {},
+        claimed_by: "admin-2",
+        claimed_at: within7d,
+        resolved_at: null,
+      },
+      {
+        id: "req-overdue",
+        created_at: overdueDate,
+        category: "general",
+        email: "overdue@example.com",
+        name: "Overdue",
+        message: "waiting",
+        status: "new",
+        metadata: {},
+        claimed_by: null,
+        claimed_at: null,
+        resolved_at: null,
+      },
+      {
+        id: "req-resolved-7d",
+        created_at: oldDate,
+        category: "general",
+        email: "resolved@example.com",
+        name: "Resolved",
+        message: "resolved",
+        status: "resolved",
+        metadata: {},
+        claimed_by: "admin-4",
+        claimed_at: within7d,
+        resolved_at: resolvedWithin7d,
+      },
+    ],
+  };
+
+  const response = await getAdminSupportRequestsResponse(
+    makeRequest("/api/admin/support/requests?status=all"),
+    deps
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(body.summary.new7d, 2);
+  assert.equal(body.summary.inProgress, 1);
+  assert.equal(body.summary.resolved7d, 1);
+  assert.equal(body.summary.overdue, 2);
 });
