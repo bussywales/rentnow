@@ -48,7 +48,38 @@ test.describe("shortlets mobile smoke", () => {
       await expect(supportPanel).toBeHidden();
     };
 
-    const visibleMap = page.locator('[data-testid="shortlets-map"]:visible').first();
+    const visibleMap = page.locator(`[data-testid="${smokeSelectors.shortletsMap}"]:visible`).first();
+
+    const openMobileMapSheet = async () => {
+      const mapOpen = page.getByTestId(smokeSelectors.shortletsMapOpen);
+      const mobileMapSheet = page.getByTestId(smokeSelectors.shortletsMobileMap);
+
+      await expect(mapOpen).toBeVisible();
+      await closeSupportPanelIfOpen();
+
+      await mapOpen.evaluate((element) => {
+        element.click();
+      });
+
+      await expect
+        .poll(async () => {
+          if (await mobileMapSheet.isVisible().catch(() => false)) return true;
+          const supportPanel = page.getByTestId(smokeSelectors.supportWidgetPanel);
+          if (await supportPanel.isVisible().catch(() => false)) {
+            const closeButton = supportPanel.getByRole("button", { name: /close/i }).first();
+            if (await closeButton.isVisible().catch(() => false)) {
+              await closeButton.click({ force: true });
+            }
+          }
+          await mapOpen.evaluate((element) => {
+            element.click();
+          });
+          return mobileMapSheet.isVisible().catch(() => false);
+        }, { timeout: 10_000 })
+        .toBeTruthy();
+
+      return mobileMapSheet;
+    };
 
     await mockShortletsSearch(page);
     const initialResultsResponse = waitForShortletsSearchResponse(page);
@@ -102,9 +133,7 @@ test.describe("shortlets mobile smoke", () => {
     const mapOpen = page.getByTestId(smokeSelectors.shortletsMapOpen);
     const hasMapSheetToggle = await mapOpen.isVisible().catch(() => false);
     if (hasMapSheetToggle) {
-      await mapOpen.click({ force: true });
-      const mobileMapSheet = page.getByTestId(smokeSelectors.shortletsMobileMap);
-      await expect(mobileMapSheet).toBeVisible();
+      const mobileMapSheet = await openMobileMapSheet();
       await expect(visibleMap).toBeVisible();
       await page.getByTestId(smokeSelectors.shortletsMapClose).click();
       await expect(mobileMapSheet).toBeHidden();
