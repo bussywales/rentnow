@@ -19,6 +19,9 @@ type SupportRequestItem = {
   claimedBy: string | null;
   claimedAt: string | null;
   resolvedAt: string | null;
+  ageMinutes: number;
+  slaMinutes: number | null;
+  isOverdue: boolean;
 };
 
 type SupportRequestsResponse = {
@@ -47,6 +50,15 @@ function categoryLabel(value: string) {
   return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
+function formatAgeMinutes(value: number) {
+  const minutes = Math.max(0, Math.floor(Number(value || 0)));
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d`;
+}
+
 export function AdminSupportRequestsInbox() {
   const [status, setStatus] = useState<"open" | "all" | "new" | "in_progress" | "resolved">("open");
   const [escalatedOnly, setEscalatedOnly] = useState(true);
@@ -57,6 +69,7 @@ export function AdminSupportRequestsInbox() {
   const [total, setTotal] = useState(0);
   const [selected, setSelected] = useState<SupportRequestItem | null>(null);
   const [mutatingId, setMutatingId] = useState<string | null>(null);
+  const [overdueFirst, setOverdueFirst] = useState(false);
 
   const queryString = useMemo(() => {
     const params = new URLSearchParams();
@@ -150,6 +163,18 @@ export function AdminSupportRequestsInbox() {
   );
 
   const selectedStatus = (selected?.status || "new").toLowerCase() as "new" | "in_progress" | "resolved";
+  const sortedRows = useMemo(() => {
+    if (!overdueFirst) return rows;
+    return [...rows].sort((a, b) => {
+      if (a.isOverdue !== b.isOverdue) return a.isOverdue ? -1 : 1;
+      const aCreated = Date.parse(a.createdAt || "");
+      const bCreated = Date.parse(b.createdAt || "");
+      if (!Number.isFinite(aCreated) && !Number.isFinite(bCreated)) return 0;
+      if (!Number.isFinite(aCreated)) return 1;
+      if (!Number.isFinite(bCreated)) return -1;
+      return bCreated - aCreated;
+    });
+  }, [overdueFirst, rows]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -226,6 +251,15 @@ export function AdminSupportRequestsInbox() {
           />
           Assigned to me
         </label>
+        <label className="flex items-center gap-2 text-slate-600">
+          <input
+            type="checkbox"
+            checked={overdueFirst}
+            onChange={(event) => setOverdueFirst(event.target.checked)}
+            data-testid="admin-support-overdue-sort"
+          />
+          Overdue first
+        </label>
         <span className="text-xs text-slate-500">Total: {total}</span>
       </div>
 
@@ -247,6 +281,7 @@ export function AdminSupportRequestsInbox() {
             <thead className="text-xs uppercase tracking-wide text-slate-500">
               <tr className="border-b border-slate-200">
                 <th className="px-2 py-2">Created</th>
+                <th className="px-2 py-2">Age</th>
                 <th className="px-2 py-2">Category</th>
                 <th className="px-2 py-2">Role</th>
                 <th className="px-2 py-2">Email</th>
@@ -257,13 +292,16 @@ export function AdminSupportRequestsInbox() {
               </tr>
             </thead>
             <tbody data-testid="admin-support-rows">
-              {rows.map((row) => (
+              {sortedRows.map((row) => (
                 <tr
                   key={row.id}
                   className="border-b border-slate-100 align-top"
                   data-testid="admin-support-row"
                 >
                   <td className="px-2 py-2 text-xs text-slate-600">{formatTime(row.createdAt)}</td>
+                  <td className="px-2 py-2 text-xs text-slate-700" data-testid="admin-support-age">
+                    {formatAgeMinutes(row.ageMinutes)}
+                  </td>
                   <td className="px-2 py-2">{categoryLabel(row.category)}</td>
                   <td className="px-2 py-2">{row.role || "unknown"}</td>
                   <td className="px-2 py-2">{row.email || "n/a"}</td>
@@ -278,6 +316,14 @@ export function AdminSupportRequestsInbox() {
                       <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-700">
                         {row.status}
                       </span>
+                      {row.isOverdue ? (
+                        <span
+                          className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-semibold text-rose-700"
+                          data-testid="admin-support-overdue-badge"
+                        >
+                          Overdue
+                        </span>
+                      ) : null}
                     </div>
                   </td>
                   <td className="px-2 py-2 text-xs text-slate-600">
