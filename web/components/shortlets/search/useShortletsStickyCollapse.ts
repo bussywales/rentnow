@@ -58,10 +58,7 @@ export function useShortletsStickyCollapse(options: StickyCollapseOptions): {
   }, []);
 
   useEffect(() => {
-    if (!enabled) {
-      setIsCollapsed(false);
-      return;
-    }
+    if (!enabled) return;
 
     const media = window.matchMedia(`(max-width: ${mobileMaxWidthPx}px)`);
 
@@ -120,11 +117,8 @@ export function useShortletsStickyCollapse(options: StickyCollapseOptions): {
     mobileMaxWidthPx,
   ]);
 
-  useEffect(() => {
-    if (lockExpanded) {
-      setIsCollapsed(false);
-    }
-  }, [lockExpanded]);
-
-  return { isCollapsed, forceExpand };
+  return {
+    isCollapsed: enabled && !lockExpanded ? isCollapsed : false,
+    forceExpand,
+  };
 }
