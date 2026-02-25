@@ -37,6 +37,9 @@ void test("host earnings route uses delegated owner scope for agent acting-as se
           grossEarningsMinor: 0,
           paidOutMinor: 0,
           availableToPayoutMinor: 0,
+          grossEarningsByCurrencyMinor: {},
+          paidOutByCurrencyMinor: {},
+          availableToPayoutByCurrencyMinor: {},
         },
         items: [],
       };
@@ -71,6 +74,9 @@ void test("host earnings route preserves auth failures", async () => {
         grossEarningsMinor: 0,
         paidOutMinor: 0,
         availableToPayoutMinor: 0,
+        grossEarningsByCurrencyMinor: {},
+        paidOutByCurrencyMinor: {},
+        availableToPayoutByCurrencyMinor: {},
       },
       items: [],
     }),
@@ -171,4 +177,5 @@ void test("host earnings timeline maps payout eligibility and reasons", () => {
   assert.equal(timeline.summary.completedUnpaidCount, 1);
   assert.equal(timeline.summary.paidCount, 1);
   assert.ok(timeline.summary.availableToPayoutMinor > 0);
+  assert.equal(timeline.summary.availableToPayoutByCurrencyMinor.NGN > 0, true);
 });

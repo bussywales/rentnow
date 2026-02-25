@@ -5,6 +5,7 @@ import {
   type ShortletBookingStatus,
   type ShortletPaymentStatus,
 } from "@/lib/shortlet/return-status";
+import { groupMoneyByCurrency, type CurrencyMinorTotals } from "@/lib/money/multi-currency";
 
 export type HostEarningsTimelineBookingRow = {
   bookingId: string;
@@ -72,6 +73,9 @@ export type HostEarningsTimelineSummary = {
   grossEarningsMinor: number;
   paidOutMinor: number;
   availableToPayoutMinor: number;
+  grossEarningsByCurrencyMinor: CurrencyMinorTotals;
+  paidOutByCurrencyMinor: CurrencyMinorTotals;
+  availableToPayoutByCurrencyMinor: CurrencyMinorTotals;
 };
 
 export type HostEarningsTimeline = {
@@ -275,7 +279,19 @@ export function buildHostEarningsTimeline(input: {
     };
   });
 
-  const summary = items.reduce<HostEarningsTimelineSummary>(
+  const summaryBase = items.reduce<
+    Pick<
+      HostEarningsTimelineSummary,
+      | "pendingApprovalCount"
+      | "upcomingCount"
+      | "inProgressCount"
+      | "completedUnpaidCount"
+      | "paidCount"
+      | "grossEarningsMinor"
+      | "paidOutMinor"
+      | "availableToPayoutMinor"
+    >
+  >(
     (acc, item) => {
       const checkInKey = dateKeyFromIso(item.checkIn);
       if (item.bookingStatus === "pending") {
@@ -316,6 +332,23 @@ export function buildHostEarningsTimeline(input: {
       availableToPayoutMinor: 0,
     }
   );
+
+  const grossEarningsByCurrencyMinor = groupMoneyByCurrency(items, (item) => item.hostEarningsMinor);
+  const paidOutByCurrencyMinor = groupMoneyByCurrency(
+    items.filter((item) => item.payoutStatus === "paid"),
+    (item) => item.hostEarningsMinor
+  );
+  const availableToPayoutByCurrencyMinor = groupMoneyByCurrency(
+    items.filter((item) => item.payoutStatus === "pending"),
+    (item) => item.hostEarningsMinor
+  );
+
+  const summary: HostEarningsTimelineSummary = {
+    ...summaryBase,
+    grossEarningsByCurrencyMinor,
+    paidOutByCurrencyMinor,
+    availableToPayoutByCurrencyMinor,
+  };
 
   return {
     summary,
