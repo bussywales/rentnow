@@ -2,21 +2,18 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import {
+  buildMoneyDisplayLines,
+  formatCurrencyMinor,
+  sortCurrencyMinorTotals,
+  type CurrencyMinorTotals,
+} from "@/lib/money/multi-currency";
 import type { HostEarningsTimeline, HostEarningsTimelineItem } from "@/lib/shortlet/host-earnings";
 
 type EarningsTab = "available" | "upcoming" | "paid" | "all";
 
 function formatMoney(currency: string, amountMinor: number): string {
-  const amount = Math.max(0, Math.trunc(amountMinor || 0)) / 100;
-  try {
-    return new Intl.NumberFormat("en-NG", {
-      style: "currency",
-      currency: currency || "NGN",
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch {
-    return `${currency || "NGN"} ${amount.toFixed(2)}`;
-  }
+  return formatCurrencyMinor(currency, amountMinor, { locale: "en-NG" });
 }
 
 function formatStayLabel(item: Pick<HostEarningsTimelineItem, "checkIn" | "checkOut" | "nights">) {
@@ -71,6 +68,10 @@ function resolveRowsForTab(input: {
   return input.rows.filter((row) => isUpcomingTimelineItem(row, input.todayMs));
 }
 
+function isMultiCurrencyTotal(totals: CurrencyMinorTotals) {
+  return sortCurrencyMinorTotals(totals).length > 1;
+}
+
 export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline }) {
   const [tab, setTab] = useState<EarningsTab>("available");
   const [detailsItem, setDetailsItem] = useState<HostEarningsTimelineItem | null>(null);
@@ -82,7 +83,48 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestedBookingIds, setRequestedBookingIds] = useState<Record<string, true>>({});
   const rows = props.timeline.items;
-  const currency = rows[0]?.currency || "NGN";
+  const fallbackCurrency = rows[0]?.currency || "NGN";
+  const availableToPayoutLines = useMemo(
+    () =>
+      buildMoneyDisplayLines({
+        totals: props.timeline.summary.availableToPayoutByCurrencyMinor,
+        fallbackCurrency,
+        fallbackAmountMinor: props.timeline.summary.availableToPayoutMinor,
+        preferredCurrency: fallbackCurrency,
+        locale: "en-NG",
+      }),
+    [
+      fallbackCurrency,
+      props.timeline.summary.availableToPayoutByCurrencyMinor,
+      props.timeline.summary.availableToPayoutMinor,
+    ]
+  );
+  const paidOutLines = useMemo(
+    () =>
+      buildMoneyDisplayLines({
+        totals: props.timeline.summary.paidOutByCurrencyMinor,
+        fallbackCurrency,
+        fallbackAmountMinor: props.timeline.summary.paidOutMinor,
+        preferredCurrency: fallbackCurrency,
+        locale: "en-NG",
+      }),
+    [fallbackCurrency, props.timeline.summary.paidOutByCurrencyMinor, props.timeline.summary.paidOutMinor]
+  );
+  const grossEarningsLines = useMemo(
+    () =>
+      buildMoneyDisplayLines({
+        totals: props.timeline.summary.grossEarningsByCurrencyMinor,
+        fallbackCurrency,
+        fallbackAmountMinor: props.timeline.summary.grossEarningsMinor,
+        preferredCurrency: fallbackCurrency,
+        locale: "en-NG",
+      }),
+    [fallbackCurrency, props.timeline.summary.grossEarningsByCurrencyMinor, props.timeline.summary.grossEarningsMinor]
+  );
+  const showsMultiCurrencyHint =
+    isMultiCurrencyTotal(props.timeline.summary.availableToPayoutByCurrencyMinor) ||
+    isMultiCurrencyTotal(props.timeline.summary.paidOutByCurrencyMinor) ||
+    isMultiCurrencyTotal(props.timeline.summary.grossEarningsByCurrencyMinor);
   const todayMs = useMemo(() => {
     const today = new Date();
     return Date.parse(`${today.toISOString().slice(0, 10)}T00:00:00.000Z`);
@@ -144,21 +186,33 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
           <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Available to payout</p>
-          <p className="mt-1 text-lg font-semibold text-slate-900">
-            {formatMoney(currency, props.timeline.summary.availableToPayoutMinor)}
-          </p>
+          <div className="mt-1 text-lg font-semibold text-slate-900" data-testid="host-earnings-summary-available">
+            {availableToPayoutLines.map((line, index) => (
+              <p key={`${line}-${index}`} className={index === 0 ? "leading-tight" : "text-base leading-tight"}>
+                {line}
+              </p>
+            ))}
+          </div>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
           <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Paid out</p>
-          <p className="mt-1 text-lg font-semibold text-slate-900">
-            {formatMoney(currency, props.timeline.summary.paidOutMinor)}
-          </p>
+          <div className="mt-1 text-lg font-semibold text-slate-900" data-testid="host-earnings-summary-paid">
+            {paidOutLines.map((line, index) => (
+              <p key={`${line}-${index}`} className={index === 0 ? "leading-tight" : "text-base leading-tight"}>
+                {line}
+              </p>
+            ))}
+          </div>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
           <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Gross earnings</p>
-          <p className="mt-1 text-lg font-semibold text-slate-900">
-            {formatMoney(currency, props.timeline.summary.grossEarningsMinor)}
-          </p>
+          <div className="mt-1 text-lg font-semibold text-slate-900" data-testid="host-earnings-summary-gross">
+            {grossEarningsLines.map((line, index) => (
+              <p key={`${line}-${index}`} className={index === 0 ? "leading-tight" : "text-base leading-tight"}>
+                {line}
+              </p>
+            ))}
+          </div>
         </div>
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
           <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Awaiting approval</p>
@@ -169,6 +223,11 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
           <p className="mt-1 text-lg font-semibold text-slate-900">{props.timeline.summary.upcomingCount}</p>
         </div>
       </div>
+      {showsMultiCurrencyHint ? (
+        <p className="text-xs text-slate-500" data-testid="host-earnings-multi-currency-hint">
+          Totals shown by currency.
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap gap-2" role="tablist" aria-label="Earnings tabs">
         {([

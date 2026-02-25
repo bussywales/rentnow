@@ -84,3 +84,19 @@ export function formatMultiCurrencyTotal(
     .map((entry) => formatCurrencyMinor(entry[0], entry[1], { locale: options?.locale }))
     .join(options?.separator || " + ");
 }
+
+export function buildMoneyDisplayLines(input: {
+  totals: CurrencyMinorTotals;
+  fallbackCurrency: string;
+  fallbackAmountMinor: number;
+  preferredCurrency?: string | null;
+  locale?: string;
+}) {
+  const entries = sortCurrencyMinorTotals(input.totals, {
+    preferredCurrency: input.preferredCurrency,
+  });
+  if (!entries.length) {
+    return [formatCurrencyMinor(input.fallbackCurrency, input.fallbackAmountMinor, { locale: input.locale })];
+  }
+  return entries.map((entry) => formatCurrencyMinor(entry[0], entry[1], { locale: input.locale }));
+}

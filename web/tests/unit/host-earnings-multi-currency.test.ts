@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  buildMoneyDisplayLines,
   formatMultiCurrencyTotal,
   groupMoneyByCurrency,
   sortCurrencyMinorTotals,
@@ -73,4 +74,29 @@ void test("formatMultiCurrencyTotal renders grouped string with deterministic or
   assert.match(formatted, /^₦/);
   assert.match(formatted, / \+ /);
   assert.match(formatted, /£1\.30/);
+});
+
+void test("buildMoneyDisplayLines returns one line for single-currency totals", () => {
+  const lines = buildMoneyDisplayLines({
+    totals: { NGN: 250_000_00 },
+    fallbackCurrency: "NGN",
+    fallbackAmountMinor: 250_000_00,
+    preferredCurrency: "NGN",
+  });
+
+  assert.equal(lines.length, 1);
+  assert.match(lines[0], /^₦/);
+});
+
+void test("buildMoneyDisplayLines returns multi-line output for multi-currency totals", () => {
+  const lines = buildMoneyDisplayLines({
+    totals: { GBP: 230, NGN: 400_000_00 },
+    fallbackCurrency: "NGN",
+    fallbackAmountMinor: 400_000_00,
+    preferredCurrency: "NGN",
+  });
+
+  assert.equal(lines.length, 2);
+  assert.match(lines[0], /^₦/);
+  assert.match(lines[1], /£2\.30/);
 });

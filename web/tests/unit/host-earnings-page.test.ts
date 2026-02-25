@@ -21,6 +21,10 @@ void test("host earnings page is wired with summary and tabs timeline view", () 
   assert.match(componentContents, /Available to payout/);
   assert.match(componentContents, /Paid out/);
   assert.match(componentContents, /Gross earnings/);
+  assert.match(componentContents, /availableToPayoutByCurrencyMinor/);
+  assert.match(componentContents, /paidOutByCurrencyMinor/);
+  assert.match(componentContents, /grossEarningsByCurrencyMinor/);
+  assert.match(componentContents, /Totals shown by currency/);
   assert.match(componentContents, /Awaiting approval/);
   assert.match(componentContents, /Upcoming stays/);
   assert.match(componentContents, /Available/);
