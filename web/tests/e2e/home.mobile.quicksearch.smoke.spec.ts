@@ -69,6 +69,8 @@ test.describe("home mobile quick search smoke", () => {
 
     await page.waitForURL(/\/properties(\?|$)/, { timeout: 20_000 });
     await expect(page.getByRole("heading", { name: /properties/i })).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.propertiesFeaturedRail)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.propertiesFeaturedItem).first()).toBeVisible();
 
     const finalUrl = new URL(page.url());
     expect(finalUrl.pathname).toBe("/properties");

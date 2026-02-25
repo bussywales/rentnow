@@ -18,6 +18,8 @@ export const smokeSelectors = {
   shortletsShell: "shortlets-search-shell",
   shortletsFeaturedRail: "shortlets-featured-rail",
   shortletsFeaturedItem: "shortlets-featured-item",
+  propertiesFeaturedRail: "properties-featured-rail",
+  propertiesFeaturedItem: "properties-featured-item",
   shortletsStickyPill: "shortlets-compact-search-pill",
   shortletsFiltersButton: "shortlets-filters-button",
   shortletsFiltersDrawer: "shortlets-filters-drawer",
