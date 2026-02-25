@@ -33,7 +33,7 @@ test.use({
 });
 
 test.describe("home mobile featured discovery smoke", () => {
-  test("featured cards route to shortlets and properties", async ({ page }) => {
+  test("featured cards route with market-aware destinations", async ({ page, context }) => {
     const runtimeErrors = attachRuntimeErrorGuards(page);
 
     const dismissDisclaimerIfPresent = async () => {
@@ -44,32 +44,41 @@ test.describe("home mobile featured discovery smoke", () => {
     };
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
+    const currentHost = new URL(page.url()).hostname;
+    await context.addCookies([
+      {
+        name: "ph_market",
+        value: "CA|CAD",
+        domain: currentHost,
+        path: "/",
+      },
+    ]);
+    await page.goto("/", { waitUntil: "domcontentloaded" });
     await dismissDisclaimerIfPresent();
 
     await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedStrip)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedScroll)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedItem).first()).toBeVisible();
 
-    await page
-      .getByTestId(smokeSelectors.homeMobileFeaturedItemShortletLagosWeekend)
-      .click({ force: true });
-    await page.waitForURL(/\/shortlets(\?|$)/, { timeout: 20_000 });
-    await expect(page.getByRole("heading", { name: /find shortlets/i })).toBeVisible();
-
-    await page.goto("/", { waitUntil: "domcontentloaded" });
-    await dismissDisclaimerIfPresent();
-    await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedStrip)).toBeVisible();
-
-    await page
-      .getByTestId(smokeSelectors.homeMobileFeaturedItemRentAbujaFamily)
-      .click({ force: true });
-
-    await page.waitForURL(/\/properties(\?|$)/, { timeout: 20_000 });
-    await expect(page.getByRole("heading", { name: /properties/i })).toBeVisible();
+    const firstFeaturedLink = page.locator('[data-testid^="mobile-featured-item-"]').first();
+    await firstFeaturedLink.click({ force: true });
+    await page.waitForURL(/\/(shortlets|properties)(\?|$)/, { timeout: 20_000 });
 
     const finalUrl = new URL(page.url());
-    expect(finalUrl.pathname).toBe("/properties");
-    expect(finalUrl.searchParams.get("intent")).toBe("rent");
+    expect(["/shortlets", "/properties"]).toContain(finalUrl.pathname);
+    const decodedSearch = decodeURIComponent(finalUrl.search).toLowerCase();
+    expect(decodedSearch).not.toContain("lagos");
+    expect(decodedSearch).not.toContain("abuja");
+    expect(decodedSearch).not.toContain("port harcourt");
+    expect(decodedSearch).not.toContain("ibadan");
+    expect(decodedSearch).not.toContain("enugu");
+
+    if (finalUrl.pathname === "/shortlets") {
+      await expect(page.getByRole("heading", { name: /find shortlets/i })).toBeVisible();
+    } else {
+      await expect(page.getByRole("heading", { name: /properties/i })).toBeVisible();
+    }
+
     expect(
       runtimeErrors,
       `home mobile featured discovery smoke emitted runtime errors:\n${runtimeErrors.join("\n")}`
