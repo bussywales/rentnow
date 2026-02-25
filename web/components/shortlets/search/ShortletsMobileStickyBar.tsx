@@ -36,70 +36,133 @@ export function ShortletsMobileStickyBar({
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-0 top-[78px] z-30 flex translate-y-0 justify-center px-3 opacity-100 transition-all duration-200"
+      className="pointer-events-none fixed inset-x-0 top-[78px] z-30 flex translate-y-0 justify-center px-3 opacity-100 transition-all duration-200 ease-out motion-reduce:transition-none"
       data-testid="shortlets-compact-search-pill"
+      data-testid-shortlets-sticky="true"
       data-active="true"
       data-collapsed={isCollapsed ? "true" : "false"}
       aria-hidden={false}
     >
-      <div className="pointer-events-auto w-full max-w-[760px] rounded-2xl border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
-        <div
-          className="scrollbar-none flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-0.5"
-          data-testid="shortlets-mobile-sticky-controls-row"
-        >
-          <button
-            type="button"
-            onClick={() => onFocusExpandedControl("where")}
-            className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+      <div
+        className="pointer-events-auto w-full max-w-[760px] rounded-2xl border border-slate-200 bg-white px-2.5 py-2 shadow-sm"
+        data-testid="shortlets-sticky-bar"
+        aria-expanded={!isCollapsed}
+      >
+        <div className="relative min-h-8">
+          <div
+            className={`scrollbar-none flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-0.5 transition-all duration-200 ease-out motion-reduce:transition-none ${
+              isCollapsed ? "pointer-events-none absolute inset-0 opacity-0" : "opacity-100"
+            }`}
+            data-testid="shortlets-sticky-expanded"
+            aria-hidden={isCollapsed}
           >
-            <span className="truncate">{whereSummary}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onFocusExpandedControl("checkIn")}
-            className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            <button
+              type="button"
+              onClick={() => onFocusExpandedControl("where")}
+              className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            >
+              <span className="truncate">{whereSummary}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onFocusExpandedControl("checkIn")}
+              className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            >
+              <span className="truncate">{datesSummary}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onFocusExpandedControl("guests")}
+              className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+            >
+              <span className="truncate">{guestsSummary}</span>
+            </button>
+            <Select
+              value={sortValue}
+              onChange={(event) => onSortChange(event.target.value)}
+              className="h-8 w-[118px] shrink-0 text-[11px]"
+              aria-label="Sort compact"
+            >
+              <option value="recommended">Recommended</option>
+              <option value="price_asc">Price low-high</option>
+              <option value="price_desc">Price high-low</option>
+              <option value="rating">Rating</option>
+              <option value="newest">Newest</option>
+            </Select>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={onOpenFiltersDrawer}
+              className="h-8 shrink-0 whitespace-nowrap px-3"
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <span>{appliedFilterCount > 0 ? `Filters (${appliedFilterCount})` : "Filters"}</span>
+                {hasActiveDrawerIndicator ? (
+                  <span
+                    className="h-2 w-2 rounded-full bg-sky-500"
+                    data-testid="shortlets-filters-active-indicator-compact"
+                  />
+                ) : null}
+              </span>
+            </Button>
+            <Button onClick={onSubmitSearch} size="sm" className="h-8 shrink-0 whitespace-nowrap px-3">
+              Search
+            </Button>
+          </div>
+
+          <div
+            className={`scrollbar-none flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-0.5 transition-all duration-200 ease-out motion-reduce:transition-none ${
+              isCollapsed ? "opacity-100" : "pointer-events-none absolute inset-0 opacity-0"
+            }`}
+            data-testid="shortlets-sticky-collapsed"
+            aria-hidden={!isCollapsed}
           >
-            <span className="truncate">{datesSummary}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onFocusExpandedControl("guests")}
-            className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-          >
-            <span className="truncate">{guestsSummary}</span>
-          </button>
-          <Select
-            value={sortValue}
-            onChange={(event) => onSortChange(event.target.value)}
-            className="h-8 w-[118px] shrink-0 text-[11px]"
-            aria-label="Sort compact"
-          >
-            <option value="recommended">Recommended</option>
-            <option value="price_asc">Price low-high</option>
-            <option value="price_desc">Price high-low</option>
-            <option value="rating">Rating</option>
-            <option value="newest">Newest</option>
-          </Select>
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={onOpenFiltersDrawer}
-            className="h-8 shrink-0 whitespace-nowrap px-3"
-          >
-            <span className="inline-flex items-center gap-1.5">
-              <span>{appliedFilterCount > 0 ? `Filters (${appliedFilterCount})` : "Filters"}</span>
-              {hasActiveDrawerIndicator ? (
-                <span
-                  className="h-2 w-2 rounded-full bg-sky-500"
-                  data-testid="shortlets-filters-active-indicator-compact"
+            <button
+              type="button"
+              onClick={() => onFocusExpandedControl("where")}
+              className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              data-testid="shortlets-sticky-chip-where"
+              aria-label="Edit location"
+            >
+              <span className="truncate">{whereSummary}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onFocusExpandedControl("checkIn")}
+              className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              data-testid="shortlets-sticky-chip-dates"
+              aria-label="Edit dates"
+            >
+              <span className="truncate">{datesSummary}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => onFocusExpandedControl("guests")}
+              className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              data-testid="shortlets-sticky-chip-guests"
+              aria-label="Edit guests"
+            >
+              <span className="truncate">{guestsSummary}</span>
+            </button>
+            <button
+              type="button"
+              onClick={onOpenFiltersDrawer}
+              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              data-testid="shortlets-sticky-chip-filters"
+              aria-label={appliedFilterCount > 0 ? `Open filters (${appliedFilterCount} active)` : "Open filters"}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden className="h-3.5 w-3.5">
+                <path
+                  d="M4 7h16M7 12h10M10 17h4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
                 />
-              ) : null}
-            </span>
-          </Button>
-          <Button onClick={onSubmitSearch} size="sm" className="h-8 shrink-0 whitespace-nowrap px-3">
-            Search
-          </Button>
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
