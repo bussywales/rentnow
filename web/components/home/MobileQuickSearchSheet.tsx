@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -43,7 +44,30 @@ function resolveQuickSearchLocation(lastSearchParams: string | null | undefined)
 export function buildMobileQuickSearchHref(input: {
   category: MobileQuickSearchCategory;
   city?: string | null;
+  shortletParams?: Record<string, string> | null;
 }): string {
+  if (input.category === "shortlet") {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(input.shortletParams ?? {})) {
+      const trimmedValue = value?.trim();
+      if (trimmedValue) {
+        params.set(key, trimmedValue);
+      }
+    }
+    const city = input.city?.trim();
+    if (city) {
+      params.set("where", city);
+    } else if (!params.get("where")) {
+      params.delete("where");
+    }
+    params.delete("city");
+    if (!params.get("guests")) {
+      params.set("guests", "1");
+    }
+    const shortletQuery = params.toString();
+    return shortletQuery ? `/shortlets?${shortletQuery}` : "/shortlets";
+  }
+
   const params = buildPropertiesCategoryParams(new URLSearchParams(), input.category);
   const city = input.city?.trim();
   if (city) {
@@ -61,6 +85,7 @@ type MobileQuickSearchSheetProps = {
 };
 
 export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearchSheetProps) {
+  const router = useRouter();
   const initialState = useMemo(() => {
     if (typeof window === "undefined") {
       return { category: "rent" as MobileQuickSearchCategory, city: "" };
@@ -75,6 +100,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
   const [category, setCategory] = useState<MobileQuickSearchCategory>(initialState.category);
   const [city, setCity] = useState(initialState.city);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
+  const [selectedShortletParams, setSelectedShortletParams] = useState<Record<string, string> | null>(null);
   const [shortletRecentPresets, setShortletRecentPresets] = useState<ShortletSearchPreset[]>([]);
   const [recentSearches, setRecentSearches] = useState<string[]>(() =>
     getRecentSearches(MOBILE_QUICKSEARCH_RECENTS_KEY, MOBILE_QUICKSEARCH_RECENTS_LIMIT)
@@ -94,8 +120,9 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
       buildMobileQuickSearchHref({
         category,
         city,
+        shortletParams: selectedShortletParams,
       }),
-    [category, city]
+    [category, city, selectedShortletParams]
   );
 
   useEffect(() => {
@@ -119,9 +146,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
     );
     setRecentSearches(nextRecents);
     onOpenChange(false);
-    if (typeof window !== "undefined") {
-      window.location.assign(searchHref);
-    }
+    router.push(searchHref);
   };
 
   return (
@@ -149,6 +174,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
                 onClick={() => {
                   setCategory(option.key);
                   setActivePresetId(null);
+                  setSelectedShortletParams(null);
                 }}
                 data-testid={`mobile-quicksearch-category-${option.key}`}
                 className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
@@ -183,6 +209,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
                     onClick={() => {
                       setCategory(preset.category);
                       setActivePresetId(preset.id);
+                      setSelectedShortletParams(preset.shortletParams ?? null);
                       if (preset.city) {
                         setCity(preset.city);
                       }
@@ -204,7 +231,15 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
             id="mobile-quicksearch-location"
             ref={locationInputRef}
             value={city}
-            onChange={(event) => setCity(event.target.value)}
+            onChange={(event) => {
+              const nextCity = event.target.value;
+              setCity(nextCity);
+              if (category === "shortlet" && selectedShortletParams) {
+                setSelectedShortletParams((current) =>
+                  current ? { ...current, where: nextCity } : current
+                );
+              }
+            }}
             placeholder="City or area"
             data-testid="mobile-quicksearch-location-input"
             className="rounded-xl border-slate-200"
