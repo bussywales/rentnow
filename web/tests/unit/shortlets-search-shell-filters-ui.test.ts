@@ -89,9 +89,8 @@ void test("shortlets shell prevents invalid date ranges before search submit", (
 void test("shortlets shell exposes compact sticky pill summary controls", () => {
   const contents = fs.readFileSync(shellPath, "utf8");
 
-  assert.ok(contents.includes('data-testid="shortlets-compact-search-pill"'));
+  assert.ok(contents.includes("<ShortletsMobileStickyBar"));
   assert.ok(contents.includes("resolveShortletSearchControlVisibility"));
-  assert.ok(contents.includes('data-active="true"'));
   assert.ok(contents.includes('data-active={showExpandedSearch ? "true" : "false"}'));
   assert.ok(contents.includes('{ inert: "" } as Record<string, string>'));
   assert.ok(contents.includes("showCompactSearch"));
@@ -100,11 +99,10 @@ void test("shortlets shell exposes compact sticky pill summary controls", () => 
   assert.ok(contents.includes("whereSummary"));
   assert.ok(contents.includes("datesSummary"));
   assert.ok(contents.includes("guestsSummary"));
+  assert.ok(contents.includes("onFocusExpandedControl={focusExpandedControl}"));
+  assert.ok(contents.includes("onSortChange={(value) => updateUrl((next) => next.set(\"sort\", value))}"));
   assert.equal(contents.includes('data-testid="shortlets-price-display-toggle-compact"'), false);
   assert.ok(contents.includes("shouldUseCompactShortletSearchPill(window.scrollY)"));
-  assert.ok(contents.includes('<option value="price_asc">Price low-high</option>'));
-  assert.ok(contents.includes('<option value="price_desc">Price high-low</option>'));
-  assert.ok(contents.includes('<option value="rating">Rating</option>'));
 });
 
 void test("price display toggle is URL-driven and disabled until dates are selected", () => {
