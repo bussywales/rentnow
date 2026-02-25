@@ -19,3 +19,8 @@ export {
   selectShortletsFeaturedRailItems,
   type ShortletsFeaturedRailItem,
 } from "@/lib/discovery/shortlets-featured";
+export {
+  buildPropertiesFeaturedHref,
+  selectPropertiesFeaturedRailItems,
+  type PropertiesFeaturedRailItem,
+} from "@/lib/discovery/properties-featured";

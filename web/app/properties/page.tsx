@@ -3,6 +3,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
+import { PropertiesFeaturedRail } from "@/components/properties/discovery/PropertiesFeaturedRail";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { AdvancedSearchPanel } from "@/components/properties/AdvancedSearchPanel";
 import { BrowseIntentClient } from "@/components/properties/BrowseIntentClient";
@@ -853,6 +854,8 @@ export default async function PropertiesPage({ searchParams }: Props) {
           </p>
         ) : null}
       </div>
+
+      <PropertiesFeaturedRail />
 
       {savedSearch && (
         <div className="rounded-2xl border border-slate-200 bg-white/90 px-4 py-3 text-sm text-slate-700 shadow-sm">
