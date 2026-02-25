@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import { useMemo } from "react";
 import {
-  MOBILE_FEATURED_DISCOVERY_ITEMS,
   buildFeaturedDiscoveryHref,
+  getMobileFeaturedDiscoveryItems,
 } from "@/lib/home/mobile-featured-discovery";
+import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 
 const ACCENT_CLASSES = [
   "from-sky-600/95 via-cyan-500/90 to-emerald-400/80",
@@ -16,6 +18,14 @@ const ACCENT_CLASSES = [
 ] as const;
 
 export function MobileFeaturedDiscoveryStrip() {
+  const { market } = useMarketPreference();
+  const featuredItems = useMemo(
+    () => getMobileFeaturedDiscoveryItems({ marketCountry: market.country }),
+    [market.country]
+  );
+
+  if (!featuredItems.length) return null;
+
   return (
     <section
       className="space-y-3 overflow-x-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:hidden"
@@ -37,7 +47,7 @@ export function MobileFeaturedDiscoveryStrip() {
           className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 pr-5 scroll-px-5"
           data-testid="mobile-featured-scroll"
         >
-          {MOBILE_FEATURED_DISCOVERY_ITEMS.map((item, index) => (
+          {featuredItems.map((item, index) => (
             <Link
               key={item.id}
               href={buildFeaturedDiscoveryHref(item)}
