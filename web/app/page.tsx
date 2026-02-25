@@ -5,6 +5,7 @@ import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { QuickSearchForm } from "@/components/search/QuickSearchForm";
+import { MobileQuickStartBar } from "@/components/home/MobileQuickStartBar";
 import { Button } from "@/components/ui/Button";
 import { getProfile } from "@/lib/auth";
 import { DEV_MOCKS, getApiBaseUrl } from "@/lib/env";
@@ -104,6 +105,7 @@ export default async function Home() {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4">
+      <MobileQuickStartBar />
       <section className="relative overflow-hidden rounded-3xl bg-slate-900 px-6 py-12 text-white shadow-xl">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(14,165,233,0.3),transparent_35%),radial-gradient(circle_at_80%_0,rgba(56,189,248,0.25),transparent_25%)]" />
         <div className="relative grid items-center gap-8 md:grid-cols-2">
