@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 
@@ -32,6 +33,8 @@ export function SupportWidget({
   prefillEmail = null,
   prefillRole = null,
 }: Props) {
+  const pathname = usePathname();
+  const isShortletsRoute = pathname?.startsWith("/shortlets") ?? false;
   const [open, setOpen] = useState(false);
   const [hasBlockingDialog, setHasBlockingDialog] = useState(false);
   const [query, setQuery] = useState("");
@@ -287,9 +290,13 @@ export function SupportWidget({
     chatMessages,
   ]);
 
+  const widgetPositionClass = isShortletsRoute
+    ? "bottom-[calc(env(safe-area-inset-bottom)+5rem)] right-4 sm:bottom-6 sm:right-6"
+    : "bottom-4 right-4 sm:bottom-6 sm:right-6";
+
   return (
     <div
-      className={`fixed bottom-4 right-4 z-[35] sm:bottom-6 sm:right-6 ${hasBlockingDialog ? "hidden" : ""}`}
+      className={`fixed z-[35] ${widgetPositionClass} ${hasBlockingDialog ? "hidden" : ""}`}
       data-testid="support-widget"
     >
       {open ? (
