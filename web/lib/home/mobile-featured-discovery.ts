@@ -1,5 +1,7 @@
 import { type MobileQuickSearchCategory } from "@/lib/home/mobile-quicksearch-presets";
+import type { MobileQuickSearchIntent } from "@/lib/home/mobile-quicksearch-intent";
 import { buildPropertiesCategoryParams } from "@/lib/properties/browse-categories";
+import { isDateKey } from "@/lib/search/date-quick-picks";
 import {
   DISCOVERY_CATALOGUE,
   selectDiscoveryItems,
@@ -91,8 +93,25 @@ export function buildMobileQuickSearchHref(input: {
   category: MobileQuickSearchCategory;
   city?: string | null;
   shortletParams?: Record<string, string> | null;
+  intent?: MobileQuickSearchIntent | null;
+  guests?: number | null;
+  checkIn?: string | null;
+  checkOut?: string | null;
 }): string {
-  if (input.category === "shortlet") {
+  const effectiveCategory =
+    input.intent === "shortlet"
+      ? "shortlet"
+      : input.intent === "buy"
+      ? input.category === "off_plan" || input.category === "all"
+        ? input.category
+        : "buy"
+      : input.intent === "rent"
+      ? input.category === "off_plan" || input.category === "all"
+        ? input.category
+        : "rent"
+      : input.category;
+
+  if (effectiveCategory === "shortlet") {
     const params = new URLSearchParams();
     for (const [key, value] of Object.entries(input.shortletParams ?? {})) {
       const trimmedValue = value?.trim();
@@ -107,14 +126,30 @@ export function buildMobileQuickSearchHref(input: {
       params.delete("where");
     }
     params.delete("city");
-    if (!params.get("guests")) {
+    const guestsFromInput =
+      typeof input.guests === "number" && Number.isFinite(input.guests)
+        ? Math.max(1, Math.min(12, Math.trunc(input.guests)))
+        : null;
+    if (guestsFromInput) {
+      params.set("guests", String(guestsFromInput));
+    } else if (!params.get("guests")) {
       params.set("guests", "1");
+    }
+
+    const checkIn = input.checkIn?.trim() ?? "";
+    const checkOut = input.checkOut?.trim() ?? "";
+    if (isDateKey(checkIn) && isDateKey(checkOut) && checkIn < checkOut) {
+      params.set("checkIn", checkIn);
+      params.set("checkOut", checkOut);
+    } else {
+      params.delete("checkIn");
+      params.delete("checkOut");
     }
     const shortletQuery = params.toString();
     return shortletQuery ? `/shortlets?${shortletQuery}` : "/shortlets";
   }
 
-  const params = buildPropertiesCategoryParams(new URLSearchParams(), input.category);
+  const params = buildPropertiesCategoryParams(new URLSearchParams(), effectiveCategory);
   const city = input.city?.trim();
   if (city) {
     params.set("city", city);
