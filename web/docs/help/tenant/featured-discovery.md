@@ -8,6 +8,7 @@ updated_at: "2026-02-25"
 ## What the strip does
 
 - The mobile home featured strip is market-aware and static-config driven.
+- The shortlets featured rail (`/shortlets`) uses the same market-aware taxonomy and only renders shortlet-intent entries.
 - It uses the selected market context (`NG`, `CA`, `UK`, `US`) and falls back to `GLOBAL` when needed.
 - Cards route to existing browse destinations only:
   - `/shortlets?...`
