@@ -38,16 +38,6 @@ test.describe("shortlets mobile smoke", () => {
   test("mobile discovery supports filters and map overlay", async ({ page }) => {
     const runtimeErrors = attachRuntimeErrorGuards(page);
 
-    const closeSupportPanelIfOpen = async () => {
-      const supportPanel = page.getByTestId(smokeSelectors.supportWidgetPanel);
-      if (!(await supportPanel.isVisible().catch(() => false))) return;
-      const closeButton = supportPanel.getByRole("button", { name: /close/i }).first();
-      if (await closeButton.isVisible().catch(() => false)) {
-        await closeButton.click({ force: true });
-      }
-      await expect(supportPanel).toBeHidden();
-    };
-
     const visibleMap = page.locator(`[data-testid="${smokeSelectors.shortletsMap}"]:visible`).first();
 
     const openMobileMapSheet = async () => {
@@ -56,29 +46,13 @@ test.describe("shortlets mobile smoke", () => {
       const mobileMapDialog = page.locator(`#${smokeSelectors.shortletsMobileMapDialog}`);
 
       await expect(mapOpen).toBeVisible();
-      await closeSupportPanelIfOpen();
-
-      await mapOpen.evaluate((element) => {
-        element.click();
-      });
+      await mapOpen.click();
 
       await expect
         .poll(async () => {
           if (await mobileMapSheet.isVisible().catch(() => false)) return true;
           if (await mobileMapDialog.isVisible().catch(() => false)) return true;
-          const supportPanel = page.getByTestId(smokeSelectors.supportWidgetPanel);
-          if (await supportPanel.isVisible().catch(() => false)) {
-            const closeButton = supportPanel.getByRole("button", { name: /close/i }).first();
-            if (await closeButton.isVisible().catch(() => false)) {
-              await closeButton.click({ force: true });
-            }
-          }
-          await mapOpen.evaluate((element) => {
-            element.click();
-          });
-          const sheetVisible = await mobileMapSheet.isVisible().catch(() => false);
-          if (sheetVisible) return true;
-          return mobileMapDialog.isVisible().catch(() => false);
+          return false;
         }, { timeout: 10_000 })
         .toBeTruthy();
 
@@ -96,7 +70,6 @@ test.describe("shortlets mobile smoke", () => {
     await waitForShortletsResults(page);
     await expect(page.getByTestId(smokeSelectors.shortletsFeaturedRail)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.shortletsFeaturedItem).first()).toBeVisible();
-    await closeSupportPanelIfOpen();
 
     const dismissDisclaimer = page.getByRole("button", { name: /Dismiss marketplace disclaimer/i });
     if (await dismissDisclaimer.isVisible().catch(() => false)) {
@@ -134,7 +107,6 @@ test.describe("shortlets mobile smoke", () => {
     }
     await expect(filtersDrawer).toBeHidden();
     await waitForShortletsResults(page);
-    await closeSupportPanelIfOpen();
 
     const mapOpen = page.getByTestId(smokeSelectors.shortletsMapOpen);
     const hasMapSheetToggle = await mapOpen.isVisible().catch(() => false);
