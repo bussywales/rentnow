@@ -22,4 +22,10 @@ void test("footer social section renders configured links", () => {
   assert.match(html, /Follow us/);
   assert.match(html, /https:\/\/instagram\.com\/propatyhub/);
   assert.match(html, /https:\/\/wa\.me\/2348000000000/);
+  assert.match(html, /footer-social-icon-instagram/);
+  assert.match(html, /footer-social-icon-whatsapp/);
+  assert.match(html, /aria-label="Follow us on Instagram"/);
+  assert.match(html, /aria-label="Follow us on WhatsApp"/);
+  assert.doesNotMatch(html, />IG</);
+  assert.doesNotMatch(html, />WA</);
 });

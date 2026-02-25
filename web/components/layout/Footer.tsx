@@ -1,17 +1,10 @@
 import { BrandLogo } from "@/components/branding/BrandLogo";
+import { SocialIconLink } from "@/components/brand/SocialIconLink";
 import { BRAND_NAME, BRAND_SUPPORT_EMAIL, BRAND_TAGLINE } from "@/lib/brand";
 import {
   getEnabledBrandSocialLinks,
   type BrandSocialLink,
 } from "@/lib/brand-socials";
-
-const SOCIAL_MONOGRAM: Record<BrandSocialLink["platform"], string> = {
-  instagram: "IG",
-  youtube: "YT",
-  tiktok: "TT",
-  facebook: "FB",
-  whatsapp: "WA",
-};
 
 export function FooterSocialLinks({ socialLinks }: { socialLinks: BrandSocialLink[] }) {
   if (!socialLinks.length) return null;
@@ -21,17 +14,13 @@ export function FooterSocialLinks({ socialLinks }: { socialLinks: BrandSocialLin
       <span className="text-xs font-medium text-slate-500">Follow us</span>
       <div className="flex items-center gap-1.5">
         {socialLinks.map((link) => (
-          <a
+          <SocialIconLink
             key={link.platform}
+            platform={link.platform}
             href={link.href}
-            target="_blank"
-            rel="noreferrer noopener"
-            aria-label={`Follow us on ${link.label}`}
-            className="inline-flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-[10px] font-semibold text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700"
-          >
-            <span aria-hidden>{SOCIAL_MONOGRAM[link.platform]}</span>
-            <span className="sr-only">{link.label}</span>
-          </a>
+            label={`Follow us on ${link.label}`}
+            data-testid={`footer-social-icon-${link.platform}`}
+          />
         ))}
       </div>
     </div>
