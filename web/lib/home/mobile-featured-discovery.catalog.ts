@@ -5,6 +5,7 @@ export const MOBILE_FEATURED_DISCOVERY_MARKETS = ["GLOBAL", "NG", "GB", "CA"] as
 export type MobileFeaturedDiscoveryMarket = (typeof MOBILE_FEATURED_DISCOVERY_MARKETS)[number];
 
 export type MobileFeaturedDiscoveryCatalogueItem = {
+  // Stable identifier used by tests and deterministic rotation.
   id: string;
   title: string;
   subtitle: string;
@@ -12,9 +13,13 @@ export type MobileFeaturedDiscoveryCatalogueItem = {
   city?: string;
   shortletParams?: Record<string, string>;
   tag: string;
+  // "GLOBAL" makes an item eligible for every market as fallback.
   marketTags: MobileFeaturedDiscoveryMarket[];
+  // Higher priority shows earlier before rotation.
   priority?: number;
+  // Optional visual mapping key reserved for future image variants.
   imageKey?: string;
+  // Optional static lifecycle controls for campaign-like cards.
   disabled?: boolean;
   validFrom?: string;
   validTo?: string;
