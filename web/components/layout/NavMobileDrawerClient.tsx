@@ -23,6 +23,7 @@ type Props = {
 type DrawerLink = {
   href: string;
   label: string;
+  testId?: string;
   platform?: BrandSocialLink["platform"];
   showUnread?: boolean;
   badgeCount?: number | null;
@@ -36,7 +37,6 @@ type DrawerLinkGroup = {
 
 const LOGGED_OUT_LINKS: DrawerLink[] = [
   { href: "/onboarding", label: "Become a host" },
-  { href: "/agents", label: "Find an agent" },
   { href: "/auth/login", label: "Log in" },
   { href: "/auth/register", label: "Sign up" },
 ];
@@ -149,6 +149,22 @@ export function buildMobileNavLinkGroups(
   ]);
 
   const mainLinks = baseLinks.filter((link) => !groupedHrefs.has(link.href));
+  if (isAuthed && role === "tenant" && !mainLinks.some((link) => link.href === "/agents")) {
+    const agentsLink: DrawerLink = {
+      href: "/agents",
+      label: "Agents",
+      testId: "nav-link-agents",
+    };
+    const propertiesIndex = mainLinks.findIndex((link) => link.href === "/properties");
+    const shortletsIndex = mainLinks.findIndex((link) => link.href === "/shortlets");
+    const insertionIndex =
+      propertiesIndex >= 0
+        ? propertiesIndex + 1
+        : shortletsIndex >= 0
+          ? shortletsIndex + 1
+          : 0;
+    mainLinks.splice(insertionIndex, 0, agentsLink);
+  }
   const helpSupportLinks = dedupeLinks([
     baseLinks.find((link) => link.href === helpHref) ?? { href: helpHref, label: "Help Centre" },
     baseLinks.find((link) => link.href === supportHref) ??
@@ -363,32 +379,33 @@ export function NavMobileDrawerClient({
                           const active = isActiveHref(pathname, link.href);
                           return (
                             <Link
-                            key={`${group.title}-${link.href}`}
-                            href={link.href}
-                            aria-current={active ? "page" : undefined}
-                            target={link.external ? "_blank" : undefined}
-                            rel={link.external ? "noreferrer noopener" : undefined}
-                            className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
-                              active
-                                ? "bg-slate-100 font-semibold text-slate-900"
-                                : "text-slate-700 hover:bg-slate-50"
-                            }`}
-                            onClick={() => setOpen(false)}
-                          >
-                            <span className="inline-flex items-center gap-1.5">
-                              <span>{link.label}</span>
-                              {(link.badgeCount ?? 0) > 0 ? (
+                              key={`${group.title}-${link.href}`}
+                              href={link.href}
+                              data-testid={link.testId}
+                              aria-current={active ? "page" : undefined}
+                              target={link.external ? "_blank" : undefined}
+                              rel={link.external ? "noreferrer noopener" : undefined}
+                              className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm transition ${
+                                active
+                                  ? "bg-slate-100 font-semibold text-slate-900"
+                                  : "text-slate-700 hover:bg-slate-50"
+                              }`}
+                              onClick={() => setOpen(false)}
+                            >
+                              <span className="inline-flex items-center gap-1.5">
+                                <span>{link.label}</span>
+                                {(link.badgeCount ?? 0) > 0 ? (
+                                  <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
+                                    {link.badgeCount}
+                                  </span>
+                                ) : null}
+                              </span>
+                              {link.showUnread && unreadCount > 0 ? (
                                 <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
-                                  {link.badgeCount}
+                                  {unreadCount}
                                 </span>
                               ) : null}
-                            </span>
-                            {link.showUnread && unreadCount > 0 ? (
-                              <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[10px] font-semibold text-slate-900">
-                                {unreadCount}
-                              </span>
-                            ) : null}
-                          </Link>
+                            </Link>
                           );
                         })
                       )}

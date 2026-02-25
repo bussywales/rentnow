@@ -77,6 +77,13 @@ void test("mobile drawer groups include Help & Support, Company, and Legal secti
   assert.ok(titles.includes("Company"));
   assert.ok(titles.includes("Legal"));
 
+  const mainGroup = groups.find((group) => group.title === "Main");
+  assert.ok(mainGroup?.links.find((link) => link.href === "/agents"));
+  assert.equal(
+    mainGroup?.links.find((link) => link.href === "/agents")?.label,
+    "Agents"
+  );
+
   const helpGroup = groups.find((group) => group.title === "Help & Support");
   assert.ok(helpGroup?.links.find((link) => link.href === "/help/tenant"));
   assert.ok(helpGroup?.links.find((link) => link.href === "/support"));
@@ -100,6 +107,28 @@ void test("admin mobile drawer retains admin support and legal access via groupe
   assert.ok(helpGroup?.links.find((link) => link.href === "/admin/support"));
   assert.ok(legalGroup?.links.find((link) => link.href === "/admin/legal"));
   assert.ok(legalGroup?.links.find((link) => link.href === "/legal/disclaimer"));
+});
+
+void test("tenant-only agents link is excluded from non-tenant main groups", () => {
+  const landlordGroups = buildMobileNavLinkGroups(MAIN_NAV_LINKS, {
+    isAuthed: true,
+    role: "landlord",
+  });
+  const landlordMain = landlordGroups.find((group) => group.title === "Main");
+  assert.equal(
+    landlordMain?.links.some((link) => link.href === "/agents"),
+    false
+  );
+
+  const adminGroups = buildMobileNavLinkGroups(MAIN_NAV_LINKS, {
+    isAuthed: true,
+    role: "admin",
+  });
+  const adminMain = adminGroups.find((group) => group.title === "Main");
+  assert.equal(
+    adminMain?.links.some((link) => link.href === "/agents"),
+    false
+  );
 });
 
 void test("mobile drawer hides connect group when no socials are configured", () => {
