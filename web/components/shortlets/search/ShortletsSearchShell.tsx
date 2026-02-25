@@ -1418,10 +1418,21 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   });
   const showCompactSearch = searchControlVisibility.compactActive;
   const showExpandedSearch = searchControlVisibility.expandedActive;
-  const { isCollapsed: isStickyCollapsed } = useShortletsStickyCollapse({
+  const { isCollapsed: isStickyCollapsed, forceExpand: forceExpandStickyBar } = useShortletsStickyCollapse({
     enabled: showCompactSearch,
-    lockExpanded: mobileMapOpen,
+    lockExpanded: mobileMapOpen || filtersOpen || quickFiltersPanelOpen || searchDatesOpen,
+    nearTopPx: 40,
+    collapseAfterPx: 220,
+    expandBeforePx: 120,
+    directionThresholdPx: 12,
   });
+  const focusStickyControl = useCallback(
+    (field: "where" | "checkIn" | "guests") => {
+      forceExpandStickyBar();
+      focusExpandedControl(field);
+    },
+    [focusExpandedControl, forceExpandStickyBar]
+  );
   const useCompactQuickFiltersControl = quickFiltersCollapsed || showCompactSearch;
   useEffect(() => {
     if (!useCompactQuickFiltersControl) {
@@ -1504,7 +1515,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
         sortValue={parsedUi.sort}
         appliedFilterCount={appliedFilterCount}
         hasActiveDrawerIndicator={hasActiveDrawerIndicator}
-        onFocusExpandedControl={focusExpandedControl}
+        onFocusExpandedControl={focusStickyControl}
         onSortChange={(value) => updateUrl((next) => next.set("sort", value))}
         onSubmitSearch={onSubmitSearch}
         onOpenFiltersDrawer={openFiltersDrawer}

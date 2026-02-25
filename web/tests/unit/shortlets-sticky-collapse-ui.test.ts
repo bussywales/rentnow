@@ -40,5 +40,8 @@ void test("shortlets shell passes collapse state into sticky bar and keeps compa
 
   assert.ok(contents.includes("showCompactSearch={showCompactSearch}"));
   assert.ok(contents.includes("isCollapsed={isStickyCollapsed}"));
+  assert.ok(contents.includes("lockExpanded: mobileMapOpen || filtersOpen || quickFiltersPanelOpen || searchDatesOpen"));
+  assert.ok(contents.includes("forceExpandStickyBar();"));
+  assert.ok(contents.includes("onFocusExpandedControl={focusStickyControl}"));
   assert.ok(contents.includes("resolveShortletSearchControlVisibility"));
 });

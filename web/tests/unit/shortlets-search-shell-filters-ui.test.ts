@@ -99,7 +99,7 @@ void test("shortlets shell exposes compact sticky pill summary controls", () => 
   assert.ok(contents.includes("whereSummary"));
   assert.ok(contents.includes("datesSummary"));
   assert.ok(contents.includes("guestsSummary"));
-  assert.ok(contents.includes("onFocusExpandedControl={focusExpandedControl}"));
+  assert.ok(contents.includes("onFocusExpandedControl={focusStickyControl}"));
   assert.ok(contents.includes("onSortChange={(value) => updateUrl((next) => next.set(\"sort\", value))}"));
   assert.equal(contents.includes('data-testid="shortlets-price-display-toggle-compact"'), false);
   assert.ok(contents.includes("shouldUseCompactShortletSearchPill(window.scrollY)"));
