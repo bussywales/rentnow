@@ -94,6 +94,8 @@ test.describe("shortlets mobile smoke", () => {
     await expect(page.getByRole("heading", { name: /find shortlets/i })).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.shortletsShell)).toBeVisible();
     await waitForShortletsResults(page);
+    await expect(page.getByTestId(smokeSelectors.shortletsFeaturedRail)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.shortletsFeaturedItem).first()).toBeVisible();
     await closeSupportPanelIfOpen();
 
     const dismissDisclaimer = page.getByRole("button", { name: /Dismiss marketplace disclaimer/i });
