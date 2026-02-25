@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { SocialIconLink } from "@/components/brand/SocialIconLink";
 import type { UserRole } from "@/lib/types";
 import { normalizeRole } from "@/lib/roles";
 import { resolveNavLinks, type NavLink, isActiveHref } from "@/components/layout/NavLinksClient";
@@ -22,6 +23,7 @@ type Props = {
 type DrawerLink = {
   href: string;
   label: string;
+  platform?: BrandSocialLink["platform"];
   showUnread?: boolean;
   badgeCount?: number | null;
   external?: boolean;
@@ -158,6 +160,7 @@ export function buildMobileNavLinkGroups(
     socialLinks.map((link) => ({
       href: link.href,
       label: link.label,
+      platform: link.platform,
       external: true,
     }))
   );
@@ -336,10 +339,30 @@ export function NavMobileDrawerClient({
                       <h3 className="px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                         {group.title}
                       </h3>
-                      {group.links.map((link) => {
-                        const active = isActiveHref(pathname, link.href);
-                        return (
-                          <Link
+                      {group.title === "Connect with us" ? (
+                        <div
+                          className="flex flex-wrap items-center gap-2 px-1 py-1"
+                          data-testid="mobile-drawer-connect-icons"
+                        >
+                          {group.links.map((link) =>
+                            link.platform ? (
+                              <SocialIconLink
+                                key={`${group.title}-${link.href}`}
+                                platform={link.platform}
+                                href={link.href}
+                                label={link.label}
+                                className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200 text-slate-700 transition hover:border-sky-200 hover:bg-sky-50 hover:text-sky-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-1"
+                                iconClassName="h-4 w-4"
+                                data-testid={`mobile-drawer-social-icon-${link.platform}`}
+                              />
+                            ) : null
+                          )}
+                        </div>
+                      ) : (
+                        group.links.map((link) => {
+                          const active = isActiveHref(pathname, link.href);
+                          return (
+                            <Link
                             key={`${group.title}-${link.href}`}
                             href={link.href}
                             aria-current={active ? "page" : undefined}
@@ -366,8 +389,9 @@ export function NavMobileDrawerClient({
                               </span>
                             ) : null}
                           </Link>
-                        );
-                      })}
+                          );
+                        })
+                      )}
                     </section>
                   ))}
                 </nav>

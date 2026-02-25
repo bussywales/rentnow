@@ -135,4 +135,11 @@ void test("mobile drawer shows connect group when socials are configured", () =>
   assert.ok(connectGroup, "expected connect group");
   assert.ok(connectGroup.links.find((link) => link.href === "https://instagram.com/propatyhub"));
   assert.ok(connectGroup.links.find((link) => link.href === "https://wa.me/2348000000000"));
+  assert.equal(connectGroup.links[0]?.platform, "instagram");
+  assert.equal(connectGroup.links[1]?.platform, "whatsapp");
+  assert.equal(connectGroup.links.every((link) => link.external), true);
+  assert.deepEqual(
+    connectGroup.links.map((link) => link.label),
+    ["Instagram", "WhatsApp"]
+  );
 });
