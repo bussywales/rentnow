@@ -2,6 +2,7 @@
 title: "Mobile quick search: categories & presets"
 audiences:
   - TENANT
+  - HOST
 areas:
   - Home
   - Search

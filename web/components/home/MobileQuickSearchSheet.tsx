@@ -101,7 +101,10 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
   const [city, setCity] = useState(initialState.city);
   const [activePresetId, setActivePresetId] = useState<string | null>(null);
   const [selectedShortletParams, setSelectedShortletParams] = useState<Record<string, string> | null>(null);
-  const [shortletRecentPresets, setShortletRecentPresets] = useState<ShortletSearchPreset[]>([]);
+  const shortletRecentPresets = useMemo<ShortletSearchPreset[]>(() => {
+    if (!open || typeof window === "undefined") return [];
+    return readRecentSearchPresets().slice(0, 4);
+  }, [open]);
   const [recentSearches, setRecentSearches] = useState<string[]>(() =>
     getRecentSearches(MOBILE_QUICKSEARCH_RECENTS_KEY, MOBILE_QUICKSEARCH_RECENTS_LIMIT)
   );
@@ -127,7 +130,6 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
 
   useEffect(() => {
     if (!open) return;
-    setShortletRecentPresets(readRecentSearchPresets().slice(0, 4));
     const rafId = window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         locationInputRef.current?.focus();
