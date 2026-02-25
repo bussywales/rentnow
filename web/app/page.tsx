@@ -7,6 +7,7 @@ import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { QuickSearchForm } from "@/components/search/QuickSearchForm";
 import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
 import { HomeListingRail } from "@/components/home/HomeListingRail";
+import { MobileFeaturedDiscoveryStrip } from "@/components/home/MobileFeaturedDiscoveryStrip";
 import { MobileQuickStartBar } from "@/components/home/MobileQuickStartBar";
 import { Button } from "@/components/ui/Button";
 import { getProfile } from "@/lib/auth";
@@ -137,6 +138,7 @@ export default async function Home() {
     <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4">
       <MobileQuickStartBar />
       <section className="space-y-4 md:hidden" data-testid="mobile-home-inventory-first">
+        <MobileFeaturedDiscoveryStrip />
         {featured.length ? (
           <HomeListingRail
             title="Featured homes"
