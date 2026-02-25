@@ -14,3 +14,8 @@ export {
 export { DISCOVERY_CATALOGUE, type DiscoveryCatalogueItem } from "@/lib/discovery/discovery-catalogue";
 export { validateDiscoveryCatalogue, type DiscoveryValidationResult } from "@/lib/discovery/discovery-validate";
 export { selectDiscoveryItems } from "@/lib/discovery/discovery-select";
+export {
+  buildShortletsFeaturedHref,
+  selectShortletsFeaturedRailItems,
+  type ShortletsFeaturedRailItem,
+} from "@/lib/discovery/shortlets-featured";

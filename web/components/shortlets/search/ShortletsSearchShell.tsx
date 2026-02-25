@@ -12,6 +12,7 @@ import { PropertyCardSkeleton } from "@/components/properties/PropertyCardSkelet
 import { ShortletsMobileStickyBar } from "@/components/shortlets/search/ShortletsMobileStickyBar";
 import { ShortletsSearchMap } from "@/components/shortlets/search/ShortletsSearchMap";
 import { ShortletsSearchListCard } from "@/components/shortlets/search/ShortletsSearchListCard";
+import { ShortletsFeaturedRail } from "@/components/shortlets/discovery/ShortletsFeaturedRail";
 import { useShortletsStickyCollapse } from "@/components/shortlets/search/useShortletsStickyCollapse";
 import { WhereTypeahead, type WhereSuggestion } from "@/components/shortlets/search/WhereTypeahead";
 import {
@@ -1815,6 +1816,8 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
             </div>
           ) : null}
         </div>
+
+        <ShortletsFeaturedRail />
 
         {activeFilterTags.length > 0 ? (
           <div
