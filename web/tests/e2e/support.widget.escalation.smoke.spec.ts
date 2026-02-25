@@ -83,6 +83,10 @@ test.describe("support widget escalation smoke", () => {
       });
     });
 
+    await page.addInitScript(() => {
+      window.localStorage.setItem("ph_marketplace_disclaimer_dismissed_version", "v1");
+    });
+
     await page.goto("/shortlets", { waitUntil: "domcontentloaded" });
     await expect(page.getByTestId(smokeSelectors.supportWidgetButton)).toBeVisible();
 
