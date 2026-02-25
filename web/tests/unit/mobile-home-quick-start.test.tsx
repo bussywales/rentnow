@@ -19,9 +19,12 @@ void test("mobile quick-start renders search entry and category shortcuts", () =
   assert.match(html, /href="\/properties\?intent=rent"/);
   assert.match(html, /data-testid="mobile-quickstart-chip-sale"/);
   assert.match(html, /href="\/properties\?intent=sale"/);
+  assert.match(html, /data-testid="mobile-quickstart-chip-offplan"/);
+  assert.match(html, /href="\/properties\?intent=off_plan"/);
   assert.match(html, /data-testid="mobile-quickstart-chip-all"/);
   assert.match(html, /href="\/properties"/);
   assert.match(html, /md:hidden/);
+  assert.match(html, /sticky top-\[72px\] z-20/);
   assert.match(html, /snap-x snap-mandatory/);
   assert.match(html, /scrollbar-none/);
 });
