@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { NextRequest, NextResponse } from "next/server";
 import {
+  computeSupportSlaState,
   getAdminSupportRequestsResponse,
   type AdminSupportRequestsDeps,
 } from "@/app/api/admin/support/requests/route";
@@ -204,4 +205,96 @@ void test("admin support requests route supports assigned=me and status=in_progr
   assert.equal(body.filters.assigned, "me");
   assert.equal(body.items.length, 1);
   assert.equal(body.items[0].id, "req-1");
+});
+
+void test("support SLA helper applies new/in_progress/resolved thresholds", () => {
+  const nowMs = Date.parse("2026-02-25T12:00:00.000Z");
+
+  const new23h = computeSupportSlaState({
+    status: "new",
+    createdAt: "2026-02-24T13:00:00.000Z",
+    nowMs,
+  });
+  assert.equal(new23h.ageMinutes, 23 * 60);
+  assert.equal(new23h.slaMinutes, 24 * 60);
+  assert.equal(new23h.isOverdue, false);
+
+  const new24h = computeSupportSlaState({
+    status: "new",
+    createdAt: "2026-02-24T12:00:00.000Z",
+    nowMs,
+  });
+  assert.equal(new24h.ageMinutes, 24 * 60);
+  assert.equal(new24h.slaMinutes, 24 * 60);
+  assert.equal(new24h.isOverdue, true);
+
+  const inProgress47h = computeSupportSlaState({
+    status: "in_progress",
+    createdAt: "2026-02-23T13:00:00.000Z",
+    nowMs,
+  });
+  assert.equal(inProgress47h.ageMinutes, 47 * 60);
+  assert.equal(inProgress47h.slaMinutes, 48 * 60);
+  assert.equal(inProgress47h.isOverdue, false);
+
+  const inProgress48h = computeSupportSlaState({
+    status: "in_progress",
+    createdAt: "2026-02-23T12:00:00.000Z",
+    nowMs,
+  });
+  assert.equal(inProgress48h.ageMinutes, 48 * 60);
+  assert.equal(inProgress48h.slaMinutes, 48 * 60);
+  assert.equal(inProgress48h.isOverdue, true);
+
+  const resolved = computeSupportSlaState({
+    status: "resolved",
+    createdAt: "2026-02-24T12:00:00.000Z",
+    nowMs,
+  });
+  assert.equal(resolved.ageMinutes, 24 * 60);
+  assert.equal(resolved.slaMinutes, null);
+  assert.equal(resolved.isOverdue, false);
+});
+
+void test("admin support requests payload includes SLA fields", async () => {
+  const deps: AdminSupportRequestsDeps = {
+    requireRole: async () =>
+      ({
+        ok: true,
+        role: "admin",
+        user: { id: "admin-1" } as never,
+        supabase: {} as never,
+      }) as Awaited<ReturnType<AdminSupportRequestsDeps["requireRole"]>>,
+    hasServiceRoleEnv: () => true,
+    createServiceRoleClient: () => ({}) as never,
+    loadRows: async () => [
+      {
+        id: "req-1",
+        created_at: "2026-02-24T10:00:00.000Z",
+        category: "billing",
+        email: "a@example.com",
+        name: "A",
+        message: "Need help",
+        status: "new",
+        metadata: {},
+        claimed_by: null,
+        claimed_at: null,
+        resolved_at: null,
+      },
+    ],
+  };
+
+  const response = await getAdminSupportRequestsResponse(
+    makeRequest("/api/admin/support/requests?status=all"),
+    deps
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 200);
+  assert.equal(typeof body.items[0].ageMinutes, "number");
+  assert.equal(
+    body.items[0].slaMinutes === null || typeof body.items[0].slaMinutes === "number",
+    true
+  );
+  assert.equal(typeof body.items[0].isOverdue, "boolean");
 });

@@ -37,6 +37,9 @@ type SupportRequestItem = {
   claimedBy: string | null;
   claimedAt: string | null;
   resolvedAt: string | null;
+  ageMinutes: number;
+  slaMinutes: number | null;
+  isOverdue: boolean;
 };
 
 type AdminSupportStatusFilter = "open" | "all" | "new" | "in_progress" | "resolved";
@@ -70,7 +73,37 @@ function toTranscript(metadata: Record<string, unknown>) {
     .slice(0, 80);
 }
 
-function toItem(row: SupportRequestRow): SupportRequestItem {
+export function computeSupportSlaState(input: {
+  status: string | null | undefined;
+  createdAt: string | null | undefined;
+  nowMs?: number;
+}) {
+  const status = String(input.status || "new")
+    .trim()
+    .toLowerCase();
+  const createdMs = Date.parse(String(input.createdAt || ""));
+  const safeNowMs = Number.isFinite(input.nowMs) ? Number(input.nowMs) : Date.now();
+  const ageMinutes = Number.isFinite(createdMs)
+    ? Math.max(0, Math.floor((safeNowMs - createdMs) / (60 * 1000)))
+    : 0;
+
+  if (status === "resolved") {
+    return {
+      ageMinutes,
+      slaMinutes: null as number | null,
+      isOverdue: false,
+    };
+  }
+
+  const slaMinutes = status === "in_progress" ? 48 * 60 : 24 * 60;
+  return {
+    ageMinutes,
+    slaMinutes,
+    isOverdue: ageMinutes >= slaMinutes,
+  };
+}
+
+function toItem(row: SupportRequestRow, nowMs: number): SupportRequestItem {
   const metadata =
     row.metadata && typeof row.metadata === "object"
       ? (row.metadata as Record<string, unknown>)
@@ -78,6 +111,11 @@ function toItem(row: SupportRequestRow): SupportRequestItem {
   const role = typeof metadata.role === "string" ? metadata.role : null;
   const message = typeof row.message === "string" ? row.message : "";
   const excerpt = message.replace(/\s+/g, " ").trim().slice(0, 140);
+  const slaState = computeSupportSlaState({
+    status: row.status,
+    createdAt: row.created_at,
+    nowMs,
+  });
   return {
     id: row.id,
     createdAt: row.created_at ?? null,
@@ -94,6 +132,9 @@ function toItem(row: SupportRequestRow): SupportRequestItem {
     claimedBy: typeof row.claimed_by === "string" ? row.claimed_by : null,
     claimedAt: typeof row.claimed_at === "string" ? row.claimed_at : null,
     resolvedAt: typeof row.resolved_at === "string" ? row.resolved_at : null,
+    ageMinutes: slaState.ageMinutes,
+    slaMinutes: slaState.slaMinutes,
+    isOverdue: slaState.isOverdue,
   };
 }
 
@@ -165,10 +206,11 @@ export async function getAdminSupportRequestsResponse(
   const client = deps.hasServiceRoleEnv()
     ? (deps.createServiceRoleClient() as unknown as UntypedAdminClient)
     : (auth.supabase as unknown as UntypedAdminClient);
+  const nowMs = Date.now();
 
   try {
     const rows = await deps.loadRows(client, fetchLimit);
-    const mapped = rows.map(toItem);
+    const mapped = rows.map((row) => toItem(row, nowMs));
     const filtered = mapped.filter((row) => {
       const normalizedStatus = row.status.toLowerCase();
       if (status === "open" && normalizedStatus === "resolved") return false;
