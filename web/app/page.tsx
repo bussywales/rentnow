@@ -5,6 +5,8 @@ import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
 import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { QuickSearchForm } from "@/components/search/QuickSearchForm";
+import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection";
+import { HomeListingRail } from "@/components/home/HomeListingRail";
 import { MobileQuickStartBar } from "@/components/home/MobileQuickStartBar";
 import { Button } from "@/components/ui/Button";
 import { getProfile } from "@/lib/auth";
@@ -19,10 +21,16 @@ import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
 
+const HOME_MOBILE_WHY_COLLAPSED_KEY = "home:public:why-propatyhub:collapsed:v1";
+
 export default async function Home() {
   let featured: Property[] = [];
+  let popularHomes: Property[] = [];
+  let newHomes: Property[] = [];
   const apiBaseUrl = await getApiBaseUrl();
-  const apiUrl = `${apiBaseUrl}/api/properties/search?featured=true&pageSize=6`;
+  const featuredApiUrl = `${apiBaseUrl}/api/properties/search?featured=true&pageSize=10`;
+  const popularApiUrl = `${apiBaseUrl}/api/properties/search?pageSize=10`;
+  const newHomesApiUrl = `${apiBaseUrl}/api/properties/search?recent=7&pageSize=10`;
   const supabaseReady = hasServerSupabaseEnv();
   let role = null;
   let profileId: string | null = null;
@@ -36,41 +44,63 @@ export default async function Home() {
 
   if (supabaseReady) {
     try {
-      const res = await fetch(apiUrl, { cache: "no-store" });
-      if (res.ok) {
-        const json = await res.json();
-        const typed = (json.properties as Property[]) || [];
-        featured = typed.slice(0, 3) || [];
+      const [featuredRes, popularRes, newHomesRes] = await Promise.all([
+        fetch(featuredApiUrl, { cache: "no-store" }),
+        fetch(popularApiUrl, { cache: "no-store" }),
+        fetch(newHomesApiUrl, { cache: "no-store" }),
+      ]);
+
+      if (featuredRes.ok) {
+        const json = await featuredRes.json();
+        featured = ((json.properties as Property[]) || []).slice(0, 10);
       } else {
-        console.warn("[home] featured listings request failed", res.status);
+        console.warn("[home] featured listings request failed", featuredRes.status);
+      }
+
+      if (popularRes.ok) {
+        const json = await popularRes.json();
+        popularHomes = ((json.properties as Property[]) || []).slice(0, 10);
+      } else {
+        console.warn("[home] popular listings request failed", popularRes.status);
+      }
+
+      if (newHomesRes.ok) {
+        const json = await newHomesRes.json();
+        newHomes = ((json.properties as Property[]) || []).slice(0, 10);
+      } else {
+        console.warn("[home] new listings request failed", newHomesRes.status);
       }
     } catch (err) {
-      console.warn("[home] unable to fetch featured properties", err);
+      console.warn("[home] unable to fetch listing rails", err);
     }
   }
 
-  if (DEV_MOCKS && (!supabaseReady || !featured.length)) {
-    featured = mockProperties.slice(0, 3);
+  if (DEV_MOCKS && (!supabaseReady || (!featured.length && !popularHomes.length && !newHomes.length))) {
+    featured = mockProperties.slice(0, 6);
+    popularHomes = mockProperties.slice(2, 8);
+    newHomes = mockProperties.slice(1, 7);
   }
+
+  const featuredPreview = featured.slice(0, 3);
 
   let savedIds = new Set<string>();
   let trustSnapshots: Record<string, TrustMarkerState> = {};
   let socialProofByListing: Record<string, ListingPopularitySignal> = {};
-  if (supabaseReady && profileId && featured.length) {
+  if (supabaseReady && profileId && featuredPreview.length) {
     try {
       const supabase = await createServerSupabaseClient();
       savedIds = await fetchSavedPropertyIds({
         supabase,
         userId: profileId,
-        propertyIds: featured.map((property) => property.id),
+        propertyIds: featuredPreview.map((property) => property.id),
       });
-      const ownerIds = Array.from(new Set(featured.map((property) => property.owner_id).filter(Boolean)));
+      const ownerIds = Array.from(new Set(featuredPreview.map((property) => property.owner_id).filter(Boolean)));
       if (ownerIds.length) {
         trustSnapshots = await fetchTrustPublicSnapshots(supabase, ownerIds);
       }
       socialProofByListing = await getListingPopularitySignals({
         client: supabase,
-        listingIds: featured.map((property) => property.id),
+        listingIds: featuredPreview.map((property) => property.id),
       });
     } catch (err) {
       console.warn("[home] saved property lookup failed", err);
@@ -79,16 +109,16 @@ export default async function Home() {
       socialProofByListing = {};
     }
   }
-  if (supabaseReady && !profileId && featured.length) {
+  if (supabaseReady && !profileId && featuredPreview.length) {
     try {
       const supabase = await createServerSupabaseClient();
-      const ownerIds = Array.from(new Set(featured.map((property) => property.owner_id).filter(Boolean)));
+      const ownerIds = Array.from(new Set(featuredPreview.map((property) => property.owner_id).filter(Boolean)));
       if (ownerIds.length) {
         trustSnapshots = await fetchTrustPublicSnapshots(supabase, ownerIds);
       }
       socialProofByListing = await getListingPopularitySignals({
         client: supabase,
-        listingIds: featured.map((property) => property.id),
+        listingIds: featuredPreview.map((property) => property.id),
       });
     } catch (err) {
       console.warn("[home] trust signal lookup failed", err);
@@ -106,7 +136,71 @@ export default async function Home() {
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4">
       <MobileQuickStartBar />
-      <section className="relative overflow-hidden rounded-3xl bg-slate-900 px-6 py-12 text-white shadow-xl">
+      <section className="space-y-4 md:hidden" data-testid="mobile-home-inventory-first">
+        {featured.length ? (
+          <HomeListingRail
+            title="Featured homes"
+            subtitle="Homes to shortlist now"
+            listings={featured.slice(0, 6)}
+            source="home_mobile_featured"
+            sectionTestId="mobile-home-featured-rail"
+            href="/properties?featured=true"
+            hrefLabel="See all"
+          />
+        ) : null}
+        <div data-testid="mobile-home-smart-search-compact">
+          <SmartSearchBox compact />
+        </div>
+        {popularHomes.length ? (
+          <HomeListingRail
+            title="Popular in market"
+            subtitle="Homes people are viewing now"
+            listings={popularHomes.slice(0, 6)}
+            source="home_mobile_popular"
+            sectionTestId="mobile-home-popular-rail"
+            href="/properties"
+            hrefLabel="See all"
+          />
+        ) : null}
+        {newHomes.length ? (
+          <HomeListingRail
+            title="New this week"
+            subtitle="Fresh listings just added"
+            listings={newHomes.slice(0, 6)}
+            source="home_mobile_new"
+            sectionTestId="mobile-home-new-rail"
+            href="/properties?recent=7"
+            hrefLabel="See all"
+          />
+        ) : null}
+        <HomeCollapsibleSection
+          title="Why PropatyHub?"
+          description="How we keep discovery fast and trustworthy."
+          storageKey={HOME_MOBILE_WHY_COLLAPSED_KEY}
+          defaultCollapsed
+          testId="mobile-home-why-propatyhub"
+        >
+          <div className="space-y-3">
+            <ul className="space-y-1.5 text-sm text-slate-600">
+              <li>1. Browse verified listings across cities and neighbourhoods.</li>
+              <li>2. Save and compare homes that fit your lifestyle and budget.</li>
+              <li>3. Message securely — no spam, no pressure.</li>
+              <li>4. Book viewings or connect when you’re ready.</li>
+            </ul>
+            <div className="rounded-xl bg-slate-900 px-3 py-2.5 text-xs text-slate-100">
+              <p className="font-semibold text-white">Built for trust</p>
+              <ul className="mt-1.5 space-y-1 text-slate-100/90">
+                <li>• Verified hosts and agents</li>
+                <li>• Secure in-app messaging</li>
+                <li>• Admin-reviewed listings</li>
+                <li>• No hidden fees or forced contact</li>
+              </ul>
+            </div>
+          </div>
+        </HomeCollapsibleSection>
+      </section>
+
+      <section className="relative hidden overflow-hidden rounded-3xl bg-slate-900 px-6 py-12 text-white shadow-xl md:block">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(14,165,233,0.3),transparent_35%),radial-gradient(circle_at_80%_0,rgba(56,189,248,0.25),transparent_25%)]" />
         <div className="relative grid items-center gap-8 md:grid-cols-2">
           <div className="space-y-4">
@@ -147,7 +241,7 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="hidden gap-4 md:grid md:grid-cols-3">
         {hubs.map((hub) => (
           <div
             key={hub.city}
@@ -168,7 +262,7 @@ export default async function Home() {
         ))}
       </section>
 
-      <section className="grid gap-6 md:grid-cols-5">
+      <section className="hidden gap-6 md:grid md:grid-cols-5">
         <div className="md:col-span-3">
           <SmartSearchBox />
         </div>
@@ -192,8 +286,8 @@ export default async function Home() {
         </div>
       </section>
 
-      {featured.length ? (
-        <section className="space-y-4" data-testid="featured-homes-section">
+      {featuredPreview.length ? (
+        <section className="hidden space-y-4 md:block" data-testid="featured-homes-section">
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-2xl font-semibold text-slate-900">
@@ -208,7 +302,7 @@ export default async function Home() {
             </Link>
           </div>
           <div className="grid gap-5 md:grid-cols-3">
-            {featured.map((property) => (
+            {featuredPreview.map((property) => (
               <div key={property.id} data-testid="property-card">
                 <PropertyCard
                   property={property}
@@ -226,7 +320,7 @@ export default async function Home() {
         </section>
       ) : null}
 
-      <section className="space-y-4">
+      <section className="hidden space-y-4 md:block">
         <div className="flex items-center justify-between">
           <h2 className="text-2xl font-semibold text-slate-900">Map preview</h2>
           <Link href="/properties" className="text-sm font-semibold text-sky-600">
@@ -234,7 +328,7 @@ export default async function Home() {
           </Link>
         </div>
         <PropertyMapToggle
-          properties={featured}
+          properties={featuredPreview}
           height="360px"
           title="Listings map"
           description="Explore listings on the map to discover the right neighbourhood."

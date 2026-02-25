@@ -13,6 +13,7 @@ type Props = {
   mode?: "home" | "browse";
   onFilters?: (filters: ParsedSearchFilters) => void;
   autoFocusInput?: boolean;
+  compact?: boolean;
 };
 
 const emptyFilters: ParsedSearchFilters = {
@@ -30,6 +31,7 @@ export function SmartSearchBox({
   onFilters,
   mode = "home",
   autoFocusInput = false,
+  compact = false,
 }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -123,22 +125,28 @@ export function SmartSearchBox({
     : "Describe what you need";
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white/85 p-4 shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+    <div
+      className={`rounded-2xl border border-slate-200/80 bg-white/85 shadow-[0_10px_30px_rgba(15,23,42,0.08)] ${
+        compact ? "p-3" : "p-4"
+      }`}
+    >
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-slate-900">
+          <h3 className={compact ? "text-sm font-semibold text-slate-900" : "text-base font-semibold text-slate-900"}>
             Smart search
           </h3>
-          <p className="text-sm text-slate-500">
+          <p className={compact ? "text-xs text-slate-500" : "text-sm text-slate-500"}>
             Tell us what you’re looking for and we’ll turn it into precise results.
           </p>
         </div>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600">
-          Powered by intelligent search
-        </span>
+        {!compact ? (
+          <span className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-600">
+            Powered by intelligent search
+          </span>
+        ) : null}
       </div>
       <form
-        className="mt-4 flex flex-col gap-3 md:flex-row"
+        className={`${compact ? "mt-3" : "mt-4"} flex flex-col gap-3 md:flex-row`}
         onSubmit={handleSubmit}
       >
         <Input
@@ -146,12 +154,16 @@ export function SmartSearchBox({
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
           autoFocus={autoFocusInput}
-          className="rounded-full border-slate-200/80 bg-white px-5 py-3 text-sm shadow-[0_6px_20px_rgba(15,23,42,0.08)] focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
+          className={`rounded-full border-slate-200/80 bg-white text-sm shadow-[0_6px_20px_rgba(15,23,42,0.08)] focus:border-sky-400 focus:ring-4 focus:ring-sky-100 ${
+            compact ? "px-4 py-2.5" : "px-5 py-3"
+          }`}
         />
         <Button
           type="submit"
           disabled={loading}
-          className="rounded-full px-6 shadow-[0_6px_16px_rgba(14,165,233,0.2)]"
+          className={`rounded-full shadow-[0_6px_16px_rgba(14,165,233,0.2)] ${
+            compact ? "px-5 py-2.5" : "px-6"
+          }`}
         >
           {loading ? "Thinking..." : submitLabel}
         </Button>

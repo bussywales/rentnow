@@ -34,7 +34,7 @@ void test("public home mounts mobile quick-start before long-form hero content",
   const source = fs.readFileSync(pagePath, "utf8");
 
   const quickStartIndex = source.indexOf("<MobileQuickStartBar");
-  const heroIndex = source.indexOf('<section className="relative overflow-hidden');
+  const heroIndex = source.indexOf('<section className="relative hidden overflow-hidden');
 
   assert.ok(quickStartIndex >= 0, "expected MobileQuickStartBar mount on public home");
   assert.ok(heroIndex >= 0, "expected hero section marker on public home");
