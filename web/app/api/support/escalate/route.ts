@@ -6,6 +6,8 @@ import { normalizeRole } from "@/lib/roles";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
+import { enforceSupportRateLimit } from "@/lib/security/rate-limit";
+import type { UntypedAdminClient } from "@/lib/supabase/untyped";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
@@ -50,6 +52,7 @@ export type SupportEscalateDeps = {
   createServerSupabaseClient: typeof createServerSupabaseClient;
   createServiceRoleClient: typeof createServiceRoleClient;
   getServerAuthUser: typeof getServerAuthUser;
+  enforceSupportRateLimit: typeof enforceSupportRateLimit;
   now: () => Date;
   sendSupportEscalationEmail: (input: {
     requestId: string;
@@ -100,6 +103,7 @@ const defaultDeps: SupportEscalateDeps = {
   createServerSupabaseClient,
   createServiceRoleClient,
   getServerAuthUser,
+  enforceSupportRateLimit,
   now: () => new Date(),
   sendSupportEscalationEmail,
 };
@@ -165,6 +169,28 @@ export async function postSupportEscalateResponse(
 
   const auth = await deps.getServerAuthUser();
   const user = auth.user;
+  const rateLimit = await deps.enforceSupportRateLimit({
+    client: deps.hasServiceRoleEnv()
+      ? (deps.createServiceRoleClient() as unknown as UntypedAdminClient)
+      : null,
+    request,
+    routeKey: "support_escalate",
+    userId: user?.id ?? null,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        error: "Too many escalation attempts. Please wait before trying again.",
+        retryAfterSeconds: rateLimit.retryAfterSeconds,
+      },
+      {
+        status: 429,
+        headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+      }
+    );
+  }
+
   const authedSupabase = auth.supabase as unknown as {
     from: (table: "profiles") => {
       select: (columns: string) => {
@@ -245,4 +271,3 @@ export async function postSupportEscalateResponse(
 export async function POST(request: Request) {
   return postSupportEscalateResponse(request, defaultDeps);
 }
-

@@ -14,7 +14,7 @@ const goLiveSmokeSpecMatch = [
   "**/host.calendar.smoke.spec.ts",
   "**/internal.reminders.smoke.spec.ts",
   "**/support.widget.escalation.smoke.spec.ts",
-  "**/admin.support.inbox.smoke.spec.ts",
+  "**/admin.support.ops.smoke.spec.ts",
 ];
 
 export default defineConfig({
