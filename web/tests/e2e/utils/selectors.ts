@@ -1,4 +1,12 @@
 export const smokeSelectors = {
+  homeMobileQuickStart: "mobile-quickstart",
+  homeMobileQuickSearchTrigger: "mobile-quickstart-search-trigger",
+  homeMobileQuickSearchSheet: "mobile-quicksearch-sheet",
+  homeMobileQuickSearchCategoryShortlet: "mobile-quicksearch-category-shortlet",
+  homeMobileQuickSearchCategoryRent: "mobile-quicksearch-category-rent",
+  homeMobileQuickSearchLocation: "mobile-quicksearch-location-input",
+  homeMobileQuickSearchSubmit: "mobile-quicksearch-search",
+  homeMobileQuickSearchPresetRentLagos: "mobile-quicksearch-preset-rent-lagos",
   homeVisualLanding: "home-visual-landing",
   homeFeaturedStrip: "home-featured-strip",
   homeForYouGrid: "home-for-you-grid",

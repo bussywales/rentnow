@@ -24,6 +24,10 @@ void test("mobile quick search sheet source contains category and preset rails",
   assert.match(source, /data-testid="mobile-quicksearch-search"/);
   assert.match(source, /data-testid="mobile-quicksearch-shortlets"/);
   assert.match(source, /<BottomSheet/);
+  assert.match(source, /setCategory\(option\.key\)/);
+  assert.match(source, /setActivePresetId\(null\)/);
+  assert.match(source, /setCategory\(preset\.category\)/);
+  assert.match(source, /setActivePresetId\(preset\.id\)/);
 });
 
 void test("mobile quick search sheet source closes and navigates on search submit", () => {
@@ -40,6 +44,7 @@ void test("mobile quick search sheet source closes and navigates on search submi
   assert.doesNotMatch(source, /window\.location\.assign\(searchHref\)/);
   assert.match(source, /onOpenChange\(false\)/);
   assert.match(source, /<BottomSheet/);
+  assert.match(source, /setSelectedShortletParams\(preset\.shortletParams \?\? null\)/);
 });
 
 void test("mobile quick search sheet source wires recents list, clear action, and storage helper", () => {
