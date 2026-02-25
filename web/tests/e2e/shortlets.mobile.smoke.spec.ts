@@ -111,6 +111,22 @@ test.describe("shortlets mobile smoke", () => {
     const mapOpen = page.getByTestId(smokeSelectors.shortletsMapOpen);
     const hasMapSheetToggle = await mapOpen.isVisible().catch(() => false);
     if (hasMapSheetToggle) {
+      const supportButton = page.getByTestId(smokeSelectors.supportWidgetButton);
+      const supportVisible = await supportButton.isVisible().catch(() => false);
+      if (supportVisible) {
+        const [mapBox, supportBox] = await Promise.all([mapOpen.boundingBox(), supportButton.boundingBox()]);
+        if (mapBox && supportBox) {
+          const overlapX =
+            Math.min(mapBox.x + mapBox.width, supportBox.x + supportBox.width) -
+            Math.max(mapBox.x, supportBox.x);
+          const overlapY =
+            Math.min(mapBox.y + mapBox.height, supportBox.y + supportBox.height) -
+            Math.max(mapBox.y, supportBox.y);
+          const hasOverlap = overlapX > 0 && overlapY > 0;
+          expect(hasOverlap).toBeFalsy();
+        }
+      }
+
       const mobileMapSheet = await openMobileMapSheet();
       await expect(visibleMap).toBeVisible();
       await page.getByTestId(smokeSelectors.shortletsMapClose).click();
