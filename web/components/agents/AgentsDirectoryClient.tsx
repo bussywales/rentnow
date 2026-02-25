@@ -179,7 +179,7 @@ export function AgentsDirectoryClient({ initialData }: Props) {
         <section className="rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-6 py-10 text-center">
           <h2 className="text-xl font-semibold text-slate-900">No verified agents yet</h2>
           <p className="mt-2 text-sm text-slate-600">
-            We'll surface verified agents here as new profiles complete trust checks.
+            We will surface verified agents here as new profiles complete trust checks.
           </p>
           <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
             <Link href="/properties">
