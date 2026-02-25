@@ -24,10 +24,12 @@ void test("mobile quick search sheet renders intent chips and actions", () => {
   );
 
   assert.match(html, /data-testid="mobile-quicksearch-sheet"/);
-  assert.match(html, /data-testid="mobile-quicksearch-intent-rent"/);
-  assert.match(html, /data-testid="mobile-quicksearch-intent-buy"/);
-  assert.match(html, /data-testid="mobile-quicksearch-intent-off_plan"/);
-  assert.match(html, /data-testid="mobile-quicksearch-intent-all"/);
+  assert.match(html, /data-testid="mobile-quicksearch-category-rent"/);
+  assert.match(html, /data-testid="mobile-quicksearch-category-buy"/);
+  assert.match(html, /data-testid="mobile-quicksearch-category-shortlet"/);
+  assert.match(html, /data-testid="mobile-quicksearch-category-off_plan"/);
+  assert.match(html, /data-testid="mobile-quicksearch-category-all"/);
+  assert.match(html, /data-testid="mobile-quicksearch-presets"/);
   assert.match(html, /data-testid="mobile-quicksearch-location-input"/);
   assert.match(html, /data-testid="mobile-quicksearch-search"/);
   assert.match(html, /data-testid="mobile-quicksearch-shortlets"/);
@@ -41,6 +43,9 @@ void test("mobile quick search sheet source closes and navigates on search submi
   assert.match(source, /onSubmit=\{\(event\) =>/);
   assert.match(source, /event\.preventDefault\(\)/);
   assert.match(source, /type="submit"/);
+  assert.match(source, /mobile-quicksearch-category-rail/);
+  assert.match(source, /mobile-quicksearch-presets/);
+  assert.match(source, /mobile-quicksearch-preset-/);
   assert.match(source, /window\.location\.assign\(searchHref\)/);
   assert.match(source, /onOpenChange\(false\)/);
   assert.match(source, /<BottomSheet/);
