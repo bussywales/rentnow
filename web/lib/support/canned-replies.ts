@@ -26,7 +26,7 @@ export const SUPPORT_CANNED_REPLIES: ReadonlyArray<SupportCannedReplyTemplate> =
   {
     id: "received_request",
     label: "We've received your request",
-    subject: "We’ve received {{ticketId}}",
+    subject: "We've received {{ticketId}}",
     body: `Hi {{requesterName}},
 
 Thanks for contacting PropatyHub Support. We’ve received {{ticketId}} and our team is reviewing it now.
