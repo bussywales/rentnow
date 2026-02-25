@@ -7,7 +7,7 @@ import {
   type SupportRequestStatusDeps,
 } from "@/app/api/admin/support/requests/[id]/status/route";
 
-function makeRequest(status: "new" | "in_progress" | "resolved") {
+function makeRequest(status: "new" | "in_progress" | "resolved" | "closed") {
   return new NextRequest("http://localhost/api/admin/support/requests/req-1/status", {
     method: "POST",
     body: JSON.stringify({ status }),
@@ -45,6 +45,15 @@ void test("buildStatusUpdatePayload maps lifecycle transitions", () => {
   });
   assert.equal(resolvedPayload.status, "resolved");
   assert.equal(resolvedPayload.resolved_at, nowIso);
+
+  const closedPayload = buildStatusUpdatePayload("closed", {
+    nowIso,
+    adminUserId: "admin-1",
+    row: { id: "req-1", status: "resolved", claimed_by: null, claimed_at: null, resolved_at: null },
+  });
+  assert.equal(closedPayload.status, "closed");
+  assert.equal(closedPayload.claimed_by, "admin-1");
+  assert.equal(closedPayload.resolved_at, nowIso);
 });
 
 void test("admin support status route preserves auth failures", async () => {

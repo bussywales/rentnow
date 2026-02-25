@@ -65,7 +65,7 @@ function formatAgeMinutes(value: number) {
 }
 
 export function AdminSupportRequestsInbox() {
-  const [status, setStatus] = useState<"open" | "all" | "new" | "in_progress" | "resolved">("open");
+  const [status, setStatus] = useState<"open" | "all" | "new" | "in_progress" | "resolved" | "closed">("open");
   const [escalatedOnly, setEscalatedOnly] = useState(true);
   const [assignedToMe, setAssignedToMe] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -146,7 +146,7 @@ export function AdminSupportRequestsInbox() {
   );
 
   const updateRequestStatus = useCallback(
-    async (rowId: string, nextStatus: "new" | "in_progress" | "resolved") => {
+    async (rowId: string, nextStatus: "new" | "in_progress" | "resolved" | "closed") => {
       setMutatingId(rowId);
       setError(null);
       try {
@@ -172,7 +172,11 @@ export function AdminSupportRequestsInbox() {
     [load]
   );
 
-  const selectedStatus = (selected?.status || "new").toLowerCase() as "new" | "in_progress" | "resolved";
+  const selectedStatus = (selected?.status || "new").toLowerCase() as
+    | "new"
+    | "in_progress"
+    | "resolved"
+    | "closed";
   const sortedRows = useMemo(() => {
     if (!overdueFirst) return rows;
     return [...rows].sort((a, b) => {
@@ -319,7 +323,8 @@ export function AdminSupportRequestsInbox() {
                 value === "open" ||
                 value === "new" ||
                 value === "in_progress" ||
-                value === "resolved"
+                value === "resolved" ||
+                value === "closed"
               ) {
                 setStatus(value);
               } else {
@@ -334,6 +339,7 @@ export function AdminSupportRequestsInbox() {
             <option value="new">New</option>
             <option value="in_progress">In progress</option>
             <option value="resolved">Resolved</option>
+            <option value="closed">Closed</option>
           </select>
         </label>
         <label className="flex items-center gap-2 text-slate-600">
@@ -437,7 +443,9 @@ export function AdminSupportRequestsInbox() {
                       <Button size="sm" variant="secondary" onClick={() => setSelected(row)}>
                         View
                       </Button>
-                      {!row.claimedBy && row.status.toLowerCase() !== "resolved" ? (
+                      {!row.claimedBy &&
+                      row.status.toLowerCase() !== "resolved" &&
+                      row.status.toLowerCase() !== "closed" ? (
                         <Button
                           size="sm"
                           variant="secondary"
@@ -453,7 +461,7 @@ export function AdminSupportRequestsInbox() {
                         onChange={(event) =>
                           void updateRequestStatus(
                             row.id,
-                            event.target.value as "new" | "in_progress" | "resolved"
+                            event.target.value as "new" | "in_progress" | "resolved" | "closed"
                           )
                         }
                         disabled={mutatingId === row.id}
@@ -463,6 +471,7 @@ export function AdminSupportRequestsInbox() {
                         <option value="new">New</option>
                         <option value="in_progress">In progress</option>
                         <option value="resolved">Resolved</option>
+                        <option value="closed">Closed</option>
                       </select>
                     </div>
                   </td>
@@ -515,7 +524,7 @@ export function AdminSupportRequestsInbox() {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2">
-              {!selected.claimedBy && selectedStatus !== "resolved" ? (
+              {!selected.claimedBy && selectedStatus !== "resolved" && selectedStatus !== "closed" ? (
                 <Button
                   size="sm"
                   variant="secondary"
@@ -529,7 +538,7 @@ export function AdminSupportRequestsInbox() {
               <select
                 value={selectedStatus}
                 onChange={async (event) => {
-                  const nextStatus = event.target.value as "new" | "in_progress" | "resolved";
+                  const nextStatus = event.target.value as "new" | "in_progress" | "resolved" | "closed";
                   await updateRequestStatus(selected.id, nextStatus);
                 }}
                 disabled={mutatingId === selected.id}
@@ -539,6 +548,7 @@ export function AdminSupportRequestsInbox() {
                 <option value="new">New</option>
                 <option value="in_progress">In progress</option>
                 <option value="resolved">Resolved</option>
+                <option value="closed">Closed</option>
               </select>
             </div>
 

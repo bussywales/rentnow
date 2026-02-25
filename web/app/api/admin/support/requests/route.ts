@@ -42,7 +42,7 @@ type SupportRequestItem = {
   isOverdue: boolean;
 };
 
-type AdminSupportStatusFilter = "open" | "all" | "new" | "in_progress" | "resolved";
+type AdminSupportStatusFilter = "open" | "all" | "new" | "in_progress" | "resolved" | "closed";
 type AdminSupportAssignedFilter = "all" | "me" | "unassigned";
 
 function parseIntParam(value: string | null, fallback: number, min: number, max: number) {
@@ -87,7 +87,7 @@ export function computeSupportSlaState(input: {
     ? Math.max(0, Math.floor((safeNowMs - createdMs) / (60 * 1000)))
     : 0;
 
-  if (status === "resolved") {
+  if (status === "resolved" || status === "closed") {
     return {
       ageMinutes,
       slaMinutes: null as number | null,
@@ -143,6 +143,7 @@ function resolveStatusFilter(value: string | null): AdminSupportStatusFilter {
   if (value === "new") return "new";
   if (value === "in_progress") return "in_progress";
   if (value === "resolved") return "resolved";
+  if (value === "closed") return "closed";
   return "open";
 }
 
@@ -213,7 +214,7 @@ export async function getAdminSupportRequestsResponse(
     const mapped = rows.map((row) => toItem(row, nowMs));
     const filtered = mapped.filter((row) => {
       const normalizedStatus = row.status.toLowerCase();
-      if (status === "open" && normalizedStatus === "resolved") return false;
+      if (status === "open" && (normalizedStatus === "resolved" || normalizedStatus === "closed")) return false;
       if (status !== "open" && status !== "all" && normalizedStatus !== status) return false;
       if (escalatedOnly && !row.escalated) return false;
       if (assigned === "me" && row.claimedBy !== auth.user.id) return false;

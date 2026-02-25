@@ -23,6 +23,7 @@ void test("admin support inbox component includes table and drawer metadata view
   assert.match(source, /data-testid="admin-support-inbox"/);
   assert.match(source, /data-testid="admin-support-refresh"/);
   assert.match(source, /data-testid="admin-support-status-filter"/);
+  assert.match(source, /Closed/);
   assert.match(source, /data-testid="admin-support-assigned-filter"/);
   assert.match(source, /data-testid="admin-support-overdue-sort"/);
   assert.match(source, /data-testid="admin-support-table"/);

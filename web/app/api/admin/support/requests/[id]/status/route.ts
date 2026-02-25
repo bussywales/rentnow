@@ -10,7 +10,7 @@ const routeLabel = "/api/admin/support/requests/[id]/status";
 export const dynamic = "force-dynamic";
 
 const payloadSchema = z.object({
-  status: z.enum(["new", "in_progress", "resolved"]),
+  status: z.enum(["new", "in_progress", "resolved", "closed"]),
 });
 
 type SupportRequestRow = {
@@ -65,7 +65,7 @@ const defaultDeps: SupportRequestStatusDeps = {
 };
 
 function buildStatusUpdatePayload(
-  targetStatus: "new" | "in_progress" | "resolved",
+  targetStatus: "new" | "in_progress" | "resolved" | "closed",
   input: { nowIso: string; adminUserId: string; row: SupportRequestRow }
 ) {
   if (targetStatus === "new") {
@@ -83,6 +83,15 @@ function buildStatusUpdatePayload(
       claimed_by: input.row.claimed_by || input.adminUserId,
       claimed_at: input.row.claimed_at || input.nowIso,
       resolved_at: null,
+    };
+  }
+
+  if (targetStatus === "closed") {
+    return {
+      status: "closed",
+      claimed_by: input.row.claimed_by || input.adminUserId,
+      claimed_at: input.row.claimed_at || input.nowIso,
+      resolved_at: input.row.resolved_at || input.nowIso,
     };
   }
 

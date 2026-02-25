@@ -94,9 +94,9 @@ export async function postAdminSupportRequestClaimResponse(
   }
 
   const currentStatus = String(existing.status || "new").toLowerCase();
-  if (currentStatus === "resolved") {
+  if (currentStatus === "resolved" || currentStatus === "closed") {
     return NextResponse.json(
-      { error: "Resolved requests cannot be claimed.", code: "resolved_request" },
+      { error: "Resolved or closed requests cannot be claimed.", code: "resolved_request" },
       { status: 409 }
     );
   }

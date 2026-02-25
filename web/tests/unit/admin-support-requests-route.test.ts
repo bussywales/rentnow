@@ -81,6 +81,19 @@ void test("admin support requests route filters open and escalated rows", async 
         claimed_at: "2026-02-23T08:05:00.000Z",
         resolved_at: "2026-02-23T08:30:00.000Z",
       },
+      {
+        id: "req-4",
+        created_at: "2026-02-20T08:00:00.000Z",
+        category: "general",
+        email: "d@example.com",
+        name: "D",
+        message: "Closed ticket",
+        status: "closed",
+        metadata: {},
+        claimed_by: "admin-3",
+        claimed_at: "2026-02-20T08:05:00.000Z",
+        resolved_at: "2026-02-20T08:20:00.000Z",
+      },
     ],
   };
 
@@ -254,6 +267,15 @@ void test("support SLA helper applies new/in_progress/resolved thresholds", () =
   assert.equal(resolved.ageMinutes, 24 * 60);
   assert.equal(resolved.slaMinutes, null);
   assert.equal(resolved.isOverdue, false);
+
+  const closed = computeSupportSlaState({
+    status: "closed",
+    createdAt: "2026-02-24T12:00:00.000Z",
+    nowMs,
+  });
+  assert.equal(closed.ageMinutes, 24 * 60);
+  assert.equal(closed.slaMinutes, null);
+  assert.equal(closed.isOverdue, false);
 });
 
 void test("admin support requests payload includes SLA fields", async () => {
