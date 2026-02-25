@@ -16,6 +16,7 @@ void test("mobile quick search sheet source contains category and preset rails",
   const sourcePath = path.join(process.cwd(), "components", "home", "MobileQuickSearchSheet.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
+  assert.match(source, /from \"@\/lib\/home\/mobile-featured-discovery\"/);
   assert.match(source, /data-testid="mobile-quicksearch-sheet"/);
   assert.match(source, /data-testid={`mobile-quicksearch-category-\$\{option\.key\}`}/);
   assert.match(source, /data-testid="mobile-quicksearch-presets"/);
@@ -42,6 +43,7 @@ void test("mobile quick search sheet source closes and navigates on search submi
   assert.match(source, /mobile-quicksearch-preset-/);
   assert.match(source, /router\.push\(searchHref\)/);
   assert.doesNotMatch(source, /window\.location\.assign\(searchHref\)/);
+  assert.doesNotMatch(source, /export function buildMobileQuickSearchHref/);
   assert.match(source, /onOpenChange\(false\)/);
   assert.match(source, /<BottomSheet/);
   assert.match(source, /setSelectedShortletParams\(preset\.shortletParams \?\? null\)/);

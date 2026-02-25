@@ -12,9 +12,9 @@ import {
   type MobileQuickSearchCategory,
   type MobileQuickSearchPreset,
 } from "@/lib/home/mobile-quicksearch-presets";
+import { buildMobileQuickSearchHref } from "@/lib/home/mobile-featured-discovery";
 import { getRecentBrowseIntent } from "@/lib/market/browse-intent";
 import {
-  buildPropertiesCategoryParams,
   resolvePropertiesBrowseCategory,
 } from "@/lib/properties/browse-categories";
 import { clearRecentSearches, getRecentSearches, pushRecentSearch } from "@/lib/search/recents";
@@ -39,44 +39,6 @@ function resolveQuickSearchLocation(lastSearchParams: string | null | undefined)
   if (!lastSearchParams) return "";
   const params = new URLSearchParams(lastSearchParams);
   return params.get("city")?.trim() ?? "";
-}
-
-export function buildMobileQuickSearchHref(input: {
-  category: MobileQuickSearchCategory;
-  city?: string | null;
-  shortletParams?: Record<string, string> | null;
-}): string {
-  if (input.category === "shortlet") {
-    const params = new URLSearchParams();
-    for (const [key, value] of Object.entries(input.shortletParams ?? {})) {
-      const trimmedValue = value?.trim();
-      if (trimmedValue) {
-        params.set(key, trimmedValue);
-      }
-    }
-    const city = input.city?.trim();
-    if (city) {
-      params.set("where", city);
-    } else if (!params.get("where")) {
-      params.delete("where");
-    }
-    params.delete("city");
-    if (!params.get("guests")) {
-      params.set("guests", "1");
-    }
-    const shortletQuery = params.toString();
-    return shortletQuery ? `/shortlets?${shortletQuery}` : "/shortlets";
-  }
-
-  const params = buildPropertiesCategoryParams(new URLSearchParams(), input.category);
-  const city = input.city?.trim();
-  if (city) {
-    params.set("city", city);
-  } else {
-    params.delete("city");
-  }
-  const query = params.toString();
-  return query ? `/properties?${query}` : "/properties";
 }
 
 type MobileQuickSearchSheetProps = {
