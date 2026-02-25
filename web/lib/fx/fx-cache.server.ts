@@ -26,7 +26,7 @@ function parseSnapshotRow(row: FxDailyRateRow | null | undefined): FxSnapshot | 
   if (!row) return null;
   const date = normalizeDateKey(row.date);
   if (!date) return null;
-  const rates = row.rates && typeof row.rates === "object" ? (row.rates as Record<string, unknown>) : {};
+  const rates = normalizeRates(row.rates);
   return createFxSnapshot({
     date,
     baseCurrency: row.base_currency ?? "",
@@ -34,6 +34,19 @@ function parseSnapshotRow(row: FxDailyRateRow | null | undefined): FxSnapshot | 
     source: row.source ?? "",
     fetchedAt: row.fetched_at ?? null,
   });
+}
+
+function normalizeRates(value: unknown): Record<string, number> {
+  if (!value || typeof value !== "object") return {};
+  const rates: Record<string, number> = {};
+  for (const [currency, rate] of Object.entries(value as Record<string, unknown>)) {
+    const code = String(currency || "").trim().toUpperCase();
+    const numeric = Number(rate);
+    if (!/^[A-Z]{3}$/.test(code)) continue;
+    if (!Number.isFinite(numeric) || numeric <= 0) continue;
+    rates[code] = numeric;
+  }
+  return rates;
 }
 
 export async function getLatestFxSnapshot(input?: {

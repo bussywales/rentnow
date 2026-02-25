@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { cookies, headers } from "next/headers";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { Button } from "@/components/ui/Button";
 import { HostEarningsTimelineView } from "@/components/host/HostEarningsTimeline";
@@ -7,6 +8,9 @@ import { readActingAsFromCookies } from "@/lib/acting-as.server";
 import { hasActiveDelegation } from "@/lib/agent-delegations";
 import { getUserRole } from "@/lib/authz";
 import { getServerAuthUser } from "@/lib/auth/server-session";
+import { getLatestFxSnapshot } from "@/lib/fx/fx-cache.server";
+import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/market";
+import { getMarketSettings } from "@/lib/market/market.server";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { listHostShortletEarningsTimeline } from "@/lib/shortlet/shortlet.server";
 
@@ -38,6 +42,17 @@ export default async function HostEarningsPage() {
     hostUserId: ownerId,
     limit: 220,
   });
+  const requestHeaders = await headers();
+  const requestCookies = await cookies();
+  const marketSettings = await getMarketSettings(supabase);
+  const selectedMarket = resolveMarketFromRequest({
+    headers: requestHeaders,
+    cookieValue: requestCookies.get(MARKET_COOKIE_NAME)?.value ?? null,
+    appSettings: marketSettings,
+  });
+  const fxSnapshot = await getLatestFxSnapshot({
+    preferredDate: new Date().toISOString().slice(0, 10),
+  });
 
   return (
     <div className="space-y-4" data-testid="host-earnings-page">
@@ -62,7 +77,11 @@ export default async function HostEarningsPage() {
         </div>
       </div>
 
-      <HostEarningsTimelineView timeline={timeline} />
+      <HostEarningsTimelineView
+        timeline={timeline}
+        marketCurrency={selectedMarket.currency}
+        fxSnapshot={fxSnapshot}
+      />
     </div>
   );
 }

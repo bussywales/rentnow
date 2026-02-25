@@ -16,6 +16,8 @@ void test("host earnings page is wired with summary and tabs timeline view", () 
   const componentContents = fs.readFileSync(timelineComponentPath, "utf8");
 
   assert.match(pageContents, /HostEarningsTimelineView/);
+  assert.match(pageContents, /resolveMarketFromRequest/);
+  assert.match(pageContents, /getLatestFxSnapshot/);
   assert.match(pageContents, /Earnings & payouts/);
   assert.match(pageContents, /manual payout processing remains enabled during pilot/i);
   assert.match(componentContents, /Available to payout/);
@@ -25,6 +27,8 @@ void test("host earnings page is wired with summary and tabs timeline view", () 
   assert.match(componentContents, /paidOutByCurrencyMinor/);
   assert.match(componentContents, /grossEarningsByCurrencyMinor/);
   assert.match(componentContents, /Totals shown by currency/);
+  assert.match(componentContents, /Approx uses daily exchange rates\. Payouts remain in the booking currency\./);
+  assert.match(componentContents, /Approx unavailable \(missing rates\)\./);
   assert.match(componentContents, /Awaiting approval/);
   assert.match(componentContents, /Upcoming stays/);
   assert.match(componentContents, /Available/);

@@ -8,6 +8,7 @@ import {
   sortCurrencyMinorTotals,
   type CurrencyMinorTotals,
 } from "@/lib/money/multi-currency";
+import { sumToCurrencyMinor, type FxSnapshot } from "@/lib/fx/fx";
 import type { HostEarningsTimeline, HostEarningsTimelineItem } from "@/lib/shortlet/host-earnings";
 
 type EarningsTab = "available" | "upcoming" | "paid" | "all";
@@ -72,7 +73,64 @@ function isMultiCurrencyTotal(totals: CurrencyMinorTotals) {
   return sortCurrencyMinorTotals(totals).length > 1;
 }
 
-export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline }) {
+function currencyTotalsToRows(input: {
+  totals: CurrencyMinorTotals;
+  fallbackCurrency: string;
+  fallbackAmountMinor: number;
+}) {
+  const entries = sortCurrencyMinorTotals(input.totals, {
+    preferredCurrency: input.fallbackCurrency,
+  });
+  if (entries.length) {
+    return entries.map((entry) => ({
+      currency: entry[0],
+      amountMinor: entry[1],
+    }));
+  }
+  return input.fallbackAmountMinor > 0
+    ? [{ currency: input.fallbackCurrency, amountMinor: input.fallbackAmountMinor }]
+    : [];
+}
+
+function buildApproxDisplayLine(input: {
+  totals: CurrencyMinorTotals;
+  fallbackCurrency: string;
+  fallbackAmountMinor: number;
+  marketCurrency: string | null;
+  fxSnapshot: FxSnapshot | null;
+}) {
+  if (!input.fxSnapshot || !input.marketCurrency) {
+    return { line: null, unavailableReason: null as string | null };
+  }
+  const rows = currencyTotalsToRows({
+    totals: input.totals,
+    fallbackCurrency: input.fallbackCurrency,
+    fallbackAmountMinor: input.fallbackAmountMinor,
+  });
+  const convertedMinor = sumToCurrencyMinor({
+    rows,
+    to: input.marketCurrency,
+    snapshot: input.fxSnapshot,
+  });
+  if (convertedMinor === null) {
+    return {
+      line: null,
+      unavailableReason: "Approx unavailable (missing rates).",
+    };
+  }
+  return {
+    line: `Approx: ${formatCurrencyMinor(input.marketCurrency, convertedMinor, {
+      locale: "en-NG",
+    })} (rates ${input.fxSnapshot.date})`,
+    unavailableReason: null as string | null,
+  };
+}
+
+export function HostEarningsTimelineView(props: {
+  timeline: HostEarningsTimeline;
+  marketCurrency?: string | null;
+  fxSnapshot?: FxSnapshot | null;
+}) {
   const [tab, setTab] = useState<EarningsTab>("available");
   const [detailsItem, setDetailsItem] = useState<HostEarningsTimelineItem | null>(null);
   const [requestPayoutItem, setRequestPayoutItem] = useState<HostEarningsTimelineItem | null>(null);
@@ -84,6 +142,9 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
   const [requestedBookingIds, setRequestedBookingIds] = useState<Record<string, true>>({});
   const rows = props.timeline.items;
   const fallbackCurrency = rows[0]?.currency || "NGN";
+  const marketCurrency = String(props.marketCurrency || fallbackCurrency).trim().toUpperCase() || fallbackCurrency;
+  const fxSnapshot = props.fxSnapshot ?? null;
+  const approxTooltip = "Approx uses daily exchange rates. Payouts remain in the booking currency.";
   const availableToPayoutLines = useMemo(
     () =>
       buildMoneyDisplayLines({
@@ -132,6 +193,57 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
   const visibleRows = useMemo(
     () => resolveRowsForTab({ tab, rows, todayMs }),
     [rows, tab, todayMs]
+  );
+  const availableApprox = useMemo(
+    () =>
+      buildApproxDisplayLine({
+        totals: props.timeline.summary.availableToPayoutByCurrencyMinor,
+        fallbackCurrency,
+        fallbackAmountMinor: props.timeline.summary.availableToPayoutMinor,
+        marketCurrency,
+        fxSnapshot,
+      }),
+    [
+      fallbackCurrency,
+      fxSnapshot,
+      marketCurrency,
+      props.timeline.summary.availableToPayoutByCurrencyMinor,
+      props.timeline.summary.availableToPayoutMinor,
+    ]
+  );
+  const paidApprox = useMemo(
+    () =>
+      buildApproxDisplayLine({
+        totals: props.timeline.summary.paidOutByCurrencyMinor,
+        fallbackCurrency,
+        fallbackAmountMinor: props.timeline.summary.paidOutMinor,
+        marketCurrency,
+        fxSnapshot,
+      }),
+    [
+      fallbackCurrency,
+      fxSnapshot,
+      marketCurrency,
+      props.timeline.summary.paidOutByCurrencyMinor,
+      props.timeline.summary.paidOutMinor,
+    ]
+  );
+  const grossApprox = useMemo(
+    () =>
+      buildApproxDisplayLine({
+        totals: props.timeline.summary.grossEarningsByCurrencyMinor,
+        fallbackCurrency,
+        fallbackAmountMinor: props.timeline.summary.grossEarningsMinor,
+        marketCurrency,
+        fxSnapshot,
+      }),
+    [
+      fallbackCurrency,
+      fxSnapshot,
+      marketCurrency,
+      props.timeline.summary.grossEarningsByCurrencyMinor,
+      props.timeline.summary.grossEarningsMinor,
+    ]
   );
 
   function openRequestModal(row: HostEarningsTimelineItem) {
@@ -193,6 +305,19 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
               </p>
             ))}
           </div>
+          {availableApprox.line ? (
+            <p
+              className="mt-1 text-xs text-slate-500"
+              title={approxTooltip}
+              data-testid="host-earnings-summary-available-approx"
+            >
+              {availableApprox.line}
+            </p>
+          ) : availableApprox.unavailableReason ? (
+            <p className="mt-1 text-xs text-slate-500" title={approxTooltip}>
+              {availableApprox.unavailableReason}
+            </p>
+          ) : null}
         </div>
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
           <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Paid out</p>
@@ -203,6 +328,19 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
               </p>
             ))}
           </div>
+          {paidApprox.line ? (
+            <p
+              className="mt-1 text-xs text-slate-500"
+              title={approxTooltip}
+              data-testid="host-earnings-summary-paid-approx"
+            >
+              {paidApprox.line}
+            </p>
+          ) : paidApprox.unavailableReason ? (
+            <p className="mt-1 text-xs text-slate-500" title={approxTooltip}>
+              {paidApprox.unavailableReason}
+            </p>
+          ) : null}
         </div>
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
           <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Gross earnings</p>
@@ -213,6 +351,19 @@ export function HostEarningsTimelineView(props: { timeline: HostEarningsTimeline
               </p>
             ))}
           </div>
+          {grossApprox.line ? (
+            <p
+              className="mt-1 text-xs text-slate-500"
+              title={approxTooltip}
+              data-testid="host-earnings-summary-gross-approx"
+            >
+              {grossApprox.line}
+            </p>
+          ) : grossApprox.unavailableReason ? (
+            <p className="mt-1 text-xs text-slate-500" title={approxTooltip}>
+              {grossApprox.unavailableReason}
+            </p>
+          ) : null}
         </div>
         <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
           <p className="text-xs uppercase tracking-[0.14em] text-slate-500">Awaiting approval</p>
