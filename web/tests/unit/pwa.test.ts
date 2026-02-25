@@ -8,9 +8,21 @@ import manifest from "../../app/manifest";
 void test("pwa manifest exposes installable metadata", () => {
   const data = manifest();
   assert.equal(data.display, "standalone");
-  assert.equal(data.start_url, "/");
+  assert.equal(data.start_url, "/?source=pwa");
+  assert.equal(data.scope, "/");
   assert.ok(Array.isArray(data.icons));
-  assert.ok(data.icons.length >= 2);
+  assert.ok(data.icons.length >= 3);
+  const sizes = new Set(data.icons.map((icon) => icon.sizes));
+  assert.ok(sizes.has("192x192"), "expected a 192x192 app icon");
+  assert.ok(sizes.has("512x512"), "expected a 512x512 app icon");
+  assert.ok(
+    data.icons.some((icon) =>
+      String(icon.purpose ?? "")
+        .split(/\s+/)
+        .includes("maskable")
+    ),
+    "expected at least one maskable icon"
+  );
 });
 
 void test("service worker includes offline and skip-cache paths", () => {

@@ -6,7 +6,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: BRAND_NAME,
     short_name: BRAND_SHORT_NAME,
     description: "Search, list, and manage rentals on PropatyHub.",
-    start_url: "/",
+    start_url: "/?source=pwa",
     scope: "/",
     display: "standalone",
     background_color: "#ffffff",
@@ -21,6 +21,12 @@ export default function manifest(): MetadataRoute.Manifest {
         src: "/icons/icon-512.png",
         sizes: "512x512",
         type: "image/png",
+      },
+      {
+        src: "/icons/icon-512-maskable.png",
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
       },
       {
         src: "/apple-touch-icon.png",
