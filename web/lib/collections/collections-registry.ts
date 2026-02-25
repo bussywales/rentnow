@@ -4,6 +4,7 @@ import type {
   DiscoveryMarket,
   DiscoverySurface,
 } from "@/lib/discovery/market-taxonomy";
+import { normalizeDiscoveryMarket } from "@/lib/discovery/market-taxonomy";
 
 export type CollectionMarketTag = DiscoveryMarket | "ALL";
 
@@ -257,3 +258,14 @@ export function getCollectionBySlug(slug: string, now?: Date): StaticCollectionD
   return resolveCollectionsRegistry(now).find((collection) => collection.slug === normalizedSlug) ?? null;
 }
 
+export function listCollectionsForMarket(input: {
+  marketCountry?: string | null;
+  now?: Date;
+}): StaticCollectionDefinition[] {
+  const market = normalizeDiscoveryMarket(input.marketCountry);
+  return resolveCollectionsRegistry(input.now).filter((collection) => {
+    if (collection.marketTags.includes("ALL")) return true;
+    if (collection.marketTags.includes(market as DiscoveryMarket)) return true;
+    return market !== "GLOBAL" && collection.marketTags.includes("GLOBAL");
+  });
+}

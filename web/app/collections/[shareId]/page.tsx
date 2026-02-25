@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { cookies, headers } from "next/headers";
+import { CollectionHero } from "@/components/collections/CollectionHero";
+import { CollectionRail } from "@/components/collections/CollectionRail";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { PublicSharedCollectionActions } from "@/components/saved/PublicSharedCollectionActions";
 import { Button } from "@/components/ui/Button";
@@ -179,45 +181,13 @@ export default async function PublicCollectionPage({
 
     return (
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 pb-12 pt-5">
-        <header className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-          <div className="bg-gradient-to-br from-slate-900 via-sky-800 to-slate-700 p-6 text-white">
-            <p className="text-xs uppercase tracking-[0.2em] text-white/80">Collections</p>
-            <h1 className="mt-1 text-2xl font-semibold">{staticCollection.title}</h1>
-            <p className="mt-2 text-sm text-white/90">{staticCollection.description}</p>
-            <p className="mt-2 text-xs text-white/80">Market-aware picks for {market.country}</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2 border-t border-slate-200 bg-white px-6 py-3">
-            <Link href={viewResultsHref}>
-              <Button data-testid="collections-view-results-cta">View results</Button>
-            </Link>
-            <Link href="/collections">
-              <Button variant="secondary">All collections</Button>
-            </Link>
-          </div>
-        </header>
-
-        <section className="space-y-3" data-testid="collections-hero">
-          <h2 className="text-lg font-semibold text-slate-900">Featured in this collection</h2>
-          <div
-            className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
-            data-testid="collections-rail"
-          >
-            {cards.map((card) => (
-              <Link
-                key={card.id}
-                href={card.href}
-                data-testid="collections-card"
-                className="inline-flex w-[250px] shrink-0 snap-start flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-              >
-                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  {card.tag}
-                </span>
-                <p className="text-base font-semibold text-slate-900">{card.title}</p>
-                <p className="text-sm text-slate-600">{card.subtitle}</p>
-              </Link>
-            ))}
-          </div>
-        </section>
+        <CollectionHero
+          title={staticCollection.title}
+          description={staticCollection.description}
+          marketCountry={market.country}
+          viewResultsHref={viewResultsHref}
+        />
+        <CollectionRail cards={cards} />
       </div>
     );
   }
