@@ -29,4 +29,7 @@ void test("support widget exposes open, close, quick actions, and /support fallb
   assert.match(source, /Open full support page/);
   assert.match(source, /href="\/support"/);
   assert.match(source, /if\s*\(event\.key === "Escape"\)/);
+  assert.match(source, /z-\[35\]/);
+  assert.match(source, /\[role="dialog"\]\[aria-modal="true"\]/);
+  assert.match(source, /hasBlockingDialog \? "hidden" : ""/);
 });

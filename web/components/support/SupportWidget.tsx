@@ -33,6 +33,7 @@ export function SupportWidget({
   prefillRole = null,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [hasBlockingDialog, setHasBlockingDialog] = useState(false);
   const [query, setQuery] = useState("");
   const [chatInput, setChatInput] = useState("");
   const [chatMessages, setChatMessages] = useState<Array<{ role: "user" | "assistant"; content: string }>>([]);
@@ -76,6 +77,47 @@ export function SupportWidget({
     }
     triggerRef.current?.focus();
   }, [open]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const detectBlockingDialog = () => {
+      if (!window.matchMedia("(max-width: 767px)").matches) {
+        setHasBlockingDialog(false);
+        return;
+      }
+      const dialogs = Array.from(
+        document.querySelectorAll<HTMLElement>('[role="dialog"][aria-modal="true"]')
+      );
+      const blocking = dialogs.some((dialog) => {
+        const style = window.getComputedStyle(dialog);
+        if (style.display === "none" || style.visibility === "hidden") return false;
+        const bounds = dialog.getBoundingClientRect();
+        return bounds.width > 0 && bounds.height > 0;
+      });
+      setHasBlockingDialog(blocking);
+    };
+
+    detectBlockingDialog();
+    const observer = new MutationObserver(detectBlockingDialog);
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["aria-modal", "role", "class", "style"],
+    });
+    window.addEventListener("resize", detectBlockingDialog);
+
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", detectBlockingDialog);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!open || !hasBlockingDialog) return;
+    setOpen(false);
+  }, [open, hasBlockingDialog]);
 
   useEffect(() => {
     if (!open) return;
@@ -246,7 +288,10 @@ export function SupportWidget({
   ]);
 
   return (
-    <div className="fixed bottom-4 right-4 z-[55] sm:bottom-6 sm:right-6" data-testid="support-widget">
+    <div
+      className={`fixed bottom-4 right-4 z-[35] sm:bottom-6 sm:right-6 ${hasBlockingDialog ? "hidden" : ""}`}
+      data-testid="support-widget"
+    >
       {open ? (
         <div
           ref={panelRef}
