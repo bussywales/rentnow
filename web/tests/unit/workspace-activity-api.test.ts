@@ -50,10 +50,13 @@ void test("workspace activity route enforces allowed roles and returns feed payl
         {
           id: "lead:1",
           type: "lead_received",
+          label: "Lead received",
           title: "New lead received",
           subtitle: "Listing A",
           createdAt: "2026-02-24T10:00:00.000Z",
           href: "/host/leads",
+          ctaLabel: "Open lead",
+          severity: "action_required",
           badge: "New",
         },
       ];

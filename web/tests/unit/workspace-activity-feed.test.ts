@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   getWorkspaceActivityFeed,
+  resolveWorkspaceActivityLabel,
   resolveWorkspaceActivityHref,
   type WorkspaceActivityFeedDeps,
   type WorkspaceActivityItem,
@@ -9,7 +10,9 @@ import {
 
 function buildItem(input: Partial<WorkspaceActivityItem> & Pick<WorkspaceActivityItem, "id" | "type" | "title" | "createdAt">): WorkspaceActivityItem {
   return {
+    label: resolveWorkspaceActivityLabel(input.type),
     href: "/host/listings?view=manage",
+    ctaLabel: "Open",
     ...input,
   };
 }
@@ -74,6 +77,7 @@ void test("workspace activity feed is sorted newest-first, deduped, and capped",
         href: "/support",
       }),
     ],
+    loadNotificationEvents: async () => [],
   };
 
   const items = await getWorkspaceActivityFeed(
@@ -104,4 +108,12 @@ void test("workspace activity href mappings stay aligned with workspace routes",
   assert.equal(resolveWorkspaceActivityHref("payout_requested"), "/host/earnings");
   assert.equal(resolveWorkspaceActivityHref("payout_paid"), "/host/earnings");
   assert.equal(resolveWorkspaceActivityHref("support_escalated"), "/support");
+});
+
+void test("workspace activity labels expose stable v2 copy", () => {
+  assert.equal(resolveWorkspaceActivityLabel("lead_received"), "Lead received");
+  assert.equal(resolveWorkspaceActivityLabel("booking_request"), "Booking request");
+  assert.equal(resolveWorkspaceActivityLabel("listing_approved"), "Listing approved");
+  assert.equal(resolveWorkspaceActivityLabel("payout_requested"), "Payout requested");
+  assert.equal(resolveWorkspaceActivityLabel("support_escalated"), "Support escalation");
 });
