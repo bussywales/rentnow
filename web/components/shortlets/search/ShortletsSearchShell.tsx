@@ -12,6 +12,7 @@ import { PropertyCardSkeleton } from "@/components/properties/PropertyCardSkelet
 import { ShortletsMobileStickyBar } from "@/components/shortlets/search/ShortletsMobileStickyBar";
 import { ShortletsSearchMap } from "@/components/shortlets/search/ShortletsSearchMap";
 import { ShortletsSearchListCard } from "@/components/shortlets/search/ShortletsSearchListCard";
+import { useShortletsStickyCollapse } from "@/components/shortlets/search/useShortletsStickyCollapse";
 import { WhereTypeahead, type WhereSuggestion } from "@/components/shortlets/search/WhereTypeahead";
 import {
   isNigeriaDestinationQuery,
@@ -1417,6 +1418,10 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   });
   const showCompactSearch = searchControlVisibility.compactActive;
   const showExpandedSearch = searchControlVisibility.expandedActive;
+  const { isCollapsed: isStickyCollapsed } = useShortletsStickyCollapse({
+    enabled: showCompactSearch,
+    lockExpanded: mobileMapOpen,
+  });
   const useCompactQuickFiltersControl = quickFiltersCollapsed || showCompactSearch;
   useEffect(() => {
     if (!useCompactQuickFiltersControl) {
@@ -1492,6 +1497,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
       >
       <ShortletsMobileStickyBar
         showCompactSearch={showCompactSearch}
+        isCollapsed={isStickyCollapsed}
         whereSummary={whereSummary}
         datesSummary={datesSummary}
         guestsSummary={guestsSummary}

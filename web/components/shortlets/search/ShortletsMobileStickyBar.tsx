@@ -5,6 +5,7 @@ import { Select } from "@/components/ui/Select";
 
 type Props = {
   showCompactSearch: boolean;
+  isCollapsed?: boolean;
   whereSummary: string;
   datesSummary: string;
   guestsSummary: string;
@@ -19,6 +20,7 @@ type Props = {
 
 export function ShortletsMobileStickyBar({
   showCompactSearch,
+  isCollapsed = false,
   whereSummary,
   datesSummary,
   guestsSummary,
@@ -37,6 +39,7 @@ export function ShortletsMobileStickyBar({
       className="pointer-events-none fixed inset-x-0 top-[78px] z-30 flex translate-y-0 justify-center px-3 opacity-100 transition-all duration-200"
       data-testid="shortlets-compact-search-pill"
       data-active="true"
+      data-collapsed={isCollapsed ? "true" : "false"}
       aria-hidden={false}
     >
       <div className="pointer-events-auto w-full max-w-[760px] rounded-2xl border border-slate-200 bg-white px-2.5 py-2 shadow-sm">
