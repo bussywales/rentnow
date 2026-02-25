@@ -12,6 +12,7 @@ import {
   SYSTEM_HEALTH_SETTING_KEYS,
   type SystemHealthSettingsSnapshot,
 } from "@/lib/admin/system-health";
+import { BRAND } from "@/lib/brand";
 import {
   loadAdminChecklist,
   loadAdminVerificationRollup,

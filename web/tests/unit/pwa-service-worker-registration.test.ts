@@ -11,7 +11,7 @@ void test("registerRootServiceWorker registers /sw.js with root scope", async ()
   const registration = { scope: "/" } as ServiceWorkerRegistration;
 
   const serviceWorker = {
-    getRegistration: async (_scope: string) => null,
+    getRegistration: async () => null,
     register: async (script: string, options?: { scope?: string }) => {
       calls.push({ script, options });
       return registration;
@@ -37,7 +37,7 @@ void test("registerRootServiceWorker reuses existing root registration", async (
   let registerCalls = 0;
 
   const serviceWorker = {
-    getRegistration: async (_scope: string) => existingRegistration,
+    getRegistration: async () => existingRegistration,
     register: async () => {
       registerCalls += 1;
       return existingRegistration;
