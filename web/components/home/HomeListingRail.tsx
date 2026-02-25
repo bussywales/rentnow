@@ -125,7 +125,7 @@ export function HomeListingRail({
         ) : null}
         <div
           ref={railRef}
-          className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-4 pb-1 pr-4 scroll-px-4 sm:px-6 sm:pr-6 sm:scroll-px-6"
+          className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-5 pb-1 pr-5 scroll-px-5 sm:px-7 sm:pr-7 sm:scroll-px-7"
         >
           {listings.map((listing, index) => {
             const imageUrl = getPrimaryImageUrl(listing);
@@ -178,7 +178,7 @@ export function HomeListingRail({
               </article>
             );
           })}
-          <div className="w-4 shrink-0 sm:w-6" aria-hidden="true" />
+          <div className="w-5 shrink-0 sm:w-7" aria-hidden="true" />
         </div>
       </div>
     </section>
