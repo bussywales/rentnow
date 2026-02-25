@@ -17,7 +17,6 @@ type AgentDirectoryProfileRow = PublicAdvertiserProfileRow & {
   role?: string | null;
   avatar_url?: string | null;
   city?: string | null;
-  country?: string | null;
   email_verified?: boolean | null;
   phone_verified?: boolean | null;
   bank_verified?: boolean | null;
@@ -79,9 +78,7 @@ function parseTimestamp(value?: string | null) {
 
 function buildLocation(row: AgentDirectoryProfileRow) {
   const city = typeof row.city === "string" ? row.city.trim() : "";
-  const country = typeof row.country === "string" ? row.country.trim() : "";
-  if (city && country) return `${city}, ${country}`;
-  return city || country || null;
+  return city || null;
 }
 
 function toDirectoryCandidate(
@@ -109,9 +106,9 @@ function toDirectoryCandidate(
     }) || "/agents";
 
   const searchableText = normalizeText(
-    [displayName, row.business_name, row.full_name, row.city, row.country].filter(Boolean).join(" ")
+    [displayName, row.business_name, row.full_name, row.city].filter(Boolean).join(" ")
   );
-  const locationText = normalizeText([row.city, row.country].filter(Boolean).join(" "));
+  const locationText = normalizeText([row.city].filter(Boolean).join(" "));
 
   return {
     item: {
@@ -150,7 +147,7 @@ export async function searchAgentsDirectory(
   let query = client
     .from("profiles")
     .select(
-      "id, role, display_name, full_name, business_name, public_slug, avatar_url, city, country, email_verified, phone_verified, bank_verified, updated_at, created_at"
+      "id, role, display_name, full_name, business_name, public_slug, avatar_url, city, email_verified, phone_verified, bank_verified, updated_at, created_at"
     )
     .eq("role", "agent")
     .order("updated_at", { ascending: false })
