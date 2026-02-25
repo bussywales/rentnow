@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
@@ -11,6 +11,7 @@ import {
   resolvePropertiesBrowseCategory,
   type PropertiesBrowseCategory,
 } from "@/lib/properties/browse-categories";
+import { clearRecentSearches, getRecentSearches, pushRecentSearch } from "@/lib/search/recents";
 
 type QuickSearchCategory = Exclude<PropertiesBrowseCategory, "shortlet">;
 
@@ -25,6 +26,8 @@ const QUICK_SEARCH_INTENT_OPTIONS: QuickSearchIntentOption[] = [
   { key: "off_plan", label: "Off-plan" },
   { key: "all", label: "All homes" },
 ];
+const MOBILE_QUICKSEARCH_RECENTS_KEY = "mobile_quicksearch_v1";
+const MOBILE_QUICKSEARCH_RECENTS_LIMIT = 5;
 
 function resolveQuickSearchCategory(lastSearchParams: string | null | undefined): QuickSearchCategory {
   if (!lastSearchParams) return "rent";
@@ -79,6 +82,10 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
   }, []);
   const [category, setCategory] = useState<QuickSearchCategory>(initialState.category);
   const [city, setCity] = useState(initialState.city);
+  const [recentSearches, setRecentSearches] = useState<string[]>(() =>
+    getRecentSearches(MOBILE_QUICKSEARCH_RECENTS_KEY, MOBILE_QUICKSEARCH_RECENTS_LIMIT)
+  );
+  const locationInputRef = useRef<HTMLInputElement | null>(null);
 
   const searchHref = useMemo(
     () =>
@@ -89,6 +96,31 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
     [category, city]
   );
 
+  useEffect(() => {
+    if (!open) return;
+    const rafId = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        locationInputRef.current?.focus();
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(rafId);
+    };
+  }, [open]);
+
+  const handleSearch = () => {
+    const nextRecents = pushRecentSearch(
+      MOBILE_QUICKSEARCH_RECENTS_KEY,
+      city,
+      MOBILE_QUICKSEARCH_RECENTS_LIMIT
+    );
+    setRecentSearches(nextRecents);
+    onOpenChange(false);
+    if (typeof window !== "undefined") {
+      window.location.assign(searchHref);
+    }
+  };
+
   return (
     <BottomSheet
       open={open}
@@ -96,7 +128,14 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
       title="Start your search"
       description="Pick a category, add a location, then open filtered results."
     >
-      <div className="space-y-4" data-testid="mobile-quicksearch-sheet">
+      <form
+        className="space-y-4"
+        data-testid="mobile-quicksearch-sheet"
+        onSubmit={(event) => {
+          event.preventDefault();
+          handleSearch();
+        }}
+      >
         <div className="flex flex-wrap gap-2" data-testid="mobile-quicksearch-intent-chips">
           {QUICK_SEARCH_INTENT_OPTIONS.map((option) => {
             const active = category === option.key;
@@ -125,6 +164,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
           </label>
           <Input
             id="mobile-quicksearch-location"
+            ref={locationInputRef}
             value={city}
             onChange={(event) => setCity(event.target.value)}
             placeholder="City or area"
@@ -133,17 +173,43 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
           />
         </div>
 
+        {recentSearches.length > 0 ? (
+          <div className="space-y-2" data-testid="mobile-quicksearch-recents">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Recent</p>
+              <button
+                type="button"
+                data-testid="mobile-quicksearch-recents-clear"
+                className="text-xs font-semibold text-slate-600 hover:text-slate-900"
+                onClick={() => {
+                  clearRecentSearches(MOBILE_QUICKSEARCH_RECENTS_KEY);
+                  setRecentSearches([]);
+                }}
+              >
+                Clear
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {recentSearches.map((recent) => (
+                <button
+                  key={recent}
+                  type="button"
+                  data-testid="mobile-quicksearch-recent-item"
+                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700"
+                  onClick={() => {
+                    setCity(recent);
+                    locationInputRef.current?.focus();
+                  }}
+                >
+                  {recent}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-1 gap-2">
-          <Button
-            type="button"
-            onClick={() => {
-              onOpenChange(false);
-              if (typeof window !== "undefined") {
-                window.location.assign(searchHref);
-              }
-            }}
-            data-testid="mobile-quicksearch-search"
-          >
+          <Button type="submit" data-testid="mobile-quicksearch-search">
             Search
           </Button>
           <Link
@@ -155,7 +221,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
             Search shortlets instead
           </Link>
         </div>
-      </div>
+      </form>
     </BottomSheet>
   );
 }
