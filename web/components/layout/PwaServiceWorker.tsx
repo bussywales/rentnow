@@ -1,15 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
+import { registerRootServiceWorker } from "@/lib/pwa/register-service-worker";
 
 export function PwaServiceWorker() {
   useEffect(() => {
     if (process.env.NODE_ENV !== "production") return;
     if (!("serviceWorker" in navigator)) return;
+    const debugEnabled = process.env.DEBUG_AUTH_NOISE === "1";
 
     const register = () => {
-      navigator.serviceWorker.register("/sw.js").catch((err) => {
-        console.warn("Service worker registration failed", err);
+      registerRootServiceWorker(navigator.serviceWorker).catch((err) => {
+        if (debugEnabled) {
+          console.warn("Service worker registration failed", err);
+        }
       });
     };
 

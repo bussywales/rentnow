@@ -17,10 +17,11 @@ const SKIP_CACHE_PATHS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
-      .then(() => self.skipWaiting())
+    (async () => {
+      const cache = await caches.open(CACHE_NAME);
+      await Promise.allSettled(PRECACHE_URLS.map((url) => cache.add(url)));
+      await self.skipWaiting();
+    })()
   );
 });
 
@@ -64,15 +65,22 @@ self.addEventListener("fetch", (event) => {
 
   if (isStaticAsset(url)) {
     event.respondWith(
-      caches.open(CACHE_NAME).then(async (cache) => {
-        const cached = await cache.match(request);
-        if (cached) return cached;
-        const response = await fetch(request);
-        if (response && response.status === 200) {
-          cache.put(request, response.clone());
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        try {
+          const cached = await cache.match(request);
+          if (cached) return cached;
+          const response = await fetch(request);
+          if (response && response.status === 200) {
+            cache.put(request, response.clone());
+          }
+          return response;
+        } catch {
+          const fallback = await cache.match(request);
+          if (fallback) return fallback;
+          return fetch(request);
         }
-        return response;
-      })
+      })()
     );
   }
 });
