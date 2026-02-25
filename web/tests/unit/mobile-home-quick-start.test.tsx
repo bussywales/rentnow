@@ -12,7 +12,7 @@ void test("mobile quick-start renders search entry and category shortcuts", () =
   assert.match(html, /data-testid="mobile-quickstart"/);
   assert.match(html, /Quick start/);
   assert.match(html, /data-testid="mobile-quickstart-search"/);
-  assert.match(html, /href="\/properties\?focus=search"/);
+  assert.match(html, /href="\/properties\?open=search"/);
   assert.match(html, /data-testid="mobile-quickstart-chip-shortlets"/);
   assert.match(html, /href="\/shortlets"/);
   assert.match(html, /data-testid="mobile-quickstart-chip-rent"/);

@@ -12,6 +12,7 @@ import { parseIntent } from "@/lib/search-intent";
 type Props = {
   mode?: "home" | "browse";
   onFilters?: (filters: ParsedSearchFilters) => void;
+  autoFocusInput?: boolean;
 };
 
 const emptyFilters: ParsedSearchFilters = {
@@ -25,7 +26,11 @@ const emptyFilters: ParsedSearchFilters = {
   amenities: [],
 };
 
-export function SmartSearchBox({ onFilters, mode = "home" }: Props) {
+export function SmartSearchBox({
+  onFilters,
+  mode = "home",
+  autoFocusInput = false,
+}: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [query, setQuery] = useState("");
@@ -140,6 +145,7 @@ export function SmartSearchBox({ onFilters, mode = "home" }: Props) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={placeholder}
+          autoFocus={autoFocusInput}
           className="rounded-full border-slate-200/80 bg-white px-5 py-3 text-sm shadow-[0_6px_20px_rgba(15,23,42,0.08)] focus:border-sky-400 focus:ring-4 focus:ring-sky-100"
         />
         <Button

@@ -224,6 +224,7 @@ function mapSearchRowsToProperties(
 
 export default async function PropertiesPage({ searchParams }: Props) {
   const resolvedSearchParams = await resolveSearchParams(searchParams);
+  const openSearch = readParam(resolvedSearchParams, "open") === "search" || readParam(resolvedSearchParams, "focus") === "search";
   const cookieStore = await cookies();
   const urlIntent = parseIntent(readParam(resolvedSearchParams, "intent"));
   const cookieIntent = parseIntent(cookieStore.get(INTENT_COOKIE_NAME)?.value ?? null);
@@ -876,7 +877,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
       )}
 
       <div className="space-y-3">
-        <SmartSearchBox mode="browse" />
+        <SmartSearchBox mode="browse" autoFocusInput={openSearch} />
         <AdvancedSearchPanel initialFilters={filters} />
       </div>
       <BrowseIntentClient

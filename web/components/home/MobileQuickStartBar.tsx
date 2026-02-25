@@ -1,4 +1,9 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo, useSyncExternalStore } from "react";
+import { getRecentBrowseIntent } from "@/lib/market/browse-intent";
+import { resolveMobileQuickStartSearchHref } from "@/lib/home/mobile-quickstart-routing";
 
 const QUICK_START_LINKS = [
   {
@@ -69,6 +74,18 @@ const QUICK_START_LINKS = [
 ] as const;
 
 export function MobileQuickStartBar() {
+  const isClient = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+  const searchHref = useMemo(() => {
+    const recentIntent = isClient ? getRecentBrowseIntent(14) : null;
+    return resolveMobileQuickStartSearchHref({
+      lastSearchParams: recentIntent?.lastSearchParams ?? null,
+    });
+  }, [isClient]);
+
   return (
     <section
       className="md:hidden rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
@@ -76,7 +93,7 @@ export function MobileQuickStartBar() {
     >
       <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">Quick start</p>
       <Link
-        href="/properties?focus=search"
+        href={searchHref}
         className="mt-2 block rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700"
         data-testid="mobile-quickstart-search"
       >
