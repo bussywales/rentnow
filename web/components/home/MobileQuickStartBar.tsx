@@ -1,10 +1,71 @@
 import Link from "next/link";
 
 const QUICK_START_LINKS = [
-  { key: "shortlets", href: "/shortlets", label: "Shortlets" },
-  { key: "rent", href: "/properties?intent=rent", label: "To rent" },
-  { key: "sale", href: "/properties?intent=sale", label: "For sale" },
-  { key: "all", href: "/properties", label: "All homes" },
+  {
+    key: "shortlets",
+    href: "/shortlets",
+    label: "Shortlets",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden className="h-4 w-4">
+        <path
+          d="M4 12h16M4 6h16M4 18h10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    key: "rent",
+    href: "/properties?intent=rent",
+    label: "To rent",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden className="h-4 w-4">
+        <path
+          d="M3 11.5 12 4l9 7.5v8.5h-6v-5h-6v5H3z"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    key: "sale",
+    href: "/properties?intent=sale",
+    label: "For sale",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden className="h-4 w-4">
+        <path
+          d="M5 12h14M12 5l7 7-7 7"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
+  {
+    key: "all",
+    href: "/properties",
+    label: "All homes",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden className="h-4 w-4">
+        <path
+          d="M4 6h16v12H4zM9 6v12M15 6v12"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
 ] as const;
 
 export function MobileQuickStartBar() {
@@ -17,16 +78,19 @@ export function MobileQuickStartBar() {
       <Link
         href="/properties?focus=search"
         className="mt-2 block rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700"
+        data-testid="mobile-quickstart-search"
       >
         Search for homes or stays
       </Link>
-      <div className="mt-3 grid grid-cols-2 gap-2">
+      <div className="scrollbar-none -mx-1 mt-3 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1">
         {QUICK_START_LINKS.map((entry) => (
           <Link
             key={entry.key}
             href={entry.href}
-            className="rounded-full border border-slate-200 px-3 py-2 text-center text-xs font-semibold text-slate-700"
+            className="inline-flex snap-start shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700"
+            data-testid={`mobile-quickstart-chip-${entry.key}`}
           >
+            <span className="text-slate-500">{entry.icon}</span>
             {entry.label}
           </Link>
         ))}

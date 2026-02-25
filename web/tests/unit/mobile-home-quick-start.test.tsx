@@ -11,12 +11,19 @@ void test("mobile quick-start renders search entry and category shortcuts", () =
 
   assert.match(html, /data-testid="mobile-quickstart"/);
   assert.match(html, /Quick start/);
+  assert.match(html, /data-testid="mobile-quickstart-search"/);
   assert.match(html, /href="\/properties\?focus=search"/);
+  assert.match(html, /data-testid="mobile-quickstart-chip-shortlets"/);
   assert.match(html, /href="\/shortlets"/);
+  assert.match(html, /data-testid="mobile-quickstart-chip-rent"/);
   assert.match(html, /href="\/properties\?intent=rent"/);
+  assert.match(html, /data-testid="mobile-quickstart-chip-sale"/);
   assert.match(html, /href="\/properties\?intent=sale"/);
+  assert.match(html, /data-testid="mobile-quickstart-chip-all"/);
   assert.match(html, /href="\/properties"/);
   assert.match(html, /md:hidden/);
+  assert.match(html, /snap-x snap-mandatory/);
+  assert.match(html, /scrollbar-none/);
 });
 
 void test("public home mounts mobile quick-start before long-form hero content", () => {
