@@ -2,6 +2,7 @@
 title: "Properties: Featured discovery rail"
 audiences:
   - TENANT
+  - HOST
 areas:
   - Tenant
   - Discovery

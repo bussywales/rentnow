@@ -2,6 +2,7 @@
 title: "Market discovery taxonomy v1 (static)"
 audiences:
   - TENANT
+  - HOST
 areas:
   - Tenant
   - Discovery
