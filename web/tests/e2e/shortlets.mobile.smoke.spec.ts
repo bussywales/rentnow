@@ -53,6 +53,7 @@ test.describe("shortlets mobile smoke", () => {
     const openMobileMapSheet = async () => {
       const mapOpen = page.getByTestId(smokeSelectors.shortletsMapOpen);
       const mobileMapSheet = page.getByTestId(smokeSelectors.shortletsMobileMap);
+      const mobileMapDialog = page.locator(`#${smokeSelectors.shortletsMobileMapDialog}`);
 
       await expect(mapOpen).toBeVisible();
       await closeSupportPanelIfOpen();
@@ -64,6 +65,7 @@ test.describe("shortlets mobile smoke", () => {
       await expect
         .poll(async () => {
           if (await mobileMapSheet.isVisible().catch(() => false)) return true;
+          if (await mobileMapDialog.isVisible().catch(() => false)) return true;
           const supportPanel = page.getByTestId(smokeSelectors.supportWidgetPanel);
           if (await supportPanel.isVisible().catch(() => false)) {
             const closeButton = supportPanel.getByRole("button", { name: /close/i }).first();
@@ -74,7 +76,9 @@ test.describe("shortlets mobile smoke", () => {
           await mapOpen.evaluate((element) => {
             element.click();
           });
-          return mobileMapSheet.isVisible().catch(() => false);
+          const sheetVisible = await mobileMapSheet.isVisible().catch(() => false);
+          if (sheetVisible) return true;
+          return mobileMapDialog.isVisible().catch(() => false);
         }, { timeout: 10_000 })
         .toBeTruthy();
 

@@ -17,6 +17,7 @@ export const smokeSelectors = {
   shortletsMapOpen: "shortlets-open-map",
   shortletsMapClose: "shortlets-map-close",
   shortletsMobileMap: "shortlets-mobile-map",
+  shortletsMobileMapDialog: "shortlets-mobile-map-modal",
   shortletsMap: "shortlets-map",
   shortletsSearchThisArea: "shortlets-search-this-area",
   shortletsMapMoveToggle: "shortlets-map-move-toggle",
