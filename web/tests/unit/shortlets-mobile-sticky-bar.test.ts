@@ -36,3 +36,18 @@ void test("shortlets shell mounts only one compact sticky bar component", () => 
   assert.equal(componentMatches.length, 1);
   assert.equal(contents.includes('data-testid="shortlets-compact-search-pill"'), false);
 });
+
+void test("shortlets mobile sticky bar keeps compact sizing constraints and avoids oversized overlays", () => {
+  const stickyContents = fs.readFileSync(stickyBarPath, "utf8");
+  const shellContents = fs.readFileSync(shellPath, "utf8");
+
+  assert.ok(stickyContents.includes("top-[78px]"));
+  assert.ok(stickyContents.includes("max-w-[760px]"));
+  assert.ok(stickyContents.includes("px-2.5 py-2"));
+  assert.ok(stickyContents.includes("h-8"));
+  assert.equal(stickyContents.includes("rounded-full border border-slate-200 bg-white/95"), false);
+
+  const stickyTestIdMatches = stickyContents.match(/shortlets-compact-search-pill/g) ?? [];
+  assert.equal(stickyTestIdMatches.length, 1);
+  assert.ok(shellContents.includes('data-testid="shortlets-open-map"'));
+});
