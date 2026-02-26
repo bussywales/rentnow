@@ -118,6 +118,11 @@ test.describe("home mobile featured discovery smoke", () => {
       target.country
     );
 
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await dismissDisclaimerIfPresent();
+    await expect(page.getByTestId(smokeSelectors.homeMobileRecentlyViewedRail)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.homeMobileRecentlyViewedItem).first()).toBeVisible();
+
     expect(
       runtimeErrors,
       `home mobile featured discovery smoke emitted runtime errors:\n${runtimeErrors.join("\n")}`

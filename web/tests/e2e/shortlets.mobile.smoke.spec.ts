@@ -146,6 +146,20 @@ test.describe("shortlets mobile smoke", () => {
       return scroller.scrollHeight > window.innerHeight;
     });
     expect(isScrollable).toBeTruthy();
+
+    const seededBrowseResponse = waitForShortletsSearchResponse(page, { required: false });
+    await page.goto("/shortlets?where=Lekki&guests=2", { waitUntil: "domcontentloaded" });
+    await seededBrowseResponse;
+    await waitForShortletsResults(page);
+
+    const baselineBrowseResponse = waitForShortletsSearchResponse(page, { required: false });
+    await page.goto("/shortlets", { waitUntil: "domcontentloaded" });
+    await baselineBrowseResponse;
+    await waitForShortletsResults(page);
+    await expect(page.getByTestId(smokeSelectors.shortletsContinueBrowsingChip)).toBeVisible();
+    await page.getByTestId(`${smokeSelectors.shortletsContinueBrowsingChip}-link`).click({ force: true });
+    await page.waitForURL(/\/shortlets\?.*where=Lekki/i, { timeout: 20_000 });
+
     expect(
       runtimeErrors,
       `shortlets mobile smoke emitted runtime errors:\n${runtimeErrors.join("\n")}`
