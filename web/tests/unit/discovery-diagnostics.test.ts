@@ -121,4 +121,8 @@ void test("admin discovery health snapshot includes market and surface breakdown
   assert.ok(snapshot.counts.surfaces.SHORTLETS_FEATURED >= 0);
   assert.ok(snapshot.counts.surfaces.PROPERTIES_FEATURED >= 0);
   assert.ok(snapshot.counts.surfaces.COLLECTIONS >= 0);
+  assert.ok(snapshot.coverage.rows.length > 0);
+  assert.ok(snapshot.coverage.overallCoverageScore >= 0);
+  assert.ok(snapshot.brokenRoutes.totalCount >= 0);
+  assert.ok(Array.isArray(snapshot.brokenRoutes.reasonCounts));
 });

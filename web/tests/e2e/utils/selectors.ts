@@ -108,6 +108,12 @@ export const smokeSelectors = {
   adminDiscoveryTotalCount: "admin-discovery-total-count",
   adminDiscoveryMarketBreakdown: "admin-discovery-market-breakdown",
   adminDiscoverySurfaceBreakdown: "admin-discovery-surface-breakdown",
+  adminDiscoveryCoveragePanel: "admin-discovery-coverage-panel",
+  adminDiscoveryTopRisks: "admin-discovery-top-risks",
+  adminDiscoveryBrokenRoutes: "admin-discovery-broken-routes",
+  adminDiscoveryExportCoverage: "admin-discovery-export-coverage",
+  adminDiscoveryExportInvalid: "admin-discovery-export-invalid",
+  adminDiscoveryExportBroken: "admin-discovery-export-broken",
 } as const;
 
 export function shortletsResultLabelText(total: number, withinMapArea: boolean): RegExp {

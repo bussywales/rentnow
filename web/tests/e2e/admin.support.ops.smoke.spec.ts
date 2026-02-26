@@ -145,6 +145,14 @@ test.describe("admin support ops smoke", () => {
     await expect(page.getByTestId(smokeSelectors.adminDiscoveryTotalCount)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.adminDiscoveryMarketBreakdown)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.adminDiscoverySurfaceBreakdown)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.adminDiscoveryCoveragePanel)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.adminDiscoveryTopRisks)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.adminDiscoveryBrokenRoutes)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.adminDiscoveryExportCoverage)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.adminDiscoveryExportInvalid)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.adminDiscoveryExportBroken)).toBeVisible();
+
+    await page.getByTestId(smokeSelectors.adminDiscoveryExportCoverage).click();
 
     expect(
       runtimeErrors,
