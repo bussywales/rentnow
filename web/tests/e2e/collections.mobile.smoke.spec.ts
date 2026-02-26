@@ -40,6 +40,10 @@ test.describe("collections mobile smoke", () => {
     await expect(page.getByTestId(smokeSelectors.collectionsHero)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.collectionsRail)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.collectionsCard).first()).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.collectionsShareButton)).toBeVisible();
+
+    await page.getByTestId(smokeSelectors.collectionsShareButton).click();
+    await expect(page.getByTestId(smokeSelectors.collectionsShareCopySuccess)).toBeVisible();
 
     await page.getByTestId(smokeSelectors.collectionsViewResultsCta).click();
     await page.waitForURL(/\/shortlets(\?|$)/, { timeout: 20_000 });
@@ -51,4 +55,3 @@ test.describe("collections mobile smoke", () => {
     ).toEqual([]);
   });
 });
-

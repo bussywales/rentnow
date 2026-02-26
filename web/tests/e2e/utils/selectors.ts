@@ -39,6 +39,8 @@ export const smokeSelectors = {
   collectionsRail: "collections-rail",
   collectionsCard: "collections-card",
   collectionsViewResultsCta: "collections-view-results-cta",
+  collectionsShareButton: "collections-share-button",
+  collectionsShareCopySuccess: "share-copy-success",
   homeVisualLanding: "home-visual-landing",
   homeFeaturedStrip: "home-featured-strip",
   homeForYouGrid: "home-for-you-grid",
