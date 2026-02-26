@@ -93,6 +93,7 @@ const QUICK_START_LINKS = [
 export function MobileQuickStartBar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const { market } = useMarketPreference();
+  const quickSearchSheetId = "mobile-quicksearch-sheet-dialog";
 
   return (
     <section
@@ -103,6 +104,9 @@ export function MobileQuickStartBar() {
       <button
         type="button"
         onClick={() => setSearchOpen(true)}
+        aria-haspopup="dialog"
+        aria-expanded={searchOpen}
+        aria-controls={quickSearchSheetId}
         className="mt-2 block rounded-full border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm font-medium text-slate-700"
         data-testid="mobile-quickstart-search-trigger"
       >
@@ -121,7 +125,12 @@ export function MobileQuickStartBar() {
           </Link>
         ))}
       </div>
-      <MobileQuickSearchSheet key={market.country} open={searchOpen} onOpenChange={setSearchOpen} />
+      <MobileQuickSearchSheet
+        key={market.country}
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        sheetId={quickSearchSheetId}
+      />
     </section>
   );
 }

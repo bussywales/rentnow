@@ -10,9 +10,12 @@ void test("mobile quick start bar mounts bottom-sheet trigger and sheet componen
   assert.match(source, /data-testid="mobile-quickstart-search-trigger"/);
   assert.match(source, /setSearchOpen\(true\)/);
   assert.match(source, /useMarketPreference/);
+  assert.match(source, /aria-haspopup="dialog"/);
+  assert.match(source, /aria-expanded=\{searchOpen\}/);
+  assert.match(source, /aria-controls=\{quickSearchSheetId\}/);
   assert.match(
     source,
-    /<MobileQuickSearchSheet key=\{market\.country\} open=\{searchOpen\} onOpenChange=\{setSearchOpen\} \/>/
+    /<MobileQuickSearchSheet[\s\S]*sheetId=\{quickSearchSheetId\}[\s\S]*\/>/
   );
 });
 
@@ -38,6 +41,7 @@ void test("mobile quick search sheet source contains category and preset rails",
   assert.match(source, /data-testid="mobile-quicksearch-search"/);
   assert.match(source, /data-testid="mobile-quicksearch-shortlets"/);
   assert.match(source, /<BottomSheet/);
+  assert.match(source, /sheetId=\{sheetId\}/);
   assert.match(source, /setCategory\(option\.key\)/);
   assert.match(source, /setActivePresetId\(null\)/);
   assert.match(source, /setCategory\(preset\.category\)/);

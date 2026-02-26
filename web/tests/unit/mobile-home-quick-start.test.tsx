@@ -11,6 +11,9 @@ void test("mobile quick-start renders search entry and category shortcuts", () =
   assert.match(source, /data-testid="mobile-quickstart"/);
   assert.match(source, /Quick start/);
   assert.match(source, /data-testid="mobile-quickstart-search-trigger"/);
+  assert.match(source, /aria-haspopup="dialog"/);
+  assert.match(source, /aria-expanded=\{searchOpen\}/);
+  assert.match(source, /aria-controls=\{quickSearchSheetId\}/);
   assert.match(source, /data-testid={`mobile-quickstart-chip-\$\{entry\.key\}`}/);
   assert.match(source, /href=\{entry\.href\}/);
   assert.match(source, /md:hidden/);

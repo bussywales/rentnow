@@ -86,15 +86,23 @@ export function ContinueBrowsingChip({
     <div
       className={`flex flex-wrap items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs shadow-sm ${className ?? ""}`}
       data-testid={testId}
+      role="region"
+      aria-label={`${kind === "shortlet" ? "Shortlets" : "Properties"} continue browsing`}
     >
       <span className="font-semibold uppercase tracking-[0.12em] text-slate-500">Continue browsing</span>
-      <Link href={href} className="font-semibold text-sky-700 hover:text-sky-800" data-testid={`${testId}-link`}>
+      <Link
+        href={href}
+        className="font-semibold text-sky-700 hover:text-sky-800"
+        data-testid={`${testId}-link`}
+        aria-label={`Resume browsing ${kind === "shortlet" ? "shortlets" : "properties"}`}
+      >
         Resume
       </Link>
       <button
         type="button"
         className="font-semibold text-slate-500 hover:text-slate-900"
         data-testid={`${testId}-clear`}
+        aria-label={`Clear ${kind === "shortlet" ? "shortlets" : "properties"} continue browsing`}
         onClick={() => {
           clearLastBrowseUrl({
             kind,

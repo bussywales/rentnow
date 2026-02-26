@@ -94,6 +94,7 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
   const initialDraft = useMemo(() => createDraftFromFilters(initialFilters), [initialFilters]);
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<AdvancedFiltersDraft>(initialDraft);
+  const drawerId = "properties-filters-drawer-panel";
 
   const updateQuery = useCallback(
     (next: URLSearchParams) => {
@@ -182,6 +183,9 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
           type="button"
           variant="secondary"
           onClick={openDrawer}
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-controls={drawerId}
           data-testid="properties-filters-button"
         >
           <span className="inline-flex items-center gap-1.5">
@@ -207,6 +211,7 @@ export function AdvancedSearchPanel({ initialFilters }: Props) {
         drawerTestId="properties-filters-drawer"
         overlayTestId="properties-filters-overlay"
         ariaLabel="Property filters"
+        dialogId={drawerId}
       >
         <div className="space-y-5">
           <section className="space-y-2">

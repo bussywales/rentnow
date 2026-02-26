@@ -57,6 +57,7 @@ export function SaveToggle({
     [market.country, marketCountry]
   );
   const [saved, setSaved] = useState(false);
+  const labelTarget = title?.trim() || "item";
 
   useEffect(() => {
     const refresh = () => setSaved(isSavedItem(itemId, resolvedMarket));
@@ -84,7 +85,8 @@ export function SaveToggle({
       type="button"
       data-testid={testId}
       data-saved={saved ? "true" : "false"}
-      aria-label={saved ? "Unsave item" : "Save item"}
+      aria-label={saved ? `Unsave ${labelTarget}` : `Save ${labelTarget}`}
+      aria-pressed={saved}
       onClick={handleClick}
       className={cn(
         "inline-flex h-9 w-9 items-center justify-center rounded-full border border-slate-200/90 shadow-sm ring-1 ring-slate-200/60 backdrop-blur-sm transition",

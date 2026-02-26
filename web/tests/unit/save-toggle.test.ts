@@ -9,7 +9,9 @@ void test("save toggle source keeps accessibility labels and state markers", () 
 
   assert.match(source, /data-testid=\{testId\}/);
   assert.match(source, /data-saved=\{saved \? "true" : "false"\}/);
-  assert.match(source, /aria-label=\{saved \? "Unsave item" : "Save item"\}/);
+  assert.match(source, /const labelTarget = title\?\.trim\(\) \|\| "item"/);
+  assert.match(source, /aria-label=\{saved \? `Unsave \$\{labelTarget\}` : `Save \$\{labelTarget\}`\}/);
+  assert.match(source, /aria-pressed=\{saved\}/);
   assert.match(source, /toggleSavedItem\(/);
   assert.match(source, /subscribeSavedItems\(/);
 });

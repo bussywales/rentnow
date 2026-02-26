@@ -90,9 +90,10 @@ function normalizeGuests(value: number): number {
 type MobileQuickSearchSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  sheetId?: string;
 };
 
-export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearchSheetProps) {
+export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQuickSearchSheetProps) {
   const router = useRouter();
   const { market } = useMarketPreference();
   const marketCountry = market.country;
@@ -213,6 +214,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
       onOpenChange={onOpenChange}
       title="Start your search"
       description="Pick intent, dates, guests, and location to jump into results."
+      sheetId={sheetId}
     >
       <form
         className="space-y-4"

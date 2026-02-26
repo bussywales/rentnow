@@ -11,9 +11,13 @@ void test("properties advanced search uses shared drawer shell with apply/reset/
 
   assert.match(source, /data-testid="properties-filters-button"/);
   assert.match(source, /data-testid="properties-filters-active-indicator"/);
+  assert.match(source, /aria-haspopup="dialog"/);
+  assert.match(source, /aria-expanded=\{open\}/);
+  assert.match(source, /aria-controls=\{drawerId\}/);
   assert.match(source, /<FilterDrawerShell/);
   assert.match(source, /drawerTestId="properties-filters-drawer"/);
   assert.match(source, /overlayTestId="properties-filters-overlay"/);
+  assert.match(source, /dialogId=\{drawerId\}/);
   assert.match(source, /onApply=\{onApply\}/);
   assert.match(source, /onReset=\{onReset\}/);
   assert.match(source, /onClear=\{onClear\}/);

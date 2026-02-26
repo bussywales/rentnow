@@ -8,6 +8,8 @@ void test("continue browsing chip uses browse-state hooks with stable testids", 
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /data-testid=\{testId\}/);
+  assert.match(source, /role="region"/);
+  assert.match(source, /aria-label=\{`\$\{kind === "shortlet" \? "Shortlets" : "Properties"\} continue browsing`\}/);
   assert.match(source, /data-testid=\{`\$\{testId\}-link`\}/);
   assert.match(source, /data-testid=\{`\$\{testId\}-clear`\}/);
   assert.match(source, /setLastBrowseUrl/);
