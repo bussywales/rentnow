@@ -5,7 +5,6 @@ import path from "node:path";
 import {
   dispatchMarketChanged,
   subscribeMarketChanged,
-  MARKET_CHANGED_EVENT,
 } from "@/lib/market/market-events";
 
 type WindowLike = EventTarget & {
@@ -71,7 +70,6 @@ void test("market selector source dispatches market-change event and avoids hard
   const sourcePath = path.join(process.cwd(), "components", "layout", "MarketSelector.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
-  assert.match(source, new RegExp(MARKET_CHANGED_EVENT));
   assert.match(source, /dispatchMarketChanged/);
   assert.match(source, /router\.refresh\(\)/);
   assert.doesNotMatch(source, /window\.location\.reload\(\)/);

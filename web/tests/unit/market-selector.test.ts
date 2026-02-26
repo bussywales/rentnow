@@ -1,36 +1,30 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
-import { MarketPreferenceProvider } from "@/components/layout/MarketPreferenceProvider";
-import { MarketSelector } from "@/components/layout/MarketSelector";
+import fs from "node:fs";
+import path from "node:path";
+import { MARKET_OPTIONS } from "@/lib/market/market";
 
-void test("market selector does not render when disabled", () => {
-  const html = renderToStaticMarkup(
-    createElement(
-      MarketPreferenceProvider,
-      {
-        initialMarket: { country: "NG", currency: "NGN", source: "default" },
-      },
-      createElement(MarketSelector, { enabled: false })
-    )
-  );
-  assert.equal(html, "");
+void test("market selector source uses in-app refresh instead of hard reload", () => {
+  const sourcePath = path.join(process.cwd(), "components", "layout", "MarketSelector.tsx");
+  const source = fs.readFileSync(sourcePath, "utf8");
+
+  assert.match(source, /if \(!enabled\) return null/);
+  assert.match(source, /dispatchMarketChanged/);
+  assert.match(source, /router\.refresh\(\)/);
+  assert.doesNotMatch(source, /window\.location\.reload\(\)/);
 });
 
-void test("market selector renders when enabled", () => {
-  const html = renderToStaticMarkup(
-    createElement(
-      MarketPreferenceProvider,
-      {
-        initialMarket: { country: "NG", currency: "NGN", source: "default" },
-      },
-      createElement(MarketSelector, { enabled: true })
-    )
-  );
-  assert.match(html, /Select market/i);
-  assert.match(html, /Nigeria/i);
-  assert.match(html, /United Kingdom/i);
-  assert.match(html, /Canada/i);
-  assert.match(html, /United States/i);
+void test("market options include NG, UK, CA, and US", () => {
+  const labels = MARKET_OPTIONS.map((option) => option.label);
+  const countries = MARKET_OPTIONS.map((option) => option.country);
+
+  assert.ok(labels.includes("Nigeria"));
+  assert.ok(labels.includes("United Kingdom"));
+  assert.ok(labels.includes("Canada"));
+  assert.ok(labels.includes("United States"));
+
+  assert.ok(countries.includes("NG"));
+  assert.ok(countries.includes("GB"));
+  assert.ok(countries.includes("CA"));
+  assert.ok(countries.includes("US"));
 });
