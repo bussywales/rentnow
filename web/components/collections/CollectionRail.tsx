@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { SaveToggle } from "@/components/saved/SaveToggle";
 import { TrustBadges } from "@/components/ui/TrustBadges";
+import { TrackViewedLink } from "@/components/viewed/TrackViewedLink";
 import type { CollectionCard } from "@/lib/collections/collections-select";
 
 type CollectionRailProps = {
@@ -31,8 +31,17 @@ export function CollectionRail({ cards, marketCountry }: CollectionRailProps) {
               className="absolute right-3 top-3 z-[2]"
               testId={`save-toggle-${card.id}`}
             />
-            <Link
+            <TrackViewedLink
               href={card.href}
+              viewedItem={{
+                id: card.id,
+                kind: card.kind,
+                href: card.href,
+                title: card.title,
+                subtitle: card.subtitle,
+                tag: card.tag,
+                marketCountry,
+              }}
               data-testid="collections-card"
               className="inline-flex w-full flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
             >
@@ -42,7 +51,7 @@ export function CollectionRail({ cards, marketCountry }: CollectionRailProps) {
               <TrustBadges badges={card.badges} marketCountry={marketCountry} />
               <p className="pr-10 text-base font-semibold text-slate-900">{card.title}</p>
               <p className="text-sm text-slate-600">{card.subtitle}</p>
-            </Link>
+            </TrackViewedLink>
           </div>
         ))}
       </div>

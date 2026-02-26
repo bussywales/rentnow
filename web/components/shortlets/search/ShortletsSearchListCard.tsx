@@ -13,6 +13,7 @@ import {
 } from "@/lib/shortlet/pricing";
 import { ShortletsSearchCardCarousel } from "@/components/shortlets/search/ShortletsSearchCardCarousel";
 import { VerifiedHostInfoTooltip } from "@/components/trust/VerifiedHostInfoTooltip";
+import { TrackViewedLink } from "@/components/viewed/TrackViewedLink";
 
 type Props = {
   property: Property & {
@@ -257,8 +258,16 @@ export function ShortletsSearchListCard({
         fallbackImage={FALLBACK_IMAGE}
         prioritizeFirstImage={prioritizeFirstImage}
       />
-      <Link
+      <TrackViewedLink
         href={href}
+        viewedItem={{
+          id: property.id,
+          kind: "shortlet",
+          href,
+          title: property.title,
+          subtitle: location,
+          tag: "Shortlets",
+        }}
         className="block h-full w-full max-w-full focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
       >
         <div className="flex min-h-[146px] flex-col gap-1.5 px-3 py-2.5 sm:min-h-[164px] sm:gap-2 sm:px-4 sm:py-3">
@@ -344,7 +353,7 @@ export function ShortletsSearchListCard({
             </div>
           ) : null}
         </div>
-      </Link>
+      </TrackViewedLink>
     </article>
   );
 }

@@ -32,6 +32,7 @@ import {
   resolveShortletBookingMode,
   resolveShortletNightlyPriceMinor,
 } from "@/lib/shortlet/discovery";
+import { pushViewedItem } from "@/lib/viewed";
 
 const BedIcon = () => (
   <svg
@@ -145,6 +146,7 @@ export function PropertyCard({
     ? "Enquire to buy"
     : "Request viewing";
   const cardHref = href || `/properties/${property.id}`;
+  const normalizedCardHref = cardHref.trim();
   const showFastResponder = !!fastResponder;
   const advertiserName = property.owner_id
     ? derivePublicAdvertiserName({
@@ -159,6 +161,12 @@ export function PropertyCard({
       advertiserId: property.owner_id,
       publicSlug: property.owner_profile?.public_slug ?? null,
     }) ?? (property.owner_id ? `/u/${property.owner_id}` : null);
+
+  const shouldTrackPropertyViewHref = (value: string | null | undefined): boolean => {
+    if (!value) return false;
+    if (value === normalizedCardHref) return true;
+    return value.startsWith(`/properties/${property.id}`);
+  };
 
   const imageBlock = (
     <div
@@ -225,6 +233,21 @@ export function PropertyCard({
         compact && "flex flex-col"
       )}
       data-testid="property-card"
+      onClickCapture={(event) => {
+        const target = event.target as Element | null;
+        const anchor = target?.closest("a");
+        if (!anchor) return;
+        if (!shouldTrackPropertyViewHref(anchor.getAttribute("href"))) return;
+        pushViewedItem({
+          id: property.id,
+          kind: isShortlet ? "shortlet" : "property",
+          marketCountry: market.country,
+          href: normalizedCardHref,
+          title: property.title,
+          subtitle: locationLabel,
+          tag: isShortlet ? "Shortlets" : "Properties",
+        });
+      }}
     >
       {imageBlock}
       <div className="flex min-w-0 flex-1 flex-col gap-2 px-4 py-3">

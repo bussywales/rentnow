@@ -5,6 +5,7 @@ import { useMemo } from "react";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { SaveToggle } from "@/components/saved/SaveToggle";
 import { TrustBadges } from "@/components/ui/TrustBadges";
+import { TrackViewedLink } from "@/components/viewed/TrackViewedLink";
 import {
   selectPropertiesFeaturedRailItems,
 } from "@/lib/discovery";
@@ -63,8 +64,17 @@ export function PropertiesFeaturedRail() {
                 className="absolute right-2.5 top-2.5 z-[2]"
                 testId={`save-toggle-${item.id}`}
               />
-              <Link
+              <TrackViewedLink
                 href={item.href}
+                viewedItem={{
+                  id: item.id,
+                  kind: "property",
+                  href: item.href,
+                  title: item.title,
+                  subtitle: item.subtitle,
+                  tag: item.tag,
+                  marketCountry: market.country,
+                }}
                 data-testid="properties-featured-item"
                 className={`relative inline-flex w-full flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br p-3.5 text-white shadow-sm ${ACCENT_CLASSES[index % ACCENT_CLASSES.length]}`}
               >
@@ -80,7 +90,7 @@ export function PropertiesFeaturedRail() {
                 <span className="relative mt-4 inline-flex text-[11px] font-semibold uppercase tracking-[0.14em] text-white/90">
                   Explore
                 </span>
-              </Link>
+              </TrackViewedLink>
             </div>
           ))}
           <div className="w-4 shrink-0" aria-hidden="true" />

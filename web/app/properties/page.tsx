@@ -42,6 +42,7 @@ import { buildMarketHubHref, getMarketHubs } from "@/lib/market/hubs";
 import { INTENT_COOKIE_NAME, parseIntent, resolveIntent } from "@/lib/search-intent";
 import { MarketHubLink } from "@/components/market/MarketHubLink";
 import { HelpDrawerTrigger } from "@/components/help/HelpDrawerTrigger";
+import { ContinueBrowsingChip } from "@/components/viewed/ContinueBrowsingChip";
 import {
   buildClearFiltersHref,
   buildIntentHref,
@@ -887,6 +888,12 @@ export default async function PropertiesPage({ searchParams }: Props) {
       <BrowseIntentClient
         persistFilters={hasFilters}
         showContinueBanner={showMarketHubSuggestions}
+      />
+      <ContinueBrowsingChip
+        kind="property"
+        marketCountry={market.country}
+        persistCurrentBrowse
+        testId="properties-continue-browsing-chip"
       />
 
       {role === "tenant" && !isTenantPro && (

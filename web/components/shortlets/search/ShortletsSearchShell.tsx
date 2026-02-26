@@ -22,6 +22,7 @@ import { ShortletsSearchListCard } from "@/components/shortlets/search/Shortlets
 import { ShortletsFeaturedRail } from "@/components/shortlets/discovery/ShortletsFeaturedRail";
 import { useShortletsStickyCollapse } from "@/components/shortlets/search/useShortletsStickyCollapse";
 import { WhereTypeahead, type WhereSuggestion } from "@/components/shortlets/search/WhereTypeahead";
+import { ContinueBrowsingChip } from "@/components/viewed/ContinueBrowsingChip";
 import {
   isNigeriaDestinationQuery,
   parseSearchView,
@@ -1876,6 +1877,13 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
         </div>
 
         <ShortletsFeaturedRail />
+        <ContinueBrowsingChip
+          kind="shortlet"
+          marketCountry={parsedUi.market}
+          persistCurrentBrowse
+          className="mt-2"
+          testId="shortlets-continue-browsing-chip"
+        />
 
         {activeFilterTags.length > 0 ? (
           <FilterChipRow

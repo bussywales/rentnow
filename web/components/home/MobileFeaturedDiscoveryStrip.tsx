@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { SaveToggle } from "@/components/saved/SaveToggle";
 import { TrustBadges } from "@/components/ui/TrustBadges";
+import { TrackViewedLink } from "@/components/viewed/TrackViewedLink";
 import {
   buildFeaturedDiscoveryHref,
   getMobileFeaturedDiscoveryItems,
@@ -63,8 +64,17 @@ export function MobileFeaturedDiscoveryStrip() {
                 testId={`save-toggle-${item.id}`}
                 className="absolute right-3 top-3 z-[2]"
               />
-              <Link
+              <TrackViewedLink
                 href={buildFeaturedDiscoveryHref(item)}
+                viewedItem={{
+                  id: item.id,
+                  kind: item.category === "shortlet" ? "shortlet" : "property",
+                  href: buildFeaturedDiscoveryHref(item),
+                  title: item.title,
+                  subtitle: item.subtitle,
+                  tag: item.tag,
+                  marketCountry: market.country,
+                }}
                 className={`relative inline-flex w-full flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br p-4 text-white shadow-sm ${ACCENT_CLASSES[index % ACCENT_CLASSES.length]}`}
                 data-testid={`mobile-featured-item-${item.id}`}
               >
@@ -85,7 +95,7 @@ export function MobileFeaturedDiscoveryStrip() {
                 <span className="relative mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.14em] text-white/90">
                   Explore
                 </span>
-              </Link>
+              </TrackViewedLink>
             </div>
           ))}
           <div className="w-5 shrink-0" aria-hidden="true" />
