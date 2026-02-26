@@ -125,6 +125,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
     getRecentSearches(MOBILE_QUICKSEARCH_RECENTS_KEY, MOBILE_QUICKSEARCH_RECENTS_LIMIT)
   );
   const locationInputRef = useRef<HTMLInputElement | null>(null);
+  const lastMarketRef = useRef(marketCountry);
   const presetOptions = useMemo(
     () =>
       buildMobileQuickSearchPresetList({
@@ -171,6 +172,15 @@ export function MobileQuickSearchSheet({ open, onOpenChange }: MobileQuickSearch
       window.cancelAnimationFrame(rafId);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (lastMarketRef.current === marketCountry) return;
+    lastMarketRef.current = marketCountry;
+    const nextIntent = resolveIntentForMarket(marketCountry);
+    setCategory(resolveCategoryFromIntent(nextIntent));
+    setActivePresetId(null);
+    setSelectedShortletParams(null);
+  }, [marketCountry]);
 
   const handleSearch = () => {
     const nextRecents = pushRecentSearch(

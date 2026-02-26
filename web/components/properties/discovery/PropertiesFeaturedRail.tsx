@@ -28,7 +28,11 @@ export function PropertiesFeaturedRail() {
   if (!featuredItems.length) return null;
 
   return (
-    <section className="space-y-2.5 overflow-x-hidden lg:hidden" data-testid="properties-featured-rail">
+    <section
+      className="space-y-2.5 overflow-x-hidden lg:hidden"
+      data-testid="properties-featured-rail"
+      data-market-country={market.country}
+    >
       <div className="flex items-end justify-between gap-2 px-1">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">

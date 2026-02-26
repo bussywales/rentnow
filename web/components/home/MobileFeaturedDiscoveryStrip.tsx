@@ -30,6 +30,7 @@ export function MobileFeaturedDiscoveryStrip() {
     <section
       className="space-y-3 overflow-x-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:hidden"
       data-testid="mobile-featured-strip"
+      data-market-country={market.country}
     >
       <div className="flex items-end justify-between gap-3 px-1">
         <div>

@@ -28,7 +28,11 @@ export function ShortletsFeaturedRail() {
   if (!featuredItems.length) return null;
 
   return (
-    <section className="mt-3 space-y-2 overflow-x-hidden lg:hidden" data-testid="shortlets-featured-rail">
+    <section
+      className="mt-3 space-y-2 overflow-x-hidden lg:hidden"
+      data-testid="shortlets-featured-rail"
+      data-market-country={market.country}
+    >
       <div className="flex items-end justify-between gap-2">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">
