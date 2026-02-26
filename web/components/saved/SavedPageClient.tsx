@@ -56,7 +56,7 @@ export function SavedPageClient() {
       <header className="space-y-1">
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">Saved</p>
         <h1 className="text-2xl font-semibold text-slate-900">Your favourites</h1>
-        <p className="text-sm text-slate-600">Saved homes for {market.label} ({market.country}).</p>
+        <p className="text-sm text-slate-600">Saved homes for market {market.country}.</p>
       </header>
 
       {items.length ? (
