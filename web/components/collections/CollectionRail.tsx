@@ -12,11 +12,17 @@ export function CollectionRail({ cards, marketCountry }: CollectionRailProps) {
   if (!cards.length) return null;
 
   return (
-    <section className="space-y-3">
+    <section
+      className="space-y-3"
+      role="region"
+      aria-label={`Collection picks for ${marketCountry}`}
+    >
       <h2 className="text-lg font-semibold text-slate-900">Featured in this collection</h2>
       <div
-        className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
+        className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2 scroll-smooth motion-reduce:scroll-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
         data-testid="collections-rail"
+        tabIndex={0}
+        aria-label="Collection listings carousel"
       >
         {cards.map((card) => (
           <div key={card.id} className="relative w-[250px] shrink-0 snap-start">

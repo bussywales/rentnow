@@ -168,8 +168,13 @@ void test("mobile featured strip source includes stable testids and snap scrolli
   assert.match(source, /data-testid="mobile-featured-scroll"/);
   assert.match(source, /data-testid={`mobile-featured-item-\$\{item\.id\}`}/);
   assert.match(source, /data-testid="mobile-featured-item"/);
+  assert.match(source, /role="region"/);
+  assert.match(source, /aria-label=\{`Featured discovery picks for \$\{market\.country\}`\}/);
+  assert.match(source, /tabIndex=\{0\}/);
+  assert.match(source, /onKeyDown=\{onRailKeyDown\}/);
   assert.match(source, /TrustBadges/);
   assert.match(source, /snap-x snap-mandatory/);
+  assert.match(source, /scroll-smooth motion-reduce:scroll-auto/);
   assert.match(source, /snap-start snap-always/);
   assert.match(source, /useMarketPreference/);
 });

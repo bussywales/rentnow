@@ -9,9 +9,13 @@ void test("shortlets shell renders shared filters drawer wiring with apply/reset
   const contents = fs.readFileSync(shellPath, "utf8");
 
   assert.ok(contents.includes('data-testid="shortlets-filters-button"'));
+  assert.ok(contents.includes('aria-haspopup="dialog"'));
+  assert.ok(contents.includes('aria-expanded={filtersOpen}'));
+  assert.ok(contents.includes('aria-controls={shortletsFiltersDrawerId}'));
   assert.ok(contents.includes("<FilterDrawerShell"));
   assert.ok(contents.includes('overlayTestId="shortlets-filters-overlay"'));
   assert.ok(contents.includes('drawerTestId="shortlets-filters-drawer"'));
+  assert.ok(contents.includes("dialogId={shortletsFiltersDrawerId}"));
   assert.ok(contents.includes("onApply={applyAdvancedFiltersAndClose}"));
   assert.ok(contents.includes("onReset={resetAdvancedFiltersDraft}"));
   assert.ok(contents.includes("onClear={clearAdvancedFiltersAndClose}"));
@@ -105,6 +109,7 @@ void test("shortlets shell exposes compact sticky pill summary controls", () => 
   assert.ok(contents.includes("onSortChange={(value) => updateUrl((next) => next.set(\"sort\", value))}"));
   assert.equal(contents.includes('data-testid="shortlets-price-display-toggle-compact"'), false);
   assert.ok(contents.includes("shouldUseCompactShortletSearchPill(window.scrollY)"));
+  assert.ok(contents.includes("getMotionSafeScrollBehavior"));
 });
 
 void test("price display toggle is URL-driven and disabled until dates are selected", () => {

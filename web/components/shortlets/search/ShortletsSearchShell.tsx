@@ -23,6 +23,7 @@ import { ShortletsFeaturedRail } from "@/components/shortlets/discovery/Shortlet
 import { useShortletsStickyCollapse } from "@/components/shortlets/search/useShortletsStickyCollapse";
 import { WhereTypeahead, type WhereSuggestion } from "@/components/shortlets/search/WhereTypeahead";
 import { ContinueBrowsingChip } from "@/components/viewed/ContinueBrowsingChip";
+import { getMotionSafeScrollBehavior } from "@/lib/a11y/reduced-motion";
 import {
   isNigeriaDestinationQuery,
   parseSearchView,
@@ -418,6 +419,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   const [draftAdvancedFilters, setDraftAdvancedFilters] = useState<ShortletAdvancedFilterState>(() =>
     readShortletAdvancedFiltersFromParams(stableSearchParams)
   );
+  const shortletsFiltersDrawerId = "shortlets-filters-drawer-panel";
   const [recentSearches, setRecentSearches] = useState<ShortletSearchPreset[]>([]);
   const [savedSearches, setSavedSearches] = useState<ShortletSearchPreset[]>([]);
 
@@ -980,7 +982,10 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
       if (field === "checkIn" || field === "checkOut") {
         const target = datesTriggerRef.current;
         if (!target) return;
-        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        target.scrollIntoView({
+          behavior: getMotionSafeScrollBehavior("smooth"),
+          block: "center",
+        });
         window.setTimeout(() => {
           target.focus();
           openSearchDatePicker();
@@ -990,7 +995,10 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
       const inputRef = field === "where" ? whereInputRef : guestsInputRef;
       const target = inputRef.current;
       if (!target) return;
-      target.scrollIntoView({ behavior: "smooth", block: "center" });
+      target.scrollIntoView({
+        behavior: getMotionSafeScrollBehavior("smooth"),
+        block: "center",
+      });
       window.setTimeout(() => target.focus(), 220);
     },
     [openSearchDatePicker]
@@ -1147,7 +1155,10 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
     setHighlightedListingId(listingId);
     const row = cardRefs.current[listingId];
     if (row && shouldScrollCardIntoView({ source: "map", selectedId: listingId })) {
-      row.scrollIntoView({ behavior: "smooth", block: "center" });
+      row.scrollIntoView({
+        behavior: getMotionSafeScrollBehavior("smooth"),
+        block: "center",
+      });
     }
   };
 
@@ -1162,7 +1173,10 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
     const nearTopEdge = rect.bottom >= -120 && rect.bottom < 140;
     const nearBottomEdge = rect.top <= window.innerHeight + 120 && rect.top > window.innerHeight - 140;
     if (nearTopEdge || nearBottomEdge) {
-      row.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      row.scrollIntoView({
+        behavior: getMotionSafeScrollBehavior("smooth"),
+        block: "nearest",
+      });
     }
   }, []);
 
@@ -1689,6 +1703,9 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
             type="button"
             variant="secondary"
             onClick={openFiltersDrawer}
+            aria-haspopup="dialog"
+            aria-expanded={filtersOpen}
+            aria-controls={shortletsFiltersDrawerId}
             className="h-11 whitespace-nowrap"
             data-testid="shortlets-filters-button"
           >
@@ -1907,6 +1924,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
         drawerTestId="shortlets-filters-drawer"
         overlayTestId="shortlets-filters-overlay"
         ariaLabel="Shortlet filters"
+        dialogId={shortletsFiltersDrawerId}
       >
         <div className="space-y-5">
           <section className="space-y-2">

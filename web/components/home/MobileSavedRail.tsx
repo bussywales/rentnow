@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type KeyboardEvent } from "react";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { TrustBadges } from "@/components/ui/TrustBadges";
+import { getMotionSafeScrollBehavior } from "@/lib/a11y/reduced-motion";
 import { getDiscoveryCatalogueItemById, resolveDiscoveryTrustBadges } from "@/lib/discovery";
 import { clearSavedItems, getSavedItems, subscribeSavedItems, type SavedItemRecord } from "@/lib/saved";
 
@@ -52,11 +53,37 @@ export function MobileSavedRail() {
 
   if (!displayItems.length) return null;
 
+  const onRailKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const node = event.currentTarget;
+    const step = Math.max(220, Math.round(node.clientWidth * 0.82));
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      node.scrollBy({ left: step, behavior: getMotionSafeScrollBehavior("smooth") });
+      return;
+    }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      node.scrollBy({ left: -step, behavior: getMotionSafeScrollBehavior("smooth") });
+      return;
+    }
+    if (event.key === "Home") {
+      event.preventDefault();
+      node.scrollTo({ left: 0, behavior: getMotionSafeScrollBehavior("smooth") });
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      node.scrollTo({ left: node.scrollWidth, behavior: getMotionSafeScrollBehavior("smooth") });
+    }
+  };
+
   return (
     <section
       className="space-y-2 overflow-x-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:hidden"
       data-testid="mobile-saved-rail"
       data-market-country={market.country}
+      role="region"
+      aria-label={`Saved items for ${market.country}`}
     >
       <div className="flex items-end justify-between gap-3 px-1">
         <div>
@@ -71,6 +98,7 @@ export function MobileSavedRail() {
             type="button"
             className="text-xs font-semibold text-slate-600 hover:text-slate-900"
             data-testid="mobile-saved-rail-clear"
+            aria-label="Clear saved items"
             onClick={() => {
               clearSavedItems({ marketCountry: market.country });
             }}
@@ -83,8 +111,11 @@ export function MobileSavedRail() {
         <div className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 bg-gradient-to-r from-white to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-white to-transparent" />
         <div
-          className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 pr-5 scroll-px-5"
+          className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 pr-5 scroll-px-5 scroll-smooth motion-reduce:scroll-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
           data-testid="mobile-saved-scroll"
+          tabIndex={0}
+          aria-label="Saved items carousel"
+          onKeyDown={onRailKeyDown}
         >
           {displayItems.map(({ item, badges }) => (
             <Link

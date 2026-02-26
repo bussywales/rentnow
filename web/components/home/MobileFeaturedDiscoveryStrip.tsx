@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, type KeyboardEvent } from "react";
 import { SaveToggle } from "@/components/saved/SaveToggle";
 import { TrustBadges } from "@/components/ui/TrustBadges";
 import { TrackViewedLink } from "@/components/viewed/TrackViewedLink";
+import { getMotionSafeScrollBehavior } from "@/lib/a11y/reduced-motion";
 import {
   buildFeaturedDiscoveryHref,
   getMobileFeaturedDiscoveryItems,
@@ -29,11 +30,37 @@ export function MobileFeaturedDiscoveryStrip() {
 
   if (!featuredItems.length) return null;
 
+  const onRailKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
+    const node = event.currentTarget;
+    const step = Math.max(220, Math.round(node.clientWidth * 0.82));
+    if (event.key === "ArrowRight") {
+      event.preventDefault();
+      node.scrollBy({ left: step, behavior: getMotionSafeScrollBehavior("smooth") });
+      return;
+    }
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      node.scrollBy({ left: -step, behavior: getMotionSafeScrollBehavior("smooth") });
+      return;
+    }
+    if (event.key === "Home") {
+      event.preventDefault();
+      node.scrollTo({ left: 0, behavior: getMotionSafeScrollBehavior("smooth") });
+      return;
+    }
+    if (event.key === "End") {
+      event.preventDefault();
+      node.scrollTo({ left: node.scrollWidth, behavior: getMotionSafeScrollBehavior("smooth") });
+    }
+  };
+
   return (
     <section
       className="space-y-3 overflow-x-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:hidden"
       data-testid="mobile-featured-strip"
       data-market-country={market.country}
+      role="region"
+      aria-label={`Featured discovery picks for ${market.country}`}
     >
       <div className="flex items-end justify-between gap-3 px-1">
         <div>
@@ -48,8 +75,11 @@ export function MobileFeaturedDiscoveryStrip() {
         <div className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 bg-gradient-to-r from-white to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-white to-transparent" />
         <div
-          className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 pr-5 scroll-px-5"
+          className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 pr-5 scroll-px-5 scroll-smooth motion-reduce:scroll-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
           data-testid="mobile-featured-scroll"
+          tabIndex={0}
+          aria-label="Featured discovery carousel"
+          onKeyDown={onRailKeyDown}
         >
           {featuredItems.map((item, index) => (
             <div key={item.id} className="relative w-[255px] shrink-0 snap-start snap-always">

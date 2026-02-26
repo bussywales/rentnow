@@ -11,6 +11,9 @@ void test("collections rail source renders save toggles with market context", ()
   assert.match(source, /import\s+\{\s*TrustBadges\s*\}\s+from\s+"@\/components\/ui\/TrustBadges"/);
   assert.match(source, /marketCountry:\s*string/);
   assert.match(source, /testId=\{`save-toggle-\$\{card\.id\}`\}/);
+  assert.match(source, /role="region"/);
+  assert.match(source, /aria-label=\{`Collection picks for \$\{marketCountry\}`\}/);
+  assert.match(source, /aria-label="Collection listings carousel"/);
 });
 
 void test("static collections page passes market country into collection rail", () => {
