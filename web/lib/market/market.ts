@@ -34,6 +34,7 @@ export const MARKET_OPTIONS: MarketOption[] = [
   { country: "NG", currency: "NGN", label: "Nigeria" },
   { country: "GB", currency: "GBP", label: "United Kingdom" },
   { country: "CA", currency: "CAD", label: "Canada" },
+  { country: "US", currency: "USD", label: "United States" },
 ];
 
 const MARKET_COUNTRY_TO_CURRENCY = new Map(

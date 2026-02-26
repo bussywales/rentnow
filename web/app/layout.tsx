@@ -5,6 +5,7 @@ import { headers, cookies } from "next/headers";
 import { MainNav } from "@/components/layout/MainNav";
 import { Footer } from "@/components/layout/Footer";
 import { ToastNotice } from "@/components/layout/ToastNotice";
+import { MarketSwitchToast } from "@/components/market/MarketSwitchToast";
 import { OfflineIndicator } from "@/components/layout/OfflineIndicator";
 import { PwaServiceWorker } from "@/components/layout/PwaServiceWorker";
 import { SessionBootstrap } from "@/components/analytics/SessionBootstrap";
@@ -148,6 +149,7 @@ export default async function RootLayout({
           <Suspense fallback={null}>
             <ToastNotice />
           </Suspense>
+          <MarketSwitchToast />
           <OfflineIndicator />
           <PwaServiceWorker />
           <main className="min-h-[80vh] pb-24 pt-6">{children}</main>

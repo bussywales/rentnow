@@ -68,9 +68,29 @@ void test("resolveMarketFromRequest supports Canada market via geo", () => {
   });
 });
 
-void test("resolveMarketFromRequest falls back to default for unsupported geo", () => {
+void test("resolveMarketFromRequest supports US market via geo", () => {
   const headers = new Headers({
     "x-vercel-ip-country": "US",
+  });
+  const resolved = resolveMarketFromRequest({
+    headers,
+    appSettings: {
+      defaultCountry: "NG",
+      defaultCurrency: "NGN",
+      autoDetectEnabled: true,
+      selectorEnabled: true,
+    },
+  });
+  assert.deepEqual(resolved, {
+    country: "US",
+    currency: "USD",
+    source: "geo",
+  });
+});
+
+void test("resolveMarketFromRequest falls back to default for unsupported geo", () => {
+  const headers = new Headers({
+    "x-vercel-ip-country": "FR",
   });
   const resolved = resolveMarketFromRequest({
     headers,

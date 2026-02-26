@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { useRouter } from "next/navigation";
 import {
   MARKET_COOKIE_NAME,
   MARKET_OPTIONS,
@@ -9,6 +10,7 @@ import {
   serializeMarketCookieValue,
 } from "@/lib/market/market";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
+import { dispatchMarketChanged } from "@/lib/market/market-events";
 
 type Props = {
   enabled: boolean;
@@ -17,6 +19,7 @@ type Props = {
 
 export function MarketSelector({ enabled, compact = false }: Props) {
   const { market, setMarket } = useMarketPreference();
+  const router = useRouter();
 
   const currentLabel = useMemo(() => formatMarketLabel(market), [market]);
   const marketContextHint = "Market affects currency display, not where you can search.";
@@ -38,6 +41,7 @@ export function MarketSelector({ enabled, compact = false }: Props) {
             (option) => serializeMarketCookieValue(option.country, option.currency) === selected
           );
           if (!match) return;
+          if (match.country === market.country && match.currency === market.currency) return;
           const nextValue = serializeMarketCookieValue(match.country, match.currency);
           setMarket({
             country: match.country,
@@ -45,7 +49,12 @@ export function MarketSelector({ enabled, compact = false }: Props) {
             source: "cookie",
           });
           document.cookie = `${MARKET_COOKIE_NAME}=${encodeURIComponent(nextValue)}; Path=/; Max-Age=31536000; SameSite=Lax`;
-          window.location.reload();
+          dispatchMarketChanged({
+            country: match.country,
+            currency: match.currency,
+            label: match.label,
+          });
+          router.refresh();
         }}
       >
         {MARKET_OPTIONS.map((option) => {
