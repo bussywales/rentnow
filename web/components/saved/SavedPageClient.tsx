@@ -19,11 +19,7 @@ import {
 
 export function SavedPageClient() {
   const { market } = useMarketPreference();
-  const [items, setItems] = useState<SavedItemRecord[]>(() =>
-    getSavedItems({
-      marketCountry: market.country,
-    })
-  );
+  const [items, setItems] = useState<SavedItemRecord[]>([]);
 
   useEffect(() => {
     const refresh = () =>
