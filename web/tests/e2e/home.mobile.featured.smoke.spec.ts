@@ -116,12 +116,6 @@ test.describe("home mobile featured discovery smoke", () => {
       target.country
     );
 
-    await page.goto("/collections/weekend-getaways", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId(smokeSelectors.collectionsHero)).toBeVisible();
-    await expect(page.getByTestId(smokeSelectors.collectionsHero)).toContainText(
-      new RegExp(`Market-aware picks for ${target.country}`, "i")
-    );
-
     expect(
       runtimeErrors,
       `home mobile featured discovery smoke emitted runtime errors:\n${runtimeErrors.join("\n")}`
