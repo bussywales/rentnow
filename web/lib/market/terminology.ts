@@ -7,7 +7,7 @@ export type MarketSearchTerminology = {
 
 function normalizeMarketCountry(value: string | null | undefined): string {
   const normalized = value?.trim().toUpperCase() ?? "";
-  if (normalized === "GB") return "UK";
+  if (normalized === "UK") return "GB";
   return normalized || "GLOBAL";
 }
 
@@ -20,7 +20,7 @@ const DEFAULT_TERMINOLOGY: MarketSearchTerminology = {
 
 export function getMarketSearchTerminology(marketCountry: string | null | undefined): MarketSearchTerminology {
   const market = normalizeMarketCountry(marketCountry);
-  if (market === "UK") {
+  if (market === "GB") {
     return {
       locationFieldLabel: "Location or postcode",
       locationPlaceholder: "City, postcode, or area",

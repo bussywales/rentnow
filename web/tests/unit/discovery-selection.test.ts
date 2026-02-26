@@ -7,16 +7,16 @@ import {
 
 const FIXED_DATE = new Date("2026-02-25T00:00:00.000Z");
 
-void test("market normalization maps GB to UK and unknown to GLOBAL", () => {
-  assert.equal(normalizeDiscoveryMarket("GB"), "UK");
-  assert.equal(normalizeDiscoveryMarket("uk"), "UK");
+void test("market normalization maps UK aliases to GB and unknown to GLOBAL", () => {
+  assert.equal(normalizeDiscoveryMarket("GB"), "GB");
+  assert.equal(normalizeDiscoveryMarket("uk"), "GB");
   assert.equal(normalizeDiscoveryMarket("US"), "US");
   assert.equal(normalizeDiscoveryMarket("ZZ"), "GLOBAL");
 });
 
 void test("selection for known market returns market items first with no duplicates", () => {
   const selected = selectDiscoveryItems({
-    market: "UK",
+    market: "GB",
     surface: "HOME_FEATURED",
     limit: 4,
     seedDate: FIXED_DATE,
@@ -25,7 +25,7 @@ void test("selection for known market returns market items first with no duplica
 
   assert.equal(selected.length, 4);
   assert.equal(new Set(selected.map((item) => item.id)).size, 4);
-  assert.ok(selected.every((item) => item.marketTags.includes("UK")));
+  assert.ok(selected.every((item) => item.marketTags.includes("GB")));
 });
 
 void test("selection supports US market and falls back to GLOBAL only when needed", () => {

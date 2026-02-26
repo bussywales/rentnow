@@ -23,7 +23,7 @@ void test("coverage CSV output includes stable headers and values", () => {
         atRisk: false,
       },
     ],
-    byMarketScore: { GLOBAL: 0, NG: 100, CA: 0, UK: 0, US: 0 },
+    byMarketScore: { GLOBAL: 0, NG: 100, CA: 0, GB: 0, US: 0 },
     bySurfaceScore: { HOME_FEATURED: 100, SHORTLETS_FEATURED: 0, PROPERTIES_FEATURED: 0, COLLECTIONS: 0 },
     overallCoverageScore: 25,
     topRisks: [],

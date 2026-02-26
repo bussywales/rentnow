@@ -32,7 +32,7 @@ void test("shortlets featured rail selection is market-safe and shortlet-only", 
     createCatalogueItem({
       id: "uk-shortlet-london",
       title: "London shortlet",
-      marketTags: ["UK"],
+      marketTags: ["GB"],
       params: { where: "London" },
     }),
     createCatalogueItem({
@@ -52,13 +52,13 @@ void test("shortlets featured rail selection is market-safe and shortlet-only", 
       title: "Rent card should be excluded",
       kind: "property",
       intent: "rent",
-      marketTags: ["UK"],
+      marketTags: ["GB"],
       params: { city: "Manchester", category: "rent" },
     }),
   ];
 
   const selected = selectShortletsFeaturedRailItems({
-    marketCountry: "UK",
+    marketCountry: "GB",
     limit: 4,
     now: new Date("2026-02-25T00:00:00.000Z"),
     seedBucket: "unit",

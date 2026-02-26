@@ -114,7 +114,7 @@ void test("admin discovery health snapshot includes market and surface breakdown
   const snapshot = buildAdminDiscoveryHealthSnapshot(NOW);
   assert.ok(snapshot.counts.markets.NG >= 0);
   assert.ok(snapshot.counts.markets.CA >= 0);
-  assert.ok(snapshot.counts.markets.UK >= 0);
+  assert.ok(snapshot.counts.markets.GB >= 0);
   assert.ok(snapshot.counts.markets.US >= 0);
   assert.ok(snapshot.counts.markets.GLOBAL >= 0);
   assert.ok(snapshot.counts.surfaces.HOME_FEATURED >= 0);

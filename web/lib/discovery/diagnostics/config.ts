@@ -6,7 +6,7 @@ export const DISCOVERY_DIAGNOSTIC_MARKETS: readonly DiscoveryMarket[] = [
   "GLOBAL",
   "NG",
   "CA",
-  "UK",
+  "GB",
   "US",
 ];
 

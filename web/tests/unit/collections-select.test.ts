@@ -18,7 +18,7 @@ void test("weekend-getaways collection routes to shortlets results", () => {
 void test("verified-homes-for-sale collection routes to properties buy results", () => {
   const href = buildCollectionResultsHref({
     slug: "verified-homes-for-sale",
-    marketCountry: "UK",
+    marketCountry: "GB",
     now: new Date("2026-02-25T00:00:00.000Z"),
   });
   assert.ok(href);

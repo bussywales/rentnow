@@ -15,7 +15,7 @@ function normalizeCountry(input: string | null | undefined): string {
   const normalized = String(input ?? "")
     .trim()
     .toUpperCase();
-  if (normalized === "GB") return "UK";
+  if (normalized === "UK") return "GB";
   return normalized;
 }
 
@@ -81,4 +81,3 @@ export function resolveMarketPicksLabel(countryCode: string | null | undefined):
   if (!option) return "Picks for Global";
   return `Picks for ${option.label}`;
 }
-

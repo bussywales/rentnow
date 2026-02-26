@@ -1,4 +1,4 @@
-export const DISCOVERY_MARKETS = ["GLOBAL", "NG", "CA", "UK", "US"] as const;
+export const DISCOVERY_MARKETS = ["GLOBAL", "NG", "CA", "GB", "US"] as const;
 export type DiscoveryMarket = (typeof DISCOVERY_MARKETS)[number];
 
 export const DISCOVERY_SURFACES = [
@@ -28,8 +28,8 @@ const MARKET_ALIASES: Record<string, DiscoveryMarket> = {
   GLOBAL: "GLOBAL",
   NG: "NG",
   CA: "CA",
-  UK: "UK",
-  GB: "UK",
+  GB: "GB",
+  UK: "GB",
   US: "US",
 };
 

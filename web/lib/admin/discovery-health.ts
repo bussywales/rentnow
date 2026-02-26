@@ -81,7 +81,7 @@ function initMarketCounts(): Record<DiscoveryMarket, number> {
     GLOBAL: 0,
     NG: 0,
     CA: 0,
-    UK: 0,
+    GB: 0,
     US: 0,
   };
 }

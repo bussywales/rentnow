@@ -24,7 +24,7 @@ export type StaticCollectionDefinition = {
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
-const ALLOWED_MARKET_TAGS = new Set<CollectionMarketTag>(["ALL", "GLOBAL", "NG", "CA", "UK", "US"]);
+const ALLOWED_MARKET_TAGS = new Set<CollectionMarketTag>(["ALL", "GLOBAL", "NG", "CA", "GB", "US"]);
 const SENSITIVE_TOKENS = [
   "race",
   "ethnicity",

@@ -139,7 +139,7 @@ void test("mobile featured discovery catalogue validator filters invalid entries
       {
         ...DISCOVERY_CATALOGUE[1],
         id: "invalid-market",
-        marketTags: [] as Array<"GLOBAL" | "NG" | "UK" | "US" | "CA">,
+        marketTags: [] as Array<"GLOBAL" | "NG" | "GB" | "US" | "CA">,
       },
     ],
     now: FIXED_NOW,
