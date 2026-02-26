@@ -2,6 +2,7 @@
 title: "Saved favourites improved (sections + bulk actions)"
 audiences:
   - TENANT
+  - HOST
 areas:
   - Tenant
   - Retention
