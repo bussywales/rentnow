@@ -128,7 +128,7 @@ export function computeDiscoveryCoverageSummary(input: {
   }
 
   const topRisks = rows
-    .filter((row) => row.atRisk)
+    .filter((row) => row.atRisk && row.market !== "GLOBAL")
     .sort((left, right) => {
       if (right.deficit !== left.deficit) return right.deficit - left.deficit;
       if (left.marketSpecificCount !== right.marketSpecificCount) {

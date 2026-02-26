@@ -97,7 +97,7 @@ export default async function AdminDiscoveryPage() {
           <div>
             <h2 className="text-sm font-semibold text-slate-900">Coverage score</h2>
             <p className="mt-1 text-xs text-slate-500">
-              Threshold-based readiness by market and discovery surface.
+              Threshold-based readiness for NG, CA, GB, and US plus global fallback depth.
             </p>
           </div>
           <a
