@@ -19,6 +19,9 @@ void test("mobile recently viewed rail includes stable testids and viewed-store 
   assert.match(source, /getViewedItems/);
   assert.match(source, /subscribeViewedItems/);
   assert.match(source, /clearViewedItems/);
+  assert.match(source, /mobile-recently-viewed-empty-suggestions/);
+  assert.match(source, /getMobileEmptyStateSuggestions/);
+  assert.match(source, /getMarketSearchTerminology/);
 });
 
 void test("home page mounts mobile recently viewed rail in inventory-first block", () => {

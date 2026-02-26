@@ -45,6 +45,19 @@ test.describe("home mobile quick search smoke", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await dismissDisclaimerIfPresent();
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickStart)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedStrip)).toBeVisible();
+    await page.getByTestId(smokeSelectors.homeMobileFeaturedItem).first().click({ force: true });
+    await page.waitForURL(/\/(shortlets|properties)(\?|$)/, { timeout: 20_000 });
+
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await dismissDisclaimerIfPresent();
+    await expect(page.getByTestId(smokeSelectors.homeMobileQuickStart)).toBeVisible();
+    await page.getByTestId(smokeSelectors.homeMobileQuickSearchTrigger).click();
+    await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchSheet)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchRecents)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchRecentItem).first()).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchSheet)).toBeHidden();
 
     await page.getByTestId(smokeSelectors.homeMobileQuickSearchTrigger).click();
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchSheet)).toBeVisible();
@@ -92,6 +105,15 @@ test.describe("home mobile quick search smoke", () => {
     const finalUrl = new URL(page.url());
     expect(finalUrl.pathname).toBe("/properties");
     expect(finalUrl.searchParams.get("intent")).toBe("rent");
+
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await dismissDisclaimerIfPresent();
+    await page.getByTestId(smokeSelectors.homeMobileQuickSearchTrigger).click();
+    const useLastSearch = page.getByTestId(smokeSelectors.homeMobileQuickSearchUseLastSearch);
+    if (await useLastSearch.isVisible().catch(() => false)) {
+      await useLastSearch.click();
+      await page.waitForURL(/\/(shortlets|properties)(\?|$)/, { timeout: 20_000 });
+    }
 
     expect(
       runtimeErrors,
