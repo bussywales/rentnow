@@ -153,6 +153,8 @@ test.describe("home mobile quick search smoke", () => {
     await expect(recommendedRail).toBeVisible();
     await expect(recommendedRail.getByTestId(smokeSelectors.homeRecommendedNextItem).first()).toBeVisible();
     await expect(recommendedRail.getByTestId(smokeSelectors.homeRecommendedNextReason).first()).toBeVisible();
+    await recommendedRail.getByTestId(smokeSelectors.homeRecommendedNextWhyToggle).click();
+    await expect(recommendedRail.getByTestId(smokeSelectors.homeRecommendedNextWhyContent)).toBeVisible();
     markStep("click-recommended-next-item");
     await recommendedRail.getByTestId(smokeSelectors.homeRecommendedNextItem).first().click({ force: true });
     await page.waitForURL(/\/(shortlets|properties)(\?|$)/, { timeout: 20_000 });

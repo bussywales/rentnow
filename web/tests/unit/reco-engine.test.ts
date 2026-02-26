@@ -93,8 +93,39 @@ void test("recommendations fall back to market-safe catalogue when no local sign
   });
 
   assert.equal(results.length, 4);
-  assert.ok(results.every((item) => item.reason === "Popular in your market"));
+  assert.ok(results.every((item) => item.reasonCode === "FALLBACK_POPULAR"));
+  assert.ok(results.every((item) => item.reason.startsWith("Popular in ")));
   assert.ok(results.every((item) => item.id !== "ng-rent-lagos"));
+});
+
+void test("recommendations always emit a stable reason code", () => {
+  const results = buildRecommendedNextItems({
+    marketCountry: "CA",
+    limit: 6,
+    now: new Date("2026-02-26T00:00:00.000Z"),
+    seedBucket: "unit-reason-codes",
+    items: FIXTURE_ITEMS,
+    savedItems: [
+      {
+        id: "ca-rent-toronto",
+        kind: "property",
+        href: "/properties?intent=rent&city=Toronto",
+      },
+    ],
+    viewedItems: [
+      {
+        id: "ca-shortlet-vancouver",
+        kind: "shortlet",
+        href: "/shortlets?where=Vancouver",
+      },
+    ],
+    lastBrowseHref: "/properties?intent=rent&city=Toronto",
+  });
+
+  const allowed = new Set(["SAVED", "VIEWED", "CONTINUE_BROWSING", "FALLBACK_POPULAR"]);
+  assert.ok(results.length > 0);
+  assert.ok(results.every((item) => allowed.has(item.reasonCode)));
+  assert.ok(results.every((item) => item.reason.length > 0));
 });
 
 void test("recommendations exclude exact saved and viewed IDs", () => {
@@ -122,7 +153,7 @@ void test("recommendations exclude exact saved and viewed IDs", () => {
 
   assert.ok(!results.some((item) => item.id === "ca-rent-toronto"));
   assert.ok(!results.some((item) => item.id === "ca-shortlet-vancouver"));
-  assert.ok(results.some((item) => item.reason === "Based on your saved" || item.reason === "Because you viewed"));
+  assert.ok(results.some((item) => item.reasonCode === "SAVED" || item.reasonCode === "VIEWED"));
 });
 
 void test("recommendations align to last browse intent and kind when available", () => {
@@ -136,7 +167,7 @@ void test("recommendations align to last browse intent and kind when available",
   });
 
   assert.equal(results[0]?.kind, "property");
-  assert.equal(results[0]?.reason, "Continue browsing");
+  assert.equal(results[0]?.reasonCode, "CONTINUE_BROWSING");
 });
 
 void test("unknown markets use GLOBAL fallback entries only", () => {

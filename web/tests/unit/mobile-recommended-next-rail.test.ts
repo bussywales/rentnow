@@ -11,6 +11,10 @@ void test("mobile recommended next rail source keeps stable hooks and testids", 
   assert.match(source, /data-testid="recommended-next-scroll"/);
   assert.match(source, /data-testid="recommended-next-item"/);
   assert.match(source, /data-testid="recommended-next-reason"/);
+  assert.match(source, /data-testid="recommended-next-why-toggle"/);
+  assert.match(source, /data-testid="recommended-next-why-content"/);
+  assert.match(source, /data-reason-code=\{item\.reasonCode\}/);
+  assert.match(source, /RECO_WHY_COPY/);
   assert.match(source, /role="region"/);
   assert.match(source, /aria-label=\{`Recommended next for \$\{market\.country\}`\}/);
   assert.match(source, /getSavedItems/);

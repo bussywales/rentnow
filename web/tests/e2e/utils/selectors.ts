@@ -27,6 +27,8 @@ export const smokeSelectors = {
   homeRecommendedNextRail: "recommended-next-rail",
   homeRecommendedNextItem: "recommended-next-item",
   homeRecommendedNextReason: "recommended-next-reason",
+  homeRecommendedNextWhyToggle: "recommended-next-why-toggle",
+  homeRecommendedNextWhyContent: "recommended-next-why-content",
   savedPage: "saved-page",
   savedItemRow: "saved-item-row",
   savedClearAll: "saved-clear-all",
