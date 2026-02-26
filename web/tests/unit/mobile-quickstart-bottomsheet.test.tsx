@@ -72,4 +72,7 @@ void test("mobile quick search sheet source wires recents list, clear action, an
   assert.match(source, /data-testid="mobile-quicksearch-recents"/);
   assert.match(source, /data-testid="mobile-quicksearch-recent-item"/);
   assert.match(source, /data-testid="mobile-quicksearch-recents-clear"/);
+  assert.match(source, /const lastMarketRef = useRef\(marketCountry\)/);
+  assert.match(source, /if \(lastMarketRef\.current === marketCountry\) return/);
+  assert.match(source, /const nextIntent = resolveIntentForMarket\(marketCountry\)/);
 });

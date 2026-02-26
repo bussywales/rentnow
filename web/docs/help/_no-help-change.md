@@ -10,3 +10,4 @@ Add a dated entry for each PR that uses this exemption:
 - `2026-02-25: Mobile featured discovery strip and quick-search routing reuse existing browse flows without changing support guidance or documented workflows.`
 - `2026-02-25: Properties featured discovery rail adds a curated entry surface but does not introduce new support or operational workflows.`
 - `2026-02-25: Mobile quick search v2 adds intent/date/guest controls and URL params within existing browse flows without introducing new support procedures.`
+- `2026-02-26: Market switch UX polish improves instant discovery refresh and toast feedback without changing documented support workflows.`

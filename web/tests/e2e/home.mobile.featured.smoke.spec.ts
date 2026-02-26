@@ -33,7 +33,7 @@ test.use({
 });
 
 test.describe("home mobile featured discovery smoke", () => {
-  test("featured cards route with market-aware destinations", async ({ page, context }) => {
+  test("featured cards route with market-aware destinations", async ({ page }) => {
     const runtimeErrors = attachRuntimeErrorGuards(page);
 
     const dismissDisclaimerIfPresent = async () => {
@@ -44,21 +44,42 @@ test.describe("home mobile featured discovery smoke", () => {
     };
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
-    const currentHost = new URL(page.url()).hostname;
-    await context.addCookies([
-      {
-        name: "ph_market",
-        value: "CA|CAD",
-        domain: currentHost,
-        path: "/",
-      },
-    ]);
-    await page.goto("/", { waitUntil: "domcontentloaded" });
     await dismissDisclaimerIfPresent();
 
     await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedStrip)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedScroll)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedItem).first()).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedStrip)).toHaveAttribute(
+      "data-market-country",
+      /[A-Z]{2}/
+    );
+
+    const menuButton = page.getByTestId(smokeSelectors.hamburgerMenu);
+    if (!(await menuButton.isVisible().catch(() => false))) {
+      test.skip(true, "Mobile hamburger menu is not visible for market switch flow.");
+    }
+    await menuButton.click();
+    await expect(page.getByTestId(smokeSelectors.mobileDrawerPanel)).toBeVisible();
+
+    const marketSelect = page.getByTestId(smokeSelectors.mobileDrawerPanel).getByLabel("Select market");
+    if (!(await marketSelect.isVisible().catch(() => false))) {
+      test.skip(true, "Market selector is disabled in this environment.");
+    }
+    const currentValue = await marketSelect.inputValue();
+    const target =
+      currentValue === "CA|CAD"
+        ? { value: "US|USD", country: "US", label: "United States" }
+        : { value: "CA|CAD", country: "CA", label: "Canada" };
+    await marketSelect.selectOption(target.value);
+    await page.getByTestId(smokeSelectors.mobileDrawerClose).click();
+
+    await expect(page.getByTestId(smokeSelectors.marketSwitchToast)).toContainText(
+      `Now showing picks for ${target.label}`
+    );
+    await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedStrip)).toHaveAttribute(
+      "data-market-country",
+      target.country
+    );
 
     const firstFeaturedLink = page.locator('[data-testid^="mobile-featured-item-"]').first();
     await firstFeaturedLink.click({ force: true });
@@ -78,6 +99,28 @@ test.describe("home mobile featured discovery smoke", () => {
     } else {
       await expect(page.getByRole("heading", { name: /properties/i })).toBeVisible();
     }
+
+    await page.goto("/shortlets", { waitUntil: "domcontentloaded" });
+    await dismissDisclaimerIfPresent();
+    await expect(page.getByTestId(smokeSelectors.shortletsFeaturedRail)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.shortletsFeaturedRail)).toHaveAttribute(
+      "data-market-country",
+      target.country
+    );
+
+    await page.goto("/properties", { waitUntil: "domcontentloaded" });
+    await dismissDisclaimerIfPresent();
+    await expect(page.getByTestId(smokeSelectors.propertiesFeaturedRail)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.propertiesFeaturedRail)).toHaveAttribute(
+      "data-market-country",
+      target.country
+    );
+
+    await page.goto("/collections/weekend-getaways", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId(smokeSelectors.collectionsHero)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.collectionsHero)).toContainText(
+      new RegExp(`Market-aware picks for ${target.country}`, "i")
+    );
 
     expect(
       runtimeErrors,
