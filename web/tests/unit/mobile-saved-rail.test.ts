@@ -11,6 +11,7 @@ void test("mobile saved rail source keeps stable testids and storage hooks", () 
   assert.match(source, /data-testid="mobile-saved-scroll"/);
   assert.match(source, /data-testid="mobile-saved-item"/);
   assert.match(source, /data-testid="mobile-saved-rail-clear"/);
+  assert.match(source, /href="\/saved"/);
   assert.match(source, /getSavedItems/);
   assert.match(source, /subscribeSavedItems/);
   assert.match(source, /clearSavedItems/);

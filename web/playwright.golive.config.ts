@@ -11,6 +11,7 @@ const goLiveSmokeSpecMatch = [
   "**/home.mobile.quicksearch.smoke.spec.ts",
   "**/home.mobile.featured.smoke.spec.ts",
   "**/collections.mobile.smoke.spec.ts",
+  "**/saved.mobile.smoke.spec.ts",
   "**/property.booking.calendar.smoke.spec.ts",
   "**/shortlet.payment-return.smoke.spec.ts",
   "**/host.bookings.smoke.spec.ts",
