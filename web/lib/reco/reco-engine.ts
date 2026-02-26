@@ -10,12 +10,11 @@ import type {
   BuildRecommendedNextItemsInput,
   RecommendedNextItem,
   RecoItemKind,
-  RecoReason,
+  RecoReasonCode,
   RecoSignalItem,
 } from "@/lib/reco/reco-schema";
+import { resolveRecoReasonLabel } from "@/lib/reco/reco-reasons";
 import { normalizeLimit, seededRank, toDateKey } from "@/lib/reco/reco-utils";
-
-const ALL_HOME_FALLBACK_REASON: RecoReason = "Popular in your market";
 
 type ParsedBrowseSignal = {
   kind: RecoItemKind | null;
@@ -163,23 +162,23 @@ function resolveReason(input: {
   hasSavedProperty: boolean;
   hasViewedShortlet: boolean;
   hasViewedProperty: boolean;
-}): RecoReason {
+}): RecoReasonCode {
   if (input.browseKind && input.item.kind === input.browseKind) {
-    return "Continue browsing";
+    return "CONTINUE_BROWSING";
   }
   if (
     (input.item.kind === "shortlet" && input.hasSavedShortlet) ||
     (input.item.kind === "property" && input.hasSavedProperty)
   ) {
-    return "Based on your saved";
+    return "SAVED";
   }
   if (
     (input.item.kind === "shortlet" && input.hasViewedShortlet) ||
     (input.item.kind === "property" && input.hasViewedProperty)
   ) {
-    return "Because you viewed";
+    return "VIEWED";
   }
-  return ALL_HOME_FALLBACK_REASON;
+  return "FALLBACK_POPULAR";
 }
 
 export function buildRecommendedNextItems(input: BuildRecommendedNextItemsInput): RecommendedNextItem[] {
@@ -241,24 +240,32 @@ export function buildRecommendedNextItems(input: BuildRecommendedNextItemsInput)
       return right.rank - left.rank;
     });
 
-  return scored.slice(0, limit).map(({ item }) => ({
-    id: item.id,
-    kind: item.kind,
-    title: item.title,
-    subtitle: (item.subtitle ?? "").trim() || "Explore tailored picks for this market.",
-    tag: resolveTag(item),
-    href: buildHref(item, market),
-    reason: resolveReason({
+  return scored.slice(0, limit).map(({ item }) => {
+    const reasonCode = resolveReason({
       item,
       browseKind,
       hasSavedShortlet,
       hasSavedProperty,
       hasViewedShortlet,
       hasViewedProperty,
-    }),
-    badges: resolveDiscoveryTrustBadges({
-      item,
-      now,
-    }),
-  }));
+    });
+
+    return {
+      id: item.id,
+      kind: item.kind,
+      title: item.title,
+      subtitle: (item.subtitle ?? "").trim() || "Explore tailored picks for this market.",
+      tag: resolveTag(item),
+      href: buildHref(item, market),
+      reasonCode,
+      reason: resolveRecoReasonLabel({
+        code: reasonCode,
+        marketCountry: market,
+      }),
+      badges: resolveDiscoveryTrustBadges({
+        item,
+        now,
+      }),
+    };
+  });
 }

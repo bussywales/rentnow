@@ -1,11 +1,7 @@
 import type { DiscoveryCatalogueItem, DiscoveryTrustBadge } from "@/lib/discovery";
 
 export type RecoItemKind = "shortlet" | "property";
-export type RecoReason =
-  | "Continue browsing"
-  | "Based on your saved"
-  | "Because you viewed"
-  | "Popular in your market";
+export type RecoReasonCode = "SAVED" | "VIEWED" | "CONTINUE_BROWSING" | "FALLBACK_POPULAR";
 
 export type RecoSignalItem = {
   id: string;
@@ -34,6 +30,7 @@ export type RecommendedNextItem = {
   subtitle: string;
   tag: string;
   href: string;
-  reason: RecoReason;
+  reasonCode: RecoReasonCode;
+  reason: string;
   badges: DiscoveryTrustBadge[];
 };
