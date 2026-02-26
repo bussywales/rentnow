@@ -6,7 +6,7 @@ import { useMarketPreference } from "@/components/layout/MarketPreferenceProvide
 import { TrustBadges } from "@/components/ui/TrustBadges";
 import { TrackViewedLink } from "@/components/viewed/TrackViewedLink";
 import { getMotionSafeScrollBehavior } from "@/lib/a11y/reduced-motion";
-import { buildRecommendedNextItems, type RecommendedNextItem } from "@/lib/reco";
+import { buildRecommendedNextItems, RECO_WHY_COPY, type RecommendedNextItem } from "@/lib/reco";
 import { getLastSearchHref } from "@/lib/search/last-search";
 import { getSavedItems, subscribeSavedItems } from "@/lib/saved";
 import { getLastBrowseUrl, getViewedItems, subscribeLastBrowseUrl, subscribeViewedItems } from "@/lib/viewed";
@@ -34,6 +34,7 @@ function resolveLastBrowseHref(input: {
 export function MobileRecommendedNextRail() {
   const { market } = useMarketPreference();
   const [items, setItems] = useState<RecommendedNextItem[]>([]);
+  const [showWhy, setShowWhy] = useState(false);
 
   useEffect(() => {
     const refresh = () => {
@@ -131,10 +132,30 @@ export function MobileRecommendedNextRail() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Recommended next</p>
           <h2 className="text-base font-semibold text-slate-900">Next best picks for this market</h2>
         </div>
-        <Link href="/saved" className="text-xs font-semibold text-sky-700 hover:text-sky-800">
-          View saved
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            className="text-xs font-semibold text-slate-600 underline-offset-2 hover:text-slate-900 hover:underline"
+            aria-label="Why these recommendations?"
+            aria-expanded={showWhy}
+            onClick={() => setShowWhy((current) => !current)}
+            data-testid="recommended-next-why-toggle"
+          >
+            Why?
+          </button>
+          <Link href="/saved" className="text-xs font-semibold text-sky-700 hover:text-sky-800">
+            View saved
+          </Link>
+        </div>
       </div>
+      {showWhy ? (
+        <p
+          className="mx-1 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-600"
+          data-testid="recommended-next-why-content"
+        >
+          {RECO_WHY_COPY}
+        </p>
+      ) : null}
       <div className="relative">
         <div className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 bg-gradient-to-r from-white to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-white to-transparent" />
@@ -166,8 +187,9 @@ export function MobileRecommendedNextRail() {
               <p className="line-clamp-2 text-sm font-semibold">{item.title}</p>
               <p className="line-clamp-2 text-xs text-slate-600">{item.subtitle}</p>
               <span
-                className="pt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-700"
+                className="line-clamp-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-700"
                 data-testid="recommended-next-reason"
+                data-reason-code={item.reasonCode}
               >
                 {item.reason}
               </span>
