@@ -88,6 +88,39 @@ export function buildCollectionShareMetadata(input: {
   };
 }
 
+export function buildStaticCollectionMetadata(input: {
+  slug: string;
+  title: string;
+  description: string;
+  baseUrl: string | null;
+}): Metadata {
+  const canonicalPath = `/collections/${encodeURIComponent(input.slug)}`;
+  const canonicalUrl = input.baseUrl ? `${input.baseUrl}${canonicalPath}` : canonicalPath;
+  const ogImageUrl = input.baseUrl ? `${input.baseUrl}${BRAND_OG_IMAGE}` : BRAND_OG_IMAGE;
+  const title = `${input.title} · PropatyHub`;
+  const description = `${input.description} Share this market-aware collection on PropatyHub.`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: canonicalUrl },
+    openGraph: {
+      title,
+      description,
+      url: canonicalUrl,
+      type: "website",
+      siteName: "PropatyHub",
+      images: [{ url: ogImageUrl, alt: input.title }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImageUrl],
+    },
+  };
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -106,29 +139,12 @@ export async function generateMetadata({
 
   const staticCollection = getCollectionBySlug(shareId);
   if (staticCollection) {
-    const canonicalPath = `/collections/${encodeURIComponent(staticCollection.slug)}`;
-    const canonicalUrl = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;
-    const title = `${staticCollection.title} · PropatyHub`;
-    const description = staticCollection.description;
-    return {
-      title,
-      description,
-      alternates: { canonical: canonicalUrl },
-      openGraph: {
-        title,
-        description,
-        url: canonicalUrl,
-        type: "website",
-        siteName: "PropatyHub",
-        images: [{ url: BRAND_OG_IMAGE, alt: staticCollection.title }],
-      },
-      twitter: {
-        card: "summary_large_image",
-        title,
-        description,
-        images: [BRAND_OG_IMAGE],
-      },
-    };
+    return buildStaticCollectionMetadata({
+      slug: staticCollection.slug,
+      title: staticCollection.title,
+      description: staticCollection.description,
+      baseUrl,
+    });
   }
 
   if (!isUuid(shareId) || !hasServiceRoleEnv()) return generic;

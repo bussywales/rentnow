@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildCollectionShareMetadata } from "@/app/collections/[shareId]/page";
+import {
+  buildCollectionShareMetadata,
+  buildStaticCollectionMetadata,
+} from "@/app/collections/[shareId]/page";
 
 void test("collection metadata includes collection title and image when available", () => {
   const metadata = buildCollectionShareMetadata({
@@ -18,4 +21,25 @@ void test("collection metadata includes collection title and image when availabl
     "https://www.propatyhub.com/collections/aee2f2f8-5f3e-49b7-bf9d-9f8a511559d4"
   );
   assert.equal(metadata.openGraph?.images?.[0]?.url, "https://images.propatyhub.com/cover.jpg");
+});
+
+void test("static collections metadata resolves canonical and OG urls from base URL", () => {
+  const metadata = buildStaticCollectionMetadata({
+    slug: "weekend-getaways",
+    title: "Weekend getaways",
+    description: "Shortlet picks for quick city breaks and flexible weekend plans.",
+    baseUrl: "https://www.propatyhub.com",
+  });
+
+  assert.equal(metadata.title, "Weekend getaways · PropatyHub");
+  assert.match(String(metadata.description), /Share this market-aware collection on PropatyHub\./);
+  assert.equal(
+    metadata.alternates?.canonical,
+    "https://www.propatyhub.com/collections/weekend-getaways"
+  );
+  assert.equal(
+    metadata.openGraph?.images?.[0]?.url,
+    "https://www.propatyhub.com/og-propatyhub.png"
+  );
+  assert.equal(metadata.twitter?.images?.[0], "https://www.propatyhub.com/og-propatyhub.png");
 });
