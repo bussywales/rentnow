@@ -1,6 +1,11 @@
 import { redirect } from "next/navigation";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { buildAdminDiscoveryHealthSnapshot } from "@/lib/admin/discovery-health";
+import {
+  buildBrokenRoutesCsv,
+  buildCoverageSummaryCsv,
+  buildInvalidEntriesCsv,
+} from "@/lib/discovery/diagnostics/csv";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +28,10 @@ function MetricCard({ label, value, tone = "default" }: MetricCardProps) {
   );
 }
 
+function toCsvHref(csv: string): string {
+  return `data:text/csv;charset=utf-8,${encodeURIComponent(csv)}`;
+}
+
 export default async function AdminDiscoveryPage() {
   const { supabase, user } = await getServerAuthUser();
   if (!user) {
@@ -35,6 +44,9 @@ export default async function AdminDiscoveryPage() {
   }
 
   const snapshot = buildAdminDiscoveryHealthSnapshot();
+  const coverageCsvHref = toCsvHref(buildCoverageSummaryCsv(snapshot.coverage));
+  const invalidCsvHref = toCsvHref(buildInvalidEntriesCsv(snapshot.invalidEntries));
+  const brokenCsvHref = toCsvHref(buildBrokenRoutesCsv(snapshot.brokenRoutes.items));
   const coverageSurfaces = Array.from(new Set(snapshot.coverage.rows.map((row) => row.surface)));
   const coverageMarkets = Array.from(new Set(snapshot.coverage.rows.map((row) => row.market)));
 
@@ -81,14 +93,30 @@ export default async function AdminDiscoveryPage() {
         className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
         data-testid="admin-discovery-coverage-panel"
       >
-        <h2 className="text-sm font-semibold text-slate-900">Coverage score</h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Threshold-based readiness by market and discovery surface.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Coverage score</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Threshold-based readiness by market and discovery surface.
+            </p>
+          </div>
+          <a
+            href={coverageCsvHref}
+            download="discovery-coverage-summary.csv"
+            className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            data-testid="admin-discovery-export-coverage"
+          >
+            Export coverage CSV
+          </a>
+        </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <MetricCard label="Overall coverage score" value={snapshot.coverage.overallCoverageScore} />
           <MetricCard label="Rows below threshold" value={snapshot.coverage.topRisks.length} tone="warn" />
-          <MetricCard label="Markets tracked" value={coverageMarkets.length} />
+          <MetricCard
+            label="Broken routes detected"
+            value={snapshot.brokenRoutes.totalCount}
+            tone={snapshot.brokenRoutes.totalCount > 0 ? "warn" : "default"}
+          />
         </div>
         <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
           <table className="min-w-full divide-y divide-slate-200 text-xs">
@@ -242,13 +270,88 @@ export default async function AdminDiscoveryPage() {
             </ul>
           )}
         </div>
+
+        <div
+          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+          data-testid="admin-discovery-broken-routes"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h2 className="text-sm font-semibold text-slate-900">Broken route/param audit</h2>
+              <p className="mt-1 text-xs text-slate-500">
+                Static audit across featured rails and collection CTAs.
+              </p>
+            </div>
+            <a
+              href={brokenCsvHref}
+              download="discovery-broken-routes.csv"
+              className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              data-testid="admin-discovery-export-broken"
+            >
+              Export broken routes CSV
+            </a>
+          </div>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <MetricCard label="Total broken routes" value={snapshot.brokenRoutes.totalCount} tone="warn" />
+            <MetricCard label="Reason codes" value={snapshot.brokenRoutes.reasonCounts.length} />
+          </div>
+          <ul className="mt-3 space-y-2 text-sm">
+            {snapshot.brokenRoutes.reasonCounts.slice(0, 6).map((entry) => (
+              <li
+                key={`${entry.reasonCode}-${entry.count}`}
+                className="flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2"
+              >
+                <span className="font-mono text-xs text-slate-700">{entry.reasonCode}</span>
+                <span className="font-semibold text-slate-900">{entry.count}</span>
+              </li>
+            ))}
+          </ul>
+          {snapshot.brokenRoutes.items.length > 0 ? (
+            <details className="mt-3 rounded-lg border border-slate-200 px-3 py-2">
+              <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                View broken route entries ({snapshot.brokenRoutes.items.length})
+              </summary>
+              <ul className="mt-2 space-y-2 text-xs">
+                {snapshot.brokenRoutes.items.slice(0, 40).map((issue) => (
+                  <li
+                    key={`${issue.source}-${issue.id}-${issue.routeLabel}-${issue.reasonCode}-${issue.href}`}
+                    className="rounded border border-slate-200 px-2 py-2"
+                  >
+                    <p className="font-semibold text-slate-800">
+                      {issue.source.toUpperCase()} · {issue.id} · {issue.routeLabel}
+                    </p>
+                    <p className="font-mono text-[11px] text-slate-700">{issue.reasonCode}</p>
+                    <p className="truncate text-[11px] text-slate-500">{issue.href}</p>
+                    <p className="text-[11px] text-slate-500">{issue.details}</p>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : (
+            <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              No broken routes detected.
+            </p>
+          )}
+        </div>
       </section>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="admin-discovery-invalid-list">
-        <h2 className="text-sm font-semibold text-slate-900">Invalid and filtered entries</h2>
-        <p className="mt-1 text-xs text-slate-500">
-          Entries rejected by validation or filtered by disabled/validity windows.
-        </p>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">Invalid and filtered entries</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Entries rejected by validation or filtered by disabled/validity windows.
+            </p>
+          </div>
+          <a
+            href={invalidCsvHref}
+            download="discovery-invalid-entries.csv"
+            className="inline-flex items-center rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            data-testid="admin-discovery-export-invalid"
+          >
+            Export invalid entries CSV
+          </a>
+        </div>
         {snapshot.invalidEntries.length === 0 ? (
           <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
             No invalid entries detected.

@@ -15,6 +15,10 @@ import {
   computeDiscoveryCoverageSummary,
   type DiscoveryCoverageSummary,
 } from "@/lib/discovery/diagnostics/coverage";
+import {
+  auditDiscoveryBrokenRoutes,
+  type BrokenRouteIssue,
+} from "@/lib/discovery/diagnostics/broken-routes";
 
 export type DiscoverySurfaceKey = DiscoverySurface | "COLLECTIONS";
 
@@ -62,6 +66,13 @@ export type AdminDiscoveryHealthSnapshot = {
     reasonCounts: HealthReasonCount[];
   };
   coverage: DiscoveryCoverageSummary;
+  brokenRoutes: {
+    totalCount: number;
+    discoveryCount: number;
+    collectionsCount: number;
+    reasonCounts: HealthReasonCount[];
+    items: BrokenRouteIssue[];
+  };
   invalidEntries: HealthIssue[];
 };
 
@@ -148,6 +159,17 @@ export function buildAdminDiscoveryHealthSnapshot(now: Date = new Date()): Admin
     discoveryItems: discoveryValidation.items,
     collectionsItems: collectionsValidation.items,
   });
+  const brokenRouteIssues = auditDiscoveryBrokenRoutes({
+    discoveryItems: discoveryValidation.items,
+    collectionsItems: collectionsValidation.items,
+    now,
+  });
+  const discoveryBrokenRoutingCount = brokenRouteIssues.filter(
+    (issue) => issue.source === "discovery"
+  ).length;
+  const collectionsBrokenRoutingCount = brokenRouteIssues.filter(
+    (issue) => issue.source === "collections"
+  ).length;
 
   const invalidEntries: HealthIssue[] = [
     ...discoveryIssues.map((issue) => ({
@@ -184,7 +206,7 @@ export function buildAdminDiscoveryHealthSnapshot(now: Date = new Date()): Admin
       disabledCount: discoveryDiagnostics?.disabledCount ?? 0,
       notYetActiveCount: discoveryDiagnostics?.notYetActiveCount ?? 0,
       expiredCount: discoveryDiagnostics?.expiredCount ?? 0,
-      brokenRoutingCount: 0,
+      brokenRoutingCount: discoveryBrokenRoutingCount,
       reasonCounts: mapReasonCounts(discoveryIssues.flatMap((issue) => issue.reasonCodes)),
     },
     collections: {
@@ -194,10 +216,17 @@ export function buildAdminDiscoveryHealthSnapshot(now: Date = new Date()): Admin
       disabledCount: collectionsDiagnostics?.disabledCount ?? 0,
       notYetActiveCount: collectionsDiagnostics?.notYetActiveCount ?? 0,
       expiredCount: collectionsDiagnostics?.expiredCount ?? 0,
-      brokenRoutingCount: 0,
+      brokenRoutingCount: collectionsBrokenRoutingCount,
       reasonCounts: mapReasonCounts(collectionsIssues.flatMap((issue) => issue.reasonCodes)),
     },
     coverage,
+    brokenRoutes: {
+      totalCount: brokenRouteIssues.length,
+      discoveryCount: discoveryBrokenRoutingCount,
+      collectionsCount: collectionsBrokenRoutingCount,
+      reasonCounts: mapReasonCounts(brokenRouteIssues.map((issue) => issue.reasonCode)),
+      items: brokenRouteIssues,
+    },
     invalidEntries,
   };
 }
