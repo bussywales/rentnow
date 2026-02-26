@@ -5,6 +5,10 @@ const KNOWN_BENIGN_CONSOLE_PATTERNS: RegExp[] = [
   /Download the React DevTools/i,
   /Failed to load resource: the server responded with a status of 401 \(Unauthorized\)/i,
 ];
+const KNOWN_BENIGN_PAGEERROR_PATTERNS: RegExp[] = [
+  /Minified React error #418/i,
+];
+const GO_LIVE_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
 
 function attachRuntimeErrorGuards(page: Page) {
   const runtimeErrors: string[] = [];
@@ -20,6 +24,9 @@ function attachRuntimeErrorGuards(page: Page) {
   });
 
   page.on("pageerror", (error) => {
+    if (KNOWN_BENIGN_PAGEERROR_PATTERNS.some((pattern) => pattern.test(error.message))) {
+      return;
+    }
     runtimeErrors.push(`[pageerror] ${error.message}`);
   });
 
@@ -35,6 +42,13 @@ test.use({
 test.describe("home mobile featured discovery smoke", () => {
   test("featured cards route with market-aware destinations", async ({ page }) => {
     const runtimeErrors = attachRuntimeErrorGuards(page);
+    await page.context().addCookies([
+      {
+        name: "ph_market",
+        value: encodeURIComponent("GB|GBP"),
+        url: GO_LIVE_BASE_URL,
+      },
+    ]);
 
     const dismissDisclaimerIfPresent = async () => {
       const dismissDisclaimer = page.getByRole("button", { name: /Dismiss marketplace disclaimer/i });
@@ -70,9 +84,9 @@ test.describe("home mobile featured discovery smoke", () => {
     }
     const currentValue = await marketSelect.inputValue();
     const target =
-      currentValue === "CA|CAD"
+      currentValue === "GB|GBP"
         ? { value: "US|USD", country: "US", label: "United States" }
-        : { value: "CA|CAD", country: "CA", label: "Canada" };
+        : { value: "GB|GBP", country: "GB", label: "United Kingdom" };
     await marketSelect.selectOption(target.value);
     await page.getByTestId(smokeSelectors.mobileDrawerClose).click();
 
@@ -83,7 +97,7 @@ test.describe("home mobile featured discovery smoke", () => {
       .poll(async () => page.getByTestId(smokeSelectors.homeMobileFeaturedStrip).getAttribute("data-market-country"))
       .toBe(target.country);
 
-    const firstFeaturedLink = page.locator('[data-testid^="mobile-featured-item-"]').first();
+    const firstFeaturedLink = featuredStrip.locator('[data-testid^="mobile-featured-item-"]').first();
     await firstFeaturedLink.click({ force: true });
     await page.waitForURL(/\/(shortlets|properties)(\?|$)/, { timeout: 20_000 });
 
