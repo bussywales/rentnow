@@ -10,6 +10,8 @@ void test("shared filter drawer shell exposes consistent overlay, drawer, and ac
 
   assert.match(source, /data-testid=\{overlayTestId\}/);
   assert.match(source, /data-testid=\{drawerTestId\}/);
+  assert.match(source, /aria-labelledby=\{titleId\}/);
+  assert.match(source, /tabIndex=\{-1\}/);
   assert.match(source, /data-testid="filters-clear"/);
   assert.match(source, /data-testid="filters-reset"/);
   assert.match(source, /data-testid="filters-apply"/);
@@ -23,4 +25,7 @@ void test("shared filter drawer shell keeps mobile bottom-sheet plus desktop sid
   assert.match(source, /max-h-\[86vh\]/);
   assert.match(source, /md:w-\[420px\]/);
   assert.match(source, /sticky bottom-0/);
+  assert.match(source, /event\.key === "Escape"/);
+  assert.match(source, /trapFocusWithinContainer\(event, panelRef\.current\)/);
+  assert.match(source, /previousFocusRef\.current\?\.focus\(\)/);
 });

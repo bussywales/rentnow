@@ -1,7 +1,8 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
+import { focusFirstTarget, trapFocusWithinContainer } from "@/lib/a11y/focus";
 
 type FilterDrawerShellProps = {
   open: boolean;
@@ -19,6 +20,7 @@ type FilterDrawerShellProps = {
   overlayTestId?: string;
   ariaLabel?: string;
   hideActions?: boolean;
+  dialogId?: string;
 };
 
 export function FilterDrawerShell({
@@ -37,7 +39,43 @@ export function FilterDrawerShell({
   overlayTestId = "filters-overlay",
   ariaLabel = "Filters",
   hideActions = false,
+  dialogId,
 }: FilterDrawerShellProps) {
+  const generatedDialogId = useId();
+  const titleId = useId();
+  const panelRef = useRef<HTMLElement | null>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const resolvedDialogId = dialogId ?? generatedDialogId;
+
+  useEffect(() => {
+    if (!open) return;
+
+    previousFocusRef.current = document.activeElement as HTMLElement | null;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    const rafId = window.requestAnimationFrame(() => {
+      focusFirstTarget(panelRef.current);
+    });
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+        return;
+      }
+      trapFocusWithinContainer(event, panelRef.current);
+    };
+
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocusRef.current?.focus();
+    };
+  }, [onClose, open]);
+
   if (!open) return null;
 
   return (
@@ -51,15 +89,19 @@ export function FilterDrawerShell({
       />
       <div className="pointer-events-none fixed inset-0 z-50 flex items-end md:items-stretch md:justify-end">
         <aside
+          id={resolvedDialogId}
+          ref={panelRef}
           className="pointer-events-auto flex max-h-[86vh] w-full flex-col rounded-t-2xl border border-slate-200 bg-white shadow-2xl md:h-full md:max-h-none md:w-[420px] md:rounded-none md:border-l md:border-t-0"
           role="dialog"
           aria-modal="true"
           aria-label={ariaLabel}
+          aria-labelledby={titleId}
+          tabIndex={-1}
           data-testid={drawerTestId}
         >
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
             <div>
-              <p className="text-sm font-semibold text-slate-900">{title}</p>
+              <p id={titleId} className="text-sm font-semibold text-slate-900">{title}</p>
               {subtitle ? <p className="text-xs text-slate-500">{subtitle}</p> : null}
             </div>
             <button

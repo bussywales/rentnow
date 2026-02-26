@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
+import { focusFirstTarget, trapFocusWithinContainer } from "@/lib/a11y/focus";
 
 type BottomSheetProps = {
   open: boolean;
@@ -11,15 +12,8 @@ type BottomSheetProps = {
   children: ReactNode;
   className?: string;
   testId?: string;
+  sheetId?: string;
 };
-
-function focusFirstTarget(container: HTMLElement | null) {
-  if (!container) return;
-  const firstFocusable = container.querySelector<HTMLElement>(
-    "button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])"
-  );
-  (firstFocusable ?? container).focus();
-}
 
 export function BottomSheet({
   open,
@@ -29,6 +23,7 @@ export function BottomSheet({
   children,
   className,
   testId = "bottom-sheet",
+  sheetId,
 }: BottomSheetProps) {
   const titleId = useId();
   const descriptionId = useId();
@@ -50,7 +45,9 @@ export function BottomSheet({
       if (event.key === "Escape") {
         event.preventDefault();
         onOpenChange(false);
+        return;
       }
+      trapFocusWithinContainer(event, panelRef.current);
     };
 
     document.addEventListener("keydown", onKeyDown);
@@ -74,6 +71,7 @@ export function BottomSheet({
         data-testid="bottom-sheet-backdrop"
       />
       <div
+        id={sheetId}
         ref={panelRef}
         role="dialog"
         aria-modal="true"

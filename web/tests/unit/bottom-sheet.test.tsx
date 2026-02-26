@@ -51,6 +51,8 @@ void test("bottom sheet source includes close, escape, focus restore and body sc
   assert.match(source, /document\.body\.style\.overflow = "hidden"/);
   assert.match(source, /document\.addEventListener\("keydown"/);
   assert.match(source, /event\.key === "Escape"/);
+  assert.match(source, /trapFocusWithinContainer\(event, panelRef\.current\)/);
   assert.match(source, /previousFocusRef\.current\?\.focus\(\)/);
+  assert.match(source, /id=\{sheetId\}/);
   assert.match(source, /data-testid="bottom-sheet-backdrop"/);
 });
