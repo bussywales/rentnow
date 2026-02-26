@@ -13,6 +13,7 @@ type Props = {
 export function HostListingActionsMenu({ listingId, tone = "light", className }: Props) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const panelId = `host-listing-actions-panel-${listingId}`;
 
   useEffect(() => {
     if (!open) return;
@@ -44,12 +45,17 @@ export function HostListingActionsMenu({ listingId, tone = "light", className }:
         )}
         aria-label="More actions"
         aria-expanded={open}
+        aria-controls={panelId}
       >
         ...
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-20 mt-1.5 min-w-[170px] rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg">
+        <div
+          id={panelId}
+          className="absolute bottom-full right-0 z-40 mb-1.5 min-w-[170px] rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg"
+          data-testid={panelId}
+        >
           <Link
             href={`/host/properties/${listingId}/availability`}
             className="block rounded-md px-2.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"

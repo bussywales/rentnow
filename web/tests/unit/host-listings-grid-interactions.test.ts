@@ -16,4 +16,8 @@ void test("host listings grid uses stable skeleton and hover/focus CTA reveal", 
   assert.match(source, /group-hover:scale-\[1\.01\]/);
   assert.match(source, /focus-visible:ring-2/);
   assert.match(source, /data-testid=\"host-home-listings-grid\"/);
+  assert.match(source, /IMAGE_SWIPE_THRESHOLD_PX/);
+  assert.match(source, /onTouchStart=\{\(event\)/);
+  assert.match(source, /onTouchEnd=\{\(event\)/);
+  assert.match(source, /selectedImageIndex \+ 1/);
 });

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
@@ -8,6 +8,7 @@ import { HostListingActionsMenu } from "@/components/host/HostListingActionsMenu
 import { resolveStableListingImageSrc } from "@/lib/host/listing-image-stability";
 import { ListingImagePlaceholder } from "@/components/ui/ListingImagePlaceholder";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
+import { resolvePropertyImageUrl } from "@/lib/properties/image-url";
 import { mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
 import { resolveImageLoadingProfile, shouldPriorityImage } from "@/lib/images/loading-profile";
 import {
@@ -24,6 +25,7 @@ type Props = {
 };
 
 const MAX_GRID_LISTINGS = 12;
+const IMAGE_SWIPE_THRESHOLD_PX = 36;
 
 function statusChipClass(status: string | null) {
   switch (normalizePropertyStatus(status)) {
@@ -48,6 +50,18 @@ function listingLocationText(listing: DashboardListing) {
   return listing.location_label || listing.city || listing.admin_area_1 || "Location not set";
 }
 
+function resolveListingImageSources(listing: DashboardListing, primaryImageUrl: string | null): string[] {
+  const fromImages = (listing.images ?? [])
+    .map((image) => resolvePropertyImageUrl(image, "card") ?? image.image_url)
+    .filter((imageUrl): imageUrl is string => typeof imageUrl === "string" && imageUrl.length > 0);
+
+  const seededSources = [primaryImageUrl, ...fromImages].filter(
+    (imageUrl): imageUrl is string => typeof imageUrl === "string" && imageUrl.length > 0
+  );
+  const deduped = Array.from(new Set(seededSources));
+  return deduped;
+}
+
 export function HostListingsMasonryGrid({
   listings,
   uniformMedia = false,
@@ -57,6 +71,8 @@ export function HostListingsMasonryGrid({
   const stableImageSrcByListingId = useMemo(() => new Map<string, string | null>(), []);
   const visibleListings = listings.slice(0, Math.max(0, maxListings));
   const [loadedById, setLoadedById] = useState<Record<string, boolean>>({});
+  const [selectedImageIndexById, setSelectedImageIndexById] = useState<Record<string, number>>({});
+  const touchStartByIdRef = useRef<Record<string, { x: number; y: number }>>({});
 
   if (!visibleListings.length) {
     return (
@@ -102,6 +118,13 @@ export function HostListingsMasonryGrid({
             listing.id,
             getPrimaryImageUrl(listing)
           );
+          const imageSources = resolveListingImageSources(listing, imageUrl);
+          const hasMultipleImages = imageSources.length > 1;
+          const selectedImageIndex = Math.min(
+            selectedImageIndexById[listing.id] ?? 0,
+            Math.max(0, imageSources.length - 1)
+          );
+          const activeImageUrl = imageSources[selectedImageIndex] ?? imageUrl;
           const pattern = getHostListingTilePattern(index);
           const imageLoaded = loadedById[listing.id] ?? false;
           const loadingProfile = resolveImageLoadingProfile(
@@ -129,6 +152,36 @@ export function HostListingsMasonryGrid({
                     "max-h-[60vh]",
                     uniformMedia ? "aspect-[4/3]" : getHostListingTileAspectClass(pattern)
                   )}
+                  onTouchStart={(event) => {
+                    if (!hasMultipleImages) return;
+                    const touch = event.touches[0];
+                    if (!touch) return;
+                    touchStartByIdRef.current[listing.id] = { x: touch.clientX, y: touch.clientY };
+                  }}
+                  onTouchEnd={(event) => {
+                    if (!hasMultipleImages) return;
+                    const touch = event.changedTouches[0];
+                    const start = touchStartByIdRef.current[listing.id];
+                    delete touchStartByIdRef.current[listing.id];
+                    if (!touch || !start) return;
+                    const deltaX = touch.clientX - start.x;
+                    const deltaY = touch.clientY - start.y;
+                    if (Math.abs(deltaX) < IMAGE_SWIPE_THRESHOLD_PX) return;
+                    if (Math.abs(deltaX) <= Math.abs(deltaY)) return;
+
+                    setSelectedImageIndexById((current) => {
+                      const currentIndex = Math.min(
+                        current[listing.id] ?? 0,
+                        Math.max(0, imageSources.length - 1)
+                      );
+                      const nextIndex =
+                        deltaX < 0
+                          ? Math.min(imageSources.length - 1, currentIndex + 1)
+                          : Math.max(0, currentIndex - 1);
+                      if (nextIndex === currentIndex) return current;
+                      return { ...current, [listing.id]: nextIndex };
+                    });
+                  }}
                 >
                 <div
                   className={cn(
@@ -137,10 +190,10 @@ export function HostListingsMasonryGrid({
                   )}
                   aria-hidden="true"
                 />
-                {imageUrl ? (
+                {activeImageUrl ? (
                   <Image
                     key={`listing-image-${listing.id}`}
-                    src={imageUrl}
+                    src={activeImageUrl}
                     alt={listing.title}
                     fill
                     sizes="(max-width: 768px) 50vw, (max-width: 1280px) 33vw, 25vw"
@@ -167,6 +220,11 @@ export function HostListingsMasonryGrid({
                   >
                     {mapStatusLabel(listing.status)}
                   </span>
+                  {hasMultipleImages ? (
+                    <span className="rounded-full border border-white/30 bg-black/45 px-2 py-0.5 text-[10px] font-semibold text-white">
+                      {selectedImageIndex + 1}/{imageSources.length}
+                    </span>
+                  ) : null}
                 </div>
 
                 <div className="absolute inset-x-0 bottom-0 z-[1] bg-gradient-to-t from-slate-950/85 via-slate-950/45 to-transparent p-2.5">
