@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo } from "react";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { SaveToggle } from "@/components/saved/SaveToggle";
+import { TrustBadges } from "@/components/ui/TrustBadges";
 import {
   selectPropertiesFeaturedRailItems,
 } from "@/lib/discovery";
@@ -72,6 +73,7 @@ export function PropertiesFeaturedRail() {
                   <span className="inline-flex rounded-full border border-white/30 bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]">
                     {item.tag}
                   </span>
+                  <TrustBadges badges={item.badges} marketCountry={market.country} tone="overlay" />
                   <p className="line-clamp-2 text-[15px] font-semibold leading-tight">{item.title}</p>
                   <p className="line-clamp-2 text-xs text-white/90">{item.subtitle}</p>
                 </div>

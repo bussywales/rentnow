@@ -1,7 +1,7 @@
-import {
-  selectDiscoveryItems,
-  type DiscoveryCatalogueItem,
-} from "@/lib/discovery";
+import { selectDiscoveryItems } from "@/lib/discovery/discovery-select";
+import { resolveDiscoveryTrustBadges } from "@/lib/discovery/discovery-trust";
+import type { DiscoveryCatalogueItem } from "@/lib/discovery/discovery-catalogue";
+import type { DiscoveryTrustBadge } from "@/lib/discovery/market-taxonomy";
 import {
   buildPropertiesCategoryParams,
   type PropertiesBrowseCategory,
@@ -33,6 +33,7 @@ export type PropertiesFeaturedRailItem = {
   subtitle: string;
   tag: string;
   href: string;
+  badges: DiscoveryTrustBadge[];
 };
 
 function resolveCategoryFromItem(item: DiscoveryCatalogueItem): PropertiesBrowseCategory {
@@ -101,6 +102,10 @@ export function selectPropertiesFeaturedRailItems(input: {
       subtitle,
       tag: city ? `${CATEGORY_TAGS[category]}: ${city}` : CATEGORY_TAGS[category],
       href: buildPropertiesFeaturedHref(item),
+      badges: resolveDiscoveryTrustBadges({
+        item,
+        now: input.now,
+      }),
     };
   });
 }

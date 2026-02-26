@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { SaveToggle } from "@/components/saved/SaveToggle";
+import { TrustBadges } from "@/components/ui/TrustBadges";
 import {
   buildFeaturedDiscoveryHref,
   getMobileFeaturedDiscoveryItems,
@@ -75,6 +76,7 @@ export function MobileFeaturedDiscoveryStrip() {
                   >
                     {item.tag}
                   </span>
+                  <TrustBadges badges={item.badges} marketCountry={market.country} tone="overlay" />
                   <p className="text-base font-semibold leading-tight" data-testid="mobile-featured-item-title">
                     {item.title}
                   </p>

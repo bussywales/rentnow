@@ -1,10 +1,11 @@
 import {
   buildPropertiesFeaturedHref,
   buildShortletsFeaturedHref,
-  selectDiscoveryItems,
-  type DiscoveryCatalogueItem,
-  type DiscoveryMarket,
 } from "@/lib/discovery";
+import { selectDiscoveryItems } from "@/lib/discovery/discovery-select";
+import { resolveDiscoveryTrustBadges } from "@/lib/discovery/discovery-trust";
+import type { DiscoveryCatalogueItem } from "@/lib/discovery/discovery-catalogue";
+import type { DiscoveryMarket, DiscoveryTrustBadge } from "@/lib/discovery/market-taxonomy";
 import { normalizeDiscoveryMarket } from "@/lib/discovery/market-taxonomy";
 import {
   getCollectionBySlug,
@@ -19,6 +20,7 @@ export type CollectionCard = {
   subtitle: string;
   tag: string;
   href: string;
+  badges: DiscoveryTrustBadge[];
 };
 
 function supportsMarket(collectionTags: CollectionMarketTag[], market: DiscoveryMarket): boolean {
@@ -113,6 +115,10 @@ export function getCollectionCards(input: {
       subtitle: item.subtitle?.trim() || collection.description,
       tag: resolveCardTag(item, collection),
       href: buildItemHref(item, normalizedMarket),
+      badges: resolveDiscoveryTrustBadges({
+        item,
+        now: input.now,
+      }),
     }));
 
   return cards.slice(0, limit);

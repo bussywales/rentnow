@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
+import { TrustBadges } from "@/components/ui/TrustBadges";
+import { getDiscoveryCatalogueItemById, resolveDiscoveryTrustBadges } from "@/lib/discovery";
 import { clearSavedItems, getSavedItems, subscribeSavedItems, type SavedItemRecord } from "@/lib/saved";
 
 export function MobileSavedRail() {
@@ -32,7 +34,23 @@ export function MobileSavedRail() {
     };
   }, [market.country]);
 
-  if (!items.length) return null;
+  const displayItems = useMemo(
+    () =>
+      items.map((item) => {
+        const catalogueItem = getDiscoveryCatalogueItemById(item.id);
+        return {
+          item,
+          badges: catalogueItem
+            ? resolveDiscoveryTrustBadges({
+                item: catalogueItem,
+              })
+            : [],
+        };
+      }),
+    [items]
+  );
+
+  if (!displayItems.length) return null;
 
   return (
     <section
@@ -63,7 +81,7 @@ export function MobileSavedRail() {
           className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 pr-5 scroll-px-5"
           data-testid="mobile-saved-scroll"
         >
-          {items.map((item) => (
+          {displayItems.map(({ item, badges }) => (
             <Link
               key={`${item.marketCountry}:${item.id}`}
               href={item.href}
@@ -73,6 +91,7 @@ export function MobileSavedRail() {
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                 {item.tag ?? (item.kind === "shortlet" ? "Shortlets" : "Properties")}
               </span>
+              <TrustBadges badges={badges} marketCountry={item.marketCountry} />
               <p className="line-clamp-2 text-sm font-semibold">{item.title}</p>
               {item.subtitle ? <p className="line-clamp-2 text-xs text-slate-600">{item.subtitle}</p> : null}
               <span className="pt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-700">

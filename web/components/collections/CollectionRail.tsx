@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SaveToggle } from "@/components/saved/SaveToggle";
+import { TrustBadges } from "@/components/ui/TrustBadges";
 import type { CollectionCard } from "@/lib/collections/collections-select";
 
 type CollectionRailProps = {
@@ -38,6 +39,7 @@ export function CollectionRail({ cards, marketCountry }: CollectionRailProps) {
               <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
                 {card.tag}
               </span>
+              <TrustBadges badges={card.badges} marketCountry={marketCountry} />
               <p className="pr-10 text-base font-semibold text-slate-900">{card.title}</p>
               <p className="text-sm text-slate-600">{card.subtitle}</p>
             </Link>

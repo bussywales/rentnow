@@ -4,8 +4,10 @@ import { buildPropertiesCategoryParams } from "@/lib/properties/browse-categorie
 import { isDateKey } from "@/lib/search/date-quick-picks";
 import {
   DISCOVERY_CATALOGUE,
+  resolveDiscoveryTrustBadges,
   selectDiscoveryItems,
   validateDiscoveryCatalogue,
+  type DiscoveryTrustBadge,
   type DiscoveryCatalogueItem,
 } from "@/lib/discovery";
 
@@ -17,6 +19,7 @@ export type MobileFeaturedDiscoveryItem = {
   city?: string;
   shortletParams?: Record<string, string>;
   tag: string;
+  badges: DiscoveryTrustBadge[];
 };
 
 type FeaturedSelectionInput = {
@@ -46,7 +49,7 @@ function resolveCategoryFromItem(item: DiscoveryCatalogueItem): MobileQuickSearc
   return "rent";
 }
 
-function toMobileFeaturedItem(item: DiscoveryCatalogueItem): MobileFeaturedDiscoveryItem {
+function toMobileFeaturedItem(item: DiscoveryCatalogueItem, now?: Date): MobileFeaturedDiscoveryItem {
   const category = resolveCategoryFromItem(item);
   const city = (item.params.city ?? item.params.where ?? "").trim() || undefined;
   const shortletParams =
@@ -64,6 +67,10 @@ function toMobileFeaturedItem(item: DiscoveryCatalogueItem): MobileFeaturedDisco
     city,
     shortletParams,
     tag: CATEGORY_TAGS[category],
+    badges: resolveDiscoveryTrustBadges({
+      item,
+      now,
+    }),
   };
 }
 
@@ -86,7 +93,7 @@ export function getMobileFeaturedDiscoveryItems(input: FeaturedSelectionInput = 
     seedBucket: input.seedBucket ?? "public-mobile",
     items: input.items ?? DISCOVERY_CATALOGUE,
   });
-  return selected.map(toMobileFeaturedItem);
+  return selected.map((item) => toMobileFeaturedItem(item, input.now));
 }
 
 export function buildMobileQuickSearchHref(input: {

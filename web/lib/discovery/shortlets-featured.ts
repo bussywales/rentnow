@@ -1,7 +1,7 @@
-import {
-  selectDiscoveryItems,
-  type DiscoveryCatalogueItem,
-} from "@/lib/discovery";
+import { selectDiscoveryItems } from "@/lib/discovery/discovery-select";
+import { resolveDiscoveryTrustBadges } from "@/lib/discovery/discovery-trust";
+import type { DiscoveryCatalogueItem } from "@/lib/discovery/discovery-catalogue";
+import type { DiscoveryTrustBadge } from "@/lib/discovery/market-taxonomy";
 
 const ALLOWED_SHORTLETS_QUERY_KEYS = [
   "where",
@@ -25,6 +25,7 @@ export type ShortletsFeaturedRailItem = {
   subtitle: string;
   tag: string;
   href: string;
+  badges: DiscoveryTrustBadge[];
 };
 
 function resolveMarketLabel(countryCode: string): string {
@@ -102,6 +103,10 @@ export function selectShortletsFeaturedRailItems(input: {
       href: buildShortletsFeaturedHref({
         item,
         marketCountry: input.marketCountry,
+      }),
+      badges: resolveDiscoveryTrustBadges({
+        item,
+        now: input.now,
       }),
     };
   });
