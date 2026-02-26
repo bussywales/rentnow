@@ -32,6 +32,30 @@ function isUuid(input: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input);
 }
 
+export type CollectionShareIdResolution =
+  | { kind: "slug"; collection: NonNullable<ReturnType<typeof getCollectionBySlug>> }
+  | { kind: "uuid"; shareId: string }
+  | { kind: "invalid" };
+
+export function resolveCollectionShareId(shareId: string): CollectionShareIdResolution {
+  const normalizedShareId = shareId.trim();
+  if (!normalizedShareId) return { kind: "invalid" };
+  const staticCollection = getCollectionBySlug(normalizedShareId);
+  if (staticCollection) {
+    return {
+      kind: "slug",
+      collection: staticCollection,
+    };
+  }
+  if (isUuid(normalizedShareId)) {
+    return {
+      kind: "uuid",
+      shareId: normalizedShareId,
+    };
+  }
+  return { kind: "invalid" };
+}
+
 function deriveCollectionCity(cities: string[]) {
   if (!cities.length) return null;
   const counts = new Map<string, number>();
@@ -137,27 +161,27 @@ export async function generateMetadata({
     return generic;
   }
 
-  const staticCollection = getCollectionBySlug(shareId);
-  if (staticCollection) {
+  const resolvedShare = resolveCollectionShareId(shareId);
+  if (resolvedShare.kind === "slug") {
     return buildStaticCollectionMetadata({
-      slug: staticCollection.slug,
-      title: staticCollection.title,
-      description: staticCollection.description,
+      slug: resolvedShare.collection.slug,
+      title: resolvedShare.collection.title,
+      description: resolvedShare.collection.description,
       baseUrl,
     });
   }
 
-  if (!isUuid(shareId) || !hasServiceRoleEnv()) return generic;
+  if (resolvedShare.kind !== "uuid" || !hasServiceRoleEnv()) return generic;
 
   try {
     const service = createServiceRoleClient();
     const collectionMeta = await getPublicCollectionShareMetaByShareId({
       supabase: service,
-      shareId,
+      shareId: resolvedShare.shareId,
     });
     if (!collectionMeta) return generic;
     return buildCollectionShareMetadata({
-      shareId,
+      shareId: resolvedShare.shareId,
       baseUrl,
       title: collectionMeta.title,
       city: collectionMeta.city,
@@ -176,8 +200,9 @@ export default async function PublicCollectionPage({
   const { shareId } = await params;
   if (!shareId) notFound();
 
-  const staticCollection = getCollectionBySlug(shareId);
-  if (staticCollection) {
+  const resolvedShare = resolveCollectionShareId(shareId);
+  if (resolvedShare.kind === "slug") {
+    const staticCollection = resolvedShare.collection;
     const requestHeaders = await headers();
     const requestCookies = await cookies();
     const market = resolveMarketFromRequest({
@@ -211,7 +236,7 @@ export default async function PublicCollectionPage({
     );
   }
 
-  if (!isUuid(shareId)) notFound();
+  if (resolvedShare.kind !== "uuid") notFound();
 
   if (!hasServiceRoleEnv()) {
     return (
@@ -230,7 +255,7 @@ export default async function PublicCollectionPage({
   const service = createServiceRoleClient();
   const collection = await getPublicCollectionByShareId({
     supabase: service,
-    shareId,
+    shareId: resolvedShare.shareId,
   });
   if (!collection) {
     notFound();
@@ -259,8 +284,8 @@ export default async function PublicCollectionPage({
   ]);
   const siteUrl = await getSiteUrl();
   const shareUrl =
-    buildCollectionShareUrl(shareId, siteUrl) ||
-    `${siteUrl.replace(/\/$/, "")}/collections/${encodeURIComponent(shareId)}`;
+    buildCollectionShareUrl(resolvedShare.shareId, siteUrl) ||
+    `${siteUrl.replace(/\/$/, "")}/collections/${encodeURIComponent(resolvedShare.shareId)}`;
   const coverImageUrl =
     visibleProperties[0]?.cover_image_url || visibleProperties[0]?.images?.[0]?.image_url || null;
   const city = deriveCollectionCity(
@@ -318,7 +343,7 @@ export default async function PublicCollectionPage({
       </header>
 
       <PublicSharedCollectionActions
-        shareId={shareId}
+        shareId={resolvedShare.shareId}
         collectionTitle={collectionTitle}
         shareUrl={shareUrl}
         showStickyMobile
