@@ -25,8 +25,6 @@ void test("mobile quick search sheet source contains category and preset rails",
 
   assert.match(source, /from \"@\/lib\/home\/mobile-featured-discovery\"/);
   assert.match(source, /data-testid="mobile-quicksearch-sheet"/);
-  assert.match(source, /data-testid="mobile-quicksearch-intent-rail"/);
-  assert.match(source, /data-testid={`mobile-quicksearch-intent-\$\{option\.key\}`}/);
   assert.match(source, /data-testid={`mobile-quicksearch-category-\$\{option\.key\}`}/);
   assert.match(source, /data-testid="mobile-quicksearch-presets"/);
   assert.match(source, /data-testid={`mobile-quicksearch-preset-\$\{preset\.id\}`}/);
@@ -46,6 +44,8 @@ void test("mobile quick search sheet source contains category and preset rails",
   assert.match(source, /setActivePresetId\(null\)/);
   assert.match(source, /setCategory\(preset\.category\)/);
   assert.match(source, /setActivePresetId\(preset\.id\)/);
+  assert.doesNotMatch(source, /mobile-quicksearch-intent-rail/);
+  assert.match(source, /const defaultCategory: MobileQuickSearchCategory = "all"/);
 });
 
 void test("mobile quick search sheet source closes and navigates on search submit", () => {
