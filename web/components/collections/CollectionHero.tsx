@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ShareButton } from "@/components/share/ShareButton";
 import { Button } from "@/components/ui/Button";
 
 type CollectionHeroProps = {
@@ -6,6 +7,7 @@ type CollectionHeroProps = {
   description: string;
   marketCountry: string;
   viewResultsHref: string;
+  shareUrl: string;
 };
 
 export function CollectionHero({
@@ -13,6 +15,7 @@ export function CollectionHero({
   description,
   marketCountry,
   viewResultsHref,
+  shareUrl,
 }: CollectionHeroProps) {
   return (
     <header
@@ -32,8 +35,13 @@ export function CollectionHero({
         <Link href="/collections">
           <Button variant="secondary">All collections</Button>
         </Link>
+        <ShareButton
+          title={`${title} · PropatyHub`}
+          text="Explore this collection on PropatyHub."
+          url={shareUrl}
+          testId="collections-share-button"
+        />
       </div>
     </header>
   );
 }
-

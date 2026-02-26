@@ -194,6 +194,8 @@ export default async function PublicCollectionPage({
         slug: staticCollection.slug,
         marketCountry: market.country,
       }) ?? "/properties";
+    const siteUrl = await getSiteUrl();
+    const shareUrl = `${siteUrl.replace(/\/$/, "")}/collections/${encodeURIComponent(staticCollection.slug)}`;
 
     return (
       <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 px-4 pb-12 pt-5">
@@ -202,6 +204,7 @@ export default async function PublicCollectionPage({
           description={staticCollection.description}
           marketCountry={market.country}
           viewResultsHref={viewResultsHref}
+          shareUrl={shareUrl}
         />
         <CollectionRail cards={cards} marketCountry={market.country} />
       </div>
