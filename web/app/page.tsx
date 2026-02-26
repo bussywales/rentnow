@@ -14,9 +14,11 @@ import { MobileRecommendedNextRail } from "@/components/home/MobileRecommendedNe
 import { MobileSavedRail } from "@/components/home/MobileSavedRail";
 import { Button } from "@/components/ui/Button";
 import { getProfile } from "@/lib/auth";
-import { DEV_MOCKS, getApiBaseUrl } from "@/lib/env";
+import { DEV_MOCKS } from "@/lib/env";
 import { normalizeRole } from "@/lib/roles";
 import { getListingCta } from "@/lib/role-access";
+import { searchProperties } from "@/lib/search";
+import { parseFiltersFromSearchParams } from "@/lib/search-filters";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
@@ -31,10 +33,6 @@ export default async function Home() {
   let featured: Property[] = [];
   let popularHomes: Property[] = [];
   let newHomes: Property[] = [];
-  const apiBaseUrl = await getApiBaseUrl();
-  const featuredApiUrl = `${apiBaseUrl}/api/properties/search?featured=true&pageSize=10`;
-  const popularApiUrl = `${apiBaseUrl}/api/properties/search?pageSize=10`;
-  const newHomesApiUrl = `${apiBaseUrl}/api/properties/search?recent=7&pageSize=10`;
   const supabaseReady = hasServerSupabaseEnv();
   let role = null;
   let profileId: string | null = null;
@@ -48,31 +46,33 @@ export default async function Home() {
 
   if (supabaseReady) {
     try {
-      const [featuredRes, popularRes, newHomesRes] = await Promise.all([
-        fetch(featuredApiUrl, { cache: "no-store" }),
-        fetch(popularApiUrl, { cache: "no-store" }),
-        fetch(newHomesApiUrl, { cache: "no-store" }),
+      const baseFilters = parseFiltersFromSearchParams(new URLSearchParams());
+      const [featuredResult, popularResult, newHomesResult] = await Promise.all([
+        searchProperties(baseFilters, { page: 1, pageSize: 10, featuredOnly: true }),
+        searchProperties(baseFilters, { page: 1, pageSize: 10 }),
+        searchProperties(baseFilters, {
+          page: 1,
+          pageSize: 10,
+          recentDays: 7,
+        }),
       ]);
 
-      if (featuredRes.ok) {
-        const json = await featuredRes.json();
-        featured = ((json.properties as Property[]) || []).slice(0, 10);
+      if (featuredResult.error) {
+        console.warn("[home] featured listings request failed", featuredResult.error.message);
       } else {
-        console.warn("[home] featured listings request failed", featuredRes.status);
+        featured = ((featuredResult.data as Property[]) || []).slice(0, 10);
       }
 
-      if (popularRes.ok) {
-        const json = await popularRes.json();
-        popularHomes = ((json.properties as Property[]) || []).slice(0, 10);
+      if (popularResult.error) {
+        console.warn("[home] popular listings request failed", popularResult.error.message);
       } else {
-        console.warn("[home] popular listings request failed", popularRes.status);
+        popularHomes = ((popularResult.data as Property[]) || []).slice(0, 10);
       }
 
-      if (newHomesRes.ok) {
-        const json = await newHomesRes.json();
-        newHomes = ((json.properties as Property[]) || []).slice(0, 10);
+      if (newHomesResult.error) {
+        console.warn("[home] new listings request failed", newHomesResult.error.message);
       } else {
-        console.warn("[home] new listings request failed", newHomesRes.status);
+        newHomes = ((newHomesResult.data as Property[]) || []).slice(0, 10);
       }
     } catch (err) {
       console.warn("[home] unable to fetch listing rails", err);
@@ -84,6 +84,36 @@ export default async function Home() {
     popularHomes = mockProperties.slice(2, 8);
     newHomes = mockProperties.slice(1, 7);
   }
+
+  const featuredRailMode = featured.length
+    ? "featured"
+    : popularHomes.length
+      ? "popular"
+      : newHomes.length
+        ? "new"
+        : "none";
+  const featuredRailListings =
+    featuredRailMode === "featured"
+      ? featured
+      : featuredRailMode === "popular"
+        ? popularHomes
+        : featuredRailMode === "new"
+          ? newHomes
+          : [];
+  const featuredRailSubtitle =
+    featuredRailMode === "featured"
+      ? "Homes to shortlist now"
+      : featuredRailMode === "popular"
+        ? "Trending stays to shortlist now"
+        : "Fresh listings to shortlist now";
+  const featuredRailHref =
+    featuredRailMode === "popular"
+      ? "/properties"
+      : featuredRailMode === "new"
+        ? "/properties?recent=7"
+        : "/properties?featured=true";
+  const featuredRailSource =
+    featuredRailMode === "featured" ? "home_mobile_featured" : `home_mobile_featured_fallback_${featuredRailMode}`;
 
   const featuredPreview = featured.slice(0, 3);
 
@@ -141,14 +171,14 @@ export default async function Home() {
     <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4">
       <MobileQuickStartBar />
       <section className="space-y-4 md:hidden" data-testid="mobile-home-inventory-first">
-        {featured.length ? (
+        {featuredRailListings.length ? (
           <HomeListingRail
             title="Featured homes"
-            subtitle="Homes to shortlist now"
-            listings={featured.slice(0, 6)}
-            source="home_mobile_featured"
+            subtitle={featuredRailSubtitle}
+            listings={featuredRailListings.slice(0, 6)}
+            source={featuredRailSource}
             sectionTestId="mobile-home-featured-rail"
-            href="/properties?featured=true"
+            href={featuredRailHref}
             hrefLabel="See all"
           />
         ) : null}

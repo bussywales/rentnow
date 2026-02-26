@@ -10,6 +10,7 @@ type SearchOptions = {
   approvedBefore?: string | null;
   featuredOnly?: boolean;
   createdAfter?: string | null;
+  recentDays?: number;
   includeDemo?: boolean;
   locationQuery?: string | null;
   bounds?: {
@@ -122,8 +123,15 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
         .eq("is_featured", true)
         .or(`featured_until.is.null,featured_until.gt.${nowIso}`);
     }
-    if (options.createdAfter) {
-      query = query.gte("created_at", options.createdAfter);
+    const recentDays =
+      typeof options.recentDays === "number" && Number.isFinite(options.recentDays)
+        ? Math.min(Math.max(options.recentDays, 1), 90)
+        : null;
+    const createdAfterIso =
+      options.createdAfter ??
+      (recentDays ? new Date(Date.now() - recentDays * 24 * 60 * 60 * 1000).toISOString() : null);
+    if (createdAfterIso) {
+      query = query.gte("created_at", createdAfterIso);
     }
     if (filters.city) {
       query = query.ilike("city", `%${filters.city}%`);
