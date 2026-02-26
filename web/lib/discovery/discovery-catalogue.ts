@@ -3,6 +3,8 @@ import type {
   DiscoveryKind,
   DiscoveryMarket,
   DiscoverySurface,
+  DiscoveryTrustBadge,
+  DiscoveryVerificationBasis,
 } from "@/lib/discovery/market-taxonomy";
 
 export type DiscoveryCatalogueItem = {
@@ -18,6 +20,9 @@ export type DiscoveryCatalogueItem = {
   disabled?: boolean;
   validFrom?: string;
   validTo?: string;
+  introducedAt?: string;
+  badges?: DiscoveryTrustBadge[];
+  verificationBasis?: DiscoveryVerificationBasis;
 };
 
 const ALL_SURFACES: DiscoverySurface[] = [
@@ -37,6 +42,7 @@ export const DISCOVERY_CATALOGUE: ReadonlyArray<DiscoveryCatalogueItem> = [
     params: { guests: "2", sort: "recommended" },
     priority: 80,
     surfaces: ALL_SURFACES,
+    badges: ["POPULAR"],
   },
   {
     id: "global-rent-family-ready-homes",
@@ -59,6 +65,7 @@ export const DISCOVERY_CATALOGUE: ReadonlyArray<DiscoveryCatalogueItem> = [
     params: { category: "buy", intent: "buy" },
     priority: 74,
     surfaces: ALL_SURFACES,
+    introducedAt: "2026-02-20",
   },
   {
     id: "global-offplan-opportunities",
@@ -92,6 +99,7 @@ export const DISCOVERY_CATALOGUE: ReadonlyArray<DiscoveryCatalogueItem> = [
     params: { where: "Lagos", guests: "2", sort: "recommended" },
     priority: 90,
     surfaces: ALL_SURFACES,
+    badges: ["POPULAR"],
   },
   {
     id: "ng-rent-abuja-family",
@@ -136,6 +144,7 @@ export const DISCOVERY_CATALOGUE: ReadonlyArray<DiscoveryCatalogueItem> = [
     params: { where: "London", guests: "2", sort: "recommended" },
     priority: 90,
     surfaces: ALL_SURFACES,
+    badges: ["POPULAR"],
   },
   {
     id: "uk-rent-manchester-family",
@@ -180,6 +189,7 @@ export const DISCOVERY_CATALOGUE: ReadonlyArray<DiscoveryCatalogueItem> = [
     params: { where: "Toronto", guests: "2", sort: "recommended" },
     priority: 90,
     surfaces: ALL_SURFACES,
+    badges: ["POPULAR"],
   },
   {
     id: "ca-rent-vancouver-family",
@@ -224,6 +234,7 @@ export const DISCOVERY_CATALOGUE: ReadonlyArray<DiscoveryCatalogueItem> = [
     params: { where: "New York", guests: "2", sort: "recommended" },
     priority: 90,
     surfaces: ALL_SURFACES,
+    badges: ["POPULAR"],
   },
   {
     id: "us-rent-austin-family",
@@ -259,3 +270,9 @@ export const DISCOVERY_CATALOGUE: ReadonlyArray<DiscoveryCatalogueItem> = [
     surfaces: ALL_SURFACES,
   },
 ];
+
+export function getDiscoveryCatalogueItemById(id: string): DiscoveryCatalogueItem | null {
+  const key = id.trim();
+  if (!key) return null;
+  return DISCOVERY_CATALOGUE.find((item) => item.id === key) ?? null;
+}

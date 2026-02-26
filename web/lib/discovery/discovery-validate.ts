@@ -1,5 +1,7 @@
 import {
   DISCOVERY_INTENTS,
+  DISCOVERY_TRUST_BADGES,
+  DISCOVERY_VERIFICATION_BASES,
   DISCOVERY_KINDS,
   DISCOVERY_MARKETS,
   DISCOVERY_SURFACES,
@@ -21,7 +23,10 @@ export const DISCOVERY_VALIDATION_REASON_CODES = [
   "INVALID_PRIORITY",
   "INVALID_VALID_FROM",
   "INVALID_VALID_TO",
+  "INVALID_INTRODUCED_AT",
   "INVALID_DATE_RANGE",
+  "INVALID_BADGE",
+  "VERIFIED_REQUIRES_BASIS",
   "SENSITIVE_TOKEN",
   "MISSING_REQUIRED_PARAM_FOR_KIND",
   "DISABLED",
@@ -202,9 +207,30 @@ export function validateDiscoveryCatalogue(input: {
       addIssue(item.id, "INVALID_VALID_TO", "invalid validTo date");
       continue;
     }
+    if (item.introducedAt && !isIsoDate(item.introducedAt)) {
+      addIssue(item.id, "INVALID_INTRODUCED_AT", "invalid introducedAt date");
+      continue;
+    }
     if (item.validFrom && item.validTo && item.validFrom > item.validTo) {
       addIssue(item.id, "INVALID_DATE_RANGE", "validFrom is later than validTo");
       continue;
+    }
+    if (item.badges) {
+      if (!Array.isArray(item.badges)) {
+        addIssue(item.id, "INVALID_BADGE", "badges must be an array");
+        continue;
+      }
+      const unknownBadges = collectUnknownValues(item.badges, DISCOVERY_TRUST_BADGES);
+      if (unknownBadges.length > 0) {
+        addIssue(item.id, "INVALID_BADGE", `unknown badges ${unknownBadges.join(", ")}`);
+        continue;
+      }
+      if (item.badges.includes("VERIFIED")) {
+        if (!item.verificationBasis || !DISCOVERY_VERIFICATION_BASES.includes(item.verificationBasis)) {
+          addIssue(item.id, "VERIFIED_REQUIRES_BASIS", "VERIFIED badge requires verificationBasis");
+          continue;
+        }
+      }
     }
     const titleToken = hasSensitiveToken(item.title);
     if (titleToken) {

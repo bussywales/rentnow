@@ -14,6 +14,16 @@ export type DiscoveryKind = (typeof DISCOVERY_KINDS)[number];
 export const DISCOVERY_INTENTS = ["shortlet", "rent", "buy"] as const;
 export type DiscoveryIntent = (typeof DISCOVERY_INTENTS)[number];
 
+export const DISCOVERY_TRUST_BADGES = ["VERIFIED", "POPULAR", "NEW"] as const;
+export type DiscoveryTrustBadge = (typeof DISCOVERY_TRUST_BADGES)[number];
+
+export const DISCOVERY_VERIFICATION_BASES = [
+  "AGENT_VERIFIED",
+  "ID_CHECKED",
+  "MANUAL_REVIEW",
+] as const;
+export type DiscoveryVerificationBasis = (typeof DISCOVERY_VERIFICATION_BASES)[number];
+
 const MARKET_ALIASES: Record<string, DiscoveryMarket> = {
   GLOBAL: "GLOBAL",
   NG: "NG",
