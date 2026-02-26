@@ -5,15 +5,16 @@ import path from "node:path";
 
 const shellPath = path.join(process.cwd(), "components", "shortlets", "search", "ShortletsSearchShell.tsx");
 
-void test("shortlets shell renders a filters drawer with apply and clear actions", () => {
+void test("shortlets shell renders shared filters drawer wiring with apply/reset/clear actions", () => {
   const contents = fs.readFileSync(shellPath, "utf8");
 
   assert.ok(contents.includes('data-testid="shortlets-filters-button"'));
-  assert.ok(contents.includes('data-testid="shortlets-filters-overlay"'));
-  assert.ok(contents.includes('data-testid="shortlets-filters-drawer"'));
-  assert.ok(contents.includes("Apply"));
-  assert.ok(contents.includes("Clear all"));
-  assert.ok(contents.includes("setFiltersOpen(false)"));
+  assert.ok(contents.includes("<FilterDrawerShell"));
+  assert.ok(contents.includes('overlayTestId="shortlets-filters-overlay"'));
+  assert.ok(contents.includes('drawerTestId="shortlets-filters-drawer"'));
+  assert.ok(contents.includes("onApply={applyAdvancedFiltersAndClose}"));
+  assert.ok(contents.includes("onReset={resetAdvancedFiltersDraft}"));
+  assert.ok(contents.includes("onClear={clearAdvancedFiltersAndClose}"));
   assert.ok(contents.includes("Free cancellation"));
   assert.ok(contents.includes("freeCancellation"));
   assert.ok(contents.includes("View options"));
@@ -38,12 +39,13 @@ void test("shortlets shell quick filters use a premium compact pill with apply/c
   assert.equal(contents.includes('data-testid="shortlets-quick-filters-button"'), false);
 });
 
-void test("shortlets shell supports active filter summary with overflow collapse", () => {
+void test("shortlets shell uses shared filter chip row for active summary and clear action", () => {
   const contents = fs.readFileSync(shellPath, "utf8");
 
-  assert.ok(contents.includes('data-testid="shortlets-active-filter-summary"'));
-  assert.ok(contents.includes("+{hiddenFilterTagCount} more"));
-  assert.ok(contents.includes("overflow-hidden whitespace-nowrap"));
+  assert.ok(contents.includes("<FilterChipRow"));
+  assert.ok(contents.includes('testId="shortlets-active-filter-summary"'));
+  assert.ok(contents.includes("onClear={clearAdvancedFilters}"));
+  assert.ok(contents.includes("activeFilterChips"));
   assert.ok(contents.includes("removeShortletAdvancedFilterTag"));
 });
 

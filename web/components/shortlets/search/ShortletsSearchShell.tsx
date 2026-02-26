@@ -8,6 +8,13 @@ import type { Property } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { Calendar } from "@/components/ui/calendar";
+import { FilterChipRow } from "@/components/filters/FilterChipRow";
+import { FilterDrawerShell } from "@/components/filters/FilterDrawerShell";
+import {
+  createApplyAndCloseAction,
+  createClearApplyAndCloseAction,
+  createResetDraftAction,
+} from "@/components/filters/filter-actions";
 import { PropertyCardSkeleton } from "@/components/properties/PropertyCardSkeleton";
 import { ShortletsMobileStickyBar } from "@/components/shortlets/search/ShortletsMobileStickyBar";
 import { ShortletsSearchMap } from "@/components/shortlets/search/ShortletsSearchMap";
@@ -1307,8 +1314,44 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
     [appliedAdvancedFilters]
   );
   const appliedFilterCount = activeFilterTags.length;
-  const visibleFilterTags = activeFilterTags.slice(0, 3);
-  const hiddenFilterTagCount = Math.max(0, activeFilterTags.length - visibleFilterTags.length);
+  const activeFilterChips = useMemo(
+    () =>
+      activeFilterTags.map((tag) => ({
+        id: `${tag.id}-${tag.param}-${tag.value ?? "none"}`,
+        label: tag.label,
+        onRemove: () =>
+          updateUrl((next) => {
+            removeShortletAdvancedFilterTag(next, tag);
+          }),
+      })),
+    [activeFilterTags, updateUrl]
+  );
+  const resetAdvancedFiltersDraft = useMemo(
+    () =>
+      createResetDraftAction(
+        () => readShortletAdvancedFiltersFromParams(stableSearchParams),
+        setDraftAdvancedFilters
+      ),
+    [stableSearchParams]
+  );
+  const applyAdvancedFiltersAndClose = useMemo(
+    () =>
+      createApplyAndCloseAction(
+        () => applyAdvancedFilters(draftAdvancedFilters),
+        () => setFiltersOpen(false)
+      ),
+    [applyAdvancedFilters, draftAdvancedFilters]
+  );
+  const clearAdvancedFiltersAndClose = useMemo(
+    () =>
+      createClearApplyAndCloseAction(
+        createDefaultShortletAdvancedFilters,
+        setDraftAdvancedFilters,
+        applyAdvancedFilters,
+        () => setFiltersOpen(false)
+      ),
+    [applyAdvancedFilters]
+  );
   const savedOnlyActive = useMemo(
     () => isShortletSavedViewEnabled(stableSearchParams.get("saved")),
     [stableSearchParams]
@@ -1820,196 +1863,132 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
         <ShortletsFeaturedRail />
 
         {activeFilterTags.length > 0 ? (
-          <div
-            className="mt-2 flex min-w-0 items-center gap-2 overflow-hidden whitespace-nowrap"
-            data-testid="shortlets-active-filter-summary"
-          >
-            {visibleFilterTags.map((tag) => (
-              <button
-                key={tag.id}
-                type="button"
-                onClick={() =>
-                  updateUrl((next) => {
-                    removeShortletAdvancedFilterTag(next, tag);
-                  })
-                }
-                className="inline-flex shrink-0 items-center gap-1 rounded-full border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700"
-                title={`Remove ${tag.label}`}
-              >
-                <span>{tag.label}</span>
-                <span aria-hidden="true">×</span>
-              </button>
-            ))}
-            {hiddenFilterTagCount > 0 ? (
-              <span className="truncate text-xs text-slate-500">+{hiddenFilterTagCount} more</span>
-            ) : null}
-          </div>
+          <FilterChipRow
+            chips={activeFilterChips}
+            onClear={clearAdvancedFilters}
+            clearLabel="Clear"
+            className="mt-2 rounded-none border-0 bg-transparent p-0 shadow-none"
+            testId="shortlets-active-filter-summary"
+          />
         ) : null}
       </section>
 
-      {filtersOpen ? (
-        <>
-          <button
-            type="button"
-            aria-label="Close filters"
-            className="fixed inset-0 z-40 bg-slate-900/30"
-            onClick={() => setFiltersOpen(false)}
-            data-testid="shortlets-filters-overlay"
-          />
-          <div className="pointer-events-none fixed inset-0 z-50 flex items-end md:items-stretch md:justify-end">
-            <aside
-              className="pointer-events-auto flex max-h-[86vh] w-full flex-col rounded-t-2xl border border-slate-200 bg-white shadow-2xl md:h-full md:max-h-none md:w-[420px] md:rounded-none md:border-l md:border-t-0"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Shortlet filters"
-              data-testid="shortlets-filters-drawer"
-            >
-              <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">
-                <div>
-                  <p className="text-sm font-semibold text-slate-900">Filters</p>
-                  <p className="text-xs text-slate-500">Refine shortlets without cluttering the map view.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setFiltersOpen(false)}
-                  className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-slate-200 text-slate-600 hover:bg-slate-100"
-                  aria-label="Close filters"
+      <FilterDrawerShell
+        open={filtersOpen}
+        onClose={() => setFiltersOpen(false)}
+        title="Filters"
+        subtitle="Refine shortlets without cluttering the map view."
+        onApply={applyAdvancedFiltersAndClose}
+        onReset={resetAdvancedFiltersDraft}
+        onClear={clearAdvancedFiltersAndClose}
+        drawerTestId="shortlets-filters-drawer"
+        overlayTestId="shortlets-filters-overlay"
+        ariaLabel="Shortlet filters"
+      >
+        <div className="space-y-5">
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-900">Amenities and trust</h2>
+            <div className="space-y-2">
+              {TRUST_FILTERS.map((filter) => (
+                <label
+                  key={`drawer-filter-${filter.key}`}
+                  className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700"
                 >
-                  ×
-                </button>
-              </div>
-
-              <div className="min-h-0 flex-1 space-y-5 overflow-y-auto px-4 py-4">
-                <section className="space-y-2">
-                  <h2 className="text-sm font-semibold text-slate-900">Amenities and trust</h2>
-                  <div className="space-y-2">
-                    {TRUST_FILTERS.map((filter) => (
-                      <label
-                        key={`drawer-filter-${filter.key}`}
-                        className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700"
-                      >
-                        <span>{filter.label}</span>
-                        <input
-                          type="checkbox"
-                          checked={draftAdvancedFilters[filter.key]}
-                          onChange={(event) =>
-                            setDraftAdvancedFilters((current) => ({
-                              ...current,
-                              [filter.key]: event.target.checked,
-                            }))
-                          }
-                          className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                        />
-                      </label>
-                    ))}
-                  </div>
-                </section>
-
-                <section className="space-y-2">
-                  <h2 className="text-sm font-semibold text-slate-900">Booking mode</h2>
-                  <Select
-                    value={draftAdvancedFilters.bookingMode}
-                    onChange={(event) => {
-                      const value = event.target.value;
+                  <span>{filter.label}</span>
+                  <input
+                    type="checkbox"
+                    checked={draftAdvancedFilters[filter.key]}
+                    onChange={(event) =>
                       setDraftAdvancedFilters((current) => ({
                         ...current,
-                        bookingMode: value === "instant" || value === "request" ? value : "",
-                      }));
-                    }}
-                    aria-label="Booking mode filter"
-                  >
-                    <option value="">All booking modes</option>
-                    <option value="instant">Instant book</option>
-                    <option value="request">Request to book</option>
-                  </Select>
-                </section>
+                        [filter.key]: event.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                  />
+                </label>
+              ))}
+            </div>
+          </section>
 
-                <section className="space-y-2">
-                  <h2 className="text-sm font-semibold text-slate-900">Cancellation</h2>
-                  <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
-                    <span>Free cancellation</span>
-                    <input
-                      type="checkbox"
-                      checked={draftAdvancedFilters.freeCancellation}
-                      onChange={(event) =>
-                        setDraftAdvancedFilters((current) => ({
-                          ...current,
-                          freeCancellation: event.target.checked,
-                        }))
-                      }
-                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                    />
-                  </label>
-                </section>
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-900">Booking mode</h2>
+            <Select
+              value={draftAdvancedFilters.bookingMode}
+              onChange={(event) => {
+                const value = event.target.value;
+                setDraftAdvancedFilters((current) => ({
+                  ...current,
+                  bookingMode: value === "instant" || value === "request" ? value : "",
+                }));
+              }}
+              aria-label="Booking mode filter"
+            >
+              <option value="">All booking modes</option>
+              <option value="instant">Instant book</option>
+              <option value="request">Request to book</option>
+            </Select>
+          </section>
 
-                <section className="space-y-2">
-                  <h2 className="text-sm font-semibold text-slate-900">View options</h2>
-                  <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
-                    <span>Search as I move the map</span>
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                      checked={isMapMoveSearchEnabled}
-                      onChange={(event) => onToggleMapMoveSearch(event.target.checked)}
-                      data-testid="shortlets-map-move-toggle"
-                    />
-                  </label>
-                  <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
-                    <span>Display total price</span>
-                    <input
-                      type="checkbox"
-                      checked={totalPriceDisplayActive}
-                      disabled={!hasValidPriceDates}
-                      onChange={(event) => onTogglePriceDisplay(event.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                      data-testid="shortlets-price-display-toggle"
-                    />
-                  </label>
-                  {!hasValidPriceDates ? (
-                    <p className="text-xs text-slate-500" data-testid="shortlets-price-display-helper">
-                      Select dates to see total price.
-                    </p>
-                  ) : null}
-                  <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
-                    <span>Saved only</span>
-                    <input
-                      type="checkbox"
-                      checked={savedOnlyActive}
-                      onChange={(event) => setSavedView(event.target.checked)}
-                      className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
-                      data-testid="shortlets-saved-toggle"
-                    />
-                  </label>
-                </section>
-              </div>
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-900">Cancellation</h2>
+            <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
+              <span>Free cancellation</span>
+              <input
+                type="checkbox"
+                checked={draftAdvancedFilters.freeCancellation}
+                onChange={(event) =>
+                  setDraftAdvancedFilters((current) => ({
+                    ...current,
+                    freeCancellation: event.target.checked,
+                  }))
+                }
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+              />
+            </label>
+          </section>
 
-              <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-slate-200 bg-white px-4 py-3">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={() => {
-                    const cleared = createDefaultShortletAdvancedFilters();
-                    setDraftAdvancedFilters(cleared);
-                    applyAdvancedFilters(cleared);
-                    setFiltersOpen(false);
-                  }}
-                >
-                  Clear all
-                </Button>
-                <Button
-                  type="button"
-                  onClick={() => {
-                    applyAdvancedFilters(draftAdvancedFilters);
-                    setFiltersOpen(false);
-                  }}
-                >
-                  Apply
-                </Button>
-              </div>
-            </aside>
-          </div>
-        </>
-      ) : null}
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-900">View options</h2>
+            <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
+              <span>Search as I move the map</span>
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                checked={isMapMoveSearchEnabled}
+                onChange={(event) => onToggleMapMoveSearch(event.target.checked)}
+                data-testid="shortlets-map-move-toggle"
+              />
+            </label>
+            <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
+              <span>Display total price</span>
+              <input
+                type="checkbox"
+                checked={totalPriceDisplayActive}
+                disabled={!hasValidPriceDates}
+                onChange={(event) => onTogglePriceDisplay(event.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                data-testid="shortlets-price-display-toggle"
+              />
+            </label>
+            {!hasValidPriceDates ? (
+              <p className="text-xs text-slate-500" data-testid="shortlets-price-display-helper">
+                Select dates to see total price.
+              </p>
+            ) : null}
+            <label className="flex items-center justify-between rounded-xl border border-slate-200 px-3 py-2.5 text-sm text-slate-700">
+              <span>Saved only</span>
+              <input
+                type="checkbox"
+                checked={savedOnlyActive}
+                onChange={(event) => setSavedView(event.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                data-testid="shortlets-saved-toggle"
+              />
+            </label>
+          </section>
+        </div>
+      </FilterDrawerShell>
 
       {searchDatesOpen && isMobileDatePicker ? (
         <div
