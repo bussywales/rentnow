@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { cn } from "@/components/ui/cn";
 import { Input } from "@/components/ui/Input";
 import type { ShortletCancellationPolicy } from "@/lib/shortlet/cancellation";
 
@@ -127,6 +128,8 @@ export function HostShortletSettingsForm({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const actionLinkClass =
+    "inline-flex items-center justify-center rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50";
 
   const nightlyPreview = useMemo(() => {
     const parsed = Number(nightlyPriceMinor || "0");
@@ -223,7 +226,7 @@ export function HostShortletSettingsForm({
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <section className="space-y-3 rounded-xl border border-slate-200 bg-white p-4 shadow-sm sm:space-y-4 sm:rounded-2xl sm:p-5">
       <div>
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Manage shortlet</p>
         <h1 className="text-xl font-semibold text-slate-900">{propertyTitle || "Shortlet listing"}</h1>
@@ -238,8 +241,15 @@ export function HostShortletSettingsForm({
         ) : null}
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">
+      <div className="grid grid-cols-2 gap-2 sm:gap-4">
+        <label
+          className={cn(
+            "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition",
+            bookingMode === "instant"
+              ? "border-sky-300 bg-sky-50 text-sky-800"
+              : "border-slate-200 bg-white text-slate-700"
+          )}
+        >
           <input
             type="radio"
             name="booking_mode"
@@ -249,7 +259,14 @@ export function HostShortletSettingsForm({
           />
           Instant book
         </label>
-        <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700">
+        <label
+          className={cn(
+            "flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition",
+            bookingMode === "request"
+              ? "border-sky-300 bg-sky-50 text-sky-800"
+              : "border-slate-200 bg-white text-slate-700"
+          )}
+        >
           <input
             type="radio"
             name="booking_mode"
@@ -260,6 +277,9 @@ export function HostShortletSettingsForm({
           Request to book
         </label>
       </div>
+      <p className="text-xs text-slate-500">
+        Instant confirms immediately. Request to book lets you review each reservation first.
+      </p>
 
       <div className="space-y-2">
         <label htmlFor="cancellation-policy" className="text-sm font-medium text-slate-700">
@@ -321,7 +341,7 @@ export function HostShortletSettingsForm({
         </div>
       </div>
 
-      <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4" data-testid="shortlet-checkin-rules-section">
+      <div className="space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4" data-testid="shortlet-checkin-rules-section">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <h2 className="text-sm font-semibold text-slate-900">Guest arrival &amp; house rules</h2>
@@ -569,9 +589,13 @@ export function HostShortletSettingsForm({
           </div>
         ) : null}
 
-        <div className="rounded-xl border border-slate-200 bg-white p-3" data-testid="shortlet-checkin-rules-preview">
-          <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Preview as guest</p>
-          <div className="mt-2 space-y-1 text-sm text-slate-700">
+        <details className="group rounded-xl border border-slate-200 bg-white p-3" data-testid="shortlet-checkin-rules-preview">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 [&::-webkit-details-marker]:hidden">
+            <p className="text-xs uppercase tracking-[0.12em] text-slate-500">Preview as guest</p>
+            <span className="text-xs font-semibold text-slate-600 group-open:hidden">Show</span>
+            <span className="hidden text-xs font-semibold text-slate-600 group-open:inline">Hide</span>
+          </summary>
+          <div className="mt-2 border-t border-slate-100 pt-2 space-y-1 text-sm text-slate-700">
             <p className="font-medium text-slate-900">Check-in details</p>
             <p>{checkinInstructions.trim() || "Check-in details will be shared by host."}</p>
             <p>
@@ -590,31 +614,31 @@ export function HostShortletSettingsForm({
               </>
             ) : null}
           </div>
-        </div>
+        </details>
       </div>
 
       {error ? <p className="text-sm text-rose-600">{error}</p> : null}
       {notice ? <p className="text-sm text-emerald-700">{notice}</p> : null}
 
-      <div className="flex flex-wrap gap-2">
-        <Button onClick={() => void save()} disabled={saving}>
+      <div className="grid grid-cols-2 gap-2 border-t border-slate-200 pt-3 sm:flex sm:flex-wrap sm:border-t-0 sm:pt-0">
+        <Button className="col-span-2 w-full sm:w-auto" onClick={() => void save()} disabled={saving}>
           {saving ? "Saving..." : "Save settings"}
         </Button>
         <Link
           href="/host/bookings"
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          className={actionLinkClass}
         >
           Bookings
         </Link>
         <Link
           href={`/host/shortlets/blocks?property_id=${encodeURIComponent(propertyId)}`}
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          className={actionLinkClass}
         >
           Availability
         </Link>
         <Link
           href="/host"
-          className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+          className={cn(actionLinkClass, "col-span-2 sm:col-span-1")}
         >
           Back to host
         </Link>
