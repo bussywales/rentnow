@@ -18,11 +18,16 @@ import {
   type MobileQuickSearchCategory,
   type MobileQuickSearchPreset,
 } from "@/lib/home/mobile-quicksearch-presets";
-import { buildMobileQuickSearchHref } from "@/lib/home/mobile-featured-discovery";
+import {
+  buildMobileQuickSearchHref,
+  getMobileFeaturedDiscoveryItems,
+} from "@/lib/home/mobile-featured-discovery";
 import { getRecentBrowseIntent } from "@/lib/market/browse-intent";
+import { getMarketSearchTerminology } from "@/lib/market/terminology";
 import {
   resolvePropertiesBrowseCategory,
 } from "@/lib/properties/browse-categories";
+import { getLastSearchHref } from "@/lib/search/last-search";
 import { clearRecentSearches, getRecentSearches, pushRecentSearch } from "@/lib/search/recents";
 import {
   clearRecentFeaturedTaps,
@@ -35,6 +40,7 @@ import {
   type MobileQuickSearchDateQuickPick,
 } from "@/lib/search/date-quick-picks";
 import { readRecentSearchPresets, type ShortletSearchPreset } from "@/lib/shortlet/search-presets";
+import { getLastBrowseUrl } from "@/lib/viewed/browse-state";
 
 const MOBILE_QUICKSEARCH_RECENTS_KEY = "mobile_quicksearch_v1";
 const MOBILE_QUICKSEARCH_RECENTS_LIMIT = 5;
@@ -50,6 +56,11 @@ const DATE_PICK_OPTIONS: Array<{ key: MobileQuickSearchDateQuickPick; label: str
   { key: "next_weekend", label: "Next weekend" },
   { key: "flexible", label: "Flexible" },
 ];
+const DATE_PICK_TEST_IDS: Record<MobileQuickSearchDateQuickPick, string> = {
+  this_weekend: "mobile-quicksearch-date-this-weekend",
+  next_weekend: "mobile-quicksearch-date-next-weekend",
+  flexible: "mobile-quicksearch-date-flexible",
+};
 
 function resolveQuickSearchCategory(
   lastSearchParams: string | null | undefined
@@ -102,6 +113,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
   const router = useRouter();
   const { market } = useMarketPreference();
   const marketCountry = market.country;
+  const terminology = useMemo(() => getMarketSearchTerminology(marketCountry), [marketCountry]);
   const initialState = useMemo(() => {
     const marketIntent = resolveIntentForMarket(marketCountry);
     const defaultCategory = resolveCategoryFromIntent(marketIntent);
@@ -136,6 +148,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
       limit: MOBILE_QUICKSEARCH_RECENTS_LIMIT,
     })
   );
+  const [lastSearchHref, setLastSearchHref] = useState<string | null>(null);
   const locationInputRef = useRef<HTMLInputElement | null>(null);
   const presetOptions = useMemo(
     () =>
@@ -157,6 +170,15 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
         limit: MOBILE_QUICKSEARCH_RECENTS_LIMIT,
       }),
     [recentFeaturedTaps, recentSearches]
+  );
+  const emptySuggestions = useMemo(
+    () =>
+      getMobileFeaturedDiscoveryItems({
+        marketCountry,
+        limit: 3,
+        seedBucket: "quicksearch-empty-state",
+      }),
+    [marketCountry]
   );
 
   const searchHref = useMemo(
@@ -181,6 +203,17 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
     ]
   );
 
+  const lastSearchHrefCandidate = useMemo(() => {
+    if (activeIntent === "shortlet") {
+      return (
+        getLastBrowseUrl({ kind: "shortlet", marketCountry }) ??
+        getLastBrowseUrl({ kind: "property", marketCountry }) ??
+        getLastSearchHref()
+      );
+    }
+    return getLastBrowseUrl({ kind: "property", marketCountry }) ?? getLastSearchHref();
+  }, [activeIntent, marketCountry]);
+
   useEffect(() => {
     if (!open) return;
     setRecentSearches(getRecentSearches(MOBILE_QUICKSEARCH_RECENTS_KEY, MOBILE_QUICKSEARCH_RECENTS_LIMIT));
@@ -190,6 +223,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
         limit: MOBILE_QUICKSEARCH_RECENTS_LIMIT,
       })
     );
+    setLastSearchHref(lastSearchHrefCandidate);
     const rafId = window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         locationInputRef.current?.focus();
@@ -198,7 +232,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
     return () => {
       window.cancelAnimationFrame(rafId);
     };
-  }, [marketCountry, open]);
+  }, [lastSearchHrefCandidate, marketCountry, open]);
 
   const handleSearch = () => {
     const nextRecents = pushRecentSearch(
@@ -364,7 +398,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
                   key={option.key}
                   type="button"
                   disabled={!isShortletIntent}
-                  data-testid={`mobile-quicksearch-date-${option.key.replaceAll("_", "-")}`}
+                  data-testid={DATE_PICK_TEST_IDS[option.key]}
                   className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
                     active
                       ? "border-slate-900 bg-slate-900 text-white"
@@ -417,7 +451,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
 
         <div className="space-y-1.5">
           <label htmlFor="mobile-quicksearch-location" className="text-xs font-semibold text-slate-700">
-            Location
+            {terminology.locationFieldLabel}
           </label>
           <Input
             id="mobile-quicksearch-location"
@@ -432,10 +466,11 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
                 );
               }
             }}
-            placeholder="City or area"
+            placeholder={terminology.locationPlaceholder}
             data-testid="mobile-quicksearch-location-input"
             className="rounded-xl border-slate-200"
           />
+          <p className="text-[11px] text-slate-500">{terminology.locationHint}</p>
         </div>
 
         {mergedRecentItems.length > 0 ? (
@@ -487,9 +522,51 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
               ))}
             </div>
           </div>
-        ) : null}
+        ) : (
+          <div className="space-y-2" data-testid="mobile-quicksearch-empty-suggestions">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Picks for {marketCountry}
+            </p>
+            <p className="text-[11px] text-slate-500">
+              New here? Try these curated starts for {terminology.homeTypeNoun}.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {emptySuggestions.map((suggestion) => (
+                <button
+                  key={suggestion.id}
+                  type="button"
+                  data-testid="mobile-quicksearch-empty-suggestion"
+                  className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700"
+                  onClick={() => {
+                    writeStoredIntentForMarket(marketCountry, resolveIntentFromCategory(suggestion.category));
+                    setCategory(suggestion.category);
+                    setActivePresetId(null);
+                    setSelectedShortletParams(suggestion.shortletParams ?? null);
+                    setCity(suggestion.city ?? "");
+                    locationInputRef.current?.focus();
+                  }}
+                >
+                  {suggestion.title}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-2">
+          {lastSearchHref ? (
+            <button
+              type="button"
+              className="inline-flex items-center justify-center rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-sm font-semibold text-sky-700"
+              data-testid="mobile-quicksearch-use-last-search"
+              onClick={() => {
+                onOpenChange(false);
+                router.push(lastSearchHref);
+              }}
+            >
+              Use my last search
+            </button>
+          ) : null}
           <Button type="submit" data-testid="mobile-quicksearch-search">
             Search
           </Button>

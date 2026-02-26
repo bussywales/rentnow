@@ -6,7 +6,9 @@ import { useMarketPreference } from "@/components/layout/MarketPreferenceProvide
 import { TrustBadges } from "@/components/ui/TrustBadges";
 import { TrackViewedLink } from "@/components/viewed/TrackViewedLink";
 import { getMotionSafeScrollBehavior } from "@/lib/a11y/reduced-motion";
+import { getMobileEmptyStateSuggestions } from "@/lib/home/mobile-empty-state-suggestions";
 import { getDiscoveryCatalogueItemById, resolveDiscoveryTrustBadges } from "@/lib/discovery";
+import { getMarketSearchTerminology } from "@/lib/market/terminology";
 import {
   clearViewedItems,
   getViewedItems,
@@ -21,6 +23,7 @@ type DisplayItem = {
 
 export function MobileRecentlyViewedRail() {
   const { market } = useMarketPreference();
+  const terminology = useMemo(() => getMarketSearchTerminology(market.country), [market.country]);
   const [items, setItems] = useState<ViewedItemRecord[]>([]);
 
   useEffect(() => {
@@ -55,8 +58,61 @@ export function MobileRecentlyViewedRail() {
       }),
     [items]
   );
+  const emptySuggestions = useMemo(
+    () =>
+      getMobileEmptyStateSuggestions({
+        marketCountry: market.country,
+        limit: 3,
+      }),
+    [market.country]
+  );
 
-  if (!displayItems.length) return null;
+  if (!displayItems.length) {
+    return (
+      <section
+        className="space-y-2 overflow-x-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm md:hidden"
+        data-testid="mobile-recently-viewed-rail"
+        data-market-country={market.country}
+        role="region"
+        aria-label={`Recently viewed for ${market.country}`}
+      >
+        <div className="space-y-1 px-1">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Recently viewed</p>
+          <h2 className="text-base font-semibold text-slate-900">Keep browsing with confidence</h2>
+          <p className="text-xs text-slate-600">
+            No recent history yet. Explore curated {terminology.homeTypeNoun} for {market.country}.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href="/shortlets"
+            className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700"
+          >
+            Explore shortlets
+          </Link>
+          <Link
+            href="/properties"
+            className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700"
+          >
+            Explore properties
+          </Link>
+        </div>
+        {emptySuggestions.length ? (
+          <div className="flex flex-wrap gap-2" data-testid="mobile-recently-viewed-empty-suggestions">
+            {emptySuggestions.map((suggestion) => (
+              <Link
+                key={suggestion.id}
+                href={suggestion.href}
+                className="rounded-full border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700"
+              >
+                {suggestion.label}
+              </Link>
+            ))}
+          </div>
+        ) : null}
+      </section>
+    );
+  }
 
   const onRailKeyDown = (event: KeyboardEvent<HTMLDivElement>) => {
     const node = event.currentTarget;

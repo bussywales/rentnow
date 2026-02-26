@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { SaveToggle } from "@/components/saved/SaveToggle";
 import { TrustBadges } from "@/components/ui/TrustBadges";
+import { getMarketSearchTerminology } from "@/lib/market/terminology";
 import type { SavedSuggestionItem } from "@/lib/saved";
 
 type SavedEmptyStateProps = {
@@ -65,6 +66,8 @@ export function SavedEmptyState({
   shortletSuggestions,
   propertySuggestions,
 }: SavedEmptyStateProps) {
+  const terminology = getMarketSearchTerminology(marketCountry);
+
   return (
     <section
       className="space-y-4 rounded-2xl border border-slate-200 bg-white p-4"
@@ -73,7 +76,7 @@ export function SavedEmptyState({
       <div className="space-y-1">
         <p className="text-base font-semibold text-slate-900">No saved homes yet</p>
         <p className="text-sm text-slate-600">
-          Start saving listings in this market and they will appear here instantly.
+          Start saving {terminology.homeTypeNoun} in {marketCountry}. They will appear here instantly.
         </p>
       </div>
       <div className="flex flex-wrap gap-2">
