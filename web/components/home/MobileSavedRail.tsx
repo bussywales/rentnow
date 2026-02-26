@@ -1,21 +1,36 @@
 "use client";
 
 import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { clearSavedItems, getSavedItems, subscribeSavedItems, type SavedItemRecord } from "@/lib/saved";
 
 export function MobileSavedRail() {
   const { market } = useMarketPreference();
-  const items = useSyncExternalStore<SavedItemRecord[]>(
-    subscribeSavedItems,
-    () =>
-      getSavedItems({
-        marketCountry: market.country,
-        limit: 8,
-      }),
-    () => []
+  const [items, setItems] = useState<SavedItemRecord[]>(() =>
+    getSavedItems({
+      marketCountry: market.country,
+      limit: 8,
+    })
   );
+
+  useEffect(() => {
+    const refresh = () => {
+      setItems(
+        getSavedItems({
+          marketCountry: market.country,
+          limit: 8,
+        })
+      );
+    };
+
+    const frame = window.requestAnimationFrame(refresh);
+    const unsubscribe = subscribeSavedItems(refresh);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      unsubscribe();
+    };
+  }, [market.country]);
 
   if (!items.length) return null;
 

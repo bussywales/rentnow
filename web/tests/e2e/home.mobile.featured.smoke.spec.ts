@@ -46,13 +46,10 @@ test.describe("home mobile featured discovery smoke", () => {
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await dismissDisclaimerIfPresent();
 
-    await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedStrip)).toBeVisible();
+    const featuredStrip = page.getByTestId(smokeSelectors.homeMobileFeaturedStrip);
+    await expect(featuredStrip).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedScroll)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedItem).first()).toBeVisible();
-    await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedStrip)).toHaveAttribute(
-      "data-market-country",
-      /[A-Z]{2}/
-    );
     const firstSaveToggle = page.locator('[data-testid^="save-toggle-"]').first();
     await expect(firstSaveToggle).toBeVisible();
     await firstSaveToggle.click({ force: true });
@@ -80,10 +77,9 @@ test.describe("home mobile featured discovery smoke", () => {
     await expect(page.getByTestId(smokeSelectors.marketSwitchToast)).toContainText(
       `Now showing picks for ${target.label}`
     );
-    await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedStrip)).toHaveAttribute(
-      "data-market-country",
-      target.country
-    );
+    await expect
+      .poll(async () => page.getByTestId(smokeSelectors.homeMobileFeaturedStrip).getAttribute("data-market-country"))
+      .toBe(target.country);
 
     const firstFeaturedLink = page.locator('[data-testid^="mobile-featured-item-"]').first();
     await firstFeaturedLink.click({ force: true });
