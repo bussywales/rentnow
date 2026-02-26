@@ -22,6 +22,13 @@ type ParsedBrowseSignal = {
   intent: "shortlet" | "rent" | "buy" | "off_plan" | "all" | null;
 };
 
+function isOffPlanItem(item: DiscoveryCatalogueItem): boolean {
+  const intent = (item.params.intent ?? item.params.category ?? item.params.listingIntent ?? "")
+    .trim()
+    .toLowerCase();
+  return intent === "off_plan" || intent === "off-plan";
+}
+
 function resolveKindFromHref(href: string | null | undefined): RecoItemKind | null {
   if (!href) return null;
   const normalized = href.trim().toLowerCase();
@@ -89,7 +96,7 @@ function resolveTag(item: DiscoveryCatalogueItem): string {
   if (item.kind === "shortlet" || item.intent === "shortlet") {
     return city ? `${city} shortlets` : "Shortlets";
   }
-  if (item.intent === "off_plan") {
+  if (isOffPlanItem(item)) {
     return city ? `Off-plan: ${city}` : "Off-plan";
   }
   if (item.intent === "buy") {
@@ -132,7 +139,7 @@ function scoreItem(input: {
     score += 22;
   } else if (input.browseIntent === "buy" && item.intent === "buy") {
     score += 22;
-  } else if (input.browseIntent === "off_plan" && item.intent === "off_plan") {
+  } else if (input.browseIntent === "off_plan" && isOffPlanItem(item)) {
     score += 20;
   }
 

@@ -115,6 +115,15 @@ test.describe("home mobile quick search smoke", () => {
       await page.waitForURL(/\/(shortlets|properties)(\?|$)/, { timeout: 20_000 });
     }
 
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await dismissDisclaimerIfPresent();
+    const recommendedRail = page.getByTestId(smokeSelectors.homeRecommendedNextRail);
+    await expect(recommendedRail).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.homeRecommendedNextItem).first()).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.homeRecommendedNextReason).first()).toBeVisible();
+    await page.getByTestId(smokeSelectors.homeRecommendedNextItem).first().click({ force: true });
+    await page.waitForURL(/\/(shortlets|properties)(\?|$)/, { timeout: 20_000 });
+
     expect(
       runtimeErrors,
       `home mobile quick search smoke emitted runtime errors:\n${runtimeErrors.join("\n")}`
