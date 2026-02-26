@@ -80,7 +80,7 @@ export function BottomSheet({
         tabIndex={-1}
         data-testid="bottom-sheet-panel"
         className={cn(
-          "relative w-full rounded-t-3xl border-t border-slate-200 bg-white p-4 shadow-[0_-16px_48px_rgba(15,23,42,0.18)] outline-none transition-transform motion-reduce:transition-none",
+          "relative flex max-h-[calc(100svh-0.5rem)] w-full flex-col overflow-hidden rounded-t-3xl border-t border-slate-200 bg-white p-4 pb-[max(env(safe-area-inset-bottom),0.5rem)] shadow-[0_-16px_48px_rgba(15,23,42,0.18)] outline-none transition-transform motion-reduce:transition-none",
           className
         )}
       >
@@ -105,7 +105,7 @@ export function BottomSheet({
             ×
           </button>
         </div>
-        {children}
+        <div className="min-h-0 overflow-y-auto pr-1">{children}</div>
       </div>
     </div>
   );

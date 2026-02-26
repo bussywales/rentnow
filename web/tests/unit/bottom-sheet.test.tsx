@@ -55,4 +55,6 @@ void test("bottom sheet source includes close, escape, focus restore and body sc
   assert.match(source, /previousFocusRef\.current\?\.focus\(\)/);
   assert.match(source, /id=\{sheetId\}/);
   assert.match(source, /data-testid="bottom-sheet-backdrop"/);
+  assert.match(source, /max-h-\[calc\(100svh-0\.5rem\)\]/);
+  assert.match(source, /min-h-0 overflow-y-auto/);
 });
