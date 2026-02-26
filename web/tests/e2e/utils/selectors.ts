@@ -15,6 +15,7 @@ export const smokeSelectors = {
   homeMobileFeaturedStrip: "mobile-featured-strip",
   homeMobileFeaturedScroll: "mobile-featured-scroll",
   homeMobileFeaturedItem: "mobile-featured-item",
+  homeMobileSavedRail: "mobile-saved-rail",
   marketSwitchToast: "market-switch-toast",
   hamburgerMenu: "hamburger-menu",
   mobileDrawerPanel: "mobile-drawer-panel",

@@ -161,6 +161,8 @@ void test("mobile featured strip source includes stable testids and snap scrolli
   const sourcePath = path.join(process.cwd(), "components", "home", "MobileFeaturedDiscoveryStrip.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
+  assert.match(source, /import\s+\{\s*SaveToggle\s*\}\s+from\s+"@\/components\/saved\/SaveToggle"/);
+  assert.match(source, /testId=\{`save-toggle-\$\{item\.id\}`\}/);
   assert.match(source, /data-testid="mobile-featured-strip"/);
   assert.match(source, /data-testid="mobile-featured-scroll"/);
   assert.match(source, /data-testid={`mobile-featured-item-\$\{item\.id\}`}/);
@@ -177,6 +179,8 @@ void test("public home mounts mobile featured strip above mobile listing rails",
   assert.match(source, /<MobileQuickStartBar \/>/);
   assert.match(source, /data-testid="mobile-home-inventory-first"/);
   assert.match(source, /<MobileFeaturedDiscoveryStrip \/>/);
+  assert.match(source, /<MobileSavedRail \/>/);
+  assert.ok(source.indexOf("<MobileFeaturedDiscoveryStrip />") < source.indexOf("<MobileSavedRail />"));
   assert.match(source, /sectionTestId="mobile-home-featured-rail"/);
   assert.ok(source.indexOf("<MobileFeaturedDiscoveryStrip />") < source.indexOf("sectionTestId=\"mobile-home-featured-rail\""));
 });

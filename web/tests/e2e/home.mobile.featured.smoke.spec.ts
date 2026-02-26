@@ -53,6 +53,10 @@ test.describe("home mobile featured discovery smoke", () => {
       "data-market-country",
       /[A-Z]{2}/
     );
+    const firstSaveToggle = page.locator('[data-testid^="save-toggle-"]').first();
+    await expect(firstSaveToggle).toBeVisible();
+    await firstSaveToggle.click({ force: true });
+    await expect(page.getByTestId(smokeSelectors.homeMobileSavedRail)).toBeVisible();
 
     const menuButton = page.getByTestId(smokeSelectors.hamburgerMenu);
     if (!(await menuButton.isVisible().catch(() => false))) {

@@ -9,6 +9,7 @@ import { HomeCollapsibleSection } from "@/components/home/HomeCollapsibleSection
 import { HomeListingRail } from "@/components/home/HomeListingRail";
 import { MobileFeaturedDiscoveryStrip } from "@/components/home/MobileFeaturedDiscoveryStrip";
 import { MobileQuickStartBar } from "@/components/home/MobileQuickStartBar";
+import { MobileSavedRail } from "@/components/home/MobileSavedRail";
 import { Button } from "@/components/ui/Button";
 import { getProfile } from "@/lib/auth";
 import { DEV_MOCKS, getApiBaseUrl } from "@/lib/env";
@@ -139,6 +140,7 @@ export default async function Home() {
       <MobileQuickStartBar />
       <section className="space-y-4 md:hidden" data-testid="mobile-home-inventory-first">
         <MobileFeaturedDiscoveryStrip />
+        <MobileSavedRail />
         {featured.length ? (
           <HomeListingRail
             title="Featured homes"
