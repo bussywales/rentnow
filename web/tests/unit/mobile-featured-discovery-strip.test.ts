@@ -179,15 +179,13 @@ void test("mobile featured strip source includes stable testids and snap scrolli
   assert.match(source, /useMarketPreference/);
 });
 
-void test("public home mounts mobile featured strip above mobile listing rails", () => {
+void test("public home mounts mobile featured homes rail before featured discovery strip", () => {
   const sourcePath = path.join(process.cwd(), "app", "page.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /<MobileQuickStartBar \/>/);
   assert.match(source, /data-testid="mobile-home-inventory-first"/);
   assert.match(source, /<MobileFeaturedDiscoveryStrip \/>/);
-  assert.match(source, /<MobileSavedRail \/>/);
-  assert.ok(source.indexOf("<MobileFeaturedDiscoveryStrip />") < source.indexOf("<MobileSavedRail />"));
   assert.match(source, /sectionTestId="mobile-home-featured-rail"/);
-  assert.ok(source.indexOf("<MobileFeaturedDiscoveryStrip />") < source.indexOf("sectionTestId=\"mobile-home-featured-rail\""));
+  assert.ok(source.indexOf("sectionTestId=\"mobile-home-featured-rail\"") < source.indexOf("<MobileFeaturedDiscoveryStrip />"));
 });

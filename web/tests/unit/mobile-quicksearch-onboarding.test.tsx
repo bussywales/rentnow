@@ -27,16 +27,14 @@ void test("mobile quick search sheet includes onboarding suggestions and last-se
   assert.match(source, /Picks for \{marketCountry\}/);
 });
 
-void test("mobile saved and recently-viewed rails provide market-aware empty-state suggestions", () => {
+void test("mobile saved and recently-viewed rails stay hidden when empty to keep listings-first hook", () => {
   const savedRailPath = path.join(process.cwd(), "components", "home", "MobileSavedRail.tsx");
   const savedRail = fs.readFileSync(savedRailPath, "utf8");
-  assert.match(savedRail, /mobile-saved-empty-suggestions/);
-  assert.match(savedRail, /getMobileEmptyStateSuggestions/);
-  assert.match(savedRail, /getMarketSearchTerminology/);
+  assert.match(savedRail, /if \(!displayItems\.length\) return null;/);
+  assert.doesNotMatch(savedRail, /mobile-saved-empty-suggestions/);
 
   const viewedRailPath = path.join(process.cwd(), "components", "home", "MobileRecentlyViewedRail.tsx");
   const viewedRail = fs.readFileSync(viewedRailPath, "utf8");
-  assert.match(viewedRail, /mobile-recently-viewed-empty-suggestions/);
-  assert.match(viewedRail, /getMobileEmptyStateSuggestions/);
-  assert.match(viewedRail, /getMarketSearchTerminology/);
+  assert.match(viewedRail, /if \(!displayItems\.length\) return null;/);
+  assert.doesNotMatch(viewedRail, /mobile-recently-viewed-empty-suggestions/);
 });

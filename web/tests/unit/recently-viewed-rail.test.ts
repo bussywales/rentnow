@@ -19,9 +19,8 @@ void test("mobile recently viewed rail includes stable testids and viewed-store 
   assert.match(source, /getViewedItems/);
   assert.match(source, /subscribeViewedItems/);
   assert.match(source, /clearViewedItems/);
-  assert.match(source, /mobile-recently-viewed-empty-suggestions/);
-  assert.match(source, /getMobileEmptyStateSuggestions/);
-  assert.match(source, /getMarketSearchTerminology/);
+  assert.match(source, /if \(!displayItems\.length\) return null;/);
+  assert.doesNotMatch(source, /mobile-recently-viewed-empty-suggestions/);
 });
 
 void test("home page mounts mobile recently viewed rail in inventory-first block", () => {
@@ -30,5 +29,5 @@ void test("home page mounts mobile recently viewed rail in inventory-first block
 
   assert.match(source, /import\s+\{\s*MobileRecentlyViewedRail\s*\}\s+from\s+"@\/components\/home\/MobileRecentlyViewedRail"/);
   assert.match(source, /<MobileRecentlyViewedRail \/>/);
-  assert.ok(source.indexOf("<MobileFeaturedDiscoveryStrip />") < source.indexOf("<MobileRecentlyViewedRail />"));
+  assert.ok(source.indexOf("sectionTestId=\"mobile-home-featured-rail\"") < source.indexOf("<MobileRecentlyViewedRail />"));
 });

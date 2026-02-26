@@ -20,11 +20,12 @@ void test("mobile saved rail source keeps stable testids and storage hooks", () 
   assert.match(source, /getSavedItems/);
   assert.match(source, /subscribeSavedItems/);
   assert.match(source, /clearSavedItems/);
+  assert.match(source, /useState<SavedItemRecord\[]>\(\[]\)/);
+  assert.doesNotMatch(source, /useState<SavedItemRecord\[]>\(\(\)\s*=>\s*getSavedItems/);
   assert.match(source, /TrustBadges/);
   assert.match(source, /resolveDiscoveryTrustBadges/);
-  assert.match(source, /mobile-saved-empty-suggestions/);
-  assert.match(source, /getMobileEmptyStateSuggestions/);
-  assert.match(source, /getMarketSearchTerminology/);
+  assert.match(source, /if \(!displayItems\.length\) return null;/);
+  assert.doesNotMatch(source, /mobile-saved-empty-suggestions/);
 });
 
 void test("home page mounts mobile saved rail in inventory-first block", () => {
@@ -33,5 +34,5 @@ void test("home page mounts mobile saved rail in inventory-first block", () => {
 
   assert.match(source, /import\s+\{\s*MobileSavedRail\s*\}\s+from\s+"@\/components\/home\/MobileSavedRail"/);
   assert.match(source, /<MobileSavedRail \/>/);
-  assert.ok(source.indexOf("<MobileFeaturedDiscoveryStrip />") < source.indexOf("<MobileSavedRail />"));
+  assert.ok(source.indexOf("sectionTestId=\"mobile-home-featured-rail\"") < source.indexOf("<MobileSavedRail />"));
 });

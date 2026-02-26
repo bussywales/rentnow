@@ -23,7 +23,7 @@ void test("mobile recommended next rail source keeps stable hooks and testids", 
   assert.match(source, /subscribeLastBrowseUrl/);
 });
 
-void test("home page mounts mobile recommended rail after saved and before listing rails", () => {
+void test("home page mounts mobile recommended rail after featured discovery and before recently viewed", () => {
   const sourcePath = path.join(process.cwd(), "app", "page.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
@@ -32,6 +32,6 @@ void test("home page mounts mobile recommended rail after saved and before listi
     /import\s+\{\s*MobileRecommendedNextRail\s*\}\s+from\s+"@\/components\/home\/MobileRecommendedNextRail"/
   );
   assert.match(source, /<MobileRecommendedNextRail \/>/);
-  assert.ok(source.indexOf("<MobileSavedRail />") < source.indexOf("<MobileRecommendedNextRail />"));
-  assert.ok(source.indexOf("<MobileRecommendedNextRail />") < source.indexOf("<HomeListingRail"));
+  assert.ok(source.indexOf("<MobileFeaturedDiscoveryStrip />") < source.indexOf("<MobileRecommendedNextRail />"));
+  assert.ok(source.indexOf("<MobileRecommendedNextRail />") < source.indexOf("<MobileRecentlyViewedRail />"));
 });
