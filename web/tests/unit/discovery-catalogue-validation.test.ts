@@ -13,6 +13,8 @@ void test("discovery catalogue validator rejects duplicates, bad tags, bad range
       { ...sample, id: "bad-market", marketTags: ["ZZ" as never] },
       { ...sample, id: "bad-range", validFrom: "2026-03-01", validTo: "2026-02-01" },
       { ...sample, id: "bad-sensitive", title: "Homes for one ethnicity only" },
+      { ...sample, id: "bad-badge", badges: ["TRENDING" as never] },
+      { ...sample, id: "bad-verified", badges: ["VERIFIED"] },
     ],
   });
 
@@ -21,6 +23,8 @@ void test("discovery catalogue validator rejects duplicates, bad tags, bad range
   assert.ok(warnings.some((warning) => warning.includes("unknown market tags")));
   assert.ok(warnings.some((warning) => warning.includes("validFrom is later than validTo")));
   assert.ok(warnings.some((warning) => warning.includes("restricted token")));
+  assert.ok(warnings.some((warning) => warning.includes("unknown badges")));
+  assert.ok(warnings.some((warning) => warning.includes("requires verificationBasis")));
 });
 
 void test("discovery catalogue validator filters disabled and out-of-window entries", () => {

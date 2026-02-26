@@ -14,6 +14,8 @@ void test("mobile saved rail source keeps stable testids and storage hooks", () 
   assert.match(source, /getSavedItems/);
   assert.match(source, /subscribeSavedItems/);
   assert.match(source, /clearSavedItems/);
+  assert.match(source, /TrustBadges/);
+  assert.match(source, /resolveDiscoveryTrustBadges/);
 });
 
 void test("home page mounts mobile saved rail in inventory-first block", () => {

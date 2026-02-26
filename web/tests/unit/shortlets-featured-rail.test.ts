@@ -109,6 +109,7 @@ void test("shortlets featured rail source includes stable testids and snap class
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /import\s+\{\s*SaveToggle\s*\}\s+from\s+"@\/components\/saved\/SaveToggle"/);
+  assert.match(source, /import\s+\{\s*TrustBadges\s*\}\s+from\s+"@\/components\/ui\/TrustBadges"/);
   assert.match(source, /testId=\{`save-toggle-\$\{item\.id\}`\}/);
   assert.match(source, /data-testid="shortlets-featured-rail"/);
   assert.match(source, /data-testid="shortlets-featured-item"/);

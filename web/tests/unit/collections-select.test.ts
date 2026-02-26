@@ -57,6 +57,7 @@ void test("collection card selection is market-safe and deterministic", () => {
   assert.equal(new Set(first.map((item) => item.id)).size, first.length);
   assert.equal(first.some((item) => item.id.startsWith("ng-")), false);
   assert.equal(nextDay.some((item) => item.id.startsWith("ng-")), false);
+  assert.ok(first.every((item) => Array.isArray(item.badges)));
 });
 
 void test("unknown collection returns empty cards and null href", () => {

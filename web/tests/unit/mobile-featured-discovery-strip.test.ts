@@ -21,6 +21,7 @@ void test("mobile featured discovery selection is market-aware with global fallb
   });
   assert.ok(ngItems.length > 0);
   assert.ok(ngItems.some((item) => item.id.startsWith("ng-")));
+  assert.ok(ngItems.some((item) => item.badges.includes("POPULAR")));
 
   const caItems = getMobileFeaturedDiscoveryItems({
     marketCountry: "CA",
@@ -167,6 +168,7 @@ void test("mobile featured strip source includes stable testids and snap scrolli
   assert.match(source, /data-testid="mobile-featured-scroll"/);
   assert.match(source, /data-testid={`mobile-featured-item-\$\{item\.id\}`}/);
   assert.match(source, /data-testid="mobile-featured-item"/);
+  assert.match(source, /TrustBadges/);
   assert.match(source, /snap-x snap-mandatory/);
   assert.match(source, /snap-start snap-always/);
   assert.match(source, /useMarketPreference/);

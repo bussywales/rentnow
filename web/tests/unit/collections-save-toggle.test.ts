@@ -8,6 +8,7 @@ void test("collections rail source renders save toggles with market context", ()
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /import\s+\{\s*SaveToggle\s*\}\s+from\s+"@\/components\/saved\/SaveToggle"/);
+  assert.match(source, /import\s+\{\s*TrustBadges\s*\}\s+from\s+"@\/components\/ui\/TrustBadges"/);
   assert.match(source, /marketCountry:\s*string/);
   assert.match(source, /testId=\{`save-toggle-\$\{card\.id\}`\}/);
 });

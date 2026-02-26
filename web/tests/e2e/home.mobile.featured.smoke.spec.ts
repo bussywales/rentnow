@@ -50,6 +50,8 @@ test.describe("home mobile featured discovery smoke", () => {
     await expect(featuredStrip).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedScroll)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.homeMobileFeaturedItem).first()).toBeVisible();
+    await expect(featuredStrip.getByTestId(smokeSelectors.trustBadges).first()).toBeVisible();
+    await expect(featuredStrip.getByTestId(smokeSelectors.trustMarketPicks).first()).toContainText("Picks for");
     const firstSaveToggle = page.locator('[data-testid^="save-toggle-"]').first();
     await expect(firstSaveToggle).toBeVisible();
     await firstSaveToggle.click({ force: true });
