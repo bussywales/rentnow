@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { MobileQuickSearchSheet } from "@/components/home/MobileQuickSearchSheet";
+import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 
 const QUICK_START_LINKS = [
   {
@@ -91,6 +92,7 @@ const QUICK_START_LINKS = [
 
 export function MobileQuickStartBar() {
   const [searchOpen, setSearchOpen] = useState(false);
+  const { market } = useMarketPreference();
 
   return (
     <section
@@ -119,7 +121,7 @@ export function MobileQuickStartBar() {
           </Link>
         ))}
       </div>
-      <MobileQuickSearchSheet open={searchOpen} onOpenChange={setSearchOpen} />
+      <MobileQuickSearchSheet key={market.country} open={searchOpen} onOpenChange={setSearchOpen} />
     </section>
   );
 }

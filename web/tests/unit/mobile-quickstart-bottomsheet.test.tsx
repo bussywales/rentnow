@@ -9,7 +9,11 @@ void test("mobile quick start bar mounts bottom-sheet trigger and sheet componen
 
   assert.match(source, /data-testid="mobile-quickstart-search-trigger"/);
   assert.match(source, /setSearchOpen\(true\)/);
-  assert.match(source, /<MobileQuickSearchSheet open=\{searchOpen\} onOpenChange=\{setSearchOpen\} \/>/);
+  assert.match(source, /useMarketPreference/);
+  assert.match(
+    source,
+    /<MobileQuickSearchSheet key=\{market\.country\} open=\{searchOpen\} onOpenChange=\{setSearchOpen\} \/>/
+  );
 });
 
 void test("mobile quick search sheet source contains category and preset rails", () => {
@@ -72,7 +76,4 @@ void test("mobile quick search sheet source wires recents list, clear action, an
   assert.match(source, /data-testid="mobile-quicksearch-recents"/);
   assert.match(source, /data-testid="mobile-quicksearch-recent-item"/);
   assert.match(source, /data-testid="mobile-quicksearch-recents-clear"/);
-  assert.match(source, /const lastMarketRef = useRef\(marketCountry\)/);
-  assert.match(source, /if \(lastMarketRef\.current === marketCountry\) return/);
-  assert.match(source, /const nextIntent = resolveIntentForMarket\(marketCountry\)/);
 });
