@@ -177,7 +177,7 @@ export function PropertyCard({
         images={property.images}
         fallbackImage={fallbackImage}
         blurDataURL={blurDataURL}
-        sizes="(max-width: 768px) 100vw, 320px"
+        sizes="(max-width: 768px) calc(100vw - 2rem), (max-width: 1200px) 50vw, 33vw"
         prioritizeFirstImage={prioritizeFirstImage}
       />
       {compact && (

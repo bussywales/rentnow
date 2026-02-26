@@ -19,6 +19,9 @@ type Props = {
   sectionTestId: string;
 };
 
+const RAIL_IMAGE_BLUR_DATA_URL =
+  "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
+
 function formatPrice(property: Property): string {
   const amount = Number.isFinite(property.price) ? Number(property.price) : 0;
   if (!amount || amount <= 0) return "Price on request";
@@ -159,11 +162,13 @@ export function HomeListingRail({
                         src={imageUrl}
                         alt={listing.title}
                         fill
-                        sizes="(max-width: 640px) 60vw, (max-width: 1024px) 240px, 280px"
+                        sizes="(max-width: 640px) 58vw, (max-width: 1024px) 240px, 280px"
                         className={cn("h-full w-full object-cover")}
                         priority={loadingProfile.priority}
                         loading={loadingProfile.loading}
                         fetchPriority={loadingProfile.fetchPriority}
+                        placeholder="blur"
+                        blurDataURL={RAIL_IMAGE_BLUR_DATA_URL}
                       />
                     ) : (
                       <ListingImagePlaceholder />

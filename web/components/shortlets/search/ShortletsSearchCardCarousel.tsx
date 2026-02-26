@@ -124,7 +124,7 @@ export function ShortletsSearchCardCarousel({
       items={carouselItems}
       href={href}
       fallbackImage={fallbackImage}
-      sizes="(max-width: 1024px) 100vw, (max-width: 1400px) 48vw, 33vw"
+      sizes="(max-width: 768px) calc(100vw - 2rem), (max-width: 1280px) 42vw, 340px"
       className="h-[184px] w-full max-w-full bg-slate-100 sm:h-48"
       rootTestId="shortlets-search-card-carousel"
       dotsTestId="shortlets-search-card-carousel-dots"
