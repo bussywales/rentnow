@@ -2,6 +2,7 @@
 title: "Mobile home feels faster (Featured Homes shown earlier)"
 audiences:
   - TENANT
+  - HOST
 areas:
   - Tenant
   - Home
