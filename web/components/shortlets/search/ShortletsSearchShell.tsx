@@ -491,12 +491,27 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   }, []);
 
   useEffect(() => {
-    const onScroll = () => {
-      setIsCompactSearch(shouldUseCompactShortletSearchPill(window.scrollY));
+    let rafId: number | null = null;
+
+    const applyScrollState = () => {
+      const nextCompactState = shouldUseCompactShortletSearchPill(window.scrollY);
+      setIsCompactSearch((current) => (current === nextCompactState ? current : nextCompactState));
+      rafId = null;
     };
-    onScroll();
+
+    const onScroll = () => {
+      if (rafId !== null) return;
+      rafId = window.requestAnimationFrame(applyScrollState);
+    };
+
+    applyScrollState();
     window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId);
+      }
+    };
   }, []);
 
   useEffect(() => {
