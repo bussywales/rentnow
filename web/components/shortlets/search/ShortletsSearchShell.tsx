@@ -2088,7 +2088,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
           {loading && filteredTotal === 0 ? (
             <div className={`${desktopCardsGridClass} min-h-[420px]`} data-testid="shortlets-desktop-loading-skeleton">
               {Array.from({ length: 6 }).map((_, index) => (
-                <PropertyCardSkeleton key={`shortlet-list-skeleton-${index}`} />
+                <PropertyCardSkeleton key={`shortlet-list-skeleton-${index}`} variant="shortlet" />
               ))}
             </div>
           ) : filteredTotal > 0 ? (
@@ -2143,7 +2143,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
               {loading ? (
                 <div className={desktopCardsGridClass} data-testid="shortlets-desktop-refresh-skeleton">
                   {Array.from({ length: 2 }).map((_, index) => (
-                    <PropertyCardSkeleton key={`shortlet-refresh-skeleton-${index}`} />
+                    <PropertyCardSkeleton key={`shortlet-refresh-skeleton-${index}`} variant="shortlet" />
                   ))}
                 </div>
               ) : null}
@@ -2292,7 +2292,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
         {loading && filteredTotal === 0 ? (
           <div className="grid w-full max-w-full gap-3">
             {Array.from({ length: 4 }).map((_, index) => (
-              <PropertyCardSkeleton key={`shortlet-mobile-skeleton-${index}`} />
+              <PropertyCardSkeleton key={`shortlet-mobile-skeleton-${index}`} variant="shortlet" />
             ))}
           </div>
         ) : filteredTotal > 0 ? (

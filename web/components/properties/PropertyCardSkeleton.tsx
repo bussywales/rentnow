@@ -3,17 +3,24 @@ import { cn } from "@/components/ui/cn";
 
 type Props = {
   compact?: boolean;
+  variant?: "property" | "shortlet";
 };
 
-export function PropertyCardSkeleton({ compact }: Props) {
+export function PropertyCardSkeleton({ compact, variant = "property" }: Props) {
+  const imageSkeletonClass = compact
+    ? "aspect-[4/3] w-full shrink-0 flex-none"
+    : variant === "shortlet"
+      ? "h-[184px] w-full sm:h-48"
+      : "aspect-[4/3] w-full";
+
   return (
     <div
       className={cn(
         "card h-full overflow-hidden rounded-2xl bg-white",
-        compact && "flex"
+        compact && "flex flex-col"
       )}
     >
-      <Skeleton className={cn(compact ? "h-32 w-32 flex-none" : "h-52 w-full")} />
+      <Skeleton className={imageSkeletonClass} />
       <div className="flex flex-1 flex-col gap-3 px-4 py-3">
         <div className="flex items-start justify-between gap-3">
           <div className="space-y-2">
