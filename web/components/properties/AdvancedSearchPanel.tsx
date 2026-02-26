@@ -1,14 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ListingType, ParsedSearchFilters } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
+import { FilterDrawerShell } from "@/components/filters/FilterDrawerShell";
+import {
+  createApplyAndCloseAction,
+  createClearApplyAndCloseAction,
+  createResetDraftAction,
+} from "@/components/filters/filter-actions";
+import { parseFiltersFromSearchParams } from "@/lib/search-filters";
 
 type Props = {
   initialFilters: ParsedSearchFilters;
+};
+
+type AdvancedFiltersDraft = {
+  bedrooms: string;
+  bedroomsMode: "exact" | "minimum";
+  includeSimilarOptions: boolean;
+  minPrice: string;
+  maxPrice: string;
+  propertyType: string;
+  furnished: "any" | "true" | "false";
 };
 
 const PROPERTY_TYPES: Array<{ value: ListingType; label: string }> = [
@@ -33,219 +50,277 @@ function toNumberOrNull(value: string): number | null {
   return Math.max(0, num);
 }
 
+function createDefaultDraft(): AdvancedFiltersDraft {
+  return {
+    bedrooms: "",
+    bedroomsMode: "exact",
+    includeSimilarOptions: false,
+    minPrice: "",
+    maxPrice: "",
+    propertyType: "",
+    furnished: "any",
+  };
+}
+
+function createDraftFromFilters(filters: ParsedSearchFilters): AdvancedFiltersDraft {
+  return {
+    bedrooms: filters.bedrooms !== null ? String(filters.bedrooms) : "",
+    bedroomsMode: filters.bedroomsMode === "minimum" ? "minimum" : "exact",
+    includeSimilarOptions: Boolean(filters.includeSimilarOptions),
+    minPrice: filters.minPrice !== null ? String(filters.minPrice) : "",
+    maxPrice: filters.maxPrice !== null ? String(filters.maxPrice) : "",
+    propertyType: filters.propertyType ?? "",
+    furnished: filters.furnished === null ? "any" : filters.furnished ? "true" : "false",
+  };
+}
+
+function countActiveAdvancedFilters(draft: AdvancedFiltersDraft): number {
+  let count = 0;
+  if (draft.bedrooms.trim()) count += 1;
+  if (draft.bedroomsMode === "minimum") count += 1;
+  if (draft.includeSimilarOptions) count += 1;
+  if (draft.minPrice.trim()) count += 1;
+  if (draft.maxPrice.trim()) count += 1;
+  if (draft.propertyType) count += 1;
+  if (draft.furnished !== "any") count += 1;
+  return count;
+}
+
 export function AdvancedSearchPanel({ initialFilters }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [open, setOpen] = useState(
-    (initialFilters.bedroomsMode ?? "exact") !== "exact" ||
-      Boolean(initialFilters.includeSimilarOptions) ||
-      initialFilters.minPrice !== null ||
-      initialFilters.maxPrice !== null ||
-      Boolean(initialFilters.propertyType) ||
-      initialFilters.furnished !== null
-  );
-  const [bedrooms, setBedrooms] = useState(
-    initialFilters.bedrooms !== null ? String(initialFilters.bedrooms) : ""
-  );
-  const [bedroomsMode, setBedroomsMode] = useState<"exact" | "minimum">(
-    initialFilters.bedroomsMode === "minimum" ? "minimum" : "exact"
-  );
-  const [includeSimilarOptions, setIncludeSimilarOptions] = useState(
-    Boolean(initialFilters.includeSimilarOptions)
-  );
-  const [minPrice, setMinPrice] = useState(
-    initialFilters.minPrice !== null ? String(initialFilters.minPrice) : ""
-  );
-  const [maxPrice, setMaxPrice] = useState(
-    initialFilters.maxPrice !== null ? String(initialFilters.maxPrice) : ""
-  );
-  const [propertyType, setPropertyType] = useState(initialFilters.propertyType ?? "");
-  const [furnished, setFurnished] = useState<"any" | "true" | "false">(
-    initialFilters.furnished === null
-      ? "any"
-      : initialFilters.furnished
-      ? "true"
-      : "false"
+
+  const initialDraft = useMemo(() => createDraftFromFilters(initialFilters), [initialFilters]);
+  const [open, setOpen] = useState(false);
+  const [draft, setDraft] = useState<AdvancedFiltersDraft>(initialDraft);
+
+  const updateQuery = useCallback(
+    (next: URLSearchParams) => {
+      next.set("page", "1");
+      next.delete("savedSearchId");
+      next.delete("source");
+      const queryString = next.toString();
+      router.push(queryString ? `${pathname}?${queryString}` : pathname);
+    },
+    [pathname, router]
   );
 
-  const updateQuery = (next: URLSearchParams) => {
-    next.set("page", "1");
-    next.delete("savedSearchId");
-    next.delete("source");
-    const queryString = next.toString();
-    router.push(queryString ? `${pathname}?${queryString}` : pathname);
-  };
+  const readAppliedDraft = useCallback((): AdvancedFiltersDraft => {
+    const parsed = parseFiltersFromSearchParams(new URLSearchParams(searchParams.toString()));
+    return createDraftFromFilters(parsed);
+  }, [searchParams]);
 
-  const apply = () => {
-    const next = new URLSearchParams(searchParams.toString());
-    const parsedBedrooms = toNumberOrNull(bedrooms);
-    const parsedMinPrice = toNumberOrNull(minPrice);
-    const parsedMaxPrice = toNumberOrNull(maxPrice);
+  const applyDraft = useCallback(
+    (nextDraft: AdvancedFiltersDraft) => {
+      const next = new URLSearchParams(searchParams.toString());
+      const parsedBedrooms = toNumberOrNull(nextDraft.bedrooms);
+      const parsedMinPrice = toNumberOrNull(nextDraft.minPrice);
+      const parsedMaxPrice = toNumberOrNull(nextDraft.maxPrice);
 
-    if (parsedBedrooms === null) {
-      next.delete("bedrooms");
-      next.delete("bedroomsMode");
-      next.delete("includeSimilarOptions");
-    } else {
-      next.set("bedrooms", String(Math.trunc(parsedBedrooms)));
-      if (bedroomsMode === "minimum") next.set("bedroomsMode", "minimum");
-      else next.delete("bedroomsMode");
-      if (includeSimilarOptions) next.set("includeSimilarOptions", "true");
-      else next.delete("includeSimilarOptions");
-    }
+      if (parsedBedrooms === null) {
+        next.delete("bedrooms");
+        next.delete("bedroomsMode");
+        next.delete("includeSimilarOptions");
+      } else {
+        next.set("bedrooms", String(Math.trunc(parsedBedrooms)));
+        if (nextDraft.bedroomsMode === "minimum") next.set("bedroomsMode", "minimum");
+        else next.delete("bedroomsMode");
+        if (nextDraft.includeSimilarOptions) next.set("includeSimilarOptions", "true");
+        else next.delete("includeSimilarOptions");
+      }
 
-    if (parsedMinPrice === null) next.delete("minPrice");
-    else next.set("minPrice", String(Math.trunc(parsedMinPrice)));
+      if (parsedMinPrice === null) next.delete("minPrice");
+      else next.set("minPrice", String(Math.trunc(parsedMinPrice)));
 
-    if (parsedMaxPrice === null) next.delete("maxPrice");
-    else next.set("maxPrice", String(Math.trunc(parsedMaxPrice)));
+      if (parsedMaxPrice === null) next.delete("maxPrice");
+      else next.set("maxPrice", String(Math.trunc(parsedMaxPrice)));
 
-    if (propertyType) next.set("propertyType", propertyType);
-    else next.delete("propertyType");
+      if (nextDraft.propertyType) next.set("propertyType", nextDraft.propertyType);
+      else next.delete("propertyType");
 
-    if (furnished === "any") next.delete("furnished");
-    else next.set("furnished", furnished);
+      if (nextDraft.furnished === "any") next.delete("furnished");
+      else next.set("furnished", nextDraft.furnished);
 
-    updateQuery(next);
-  };
+      updateQuery(next);
+    },
+    [searchParams, updateQuery]
+  );
 
-  const reset = () => {
-    const next = new URLSearchParams(searchParams.toString());
-    ["bedrooms", "bedroomsMode", "includeSimilarOptions", "minPrice", "maxPrice", "propertyType", "furnished"].forEach(
-      (key) => next.delete(key)
-    );
-    setBedrooms("");
-    setBedroomsMode("exact");
-    setIncludeSimilarOptions(false);
-    setMinPrice("");
-    setMaxPrice("");
-    setPropertyType("");
-    setFurnished("any");
-    updateQuery(next);
-  };
+  const openDrawer = useCallback(() => {
+    setDraft(readAppliedDraft());
+    setOpen(true);
+  }, [readAppliedDraft]);
+
+  const appliedDraft = useMemo(() => readAppliedDraft(), [readAppliedDraft]);
+  const activeCount = useMemo(() => countActiveAdvancedFilters(appliedDraft), [appliedDraft]);
+
+  const onReset = useMemo(
+    () => createResetDraftAction(readAppliedDraft, setDraft),
+    [readAppliedDraft]
+  );
+  const onApply = useMemo(
+    () => createApplyAndCloseAction(() => applyDraft(draft), () => setOpen(false)),
+    [applyDraft, draft]
+  );
+  const onClear = useMemo(
+    () =>
+      createClearApplyAndCloseAction(createDefaultDraft, setDraft, applyDraft, () => setOpen(false)),
+    [applyDraft]
+  );
 
   return (
-    <details
-      className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm"
-      open={open}
-      onToggle={(event) => setOpen((event.currentTarget as HTMLDetailsElement).open)}
-    >
-      <summary className="cursor-pointer list-none text-sm font-semibold text-slate-900">
-        More options
-      </summary>
-      <p className="mt-2 text-sm text-slate-500">
-        Default search uses exact bedroom matching. Expand these filters when you want broader matching.
-      </p>
-
-      <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
-        <label className="space-y-1 text-sm text-slate-700">
-          <span>Bedrooms</span>
-          <Input
-            type="number"
-            min={0}
-            step={1}
-            value={bedrooms}
-            onChange={(event) => setBedrooms(event.target.value)}
-            placeholder="e.g. 2"
-            data-testid="advanced-bedrooms"
-          />
-        </label>
-
-        <label className="space-y-1 text-sm text-slate-700">
-          <span>Beds mode</span>
-          <Select
-            value={bedroomsMode}
-            onChange={(event) =>
-              setBedroomsMode(event.target.value === "minimum" ? "minimum" : "exact")
-            }
-            data-testid="advanced-bedrooms-mode"
-          >
-            <option value="exact">Exact</option>
-            <option value="minimum">Minimum</option>
-          </Select>
-        </label>
-
-        <label className="space-y-1 text-sm text-slate-700">
-          <span>Price min</span>
-          <Input
-            type="number"
-            min={0}
-            step={1}
-            value={minPrice}
-            onChange={(event) => setMinPrice(event.target.value)}
-            placeholder="0"
-          />
-        </label>
-
-        <label className="space-y-1 text-sm text-slate-700">
-          <span>Price max</span>
-          <Input
-            type="number"
-            min={0}
-            step={1}
-            value={maxPrice}
-            onChange={(event) => setMaxPrice(event.target.value)}
-            placeholder="Any"
-          />
-        </label>
-
-        <label className="space-y-1 text-sm text-slate-700">
-          <span>Property type</span>
-          <Select
-            value={propertyType}
-            onChange={(event) => setPropertyType(event.target.value)}
-            data-testid="advanced-property-type"
-          >
-            <option value="">Any</option>
-            {PROPERTY_TYPES.map((item) => (
-              <option key={item.value} value={item.value}>
-                {item.label}
-              </option>
-            ))}
-          </Select>
-        </label>
-
-        <label className="space-y-1 text-sm text-slate-700">
-          <span>Furnished</span>
-          <Select
-            value={furnished}
-            onChange={(event) => {
-              const value = event.target.value;
-              setFurnished(value === "true" || value === "false" ? value : "any");
-            }}
-            data-testid="advanced-furnished"
-          >
-            <option value="any">Any</option>
-            <option value="true">Yes</option>
-            <option value="false">No</option>
-          </Select>
-        </label>
-      </div>
-
-      <label className="mt-3 inline-flex items-start gap-2 text-sm text-slate-700">
-        <input
-          type="checkbox"
-          checked={includeSimilarOptions}
-          onChange={(event) => setIncludeSimilarOptions(event.target.checked)}
-          data-testid="advanced-include-similar"
-        />
-        <span>
-          <span className="font-medium text-slate-900">Include similar options in main results</span>
-          <span className="block text-xs text-slate-600">
-            Keep this off to show exact matches first and view other options separately.
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold text-slate-900">More options</p>
+          <p className="text-xs text-slate-500">
+            Refine homes with the same filter workflow used in shortlets.
+          </p>
+        </div>
+        <Button
+          type="button"
+          variant="secondary"
+          onClick={openDrawer}
+          data-testid="properties-filters-button"
+        >
+          <span className="inline-flex items-center gap-1.5">
+            <span>{activeCount > 0 ? `Filters (${activeCount})` : "Filters"}</span>
+            {activeCount > 0 ? (
+              <span
+                className="h-2 w-2 rounded-full bg-sky-500"
+                data-testid="properties-filters-active-indicator"
+              />
+            ) : null}
           </span>
-        </span>
-      </label>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button type="button" onClick={apply}>
-          Apply
-        </Button>
-        <Button type="button" variant="secondary" onClick={reset}>
-          Reset
         </Button>
       </div>
-    </details>
+
+      <FilterDrawerShell
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Filters"
+        subtitle="Apply the same workflow as shortlets: adjust, apply, reset, or clear."
+        onApply={onApply}
+        onReset={onReset}
+        onClear={onClear}
+        drawerTestId="properties-filters-drawer"
+        overlayTestId="properties-filters-overlay"
+        ariaLabel="Property filters"
+      >
+        <div className="space-y-5">
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-900">Bedrooms</h2>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span>Bedrooms</span>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={draft.bedrooms}
+                onChange={(event) => setDraft((current) => ({ ...current, bedrooms: event.target.value }))}
+                placeholder="e.g. 2"
+                data-testid="advanced-bedrooms"
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span>Beds mode</span>
+              <Select
+                value={draft.bedroomsMode}
+                onChange={(event) =>
+                  setDraft((current) => ({
+                    ...current,
+                    bedroomsMode: event.target.value === "minimum" ? "minimum" : "exact",
+                  }))
+                }
+                data-testid="advanced-bedrooms-mode"
+              >
+                <option value="exact">Exact</option>
+                <option value="minimum">Minimum</option>
+              </Select>
+            </label>
+            <label className="inline-flex items-start gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={draft.includeSimilarOptions}
+                onChange={(event) =>
+                  setDraft((current) => ({ ...current, includeSimilarOptions: event.target.checked }))
+                }
+                data-testid="advanced-include-similar"
+              />
+              <span>
+                <span className="font-medium text-slate-900">Include similar options in main results</span>
+                <span className="block text-xs text-slate-600">
+                  Keep this off to show exact matches first and view other options separately.
+                </span>
+              </span>
+            </label>
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-900">Price</h2>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span>Price min</span>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={draft.minPrice}
+                onChange={(event) => setDraft((current) => ({ ...current, minPrice: event.target.value }))}
+                placeholder="0"
+              />
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span>Price max</span>
+              <Input
+                type="number"
+                min={0}
+                step={1}
+                value={draft.maxPrice}
+                onChange={(event) => setDraft((current) => ({ ...current, maxPrice: event.target.value }))}
+                placeholder="Any"
+              />
+            </label>
+          </section>
+
+          <section className="space-y-2">
+            <h2 className="text-sm font-semibold text-slate-900">Property details</h2>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span>Property type</span>
+              <Select
+                value={draft.propertyType}
+                onChange={(event) => setDraft((current) => ({ ...current, propertyType: event.target.value }))}
+                data-testid="advanced-property-type"
+              >
+                <option value="">Any</option>
+                {PROPERTY_TYPES.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </Select>
+            </label>
+            <label className="space-y-1 text-sm text-slate-700">
+              <span>Furnished</span>
+              <Select
+                value={draft.furnished}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  setDraft((current) => ({
+                    ...current,
+                    furnished: value === "true" || value === "false" ? value : "any",
+                  }));
+                }}
+                data-testid="advanced-furnished"
+              >
+                <option value="any">Any</option>
+                <option value="true">Yes</option>
+                <option value="false">No</option>
+              </Select>
+            </label>
+          </section>
+        </div>
+      </FilterDrawerShell>
+    </>
   );
 }

@@ -33,6 +33,8 @@ export const smokeSelectors = {
   shortletsFeaturedItem: "shortlets-featured-item",
   propertiesFeaturedRail: "properties-featured-rail",
   propertiesFeaturedItem: "properties-featured-item",
+  propertiesFiltersButton: "properties-filters-button",
+  propertiesFiltersDrawer: "properties-filters-drawer",
   shortletsStickyPill: "shortlets-compact-search-pill",
   shortletsFiltersButton: "shortlets-filters-button",
   shortletsFiltersDrawer: "shortlets-filters-drawer",

@@ -82,6 +82,12 @@ test.describe("home mobile quick search smoke", () => {
     await expect(page.getByRole("heading", { name: /properties/i })).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.propertiesFeaturedRail)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.propertiesFeaturedItem).first()).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.propertiesFiltersButton)).toBeVisible();
+    await page.getByTestId(smokeSelectors.propertiesFiltersButton).click();
+    const propertiesFiltersDrawer = page.getByTestId(smokeSelectors.propertiesFiltersDrawer);
+    await expect(propertiesFiltersDrawer).toBeVisible();
+    await propertiesFiltersDrawer.getByRole("button", { name: /close filters/i }).click({ force: true });
+    await expect(propertiesFiltersDrawer).toBeHidden();
 
     const finalUrl = new URL(page.url());
     expect(finalUrl.pathname).toBe("/properties");

@@ -8,6 +8,7 @@ import { SmartSearchBox } from "@/components/properties/SmartSearchBox";
 import { AdvancedSearchPanel } from "@/components/properties/AdvancedSearchPanel";
 import { BrowseIntentClient } from "@/components/properties/BrowseIntentClient";
 import { SavedSearchButton } from "@/components/search/SavedSearchButton";
+import { FilterChipRow } from "@/components/filters/FilterChipRow";
 import { Button } from "@/components/ui/Button";
 import { ErrorState } from "@/components/ui/ErrorState";
 import { DEV_MOCKS, getApiBaseUrl, getEnvPresence } from "@/lib/env";
@@ -900,27 +901,19 @@ export default async function PropertiesPage({ searchParams }: Props) {
         </div>
       )}
 
-      {filterChips.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white/80 p-2.5 text-xs text-slate-700 shadow-sm">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-            Active filters
-          </p>
-          {filterChips.map((chip) => (
-            <span
-              key={`${chip.label}-${chip.value}`}
-              className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 text-[11px] font-semibold text-slate-700"
-            >
-              {chip.label}: {chip.value}
-            </span>
-          ))}
-          <Link
-            href="/properties"
-            className="rounded-full border border-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 transition hover:border-sky-100"
-          >
-            Clear
-          </Link>
-        </div>
-      )}
+      {filterChips.length > 0 ? (
+        <FilterChipRow
+          chips={filterChips.map((chip) => ({
+            id: `${chip.label}-${chip.value}`,
+            label: chip.label,
+            value: chip.value,
+          }))}
+          clearHref="/properties"
+          clearLabel="Clear"
+          maxVisible={4}
+          testId="properties-active-filter-summary"
+        />
+      ) : null}
 
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-white/90 px-3 py-2.5 text-sm text-slate-700 shadow-sm">
         <div>
