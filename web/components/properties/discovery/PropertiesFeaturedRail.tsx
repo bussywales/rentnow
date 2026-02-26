@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
+import { SaveToggle } from "@/components/saved/SaveToggle";
 import {
   selectPropertiesFeaturedRailItems,
 } from "@/lib/discovery";
@@ -49,24 +50,36 @@ export function PropertiesFeaturedRail() {
         <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-white to-transparent" />
         <div className="scrollbar-none flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-1 pr-4 scroll-px-4">
           {featuredItems.map((item, index) => (
-            <Link
-              key={item.id}
-              href={item.href}
-              data-testid="properties-featured-item"
-              className={`relative inline-flex w-[240px] shrink-0 snap-start snap-always flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br p-3.5 text-white shadow-sm ${ACCENT_CLASSES[index % ACCENT_CLASSES.length]}`}
-            >
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(255,255,255,0.25),transparent_45%)]" />
-              <div className="relative space-y-2">
-                <span className="inline-flex rounded-full border border-white/30 bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]">
-                  {item.tag}
+            <div key={item.id} className="relative w-[240px] shrink-0 snap-start snap-always">
+              <SaveToggle
+                itemId={item.id}
+                kind="property"
+                href={item.href}
+                title={item.title}
+                subtitle={item.subtitle}
+                tag={item.tag}
+                marketCountry={market.country}
+                className="absolute right-2.5 top-2.5 z-[2]"
+                testId={`save-toggle-${item.id}`}
+              />
+              <Link
+                href={item.href}
+                data-testid="properties-featured-item"
+                className={`relative inline-flex w-full flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br p-3.5 text-white shadow-sm ${ACCENT_CLASSES[index % ACCENT_CLASSES.length]}`}
+              >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(255,255,255,0.25),transparent_45%)]" />
+                <div className="relative space-y-2 pr-10">
+                  <span className="inline-flex rounded-full border border-white/30 bg-white/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em]">
+                    {item.tag}
+                  </span>
+                  <p className="line-clamp-2 text-[15px] font-semibold leading-tight">{item.title}</p>
+                  <p className="line-clamp-2 text-xs text-white/90">{item.subtitle}</p>
+                </div>
+                <span className="relative mt-4 inline-flex text-[11px] font-semibold uppercase tracking-[0.14em] text-white/90">
+                  Explore
                 </span>
-                <p className="line-clamp-2 text-[15px] font-semibold leading-tight">{item.title}</p>
-                <p className="line-clamp-2 text-xs text-white/90">{item.subtitle}</p>
-              </div>
-              <span className="relative mt-4 inline-flex text-[11px] font-semibold uppercase tracking-[0.14em] text-white/90">
-                Explore
-              </span>
-            </Link>
+              </Link>
+            </div>
           ))}
           <div className="w-4 shrink-0" aria-hidden="true" />
         </div>

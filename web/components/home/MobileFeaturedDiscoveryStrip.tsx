@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
+import { SaveToggle } from "@/components/saved/SaveToggle";
 import {
   buildFeaturedDiscoveryHref,
   getMobileFeaturedDiscoveryItems,
@@ -49,29 +50,41 @@ export function MobileFeaturedDiscoveryStrip() {
           data-testid="mobile-featured-scroll"
         >
           {featuredItems.map((item, index) => (
-            <Link
-              key={item.id}
-              href={buildFeaturedDiscoveryHref(item)}
-              className={`relative inline-flex w-[255px] shrink-0 snap-start snap-always flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br p-4 text-white shadow-sm ${ACCENT_CLASSES[index % ACCENT_CLASSES.length]}`}
-              data-testid={`mobile-featured-item-${item.id}`}
-            >
-              <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(255,255,255,0.25),transparent_45%)]" />
-              <div className="relative space-y-2">
-                <span
-                  className="inline-flex rounded-full border border-white/30 bg-white/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
-                  data-testid="mobile-featured-item"
-                >
-                  {item.tag}
+            <div key={item.id} className="relative w-[255px] shrink-0 snap-start snap-always">
+              <SaveToggle
+                itemId={item.id}
+                kind={item.category === "shortlet" ? "shortlet" : "property"}
+                href={buildFeaturedDiscoveryHref(item)}
+                title={item.title}
+                subtitle={item.subtitle}
+                tag={item.tag}
+                marketCountry={market.country}
+                testId={`save-toggle-${item.id}`}
+                className="absolute right-3 top-3 z-[2]"
+              />
+              <Link
+                href={buildFeaturedDiscoveryHref(item)}
+                className={`relative inline-flex w-full flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br p-4 text-white shadow-sm ${ACCENT_CLASSES[index % ACCENT_CLASSES.length]}`}
+                data-testid={`mobile-featured-item-${item.id}`}
+              >
+                <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(255,255,255,0.25),transparent_45%)]" />
+                <div className="relative space-y-2 pr-10">
+                  <span
+                    className="inline-flex rounded-full border border-white/30 bg-white/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                    data-testid="mobile-featured-item"
+                  >
+                    {item.tag}
+                  </span>
+                  <p className="text-base font-semibold leading-tight" data-testid="mobile-featured-item-title">
+                    {item.title}
+                  </p>
+                  <p className="text-xs text-white/90">{item.subtitle}</p>
+                </div>
+                <span className="relative mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.14em] text-white/90">
+                  Explore
                 </span>
-                <p className="text-base font-semibold leading-tight" data-testid="mobile-featured-item-title">
-                  {item.title}
-                </p>
-                <p className="text-xs text-white/90">{item.subtitle}</p>
-              </div>
-              <span className="relative mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.14em] text-white/90">
-                Explore
-              </span>
-            </Link>
+              </Link>
+            </div>
           ))}
           <div className="w-5 shrink-0" aria-hidden="true" />
         </div>

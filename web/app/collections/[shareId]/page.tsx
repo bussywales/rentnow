@@ -187,7 +187,7 @@ export default async function PublicCollectionPage({
           marketCountry={market.country}
           viewResultsHref={viewResultsHref}
         />
-        <CollectionRail cards={cards} />
+        <CollectionRail cards={cards} marketCountry={market.country} />
       </div>
     );
   }

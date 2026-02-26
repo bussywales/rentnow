@@ -14,6 +14,7 @@ import {
 
 export type CollectionCard = {
   id: string;
+  kind: "shortlet" | "property";
   title: string;
   subtitle: string;
   tag: string;
@@ -107,6 +108,7 @@ export function getCollectionCards(input: {
     .filter((item) => shouldIncludeItem(item, collection))
     .map((item) => ({
       id: item.id,
+      kind: item.kind,
       title: item.title,
       subtitle: item.subtitle?.trim() || collection.description,
       tag: resolveCardTag(item, collection),
@@ -115,4 +117,3 @@ export function getCollectionCards(input: {
 
   return cards.slice(0, limit);
 }
-
