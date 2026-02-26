@@ -201,6 +201,68 @@ export function clearSavedItems(input?: { marketCountry?: string | null }): Save
   return stored;
 }
 
+export function removeSavedItem(input: {
+  id: string;
+  marketCountry?: string | null;
+}): SavedItemRecord[] {
+  const storage = getStorage();
+  if (!storage) return [];
+
+  const id = normalizeString(input.id, 140);
+  if (!id) return readSavedItemsFromStorage(storage);
+
+  const marketCountry = input.marketCountry ? normalizeCountryCode(input.marketCountry) : null;
+  const existing = readSavedItemsFromStorage(storage);
+  const remaining = existing.filter((item) => {
+    if (item.id !== id) return true;
+    if (!marketCountry) return false;
+    return item.marketCountry !== marketCountry;
+  });
+
+  const stored = writeSavedItemsToStorage(storage, remaining);
+  emitSavedStoreChanged();
+  return stored;
+}
+
+export function clearSavedSection(input: {
+  kind: SavedItemKind;
+  marketCountry?: string | null;
+}): SavedItemRecord[] {
+  const storage = getStorage();
+  if (!storage) return [];
+
+  const kind = normalizeKind(input.kind);
+  if (!kind) return readSavedItemsFromStorage(storage);
+
+  const marketCountry = input.marketCountry ? normalizeCountryCode(input.marketCountry) : null;
+  const existing = readSavedItemsFromStorage(storage);
+  const remaining = existing.filter((item) => {
+    if (item.kind !== kind) return true;
+    if (!marketCountry) return false;
+    return item.marketCountry !== marketCountry;
+  });
+
+  const stored = writeSavedItemsToStorage(storage, remaining);
+  emitSavedStoreChanged();
+  return stored;
+}
+
+export function groupSavedItemsByKind(items: ReadonlyArray<SavedItemRecord>): {
+  shortlets: SavedItemRecord[];
+  properties: SavedItemRecord[];
+} {
+  const shortlets: SavedItemRecord[] = [];
+  const properties: SavedItemRecord[] = [];
+  for (const item of items) {
+    if (item.kind === "shortlet") {
+      shortlets.push(item);
+      continue;
+    }
+    properties.push(item);
+  }
+  return { shortlets, properties };
+}
+
 export function subscribeSavedItems(listener: () => void): () => void {
   if (typeof window === "undefined") return () => {};
 

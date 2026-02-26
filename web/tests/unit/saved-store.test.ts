@@ -2,9 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   clearSavedItems,
+  clearSavedSection,
   getSavedItems,
+  groupSavedItemsByKind,
   isSavedItem,
   parseSavedStoreValue,
+  removeSavedItem,
   toggleSavedItem,
 } from "@/lib/saved";
 
@@ -199,4 +202,76 @@ void test("clearSavedItems removes only target market when requested", () => {
     assert.equal(getSavedItems({ marketCountry: "NG" }).length, 0);
     assert.equal(getSavedItems({ marketCountry: "UK" }).length, 1);
   });
+});
+
+void test("removeSavedItem removes only the requested id and market scope", () => {
+  withWindowMock(() => {
+    toggleSavedItem({
+      id: "shared-item",
+      kind: "shortlet",
+      marketCountry: "NG",
+      href: "/shortlets?where=lagos",
+      title: "NG shortlet",
+    });
+    toggleSavedItem({
+      id: "shared-item",
+      kind: "shortlet",
+      marketCountry: "US",
+      href: "/shortlets?where=austin",
+      title: "US shortlet",
+    });
+
+    removeSavedItem({ id: "shared-item", marketCountry: "NG" });
+
+    assert.equal(getSavedItems({ marketCountry: "NG" }).length, 0);
+    assert.equal(getSavedItems({ marketCountry: "US" }).length, 1);
+  });
+});
+
+void test("clearSavedSection clears only one kind in a market", () => {
+  withWindowMock(() => {
+    toggleSavedItem({
+      id: "ng-shortlet-1",
+      kind: "shortlet",
+      marketCountry: "NG",
+      href: "/shortlets?where=lagos",
+      title: "Shortlet",
+    });
+    toggleSavedItem({
+      id: "ng-property-1",
+      kind: "property",
+      marketCountry: "NG",
+      href: "/properties?intent=rent",
+      title: "Property",
+    });
+
+    clearSavedSection({ kind: "shortlet", marketCountry: "NG" });
+
+    assert.equal(getSavedItems({ marketCountry: "NG" }).length, 1);
+    assert.equal(getSavedItems({ marketCountry: "NG" })[0]?.kind, "property");
+  });
+});
+
+void test("groupSavedItemsByKind returns split shortlet/property arrays", () => {
+  const grouped = groupSavedItemsByKind([
+    {
+      id: "a",
+      kind: "shortlet",
+      marketCountry: "NG",
+      href: "/shortlets",
+      title: "A",
+      savedAt: "2026-02-26T00:00:00.000Z",
+    },
+    {
+      id: "b",
+      kind: "property",
+      marketCountry: "NG",
+      href: "/properties",
+      title: "B",
+      savedAt: "2026-02-26T00:00:00.000Z",
+    },
+  ]);
+
+  assert.equal(grouped.shortlets.length, 1);
+  assert.equal(grouped.properties.length, 1);
 });
