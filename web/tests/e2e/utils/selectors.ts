@@ -88,6 +88,11 @@ export const smokeSelectors = {
   adminSupportDrawer: "admin-support-drawer",
   adminSupportRefresh: "admin-support-refresh",
   adminSupportStatusFilter: "admin-support-status-filter",
+  adminDiscoveryHealth: "admin-discovery-health",
+  adminDiscoverySummary: "admin-discovery-summary",
+  adminDiscoveryTotalCount: "admin-discovery-total-count",
+  adminDiscoveryMarketBreakdown: "admin-discovery-market-breakdown",
+  adminDiscoverySurfaceBreakdown: "admin-discovery-surface-breakdown",
 } as const;
 
 export function shortletsResultLabelText(total: number, withinMapArea: boolean): RegExp {

@@ -124,4 +124,31 @@ test.describe("admin support ops smoke", () => {
       `admin support ops flow emitted runtime errors:\n${runtimeErrors.join("\n")}`
     ).toEqual([]);
   });
+
+  test("admin discovery diagnostics page renders with summary sections", async ({ page }) => {
+    test.skip(
+      !ADMIN_EMAIL || !ADMIN_PASSWORD,
+      "Admin credentials not configured for smoke run."
+    );
+
+    const runtimeErrors = attachRuntimeErrorGuards(page);
+
+    await loginAsAdmin(page);
+    await page.goto("/admin/discovery", { waitUntil: "domcontentloaded" });
+
+    if (page.url().includes("/auth/login")) {
+      test.skip(true, "Admin session could not be established.");
+    }
+
+    await expect(page.getByTestId(smokeSelectors.adminDiscoveryHealth)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.adminDiscoverySummary)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.adminDiscoveryTotalCount)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.adminDiscoveryMarketBreakdown)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.adminDiscoverySurfaceBreakdown)).toBeVisible();
+
+    expect(
+      runtimeErrors,
+      `admin discovery flow emitted runtime errors:\n${runtimeErrors.join("\n")}`
+    ).toEqual([]);
+  });
 });
