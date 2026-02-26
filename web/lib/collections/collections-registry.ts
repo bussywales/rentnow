@@ -35,6 +35,44 @@ const SENSITIVE_TOKENS = [
   "disability",
 ];
 
+export const COLLECTIONS_VALIDATION_REASON_CODES = [
+  "NON_OBJECT_ENTRY",
+  "INVALID_SLUG",
+  "DUPLICATE_SLUG",
+  "MISSING_TITLE",
+  "MISSING_DESCRIPTION",
+  "MISSING_SURFACE",
+  "INVALID_PRIMARY_KIND",
+  "EMPTY_MARKET_TAGS",
+  "INVALID_MARKET_TAG",
+  "MISSING_PARAMS",
+  "INVALID_VALID_FROM",
+  "INVALID_VALID_TO",
+  "INVALID_DATE_RANGE",
+  "SENSITIVE_TOKEN",
+  "DISABLED",
+  "NOT_YET_ACTIVE",
+  "EXPIRED",
+] as const;
+
+export type CollectionsValidationReasonCode = (typeof COLLECTIONS_VALIDATION_REASON_CODES)[number];
+
+export type CollectionsValidationIssue = {
+  slug: string | null;
+  reasonCodes: CollectionsValidationReasonCode[];
+  details: string;
+};
+
+export type CollectionsValidationDiagnostics = {
+  totalInput: number;
+  validCount: number;
+  invalidCount: number;
+  disabledCount: number;
+  notYetActiveCount: number;
+  expiredCount: number;
+  issues: CollectionsValidationIssue[];
+};
+
 const RAW_COLLECTIONS_REGISTRY: ReadonlyArray<StaticCollectionDefinition> = [
   {
     slug: "weekend-getaways",
@@ -146,90 +184,132 @@ function hasSensitiveToken(value: string): string | null {
 export type CollectionsRegistryValidationResult = {
   items: StaticCollectionDefinition[];
   warnings: string[];
+  diagnostics?: CollectionsValidationDiagnostics;
 };
+
+type ValidationMode = "runtime" | "diagnostics";
 
 export function validateCollectionsRegistry(input: {
   items: ReadonlyArray<StaticCollectionDefinition>;
   now?: Date;
+  mode?: ValidationMode;
 }): CollectionsRegistryValidationResult {
+  const mode = input.mode ?? "runtime";
   const today = toDateKey(input.now ?? new Date());
   const warnings: string[] = [];
   const validItems: StaticCollectionDefinition[] = [];
   const seenSlugs = new Set<string>();
+  const issues: CollectionsValidationIssue[] = [];
+  let disabledCount = 0;
+  let notYetActiveCount = 0;
+  let expiredCount = 0;
+
+  function addIssue(
+    slug: string | null,
+    reasonCode: CollectionsValidationReasonCode,
+    details: string,
+    options?: { addWarning?: boolean }
+  ) {
+    issues.push({
+      slug,
+      reasonCodes: [reasonCode],
+      details,
+    });
+    if (options?.addWarning === false) return;
+    if (reasonCode === "NON_OBJECT_ENTRY") {
+      warnings.push("Skipping invalid collection: non-object entry.");
+      return;
+    }
+    warnings.push(`Skipping invalid collection "${slug ?? "unknown"}": ${details}.`);
+  }
 
   for (const item of input.items) {
     if (!item || typeof item !== "object") {
-      warnings.push("Skipping invalid collection: non-object entry.");
+      addIssue(null, "NON_OBJECT_ENTRY", "non-object entry");
       continue;
     }
     if (!item.slug || !SLUG_RE.test(item.slug)) {
-      warnings.push("Skipping invalid collection: slug must be kebab-case.");
+      addIssue(item.slug ?? null, "INVALID_SLUG", "slug must be kebab-case");
       continue;
     }
     if (seenSlugs.has(item.slug)) {
-      warnings.push(`Skipping invalid collection "${item.slug}": duplicate slug.`);
+      addIssue(item.slug, "DUPLICATE_SLUG", "duplicate slug");
       continue;
     }
     seenSlugs.add(item.slug);
     if (!item.title?.trim()) {
-      warnings.push(`Skipping invalid collection "${item.slug}": missing title.`);
+      addIssue(item.slug, "MISSING_TITLE", "missing title");
       continue;
     }
     if (!item.description?.trim()) {
-      warnings.push(`Skipping invalid collection "${item.slug}": missing description.`);
+      addIssue(item.slug, "MISSING_DESCRIPTION", "missing description");
       continue;
     }
     if (!item.surface) {
-      warnings.push(`Skipping invalid collection "${item.slug}": missing surface.`);
+      addIssue(item.slug, "MISSING_SURFACE", "missing surface");
       continue;
     }
     if (item.primaryKind !== "shortlet" && item.primaryKind !== "property") {
-      warnings.push(`Skipping invalid collection "${item.slug}": invalid primaryKind.`);
+      addIssue(item.slug, "INVALID_PRIMARY_KIND", "invalid primaryKind");
       continue;
     }
     if (!Array.isArray(item.marketTags) || item.marketTags.length === 0) {
-      warnings.push(`Skipping invalid collection "${item.slug}": marketTags cannot be empty.`);
+      addIssue(item.slug, "EMPTY_MARKET_TAGS", "marketTags cannot be empty");
       continue;
     }
     const unknownMarketTags = item.marketTags.filter((tag) => !ALLOWED_MARKET_TAGS.has(tag));
     if (unknownMarketTags.length > 0) {
-      warnings.push(
-        `Skipping invalid collection "${item.slug}": unknown market tags ${unknownMarketTags.join(", ")}.`
-      );
+      addIssue(item.slug, "INVALID_MARKET_TAG", `unknown market tags ${unknownMarketTags.join(", ")}`);
       continue;
     }
     if (!item.params || typeof item.params !== "object" || Array.isArray(item.params)) {
-      warnings.push(`Skipping invalid collection "${item.slug}": params must be a key/value record.`);
+      addIssue(item.slug, "MISSING_PARAMS", "params must be a key/value record");
       continue;
     }
     if (item.validFrom && !isIsoDate(item.validFrom)) {
-      warnings.push(`Skipping invalid collection "${item.slug}": invalid validFrom date.`);
+      addIssue(item.slug, "INVALID_VALID_FROM", "invalid validFrom date");
       continue;
     }
     if (item.validTo && !isIsoDate(item.validTo)) {
-      warnings.push(`Skipping invalid collection "${item.slug}": invalid validTo date.`);
+      addIssue(item.slug, "INVALID_VALID_TO", "invalid validTo date");
       continue;
     }
     if (item.validFrom && item.validTo && item.validFrom > item.validTo) {
-      warnings.push(`Skipping invalid collection "${item.slug}": validFrom is later than validTo.`);
+      addIssue(item.slug, "INVALID_DATE_RANGE", "validFrom is later than validTo");
       continue;
     }
     const titleToken = hasSensitiveToken(item.title);
     if (titleToken) {
-      warnings.push(`Skipping invalid collection "${item.slug}": restricted token "${titleToken}" in title.`);
+      addIssue(item.slug, "SENSITIVE_TOKEN", `restricted token "${titleToken}" in title`);
       continue;
     }
     const descriptionToken = hasSensitiveToken(item.description);
     if (descriptionToken) {
-      warnings.push(
-        `Skipping invalid collection "${item.slug}": restricted token "${descriptionToken}" in description.`
-      );
+      addIssue(item.slug, "SENSITIVE_TOKEN", `restricted token "${descriptionToken}" in description`);
       continue;
     }
 
-    if (item.disabled) continue;
-    if (item.validFrom && today < item.validFrom) continue;
-    if (item.validTo && today > item.validTo) continue;
+    if (item.disabled) {
+      disabledCount += 1;
+      if (mode === "diagnostics") {
+        addIssue(item.slug, "DISABLED", "disabled", { addWarning: false });
+      }
+      continue;
+    }
+    if (item.validFrom && today < item.validFrom) {
+      notYetActiveCount += 1;
+      if (mode === "diagnostics") {
+        addIssue(item.slug, "NOT_YET_ACTIVE", `starts at ${item.validFrom}`, { addWarning: false });
+      }
+      continue;
+    }
+    if (item.validTo && today > item.validTo) {
+      expiredCount += 1;
+      if (mode === "diagnostics") {
+        addIssue(item.slug, "EXPIRED", `expired at ${item.validTo}`, { addWarning: false });
+      }
+      continue;
+    }
     validItems.push(item);
   }
 
@@ -239,10 +319,23 @@ export function validateCollectionsRegistry(input: {
     }
   }
 
-  return {
-    items: validItems,
-    warnings,
-  };
+  if (mode === "diagnostics") {
+    return {
+      items: validItems,
+      warnings,
+      diagnostics: {
+        totalInput: input.items.length,
+        validCount: validItems.length,
+        invalidCount: issues.length - disabledCount - notYetActiveCount - expiredCount,
+        disabledCount,
+        notYetActiveCount,
+        expiredCount,
+        issues,
+      },
+    };
+  }
+
+  return { items: validItems, warnings };
 }
 
 export function resolveCollectionsRegistry(now?: Date): StaticCollectionDefinition[] {
@@ -250,6 +343,14 @@ export function resolveCollectionsRegistry(now?: Date): StaticCollectionDefiniti
     items: RAW_COLLECTIONS_REGISTRY,
     now,
   }).items;
+}
+
+export function getCollectionsRegistryDiagnostics(now?: Date): CollectionsRegistryValidationResult {
+  return validateCollectionsRegistry({
+    items: RAW_COLLECTIONS_REGISTRY,
+    now,
+    mode: "diagnostics",
+  });
 }
 
 export function getCollectionBySlug(slug: string, now?: Date): StaticCollectionDefinition | null {
