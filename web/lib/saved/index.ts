@@ -21,3 +21,5 @@ export {
   parseSavedStoreValue,
   toSavedItemRecord,
 } from "@/lib/saved/saved-store";
+
+export { buildSavedSuggestions, type SavedSuggestionItem, type SavedSuggestions } from "@/lib/saved/saved-suggestions";

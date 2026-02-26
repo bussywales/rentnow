@@ -63,16 +63,21 @@ export function MobileSavedRail() {
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Saved</p>
           <h2 className="text-base font-semibold text-slate-900">Pick up where you left off</h2>
         </div>
-        <button
-          type="button"
-          className="text-xs font-semibold text-slate-600 hover:text-slate-900"
-          data-testid="mobile-saved-rail-clear"
-          onClick={() => {
-            clearSavedItems({ marketCountry: market.country });
-          }}
-        >
-          Clear
-        </button>
+        <div className="flex items-center gap-2">
+          <Link href="/saved" className="text-xs font-semibold text-sky-700 hover:text-sky-800">
+            View all
+          </Link>
+          <button
+            type="button"
+            className="text-xs font-semibold text-slate-600 hover:text-slate-900"
+            data-testid="mobile-saved-rail-clear"
+            onClick={() => {
+              clearSavedItems({ marketCountry: market.country });
+            }}
+          >
+            Clear
+          </button>
+        </div>
       </div>
       <div className="relative">
         <div className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 bg-gradient-to-r from-white to-transparent" />
