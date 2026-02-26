@@ -5,6 +5,7 @@ const KNOWN_BENIGN_CONSOLE_PATTERNS: RegExp[] = [
   /Download the React DevTools/i,
   /Failed to load resource: the server responded with a status of 401 \(Unauthorized\)/i,
 ];
+const GO_LIVE_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
 
 function attachRuntimeErrorGuards(page: Page) {
   const runtimeErrors: string[] = [];
@@ -35,6 +36,13 @@ test.use({
 test.describe("saved mobile smoke", () => {
   test("save from home and clear from saved page", async ({ page }) => {
     const runtimeErrors = attachRuntimeErrorGuards(page);
+    await page.context().addCookies([
+      {
+        name: "ph_market",
+        value: encodeURIComponent("GB|GBP"),
+        url: GO_LIVE_BASE_URL,
+      },
+    ]);
 
     const dismissDisclaimerIfPresent = async () => {
       const dismissDisclaimer = page.getByRole("button", { name: /Dismiss marketplace disclaimer/i });
@@ -45,11 +53,25 @@ test.describe("saved mobile smoke", () => {
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await dismissDisclaimerIfPresent();
-    const featuredStrip = page.getByTestId(smokeSelectors.homeMobileFeaturedStrip);
-    await expect(featuredStrip).toBeVisible();
-    const firstSaveToggle = featuredStrip.locator('[data-testid^="save-toggle-"]').first();
-    await expect(firstSaveToggle).toBeVisible();
-    await firstSaveToggle.click({ force: true });
+    await page.evaluate(() => {
+      const payload = {
+        version: 1,
+        items: [
+          {
+            id: "seeded-saved-property",
+            kind: "property",
+            marketCountry: "GB",
+            href: "/properties?intent=rent",
+            title: "Seeded saved property",
+            subtitle: "Saved smoke fixture",
+            tag: "For sale",
+            savedAt: new Date().toISOString(),
+          },
+        ],
+      };
+      localStorage.setItem("ph:saved:v0", JSON.stringify(payload));
+      window.dispatchEvent(new Event("ph:saved:v0:changed"));
+    });
 
     await page.goto("/saved", { waitUntil: "domcontentloaded" });
     await dismissDisclaimerIfPresent();

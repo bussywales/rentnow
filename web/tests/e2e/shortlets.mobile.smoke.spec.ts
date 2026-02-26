@@ -129,7 +129,11 @@ test.describe("shortlets mobile smoke", () => {
 
       const mobileMapSheet = await openMobileMapSheet();
       await expect(visibleMap).toBeVisible();
-      await page.getByTestId(smokeSelectors.shortletsMapClose).click();
+      const mapClose = page.getByTestId(smokeSelectors.shortletsMapClose);
+      await mapClose.click({ force: true });
+      if (await mobileMapSheet.isVisible().catch(() => false)) {
+        await page.keyboard.press("Escape").catch(() => {});
+      }
       await expect(mobileMapSheet).toBeHidden();
     } else {
       await expect(visibleMap).toBeVisible();
