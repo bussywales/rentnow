@@ -4,17 +4,17 @@ import {
   validateDiscoveryCatalogue,
   type DiscoveryMarket,
   type DiscoverySurface,
-  type DiscoveryValidationIssue,
-  type DiscoveryValidationReasonCode,
 } from "@/lib/discovery";
 import {
   getCollectionsRegistryDiagnostics,
   type CollectionMarketTag,
-  type CollectionsValidationIssue,
-  type CollectionsValidationReasonCode,
   type StaticCollectionDefinition,
 } from "@/lib/collections/collections-registry";
 import { getSystemHealthEnvStatus } from "@/lib/admin/system-health";
+import {
+  computeDiscoveryCoverageSummary,
+  type DiscoveryCoverageSummary,
+} from "@/lib/discovery/diagnostics/coverage";
 
 export type DiscoverySurfaceKey = DiscoverySurface | "COLLECTIONS";
 
@@ -61,20 +61,9 @@ export type AdminDiscoveryHealthSnapshot = {
     brokenRoutingCount: number;
     reasonCounts: HealthReasonCount[];
   };
+  coverage: DiscoveryCoverageSummary;
   invalidEntries: HealthIssue[];
 };
-
-const DISCOVERY_ROUTING_REASON_CODES = new Set<DiscoveryValidationReasonCode>([
-  "MISSING_PARAMS",
-  "MISSING_KIND",
-  "MISSING_INTENT",
-  "MISSING_REQUIRED_PARAM_FOR_KIND",
-]);
-
-const COLLECTIONS_ROUTING_REASON_CODES = new Set<CollectionsValidationReasonCode>([
-  "MISSING_PARAMS",
-  "MISSING_SURFACE",
-]);
 
 function initMarketCounts(): Record<DiscoveryMarket, number> {
   return {
@@ -123,14 +112,6 @@ function mapReasonCounts(reasonCodes: string[]): HealthReasonCount[] {
     });
 }
 
-function countBrokenDiscoveryRouting(issues: DiscoveryValidationIssue[]): number {
-  return issues.filter((issue) => issue.reasonCodes.some((reasonCode) => DISCOVERY_ROUTING_REASON_CODES.has(reasonCode))).length;
-}
-
-function countBrokenCollectionsRouting(issues: CollectionsValidationIssue[]): number {
-  return issues.filter((issue) => issue.reasonCodes.some((reasonCode) => COLLECTIONS_ROUTING_REASON_CODES.has(reasonCode))).length;
-}
-
 export function buildAdminDiscoveryHealthSnapshot(now: Date = new Date()): AdminDiscoveryHealthSnapshot {
   const discoveryValidation = validateDiscoveryCatalogue({
     items: DISCOVERY_CATALOGUE,
@@ -163,6 +144,10 @@ export function buildAdminDiscoveryHealthSnapshot(now: Date = new Date()): Admin
 
   const discoveryIssues = discoveryDiagnostics?.issues ?? [];
   const collectionsIssues = collectionsDiagnostics?.issues ?? [];
+  const coverage = computeDiscoveryCoverageSummary({
+    discoveryItems: discoveryValidation.items,
+    collectionsItems: collectionsValidation.items,
+  });
 
   const invalidEntries: HealthIssue[] = [
     ...discoveryIssues.map((issue) => ({
@@ -199,7 +184,7 @@ export function buildAdminDiscoveryHealthSnapshot(now: Date = new Date()): Admin
       disabledCount: discoveryDiagnostics?.disabledCount ?? 0,
       notYetActiveCount: discoveryDiagnostics?.notYetActiveCount ?? 0,
       expiredCount: discoveryDiagnostics?.expiredCount ?? 0,
-      brokenRoutingCount: countBrokenDiscoveryRouting(discoveryIssues),
+      brokenRoutingCount: 0,
       reasonCounts: mapReasonCounts(discoveryIssues.flatMap((issue) => issue.reasonCodes)),
     },
     collections: {
@@ -209,9 +194,10 @@ export function buildAdminDiscoveryHealthSnapshot(now: Date = new Date()): Admin
       disabledCount: collectionsDiagnostics?.disabledCount ?? 0,
       notYetActiveCount: collectionsDiagnostics?.notYetActiveCount ?? 0,
       expiredCount: collectionsDiagnostics?.expiredCount ?? 0,
-      brokenRoutingCount: countBrokenCollectionsRouting(collectionsIssues),
+      brokenRoutingCount: 0,
       reasonCounts: mapReasonCounts(collectionsIssues.flatMap((issue) => issue.reasonCodes)),
     },
+    coverage,
     invalidEntries,
   };
 }

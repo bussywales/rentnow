@@ -35,6 +35,8 @@ export default async function AdminDiscoveryPage() {
   }
 
   const snapshot = buildAdminDiscoveryHealthSnapshot();
+  const coverageSurfaces = Array.from(new Set(snapshot.coverage.rows.map((row) => row.surface)));
+  const coverageMarkets = Array.from(new Set(snapshot.coverage.rows.map((row) => row.market)));
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6" data-testid="admin-discovery-health">
@@ -72,6 +74,76 @@ export default async function AdminDiscoveryPage() {
           <MetricCard label="Collections disabled" value={snapshot.collections.disabledCount} />
           <MetricCard label="Collections expired" value={snapshot.collections.expiredCount} />
           <MetricCard label="Collections not yet active" value={snapshot.collections.notYetActiveCount} />
+        </div>
+      </section>
+
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+        data-testid="admin-discovery-coverage-panel"
+      >
+        <h2 className="text-sm font-semibold text-slate-900">Coverage score</h2>
+        <p className="mt-1 text-xs text-slate-500">
+          Threshold-based readiness by market and discovery surface.
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <MetricCard label="Overall coverage score" value={snapshot.coverage.overallCoverageScore} />
+          <MetricCard label="Rows below threshold" value={snapshot.coverage.topRisks.length} tone="warn" />
+          <MetricCard label="Markets tracked" value={coverageMarkets.length} />
+        </div>
+        <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200">
+          <table className="min-w-full divide-y divide-slate-200 text-xs">
+            <thead className="bg-slate-50">
+              <tr>
+                <th className="px-3 py-2 text-left font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  Market
+                </th>
+                {coverageSurfaces.map((surface) => (
+                  <th
+                    key={surface}
+                    className="px-3 py-2 text-left font-semibold uppercase tracking-[0.08em] text-slate-500"
+                  >
+                    {surface}
+                  </th>
+                ))}
+                <th className="px-3 py-2 text-left font-semibold uppercase tracking-[0.08em] text-slate-500">
+                  Market score
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {coverageMarkets.map((market) => (
+                <tr key={market}>
+                  <td className="px-3 py-2 font-semibold text-slate-900">{market}</td>
+                  {coverageSurfaces.map((surface) => {
+                    const row = snapshot.coverage.rows.find(
+                      (candidate) => candidate.market === market && candidate.surface === surface
+                    );
+                    if (!row) {
+                      return (
+                        <td key={`${market}-${surface}`} className="px-3 py-2 text-slate-500">
+                          —
+                        </td>
+                      );
+                    }
+                    return (
+                      <td key={`${market}-${surface}`} className="px-3 py-2 text-slate-700">
+                        <span className="font-semibold text-slate-900">{row.availableCount}</span> /{" "}
+                        {row.threshold}
+                        <span
+                          className={`ml-2 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            row.atRisk ? "bg-amber-100 text-amber-800" : "bg-emerald-100 text-emerald-800"
+                          }`}
+                        >
+                          {row.coverageScore}%
+                        </span>
+                      </td>
+                    );
+                  })}
+                  <td className="px-3 py-2 font-semibold text-slate-900">{snapshot.coverage.byMarketScore[market]}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
 
@@ -135,6 +207,40 @@ export default async function AdminDiscoveryPage() {
                 </li>
               ))}
           </ul>
+        </div>
+      </section>
+
+      <section className="grid gap-5 lg:grid-cols-2">
+        <div
+          className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+          data-testid="admin-discovery-top-risks"
+        >
+          <h2 className="text-sm font-semibold text-slate-900">Top risks</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Market/surface combinations currently below threshold.
+          </p>
+          {snapshot.coverage.topRisks.length === 0 ? (
+            <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-800">
+              No risks detected. All market surfaces meet baseline thresholds.
+            </p>
+          ) : (
+            <ul className="mt-3 space-y-2 text-sm">
+              {snapshot.coverage.topRisks.map((risk) => (
+                <li
+                  key={`${risk.market}-${risk.surface}`}
+                  className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2"
+                >
+                  <p className="font-semibold text-amber-900">
+                    {risk.market} · {risk.surface}
+                  </p>
+                  <p className="mt-1 text-xs text-amber-800">
+                    Available {risk.availableCount}/{risk.threshold} (deficit {risk.deficit}).
+                    Market-specific depth: {risk.marketSpecificCount}.
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </section>
 
