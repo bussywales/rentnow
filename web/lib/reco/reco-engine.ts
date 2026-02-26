@@ -29,6 +29,11 @@ function isOffPlanItem(item: DiscoveryCatalogueItem): boolean {
   return intent === "off_plan" || intent === "off-plan";
 }
 
+function isAllHomesItem(item: DiscoveryCatalogueItem): boolean {
+  const intent = (item.params.intent ?? item.params.category ?? "").trim().toLowerCase();
+  return intent === "all";
+}
+
 function resolveKindFromHref(href: string | null | undefined): RecoItemKind | null {
   if (!href) return null;
   const normalized = href.trim().toLowerCase();
@@ -102,7 +107,7 @@ function resolveTag(item: DiscoveryCatalogueItem): string {
   if (item.intent === "buy") {
     return city ? `For sale: ${city}` : "For sale";
   }
-  if (item.intent === "all") {
+  if (isAllHomesItem(item)) {
     return city ? `All homes: ${city}` : "All homes";
   }
   return city ? `To rent: ${city}` : "To rent";
