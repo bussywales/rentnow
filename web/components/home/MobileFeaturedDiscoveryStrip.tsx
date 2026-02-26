@@ -81,53 +81,65 @@ export function MobileFeaturedDiscoveryStrip() {
           aria-label="Featured discovery carousel"
           onKeyDown={onRailKeyDown}
         >
-          {featuredItems.map((item, index) => (
-            <div key={item.id} className="relative w-[255px] shrink-0 snap-start snap-always">
-              <SaveToggle
-                itemId={item.id}
-                kind={item.category === "shortlet" ? "shortlet" : "property"}
-                href={buildFeaturedDiscoveryHref(item)}
-                title={item.title}
-                subtitle={item.subtitle}
-                tag={item.tag}
-                marketCountry={market.country}
-                testId={`save-toggle-${item.id}`}
-                className="absolute right-3 top-3 z-[2]"
-              />
-              <TrackViewedLink
-                href={buildFeaturedDiscoveryHref(item)}
-                viewedItem={{
-                  id: item.id,
-                  kind: item.category === "shortlet" ? "shortlet" : "property",
-                  href: buildFeaturedDiscoveryHref(item),
-                  title: item.title,
-                  subtitle: item.subtitle,
-                  tag: item.tag,
-                  marketCountry: market.country,
-                }}
-                className={`relative inline-flex w-full flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br p-4 text-white shadow-sm ${ACCENT_CLASSES[index % ACCENT_CLASSES.length]}`}
-                data-testid={`mobile-featured-item-${item.id}`}
-              >
-                <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(255,255,255,0.25),transparent_45%)]" />
-                <div className="relative space-y-2 pr-10">
-                  <span
-                    className="inline-flex rounded-full border border-white/30 bg-white/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
-                    data-testid="mobile-featured-item"
-                  >
-                    {item.tag}
+          {featuredItems.map((item, index) => {
+            const href = buildFeaturedDiscoveryHref(item);
+            const kind = item.category === "shortlet" ? "shortlet" : "property";
+            return (
+              <div key={item.id} className="relative w-[255px] shrink-0 snap-start snap-always">
+                <SaveToggle
+                  itemId={item.id}
+                  kind={kind}
+                  href={href}
+                  title={item.title}
+                  subtitle={item.subtitle}
+                  tag={item.tag}
+                  marketCountry={market.country}
+                  testId={`save-toggle-${item.id}`}
+                  className="absolute right-3 top-3 z-[2]"
+                />
+                <TrackViewedLink
+                  href={href}
+                  viewedItem={{
+                    id: item.id,
+                    kind,
+                    href,
+                    title: item.title,
+                    subtitle: item.subtitle,
+                    tag: item.tag,
+                    marketCountry: market.country,
+                  }}
+                  featuredTap={{
+                    id: item.id,
+                    kind,
+                    href,
+                    label: item.title,
+                    query: item.city ?? null,
+                    marketCountry: market.country,
+                  }}
+                  className={`relative inline-flex w-full flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br p-4 text-white shadow-sm ${ACCENT_CLASSES[index % ACCENT_CLASSES.length]}`}
+                  data-testid={`mobile-featured-item-${item.id}`}
+                >
+                  <div className="absolute inset-0 bg-[radial-gradient(circle_at_0%_0%,rgba(255,255,255,0.25),transparent_45%)]" />
+                  <div className="relative space-y-2 pr-10">
+                    <span
+                      className="inline-flex rounded-full border border-white/30 bg-white/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.16em]"
+                      data-testid="mobile-featured-item"
+                    >
+                      {item.tag}
+                    </span>
+                    <TrustBadges badges={item.badges} marketCountry={market.country} tone="overlay" />
+                    <p className="text-base font-semibold leading-tight" data-testid="mobile-featured-item-title">
+                      {item.title}
+                    </p>
+                    <p className="text-xs text-white/90">{item.subtitle}</p>
+                  </div>
+                  <span className="relative mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.14em] text-white/90">
+                    Explore
                   </span>
-                  <TrustBadges badges={item.badges} marketCountry={market.country} tone="overlay" />
-                  <p className="text-base font-semibold leading-tight" data-testid="mobile-featured-item-title">
-                    {item.title}
-                  </p>
-                  <p className="text-xs text-white/90">{item.subtitle}</p>
-                </div>
-                <span className="relative mt-4 inline-flex text-xs font-semibold uppercase tracking-[0.14em] text-white/90">
-                  Explore
-                </span>
-              </TrackViewedLink>
-            </div>
-          ))}
+                </TrackViewedLink>
+              </div>
+            );
+          })}
           <div className="w-5 shrink-0" aria-hidden="true" />
         </div>
       </div>

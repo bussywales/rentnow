@@ -107,6 +107,14 @@ export function PropertiesFeaturedRail() {
                   tag: item.tag,
                   marketCountry: market.country,
                 }}
+                featuredTap={{
+                  id: item.id,
+                  kind: "property",
+                  href: item.href,
+                  label: item.title,
+                  query: null,
+                  marketCountry: market.country,
+                }}
                 data-testid="properties-featured-item"
                 className={`relative inline-flex w-full flex-col justify-between overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-br p-3.5 text-white shadow-sm ${ACCENT_CLASSES[index % ACCENT_CLASSES.length]}`}
               >

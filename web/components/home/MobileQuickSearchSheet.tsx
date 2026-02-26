@@ -25,6 +25,11 @@ import {
 } from "@/lib/properties/browse-categories";
 import { clearRecentSearches, getRecentSearches, pushRecentSearch } from "@/lib/search/recents";
 import {
+  clearRecentFeaturedTaps,
+  getRecentFeaturedTaps,
+  mergeRecentSearchesWithFeaturedTaps,
+} from "@/lib/search/featured-taps";
+import {
   isDateKey,
   resolveDateQuickPickRange,
   type MobileQuickSearchDateQuickPick,
@@ -125,6 +130,12 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
   const [recentSearches, setRecentSearches] = useState<string[]>(() =>
     getRecentSearches(MOBILE_QUICKSEARCH_RECENTS_KEY, MOBILE_QUICKSEARCH_RECENTS_LIMIT)
   );
+  const [recentFeaturedTaps, setRecentFeaturedTaps] = useState(() =>
+    getRecentFeaturedTaps({
+      marketCountry,
+      limit: MOBILE_QUICKSEARCH_RECENTS_LIMIT,
+    })
+  );
   const locationInputRef = useRef<HTMLInputElement | null>(null);
   const presetOptions = useMemo(
     () =>
@@ -138,6 +149,15 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
   const activeIntent = resolveIntentFromCategory(category);
   const isShortletIntent = activeIntent === "shortlet";
   const dateSummary = formatDateRangeSummary(checkInDraft, checkOutDraft);
+  const mergedRecentItems = useMemo(
+    () =>
+      mergeRecentSearchesWithFeaturedTaps({
+        searchTerms: recentSearches,
+        featuredTaps: recentFeaturedTaps,
+        limit: MOBILE_QUICKSEARCH_RECENTS_LIMIT,
+      }),
+    [recentFeaturedTaps, recentSearches]
+  );
 
   const searchHref = useMemo(
     () =>
@@ -163,6 +183,13 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
 
   useEffect(() => {
     if (!open) return;
+    setRecentSearches(getRecentSearches(MOBILE_QUICKSEARCH_RECENTS_KEY, MOBILE_QUICKSEARCH_RECENTS_LIMIT));
+    setRecentFeaturedTaps(
+      getRecentFeaturedTaps({
+        marketCountry,
+        limit: MOBILE_QUICKSEARCH_RECENTS_LIMIT,
+      })
+    );
     const rafId = window.requestAnimationFrame(() => {
       window.requestAnimationFrame(() => {
         locationInputRef.current?.focus();
@@ -171,7 +198,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
     return () => {
       window.cancelAnimationFrame(rafId);
     };
-  }, [open]);
+  }, [marketCountry, open]);
 
   const handleSearch = () => {
     const nextRecents = pushRecentSearch(
@@ -411,7 +438,7 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
           />
         </div>
 
-        {recentSearches.length > 0 ? (
+        {mergedRecentItems.length > 0 ? (
           <div className="space-y-2" data-testid="mobile-quicksearch-recents">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Recent</p>
@@ -421,25 +448,41 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
                 className="text-xs font-semibold text-slate-600 hover:text-slate-900"
                 onClick={() => {
                   clearRecentSearches(MOBILE_QUICKSEARCH_RECENTS_KEY);
+                  clearRecentFeaturedTaps({ marketCountry });
                   setRecentSearches([]);
+                  setRecentFeaturedTaps([]);
                 }}
               >
                 Clear
               </button>
             </div>
             <div className="flex flex-wrap gap-2">
-              {recentSearches.map((recent) => (
+              {mergedRecentItems.map((recent) => (
                 <button
-                  key={recent}
+                  key={recent.id}
                   type="button"
                   data-testid="mobile-quicksearch-recent-item"
                   className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-700"
                   onClick={() => {
-                    setCity(recent);
-                    locationInputRef.current?.focus();
+                    if (recent.query) {
+                      setCity(recent.query);
+                      locationInputRef.current?.focus();
+                      return;
+                    }
+                    if (recent.href) {
+                      onOpenChange(false);
+                      router.push(recent.href);
+                    }
                   }}
                 >
-                  {recent}
+                  <span className="inline-flex items-center gap-1">
+                    {recent.source === "featured" ? (
+                      <span aria-hidden className="text-[10px] uppercase tracking-[0.12em] text-slate-500">
+                        pick
+                      </span>
+                    ) : null}
+                    {recent.label}
+                  </span>
                 </button>
               ))}
             </div>

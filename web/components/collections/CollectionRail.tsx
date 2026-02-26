@@ -48,6 +48,14 @@ export function CollectionRail({ cards, marketCountry }: CollectionRailProps) {
                 tag: card.tag,
                 marketCountry,
               }}
+              featuredTap={{
+                id: card.id,
+                kind: card.kind,
+                href: card.href,
+                label: card.title,
+                query: null,
+                marketCountry,
+              }}
               data-testid="collections-card"
               className="inline-flex w-full flex-col gap-2 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
             >
