@@ -15,6 +15,7 @@ export const smokeSelectors = {
   homeMobileQuickSearchUseLastSearch: "mobile-quicksearch-use-last-search",
   homeMobileQuickSearchSubmit: "mobile-quicksearch-search",
   homeMobileQuickSearchPresetRentLagos: "mobile-quicksearch-preset-rent-lagos",
+  homeMobileFeaturedRail: "mobile-home-featured-rail",
   homeMobileFeaturedStrip: "mobile-featured-strip",
   homeMobileFeaturedScroll: "mobile-featured-scroll",
   homeMobileFeaturedItem: "mobile-featured-item",
