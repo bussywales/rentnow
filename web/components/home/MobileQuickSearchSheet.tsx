@@ -216,15 +216,15 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
 
   useEffect(() => {
     if (!open) return;
-    setRecentSearches(getRecentSearches(MOBILE_QUICKSEARCH_RECENTS_KEY, MOBILE_QUICKSEARCH_RECENTS_LIMIT));
-    setRecentFeaturedTaps(
-      getRecentFeaturedTaps({
-        marketCountry,
-        limit: MOBILE_QUICKSEARCH_RECENTS_LIMIT,
-      })
-    );
-    setLastSearchHref(lastSearchHrefCandidate);
     const rafId = window.requestAnimationFrame(() => {
+      setRecentSearches(getRecentSearches(MOBILE_QUICKSEARCH_RECENTS_KEY, MOBILE_QUICKSEARCH_RECENTS_LIMIT));
+      setRecentFeaturedTaps(
+        getRecentFeaturedTaps({
+          marketCountry,
+          limit: MOBILE_QUICKSEARCH_RECENTS_LIMIT,
+        })
+      );
+      setLastSearchHref(lastSearchHrefCandidate);
       window.requestAnimationFrame(() => {
         locationInputRef.current?.focus();
       });
