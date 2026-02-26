@@ -93,4 +93,6 @@ void test("mobile quick search sheet source wires recents list, clear action, an
   assert.match(source, /getMarketSearchTerminology/);
   assert.match(source, /getLastSearchHref/);
   assert.match(source, /getLastBrowseUrl/);
+  assert.match(source, /shouldAutoFocusLocationInputOnOpen/);
+  assert.match(source, /matchMedia\("\(hover: hover\) and \(pointer: fine\)"\)/);
 });

@@ -103,6 +103,11 @@ function normalizeGuests(value: number): number {
   return Math.max(1, Math.min(12, Math.trunc(value)));
 }
 
+function shouldAutoFocusLocationInputOnOpen() {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return false;
+  return window.matchMedia("(hover: hover) and (pointer: fine)").matches;
+}
+
 type MobileQuickSearchSheetProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -225,9 +230,11 @@ export function MobileQuickSearchSheet({ open, onOpenChange, sheetId }: MobileQu
         })
       );
       setLastSearchHref(lastSearchHrefCandidate);
-      window.requestAnimationFrame(() => {
-        locationInputRef.current?.focus();
-      });
+      if (shouldAutoFocusLocationInputOnOpen()) {
+        window.requestAnimationFrame(() => {
+          locationInputRef.current?.focus();
+        });
+      }
     });
     return () => {
       window.cancelAnimationFrame(rafId);
