@@ -141,10 +141,6 @@ export default async function Home() {
     <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4">
       <MobileQuickStartBar />
       <section className="space-y-4 md:hidden" data-testid="mobile-home-inventory-first">
-        <MobileFeaturedDiscoveryStrip />
-        <MobileRecentlyViewedRail />
-        <MobileSavedRail />
-        <MobileRecommendedNextRail />
         {featured.length ? (
           <HomeListingRail
             title="Featured homes"
@@ -156,6 +152,10 @@ export default async function Home() {
             hrefLabel="See all"
           />
         ) : null}
+        <MobileFeaturedDiscoveryStrip />
+        <MobileRecommendedNextRail />
+        <MobileRecentlyViewedRail />
+        <MobileSavedRail />
         <div data-testid="mobile-home-smart-search-compact">
           <SmartSearchBox compact />
         </div>
