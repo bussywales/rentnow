@@ -4,13 +4,15 @@ import fs from "node:fs";
 import path from "node:path";
 import { MARKET_OPTIONS } from "@/lib/market/market";
 
-void test("market selector source uses in-app refresh instead of hard reload", () => {
+void test("market selector source updates context + cookie without hard reload", () => {
   const sourcePath = path.join(process.cwd(), "components", "layout", "MarketSelector.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /if \(!enabled\) return null/);
   assert.match(source, /dispatchMarketChanged/);
-  assert.match(source, /router\.refresh\(\)/);
+  assert.match(source, /setMarket\(/);
+  assert.match(source, /document\.cookie =/);
+  assert.doesNotMatch(source, /router\.refresh\(\)/);
   assert.doesNotMatch(source, /window\.location\.reload\(\)/);
 });
 

@@ -60,7 +60,7 @@ import { isShortletProperty } from "@/lib/shortlet/discovery";
 import { shouldPriorityImage } from "@/lib/images/loading-profile";
 type SearchParams = Record<string, string | string[] | undefined>;
 type Props = {
-  searchParams?: SearchParams | Promise<SearchParams>;
+  searchParams?: Promise<SearchParams>;
 };
 
 export const dynamic = "force-dynamic";
@@ -70,12 +70,7 @@ async function resolveSearchParams(
   params: Props["searchParams"]
 ): Promise<SearchParams> {
   if (!params) return {};
-  const maybePromise = params as Promise<SearchParams>;
-  const isPromise = typeof (maybePromise as { then?: unknown }).then === "function";
-  if (isPromise) {
-    return maybePromise;
-  }
-  return params as SearchParams;
+  return params;
 }
 
 function parsePage(params: SearchParams): number {

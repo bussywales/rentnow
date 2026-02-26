@@ -10,13 +10,16 @@ export type TrustCue = {
 };
 
 const NEW_LISTING_DAYS = 7;
+const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 export function isNewListing(createdAt?: string | null, now: Date = new Date()): boolean {
   if (!createdAt) return false;
   const createdTime = Date.parse(createdAt);
   if (Number.isNaN(createdTime)) return false;
-  const diffMs = now.getTime() - createdTime;
-  return diffMs >= 0 && diffMs <= NEW_LISTING_DAYS * 24 * 60 * 60 * 1000;
+  const nowDay = Math.floor(now.getTime() / DAY_IN_MS);
+  const createdDay = Math.floor(createdTime / DAY_IN_MS);
+  const diffDays = nowDay - createdDay;
+  return diffDays >= 0 && diffDays <= NEW_LISTING_DAYS;
 }
 
 export function buildTrustCues({

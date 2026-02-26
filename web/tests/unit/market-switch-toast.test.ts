@@ -71,6 +71,8 @@ void test("market selector source dispatches market-change event and avoids hard
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /dispatchMarketChanged/);
-  assert.match(source, /router\.refresh\(\)/);
+  assert.match(source, /setMarket\(/);
+  assert.match(source, /document\.cookie =/);
+  assert.doesNotMatch(source, /router\.refresh\(\)/);
   assert.doesNotMatch(source, /window\.location\.reload\(\)/);
 });

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import {
@@ -20,11 +20,16 @@ export function BrowseIntentClient({ persistFilters, showContinueBanner }: Props
   const searchParams = useSearchParams();
   const queryString = searchParams.toString();
   const [dismissedNow, setDismissedNow] = useState(false);
-  const isClient = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  );
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setIsMounted(true);
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
 
   useEffect(() => {
     if (!persistFilters) return;
@@ -34,9 +39,9 @@ export function BrowseIntentClient({ persistFilters, showContinueBanner }: Props
     });
   }, [persistFilters, queryString]);
 
-  const intent = isClient && showContinueBanner ? getRecentBrowseIntent(14) : null;
+  const intent = isMounted && showContinueBanner ? getRecentBrowseIntent(14) : null;
   const continueHref = intent?.lastSearchParams ? `/properties${intent.lastSearchParams}` : null;
-  const dismissed = dismissedNow || (!isClient ? true : isBrowseContinueDismissed());
+  const dismissed = dismissedNow || (!isMounted ? true : isBrowseContinueDismissed());
 
   if (!showContinueBanner || !continueHref || dismissed) return null;
 

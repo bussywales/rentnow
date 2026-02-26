@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import {
   MARKETPLACE_DISCLAIMER_STORAGE_KEY,
   MARKETPLACE_DISCLAIMER_VERSION,
@@ -50,4 +52,15 @@ void test("dismissing stores current version and marks banner dismissed", () => 
     ),
     false
   );
+});
+
+void test("legal disclaimer banner hydrates from persisted dismissal without sync external store", () => {
+  const sourcePath = path.join(process.cwd(), "components", "legal", "LegalDisclaimerBanner.tsx");
+  const source = fs.readFileSync(sourcePath, "utf8");
+
+  assert.doesNotMatch(source, /useSyncExternalStore\(/);
+  assert.match(source, /setPersistedDismissed/);
+  assert.match(source, /isMarketplaceDisclaimerDismissed\(window\.localStorage\)/);
+  assert.match(source, /window\.addEventListener\("storage", refresh\)/);
+  assert.match(source, /window\.addEventListener\(MARKETPLACE_DISCLAIMER_EVENT, refresh\)/);
 });

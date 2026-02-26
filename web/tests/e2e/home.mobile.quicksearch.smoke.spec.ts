@@ -5,12 +5,9 @@ const KNOWN_BENIGN_CONSOLE_PATTERNS: RegExp[] = [
   /Download the React DevTools/i,
   /Failed to load resource: the server responded with a status of 401 \(Unauthorized\)/i,
 ];
-const KNOWN_BENIGN_PAGEERROR_PATTERNS: RegExp[] = [
-  /Minified React error #418/i,
-];
 const GO_LIVE_BASE_URL = process.env.PLAYWRIGHT_BASE_URL || "http://localhost:3000";
 
-function attachRuntimeErrorGuards(page: Page) {
+function attachRuntimeErrorGuards(page: Page, getStep: () => string) {
   const runtimeErrors: string[] = [];
 
   page.on("console", (message) => {
@@ -19,15 +16,13 @@ function attachRuntimeErrorGuards(page: Page) {
       return;
     }
     if (message.type() === "error" || /Unhandled|TypeError|ReferenceError/i.test(text)) {
-      runtimeErrors.push(`[console:${message.type()}] ${text}`);
+      runtimeErrors.push(`[console:${message.type()}][step:${getStep()}] ${text}`);
     }
   });
 
   page.on("pageerror", (error) => {
-    if (KNOWN_BENIGN_PAGEERROR_PATTERNS.some((pattern) => pattern.test(error.message))) {
-      return;
-    }
-    runtimeErrors.push(`[pageerror] ${error.message}`);
+    const stack = error.stack ? `\n${error.stack}` : "";
+    runtimeErrors.push(`[pageerror:${page.url()}][step:${getStep()}] ${error.message}${stack}`);
   });
 
   return runtimeErrors;
@@ -41,7 +36,11 @@ test.use({
 
 test.describe("home mobile quick search smoke", () => {
   test("category and preset flows route to correct destinations", async ({ page }) => {
-    const runtimeErrors = attachRuntimeErrorGuards(page);
+    let step = "init";
+    const markStep = (next: string) => {
+      step = next;
+    };
+    const runtimeErrors = attachRuntimeErrorGuards(page, () => step);
     await page.context().addCookies([
       {
         name: "ph_market",
@@ -57,23 +56,28 @@ test.describe("home mobile quick search smoke", () => {
     };
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
+    markStep("first-home-loaded");
     await dismissDisclaimerIfPresent();
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickStart)).toBeVisible();
     const featuredStrip = page.getByTestId(smokeSelectors.homeMobileFeaturedStrip);
     await expect(featuredStrip).toBeVisible();
+    markStep("click-first-featured");
     await featuredStrip.getByTestId(smokeSelectors.homeMobileFeaturedItem).first().click({ force: true });
     await page.waitForURL(/\/(shortlets|properties)(\?|$)/, { timeout: 20_000 });
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
+    markStep("open-quicksearch-round-1");
     await dismissDisclaimerIfPresent();
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickStart)).toBeVisible();
     await page.getByTestId(smokeSelectors.homeMobileQuickSearchTrigger).click();
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchSheet)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchRecents)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchRecentItem).first()).toBeVisible();
+    markStep("close-quicksearch-escape");
     await page.keyboard.press("Escape");
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchSheet)).toBeHidden();
 
+    markStep("open-quicksearch-round-2-shortlet");
     await page.getByTestId(smokeSelectors.homeMobileQuickSearchTrigger).click();
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchSheet)).toBeVisible();
     await page.getByTestId(smokeSelectors.homeMobileQuickSearchIntentShortlet).click();
@@ -84,6 +88,7 @@ test.describe("home mobile quick search smoke", () => {
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchGuestsValue)).toHaveText("3");
     const locationInput = page.getByTestId(smokeSelectors.homeMobileQuickSearchLocation);
     await locationInput.fill("Lekki");
+    markStep("submit-shortlet-search-enter");
     await locationInput.press("Enter");
 
     await page.waitForURL(/\/shortlets(\?|$)/, { timeout: 20_000 });
@@ -95,6 +100,7 @@ test.describe("home mobile quick search smoke", () => {
     expect(shortletsUrl.searchParams.has("checkOut")).toBe(true);
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
+    markStep("open-quicksearch-round-3-rent");
     await dismissDisclaimerIfPresent();
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickStart)).toBeVisible();
     await page.getByTestId(smokeSelectors.homeMobileQuickSearchTrigger).click();
@@ -110,6 +116,7 @@ test.describe("home mobile quick search smoke", () => {
     }
     const rentLocationInput = page.getByTestId(smokeSelectors.homeMobileQuickSearchLocation);
     await rentLocationInput.focus();
+    markStep("submit-rent-search-enter");
     await rentLocationInput.press("Enter");
 
     await page.waitForURL(/\/properties(\?|$)/, { timeout: 20_000 });
@@ -128,20 +135,25 @@ test.describe("home mobile quick search smoke", () => {
     expect(finalUrl.searchParams.get("intent")).toBe("rent");
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
+    markStep("open-quicksearch-last-search");
     await dismissDisclaimerIfPresent();
     await page.getByTestId(smokeSelectors.homeMobileQuickSearchTrigger).click();
     const useLastSearch = page.getByTestId(smokeSelectors.homeMobileQuickSearchUseLastSearch);
     if (await useLastSearch.isVisible().catch(() => false)) {
+      await dismissDisclaimerIfPresent();
+      markStep("click-use-last-search");
       await useLastSearch.click();
       await page.waitForURL(/\/(shortlets|properties)(\?|$)/, { timeout: 20_000 });
     }
 
     await page.goto("/", { waitUntil: "domcontentloaded" });
+    markStep("open-recommended-next");
     await dismissDisclaimerIfPresent();
     const recommendedRail = page.getByTestId(smokeSelectors.homeRecommendedNextRail);
     await expect(recommendedRail).toBeVisible();
     await expect(recommendedRail.getByTestId(smokeSelectors.homeRecommendedNextItem).first()).toBeVisible();
     await expect(recommendedRail.getByTestId(smokeSelectors.homeRecommendedNextReason).first()).toBeVisible();
+    markStep("click-recommended-next-item");
     await recommendedRail.getByTestId(smokeSelectors.homeRecommendedNextItem).first().click({ force: true });
     await page.waitForURL(/\/(shortlets|properties)(\?|$)/, { timeout: 20_000 });
 

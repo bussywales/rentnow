@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { clearLastBrowseIntent, getRecentBrowseIntent } from "@/lib/market/browse-intent";
 
@@ -12,13 +12,18 @@ type Props = {
 
 export function HomeBrowseCtaClient({ fallbackHref, fallbackLabel }: Props) {
   const [cleared, setCleared] = useState(false);
-  const isClient = useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  );
+  const [isMounted, setIsMounted] = useState(false);
 
-  const intent = !cleared && isClient ? getRecentBrowseIntent(14) : null;
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => {
+      setIsMounted(true);
+    });
+    return () => {
+      window.cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  const intent = !cleared && isMounted ? getRecentBrowseIntent(14) : null;
   const continueHref = intent?.lastSearchParams ? `/properties${intent.lastSearchParams}` : null;
 
   return (

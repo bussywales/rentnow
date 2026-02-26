@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import {
@@ -25,23 +25,28 @@ function shouldHide(pathname: string | null) {
   return HIDDEN_PREFIXES.some((prefix) => pathname.startsWith(prefix));
 }
 
+const MARKETPLACE_DISCLAIMER_EVENT = "ph:marketplace-disclaimer";
+
 export function LegalDisclaimerBanner() {
   const pathname = usePathname();
-  const [dismissedThisSession, setDismissedThisSession] = useState(false);
-  const persistedDismissed = useSyncExternalStore(
-    () => () => undefined,
-    () => {
-      if (typeof window === "undefined") return null;
-      return isMarketplaceDisclaimerDismissed(window.localStorage);
-    },
-    () => null
-  );
+  const [persistedDismissed, setPersistedDismissed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const refresh = () => setPersistedDismissed(isMarketplaceDisclaimerDismissed(window.localStorage));
+    refresh();
+    window.addEventListener("storage", refresh);
+    window.addEventListener(MARKETPLACE_DISCLAIMER_EVENT, refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener(MARKETPLACE_DISCLAIMER_EVENT, refresh);
+    };
+  }, []);
 
   if (
     shouldHide(pathname) ||
     persistedDismissed === null ||
-    persistedDismissed ||
-    dismissedThisSession
+    persistedDismissed
   ) {
     return null;
   }
@@ -49,8 +54,9 @@ export function LegalDisclaimerBanner() {
   const handleDismiss = () => {
     if (typeof window !== "undefined") {
       dismissMarketplaceDisclaimer(window.localStorage);
+      window.dispatchEvent(new Event(MARKETPLACE_DISCLAIMER_EVENT));
     }
-    setDismissedThisSession(true);
+    setPersistedDismissed(true);
   };
 
   return (

@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo } from "react";
-import { useRouter } from "next/navigation";
 import {
   MARKET_COOKIE_NAME,
   MARKET_OPTIONS,
@@ -19,7 +18,6 @@ type Props = {
 
 export function MarketSelector({ enabled, compact = false }: Props) {
   const { market, setMarket } = useMarketPreference();
-  const router = useRouter();
 
   const currentLabel = useMemo(() => formatMarketLabel(market), [market]);
   const marketContextHint = "Market affects currency display, not where you can search.";
@@ -54,7 +52,6 @@ export function MarketSelector({ enabled, compact = false }: Props) {
             currency: match.currency,
             label: match.label,
           });
-          router.refresh();
         }}
       >
         {MARKET_OPTIONS.map((option) => {
