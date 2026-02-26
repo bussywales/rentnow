@@ -1,7 +1,6 @@
 import {
   DISCOVERY_CATALOGUE,
   DISCOVERY_MARKETS,
-  DISCOVERY_SURFACES,
   validateDiscoveryCatalogue,
   type DiscoveryMarket,
   type DiscoverySurface,
