@@ -308,15 +308,22 @@ function normalizeSearchItemImageFields(item: SearchItem): SearchItem {
   };
 }
 
-export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = null }: Props) {
+export function ShortletsSearchShell({
+  initialSearchParams,
+  initialViewerRole = null,
+}: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const [hasHydratedSearchParams, setHasHydratedSearchParams] = useState(false);
   const initialParams = useMemo(
     () => createSearchParamsFromInitial(initialSearchParams),
     [initialSearchParams]
   );
-  const effectiveSearchParams = searchParams ?? initialParams;
+  const effectiveSearchParams = useMemo(() => {
+    if (!hasHydratedSearchParams || !searchParams) return initialParams;
+    return new URLSearchParams(searchParams.toString());
+  }, [hasHydratedSearchParams, initialParams, searchParams]);
   const searchParamsKey = effectiveSearchParams.toString();
   const stableSearchParams = useMemo(() => new URLSearchParams(searchParamsKey), [searchParamsKey]);
   const parsedUi = useMemo(
@@ -438,6 +445,10 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
   const mapMoveDebounceRef = useRef<number | null>(null);
   const mobileListScrollYRef = useRef(0);
   const [mobileMapInvalidateNonce, setMobileMapInvalidateNonce] = useState(0);
+
+  useEffect(() => {
+    setHasHydratedSearchParams(true);
+  }, []);
 
   useEffect(() => {
     setQueryDraft(parsedUi.where);
@@ -1577,7 +1588,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
     >
       <div
         aria-hidden={mobileMapOpen}
-        {...(mobileMapOpen ? ({ inert: "" } as Record<string, string>) : {})}
+        inert={mobileMapOpen ? true : undefined}
         data-testid="shortlets-shell-background"
       >
       <ShortletsMobileStickyBar
@@ -1609,7 +1620,7 @@ export function ShortletsSearchShell({ initialSearchParams, initialViewerRole = 
           data-testid="shortlets-expanded-search-controls"
           aria-hidden={!showExpandedSearch}
           data-active={showExpandedSearch ? "true" : "false"}
-          {...(!showExpandedSearch ? ({ inert: "" } as Record<string, string>) : {})}
+          inert={!showExpandedSearch ? true : undefined}
         >
           <div className="grid gap-2 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1.15fr)_minmax(0,0.75fr)_auto_auto_minmax(0,0.85fr)]">
           <WhereTypeahead

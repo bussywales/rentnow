@@ -1,7 +1,7 @@
-import { ShortletsSearchShell } from "@/components/shortlets/search/ShortletsSearchShell";
 import { getUserRole } from "@/lib/authz";
 import { normalizeRole } from "@/lib/roles";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { ShortletsSearchShellNoSsr } from "@/components/shortlets/search/ShortletsSearchShellNoSsr";
 
 type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -38,7 +38,7 @@ export default async function ShortletsPage({ searchParams }: Props) {
   }
 
   return (
-    <ShortletsSearchShell
+    <ShortletsSearchShellNoSsr
       initialSearchParams={resolvedSearchParams}
       initialViewerRole={initialViewerRole}
     />

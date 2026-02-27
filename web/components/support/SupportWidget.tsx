@@ -34,7 +34,8 @@ export function SupportWidget({
   prefillRole = null,
 }: Props) {
   const pathname = usePathname();
-  const isShortletsRoute = pathname?.startsWith("/shortlets") ?? false;
+  const [hasMounted, setHasMounted] = useState(false);
+  const isShortletsRoute = hasMounted && (pathname?.startsWith("/shortlets") ?? false);
   const [open, setOpen] = useState(false);
   const [hasBlockingDialog, setHasBlockingDialog] = useState(false);
   const [query, setQuery] = useState("");
@@ -57,6 +58,10 @@ export function SupportWidget({
 
   const close = useCallback(() => {
     setOpen(false);
+  }, []);
+
+  useEffect(() => {
+    setHasMounted(true);
   }, []);
 
   useEffect(() => {
