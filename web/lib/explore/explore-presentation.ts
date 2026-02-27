@@ -24,6 +24,11 @@ export function resolveExplorePrimaryAction(property: Property): {
   };
 }
 
+export function resolveExploreViewingRequestTemplate(property: Property): string {
+  const listingLabel = (property.title ?? "this listing").trim() || "this listing";
+  return `Hi, I'd like to request a viewing for ${listingLabel}. I'm available [days/times]. Please let me know the next steps.`;
+}
+
 export function resolveExploreCtaMicrocopy(property: Property): string {
   return isShortletProperty(property)
     ? "Secure checkout. Confirm your stay in minutes."
