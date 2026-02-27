@@ -36,6 +36,7 @@ export function SupportWidget({
   const pathname = usePathname();
   const [hasMounted, setHasMounted] = useState(false);
   const isShortletsRoute = hasMounted && (pathname?.startsWith("/shortlets") ?? false);
+  const isExploreRoute = pathname?.startsWith("/explore") ?? false;
   const [open, setOpen] = useState(false);
   const [hasBlockingDialog, setHasBlockingDialog] = useState(false);
   const [query, setQuery] = useState("");
@@ -126,6 +127,11 @@ export function SupportWidget({
     if (!open || !hasBlockingDialog) return;
     setOpen(false);
   }, [open, hasBlockingDialog]);
+
+  useEffect(() => {
+    if (!isExploreRoute) return;
+    setOpen(false);
+  }, [isExploreRoute]);
 
   useEffect(() => {
     if (!open) return;
@@ -301,7 +307,7 @@ export function SupportWidget({
 
   return (
     <div
-      className={`fixed z-[35] ${widgetPositionClass} ${hasBlockingDialog ? "hidden" : ""}`}
+      className={`fixed z-[35] ${widgetPositionClass} ${hasBlockingDialog || isExploreRoute ? "hidden" : ""}`}
       data-testid="support-widget"
     >
       {open ? (
