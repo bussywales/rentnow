@@ -98,7 +98,7 @@ void test("shortlets shell exposes compact sticky pill summary controls", () => 
   assert.ok(contents.includes("<ShortletsMobileStickyBar"));
   assert.ok(contents.includes("resolveShortletSearchControlVisibility"));
   assert.ok(contents.includes('data-active={showExpandedSearch ? "true" : "false"}'));
-  assert.ok(contents.includes('{ inert: "" } as Record<string, string>'));
+  assert.ok(contents.includes("inert={!showExpandedSearch ? true : undefined}"));
   assert.ok(contents.includes("showCompactSearch"));
   assert.ok(contents.includes("showExpandedSearch"));
   assert.ok(contents.includes('data-testid="shortlets-expanded-search-controls"'));
@@ -269,7 +269,7 @@ void test("mobile map overlay renders full-screen structure with explicit height
   assert.ok(contents.includes('role="dialog"'));
   assert.ok(contents.includes('aria-modal="true"'));
   assert.ok(contents.includes('data-testid="shortlets-shell-background"'));
-  assert.ok(contents.includes('{ inert: "" } as Record<string, string>'));
+  assert.ok(contents.includes("inert={mobileMapOpen ? true : undefined}"));
   assert.ok(contents.includes('data-testid="shortlets-open-map"'));
   assert.ok(contents.includes('aria-haspopup="dialog"'));
   assert.ok(contents.includes('aria-controls="shortlets-mobile-map-modal"'));

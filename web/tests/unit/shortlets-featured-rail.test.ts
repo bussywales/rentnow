@@ -129,5 +129,26 @@ void test("shortlets search shell mounts featured rail above results blocks", ()
 
   assert.match(source, /<ShortletsFeaturedRail \/>/);
   assert.match(source, /data-testid="shortlets-results-label"/);
-  assert.ok(source.indexOf("<ShortletsFeaturedRail />") < source.indexOf('data-testid="shortlets-results-label"'));
+  assert.ok(
+    source.indexOf("<ShortletsFeaturedRail />") <
+      source.indexOf('data-testid="shortlets-results-label"')
+  );
+});
+
+void test("shortlets page mounts the no-SSR shell wrapper to avoid hydration drift", () => {
+  const pageSourcePath = path.join(process.cwd(), "app", "shortlets", "page.tsx");
+  const pageSource = fs.readFileSync(pageSourcePath, "utf8");
+  assert.match(pageSource, /ShortletsSearchShellNoSsr/);
+  assert.match(pageSource, /<ShortletsSearchShellNoSsr/);
+
+  const wrapperSourcePath = path.join(
+    process.cwd(),
+    "components",
+    "shortlets",
+    "search",
+    "ShortletsSearchShellNoSsr.tsx"
+  );
+  const wrapperSource = fs.readFileSync(wrapperSourcePath, "utf8");
+  assert.match(wrapperSource, /const ShortletsSearchShellClient = dynamic/);
+  assert.match(wrapperSource, /\{\s*ssr:\s*false\s*\}/);
 });
