@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { SaveToggle } from "@/components/saved/SaveToggle";
 import { TrustBadges } from "@/components/ui/TrustBadges";
@@ -10,6 +10,7 @@ import { formatLocationLabel } from "@/lib/property-discovery";
 import type { Property } from "@/lib/types";
 import { ExploreGallery } from "@/components/explore/ExploreGallery";
 import { ExploreDetailsSheet } from "@/components/explore/ExploreDetailsSheet";
+import { hasSeenExploreDetailsHint, markExploreDetailsHintSeen } from "@/lib/explore/explore-prefs";
 import {
   resolveExploreDetailsHref,
   resolveExploreIntentTag,
@@ -21,18 +22,46 @@ type ExploreSlideProps = {
   property: Property;
   index: number;
   onGestureLockChange?: (locked: boolean) => void;
+  onNotInterested?: (listingId: string) => void;
+  similarHomes?: Property[];
+  onSelectSimilarHome?: (listingId: string) => boolean;
 };
 
-export function ExploreSlide({ property, index, onGestureLockChange }: ExploreSlideProps) {
+export function ExploreSlide({
+  property,
+  index,
+  onGestureLockChange,
+  onNotInterested,
+  similarHomes = [],
+  onSelectSimilarHome,
+}: ExploreSlideProps) {
   const { market } = useMarketPreference();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<"copied" | "error" | null>(null);
+  const [showDetailsHint, setShowDetailsHint] = useState(false);
 
   const kind = resolveExploreListingKind(property);
   const detailsHref = resolveExploreDetailsHref(property);
   const location = formatLocationLabel(property.city, property.neighbourhood);
   const intentTag = resolveExploreIntentTag(property);
   const badges = resolveExploreTrustBadges(property);
+
+  useEffect(() => {
+    const rafId = window.requestAnimationFrame(() => {
+      setShowDetailsHint(!hasSeenExploreDetailsHint());
+    });
+    return () => {
+      window.cancelAnimationFrame(rafId);
+    };
+  }, []);
+
+  const dismissDetailsHint = useCallback(() => {
+    setShowDetailsHint((current) => {
+      if (!current) return current;
+      markExploreDetailsHintSeen();
+      return false;
+    });
+  }, []);
 
   const share = async () => {
     const absoluteUrl =
@@ -57,11 +86,16 @@ export function ExploreSlide({ property, index, onGestureLockChange }: ExploreSl
     <article
       className="relative h-[100svh] w-full snap-start snap-always overflow-hidden bg-slate-950 text-white"
       data-testid="explore-slide"
+      onPointerDownCapture={dismissDetailsHint}
     >
       <ExploreGallery
         property={property}
         prioritizeFirstImage={index === 0}
         onGestureLockChange={onGestureLockChange}
+        onLongPress={() => {
+          dismissDetailsHint();
+          onNotInterested?.(property.id);
+        }}
       />
       <div
         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/20 to-transparent"
@@ -120,7 +154,10 @@ export function ExploreSlide({ property, index, onGestureLockChange }: ExploreSl
         </button>
         <button
           type="button"
-          onClick={() => setDetailsOpen(true)}
+          onClick={() => {
+            dismissDetailsHint();
+            setDetailsOpen(true);
+          }}
           className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-slate-900/40 text-base font-semibold text-white shadow-sm backdrop-blur transition active:scale-95 hover:bg-slate-900/55"
           aria-label="Open listing details"
           data-testid="explore-open-details"
@@ -139,7 +176,26 @@ export function ExploreSlide({ property, index, onGestureLockChange }: ExploreSl
         </p>
       ) : null}
 
-      <ExploreDetailsSheet open={detailsOpen} onOpenChange={setDetailsOpen} property={property} />
+      {showDetailsHint ? (
+        <p
+          className="pointer-events-none absolute left-1/2 top-[44%] z-20 -translate-x-1/2 rounded-full border border-white/30 bg-slate-900/55 px-3 py-1 text-xs font-semibold uppercase tracking-[0.12em] text-white/95 backdrop-blur"
+          data-testid="explore-details-hint"
+          aria-live="polite"
+        >
+          Tap for details
+        </p>
+      ) : null}
+
+      <ExploreDetailsSheet
+        open={detailsOpen}
+        onOpenChange={(nextOpen) => {
+          setDetailsOpen(nextOpen);
+          if (nextOpen) dismissDetailsHint();
+        }}
+        property={property}
+        similarHomes={similarHomes}
+        onSelectSimilarHome={onSelectSimilarHome}
+      />
     </article>
   );
 }
