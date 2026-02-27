@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { getPushCapabilitySnapshot } from "@/lib/pwa/push-capabilities";
 
 type PushStatusResponse = {
   ok?: boolean;
@@ -17,6 +19,9 @@ type PushStatusResponse = {
 type PushStatusState = {
   loading: boolean;
   supported: boolean;
+  requiresIosInstall: boolean;
+  isIos: boolean;
+  isStandalone: boolean;
   configured: boolean;
   active: boolean;
   publicKey: string | null;
@@ -28,6 +33,9 @@ type PushStatusState = {
 const defaultState: PushStatusState = {
   loading: true,
   supported: true,
+  requiresIosInstall: false,
+  isIos: false,
+  isStandalone: false,
   configured: false,
   active: false,
   publicKey: null,
@@ -53,11 +61,7 @@ export function PushStatusBadge() {
 
   useEffect(() => {
     let cancelled = false;
-    const supportsPush =
-      typeof window !== "undefined" &&
-      "serviceWorker" in navigator &&
-      "PushManager" in window &&
-      "Notification" in window;
+    const capability = getPushCapabilitySnapshot();
 
     const loadStatus = async () => {
       try {
@@ -66,24 +70,30 @@ export function PushStatusBadge() {
         if (cancelled) return;
         setState({
           loading: false,
-          supported: supportsPush,
+          supported: capability.supported,
+          requiresIosInstall: capability.requiresIosInstall,
+          isIos: capability.isIos,
+          isStandalone: capability.isStandalone,
           configured: data?.configured === true,
           active: data?.active === true,
           publicKey: data?.vapidPublicKey ?? null,
           error: res.ok ? null : data?.message || data?.error || "Push unavailable",
-          permission: supportsPush ? Notification.permission : "default",
+          permission: capability.supported ? Notification.permission : "default",
           subscriptionCount: data?.subscriptionCount ?? 0,
         });
       } catch {
         if (cancelled) return;
         setState({
           loading: false,
-          supported: supportsPush,
+          supported: capability.supported,
+          requiresIosInstall: capability.requiresIosInstall,
+          isIos: capability.isIos,
+          isStandalone: capability.isStandalone,
           configured: false,
           active: false,
           publicKey: null,
           error: "Unable to load push status",
-          permission: supportsPush ? Notification.permission : "default",
+          permission: capability.supported ? Notification.permission : "default",
           subscriptionCount: 0,
         });
       }
@@ -97,6 +107,13 @@ export function PushStatusBadge() {
 
   const enablePush = async () => {
     if (!state.supported || !state.configured || !state.publicKey) return;
+    if (state.requiresIosInstall) {
+      setState((prev) => ({
+        ...prev,
+        error: "Install this app to Home Screen on iPhone/iPad to enable notifications.",
+      }));
+      return;
+    }
     if (Notification.permission === "denied") {
       setState((prev) => ({
         ...prev,
@@ -188,6 +205,7 @@ export function PushStatusBadge() {
   const showEnable =
     !state.loading &&
     state.supported &&
+    !state.requiresIosInstall &&
     state.configured &&
     !state.active &&
     state.permission !== "denied";
@@ -223,6 +241,27 @@ export function PushStatusBadge() {
       {showReenableHint && (
         <span className="text-xs text-slate-500">
           Notifications are ready; finish setup to re-enable them.
+        </span>
+      )}
+      {!state.loading && state.requiresIosInstall && (
+        <span className="text-xs text-slate-500">
+          Install to Home Screen on iPhone/iPad before enabling notifications.{" "}
+          <Link href="/help/tenant/alerts-and-notifications" className="font-semibold text-slate-700 underline underline-offset-2">
+            Learn how
+          </Link>
+        </span>
+      )}
+      {!state.loading && !state.supported && (
+        <span className="text-xs text-slate-500">
+          This browser does not support push notifications.{" "}
+          <Link href="/help/tenant/alerts-and-notifications" className="font-semibold text-slate-700 underline underline-offset-2">
+            See supported setups
+          </Link>
+        </span>
+      )}
+      {!state.loading && state.supported && state.isIos && state.isStandalone && (
+        <span className="text-xs text-slate-500">
+          Installed iPhone/iPad mode detected.
         </span>
       )}
       {state.error && (

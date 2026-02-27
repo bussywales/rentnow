@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import type { TenantPushDiagnostics } from "@/lib/tenant/push-diagnostics";
+import { getPushCapabilitySnapshot } from "@/lib/pwa/push-capabilities";
 
 type PushStatusResponse = {
   ok?: boolean;
@@ -24,6 +26,9 @@ type DiagnosticsResponse = {
 type PushStatusState = {
   loading: boolean;
   supported: boolean;
+  requiresIosInstall: boolean;
+  isIos: boolean;
+  isStandalone: boolean;
   configured: boolean;
   publicKey: string | null;
   active: boolean;
@@ -37,6 +42,9 @@ type PushStatusState = {
 const defaultStatus: PushStatusState = {
   loading: true,
   supported: true,
+  requiresIosInstall: false,
+  isIos: false,
+  isStandalone: false,
   configured: false,
   publicKey: null,
   active: false,
@@ -82,19 +90,17 @@ export function TenantPushDiagnosticsPanel() {
 
   useEffect(() => {
     let cancelled = false;
-
-    const supportsPush =
-      typeof window !== "undefined" &&
-      "serviceWorker" in navigator &&
-      "PushManager" in window &&
-      "Notification" in window;
+    const capability = getPushCapabilitySnapshot();
 
     const loadDeviceState = async () => {
-      if (!supportsPush) {
+      if (!capability.supported) {
         if (cancelled) return;
         setStatus((prev) => ({
           ...prev,
           supported: false,
+          requiresIosInstall: capability.requiresIosInstall,
+          isIos: capability.isIos,
+          isStandalone: capability.isStandalone,
           permission: "default",
           serviceWorkerAvailable: false,
           deviceSubscription: null,
@@ -122,6 +128,9 @@ export function TenantPushDiagnosticsPanel() {
       setStatus((prev) => ({
         ...prev,
         supported: true,
+        requiresIosInstall: capability.requiresIosInstall,
+        isIos: capability.isIos,
+        isStandalone: capability.isStandalone,
         permission: Notification.permission,
         serviceWorkerAvailable,
         deviceSubscription,
@@ -138,6 +147,10 @@ export function TenantPushDiagnosticsPanel() {
         setStatus((prev) => ({
           ...prev,
           loading: false,
+          supported: capability.supported,
+          requiresIosInstall: capability.requiresIosInstall,
+          isIos: capability.isIos,
+          isStandalone: capability.isStandalone,
           configured: payload?.configured === true,
           publicKey: payload?.vapidPublicKey ?? null,
           active: payload?.active === true,
@@ -151,6 +164,10 @@ export function TenantPushDiagnosticsPanel() {
         setStatus((prev) => ({
           ...prev,
           loading: false,
+          supported: capability.supported,
+          requiresIosInstall: capability.requiresIosInstall,
+          isIos: capability.isIos,
+          isStandalone: capability.isStandalone,
           configured: false,
           publicKey: null,
           active: false,
@@ -249,6 +266,12 @@ export function TenantPushDiagnosticsPanel() {
   const handleEnableNotifications = async () => {
     setStatusMessage(null);
     if (!status.supported) return;
+    if (status.requiresIosInstall) {
+      setStatusMessage(
+        "Install this app to Home Screen on iPhone/iPad before enabling notifications."
+      );
+      return;
+    }
     if (Notification.permission === "denied") {
       setStatus((prev) => ({ ...prev, permission: Notification.permission }));
       setStatusMessage("Notifications are blocked in this browser.");
@@ -270,6 +293,12 @@ export function TenantPushDiagnosticsPanel() {
   const handleCreateSubscription = async (forceNew: boolean) => {
     setStatusMessage(null);
     if (!status.supported || !status.configured || !status.publicKey) return;
+    if (status.requiresIosInstall) {
+      setStatusMessage(
+        "Install this app to Home Screen on iPhone/iPad before finishing setup."
+      );
+      return;
+    }
     if (status.permission === "denied") {
       setStatusMessage("Notifications are blocked in this browser.");
       return;
@@ -345,6 +374,9 @@ export function TenantPushDiagnosticsPanel() {
     : "Default";
 
   const permissionGuidance = useMemo(() => {
+    if (status.requiresIosInstall) {
+      return "Install to Home Screen on iPhone/iPad first, then enable notifications.";
+    }
     if (!status.supported) {
       return "Push notifications are not supported on this browser.";
     }
@@ -367,6 +399,9 @@ export function TenantPushDiagnosticsPanel() {
   }, [status]);
 
   const ctaState = useMemo(() => {
+    if (status.requiresIosInstall) {
+      return { type: "install", label: "Install to Home Screen" };
+    }
     if (!status.supported) {
       return { type: "unsupported", label: "Not supported" };
     }
@@ -420,6 +455,12 @@ export function TenantPushDiagnosticsPanel() {
               </span>
             </li>
             <li className="flex items-center justify-between gap-2">
+              <span className="text-slate-600">Installed app mode</span>
+              <span className="font-semibold">
+                {status.isIos ? (status.isStandalone ? "Yes" : "No") : "N/A"}
+              </span>
+            </li>
+            <li className="flex items-center justify-between gap-2">
               <span className="text-slate-600">Notification permission</span>
               <span className="font-semibold">{permissionLabel}</span>
             </li>
@@ -457,6 +498,17 @@ export function TenantPushDiagnosticsPanel() {
                 {ctaState.label}
               </span>
             )}
+            {ctaState.type === "install" && (
+              <span className="text-xs font-semibold text-slate-600">
+                <Link
+                  href="/help/tenant/alerts-and-notifications"
+                  className="underline underline-offset-2"
+                >
+                  Install to Home Screen
+                </Link>{" "}
+                to enable notifications on iPhone/iPad.
+              </span>
+            )}
             {(ctaState.type === "active" || ctaState.type === "create") && (
               <Button
                 size="sm"
@@ -480,7 +532,13 @@ export function TenantPushDiagnosticsPanel() {
             )}
             {ctaState.type === "unsupported" && (
               <span className="text-xs font-semibold text-slate-600">
-                {ctaState.label}
+                {ctaState.label}.{" "}
+                <Link
+                  href="/help/tenant/alerts-and-notifications"
+                  className="underline underline-offset-2"
+                >
+                  See supported setups
+                </Link>
               </span>
             )}
           </div>
