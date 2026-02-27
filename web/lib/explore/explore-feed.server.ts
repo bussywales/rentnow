@@ -1,0 +1,66 @@
+import { DEV_MOCKS } from "@/lib/env";
+import { mockProperties } from "@/lib/mock";
+import { searchProperties } from "@/lib/search";
+import { parseFiltersFromSearchParams } from "@/lib/search-filters";
+import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import type { Property } from "@/lib/types";
+
+type ExploreFeedInput = {
+  featured: Property[];
+  browse: Property[];
+  limit?: number;
+};
+
+type ExploreFeedOptions = {
+  limit?: number;
+};
+
+function clampLimit(limit: number | undefined): number {
+  if (!Number.isFinite(limit)) return 20;
+  return Math.max(1, Math.min(40, Math.trunc(limit as number)));
+}
+
+export function buildExploreFeed({ featured, browse, limit }: ExploreFeedInput): Property[] {
+  const resolvedLimit = clampLimit(limit);
+  const byId = new Map<string, Property>();
+
+  [...featured, ...browse].forEach((property) => {
+    if (!property?.id || byId.has(property.id)) return;
+    byId.set(property.id, property);
+  });
+
+  return Array.from(byId.values()).slice(0, resolvedLimit);
+}
+
+export async function getExploreFeed(options: ExploreFeedOptions = {}): Promise<Property[]> {
+  const limit = clampLimit(options.limit);
+  const fallback = buildExploreFeed({
+    featured: mockProperties,
+    browse: mockProperties,
+    limit,
+  });
+
+  if (!hasServerSupabaseEnv()) {
+    return DEV_MOCKS ? fallback : [];
+  }
+
+  const baseFilters = parseFiltersFromSearchParams(new URLSearchParams());
+  const [featuredResult, browseResult] = await Promise.all([
+    searchProperties(baseFilters, { page: 1, pageSize: Math.max(8, limit), featuredOnly: true }),
+    searchProperties(baseFilters, { page: 1, pageSize: Math.max(20, limit * 2) }),
+  ]);
+
+  if (featuredResult.error) {
+    console.warn("[explore] featured feed request failed", featuredResult.error.message);
+  }
+  if (browseResult.error) {
+    console.warn("[explore] browse feed request failed", browseResult.error.message);
+  }
+
+  const featured = featuredResult.error ? [] : ((featuredResult.data as Property[]) ?? []);
+  const browse = browseResult.error ? [] : ((browseResult.data as Property[]) ?? []);
+  const feed = buildExploreFeed({ featured, browse, limit });
+  if (feed.length) return feed;
+
+  return DEV_MOCKS ? fallback : [];
+}
