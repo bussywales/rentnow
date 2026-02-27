@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { PwaInstallCta } from "@/components/pwa/PwaInstallCta";
 import { Button } from "@/components/ui/Button";
 import {
   getTenantNotificationSettings,
@@ -8,6 +9,10 @@ import {
   updateTenantNotificationSettings,
   type TenantNotificationSettingsPayload,
 } from "@/lib/notifications/settings";
+import {
+  getPwaInstallIntentFlag,
+  setPwaInstallIntentFlag,
+} from "@/lib/pwa/install";
 
 const TIMEZONE_OPTIONS = [
   { value: "Europe/London", label: "Europe/London (UK)" },
@@ -92,6 +97,10 @@ export function NotificationSettingsCard() {
   const [quietHoursEnabled, setQuietHoursEnabled] = useState(false);
   const [quietHoursInteracted, setQuietHoursInteracted] = useState(false);
   const [attemptedSave, setAttemptedSave] = useState(false);
+  const [installIntentTriggered, setInstallIntentTriggered] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return getPwaInstallIntentFlag(window.localStorage);
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -197,6 +206,8 @@ export function NotificationSettingsCard() {
     setQuietHoursInteracted(false);
     setAttemptedSave(false);
     setSuccess("Notification settings saved.");
+    setInstallIntentTriggered(true);
+    setPwaInstallIntentFlag(true);
   };
 
   return (
@@ -354,6 +365,7 @@ export function NotificationSettingsCard() {
       <p className="mt-2 text-[11px] text-slate-500">
         Daily digest sends at most one push per day when new matches appear.
       </p>
+      <PwaInstallCta intentTriggered={installIntentTriggered} className="mt-3" />
     </section>
   );
 }
