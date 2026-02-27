@@ -79,6 +79,7 @@ function parsePushReason(error: string | null | undefined) {
 
 export function buildTenantPushDeliveryAttempt(input: {
   outcome: PushDeliveryOutcome;
+  userId: string;
   propertyId: string;
   subscriptionCount: number;
 }): PushDeliveryInsert {
@@ -100,7 +101,7 @@ export function buildTenantPushDeliveryAttempt(input: {
   }
 
   return {
-    actorUserId: null,
+    actorUserId: input.userId,
     kind: "tenant_saved_search",
     status,
     reasonCode: reason,
@@ -109,6 +110,7 @@ export function buildTenantPushDeliveryAttempt(input: {
     skippedCount: status === "skipped" ? 1 : 0,
     blockedCount: status === "blocked" ? 1 : 0,
     meta: {
+      tenantId: input.userId,
       propertyId: input.propertyId,
       subscriptionCount: input.subscriptionCount,
     },

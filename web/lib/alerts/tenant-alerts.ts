@@ -24,6 +24,12 @@ import {
   type PushSubscriptionRow,
 } from "@/lib/push/server";
 import type { Property, SavedSearch } from "@/lib/types";
+import {
+  evaluateSavedSearchPushPolicy,
+  normalizeTenantNotificationPrefs,
+  type TenantNotificationPrefs,
+  type TenantNotificationPrefsRow,
+} from "@/lib/notifications/settings";
 
 type AlertDispatchResult = {
   ok: boolean;
@@ -318,6 +324,58 @@ export async function dispatchSavedSearchAlerts(
     });
   }
 
+  const countryCodeByUser = new Map<string, string | null>();
+  if (userIds.length) {
+    const { data: profileRows } = await adminDb
+      .from("profiles")
+      .select("id, country_code")
+      .in("id", userIds);
+    if (Array.isArray(profileRows)) {
+      profileRows.forEach((row) => {
+        const typed = row as { id: string; country_code?: string | null };
+        countryCodeByUser.set(
+          typed.id,
+          typeof typed.country_code === "string" ? typed.country_code.toUpperCase() : null
+        );
+      });
+    }
+  }
+
+  const notificationPrefsByUser = new Map<string, TenantNotificationPrefs>();
+  if (userIds.length) {
+    const { data: notificationPrefRows } = await adminDb
+      .from("tenant_notification_prefs")
+      .select(
+        "profile_id,saved_search_push_enabled,saved_search_push_mode,quiet_hours_start,quiet_hours_end,timezone,last_saved_search_push_at,created_at,updated_at"
+      )
+      .in("profile_id", userIds);
+    if (Array.isArray(notificationPrefRows)) {
+      notificationPrefRows.forEach((row) => {
+        const typed = row as TenantNotificationPrefsRow;
+        notificationPrefsByUser.set(
+          typed.profile_id,
+          normalizeTenantNotificationPrefs({
+            profileId: typed.profile_id,
+            countryCode: countryCodeByUser.get(typed.profile_id) ?? null,
+            row: typed,
+          })
+        );
+      });
+    }
+  }
+
+  const getTenantNotificationPrefs = (userId: string) => {
+    const existing = notificationPrefsByUser.get(userId);
+    if (existing) return existing;
+    const fallback = normalizeTenantNotificationPrefs({
+      profileId: userId,
+      countryCode: countryCodeByUser.get(userId) ?? null,
+      row: null,
+    });
+    notificationPrefsByUser.set(userId, fallback);
+    return fallback;
+  };
+
   const emailMap = new Map<string, string>();
   if (emailGuard.ok) {
     const { data: userList } = await adminClient.auth.admin.listUsers({ perPage: 2000 });
@@ -358,6 +416,7 @@ export async function dispatchSavedSearchAlerts(
 
   for (const search of matchedSearches) {
     matched += 1;
+    const tenantNotificationPrefs = getTenantNotificationPrefs(search.user_id);
 
     const planRow = planMap.get(search.user_id);
     const expired = isPlanExpired(planRow?.valid_until ?? null);
@@ -435,6 +494,20 @@ export async function dispatchSavedSearchAlerts(
           failedCount: 0,
         };
       } else {
+        const pushPolicy = evaluateSavedSearchPushPolicy({
+          prefs: tenantNotificationPrefs,
+          now: new Date(),
+        });
+        if (!pushPolicy.allow) {
+          pushOutcome = {
+            attempted: false,
+            status: "skipped",
+            error: formatPushUnavailable(pushPolicy.reason),
+            attemptedCount: 0,
+            deliveredCount: 0,
+            failedCount: 0,
+          };
+        } else {
         const subscriptions = pushSubscriptions.get(search.user_id) ?? [];
         const deduped = dedupedTenants.has(search.user_id);
         const shouldAttempt = shouldAttemptSavedSearchPush({
@@ -487,6 +560,7 @@ export async function dispatchSavedSearchAlerts(
             });
           }
         }
+        }
       }
     }
 
@@ -524,6 +598,7 @@ export async function dispatchSavedSearchAlerts(
       adminDb,
       buildTenantPushDeliveryAttempt({
         outcome: pushOutcome,
+        userId: search.user_id,
         propertyId: property.id,
         subscriptionCount: (pushSubscriptions.get(search.user_id) ?? []).length,
       })
@@ -546,6 +621,24 @@ export async function dispatchSavedSearchAlerts(
         .from("saved_searches")
         .update({ last_notified_at: new Date().toISOString() })
         .eq("id", search.id);
+    }
+
+    if (pushOutcome.status === "sent") {
+      const pushedAt = new Date().toISOString();
+      tenantNotificationPrefs.lastSavedSearchPushAt = pushedAt;
+      await adminDb.from("tenant_notification_prefs").upsert(
+        {
+          profile_id: search.user_id,
+          saved_search_push_enabled: tenantNotificationPrefs.savedSearchPushEnabled,
+          saved_search_push_mode: tenantNotificationPrefs.savedSearchPushMode,
+          quiet_hours_start: tenantNotificationPrefs.quietHoursStart,
+          quiet_hours_end: tenantNotificationPrefs.quietHoursEnd,
+          timezone: tenantNotificationPrefs.timezone,
+          last_saved_search_push_at: pushedAt,
+          updated_at: pushedAt,
+        },
+        { onConflict: "profile_id" }
+      );
     }
   }
 
