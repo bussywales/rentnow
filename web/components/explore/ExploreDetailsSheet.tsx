@@ -107,7 +107,7 @@ export function ExploreDetailsSheet({
     setRequestMessage(resolveExploreViewingRequestTemplate(property));
     setRequestError(null);
     setRequestSuccess(null);
-  }, [property.id, property.title]);
+  }, [property]);
 
   const handleNextStepPrimaryAction = async () => {
     onPrimaryActionTap?.(primaryAction.label);
