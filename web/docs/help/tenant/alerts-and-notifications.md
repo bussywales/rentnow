@@ -2,13 +2,14 @@
 title: "Tenant alerts and notifications"
 description: "How saved-search alerts work, when emails send, and how to avoid noisy inboxes."
 order: 30
-updated_at: "2026-02-13"
+updated_at: "2026-02-27"
 ---
 
 ## Alert channels in v1
 
 - In-app saved-search modules on `/tenant/home`.
 - Email digests for active saved searches when enabled by ops.
+- Push alerts for saved-search matches (requires browser notification permission).
 - Role-safe links back to exact matches.
 
 ## Frequency behaviour
@@ -16,6 +17,25 @@ updated_at: "2026-02-13"
 - Instant: near-real-time, rate-limited.
 - Daily: summary of new matches since last send.
 - Weekly: wider digest for slower-moving searches.
+- Push (saved-search): `Instant` or `Daily digest`.
+
+## Push settings (saved searches)
+
+- Open `/tenant/saved-searches` and use **Notification settings**.
+- Controls available:
+  - Enable/disable saved-search push alerts.
+  - Frequency: `Instant` or `Daily digest`.
+  - Quiet hours (local timezone) to suppress sends overnight.
+- Defaults for new tenants:
+  - Alerts enabled
+  - Instant mode
+  - Quiet hours off
+
+### Quiet hours and daily mode
+
+- Quiet hours suppress push sends during your selected window.
+- Daily mode sends at most one saved-search push per local day when new matches exist.
+- If no new matches are found, no push is sent.
 
 ## How to keep alerts useful
 
