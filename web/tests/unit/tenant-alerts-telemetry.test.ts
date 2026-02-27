@@ -15,4 +15,12 @@ void test("tenant alerts dispatch writes push telemetry and dedupe", () => {
     contents.includes("saved_search_push_dedup"),
     "expected tenant alerts to use saved search push dedupe"
   );
+  assert.ok(
+    contents.includes("tenant_notification_prefs"),
+    "expected tenant alerts to consult tenant notification preferences"
+  );
+  assert.ok(
+    contents.includes("evaluateSavedSearchPushPolicy"),
+    "expected tenant alerts to respect notification policy before push send"
+  );
 });

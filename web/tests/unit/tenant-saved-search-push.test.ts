@@ -95,6 +95,7 @@ void test("buildTenantPushDeliveryAttempt maps blocked outcomes", () => {
       deliveredCount: 0,
       failedCount: 0,
     },
+    userId: "tenant-1",
     propertyId: baseProperty.id,
     subscriptionCount: 0,
   });
@@ -112,6 +113,7 @@ void test("buildTenantPushDeliveryAttempt maps delivered outcomes", () => {
       deliveredCount: 2,
       failedCount: 0,
     },
+    userId: "tenant-1",
     propertyId: baseProperty.id,
     subscriptionCount: 2,
   });

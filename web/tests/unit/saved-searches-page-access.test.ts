@@ -15,4 +15,12 @@ void test("saved searches page is available to all roles copy-wise", () => {
     contents.includes("Saved searches"),
     "expected saved searches heading to remain"
   );
+  assert.ok(
+    contents.includes("NotificationSettingsCard"),
+    "expected tenant notification settings card to be mounted in saved searches page"
+  );
+  assert.ok(
+    contents.includes('userRole === "tenant"'),
+    "expected notification settings card to be tenant-only"
+  );
 });
