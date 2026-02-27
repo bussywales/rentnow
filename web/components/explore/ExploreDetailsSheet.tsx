@@ -29,6 +29,7 @@ type ExploreDetailsSheetProps = {
   property: Property;
   similarHomes?: Property[];
   onSelectSimilarHome?: (listingId: string) => boolean;
+  onPrimaryActionTap?: (actionLabel: "Book" | "Request viewing") => void;
 };
 
 const EXPLORE_FALLBACK_IMAGE = EXPLORE_GALLERY_FALLBACK_IMAGE;
@@ -76,6 +77,7 @@ export function ExploreDetailsSheet({
   property,
   similarHomes = [],
   onSelectSimilarHome,
+  onPrimaryActionTap,
 }: ExploreDetailsSheetProps) {
   const router = useRouter();
   const { market } = useMarketPreference();
@@ -108,6 +110,7 @@ export function ExploreDetailsSheet({
   }, [property.id, property.title]);
 
   const handleNextStepPrimaryAction = async () => {
+    onPrimaryActionTap?.(primaryAction.label);
     if (primaryAction.label === "Book") {
       setNextStepsOpen(false);
       router.push(primaryAction.href);

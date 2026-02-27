@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { resolvePropertyImageSources } from "@/components/properties/PropertyImageCarousel";
 import type { Property } from "@/lib/types";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
@@ -15,6 +16,7 @@ import {
 } from "@/lib/explore/explore-prefs";
 import { resolveSimilarHomes } from "@/lib/explore/similar-homes";
 import { EXPLORE_GALLERY_FALLBACK_IMAGE } from "@/lib/explore/gallery-images";
+import { recordExploreAnalyticsEvent } from "@/lib/explore/explore-analytics";
 
 type ExplorePagerProps = {
   listings: Property[];
@@ -53,9 +55,12 @@ export function shouldPreloadExploreSlideImages(saveData: boolean | undefined): 
 }
 
 export function ExplorePager({ listings }: ExplorePagerProps) {
+  const { market } = useMarketPreference();
   const pagerRef = useRef<HTMLDivElement | null>(null);
   const preloadedImagesRef = useRef<Set<string>>(new Set());
   const undoTimeoutRef = useRef<number | null>(null);
+  const previousSwipeIndexRef = useRef<number | null>(null);
+  const trackedExploreViewRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [verticalScrollLocked, setVerticalScrollLocked] = useState(false);
   const [hiddenListingIds, setHiddenListingIds] = useState<string[]>([]);
@@ -79,6 +84,16 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
   }, [visibleListings]);
 
   useEffect(() => {
+    if (trackedExploreViewRef.current) return;
+    trackedExploreViewRef.current = true;
+    recordExploreAnalyticsEvent({
+      name: "explore_view",
+      marketCountry: market.country,
+      depth: visibleListings.length,
+    });
+  }, [market.country, visibleListings.length]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const syncHiddenListingIds = () => {
       setHiddenListingIds(getHiddenExploreListingIds());
@@ -86,6 +101,25 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
     syncHiddenListingIds();
     return subscribeExplorePrefs(syncHiddenListingIds);
   }, []);
+
+  useEffect(() => {
+    if (!visibleListings.length) return;
+    const previousIndex = previousSwipeIndexRef.current;
+    if (previousIndex === null) {
+      previousSwipeIndexRef.current = displayedIndex;
+      return;
+    }
+    if (previousIndex === displayedIndex) return;
+    recordExploreAnalyticsEvent({
+      name: "explore_swipe",
+      marketCountry: market.country,
+      listingId: visibleListings[displayedIndex]?.id ?? null,
+      depth: displayedIndex + 1,
+      fromIndex: previousIndex,
+      toIndex: displayedIndex,
+    });
+    previousSwipeIndexRef.current = displayedIndex;
+  }, [displayedIndex, market.country, visibleListings]);
 
   useEffect(() => {
     return () => {
@@ -137,6 +171,13 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
   }, [displayedIndex, heroImageUrls, visibleListings.length]);
 
   const handleNotInterested = useCallback((listingId: string) => {
+    const hiddenIndex = visibleListings.findIndex((listing) => listing.id === listingId);
+    recordExploreAnalyticsEvent({
+      name: "explore_not_interested",
+      listingId,
+      marketCountry: market.country,
+      depth: hiddenIndex >= 0 ? hiddenIndex + 1 : undefined,
+    });
     const nextHidden = hideExploreListingId(listingId);
     setHiddenListingIds(nextHidden);
     setUndoHiddenListingId(listingId);
@@ -147,7 +188,7 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       setUndoHiddenListingId(null);
       undoTimeoutRef.current = null;
     }, 5000);
-  }, []);
+  }, [market.country, visibleListings]);
 
   const handleUndoHidden = useCallback(() => {
     if (!undoHiddenListingId) return;
@@ -258,6 +299,41 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
             onNotInterested={handleNotInterested}
             similarHomes={similarHomesByListingId.get(property.id) ?? []}
             onSelectSimilarHome={handleSelectSimilarHome}
+            onOpenDetails={({ listingId, index }) => {
+              recordExploreAnalyticsEvent({
+                name: "explore_open_details",
+                listingId,
+                marketCountry: market.country,
+                depth: index + 1,
+              });
+            }}
+            onPrimaryActionTap={({ listingId, index, action }) => {
+              recordExploreAnalyticsEvent({
+                name: "explore_tap_cta",
+                listingId,
+                marketCountry: market.country,
+                depth: index + 1,
+                action,
+              });
+            }}
+            onSaveToggle={({ listingId, index, saved }) => {
+              recordExploreAnalyticsEvent({
+                name: "explore_save_toggle",
+                listingId,
+                marketCountry: market.country,
+                depth: index + 1,
+                action: saved ? "save" : "unsave",
+              });
+            }}
+            onShareAction={({ listingId, index, result }) => {
+              recordExploreAnalyticsEvent({
+                name: "explore_share",
+                listingId,
+                marketCountry: market.country,
+                depth: index + 1,
+                result,
+              });
+            }}
           />
         ))}
       </div>

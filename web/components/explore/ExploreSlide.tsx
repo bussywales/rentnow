@@ -26,6 +26,10 @@ type ExploreSlideProps = {
   onNotInterested?: (listingId: string) => void;
   similarHomes?: Property[];
   onSelectSimilarHome?: (listingId: string) => boolean;
+  onOpenDetails?: (input: { listingId: string; index: number }) => void;
+  onPrimaryActionTap?: (input: { listingId: string; index: number; action: "Book" | "Request viewing" }) => void;
+  onSaveToggle?: (input: { listingId: string; index: number; saved: boolean }) => void;
+  onShareAction?: (input: { listingId: string; index: number; result: "shared" | "copied" | "dismissed" | "error" }) => void;
 };
 
 export function ExploreSlide({
@@ -35,6 +39,10 @@ export function ExploreSlide({
   onNotInterested,
   similarHomes = [],
   onSelectSimilarHome,
+  onOpenDetails,
+  onPrimaryActionTap,
+  onSaveToggle,
+  onShareAction,
 }: ExploreSlideProps) {
   const { market } = useMarketPreference();
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -74,13 +82,16 @@ export function ExploreSlide({
       url: absoluteUrl,
     });
     if (result === "shared" || result === "copied") {
+      onShareAction?.({ listingId: property.id, index, result });
       setShareFeedback("copied");
       return;
     }
     if (result === "dismissed") {
+      onShareAction?.({ listingId: property.id, index, result });
       setShareFeedback(null);
       return;
     }
+    onShareAction?.({ listingId: property.id, index, result: "error" });
     setShareFeedback("error");
   };
 
@@ -141,6 +152,9 @@ export function ExploreSlide({
           tag={intentTag}
           marketCountry={market.country}
           testId={`explore-save-toggle-${property.id}`}
+          onToggle={(saved) => {
+            onSaveToggle?.({ listingId: property.id, index, saved });
+          }}
           className="h-9 w-9 border-white/25 bg-slate-900/40 text-white ring-0 shadow-sm backdrop-blur transition active:scale-95 hover:bg-slate-900/55"
         />
         <button
@@ -158,6 +172,7 @@ export function ExploreSlide({
           type="button"
           onClick={() => {
             dismissDetailsHint();
+            onOpenDetails?.({ listingId: property.id, index });
             setDetailsOpen(true);
           }}
           className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-slate-900/40 text-base font-semibold text-white shadow-sm backdrop-blur transition active:scale-95 hover:bg-slate-900/55"
@@ -197,6 +212,13 @@ export function ExploreSlide({
         property={property}
         similarHomes={similarHomes}
         onSelectSimilarHome={onSelectSimilarHome}
+        onPrimaryActionTap={(action) => {
+          onPrimaryActionTap?.({
+            listingId: property.id,
+            index,
+            action,
+          });
+        }}
       />
     </article>
   );

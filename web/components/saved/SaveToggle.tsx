@@ -15,6 +15,7 @@ type SaveToggleProps = {
   marketCountry?: string | null;
   className?: string;
   testId?: string;
+  onToggle?: (saved: boolean) => void;
 };
 
 function normalizeMarketCountry(value: string | null | undefined, fallback: string): string {
@@ -50,6 +51,7 @@ export function SaveToggle({
   marketCountry,
   className,
   testId = "save-toggle",
+  onToggle,
 }: SaveToggleProps) {
   const { market } = useMarketPreference();
   const resolvedMarket = useMemo(
@@ -78,6 +80,7 @@ export function SaveToggle({
       marketCountry: resolvedMarket,
     });
     setSaved(next.saved);
+    onToggle?.(next.saved);
   };
 
   return (

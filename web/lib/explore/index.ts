@@ -21,3 +21,13 @@ export {
   unhideExploreListingId,
 } from "@/lib/explore/explore-prefs";
 export { resolveSimilarHomes } from "@/lib/explore/similar-homes";
+export {
+  clearExploreAnalyticsEvents,
+  EXPLORE_ANALYTICS_MAX_EVENTS,
+  EXPLORE_ANALYTICS_STORAGE_KEY,
+  getExploreAnalyticsEvents,
+  parseExploreAnalyticsPayload,
+  recordExploreAnalyticsEvent,
+  type ExploreAnalyticsEvent,
+  type ExploreAnalyticsEventName,
+} from "@/lib/explore/explore-analytics";
