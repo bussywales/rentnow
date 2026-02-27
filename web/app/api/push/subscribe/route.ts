@@ -4,6 +4,7 @@ import { requireUser } from "@/lib/authz";
 import { logFailure } from "@/lib/observability";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getPushConfig } from "@/lib/push/server";
+import { checkPushRateLimit } from "@/lib/push/rate-limit";
 
 const routeLabel = "/api/push/subscribe";
 
@@ -19,6 +20,7 @@ type SubscribeDeps = {
   hasServerSupabaseEnv?: typeof hasServerSupabaseEnv;
   requireUser?: typeof requireUser;
   getPushConfig?: typeof getPushConfig;
+  checkPushRateLimit?: typeof checkPushRateLimit;
   logFailure?: typeof logFailure;
 };
 
@@ -27,6 +29,7 @@ export async function postPushSubscribeResponse(request: Request, deps: Subscrib
   const requireUserFn = deps.requireUser ?? requireUser;
   const hasEnv = deps.hasServerSupabaseEnv ?? hasServerSupabaseEnv;
   const getConfig = deps.getPushConfig ?? getPushConfig;
+  const checkRateLimit = deps.checkPushRateLimit ?? checkPushRateLimit;
   const logFailureFn = deps.logFailure ?? logFailure;
 
   if (!hasEnv()) {
@@ -57,6 +60,27 @@ export async function postPushSubscribeResponse(request: Request, deps: Subscrib
 
   const auth = await requireUserFn({ request, route: routeLabel, startTime });
   if (!auth.ok) return auth.response;
+
+  const rateLimit = checkRateLimit({
+    routeKey: "subscribe",
+    userId: auth.user.id,
+  });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "push_rate_limited",
+        message: "Too many subscribe requests. Please try again shortly.",
+        retryAfterSeconds: rateLimit.retryAfterSeconds,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+        },
+      }
+    );
+  }
 
   const body = await request.json().catch(() => null);
   const parsed = subscribeSchema.safeParse(body);

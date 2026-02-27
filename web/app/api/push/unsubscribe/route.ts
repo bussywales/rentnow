@@ -3,6 +3,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/authz";
 import { logFailure } from "@/lib/observability";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
+import { checkPushRateLimit } from "@/lib/push/rate-limit";
 
 const routeLabel = "/api/push/unsubscribe";
 
@@ -13,12 +14,14 @@ const unsubscribeSchema = z.object({
 type UnsubscribeDeps = {
   hasServerSupabaseEnv?: typeof hasServerSupabaseEnv;
   requireUser?: typeof requireUser;
+  checkPushRateLimit?: typeof checkPushRateLimit;
   logFailure?: typeof logFailure;
 };
 
 export async function postPushUnsubscribeResponse(request: Request, deps: UnsubscribeDeps = {}) {
   const startTime = Date.now();
   const requireUserFn = deps.requireUser ?? requireUser;
+  const checkRateLimit = deps.checkPushRateLimit ?? checkPushRateLimit;
   const hasEnv = deps.hasServerSupabaseEnv ?? hasServerSupabaseEnv;
   const logFailureFn = deps.logFailure ?? logFailure;
 
@@ -38,6 +41,27 @@ export async function postPushUnsubscribeResponse(request: Request, deps: Unsubs
 
   const auth = await requireUserFn({ request, route: routeLabel, startTime });
   if (!auth.ok) return auth.response;
+
+  const rateLimit = checkRateLimit({
+    routeKey: "unsubscribe",
+    userId: auth.user.id,
+  });
+  if (!rateLimit.allowed) {
+    return NextResponse.json(
+      {
+        ok: false,
+        code: "push_rate_limited",
+        message: "Too many unsubscribe requests. Please try again shortly.",
+        retryAfterSeconds: rateLimit.retryAfterSeconds,
+      },
+      {
+        status: 429,
+        headers: {
+          "Retry-After": String(rateLimit.retryAfterSeconds),
+        },
+      }
+    );
+  }
 
   const body = await request.json().catch(() => null);
   const parsed = unsubscribeSchema.safeParse(body);
