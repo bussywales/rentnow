@@ -2,6 +2,7 @@
 title: "Offline mode now shows useful local picks by route"
 audiences:
   - TENANT
+  - HOST
 areas:
   - Tenant
   - PWA
