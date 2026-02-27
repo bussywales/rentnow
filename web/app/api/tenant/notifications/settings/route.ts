@@ -163,6 +163,12 @@ export async function putTenantNotificationSettingsResponse(
     quietHoursStart: parsed.data.quietHoursStart ?? null,
     quietHoursEnd: parsed.data.quietHoursEnd ?? null,
   });
+  if (quiet.quietHoursStart && quiet.quietHoursEnd && quiet.quietHoursStart === quiet.quietHoursEnd) {
+    return NextResponse.json(
+      { ok: false, error: "Quiet hours start and end must be different." },
+      { status: 400 }
+    );
+  }
 
   const payload = {
     profile_id: auth.user.id,

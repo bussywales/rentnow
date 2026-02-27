@@ -24,6 +24,21 @@ const DEFAULT_SETTINGS: TenantNotificationSettingsPayload = {
   timezone: "Europe/London",
 };
 
+export function validateQuietHoursForSave(input: {
+  quietHoursEnabled: boolean;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+}) {
+  if (!input.quietHoursEnabled) return null;
+  if (!input.quietHoursStart || !input.quietHoursEnd) {
+    return "Choose a start and end time. Overnight ranges (e.g., 22:00–07:00) are supported.";
+  }
+  if (input.quietHoursStart === input.quietHoursEnd) {
+    return "Start and end times must be different.";
+  }
+  return null;
+}
+
 export function NotificationSettingsCard() {
   const [settings, setSettings] = useState<TenantNotificationSettingsPayload>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -83,20 +98,23 @@ export function NotificationSettingsCard() {
   const handleSave = async () => {
     setError(null);
     setSuccess(null);
-    setSaving(true);
 
     const payload: TenantNotificationSettingsPayload = {
       ...effectiveSettings,
       timezone: normalizeNotificationTimezone(effectiveSettings.timezone),
     };
 
-    if (quietHoursEnabled) {
-      if (!payload.quietHoursStart || !payload.quietHoursEnd) {
-        setSaving(false);
-        setError("Set both quiet-hours times or turn quiet hours off.");
-        return;
-      }
+    const quietHoursError = validateQuietHoursForSave({
+      quietHoursEnabled,
+      quietHoursStart: payload.quietHoursStart,
+      quietHoursEnd: payload.quietHoursEnd,
+    });
+    if (quietHoursError) {
+      setError(quietHoursError);
+      return;
     }
+
+    setSaving(true);
 
     const result = await updateTenantNotificationSettings(payload);
 
