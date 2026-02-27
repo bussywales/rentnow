@@ -45,3 +45,12 @@ void test("detail gallery thumbnail rail includes premium fade edges", () => {
   assert.ok(contents.includes("property-gallery-thumbnail-fade-left"));
   assert.ok(contents.includes("property-gallery-thumbnail-fade-right"));
 });
+
+void test("detail gallery normalizes thumbnail/image sources and uses local fallback", () => {
+  const contents = fs.readFileSync(propertyGalleryPath, "utf8");
+
+  assert.ok(contents.includes('const fallbackImage = "/og-propatyhub.png"'));
+  assert.ok(contents.includes('resolvePropertyImageUrl(img, "thumb")'));
+  assert.ok(contents.includes('resolvePropertyImageUrl(img, "hero")'));
+  assert.ok(contents.includes('unoptimized={shouldBypassNextImageOptimizer(thumbnailSrc)}'));
+});

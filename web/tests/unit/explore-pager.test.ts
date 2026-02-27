@@ -44,9 +44,14 @@ void test("explore gallery source supports axis locking for horizontal gestures"
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /resolveExploreGestureAxis/);
+  assert.match(source, /normalizeExploreGalleryImageUrl/);
+  assert.match(source, /resolveExploreGalleryDisplaySource/);
   assert.match(source, /onGestureLockChange\?\.\(horizontalLockActive\)/);
   assert.match(source, /data-testid="explore-gallery-gesture-layer"/);
+  assert.match(source, /data-testid="explore-gallery-image-unavailable"/);
+  assert.match(source, /renderWindowRadius=\{1\}/);
   assert.match(source, /touchAction: horizontalLockActive \? "pan-x" : undefined/);
+  assert.match(source, /\[explore-gallery\]\[image-error\]/);
   assert.match(source, /onLongPress\?\.\(\)/);
   assert.match(source, /setTimeout\(\(\) =>/);
 });

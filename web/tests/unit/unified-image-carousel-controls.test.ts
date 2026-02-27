@@ -105,8 +105,11 @@ void test("unified image carousel consumes the shared interaction policy module"
   const contents = fs.readFileSync(unifiedCarouselPath, "utf8");
   assert.ok(contents.includes('from "@/lib/ui/carousel-interactions"'));
   assert.ok(contents.includes('from "@/lib/images/loading-profile"'));
+  assert.ok(contents.includes('from "@/lib/images/optimizer-bypass"'));
   assert.ok(contents.includes("shouldTreatWheelAsHorizontal(event)"));
   assert.ok(contents.includes("accumulateWheelDelta"));
   assert.ok(contents.includes("resolveWheelDirectionFromAccumulatedDelta"));
   assert.ok(contents.includes("resolveImageLoadingProfile"));
+  assert.ok(contents.includes("unoptimized={bypassOptimizer}"));
+  assert.ok(contents.includes("loader={bypassOptimizer ? directImageLoader : undefined}"));
 });
