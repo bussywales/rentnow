@@ -24,16 +24,34 @@ const DEFAULT_SETTINGS: TenantNotificationSettingsPayload = {
   timezone: "Europe/London",
 };
 
+const DEFAULT_QUIET_HOURS_START = "22:00";
+const DEFAULT_QUIET_HOURS_END = "07:00";
+const QUIET_TIME_INPUT_REGEX = /^(\d{1,2})\s*:\s*([0-5]\d)$/;
+
+export function normalizeQuietTimeForSave(value: string | null | undefined) {
+  if (!value) return null;
+  const trimmed = value.trim();
+  const match = trimmed.match(QUIET_TIME_INPUT_REGEX);
+  if (!match) return null;
+
+  const hour = Number(match[1]);
+  if (!Number.isInteger(hour) || hour < 0 || hour > 23) return null;
+
+  return `${String(hour).padStart(2, "0")}:${match[2]}`;
+}
+
 export function validateQuietHoursForSave(input: {
   quietHoursEnabled: boolean;
   quietHoursStart: string | null;
   quietHoursEnd: string | null;
 }) {
   if (!input.quietHoursEnabled) return null;
-  if (!input.quietHoursStart || !input.quietHoursEnd) {
+  const start = normalizeQuietTimeForSave(input.quietHoursStart);
+  const end = normalizeQuietTimeForSave(input.quietHoursEnd);
+  if (!start || !end) {
     return "Choose a start and end time. Overnight ranges (e.g., 22:00–07:00) are supported.";
   }
-  if (input.quietHoursStart === input.quietHoursEnd) {
+  if (start === end) {
     return "Start and end times must be different.";
   }
   return null;
@@ -101,6 +119,12 @@ export function NotificationSettingsCard() {
 
     const payload: TenantNotificationSettingsPayload = {
       ...effectiveSettings,
+      quietHoursStart: quietHoursEnabled
+        ? normalizeQuietTimeForSave(effectiveSettings.quietHoursStart)
+        : null,
+      quietHoursEnd: quietHoursEnabled
+        ? normalizeQuietTimeForSave(effectiveSettings.quietHoursEnd)
+        : null,
       timezone: normalizeNotificationTimezone(effectiveSettings.timezone),
     };
 
@@ -185,13 +209,23 @@ export function NotificationSettingsCard() {
               setQuietHoursEnabled(nextEnabled);
               setError(null);
               setSuccess(null);
-              if (!nextEnabled) {
-                setSettings((prev) => ({
-                  ...prev,
-                  quietHoursStart: null,
-                  quietHoursEnd: null,
-                }));
-              }
+              setSettings((prev) =>
+                nextEnabled
+                  ? {
+                      ...prev,
+                      quietHoursStart:
+                        normalizeQuietTimeForSave(prev.quietHoursStart) ??
+                        DEFAULT_QUIET_HOURS_START,
+                      quietHoursEnd:
+                        normalizeQuietTimeForSave(prev.quietHoursEnd) ??
+                        DEFAULT_QUIET_HOURS_END,
+                    }
+                  : {
+                      ...prev,
+                      quietHoursStart: null,
+                      quietHoursEnd: null,
+                    }
+              );
             }}
             aria-label="Toggle quiet hours"
             disabled={!settings.savedSearchPushEnabled}
@@ -205,8 +239,10 @@ export function NotificationSettingsCard() {
               <input
                 type="time"
                 className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-800"
-                value={settings.quietHoursStart ?? "22:00"}
-                onChange={(event) => updateField("quietHoursStart", event.target.value)}
+                value={settings.quietHoursStart ?? DEFAULT_QUIET_HOURS_START}
+                onChange={(event) =>
+                  updateField("quietHoursStart", normalizeQuietTimeForSave(event.target.value))
+                }
                 data-testid="tenant-notification-quiet-start"
               />
             </label>
@@ -215,8 +251,10 @@ export function NotificationSettingsCard() {
               <input
                 type="time"
                 className="h-9 rounded-lg border border-slate-200 bg-white px-2 text-sm text-slate-800"
-                value={settings.quietHoursEnd ?? "07:00"}
-                onChange={(event) => updateField("quietHoursEnd", event.target.value)}
+                value={settings.quietHoursEnd ?? DEFAULT_QUIET_HOURS_END}
+                onChange={(event) =>
+                  updateField("quietHoursEnd", normalizeQuietTimeForSave(event.target.value))
+                }
                 data-testid="tenant-notification-quiet-end"
               />
             </label>
