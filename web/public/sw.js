@@ -1,5 +1,6 @@
 const CACHE_NAME = "propatyhub-shell-v1";
 const OFFLINE_URL = "/offline";
+const OFFLINE_QUERY_PARAM = "from";
 const PRECACHE_URLS = [
   OFFLINE_URL,
   "/icon.svg",
@@ -49,6 +50,13 @@ function isStaticAsset(url) {
   );
 }
 
+function buildOfflinePathWithFrom(url) {
+  const fromValue = `${url.pathname}${url.search}`.slice(0, 500);
+  const params = new URLSearchParams();
+  params.set(OFFLINE_QUERY_PARAM, fromValue);
+  return `${OFFLINE_URL}?${params.toString()}`;
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
@@ -58,8 +66,19 @@ self.addEventListener("fetch", (event) => {
   if (isSkippableRequest(url)) return;
 
   if (request.mode === "navigate") {
+    if (url.pathname.startsWith(OFFLINE_URL)) {
+      event.respondWith(
+        fetch(request).catch(async () => {
+          const cachedOffline = await caches.match(request, { ignoreSearch: true });
+          if (cachedOffline) return cachedOffline;
+          return caches.match(OFFLINE_URL);
+        })
+      );
+      return;
+    }
+
     event.respondWith(
-      fetch(request).catch(() => caches.match(OFFLINE_URL))
+      fetch(request).catch(() => Response.redirect(buildOfflinePathWithFrom(url), 302))
     );
     return;
   }
