@@ -4,6 +4,26 @@ import type { DiscoveryTrustBadge } from "@/lib/discovery";
 import type { Property } from "@/lib/types";
 
 const NEW_BADGE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+const SUPPORTED_MARKETS = new Set(["NG", "GB", "CA", "US"]);
+const MARKET_NAME_TO_CODE: Record<string, "NG" | "GB" | "CA" | "US"> = {
+  nigeria: "NG",
+  "united kingdom": "GB",
+  uk: "GB",
+  gb: "GB",
+  canada: "CA",
+  "united states": "US",
+  usa: "US",
+  us: "US",
+};
+
+function normalizeExploreMarketCode(input: string | null | undefined): string | null {
+  if (typeof input !== "string") return null;
+  const normalized = input.trim().toUpperCase();
+  if (!normalized) return null;
+  if (normalized === "UK") return "GB";
+  if (!SUPPORTED_MARKETS.has(normalized)) return null;
+  return normalized;
+}
 
 export function resolveExploreListingKind(property: Property): "shortlet" | "property" {
   return isShortletProperty(property) ? "shortlet" : "property";
@@ -27,6 +47,20 @@ export function resolveExplorePrimaryAction(property: Property): {
 export function resolveExploreViewingRequestTemplate(property: Property): string {
   const listingLabel = (property.title ?? "this listing").trim() || "this listing";
   return `Hi, I'd like to request a viewing for ${listingLabel}. I'm available [days/times]. Please let me know the next steps.`;
+}
+
+export function resolveExploreListingMarketCountry(
+  property: Property,
+  fallbackMarketCountry: string | null | undefined
+): string {
+  const fromCountryCode = normalizeExploreMarketCode(property.country_code);
+  if (fromCountryCode) return fromCountryCode;
+
+  const byCountryName =
+    typeof property.country === "string" ? MARKET_NAME_TO_CODE[property.country.trim().toLowerCase()] : null;
+  if (byCountryName) return byCountryName;
+
+  return normalizeExploreMarketCode(fallbackMarketCountry) ?? "NG";
 }
 
 export function resolveExploreCtaMicrocopy(property: Property): string {

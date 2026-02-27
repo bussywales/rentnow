@@ -15,6 +15,7 @@ import {
   resolveExploreDetailsHref,
   resolveExploreIntentTag,
   resolveExploreListingKind,
+  resolveExploreListingMarketCountry,
   resolveExploreTrustBadges,
 } from "@/lib/explore/explore-presentation";
 
@@ -45,6 +46,7 @@ export function ExploreSlide({
   const location = formatLocationLabel(property.city, property.neighbourhood);
   const intentTag = resolveExploreIntentTag(property);
   const badges = resolveExploreTrustBadges(property);
+  const listingMarketCountry = resolveExploreListingMarketCountry(property, market.country);
 
   useEffect(() => {
     const rafId = window.requestAnimationFrame(() => {
@@ -107,7 +109,7 @@ export function ExploreSlide({
           <span className="inline-flex rounded-full border border-white/35 bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/95">
             {intentTag}
           </span>
-          <TrustBadges badges={badges} marketCountry={market.country} tone="overlay" />
+          <TrustBadges badges={badges} marketCountry={listingMarketCountry} tone="overlay" />
           <h2 className="line-clamp-2 text-[1.65rem] font-semibold leading-[1.15]">{property.title}</h2>
           <p className="line-clamp-1 text-sm text-white/90">{location}</p>
           <TrackViewedLink
