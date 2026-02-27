@@ -17,6 +17,8 @@ import {
   resolveExploreListingKind,
   resolveExplorePrimaryAction,
 } from "@/lib/explore/explore-presentation";
+import { EXPLORE_GALLERY_FALLBACK_IMAGE } from "@/lib/explore/gallery-images";
+import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
 
 type ExploreDetailsSheetProps = {
   open: boolean;
@@ -26,8 +28,7 @@ type ExploreDetailsSheetProps = {
   onSelectSimilarHome?: (listingId: string) => boolean;
 };
 
-const EXPLORE_FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1200&q=80";
+const EXPLORE_FALLBACK_IMAGE = EXPLORE_GALLERY_FALLBACK_IMAGE;
 
 function factsForProperty(property: Property): Array<{ label: string; value: string }> {
   const facts: Array<{ label: string; value: string }> = [];
@@ -142,7 +143,14 @@ export function ExploreDetailsSheet({
                     }}
                   >
                     <div className="relative h-16 w-full overflow-hidden rounded-xl">
-                      <Image src={previewImage} alt={similar.title} fill className="object-cover" sizes="72px" />
+                      <Image
+                        src={previewImage}
+                        alt={similar.title}
+                        fill
+                        className="object-cover"
+                        sizes="72px"
+                        unoptimized={shouldBypassNextImageOptimizer(previewImage)}
+                      />
                     </div>
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-slate-900">{similar.title}</p>

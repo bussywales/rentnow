@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent, PointerEvent } from "react";
 import useEmblaCarousel from "embla-carousel-react";
 import Image from "next/image";
+import type { ImageLoader } from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
 import {
@@ -17,6 +18,7 @@ import {
   WHEEL_GESTURE_IDLE_RESET_MS,
 } from "@/lib/ui/carousel-interactions";
 import { resolveImageLoadingProfile } from "@/lib/images/loading-profile";
+import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
 
 export type UnifiedImageCarouselItem = {
   id?: string;
@@ -47,12 +49,15 @@ type Props = {
   dotsTestId?: string;
   blurDataURL?: string;
   prioritizeFirstImage?: boolean;
+  renderWindowRadius?: number;
   onSelectedIndexChange?: (index: number) => void;
   onCarouselReady?: (controller: UnifiedImageCarouselController | null) => void;
+  onImageError?: (payload: { imageUrl: string; index: number }) => void;
 };
 
 const BLUR_DATA_URL =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+const directImageLoader: ImageLoader = ({ src }) => src;
 export {
   shouldSuppressCarouselClickAfterDrag,
   resolveWheelDelta as resolveCarouselWheelDelta,
@@ -90,8 +95,10 @@ export function UnifiedImageCarousel({
   dotsTestId = "unified-image-carousel-dots",
   blurDataURL = BLUR_DATA_URL,
   prioritizeFirstImage = false,
+  renderWindowRadius,
   onSelectedIndexChange,
   onCarouselReady,
+  onImageError,
 }: Props) {
   const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -286,22 +293,35 @@ export function UnifiedImageCarousel({
           {imageItems.map((item, index) => {
             const slideKey = item.id ?? `${item.src}-${index}`;
             const isActiveSlide = index === selectedIndex;
+            const shouldRenderImage =
+              typeof renderWindowRadius !== "number" ||
+              Math.abs(index - selectedIndex) <= Math.max(0, renderWindowRadius);
+            const bypassOptimizer = shouldBypassNextImageOptimizer(item.src);
             const imageLoading = resolveImageLoadingProfile(prioritizeFirstImage && index === 0);
             const imageElement = (
-              <Image
-                src={item.src}
-                alt={item.alt}
-                fill
-                className={cn("select-none object-cover", imageClassName)}
-                sizes={sizes}
-                priority={imageLoading.priority}
-                loading={imageLoading.loading}
-                fetchPriority={imageLoading.fetchPriority}
-                placeholder="blur"
-                blurDataURL={blurDataURL}
-                draggable={false}
-                onError={() => handleImageError(item.src)}
-              />
+              shouldRenderImage ? (
+                <Image
+                  src={item.src}
+                  alt={item.alt}
+                  fill
+                  className={cn("select-none object-cover", imageClassName)}
+                  sizes={sizes}
+                  priority={imageLoading.priority}
+                  loading={imageLoading.loading}
+                  fetchPriority={imageLoading.fetchPriority}
+                  placeholder="blur"
+                  blurDataURL={blurDataURL}
+                  draggable={false}
+                  unoptimized={bypassOptimizer}
+                  loader={bypassOptimizer ? directImageLoader : undefined}
+                  onError={() => {
+                    handleImageError(item.src);
+                    onImageError?.({ imageUrl: item.src, index });
+                  }}
+                />
+              ) : (
+                <div className="h-full w-full bg-slate-900/50" aria-hidden />
+              )
             );
 
             return (

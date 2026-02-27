@@ -14,13 +14,13 @@ import {
   unhideExploreListingId,
 } from "@/lib/explore/explore-prefs";
 import { resolveSimilarHomes } from "@/lib/explore/similar-homes";
+import { EXPLORE_GALLERY_FALLBACK_IMAGE } from "@/lib/explore/gallery-images";
 
 type ExplorePagerProps = {
   listings: Property[];
 };
 
-const EXPLORE_FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80";
+const EXPLORE_FALLBACK_IMAGE = EXPLORE_GALLERY_FALLBACK_IMAGE;
 
 function resolveExploreHeroImageUrl(property: Property): string {
   const imageSources = resolvePropertyImageSources({

@@ -6,6 +6,8 @@ import type { PropertyImage } from "@/lib/types";
 import { shouldRenderDemoWatermark } from "@/lib/properties/demo";
 import { shouldRenderImageCountBadge } from "@/components/properties/PropertyImageCarousel";
 import { cn } from "@/components/ui/cn";
+import { resolvePropertyImageUrl } from "@/lib/properties/image-url";
+import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
 import {
   PropertyImageCarousel,
   type PropertyImageCarouselController,
@@ -17,8 +19,7 @@ type Props = {
   isDemo?: boolean;
 };
 
-const fallbackImage =
-  "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80";
+const fallbackImage = "/og-propatyhub.png";
 const blurDataURL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
 
@@ -29,10 +30,29 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
   const [broken, setBroken] = useState<Set<string>>(new Set());
   const thumbRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const safeImages = useMemo(() => (images.length ? images : []), [images]);
+  const normalizedGalleryImages = useMemo(
+    () =>
+      safeImages.map((img) => ({
+        ...img,
+        image_url: resolvePropertyImageUrl(img, "hero") ?? resolvePropertyImageUrl(img, "card") ?? img.image_url,
+      })),
+    [safeImages]
+  );
+  const thumbnailSources = useMemo(
+    () =>
+      safeImages.map(
+        (img) =>
+          resolvePropertyImageUrl(img, "thumb") ??
+          resolvePropertyImageUrl(img, "card") ??
+          resolvePropertyImageUrl(img, "hero") ??
+          img.image_url
+      ),
+    [safeImages]
+  );
 
   const imageKey = (img: PropertyImage, idx: number) => img.id || `${img.image_url}-${idx}`;
   const resolveSrc = (img: PropertyImage, idx: number) =>
-    broken.has(imageKey(img, idx)) ? fallbackImage : img.image_url;
+    broken.has(imageKey(img, idx)) ? fallbackImage : (thumbnailSources[idx] ?? img.image_url);
   const markBroken = (img: PropertyImage, idx: number) => {
     const key = imageKey(img, idx);
     setBroken((prev) => {
@@ -89,7 +109,7 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
         {/* TODO(roadmap): add tap-to-zoom + full-screen gallery mode with thumbnail sync preserved. */}
         <PropertyImageCarousel
           title={title}
-          images={safeImages}
+          images={normalizedGalleryImages}
           fallbackImage={fallbackImage}
           blurDataURL={blurDataURL}
           sizes="(max-width: 768px) 100vw, 640px"
@@ -122,40 +142,44 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
             data-testid="property-gallery-thumbnail-fade-right"
           />
           <div className="flex w-full max-w-full min-w-0 gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-            {safeImages.map((img, idx) => (
-              <button
-                key={img.id || idx}
-                ref={(node) => {
-                  thumbRefs.current[idx] = node;
-                }}
-                type="button"
-                onClick={() => {
-                  const targetIndex = resolveThumbnailTargetIndex(idx, safeImages.length);
-                  setSelectedIndex(targetIndex);
-                  carouselController?.scrollTo(targetIndex);
-                }}
-                className={cn(
-                  "relative h-16 w-24 flex-none overflow-hidden rounded-lg border transition",
-                  idx === activeIndex
-                    ? "border-sky-500 ring-2 ring-sky-200"
-                    : "border-slate-200 hover:border-slate-300"
-                )}
-                data-testid="property-gallery-thumbnail"
-                data-active={idx === activeIndex ? "true" : "false"}
-                aria-label={`Photo ${idx + 1}`}
-              >
-                <Image
-                  src={resolveSrc(img, idx)}
-                  alt={`${title} thumbnail ${idx + 1}`}
-                  fill
-                  className="object-cover"
-                  sizes="96px"
-                  placeholder="blur"
-                  blurDataURL={blurDataURL}
-                  onError={() => markBroken(img, idx)}
-                />
-              </button>
-            ))}
+            {safeImages.map((img, idx) => {
+              const thumbnailSrc = resolveSrc(img, idx);
+              return (
+                <button
+                  key={img.id || idx}
+                  ref={(node) => {
+                    thumbRefs.current[idx] = node;
+                  }}
+                  type="button"
+                  onClick={() => {
+                    const targetIndex = resolveThumbnailTargetIndex(idx, safeImages.length);
+                    setSelectedIndex(targetIndex);
+                    carouselController?.scrollTo(targetIndex);
+                  }}
+                  className={cn(
+                    "relative h-16 w-24 flex-none overflow-hidden rounded-lg border transition",
+                    idx === activeIndex
+                      ? "border-sky-500 ring-2 ring-sky-200"
+                      : "border-slate-200 hover:border-slate-300"
+                  )}
+                  data-testid="property-gallery-thumbnail"
+                  data-active={idx === activeIndex ? "true" : "false"}
+                  aria-label={`Photo ${idx + 1}`}
+                >
+                  <Image
+                    src={thumbnailSrc}
+                    alt={`${title} thumbnail ${idx + 1}`}
+                    fill
+                    className="object-cover"
+                    sizes="96px"
+                    placeholder="blur"
+                    blurDataURL={blurDataURL}
+                    unoptimized={shouldBypassNextImageOptimizer(thumbnailSrc)}
+                    onError={() => markBroken(img, idx)}
+                  />
+                </button>
+              );
+            })}
           </div>
         </div>
       )}

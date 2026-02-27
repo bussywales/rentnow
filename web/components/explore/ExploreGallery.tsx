@@ -6,11 +6,15 @@ import { UnifiedImageCarousel } from "@/components/ui/UnifiedImageCarousel";
 import { resolvePropertyImageSources } from "@/components/properties/PropertyImageCarousel";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import type { Property } from "@/lib/types";
+import {
+  EXPLORE_GALLERY_FALLBACK_IMAGE,
+  normalizeExploreGalleryImageUrl,
+  resolveExploreGalleryDisplaySource,
+} from "@/lib/explore/gallery-images";
 
 const BLUR_DATA_URL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=1400&q=80";
+const FALLBACK_IMAGE = EXPLORE_GALLERY_FALLBACK_IMAGE;
 
 type ExploreGalleryProps = {
   property: Property;
@@ -40,8 +44,11 @@ export function ExploreGallery({
   const gestureAxisRef = useRef<GestureAxis>(null);
   const longPressTimerRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
+  const loggedFailuresRef = useRef<Set<string>>(new Set());
   const [horizontalLockActive, setHorizontalLockActive] = useState(false);
-  const imageSources = useMemo(
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [failedImageIndexes, setFailedImageIndexes] = useState<Set<number>>(new Set());
+  const rawImageSources = useMemo(
     () =>
       resolvePropertyImageSources({
         coverImageUrl: property.cover_image_url,
@@ -52,15 +59,30 @@ export function ExploreGallery({
     [property]
   );
 
+  const imageSources = useMemo(
+    () => rawImageSources.map((source) => normalizeExploreGalleryImageUrl(source, FALLBACK_IMAGE)),
+    [rawImageSources]
+  );
+
+  const totalImages = imageSources.length;
   const items = useMemo(
     () =>
-      imageSources.map((imageUrl, index) => ({
+      imageSources.map((normalizedImageUrl, index) => ({
         id: `${property.id}-explore-${index}`,
-        src: imageUrl,
+        src: resolveExploreGalleryDisplaySource({
+          imageUrl: normalizedImageUrl,
+          imageIndex: index,
+          activeIndex: activeImageIndex,
+          totalImages,
+          failedIndexes: failedImageIndexes,
+          fallbackImage: FALLBACK_IMAGE,
+          windowRadius: 1,
+        }),
         alt: property.title,
       })),
-    [imageSources, property.id, property.title]
+    [activeImageIndex, failedImageIndexes, imageSources, property.id, property.title, totalImages]
   );
+  const activeImageUnavailable = failedImageIndexes.has(activeImageIndex);
 
   useEffect(() => {
     onGestureLockChange?.(horizontalLockActive);
@@ -154,7 +176,35 @@ export function ExploreGallery({
         showDots={false}
         showCountBadge={items.length > 1}
         prioritizeFirstImage={prioritizeFirstImage}
+        onSelectedIndexChange={setActiveImageIndex}
+        renderWindowRadius={1}
+        onImageError={({ imageUrl, index }) => {
+          setFailedImageIndexes((current) => {
+            if (current.has(index)) return current;
+            const next = new Set(current);
+            next.add(index);
+            return next;
+          });
+          if (process.env.NODE_ENV === "production") return;
+          const key = `${property.id}:${index}:${imageUrl}`;
+          if (loggedFailuresRef.current.has(key)) return;
+          loggedFailuresRef.current.add(key);
+          console.warn("[explore-gallery][image-error]", {
+            listingId: property.id,
+            imageIndex: index,
+            imageUrl,
+          });
+        }}
       />
+      {activeImageUnavailable ? (
+        <span
+          className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-full border border-white/30 bg-slate-900/65 px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/90"
+          data-testid="explore-gallery-image-unavailable"
+          aria-live="polite"
+        >
+          Image unavailable
+        </span>
+      ) : null}
     </div>
   );
 }
