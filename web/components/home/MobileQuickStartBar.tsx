@@ -88,6 +88,23 @@ const QUICK_START_LINKS = [
       </svg>
     ),
   },
+  {
+    key: "explore",
+    href: "/explore",
+    label: "Explore",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden className="h-4 w-4">
+        <path
+          d="m4 20 5.5-13.5L23 1 17.5 14.5zM9.5 6.5l8 8"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    ),
+  },
 ] as const;
 
 export function MobileQuickStartBar() {
