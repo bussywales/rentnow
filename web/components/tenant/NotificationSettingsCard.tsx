@@ -57,13 +57,41 @@ export function validateQuietHoursForSave(input: {
   return null;
 }
 
+export function deriveNotificationSettingsUiState(input: {
+  loading: boolean;
+  saving: boolean;
+  quietHoursEnabled: boolean;
+  quietHoursStart: string | null;
+  quietHoursEnd: string | null;
+  quietHoursInteracted: boolean;
+  attemptedSave: boolean;
+}) {
+  const quietHoursError = validateQuietHoursForSave({
+    quietHoursEnabled: input.quietHoursEnabled,
+    quietHoursStart: input.quietHoursStart,
+    quietHoursEnd: input.quietHoursEnd,
+  });
+
+  const showQuietHoursError = Boolean(
+    quietHoursError && (input.attemptedSave || input.quietHoursInteracted)
+  );
+
+  return {
+    quietHoursError,
+    showQuietHoursError,
+    disableSave: input.loading || input.saving || Boolean(quietHoursError),
+  };
+}
+
 export function NotificationSettingsCard() {
   const [settings, setSettings] = useState<TenantNotificationSettingsPayload>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [quietHoursEnabled, setQuietHoursEnabled] = useState(false);
+  const [quietHoursInteracted, setQuietHoursInteracted] = useState(false);
+  const [attemptedSave, setAttemptedSave] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -74,15 +102,19 @@ export function NotificationSettingsCard() {
       if (cancelled) return;
 
       if (!result.ok || !result.settings) {
-        setError(result.error);
+        setApiError(result.error);
         setSettings(DEFAULT_SETTINGS);
         setQuietHoursEnabled(false);
+        setQuietHoursInteracted(false);
+        setAttemptedSave(false);
       } else {
-        setError(null);
+        setApiError(null);
         setSettings(result.settings);
         setQuietHoursEnabled(
           Boolean(result.settings.quietHoursStart && result.settings.quietHoursEnd)
         );
+        setQuietHoursInteracted(false);
+        setAttemptedSave(false);
       }
 
       setLoading(false);
@@ -108,14 +140,34 @@ export function NotificationSettingsCard() {
     key: K,
     value: TenantNotificationSettingsPayload[K]
   ) => {
-    setError(null);
+    setApiError(null);
     setSuccess(null);
+    setAttemptedSave(false);
     setSettings((prev) => ({ ...prev, [key]: value }));
   };
 
+  const uiState = deriveNotificationSettingsUiState({
+    loading,
+    saving,
+    quietHoursEnabled,
+    quietHoursStart: quietHoursEnabled
+      ? normalizeQuietTimeForSave(effectiveSettings.quietHoursStart)
+      : null,
+    quietHoursEnd: quietHoursEnabled
+      ? normalizeQuietTimeForSave(effectiveSettings.quietHoursEnd)
+      : null,
+    quietHoursInteracted,
+    attemptedSave,
+  });
+
   const handleSave = async () => {
-    setError(null);
+    setApiError(null);
     setSuccess(null);
+    setAttemptedSave(true);
+
+    if (uiState.quietHoursError) {
+      return;
+    }
 
     const payload: TenantNotificationSettingsPayload = {
       ...effectiveSettings,
@@ -128,23 +180,13 @@ export function NotificationSettingsCard() {
       timezone: normalizeNotificationTimezone(effectiveSettings.timezone),
     };
 
-    const quietHoursError = validateQuietHoursForSave({
-      quietHoursEnabled,
-      quietHoursStart: payload.quietHoursStart,
-      quietHoursEnd: payload.quietHoursEnd,
-    });
-    if (quietHoursError) {
-      setError(quietHoursError);
-      return;
-    }
-
     setSaving(true);
 
     const result = await updateTenantNotificationSettings(payload);
 
     setSaving(false);
     if (!result.ok || !result.settings) {
-      setError(result.error);
+      setApiError(result.error);
       return;
     }
 
@@ -152,6 +194,8 @@ export function NotificationSettingsCard() {
     setQuietHoursEnabled(
       Boolean(result.settings.quietHoursStart && result.settings.quietHoursEnd)
     );
+    setQuietHoursInteracted(false);
+    setAttemptedSave(false);
     setSuccess("Notification settings saved.");
   };
 
@@ -207,8 +251,10 @@ export function NotificationSettingsCard() {
             onChange={(event) => {
               const nextEnabled = event.target.checked;
               setQuietHoursEnabled(nextEnabled);
-              setError(null);
+              setApiError(null);
               setSuccess(null);
+              setAttemptedSave(false);
+              setQuietHoursInteracted(false);
               setSettings((prev) =>
                 nextEnabled
                   ? {
@@ -243,6 +289,7 @@ export function NotificationSettingsCard() {
                 onChange={(event) =>
                   updateField("quietHoursStart", normalizeQuietTimeForSave(event.target.value))
                 }
+                onBlur={() => setQuietHoursInteracted(true)}
                 data-testid="tenant-notification-quiet-start"
               />
             </label>
@@ -255,6 +302,7 @@ export function NotificationSettingsCard() {
                 onChange={(event) =>
                   updateField("quietHoursEnd", normalizeQuietTimeForSave(event.target.value))
                 }
+                onBlur={() => setQuietHoursInteracted(true)}
                 data-testid="tenant-notification-quiet-end"
               />
             </label>
@@ -282,7 +330,7 @@ export function NotificationSettingsCard() {
         <Button
           size="sm"
           onClick={() => void handleSave()}
-          disabled={loading || saving}
+          disabled={uiState.disableSave}
           data-testid="tenant-notification-save"
         >
           {saving ? "Saving..." : "Save settings"}
@@ -291,7 +339,17 @@ export function NotificationSettingsCard() {
       </div>
 
       {success && <p className="mt-2 text-xs text-emerald-700">{success}</p>}
-      {error && <p className="mt-2 text-xs text-rose-600">{error}</p>}
+      {apiError && <p className="mt-2 text-xs text-rose-600">{apiError}</p>}
+      {uiState.showQuietHoursError && (
+        <p className="mt-2 text-xs text-rose-600" data-testid="tenant-notification-quiet-error">
+          {uiState.quietHoursError}
+        </p>
+      )}
+      {quietHoursEnabled && !uiState.showQuietHoursError && (
+        <p className="mt-2 text-xs text-slate-500" data-testid="tenant-notification-quiet-helper">
+          Overnight ranges (e.g., 22:00–07:00) are supported.
+        </p>
+      )}
 
       <p className="mt-2 text-[11px] text-slate-500">
         Daily digest sends at most one push per day when new matches appear.
