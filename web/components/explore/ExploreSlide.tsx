@@ -20,9 +20,10 @@ import {
 type ExploreSlideProps = {
   property: Property;
   index: number;
+  onGestureLockChange?: (locked: boolean) => void;
 };
 
-export function ExploreSlide({ property, index }: ExploreSlideProps) {
+export function ExploreSlide({ property, index, onGestureLockChange }: ExploreSlideProps) {
   const { market } = useMarketPreference();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<"copied" | "error" | null>(null);
@@ -57,7 +58,11 @@ export function ExploreSlide({ property, index }: ExploreSlideProps) {
       className="relative h-[100svh] w-full snap-start snap-always overflow-hidden bg-slate-950 text-white"
       data-testid="explore-slide"
     >
-      <ExploreGallery property={property} prioritizeFirstImage={index === 0} />
+      <ExploreGallery
+        property={property}
+        prioritizeFirstImage={index === 0}
+        onGestureLockChange={onGestureLockChange}
+      />
       <div
         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/20 to-transparent"
         aria-hidden
@@ -90,7 +95,7 @@ export function ExploreSlide({ property, index }: ExploreSlideProps) {
         </div>
       </div>
 
-      <div className="absolute right-4 top-20 z-20 flex flex-col gap-2">
+      <div className="absolute right-3 top-16 z-20 flex flex-col gap-1.5">
         <SaveToggle
           itemId={property.id}
           kind={kind}
@@ -100,14 +105,14 @@ export function ExploreSlide({ property, index }: ExploreSlideProps) {
           tag={intentTag}
           marketCountry={market.country}
           testId={`explore-save-toggle-${property.id}`}
-          className="h-10 w-10 border-white/30 bg-slate-900/60 text-white ring-0 backdrop-blur hover:bg-slate-900/80"
+          className="h-9 w-9 border-white/25 bg-slate-900/40 text-white ring-0 shadow-sm backdrop-blur transition active:scale-95 hover:bg-slate-900/55"
         />
         <button
           type="button"
           onClick={() => {
             void share();
           }}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/35 bg-slate-900/55 text-lg font-semibold text-white shadow-sm backdrop-blur"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-slate-900/40 text-base font-semibold text-white shadow-sm backdrop-blur transition active:scale-95 hover:bg-slate-900/55"
           aria-label="Share listing"
           data-testid="explore-share-action"
         >
@@ -116,7 +121,7 @@ export function ExploreSlide({ property, index }: ExploreSlideProps) {
         <button
           type="button"
           onClick={() => setDetailsOpen(true)}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/35 bg-slate-900/55 text-lg font-semibold text-white shadow-sm backdrop-blur"
+          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-slate-900/40 text-base font-semibold text-white shadow-sm backdrop-blur transition active:scale-95 hover:bg-slate-900/55"
           aria-label="Open listing details"
           data-testid="explore-open-details"
         >

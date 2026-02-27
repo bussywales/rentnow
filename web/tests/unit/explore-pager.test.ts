@@ -8,9 +8,13 @@ void test("explore pager source keeps vertical snap and required testids", () =>
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /data-testid="explore-pager"/);
-  assert.match(source, /<ExploreSlide key=\{property\.id\} property=\{property\} index=\{index\} \/>/);
+  assert.match(source, /data-testid="explore-progress"/);
+  assert.match(source, /<ExploreSlide[\s\S]*onGestureLockChange=\{setVerticalScrollLocked\}[\s\S]*\/>/);
   assert.match(source, /snap-y snap-mandatory/);
   assert.match(source, /h-\[100svh\]/);
+  assert.match(source, /resolveExploreAdjacentSlideIndexes/);
+  assert.match(source, /shouldPreloadExploreSlideImages/);
+  assert.match(source, /overflowY: verticalScrollLocked \? "hidden" : "auto"/);
 });
 
 void test("explore slide source exposes details and CTA controls", () => {
@@ -23,6 +27,18 @@ void test("explore slide source exposes details and CTA controls", () => {
   assert.match(source, /SaveToggle/);
   assert.match(source, /TrustBadges/);
   assert.match(source, /ExploreDetailsSheet/);
+  assert.match(source, /onGestureLockChange=\{onGestureLockChange\}/);
+  assert.match(source, /h-9 w-9/);
+});
+
+void test("explore gallery source supports axis locking for horizontal gestures", () => {
+  const sourcePath = path.join(process.cwd(), "components", "explore", "ExploreGallery.tsx");
+  const source = fs.readFileSync(sourcePath, "utf8");
+
+  assert.match(source, /resolveExploreGestureAxis/);
+  assert.match(source, /onGestureLockChange\?\.\(horizontalLockActive\)/);
+  assert.match(source, /data-testid="explore-gallery-gesture-layer"/);
+  assert.match(source, /touchAction: horizontalLockActive \? "pan-x" : undefined/);
 });
 
 void test("explore details sheet source includes CTA that adapts by listing type", () => {
