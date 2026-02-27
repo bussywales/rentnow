@@ -133,6 +133,59 @@ void test("tenant notification settings PUT persists and returns normalized sett
   assert.equal(body.settings.savedSearchPushMode, "daily");
 });
 
+void test("tenant notification settings PUT rejects equal quiet-hours times", async () => {
+  let upsertCalled = false;
+
+  const supabase = {
+    from: (table: string) => {
+      assert.equal(table, "tenant_notification_prefs");
+      return {
+        upsert: () => {
+          upsertCalled = true;
+          return {
+            select: () => ({
+              single: async () => ({
+                data: null,
+                error: null,
+              }),
+            }),
+          };
+        },
+      };
+    },
+  };
+
+  const response = await putTenantNotificationSettingsResponse(
+    new Request("http://localhost/api/tenant/notifications/settings", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        savedSearchPushEnabled: true,
+        savedSearchPushMode: "instant",
+        quietHoursStart: "22:00",
+        quietHoursEnd: "22:00",
+        timezone: "Europe/London",
+      }),
+    }),
+    {
+      hasServerSupabaseEnv: () => true,
+      requireRole: async () => ({
+        ok: true,
+        user: { id: "tenant-1" } as never,
+        supabase: supabase as never,
+        role: "tenant",
+      }),
+      logFailure: () => undefined,
+    }
+  );
+
+  assert.equal(response.status, 400);
+  assert.equal(upsertCalled, false);
+  const body = await response.json();
+  assert.equal(body.ok, false);
+  assert.equal(body.error, "Quiet hours start and end must be different.");
+});
+
 void test("tenant notification settings route enforces auth", async () => {
   const response = await getTenantNotificationSettingsResponse(
     new Request("http://localhost/api/tenant/notifications/settings"),

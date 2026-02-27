@@ -53,6 +53,28 @@ void test("quiet-hours window supports overnight ranges", () => {
   );
 });
 
+void test("quiet-hours window supports same-day ranges", () => {
+  assert.equal(
+    isWithinQuietHours({
+      now: new Date("2026-02-27T22:30:00.000Z"),
+      timezone: "Europe/London",
+      quietHoursStart: "22:00",
+      quietHoursEnd: "23:00",
+    }),
+    true
+  );
+
+  assert.equal(
+    isWithinQuietHours({
+      now: new Date("2026-02-27T23:30:00.000Z"),
+      timezone: "Europe/London",
+      quietHoursStart: "22:00",
+      quietHoursEnd: "23:00",
+    }),
+    false
+  );
+});
+
 void test("daily cap is scoped to local calendar day", () => {
   assert.equal(
     isDailyPushCapReached({
