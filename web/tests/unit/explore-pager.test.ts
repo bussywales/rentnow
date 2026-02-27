@@ -15,18 +15,26 @@ void test("explore pager source keeps vertical snap and required testids", () =>
   assert.match(source, /resolveExploreAdjacentSlideIndexes/);
   assert.match(source, /shouldPreloadExploreSlideImages/);
   assert.match(source, /overflowY: verticalScrollLocked \? "hidden" : "auto"/);
+  assert.match(source, /getHiddenExploreListingIds/);
+  assert.match(source, /hideExploreListingId/);
+  assert.match(source, /data-testid="explore-hide-undo"/);
+  assert.match(source, /data-testid="explore-restore-hidden"/);
 });
 
-void test("explore slide source exposes details and CTA controls", () => {
+void test("explore slide source exposes details, hint, and local hide controls", () => {
   const sourcePath = path.join(process.cwd(), "components", "explore", "ExploreSlide.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /data-testid="explore-open-details"/);
   assert.match(source, /data-testid="explore-view-details"/);
   assert.match(source, /data-testid="explore-share-action"/);
+  assert.match(source, /data-testid="explore-details-hint"/);
   assert.match(source, /SaveToggle/);
   assert.match(source, /TrustBadges/);
   assert.match(source, /ExploreDetailsSheet/);
+  assert.match(source, /hasSeenExploreDetailsHint/);
+  assert.match(source, /markExploreDetailsHintSeen/);
+  assert.match(source, /onLongPress=\{\(\) =>/);
   assert.match(source, /onGestureLockChange=\{onGestureLockChange\}/);
   assert.match(source, /h-9 w-9/);
 });
@@ -39,13 +47,19 @@ void test("explore gallery source supports axis locking for horizontal gestures"
   assert.match(source, /onGestureLockChange\?\.\(horizontalLockActive\)/);
   assert.match(source, /data-testid="explore-gallery-gesture-layer"/);
   assert.match(source, /touchAction: horizontalLockActive \? "pan-x" : undefined/);
+  assert.match(source, /onLongPress\?\.\(\)/);
+  assert.match(source, /setTimeout\(\(\) =>/);
 });
 
-void test("explore details sheet source includes CTA that adapts by listing type", () => {
+void test("explore details sheet source includes CTA microcopy and similar homes mini rail", () => {
   const sourcePath = path.join(process.cwd(), "components", "explore", "ExploreDetailsSheet.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /resolveExplorePrimaryAction/);
+  assert.match(source, /resolveExploreCtaMicrocopy/);
+  assert.match(source, /data-testid="explore-primary-microcopy"/);
+  assert.match(source, /data-testid="explore-similar-homes"/);
+  assert.match(source, /data-testid="explore-similar-home"/);
   assert.match(source, /data-testid="explore-primary-cta"/);
   assert.match(source, /data-testid="explore-view-full-details"/);
 });

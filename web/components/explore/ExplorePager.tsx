@@ -1,11 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { resolvePropertyImageSources } from "@/components/properties/PropertyImageCarousel";
 import type { Property } from "@/lib/types";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { ExploreSlide } from "@/components/explore/ExploreSlide";
+import {
+  clearHiddenExploreListingIds,
+  getHiddenExploreListingIds,
+  hideExploreListingId,
+  subscribeExplorePrefs,
+  unhideExploreListingId,
+} from "@/lib/explore/explore-prefs";
+import { resolveSimilarHomes } from "@/lib/explore/similar-homes";
 
 type ExplorePagerProps = {
   listings: Property[];
@@ -47,10 +55,46 @@ export function shouldPreloadExploreSlideImages(saveData: boolean | undefined): 
 export function ExplorePager({ listings }: ExplorePagerProps) {
   const pagerRef = useRef<HTMLDivElement | null>(null);
   const preloadedImagesRef = useRef<Set<string>>(new Set());
+  const undoTimeoutRef = useRef<number | null>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [verticalScrollLocked, setVerticalScrollLocked] = useState(false);
-  const heroImageUrls = useMemo(() => listings.map((property) => resolveExploreHeroImageUrl(property)), [listings]);
-  const displayedIndex = Math.min(activeIndex, Math.max(0, listings.length - 1));
+  const [hiddenListingIds, setHiddenListingIds] = useState<string[]>([]);
+  const [undoHiddenListingId, setUndoHiddenListingId] = useState<string | null>(null);
+  const hiddenListingSet = useMemo(() => new Set(hiddenListingIds), [hiddenListingIds]);
+  const visibleListings = useMemo(
+    () => listings.filter((property) => !hiddenListingSet.has(property.id)),
+    [hiddenListingSet, listings]
+  );
+  const heroImageUrls = useMemo(
+    () => visibleListings.map((property) => resolveExploreHeroImageUrl(property)),
+    [visibleListings]
+  );
+  const displayedIndex = Math.min(activeIndex, Math.max(0, visibleListings.length - 1));
+  const similarHomesByListingId = useMemo(() => {
+    const next = new Map<string, Property[]>();
+    visibleListings.forEach((property) => {
+      next.set(property.id, resolveSimilarHomes(property, visibleListings));
+    });
+    return next;
+  }, [visibleListings]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncHiddenListingIds = () => {
+      setHiddenListingIds(getHiddenExploreListingIds());
+    };
+    syncHiddenListingIds();
+    return subscribeExplorePrefs(syncHiddenListingIds);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (undoTimeoutRef.current) {
+        window.clearTimeout(undoTimeoutRef.current);
+        undoTimeoutRef.current = null;
+      }
+    };
+  }, []);
 
   useEffect(() => {
     const pager = pagerRef.current;
@@ -58,7 +102,7 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
 
     let rafId = 0;
     const syncActiveSlide = () => {
-      const nextIndex = resolveExploreActiveSlideIndex(pager.scrollTop, pager.clientHeight, listings.length);
+      const nextIndex = resolveExploreActiveSlideIndex(pager.scrollTop, pager.clientHeight, visibleListings.length);
       setActiveIndex((current) => (current === nextIndex ? current : nextIndex));
     };
 
@@ -75,14 +119,14 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       pager.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", syncActiveSlide);
     };
-  }, [listings.length]);
+  }, [visibleListings.length]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     if (!shouldPreloadExploreSlideImages(connection?.saveData)) return;
 
-    for (const index of resolveExploreAdjacentSlideIndexes(displayedIndex, listings.length)) {
+    for (const index of resolveExploreAdjacentSlideIndexes(displayedIndex, visibleListings.length)) {
       const imageUrl = heroImageUrls[index];
       if (!imageUrl || preloadedImagesRef.current.has(imageUrl)) continue;
       const image = new Image();
@@ -90,7 +134,47 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       image.src = imageUrl;
       preloadedImagesRef.current.add(imageUrl);
     }
-  }, [displayedIndex, heroImageUrls, listings.length]);
+  }, [displayedIndex, heroImageUrls, visibleListings.length]);
+
+  const handleNotInterested = useCallback((listingId: string) => {
+    const nextHidden = hideExploreListingId(listingId);
+    setHiddenListingIds(nextHidden);
+    setUndoHiddenListingId(listingId);
+    if (undoTimeoutRef.current) {
+      window.clearTimeout(undoTimeoutRef.current);
+    }
+    undoTimeoutRef.current = window.setTimeout(() => {
+      setUndoHiddenListingId(null);
+      undoTimeoutRef.current = null;
+    }, 5000);
+  }, []);
+
+  const handleUndoHidden = useCallback(() => {
+    if (!undoHiddenListingId) return;
+    const nextHidden = unhideExploreListingId(undoHiddenListingId);
+    setHiddenListingIds(nextHidden);
+    setUndoHiddenListingId(null);
+    if (undoTimeoutRef.current) {
+      window.clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+  }, [undoHiddenListingId]);
+
+  const handleSelectSimilarHome = useCallback(
+    (listingId: string): boolean => {
+      const targetIndex = visibleListings.findIndex((listing) => listing.id === listingId);
+      if (targetIndex < 0) return false;
+      const pager = pagerRef.current;
+      if (!pager) return false;
+      pager.scrollTo({
+        top: pager.clientHeight * targetIndex,
+        behavior: "smooth",
+      });
+      setActiveIndex(targetIndex);
+      return true;
+    },
+    [visibleListings]
+  );
 
   if (!listings.length) {
     return (
@@ -120,6 +204,31 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
     );
   }
 
+  if (!visibleListings.length) {
+    return (
+      <section
+        className="mx-auto flex min-h-[60svh] max-w-lg flex-col items-center justify-center gap-3 rounded-3xl border border-slate-200 bg-white px-6 py-10 text-center shadow-sm"
+        data-testid="explore-empty-hidden"
+      >
+        <h1 className="text-xl font-semibold text-slate-900">Listings hidden</h1>
+        <p className="text-sm text-slate-600">
+          You have hidden all listings in this explore feed. Restore them to keep browsing.
+        </p>
+        <button
+          type="button"
+          onClick={() => {
+            clearHiddenExploreListingIds();
+            setHiddenListingIds([]);
+          }}
+          className="inline-flex rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700"
+          data-testid="explore-restore-hidden"
+        >
+          Restore hidden listings
+        </button>
+      </section>
+    );
+  }
+
   return (
     <section
       className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 shadow-sm"
@@ -140,15 +249,34 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
         ref={pagerRef}
         style={{ overflowY: verticalScrollLocked ? "hidden" : "auto" }}
       >
-        {listings.map((property, index) => (
+        {visibleListings.map((property, index) => (
           <ExploreSlide
             key={property.id}
             property={property}
             index={index}
             onGestureLockChange={setVerticalScrollLocked}
+            onNotInterested={handleNotInterested}
+            similarHomes={similarHomesByListingId.get(property.id) ?? []}
+            onSelectSimilarHome={handleSelectSimilarHome}
           />
         ))}
       </div>
+      {undoHiddenListingId ? (
+        <div
+          className="pointer-events-auto absolute bottom-[max(env(safe-area-inset-bottom),1rem)] left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/20 bg-slate-950/70 px-3 py-1.5 text-xs text-white shadow-lg backdrop-blur"
+          data-testid="explore-hide-undo"
+          aria-live="polite"
+        >
+          <span>Hidden listing</span>
+          <button
+            type="button"
+            onClick={handleUndoHidden}
+            className="rounded-full border border-white/30 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-[0.1em] text-white"
+          >
+            Undo
+          </button>
+        </div>
+      ) : null}
     </section>
   );
 }

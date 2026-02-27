@@ -16,6 +16,7 @@ type ExploreGalleryProps = {
   property: Property;
   prioritizeFirstImage?: boolean;
   onGestureLockChange?: (locked: boolean) => void;
+  onLongPress?: () => void;
 };
 
 type GestureAxis = "horizontal" | "vertical" | null;
@@ -29,9 +30,16 @@ export function resolveExploreGestureAxis(deltaX: number, deltaY: number, thresh
   return null;
 }
 
-export function ExploreGallery({ property, prioritizeFirstImage = false, onGestureLockChange }: ExploreGalleryProps) {
+export function ExploreGallery({
+  property,
+  prioritizeFirstImage = false,
+  onGestureLockChange,
+  onLongPress,
+}: ExploreGalleryProps) {
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const gestureAxisRef = useRef<GestureAxis>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressTriggeredRef = useRef(false);
   const [horizontalLockActive, setHorizontalLockActive] = useState(false);
   const imageSources = useMemo(
     () =>
@@ -67,27 +75,59 @@ export function ExploreGallery({ property, prioritizeFirstImage = false, onGestu
 
   const handlePointerDownCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse") return;
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
     pointerStartRef.current = { x: event.clientX, y: event.clientY };
     gestureAxisRef.current = null;
+    longPressTriggeredRef.current = false;
     setHorizontalLockActive(false);
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      onLongPress?.();
+    }, 520);
+  }, [onLongPress]);
+
+  const cancelLongPress = useCallback(() => {
+    if (!longPressTimerRef.current) return;
+    window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
   }, []);
 
   const handlePointerMoveCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
-    if (!pointerStartRef.current || gestureAxisRef.current) return;
+    if (!pointerStartRef.current || longPressTriggeredRef.current) return;
+    if (Math.abs(event.clientX - pointerStartRef.current.x) > 8 || Math.abs(event.clientY - pointerStartRef.current.y) > 8) {
+      cancelLongPress();
+    }
+    if (gestureAxisRef.current) return;
     const axis = resolveExploreGestureAxis(
       event.clientX - pointerStartRef.current.x,
       event.clientY - pointerStartRef.current.y
     );
     if (!axis) return;
     gestureAxisRef.current = axis;
+    cancelLongPress();
     setHorizontalLockActive(axis === "horizontal");
-  }, []);
+  }, [cancelLongPress]);
 
   const clearGesture = useCallback(() => {
+    cancelLongPress();
     pointerStartRef.current = null;
     gestureAxisRef.current = null;
+    longPressTriggeredRef.current = false;
     setHorizontalLockActive(false);
-  }, []);
+  }, [cancelLongPress]);
+
+  useEffect(
+    () => () => {
+      if (longPressTimerRef.current) {
+        window.clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+    },
+    []
+  );
 
   return (
     <div
