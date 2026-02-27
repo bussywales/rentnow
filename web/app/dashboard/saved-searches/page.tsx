@@ -5,8 +5,10 @@ import Link from "next/link";
 import { SavedSearchManager } from "@/components/search/SavedSearchManager";
 import { PushStatusBadge } from "@/components/dashboard/PushStatusBadge";
 import { TenantPushDiagnosticsPanel } from "@/components/dashboard/TenantPushDiagnosticsPanel";
+import { NotificationSettingsCard } from "@/components/tenant/NotificationSettingsCard";
 import { shouldShowSavedSearchNav } from "@/lib/role-access";
 import { getPushConfigStatus } from "@/lib/push/config";
+import { fetchUserRole } from "@/lib/auth/role";
 import type { SavedSearch } from "@/lib/types";
 import { logAuthRedirect } from "@/lib/auth/auth-redirect-log";
 
@@ -61,6 +63,7 @@ export default async function SavedSearchesPage({
 
   const searches = (data as SavedSearch[]) || [];
   const alertsEnabled = true;
+  const userRole = await fetchUserRole(supabase, user.id);
 
   const { data: alertRows } = await supabase
     .from("saved_search_alerts")
@@ -119,6 +122,7 @@ export default async function SavedSearchesPage({
           </span>
         </div>
       </div>
+      {userRole === "tenant" ? <NotificationSettingsCard /> : null}
       <TenantPushDiagnosticsPanel />
       <SavedSearchManager initialSearches={searches} alertsEnabled={alertsEnabled} />
     </div>
