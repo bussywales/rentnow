@@ -179,3 +179,70 @@ void test("push subscribe returns 503 when not configured", async () => {
 
   assert.equal(response.status, 503);
 });
+
+void test("push subscribe returns 429 when rate limited", async () => {
+  const response = await postPushSubscribeResponse(
+    new Request("http://localhost/api/push/subscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        endpoint: "https://example.com/endpoint",
+        keys: { p256dh: "key", auth: "auth" },
+      }),
+    }),
+    {
+      hasServerSupabaseEnv: () => true,
+      getPushConfig: () => ({
+        configured: true,
+        publicKey: "public",
+        privateKey: "private",
+        subject: "https://example.com",
+      }),
+      requireUser: async () => ({
+        ok: true,
+        user: { id: "user-123" },
+        supabase: { from: () => ({ upsert: () => createThenable({ error: null }) }) },
+      }),
+      checkPushRateLimit: () => ({
+        allowed: false,
+        retryAfterSeconds: 60,
+        remaining: 0,
+        limit: 10,
+        resetAt: Date.now() + 60_000,
+      }),
+      logFailure: () => undefined,
+    }
+  );
+
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get("Retry-After"), "60");
+});
+
+void test("push unsubscribe returns 429 when rate limited", async () => {
+  const response = await postPushUnsubscribeResponse(
+    new Request("http://localhost/api/push/unsubscribe", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ endpoint: "https://example.com/endpoint" }),
+    }),
+    {
+      hasServerSupabaseEnv: () => true,
+      requireUser: async () => ({
+        ok: true,
+        user: { id: "user-123" },
+        supabase: { from: () => ({ delete: () => ({ eq: () => createThenable({ error: null }) }) }) },
+      }),
+      checkPushRateLimit: () => ({
+        allowed: false,
+        retryAfterSeconds: 45,
+        remaining: 0,
+        limit: 10,
+        resetAt: Date.now() + 45_000,
+      }),
+      logFailure: () => undefined,
+    }
+  );
+
+  assert.equal(response.status, 429);
+  assert.equal(response.headers.get("Retry-After"), "45");
+});

@@ -36,6 +36,10 @@ void test("push status badge exposes enable and finish setup CTAs", () => {
     contents.includes("Finish setup"),
     "expected finish setup CTA for re-enable state"
   );
+  assert.ok(
+    contents.includes("Install to Home Screen"),
+    "expected iOS install guidance copy"
+  );
 });
 
 void test("admin support push section exposes missing key label", () => {

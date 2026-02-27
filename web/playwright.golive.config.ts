@@ -17,6 +17,7 @@ const goLiveSmokeSpecMatch = [
   "**/host.bookings.smoke.spec.ts",
   "**/host.calendar.smoke.spec.ts",
   "**/internal.reminders.smoke.spec.ts",
+  "**/push.api.auth.smoke.spec.ts",
   "**/support.widget.escalation.smoke.spec.ts",
   "**/admin.support.ops.smoke.spec.ts",
 ];

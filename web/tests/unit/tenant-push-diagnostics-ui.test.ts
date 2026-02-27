@@ -28,6 +28,14 @@ void test("tenant push diagnostics panel renders core copy", () => {
     contents.includes("Re-subscribe on this device"),
     "expected resubscribe CTA copy"
   );
+  assert.ok(
+    contents.includes("Install to Home Screen"),
+    "expected iOS install guidance copy"
+  );
+  assert.ok(
+    contents.includes("See supported setups"),
+    "expected unsupported browser guidance link"
+  );
 });
 
 void test("saved searches page includes tenant diagnostics panel", () => {
