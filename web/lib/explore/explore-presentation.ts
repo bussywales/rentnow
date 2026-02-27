@@ -24,6 +24,12 @@ export function resolveExplorePrimaryAction(property: Property): {
   };
 }
 
+export function resolveExploreCtaMicrocopy(property: Property): string {
+  return isShortletProperty(property)
+    ? "Secure checkout. Confirm your stay in minutes."
+    : "No commitment. We will contact you to confirm a viewing time.";
+}
+
 export function resolveExploreIntentTag(property: Property): string {
   if (isShortletProperty(property)) return "Shortlets";
   const normalizedIntent = normalizeListingIntent(property.listing_intent);
