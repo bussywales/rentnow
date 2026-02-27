@@ -65,7 +65,7 @@ export function parseExploreAnalyticsPayload(raw: string | null | undefined): Ex
           result: typeof typed.result === "string" ? typed.result : null,
         } satisfies ExploreAnalyticsEvent;
       })
-      .filter((event): event is ExploreAnalyticsEvent => Boolean(event));
+      .filter((event): event is NonNullable<typeof event> => event !== null);
 
     return {
       events: events.slice(-EXPLORE_ANALYTICS_MAX_EVENTS),
