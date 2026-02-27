@@ -34,6 +34,8 @@ updated_at: "2026-02-27"
 ### Quiet hours and daily mode
 
 - Quiet hours suppress push sends during your selected window.
+- Overnight windows are supported (for example `22:00` to `07:00`).
+- Start and end times must be different.
 - Daily mode sends at most one saved-search push per local day when new matches exist.
 - If no new matches are found, no push is sent.
 
