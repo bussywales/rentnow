@@ -1,4 +1,5 @@
 import { DEV_MOCKS } from "@/lib/env";
+import { partitionExploreListingsByImageQuality } from "@/lib/explore/listing-quality";
 import { mockProperties } from "@/lib/mock";
 import { searchProperties } from "@/lib/search";
 import { parseFiltersFromSearchParams } from "@/lib/search-filters";
@@ -63,6 +64,18 @@ export function buildExploreFeed({ featured, browse, limit }: ExploreFeedInput):
   return Array.from(byId.values()).slice(0, resolvedLimit);
 }
 
+export function applyExploreImageQualityFilter(
+  listings: ReadonlyArray<Property>,
+  limit?: number
+): Property[] {
+  const resolvedLimit = clampLimit(limit);
+  const { healthy, limited } = partitionExploreListingsByImageQuality(listings);
+  if (healthy.length >= resolvedLimit) {
+    return healthy.slice(0, resolvedLimit);
+  }
+  return [...healthy, ...limited].slice(0, resolvedLimit);
+}
+
 export function filterExploreFeedByMarket(
   listings: ReadonlyArray<Property>,
   marketCountry: string | null | undefined
@@ -77,7 +90,7 @@ export function filterExploreFeedByMarket(
 
 export async function getExploreFeed(options: ExploreFeedOptions = {}): Promise<Property[]> {
   const limit = clampLimit(options.limit);
-  const fallback = filterExploreFeedByMarket(
+  const fallbackCandidate = filterExploreFeedByMarket(
     buildExploreFeed({
       featured: mockProperties,
       browse: mockProperties,
@@ -85,9 +98,11 @@ export async function getExploreFeed(options: ExploreFeedOptions = {}): Promise<
     }),
     options.marketCountry ?? null
   );
+  const fallbackQualityFeed = applyExploreImageQualityFilter(fallbackCandidate, limit);
+  const fallbackFeed = fallbackQualityFeed.length ? fallbackQualityFeed : fallbackCandidate.slice(0, limit);
 
   if (!hasServerSupabaseEnv()) {
-    return DEV_MOCKS ? fallback : [];
+    return DEV_MOCKS ? fallbackFeed : [];
   }
 
   const baseFilters = parseFiltersFromSearchParams(new URLSearchParams());
@@ -105,11 +120,12 @@ export async function getExploreFeed(options: ExploreFeedOptions = {}): Promise<
 
   const featured = featuredResult.error ? [] : ((featuredResult.data as Property[]) ?? []);
   const browse = browseResult.error ? [] : ((browseResult.data as Property[]) ?? []);
-  const feed = filterExploreFeedByMarket(
+  const feedCandidate = filterExploreFeedByMarket(
     buildExploreFeed({ featured, browse, limit }),
     options.marketCountry ?? null
   );
-  if (feed.length) return feed;
+  const qualityFeed = applyExploreImageQualityFilter(feedCandidate, limit);
+  if (qualityFeed.length) return qualityFeed;
 
-  return DEV_MOCKS ? fallback : [];
+  return DEV_MOCKS ? fallbackFeed : [];
 }
