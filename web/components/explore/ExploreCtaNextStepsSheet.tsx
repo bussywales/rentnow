@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { GlassPill } from "@/components/ui/GlassPill";
+import type { ExploreAvailabilityChip } from "@/lib/explore/explore-presentation";
 
 type ExploreCtaNextStepsSheetProps = {
   open: boolean;
@@ -11,19 +13,22 @@ type ExploreCtaNextStepsSheetProps = {
   primaryButtonLabel: string;
   onPrimaryAction: () => void;
   onRetryRequest?: () => void;
+  onContinueExploring?: () => void;
+  viewRequestsHref?: string;
   propertyTitle: string;
   requestMessage: string;
   onRequestMessageChange: (value: string) => void;
-  onAvailabilityChipClick: (chip: "Weekdays" | "Weekends" | "Evenings") => void;
+  onAvailabilityChipClick: (chip: ExploreAvailabilityChip) => void;
   requestSubmitting?: boolean;
   requestError?: string | null;
   requestSuccess?: string | null;
 };
 
-const REQUEST_AVAILABILITY_CHIPS: Array<"Weekdays" | "Weekends" | "Evenings"> = [
+const REQUEST_AVAILABILITY_CHIPS: ExploreAvailabilityChip[] = [
   "Weekdays",
   "Weekends",
   "Evenings",
+  "Anytime",
 ];
 
 export function ExploreCtaNextStepsSheet({
@@ -33,6 +38,8 @@ export function ExploreCtaNextStepsSheet({
   primaryButtonLabel,
   onPrimaryAction,
   onRetryRequest,
+  onContinueExploring,
+  viewRequestsHref = "/tenant/viewings",
   propertyTitle,
   requestMessage,
   onRequestMessageChange,
@@ -42,11 +49,16 @@ export function ExploreCtaNextStepsSheet({
   requestSuccess = null,
 }: ExploreCtaNextStepsSheetProps) {
   const isShortletAction = actionLabel === "Book";
+  const isViewingSuccess = !isShortletAction && Boolean(requestSuccess);
+  const handleOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && requestSubmitting) return;
+    onOpenChange(nextOpen);
+  };
 
   return (
     <BottomSheet
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={handleOpenChange}
       title={isShortletAction ? "What happens next" : "Request viewing"}
       description={isShortletAction ? "A quick overview before you continue." : "We will send your request to the host or agent."}
       testId="explore-cta-next-steps-sheet"
@@ -131,29 +143,54 @@ export function ExploreCtaNextStepsSheet({
                 <p data-testid="explore-request-success">{requestSuccess}</p>
               </div>
             ) : null}
+            {requestSubmitting ? (
+              <p className="text-xs text-slate-500" data-testid="explore-request-sending-note" aria-live="polite">
+                Sending request. Keep this open for confirmation.
+              </p>
+            ) : null}
           </div>
         ) : null}
 
-        <div className="flex items-center gap-2">
-          <Button
-            className="flex-1"
-            onClick={onPrimaryAction}
-            disabled={requestSubmitting}
-            data-testid="explore-cta-next-steps-primary"
-          >
-            {requestSubmitting ? "Sending..." : primaryButtonLabel}
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            className="flex-1"
-            onClick={() => onOpenChange(false)}
-            disabled={requestSubmitting}
-            data-testid="explore-cta-next-steps-dismiss"
-          >
-            Not now
-          </Button>
-        </div>
+        {isViewingSuccess ? (
+          <div className="flex items-center gap-2">
+            <Button
+              className="flex-1"
+              type="button"
+              onClick={onContinueExploring ?? (() => onOpenChange(false))}
+              data-testid="explore-request-continue-exploring"
+            >
+              Continue exploring
+            </Button>
+            <Link
+              href={viewRequestsHref}
+              className="inline-flex flex-1 items-center justify-center rounded-full border border-slate-200 px-4 py-2 text-sm font-semibold text-slate-700"
+              data-testid="explore-request-view-requests"
+            >
+              View requests
+            </Link>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2">
+            <Button
+              className="flex-1"
+              onClick={onPrimaryAction}
+              disabled={requestSubmitting}
+              data-testid="explore-cta-next-steps-primary"
+            >
+              {requestSubmitting ? "Sending..." : primaryButtonLabel}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="flex-1"
+              onClick={() => onOpenChange(false)}
+              disabled={requestSubmitting}
+              data-testid="explore-cta-next-steps-dismiss"
+            >
+              Not now
+            </Button>
+          </div>
+        )}
       </div>
     </BottomSheet>
   );

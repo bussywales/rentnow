@@ -87,6 +87,7 @@ export function ExploreDetailsSheet({
   const facts = factsForProperty(property);
   const topAmenities = (property.amenities ?? []).slice(0, 5);
   const similarItems = similarHomes.slice(0, 3);
+  const viewRequestsHref = "/tenant/viewings";
   const [nextStepsOpen, setNextStepsOpen] = useState(false);
   const [requestMessage, setRequestMessage] = useState(resolveExploreViewingRequestTemplate(property));
   const [requestSubmitting, setRequestSubmitting] = useState(false);
@@ -144,7 +145,6 @@ export function ExploreDetailsSheet({
 
     if (requestSuccess) {
       setNextStepsOpen(false);
-      router.push(primaryAction.href);
       return;
     }
 
@@ -233,6 +233,11 @@ export function ExploreDetailsSheet({
     } finally {
       setRequestSubmitting(false);
     }
+  };
+
+  const handleNextStepsOpenChange = (nextOpen: boolean) => {
+    if (!nextOpen && requestSubmitting) return;
+    setNextStepsOpen(nextOpen);
   };
 
   return (
@@ -370,7 +375,7 @@ export function ExploreDetailsSheet({
 
       <ExploreCtaNextStepsSheet
         open={nextStepsOpen}
-        onOpenChange={setNextStepsOpen}
+        onOpenChange={handleNextStepsOpenChange}
         actionLabel={primaryAction.label}
         primaryButtonLabel={
           primaryAction.label === "Book"
@@ -387,6 +392,12 @@ export function ExploreDetailsSheet({
         onRetryRequest={() => {
           void handleNextStepPrimaryAction();
         }}
+        onContinueExploring={() => {
+          setNextStepsOpen(false);
+          setRequestError(null);
+          setRequestSuccess(null);
+        }}
+        viewRequestsHref={viewRequestsHref}
         propertyTitle={property.title}
         requestMessage={requestMessage}
         onRequestMessageChange={setRequestMessage}
