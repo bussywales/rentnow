@@ -20,5 +20,18 @@ void test("explore next steps sheet exposes success and retry affordances", () =
   assert.match(source, /data-testid="explore-request-error-state"/);
   assert.match(source, /data-testid="explore-request-retry"/);
   assert.match(source, /data-testid="explore-request-success-state"/);
+  assert.match(source, /data-testid="explore-request-continue-exploring"/);
+  assert.match(source, /data-testid="explore-request-view-requests"/);
+  assert.match(source, /if \(!nextOpen && requestSubmitting\) return;/);
+  assert.match(source, /data-testid="explore-request-sending-note"/);
   assert.match(source, /data-testid="explore-cta-next-steps-primary"/);
+});
+
+void test("explore details sheet guards next-steps close while sending and points to tenant viewings", () => {
+  const sourcePath = path.join(process.cwd(), "components", "explore", "ExploreDetailsSheet.tsx");
+  const source = readFileSync(sourcePath, "utf8");
+
+  assert.match(source, /const viewRequestsHref = "\/tenant\/viewings";/);
+  assert.match(source, /if \(!nextOpen && requestSubmitting\) return;/);
+  assert.match(source, /onContinueExploring=\{\(\) =>/);
 });
