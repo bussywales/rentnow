@@ -78,6 +78,14 @@ export function resolveExploreIntentTag(property: Property): string {
   return "All homes";
 }
 
+export function resolveExploreAnalyticsIntentType(property: Property): "shortlet" | "rent" | "buy" {
+  if (isShortletProperty(property)) return "shortlet";
+  const normalizedIntent = normalizeListingIntent(property.listing_intent);
+  if (normalizedIntent === "rent_lease") return "rent";
+  if (normalizedIntent && isSaleIntent(normalizedIntent)) return "buy";
+  return "rent";
+}
+
 export function resolveExploreTrustBadges(
   property: Property,
   options: { now?: Date } = {}

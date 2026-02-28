@@ -13,6 +13,7 @@ import { ExploreGallery } from "@/components/explore/ExploreGallery";
 import { ExploreDetailsSheet } from "@/components/explore/ExploreDetailsSheet";
 import { hasSeenExploreDetailsHint, markExploreDetailsHintSeen } from "@/lib/explore/explore-prefs";
 import {
+  resolveExploreAnalyticsIntentType,
   resolveExploreDetailsHref,
   resolveExploreIntentTag,
   resolveExploreListingKind,
@@ -28,9 +29,25 @@ type ExploreSlideProps = {
   similarHomes?: Property[];
   onSelectSimilarHome?: (listingId: string) => boolean;
   onOpenDetails?: (input: { listingId: string; index: number }) => void;
-  onPrimaryActionTap?: (input: { listingId: string; index: number; action: "Book" | "Request viewing" }) => void;
-  onSaveToggle?: (input: { listingId: string; index: number; saved: boolean }) => void;
-  onShareAction?: (input: { listingId: string; index: number; result: "shared" | "copied" | "dismissed" | "error" }) => void;
+  onPrimaryActionTap?: (input: {
+    listingId: string;
+    index: number;
+    action: "Book" | "Request viewing";
+    intentType: "shortlet" | "rent" | "buy";
+  }) => void;
+  onSaveToggle?: (input: {
+    listingId: string;
+    index: number;
+    saved: boolean;
+    intentType: "shortlet" | "rent" | "buy";
+  }) => void;
+  onShareAction?: (input: {
+    listingId: string;
+    index: number;
+    result: "shared" | "copied" | "dismissed" | "error";
+    intentType: "shortlet" | "rent" | "buy";
+  }) => void;
+  feedSize?: number;
 };
 
 export function ExploreSlide({
@@ -44,6 +61,7 @@ export function ExploreSlide({
   onPrimaryActionTap,
   onSaveToggle,
   onShareAction,
+  feedSize = 0,
 }: ExploreSlideProps) {
   const { market } = useMarketPreference();
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -51,6 +69,7 @@ export function ExploreSlide({
   const [showDetailsHint, setShowDetailsHint] = useState(false);
 
   const kind = resolveExploreListingKind(property);
+  const intentType = resolveExploreAnalyticsIntentType(property);
   const detailsHref = resolveExploreDetailsHref(property);
   const location = formatLocationLabel(property.city, property.neighbourhood);
   const intentTag = resolveExploreIntentTag(property);
@@ -83,16 +102,16 @@ export function ExploreSlide({
       url: absoluteUrl,
     });
     if (result === "shared" || result === "copied") {
-      onShareAction?.({ listingId: property.id, index, result });
+      onShareAction?.({ listingId: property.id, index, result, intentType });
       setShareFeedback("copied");
       return;
     }
     if (result === "dismissed") {
-      onShareAction?.({ listingId: property.id, index, result });
+      onShareAction?.({ listingId: property.id, index, result, intentType });
       setShareFeedback(null);
       return;
     }
-    onShareAction?.({ listingId: property.id, index, result: "error" });
+    onShareAction?.({ listingId: property.id, index, result: "error", intentType });
     setShareFeedback("error");
   };
 
@@ -155,7 +174,7 @@ export function ExploreSlide({
             marketCountry={market.country}
             testId={`explore-save-toggle-${property.id}`}
             onToggle={(saved) => {
-              onSaveToggle?.({ listingId: property.id, index, saved });
+              onSaveToggle?.({ listingId: property.id, index, saved, intentType });
             }}
             className="h-full w-full border-transparent bg-transparent text-white ring-0 shadow-none transition-transform active:scale-[0.98] hover:bg-white/10 hover:text-white"
           />
@@ -224,8 +243,11 @@ export function ExploreSlide({
             listingId: property.id,
             index,
             action,
+            intentType,
           });
         }}
+        listingIndex={index}
+        feedSize={feedSize}
       />
     </article>
   );

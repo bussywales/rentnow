@@ -17,7 +17,8 @@ import {
 } from "@/lib/explore/explore-prefs";
 import { resolveSimilarHomes } from "@/lib/explore/similar-homes";
 import { EXPLORE_GALLERY_FALLBACK_IMAGE } from "@/lib/explore/gallery-images";
-import { recordExploreAnalyticsEvent } from "@/lib/explore/explore-analytics";
+import { trackExploreFunnelEvent } from "@/lib/explore/explore-funnel";
+import { resolveExploreAnalyticsIntentType } from "@/lib/explore/explore-presentation";
 
 type ExplorePagerProps = {
   listings: Property[];
@@ -87,9 +88,10 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
   useEffect(() => {
     if (trackedExploreViewRef.current) return;
     trackedExploreViewRef.current = true;
-    recordExploreAnalyticsEvent({
+    trackExploreFunnelEvent({
       name: "explore_view",
-      marketCountry: market.country,
+      marketCode: market.country,
+      feedSize: visibleListings.length,
       depth: visibleListings.length,
     });
   }, [market.country, visibleListings.length]);
@@ -111,10 +113,14 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       return;
     }
     if (previousIndex === displayedIndex) return;
-    recordExploreAnalyticsEvent({
+    const activeListing = visibleListings[displayedIndex];
+    trackExploreFunnelEvent({
       name: "explore_swipe",
-      marketCountry: market.country,
-      listingId: visibleListings[displayedIndex]?.id ?? null,
+      marketCode: market.country,
+      listingId: activeListing?.id ?? null,
+      intentType: activeListing ? resolveExploreAnalyticsIntentType(activeListing) : null,
+      index: displayedIndex,
+      feedSize: visibleListings.length,
       depth: displayedIndex + 1,
       fromIndex: previousIndex,
       toIndex: displayedIndex,
@@ -173,10 +179,14 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
 
   const handleNotInterested = useCallback((listingId: string) => {
     const hiddenIndex = visibleListings.findIndex((listing) => listing.id === listingId);
-    recordExploreAnalyticsEvent({
+    const hiddenListing = visibleListings[hiddenIndex];
+    trackExploreFunnelEvent({
       name: "explore_not_interested",
       listingId,
-      marketCountry: market.country,
+      marketCode: market.country,
+      intentType: hiddenListing ? resolveExploreAnalyticsIntentType(hiddenListing) : null,
+      index: hiddenIndex >= 0 ? hiddenIndex : undefined,
+      feedSize: visibleListings.length,
       depth: hiddenIndex >= 0 ? hiddenIndex + 1 : undefined,
     });
     const nextHidden = hideExploreListingId(listingId);
@@ -302,40 +312,53 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
             similarHomes={similarHomesByListingId.get(property.id) ?? []}
             onSelectSimilarHome={handleSelectSimilarHome}
             onOpenDetails={({ listingId, index }) => {
-              recordExploreAnalyticsEvent({
+              trackExploreFunnelEvent({
                 name: "explore_open_details",
                 listingId,
-                marketCountry: market.country,
+                marketCode: market.country,
+                intentType: resolveExploreAnalyticsIntentType(property),
+                index,
+                feedSize: visibleListings.length,
                 depth: index + 1,
               });
             }}
-            onPrimaryActionTap={({ listingId, index, action }) => {
-              recordExploreAnalyticsEvent({
+            onPrimaryActionTap={({ listingId, index, action, intentType }) => {
+              trackExploreFunnelEvent({
                 name: "explore_tap_cta",
                 listingId,
-                marketCountry: market.country,
+                marketCode: market.country,
+                intentType,
+                index,
+                feedSize: visibleListings.length,
                 depth: index + 1,
                 action,
               });
             }}
-            onSaveToggle={({ listingId, index, saved }) => {
-              recordExploreAnalyticsEvent({
+            onSaveToggle={({ listingId, index, saved, intentType }) => {
+              trackExploreFunnelEvent({
                 name: "explore_save_toggle",
                 listingId,
-                marketCountry: market.country,
+                marketCode: market.country,
+                intentType,
+                index,
+                feedSize: visibleListings.length,
                 depth: index + 1,
                 action: saved ? "save" : "unsave",
               });
             }}
-            onShareAction={({ listingId, index, result }) => {
-              recordExploreAnalyticsEvent({
+            onShareAction={({ listingId, index, result, intentType }) => {
+              trackExploreFunnelEvent({
                 name: "explore_share",
                 listingId,
-                marketCountry: market.country,
+                marketCode: market.country,
+                intentType,
+                index,
+                feedSize: visibleListings.length,
                 depth: index + 1,
                 result,
               });
             }}
+            feedSize={visibleListings.length}
           />
         ))}
       </div>
