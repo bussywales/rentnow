@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/Button";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { GlassPill } from "@/components/ui/GlassPill";
 
 type ExploreCtaNextStepsSheetProps = {
   open: boolean;
@@ -50,6 +51,14 @@ export function ExploreCtaNextStepsSheet({
       sheetId="explore-cta-next-steps-sheet"
     >
       <div className="space-y-4" data-testid="explore-cta-next-steps-content">
+        <div className="flex justify-center">
+          <GlassPill
+            variant="light"
+            className="h-1.5 w-14 border-white/65 bg-white/55 shadow-[inset_0_1px_0_rgba(255,255,255,0.55),0_6px_14px_rgba(15,23,42,0.12)]"
+            data-testid="explore-cta-next-steps-handle"
+            aria-hidden
+          />
+        </div>
         <ul className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
           {isShortletAction ? (
             <>

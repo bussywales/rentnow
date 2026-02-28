@@ -7,6 +7,7 @@ import { resolvePropertyImageSources } from "@/components/properties/PropertyIma
 import type { Property } from "@/lib/types";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { ExploreSlide } from "@/components/explore/ExploreSlide";
+import { GlassPill } from "@/components/ui/GlassPill";
 import {
   clearHiddenExploreListingIds,
   getHiddenExploreListingIds,
@@ -276,13 +277,14 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       data-testid="explore-root"
     >
       {listings.length > 1 ? (
-        <p
-          className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 rounded-full border border-white/25 bg-slate-950/55 px-2.5 py-1 text-[11px] font-medium text-white/90 backdrop-blur"
+        <GlassPill
+          variant="dark"
+          className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 px-2.5 py-1 text-[11px] font-medium text-white/90"
           data-testid="explore-progress"
           aria-live="polite"
         >
           {`${displayedIndex + 1} / ${listings.length}`}
-        </p>
+        </GlassPill>
       ) : null}
       <div
         className="scrollbar-none h-[100svh] snap-y snap-mandatory overflow-y-auto overscroll-y-contain"

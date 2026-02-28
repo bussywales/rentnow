@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { SaveToggle } from "@/components/saved/SaveToggle";
+import { GlassPill } from "@/components/ui/GlassPill";
 import { TrustBadges } from "@/components/ui/TrustBadges";
 import { TrackViewedLink } from "@/components/viewed/TrackViewedLink";
 import { performShare } from "@/lib/share/client-share";
@@ -143,44 +144,50 @@ export function ExploreSlide({
       </div>
 
       <div className="absolute right-3 top-16 z-20 flex flex-col gap-1.5">
-        <SaveToggle
-          itemId={property.id}
-          kind={kind}
-          href={detailsHref}
-          title={property.title}
-          subtitle={location}
-          tag={intentTag}
-          marketCountry={market.country}
-          testId={`explore-save-toggle-${property.id}`}
-          onToggle={(saved) => {
-            onSaveToggle?.({ listingId: property.id, index, saved });
-          }}
-          className="h-9 w-9 border-white/25 bg-slate-900/40 text-white ring-0 shadow-sm backdrop-blur transition active:scale-95 hover:bg-slate-900/55"
-        />
-        <button
-          type="button"
-          onClick={() => {
-            void share();
-          }}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-slate-900/40 text-base font-semibold text-white shadow-sm backdrop-blur transition active:scale-95 hover:bg-slate-900/55"
-          aria-label="Share listing"
-          data-testid="explore-share-action"
-        >
-          ↗
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            dismissDetailsHint();
-            onOpenDetails?.({ listingId: property.id, index });
-            setDetailsOpen(true);
-          }}
-          className="inline-flex h-9 w-9 items-center justify-center rounded-full border border-white/25 bg-slate-900/40 text-base font-semibold text-white shadow-sm backdrop-blur transition active:scale-95 hover:bg-slate-900/55"
-          aria-label="Open listing details"
-          data-testid="explore-open-details"
-        >
-          ⋯
-        </button>
+        <GlassPill variant="dark" className="h-11 w-11 p-0.5">
+          <SaveToggle
+            itemId={property.id}
+            kind={kind}
+            href={detailsHref}
+            title={property.title}
+            subtitle={location}
+            tag={intentTag}
+            marketCountry={market.country}
+            testId={`explore-save-toggle-${property.id}`}
+            onToggle={(saved) => {
+              onSaveToggle?.({ listingId: property.id, index, saved });
+            }}
+            className="h-full w-full border-transparent bg-transparent text-white ring-0 shadow-none transition-transform active:scale-[0.98] hover:bg-white/10 hover:text-white"
+          />
+        </GlassPill>
+        <GlassPill variant="dark" className="h-11 w-11 p-0.5">
+          <button
+            type="button"
+            onClick={() => {
+              void share();
+            }}
+            className="inline-flex h-full w-full items-center justify-center rounded-full text-base font-semibold text-white transition-transform active:scale-[0.98]"
+            aria-label="Share listing"
+            data-testid="explore-share-action"
+          >
+            ↗
+          </button>
+        </GlassPill>
+        <GlassPill variant="dark" className="h-11 w-11 p-0.5">
+          <button
+            type="button"
+            onClick={() => {
+              dismissDetailsHint();
+              onOpenDetails?.({ listingId: property.id, index });
+              setDetailsOpen(true);
+            }}
+            className="inline-flex h-full w-full items-center justify-center rounded-full text-base font-semibold text-white transition-transform active:scale-[0.98]"
+            aria-label="Open listing details"
+            data-testid="explore-open-details"
+          >
+            ⋯
+          </button>
+        </GlassPill>
       </div>
 
       {shareFeedback ? (

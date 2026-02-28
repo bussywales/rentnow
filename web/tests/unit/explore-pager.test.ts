@@ -36,7 +36,8 @@ void test("explore slide source exposes details, hint, and local hide controls",
   assert.match(source, /markExploreDetailsHintSeen/);
   assert.match(source, /onLongPress=\{\(\) =>/);
   assert.match(source, /onGestureLockChange=\{onGestureLockChange\}/);
-  assert.match(source, /h-9 w-9/);
+  assert.match(source, /GlassPill/);
+  assert.match(source, /h-11 w-11/);
 });
 
 void test("explore gallery source supports axis locking for horizontal gestures", () => {
