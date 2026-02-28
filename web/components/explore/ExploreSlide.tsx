@@ -1,6 +1,7 @@
 "use client";
 
-import { memo, useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { SaveToggle } from "@/components/saved/SaveToggle";
 import { GlassPill } from "@/components/ui/GlassPill";
@@ -17,6 +18,8 @@ import {
   resolveExploreDetailsHref,
   resolveExploreIntentTag,
   resolveExploreListingKind,
+  resolveExplorePriceCopy,
+  resolveExploreStayContextFromSearchParams,
   resolveExploreTrustBadges,
 } from "@/lib/explore/explore-presentation";
 
@@ -132,6 +135,7 @@ function ExploreSlideInner({
   feedSize = 0,
 }: ExploreSlideProps) {
   const { market } = useMarketPreference();
+  const searchParams = useSearchParams();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<"copied" | "error" | null>(null);
   const [showDetailsHint, setShowDetailsHint] = useState(false);
@@ -142,6 +146,18 @@ function ExploreSlideInner({
   const location = formatLocationLabel(property.city, property.neighbourhood);
   const intentTag = resolveExploreIntentTag(property);
   const badges = resolveExploreTrustBadges(property);
+  const stayContext = useMemo(
+    () => resolveExploreStayContextFromSearchParams(searchParams),
+    [searchParams]
+  );
+  const priceCopy = useMemo(
+    () =>
+      resolveExplorePriceCopy(property, {
+        marketCurrency: market.currency,
+        stayContext,
+      }),
+    [market.currency, property, stayContext]
+  );
   const shouldLogPerf =
     process.env.NODE_ENV !== "production" &&
     typeof window !== "undefined" &&
@@ -234,6 +250,14 @@ function ExploreSlideInner({
           <ExploreTrustBadges badges={badges} tone="overlay" />
           <h2 className="line-clamp-2 text-[1.65rem] font-semibold leading-[1.15]">{property.title}</h2>
           <p className="line-clamp-1 text-sm text-white/90">{location}</p>
+          <p className="line-clamp-1 text-sm font-semibold text-white" data-testid="explore-price-primary">
+            {priceCopy.primary}
+          </p>
+          {priceCopy.estTotal ? (
+            <p className="line-clamp-1 text-xs text-white/85" data-testid="explore-price-est-total">
+              {priceCopy.estTotal}
+            </p>
+          ) : null}
           <TrackViewedLink
             href={detailsHref}
             viewedItem={{

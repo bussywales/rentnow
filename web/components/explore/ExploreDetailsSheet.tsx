@@ -2,14 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { ExploreTrustBadges } from "@/components/explore/ExploreTrustBadges";
-import { formatCadence, formatLocationLabel, formatPriceValue } from "@/lib/property-discovery";
-import { resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
+import { formatLocationLabel, formatPriceValue } from "@/lib/property-discovery";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { resolvePropertyImageSources } from "@/components/properties/PropertyImageCarousel";
 import type { Property } from "@/lib/types";
@@ -19,7 +18,9 @@ import {
   resolveExploreCtaMicrocopy,
   resolveExploreDetailsHref,
   resolveExploreListingKind,
+  resolveExplorePriceCopy,
   resolveExplorePrimaryAction,
+  resolveExploreStayContextFromSearchParams,
   resolveExploreTrustBadges,
   resolveExploreViewingRequestTemplate,
 } from "@/lib/explore/explore-presentation";
@@ -71,6 +72,7 @@ export function ExploreDetailsSheet({
   feedSize,
 }: ExploreDetailsSheetProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { market } = useMarketPreference();
   const shouldRenderDetailsBody = open;
   const location = formatLocationLabel(property.city, property.neighbourhood);
@@ -78,15 +80,18 @@ export function ExploreDetailsSheet({
   const primaryAction = resolveExplorePrimaryAction(property);
   const intentType = resolveExploreAnalyticsIntentType(property);
   const primaryMicrocopy = resolveExploreCtaMicrocopy(property);
-  const shortletNightlyMinor = resolveShortletNightlyPriceMinor(property);
-  const displayPrice =
-    typeof shortletNightlyMinor === "number" && Number.isFinite(shortletNightlyMinor) && shortletNightlyMinor > 0
-      ? shortletNightlyMinor / 100
-      : property.price;
-  const price = formatPriceValue(property.currency, displayPrice, {
-    marketCurrency: market.currency,
-  });
-  const cadence = formatCadence(property.rental_type, property.rent_period);
+  const stayContext = useMemo(
+    () => resolveExploreStayContextFromSearchParams(searchParams),
+    [searchParams]
+  );
+  const priceCopy = useMemo(
+    () =>
+      resolveExplorePriceCopy(property, {
+        marketCurrency: market.currency,
+        stayContext,
+      }),
+    [market.currency, property, stayContext]
+  );
   const facts = useMemo(
     () => (shouldRenderDetailsBody ? factsForProperty(property) : []),
     [property, shouldRenderDetailsBody]
@@ -282,8 +287,15 @@ export function ExploreDetailsSheet({
         {shouldRenderDetailsBody ? (
           <div className="space-y-4" data-testid="explore-details-content">
           <div className="space-y-1">
-            <p className="text-lg font-semibold text-slate-900">{price}</p>
-            {cadence ? <p className="text-xs text-slate-500">per {cadence}</p> : null}
+            <p className="text-lg font-semibold text-slate-900" data-testid="explore-details-price-primary">
+              {priceCopy.primary}
+            </p>
+            {priceCopy.secondary ? <p className="text-xs text-slate-500">{priceCopy.secondary}</p> : null}
+            {priceCopy.estTotal ? (
+              <p className="text-xs text-slate-500" data-testid="explore-details-price-est-total">
+                {priceCopy.estTotal}
+              </p>
+            ) : null}
           </div>
 
           {trustBadges.length ? <ExploreTrustBadges badges={trustBadges} /> : null}

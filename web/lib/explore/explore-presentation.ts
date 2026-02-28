@@ -1,5 +1,6 @@
 import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
-import { isShortletProperty } from "@/lib/shortlet/discovery";
+import { formatPriceValue } from "@/lib/property-discovery";
+import { isShortletProperty, resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
 import type { Property } from "@/lib/types";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { DEFAULT_VERIFICATION_REQUIREMENTS, isAdvertiserVerified } from "@/lib/trust-markers";
@@ -113,6 +114,126 @@ export function resolveExploreAnalyticsIntentType(property: Property): "shortlet
   if (normalizedIntent === "rent_lease") return "rent";
   if (normalizedIntent && isSaleIntent(normalizedIntent)) return "buy";
   return "rent";
+}
+
+export type ExploreStayContext = {
+  checkIn: string | null;
+  checkOut: string | null;
+  guests: number | null;
+};
+
+type ExplorePriceCopy = {
+  primary: string;
+  secondary: string | null;
+  estTotal: string | null;
+};
+
+type SearchParamsLike = {
+  get: (key: string) => string | null;
+};
+
+function parseDateOnlyKey(value: string | null | undefined): { year: number; month: number; day: number } | null {
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(normalized)) return null;
+  const [yearText, monthText, dayText] = normalized.split("-");
+  const year = Number(yearText);
+  const month = Number(monthText);
+  const day = Number(dayText);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return { year, month, day };
+}
+
+function resolveStayNights(stayContext: ExploreStayContext | null | undefined): number | null {
+  if (!stayContext?.checkIn || !stayContext?.checkOut) return null;
+  const start = parseDateOnlyKey(stayContext.checkIn);
+  const end = parseDateOnlyKey(stayContext.checkOut);
+  if (!start || !end) return null;
+
+  const startUtc = Date.UTC(start.year, start.month - 1, start.day);
+  const endUtc = Date.UTC(end.year, end.month - 1, end.day);
+  const diffMs = endUtc - startUtc;
+  if (!Number.isFinite(diffMs) || diffMs <= 0) return null;
+
+  const nights = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+  return nights > 0 ? nights : null;
+}
+
+function parsePositiveInt(value: string | null): number | null {
+  if (typeof value !== "string") return null;
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+}
+
+function firstParam(searchParams: SearchParamsLike, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = searchParams.get(key);
+    if (value && value.trim()) return value.trim();
+  }
+  return null;
+}
+
+export function resolveExploreStayContextFromSearchParams(
+  searchParams: SearchParamsLike | null | undefined
+): ExploreStayContext {
+  if (!searchParams) {
+    return { checkIn: null, checkOut: null, guests: null };
+  }
+
+  const checkIn = firstParam(searchParams, ["checkIn", "checkin", "startDate", "from"]);
+  const checkOut = firstParam(searchParams, ["checkOut", "checkout", "endDate", "to"]);
+  const guests = parsePositiveInt(firstParam(searchParams, ["guests", "guestCount", "adults"]));
+
+  return { checkIn, checkOut, guests };
+}
+
+export function resolveExplorePriceCopy(
+  property: Property,
+  options: {
+    marketCurrency?: string | null;
+    stayContext?: ExploreStayContext | null;
+  } = {}
+): ExplorePriceCopy {
+  const marketCurrency = options.marketCurrency ?? null;
+  const intent = resolveExploreAnalyticsIntentType(property);
+
+  if (intent === "shortlet") {
+    const nightlyMinor = resolveShortletNightlyPriceMinor(property);
+    const nightly = typeof nightlyMinor === "number" && nightlyMinor > 0 ? nightlyMinor / 100 : property.price;
+    const nightlyLabel = formatPriceValue(property.currency, nightly, { marketCurrency });
+    const stayNights = resolveStayNights(options.stayContext);
+    const guests = options.stayContext?.guests ?? null;
+    const estTotal =
+      typeof stayNights === "number" && stayNights > 0 && typeof guests === "number" && guests > 0
+        ? `Est. total ${formatPriceValue(property.currency, nightly * stayNights, { marketCurrency })}`
+        : null;
+
+    return {
+      primary: `From ${nightlyLabel}/night`,
+      secondary: null,
+      estTotal,
+    };
+  }
+
+  const basePrice = formatPriceValue(property.currency, property.price, {
+    marketCurrency,
+  });
+  if (intent === "rent") {
+    const cadence = property.rent_period === "yearly" ? "year" : "month";
+    return {
+      primary: `${basePrice}/${cadence}`,
+      secondary: null,
+      estTotal: null,
+    };
+  }
+
+  return {
+    primary: basePrice,
+    secondary: null,
+    estTotal: null,
+  };
 }
 
 export type ExploreTrustBadge = {
