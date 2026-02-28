@@ -43,12 +43,13 @@ function safeTrim(value: unknown): string {
 }
 
 export function slugify(input: string): string {
-  return safeTrim(input)
+  const normalized = safeTrim(input)
     .toLowerCase()
     .replace(/[’']/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-{2,}/g, "-");
+  return normalized.slice(0, 60).replace(/-+$/g, "");
 }
 
 export function slugifyName(name: string): string {

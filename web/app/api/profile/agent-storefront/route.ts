@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/authz";
 import { ensureAgentSlugForUser } from "@/lib/agents/agent-storefront.server";
+import { ensurePublicSlugForUser } from "@/lib/advertisers/public-slug.server";
 
 export async function POST(request: Request) {
   const startTime = Date.now();
@@ -25,6 +26,10 @@ export async function POST(request: Request) {
     enabled,
     bio,
   });
+  const publicSlug = await ensurePublicSlugForUser({
+    userId: auth.user.id,
+    displayName,
+  });
 
   if (!slug && enabled !== false) {
     return NextResponse.json(
@@ -33,5 +38,5 @@ export async function POST(request: Request) {
     );
   }
 
-  return NextResponse.json({ slug });
+  return NextResponse.json({ slug, publicSlug });
 }

@@ -186,6 +186,14 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
           setAgentSlug(data.slug);
           setSnapshot((prev) => ({ ...prev, agentSlug: data.slug }));
         }
+        const nextPublicSlug = normalizePublicSlugInput(data?.publicSlug ?? "");
+        if (nextPublicSlug) {
+          setCurrentPublicSlug(nextPublicSlug);
+          setPublicSlugInput(nextPublicSlug);
+          setProfile((prev) => (prev ? { ...prev, public_slug: nextPublicSlug } : prev));
+          setPublicSlugStatus("current");
+          setPublicSlugMessage("This is your current public link.");
+        }
       }
     })();
   }, [agentBio, agentStorefrontEnabled, agentSlug, displayName, profile, supabase]);
@@ -357,7 +365,9 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       });
       setSuccess("Profile updated.");
     }
-    if (!updateError && isAgent && (agentStorefrontEnabled || agentSlug)) {
+    const shouldEnsureAgentLinks =
+      !updateError && isAgent && (agentStorefrontEnabled || !!agentSlug || !currentPublicSlug);
+    if (shouldEnsureAgentLinks) {
       const slugRes = await fetch("/api/profile/agent-storefront", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -374,10 +384,18 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
           setSnapshot((prev) => ({ ...prev, agentSlug: data.slug }));
           setCopyState(null);
         }
+        const nextPublicSlug = normalizePublicSlugInput(data?.publicSlug ?? "");
+        if (nextPublicSlug) {
+          setCurrentPublicSlug(nextPublicSlug);
+          setPublicSlugInput(nextPublicSlug);
+          setProfile((prev) => (prev ? { ...prev, public_slug: nextPublicSlug } : prev));
+          setPublicSlugStatus("current");
+          setPublicSlugMessage("This is your current public link.");
+        }
       } else if (agentStorefrontEnabled && !agentSlug) {
-        setError(
-          "Profile saved, but we couldn’t generate your storefront link. Please try again."
-        );
+        setError("Profile saved, but we couldn’t generate your storefront link. Please try again.");
+      } else if (!currentPublicSlug) {
+        setError("Profile saved, but we couldn’t generate your public profile link. Please try again.");
       }
     }
     setSaving(false);

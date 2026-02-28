@@ -14,6 +14,12 @@ void test("slugifyName normalizes punctuation and spacing", () => {
   assert.equal(slugifyName("  D'Adewale Homes  "), "dadewale-homes");
 });
 
+void test("slugifyName enforces max length 60 for stable public links", () => {
+  const slug = slugifyName("A".repeat(120));
+  assert.equal(slug.length, 60);
+  assert.equal(slug, "a".repeat(60));
+});
+
 void test("chooseUniqueSlug appends numeric suffix when base is used", () => {
   const slug = chooseUniqueSlug("xthetic-studio", [
     "xthetic-studio",
