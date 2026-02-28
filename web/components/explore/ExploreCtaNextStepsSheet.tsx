@@ -10,6 +10,7 @@ type ExploreCtaNextStepsSheetProps = {
   actionLabel: "Book" | "Request viewing";
   primaryButtonLabel: string;
   onPrimaryAction: () => void;
+  onRetryRequest?: () => void;
   propertyTitle: string;
   requestMessage: string;
   onRequestMessageChange: (value: string) => void;
@@ -31,6 +32,7 @@ export function ExploreCtaNextStepsSheet({
   actionLabel,
   primaryButtonLabel,
   onPrimaryAction,
+  onRetryRequest,
   propertyTitle,
   requestMessage,
   onRequestMessageChange,
@@ -102,14 +104,32 @@ export function ExploreCtaNextStepsSheet({
               ))}
             </div>
             {requestError ? (
-              <p className="text-xs text-rose-600" data-testid="explore-request-error" aria-live="polite">
-                {requestError}
-              </p>
+              <div className="space-y-2" data-testid="explore-request-error-state">
+                <p className="text-xs text-rose-600" data-testid="explore-request-error" aria-live="polite">
+                  {requestError}
+                </p>
+                {!requestSubmitting ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-8 rounded-full border border-rose-200 bg-rose-50 px-3 text-xs font-semibold text-rose-700"
+                    onClick={onRetryRequest ?? onPrimaryAction}
+                    data-testid="explore-request-retry"
+                  >
+                    Retry
+                  </Button>
+                ) : null}
+              </div>
             ) : null}
             {requestSuccess ? (
-              <p className="text-xs text-emerald-700" data-testid="explore-request-success" aria-live="polite">
-                {requestSuccess}
-              </p>
+              <div
+                className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-700"
+                data-testid="explore-request-success-state"
+                aria-live="polite"
+              >
+                <p className="font-semibold">Request sent</p>
+                <p data-testid="explore-request-success">{requestSuccess}</p>
+              </div>
             ) : null}
           </div>
         ) : null}

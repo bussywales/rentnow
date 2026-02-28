@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -13,6 +13,7 @@ import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { resolvePropertyImageSources } from "@/components/properties/PropertyImageCarousel";
 import type { Property } from "@/lib/types";
 import {
+  resolveExploreAnalyticsIntentType,
   resolveExploreCtaMicrocopy,
   resolveExploreDetailsHref,
   resolveExploreListingKind,
@@ -22,6 +23,7 @@ import {
 import { EXPLORE_GALLERY_FALLBACK_IMAGE } from "@/lib/explore/gallery-images";
 import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
 import { ExploreCtaNextStepsSheet } from "@/components/explore/ExploreCtaNextStepsSheet";
+import { trackExploreFunnelEvent } from "@/lib/explore/explore-funnel";
 
 type ExploreDetailsSheetProps = {
   open: boolean;
@@ -30,6 +32,8 @@ type ExploreDetailsSheetProps = {
   similarHomes?: Property[];
   onSelectSimilarHome?: (listingId: string) => boolean;
   onPrimaryActionTap?: (actionLabel: "Book" | "Request viewing") => void;
+  listingIndex: number;
+  feedSize: number;
 };
 
 const EXPLORE_FALLBACK_IMAGE = EXPLORE_GALLERY_FALLBACK_IMAGE;
@@ -78,12 +82,15 @@ export function ExploreDetailsSheet({
   similarHomes = [],
   onSelectSimilarHome,
   onPrimaryActionTap,
+  listingIndex,
+  feedSize,
 }: ExploreDetailsSheetProps) {
   const router = useRouter();
   const { market } = useMarketPreference();
   const location = formatLocationLabel(property.city, property.neighbourhood);
   const detailsHref = resolveExploreDetailsHref(property);
   const primaryAction = resolveExplorePrimaryAction(property);
+  const intentType = resolveExploreAnalyticsIntentType(property);
   const primaryMicrocopy = resolveExploreCtaMicrocopy(property);
   const shortletNightlyMinor = resolveShortletNightlyPriceMinor(property);
   const displayPrice =
@@ -102,6 +109,7 @@ export function ExploreDetailsSheet({
   const [requestSubmitting, setRequestSubmitting] = useState(false);
   const [requestError, setRequestError] = useState<string | null>(null);
   const [requestSuccess, setRequestSuccess] = useState<string | null>(null);
+  const nextStepsWasOpenRef = useRef(false);
 
   useEffect(() => {
     setRequestMessage(resolveExploreViewingRequestTemplate(property));
@@ -109,9 +117,49 @@ export function ExploreDetailsSheet({
     setRequestSuccess(null);
   }, [property]);
 
+  useEffect(() => {
+    if (nextStepsOpen && !nextStepsWasOpenRef.current) {
+      trackExploreFunnelEvent({
+        name: "explore_open_next_steps",
+        listingId: property.id,
+        marketCode: market.country,
+        intentType,
+        index: listingIndex,
+        feedSize,
+      });
+      if (primaryAction.label === "Request viewing") {
+        trackExploreFunnelEvent({
+          name: "explore_open_request_composer",
+          listingId: property.id,
+          marketCode: market.country,
+          intentType,
+          index: listingIndex,
+          feedSize,
+        });
+      }
+    }
+    nextStepsWasOpenRef.current = nextStepsOpen;
+  }, [feedSize, intentType, listingIndex, market.country, nextStepsOpen, primaryAction.label, property.id]);
+
   const handleNextStepPrimaryAction = async () => {
     onPrimaryActionTap?.(primaryAction.label);
     if (primaryAction.label === "Book") {
+      trackExploreFunnelEvent({
+        name: "explore_continue_booking",
+        listingId: property.id,
+        marketCode: market.country,
+        intentType,
+        index: listingIndex,
+        feedSize,
+        action: "continue",
+        result: "attempt",
+      });
+      setNextStepsOpen(false);
+      router.push(primaryAction.href);
+      return;
+    }
+
+    if (requestSuccess) {
       setNextStepsOpen(false);
       router.push(primaryAction.href);
       return;
@@ -119,7 +167,16 @@ export function ExploreDetailsSheet({
 
     setRequestSubmitting(true);
     setRequestError(null);
-    setRequestSuccess(null);
+    trackExploreFunnelEvent({
+      name: "explore_submit_request_attempt",
+      listingId: property.id,
+      marketCode: market.country,
+      intentType,
+      index: listingIndex,
+      feedSize,
+      action: "send_request",
+      result: "attempt",
+    });
 
     try {
       const timezone = property.timezone || DEFAULT_TIMEZONE;
@@ -138,20 +195,58 @@ export function ExploreDetailsSheet({
 
       if (!response.ok) {
         if (response.status === 401) {
+          trackExploreFunnelEvent({
+            name: "explore_submit_request_fail",
+            listingId: property.id,
+            marketCode: market.country,
+            intentType,
+            index: listingIndex,
+            feedSize,
+            action: "send_request",
+            result: "auth_required",
+          });
           router.push(`/login?next=${encodeURIComponent(primaryAction.href)}`);
           return;
         }
+        trackExploreFunnelEvent({
+          name: "explore_submit_request_fail",
+          listingId: property.id,
+          marketCode: market.country,
+          intentType,
+          index: listingIndex,
+          feedSize,
+          action: "send_request",
+          result: `http_${response.status}`,
+        });
         setRequestError(payload?.error?.trim() || "Unable to send request right now. Continue in full details.");
+        setRequestSuccess(null);
         return;
       }
 
+      trackExploreFunnelEvent({
+        name: "explore_submit_request_success",
+        listingId: property.id,
+        marketCode: market.country,
+        intentType,
+        index: listingIndex,
+        feedSize,
+        action: "send_request",
+        result: "success",
+      });
       setRequestSuccess("Request sent. We will notify you once the host responds.");
-      window.setTimeout(() => {
-        setNextStepsOpen(false);
-        router.push(primaryAction.href);
-      }, 600);
     } catch {
+      trackExploreFunnelEvent({
+        name: "explore_submit_request_fail",
+        listingId: property.id,
+        marketCode: market.country,
+        intentType,
+        index: listingIndex,
+        feedSize,
+        action: "send_request",
+        result: "network_error",
+      });
       setRequestError("Unable to send request right now. Continue in full details.");
+      setRequestSuccess(null);
     } finally {
       setRequestSubmitting(false);
     }
@@ -294,8 +389,19 @@ export function ExploreDetailsSheet({
         open={nextStepsOpen}
         onOpenChange={setNextStepsOpen}
         actionLabel={primaryAction.label}
-        primaryButtonLabel={primaryAction.label === "Book" ? "Continue to booking" : "Send request"}
+        primaryButtonLabel={
+          primaryAction.label === "Book"
+            ? "Continue to booking"
+            : requestSuccess
+              ? "Continue"
+              : requestError
+                ? "Retry send request"
+                : "Send request"
+        }
         onPrimaryAction={() => {
+          void handleNextStepPrimaryAction();
+        }}
+        onRetryRequest={() => {
           void handleNextStepPrimaryAction();
         }}
         propertyTitle={property.title}
