@@ -14,9 +14,10 @@ void test("explore pager source keeps vertical snap and required testids", () =>
   assert.match(source, /h-\[100svh\]/);
   assert.match(source, /resolveExploreAdjacentSlideIndexes/);
   assert.match(source, /shouldPreloadExploreSlideImages/);
-  assert.match(source, /verticalScrollLockedRef/);
+  assert.match(source, /handleGestureLockChange/);
   assert.match(source, /WebkitOverflowScrolling: "touch"/);
   assert.match(source, /touchAction: "pan-y pinch-zoom"/);
+  assert.match(source, /scrollSnapType = locked \? "none" : "y mandatory"/);
   assert.match(source, /getHiddenExploreListingIds/);
   assert.match(source, /hideExploreListingId/);
   assert.match(source, /console\.count\("\[perf\]\[explore-pager\] render"\)/);
