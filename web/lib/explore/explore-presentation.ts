@@ -49,6 +49,34 @@ export function resolveExploreViewingRequestTemplate(property: Property): string
   return `Hi, I'd like to request a viewing for ${listingLabel}. I'm available [days/times]. Please let me know the next steps.`;
 }
 
+export type ExploreAvailabilityChip = "Weekdays" | "Weekends" | "Evenings" | "Anytime";
+
+const AVAILABILITY_LINE_BY_CHIP: Record<ExploreAvailabilityChip, string> = {
+  Weekdays: "I'm available on weekdays.",
+  Weekends: "I'm available on weekends.",
+  Evenings: "I'm available in the evenings.",
+  Anytime: "I'm flexible on timing.",
+};
+
+const AVAILABILITY_LINES_REGEX =
+  /I['’]m available\s*\[days\/times\]\.|I['’]m available on weekdays\.|I['’]m available on weekends\.|I['’]m available in the evenings\.|I['’]m flexible on timing\./gi;
+
+export function applyExploreAvailabilityChipToMessage(
+  message: string,
+  chip: ExploreAvailabilityChip
+): string {
+  const base = message
+    .replace(AVAILABILITY_LINES_REGEX, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+
+  const availabilityLine = AVAILABILITY_LINE_BY_CHIP[chip];
+  if (!base) return availabilityLine;
+
+  return `${base}\n${availabilityLine}`;
+}
+
 export function resolveExploreListingMarketCountry(
   property: Property,
   fallbackMarketCountry: string | null | undefined

@@ -13,6 +13,7 @@ import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { resolvePropertyImageSources } from "@/components/properties/PropertyImageCarousel";
 import type { Property } from "@/lib/types";
 import {
+  applyExploreAvailabilityChipToMessage,
   resolveExploreAnalyticsIntentType,
   resolveExploreCtaMicrocopy,
   resolveExploreDetailsHref,
@@ -39,8 +40,6 @@ type ExploreDetailsSheetProps = {
 const EXPLORE_FALLBACK_IMAGE = EXPLORE_GALLERY_FALLBACK_IMAGE;
 const DEFAULT_TIMEZONE = "Africa/Lagos";
 
-type AvailabilityChip = "Weekdays" | "Weekends" | "Evenings";
-
 function factsForProperty(property: Property): Array<{ label: string; value: string }> {
   const facts: Array<{ label: string; value: string }> = [];
   if (Number.isFinite(property.bedrooms)) facts.push({ label: "Beds", value: String(property.bedrooms) });
@@ -57,22 +56,6 @@ function resolveLocalDateForTimezone(timeZone: string, dayOffset = 1): string {
     month: "2-digit",
     day: "2-digit",
   }).format(targetDate);
-}
-
-function appendAvailabilityToMessage(message: string, chip: AvailabilityChip): string {
-  const availabilityText =
-    chip === "Weekdays"
-      ? "weekdays"
-      : chip === "Weekends"
-        ? "weekends"
-        : "evenings";
-  if (message.includes("[days/times]")) {
-    return message.replace("[days/times]", availabilityText);
-  }
-  if (message.toLowerCase().includes(`available ${availabilityText}`)) {
-    return message;
-  }
-  return `${message.trim()} Available ${availabilityText}.`;
 }
 
 export function ExploreDetailsSheet({
@@ -408,7 +391,7 @@ export function ExploreDetailsSheet({
         requestMessage={requestMessage}
         onRequestMessageChange={setRequestMessage}
         onAvailabilityChipClick={(chip) => {
-          setRequestMessage((current) => appendAvailabilityToMessage(current, chip));
+          setRequestMessage((current) => applyExploreAvailabilityChipToMessage(current, chip));
         }}
         requestSubmitting={requestSubmitting}
         requestError={requestError}
