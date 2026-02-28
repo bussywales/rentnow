@@ -284,10 +284,11 @@ export function UnifiedImageCarousel({
     >
       <div
         className={cn(
-          "h-full overflow-x-auto overflow-y-hidden overscroll-x-contain touch-pan-x",
+          "h-full overflow-x-scroll overflow-y-hidden overscroll-x-contain touch-pan-x",
           shouldShowControls && "cursor-grab active:cursor-grabbing"
         )}
         ref={setViewportRef}
+        style={{ WebkitOverflowScrolling: "touch" }}
       >
         <div className="flex h-full snap-x snap-mandatory touch-pan-x overscroll-x-contain">
           {imageItems.map((item, index) => {
@@ -329,7 +330,7 @@ export function UnifiedImageCarousel({
               <div
                 key={slideKey}
                 className={cn(
-                  "relative h-full min-w-0 shrink-0 grow-0 basis-full snap-start",
+                  "relative h-full w-full flex-none snap-start",
                   shouldAnimateSlides &&
                     "transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none",
                   applyInertialSnapHint({
