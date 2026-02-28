@@ -309,6 +309,7 @@ export function UnifiedImageCarousel({
                   priority={imageLoading.priority}
                   loading={imageLoading.loading}
                   fetchPriority={imageLoading.fetchPriority}
+                  decoding="async"
                   placeholder="blur"
                   blurDataURL={blurDataURL}
                   draggable={false}

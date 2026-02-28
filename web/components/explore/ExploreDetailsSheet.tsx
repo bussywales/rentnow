@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
@@ -70,6 +70,7 @@ export function ExploreDetailsSheet({
 }: ExploreDetailsSheetProps) {
   const router = useRouter();
   const { market } = useMarketPreference();
+  const shouldRenderDetailsBody = open;
   const location = formatLocationLabel(property.city, property.neighbourhood);
   const detailsHref = resolveExploreDetailsHref(property);
   const primaryAction = resolveExplorePrimaryAction(property);
@@ -84,9 +85,18 @@ export function ExploreDetailsSheet({
     marketCurrency: market.currency,
   });
   const cadence = formatCadence(property.rental_type, property.rent_period);
-  const facts = factsForProperty(property);
-  const topAmenities = (property.amenities ?? []).slice(0, 5);
-  const similarItems = similarHomes.slice(0, 3);
+  const facts = useMemo(
+    () => (shouldRenderDetailsBody ? factsForProperty(property) : []),
+    [property, shouldRenderDetailsBody]
+  );
+  const topAmenities = useMemo(
+    () => (shouldRenderDetailsBody ? (property.amenities ?? []).slice(0, 5) : []),
+    [property.amenities, shouldRenderDetailsBody]
+  );
+  const similarItems = useMemo(
+    () => (shouldRenderDetailsBody ? similarHomes.slice(0, 3) : []),
+    [shouldRenderDetailsBody, similarHomes]
+  );
   const viewRequestsHref = "/tenant/viewings";
   const [nextStepsOpen, setNextStepsOpen] = useState(false);
   const [requestMessage, setRequestMessage] = useState(resolveExploreViewingRequestTemplate(property));
@@ -125,7 +135,7 @@ export function ExploreDetailsSheet({
     nextStepsWasOpenRef.current = nextStepsOpen;
   }, [feedSize, intentType, listingIndex, market.country, nextStepsOpen, primaryAction.label, property.id]);
 
-  const handleNextStepPrimaryAction = async () => {
+  const handleNextStepPrimaryAction = useCallback(async () => {
     onPrimaryActionTap?.(primaryAction.label);
     if (primaryAction.label === "Book") {
       trackExploreFunnelEvent({
@@ -233,12 +243,25 @@ export function ExploreDetailsSheet({
     } finally {
       setRequestSubmitting(false);
     }
-  };
+  }, [
+    feedSize,
+    intentType,
+    listingIndex,
+    market.country,
+    onPrimaryActionTap,
+    primaryAction.href,
+    primaryAction.label,
+    property.id,
+    property.timezone,
+    requestMessage,
+    requestSuccess,
+    router,
+  ]);
 
-  const handleNextStepsOpenChange = (nextOpen: boolean) => {
+  const handleNextStepsOpenChange = useCallback((nextOpen: boolean) => {
     if (!nextOpen && requestSubmitting) return;
     setNextStepsOpen(nextOpen);
-  };
+  }, [requestSubmitting]);
 
   return (
     <>
@@ -250,7 +273,8 @@ export function ExploreDetailsSheet({
         testId="explore-details-sheet"
         sheetId={`explore-details-sheet-${property.id}`}
       >
-        <div className="space-y-4" data-testid="explore-details-content">
+        {shouldRenderDetailsBody ? (
+          <div className="space-y-4" data-testid="explore-details-content">
           <div className="space-y-1">
             <p className="text-lg font-semibold text-slate-900">{price}</p>
             {cadence ? <p className="text-xs text-slate-500">per {cadence}</p> : null}
@@ -370,7 +394,8 @@ export function ExploreDetailsSheet({
               View full details
             </Link>
           </div>
-        </div>
+          </div>
+        ) : null}
       </BottomSheet>
 
       <ExploreCtaNextStepsSheet
