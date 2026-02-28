@@ -56,10 +56,10 @@ void test("resolveExploreListingMarketCountry normalizes UK alias and falls back
   assert.equal(resolveExploreListingMarketCountry(missingCountry, "CA"), "CA");
 });
 
-void test("explore slide binds trust badge market to listing market resolver", () => {
+void test("explore slide renders truth-only explore trust badges from presentation resolver", () => {
   const sourcePath = path.join(process.cwd(), "components", "explore", "ExploreSlide.tsx");
   const source = readFileSync(sourcePath, "utf8");
 
-  assert.match(source, /resolveExploreListingMarketCountry/);
-  assert.match(source, /marketCountry=\{listingMarketCountry\}/);
+  assert.match(source, /resolveExploreTrustBadges/);
+  assert.match(source, /ExploreTrustBadges/);
 });

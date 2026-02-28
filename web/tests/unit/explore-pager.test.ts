@@ -34,7 +34,7 @@ void test("explore slide source exposes details, hint, and local hide controls",
   assert.match(source, /data-testid="explore-share-action"/);
   assert.match(source, /data-testid="explore-details-hint"/);
   assert.match(source, /SaveToggle/);
-  assert.match(source, /TrustBadges/);
+  assert.match(source, /ExploreTrustBadges/);
   assert.match(source, /ExploreDetailsSheet/);
   assert.match(source, /hasSeenExploreDetailsHint/);
   assert.match(source, /markExploreDetailsHintSeen/);
@@ -71,6 +71,7 @@ void test("explore details sheet source includes CTA microcopy and similar homes
 
   assert.match(source, /resolveExplorePrimaryAction/);
   assert.match(source, /resolveExploreCtaMicrocopy/);
+  assert.match(source, /resolveExploreTrustBadges/);
   assert.match(source, /data-testid="explore-primary-microcopy"/);
   assert.match(source, /data-testid="explore-similar-homes"/);
   assert.match(source, /data-testid="explore-similar-home"/);
