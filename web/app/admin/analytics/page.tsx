@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { buildDataQualitySnapshot, type DataQualitySnapshot } from "@/lib/admin/data-quality";
 import { buildBetaReadinessSnapshot } from "@/lib/admin/beta-readiness";
 import { buildMarketplaceAnalytics, type MarketplaceAnalyticsSnapshot } from "@/lib/admin/marketplace-analytics";
@@ -134,6 +135,11 @@ export default async function AdminAnalyticsPage() {
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Admin</p>
         <h1 className="text-3xl font-semibold text-slate-900">Marketplace analytics</h1>
         <p className="text-sm text-slate-600">Read-only marketplace health snapshot for beta operators.</p>
+        <p className="text-sm">
+          <Link className="font-semibold text-sky-700 hover:text-sky-800" href="/admin/analytics/explore">
+            Open Explore analytics
+          </Link>
+        </p>
       </div>
 
       {!diag.supabaseReady && (
