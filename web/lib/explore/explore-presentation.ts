@@ -1,7 +1,8 @@
 import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 import { isShortletProperty } from "@/lib/shortlet/discovery";
-import type { DiscoveryTrustBadge } from "@/lib/discovery";
 import type { Property } from "@/lib/types";
+import type { TrustMarkerState } from "@/lib/trust-markers";
+import { DEFAULT_VERIFICATION_REQUIREMENTS, isAdvertiserVerified } from "@/lib/trust-markers";
 
 const NEW_BADGE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 const SUPPORTED_MARKETS = new Set(["NG", "GB", "CA", "US"]);
@@ -114,23 +115,90 @@ export function resolveExploreAnalyticsIntentType(property: Property): "shortlet
   return "rent";
 }
 
-export function resolveExploreTrustBadges(
-  property: Property,
-  options: { now?: Date } = {}
-): DiscoveryTrustBadge[] {
-  const now = options.now ?? new Date();
-  const badges: DiscoveryTrustBadge[] = [];
+export type ExploreTrustBadge = {
+  key: "verified" | "updated_recently" | "fast_response";
+  label: "Verified" | "Updated recently" | "Fast response";
+};
 
-  if (property.is_featured) {
-    badges.push("POPULAR");
+function isRecentlyUpdated(timestamp: string | null | undefined, now: Date): boolean {
+  if (!timestamp) return false;
+  const updatedAtMs = Date.parse(timestamp);
+  if (!Number.isFinite(updatedAtMs)) return false;
+  const elapsed = now.getTime() - updatedAtMs;
+  return elapsed >= 0 && elapsed <= NEW_BADGE_WINDOW_MS;
+}
+
+function toObjectRecord(input: unknown): Record<string, unknown> | null {
+  if (!input || typeof input !== "object") return null;
+  return input as Record<string, unknown>;
+}
+
+function buildTrustMarkerStateFromListing(property: Property): TrustMarkerState | null {
+  const ownerProfile = toObjectRecord(property.owner_profile);
+  if (!ownerProfile) return null;
+
+  const emailVerified = ownerProfile.email_verified;
+  const phoneVerified = ownerProfile.phone_verified;
+  const bankVerified = ownerProfile.bank_verified;
+  const hasAnySignal = emailVerified !== undefined || phoneVerified !== undefined || bankVerified !== undefined;
+  if (!hasAnySignal) return null;
+
+  return {
+    email_verified: emailVerified === true,
+    phone_verified: phoneVerified === true,
+    bank_verified: bankVerified === true,
+  };
+}
+
+function hasFastResponseSignal(property: Property): boolean {
+  const row = toObjectRecord(property);
+  const ownerProfile = toObjectRecord(property.owner_profile);
+  const rawResponseMinutes = row?.response_time_minutes;
+  const rawResponseSeconds = row?.response_time_seconds;
+  const rawResponseBucket = row?.response_time_bucket;
+
+  if (row?.fast_responder === true || row?.is_fast_responder === true || ownerProfile?.fast_responder === true) {
+    return true;
   }
 
-  if (property.created_at) {
-    const createdAt = Date.parse(property.created_at);
-    if (Number.isFinite(createdAt) && now.getTime() - createdAt <= NEW_BADGE_WINDOW_MS) {
-      badges.push("NEW");
+  if (typeof rawResponseMinutes === "number" && Number.isFinite(rawResponseMinutes) && rawResponseMinutes <= 60) {
+    return true;
+  }
+  if (typeof rawResponseSeconds === "number" && Number.isFinite(rawResponseSeconds) && rawResponseSeconds <= 3600) {
+    return true;
+  }
+  if (typeof rawResponseBucket === "string") {
+    const normalizedBucket = rawResponseBucket.trim().toLowerCase();
+    if (normalizedBucket === "fast" || normalizedBucket === "within_hour" || normalizedBucket === "under_1h") {
+      return true;
     }
   }
 
-  return Array.from(new Set(badges));
+  return false;
+}
+
+export function resolveExploreTrustBadges(
+  property: Property,
+  options: { now?: Date } = {}
+): ExploreTrustBadge[] {
+  const now = options.now ?? new Date();
+  const badges: ExploreTrustBadge[] = [];
+  const markers = buildTrustMarkerStateFromListing(property);
+  const isVerified = isAdvertiserVerified(markers, DEFAULT_VERIFICATION_REQUIREMENTS);
+  const updatedRecently = isRecentlyUpdated(property.status_updated_at ?? property.updated_at ?? null, now);
+  const fastResponse = hasFastResponseSignal(property);
+
+  if (isVerified) {
+    badges.push({ key: "verified", label: "Verified" });
+  }
+
+  if (updatedRecently) {
+    badges.push({ key: "updated_recently", label: "Updated recently" });
+  }
+
+  if (fastResponse) {
+    badges.push({ key: "fast_response", label: "Fast response" });
+  }
+
+  return badges.slice(0, 2);
 }
