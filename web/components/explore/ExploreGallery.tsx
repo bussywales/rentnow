@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PointerEvent } from "react";
 import { UnifiedImageCarousel } from "@/components/ui/UnifiedImageCarousel";
 import { resolvePropertyImageSources } from "@/components/properties/PropertyImageCarousel";
@@ -34,7 +34,7 @@ export function resolveExploreGestureAxis(deltaX: number, deltaY: number, thresh
   return null;
 }
 
-export function ExploreGallery({
+function ExploreGalleryInner({
   property,
   prioritizeFirstImage = false,
   onGestureLockChange,
@@ -84,6 +84,10 @@ export function ExploreGallery({
   );
   const activeImageUnavailable = failedImageIndexes.has(activeImageIndex);
 
+  const setHorizontalLock = useCallback((next: boolean) => {
+    setHorizontalLockActive((current) => (current === next ? current : next));
+  }, []);
+
   useEffect(() => {
     onGestureLockChange?.(horizontalLockActive);
   }, [horizontalLockActive, onGestureLockChange]);
@@ -104,12 +108,12 @@ export function ExploreGallery({
     pointerStartRef.current = { x: event.clientX, y: event.clientY };
     gestureAxisRef.current = null;
     longPressTriggeredRef.current = false;
-    setHorizontalLockActive(false);
+    setHorizontalLock(false);
     longPressTimerRef.current = window.setTimeout(() => {
       longPressTriggeredRef.current = true;
       onLongPress?.();
     }, 520);
-  }, [onLongPress]);
+  }, [onLongPress, setHorizontalLock]);
 
   const cancelLongPress = useCallback(() => {
     if (!longPressTimerRef.current) return;
@@ -130,16 +134,16 @@ export function ExploreGallery({
     if (!axis) return;
     gestureAxisRef.current = axis;
     cancelLongPress();
-    setHorizontalLockActive(axis === "horizontal");
-  }, [cancelLongPress]);
+    setHorizontalLock(axis === "horizontal");
+  }, [cancelLongPress, setHorizontalLock]);
 
   const clearGesture = useCallback(() => {
     cancelLongPress();
     pointerStartRef.current = null;
     gestureAxisRef.current = null;
     longPressTriggeredRef.current = false;
-    setHorizontalLockActive(false);
-  }, [cancelLongPress]);
+    setHorizontalLock(false);
+  }, [cancelLongPress, setHorizontalLock]);
 
   useEffect(
     () => () => {
@@ -159,7 +163,10 @@ export function ExploreGallery({
       onPointerUpCapture={clearGesture}
       onPointerCancelCapture={clearGesture}
       onPointerLeave={clearGesture}
-      style={{ touchAction: horizontalLockActive ? "pan-x" : undefined }}
+      style={{
+        touchAction: horizontalLockActive ? "pan-x pinch-zoom" : "pan-y pinch-zoom",
+        overscrollBehaviorX: "contain",
+      }}
       data-testid="explore-gallery-gesture-layer"
     >
       <UnifiedImageCarousel
@@ -208,3 +215,14 @@ export function ExploreGallery({
     </div>
   );
 }
+
+function areExploreGalleryPropsEqual(prev: ExploreGalleryProps, next: ExploreGalleryProps): boolean {
+  return (
+    prev.property === next.property &&
+    prev.prioritizeFirstImage === next.prioritizeFirstImage &&
+    prev.onGestureLockChange === next.onGestureLockChange &&
+    prev.onLongPress === next.onLongPress
+  );
+}
+
+export const ExploreGallery = memo(ExploreGalleryInner, areExploreGalleryPropsEqual);

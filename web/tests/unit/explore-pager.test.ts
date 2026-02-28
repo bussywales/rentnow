@@ -9,14 +9,17 @@ void test("explore pager source keeps vertical snap and required testids", () =>
 
   assert.match(source, /data-testid="explore-pager"/);
   assert.match(source, /data-testid="explore-progress"/);
-  assert.match(source, /<ExploreSlide[\s\S]*onGestureLockChange=\{setVerticalScrollLocked\}[\s\S]*\/>/);
+  assert.match(source, /<ExploreSlide[\s\S]*onGestureLockChange=\{handleGestureLockChange\}[\s\S]*\/>/);
   assert.match(source, /snap-y snap-mandatory/);
   assert.match(source, /h-\[100svh\]/);
   assert.match(source, /resolveExploreAdjacentSlideIndexes/);
   assert.match(source, /shouldPreloadExploreSlideImages/);
-  assert.match(source, /overflowY: verticalScrollLocked \? "hidden" : "auto"/);
+  assert.match(source, /verticalScrollLockedRef/);
+  assert.match(source, /WebkitOverflowScrolling: "touch"/);
+  assert.match(source, /touchAction: "pan-y pinch-zoom"/);
   assert.match(source, /getHiddenExploreListingIds/);
   assert.match(source, /hideExploreListingId/);
+  assert.match(source, /console\.count\("\[perf\]\[explore-pager\] render"\)/);
   assert.match(source, /data-testid="explore-hide-undo"/);
   assert.match(source, /data-testid="explore-restore-hidden"/);
 });
@@ -38,6 +41,8 @@ void test("explore slide source exposes details, hint, and local hide controls",
   assert.match(source, /onGestureLockChange=\{onGestureLockChange\}/);
   assert.match(source, /GlassPill/);
   assert.match(source, /h-11 w-11/);
+  assert.match(source, /memo\(ExploreSlideInner/);
+  assert.match(source, /console\.count\(`\[perf\]\[explore-slide\] render:/);
 });
 
 void test("explore gallery source supports axis locking for horizontal gestures", () => {
@@ -51,10 +56,11 @@ void test("explore gallery source supports axis locking for horizontal gestures"
   assert.match(source, /data-testid="explore-gallery-gesture-layer"/);
   assert.match(source, /data-testid="explore-gallery-image-unavailable"/);
   assert.match(source, /renderWindowRadius=\{1\}/);
-  assert.match(source, /touchAction: horizontalLockActive \? "pan-x" : undefined/);
+  assert.match(source, /touchAction: horizontalLockActive \? "pan-x pinch-zoom" : "pan-y pinch-zoom"/);
   assert.match(source, /\[explore-gallery\]\[image-error\]/);
   assert.match(source, /onLongPress\?\.\(\)/);
   assert.match(source, /setTimeout\(\(\) =>/);
+  assert.match(source, /memo\(ExploreGalleryInner/);
 });
 
 void test("explore details sheet source includes CTA microcopy and similar homes mini rail", () => {
@@ -68,6 +74,8 @@ void test("explore details sheet source includes CTA microcopy and similar homes
   assert.match(source, /data-testid="explore-similar-home"/);
   assert.match(source, /data-testid="explore-primary-cta"/);
   assert.match(source, /data-testid="explore-view-full-details"/);
+  assert.match(source, /const shouldRenderDetailsBody = open/);
+  assert.match(source, /shouldRenderDetailsBody \? \(/);
 });
 
 void test("home quickstart includes explore entry chip without changing search trigger contract", () => {
