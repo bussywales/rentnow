@@ -38,7 +38,7 @@ void test("explore slide source exposes details, hint, and local hide controls",
   assert.match(source, /ExploreDetailsSheet/);
   assert.match(source, /hasSeenExploreDetailsHint/);
   assert.match(source, /markExploreDetailsHintSeen/);
-  assert.match(source, /onLongPress=\{\(\) =>/);
+  assert.match(source, /onLongPress=\{handleLongPress\}/);
   assert.match(source, /onGestureLockChange=\{onGestureLockChange\}/);
   assert.match(source, /GlassPill/);
   assert.match(source, /h-11 w-11/);

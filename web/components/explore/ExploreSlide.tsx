@@ -54,6 +54,71 @@ type ExploreSlideProps = {
   feedSize?: number;
 };
 
+type ExploreSlideActionStackProps = {
+  property: Property;
+  kind: "shortlet" | "property";
+  detailsHref: string;
+  location: string;
+  intentTag: string;
+  marketCountry: string;
+  onSave: (saved: boolean) => void;
+  onShare: () => void;
+  onOpenDetails: () => void;
+};
+
+const ExploreSlideActionStack = memo(function ExploreSlideActionStack({
+  property,
+  kind,
+  detailsHref,
+  location,
+  intentTag,
+  marketCountry,
+  onSave,
+  onShare,
+  onOpenDetails,
+}: ExploreSlideActionStackProps) {
+  return (
+    <div className="absolute right-3 top-16 z-20 flex flex-col gap-1.5">
+      <GlassPill variant="dark" className="h-11 w-11 p-0.5">
+        <SaveToggle
+          itemId={property.id}
+          kind={kind}
+          href={detailsHref}
+          title={property.title}
+          subtitle={location}
+          tag={intentTag}
+          marketCountry={marketCountry}
+          testId={`explore-save-toggle-${property.id}`}
+          onToggle={onSave}
+          className="h-full w-full border-transparent bg-transparent text-white ring-0 shadow-none transition-transform active:scale-[0.98] hover:bg-white/10 hover:text-white"
+        />
+      </GlassPill>
+      <GlassPill variant="dark" className="h-11 w-11 p-0.5">
+        <button
+          type="button"
+          onClick={onShare}
+          className="inline-flex h-full w-full items-center justify-center rounded-full text-base font-semibold text-white transition-transform active:scale-[0.98]"
+          aria-label="Share listing"
+          data-testid="explore-share-action"
+        >
+          ↗
+        </button>
+      </GlassPill>
+      <GlassPill variant="dark" className="h-11 w-11 p-0.5">
+        <button
+          type="button"
+          onClick={onOpenDetails}
+          className="inline-flex h-full w-full items-center justify-center rounded-full text-base font-semibold text-white transition-transform active:scale-[0.98]"
+          aria-label="Open listing details"
+          data-testid="explore-open-details"
+        >
+          ⋯
+        </button>
+      </GlassPill>
+    </div>
+  );
+});
+
 function ExploreSlideInner({
   property,
   index,
@@ -105,7 +170,7 @@ function ExploreSlideInner({
     });
   }, []);
 
-  const share = async () => {
+  const share = useCallback(async () => {
     const absoluteUrl =
       typeof window === "undefined" ? detailsHref : new URL(detailsHref, window.location.origin).toString();
     const result = await performShare({
@@ -125,7 +190,26 @@ function ExploreSlideInner({
     }
     onShareAction?.({ listingId: property.id, index, result: "error", intentType });
     setShareFeedback("error");
-  };
+  }, [detailsHref, index, intentType, location, onShareAction, property.id, property.title]);
+
+  const handleLongPress = useCallback(() => {
+    dismissDetailsHint();
+    onNotInterested?.(property.id);
+  }, [dismissDetailsHint, onNotInterested, property.id]);
+
+  const handleSaveToggle = useCallback((saved: boolean) => {
+    onSaveToggle?.({ listingId: property.id, index, saved, intentType });
+  }, [index, intentType, onSaveToggle, property.id]);
+
+  const handleShareTap = useCallback(() => {
+    void share();
+  }, [share]);
+
+  const handleOpenDetails = useCallback(() => {
+    dismissDetailsHint();
+    onOpenDetails?.({ listingId: property.id, index, intentType });
+    setDetailsOpen(true);
+  }, [dismissDetailsHint, index, intentType, onOpenDetails, property.id]);
 
   return (
     <article
@@ -137,10 +221,7 @@ function ExploreSlideInner({
         property={property}
         prioritizeFirstImage={index === 0}
         onGestureLockChange={onGestureLockChange}
-        onLongPress={() => {
-          dismissDetailsHint();
-          onNotInterested?.(property.id);
-        }}
+        onLongPress={handleLongPress}
       />
       <div
         className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-900/20 to-transparent"
@@ -174,52 +255,17 @@ function ExploreSlideInner({
         </div>
       </div>
 
-      <div className="absolute right-3 top-16 z-20 flex flex-col gap-1.5">
-        <GlassPill variant="dark" className="h-11 w-11 p-0.5">
-          <SaveToggle
-            itemId={property.id}
-            kind={kind}
-            href={detailsHref}
-            title={property.title}
-            subtitle={location}
-            tag={intentTag}
-            marketCountry={market.country}
-            testId={`explore-save-toggle-${property.id}`}
-            onToggle={(saved) => {
-              onSaveToggle?.({ listingId: property.id, index, saved, intentType });
-            }}
-            className="h-full w-full border-transparent bg-transparent text-white ring-0 shadow-none transition-transform active:scale-[0.98] hover:bg-white/10 hover:text-white"
-          />
-        </GlassPill>
-        <GlassPill variant="dark" className="h-11 w-11 p-0.5">
-          <button
-            type="button"
-            onClick={() => {
-              void share();
-            }}
-            className="inline-flex h-full w-full items-center justify-center rounded-full text-base font-semibold text-white transition-transform active:scale-[0.98]"
-            aria-label="Share listing"
-            data-testid="explore-share-action"
-          >
-            ↗
-          </button>
-        </GlassPill>
-        <GlassPill variant="dark" className="h-11 w-11 p-0.5">
-          <button
-            type="button"
-            onClick={() => {
-              dismissDetailsHint();
-              onOpenDetails?.({ listingId: property.id, index, intentType });
-              setDetailsOpen(true);
-            }}
-            className="inline-flex h-full w-full items-center justify-center rounded-full text-base font-semibold text-white transition-transform active:scale-[0.98]"
-            aria-label="Open listing details"
-            data-testid="explore-open-details"
-          >
-            ⋯
-          </button>
-        </GlassPill>
-      </div>
+      <ExploreSlideActionStack
+        property={property}
+        kind={kind}
+        detailsHref={detailsHref}
+        location={location}
+        intentTag={intentTag}
+        marketCountry={market.country}
+        onSave={handleSaveToggle}
+        onShare={handleShareTap}
+        onOpenDetails={handleOpenDetails}
+      />
 
       {shareFeedback ? (
         <p
