@@ -1,7 +1,10 @@
+import { hasExploreAnalyticsConsent } from "@/lib/analytics/consent";
+
 export const EXPLORE_ANALYTICS_STORAGE_KEY = "ph:explore:analytics:v0_3";
 export const EXPLORE_ANALYTICS_MAX_EVENTS = 200;
 const EXPLORE_ANALYTICS_SESSION_STORAGE_KEY = "ph:explore:analytics:session:v1";
 const EXPLORE_ANALYTICS_SESSION_IDLE_TIMEOUT_MS = 30 * 60 * 1000;
+const EXPLORE_ANALYTICS_SETTINGS_CACHE_TTL_MS = 60 * 1000;
 
 export type ExploreAnalyticsEventName =
   | "explore_view"
@@ -44,6 +47,27 @@ type ExploreAnalyticsSessionPayload = {
   lastActivityAt: number;
 };
 
+type ExploreAnalyticsClientSettings = {
+  enabled: boolean;
+  consentRequired: boolean;
+};
+
+type ExploreAnalyticsSettingsResponse = {
+  ok?: boolean;
+  settings?: {
+    enabled?: boolean;
+    consentRequired?: boolean;
+  };
+};
+
+let exploreAnalyticsSettingsCache:
+  | {
+      value: ExploreAnalyticsClientSettings;
+      expiresAtMs: number;
+    }
+  | null = null;
+let exploreAnalyticsSettingsRequest: Promise<ExploreAnalyticsClientSettings | null> | null = null;
+
 function getStorage(): Storage | null {
   if (typeof window === "undefined") return null;
   try {
@@ -51,6 +75,81 @@ function getStorage(): Storage | null {
   } catch {
     return null;
   }
+}
+
+function resolveConsentHeader(settings: ExploreAnalyticsClientSettings): string | null {
+  if (!settings.consentRequired) return null;
+  return hasExploreAnalyticsConsent() ? "accepted" : null;
+}
+
+async function loadExploreAnalyticsClientSettings(): Promise<ExploreAnalyticsClientSettings | null> {
+  if (typeof window === "undefined" || typeof window.document === "undefined") return null;
+  const nowMs = Date.now();
+  if (exploreAnalyticsSettingsCache && nowMs < exploreAnalyticsSettingsCache.expiresAtMs) {
+    return exploreAnalyticsSettingsCache.value;
+  }
+  if (exploreAnalyticsSettingsRequest) return exploreAnalyticsSettingsRequest;
+
+  exploreAnalyticsSettingsRequest = fetch("/api/analytics/explore/settings", {
+    method: "GET",
+    cache: "no-store",
+  })
+    .then(async (response) => {
+      if (!response.ok) return null;
+      const payload = (await response.json().catch(() => null)) as ExploreAnalyticsSettingsResponse | null;
+      if (!payload?.settings) return null;
+      const settings: ExploreAnalyticsClientSettings = {
+        enabled: payload.settings.enabled !== false,
+        consentRequired: payload.settings.consentRequired === true,
+      };
+      exploreAnalyticsSettingsCache = {
+        value: settings,
+        expiresAtMs: Date.now() + EXPLORE_ANALYTICS_SETTINGS_CACHE_TTL_MS,
+      };
+      return settings;
+    })
+    .catch(() => null)
+    .finally(() => {
+      exploreAnalyticsSettingsRequest = null;
+    });
+
+  return exploreAnalyticsSettingsRequest;
+}
+
+async function sendExploreAnalyticsEventToServer(event: ExploreAnalyticsEvent) {
+  if (typeof window === "undefined" || typeof window.document === "undefined") return;
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+  const settings = await loadExploreAnalyticsClientSettings();
+  if (!settings?.enabled) return;
+
+  const consentHeader = resolveConsentHeader(settings);
+  if (settings.consentRequired && consentHeader !== "accepted") return;
+
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (consentHeader) {
+    headers["x-explore-analytics-consent"] = consentHeader;
+  }
+
+  void fetch("/api/analytics/explore", {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      eventName: event.name,
+      sessionId: event.sessionId ?? null,
+      listingId: event.listingId ?? null,
+      marketCode: event.marketCode ?? event.marketCountry ?? null,
+      intentType: event.intentType ?? null,
+      index: Number.isFinite(event.index) ? event.index : null,
+      feedSize: Number.isFinite(event.feedSize) ? event.feedSize : null,
+      depth: Number.isFinite(event.depth) ? event.depth : null,
+      fromIndex: Number.isFinite(event.fromIndex) ? event.fromIndex : null,
+      toIndex: Number.isFinite(event.toIndex) ? event.toIndex : null,
+      action: event.action ?? null,
+      result: event.result ?? null,
+    }),
+  }).catch(() => undefined);
 }
 
 export function parseExploreAnalyticsPayload(raw: string | null | undefined): ExploreAnalyticsPayload {
@@ -210,5 +309,7 @@ export function recordExploreAnalyticsEvent(
     action: input.action ?? null,
     result: input.result ?? null,
   };
-  return writeExploreAnalyticsEvents(storage, [...existing.events, nextEvent]);
+  const nextEvents = writeExploreAnalyticsEvents(storage, [...existing.events, nextEvent]);
+  void sendExploreAnalyticsEventToServer(nextEvent);
+  return nextEvents;
 }
