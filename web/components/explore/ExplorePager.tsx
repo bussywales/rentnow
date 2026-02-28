@@ -61,10 +61,10 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
   const pagerRef = useRef<HTMLDivElement | null>(null);
   const preloadedImagesRef = useRef<Set<string>>(new Set());
   const undoTimeoutRef = useRef<number | null>(null);
+  const verticalScrollLockedRef = useRef(false);
   const previousSwipeIndexRef = useRef<number | null>(null);
   const trackedExploreViewRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(0);
-  const [verticalScrollLocked, setVerticalScrollLocked] = useState(false);
   const [hiddenListingIds, setHiddenListingIds] = useState<string[]>([]);
   const [undoHiddenListingId, setUndoHiddenListingId] = useState<string | null>(null);
   const hiddenListingSet = useMemo(() => new Set(hiddenListingIds), [hiddenListingIds]);
@@ -77,6 +77,7 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
     [visibleListings]
   );
   const displayedIndex = Math.min(activeIndex, Math.max(0, visibleListings.length - 1));
+  const feedSize = visibleListings.length;
   const similarHomesByListingId = useMemo(() => {
     const next = new Map<string, Property[]>();
     visibleListings.forEach((property) => {
@@ -84,6 +85,14 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
     });
     return next;
   }, [visibleListings]);
+  const shouldLogPerf =
+    process.env.NODE_ENV !== "production" &&
+    typeof window !== "undefined" &&
+    Boolean((window as Window & { __EXPLORE_PERF_DEBUG__?: boolean }).__EXPLORE_PERF_DEBUG__);
+
+  if (shouldLogPerf) {
+    console.count("[perf][explore-pager] render");
+  }
 
   useEffect(() => {
     if (trackedExploreViewRef.current) return;
@@ -91,10 +100,10 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
     trackExploreFunnelEvent({
       name: "explore_view",
       marketCode: market.country,
-      feedSize: visibleListings.length,
-      depth: visibleListings.length,
+      feedSize,
+      depth: feedSize,
     });
-  }, [market.country, visibleListings.length]);
+  }, [feedSize, market.country]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -120,13 +129,13 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       listingId: activeListing?.id ?? null,
       intentType: activeListing ? resolveExploreAnalyticsIntentType(activeListing) : null,
       index: displayedIndex,
-      feedSize: visibleListings.length,
+      feedSize,
       depth: displayedIndex + 1,
       fromIndex: previousIndex,
       toIndex: displayedIndex,
     });
     previousSwipeIndexRef.current = displayedIndex;
-  }, [displayedIndex, market.country, visibleListings]);
+  }, [displayedIndex, feedSize, market.country, visibleListings]);
 
   useEffect(() => {
     return () => {
@@ -143,7 +152,7 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
 
     let rafId = 0;
     const syncActiveSlide = () => {
-      const nextIndex = resolveExploreActiveSlideIndex(pager.scrollTop, pager.clientHeight, visibleListings.length);
+      const nextIndex = resolveExploreActiveSlideIndex(pager.scrollTop, pager.clientHeight, feedSize);
       setActiveIndex((current) => (current === nextIndex ? current : nextIndex));
     };
 
@@ -153,21 +162,21 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       rafId = window.requestAnimationFrame(syncActiveSlide);
     };
     pager.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", syncActiveSlide);
+    window.addEventListener("resize", syncActiveSlide, { passive: true });
 
     return () => {
       cancelAnimationFrame(rafId);
       pager.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", syncActiveSlide);
     };
-  }, [visibleListings.length]);
+  }, [feedSize]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     if (!shouldPreloadExploreSlideImages(connection?.saveData)) return;
 
-    for (const index of resolveExploreAdjacentSlideIndexes(displayedIndex, visibleListings.length)) {
+    for (const index of resolveExploreAdjacentSlideIndexes(displayedIndex, feedSize)) {
       const imageUrl = heroImageUrls[index];
       if (!imageUrl || preloadedImagesRef.current.has(imageUrl)) continue;
       const image = new Image();
@@ -175,7 +184,26 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       image.src = imageUrl;
       preloadedImagesRef.current.add(imageUrl);
     }
-  }, [displayedIndex, heroImageUrls, visibleListings.length]);
+  }, [displayedIndex, feedSize, heroImageUrls]);
+
+  useEffect(() => {
+    const pager = pagerRef.current;
+    return () => {
+      if (!pager) return;
+      pager.style.overflowY = "auto";
+      pager.style.overscrollBehaviorY = "contain";
+      verticalScrollLockedRef.current = false;
+    };
+  }, []);
+
+  const handleGestureLockChange = useCallback((locked: boolean) => {
+    if (verticalScrollLockedRef.current === locked) return;
+    verticalScrollLockedRef.current = locked;
+    const pager = pagerRef.current;
+    if (!pager) return;
+    pager.style.overflowY = locked ? "hidden" : "auto";
+    pager.style.overscrollBehaviorY = locked ? "none" : "contain";
+  }, []);
 
   const handleNotInterested = useCallback((listingId: string) => {
     const hiddenIndex = visibleListings.findIndex((listing) => listing.id === listingId);
@@ -186,7 +214,7 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       marketCode: market.country,
       intentType: hiddenListing ? resolveExploreAnalyticsIntentType(hiddenListing) : null,
       index: hiddenIndex >= 0 ? hiddenIndex : undefined,
-      feedSize: visibleListings.length,
+      feedSize,
       depth: hiddenIndex >= 0 ? hiddenIndex + 1 : undefined,
     });
     const nextHidden = hideExploreListingId(listingId);
@@ -199,7 +227,7 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       setUndoHiddenListingId(null);
       undoTimeoutRef.current = null;
     }, 5000);
-  }, [market.country, visibleListings]);
+  }, [feedSize, market.country, visibleListings]);
 
   const handleUndoHidden = useCallback(() => {
     if (!undoHiddenListingId) return;
@@ -226,6 +254,107 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       return true;
     },
     [visibleListings]
+  );
+
+  const handleOpenDetails = useCallback(
+    ({
+      listingId,
+      index,
+      intentType,
+    }: {
+      listingId: string;
+      index: number;
+      intentType: "shortlet" | "rent" | "buy";
+    }) => {
+      trackExploreFunnelEvent({
+        name: "explore_open_details",
+        listingId,
+        marketCode: market.country,
+        intentType,
+        index,
+        feedSize,
+        depth: index + 1,
+      });
+    },
+    [feedSize, market.country]
+  );
+
+  const handlePrimaryActionTap = useCallback(
+    ({
+      listingId,
+      index,
+      action,
+      intentType,
+    }: {
+      listingId: string;
+      index: number;
+      action: "Book" | "Request viewing";
+      intentType: "shortlet" | "rent" | "buy";
+    }) => {
+      trackExploreFunnelEvent({
+        name: "explore_tap_cta",
+        listingId,
+        marketCode: market.country,
+        intentType,
+        index,
+        feedSize,
+        depth: index + 1,
+        action,
+      });
+    },
+    [feedSize, market.country]
+  );
+
+  const handleSaveToggle = useCallback(
+    ({
+      listingId,
+      index,
+      saved,
+      intentType,
+    }: {
+      listingId: string;
+      index: number;
+      saved: boolean;
+      intentType: "shortlet" | "rent" | "buy";
+    }) => {
+      trackExploreFunnelEvent({
+        name: "explore_save_toggle",
+        listingId,
+        marketCode: market.country,
+        intentType,
+        index,
+        feedSize,
+        depth: index + 1,
+        action: saved ? "save" : "unsave",
+      });
+    },
+    [feedSize, market.country]
+  );
+
+  const handleShareAction = useCallback(
+    ({
+      listingId,
+      index,
+      result,
+      intentType,
+    }: {
+      listingId: string;
+      index: number;
+      result: "shared" | "copied" | "dismissed" | "error";
+      intentType: "shortlet" | "rent" | "buy";
+    }) => {
+      trackExploreFunnelEvent({
+        name: "explore_share",
+        listingId,
+        marketCode: market.country,
+        intentType,
+        index,
+        feedSize,
+        depth: index + 1,
+        result,
+      });
+    },
+    [feedSize, market.country]
   );
 
   if (!listings.length) {
@@ -300,65 +429,27 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
         className="scrollbar-none h-[100svh] snap-y snap-mandatory overflow-y-auto overscroll-y-contain"
         data-testid="explore-pager"
         ref={pagerRef}
-        style={{ overflowY: verticalScrollLocked ? "hidden" : "auto" }}
+        style={{
+          overflowY: "auto",
+          WebkitOverflowScrolling: "touch",
+          touchAction: "pan-y pinch-zoom",
+          overscrollBehaviorY: "contain",
+        }}
       >
         {visibleListings.map((property, index) => (
           <ExploreSlide
             key={property.id}
             property={property}
             index={index}
-            onGestureLockChange={setVerticalScrollLocked}
+            onGestureLockChange={handleGestureLockChange}
             onNotInterested={handleNotInterested}
             similarHomes={similarHomesByListingId.get(property.id) ?? []}
             onSelectSimilarHome={handleSelectSimilarHome}
-            onOpenDetails={({ listingId, index }) => {
-              trackExploreFunnelEvent({
-                name: "explore_open_details",
-                listingId,
-                marketCode: market.country,
-                intentType: resolveExploreAnalyticsIntentType(property),
-                index,
-                feedSize: visibleListings.length,
-                depth: index + 1,
-              });
-            }}
-            onPrimaryActionTap={({ listingId, index, action, intentType }) => {
-              trackExploreFunnelEvent({
-                name: "explore_tap_cta",
-                listingId,
-                marketCode: market.country,
-                intentType,
-                index,
-                feedSize: visibleListings.length,
-                depth: index + 1,
-                action,
-              });
-            }}
-            onSaveToggle={({ listingId, index, saved, intentType }) => {
-              trackExploreFunnelEvent({
-                name: "explore_save_toggle",
-                listingId,
-                marketCode: market.country,
-                intentType,
-                index,
-                feedSize: visibleListings.length,
-                depth: index + 1,
-                action: saved ? "save" : "unsave",
-              });
-            }}
-            onShareAction={({ listingId, index, result, intentType }) => {
-              trackExploreFunnelEvent({
-                name: "explore_share",
-                listingId,
-                marketCode: market.country,
-                intentType,
-                index,
-                feedSize: visibleListings.length,
-                depth: index + 1,
-                result,
-              });
-            }}
-            feedSize={visibleListings.length}
+            onOpenDetails={handleOpenDetails}
+            onPrimaryActionTap={handlePrimaryActionTap}
+            onSaveToggle={handleSaveToggle}
+            onShareAction={handleShareAction}
+            feedSize={feedSize}
           />
         ))}
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { memo, useCallback, useEffect, useState } from "react";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { SaveToggle } from "@/components/saved/SaveToggle";
 import { GlassPill } from "@/components/ui/GlassPill";
@@ -28,7 +28,11 @@ type ExploreSlideProps = {
   onNotInterested?: (listingId: string) => void;
   similarHomes?: Property[];
   onSelectSimilarHome?: (listingId: string) => boolean;
-  onOpenDetails?: (input: { listingId: string; index: number }) => void;
+  onOpenDetails?: (input: {
+    listingId: string;
+    index: number;
+    intentType: "shortlet" | "rent" | "buy";
+  }) => void;
   onPrimaryActionTap?: (input: {
     listingId: string;
     index: number;
@@ -50,7 +54,7 @@ type ExploreSlideProps = {
   feedSize?: number;
 };
 
-export function ExploreSlide({
+function ExploreSlideInner({
   property,
   index,
   onGestureLockChange,
@@ -75,6 +79,14 @@ export function ExploreSlide({
   const intentTag = resolveExploreIntentTag(property);
   const badges = resolveExploreTrustBadges(property);
   const listingMarketCountry = resolveExploreListingMarketCountry(property, market.country);
+  const shouldLogPerf =
+    process.env.NODE_ENV !== "production" &&
+    typeof window !== "undefined" &&
+    Boolean((window as Window & { __EXPLORE_PERF_DEBUG__?: boolean }).__EXPLORE_PERF_DEBUG__);
+
+  if (shouldLogPerf) {
+    console.count(`[perf][explore-slide] render:${property.id}`);
+  }
 
   useEffect(() => {
     const rafId = window.requestAnimationFrame(() => {
@@ -197,7 +209,7 @@ export function ExploreSlide({
             type="button"
             onClick={() => {
               dismissDetailsHint();
-              onOpenDetails?.({ listingId: property.id, index });
+              onOpenDetails?.({ listingId: property.id, index, intentType });
               setDetailsOpen(true);
             }}
             className="inline-flex h-full w-full items-center justify-center rounded-full text-base font-semibold text-white transition-transform active:scale-[0.98]"
@@ -252,3 +264,21 @@ export function ExploreSlide({
     </article>
   );
 }
+
+function areExploreSlidePropsEqual(prev: ExploreSlideProps, next: ExploreSlideProps): boolean {
+  return (
+    prev.property === next.property &&
+    prev.index === next.index &&
+    prev.feedSize === next.feedSize &&
+    prev.similarHomes === next.similarHomes &&
+    prev.onGestureLockChange === next.onGestureLockChange &&
+    prev.onNotInterested === next.onNotInterested &&
+    prev.onSelectSimilarHome === next.onSelectSimilarHome &&
+    prev.onOpenDetails === next.onOpenDetails &&
+    prev.onPrimaryActionTap === next.onPrimaryActionTap &&
+    prev.onSaveToggle === next.onSaveToggle &&
+    prev.onShareAction === next.onShareAction
+  );
+}
+
+export const ExploreSlide = memo(ExploreSlideInner, areExploreSlidePropsEqual);
