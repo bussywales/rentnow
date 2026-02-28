@@ -2,6 +2,7 @@
 title: "PWA icon padding is now centered for iOS"
 audiences:
   - TENANT
+  - ADMIN
 areas:
   - Tenant
   - PWA
