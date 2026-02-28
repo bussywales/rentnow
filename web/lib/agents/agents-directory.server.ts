@@ -3,7 +3,6 @@ import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase
 import {
   derivePublicAdvertiserName,
   normalizePublicSlug,
-  resolvePublicAdvertiserHref,
   type PublicAdvertiserProfileRow,
 } from "@/lib/advertisers/public-profile";
 import { getVerificationRequirements } from "@/lib/settings/app-settings.server";
@@ -57,6 +56,17 @@ export type SearchAgentsDirectoryResult = {
   offset: number;
 };
 
+export function resolveAgentsDirectoryHref(input: {
+  advertiserId: string;
+  publicSlug?: string | null;
+}): string {
+  const advertiserId = typeof input.advertiserId === "string" ? input.advertiserId.trim() : "";
+  if (!advertiserId) return "/agents";
+  const slug = normalizePublicSlug(input.publicSlug);
+  if (slug) return `/agents/${slug}`;
+  return `/agents/u/${advertiserId}`;
+}
+
 function normalizeText(value: string | null | undefined) {
   return typeof value === "string" ? value.trim().toLowerCase() : "";
 }
@@ -99,11 +109,10 @@ function toDirectoryCandidate(
     },
     requirements
   );
-  const href =
-    resolvePublicAdvertiserHref({
-      advertiserId: id,
-      publicSlug: slug,
-    }) || "/agents";
+  const href = resolveAgentsDirectoryHref({
+    advertiserId: id,
+    publicSlug: slug,
+  });
 
   const searchableText = normalizeText(
     [displayName, row.business_name, row.full_name, row.city].filter(Boolean).join(" ")
