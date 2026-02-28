@@ -4,7 +4,7 @@ import { memo, useCallback, useEffect, useState } from "react";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { SaveToggle } from "@/components/saved/SaveToggle";
 import { GlassPill } from "@/components/ui/GlassPill";
-import { TrustBadges } from "@/components/ui/TrustBadges";
+import { ExploreTrustBadges } from "@/components/explore/ExploreTrustBadges";
 import { TrackViewedLink } from "@/components/viewed/TrackViewedLink";
 import { performShare } from "@/lib/share/client-share";
 import { formatLocationLabel } from "@/lib/property-discovery";
@@ -17,7 +17,6 @@ import {
   resolveExploreDetailsHref,
   resolveExploreIntentTag,
   resolveExploreListingKind,
-  resolveExploreListingMarketCountry,
   resolveExploreTrustBadges,
 } from "@/lib/explore/explore-presentation";
 
@@ -143,7 +142,6 @@ function ExploreSlideInner({
   const location = formatLocationLabel(property.city, property.neighbourhood);
   const intentTag = resolveExploreIntentTag(property);
   const badges = resolveExploreTrustBadges(property);
-  const listingMarketCountry = resolveExploreListingMarketCountry(property, market.country);
   const shouldLogPerf =
     process.env.NODE_ENV !== "production" &&
     typeof window !== "undefined" &&
@@ -233,7 +231,7 @@ function ExploreSlideInner({
           <span className="inline-flex rounded-full border border-white/35 bg-white/15 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/95">
             {intentTag}
           </span>
-          <TrustBadges badges={badges} marketCountry={listingMarketCountry} tone="overlay" />
+          <ExploreTrustBadges badges={badges} tone="overlay" />
           <h2 className="line-clamp-2 text-[1.65rem] font-semibold leading-[1.15]">{property.title}</h2>
           <p className="line-clamp-1 text-sm text-white/90">{location}</p>
           <TrackViewedLink

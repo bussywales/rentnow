@@ -7,6 +7,7 @@ import Image from "next/image";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
+import { ExploreTrustBadges } from "@/components/explore/ExploreTrustBadges";
 import { formatCadence, formatLocationLabel, formatPriceValue } from "@/lib/property-discovery";
 import { resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
@@ -19,6 +20,7 @@ import {
   resolveExploreDetailsHref,
   resolveExploreListingKind,
   resolveExplorePrimaryAction,
+  resolveExploreTrustBadges,
   resolveExploreViewingRequestTemplate,
 } from "@/lib/explore/explore-presentation";
 import { EXPLORE_GALLERY_FALLBACK_IMAGE } from "@/lib/explore/gallery-images";
@@ -92,6 +94,10 @@ export function ExploreDetailsSheet({
   const topAmenities = useMemo(
     () => (shouldRenderDetailsBody ? (property.amenities ?? []).slice(0, 5) : []),
     [property.amenities, shouldRenderDetailsBody]
+  );
+  const trustBadges = useMemo(
+    () => (shouldRenderDetailsBody ? resolveExploreTrustBadges(property) : []),
+    [property, shouldRenderDetailsBody]
   );
   const similarItems = useMemo(
     () => (shouldRenderDetailsBody ? similarHomes.slice(0, 3) : []),
@@ -279,6 +285,8 @@ export function ExploreDetailsSheet({
             <p className="text-lg font-semibold text-slate-900">{price}</p>
             {cadence ? <p className="text-xs text-slate-500">per {cadence}</p> : null}
           </div>
+
+          {trustBadges.length ? <ExploreTrustBadges badges={trustBadges} /> : null}
 
           {facts.length ? (
             <div className="grid grid-cols-3 gap-2 text-center">
