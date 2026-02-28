@@ -157,14 +157,14 @@ function ExploreGalleryInner({
 
   return (
     <div
-      className="h-full w-full"
+      className="h-full w-full touch-pan-x"
       onPointerDownCapture={handlePointerDownCapture}
       onPointerMoveCapture={handlePointerMoveCapture}
       onPointerUpCapture={clearGesture}
       onPointerCancelCapture={clearGesture}
       onPointerLeave={clearGesture}
       style={{
-        touchAction: horizontalLockActive ? "pan-x pinch-zoom" : "pan-y pinch-zoom",
+        touchAction: horizontalLockActive ? "pan-x pinch-zoom" : "pan-x pan-y pinch-zoom",
         overscrollBehaviorX: "contain",
       }}
       data-testid="explore-gallery-gesture-layer"
