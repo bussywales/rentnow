@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { resolvePropertyImageSources } from "@/components/properties/PropertyImageCarousel";
@@ -25,6 +25,11 @@ type ExplorePagerProps = {
 };
 
 const EXPLORE_FALLBACK_IMAGE = EXPLORE_GALLERY_FALLBACK_IMAGE;
+type ExploreIdleCallback = (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void;
+type ExploreIdleWindow = Window & {
+  requestIdleCallback?: (callback: ExploreIdleCallback, options?: { timeout?: number }) => number;
+  cancelIdleCallback?: (handle: number) => void;
+};
 
 function resolveExploreHeroImageUrl(property: Property): string {
   const imageSources = resolvePropertyImageSources({
@@ -52,14 +57,81 @@ export function resolveExploreAdjacentSlideIndexes(activeIndex: number, totalSli
   return indexes.filter((index) => index >= 0 && index < totalSlides);
 }
 
-export function shouldPreloadExploreSlideImages(saveData: boolean | undefined): boolean {
-  return !saveData;
+export function resolveExplorePreloadSlideIndexes(activeIndex: number, totalSlides: number): number[] {
+  if (totalSlides <= 0) return [];
+  const indexes = [activeIndex, ...resolveExploreAdjacentSlideIndexes(activeIndex, totalSlides)];
+  return Array.from(new Set(indexes)).filter((index) => index >= 0 && index < totalSlides);
 }
+
+export function resolveExplorePreloadImageUrls({
+  activeIndex,
+  totalSlides,
+  heroImageUrls,
+  alreadyPreloaded,
+}: {
+  activeIndex: number;
+  totalSlides: number;
+  heroImageUrls: string[];
+  alreadyPreloaded: Set<string>;
+}): string[] {
+  return resolveExplorePreloadSlideIndexes(activeIndex, totalSlides)
+    .map((index) => heroImageUrls[index])
+    .filter((imageUrl): imageUrl is string => Boolean(imageUrl && !alreadyPreloaded.has(imageUrl)));
+}
+
+export function shouldPreloadExploreSlideImages(saveData: boolean | undefined, gestureLocked = false): boolean {
+  return !saveData && !gestureLocked;
+}
+
+export function scheduleExplorePreloadTask(task: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  const idleWindow = window as ExploreIdleWindow;
+  if (typeof idleWindow.requestIdleCallback === "function") {
+    const idleId = idleWindow.requestIdleCallback(
+      () => {
+        task();
+      },
+      { timeout: 180 }
+    );
+    return () => {
+      idleWindow.cancelIdleCallback?.(idleId);
+    };
+  }
+  const timeoutId = window.setTimeout(task, 16);
+  return () => {
+    window.clearTimeout(timeoutId);
+  };
+}
+
+const ExploreProgressPill = memo(function ExploreProgressPill({
+  index,
+  total,
+}: {
+  index: number;
+  total: number;
+}) {
+  if (total <= 1) return null;
+  return (
+    <GlassPill
+      variant="dark"
+      className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 px-2.5 py-1 text-[11px] font-medium text-white/90"
+      data-testid="explore-progress"
+      aria-live="polite"
+    >
+      {`${index + 1} / ${total}`}
+    </GlassPill>
+  );
+});
 
 export function ExplorePager({ listings }: ExplorePagerProps) {
   const { market } = useMarketPreference();
   const pagerRef = useRef<HTMLDivElement | null>(null);
   const preloadedImagesRef = useRef<Set<string>>(new Set());
+  const cancelPreloadRef = useRef<(() => void) | null>(null);
+  const isGestureLockedRef = useRef(false);
+  const displayedIndexRef = useRef(0);
+  const feedSizeRef = useRef(0);
+  const heroImageUrlsRef = useRef<string[]>([]);
   const undoTimeoutRef = useRef<number | null>(null);
   const previousSwipeIndexRef = useRef<number | null>(null);
   const trackedExploreViewRef = useRef(false);
@@ -92,6 +164,12 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
   if (shouldLogPerf) {
     console.count("[perf][explore-pager] render");
   }
+
+  useEffect(() => {
+    displayedIndexRef.current = displayedIndex;
+    feedSizeRef.current = feedSize;
+    heroImageUrlsRef.current = heroImageUrls;
+  }, [displayedIndex, feedSize, heroImageUrls]);
 
   useEffect(() => {
     if (trackedExploreViewRef.current) return;
@@ -173,22 +251,37 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-    if (!shouldPreloadExploreSlideImages(connection?.saveData)) return;
-
-    for (const index of resolveExploreAdjacentSlideIndexes(displayedIndex, feedSize)) {
-      const imageUrl = heroImageUrls[index];
-      if (!imageUrl || preloadedImagesRef.current.has(imageUrl)) continue;
-      const image = new Image();
-      image.decoding = "async";
-      image.src = imageUrl;
-      preloadedImagesRef.current.add(imageUrl);
-    }
+    if (!shouldPreloadExploreSlideImages(connection?.saveData, isGestureLockedRef.current)) return;
+    const preloadUrls = resolveExplorePreloadImageUrls({
+      activeIndex: displayedIndex,
+      totalSlides: feedSize,
+      heroImageUrls,
+      alreadyPreloaded: preloadedImagesRef.current,
+    });
+    if (!preloadUrls.length) return;
+    cancelPreloadRef.current?.();
+    cancelPreloadRef.current = scheduleExplorePreloadTask(() => {
+      if (isGestureLockedRef.current) return;
+      for (const imageUrl of preloadUrls) {
+        if (!imageUrl || preloadedImagesRef.current.has(imageUrl)) continue;
+        const image = new Image();
+        image.decoding = "async";
+        image.src = imageUrl;
+        preloadedImagesRef.current.add(imageUrl);
+      }
+    });
+    return () => {
+      cancelPreloadRef.current?.();
+      cancelPreloadRef.current = null;
+    };
   }, [displayedIndex, feedSize, heroImageUrls]);
 
   useEffect(() => {
     const pager = pagerRef.current;
     return () => {
       if (!pager) return;
+      cancelPreloadRef.current?.();
+      cancelPreloadRef.current = null;
       pager.style.overflowY = "auto";
       pager.style.scrollSnapType = "y mandatory";
       pager.style.overscrollBehaviorY = "contain";
@@ -197,6 +290,31 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
   }, []);
 
   const handleGestureLockChange = useCallback((locked: boolean) => {
+    isGestureLockedRef.current = locked;
+    if (locked) {
+      cancelPreloadRef.current?.();
+      cancelPreloadRef.current = null;
+    } else {
+      const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+      if (!shouldPreloadExploreSlideImages(connection?.saveData, false)) return;
+      const preloadUrls = resolveExplorePreloadImageUrls({
+        activeIndex: displayedIndexRef.current,
+        totalSlides: feedSizeRef.current,
+        heroImageUrls: heroImageUrlsRef.current,
+        alreadyPreloaded: preloadedImagesRef.current,
+      });
+      if (!preloadUrls.length) return;
+      cancelPreloadRef.current?.();
+      cancelPreloadRef.current = scheduleExplorePreloadTask(() => {
+        for (const imageUrl of preloadUrls) {
+          if (!imageUrl || preloadedImagesRef.current.has(imageUrl)) continue;
+          const image = new Image();
+          image.decoding = "async";
+          image.src = imageUrl;
+          preloadedImagesRef.current.add(imageUrl);
+        }
+      });
+    }
     const pager = pagerRef.current;
     if (!pager) return;
     pager.style.touchAction = locked ? "pan-x pinch-zoom" : "pan-y pinch-zoom";
@@ -414,16 +532,7 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 shadow-sm"
       data-testid="explore-root"
     >
-      {listings.length > 1 ? (
-        <GlassPill
-          variant="dark"
-          className="pointer-events-none absolute left-1/2 top-3 z-20 -translate-x-1/2 px-2.5 py-1 text-[11px] font-medium text-white/90"
-          data-testid="explore-progress"
-          aria-live="polite"
-        >
-          {`${displayedIndex + 1} / ${listings.length}`}
-        </GlassPill>
-      ) : null}
+      <ExploreProgressPill index={displayedIndex} total={listings.length} />
       <div
         className="scrollbar-none h-[100svh] snap-y snap-mandatory overflow-y-auto overscroll-y-contain"
         data-testid="explore-pager"
