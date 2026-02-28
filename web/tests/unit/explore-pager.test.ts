@@ -56,7 +56,8 @@ void test("explore gallery source supports axis locking for horizontal gestures"
   assert.match(source, /data-testid="explore-gallery-gesture-layer"/);
   assert.match(source, /data-testid="explore-gallery-image-unavailable"/);
   assert.match(source, /renderWindowRadius=\{1\}/);
-  assert.match(source, /touchAction: horizontalLockActive \? "pan-x pinch-zoom" : "pan-y pinch-zoom"/);
+  assert.match(source, /className="h-full w-full touch-pan-x"/);
+  assert.match(source, /touchAction: horizontalLockActive \? "pan-x pinch-zoom" : "pan-x pan-y pinch-zoom"/);
   assert.match(source, /\[explore-gallery\]\[image-error\]/);
   assert.match(source, /onLongPress\?\.\(\)/);
   assert.match(source, /setTimeout\(\(\) =>/);
