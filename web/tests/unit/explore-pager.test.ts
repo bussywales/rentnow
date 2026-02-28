@@ -35,6 +35,8 @@ void test("explore slide source exposes details, hint, and local hide controls",
   assert.match(source, /data-testid="explore-details-hint"/);
   assert.match(source, /SaveToggle/);
   assert.match(source, /ExploreTrustBadges/);
+  assert.match(source, /resolveExplorePriceCopy/);
+  assert.match(source, /resolveExploreStayContextFromSearchParams/);
   assert.match(source, /ExploreDetailsSheet/);
   assert.match(source, /hasSeenExploreDetailsHint/);
   assert.match(source, /markExploreDetailsHintSeen/);
@@ -42,6 +44,8 @@ void test("explore slide source exposes details, hint, and local hide controls",
   assert.match(source, /onGestureLockChange=\{onGestureLockChange\}/);
   assert.match(source, /GlassPill/);
   assert.match(source, /h-11 w-11/);
+  assert.match(source, /data-testid="explore-price-primary"/);
+  assert.match(source, /data-testid="explore-price-est-total"/);
   assert.match(source, /memo\(ExploreSlideInner/);
   assert.match(source, /console\.count\(`\[perf\]\[explore-slide\] render:/);
 });
@@ -72,7 +76,11 @@ void test("explore details sheet source includes CTA microcopy and similar homes
   assert.match(source, /resolveExplorePrimaryAction/);
   assert.match(source, /resolveExploreCtaMicrocopy/);
   assert.match(source, /resolveExploreTrustBadges/);
+  assert.match(source, /resolveExplorePriceCopy/);
+  assert.match(source, /resolveExploreStayContextFromSearchParams/);
   assert.match(source, /data-testid="explore-primary-microcopy"/);
+  assert.match(source, /data-testid="explore-details-price-primary"/);
+  assert.match(source, /data-testid="explore-details-price-est-total"/);
   assert.match(source, /data-testid="explore-similar-homes"/);
   assert.match(source, /data-testid="explore-similar-home"/);
   assert.match(source, /data-testid="explore-primary-cta"/);
