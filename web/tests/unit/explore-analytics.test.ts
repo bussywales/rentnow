@@ -6,6 +6,7 @@ import {
   clearExploreAnalyticsEvents,
   EXPLORE_ANALYTICS_MAX_EVENTS,
   getExploreAnalyticsEvents,
+  getOrCreateExploreAnalyticsSessionId,
   parseExploreAnalyticsPayload,
   recordExploreAnalyticsEvent,
 } from "@/lib/explore/explore-analytics";
@@ -57,6 +58,12 @@ void test("explore analytics parser tolerates invalid payloads", () => {
   assert.deepEqual(parseExploreAnalyticsPayload(JSON.stringify({ events: [null, { name: "explore_view" }] })), {
     events: [],
   });
+  const parsed = parseExploreAnalyticsPayload(
+    JSON.stringify({
+      events: [{ name: "explore_view", at: "2026-02-28T12:00:00.000Z", marketCountry: "GB" }],
+    })
+  );
+  assert.equal(parsed.events[0]?.marketCode, "GB");
 });
 
 void test("explore analytics record/get/clear are SSR-safe", () => {
@@ -99,9 +106,51 @@ void test("explore analytics event buffer caps and preserves latest events", () 
   });
 });
 
-void test("explore pager source records non-creepy action events", () => {
+void test("explore analytics sessions persist across activity and rotate after idle timeout", () => {
+  withMockWindow(() => {
+    clearExploreAnalyticsEvents();
+    const firstSession = getOrCreateExploreAnalyticsSessionId({ nowMs: 1000 });
+    recordExploreAnalyticsEvent({ name: "explore_view", nowMs: 1000 });
+    const sameSession = getOrCreateExploreAnalyticsSessionId({ nowMs: 1000 + 5 * 60 * 1000 });
+    recordExploreAnalyticsEvent({ name: "explore_swipe", nowMs: 1000 + 5 * 60 * 1000 });
+    const rotatedSession = getOrCreateExploreAnalyticsSessionId({ nowMs: 1000 + 36 * 60 * 1000 });
+    assert.ok(firstSession);
+    assert.equal(firstSession, sameSession);
+    assert.notEqual(rotatedSession, firstSession);
+  });
+});
+
+void test("explore analytics events keep non-creepy payload keys only", () => {
+  withMockWindow(() => {
+    clearExploreAnalyticsEvents();
+    recordExploreAnalyticsEvent({
+      name: "explore_tap_cta",
+      listingId: "listing-42",
+      marketCode: "GB",
+      intentType: "rent",
+      index: 3,
+      feedSize: 20,
+      action: "request_viewing",
+      result: "attempt",
+    });
+    const [event] = getExploreAnalyticsEvents();
+    assert.equal(event?.name, "explore_tap_cta");
+    assert.equal(event?.marketCode, "GB");
+    assert.equal(event?.intentType, "rent");
+    assert.equal(event?.index, 3);
+    assert.equal(event?.feedSize, 20);
+    const eventRecord = event as Record<string, unknown>;
+    assert.equal(eventRecord.message, undefined);
+    assert.equal(eventRecord.email, undefined);
+    assert.equal(eventRecord.phone, undefined);
+  });
+});
+
+void test("explore source records funnel events across pager and details sheet", () => {
   const sourcePath = path.join(process.cwd(), "components", "explore", "ExplorePager.tsx");
+  const detailsPath = path.join(process.cwd(), "components", "explore", "ExploreDetailsSheet.tsx");
   const source = readFileSync(sourcePath, "utf8");
+  const detailsSource = readFileSync(detailsPath, "utf8");
 
   assert.match(source, /name: "explore_view"/);
   assert.match(source, /name: "explore_swipe"/);
@@ -110,4 +159,10 @@ void test("explore pager source records non-creepy action events", () => {
   assert.match(source, /name: "explore_save_toggle"/);
   assert.match(source, /name: "explore_share"/);
   assert.match(source, /name: "explore_not_interested"/);
+  assert.match(detailsSource, /name: "explore_open_next_steps"/);
+  assert.match(detailsSource, /name: "explore_open_request_composer"/);
+  assert.match(detailsSource, /name: "explore_submit_request_attempt"/);
+  assert.match(detailsSource, /name: "explore_submit_request_success"/);
+  assert.match(detailsSource, /name: "explore_submit_request_fail"/);
+  assert.match(detailsSource, /name: "explore_continue_booking"/);
 });
