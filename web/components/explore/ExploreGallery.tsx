@@ -183,9 +183,6 @@ function ExploreGalleryInner({
         setHorizontalLock(axis === "horizontal");
       }
     }
-    if (gestureAxisRef.current === "horizontal" && event.cancelable) {
-      event.preventDefault();
-    }
   }, [cancelLongPress, setHorizontalLock]);
 
   useEffect(
