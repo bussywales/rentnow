@@ -61,7 +61,6 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
   const pagerRef = useRef<HTMLDivElement | null>(null);
   const preloadedImagesRef = useRef<Set<string>>(new Set());
   const undoTimeoutRef = useRef<number | null>(null);
-  const verticalScrollLockedRef = useRef(false);
   const previousSwipeIndexRef = useRef<number | null>(null);
   const trackedExploreViewRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -191,18 +190,18 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
     return () => {
       if (!pager) return;
       pager.style.overflowY = "auto";
+      pager.style.scrollSnapType = "y mandatory";
       pager.style.overscrollBehaviorY = "contain";
-      verticalScrollLockedRef.current = false;
+      pager.style.touchAction = "pan-y pinch-zoom";
     };
   }, []);
 
   const handleGestureLockChange = useCallback((locked: boolean) => {
-    if (verticalScrollLockedRef.current === locked) return;
-    verticalScrollLockedRef.current = locked;
     const pager = pagerRef.current;
     if (!pager) return;
-    pager.style.overflowY = locked ? "hidden" : "auto";
-    pager.style.overscrollBehaviorY = locked ? "none" : "contain";
+    pager.style.touchAction = locked ? "pan-x pinch-zoom" : "pan-y pinch-zoom";
+    pager.style.scrollSnapType = locked ? "none" : "y mandatory";
+    pager.style.overscrollBehaviorY = "contain";
   }, []);
 
   const handleNotInterested = useCallback((listingId: string) => {

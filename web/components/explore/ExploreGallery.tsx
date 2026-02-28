@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { PointerEvent } from "react";
+import type { PointerEvent, TouchEvent } from "react";
 import { UnifiedImageCarousel } from "@/components/ui/UnifiedImageCarousel";
 import { resolvePropertyImageSources } from "@/components/properties/PropertyImageCarousel";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
@@ -32,6 +32,10 @@ export function resolveExploreGestureAxis(deltaX: number, deltaY: number, thresh
   if (absoluteX > absoluteY + threshold) return "horizontal";
   if (absoluteY > absoluteX + threshold) return "vertical";
   return null;
+}
+
+export function shouldResetExploreGestureLock(eventType: string): boolean {
+  return eventType === "pointerup" || eventType === "pointercancel" || eventType === "touchend" || eventType === "touchcancel";
 }
 
 function ExploreGalleryInner({
@@ -145,6 +149,45 @@ function ExploreGalleryInner({
     setHorizontalLock(false);
   }, [cancelLongPress, setHorizontalLock]);
 
+  const handleTouchStartCapture = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    if (longPressTimerRef.current) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    pointerStartRef.current = { x: touch.clientX, y: touch.clientY };
+    gestureAxisRef.current = null;
+    longPressTriggeredRef.current = false;
+    setHorizontalLock(false);
+    longPressTimerRef.current = window.setTimeout(() => {
+      longPressTriggeredRef.current = true;
+      onLongPress?.();
+    }, 520);
+  }, [onLongPress, setHorizontalLock]);
+
+  const handleTouchMoveCapture = useCallback((event: TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches[0];
+    if (!touch || !pointerStartRef.current || longPressTriggeredRef.current) return;
+    if (Math.abs(touch.clientX - pointerStartRef.current.x) > 8 || Math.abs(touch.clientY - pointerStartRef.current.y) > 8) {
+      cancelLongPress();
+    }
+    if (!gestureAxisRef.current) {
+      const axis = resolveExploreGestureAxis(
+        touch.clientX - pointerStartRef.current.x,
+        touch.clientY - pointerStartRef.current.y
+      );
+      if (axis) {
+        gestureAxisRef.current = axis;
+        cancelLongPress();
+        setHorizontalLock(axis === "horizontal");
+      }
+    }
+    if (gestureAxisRef.current === "horizontal" && event.cancelable) {
+      event.preventDefault();
+    }
+  }, [cancelLongPress, setHorizontalLock]);
+
   useEffect(
     () => () => {
       if (longPressTimerRef.current) {
@@ -155,6 +198,38 @@ function ExploreGalleryInner({
     []
   );
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const clearGestureFromEvent = (event: Event) => {
+      if (!shouldResetExploreGestureLock(event.type)) return;
+      clearGesture();
+    };
+    const clearGestureFromVisibility = () => {
+      if (document.visibilityState !== "visible") {
+        clearGesture();
+      }
+    };
+    const clearGestureFromBlur = () => {
+      clearGesture();
+    };
+
+    window.addEventListener("pointerup", clearGestureFromEvent, { passive: true });
+    window.addEventListener("pointercancel", clearGestureFromEvent, { passive: true });
+    window.addEventListener("touchend", clearGestureFromEvent, { passive: true });
+    window.addEventListener("touchcancel", clearGestureFromEvent, { passive: true });
+    window.addEventListener("blur", clearGestureFromBlur, { passive: true });
+    document.addEventListener("visibilitychange", clearGestureFromVisibility, { passive: true });
+
+    return () => {
+      window.removeEventListener("pointerup", clearGestureFromEvent);
+      window.removeEventListener("pointercancel", clearGestureFromEvent);
+      window.removeEventListener("touchend", clearGestureFromEvent);
+      window.removeEventListener("touchcancel", clearGestureFromEvent);
+      window.removeEventListener("blur", clearGestureFromBlur);
+      document.removeEventListener("visibilitychange", clearGestureFromVisibility);
+    };
+  }, [clearGesture]);
+
   return (
     <div
       className="h-full w-full touch-pan-x"
@@ -163,6 +238,10 @@ function ExploreGalleryInner({
       onPointerUpCapture={clearGesture}
       onPointerCancelCapture={clearGesture}
       onPointerLeave={clearGesture}
+      onTouchStartCapture={handleTouchStartCapture}
+      onTouchMoveCapture={handleTouchMoveCapture}
+      onTouchEndCapture={clearGesture}
+      onTouchCancelCapture={clearGesture}
       style={{
         touchAction: horizontalLockActive ? "pan-x pinch-zoom" : "pan-x pan-y pinch-zoom",
         overscrollBehaviorX: "contain",
