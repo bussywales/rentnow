@@ -25,6 +25,7 @@ void test("shortlets mobile sticky bar component renders the compact control set
   assert.ok(contents.includes("Sort compact"));
   assert.ok(contents.includes('data-testid="shortlets-sticky-chip-sort"'));
   assert.ok(contents.includes('data-testid="shortlets-sticky-chip-sort-expanded"'));
+  assert.ok(contents.includes("sortSelectClass"));
   assert.ok(contents.includes("Filters"));
   assert.ok(contents.includes("Search"));
   assert.ok(contents.includes("rounded-2xl"));
@@ -57,6 +58,11 @@ void test("shortlets mobile sticky bar keeps compact sizing constraints and avoi
   assert.equal(stickyContents.includes("rounded-full border border-slate-200 bg-white/95"), false);
   assert.ok(stickyContents.includes("motion-reduce:transition-none"));
   assert.ok(stickyContents.includes("flex-none"));
+  assert.ok(stickyContents.includes("min-w-[148px]"));
+  assert.ok(stickyContents.includes("max-w-[178px]"));
+  assert.ok(stickyContents.includes("text-ellipsis"));
+  assert.ok(stickyContents.includes("whitespace-nowrap"));
+  assert.ok(stickyContents.includes("pr-7"));
 
   const stickyTestIdMatches = stickyContents.match(/shortlets-compact-search-pill/g) ?? [];
   assert.equal(stickyTestIdMatches.length, 1);
