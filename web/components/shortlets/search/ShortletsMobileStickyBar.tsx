@@ -34,6 +34,8 @@ export function ShortletsMobileStickyBar({
 }: Props) {
   if (!showCompactSearch) return null;
 
+  const railScrollStyle = { WebkitOverflowScrolling: "touch" } as const;
+
   return (
     <div
       className="pointer-events-none fixed inset-x-0 top-[78px] z-30 flex translate-y-0 justify-center px-3 opacity-100 transition-all duration-200 ease-out motion-reduce:transition-none"
@@ -55,6 +57,7 @@ export function ShortletsMobileStickyBar({
             }`}
             data-testid="shortlets-sticky-expanded"
             aria-hidden={isCollapsed}
+            style={railScrollStyle}
           >
             <button
               type="button"
@@ -80,7 +83,7 @@ export function ShortletsMobileStickyBar({
             <Select
               value={sortValue}
               onChange={(event) => onSortChange(event.target.value)}
-              className="h-8 w-[118px] shrink-0 text-[11px]"
+              className="h-8 w-[132px] shrink-0 text-[11px]"
               aria-label="Sort compact"
             >
               <option value="recommended">Recommended</option>
@@ -117,6 +120,7 @@ export function ShortletsMobileStickyBar({
             }`}
             data-testid="shortlets-sticky-collapsed"
             aria-hidden={!isCollapsed}
+            style={railScrollStyle}
           >
             <button
               type="button"
@@ -145,6 +149,19 @@ export function ShortletsMobileStickyBar({
             >
               <span className="truncate">{guestsSummary}</span>
             </button>
+            <Select
+              value={sortValue}
+              onChange={(event) => onSortChange(event.target.value)}
+              className="h-8 w-[132px] shrink-0 text-[11px]"
+              aria-label="Sort compact collapsed"
+              data-testid="shortlets-sticky-chip-sort"
+            >
+              <option value="recommended">Recommended</option>
+              <option value="price_asc">Price low-high</option>
+              <option value="price_desc">Price high-low</option>
+              <option value="rating">Rating</option>
+              <option value="newest">Newest</option>
+            </Select>
             <button
               type="button"
               onClick={onOpenFiltersDrawer}
