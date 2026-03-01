@@ -36,6 +36,8 @@ export function ShortletsMobileStickyBar({
 
   const railBaseClass =
     "scrollbar-none flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-0.5 transition-all duration-200 ease-out motion-reduce:transition-none";
+  const sortSelectClass =
+    "h-8 w-auto min-w-[148px] max-w-[178px] flex-none overflow-hidden text-ellipsis whitespace-nowrap px-2.5 pr-7 text-[11px]";
   const railScrollStyle = {
     WebkitOverflowScrolling: "touch",
     maskImage: "linear-gradient(to right, transparent 0px, black 12px, black calc(100% - 12px), transparent 100%)",
@@ -90,7 +92,7 @@ export function ShortletsMobileStickyBar({
             <Select
               value={sortValue}
               onChange={(event) => onSortChange(event.target.value)}
-              className="h-8 w-[132px] flex-none text-[11px]"
+              className={sortSelectClass}
               aria-label="Sort compact"
               data-testid="shortlets-sticky-chip-sort-expanded"
             >
@@ -160,7 +162,7 @@ export function ShortletsMobileStickyBar({
             <Select
               value={sortValue}
               onChange={(event) => onSortChange(event.target.value)}
-              className="h-8 w-[132px] flex-none text-[11px]"
+              className={sortSelectClass}
               aria-label="Sort compact collapsed"
               data-testid="shortlets-sticky-chip-sort"
             >
