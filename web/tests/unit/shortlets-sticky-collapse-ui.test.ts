@@ -19,6 +19,8 @@ void test("collapsed sticky variant exposes chip testids and routes to existing 
   assert.ok(contents.includes('data-testid="shortlets-sticky-chip-where"'));
   assert.ok(contents.includes('data-testid="shortlets-sticky-chip-dates"'));
   assert.ok(contents.includes('data-testid="shortlets-sticky-chip-guests"'));
+  assert.ok(contents.includes('data-testid="shortlets-sticky-chip-sort"'));
+  assert.ok(contents.includes('data-testid="shortlets-sticky-chip-sort-expanded"'));
   assert.ok(contents.includes('data-testid="shortlets-sticky-chip-filters"'));
   assert.ok(contents.includes('onFocusExpandedControl("where")'));
   assert.ok(contents.includes('onFocusExpandedControl("checkIn")'));
@@ -33,6 +35,25 @@ void test("sticky bar keeps both collapsed and expanded variants with reduced-mo
   assert.ok(contents.includes('data-testid="shortlets-sticky-collapsed"'));
   assert.ok(contents.includes("isCollapsed ?"));
   assert.ok(contents.includes("motion-reduce:transition-none"));
+  assert.ok(contents.includes("railBaseClass"));
+  assert.ok(contents.includes("overflow-x-auto"));
+  assert.ok(contents.includes("maskImage"));
+});
+
+void test("collapsed sticky chip order keeps sort before filters", () => {
+  const contents = fs.readFileSync(stickyBarPath, "utf8");
+
+  const whereIndex = contents.indexOf('data-testid="shortlets-sticky-chip-where"');
+  const datesIndex = contents.indexOf('data-testid="shortlets-sticky-chip-dates"');
+  const guestsIndex = contents.indexOf('data-testid="shortlets-sticky-chip-guests"');
+  const sortIndex = contents.indexOf('data-testid="shortlets-sticky-chip-sort"');
+  const filtersIndex = contents.indexOf('data-testid="shortlets-sticky-chip-filters"');
+
+  assert.ok(whereIndex >= 0);
+  assert.ok(datesIndex > whereIndex);
+  assert.ok(guestsIndex > datesIndex);
+  assert.ok(sortIndex > guestsIndex);
+  assert.ok(filtersIndex > sortIndex);
 });
 
 void test("shortlets shell passes collapse state into sticky bar and keeps compact visibility contract", () => {
