@@ -34,7 +34,14 @@ export function ShortletsMobileStickyBar({
 }: Props) {
   if (!showCompactSearch) return null;
 
-  const railScrollStyle = { WebkitOverflowScrolling: "touch" } as const;
+  const railBaseClass =
+    "scrollbar-none flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-0.5 transition-all duration-200 ease-out motion-reduce:transition-none";
+  const railScrollStyle = {
+    WebkitOverflowScrolling: "touch",
+    maskImage: "linear-gradient(to right, transparent 0px, black 12px, black calc(100% - 12px), transparent 100%)",
+    WebkitMaskImage:
+      "linear-gradient(to right, transparent 0px, black 12px, black calc(100% - 12px), transparent 100%)",
+  } as const;
 
   return (
     <div
@@ -52,7 +59,7 @@ export function ShortletsMobileStickyBar({
       >
         <div className="relative min-h-8">
           <div
-            className={`scrollbar-none flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-0.5 transition-all duration-200 ease-out motion-reduce:transition-none ${
+            className={`${railBaseClass} ${
               isCollapsed ? "pointer-events-none absolute inset-0 opacity-0" : "opacity-100"
             }`}
             data-testid="shortlets-sticky-expanded"
@@ -62,29 +69,30 @@ export function ShortletsMobileStickyBar({
             <button
               type="button"
               onClick={() => onFocusExpandedControl("where")}
-              className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              className="inline-flex h-8 flex-none items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
             >
               <span className="truncate">{whereSummary}</span>
             </button>
             <button
               type="button"
               onClick={() => onFocusExpandedControl("checkIn")}
-              className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              className="inline-flex h-8 flex-none items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
             >
               <span className="truncate">{datesSummary}</span>
             </button>
             <button
               type="button"
               onClick={() => onFocusExpandedControl("guests")}
-              className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              className="inline-flex h-8 flex-none items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
             >
               <span className="truncate">{guestsSummary}</span>
             </button>
             <Select
               value={sortValue}
               onChange={(event) => onSortChange(event.target.value)}
-              className="h-8 w-[132px] shrink-0 text-[11px]"
+              className="h-8 w-[132px] flex-none text-[11px]"
               aria-label="Sort compact"
+              data-testid="shortlets-sticky-chip-sort-expanded"
             >
               <option value="recommended">Recommended</option>
               <option value="price_asc">Price low-high</option>
@@ -97,7 +105,7 @@ export function ShortletsMobileStickyBar({
               variant="secondary"
               size="sm"
               onClick={onOpenFiltersDrawer}
-              className="h-8 shrink-0 whitespace-nowrap px-3"
+              className="h-8 flex-none whitespace-nowrap px-3"
             >
               <span className="inline-flex items-center gap-1.5">
                 <span>{appliedFilterCount > 0 ? `Filters (${appliedFilterCount})` : "Filters"}</span>
@@ -109,13 +117,13 @@ export function ShortletsMobileStickyBar({
                 ) : null}
               </span>
             </Button>
-            <Button onClick={onSubmitSearch} size="sm" className="h-8 shrink-0 whitespace-nowrap px-3">
+            <Button onClick={onSubmitSearch} size="sm" className="h-8 flex-none whitespace-nowrap px-3">
               Search
             </Button>
           </div>
 
           <div
-            className={`scrollbar-none flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap pr-0.5 transition-all duration-200 ease-out motion-reduce:transition-none ${
+            className={`${railBaseClass} ${
               isCollapsed ? "opacity-100" : "pointer-events-none absolute inset-0 opacity-0"
             }`}
             data-testid="shortlets-sticky-collapsed"
@@ -125,7 +133,7 @@ export function ShortletsMobileStickyBar({
             <button
               type="button"
               onClick={() => onFocusExpandedControl("where")}
-              className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              className="inline-flex h-8 flex-none items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
               data-testid="shortlets-sticky-chip-where"
               aria-label="Edit location"
             >
@@ -134,7 +142,7 @@ export function ShortletsMobileStickyBar({
             <button
               type="button"
               onClick={() => onFocusExpandedControl("checkIn")}
-              className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              className="inline-flex h-8 flex-none items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
               data-testid="shortlets-sticky-chip-dates"
               aria-label="Edit dates"
             >
@@ -143,7 +151,7 @@ export function ShortletsMobileStickyBar({
             <button
               type="button"
               onClick={() => onFocusExpandedControl("guests")}
-              className="inline-flex h-8 shrink-0 items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              className="inline-flex h-8 flex-none items-center rounded-full border border-slate-200 bg-white px-2.5 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
               data-testid="shortlets-sticky-chip-guests"
               aria-label="Edit guests"
             >
@@ -152,7 +160,7 @@ export function ShortletsMobileStickyBar({
             <Select
               value={sortValue}
               onChange={(event) => onSortChange(event.target.value)}
-              className="h-8 w-[132px] shrink-0 text-[11px]"
+              className="h-8 w-[132px] flex-none text-[11px]"
               aria-label="Sort compact collapsed"
               data-testid="shortlets-sticky-chip-sort"
             >
@@ -165,7 +173,7 @@ export function ShortletsMobileStickyBar({
             <button
               type="button"
               onClick={onOpenFiltersDrawer}
-              className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+              className="inline-flex h-8 w-8 flex-none items-center justify-center rounded-full border border-slate-200 bg-white text-slate-700 transition hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
               data-testid="shortlets-sticky-chip-filters"
               aria-label={appliedFilterCount > 0 ? `Open filters (${appliedFilterCount} active)` : "Open filters"}
             >
