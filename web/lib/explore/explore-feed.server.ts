@@ -22,6 +22,20 @@ type ExploreFeedOptions = {
   marketCountry?: string | null;
 };
 
+export type ExploreFeedSectionKey = "market_picks" | "more_to_explore";
+
+export type ExploreSectionedFeed = {
+  marketPicks: Property[];
+  moreToExplore: Property[];
+  meta: {
+    marketCode: string | null;
+    total: number;
+    targetMinimum: number;
+    appliedFallback: boolean;
+    limitedResults: boolean;
+  };
+};
+
 const EXPLORE_SUPPORTED_MARKETS = new Set(["NG", "GB", "CA", "US"]);
 const COUNTRY_NAME_TO_MARKET: Record<string, "NG" | "GB" | "CA" | "US"> = {
   nigeria: "NG",
@@ -33,6 +47,7 @@ const COUNTRY_NAME_TO_MARKET: Record<string, "NG" | "GB" | "CA" | "US"> = {
   usa: "US",
   us: "US",
 };
+const EXPLORE_MINIMUM_TARGET = 12;
 
 function clampLimit(limit: number | undefined): number {
   if (!Number.isFinite(limit)) return 20;
@@ -64,6 +79,15 @@ function normalizeExplorePropertyRow(row: ExplorePropertyRow): Property {
     ...row,
     images,
   };
+}
+
+function dedupeExploreListingsById(listings: ReadonlyArray<Property>): Property[] {
+  const byId = new Map<string, Property>();
+  listings.forEach((listing) => {
+    if (!listing?.id || byId.has(listing.id)) return;
+    byId.set(listing.id, listing);
+  });
+  return Array.from(byId.values());
 }
 
 export function buildExploreFeed({ featured, browse, limit }: ExploreFeedInput): Property[] {
@@ -102,27 +126,87 @@ export function filterExploreFeedByMarket(
   return [...listings];
 }
 
-export async function getExploreFeed(options: ExploreFeedOptions = {}): Promise<Property[]> {
+export function buildExploreSectionedFeed(
+  listings: ReadonlyArray<Property>,
+  options: ExploreFeedOptions = {}
+): ExploreSectionedFeed {
   const limit = clampLimit(options.limit);
-  const fallbackCandidate = filterExploreFeedByMarket(
-    buildExploreFeed({
-      featured: mockProperties,
-      browse: mockProperties,
-      limit,
-    }),
-    options.marketCountry ?? null
-  );
-  const fallbackQualityFeed = applyExploreImageQualityFilter(fallbackCandidate, limit);
-  const fallbackFeed = fallbackQualityFeed.length ? fallbackQualityFeed : fallbackCandidate.slice(0, limit);
+  const targetMinimum = Math.min(limit, EXPLORE_MINIMUM_TARGET);
+  const marketCode = normalizeExploreMarketCode(options.marketCountry);
+  const deduped = dedupeExploreListingsById(listings).slice(0, limit);
+
+  if (!marketCode) {
+    const total = deduped.length;
+    return {
+      marketPicks: deduped,
+      moreToExplore: [],
+      meta: {
+        marketCode: null,
+        total,
+        targetMinimum,
+        appliedFallback: false,
+        limitedResults: total < targetMinimum,
+      },
+    };
+  }
+
+  const marketPicks = deduped.filter((listing) => resolveExploreListingMarket(listing) === marketCode);
+  const fallbackPool = deduped.filter((listing) => resolveExploreListingMarket(listing) !== marketCode);
+  const fallbackSlots = Math.max(0, targetMinimum - marketPicks.length);
+  const moreToExplore = fallbackPool.slice(0, fallbackSlots);
+  const total = Math.min(limit, marketPicks.length + moreToExplore.length);
+
+  return {
+    marketPicks: marketPicks.slice(0, limit),
+    moreToExplore,
+    meta: {
+      marketCode,
+      total,
+      targetMinimum,
+      appliedFallback: moreToExplore.length > 0,
+      limitedResults: total < targetMinimum,
+    },
+  };
+}
+
+export function flattenExploreSectionedFeed(feed: ExploreSectionedFeed): Property[] {
+  return [...feed.marketPicks, ...feed.moreToExplore];
+}
+
+export async function getExploreFeed(options: ExploreFeedOptions = {}): Promise<Property[]> {
+  const feed = await getSectionedExploreFeed(options);
+  return flattenExploreSectionedFeed(feed);
+}
+
+export async function getSectionedExploreFeed(options: ExploreFeedOptions = {}): Promise<ExploreSectionedFeed> {
+  const limit = clampLimit(options.limit);
+  const feedSourceLimit = clampLimit(Math.max(limit * 2, EXPLORE_MINIMUM_TARGET * 2));
+  const fallbackCandidate = buildExploreFeed({
+    featured: mockProperties,
+    browse: mockProperties,
+    limit: feedSourceLimit,
+  });
+  const fallbackQualityFeed = applyExploreImageQualityFilter(fallbackCandidate, feedSourceLimit);
+  const fallbackFeed = fallbackQualityFeed.length ? fallbackQualityFeed : fallbackCandidate.slice(0, feedSourceLimit);
+  const fallbackSectioned = buildExploreSectionedFeed(fallbackFeed, options);
 
   if (!hasServerSupabaseEnv()) {
-    return DEV_MOCKS ? fallbackFeed : [];
+    return DEV_MOCKS
+      ? {
+          ...fallbackSectioned,
+          marketPicks: fallbackSectioned.marketPicks.slice(0, limit),
+          moreToExplore: fallbackSectioned.moreToExplore.slice(
+            0,
+            Math.max(0, limit - fallbackSectioned.marketPicks.length)
+          ),
+        }
+      : buildExploreSectionedFeed([], options);
   }
 
   const baseFilters = parseFiltersFromSearchParams(new URLSearchParams());
   const [featuredResult, browseResult] = await Promise.all([
-    searchProperties(baseFilters, { page: 1, pageSize: Math.max(8, limit), featuredOnly: true }),
-    searchProperties(baseFilters, { page: 1, pageSize: Math.max(20, limit * 2) }),
+    searchProperties(baseFilters, { page: 1, pageSize: Math.max(8, feedSourceLimit), featuredOnly: true }),
+    searchProperties(baseFilters, { page: 1, pageSize: Math.max(20, feedSourceLimit) }),
   ]);
 
   if (featuredResult.error) {
@@ -138,12 +222,24 @@ export async function getExploreFeed(options: ExploreFeedOptions = {}): Promise<
   const browse = browseResult.error
     ? []
     : (((browseResult.data as ExplorePropertyRow[]) ?? []).map(normalizeExplorePropertyRow) as Property[]);
-  const feedCandidate = filterExploreFeedByMarket(
-    buildExploreFeed({ featured, browse, limit }),
-    options.marketCountry ?? null
-  );
-  const qualityFeed = applyExploreImageQualityFilter(feedCandidate, limit);
-  if (qualityFeed.length) return qualityFeed;
+  const feedCandidate = buildExploreFeed({ featured, browse, limit: feedSourceLimit });
+  const qualityFeed = applyExploreImageQualityFilter(feedCandidate, feedSourceLimit);
+  const sectionedFeed = buildExploreSectionedFeed(qualityFeed.length ? qualityFeed : feedCandidate, options);
+  const boundedFeed: ExploreSectionedFeed = {
+    ...sectionedFeed,
+    marketPicks: sectionedFeed.marketPicks.slice(0, limit),
+    moreToExplore: sectionedFeed.moreToExplore.slice(0, Math.max(0, limit - sectionedFeed.marketPicks.length)),
+  };
 
-  return DEV_MOCKS ? fallbackFeed : [];
+  if (flattenExploreSectionedFeed(boundedFeed).length) {
+    return boundedFeed;
+  }
+
+  return DEV_MOCKS
+    ? {
+        ...fallbackSectioned,
+        marketPicks: fallbackSectioned.marketPicks.slice(0, limit),
+        moreToExplore: fallbackSectioned.moreToExplore.slice(0, Math.max(0, limit - fallbackSectioned.marketPicks.length)),
+      }
+    : buildExploreSectionedFeed([], options);
 }
