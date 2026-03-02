@@ -19,11 +19,19 @@ import {
 } from "@/lib/ui/carousel-interactions";
 import { resolveImageLoadingProfile } from "@/lib/images/loading-profile";
 import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
+import {
+  normalizeHexColor,
+  resolveImagePlaceholder,
+  type PlaceholderSource,
+} from "@/lib/images/placeholders";
 
 export type UnifiedImageCarouselItem = {
   id?: string;
   src: string;
   alt: string;
+  placeholderColor?: string | null;
+  placeholderBlurDataURL?: string | null;
+  placeholderSource?: PlaceholderSource;
 };
 
 export type UnifiedImageCarouselController = {
@@ -120,6 +128,40 @@ export function resolveUnifiedImageCarouselLoadCandidates(input: {
     mounted.add(index);
   });
   return mounted;
+}
+
+export function resolveUnifiedImagePlaceholderPresentation(input: {
+  item: UnifiedImageCarouselItem;
+  fallbackBlurDataURL: string;
+}): {
+  dominantColor: string;
+  blurDataURL: string;
+  source: PlaceholderSource;
+  style: {
+    backgroundColor: string;
+    backgroundImage: string;
+    backgroundSize: string;
+    backgroundPosition: string;
+  };
+} {
+  const itemDominantColor = normalizeHexColor(input.item.placeholderColor) ?? input.item.placeholderColor ?? null;
+  const resolvedPlaceholder = resolveImagePlaceholder({
+    dominantColor: itemDominantColor,
+    imageUrl: input.item.src,
+  });
+  const blurDataURL = input.item.placeholderBlurDataURL || resolvedPlaceholder.blurDataURL || input.fallbackBlurDataURL;
+  const source = input.item.placeholderSource ?? resolvedPlaceholder.source;
+  return {
+    dominantColor: resolvedPlaceholder.dominantColor,
+    blurDataURL,
+    source,
+    style: {
+      backgroundColor: resolvedPlaceholder.dominantColor,
+      backgroundImage: `url("${blurDataURL}")`,
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+    },
+  };
 }
 
 export function UnifiedImageCarousel({
@@ -420,6 +462,10 @@ export function UnifiedImageCarousel({
             const isActiveSlide = index === boundedSelectedIndex;
             const shouldRenderImage = mountedImageIndexes.has(index);
             const imageLoaded = loadedImageKeys.has(loadKey);
+            const placeholder = resolveUnifiedImagePlaceholderPresentation({
+              item,
+              fallbackBlurDataURL: blurDataURL,
+            });
             const bypassOptimizer = shouldBypassNextImageOptimizer(item.src);
             const imageLoading = resolveImageLoadingProfile(prioritizeFirstImage && index === 0);
             const imageElement = (
@@ -427,8 +473,17 @@ export function UnifiedImageCarousel({
                 <div className="relative h-full w-full overflow-hidden">
                   <div
                     className={cn(
-                      "absolute inset-0 bg-gradient-to-br from-slate-800/80 via-slate-700/40 to-slate-900/80 transition-opacity duration-300",
+                      "absolute inset-0 scale-[1.04] transition-opacity duration-300",
                       imageLoaded ? "opacity-0" : "animate-pulse opacity-100"
+                    )}
+                    style={placeholder.style}
+                    data-placeholder-source={placeholder.source}
+                    aria-hidden
+                  />
+                  <div
+                    className={cn(
+                      "absolute inset-0 bg-gradient-to-b from-white/8 via-transparent to-slate-900/28 transition-opacity duration-300",
+                      imageLoaded ? "opacity-0" : "opacity-100"
                     )}
                     aria-hidden
                   />
@@ -447,7 +502,7 @@ export function UnifiedImageCarousel({
                     fetchPriority={imageLoading.fetchPriority}
                     decoding="async"
                     placeholder="blur"
-                    blurDataURL={blurDataURL}
+                    blurDataURL={placeholder.blurDataURL}
                     draggable={false}
                     unoptimized={bypassOptimizer}
                     loader={bypassOptimizer ? directImageLoader : undefined}
@@ -473,9 +528,13 @@ export function UnifiedImageCarousel({
                 </div>
               ) : (
                 <div
-                  className="h-full w-full bg-gradient-to-br from-slate-800/70 via-slate-700/35 to-slate-900/80"
+                  className="relative h-full w-full overflow-hidden"
+                  style={placeholder.style}
+                  data-placeholder-source={placeholder.source}
                   aria-hidden
-                />
+                >
+                  <div className="absolute inset-0 bg-gradient-to-b from-white/8 via-transparent to-slate-900/28" />
+                </div>
               )
             );
 

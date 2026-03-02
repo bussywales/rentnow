@@ -9,6 +9,7 @@ import type { Property } from "@/lib/types";
 import {
   EXPLORE_GALLERY_FALLBACK_IMAGE,
   normalizeExploreGalleryImageUrl,
+  resolveExploreImagePlaceholderMeta,
   resolveExplorePropertyImageRecords,
   resolveExploreGalleryDisplaySource,
 } from "@/lib/explore/gallery-images";
@@ -94,17 +95,33 @@ function ExploreGalleryInner({
     [property, propertyImages]
   );
 
-  const imageSources = useMemo(
-    () => rawImageSources.map((source) => normalizeExploreGalleryImageUrl(source, FALLBACK_IMAGE)),
-    [rawImageSources]
-  );
+  const imageEntries = useMemo(() => {
+    const imageRecordByNormalizedUrl = new Map<string, (typeof propertyImages)[number]>();
+    propertyImages.forEach((imageRecord) => {
+      const normalizedImageUrl = normalizeExploreGalleryImageUrl(imageRecord?.image_url, FALLBACK_IMAGE);
+      if (!normalizedImageUrl || imageRecordByNormalizedUrl.has(normalizedImageUrl)) return;
+      imageRecordByNormalizedUrl.set(normalizedImageUrl, imageRecord);
+    });
+    return rawImageSources.map((source) => {
+      const normalizedImageUrl = normalizeExploreGalleryImageUrl(source, FALLBACK_IMAGE);
+      const imageRecord = imageRecordByNormalizedUrl.get(normalizedImageUrl) ?? null;
+      const placeholder = resolveExploreImagePlaceholderMeta({
+        imageUrl: normalizedImageUrl,
+        imageRecord,
+      });
+      return {
+        normalizedImageUrl,
+        placeholder,
+      };
+    });
+  }, [propertyImages, rawImageSources]);
 
   const restrictToHeroImage = shouldRestrictExploreSlideToHeroImage(shouldConserveDataState, slideDistance);
-  const visibleImageSources = useMemo(
-    () => (restrictToHeroImage ? imageSources.slice(0, 1) : imageSources),
-    [imageSources, restrictToHeroImage]
+  const visibleImageEntries = useMemo(
+    () => (restrictToHeroImage ? imageEntries.slice(0, 1) : imageEntries),
+    [imageEntries, restrictToHeroImage]
   );
-  const totalImages = visibleImageSources.length;
+  const totalImages = visibleImageEntries.length;
   const effectiveActiveImageIndex = Math.min(activeImageIndex, Math.max(0, totalImages - 1));
   const canSwipeImages = totalImages > 1 && slideDistance === 0;
   const renderWindowRadius = resolveExploreGalleryRenderWindowRadius({
@@ -114,10 +131,10 @@ function ExploreGalleryInner({
   const maxConcurrentImageLoads = resolveExploreGalleryMaxConcurrentImageLoads(shouldConserveDataState);
   const items = useMemo(
     () =>
-      visibleImageSources.map((normalizedImageUrl, index) => ({
+      visibleImageEntries.map((entry, index) => ({
         id: `${property.id}-explore-${index}`,
         src: resolveExploreGalleryDisplaySource({
-          imageUrl: normalizedImageUrl,
+          imageUrl: entry.normalizedImageUrl,
           imageIndex: index,
           activeIndex: effectiveActiveImageIndex,
           totalImages,
@@ -126,6 +143,9 @@ function ExploreGalleryInner({
           windowRadius: renderWindowRadius,
         }),
         alt: property.title,
+        placeholderColor: entry.placeholder.dominantColor,
+        placeholderBlurDataURL: entry.placeholder.blurDataURL,
+        placeholderSource: entry.placeholder.source,
       })),
     [
       effectiveActiveImageIndex,
@@ -134,7 +154,7 @@ function ExploreGalleryInner({
       property.title,
       renderWindowRadius,
       totalImages,
-      visibleImageSources,
+      visibleImageEntries,
     ]
   );
   const activeImageUnavailable = failedImageIndexes.has(effectiveActiveImageIndex);
