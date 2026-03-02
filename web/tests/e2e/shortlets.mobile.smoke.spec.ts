@@ -11,6 +11,10 @@ const KNOWN_BENIGN_CONSOLE_PATTERNS: RegExp[] = [
 function attachRuntimeErrorGuards(page: import("@playwright/test").Page) {
   const runtimeErrors: string[] = [];
   let react418Logged = false;
+  let lastAction = "init";
+  const setLastAction = (value: string) => {
+    lastAction = value;
+  };
 
   page.on("console", (message) => {
     const text = message.text();
@@ -29,15 +33,43 @@ function attachRuntimeErrorGuards(page: import("@playwright/test").Page) {
         .split("\n")
         .slice(0, 15)
         .join(" | ");
-      // Breadcrumb for intermittent hydration mismatches; log at most once per test run.
-      console.error(
-        `[golive][shortlets][react418] url=${page.url()} name=${error.name ?? "Error"} message=${error.message} stack=${stackPreview || "n/a"}`
-      );
+      const breadcrumbFields = {
+        url: page.url(),
+        visibilityState: "unknown",
+        onLine: "unknown",
+        hasSwController: false,
+        userAgent: "unknown",
+      };
+      const mainFrame = page.mainFrame();
+      const frameUrl = mainFrame.url();
+      if (frameUrl) breadcrumbFields.url = frameUrl;
+      void page
+        .evaluate(() => ({
+          visibilityState: document.visibilityState,
+          onLine: navigator.onLine,
+          hasSwController: Boolean(navigator.serviceWorker?.controller),
+          userAgent: navigator.userAgent,
+        }))
+        .then((snapshot) => {
+          breadcrumbFields.visibilityState = snapshot.visibilityState;
+          breadcrumbFields.onLine = String(snapshot.onLine);
+          breadcrumbFields.hasSwController = snapshot.hasSwController;
+          breadcrumbFields.userAgent = snapshot.userAgent;
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          // Breadcrumb for intermittent hydration mismatches; log at most once per test run.
+          console.error(
+            `[golive][shortlets][react418+] url=${breadcrumbFields.url} visibility=${breadcrumbFields.visibilityState} onLine=${breadcrumbFields.onLine} hasSWController=${String(
+              breadcrumbFields.hasSwController
+            )} ua=${breadcrumbFields.userAgent} ts=${Date.now()} lastAction=${lastAction} name=${error.name ?? "Error"} message=${error.message} stack=${stackPreview || "n/a"}`
+          );
+        });
     }
     runtimeErrors.push(`[pageerror] ${error.message}`);
   });
 
-  return runtimeErrors;
+  return { runtimeErrors, setLastAction };
 }
 
 test.use({
@@ -48,7 +80,7 @@ test.use({
 
 test.describe("shortlets mobile smoke", () => {
   test("mobile discovery supports filters and map overlay", async ({ page }) => {
-    const runtimeErrors = attachRuntimeErrorGuards(page);
+    const { runtimeErrors, setLastAction } = attachRuntimeErrorGuards(page);
 
     const visibleMap = page.locator(`[data-testid="${smokeSelectors.shortletsMap}"]:visible`).first();
 
@@ -71,9 +103,11 @@ test.describe("shortlets mobile smoke", () => {
       return mobileMapSheet;
     };
 
+    setLastAction("setup:mock-shortlets-search");
     await mockShortletsSearch(page);
     const initialResultsResponse = waitForShortletsSearchResponse(page);
 
+    setLastAction("nav:/shortlets:initial");
     await page.goto("/shortlets", { waitUntil: "domcontentloaded" });
     await initialResultsResponse;
 
@@ -88,6 +122,7 @@ test.describe("shortlets mobile smoke", () => {
       await dismissDisclaimer.click({ force: true });
     }
 
+    setLastAction("scroll:down");
     await page.evaluate(() => window.scrollTo({ top: 900, behavior: "auto" }));
     await expect
       .poll(
@@ -99,8 +134,10 @@ test.describe("shortlets mobile smoke", () => {
       )
       .toBeTruthy();
 
+    setLastAction("scroll:up");
     await page.evaluate(() => window.scrollTo({ top: 0, behavior: "auto" }));
 
+    setLastAction("open:filters");
     await page.getByTestId(smokeSelectors.shortletsFiltersButton).click();
     await expect(page.getByTestId(smokeSelectors.shortletsFiltersDrawer)).toBeVisible();
 
@@ -113,6 +150,7 @@ test.describe("shortlets mobile smoke", () => {
       await powerBackupToggle.check();
     }
     const filteredResultsResponse = waitForShortletsSearchResponse(page, { required: false });
+    setLastAction("apply:filters");
     await filtersDrawer.getByRole("button", { name: /^Apply$/i }).click({ force: true });
     await filteredResultsResponse;
     if (await filtersDrawer.isVisible().catch(() => false)) {
@@ -140,9 +178,11 @@ test.describe("shortlets mobile smoke", () => {
         }
       }
 
+      setLastAction("open:mobile-map-sheet");
       const mobileMapSheet = await openMobileMapSheet();
       await expect(visibleMap).toBeVisible();
       const mapClose = page.getByTestId(smokeSelectors.shortletsMapClose);
+      setLastAction("close:mobile-map-sheet");
       await mapClose.click({ force: true });
       await expect
         .poll(
@@ -175,15 +215,18 @@ test.describe("shortlets mobile smoke", () => {
     expect(isScrollable).toBeTruthy();
 
     const seededBrowseResponse = waitForShortletsSearchResponse(page, { required: false });
+    setLastAction("nav:/shortlets?where=Lekki&guests=2");
     await page.goto("/shortlets?where=Lekki&guests=2", { waitUntil: "domcontentloaded" });
     await seededBrowseResponse;
     await waitForShortletsResults(page);
 
     const baselineBrowseResponse = waitForShortletsSearchResponse(page, { required: false });
+    setLastAction("nav:/shortlets:baseline");
     await page.goto("/shortlets", { waitUntil: "domcontentloaded" });
     await baselineBrowseResponse;
     await waitForShortletsResults(page);
     await expect(page.getByTestId(smokeSelectors.shortletsContinueBrowsingChip)).toBeVisible();
+    setLastAction("click:continue-browsing-chip");
     await page.getByTestId(`${smokeSelectors.shortletsContinueBrowsingChip}-link`).click({ force: true });
     await page.waitForURL(/\/shortlets\?.*where=Lekki/i, { timeout: 20_000 });
 
