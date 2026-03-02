@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   EXPLORE_GALLERY_FALLBACK_IMAGE,
   normalizeExploreGalleryImageUrl,
+  resolveExplorePropertyImageRecords,
   resolveExploreGalleryDisplaySource,
   shouldRenderExploreGalleryImage,
 } from "@/lib/explore/gallery-images";
@@ -39,5 +40,23 @@ void test("explore gallery display source falls back for failed images", () => {
       failedIndexes,
     }),
     EXPLORE_GALLERY_FALLBACK_IMAGE
+  );
+});
+
+void test("explore gallery resolves full image records from images and property_images relations", () => {
+  const resolved = resolveExplorePropertyImageRecords({
+    images: [
+      { id: "cover", image_url: "https://vfospznoluqoklmgjgea.supabase.co/cover.webp" },
+    ],
+    property_images: [
+      { id: "cover", image_url: "https://vfospznoluqoklmgjgea.supabase.co/cover.webp" },
+      { id: "detail-1", image_url: "https://vfospznoluqoklmgjgea.supabase.co/detail-1.webp" },
+      { id: "detail-2", image_url: "https://vfospznoluqoklmgjgea.supabase.co/detail-2.webp" },
+    ],
+  });
+  assert.equal(resolved.length, 3);
+  assert.deepEqual(
+    resolved.map((image) => image.id),
+    ["cover", "detail-1", "detail-2"]
   );
 });

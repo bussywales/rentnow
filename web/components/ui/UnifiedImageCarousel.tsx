@@ -100,6 +100,8 @@ export function UnifiedImageCarousel({
   onCarouselReady,
   onImageError,
 }: Props) {
+  const inputTotalImages = items.length > 0 ? items.length : 1;
+  const allowDrag = inputTotalImages > 1;
   const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
@@ -112,6 +114,7 @@ export function UnifiedImageCarousel({
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     dragFree: false,
+    watchDrag: allowDrag,
   });
 
   const controller = useMemo<UnifiedImageCarouselController | null>(() => {
@@ -284,13 +287,14 @@ export function UnifiedImageCarousel({
     >
       <div
         className={cn(
-          "h-full overflow-x-scroll overflow-y-hidden overscroll-x-contain touch-pan-x",
+          "h-full overflow-x-scroll overflow-y-hidden overscroll-x-contain",
+          allowDrag ? "touch-pan-x" : "touch-pan-y",
           shouldShowControls && "cursor-grab active:cursor-grabbing"
         )}
         ref={setViewportRef}
         style={{ WebkitOverflowScrolling: "touch" }}
       >
-        <div className="flex h-full snap-x snap-mandatory touch-pan-x overscroll-x-contain">
+        <div className={cn("flex h-full snap-x snap-mandatory overscroll-x-contain", allowDrag ? "touch-pan-x" : "touch-pan-y")}>
           {imageItems.map((item, index) => {
             const slideKey = item.id ?? `${item.src}-${index}`;
             const isActiveSlide = index === selectedIndex;

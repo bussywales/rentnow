@@ -27,10 +27,11 @@ void test("unified carousel source exposes horizontal touch + overflow classes",
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /overflow-x-scroll overflow-y-hidden/);
-  assert.match(source, /touch-pan-x/);
+  assert.match(source, /allowDrag \? "touch-pan-x" : "touch-pan-y"/);
   assert.match(source, /snap-x snap-mandatory/);
   assert.match(source, /w-full flex-none snap-start/);
   assert.match(source, /WebkitOverflowScrolling: "touch"/);
+  assert.match(source, /watchDrag: allowDrag/);
 });
 
 void test("explore gallery source does not block horizontal drag with touch preventDefault", () => {
