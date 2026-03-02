@@ -320,9 +320,10 @@ export function ExplorePager({
   useEffect(() => {
     const pager = pagerRef.current;
     return () => {
-      if (!pager) return;
       cancelPreloadRef.current?.();
       cancelPreloadRef.current = null;
+      isGestureLockedRef.current = false;
+      if (!pager) return;
       pager.style.overflowY = "auto";
       pager.style.scrollSnapType = "y mandatory";
       pager.style.overscrollBehaviorY = "contain";
@@ -332,36 +333,61 @@ export function ExplorePager({
 
   const handleGestureLockChange = useCallback((locked: boolean) => {
     isGestureLockedRef.current = locked;
+    const pager = pagerRef.current;
     if (locked) {
       cancelPreloadRef.current?.();
       cancelPreloadRef.current = null;
-    } else {
-      const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-      if (!shouldPreloadExploreSlideImages(connection?.saveData, false)) return;
-      const preloadUrls = resolveExplorePreloadImageUrls({
-        activeIndex: displayedIndexRef.current,
-        totalSlides: feedSizeRef.current,
-        heroImageUrls: heroImageUrlsRef.current,
-        alreadyPreloaded: preloadedImagesRef.current,
-      });
-      if (!preloadUrls.length) return;
-      cancelPreloadRef.current?.();
-      cancelPreloadRef.current = scheduleExplorePreloadTask(() => {
-        for (const imageUrl of preloadUrls) {
-          if (!imageUrl || preloadedImagesRef.current.has(imageUrl)) continue;
-          const image = new Image();
-          image.decoding = "async";
-          image.src = imageUrl;
-          preloadedImagesRef.current.add(imageUrl);
-        }
-      });
+      if (!pager) return;
+      pager.style.touchAction = "pan-x pinch-zoom";
+      pager.style.scrollSnapType = "none";
+      pager.style.overscrollBehaviorY = "contain";
+      return;
     }
-    const pager = pagerRef.current;
-    if (!pager) return;
-    pager.style.touchAction = locked ? "pan-x pinch-zoom" : "pan-y pinch-zoom";
-    pager.style.scrollSnapType = locked ? "none" : "y mandatory";
-    pager.style.overscrollBehaviorY = "contain";
+    if (pager) {
+      pager.style.touchAction = "pan-y pinch-zoom";
+      pager.style.scrollSnapType = "y mandatory";
+      pager.style.overscrollBehaviorY = "contain";
+    }
+
+    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+    if (!shouldPreloadExploreSlideImages(connection?.saveData, false)) return;
+    const preloadUrls = resolveExplorePreloadImageUrls({
+      activeIndex: displayedIndexRef.current,
+      totalSlides: feedSizeRef.current,
+      heroImageUrls: heroImageUrlsRef.current,
+      alreadyPreloaded: preloadedImagesRef.current,
+    });
+    if (!preloadUrls.length) return;
+    cancelPreloadRef.current?.();
+    cancelPreloadRef.current = scheduleExplorePreloadTask(() => {
+      for (const imageUrl of preloadUrls) {
+        if (!imageUrl || preloadedImagesRef.current.has(imageUrl)) continue;
+        const image = new Image();
+        image.decoding = "async";
+        image.src = imageUrl;
+        preloadedImagesRef.current.add(imageUrl);
+      }
+    });
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const resetGestureLock = () => {
+      handleGestureLockChange(false);
+    };
+    const resetGestureLockFromVisibility = () => {
+      if (document.visibilityState !== "visible") {
+        resetGestureLock();
+      }
+    };
+
+    window.addEventListener("blur", resetGestureLock, { passive: true });
+    document.addEventListener("visibilitychange", resetGestureLockFromVisibility, { passive: true });
+    return () => {
+      window.removeEventListener("blur", resetGestureLock);
+      document.removeEventListener("visibilitychange", resetGestureLockFromVisibility);
+    };
+  }, [handleGestureLockChange]);
 
   const handleNotInterested = useCallback((listingId: string) => {
     const hiddenIndex = visibleListings.findIndex((listing) => listing.id === listingId);

@@ -39,6 +39,12 @@ export function shouldResetExploreGestureLock(eventType: string): boolean {
   return eventType === "pointerup" || eventType === "pointercancel" || eventType === "touchend" || eventType === "touchcancel";
 }
 
+const EXPLORE_GESTURE_LOCK_SAFETY_TIMEOUT_MS = 600;
+
+export function getExploreGestureLockSafetyTimeoutMs(): number {
+  return EXPLORE_GESTURE_LOCK_SAFETY_TIMEOUT_MS;
+}
+
 function ExploreGalleryInner({
   property,
   prioritizeFirstImage = false,
@@ -48,6 +54,7 @@ function ExploreGalleryInner({
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const gestureAxisRef = useRef<GestureAxis>(null);
   const longPressTimerRef = useRef<number | null>(null);
+  const gestureLockSafetyTimeoutRef = useRef<number | null>(null);
   const longPressTriggeredRef = useRef(false);
   const loggedFailuresRef = useRef<Set<string>>(new Set());
   const [horizontalLockActive, setHorizontalLockActive] = useState(false);
@@ -95,23 +102,50 @@ function ExploreGalleryInner({
     setHorizontalLockActive((current) => (current === next ? current : next));
   }, []);
 
+  const clearGestureLockSafetyTimeout = useCallback(() => {
+    if (!gestureLockSafetyTimeoutRef.current) return;
+    window.clearTimeout(gestureLockSafetyTimeoutRef.current);
+    gestureLockSafetyTimeoutRef.current = null;
+  }, []);
+
+  const cancelLongPress = useCallback(() => {
+    if (!longPressTimerRef.current) return;
+    window.clearTimeout(longPressTimerRef.current);
+    longPressTimerRef.current = null;
+  }, []);
+
+  const resetGestureLock = useCallback(() => {
+    clearGestureLockSafetyTimeout();
+    cancelLongPress();
+    pointerStartRef.current = null;
+    gestureAxisRef.current = null;
+    longPressTriggeredRef.current = false;
+    setHorizontalLock(false);
+  }, [cancelLongPress, clearGestureLockSafetyTimeout, setHorizontalLock]);
+
+  const scheduleGestureLockSafetyReset = useCallback(() => {
+    if (typeof window === "undefined") return;
+    clearGestureLockSafetyTimeout();
+    gestureLockSafetyTimeoutRef.current = window.setTimeout(() => {
+      resetGestureLock();
+    }, getExploreGestureLockSafetyTimeoutMs());
+  }, [clearGestureLockSafetyTimeout, resetGestureLock]);
+
   useEffect(() => {
     onGestureLockChange?.(horizontalLockActive);
   }, [horizontalLockActive, onGestureLockChange]);
 
   useEffect(
     () => () => {
-      onGestureLockChange?.(false);
+      resetGestureLock();
     },
-    [onGestureLockChange]
+    [resetGestureLock]
   );
 
   const handlePointerDownCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse") return;
-    if (longPressTimerRef.current) {
-      window.clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
+    clearGestureLockSafetyTimeout();
+    cancelLongPress();
     pointerStartRef.current = { x: event.clientX, y: event.clientY };
     gestureAxisRef.current = null;
     longPressTriggeredRef.current = false;
@@ -120,13 +154,7 @@ function ExploreGalleryInner({
       longPressTriggeredRef.current = true;
       onLongPress?.();
     }, 520);
-  }, [onLongPress, setHorizontalLock]);
-
-  const cancelLongPress = useCallback(() => {
-    if (!longPressTimerRef.current) return;
-    window.clearTimeout(longPressTimerRef.current);
-    longPressTimerRef.current = null;
-  }, []);
+  }, [cancelLongPress, clearGestureLockSafetyTimeout, onLongPress, setHorizontalLock]);
 
   const handlePointerMoveCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
     if (!pointerStartRef.current || longPressTriggeredRef.current) return;
@@ -134,6 +162,10 @@ function ExploreGalleryInner({
       cancelLongPress();
     }
     if (!canSwipeImages) return;
+    if (gestureAxisRef.current === "horizontal") {
+      scheduleGestureLockSafetyReset();
+      return;
+    }
     if (gestureAxisRef.current) return;
     const axis = resolveExploreGestureAxis(
       event.clientX - pointerStartRef.current.x,
@@ -142,24 +174,18 @@ function ExploreGalleryInner({
     if (!axis) return;
     gestureAxisRef.current = axis;
     cancelLongPress();
-    setHorizontalLock(axis === "horizontal");
-  }, [cancelLongPress, canSwipeImages, setHorizontalLock]);
-
-  const clearGesture = useCallback(() => {
-    cancelLongPress();
-    pointerStartRef.current = null;
-    gestureAxisRef.current = null;
-    longPressTriggeredRef.current = false;
-    setHorizontalLock(false);
-  }, [cancelLongPress, setHorizontalLock]);
+    const horizontalLock = axis === "horizontal";
+    setHorizontalLock(horizontalLock);
+    if (horizontalLock) {
+      scheduleGestureLockSafetyReset();
+    }
+  }, [cancelLongPress, canSwipeImages, scheduleGestureLockSafetyReset, setHorizontalLock]);
 
   const handleTouchStartCapture = useCallback((event: TouchEvent<HTMLDivElement>) => {
     const touch = event.touches[0];
     if (!touch) return;
-    if (longPressTimerRef.current) {
-      window.clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
+    clearGestureLockSafetyTimeout();
+    cancelLongPress();
     pointerStartRef.current = { x: touch.clientX, y: touch.clientY };
     gestureAxisRef.current = null;
     longPressTriggeredRef.current = false;
@@ -168,7 +194,7 @@ function ExploreGalleryInner({
       longPressTriggeredRef.current = true;
       onLongPress?.();
     }, 520);
-  }, [onLongPress, setHorizontalLock]);
+  }, [cancelLongPress, clearGestureLockSafetyTimeout, onLongPress, setHorizontalLock]);
 
   const handleTouchMoveCapture = useCallback((event: TouchEvent<HTMLDivElement>) => {
     const touch = event.touches[0];
@@ -177,6 +203,10 @@ function ExploreGalleryInner({
       cancelLongPress();
     }
     if (!canSwipeImages) return;
+    if (gestureAxisRef.current === "horizontal") {
+      scheduleGestureLockSafetyReset();
+      return;
+    }
     if (!gestureAxisRef.current) {
       const axis = resolveExploreGestureAxis(
         touch.clientX - pointerStartRef.current.x,
@@ -185,65 +215,67 @@ function ExploreGalleryInner({
       if (axis) {
         gestureAxisRef.current = axis;
         cancelLongPress();
-        setHorizontalLock(axis === "horizontal");
+        const horizontalLock = axis === "horizontal";
+        setHorizontalLock(horizontalLock);
+        if (horizontalLock) {
+          scheduleGestureLockSafetyReset();
+        }
       }
     }
-  }, [cancelLongPress, canSwipeImages, setHorizontalLock]);
+  }, [cancelLongPress, canSwipeImages, scheduleGestureLockSafetyReset, setHorizontalLock]);
 
   useEffect(
     () => () => {
-      if (longPressTimerRef.current) {
-        window.clearTimeout(longPressTimerRef.current);
-        longPressTimerRef.current = null;
-      }
+      cancelLongPress();
+      clearGestureLockSafetyTimeout();
     },
-    []
+    [cancelLongPress, clearGestureLockSafetyTimeout]
   );
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const clearGestureFromEvent = (event: Event) => {
+    const resetGestureLockFromEvent = (event: Event) => {
       if (!shouldResetExploreGestureLock(event.type)) return;
-      clearGesture();
+      resetGestureLock();
     };
-    const clearGestureFromVisibility = () => {
+    const resetGestureLockFromVisibility = () => {
       if (document.visibilityState !== "visible") {
-        clearGesture();
+        resetGestureLock();
       }
     };
-    const clearGestureFromBlur = () => {
-      clearGesture();
+    const resetGestureLockFromBlur = () => {
+      resetGestureLock();
     };
 
-    window.addEventListener("pointerup", clearGestureFromEvent, { passive: true });
-    window.addEventListener("pointercancel", clearGestureFromEvent, { passive: true });
-    window.addEventListener("touchend", clearGestureFromEvent, { passive: true });
-    window.addEventListener("touchcancel", clearGestureFromEvent, { passive: true });
-    window.addEventListener("blur", clearGestureFromBlur, { passive: true });
-    document.addEventListener("visibilitychange", clearGestureFromVisibility, { passive: true });
+    window.addEventListener("pointerup", resetGestureLockFromEvent, { passive: true });
+    window.addEventListener("pointercancel", resetGestureLockFromEvent, { passive: true });
+    window.addEventListener("touchend", resetGestureLockFromEvent, { passive: true });
+    window.addEventListener("touchcancel", resetGestureLockFromEvent, { passive: true });
+    window.addEventListener("blur", resetGestureLockFromBlur, { passive: true });
+    document.addEventListener("visibilitychange", resetGestureLockFromVisibility, { passive: true });
 
     return () => {
-      window.removeEventListener("pointerup", clearGestureFromEvent);
-      window.removeEventListener("pointercancel", clearGestureFromEvent);
-      window.removeEventListener("touchend", clearGestureFromEvent);
-      window.removeEventListener("touchcancel", clearGestureFromEvent);
-      window.removeEventListener("blur", clearGestureFromBlur);
-      document.removeEventListener("visibilitychange", clearGestureFromVisibility);
+      window.removeEventListener("pointerup", resetGestureLockFromEvent);
+      window.removeEventListener("pointercancel", resetGestureLockFromEvent);
+      window.removeEventListener("touchend", resetGestureLockFromEvent);
+      window.removeEventListener("touchcancel", resetGestureLockFromEvent);
+      window.removeEventListener("blur", resetGestureLockFromBlur);
+      document.removeEventListener("visibilitychange", resetGestureLockFromVisibility);
     };
-  }, [clearGesture]);
+  }, [resetGestureLock]);
 
   return (
     <div
       className={canSwipeImages ? "h-full w-full touch-pan-x" : "h-full w-full touch-pan-y"}
       onPointerDownCapture={handlePointerDownCapture}
       onPointerMoveCapture={handlePointerMoveCapture}
-      onPointerUpCapture={clearGesture}
-      onPointerCancelCapture={clearGesture}
-      onPointerLeave={clearGesture}
+      onPointerUpCapture={resetGestureLock}
+      onPointerCancelCapture={resetGestureLock}
+      onPointerLeave={resetGestureLock}
       onTouchStartCapture={handleTouchStartCapture}
       onTouchMoveCapture={handleTouchMoveCapture}
-      onTouchEndCapture={clearGesture}
-      onTouchCancelCapture={clearGesture}
+      onTouchEndCapture={resetGestureLock}
+      onTouchCancelCapture={resetGestureLock}
       style={{
         touchAction: canSwipeImages
           ? horizontalLockActive
