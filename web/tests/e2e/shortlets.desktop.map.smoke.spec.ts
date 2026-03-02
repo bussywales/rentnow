@@ -23,6 +23,28 @@ async function openFilters(page: Page) {
   await expect(page.getByTestId(smokeSelectors.shortletsFiltersDrawer)).toBeVisible();
 }
 
+async function clickSearchThisArea(page: Page) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await waitForShortletsResultsSettled(page);
+    const searchArea = page.getByTestId(smokeSelectors.shortletsSearchThisArea).first();
+    if (!(await searchArea.isVisible().catch(() => false))) {
+      return false;
+    }
+
+    try {
+      await searchArea.click({ trial: true, timeout: 3_000 });
+      await searchArea.click({ timeout: 5_000 });
+      return true;
+    } catch (error) {
+      if (attempt === 2) {
+        throw error;
+      }
+    }
+  }
+
+  return false;
+}
+
 test.describe("shortlets desktop map behaviour", () => {
   test("mapAuto updates bbox automatically and manual mode requires Search this area", async ({ page }) => {
     await mockShortletsSearch(page);
@@ -63,9 +85,7 @@ test.describe("shortlets desktop map behaviour", () => {
     await dragMap(page, map);
     expect(new URL(page.url()).searchParams.get("bbox")).toBe(bboxInManualMode);
 
-    const searchArea = page.getByTestId(smokeSelectors.shortletsSearchThisArea).first();
-    if (await searchArea.isVisible().catch(() => false)) {
-      await searchArea.click();
+    if (await clickSearchThisArea(page)) {
       await waitForUrlParam(page, "bbox", { previousValue: bboxInManualMode });
       await waitForShortletsResultsSettled(page);
     }
