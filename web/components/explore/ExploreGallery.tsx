@@ -278,9 +278,7 @@ function ExploreGalleryInner({
       onTouchCancelCapture={resetGestureLock}
       style={{
         touchAction: canSwipeImages
-          ? horizontalLockActive
-            ? "pan-x pinch-zoom"
-            : "pan-x pan-y pinch-zoom"
+          ? "pan-x pan-y pinch-zoom"
           : "pan-y pinch-zoom",
         overscrollBehaviorX: "contain",
       }}
