@@ -23,6 +23,7 @@ import {
 } from "@/lib/explore/gallery-images";
 import { trackExploreFunnelEvent } from "@/lib/explore/explore-funnel";
 import { resolveExploreAnalyticsIntentType } from "@/lib/explore/explore-presentation";
+import { ExplorePagerV2 } from "@/components/explore/ExplorePagerV2";
 
 type ExplorePagerProps = {
   listings: Property[];
@@ -155,7 +156,6 @@ export function ExplorePager({
   moreToExploreIds = [],
 }: ExplorePagerProps) {
   const { market } = useMarketPreference();
-  const pagerRef = useRef<HTMLDivElement | null>(null);
   const preloadedImagesRef = useRef<Set<string>>(new Set());
   const cancelPreloadRef = useRef<(() => void) | null>(null);
   const isGestureLockedRef = useRef(false);
@@ -166,6 +166,7 @@ export function ExplorePager({
   const previousSwipeIndexRef = useRef<number | null>(null);
   const trackedExploreViewRef = useRef(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [isGestureLocked, setIsGestureLocked] = useState(false);
   const [hiddenListingIds, setHiddenListingIds] = useState<string[]>([]);
   const [undoHiddenListingId, setUndoHiddenListingId] = useState<string | null>(null);
   const hiddenListingSet = useMemo(() => new Set(hiddenListingIds), [hiddenListingIds]);
@@ -211,6 +212,14 @@ export function ExplorePager({
     feedSizeRef.current = feedSize;
     heroImageUrlsRef.current = heroImageUrls;
   }, [displayedIndex, feedSize, heroImageUrls]);
+
+  useEffect(() => {
+    const maxIndex = Math.max(0, feedSize - 1);
+    setActiveIndex((current) => {
+      const next = Math.min(maxIndex, Math.max(0, current));
+      return next === current ? current : next;
+    });
+  }, [feedSize]);
 
   useEffect(() => {
     if (trackedExploreViewRef.current) return;
@@ -265,31 +274,6 @@ export function ExplorePager({
   }, []);
 
   useEffect(() => {
-    const pager = pagerRef.current;
-    if (!pager) return;
-
-    let rafId = 0;
-    const syncActiveSlide = () => {
-      const nextIndex = resolveExploreActiveSlideIndex(pager.scrollTop, pager.clientHeight, feedSize);
-      setActiveIndex((current) => (current === nextIndex ? current : nextIndex));
-    };
-
-    syncActiveSlide();
-    const onScroll = () => {
-      cancelAnimationFrame(rafId);
-      rafId = window.requestAnimationFrame(syncActiveSlide);
-    };
-    pager.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", syncActiveSlide, { passive: true });
-
-    return () => {
-      cancelAnimationFrame(rafId);
-      pager.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", syncActiveSlide);
-    };
-  }, [feedSize]);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     if (!shouldPreloadExploreSlideImages(connection?.saveData, isGestureLockedRef.current)) return;
@@ -318,37 +302,21 @@ export function ExplorePager({
   }, [displayedIndex, feedSize, heroImageUrls]);
 
   useEffect(() => {
-    const pager = pagerRef.current;
     return () => {
       cancelPreloadRef.current?.();
       cancelPreloadRef.current = null;
       isGestureLockedRef.current = false;
-      if (!pager) return;
-      pager.style.overflowY = "auto";
-      pager.style.scrollSnapType = "y mandatory";
-      pager.style.overscrollBehaviorY = "contain";
-      pager.style.touchAction = "pan-y pinch-zoom";
     };
   }, []);
 
   const handleGestureLockChange = useCallback((locked: boolean) => {
     isGestureLockedRef.current = locked;
-    const pager = pagerRef.current;
+    setIsGestureLocked((current) => (current === locked ? current : locked));
     if (locked) {
       cancelPreloadRef.current?.();
       cancelPreloadRef.current = null;
-      if (!pager) return;
-      pager.style.touchAction = "pan-x pinch-zoom";
-      pager.style.scrollSnapType = "none";
-      pager.style.overscrollBehaviorY = "contain";
       return;
     }
-    if (pager) {
-      pager.style.touchAction = "pan-y pinch-zoom";
-      pager.style.scrollSnapType = "y mandatory";
-      pager.style.overscrollBehaviorY = "contain";
-    }
-
     const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
     if (!shouldPreloadExploreSlideImages(connection?.saveData, false)) return;
     const preloadUrls = resolveExplorePreloadImageUrls({
@@ -428,16 +396,19 @@ export function ExplorePager({
     (listingId: string): boolean => {
       const targetIndex = visibleListings.findIndex((listing) => listing.id === listingId);
       if (targetIndex < 0) return false;
-      const pager = pagerRef.current;
-      if (!pager) return false;
-      pager.scrollTo({
-        top: pager.clientHeight * targetIndex,
-        behavior: "smooth",
-      });
       setActiveIndex(targetIndex);
       return true;
     },
     [visibleListings]
+  );
+
+  const handleActiveIndexChange = useCallback(
+    (nextIndex: number) => {
+      const maxIndex = Math.max(0, feedSize - 1);
+      const bounded = Math.min(maxIndex, Math.max(0, nextIndex));
+      setActiveIndex((current) => (current === bounded ? current : bounded));
+    },
+    [feedSize]
   );
 
   const handleOpenDetails = useCallback(
@@ -604,34 +575,34 @@ export function ExplorePager({
         section={activeSection}
         limitedResults={Boolean(sectionMeta?.limitedResults && activeSection === "more_to_explore")}
       />
-      <div
-        className="scrollbar-none h-[100svh] snap-y snap-mandatory overflow-y-auto overscroll-y-contain"
-        data-testid="explore-pager"
-        ref={pagerRef}
-        style={{
-          overflowY: "auto",
-          WebkitOverflowScrolling: "touch",
-          touchAction: "pan-y pinch-zoom",
-          overscrollBehaviorY: "contain",
+      <ExplorePagerV2
+        totalSlides={feedSize}
+        activeIndex={displayedIndex}
+        onActiveIndexChange={handleActiveIndexChange}
+        gestureLocked={isGestureLocked}
+        testId="explore-pager"
+        resolveSlideKey={(index) => visibleListings[index]?.id ?? String(index)}
+        renderSlide={(index) => {
+          const property = visibleListings[index];
+          if (!property) return null;
+          return (
+            <ExploreSlide
+              key={property.id}
+              property={property}
+              index={index}
+              onGestureLockChange={handleGestureLockChange}
+              onNotInterested={handleNotInterested}
+              similarHomes={similarHomesByListingId.get(property.id) ?? []}
+              onSelectSimilarHome={handleSelectSimilarHome}
+              onOpenDetails={handleOpenDetails}
+              onPrimaryActionTap={handlePrimaryActionTap}
+              onSaveToggle={handleSaveToggle}
+              onShareAction={handleShareAction}
+              feedSize={feedSize}
+            />
+          );
         }}
-      >
-        {visibleListings.map((property, index) => (
-          <ExploreSlide
-            key={property.id}
-            property={property}
-            index={index}
-            onGestureLockChange={handleGestureLockChange}
-            onNotInterested={handleNotInterested}
-            similarHomes={similarHomesByListingId.get(property.id) ?? []}
-            onSelectSimilarHome={handleSelectSimilarHome}
-            onOpenDetails={handleOpenDetails}
-            onPrimaryActionTap={handlePrimaryActionTap}
-            onSaveToggle={handleSaveToggle}
-            onShareAction={handleShareAction}
-            feedSize={feedSize}
-          />
-        ))}
-      </div>
+      />
       {undoHiddenListingId ? (
         <div
           className="pointer-events-auto absolute bottom-[max(env(safe-area-inset-bottom),1rem)] left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/20 bg-slate-950/70 px-3 py-1.5 text-xs text-white shadow-lg backdrop-blur"
