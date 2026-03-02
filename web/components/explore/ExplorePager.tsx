@@ -4,6 +4,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { resolvePropertyImageSources } from "@/components/properties/PropertyImageCarousel";
+import { ExploreSectionHeader } from "@/components/explore/ExploreSectionHeader";
 import type { Property } from "@/lib/types";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { ExploreSlide } from "@/components/explore/ExploreSlide";
@@ -25,6 +26,15 @@ import { resolveExploreAnalyticsIntentType } from "@/lib/explore/explore-present
 
 type ExplorePagerProps = {
   listings: Property[];
+  sectionMeta?: {
+    marketCode: string | null;
+    total: number;
+    targetMinimum: number;
+    appliedFallback: boolean;
+    limitedResults: boolean;
+  };
+  marketPickIds?: string[];
+  moreToExploreIds?: string[];
 };
 
 const EXPLORE_FALLBACK_IMAGE = EXPLORE_GALLERY_FALLBACK_IMAGE;
@@ -127,7 +137,23 @@ const ExploreProgressPill = memo(function ExploreProgressPill({
   );
 });
 
-export function ExplorePager({ listings }: ExplorePagerProps) {
+export function resolveExploreSectionByListingId(
+  listingId: string,
+  sectionIds: {
+    marketPickIds: Set<string>;
+    moreToExploreIds: Set<string>;
+  }
+): "market_picks" | "more_to_explore" {
+  if (sectionIds.moreToExploreIds.has(listingId)) return "more_to_explore";
+  return "market_picks";
+}
+
+export function ExplorePager({
+  listings,
+  sectionMeta,
+  marketPickIds = [],
+  moreToExploreIds = [],
+}: ExplorePagerProps) {
   const { market } = useMarketPreference();
   const pagerRef = useRef<HTMLDivElement | null>(null);
   const preloadedImagesRef = useRef<Set<string>>(new Set());
@@ -143,6 +169,13 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
   const [hiddenListingIds, setHiddenListingIds] = useState<string[]>([]);
   const [undoHiddenListingId, setUndoHiddenListingId] = useState<string | null>(null);
   const hiddenListingSet = useMemo(() => new Set(hiddenListingIds), [hiddenListingIds]);
+  const sectionIdSets = useMemo(
+    () => ({
+      marketPickIds: new Set(marketPickIds),
+      moreToExploreIds: new Set(moreToExploreIds),
+    }),
+    [marketPickIds, moreToExploreIds]
+  );
   const visibleListings = useMemo(
     () => listings.filter((property) => !hiddenListingSet.has(property.id)),
     [hiddenListingSet, listings]
@@ -153,6 +186,10 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
   );
   const displayedIndex = Math.min(activeIndex, Math.max(0, visibleListings.length - 1));
   const feedSize = visibleListings.length;
+  const activeListing = visibleListings[displayedIndex] ?? null;
+  const activeSection = activeListing
+    ? resolveExploreSectionByListingId(activeListing.id, sectionIdSets)
+    : "market_picks";
   const similarHomesByListingId = useMemo(() => {
     const next = new Map<string, Property[]>();
     visibleListings.forEach((property) => {
@@ -536,7 +573,11 @@ export function ExplorePager({ listings }: ExplorePagerProps) {
       className="relative overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 shadow-sm"
       data-testid="explore-root"
     >
-      <ExploreProgressPill index={displayedIndex} total={listings.length} />
+      <ExploreProgressPill index={displayedIndex} total={feedSize} />
+      <ExploreSectionHeader
+        section={activeSection}
+        limitedResults={Boolean(sectionMeta?.limitedResults && activeSection === "more_to_explore")}
+      />
       <div
         className="scrollbar-none h-[100svh] snap-y snap-mandatory overflow-y-auto overscroll-y-contain"
         data-testid="explore-pager"
