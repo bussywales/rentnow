@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import { readFileSync } from "node:fs";
 import { mockProperties } from "@/lib/mock";
-import { filterExploreFeedByMarket } from "@/lib/explore/explore-feed.server";
+import { buildExploreSectionedFeed, filterExploreFeedByMarket } from "@/lib/explore/explore-feed.server";
 import { resolveExploreListingMarketCountry } from "@/lib/explore/explore-presentation";
 
 void test("filterExploreFeedByMarket returns only matching market listings when available", () => {
@@ -54,6 +54,36 @@ void test("resolveExploreListingMarketCountry normalizes UK alias and falls back
     country: null,
   };
   assert.equal(resolveExploreListingMarketCountry(missingCountry, "CA"), "CA");
+});
+
+void test("sectioned explore feed keeps fallback listings out of market picks and preserves truthful market badges", () => {
+  const ngListing = {
+    ...mockProperties[0],
+    id: "ng-market-pick",
+    country_code: "NG",
+    country: "Nigeria",
+  };
+  const gbListing = {
+    ...mockProperties[1],
+    id: "gb-fallback",
+    country_code: "GB",
+    country: "United Kingdom",
+  };
+
+  const sectioned = buildExploreSectionedFeed([ngListing, gbListing], {
+    marketCountry: "NG",
+    limit: 20,
+  });
+
+  assert.deepEqual(
+    sectioned.marketPicks.map((listing) => listing.id),
+    ["ng-market-pick"]
+  );
+  assert.deepEqual(
+    sectioned.moreToExplore.map((listing) => listing.id),
+    ["gb-fallback"]
+  );
+  assert.equal(resolveExploreListingMarketCountry(gbListing, "NG"), "GB");
 });
 
 void test("explore slide renders truth-only explore trust badges from presentation resolver", () => {

@@ -18,6 +18,9 @@ void test("explore pager source keeps vertical snap and required testids", () =>
   assert.match(source, /WebkitOverflowScrolling: "touch"/);
   assert.match(source, /touchAction: "pan-y pinch-zoom"/);
   assert.match(source, /scrollSnapType = locked \? "none" : "y mandatory"/);
+  assert.match(source, /ExploreSectionHeader/);
+  assert.match(source, /resolveExploreSectionByListingId/);
+  assert.match(source, /total=\{feedSize\}/);
   assert.match(source, /getHiddenExploreListingIds/);
   assert.match(source, /hideExploreListingId/);
   assert.match(source, /console\.count\("\[perf\]\[explore-pager\] render"\)/);
@@ -103,6 +106,9 @@ void test("explore route mounts pager and remains mobile-first", () => {
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /data-testid="explore-page"/);
-  assert.match(source, /<ExplorePager listings=\{listings\} \/>/);
-  assert.match(source, /getExploreFeed/);
+  assert.match(source, /<ExplorePager/);
+  assert.match(source, /sectionMeta=\{sectionedFeed\.meta\}/);
+  assert.match(source, /marketPickIds=\{sectionedFeed\.marketPicks\.map/);
+  assert.match(source, /moreToExploreIds=\{sectionedFeed\.moreToExplore\.map/);
+  assert.match(source, /getSectionedExploreFeed/);
 });

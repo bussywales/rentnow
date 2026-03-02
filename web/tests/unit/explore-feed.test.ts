@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mockProperties } from "@/lib/mock";
-import { buildExploreFeed } from "@/lib/explore/explore-feed.server";
+import { buildExploreFeed, buildExploreSectionedFeed, flattenExploreSectionedFeed } from "@/lib/explore/explore-feed.server";
 import { resolveExploreCtaMicrocopy, resolveExplorePrimaryAction } from "@/lib/explore/explore-presentation";
 
 void test("buildExploreFeed keeps featured-first deterministic order and caps at 20 by default", () => {
@@ -42,4 +42,26 @@ void test("resolveExplorePrimaryAction switches CTA by listing type", () => {
   assert.equal(resolveExplorePrimaryAction(longTerm).label, "Request viewing");
   assert.match(resolveExploreCtaMicrocopy(shortlet), /Secure checkout/i);
   assert.match(resolveExploreCtaMicrocopy(longTerm), /No commitment/i);
+});
+
+void test("flattenExploreSectionedFeed returns market picks then fallback listings", () => {
+  const market = {
+    ...mockProperties[0],
+    id: "market-a",
+    country_code: "NG",
+  };
+  const fallback = {
+    ...mockProperties[1],
+    id: "fallback-a",
+    country_code: "GB",
+  };
+  const sectioned = buildExploreSectionedFeed([market, fallback], {
+    marketCountry: "NG",
+    limit: 20,
+  });
+
+  assert.deepEqual(
+    flattenExploreSectionedFeed(sectioned).map((listing) => listing.id),
+    ["market-a", "fallback-a"]
+  );
 });
