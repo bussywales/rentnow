@@ -1,4 +1,5 @@
 import { DEV_MOCKS } from "@/lib/env";
+import { resolveExplorePropertyImageRecords } from "@/lib/explore/gallery-images";
 import { partitionExploreListingsByImageQuality } from "@/lib/explore/listing-quality";
 import { mockProperties } from "@/lib/mock";
 import { searchProperties } from "@/lib/search";
@@ -10,6 +11,10 @@ type ExploreFeedInput = {
   featured: Property[];
   browse: Property[];
   limit?: number;
+};
+
+type ExplorePropertyRow = Property & {
+  property_images?: Property["images"] | null;
 };
 
 type ExploreFeedOptions = {
@@ -50,6 +55,15 @@ function resolveExploreListingMarket(property: Property): string | null {
     return COUNTRY_NAME_TO_MARKET[property.country.trim().toLowerCase()] ?? null;
   }
   return null;
+}
+
+function normalizeExplorePropertyRow(row: ExplorePropertyRow): Property {
+  const images = resolveExplorePropertyImageRecords(row);
+  if (images.length === 0 && Array.isArray(row.images)) return row;
+  return {
+    ...row,
+    images,
+  };
 }
 
 export function buildExploreFeed({ featured, browse, limit }: ExploreFeedInput): Property[] {
@@ -118,8 +132,12 @@ export async function getExploreFeed(options: ExploreFeedOptions = {}): Promise<
     console.warn("[explore] browse feed request failed", browseResult.error.message);
   }
 
-  const featured = featuredResult.error ? [] : ((featuredResult.data as Property[]) ?? []);
-  const browse = browseResult.error ? [] : ((browseResult.data as Property[]) ?? []);
+  const featured = featuredResult.error
+    ? []
+    : (((featuredResult.data as ExplorePropertyRow[]) ?? []).map(normalizeExplorePropertyRow) as Property[]);
+  const browse = browseResult.error
+    ? []
+    : (((browseResult.data as ExplorePropertyRow[]) ?? []).map(normalizeExplorePropertyRow) as Property[]);
   const feedCandidate = filterExploreFeedByMarket(
     buildExploreFeed({ featured, browse, limit }),
     options.marketCountry ?? null

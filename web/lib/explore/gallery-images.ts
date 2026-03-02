@@ -2,8 +2,33 @@ import {
   shouldBypassNextImageOptimizer,
   shouldUpgradeImageUrlToHttps,
 } from "@/lib/images/optimizer-bypass";
+import type { PropertyImage } from "@/lib/types";
 
 export const EXPLORE_GALLERY_FALLBACK_IMAGE = "/og-propatyhub.png";
+
+type PropertyWithImageRelations = {
+  images?: PropertyImage[] | null;
+  property_images?: PropertyImage[] | null;
+};
+
+export function resolveExplorePropertyImageRecords(
+  property: PropertyWithImageRelations | null | undefined
+): PropertyImage[] {
+  if (!property) return [];
+  const primaryImages = Array.isArray(property.images) ? property.images : [];
+  const relationImages = Array.isArray(property.property_images) ? property.property_images : [];
+  const merged = [...primaryImages, ...relationImages];
+  if (!merged.length) return [];
+
+  const deduped = new Map<string, PropertyImage>();
+  for (const image of merged) {
+    if (!image || typeof image.image_url !== "string") continue;
+    const key = image.id || image.image_url;
+    if (!key || deduped.has(key)) continue;
+    deduped.set(key, image);
+  }
+  return Array.from(deduped.values());
+}
 
 export function normalizeExploreGalleryImageUrl(
   rawUrl: string | null | undefined,

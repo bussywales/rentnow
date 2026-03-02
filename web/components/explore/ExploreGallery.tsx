@@ -9,6 +9,7 @@ import type { Property } from "@/lib/types";
 import {
   EXPLORE_GALLERY_FALLBACK_IMAGE,
   normalizeExploreGalleryImageUrl,
+  resolveExplorePropertyImageRecords,
   resolveExploreGalleryDisplaySource,
 } from "@/lib/explore/gallery-images";
 
@@ -52,15 +53,16 @@ function ExploreGalleryInner({
   const [horizontalLockActive, setHorizontalLockActive] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [failedImageIndexes, setFailedImageIndexes] = useState<Set<number>>(new Set());
+  const propertyImages = useMemo(() => resolveExplorePropertyImageRecords(property), [property]);
   const rawImageSources = useMemo(
     () =>
       resolvePropertyImageSources({
         coverImageUrl: property.cover_image_url,
-        images: property.images,
+        images: propertyImages,
         primaryImageUrl: getPrimaryImageUrl(property),
         fallbackImage: FALLBACK_IMAGE,
       }),
-    [property]
+    [property, propertyImages]
   );
 
   const imageSources = useMemo(
@@ -69,6 +71,7 @@ function ExploreGalleryInner({
   );
 
   const totalImages = imageSources.length;
+  const canSwipeImages = totalImages > 1;
   const items = useMemo(
     () =>
       imageSources.map((normalizedImageUrl, index) => ({
@@ -130,6 +133,7 @@ function ExploreGalleryInner({
     if (Math.abs(event.clientX - pointerStartRef.current.x) > 8 || Math.abs(event.clientY - pointerStartRef.current.y) > 8) {
       cancelLongPress();
     }
+    if (!canSwipeImages) return;
     if (gestureAxisRef.current) return;
     const axis = resolveExploreGestureAxis(
       event.clientX - pointerStartRef.current.x,
@@ -139,7 +143,7 @@ function ExploreGalleryInner({
     gestureAxisRef.current = axis;
     cancelLongPress();
     setHorizontalLock(axis === "horizontal");
-  }, [cancelLongPress, setHorizontalLock]);
+  }, [cancelLongPress, canSwipeImages, setHorizontalLock]);
 
   const clearGesture = useCallback(() => {
     cancelLongPress();
@@ -172,6 +176,7 @@ function ExploreGalleryInner({
     if (Math.abs(touch.clientX - pointerStartRef.current.x) > 8 || Math.abs(touch.clientY - pointerStartRef.current.y) > 8) {
       cancelLongPress();
     }
+    if (!canSwipeImages) return;
     if (!gestureAxisRef.current) {
       const axis = resolveExploreGestureAxis(
         touch.clientX - pointerStartRef.current.x,
@@ -183,7 +188,7 @@ function ExploreGalleryInner({
         setHorizontalLock(axis === "horizontal");
       }
     }
-  }, [cancelLongPress, setHorizontalLock]);
+  }, [cancelLongPress, canSwipeImages, setHorizontalLock]);
 
   useEffect(
     () => () => {
@@ -229,7 +234,7 @@ function ExploreGalleryInner({
 
   return (
     <div
-      className="h-full w-full touch-pan-x"
+      className={canSwipeImages ? "h-full w-full touch-pan-x" : "h-full w-full touch-pan-y"}
       onPointerDownCapture={handlePointerDownCapture}
       onPointerMoveCapture={handlePointerMoveCapture}
       onPointerUpCapture={clearGesture}
@@ -240,7 +245,11 @@ function ExploreGalleryInner({
       onTouchEndCapture={clearGesture}
       onTouchCancelCapture={clearGesture}
       style={{
-        touchAction: horizontalLockActive ? "pan-x pinch-zoom" : "pan-x pan-y pinch-zoom",
+        touchAction: canSwipeImages
+          ? horizontalLockActive
+            ? "pan-x pinch-zoom"
+            : "pan-x pan-y pinch-zoom"
+          : "pan-y pinch-zoom",
         overscrollBehaviorX: "contain",
       }}
       data-testid="explore-gallery-gesture-layer"
@@ -257,10 +266,10 @@ function ExploreGalleryInner({
         dotsTestId="explore-gallery-dots"
         showArrows={false}
         showDots={false}
-        showCountBadge={items.length > 1}
+        showCountBadge={canSwipeImages}
         prioritizeFirstImage={prioritizeFirstImage}
         onSelectedIndexChange={setActiveImageIndex}
-        renderWindowRadius={1}
+        renderWindowRadius={canSwipeImages ? 1 : 0}
         onImageError={({ imageUrl, index }) => {
           setFailedImageIndexes((current) => {
             if (current.has(index)) return current;

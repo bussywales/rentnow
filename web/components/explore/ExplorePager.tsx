@@ -16,7 +16,10 @@ import {
   unhideExploreListingId,
 } from "@/lib/explore/explore-prefs";
 import { resolveSimilarHomes } from "@/lib/explore/similar-homes";
-import { EXPLORE_GALLERY_FALLBACK_IMAGE } from "@/lib/explore/gallery-images";
+import {
+  EXPLORE_GALLERY_FALLBACK_IMAGE,
+  resolveExplorePropertyImageRecords,
+} from "@/lib/explore/gallery-images";
 import { trackExploreFunnelEvent } from "@/lib/explore/explore-funnel";
 import { resolveExploreAnalyticsIntentType } from "@/lib/explore/explore-presentation";
 
@@ -32,9 +35,10 @@ type ExploreIdleWindow = Window & {
 };
 
 function resolveExploreHeroImageUrl(property: Property): string {
+  const propertyImages = resolveExplorePropertyImageRecords(property);
   const imageSources = resolvePropertyImageSources({
     coverImageUrl: property.cover_image_url,
-    images: property.images,
+    images: propertyImages,
     primaryImageUrl: getPrimaryImageUrl(property),
     fallbackImage: EXPLORE_FALLBACK_IMAGE,
   });
