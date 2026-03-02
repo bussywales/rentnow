@@ -80,17 +80,18 @@ void test("explore pager v2 source keeps windowed 3-slide mounting and robust re
   assert.match(source, /const candidates = \[activeIndex - 1, activeIndex, activeIndex \+ 1\]/);
   assert.match(source, /data-testid="explore-pager-v2-track"/);
   assert.match(source, /translate3d\(0, \$\{offsetPx\}px, 0\)/);
-  assert.match(source, /window\.addEventListener\("pointerup", resetFromExitPath/);
-  assert.match(source, /window\.addEventListener\("pointercancel", resetFromExitPath/);
-  assert.match(source, /window\.addEventListener\("touchend", resetFromExitPath/);
-  assert.match(source, /window\.addEventListener\("touchcancel", resetFromExitPath/);
-  assert.match(source, /window\.addEventListener\("blur", resetFromExitPath/);
+  assert.match(source, /const hardResetGestureState = useCallback/);
+  assert.match(source, /window\.addEventListener\("pointerup", resetFromGlobalExitPath/);
+  assert.match(source, /window\.addEventListener\("pointercancel", resetFromGlobalExitPath/);
+  assert.match(source, /window\.addEventListener\("touchend", resetFromGlobalExitPath/);
+  assert.match(source, /window\.addEventListener\("touchcancel", resetFromGlobalExitPath/);
+  assert.match(source, /window\.addEventListener\("blur", resetFromGlobalExitPath\)/);
   assert.match(source, /document\.addEventListener\("visibilitychange", resetFromVisibility/);
   assert.match(source, /onTouchEndCapture=\{resetFromExitPath\}/);
   assert.match(source, /onTouchCancelCapture=\{resetFromExitPath\}/);
   assert.match(source, /onPointerUpCapture=\{resetFromExitPath\}/);
   assert.match(source, /onPointerCancelCapture=\{resetFromExitPath\}/);
   assert.match(source, /EXPLORE_PAGER_V2_RESET_TIMEOUT_MS = 600/);
+  assert.doesNotMatch(source, /if \(gestureLockedRef\.current\)/);
   assert.equal(EXPLORE_PAGER_V2_RESET_TIMEOUT_MS, 600);
 });
-

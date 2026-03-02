@@ -32,6 +32,8 @@ void test("explore gallery source binds touch end/cancel resets", () => {
   assert.match(source, /document\.addEventListener\("visibilitychange"/);
   assert.match(source, /scheduleGestureLockSafetyReset/);
   assert.match(source, /window\.setTimeout\(\(\) => \{\s*resetGestureLock\(\);/);
+  assert.match(source, /touchAction: canSwipeImages\s*\?\s*"pan-x pan-y pinch-zoom"\s*:\s*"pan-y pinch-zoom"/);
+  assert.doesNotMatch(source, /horizontalLockActive\s*\?\s*"pan-x pinch-zoom"/);
 });
 
 void test("explore pager source always restores vertical paging lock state on reset paths", () => {
