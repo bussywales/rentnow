@@ -320,6 +320,11 @@ export function ShortletsSearchShell({
     () => createSearchParamsFromInitial(initialSearchParams),
     [initialSearchParams]
   );
+  const today = useMemo(() => {
+    const next = new Date();
+    next.setHours(0, 0, 0, 0);
+    return next;
+  }, []);
   const effectiveSearchParams = useMemo(() => {
     if (!hasHydratedSearchParams || !searchParams) return initialParams;
     return new URLSearchParams(searchParams.toString());
@@ -1669,9 +1674,9 @@ export function ShortletsSearchShell({
                   mode="range"
                   selected={searchDateRangeDraft}
                   numberOfMonths={2}
-                  disabled={{ before: new Date() }}
+                  disabled={{ before: today }}
                   onSelect={onSearchDateRangeSelect}
-                  defaultMonth={searchDateRangeDraft?.from ?? new Date()}
+                  defaultMonth={searchDateRangeDraft?.from ?? today}
                   className="rounded-xl border border-slate-100 bg-white"
                 />
                 <div className="mt-2 flex items-center justify-end gap-2 border-t border-slate-100 pt-2">
@@ -2069,9 +2074,9 @@ export function ShortletsSearchShell({
               mode="range"
               selected={searchDateRangeDraft}
               numberOfMonths={1}
-              disabled={{ before: new Date() }}
+              disabled={{ before: today }}
               onSelect={onSearchDateRangeSelect}
-              defaultMonth={searchDateRangeDraft?.from ?? new Date()}
+              defaultMonth={searchDateRangeDraft?.from ?? today}
               className="mx-auto max-w-sm rounded-xl border border-slate-100 bg-white"
             />
             {searchDateHint ? (

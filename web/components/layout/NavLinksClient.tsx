@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSyncExternalStore } from "react";
 import { normalizeRole } from "@/lib/roles";
 import type { UserRole } from "@/lib/types";
 
@@ -20,6 +21,10 @@ type Props = {
   initialAuthed: boolean;
   initialRole: UserRole | "super_admin" | null;
 };
+
+const subscribeHydration = () => () => {};
+const getHydratedServerSnapshot = () => false;
+const getHydratedClientSnapshot = () => true;
 
 export function resolveNavLinks(
   links: NavLink[],
@@ -69,12 +74,19 @@ export function NavLinksClient({ links, initialAuthed, initialRole }: Props) {
     initialRole === "super_admin" ? "super_admin" : normalizeRole(initialRole);
   const role = normalizedInitialRole;
   const isAuthed = initialAuthed;
-  const pathname = usePathname() ?? "/";
+  const pathname = usePathname();
+  const hasHydrated = useSyncExternalStore(
+    subscribeHydration,
+    getHydratedClientSnapshot,
+    getHydratedServerSnapshot
+  );
+
+  const activePathname = hasHydrated ? pathname ?? "/" : "/";
 
   return (
     <>
       {resolveNavLinks(links, { isAuthed, role }).map((link) => {
-        const active = isActiveHref(pathname, link.href);
+        const active = isActiveHref(activePathname, link.href);
         return (
           <Link
             key={link.href}
