@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  resolveUnifiedImageCarouselLoadCandidates,
+  resolveUnifiedImageCarouselMaxConcurrentImageLoads,
   shouldRenderUnifiedImageCarouselCountBadge,
   shouldRenderUnifiedImageCarouselControls,
   shouldRenderUnifiedImageCarouselDots,
@@ -99,6 +101,23 @@ void test("unified image carousel wheel throttle blocks repeated direction but a
     }),
     false
   );
+});
+
+void test("unified image carousel resolves sane concurrent load caps", () => {
+  assert.equal(resolveUnifiedImageCarouselMaxConcurrentImageLoads(undefined), 3);
+  assert.equal(resolveUnifiedImageCarouselMaxConcurrentImageLoads(0), 1);
+  assert.equal(resolveUnifiedImageCarouselMaxConcurrentImageLoads(2), 2);
+});
+
+void test("unified image carousel mounts only capped pending slides while preserving loaded slides", () => {
+  const mounted = resolveUnifiedImageCarouselLoadCandidates({
+    totalImages: 6,
+    selectedIndex: 2,
+    windowRadius: 2,
+    loadedIndexes: new Set([2]),
+    maxConcurrentImageLoads: 2,
+  });
+  assert.deepEqual(Array.from(mounted.values()).sort((a, b) => a - b), [1, 2, 3]);
 });
 
 void test("unified image carousel consumes the shared interaction policy module", () => {

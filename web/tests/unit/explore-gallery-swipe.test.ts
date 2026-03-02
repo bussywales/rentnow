@@ -49,5 +49,8 @@ void test("explore gallery source does not block horizontal drag with touch prev
   assert.match(source, /onTouchMoveCapture=\{handleTouchMoveCapture\}/);
   assert.match(source, /if \(gestureAxisRef\.current === "horizontal"\) \{\s*scheduleGestureLockSafetyReset\(\);/);
   assert.match(source, /window\.setTimeout\(\(\) => \{\s*resetGestureLock\(\);/);
+  assert.match(source, /progressiveUpgradeOnIdle=\{shouldConserveDataState && canSwipeImages\}/);
+  assert.match(source, /maxConcurrentImageLoads=\{maxConcurrentImageLoads\}/);
+  assert.match(source, /showLoadingCue=\{slideDistance === 0\}/);
   assert.doesNotMatch(source, /event\.preventDefault\(\)/);
 });

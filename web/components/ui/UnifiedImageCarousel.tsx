@@ -50,6 +50,9 @@ type Props = {
   blurDataURL?: string;
   prioritizeFirstImage?: boolean;
   renderWindowRadius?: number;
+  progressiveUpgradeOnIdle?: boolean;
+  maxConcurrentImageLoads?: number;
+  showLoadingCue?: boolean;
   onSelectedIndexChange?: (index: number) => void;
   onCarouselReady?: (controller: UnifiedImageCarouselController | null) => void;
   onImageError?: (payload: { imageUrl: string; index: number }) => void;
@@ -58,6 +61,14 @@ type Props = {
 const BLUR_DATA_URL =
   "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
 const directImageLoader: ImageLoader = ({ src }) => src;
+const UNIFIED_CAROUSEL_DEFAULT_MAX_CONCURRENT_IMAGE_LOADS = 3;
+const UNIFIED_CAROUSEL_PROGRESSIVE_IDLE_DELAY_MS = 260;
+
+type UnifiedIdleCallback = (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void;
+type UnifiedIdleWindow = Window & {
+  requestIdleCallback?: (callback: UnifiedIdleCallback, options?: { timeout?: number }) => number;
+  cancelIdleCallback?: (id: number) => void;
+};
 export {
   shouldSuppressCarouselClickAfterDrag,
   resolveWheelDelta as resolveCarouselWheelDelta,
@@ -78,6 +89,39 @@ export function shouldRenderUnifiedImageCarouselDots(totalImages: number): boole
   return totalImages > 3;
 }
 
+export function resolveUnifiedImageCarouselMaxConcurrentImageLoads(limit: number | undefined): number {
+  if (!Number.isFinite(limit)) return UNIFIED_CAROUSEL_DEFAULT_MAX_CONCURRENT_IMAGE_LOADS;
+  return Math.max(1, Math.trunc(limit as number));
+}
+
+export function resolveUnifiedImageCarouselLoadCandidates(input: {
+  totalImages: number;
+  selectedIndex: number;
+  windowRadius: number | undefined;
+  loadedIndexes: Set<number>;
+  maxConcurrentImageLoads: number;
+}): Set<number> {
+  const total = Math.max(0, input.totalImages);
+  const radius = typeof input.windowRadius === "number" ? Math.max(0, Math.trunc(input.windowRadius)) : Number.POSITIVE_INFINITY;
+  const selected = Math.max(0, Math.min(total - 1, input.selectedIndex));
+  const maxConcurrent = resolveUnifiedImageCarouselMaxConcurrentImageLoads(input.maxConcurrentImageLoads);
+  const renderableIndexes: number[] = [];
+  for (let index = 0; index < total; index += 1) {
+    if (Math.abs(index - selected) <= radius) {
+      renderableIndexes.push(index);
+    }
+  }
+  const loadedRenderable = renderableIndexes.filter((index) => input.loadedIndexes.has(index));
+  const pendingRenderable = renderableIndexes
+    .filter((index) => !input.loadedIndexes.has(index))
+    .sort((a, b) => Math.abs(a - selected) - Math.abs(b - selected));
+  const mounted = new Set<number>(loadedRenderable);
+  pendingRenderable.slice(0, maxConcurrent).forEach((index) => {
+    mounted.add(index);
+  });
+  return mounted;
+}
+
 export function UnifiedImageCarousel({
   items,
   href,
@@ -96,6 +140,9 @@ export function UnifiedImageCarousel({
   blurDataURL = BLUR_DATA_URL,
   prioritizeFirstImage = false,
   renderWindowRadius,
+  progressiveUpgradeOnIdle = false,
+  maxConcurrentImageLoads,
+  showLoadingCue = false,
   onSelectedIndexChange,
   onCarouselReady,
   onImageError,
@@ -104,6 +151,10 @@ export function UnifiedImageCarousel({
   const allowDrag = inputTotalImages > 1;
   const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [loadedImageKeys, setLoadedImageKeys] = useState<Set<string>>(new Set());
+  const [idleReadyKey, setIdleReadyKey] = useState<string | null>(
+    progressiveUpgradeOnIdle ? null : "ready"
+  );
   const pointerStartRef = useRef<{ x: number; y: number } | null>(null);
   const suppressClickRef = useRef(false);
   const wheelThrottleRef = useRef(0);
@@ -148,14 +199,57 @@ export function UnifiedImageCarousel({
   );
 
   const totalImages = imageItems.length;
+  const boundedSelectedIndex = Math.max(0, Math.min(totalImages - 1, selectedIndex));
+  const progressiveCycleKey = `${boundedSelectedIndex}:${totalImages}:${renderWindowRadius ?? "full"}`;
+  const idleProgressiveReady = !progressiveUpgradeOnIdle || idleReadyKey === progressiveCycleKey;
+  const effectiveRenderWindowRadius =
+    typeof renderWindowRadius === "number"
+      ? Math.max(0, renderWindowRadius - (idleProgressiveReady ? 0 : 1))
+      : renderWindowRadius;
+  const effectiveMaxConcurrentImageLoads = resolveUnifiedImageCarouselMaxConcurrentImageLoads(
+    maxConcurrentImageLoads
+  );
+  const loadedIndexes = useMemo(() => {
+    const next = new Set<number>();
+    imageItems.forEach((item, index) => {
+      const loadKey = `${item.id ?? index}:${item.src}`;
+      if (loadedImageKeys.has(loadKey)) {
+        next.add(index);
+      }
+    });
+    return next;
+  }, [imageItems, loadedImageKeys]);
+  const mountedImageIndexes = useMemo(
+    () =>
+      resolveUnifiedImageCarouselLoadCandidates({
+        totalImages,
+        selectedIndex: boundedSelectedIndex,
+        windowRadius: effectiveRenderWindowRadius,
+        loadedIndexes,
+        maxConcurrentImageLoads: effectiveMaxConcurrentImageLoads,
+      }),
+    [
+      boundedSelectedIndex,
+      effectiveMaxConcurrentImageLoads,
+      effectiveRenderWindowRadius,
+      loadedIndexes,
+      totalImages,
+    ]
+  );
+  const activeImageLoadKey = useMemo(() => {
+    if (!imageItems[boundedSelectedIndex]) return null;
+    const activeItem = imageItems[boundedSelectedIndex];
+    return `${activeItem.id ?? boundedSelectedIndex}:${activeItem.src}`;
+  }, [boundedSelectedIndex, imageItems]);
+  const activeImageLoaded = activeImageLoadKey ? loadedImageKeys.has(activeImageLoadKey) : false;
   const shouldShowControls = shouldRenderUnifiedImageCarouselControls(totalImages);
   const shouldShowArrows = showArrows ?? shouldShowControls;
   const shouldShowCountBadge = showCountBadge ?? shouldRenderUnifiedImageCarouselCountBadge(totalImages);
   const shouldShowDots = showDots ?? shouldRenderUnifiedImageCarouselDots(totalImages);
   const shouldAnimateSlides = enableActiveSlideMotion && shouldShowControls;
-  const countIndex = Math.min(selectedIndex + 1, totalImages);
-  const canScrollPrev = selectedIndex > 0;
-  const canScrollNext = selectedIndex < totalImages - 1;
+  const countIndex = Math.min(boundedSelectedIndex + 1, totalImages);
+  const canScrollPrev = boundedSelectedIndex > 0;
+  const canScrollNext = boundedSelectedIndex < totalImages - 1;
 
   useEffect(() => {
     if (!emblaApi) return;
@@ -172,6 +266,31 @@ export function UnifiedImageCarousel({
   useEffect(() => {
     onSelectedIndexChange?.(selectedIndex);
   }, [onSelectedIndexChange, selectedIndex]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!progressiveUpgradeOnIdle || totalImages <= 1) return;
+    const targetKey = progressiveCycleKey;
+    const markReady = () => {
+      setIdleReadyKey((current) => (current === targetKey ? current : targetKey));
+    };
+    const idleWindow = window as UnifiedIdleWindow;
+    if (typeof idleWindow.requestIdleCallback === "function") {
+      const idleId = idleWindow.requestIdleCallback(
+        () => {
+          markReady();
+        },
+        { timeout: UNIFIED_CAROUSEL_PROGRESSIVE_IDLE_DELAY_MS }
+      );
+      return () => {
+        idleWindow.cancelIdleCallback?.(idleId);
+      };
+    }
+    const timeoutId = window.setTimeout(markReady, UNIFIED_CAROUSEL_PROGRESSIVE_IDLE_DELAY_MS);
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [progressiveCycleKey, progressiveUpgradeOnIdle, totalImages]);
 
   useEffect(() => {
     if (!onCarouselReady) return;
@@ -297,36 +416,66 @@ export function UnifiedImageCarousel({
         <div className={cn("flex h-full snap-x snap-mandatory overscroll-x-contain", allowDrag ? "touch-pan-x" : "touch-pan-y")}>
           {imageItems.map((item, index) => {
             const slideKey = item.id ?? `${item.src}-${index}`;
-            const isActiveSlide = index === selectedIndex;
-            const shouldRenderImage =
-              typeof renderWindowRadius !== "number" ||
-              Math.abs(index - selectedIndex) <= Math.max(0, renderWindowRadius);
+            const loadKey = `${item.id ?? index}:${item.src}`;
+            const isActiveSlide = index === boundedSelectedIndex;
+            const shouldRenderImage = mountedImageIndexes.has(index);
+            const imageLoaded = loadedImageKeys.has(loadKey);
             const bypassOptimizer = shouldBypassNextImageOptimizer(item.src);
             const imageLoading = resolveImageLoadingProfile(prioritizeFirstImage && index === 0);
             const imageElement = (
               shouldRenderImage ? (
-                <Image
-                  src={item.src}
-                  alt={item.alt}
-                  fill
-                  className={cn("select-none object-cover", imageClassName)}
-                  sizes={sizes}
-                  priority={imageLoading.priority}
-                  loading={imageLoading.loading}
-                  fetchPriority={imageLoading.fetchPriority}
-                  decoding="async"
-                  placeholder="blur"
-                  blurDataURL={blurDataURL}
-                  draggable={false}
-                  unoptimized={bypassOptimizer}
-                  loader={bypassOptimizer ? directImageLoader : undefined}
-                  onError={() => {
-                    handleImageError(item.src);
-                    onImageError?.({ imageUrl: item.src, index });
-                  }}
-                />
+                <div className="relative h-full w-full overflow-hidden">
+                  <div
+                    className={cn(
+                      "absolute inset-0 bg-gradient-to-br from-slate-800/80 via-slate-700/40 to-slate-900/80 transition-opacity duration-300",
+                      imageLoaded ? "opacity-0" : "animate-pulse opacity-100"
+                    )}
+                    aria-hidden
+                  />
+                  <Image
+                    src={item.src}
+                    alt={item.alt}
+                    fill
+                    className={cn(
+                      "select-none object-cover transition-opacity duration-300",
+                      imageLoaded ? "opacity-100" : "opacity-0",
+                      imageClassName
+                    )}
+                    sizes={sizes}
+                    priority={imageLoading.priority}
+                    loading={imageLoading.loading}
+                    fetchPriority={imageLoading.fetchPriority}
+                    decoding="async"
+                    placeholder="blur"
+                    blurDataURL={blurDataURL}
+                    draggable={false}
+                    unoptimized={bypassOptimizer}
+                    loader={bypassOptimizer ? directImageLoader : undefined}
+                    onLoad={() => {
+                      setLoadedImageKeys((current) => {
+                        if (current.has(loadKey)) return current;
+                        const next = new Set(current);
+                        next.add(loadKey);
+                        return next;
+                      });
+                    }}
+                    onError={() => {
+                      setLoadedImageKeys((current) => {
+                        if (current.has(loadKey)) return current;
+                        const next = new Set(current);
+                        next.add(loadKey);
+                        return next;
+                      });
+                      handleImageError(item.src);
+                      onImageError?.({ imageUrl: item.src, index });
+                    }}
+                  />
+                </div>
               ) : (
-                <div className="h-full w-full bg-slate-900/50" aria-hidden />
+                <div
+                  className="h-full w-full bg-gradient-to-br from-slate-800/70 via-slate-700/35 to-slate-900/80"
+                  aria-hidden
+                />
               )
             );
 
@@ -367,6 +516,16 @@ export function UnifiedImageCarousel({
           data-testid={`${rootTestId}-count-badge`}
         >
           {`${countIndex}/${totalImages}`}
+        </span>
+      ) : null}
+
+      {showLoadingCue && !activeImageLoaded ? (
+        <span
+          className="pointer-events-none absolute left-3 top-3 z-10 rounded-full border border-white/30 bg-slate-900/65 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white/90"
+          data-testid={`${rootTestId}-loading-cue`}
+          aria-live="polite"
+        >
+          Loading...
         </span>
       ) : null}
 
@@ -428,7 +587,7 @@ export function UnifiedImageCarousel({
               }}
               className={cn(
                 "h-1.5 w-1.5 rounded-full transition",
-                index === selectedIndex ? "bg-white" : "bg-white/55"
+                index === boundedSelectedIndex ? "bg-white" : "bg-white/55"
               )}
             />
           ))}
