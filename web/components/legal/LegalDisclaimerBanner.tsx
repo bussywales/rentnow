@@ -84,10 +84,11 @@ export function LegalDisclaimerBanner() {
           <Link href="/legal/disclaimer" className="text-xs font-semibold text-slate-100 hover:text-white">
             Learn more
           </Link>
-          <Link href="/legal">
-            <Button size="sm" variant="secondary">
-              View terms
-            </Button>
+          <Link
+            href="/legal"
+            className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-900 transition hover:border-slate-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+          >
+            View terms
           </Link>
         </div>
       </div>
