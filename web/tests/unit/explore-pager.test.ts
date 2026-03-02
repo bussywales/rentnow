@@ -17,7 +17,8 @@ void test("explore pager source keeps vertical snap and required testids", () =>
   assert.match(source, /handleGestureLockChange/);
   assert.match(source, /WebkitOverflowScrolling: "touch"/);
   assert.match(source, /touchAction: "pan-y pinch-zoom"/);
-  assert.match(source, /scrollSnapType = locked \? "none" : "y mandatory"/);
+  assert.match(source, /pager\.style\.scrollSnapType = "none"/);
+  assert.match(source, /pager\.style\.scrollSnapType = "y mandatory"/);
   assert.match(source, /ExploreSectionHeader/);
   assert.match(source, /resolveExploreSectionByListingId/);
   assert.match(source, /total=\{feedSize\}/);

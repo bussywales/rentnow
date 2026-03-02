@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-import { resolveExploreGestureAxis, shouldResetExploreGestureLock } from "@/components/explore/ExploreGallery";
+import {
+  getExploreGestureLockSafetyTimeoutMs,
+  resolveExploreGestureAxis,
+  shouldResetExploreGestureLock,
+} from "@/components/explore/ExploreGallery";
 
 void test("explore gallery resolves horizontal swipe intent when dx dominates", () => {
   assert.equal(resolveExploreGestureAxis(24, 4), "horizontal");
@@ -20,6 +24,10 @@ void test("explore gesture lock resets on touch and pointer completion events", 
   assert.equal(shouldResetExploreGestureLock("pointerup"), true);
   assert.equal(shouldResetExploreGestureLock("pointercancel"), true);
   assert.equal(shouldResetExploreGestureLock("touchmove"), false);
+});
+
+void test("explore gallery gesture lock safety timeout stays fixed for iOS fallback reset", () => {
+  assert.equal(getExploreGestureLockSafetyTimeoutMs(), 600);
 });
 
 void test("unified carousel source exposes horizontal touch + overflow classes", () => {
@@ -39,5 +47,7 @@ void test("explore gallery source does not block horizontal drag with touch prev
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /onTouchMoveCapture=\{handleTouchMoveCapture\}/);
+  assert.match(source, /if \(gestureAxisRef\.current === "horizontal"\) \{\s*scheduleGestureLockSafetyReset\(\);/);
+  assert.match(source, /window\.setTimeout\(\(\) => \{\s*resetGestureLock\(\);/);
   assert.doesNotMatch(source, /event\.preventDefault\(\)/);
 });
