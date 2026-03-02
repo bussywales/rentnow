@@ -38,8 +38,8 @@ void test("explore pager source always restores vertical paging lock state on re
   const sourcePath = path.join(process.cwd(), "components", "explore", "ExplorePager.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
-  assert.match(source, /pager\.style\.touchAction = "pan-y pinch-zoom"/);
-  assert.match(source, /pager\.style\.scrollSnapType = "y mandatory"/);
+  assert.match(source, /<ExplorePagerV2/);
+  assert.match(source, /setIsGestureLocked/);
   assert.match(source, /window\.addEventListener\("blur", resetGestureLock/);
   assert.match(source, /document\.addEventListener\("visibilitychange", resetGestureLockFromVisibility/);
 });

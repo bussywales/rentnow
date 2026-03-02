@@ -3,22 +3,22 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-void test("explore pager source keeps vertical snap and required testids", () => {
+void test("explore pager source mounts transform pager engine and required testids", () => {
   const sourcePath = path.join(process.cwd(), "components", "explore", "ExplorePager.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
-  assert.match(source, /data-testid="explore-pager"/);
+  assert.match(source, /testId="explore-pager"/);
   assert.match(source, /data-testid="explore-progress"/);
+  assert.match(source, /<ExplorePagerV2/);
+  assert.match(source, /renderSlide=\{\(index\) =>/);
   assert.match(source, /<ExploreSlide[\s\S]*onGestureLockChange=\{handleGestureLockChange\}[\s\S]*\/>/);
-  assert.match(source, /snap-y snap-mandatory/);
-  assert.match(source, /h-\[100svh\]/);
+  assert.match(source, /activeIndex=\{displayedIndex\}/);
+  assert.match(source, /onActiveIndexChange=\{handleActiveIndexChange\}/);
+  assert.match(source, /gestureLocked=\{isGestureLocked\}/);
   assert.match(source, /resolveExploreAdjacentSlideIndexes/);
   assert.match(source, /shouldPreloadExploreSlideImages/);
   assert.match(source, /handleGestureLockChange/);
-  assert.match(source, /WebkitOverflowScrolling: "touch"/);
-  assert.match(source, /touchAction: "pan-y pinch-zoom"/);
-  assert.match(source, /pager\.style\.scrollSnapType = "none"/);
-  assert.match(source, /pager\.style\.scrollSnapType = "y mandatory"/);
+  assert.match(source, /setIsGestureLocked/);
   assert.match(source, /ExploreSectionHeader/);
   assert.match(source, /resolveExploreSectionByListingId/);
   assert.match(source, /total=\{feedSize\}/);
@@ -27,6 +27,8 @@ void test("explore pager source keeps vertical snap and required testids", () =>
   assert.match(source, /console\.count\("\[perf\]\[explore-pager\] render"\)/);
   assert.match(source, /data-testid="explore-hide-undo"/);
   assert.match(source, /data-testid="explore-restore-hidden"/);
+  assert.doesNotMatch(source, /snap-y snap-mandatory/);
+  assert.doesNotMatch(source, /WebkitOverflowScrolling: "touch"/);
 });
 
 void test("explore slide source exposes details, hint, and local hide controls", () => {
