@@ -24,6 +24,7 @@ import {
 import { trackExploreFunnelEvent } from "@/lib/explore/explore-funnel";
 import { resolveExploreAnalyticsIntentType } from "@/lib/explore/explore-presentation";
 import { ExplorePagerV2 } from "@/components/explore/ExplorePagerV2";
+import { readShouldConserveData } from "@/lib/explore/network-hints";
 
 type ExplorePagerProps = {
   listings: Property[];
@@ -44,6 +45,8 @@ type ExploreIdleWindow = Window & {
   requestIdleCallback?: (callback: ExploreIdleCallback, options?: { timeout?: number }) => number;
   cancelIdleCallback?: (handle: number) => void;
 };
+type ExploreImageLike = Pick<HTMLImageElement, "decoding" | "src" | "onload" | "onerror">;
+type CreateExploreImage = () => ExploreImageLike;
 
 function resolveExploreHeroImageUrl(property: Property): string {
   const propertyImages = resolveExplorePropertyImageRecords(property);
@@ -94,8 +97,8 @@ export function resolveExplorePreloadImageUrls({
     .filter((imageUrl): imageUrl is string => Boolean(imageUrl && !alreadyPreloaded.has(imageUrl)));
 }
 
-export function shouldPreloadExploreSlideImages(saveData: boolean | undefined, gestureLocked = false): boolean {
-  return !saveData && !gestureLocked;
+export function shouldPreloadExploreSlideImages(shouldConserveData: boolean | undefined, gestureLocked = false): boolean {
+  return !shouldConserveData && !gestureLocked;
 }
 
 export function scheduleExplorePreloadTask(task: () => void): () => void {
@@ -116,6 +119,48 @@ export function scheduleExplorePreloadTask(task: () => void): () => void {
   return () => {
     window.clearTimeout(timeoutId);
   };
+}
+
+export function preloadExploreImageUrlsWithConcurrency({
+  imageUrls,
+  alreadyPreloaded,
+  maxConcurrent = 2,
+  createImage = () => new Image(),
+}: {
+  imageUrls: string[];
+  alreadyPreloaded: Set<string>;
+  maxConcurrent?: number;
+  createImage?: CreateExploreImage;
+}): void {
+  const pending = imageUrls.filter((imageUrl) => Boolean(imageUrl) && !alreadyPreloaded.has(imageUrl));
+  if (!pending.length) return;
+  const concurrency = Math.max(1, Math.trunc(maxConcurrent));
+  let inFlight = 0;
+  const launch = () => {
+    while (inFlight < concurrency && pending.length) {
+      const imageUrl = pending.shift();
+      if (!imageUrl || alreadyPreloaded.has(imageUrl)) continue;
+      const image = createImage();
+      inFlight += 1;
+      alreadyPreloaded.add(imageUrl);
+      const complete = () => {
+        image.onload = null;
+        image.onerror = null;
+        inFlight = Math.max(0, inFlight - 1);
+        launch();
+      };
+      image.decoding = "async";
+      image.onload = () => {
+        complete();
+      };
+      image.onerror = () => {
+        complete();
+        return null;
+      };
+      image.src = imageUrl;
+    }
+  };
+  launch();
 }
 
 const ExploreProgressPill = memo(function ExploreProgressPill({
@@ -267,8 +312,8 @@ export function ExplorePager({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-    if (!shouldPreloadExploreSlideImages(connection?.saveData, isGestureLockedRef.current)) return;
+    const shouldConserveData = readShouldConserveData();
+    if (!shouldPreloadExploreSlideImages(shouldConserveData, isGestureLockedRef.current)) return;
     const preloadUrls = resolveExplorePreloadImageUrls({
       activeIndex: displayedIndex,
       totalSlides: feedSize,
@@ -279,13 +324,11 @@ export function ExplorePager({
     cancelPreloadRef.current?.();
     cancelPreloadRef.current = scheduleExplorePreloadTask(() => {
       if (isGestureLockedRef.current) return;
-      for (const imageUrl of preloadUrls) {
-        if (!imageUrl || preloadedImagesRef.current.has(imageUrl)) continue;
-        const image = new Image();
-        image.decoding = "async";
-        image.src = imageUrl;
-        preloadedImagesRef.current.add(imageUrl);
-      }
+      preloadExploreImageUrlsWithConcurrency({
+        imageUrls: preloadUrls,
+        alreadyPreloaded: preloadedImagesRef.current,
+        maxConcurrent: 2,
+      });
     });
     return () => {
       cancelPreloadRef.current?.();
@@ -309,8 +352,8 @@ export function ExplorePager({
       cancelPreloadRef.current = null;
       return;
     }
-    const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
-    if (!shouldPreloadExploreSlideImages(connection?.saveData, false)) return;
+    const shouldConserveData = readShouldConserveData();
+    if (!shouldPreloadExploreSlideImages(shouldConserveData, false)) return;
     const preloadUrls = resolveExplorePreloadImageUrls({
       activeIndex: displayedIndexRef.current,
       totalSlides: feedSizeRef.current,
@@ -320,13 +363,11 @@ export function ExplorePager({
     if (!preloadUrls.length) return;
     cancelPreloadRef.current?.();
     cancelPreloadRef.current = scheduleExplorePreloadTask(() => {
-      for (const imageUrl of preloadUrls) {
-        if (!imageUrl || preloadedImagesRef.current.has(imageUrl)) continue;
-        const image = new Image();
-        image.decoding = "async";
-        image.src = imageUrl;
-        preloadedImagesRef.current.add(imageUrl);
-      }
+      preloadExploreImageUrlsWithConcurrency({
+        imageUrls: preloadUrls,
+        alreadyPreloaded: preloadedImagesRef.current,
+        maxConcurrent: 2,
+      });
     });
   }, []);
 
@@ -582,6 +623,7 @@ export function ExplorePager({
               key={property.id}
               property={property}
               index={index}
+              slideDistance={Math.abs(index - displayedIndex)}
               onGestureLockChange={handleGestureLockChange}
               onNotInterested={handleNotInterested}
               similarHomes={similarHomesByListingId.get(property.id) ?? []}

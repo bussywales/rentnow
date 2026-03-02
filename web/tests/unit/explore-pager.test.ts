@@ -66,7 +66,10 @@ void test("explore gallery source supports axis locking for horizontal gestures"
   assert.match(source, /onGestureLockChange\?\.\(horizontalLockActive\)/);
   assert.match(source, /data-testid="explore-gallery-gesture-layer"/);
   assert.match(source, /data-testid="explore-gallery-image-unavailable"/);
-  assert.match(source, /renderWindowRadius=\{canSwipeImages \? 1 : 0\}/);
+  assert.match(source, /slideDistance = 0/);
+  assert.match(source, /shouldRestrictExploreSlideToHeroImage/);
+  assert.match(source, /renderWindowRadius=\{renderWindowRadius\}/);
+  assert.match(source, /resolveExploreGalleryMaxConcurrentImageLoads/);
   assert.match(source, /canSwipeImages \? "h-full w-full touch-pan-x" : "h-full w-full touch-pan-y"/);
   assert.match(source, /touchAction: canSwipeImages/);
   assert.match(source, /\[explore-gallery\]\[image-error\]/);

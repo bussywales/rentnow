@@ -7,6 +7,11 @@ import {
   resolveExploreGalleryDisplaySource,
   shouldRenderExploreGalleryImage,
 } from "@/lib/explore/gallery-images";
+import {
+  resolveExploreGalleryMaxConcurrentImageLoads,
+  resolveExploreGalleryRenderWindowRadius,
+  shouldRestrictExploreSlideToHeroImage,
+} from "@/components/explore/ExploreGallery";
 
 void test("explore gallery normalizes secure urls and upgrades allowed insecure hosts", () => {
   const secure = normalizeExploreGalleryImageUrl("https://vfospznoluqoklmgjgea.supabase.co/path/image.webp");
@@ -41,6 +46,32 @@ void test("explore gallery display source falls back for failed images", () => {
     }),
     EXPLORE_GALLERY_FALLBACK_IMAGE
   );
+});
+
+void test("explore gallery restricts adjacent slides to hero image in conserve mode", () => {
+  assert.equal(shouldRestrictExploreSlideToHeroImage(true, 1), true);
+  assert.equal(shouldRestrictExploreSlideToHeroImage(true, 2), true);
+  assert.equal(shouldRestrictExploreSlideToHeroImage(true, 0), false);
+  assert.equal(shouldRestrictExploreSlideToHeroImage(false, 1), false);
+});
+
+void test("explore gallery window and concurrency hints prefer conservative defaults on weak data", () => {
+  assert.equal(
+    resolveExploreGalleryRenderWindowRadius({
+      canSwipeImages: true,
+      shouldConserveData: true,
+    }),
+    1
+  );
+  assert.equal(
+    resolveExploreGalleryRenderWindowRadius({
+      canSwipeImages: false,
+      shouldConserveData: true,
+    }),
+    0
+  );
+  assert.equal(resolveExploreGalleryMaxConcurrentImageLoads(true), 2);
+  assert.equal(resolveExploreGalleryMaxConcurrentImageLoads(false), 4);
 });
 
 void test("explore gallery resolves full image records from images and property_images relations", () => {

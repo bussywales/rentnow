@@ -4,6 +4,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
+  preloadExploreImageUrlsWithConcurrency,
   resolveExplorePreloadImageUrls,
   resolveExplorePreloadSlideIndexes,
   shouldPreloadExploreSlideImages,
@@ -31,12 +32,58 @@ void test("explore preload is disabled for saveData and active gesture locks", (
   assert.equal(shouldPreloadExploreSlideImages(false, false), true);
 });
 
+void test("explore preload concurrency cap limits in-flight image mounts", () => {
+  const completions: Array<() => void> = [];
+  let mountedInFlight = 0;
+  let peakMountedInFlight = 0;
+  const alreadyPreloaded = new Set<string>();
+
+  preloadExploreImageUrlsWithConcurrency({
+    imageUrls: ["a.jpg", "b.jpg", "c.jpg", "d.jpg"],
+    alreadyPreloaded,
+    maxConcurrent: 2,
+    createImage: () => {
+      const image = {
+        decoding: "auto",
+        onload: null as HTMLImageElement["onload"],
+        onerror: null as HTMLImageElement["onerror"],
+      } as {
+        decoding: "sync" | "async" | "auto";
+        onload: HTMLImageElement["onload"];
+        onerror: HTMLImageElement["onerror"];
+        src: string;
+      };
+      Object.defineProperty(image, "src", {
+        get: () => "",
+        set: () => {
+          mountedInFlight += 1;
+          peakMountedInFlight = Math.max(peakMountedInFlight, mountedInFlight);
+          completions.push(() => {
+            mountedInFlight = Math.max(0, mountedInFlight - 1);
+            image.onload?.(new Event("load"));
+          });
+        },
+      });
+      return image;
+    },
+  });
+
+  assert.equal(peakMountedInFlight, 2);
+  while (completions.length) {
+    const complete = completions.shift();
+    complete?.();
+  }
+  assert.equal(mountedInFlight, 0);
+  assert.equal(alreadyPreloaded.size, 4);
+});
+
 void test("explore pager source keeps idle-safe preload scheduler and cancellation hooks", () => {
   const sourcePath = path.join(process.cwd(), "components", "explore", "ExplorePager.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /resolveExplorePreloadSlideIndexes/);
   assert.match(source, /resolveExplorePreloadImageUrls/);
+  assert.match(source, /preloadExploreImageUrlsWithConcurrency/);
   assert.match(source, /requestIdleCallback/);
   assert.match(source, /cancelPreloadRef/);
   assert.match(source, /isGestureLockedRef/);

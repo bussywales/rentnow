@@ -12,6 +12,10 @@ import {
   resolveExplorePropertyImageRecords,
   resolveExploreGalleryDisplaySource,
 } from "@/lib/explore/gallery-images";
+import {
+  readShouldConserveData,
+  subscribeToConserveDataChanges,
+} from "@/lib/explore/network-hints";
 
 const BLUR_DATA_URL =
   "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=";
@@ -19,6 +23,7 @@ const FALLBACK_IMAGE = EXPLORE_GALLERY_FALLBACK_IMAGE;
 
 type ExploreGalleryProps = {
   property: Property;
+  slideDistance?: number;
   prioritizeFirstImage?: boolean;
   onGestureLockChange?: (locked: boolean) => void;
   onLongPress?: () => void;
@@ -40,13 +45,29 @@ export function shouldResetExploreGestureLock(eventType: string): boolean {
 }
 
 const EXPLORE_GESTURE_LOCK_SAFETY_TIMEOUT_MS = 600;
-
 export function getExploreGestureLockSafetyTimeoutMs(): number {
   return EXPLORE_GESTURE_LOCK_SAFETY_TIMEOUT_MS;
 }
 
+export function shouldRestrictExploreSlideToHeroImage(shouldConserveData: boolean, slideDistance: number): boolean {
+  return shouldConserveData && slideDistance > 0;
+}
+
+export function resolveExploreGalleryRenderWindowRadius(input: {
+  canSwipeImages: boolean;
+  shouldConserveData: boolean;
+}): number {
+  if (!input.canSwipeImages) return 0;
+  return 1;
+}
+
+export function resolveExploreGalleryMaxConcurrentImageLoads(shouldConserveData: boolean): number {
+  return shouldConserveData ? 2 : 4;
+}
+
 function ExploreGalleryInner({
   property,
+  slideDistance = 0,
   prioritizeFirstImage = false,
   onGestureLockChange,
   onLongPress,
@@ -60,6 +81,7 @@ function ExploreGalleryInner({
   const [horizontalLockActive, setHorizontalLockActive] = useState(false);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [failedImageIndexes, setFailedImageIndexes] = useState<Set<number>>(new Set());
+  const [shouldConserveDataState, setShouldConserveDataState] = useState(() => readShouldConserveData());
   const propertyImages = useMemo(() => resolveExplorePropertyImageRecords(property), [property]);
   const rawImageSources = useMemo(
     () =>
@@ -77,26 +99,45 @@ function ExploreGalleryInner({
     [rawImageSources]
   );
 
-  const totalImages = imageSources.length;
-  const canSwipeImages = totalImages > 1;
+  const restrictToHeroImage = shouldRestrictExploreSlideToHeroImage(shouldConserveDataState, slideDistance);
+  const visibleImageSources = useMemo(
+    () => (restrictToHeroImage ? imageSources.slice(0, 1) : imageSources),
+    [imageSources, restrictToHeroImage]
+  );
+  const totalImages = visibleImageSources.length;
+  const effectiveActiveImageIndex = Math.min(activeImageIndex, Math.max(0, totalImages - 1));
+  const canSwipeImages = totalImages > 1 && slideDistance === 0;
+  const renderWindowRadius = resolveExploreGalleryRenderWindowRadius({
+    canSwipeImages,
+    shouldConserveData: shouldConserveDataState,
+  });
+  const maxConcurrentImageLoads = resolveExploreGalleryMaxConcurrentImageLoads(shouldConserveDataState);
   const items = useMemo(
     () =>
-      imageSources.map((normalizedImageUrl, index) => ({
+      visibleImageSources.map((normalizedImageUrl, index) => ({
         id: `${property.id}-explore-${index}`,
         src: resolveExploreGalleryDisplaySource({
           imageUrl: normalizedImageUrl,
           imageIndex: index,
-          activeIndex: activeImageIndex,
+          activeIndex: effectiveActiveImageIndex,
           totalImages,
           failedIndexes: failedImageIndexes,
           fallbackImage: FALLBACK_IMAGE,
-          windowRadius: 1,
+          windowRadius: renderWindowRadius,
         }),
         alt: property.title,
       })),
-    [activeImageIndex, failedImageIndexes, imageSources, property.id, property.title, totalImages]
+    [
+      effectiveActiveImageIndex,
+      failedImageIndexes,
+      property.id,
+      property.title,
+      renderWindowRadius,
+      totalImages,
+      visibleImageSources,
+    ]
   );
-  const activeImageUnavailable = failedImageIndexes.has(activeImageIndex);
+  const activeImageUnavailable = failedImageIndexes.has(effectiveActiveImageIndex);
 
   const setHorizontalLock = useCallback((next: boolean) => {
     setHorizontalLockActive((current) => (current === next ? current : next));
@@ -134,6 +175,25 @@ function ExploreGalleryInner({
   useEffect(() => {
     onGestureLockChange?.(horizontalLockActive);
   }, [horizontalLockActive, onGestureLockChange]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncConserveData = () => {
+      setShouldConserveDataState((current) => {
+        const next = readShouldConserveData();
+        return current === next ? current : next;
+      });
+    };
+    syncConserveData();
+    const unsubscribe = subscribeToConserveDataChanges((next) => {
+      setShouldConserveDataState((current) => (current === next ? current : next));
+    });
+    window.addEventListener("online", syncConserveData, { passive: true });
+    return () => {
+      unsubscribe();
+      window.removeEventListener("online", syncConserveData);
+    };
+  }, []);
 
   useEffect(
     () => () => {
@@ -298,8 +358,14 @@ function ExploreGalleryInner({
         showDots={false}
         showCountBadge={canSwipeImages}
         prioritizeFirstImage={prioritizeFirstImage}
-        onSelectedIndexChange={setActiveImageIndex}
-        renderWindowRadius={canSwipeImages ? 1 : 0}
+        onSelectedIndexChange={(nextIndex) => {
+          const bounded = Math.min(nextIndex, Math.max(0, totalImages - 1));
+          setActiveImageIndex((current) => (current === bounded ? current : bounded));
+        }}
+        renderWindowRadius={renderWindowRadius}
+        progressiveUpgradeOnIdle={shouldConserveDataState && canSwipeImages}
+        maxConcurrentImageLoads={maxConcurrentImageLoads}
+        showLoadingCue={slideDistance === 0}
         onImageError={({ imageUrl, index }) => {
           setFailedImageIndexes((current) => {
             if (current.has(index)) return current;
@@ -334,6 +400,7 @@ function ExploreGalleryInner({
 function areExploreGalleryPropsEqual(prev: ExploreGalleryProps, next: ExploreGalleryProps): boolean {
   return (
     prev.property === next.property &&
+    prev.slideDistance === next.slideDistance &&
     prev.prioritizeFirstImage === next.prioritizeFirstImage &&
     prev.onGestureLockChange === next.onGestureLockChange &&
     prev.onLongPress === next.onLongPress

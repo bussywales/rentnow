@@ -26,6 +26,7 @@ import {
 type ExploreSlideProps = {
   property: Property;
   index: number;
+  slideDistance?: number;
   onGestureLockChange?: (locked: boolean) => void;
   onNotInterested?: (listingId: string) => void;
   similarHomes?: Property[];
@@ -124,6 +125,7 @@ const ExploreSlideActionStack = memo(function ExploreSlideActionStack({
 function ExploreSlideInner({
   property,
   index,
+  slideDistance = 0,
   onGestureLockChange,
   onNotInterested,
   similarHomes = [],
@@ -233,6 +235,7 @@ function ExploreSlideInner({
     >
       <ExploreGallery
         property={property}
+        slideDistance={slideDistance}
         prioritizeFirstImage={index === 0}
         onGestureLockChange={onGestureLockChange}
         onLongPress={handleLongPress}
