@@ -24,6 +24,7 @@ type ExplorePagerV2Props = {
 
 type ExplorePagerGestureState = {
   active: boolean;
+  activePointerId: number | null;
   axis: ExplorePagerV2Axis;
   startX: number;
   startY: number;
@@ -36,6 +37,7 @@ type ExplorePagerGestureState = {
 function createIdleGestureState(): ExplorePagerGestureState {
   return {
     active: false,
+    activePointerId: null,
     axis: null,
     startX: 0,
     startY: 0,
@@ -110,7 +112,6 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
   const activeIndexRef = useRef(activeIndex);
   const totalSlidesRef = useRef(totalSlides);
   const isSnappingRef = useRef(false);
-  const gestureLockedRef = useRef(gestureLocked);
 
   useEffect(() => {
     activeIndexRef.current = activeIndex;
@@ -123,10 +124,6 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
   useEffect(() => {
     isSnappingRef.current = isSnapping;
   }, [isSnapping]);
-
-  useEffect(() => {
-    gestureLockedRef.current = gestureLocked;
-  }, [gestureLocked]);
 
   const clearResetTimer = useCallback(() => {
     if (resetTimerRef.current === null) return;
@@ -149,6 +146,13 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
     gestureStateRef.current = createIdleGestureState();
     clearResetTimer();
   }, [clearResetTimer]);
+
+  const hardResetGestureState = useCallback(() => {
+    resetGestureState();
+    if (!isSnappingRef.current) {
+      setDragOffsetPx(0);
+    }
+  }, [resetGestureState]);
 
   const scheduleSafetyReset = useCallback(() => {
     clearResetTimer();
@@ -195,11 +199,11 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
   const resetFromExitPath = useCallback(() => {
     const gestureState = gestureStateRef.current;
     if (!gestureState.active) {
-      clearResetTimer();
+      hardResetGestureState();
       return;
     }
     if (gestureState.axis !== "vertical") {
-      resetGestureState();
+      hardResetGestureState();
       return;
     }
     const currentIndex = activeIndexRef.current;
@@ -218,12 +222,13 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
       snapToOffset(direction < 0 ? viewportHeight : -viewportHeight, nextIndex);
     }
     resetGestureState();
-  }, [clearResetTimer, resetGestureState, snapToOffset, viewportHeight]);
+  }, [hardResetGestureState, resetGestureState, snapToOffset, viewportHeight]);
 
-  const beginGesture = useCallback((x: number, y: number, timestamp: number) => {
+  const beginGesture = useCallback((x: number, y: number, timestamp: number, pointerId: number | null = null) => {
     if (isSnappingRef.current) return;
     const nextState = createIdleGestureState();
     nextState.active = true;
+    nextState.activePointerId = pointerId;
     nextState.startX = x;
     nextState.startY = y;
     nextState.lastY = y;
@@ -233,9 +238,10 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
     scheduleSafetyReset();
   }, [scheduleSafetyReset]);
 
-  const updateGesture = useCallback((x: number, y: number, timestamp: number) => {
+  const updateGesture = useCallback((x: number, y: number, timestamp: number, pointerId: number | null = null) => {
     const gestureState = gestureStateRef.current;
     if (!gestureState.active || isSnappingRef.current) return;
+    if (gestureState.activePointerId !== null && pointerId !== null && pointerId !== gestureState.activePointerId) return;
 
     const deltaX = x - gestureState.startX;
     const deltaY = y - gestureState.startY;
@@ -244,13 +250,6 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
       gestureState.axis = resolveExplorePagerV2Axis(deltaX, deltaY);
     }
     if (gestureState.axis === null) return;
-
-    if (gestureLockedRef.current) {
-      gestureState.axis = "horizontal";
-      setDragOffsetPx(0);
-      scheduleSafetyReset();
-      return;
-    }
 
     if (gestureState.axis === "horizontal") {
       setDragOffsetPx(0);
@@ -274,6 +273,11 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
     scheduleSafetyReset();
   }, [scheduleSafetyReset, viewportHeight]);
 
+  useEffect(() => {
+    if (!gestureLocked) return;
+    scheduleSafetyReset();
+  }, [gestureLocked, scheduleSafetyReset]);
+
   const windowedIndexes = useMemo(() => {
     const candidates = [activeIndex - 1, activeIndex, activeIndex + 1];
     return candidates.filter((index) => index >= 0 && index < totalSlides);
@@ -281,26 +285,34 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    const resetFromGlobalExitPath = () => {
+      const gestureState = gestureStateRef.current;
+      if (!gestureState.active || gestureState.axis !== "vertical") {
+        hardResetGestureState();
+        return;
+      }
+      resetFromExitPath();
+    };
     const resetFromVisibility = () => {
       if (document.visibilityState !== "visible") {
-        resetFromExitPath();
+        hardResetGestureState();
       }
     };
-    window.addEventListener("pointerup", resetFromExitPath, { passive: true });
-    window.addEventListener("pointercancel", resetFromExitPath, { passive: true });
-    window.addEventListener("touchend", resetFromExitPath, { passive: true });
-    window.addEventListener("touchcancel", resetFromExitPath, { passive: true });
-    window.addEventListener("blur", resetFromExitPath, { passive: true });
+    window.addEventListener("pointerup", resetFromGlobalExitPath, { passive: true });
+    window.addEventListener("pointercancel", resetFromGlobalExitPath, { passive: true });
+    window.addEventListener("touchend", resetFromGlobalExitPath, { passive: true });
+    window.addEventListener("touchcancel", resetFromGlobalExitPath, { passive: true });
+    window.addEventListener("blur", resetFromGlobalExitPath);
     document.addEventListener("visibilitychange", resetFromVisibility, { passive: true });
     return () => {
-      window.removeEventListener("pointerup", resetFromExitPath);
-      window.removeEventListener("pointercancel", resetFromExitPath);
-      window.removeEventListener("touchend", resetFromExitPath);
-      window.removeEventListener("touchcancel", resetFromExitPath);
-      window.removeEventListener("blur", resetFromExitPath);
+      window.removeEventListener("pointerup", resetFromGlobalExitPath);
+      window.removeEventListener("pointercancel", resetFromGlobalExitPath);
+      window.removeEventListener("touchend", resetFromGlobalExitPath);
+      window.removeEventListener("touchcancel", resetFromGlobalExitPath);
+      window.removeEventListener("blur", resetFromGlobalExitPath);
       document.removeEventListener("visibilitychange", resetFromVisibility);
     };
-  }, [resetFromExitPath]);
+  }, [hardResetGestureState, resetFromExitPath]);
 
   useEffect(() => {
     return () => {
@@ -327,11 +339,11 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
       }}
       onPointerDownCapture={(event) => {
         if (event.pointerType === "touch") return;
-        beginGesture(event.clientX, event.clientY, event.timeStamp);
+        beginGesture(event.clientX, event.clientY, event.timeStamp, event.pointerId);
       }}
       onPointerMoveCapture={(event) => {
         if (event.pointerType === "touch") return;
-        updateGesture(event.clientX, event.clientY, event.timeStamp);
+        updateGesture(event.clientX, event.clientY, event.timeStamp, event.pointerId);
       }}
       onPointerUpCapture={resetFromExitPath}
       onPointerCancelCapture={resetFromExitPath}
