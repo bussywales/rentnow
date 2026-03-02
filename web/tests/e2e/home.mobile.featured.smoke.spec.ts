@@ -41,6 +41,7 @@ test.use({
 test.describe("home mobile featured discovery smoke", () => {
   test("featured cards route with market-aware destinations", async ({ page }) => {
     let step = "init";
+    let runtimeBreadcrumbLogged = false;
     const markStep = (next: string) => {
       step = next;
     };
@@ -147,6 +148,13 @@ test.describe("home mobile featured discovery smoke", () => {
     await dismissDisclaimerIfPresent();
     await expect(page.getByTestId(smokeSelectors.homeMobileRecentlyViewedRail)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.homeMobileRecentlyViewedItem).first()).toBeVisible();
+
+    if (!runtimeBreadcrumbLogged && runtimeErrors.length > 0) {
+      runtimeBreadcrumbLogged = true;
+      console.error(
+        `[golive][home][runtime] url=${page.url()} step=${step} firstError=${runtimeErrors[0] ?? "n/a"}`
+      );
+    }
 
     expect(
       runtimeErrors,
