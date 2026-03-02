@@ -5,6 +5,7 @@ import path from "node:path";
 import {
   resolveUnifiedImageCarouselLoadCandidates,
   resolveUnifiedImageCarouselMaxConcurrentImageLoads,
+  resolveUnifiedImagePlaceholderPresentation,
   shouldRenderUnifiedImageCarouselCountBadge,
   shouldRenderUnifiedImageCarouselControls,
   shouldRenderUnifiedImageCarouselDots,
@@ -120,6 +121,36 @@ void test("unified image carousel mounts only capped pending slides while preser
   assert.deepEqual(Array.from(mounted.values()).sort((a, b) => a - b), [1, 2, 3]);
 });
 
+void test("unified image carousel placeholder presentation prioritizes item metadata", () => {
+  const presentation = resolveUnifiedImagePlaceholderPresentation({
+    item: {
+      id: "img-1",
+      src: "https://example.com/image.jpg",
+      alt: "Image",
+      placeholderColor: "#123456",
+      placeholderBlurDataURL: "data:image/svg+xml,custom",
+      placeholderSource: "dominant_color",
+    },
+    fallbackBlurDataURL: "data:image/gif;base64,base",
+  });
+  assert.equal(presentation.dominantColor, "#123456");
+  assert.equal(presentation.blurDataURL, "data:image/svg+xml,custom");
+  assert.equal(presentation.source, "dominant_color");
+});
+
+void test("unified image carousel placeholder presentation falls back when metadata is missing", () => {
+  const presentation = resolveUnifiedImagePlaceholderPresentation({
+    item: {
+      id: "img-2",
+      src: "https://example.com/no-meta.jpg",
+      alt: "Image",
+    },
+    fallbackBlurDataURL: "data:image/gif;base64,base",
+  });
+  assert.ok(presentation.dominantColor.startsWith("#"));
+  assert.ok(presentation.blurDataURL.startsWith("data:image/svg+xml,"));
+});
+
 void test("unified image carousel consumes the shared interaction policy module", () => {
   const contents = fs.readFileSync(unifiedCarouselPath, "utf8");
   assert.ok(contents.includes('from "@/lib/ui/carousel-interactions"'));
@@ -131,4 +162,6 @@ void test("unified image carousel consumes the shared interaction policy module"
   assert.ok(contents.includes("resolveImageLoadingProfile"));
   assert.ok(contents.includes("unoptimized={bypassOptimizer}"));
   assert.ok(contents.includes("loader={bypassOptimizer ? directImageLoader : undefined}"));
+  assert.ok(contents.includes("data-placeholder-source={placeholder.source}"));
+  assert.ok(contents.includes('imageLoaded ? "opacity-0" : "animate-pulse opacity-100"'));
 });

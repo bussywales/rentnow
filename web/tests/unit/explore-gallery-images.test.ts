@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   EXPLORE_GALLERY_FALLBACK_IMAGE,
   normalizeExploreGalleryImageUrl,
+  resolveExploreImagePlaceholderMeta,
   resolveExplorePropertyImageRecords,
   resolveExploreGalleryDisplaySource,
   shouldRenderExploreGalleryImage,
@@ -46,6 +47,26 @@ void test("explore gallery display source falls back for failed images", () => {
     }),
     EXPLORE_GALLERY_FALLBACK_IMAGE
   );
+});
+
+void test("explore gallery placeholder meta prefers dominant color and falls back safely", () => {
+  const dominant = resolveExploreImagePlaceholderMeta({
+    imageUrl: "https://vfospznoluqoklmgjgea.supabase.co/path/ok.webp",
+    imageRecord: {
+      id: "ok",
+      image_url: "https://vfospznoluqoklmgjgea.supabase.co/path/ok.webp",
+      dominant_color: "#123456",
+      blurhash: "LKO2?U%2Tw=w]~RBVZRi};RPxuwH",
+    },
+  });
+  assert.equal(dominant.source, "dominant_color");
+  assert.equal(dominant.dominantColor, "#123456");
+
+  const fallback = resolveExploreImagePlaceholderMeta({
+    imageUrl: "https://vfospznoluqoklmgjgea.supabase.co/path/no-meta.webp",
+  });
+  assert.ok(fallback.dominantColor.startsWith("#"));
+  assert.ok(fallback.blurDataURL.startsWith("data:image/svg+xml,"));
 });
 
 void test("explore gallery restricts adjacent slides to hero image in conserve mode", () => {
