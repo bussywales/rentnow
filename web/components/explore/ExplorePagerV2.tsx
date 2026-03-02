@@ -101,7 +101,10 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
   const gestureStateRef = useRef<ExplorePagerGestureState>(createIdleGestureState());
   const resetTimerRef = useRef<number | null>(null);
   const snapTimerRef = useRef<number | null>(null);
-  const [viewportHeight, setViewportHeight] = useState(1);
+  const [viewportHeight, setViewportHeight] = useState(() => {
+    if (typeof window === "undefined") return 1;
+    return Math.max(1, window.innerHeight ?? 1);
+  });
   const [dragOffsetPx, setDragOffsetPx] = useState(0);
   const [isSnapping, setIsSnapping] = useState(false);
   const activeIndexRef = useRef(activeIndex);
@@ -163,7 +166,6 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    refreshViewportHeight();
     window.addEventListener("resize", refreshViewportHeight, { passive: true });
     window.visualViewport?.addEventListener("resize", refreshViewportHeight, { passive: true });
     return () => {
@@ -278,14 +280,6 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
   }, [activeIndex, totalSlides]);
 
   useEffect(() => {
-    if (!gestureLocked) return;
-    const gestureState = gestureStateRef.current;
-    if (!gestureState.active || gestureState.axis !== "vertical") return;
-    setDragOffsetPx(0);
-    resetGestureState();
-  }, [gestureLocked, resetGestureState]);
-
-  useEffect(() => {
     if (typeof window === "undefined") return;
     const resetFromVisibility = () => {
       if (document.visibilityState !== "visible") {
@@ -319,7 +313,12 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
 
   return (
     <div
-      ref={rootRef}
+      ref={(node) => {
+        rootRef.current = node;
+        if (!node || typeof window === "undefined") return;
+        const next = Math.max(1, node.clientHeight || window.innerHeight || 1);
+        setViewportHeight((current) => (current === next ? current : next));
+      }}
       className="relative h-[100svh] overflow-hidden overscroll-y-contain"
       data-testid={testId}
       style={{
@@ -376,4 +375,3 @@ export const ExplorePagerV2 = memo(function ExplorePagerV2({
     </div>
   );
 });
-

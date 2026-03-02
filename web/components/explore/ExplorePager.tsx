@@ -214,14 +214,6 @@ export function ExplorePager({
   }, [displayedIndex, feedSize, heroImageUrls]);
 
   useEffect(() => {
-    const maxIndex = Math.max(0, feedSize - 1);
-    setActiveIndex((current) => {
-      const next = Math.min(maxIndex, Math.max(0, current));
-      return next === current ? current : next;
-    });
-  }, [feedSize]);
-
-  useEffect(() => {
     if (trackedExploreViewRef.current) return;
     trackedExploreViewRef.current = true;
     trackExploreFunnelEvent({
