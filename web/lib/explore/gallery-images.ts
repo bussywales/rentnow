@@ -2,6 +2,7 @@ import {
   shouldBypassNextImageOptimizer,
   shouldUpgradeImageUrlToHttps,
 } from "@/lib/images/optimizer-bypass";
+import { resolveImagePlaceholder, type PlaceholderSource } from "@/lib/images/placeholders";
 import type { PropertyImage } from "@/lib/types";
 
 export const EXPLORE_GALLERY_FALLBACK_IMAGE = "/og-propatyhub.png";
@@ -9,6 +10,12 @@ export const EXPLORE_GALLERY_FALLBACK_IMAGE = "/og-propatyhub.png";
 type PropertyWithImageRelations = {
   images?: PropertyImage[] | null;
   property_images?: PropertyImage[] | null;
+};
+
+export type ExploreImagePlaceholderMeta = {
+  dominantColor: string;
+  blurDataURL: string;
+  source: PlaceholderSource;
 };
 
 export function resolveExplorePropertyImageRecords(
@@ -28,6 +35,23 @@ export function resolveExplorePropertyImageRecords(
     deduped.set(key, image);
   }
   return Array.from(deduped.values());
+}
+
+export function resolveExploreImagePlaceholderMeta(input: {
+  imageUrl: string | null | undefined;
+  imageRecord?: PropertyImage | null;
+}): ExploreImagePlaceholderMeta {
+  const imageRecord = input.imageRecord ?? null;
+  const resolved = resolveImagePlaceholder({
+    imageUrl: input.imageUrl,
+    blurhash: imageRecord?.blurhash ?? null,
+    dominantColor: imageRecord?.dominant_color ?? imageRecord?.dominantColor ?? null,
+  });
+  return {
+    dominantColor: resolved.dominantColor,
+    blurDataURL: resolved.blurDataURL,
+    source: resolved.source,
+  };
 }
 
 export function normalizeExploreGalleryImageUrl(

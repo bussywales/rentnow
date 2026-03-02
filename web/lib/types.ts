@@ -90,6 +90,9 @@ export interface PropertyImage {
   height?: number | null;
   bytes?: number | null;
   format?: string | null;
+  blurhash?: string | null;
+  dominant_color?: string | null;
+  dominantColor?: string | null;
   storage_path?: string | null;
   original_storage_path?: string | null;
   thumb_storage_path?: string | null;
