@@ -9,6 +9,7 @@ const goLiveSmokeSpecMatch = [
   "**/shortlets.desktop.map.smoke.spec.ts",
   "**/shortlets.mobile.smoke.spec.ts",
   "**/home.mobile.quicksearch.smoke.spec.ts",
+  "**/mobile.nav.dock.smoke.spec.ts",
   "**/home.mobile.featured.smoke.spec.ts",
   "**/explore.labs.smoke.spec.ts",
   "**/explore.v2.smoke.spec.ts",
