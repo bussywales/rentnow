@@ -32,6 +32,9 @@ import { DEFAULT_FEATURED_ELIGIBILITY_SETTINGS } from "@/lib/featured/eligibilit
 import AdminSettingsMarket from "@/components/admin/AdminSettingsMarket";
 import { DEFAULT_MARKET_SETTINGS } from "@/lib/market/market";
 import AdminSettingsBrandSocials from "@/components/admin/AdminSettingsBrandSocials";
+import AdminSettingsLayout, {
+  type AdminSettingsLayoutSection,
+} from "@/components/admin/AdminSettingsLayout";
 
 export const dynamic = "force-dynamic";
 
@@ -329,20 +332,14 @@ export default async function AdminSettingsPage() {
     ),
   };
 
-  return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 px-4 py-4">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
-        <p className="text-sm text-slate-600">
-          Admin-only feature flags and configuration.
-        </p>
-      </div>
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <h2 className="text-lg font-semibold text-slate-900">Referral program</h2>
-        <p className="text-sm text-slate-600">
-          Configure referral depth, reward rules, tier thresholds, and reward caps.
-        </p>
-        <div className="mt-3">
+  const groups: AdminSettingsLayoutSection[] = [
+    {
+      id: "referral-program",
+      title: "Referral program",
+      description: "Configure referral depth, reward rules, tier thresholds, and payout operations.",
+      keywords: ["referral", "rewards", "thresholds", "simulator", "payouts"],
+      content: (
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
           <div className="flex flex-wrap gap-4">
             <Link
               href="/admin/settings/referrals"
@@ -364,95 +361,180 @@ export default async function AdminSettingsPage() {
             </Link>
           </div>
         </div>
+      ),
+    },
+    {
+      id: "feature-toggles",
+      title: "Feature toggles",
+      description: "Global feature switches and guard toggles for tenant, host, and admin surfaces.",
+      keywords: ["feature", "toggle", "alerts", "verification", "explore", "shortlet"],
+      content: <AdminSettingsFeatureFlags settings={settings} />,
+    },
+    {
+      id: "market-defaults",
+      title: "Market defaults",
+      description: "Default country/currency settings and market auto-detection behavior.",
+      keywords: ["market", "country", "currency", "selector", "auto-detect"],
+      content: (
+        <AdminSettingsMarket
+          settings={marketSettings}
+          updatedAt={{
+            defaultCountry: marketCountryRow?.updated_at ?? null,
+            defaultCurrency: marketCurrencyRow?.updated_at ?? null,
+            autoDetectEnabled: marketAutoDetectRow?.updated_at ?? null,
+            selectorEnabled: marketSelectorRow?.updated_at ?? null,
+          }}
+        />
+      ),
+    },
+    {
+      id: "brand-socials",
+      title: "Brand & socials",
+      description: "Public-facing social links used in the footer and navigation surfaces.",
+      keywords: ["brand", "social", "instagram", "youtube", "tiktok", "facebook", "whatsapp"],
+      content: (
+        <AdminSettingsBrandSocials
+          settings={brandSocialSettings}
+          updatedAt={{
+            instagramUrl: brandSocialInstagramRow?.updated_at ?? null,
+            youtubeUrl: brandSocialYoutubeRow?.updated_at ?? null,
+            tiktokUrl: brandSocialTiktokRow?.updated_at ?? null,
+            facebookUrl: brandSocialFacebookRow?.updated_at ?? null,
+            whatsappLink: brandSocialWhatsappRow?.updated_at ?? null,
+          }}
+        />
+      ),
+    },
+    {
+      id: "featured-thresholds",
+      title: "Featured thresholds",
+      description: "Pricing visibility and eligibility guardrails for featured requests.",
+      keywords: ["featured", "requests", "pricing", "sla", "eligibility", "photos", "description"],
+      content: (
+        <AdminSettingsFeaturedRequests
+          settings={featuredSettings}
+          updatedAt={{
+            requestsEnabled: featuredRequestsEnabledRow?.updated_at ?? null,
+            price7dMinor: featuredPrice7dRow?.updated_at ?? null,
+            price30dMinor: featuredPrice30dRow?.updated_at ?? null,
+            currency: featuredCurrencyRow?.updated_at ?? null,
+            reviewSlaDays: featuredReviewSlaRow?.updated_at ?? null,
+            requiresApprovedListing: featuredRequiresApprovedRow?.updated_at ?? null,
+            requiresActiveListing: featuredRequiresActiveRow?.updated_at ?? null,
+            requiresNotDemo: featuredRequiresNotDemoRow?.updated_at ?? null,
+            minPhotos: featuredMinPhotosRow?.updated_at ?? null,
+            minDescriptionChars: featuredMinDescriptionRow?.updated_at ?? null,
+          }}
+        />
+      ),
+    },
+    {
+      id: "contact-exchange",
+      title: "Contact exchange protection",
+      description: "Controls if contact details are redacted or blocked in message surfaces.",
+      keywords: ["contact", "redact", "block", "messages", "protection"],
+      content: (
+        <AdminSettingsContactExchange
+          mode={contactMode}
+          updatedAt={contactRow?.updated_at ?? null}
+        />
+      ),
+    },
+    {
+      id: "listing-expiry",
+      title: "Listing expiry",
+      description: "Listing lifetime controls and public visibility rules for expired listings.",
+      keywords: ["listing", "expiry", "expired", "public", "visibility"],
+      content: (
+        <AdminSettingsListingExpiry
+          expiryDays={expiryDays}
+          expiryUpdatedAt={expiryRow?.updated_at ?? null}
+          showExpiredPublic={showExpiredPublic}
+          showExpiredUpdatedAt={showExpiredRow?.updated_at ?? null}
+        />
+      ),
+    },
+    {
+      id: "payg-fees",
+      title: "Pay-as-you-go fees",
+      description: "PAYG listing fee controls and trial credits for new account onboarding.",
+      keywords: ["payg", "listing fee", "trial credits", "agents", "landlords"],
+      content: (
+        <AdminSettingsPayg
+          paygEnabled={paygEnabled}
+          paygAmount={paygAmount}
+          paygUpdatedAt={paygEnabledRow?.updated_at ?? null}
+          amountUpdatedAt={paygAmountRow?.updated_at ?? null}
+          trialAgentCredits={trialAgentCredits}
+          trialLandlordCredits={trialLandlordCredits}
+          trialAgentUpdatedAt={trialAgentRow?.updated_at ?? null}
+          trialLandlordUpdatedAt={trialLandlordRow?.updated_at ?? null}
+        />
+      ),
+    },
+    {
+      id: "subscriptions-credits",
+      title: "Subscriptions & featured credits",
+      description: "Subscriptions toggle, featured fees, durations, and monthly credit bundles.",
+      keywords: ["subscriptions", "credits", "plans", "featured", "duration", "fees"],
+      content: (
+        <AdminSettingsSubscriptions
+          subscriptionsEnabled={subscriptionsEnabled}
+          subscriptionsUpdatedAt={subscriptionsRow?.updated_at ?? null}
+          paygFeaturedAmount={paygFeaturedAmount}
+          paygFeaturedUpdatedAt={paygFeaturedRow?.updated_at ?? null}
+          featuredDurationDays={featuredDurationDays}
+          featuredDurationUpdatedAt={featuredDurationRow?.updated_at ?? null}
+          plans={(planRows as Array<{
+            id: string;
+            role: string | null;
+            tier: string | null;
+            listing_credits: number | null;
+            featured_credits: number | null;
+            updated_at?: string | null;
+          }>) ?? []}
+        />
+      ),
+    },
+    {
+      id: "location-configuration",
+      title: "Location configuration",
+      description: "Operational checks for location flags and Mapbox token wiring.",
+      keywords: ["location", "mapbox", "geocode", "pin", "picker"],
+      content: (
+        <AdminLocationConfigStatus
+          flags={{
+            enable_location_picker:
+              settings.find((s) => s.key === APP_SETTING_KEYS.enableLocationPicker)?.enabled ??
+              false,
+            require_location_pin_for_publish:
+              settings.find((s) => s.key === APP_SETTING_KEYS.requireLocationPinForPublish)
+                ?.enabled ?? false,
+            show_tenant_checkin_badge:
+              settings.find((s) => s.key === APP_SETTING_KEYS.showTenantCheckinBadge)?.enabled ??
+              false,
+          }}
+          env={{
+            mapboxServerConfigured: !!process.env.MAPBOX_TOKEN,
+            mapboxClientConfigured: !!process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
+          }}
+        />
+      ),
+    },
+  ];
+
+  return (
+    <div
+      className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-4"
+      data-testid="admin-settings-page"
+    >
+      <div className="space-y-1">
+        <h1 className="text-2xl font-semibold text-slate-900">Settings</h1>
+        <p className="text-sm text-slate-600">
+          Admin-only feature flags and configuration.
+        </p>
       </div>
-      <AdminSettingsFeatureFlags settings={settings} />
-      <AdminSettingsMarket
-        settings={marketSettings}
-        updatedAt={{
-          defaultCountry: marketCountryRow?.updated_at ?? null,
-          defaultCurrency: marketCurrencyRow?.updated_at ?? null,
-          autoDetectEnabled: marketAutoDetectRow?.updated_at ?? null,
-          selectorEnabled: marketSelectorRow?.updated_at ?? null,
-        }}
-      />
-      <AdminSettingsBrandSocials
-        settings={brandSocialSettings}
-        updatedAt={{
-          instagramUrl: brandSocialInstagramRow?.updated_at ?? null,
-          youtubeUrl: brandSocialYoutubeRow?.updated_at ?? null,
-          tiktokUrl: brandSocialTiktokRow?.updated_at ?? null,
-          facebookUrl: brandSocialFacebookRow?.updated_at ?? null,
-          whatsappLink: brandSocialWhatsappRow?.updated_at ?? null,
-        }}
-      />
-      <AdminSettingsFeaturedRequests
-        settings={featuredSettings}
-        updatedAt={{
-          requestsEnabled: featuredRequestsEnabledRow?.updated_at ?? null,
-          price7dMinor: featuredPrice7dRow?.updated_at ?? null,
-          price30dMinor: featuredPrice30dRow?.updated_at ?? null,
-          currency: featuredCurrencyRow?.updated_at ?? null,
-          reviewSlaDays: featuredReviewSlaRow?.updated_at ?? null,
-          requiresApprovedListing: featuredRequiresApprovedRow?.updated_at ?? null,
-          requiresActiveListing: featuredRequiresActiveRow?.updated_at ?? null,
-          requiresNotDemo: featuredRequiresNotDemoRow?.updated_at ?? null,
-          minPhotos: featuredMinPhotosRow?.updated_at ?? null,
-          minDescriptionChars: featuredMinDescriptionRow?.updated_at ?? null,
-        }}
-      />
-      <AdminSettingsContactExchange
-        mode={contactMode}
-        updatedAt={contactRow?.updated_at ?? null}
-      />
-      <AdminSettingsListingExpiry
-        expiryDays={expiryDays}
-        expiryUpdatedAt={expiryRow?.updated_at ?? null}
-        showExpiredPublic={showExpiredPublic}
-        showExpiredUpdatedAt={showExpiredRow?.updated_at ?? null}
-      />
-      <AdminSettingsPayg
-        paygEnabled={paygEnabled}
-        paygAmount={paygAmount}
-        paygUpdatedAt={paygEnabledRow?.updated_at ?? null}
-        amountUpdatedAt={paygAmountRow?.updated_at ?? null}
-        trialAgentCredits={trialAgentCredits}
-        trialLandlordCredits={trialLandlordCredits}
-        trialAgentUpdatedAt={trialAgentRow?.updated_at ?? null}
-        trialLandlordUpdatedAt={trialLandlordRow?.updated_at ?? null}
-      />
-      <AdminSettingsSubscriptions
-        subscriptionsEnabled={subscriptionsEnabled}
-        subscriptionsUpdatedAt={subscriptionsRow?.updated_at ?? null}
-        paygFeaturedAmount={paygFeaturedAmount}
-        paygFeaturedUpdatedAt={paygFeaturedRow?.updated_at ?? null}
-        featuredDurationDays={featuredDurationDays}
-        featuredDurationUpdatedAt={featuredDurationRow?.updated_at ?? null}
-        plans={(planRows as Array<{
-          id: string;
-          role: string | null;
-          tier: string | null;
-          listing_credits: number | null;
-          featured_credits: number | null;
-          updated_at?: string | null;
-        }>) ?? []}
-      />
-      <AdminLocationConfigStatus
-        flags={{
-          enable_location_picker:
-            settings.find((s) => s.key === APP_SETTING_KEYS.enableLocationPicker)?.enabled ??
-            false,
-          require_location_pin_for_publish:
-            settings.find((s) => s.key === APP_SETTING_KEYS.requireLocationPinForPublish)
-              ?.enabled ?? false,
-          show_tenant_checkin_badge:
-            settings.find((s) => s.key === APP_SETTING_KEYS.showTenantCheckinBadge)?.enabled ??
-            false,
-        }}
-        env={{
-          mapboxServerConfigured: !!process.env.MAPBOX_TOKEN,
-          mapboxClientConfigured: !!process.env.NEXT_PUBLIC_MAPBOX_TOKEN,
-        }}
-      />
+      <AdminSettingsLayout sections={groups} />
     </div>
   );
 }
