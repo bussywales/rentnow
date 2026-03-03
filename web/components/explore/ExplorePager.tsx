@@ -667,6 +667,7 @@ export function ExplorePager({
           activeIndex={displayedIndex}
           onActiveIndexChange={handleActiveIndexChange}
           gestureLocked={isGestureLocked}
+          lockDocumentScroll
           testId="explore-pager"
           resolveSlideKey={(index) => visibleListings[index]?.id ?? String(index)}
           renderSlide={(index) => {

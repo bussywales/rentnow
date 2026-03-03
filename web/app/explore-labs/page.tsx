@@ -27,15 +27,17 @@ export default async function ExploreLabsPage() {
   const sectionedFeed = await getSectionedExploreFeed({ limit: 20, marketCountry: market.country });
 
   return (
-    <div className="mx-auto w-full max-w-xl px-2 md:px-4" data-testid="explore-labs-page">
-      <AnalyticsNoticeBanner />
-      <ExplorePager
-        listings={[...sectionedFeed.marketPicks, ...sectionedFeed.moreToExplore]}
-        sectionMeta={sectionedFeed.meta}
-        marketPickIds={sectionedFeed.marketPicks.map((listing) => listing.id)}
-        moreToExploreIds={sectionedFeed.moreToExplore.map((listing) => listing.id)}
-        pagerEngine="lite"
-      />
+    <div className="fixed inset-0 z-20 overflow-hidden overscroll-none bg-slate-950" data-testid="explore-labs-shell">
+      <div className="mx-auto h-full w-full max-w-xl overflow-hidden px-2 md:px-4" data-testid="explore-labs-page">
+        <AnalyticsNoticeBanner />
+        <ExplorePager
+          listings={[...sectionedFeed.marketPicks, ...sectionedFeed.moreToExplore]}
+          sectionMeta={sectionedFeed.meta}
+          marketPickIds={sectionedFeed.marketPicks.map((listing) => listing.id)}
+          moreToExploreIds={sectionedFeed.moreToExplore.map((listing) => listing.id)}
+          pagerEngine="lite"
+        />
+      </div>
     </div>
   );
 }

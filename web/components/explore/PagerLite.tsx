@@ -43,6 +43,7 @@ export type PagerLiteProps = {
   renderSlide: (index: number) => ReactNode;
   resolveSlideKey?: (index: number) => string;
   gestureLocked?: boolean;
+  lockDocumentScroll?: boolean;
   testId?: string;
 };
 
@@ -188,6 +189,7 @@ export const PagerLite = memo(function PagerLite({
   renderSlide,
   resolveSlideKey,
   gestureLocked = false,
+  lockDocumentScroll = false,
   testId = "explore-pager-lite",
 }: PagerLiteProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -221,6 +223,29 @@ export const PagerLite = memo(function PagerLite({
   useEffect(() => {
     isSnappingRef.current = isSnapping;
   }, [isSnapping]);
+
+  useEffect(() => {
+    if (!lockDocumentScroll) return;
+    if (typeof document === "undefined") return;
+    const html = document.documentElement;
+    const body = document.body;
+    const previous = {
+      htmlOverflow: html.style.overflow,
+      bodyOverflow: body.style.overflow,
+      htmlOverscrollBehaviorY: html.style.overscrollBehaviorY,
+      bodyOverscrollBehaviorY: body.style.overscrollBehaviorY,
+    };
+    html.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    html.style.overscrollBehaviorY = "none";
+    body.style.overscrollBehaviorY = "none";
+    return () => {
+      html.style.overflow = previous.htmlOverflow;
+      body.style.overflow = previous.bodyOverflow;
+      html.style.overscrollBehaviorY = previous.htmlOverscrollBehaviorY;
+      body.style.overscrollBehaviorY = previous.bodyOverscrollBehaviorY;
+    };
+  }, [lockDocumentScroll]);
 
   const clearSnapTimer = useCallback(() => {
     if (snapTimerRef.current === null) return;
