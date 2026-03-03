@@ -12,6 +12,7 @@ import { SessionBootstrap } from "@/components/analytics/SessionBootstrap";
 import { LegalDisclaimerBanner } from "@/components/legal/LegalDisclaimerBanner";
 import { LegalAcceptanceModalGate } from "@/components/legal/LegalAcceptanceModalGate";
 import { SupportWidget } from "@/components/support/SupportWidget";
+import { GlassDock } from "@/components/layout/GlassDock";
 import {
   BRAND,
   BRAND_NAME,
@@ -152,12 +153,15 @@ export default async function RootLayout({
           <MarketSwitchToast />
           <OfflineIndicator />
           <PwaServiceWorker />
-          <main className="min-h-[80vh] pb-24 pt-6">{children}</main>
+          <main className="min-h-[80vh] pb-[calc(7.5rem+env(safe-area-inset-bottom,0px))] pt-6 md:pb-24">
+            {children}
+          </main>
           <SupportWidget
             prefillName={supportPrefillName}
             prefillEmail={supportPrefillEmail}
             prefillRole={supportPrefillRole}
           />
+          <GlassDock />
           <Footer />
           <LegalDisclaimerBanner />
         </MarketPreferenceProvider>
