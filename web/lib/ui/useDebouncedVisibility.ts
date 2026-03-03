@@ -32,11 +32,6 @@ export function useDebouncedVisibility(
   }, []);
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      setVisible(targetVisible);
-      return;
-    }
-
     if (hideTimerRef.current !== null) {
       window.clearTimeout(hideTimerRef.current);
       hideTimerRef.current = null;
