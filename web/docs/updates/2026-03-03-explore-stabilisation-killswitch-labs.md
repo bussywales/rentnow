@@ -1,7 +1,7 @@
 ---
 title: "Explore stabilisation kill-switch and labs pager"
 areas: [Explore, Home, Admin]
-audiences: [TENANT]
+audiences: [TENANT, HOST, ADMIN]
 published_at: "2026-03-03"
 ---
 
