@@ -10,12 +10,23 @@ export const EXPLORE_GALLERY_FALLBACK_IMAGE = "/og-propatyhub.png";
 type PropertyWithImageRelations = {
   images?: PropertyImage[] | null;
   property_images?: PropertyImage[] | null;
+  cover_image_url?: string | null;
 };
 
 export type ExploreImagePlaceholderMeta = {
   dominantColor: string;
   blurDataURL: string;
   source: PlaceholderSource;
+};
+
+export type ExploreHeroImageMeta = {
+  blurhash: string | null;
+  dominantColor: string | null;
+};
+
+export type ExploreHeroImageResolution = {
+  url: string | null;
+  meta: ExploreHeroImageMeta | null;
 };
 
 export function resolveExplorePropertyImageRecords(
@@ -76,6 +87,37 @@ export function normalizeExploreGalleryImageUrl(
   } catch {
     return fallbackImage;
   }
+}
+
+export function resolveExploreHeroImageUrl(
+  property: PropertyWithImageRelations | null | undefined
+): ExploreHeroImageResolution {
+  if (!property) {
+    return { url: null, meta: null };
+  }
+
+  const records = resolveExplorePropertyImageRecords(property);
+  for (const record of records) {
+    const normalizedUrl = normalizeExploreGalleryImageUrl(record.image_url, "");
+    if (!normalizedUrl) continue;
+    return {
+      url: normalizedUrl,
+      meta: {
+        blurhash: record.blurhash ?? null,
+        dominantColor: record.dominant_color ?? record.dominantColor ?? null,
+      },
+    };
+  }
+
+  const normalizedCoverUrl = normalizeExploreGalleryImageUrl(property.cover_image_url, "");
+  if (normalizedCoverUrl) {
+    return {
+      url: normalizedCoverUrl,
+      meta: null,
+    };
+  }
+
+  return { url: null, meta: null };
 }
 
 export function shouldRenderExploreGalleryImage(
