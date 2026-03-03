@@ -95,8 +95,8 @@ export function resolveExplorePagerV3Release(input: {
   nextIndex: number;
   blocked: boolean;
 } {
-  if (input.totalSlides <= 1) {
-    return { nextIndex: 0, blocked: false };
+  if (input.totalSlides <= 0) {
+    return { nextIndex: 0, blocked: true };
   }
 
   const distanceThreshold = Math.max(
@@ -109,11 +109,13 @@ export function resolveExplorePagerV3Release(input: {
     return { nextIndex: input.activeIndex, blocked: false };
   }
 
-  let candidateIndex = input.activeIndex;
-  if (input.deltaY < 0 || input.velocityY < 0) {
-    candidateIndex = Math.min(input.totalSlides - 1, input.activeIndex + 1);
-  } else {
-    candidateIndex = Math.max(0, input.activeIndex - 1);
+  const direction = input.deltaY < 0 || input.velocityY < 0 ? 1 : -1;
+  const candidateIndex = input.activeIndex + direction;
+  if (candidateIndex < 0 || candidateIndex >= input.totalSlides) {
+    return {
+      nextIndex: input.activeIndex,
+      blocked: true,
+    };
   }
 
   if (candidateIndex !== input.activeIndex && input.canAdvanceToIndex && !input.canAdvanceToIndex(candidateIndex)) {

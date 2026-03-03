@@ -19,7 +19,6 @@ import {
 import { resolveSimilarHomes } from "@/lib/explore/similar-homes";
 import {
   EXPLORE_GALLERY_FALLBACK_IMAGE,
-  normalizeExploreGalleryImageUrl,
   resolveExplorePropertyImageRecords,
 } from "@/lib/explore/gallery-images";
 import { trackExploreFunnelEvent } from "@/lib/explore/explore-funnel";
@@ -62,18 +61,7 @@ function resolveExploreHeroImageUrl(property: Property): string {
 }
 
 export function resolveExploreSlideShellReady(property: Property | null | undefined): boolean {
-  if (!property) return false;
-  const propertyImages = resolveExplorePropertyImageRecords(property);
-  const imageSources = resolvePropertyImageSources({
-    coverImageUrl: property.cover_image_url,
-    images: propertyImages,
-    primaryImageUrl: getPrimaryImageUrl(property),
-    fallbackImage: EXPLORE_FALLBACK_IMAGE,
-  });
-  return imageSources.some((source) => {
-    const normalized = normalizeExploreGalleryImageUrl(source, EXPLORE_FALLBACK_IMAGE);
-    return normalized !== EXPLORE_FALLBACK_IMAGE;
-  });
+  return Boolean(property);
 }
 
 export function resolveExploreActiveSlideIndex(
@@ -228,6 +216,7 @@ export function ExplorePager({
   const preloadedImagesRef = useRef<Set<string>>(new Set());
   const cancelPreloadRef = useRef<(() => void) | null>(null);
   const isGestureLockedRef = useRef(false);
+  const gateDebugLoggedRef = useRef(false);
   const displayedIndexRef = useRef(0);
   const feedSizeRef = useRef(0);
   const heroImageUrlsRef = useRef<string[]>([]);
@@ -252,10 +241,6 @@ export function ExplorePager({
   );
   const heroImageUrls = useMemo(
     () => visibleListings.map((property) => resolveExploreHeroImageUrl(property)),
-    [visibleListings]
-  );
-  const slideShellReadyByIndex = useMemo(
-    () => visibleListings.map((property) => resolveExploreSlideShellReady(property)),
     [visibleListings]
   );
   const displayedIndex = Math.min(activeIndex, Math.max(0, visibleListings.length - 1));
@@ -492,6 +477,23 @@ export function ExplorePager({
     [feedSize]
   );
 
+  const canAdvanceToIndex = useCallback((nextIndex: number) => {
+    const nextListing = visibleListings[nextIndex] ?? null;
+    const nextImagesCount = nextListing ? resolveExplorePropertyImageRecords(nextListing).length : 0;
+
+    if (process.env.NODE_ENV !== "production" && typeof window !== "undefined" && !gateDebugLoggedRef.current) {
+      gateDebugLoggedRef.current = true;
+      console.info("[explore][pager-v3][gate-check]", {
+        index: displayedIndex,
+        nextIndex,
+        nextListingId: nextListing?.id ?? null,
+        nextImagesCount,
+      });
+    }
+
+    return Boolean(nextListing);
+  }, [displayedIndex, visibleListings]);
+
   const handleOpenDetails = useCallback(
     ({
       listingId,
@@ -661,7 +663,7 @@ export function ExplorePager({
         activeIndex={displayedIndex}
         onActiveIndexChange={handleActiveIndexChange}
         gestureLocked={isGestureLocked}
-        canAdvanceToIndex={(index) => Boolean(visibleListings[index]) && Boolean(slideShellReadyByIndex[index])}
+        canAdvanceToIndex={canAdvanceToIndex}
         testId="explore-pager"
         resolveSlideKey={(index) => visibleListings[index]?.id ?? String(index)}
         renderSlide={(index) => {
