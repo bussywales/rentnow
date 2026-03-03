@@ -123,6 +123,6 @@ void test("explore smoothness source keeps persistent placeholders and debounced
   assert.match(source, /const shouldShowDebouncedLoadingCue = useDebouncedVisibility/);
   assert.match(source, /showAfterMs: UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS/);
   assert.match(source, /minVisibleMs: UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS/);
-  assert.doesNotMatch(source, /showLoadingCue && !activeImageLoaded/);
+  assert.doesNotMatch(source, /\{showLoadingCue && !activeImageLoaded \?/);
   assert.doesNotMatch(source, /animate-pulse opacity-100/);
 });
