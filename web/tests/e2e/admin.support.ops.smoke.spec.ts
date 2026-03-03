@@ -159,4 +159,55 @@ test.describe("admin support ops smoke", () => {
       `admin discovery flow emitted runtime errors:\n${runtimeErrors.join("\n")}`
     ).toEqual([]);
   });
+
+  test("admin settings page supports section search and navigation", async ({ page }) => {
+    test.skip(
+      !ADMIN_EMAIL || !ADMIN_PASSWORD,
+      "Admin credentials not configured for smoke run."
+    );
+
+    const runtimeErrors = attachRuntimeErrorGuards(page);
+
+    await loginAsAdmin(page);
+    await page.goto("/admin/settings", { waitUntil: "domcontentloaded" });
+
+    if (page.url().includes("/auth/login")) {
+      test.skip(true, "Admin session could not be established.");
+    }
+
+    await expect(page.getByTestId(smokeSelectors.adminSettingsPage)).toBeVisible();
+    const search = page.getByTestId(smokeSelectors.adminSettingsSearch);
+    await expect(search).toBeVisible();
+
+    await search.fill("explore");
+    await expect(
+      page.getByTestId(smokeSelectors.adminSettingsGroupFeatureToggles)
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(smokeSelectors.adminSettingsGroupListingExpiry)
+    ).toHaveCount(0);
+
+    const exploreToggleButton = page
+      .getByTestId("admin-setting-explore_enabled")
+      .getByRole("button", { name: /enable|disable/i })
+      .first();
+    await expect(exploreToggleButton).toBeVisible();
+    await exploreToggleButton.click({ trial: true });
+
+    await page.getByRole("button", { name: "Clear search" }).click();
+    await expect(search).toHaveValue("");
+
+    await page
+      .getByTestId(smokeSelectors.adminSettingsSidebarLinkListingExpiry)
+      .first()
+      .click();
+    await expect(
+      page.getByTestId(smokeSelectors.adminSettingsGroupListingExpiry)
+    ).toBeVisible();
+
+    expect(
+      runtimeErrors,
+      `admin settings flow emitted runtime errors:\n${runtimeErrors.join("\n")}`
+    ).toEqual([]);
+  });
 });
