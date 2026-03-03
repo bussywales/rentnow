@@ -149,6 +149,13 @@ export function MobileQuickStartBar({ showExploreChip = true }: MobileQuickStart
           </Link>
         ))}
       </div>
+      <Link
+        href="/explore-v2"
+        className="mt-2 inline-flex rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-medium text-slate-600"
+        data-testid="explore-v2-entry"
+      >
+        Explore V2 (experimental)
+      </Link>
       <MobileQuickSearchSheet
         key={market.country}
         open={searchOpen}
