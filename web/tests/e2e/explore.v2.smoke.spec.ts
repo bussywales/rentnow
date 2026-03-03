@@ -35,6 +35,9 @@ test("explore-v2 feed renders and stays stable after native scroll", async ({ pa
   await expect(page.getByTestId(smokeSelectors.exploreV2Page)).toBeVisible();
   await expect(page.getByTestId(smokeSelectors.exploreV2Feed)).toBeVisible();
   await expect.poll(async () => page.getByTestId(smokeSelectors.exploreV2Card).count()).toBeGreaterThan(0);
+  await expect
+    .poll(async () => page.getByTestId(smokeSelectors.exploreV2HeroHasImage).count())
+    .toBeGreaterThan(0);
 
   await page.evaluate(() => window.scrollBy(0, 900));
   await expect.poll(async () => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);

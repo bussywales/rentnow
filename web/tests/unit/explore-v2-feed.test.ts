@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { ExploreV2Feed } from "@/components/explore-v2/ExploreV2Feed";
 import { resolveExploreV2PageData } from "@/app/explore-v2/page";
 import type { Property } from "@/lib/types";
+import { resolveExploreHeroImageUrl } from "@/lib/explore/gallery-images";
 
 function createExploreV2Listing(overrides: Partial<Property>): Property {
   return {
@@ -58,4 +59,35 @@ void test("explore-v2 page data resolver supports mocked server feed fixtures", 
 
   assert.equal(data.listings.length, 1);
   assert.equal(data.listings[0]?.id, "fixture-1");
+});
+
+void test("explore-v2 hero resolver returns normalized hero url from property_images", () => {
+  const hero = resolveExploreHeroImageUrl({
+    images: [],
+    property_images: [
+      {
+        id: "img-hero",
+        image_url: "https://example.supabase.co/storage/v1/object/public/images/hero.jpg",
+        blurhash: "L5H2EC=PM+yV0g-mq.wG9c010J}I",
+        dominant_color: "#112233",
+      },
+    ],
+  });
+
+  assert.equal(
+    hero.url,
+    "https://example.supabase.co/storage/v1/object/public/images/hero.jpg"
+  );
+  assert.equal(hero.meta?.dominantColor, "#112233");
+});
+
+void test("explore-v2 hero resolver returns null when listing has no usable images", () => {
+  const hero = resolveExploreHeroImageUrl({
+    images: [],
+    property_images: [],
+    cover_image_url: null,
+  });
+
+  assert.equal(hero.url, null);
+  assert.equal(hero.meta, null);
 });

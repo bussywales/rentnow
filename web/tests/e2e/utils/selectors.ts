@@ -39,6 +39,7 @@ export const smokeSelectors = {
   exploreV2Page: "explore-v2-page",
   exploreV2Feed: "explore-v2-feed",
   exploreV2Card: "explore-v2-card",
+  exploreV2HeroHasImage: "explore-v2-hero-has-image",
   explorePager: "explore-pager",
   explorePagerLiteTrack: "explore-pager-lite-track",
   exploreSlide: "explore-slide",
