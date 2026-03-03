@@ -107,10 +107,17 @@ const QUICK_START_LINKS = [
   },
 ] as const;
 
-export function MobileQuickStartBar() {
+type MobileQuickStartBarProps = {
+  showExploreChip?: boolean;
+};
+
+export function MobileQuickStartBar({ showExploreChip = true }: MobileQuickStartBarProps) {
   const [searchOpen, setSearchOpen] = useState(false);
   const { market } = useMarketPreference();
   const quickSearchSheetId = "mobile-quicksearch-sheet-dialog";
+  const quickStartLinks = showExploreChip
+    ? QUICK_START_LINKS
+    : QUICK_START_LINKS.filter((entry) => entry.key !== "explore");
 
   return (
     <section
@@ -130,7 +137,7 @@ export function MobileQuickStartBar() {
         Search for homes or stays
       </button>
       <div className="scrollbar-none -mx-1 mt-3 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1">
-        {QUICK_START_LINKS.map((entry) => (
+        {quickStartLinks.map((entry) => (
           <Link
             key={entry.key}
             href={entry.href}

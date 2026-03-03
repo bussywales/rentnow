@@ -26,6 +26,7 @@ import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
+import { isExploreEnabled } from "@/lib/settings/explore";
 
 const HOME_MOBILE_WHY_COLLAPSED_KEY = "home:public:why-propatyhub:collapsed:v1";
 
@@ -43,6 +44,7 @@ export default async function Home() {
     profileId = profile?.id ?? null;
   }
   const listingCta = getListingCta(role);
+  const exploreEnabled = await isExploreEnabled();
 
   if (supabaseReady) {
     try {
@@ -169,7 +171,7 @@ export default async function Home() {
 
   return (
     <div className="mx-auto flex max-w-6xl flex-col gap-10 px-4">
-      <MobileQuickStartBar />
+      <MobileQuickStartBar showExploreChip={exploreEnabled} />
       <section className="space-y-4 md:hidden" data-testid="mobile-home-inventory-first">
         {featuredRailListings.length ? (
           <HomeListingRail

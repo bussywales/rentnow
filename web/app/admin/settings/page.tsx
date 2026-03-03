@@ -64,6 +64,7 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.verificationRequireBank,
       APP_SETTING_KEYS.alertsEmailEnabled,
       APP_SETTING_KEYS.alertsKillSwitchEnabled,
+      APP_SETTING_KEYS.exploreEnabled,
       APP_SETTING_KEYS.defaultMarketCountry,
       APP_SETTING_KEYS.defaultMarketCurrency,
       APP_SETTING_KEYS.marketAutoDetectEnabled,
@@ -115,6 +116,7 @@ export default async function AdminSettingsPage() {
     APP_SETTING_KEYS.verificationRequireBank,
     APP_SETTING_KEYS.alertsEmailEnabled,
     APP_SETTING_KEYS.alertsKillSwitchEnabled,
+    APP_SETTING_KEYS.exploreEnabled,
     APP_SETTING_KEYS.shortletPaymentsStripeEnabled,
     APP_SETTING_KEYS.shortletPaymentsPaystackEnabled,
     APP_SETTING_KEYS.shortletAutoPayoutsEnabled,
@@ -126,6 +128,7 @@ export default async function AdminSettingsPage() {
       key === APP_SETTING_KEYS.demoBadgeEnabled ||
       key === APP_SETTING_KEYS.featuredListingsEnabled ||
       key === APP_SETTING_KEYS.verificationRequireEmail ||
+      key === APP_SETTING_KEYS.exploreEnabled ||
       key === APP_SETTING_KEYS.shortletPaymentsStripeEnabled ||
       key === APP_SETTING_KEYS.shortletPaymentsPaystackEnabled;
     return {

@@ -79,6 +79,11 @@ const DESCRIPTIONS: Partial<Record<AppSettingKey, { title: string; helper: strin
     title: "Alerts kill switch",
     helper: "Emergency stop for all saved-search email sends, regardless of overrides.",
   },
+  [APP_SETTING_KEYS.exploreEnabled]: {
+    title: "Explore feed availability",
+    helper:
+      "Disable to hide Explore entry points on home and show a temporary unavailable screen on /explore.",
+  },
   [APP_SETTING_KEYS.shortletPaymentsStripeEnabled]: {
     title: "Shortlet Stripe checkout",
     helper: "Enable card checkout for shortlet bookings.",

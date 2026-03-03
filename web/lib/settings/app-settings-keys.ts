@@ -50,6 +50,7 @@ export const APP_SETTING_KEYS = {
   alertsEmailEnabled: "alerts_email_enabled",
   alertsKillSwitchEnabled: "alerts_kill_switch_enabled",
   alertsLastRunStatusJson: "alerts_last_run_status_json",
+  exploreEnabled: "explore_enabled",
   exploreAnalyticsEnabled: "explore_analytics_enabled",
   exploreAnalyticsConsentRequired: "explore_analytics_consent_required",
   exploreAnalyticsNoticeEnabled: "explore_analytics_notice_enabled",
