@@ -3,9 +3,13 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  continueExploreV2Cta,
   ExploreV2Card,
+  resolveExploreV2ActionContext,
   resolveExploreV2CarouselItems,
   resolveExploreV2HeroUiState,
+  trackExploreV2SaveToggle,
+  triggerExploreV2ShareAction,
 } from "@/components/explore-v2/ExploreV2Card";
 import type { Property, PropertyImage } from "@/lib/types";
 
@@ -99,6 +103,9 @@ void test("explore-v2 card renders carousel with count and dots for multi-image 
   assert.match(html, /data-testid=\"explore-v2-hero-carousel\"/);
   assert.match(html, /data-testid=\"explore-v2-hero-carousel-count-badge\"/);
   assert.match(html, /data-testid=\"explore-v2-hero-carousel-dots\"/);
+  assert.match(html, /data-testid=\"explore-v2-action-rail\"/);
+  assert.match(html, /data-testid=\"explore-v2-share-action\"/);
+  assert.match(html, /data-testid=\"explore-v2-cta-action\"/);
 });
 
 void test("explore-v2 card hides count and dots for single-image listing", () => {
@@ -120,4 +127,93 @@ void test("explore-v2 card hides count and dots for single-image listing", () =>
   assert.match(html, /data-testid=\"explore-v2-hero-carousel\"/);
   assert.doesNotMatch(html, /data-testid=\"explore-v2-hero-carousel-count-badge\"/);
   assert.doesNotMatch(html, /data-testid=\"explore-v2-hero-carousel-dots\"/);
+});
+
+void test("explore-v2 save toggle analytics helper emits saved/unsaved results", () => {
+  const listing = createExploreV2Listing({ id: "listing-save", country_code: "NG" });
+  const context = resolveExploreV2ActionContext({
+    listing,
+    index: 2,
+    feedSize: 12,
+  });
+  const emitted: Array<{ name?: string; result?: string | null }> = [];
+
+  trackExploreV2SaveToggle({
+    context,
+    saved: true,
+    trackFn: (event) => {
+      emitted.push({ name: event.name, result: event.result ?? null });
+      return [];
+    },
+  });
+  trackExploreV2SaveToggle({
+    context,
+    saved: false,
+    trackFn: (event) => {
+      emitted.push({ name: event.name, result: event.result ?? null });
+      return [];
+    },
+  });
+
+  assert.deepEqual(emitted, [
+    { name: "explore_v2_save_toggle", result: "saved" },
+    { name: "explore_v2_save_toggle", result: "unsaved" },
+  ]);
+});
+
+void test("explore-v2 share helper uses share util and emits analytics", async () => {
+  const listing = createExploreV2Listing({ id: "listing-share", country_code: "NG" });
+  const context = resolveExploreV2ActionContext({ listing, index: 1, feedSize: 10 });
+  const tracked: string[] = [];
+  const sharePayloads: string[] = [];
+
+  const result = await triggerExploreV2ShareAction(
+    {
+      detailsHref: `/properties/${listing.id}?source=explore_v0`,
+      title: listing.title,
+      locationLine: "Lagos, NG",
+      context,
+    },
+    {
+      origin: "https://propatyhub.com",
+      shareFn: async (payload) => {
+        sharePayloads.push(payload.url);
+        return "shared";
+      },
+      trackFn: (event) => {
+        tracked.push(event.name);
+        return [];
+      },
+    }
+  );
+
+  assert.equal(result, "shared");
+  assert.equal(sharePayloads[0], `https://propatyhub.com/properties/${listing.id}?source=explore_v0`);
+  assert.deepEqual(tracked, ["explore_v2_share"]);
+});
+
+void test("explore-v2 cta continue helper tracks and navigates", () => {
+  const listing = createExploreV2Listing({ id: "listing-cta", country_code: "NG" });
+  const context = resolveExploreV2ActionContext({ listing, index: 0, feedSize: 4 });
+  let pushedHref: string | null = null;
+  const tracked: string[] = [];
+
+  continueExploreV2Cta(
+    {
+      href: `/properties/${listing.id}?source=explore_v0#cta`,
+      context,
+    },
+    {
+      pushFn: (href) => {
+        pushedHref = href;
+      },
+      trackFn: (event) => {
+        tracked.push(event.name);
+        return [];
+      },
+    }
+  );
+
+  assert.equal(pushedHref, `/properties/${listing.id}?source=explore_v0#cta`);
+  assert.deepEqual(tracked, ["explore_v2_cta_continue"]);
 });

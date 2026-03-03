@@ -19,7 +19,11 @@ export type ExploreAnalyticsEventName =
   | "explore_continue_booking"
   | "explore_save_toggle"
   | "explore_share"
-  | "explore_not_interested";
+  | "explore_not_interested"
+  | "explore_v2_save_toggle"
+  | "explore_v2_share"
+  | "explore_v2_cta_open"
+  | "explore_v2_cta_continue";
 
 export type ExploreAnalyticsEvent = {
   name: ExploreAnalyticsEventName;

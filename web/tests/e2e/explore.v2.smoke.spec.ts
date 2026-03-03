@@ -41,6 +41,20 @@ test("explore-v2 feed renders and stays stable after native scroll", async ({ pa
   await expect
     .poll(async () => page.getByTestId(smokeSelectors.exploreV2HeroHasImage).count())
     .toBeGreaterThan(0);
+  await expect
+    .poll(async () => page.getByTestId(smokeSelectors.exploreV2ActionRail).count())
+    .toBeGreaterThan(0);
+
+  const firstSaveToggle = page.locator('[data-testid^="explore-v2-save-toggle-"]').first();
+  await expect(firstSaveToggle).toBeVisible();
+  const previousSaved = (await firstSaveToggle.getAttribute("aria-pressed")) === "true";
+  await firstSaveToggle.click();
+  await expect(firstSaveToggle).toHaveAttribute("aria-pressed", previousSaved ? "false" : "true");
+
+  await page.getByTestId(smokeSelectors.exploreV2CtaAction).first().click();
+  await expect(page.getByTestId(smokeSelectors.exploreV2CtaSheet)).toBeVisible();
+  await page.getByTestId(smokeSelectors.exploreV2CtaClose).click();
+  await expect(page.getByTestId(smokeSelectors.exploreV2CtaSheet)).toHaveCount(0);
 
   const countPillCount = await page.getByTestId(smokeSelectors.exploreV2HeroCarouselCountBadge).count();
   if (countPillCount > 0) {

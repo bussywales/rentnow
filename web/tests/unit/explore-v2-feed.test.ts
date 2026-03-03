@@ -39,6 +39,7 @@ void test("explore-v2 feed renders root and cards for listing fixtures", () => {
   assert.match(html, /data-testid="explore-v2-feed"/);
   const cardMatches = html.match(/data-testid="explore-v2-card"/g) ?? [];
   assert.ok(cardMatches.length >= 1, "expected explore-v2 cards to render for fixture listings");
+  assert.match(html, /data-testid="explore-v2-action-rail"/);
 });
 
 void test("explore-v2 page data resolver supports mocked server feed fixtures", async () => {

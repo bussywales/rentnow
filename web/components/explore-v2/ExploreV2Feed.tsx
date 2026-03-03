@@ -55,11 +55,13 @@ function ExploreV2FeedInner({ listings, marketCurrency }: ExploreV2FeedProps) {
             listing={listing}
             marketCurrency={marketCurrency}
             imageRecords={imageRecords}
+            index={index}
+            feedSize={listings.length}
           />
         </div>
       );
     },
-    [marketCurrency]
+    [listings.length, marketCurrency]
   );
 
   const handleRangeChanged = useCallback((range: ListRange) => {
