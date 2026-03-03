@@ -24,6 +24,7 @@ import {
   resolveImagePlaceholder,
   type PlaceholderSource,
 } from "@/lib/images/placeholders";
+import { useDebouncedVisibility } from "@/lib/ui/useDebouncedVisibility";
 
 export type UnifiedImageCarouselItem = {
   id?: string;
@@ -71,6 +72,8 @@ const BLUR_DATA_URL =
 const directImageLoader: ImageLoader = ({ src }) => src;
 const UNIFIED_CAROUSEL_DEFAULT_MAX_CONCURRENT_IMAGE_LOADS = 3;
 const UNIFIED_CAROUSEL_PROGRESSIVE_IDLE_DELAY_MS = 260;
+export const UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS = 300;
+export const UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS = 600;
 
 type UnifiedIdleCallback = (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void;
 type UnifiedIdleWindow = Window & {
@@ -284,6 +287,10 @@ export function UnifiedImageCarousel({
     return `${activeItem.id ?? boundedSelectedIndex}:${activeItem.src}`;
   }, [boundedSelectedIndex, imageItems]);
   const activeImageLoaded = activeImageLoadKey ? loadedImageKeys.has(activeImageLoadKey) : false;
+  const shouldShowDebouncedLoadingCue = useDebouncedVisibility(showLoadingCue && !activeImageLoaded, {
+    showAfterMs: UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS,
+    minVisibleMs: UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS,
+  });
   const shouldShowControls = shouldRenderUnifiedImageCarouselControls(totalImages);
   const shouldShowArrows = showArrows ?? shouldShowControls;
   const shouldShowCountBadge = showCountBadge ?? shouldRenderUnifiedImageCarouselCountBadge(totalImages);
@@ -457,7 +464,7 @@ export function UnifiedImageCarousel({
       >
         <div className={cn("flex h-full snap-x snap-mandatory overscroll-x-contain", allowDrag ? "touch-pan-x" : "touch-pan-y")}>
           {imageItems.map((item, index) => {
-            const slideKey = item.id ?? `${item.src}-${index}`;
+            const slideKey = item.id ?? `slide-${index}`;
             const loadKey = `${item.id ?? index}:${item.src}`;
             const isActiveSlide = index === boundedSelectedIndex;
             const shouldRenderImage = mountedImageIndexes.has(index);
@@ -469,24 +476,16 @@ export function UnifiedImageCarousel({
             const bypassOptimizer = shouldBypassNextImageOptimizer(item.src);
             const imageLoading = resolveImageLoadingProfile(prioritizeFirstImage && index === 0);
             const imageElement = (
-              shouldRenderImage ? (
-                <div className="relative h-full w-full overflow-hidden">
-                  <div
-                    className={cn(
-                      "absolute inset-0 scale-[1.04] transition-opacity duration-300",
-                      imageLoaded ? "opacity-0" : "animate-pulse opacity-100"
-                    )}
-                    style={placeholder.style}
-                    data-placeholder-source={placeholder.source}
-                    aria-hidden
-                  />
-                  <div
-                    className={cn(
-                      "absolute inset-0 bg-gradient-to-b from-white/8 via-transparent to-slate-900/28 transition-opacity duration-300",
-                      imageLoaded ? "opacity-0" : "opacity-100"
-                    )}
-                    aria-hidden
-                  />
+              <div className="relative h-full w-full overflow-hidden">
+                <div
+                  className="absolute inset-0 scale-[1.04]"
+                  style={placeholder.style}
+                  data-placeholder-source={placeholder.source}
+                  data-placeholder-persistent="true"
+                  aria-hidden
+                />
+                <div className="absolute inset-0 bg-gradient-to-b from-white/8 via-transparent to-slate-900/28" aria-hidden />
+                {shouldRenderImage ? (
                   <Image
                     src={item.src}
                     alt={item.alt}
@@ -525,17 +524,8 @@ export function UnifiedImageCarousel({
                       onImageError?.({ imageUrl: item.src, index });
                     }}
                   />
-                </div>
-              ) : (
-                <div
-                  className="relative h-full w-full overflow-hidden"
-                  style={placeholder.style}
-                  data-placeholder-source={placeholder.source}
-                  aria-hidden
-                >
-                  <div className="absolute inset-0 bg-gradient-to-b from-white/8 via-transparent to-slate-900/28" />
-                </div>
-              )
+                ) : null}
+              </div>
             );
 
             return (
@@ -578,11 +568,15 @@ export function UnifiedImageCarousel({
         </span>
       ) : null}
 
-      {showLoadingCue && !activeImageLoaded ? (
+      {showLoadingCue ? (
         <span
-          className="pointer-events-none absolute left-3 top-3 z-10 rounded-full border border-white/30 bg-slate-900/65 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white/90"
+          className={cn(
+            "pointer-events-none absolute left-3 top-3 z-10 rounded-full border border-white/30 bg-slate-900/65 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-white/90 transition-opacity duration-200",
+            shouldShowDebouncedLoadingCue ? "opacity-100" : "opacity-0"
+          )}
           data-testid={`${rootTestId}-loading-cue`}
-          aria-live="polite"
+          aria-hidden={!shouldShowDebouncedLoadingCue}
+          aria-live={shouldShowDebouncedLoadingCue ? "polite" : undefined}
         >
           Loading...
         </span>
