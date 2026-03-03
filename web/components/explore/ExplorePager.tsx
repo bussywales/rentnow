@@ -25,6 +25,7 @@ import { trackExploreFunnelEvent } from "@/lib/explore/explore-funnel";
 import { resolveExploreAnalyticsIntentType } from "@/lib/explore/explore-presentation";
 import { ExplorePagerV2 } from "@/components/explore/ExplorePagerV2";
 import { readShouldConserveData } from "@/lib/explore/network-hints";
+import { predecodeImageUrl } from "@/lib/images/decode";
 
 type ExplorePagerProps = {
   listings: Property[];
@@ -99,6 +100,12 @@ export function resolveExplorePreloadImageUrls({
 
 export function shouldPreloadExploreSlideImages(shouldConserveData: boolean | undefined, gestureLocked = false): boolean {
   return !shouldConserveData && !gestureLocked;
+}
+
+export function resolveExploreNextSlideIndexForPredecode(activeIndex: number, totalSlides: number): number | null {
+  const nextIndex = activeIndex + 1;
+  if (nextIndex < 0 || nextIndex >= totalSlides) return null;
+  return nextIndex;
 }
 
 export function scheduleExplorePreloadTask(task: () => void): () => void {
@@ -200,6 +207,7 @@ export function ExplorePager({
   marketPickIds = [],
   moreToExploreIds = [],
 }: ExplorePagerProps) {
+  const EXPLORE_HERO_PREDECODE_MAX_CONCURRENT = 2;
   const { market } = useMarketPreference();
   const preloadedImagesRef = useRef<Set<string>>(new Set());
   const cancelPreloadRef = useRef<(() => void) | null>(null);
@@ -256,6 +264,26 @@ export function ExplorePager({
     displayedIndexRef.current = displayedIndex;
     feedSizeRef.current = feedSize;
     heroImageUrlsRef.current = heroImageUrls;
+  }, [displayedIndex, feedSize, heroImageUrls]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const shouldConserveData = readShouldConserveData();
+    if (shouldConserveData || isGestureLockedRef.current) return;
+    const nextIndex = resolveExploreNextSlideIndexForPredecode(displayedIndex, feedSize);
+    if (nextIndex === null) return;
+    const nextHeroImageUrl = heroImageUrls[nextIndex];
+    if (!nextHeroImageUrl || nextHeroImageUrl === EXPLORE_FALLBACK_IMAGE) return;
+    const cancel = scheduleExplorePreloadTask(() => {
+      if (isGestureLockedRef.current || readShouldConserveData()) return;
+      void predecodeImageUrl({
+        imageUrl: nextHeroImageUrl,
+        maxConcurrent: EXPLORE_HERO_PREDECODE_MAX_CONCURRENT,
+      });
+    });
+    return () => {
+      cancel();
+    };
   }, [displayedIndex, feedSize, heroImageUrls]);
 
   useEffect(() => {
@@ -620,7 +648,6 @@ export function ExplorePager({
           if (!property) return null;
           return (
             <ExploreSlide
-              key={property.id}
               property={property}
               index={index}
               slideDistance={Math.abs(index - displayedIndex)}
