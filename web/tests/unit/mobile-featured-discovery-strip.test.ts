@@ -183,7 +183,7 @@ void test("public home mounts mobile featured homes rail before featured discove
   const sourcePath = path.join(process.cwd(), "app", "page.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
-  assert.match(source, /<MobileQuickStartBar \/>/);
+  assert.match(source, /<MobileQuickStartBar[^>]*\/>/);
   assert.match(source, /data-testid="mobile-home-inventory-first"/);
   assert.match(source, /<MobileFeaturedDiscoveryStrip \/>/);
   assert.match(source, /sectionTestId="mobile-home-featured-rail"/);
