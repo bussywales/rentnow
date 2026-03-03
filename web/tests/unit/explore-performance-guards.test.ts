@@ -5,6 +5,7 @@ import path from "node:path";
 
 import {
   preloadExploreImageUrlsWithConcurrency,
+  resolveExploreNextSlideIndexForPredecode,
   resolveExplorePreloadImageUrls,
   resolveExplorePreloadSlideIndexes,
   shouldPreloadExploreSlideImages,
@@ -30,6 +31,12 @@ void test("explore preload is disabled for saveData and active gesture locks", (
   assert.equal(shouldPreloadExploreSlideImages(true, false), false);
   assert.equal(shouldPreloadExploreSlideImages(false, true), false);
   assert.equal(shouldPreloadExploreSlideImages(false, false), true);
+});
+
+void test("explore predecode targets only the next slide hero image", () => {
+  assert.equal(resolveExploreNextSlideIndexForPredecode(0, 4), 1);
+  assert.equal(resolveExploreNextSlideIndexForPredecode(2, 4), 3);
+  assert.equal(resolveExploreNextSlideIndexForPredecode(3, 4), null);
 });
 
 void test("explore preload concurrency cap limits in-flight image mounts", () => {
@@ -84,6 +91,8 @@ void test("explore pager source keeps idle-safe preload scheduler and cancellati
   assert.match(source, /resolveExplorePreloadSlideIndexes/);
   assert.match(source, /resolveExplorePreloadImageUrls/);
   assert.match(source, /preloadExploreImageUrlsWithConcurrency/);
+  assert.match(source, /resolveExploreNextSlideIndexForPredecode/);
+  assert.match(source, /predecodeImageUrl/);
   assert.match(source, /requestIdleCallback/);
   assert.match(source, /cancelPreloadRef/);
   assert.match(source, /isGestureLockedRef/);

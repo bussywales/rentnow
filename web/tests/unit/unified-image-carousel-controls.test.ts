@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 import {
+  UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS,
+  UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS,
   resolveUnifiedImageCarouselLoadCandidates,
   resolveUnifiedImageCarouselMaxConcurrentImageLoads,
   resolveUnifiedImagePlaceholderPresentation,
@@ -156,6 +158,7 @@ void test("unified image carousel consumes the shared interaction policy module"
   assert.ok(contents.includes('from "@/lib/ui/carousel-interactions"'));
   assert.ok(contents.includes('from "@/lib/images/loading-profile"'));
   assert.ok(contents.includes('from "@/lib/images/optimizer-bypass"'));
+  assert.ok(contents.includes('from "@/lib/ui/useDebouncedVisibility"'));
   assert.ok(contents.includes("shouldTreatWheelAsHorizontal(event)"));
   assert.ok(contents.includes("accumulateWheelDelta"));
   assert.ok(contents.includes("resolveWheelDirectionFromAccumulatedDelta"));
@@ -163,5 +166,11 @@ void test("unified image carousel consumes the shared interaction policy module"
   assert.ok(contents.includes("unoptimized={bypassOptimizer}"));
   assert.ok(contents.includes("loader={bypassOptimizer ? directImageLoader : undefined}"));
   assert.ok(contents.includes("data-placeholder-source={placeholder.source}"));
-  assert.ok(contents.includes('imageLoaded ? "opacity-0" : "animate-pulse opacity-100"'));
+  assert.ok(contents.includes('data-placeholder-persistent="true"'));
+  assert.ok(contents.includes("const shouldShowDebouncedLoadingCue = useDebouncedVisibility"));
+  assert.ok(contents.includes('showAfterMs: UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS'));
+  assert.ok(contents.includes('minVisibleMs: UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS'));
+  assert.ok(contents.includes('shouldShowDebouncedLoadingCue ? "opacity-100" : "opacity-0"'));
+  assert.equal(UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS, 300);
+  assert.equal(UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS, 600);
 });
