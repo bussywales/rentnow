@@ -24,6 +24,7 @@ import {
 import { trackExploreFunnelEvent } from "@/lib/explore/explore-funnel";
 import { resolveExploreAnalyticsIntentType } from "@/lib/explore/explore-presentation";
 import { ExplorePagerV3 } from "@/components/explore/ExplorePagerV3";
+import { PagerLite } from "@/components/explore/PagerLite";
 import { readShouldConserveData } from "@/lib/explore/network-hints";
 import { predecodeImageUrl } from "@/lib/images/decode";
 
@@ -38,6 +39,7 @@ type ExplorePagerProps = {
   };
   marketPickIds?: string[];
   moreToExploreIds?: string[];
+  pagerEngine?: "v3" | "lite";
 };
 
 const EXPLORE_FALLBACK_IMAGE = EXPLORE_GALLERY_FALLBACK_IMAGE;
@@ -210,6 +212,7 @@ export function ExplorePager({
   sectionMeta,
   marketPickIds = [],
   moreToExploreIds = [],
+  pagerEngine = "v3",
 }: ExplorePagerProps) {
   const EXPLORE_HERO_PREDECODE_MAX_CONCURRENT = 2;
   const { market } = useMarketPreference();
@@ -658,35 +661,66 @@ export function ExplorePager({
         section={activeSection}
         limitedResults={Boolean(sectionMeta?.limitedResults && activeSection === "more_to_explore")}
       />
-      <ExplorePagerV3
-        totalSlides={feedSize}
-        activeIndex={displayedIndex}
-        onActiveIndexChange={handleActiveIndexChange}
-        gestureLocked={isGestureLocked}
-        canAdvanceToIndex={canAdvanceToIndex}
-        testId="explore-pager"
-        resolveSlideKey={(index) => visibleListings[index]?.id ?? String(index)}
-        renderSlide={(index) => {
-          const property = visibleListings[index];
-          if (!property) return null;
-          return (
-            <ExploreSlide
-              property={property}
-              index={index}
-              slideDistance={Math.abs(index - displayedIndex)}
-              onGestureLockChange={handleGestureLockChange}
-              onNotInterested={handleNotInterested}
-              similarHomes={similarHomesByListingId.get(property.id) ?? []}
-              onSelectSimilarHome={handleSelectSimilarHome}
-              onOpenDetails={handleOpenDetails}
-              onPrimaryActionTap={handlePrimaryActionTap}
-              onSaveToggle={handleSaveToggle}
-              onShareAction={handleShareAction}
-              feedSize={feedSize}
-            />
-          );
-        }}
-      />
+      {pagerEngine === "lite" ? (
+        <PagerLite
+          totalSlides={feedSize}
+          activeIndex={displayedIndex}
+          onActiveIndexChange={handleActiveIndexChange}
+          gestureLocked={isGestureLocked}
+          testId="explore-pager"
+          resolveSlideKey={(index) => visibleListings[index]?.id ?? String(index)}
+          renderSlide={(index) => {
+            const property = visibleListings[index];
+            if (!property) return null;
+            return (
+              <ExploreSlide
+                property={property}
+                index={index}
+                slideDistance={Math.abs(index - displayedIndex)}
+                onGestureLockChange={handleGestureLockChange}
+                onNotInterested={handleNotInterested}
+                similarHomes={similarHomesByListingId.get(property.id) ?? []}
+                onSelectSimilarHome={handleSelectSimilarHome}
+                onOpenDetails={handleOpenDetails}
+                onPrimaryActionTap={handlePrimaryActionTap}
+                onSaveToggle={handleSaveToggle}
+                onShareAction={handleShareAction}
+                feedSize={feedSize}
+              />
+            );
+          }}
+        />
+      ) : (
+        <ExplorePagerV3
+          totalSlides={feedSize}
+          activeIndex={displayedIndex}
+          onActiveIndexChange={handleActiveIndexChange}
+          gestureLocked={isGestureLocked}
+          canAdvanceToIndex={canAdvanceToIndex}
+          testId="explore-pager"
+          resolveSlideKey={(index) => visibleListings[index]?.id ?? String(index)}
+          renderSlide={(index) => {
+            const property = visibleListings[index];
+            if (!property) return null;
+            return (
+              <ExploreSlide
+                property={property}
+                index={index}
+                slideDistance={Math.abs(index - displayedIndex)}
+                onGestureLockChange={handleGestureLockChange}
+                onNotInterested={handleNotInterested}
+                similarHomes={similarHomesByListingId.get(property.id) ?? []}
+                onSelectSimilarHome={handleSelectSimilarHome}
+                onOpenDetails={handleOpenDetails}
+                onPrimaryActionTap={handlePrimaryActionTap}
+                onSaveToggle={handleSaveToggle}
+                onShareAction={handleShareAction}
+                feedSize={feedSize}
+              />
+            );
+          }}
+        />
+      )}
       {undoHiddenListingId ? (
         <div
           className="pointer-events-auto absolute bottom-[max(env(safe-area-inset-bottom),1rem)] left-1/2 z-30 flex -translate-x-1/2 items-center gap-3 rounded-full border border-white/20 bg-slate-950/70 px-3 py-1.5 text-xs text-white shadow-lg backdrop-blur"
