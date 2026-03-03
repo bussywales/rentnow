@@ -346,7 +346,11 @@ function ExploreGalleryInner({
 
   return (
     <div
-      className={canSwipeImages ? "h-full w-full touch-pan-x" : "h-full w-full touch-pan-y"}
+      className={
+        canSwipeImages
+          ? "relative h-full min-h-[100svh] w-full overflow-hidden aspect-[4/5] md:aspect-auto touch-pan-x"
+          : "relative h-full min-h-[100svh] w-full overflow-hidden aspect-[4/5] md:aspect-auto touch-pan-y"
+      }
       onPointerDownCapture={handlePointerDownCapture}
       onPointerMoveCapture={handlePointerMoveCapture}
       onPointerUpCapture={resetGestureLock}
@@ -363,13 +367,14 @@ function ExploreGalleryInner({
         overscrollBehaviorX: "contain",
       }}
       data-testid="explore-gallery-gesture-layer"
+      data-gallery-shell="reserved"
     >
       <UnifiedImageCarousel
         items={items}
         fallbackImage={FALLBACK_IMAGE}
         blurDataURL={BLUR_DATA_URL}
         sizes="100vw"
-        className="h-full w-full bg-slate-900"
+        className="h-full min-h-[100svh] w-full bg-slate-900"
         imageClassName="object-cover"
         slideClassName="h-full"
         rootTestId="explore-gallery"
