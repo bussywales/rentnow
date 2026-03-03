@@ -15,6 +15,7 @@ const PAGER_LITE_CAROUSEL_SELECTOR = '[data-testid="explore-gallery-gesture-laye
 
 type PagerLiteAxis = "horizontal" | "vertical" | null;
 type PagerLiteWheelDirection = "next" | "prev";
+type PagerLiteGestureOwner = "pending" | "pager" | "carousel" | "ignore";
 
 type PagerLiteGestureState = {
   active: boolean;
@@ -150,7 +151,29 @@ export function shouldStartPagerLitePointerGesture(input: {
 }): boolean {
   if (input.pointerType === "touch") return false;
   if (input.button !== 0) return false;
-  return !input.startedInsideCarousel;
+  return true;
+}
+
+export function resolvePagerLiteGestureOwner(input: {
+  axis: PagerLiteAxis;
+  startedInsideCarousel: boolean;
+}): PagerLiteGestureOwner {
+  if (input.axis === null) return "pending";
+  if (input.axis === "vertical") return "pager";
+  if (input.startedInsideCarousel && input.axis === "horizontal") return "carousel";
+  return "ignore";
+}
+
+export function shouldPreventPagerLiteTouchScroll(input: {
+  active: boolean;
+  axis: PagerLiteAxis;
+  startedInsideCarousel: boolean;
+}): boolean {
+  if (!input.active) return false;
+  return resolvePagerLiteGestureOwner({
+    axis: input.axis,
+    startedInsideCarousel: input.startedInsideCarousel,
+  }) === "pager";
 }
 
 function startedInsideCarousel(target: EventTarget | null): boolean {
@@ -278,7 +301,11 @@ export const PagerLite = memo(function PagerLite({
       hardResetGestureState();
       return;
     }
-    if (gesture.startedInsideCarousel || gesture.axis !== "vertical") {
+    const owner = resolvePagerLiteGestureOwner({
+      axis: gesture.axis,
+      startedInsideCarousel: gesture.startedInsideCarousel,
+    });
+    if (owner !== "pager") {
       hardResetGestureState();
       return;
     }
@@ -333,7 +360,7 @@ export const PagerLite = memo(function PagerLite({
       ) {
         return;
       }
-      if (gesture.startedInsideCarousel || gestureLocked) {
+      if (gestureLocked) {
         hardResetGestureState();
         return;
       }
@@ -343,7 +370,15 @@ export const PagerLite = memo(function PagerLite({
       if (gesture.axis === null) {
         gesture.axis = resolvePagerLiteAxis(deltaX, deltaY);
       }
-      if (gesture.axis !== "vertical") return;
+      const owner = resolvePagerLiteGestureOwner({
+        axis: gesture.axis,
+        startedInsideCarousel: gesture.startedInsideCarousel,
+      });
+      if (owner === "carousel") {
+        hardResetGestureState();
+        return;
+      }
+      if (owner !== "pager") return;
 
       const deltaTimeMs = Math.max(1, input.timestamp - gesture.lastTimestamp);
       gesture.velocityY = (input.y - gesture.lastY) / deltaTimeMs;
@@ -434,13 +469,15 @@ export const PagerLite = memo(function PagerLite({
           pointerId: event.pointerId,
           eventTarget: event.target,
         });
-        try {
-          event.currentTarget.setPointerCapture(event.pointerId);
-          pointerCaptureTargetRef.current = event.currentTarget;
-          pointerCaptureIdRef.current = event.pointerId;
-        } catch {
-          pointerCaptureTargetRef.current = null;
-          pointerCaptureIdRef.current = null;
+        if (!insideCarousel) {
+          try {
+            event.currentTarget.setPointerCapture(event.pointerId);
+            pointerCaptureTargetRef.current = event.currentTarget;
+            pointerCaptureIdRef.current = event.pointerId;
+          } catch {
+            pointerCaptureTargetRef.current = null;
+            pointerCaptureIdRef.current = null;
+          }
         }
       }}
       onPointerMoveCapture={(event) => {
@@ -457,7 +494,6 @@ export const PagerLite = memo(function PagerLite({
       onTouchStartCapture={(event) => {
         const touch = event.touches[0];
         if (!touch) return;
-        if (startedInsideCarousel(event.target)) return;
         beginGesture({
           x: touch.clientX,
           y: touch.clientY,
@@ -473,13 +509,6 @@ export const PagerLite = memo(function PagerLite({
           y: touch.clientY,
           timestamp: event.timeStamp,
         });
-        if (
-          gestureStateRef.current.active &&
-          !gestureStateRef.current.startedInsideCarousel &&
-          gestureStateRef.current.axis === "vertical"
-        ) {
-          event.preventDefault();
-        }
       }}
       onTouchEndCapture={finalizeGesture}
       onTouchCancelCapture={finalizeGesture}
