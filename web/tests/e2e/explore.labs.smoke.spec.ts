@@ -71,4 +71,57 @@ test.describe("explore labs smoke", () => {
       `explore labs smoke emitted runtime errors:\n${runtimeErrors.join("\n")}`
     ).toEqual([]);
   });
+
+  test("explore-labs desktop wheel advances slides without runtime errors", async ({ browser }) => {
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 900 },
+      isMobile: false,
+      hasTouch: false,
+    });
+    const page = await context.newPage();
+    let step = "init-desktop";
+    const setStep = (value: string) => {
+      step = value;
+    };
+    const runtimeErrors = attachRuntimeErrorGuards(page, () => step);
+
+    const currentSlideLocator = page.locator(
+      `[data-testid="${smokeSelectors.explorePagerLiteTrack}"] [data-slot="current"]`
+    );
+    const readCurrentSlideIndex = async () => {
+      const indexText = await currentSlideLocator.getAttribute("data-slide-index");
+      return Number(indexText ?? "-1");
+    };
+
+    setStep("open-explore-labs-desktop");
+    await page.goto("/explore-labs", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId(smokeSelectors.exploreLabsPage)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.explorePager)).toBeVisible();
+    await expect(currentSlideLocator).toBeVisible();
+
+    const initialIndex = await readCurrentSlideIndex();
+    expect(initialIndex).toBeGreaterThanOrEqual(0);
+
+    setStep("wheel-advance");
+    const pager = page.getByTestId(smokeSelectors.explorePager);
+    const pagerBox = await pager.boundingBox();
+    expect(pagerBox).toBeTruthy();
+    if (!pagerBox) {
+      throw new Error("Expected explore pager bounding box to exist.");
+    }
+    await page.mouse.move(pagerBox.x + pagerBox.width * 0.5, pagerBox.y + 12);
+    await pager.dispatchEvent("wheel", { deltaX: 0, deltaY: 420, bubbles: true, cancelable: true });
+    await page.waitForTimeout(80);
+    await pager.dispatchEvent("wheel", { deltaX: 0, deltaY: 420, bubbles: true, cancelable: true });
+
+    await expect
+      .poll(async () => readCurrentSlideIndex(), { timeout: 2000 })
+      .toBeGreaterThan(initialIndex);
+
+    expect(
+      runtimeErrors,
+      `explore labs desktop smoke emitted runtime errors:\n${runtimeErrors.join("\n")}`
+    ).toEqual([]);
+    await context.close();
+  });
 });
