@@ -9,18 +9,21 @@ void test("explore pager source mounts transform pager engine and required testi
 
   assert.match(source, /testId="explore-pager"/);
   assert.match(source, /data-testid="explore-progress"/);
-  assert.match(source, /<ExplorePagerV2/);
+  assert.match(source, /<ExplorePagerV3/);
   assert.match(source, /renderSlide=\{\(index\) =>/);
   assert.match(source, /<ExploreSlide[\s\S]*onGestureLockChange=\{handleGestureLockChange\}[\s\S]*\/>/);
   assert.match(source, /activeIndex=\{displayedIndex\}/);
   assert.match(source, /onActiveIndexChange=\{handleActiveIndexChange\}/);
   assert.match(source, /gestureLocked=\{isGestureLocked\}/);
+  assert.match(source, /canAdvanceToIndex=\{\(index\) => Boolean\(visibleListings\[index\]\) && Boolean\(slideShellReadyByIndex\[index\]\)\}/);
   assert.match(source, /resolveExploreAdjacentSlideIndexes/);
   assert.match(source, /shouldPreloadExploreSlideImages/);
   assert.match(source, /handleGestureLockChange/);
   assert.match(source, /setIsGestureLocked/);
   assert.match(source, /ExploreSectionHeader/);
   assert.match(source, /resolveExploreSectionByListingId/);
+  assert.match(source, /resolveExploreSlideShellReady/);
+  assert.match(source, /normalizeExploreGalleryImageUrl/);
   assert.match(source, /total=\{feedSize\}/);
   assert.match(source, /getHiddenExploreListingIds/);
   assert.match(source, /hideExploreListingId/);
@@ -70,7 +73,9 @@ void test("explore gallery source supports axis locking for horizontal gestures"
   assert.match(source, /shouldRestrictExploreSlideToHeroImage/);
   assert.match(source, /renderWindowRadius=\{renderWindowRadius\}/);
   assert.match(source, /resolveExploreGalleryMaxConcurrentImageLoads/);
-  assert.match(source, /canSwipeImages \? "h-full w-full touch-pan-x" : "h-full w-full touch-pan-y"/);
+  assert.match(source, /aspect-\[4\/5\] md:aspect-auto touch-pan-x/);
+  assert.match(source, /aspect-\[4\/5\] md:aspect-auto touch-pan-y/);
+  assert.match(source, /data-gallery-shell="reserved"/);
   assert.match(source, /touchAction: canSwipeImages/);
   assert.match(source, /\[explore-gallery\]\[image-error\]/);
   assert.match(source, /onLongPress\?\.\(\)/);
