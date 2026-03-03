@@ -487,9 +487,6 @@ export const PagerLite = memo(function PagerLite({
         if (event.ctrlKey || gestureLocked || isSnappingRef.current) return;
         if (totalSlidesRef.current <= 1) return;
         if (startedInsideCarousel(event.target)) return;
-        if (event.cancelable) {
-          event.preventDefault();
-        }
 
         const now = Date.now();
         if (now - wheelLastEventAtRef.current > PAGER_LITE_WHEEL_IDLE_RESET_MS) {
