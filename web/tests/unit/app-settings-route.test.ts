@@ -236,6 +236,10 @@ void test("validateSettingValueByKey accepts listings auto-approve toggle payloa
   );
 });
 
+void test("validateSettingValueByKey accepts explore enable toggle payload", () => {
+  assert.equal(validateSettingValueByKey("explore_enabled", { enabled: true }), true);
+});
+
 void test("validateSettingValueByKey accepts brand socials payloads", () => {
   assert.equal(
     validateSettingValueByKey("brand_social_instagram_url", {

@@ -8,6 +8,7 @@ void test("app settings keys include listings auto-approve toggle", () => {
   const source = fs.readFileSync(keysPath, "utf8");
 
   assert.match(source, /listingsAutoApproveEnabled:\s*"listings_auto_approve_enabled"/);
+  assert.match(source, /exploreEnabled:\s*"explore_enabled"/);
 });
 
 void test("app settings keys include brand social links", () => {
@@ -26,6 +27,7 @@ void test("admin settings page loads listings auto-approve toggle data", () => {
   const source = fs.readFileSync(pagePath, "utf8");
 
   assert.match(source, /APP_SETTING_KEYS\.listingsAutoApproveEnabled/);
+  assert.match(source, /APP_SETTING_KEYS\.exploreEnabled/);
 });
 
 void test("admin settings page loads brand social links section data", () => {
@@ -46,6 +48,8 @@ void test("admin feature flags UI renders listings auto-approve label", () => {
 
   assert.match(source, /Listings auto-approve on submit/);
   assert.match(source, /APP_SETTING_KEYS\.listingsAutoApproveEnabled/);
+  assert.match(source, /Explore feed availability/);
+  assert.match(source, /APP_SETTING_KEYS\.exploreEnabled/);
 });
 
 void test("admin brand socials UI renders social fields", () => {

@@ -10,6 +10,8 @@ void test("explore pager source mounts transform pager engine and required testi
   assert.match(source, /testId="explore-pager"/);
   assert.match(source, /data-testid="explore-progress"/);
   assert.match(source, /<ExplorePagerV3/);
+  assert.match(source, /<PagerLite/);
+  assert.match(source, /pagerEngine === "lite"/);
   assert.match(source, /renderSlide=\{\(index\) =>/);
   assert.match(source, /<ExploreSlide[\s\S]*onGestureLockChange=\{handleGestureLockChange\}[\s\S]*\/>/);
   assert.match(source, /activeIndex=\{displayedIndex\}/);
@@ -109,19 +111,35 @@ void test("home quickstart includes explore entry chip without changing search t
   const sourcePath = path.join(process.cwd(), "components", "home", "MobileQuickStartBar.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
+  assert.match(source, /showExploreChip\?: boolean/);
+  assert.match(source, /showExploreChip = true/);
+  assert.match(source, /QUICK_START_LINKS\.filter\(\(entry\) => entry\.key !== "explore"\)/);
   assert.match(source, /key: "explore"/);
   assert.match(source, /href: "\/explore"/);
   assert.match(source, /data-testid={`mobile-quickstart-chip-\$\{entry\.key\}`}/);
 });
 
-void test("explore route mounts pager and remains mobile-first", () => {
+void test("explore route reads kill-switch and shows disabled state when needed", () => {
   const sourcePath = path.join(process.cwd(), "app", "explore", "page.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
+  assert.match(source, /isExploreEnabled/);
+  assert.match(source, /data-testid="explore-disabled-screen"/);
+  assert.match(source, /Try Explore Labs/);
   assert.match(source, /data-testid="explore-page"/);
   assert.match(source, /<ExplorePager/);
   assert.match(source, /sectionMeta=\{sectionedFeed\.meta\}/);
   assert.match(source, /marketPickIds=\{sectionedFeed\.marketPicks\.map/);
   assert.match(source, /moreToExploreIds=\{sectionedFeed\.moreToExplore\.map/);
+  assert.match(source, /getSectionedExploreFeed/);
+});
+
+void test("explore-labs route mounts pager lite while preserving explore slide stack", () => {
+  const sourcePath = path.join(process.cwd(), "app", "explore-labs", "page.tsx");
+  const source = fs.readFileSync(sourcePath, "utf8");
+
+  assert.match(source, /data-testid="explore-labs-page"/);
+  assert.match(source, /pagerEngine="lite"/);
+  assert.match(source, /<ExplorePager/);
   assert.match(source, /getSectionedExploreFeed/);
 });
