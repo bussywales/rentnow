@@ -58,10 +58,6 @@ export function useDebouncedVisibility(
 
     const elapsedVisibleMs = Math.max(0, Date.now() - visibleSinceRef.current);
     const remainingVisibleMs = Math.max(0, minVisibleMs - elapsedVisibleMs);
-    if (remainingVisibleMs === 0) {
-      setVisible(false);
-      return;
-    }
     hideTimerRef.current = window.setTimeout(() => {
       setVisible(false);
       hideTimerRef.current = null;
