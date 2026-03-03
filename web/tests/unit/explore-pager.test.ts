@@ -15,7 +15,10 @@ void test("explore pager source mounts transform pager engine and required testi
   assert.match(source, /activeIndex=\{displayedIndex\}/);
   assert.match(source, /onActiveIndexChange=\{handleActiveIndexChange\}/);
   assert.match(source, /gestureLocked=\{isGestureLocked\}/);
-  assert.match(source, /canAdvanceToIndex=\{\(index\) => Boolean\(visibleListings\[index\]\) && Boolean\(slideShellReadyByIndex\[index\]\)\}/);
+  assert.match(source, /const canAdvanceToIndex = useCallback\(\(nextIndex: number\) =>/);
+  assert.match(source, /canAdvanceToIndex=\{canAdvanceToIndex\}/);
+  assert.match(source, /\[explore\]\[pager-v3\]\[gate-check\]/);
+  assert.match(source, /nextImagesCount/);
   assert.match(source, /resolveExploreAdjacentSlideIndexes/);
   assert.match(source, /shouldPreloadExploreSlideImages/);
   assert.match(source, /handleGestureLockChange/);
@@ -23,7 +26,6 @@ void test("explore pager source mounts transform pager engine and required testi
   assert.match(source, /ExploreSectionHeader/);
   assert.match(source, /resolveExploreSectionByListingId/);
   assert.match(source, /resolveExploreSlideShellReady/);
-  assert.match(source, /normalizeExploreGalleryImageUrl/);
   assert.match(source, /total=\{feedSize\}/);
   assert.match(source, /getHiddenExploreListingIds/);
   assert.match(source, /hideExploreListingId/);

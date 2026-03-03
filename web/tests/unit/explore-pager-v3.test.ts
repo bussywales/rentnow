@@ -31,16 +31,34 @@ void test("explore pager v3 keeps a fixed 3-slot buffer for prev/current/next", 
   );
 });
 
-void test("explore pager v3 release resolver blocks advance when next slide shell is not ready", () => {
+void test("explore pager v3 release resolver allows advance when next listing exists, even with zero images", () => {
+  const listings = [
+    { id: "current", images: ["hero.jpg"] },
+    { id: "next", images: [] },
+  ];
   const result = resolveExplorePagerV3Release({
-    activeIndex: 1,
-    totalSlides: 4,
+    activeIndex: 0,
+    totalSlides: 2,
     deltaY: -220,
     velocityY: -0.25,
     viewportHeight: 780,
-    canAdvanceToIndex: (index) => index !== 2,
+    canAdvanceToIndex: (index) => Boolean(listings[index]),
   });
   assert.equal(result.nextIndex, 1);
+  assert.equal(result.blocked, false);
+});
+
+void test("explore pager v3 release resolver blocks advance when next listing is missing", () => {
+  const listings = [{ id: "current", images: ["hero.jpg"] }];
+  const result = resolveExplorePagerV3Release({
+    activeIndex: 0,
+    totalSlides: 2,
+    deltaY: -220,
+    velocityY: -0.25,
+    viewportHeight: 780,
+    canAdvanceToIndex: (index) => Boolean(listings[index]),
+  });
+  assert.equal(result.nextIndex, 0);
   assert.equal(result.blocked, true);
 });
 
