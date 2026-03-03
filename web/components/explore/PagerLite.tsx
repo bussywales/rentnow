@@ -8,9 +8,13 @@ export const PAGER_LITE_MIN_SWIPE_DISTANCE_PX = 56;
 export const PAGER_LITE_SWIPE_DISTANCE_RATIO = 0.16;
 export const PAGER_LITE_SWIPE_VELOCITY_THRESHOLD = 0.45;
 export const PAGER_LITE_SNAP_DURATION_MS = 220;
+export const PAGER_LITE_WHEEL_THRESHOLD_PX = 80;
+export const PAGER_LITE_WHEEL_COOLDOWN_MS = 220;
+export const PAGER_LITE_WHEEL_IDLE_RESET_MS = 240;
 const PAGER_LITE_CAROUSEL_SELECTOR = '[data-testid="explore-gallery-gesture-layer"]';
 
 type PagerLiteAxis = "horizontal" | "vertical" | null;
+type PagerLiteWheelDirection = "next" | "prev";
 
 type PagerLiteGestureState = {
   active: boolean;
@@ -104,6 +108,41 @@ export function resolvePagerLiteRelease(input: {
   return clamp(candidate, 0, input.totalSlides - 1);
 }
 
+export function accumulatePagerLiteWheelDelta(input: {
+  accumulatedDelta: number;
+  nextDelta: number;
+}): number {
+  const accumulatedDelta = Number.isFinite(input.accumulatedDelta) ? input.accumulatedDelta : 0;
+  const nextDelta = Number.isFinite(input.nextDelta) ? input.nextDelta : 0;
+
+  if (nextDelta === 0) return accumulatedDelta;
+  if (accumulatedDelta === 0) return nextDelta;
+  if (Math.sign(accumulatedDelta) !== Math.sign(nextDelta)) return nextDelta;
+  return accumulatedDelta + nextDelta;
+}
+
+export function resolvePagerLiteWheelDirectionFromAccumulatedDelta(
+  accumulatedDelta: number,
+  thresholdPx = PAGER_LITE_WHEEL_THRESHOLD_PX
+): PagerLiteWheelDirection | null {
+  if (accumulatedDelta >= thresholdPx) return "next";
+  if (accumulatedDelta <= -thresholdPx) return "prev";
+  return null;
+}
+
+export function shouldThrottlePagerLiteWheelNavigation(input: {
+  nowMs: number;
+  lastTriggeredAtMs: number;
+  nextDirection: PagerLiteWheelDirection;
+  lastDirection: PagerLiteWheelDirection | null;
+  cooldownMs?: number;
+}): boolean {
+  const cooldownMs = input.cooldownMs ?? PAGER_LITE_WHEEL_COOLDOWN_MS;
+  const withinCooldown = input.nowMs - input.lastTriggeredAtMs < cooldownMs;
+  if (!withinCooldown) return false;
+  return input.nextDirection === input.lastDirection;
+}
+
 function startedInsideCarousel(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
   return Boolean(target.closest(PAGER_LITE_CAROUSEL_SELECTOR));
@@ -124,6 +163,10 @@ export const PagerLite = memo(function PagerLite({
   const activeIndexRef = useRef(activeIndex);
   const totalSlidesRef = useRef(totalSlides);
   const isSnappingRef = useRef(false);
+  const wheelAccumulatorRef = useRef(0);
+  const wheelLastEventAtRef = useRef(0);
+  const wheelLastTriggeredAtRef = useRef(0);
+  const wheelLastDirectionRef = useRef<PagerLiteWheelDirection | null>(null);
 
   const [viewportHeight, setViewportHeight] = useState(() => {
     if (typeof window === "undefined") return 1;
@@ -186,6 +229,20 @@ export const PagerLite = memo(function PagerLite({
       }, PAGER_LITE_SNAP_DURATION_MS);
     },
     [clearSnapTimer, onActiveIndexChange]
+  );
+
+  const triggerDirectionalSnap = useCallback(
+    (direction: PagerLiteWheelDirection) => {
+      const currentIndex = activeIndexRef.current;
+      const directionDelta = direction === "next" ? 1 : -1;
+      const nextIndex = clamp(currentIndex + directionDelta, 0, totalSlidesRef.current - 1);
+      if (nextIndex === currentIndex) {
+        snapToOffset(0, null);
+        return;
+      }
+      snapToOffset(direction === "next" ? -viewportHeight : viewportHeight, nextIndex);
+    },
+    [snapToOffset, viewportHeight]
   );
 
   const finalizeGesture = useCallback(() => {
@@ -380,6 +437,42 @@ export const PagerLite = memo(function PagerLite({
       }}
       onTouchEndCapture={finalizeGesture}
       onTouchCancelCapture={finalizeGesture}
+      onWheelCapture={(event) => {
+        if (event.ctrlKey || gestureLocked || isSnappingRef.current) return;
+        if (totalSlidesRef.current <= 1) return;
+        if (startedInsideCarousel(event.target)) return;
+        if (event.cancelable) {
+          event.preventDefault();
+        }
+
+        const now = Date.now();
+        if (now - wheelLastEventAtRef.current > PAGER_LITE_WHEEL_IDLE_RESET_MS) {
+          wheelAccumulatorRef.current = 0;
+        }
+        wheelLastEventAtRef.current = now;
+        wheelAccumulatorRef.current = accumulatePagerLiteWheelDelta({
+          accumulatedDelta: wheelAccumulatorRef.current,
+          nextDelta: event.deltaY,
+        });
+
+        const direction = resolvePagerLiteWheelDirectionFromAccumulatedDelta(wheelAccumulatorRef.current);
+        if (!direction) return;
+        if (
+          shouldThrottlePagerLiteWheelNavigation({
+            nowMs: now,
+            lastTriggeredAtMs: wheelLastTriggeredAtRef.current,
+            nextDirection: direction,
+            lastDirection: wheelLastDirectionRef.current,
+          })
+        ) {
+          return;
+        }
+
+        wheelLastTriggeredAtRef.current = now;
+        wheelLastDirectionRef.current = direction;
+        wheelAccumulatorRef.current = 0;
+        triggerDirectionalSnap(direction);
+      }}
     >
       <div className="absolute inset-0" data-testid="explore-pager-lite-track">
         {slots.map((slot) => {
