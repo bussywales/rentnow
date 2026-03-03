@@ -32,6 +32,7 @@ export const smokeSelectors = {
   homeRecommendedNextWhyToggle: "recommended-next-why-toggle",
   homeRecommendedNextWhyContent: "recommended-next-why-content",
   explorePage: "explore-page",
+  exploreLabsShell: "explore-labs-shell",
   exploreLabsPage: "explore-labs-page",
   exploreDisabledScreen: "explore-disabled-screen",
   explorePager: "explore-pager",

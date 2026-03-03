@@ -8,9 +8,11 @@ import {
   PAGER_LITE_AXIS_THRESHOLD_PX,
   PAGER_LITE_WHEEL_THRESHOLD_PX,
   resolvePagerLiteAxis,
+  resolvePagerLiteGestureOwner,
   resolvePagerLiteRelease,
   resolvePagerLiteSlots,
   resolvePagerLiteWheelDirectionFromAccumulatedDelta,
+  shouldPreventPagerLiteTouchScroll,
   shouldStartPagerLitePointerGesture,
   shouldThrottlePagerLiteWheelNavigation,
 } from "@/components/explore/PagerLite";
@@ -58,18 +60,25 @@ void test("pager lite release resolver advances by distance and clamps bounds", 
   );
 });
 
-void test("pager lite source ignores gestures that start inside carousel shell", () => {
+void test("pager lite source uses axis-intent ownership for gallery-start gestures", () => {
   const sourcePath = path.join(process.cwd(), "components", "explore", "PagerLite.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /PAGER_LITE_CAROUSEL_SELECTOR/);
   assert.match(source, /explore-gallery-gesture-layer/);
   assert.match(source, /next\.startedInsideCarousel = startedInsideCarousel/);
-  assert.match(source, /if \(startedInsideCarousel\(event\.target\)\) return;/);
-  assert.match(source, /if \(gesture\.startedInsideCarousel \|\| gesture\.axis !== "vertical"\)/);
+  assert.match(source, /resolvePagerLiteGestureOwner/);
+  assert.match(source, /if \(owner === "carousel"\)/);
   assert.match(source, /onWheelCapture=\{\(event\) => \{/);
   assert.match(source, /data-testid="explore-pager-lite-track"/);
   assert.match(source, /touchAction: "pan-y pinch-zoom"/);
+});
+
+void test("pager lite arbitration allows vertical paging but reserves horizontal for carousel when gesture starts in gallery", () => {
+  assert.equal(resolvePagerLiteGestureOwner({ axis: "horizontal", startedInsideCarousel: true }), "carousel");
+  assert.equal(resolvePagerLiteGestureOwner({ axis: "vertical", startedInsideCarousel: true }), "pager");
+  assert.equal(resolvePagerLiteGestureOwner({ axis: null, startedInsideCarousel: true }), "pending");
+  assert.equal(resolvePagerLiteGestureOwner({ axis: "horizontal", startedInsideCarousel: false }), "ignore");
 });
 
 void test("pager lite wheel accumulation advances only after threshold", () => {
@@ -105,7 +114,7 @@ void test("pager lite wheel cooldown blocks duplicate direction bursts", () => {
   );
 });
 
-void test("pager lite pointer guard allows only left-button non-touch drags outside gallery", () => {
+void test("pager lite pointer guard allows only left-button non-touch drags", () => {
   assert.equal(
     shouldStartPagerLitePointerGesture({
       pointerType: "mouse",
@@ -135,6 +144,33 @@ void test("pager lite pointer guard allows only left-button non-touch drags outs
       pointerType: "mouse",
       button: 0,
       startedInsideCarousel: true,
+    }),
+    true
+  );
+});
+
+void test("pager lite touch scroll prevention is enabled only for active vertical pager ownership", () => {
+  assert.equal(
+    shouldPreventPagerLiteTouchScroll({
+      active: true,
+      axis: "vertical",
+      startedInsideCarousel: true,
+    }),
+    true
+  );
+  assert.equal(
+    shouldPreventPagerLiteTouchScroll({
+      active: true,
+      axis: "horizontal",
+      startedInsideCarousel: true,
+    }),
+    false
+  );
+  assert.equal(
+    shouldPreventPagerLiteTouchScroll({
+      active: false,
+      axis: "vertical",
+      startedInsideCarousel: false,
     }),
     false
   );

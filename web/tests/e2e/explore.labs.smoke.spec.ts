@@ -61,10 +61,66 @@ test.describe("explore labs smoke", () => {
 
     setStep("open-explore-labs");
     await page.goto("/explore-labs", { waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId(smokeSelectors.exploreLabsShell)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.exploreLabsPage)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.explorePager)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.explorePagerLiteTrack)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.exploreSlide).first()).toBeVisible();
+
+    const currentSlideLocator = page.locator(
+      `[data-testid="${smokeSelectors.explorePagerLiteTrack}"] [data-slot="current"]`
+    );
+    const readCurrentSlideIndex = async () => {
+      const indexText = await currentSlideLocator.getAttribute("data-slide-index");
+      return Number(indexText ?? "-1");
+    };
+    const initialIndex = await readCurrentSlideIndex();
+    const initialScrollY = await page.evaluate(() => window.scrollY);
+
+    setStep("touch-vertical-swipe-from-gallery-layer");
+    const swipeDispatched = await page.evaluate((galleryTestId) => {
+      const target = document.querySelector<HTMLElement>(`[data-testid="${galleryTestId}"]`);
+      if (!target) return false;
+      const rect = target.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return false;
+      const x = rect.left + rect.width * 0.5;
+      const startY = rect.top + rect.height * 0.65;
+      const midY = startY - rect.height * 0.2;
+      const endY = startY - rect.height * 0.38;
+      const dispatchTouch = (type: "touchstart" | "touchmove" | "touchend", y: number) => {
+        const event = new Event(type, { bubbles: true, cancelable: true }) as Event & {
+          touches: Array<{ clientX: number; clientY: number }>;
+          targetTouches: Array<{ clientX: number; clientY: number }>;
+          changedTouches: Array<{ clientX: number; clientY: number }>;
+        };
+        const point = { clientX: x, clientY: y };
+        Object.defineProperty(event, "touches", {
+          value: type === "touchend" ? [] : [point],
+          configurable: true,
+        });
+        Object.defineProperty(event, "targetTouches", {
+          value: type === "touchend" ? [] : [point],
+          configurable: true,
+        });
+        Object.defineProperty(event, "changedTouches", {
+          value: [point],
+          configurable: true,
+        });
+        target.dispatchEvent(event);
+      };
+      dispatchTouch("touchstart", startY);
+      dispatchTouch("touchmove", midY);
+      dispatchTouch("touchmove", endY);
+      dispatchTouch("touchend", endY);
+      return true;
+    }, "explore-gallery-gesture-layer");
+    expect(swipeDispatched).toBeTruthy();
+    await expect
+      .poll(async () => readCurrentSlideIndex(), { timeout: 2500 })
+      .toBeGreaterThan(initialIndex);
+    await expect
+      .poll(async () => page.evaluate(() => window.scrollY), { timeout: 1500 })
+      .toBe(initialScrollY);
 
     expect(
       runtimeErrors,
