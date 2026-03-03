@@ -30,15 +30,18 @@ void test("explore gallery gesture lock safety timeout stays fixed for iOS fallb
   assert.equal(getExploreGestureLockSafetyTimeoutMs(), 600);
 });
 
-void test("unified carousel source exposes horizontal touch + overflow classes", () => {
+void test("unified carousel source keeps iOS vertical pan enabled in the image region", () => {
   const sourcePath = path.join(process.cwd(), "components", "ui", "UnifiedImageCarousel.tsx");
   const source = fs.readFileSync(sourcePath, "utf8");
 
-  assert.match(source, /overflow-x-scroll overflow-y-hidden/);
-  assert.match(source, /allowDrag \? "touch-pan-x" : "touch-pan-y"/);
+  assert.match(source, /"h-full overflow-hidden overscroll-x-contain"/);
+  assert.match(source, /style=\{\{ touchAction: "pan-y pinch-zoom" \}\}/);
+  assert.match(source, /data-testid=\{`\$\{rootTestId\}-viewport`\}/);
+  assert.match(source, /data-testid=\{`\$\{rootTestId\}-track`\}/);
   assert.match(source, /snap-x snap-mandatory/);
   assert.match(source, /w-full flex-none snap-start/);
-  assert.match(source, /WebkitOverflowScrolling: "touch"/);
+  assert.doesNotMatch(source, /overflow-x-scroll overflow-y-hidden/);
+  assert.doesNotMatch(source, /touch-pan-x/);
   assert.match(source, /watchDrag: allowDrag/);
 });
 

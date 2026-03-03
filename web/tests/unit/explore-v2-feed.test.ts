@@ -2,7 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ExploreV2Feed } from "@/components/explore-v2/ExploreV2Feed";
+import {
+  ExploreV2Feed,
+  resolveExploreV2HeroPrefetchPlan,
+} from "@/components/explore-v2/ExploreV2Feed";
 import { resolveExploreV2PageData } from "@/app/explore-v2/page";
 import type { Property } from "@/lib/types";
 import { resolveExploreHeroImageUrl } from "@/lib/explore/gallery-images";
@@ -91,4 +94,64 @@ void test("explore-v2 hero resolver returns null when listing has no usable imag
 
   assert.equal(hero.url, null);
   assert.equal(hero.meta, null);
+});
+
+void test("explore-v2 prefetch plan selects next 1-2 hero urls from top visible index", () => {
+  const plan = resolveExploreV2HeroPrefetchPlan({
+    topVisibleIndex: 3,
+    totalListings: 8,
+    heroImageUrls: [
+      "https://cdn.example/0.jpg",
+      "https://cdn.example/1.jpg",
+      "https://cdn.example/2.jpg",
+      "https://cdn.example/3.jpg",
+      "https://cdn.example/4.jpg",
+      "https://cdn.example/5.jpg",
+      "https://cdn.example/6.jpg",
+      "https://cdn.example/7.jpg",
+    ],
+    lookaheadCount: 2,
+    maxInflight: 2,
+    sessionCap: 20,
+    completedUrls: new Set<string>(),
+    inflightUrls: new Set<string>(),
+  });
+
+  assert.deepEqual(plan, ["https://cdn.example/4.jpg", "https://cdn.example/5.jpg"]);
+});
+
+void test("explore-v2 prefetch plan respects session cap and inflight limits", () => {
+  const plan = resolveExploreV2HeroPrefetchPlan({
+    topVisibleIndex: 0,
+    totalListings: 4,
+    heroImageUrls: [
+      "https://cdn.example/0.jpg",
+      "https://cdn.example/1.jpg",
+      "https://cdn.example/2.jpg",
+      "https://cdn.example/3.jpg",
+    ],
+    lookaheadCount: 2,
+    maxInflight: 2,
+    sessionCap: 1,
+    completedUrls: new Set<string>(),
+    inflightUrls: new Set<string>(),
+  });
+  assert.deepEqual(plan, ["https://cdn.example/1.jpg"]);
+
+  const blockedByInflight = resolveExploreV2HeroPrefetchPlan({
+    topVisibleIndex: 0,
+    totalListings: 4,
+    heroImageUrls: [
+      "https://cdn.example/0.jpg",
+      "https://cdn.example/1.jpg",
+      "https://cdn.example/2.jpg",
+      "https://cdn.example/3.jpg",
+    ],
+    lookaheadCount: 2,
+    maxInflight: 2,
+    sessionCap: 20,
+    completedUrls: new Set<string>(),
+    inflightUrls: new Set<string>(["https://cdn.example/1.jpg", "https://cdn.example/2.jpg"]),
+  });
+  assert.deepEqual(blockedByInflight, []);
 });

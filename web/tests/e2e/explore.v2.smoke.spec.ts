@@ -44,6 +44,12 @@ test("explore-v2 feed renders and stays stable after native scroll", async ({ pa
   await expect
     .poll(async () => page.getByTestId(smokeSelectors.exploreV2ActionRail).count())
     .toBeGreaterThan(0);
+  const heroViewport = page.getByTestId(smokeSelectors.exploreV2HeroCarouselViewport).first();
+  await expect(heroViewport).toBeVisible();
+  await expect(heroViewport).toHaveAttribute("style", /touch-action:\s*pan-y pinch-zoom/i);
+  const heroViewportClassName = (await heroViewport.getAttribute("class")) ?? "";
+  expect(heroViewportClassName).toContain("overflow-hidden");
+  expect(heroViewportClassName).not.toContain("overflow-x-scroll");
 
   const firstSaveToggle = page.locator('[data-testid^="explore-v2-save-toggle-"]').first();
   await expect(firstSaveToggle).toBeVisible();

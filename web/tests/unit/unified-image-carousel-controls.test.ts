@@ -5,9 +5,12 @@ import path from "node:path";
 import {
   UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS,
   UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS,
+  UNIFIED_CAROUSEL_MIN_PLACEHOLDER_VISIBLE_MS,
   resolveUnifiedImageCarouselLoadCandidates,
   resolveUnifiedImageCarouselMaxConcurrentImageLoads,
+  resolveUnifiedImagePlaceholderHoldMs,
   resolveUnifiedImagePlaceholderPresentation,
+  waitForUnifiedImageRevealGate,
   shouldRenderUnifiedImageCarouselCountBadge,
   shouldRenderUnifiedImageCarouselControls,
   shouldRenderUnifiedImageCarouselDots,
@@ -167,10 +170,61 @@ void test("unified image carousel consumes the shared interaction policy module"
   assert.ok(contents.includes("loader={bypassOptimizer ? directImageLoader : undefined}"));
   assert.ok(contents.includes("data-placeholder-source={placeholder.source}"));
   assert.ok(contents.includes('data-placeholder-persistent="true"'));
+  assert.ok(contents.includes('"h-full overflow-hidden overscroll-x-contain"'));
+  assert.ok(contents.includes('style={{ touchAction: "pan-y pinch-zoom" }}'));
+  assert.ok(contents.includes('data-testid={`${rootTestId}-viewport`}'));
+  assert.ok(contents.includes('data-testid={`${rootTestId}-track`}'));
+  assert.ok(!contents.includes("overflow-x-scroll overflow-y-hidden"));
+  assert.ok(!contents.includes("touch-pan-x"));
+  assert.ok(contents.includes("waitForUnifiedImageRevealGate"));
+  assert.ok(contents.includes("UNIFIED_CAROUSEL_MIN_PLACEHOLDER_VISIBLE_MS"));
   assert.ok(contents.includes("const shouldShowDebouncedLoadingCue = useDebouncedVisibility"));
   assert.ok(contents.includes('showAfterMs: UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS'));
   assert.ok(contents.includes('minVisibleMs: UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS'));
   assert.ok(contents.includes('shouldShowDebouncedLoadingCue ? "opacity-100" : "opacity-0"'));
   assert.equal(UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS, 300);
   assert.equal(UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS, 600);
+  assert.equal(UNIFIED_CAROUSEL_MIN_PLACEHOLDER_VISIBLE_MS, 160);
+});
+
+void test("unified image carousel placeholder hold resolves remaining min-visible duration", () => {
+  const holdMs = resolveUnifiedImagePlaceholderHoldMs({
+    startedAtMs: 1_000,
+    minVisibleMs: 160,
+    nowMs: 1_070,
+  });
+  assert.equal(holdMs, 90);
+});
+
+void test("unified image carousel reveal gate waits for decode before releasing placeholder", async () => {
+  let released = false;
+  let resolveDecode: (() => void) | null = null;
+  const decodePromise = new Promise<void>((resolve) => {
+    resolveDecode = resolve;
+  });
+  const sleepCalls: number[] = [];
+  let completed = false;
+
+  const revealPromise = waitForUnifiedImageRevealGate({
+    startedAtMs: 1_000,
+    minVisibleMs: 160,
+    decode: async () => decodePromise,
+    now: () => 1_100,
+    sleep: async (ms) => {
+      sleepCalls.push(ms);
+      released = true;
+    },
+  }).then(() => {
+    completed = true;
+  });
+
+  await Promise.resolve();
+  assert.equal(completed, false);
+  assert.equal(released, false);
+
+  resolveDecode?.();
+  await revealPromise;
+  assert.equal(completed, true);
+  assert.equal(released, true);
+  assert.deepEqual(sleepCalls, [60]);
 });

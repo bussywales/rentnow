@@ -74,11 +74,26 @@ const UNIFIED_CAROUSEL_DEFAULT_MAX_CONCURRENT_IMAGE_LOADS = 3;
 const UNIFIED_CAROUSEL_PROGRESSIVE_IDLE_DELAY_MS = 260;
 export const UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS = 300;
 export const UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS = 600;
+export const UNIFIED_CAROUSEL_MIN_PLACEHOLDER_VISIBLE_MS = 160;
 
 type UnifiedIdleCallback = (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void;
 type UnifiedIdleWindow = Window & {
   requestIdleCallback?: (callback: UnifiedIdleCallback, options?: { timeout?: number }) => number;
   cancelIdleCallback?: (id: number) => void;
+};
+
+type UnifiedImagePlaceholderHoldInput = {
+  startedAtMs: number;
+  minVisibleMs: number;
+  nowMs?: number;
+};
+
+type UnifiedImageRevealGateInput = {
+  startedAtMs: number;
+  minVisibleMs?: number;
+  decode?: (() => Promise<void>) | null;
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
 };
 export {
   shouldSuppressCarouselClickAfterDrag,
@@ -167,6 +182,36 @@ export function resolveUnifiedImagePlaceholderPresentation(input: {
   };
 }
 
+export function resolveUnifiedImagePlaceholderHoldMs(input: UnifiedImagePlaceholderHoldInput): number {
+  const nowMs = Number.isFinite(input.nowMs) ? (input.nowMs as number) : Date.now();
+  const elapsedMs = Math.max(0, nowMs - input.startedAtMs);
+  return Math.max(0, input.minVisibleMs - elapsedMs);
+}
+
+export async function waitForUnifiedImageRevealGate(input: UnifiedImageRevealGateInput): Promise<void> {
+  const decode = input.decode ?? null;
+  if (decode) {
+    try {
+      await decode();
+    } catch {
+      // Decode failure should not block visibility forever.
+    }
+  }
+  const holdMs = resolveUnifiedImagePlaceholderHoldMs({
+    startedAtMs: input.startedAtMs,
+    minVisibleMs: input.minVisibleMs ?? UNIFIED_CAROUSEL_MIN_PLACEHOLDER_VISIBLE_MS,
+    nowMs: input.now?.(),
+  });
+  if (holdMs <= 0) return;
+  const sleep =
+    input.sleep ??
+    ((ms: number) =>
+      new Promise<void>((resolve) => {
+        globalThis.setTimeout(resolve, ms);
+      }));
+  await sleep(holdMs);
+}
+
 export function UnifiedImageCarousel({
   items,
   href,
@@ -197,6 +242,7 @@ export function UnifiedImageCarousel({
   const [failedImageUrls, setFailedImageUrls] = useState<string[]>([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loadedImageKeys, setLoadedImageKeys] = useState<Set<string>>(new Set());
+  const [revealedImageKeys, setRevealedImageKeys] = useState<Set<string>>(new Set());
   const [idleReadyKey, setIdleReadyKey] = useState<string | null>(
     progressiveUpgradeOnIdle ? null : "ready"
   );
@@ -207,6 +253,8 @@ export function UnifiedImageCarousel({
   const wheelAccumulatorRef = useRef(0);
   const wheelLastEventAtRef = useRef(0);
   const viewportRef = useRef<HTMLDivElement | null>(null);
+  const imageLoadStartedAtRef = useRef<Map<string, number>>(new Map());
+  const componentMountedRef = useRef(true);
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     dragFree: false,
@@ -286,7 +334,7 @@ export function UnifiedImageCarousel({
     const activeItem = imageItems[boundedSelectedIndex];
     return `${activeItem.id ?? boundedSelectedIndex}:${activeItem.src}`;
   }, [boundedSelectedIndex, imageItems]);
-  const activeImageLoaded = activeImageLoadKey ? loadedImageKeys.has(activeImageLoadKey) : false;
+  const activeImageLoaded = activeImageLoadKey ? revealedImageKeys.has(activeImageLoadKey) : false;
   const shouldShowDebouncedLoadingCue = useDebouncedVisibility(showLoadingCue && !activeImageLoaded, {
     showAfterMs: UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS,
     minVisibleMs: UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS,
@@ -299,6 +347,13 @@ export function UnifiedImageCarousel({
   const countIndex = Math.min(boundedSelectedIndex + 1, totalImages);
   const canScrollPrev = boundedSelectedIndex > 0;
   const canScrollNext = boundedSelectedIndex < totalImages - 1;
+
+  useEffect(() => {
+    componentMountedRef.current = true;
+    return () => {
+      componentMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!emblaApi) return;
@@ -315,6 +370,17 @@ export function UnifiedImageCarousel({
   useEffect(() => {
     onSelectedIndexChange?.(selectedIndex);
   }, [onSelectedIndexChange, selectedIndex]);
+
+  useEffect(() => {
+    const nowMs = Date.now();
+    mountedImageIndexes.forEach((index) => {
+      const item = imageItems[index];
+      if (!item) return;
+      const loadKey = `${item.id ?? index}:${item.src}`;
+      if (imageLoadStartedAtRef.current.has(loadKey)) return;
+      imageLoadStartedAtRef.current.set(loadKey, nowMs);
+    });
+  }, [imageItems, mountedImageIndexes]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -359,6 +425,32 @@ export function UnifiedImageCarousel({
     },
     [fallbackImage]
   );
+
+  const handleImageLoad = useCallback((loadKey: string, imageElement: HTMLImageElement | null) => {
+    setLoadedImageKeys((current) => {
+      if (current.has(loadKey)) return current;
+      const next = new Set(current);
+      next.add(loadKey);
+      return next;
+    });
+
+    const startedAtMs = imageLoadStartedAtRef.current.get(loadKey) ?? Date.now();
+    void waitForUnifiedImageRevealGate({
+      startedAtMs,
+      decode:
+        imageElement && typeof imageElement.decode === "function"
+          ? () => imageElement.decode()
+          : null,
+    }).then(() => {
+      if (!componentMountedRef.current) return;
+      setRevealedImageKeys((current) => {
+        if (current.has(loadKey)) return current;
+        const next = new Set(current);
+        next.add(loadKey);
+        return next;
+      });
+    });
+  }, []);
 
   const handlePointerDownCapture = useCallback((event: PointerEvent<HTMLDivElement>) => {
     pointerStartRef.current = { x: event.clientX, y: event.clientY };
@@ -455,20 +547,24 @@ export function UnifiedImageCarousel({
     >
       <div
         className={cn(
-          "h-full overflow-x-scroll overflow-y-hidden overscroll-x-contain",
-          allowDrag ? "touch-pan-x" : "touch-pan-y",
+          "h-full overflow-hidden overscroll-x-contain",
           shouldShowControls && "cursor-grab active:cursor-grabbing"
         )}
         ref={setViewportRef}
-        style={{ WebkitOverflowScrolling: "touch" }}
+        style={{ touchAction: "pan-y pinch-zoom" }}
+        data-testid={`${rootTestId}-viewport`}
       >
-        <div className={cn("flex h-full snap-x snap-mandatory overscroll-x-contain", allowDrag ? "touch-pan-x" : "touch-pan-y")}>
+        <div
+          className={cn("flex h-full snap-x snap-mandatory overscroll-x-contain")}
+          style={{ touchAction: "pan-y pinch-zoom" }}
+          data-testid={`${rootTestId}-track`}
+        >
           {imageItems.map((item, index) => {
             const slideKey = item.id ?? `slide-${index}`;
             const loadKey = `${item.id ?? index}:${item.src}`;
             const isActiveSlide = index === boundedSelectedIndex;
             const shouldRenderImage = mountedImageIndexes.has(index);
-            const imageLoaded = loadedImageKeys.has(loadKey);
+            const imageLoaded = revealedImageKeys.has(loadKey);
             const placeholder = resolveUnifiedImagePlaceholderPresentation({
               item,
               fallbackBlurDataURL: blurDataURL,
@@ -505,16 +601,17 @@ export function UnifiedImageCarousel({
                     draggable={false}
                     unoptimized={bypassOptimizer}
                     loader={bypassOptimizer ? directImageLoader : undefined}
-                    onLoad={() => {
+                    onLoad={(event) => {
+                      handleImageLoad(loadKey, event.currentTarget);
+                    }}
+                    onError={() => {
                       setLoadedImageKeys((current) => {
                         if (current.has(loadKey)) return current;
                         const next = new Set(current);
                         next.add(loadKey);
                         return next;
                       });
-                    }}
-                    onError={() => {
-                      setLoadedImageKeys((current) => {
+                      setRevealedImageKeys((current) => {
                         if (current.has(loadKey)) return current;
                         const next = new Set(current);
                         next.add(loadKey);

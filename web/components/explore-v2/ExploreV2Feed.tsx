@@ -3,15 +3,9 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type ListRange } from "react-virtuoso";
 import type { Property } from "@/lib/types";
-import { ExploreV2Card } from "@/components/explore-v2/ExploreV2Card";
-import {
-  resolveExploreHeroImageUrl,
-  resolveExplorePropertyImageRecords,
-} from "@/lib/explore/gallery-images";
-import {
-  readShouldConserveData,
-  subscribeToConserveDataChanges,
-} from "@/lib/explore/network-hints";
+import { ExploreV2Card, resolveExploreV2CarouselItems } from "@/components/explore-v2/ExploreV2Card";
+import { resolveExplorePropertyImageRecords } from "@/lib/explore/gallery-images";
+import { resolveExploreV2PrefetchLookahead, subscribeToConserveDataChanges } from "@/lib/explore/network-hints";
 import { predecodeImageUrl } from "@/lib/images/decode";
 
 type ExploreV2FeedProps = {
@@ -20,35 +14,88 @@ type ExploreV2FeedProps = {
 };
 
 export const EXPLORE_V2_PRELOAD_MAX_INFLIGHT = 2;
+export const EXPLORE_V2_PREFETCH_MAX_LOOKAHEAD = 2;
+export const EXPLORE_V2_PREFETCH_SESSION_CAP = 20;
+export const EXPLORE_V2_PREFETCH_ENABLED =
+  process.env.NEXT_PUBLIC_EXPLORE_V2_PREFETCH_ENABLED !== "false";
 
-export function resolveExploreV2PreloadIndex(rangeEndIndex: number, totalListings: number): number | null {
-  if (totalListings < 2) return null;
-  const safeEndIndex = Math.max(0, Math.min(totalListings - 1, rangeEndIndex));
-  const nextIndex = safeEndIndex + 1;
-  if (nextIndex >= totalListings) return null;
-  return nextIndex;
+type ExploreV2PrefetchPlanInput = {
+  topVisibleIndex: number;
+  totalListings: number;
+  heroImageUrls: ReadonlyArray<string | null | undefined>;
+  lookaheadCount: number;
+  maxInflight: number;
+  sessionCap: number;
+  completedUrls: ReadonlySet<string>;
+  inflightUrls: ReadonlySet<string>;
+};
+
+export function resolveExploreV2HeroPrefetchPlan(input: ExploreV2PrefetchPlanInput): string[] {
+  if (input.totalListings < 2) return [];
+  if (input.lookaheadCount <= 0) return [];
+  if (input.maxInflight <= 0) return [];
+  if (input.sessionCap <= 0) return [];
+  const completedCount = input.completedUrls.size;
+  const inflightCount = input.inflightUrls.size;
+  if (completedCount >= input.sessionCap) return [];
+  if (inflightCount >= input.maxInflight) return [];
+
+  const safeTopIndex = Math.max(0, Math.min(input.totalListings - 1, input.topVisibleIndex));
+  const plan: string[] = [];
+  const selected = new Set<string>();
+  const maxLookahead = Math.max(0, Math.min(EXPLORE_V2_PREFETCH_MAX_LOOKAHEAD, input.lookaheadCount));
+
+  for (let offset = 1; offset <= maxLookahead; offset += 1) {
+    const candidateIndex = safeTopIndex + offset;
+    if (candidateIndex >= input.totalListings) break;
+
+    const candidateUrl = input.heroImageUrls[candidateIndex];
+    if (!candidateUrl || typeof candidateUrl !== "string") continue;
+    const normalizedUrl = candidateUrl.trim();
+    if (!normalizedUrl) continue;
+    if (input.completedUrls.has(normalizedUrl)) continue;
+    if (input.inflightUrls.has(normalizedUrl)) continue;
+    if (selected.has(normalizedUrl)) continue;
+    if (completedCount + inflightCount + plan.length >= input.sessionCap) break;
+    if (inflightCount + plan.length >= input.maxInflight) break;
+
+    plan.push(normalizedUrl);
+    selected.add(normalizedUrl);
+  }
+
+  return plan;
 }
 
 function ExploreV2FeedInner({ listings, marketCurrency }: ExploreV2FeedProps) {
-  const [rangeEndIndex, setRangeEndIndex] = useState(0);
-  const [shouldConserveDataState, setShouldConserveDataState] = useState(() =>
-    readShouldConserveData()
+  const [topVisibleIndex, setTopVisibleIndex] = useState(0);
+  const [prefetchLookahead, setPrefetchLookahead] = useState(() =>
+    resolveExploreV2PrefetchLookahead(undefined, EXPLORE_V2_PREFETCH_MAX_LOOKAHEAD)
   );
   const inflightPreloadUrlsRef = useRef<Set<string>>(new Set());
   const completedPreloadUrlsRef = useRef<Set<string>>(new Set());
 
-  const heroImageUrls = useMemo(
-    () => listings.map((listing) => resolveExploreHeroImageUrl(listing).url),
-    [listings]
-  );
+  const listingImageRecordsById = useMemo(() => {
+    const next = new Map<string, ReturnType<typeof resolveExplorePropertyImageRecords>>();
+    listings.forEach((listing) => {
+      next.set(listing.id, resolveExplorePropertyImageRecords(listing));
+    });
+    return next;
+  }, [listings]);
 
-  const preloadIndex = resolveExploreV2PreloadIndex(rangeEndIndex, listings.length);
-  const nextHeroImageUrl =
-    preloadIndex === null ? null : (heroImageUrls[preloadIndex] ?? null);
+  const heroImageUrls = useMemo(
+    () =>
+      listings.map((listing) => {
+        const imageRecords = listingImageRecordsById.get(listing.id) ?? [];
+        const resolved = resolveExploreV2CarouselItems({ listing, imageRecords });
+        return resolved.items[0]?.src ?? null;
+      }),
+    [listingImageRecordsById, listings]
+  );
 
   const renderCard = useCallback(
     (index: number, listing: Property) => {
-      const imageRecords = resolveExplorePropertyImageRecords(listing);
+      const imageRecords =
+        listingImageRecordsById.get(listing.id) ?? resolveExplorePropertyImageRecords(listing);
       return (
         <div className={index === 0 ? "pt-1 pb-4" : "pb-4"}>
           <ExploreV2Card
@@ -61,33 +108,47 @@ function ExploreV2FeedInner({ listings, marketCurrency }: ExploreV2FeedProps) {
         </div>
       );
     },
-    [listings.length, marketCurrency]
+    [listingImageRecordsById, listings.length, marketCurrency]
   );
 
   const handleRangeChanged = useCallback((range: ListRange) => {
-    setRangeEndIndex(range.endIndex);
+    setTopVisibleIndex(range.startIndex);
   }, []);
 
   useEffect(() => {
-    return subscribeToConserveDataChanges(setShouldConserveDataState);
-  }, []);
-
-  useEffect(() => {
-    if (shouldConserveDataState) return;
-    if (!nextHeroImageUrl) return;
-    if (completedPreloadUrlsRef.current.has(nextHeroImageUrl)) return;
-    if (inflightPreloadUrlsRef.current.has(nextHeroImageUrl)) return;
-    if (inflightPreloadUrlsRef.current.size >= EXPLORE_V2_PRELOAD_MAX_INFLIGHT) return;
-
-    inflightPreloadUrlsRef.current.add(nextHeroImageUrl);
-    void predecodeImageUrl({
-      imageUrl: nextHeroImageUrl,
-      maxConcurrent: EXPLORE_V2_PRELOAD_MAX_INFLIGHT,
-    }).finally(() => {
-      inflightPreloadUrlsRef.current.delete(nextHeroImageUrl);
-      completedPreloadUrlsRef.current.add(nextHeroImageUrl);
+    return subscribeToConserveDataChanges(() => {
+      setPrefetchLookahead(
+        resolveExploreV2PrefetchLookahead(undefined, EXPLORE_V2_PREFETCH_MAX_LOOKAHEAD)
+      );
     });
-  }, [nextHeroImageUrl, shouldConserveDataState]);
+  }, []);
+
+  useEffect(() => {
+    if (!EXPLORE_V2_PREFETCH_ENABLED) return;
+    const plan = resolveExploreV2HeroPrefetchPlan({
+      topVisibleIndex,
+      totalListings: listings.length,
+      heroImageUrls,
+      lookaheadCount: prefetchLookahead,
+      maxInflight: EXPLORE_V2_PRELOAD_MAX_INFLIGHT,
+      sessionCap: EXPLORE_V2_PREFETCH_SESSION_CAP,
+      completedUrls: completedPreloadUrlsRef.current,
+      inflightUrls: inflightPreloadUrlsRef.current,
+    });
+    if (plan.length === 0) return;
+
+    plan.forEach((imageUrl) => {
+      inflightPreloadUrlsRef.current.add(imageUrl);
+      void predecodeImageUrl({
+        imageUrl,
+        maxConcurrent: EXPLORE_V2_PRELOAD_MAX_INFLIGHT,
+      }).finally(() => {
+        inflightPreloadUrlsRef.current.delete(imageUrl);
+        if (completedPreloadUrlsRef.current.size >= EXPLORE_V2_PREFETCH_SESSION_CAP) return;
+        completedPreloadUrlsRef.current.add(imageUrl);
+      });
+    });
+  }, [heroImageUrls, listings.length, prefetchLookahead, topVisibleIndex]);
 
   if (listings.length === 0) {
     return (
