@@ -143,6 +143,16 @@ export function shouldThrottlePagerLiteWheelNavigation(input: {
   return input.nextDirection === input.lastDirection;
 }
 
+export function shouldStartPagerLitePointerGesture(input: {
+  pointerType: string;
+  button: number;
+  startedInsideCarousel: boolean;
+}): boolean {
+  if (input.pointerType === "touch") return false;
+  if (input.button !== 0) return false;
+  return !input.startedInsideCarousel;
+}
+
 function startedInsideCarousel(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
   return Boolean(target.closest(PAGER_LITE_CAROUSEL_SELECTOR));
@@ -167,6 +177,8 @@ export const PagerLite = memo(function PagerLite({
   const wheelLastEventAtRef = useRef(0);
   const wheelLastTriggeredAtRef = useRef(0);
   const wheelLastDirectionRef = useRef<PagerLiteWheelDirection | null>(null);
+  const pointerCaptureTargetRef = useRef<HTMLDivElement | null>(null);
+  const pointerCaptureIdRef = useRef<number | null>(null);
 
   const [viewportHeight, setViewportHeight] = useState(() => {
     if (typeof window === "undefined") return 1;
@@ -193,10 +205,25 @@ export const PagerLite = memo(function PagerLite({
     snapTimerRef.current = null;
   }, []);
 
+  const releaseCapturedPointer = useCallback(() => {
+    const node = pointerCaptureTargetRef.current;
+    const pointerId = pointerCaptureIdRef.current;
+    pointerCaptureTargetRef.current = null;
+    pointerCaptureIdRef.current = null;
+    if (!node || pointerId === null) return;
+    if (!node.hasPointerCapture(pointerId)) return;
+    try {
+      node.releasePointerCapture(pointerId);
+    } catch {
+      // Ignore stale capture failures when pointer already released by browser.
+    }
+  }, []);
+
   const hardResetGestureState = useCallback(() => {
     gestureStateRef.current = createIdleGestureState();
+    releaseCapturedPointer();
     setDragOffsetPx(0);
-  }, []);
+  }, [releaseCapturedPointer]);
 
   const refreshViewportHeight = useCallback(() => {
     const next = Math.max(1, rootRef.current?.clientHeight || window.innerHeight || 1);
@@ -269,7 +296,8 @@ export const PagerLite = memo(function PagerLite({
       snapToOffset(direction < 0 ? viewportHeight : -viewportHeight, nextIndex);
     }
     gestureStateRef.current = createIdleGestureState();
-  }, [hardResetGestureState, snapToOffset, viewportHeight]);
+    releaseCapturedPointer();
+  }, [hardResetGestureState, releaseCapturedPointer, snapToOffset, viewportHeight]);
 
   const beginGesture = useCallback(
     (input: {
@@ -389,7 +417,16 @@ export const PagerLite = memo(function PagerLite({
       data-testid={testId}
       style={{ touchAction: "pan-y pinch-zoom", overscrollBehaviorY: "contain" }}
       onPointerDownCapture={(event) => {
-        if (event.pointerType === "touch") return;
+        const insideCarousel = startedInsideCarousel(event.target);
+        if (
+          !shouldStartPagerLitePointerGesture({
+            pointerType: event.pointerType,
+            button: event.button,
+            startedInsideCarousel: insideCarousel,
+          })
+        ) {
+          return;
+        }
         beginGesture({
           x: event.clientX,
           y: event.clientY,
@@ -397,6 +434,14 @@ export const PagerLite = memo(function PagerLite({
           pointerId: event.pointerId,
           eventTarget: event.target,
         });
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          pointerCaptureTargetRef.current = event.currentTarget;
+          pointerCaptureIdRef.current = event.pointerId;
+        } catch {
+          pointerCaptureTargetRef.current = null;
+          pointerCaptureIdRef.current = null;
+        }
       }}
       onPointerMoveCapture={(event) => {
         if (event.pointerType === "touch") return;
@@ -412,6 +457,7 @@ export const PagerLite = memo(function PagerLite({
       onTouchStartCapture={(event) => {
         const touch = event.touches[0];
         if (!touch) return;
+        if (startedInsideCarousel(event.target)) return;
         beginGesture({
           x: touch.clientX,
           y: touch.clientY,
