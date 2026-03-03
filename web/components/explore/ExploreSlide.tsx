@@ -138,8 +138,14 @@ function ExploreSlideInner({
 }: ExploreSlideProps) {
   const { market } = useMarketPreference();
   const searchParams = useSearchParams();
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [shareFeedback, setShareFeedback] = useState<"copied" | "error" | null>(null);
+  const [detailsOpenListingId, setDetailsOpenListingId] = useState<string | null>(null);
+  const [shareFeedbackState, setShareFeedbackState] = useState<{
+    listingId: string | null;
+    value: "copied" | "error" | null;
+  }>({
+    listingId: null,
+    value: null,
+  });
   const [showDetailsHint, setShowDetailsHint] = useState(false);
 
   const kind = resolveExploreListingKind(property);
@@ -169,6 +175,28 @@ function ExploreSlideInner({
     console.count(`[perf][explore-slide] render:${property.id}`);
   }
 
+  const detailsOpen = detailsOpenListingId === property.id;
+  const shareFeedback = shareFeedbackState.listingId === property.id
+    ? shareFeedbackState.value
+    : null;
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === "production" || typeof window === "undefined") return;
+    const debugWindow = window as Window & {
+      __EXPLORE_REMOUNT_DEBUG__?: boolean;
+      __EXPLORE_REMOUNT_BREADCRUMB_LOGGED__?: boolean;
+    };
+    if (!debugWindow.__EXPLORE_REMOUNT_DEBUG__) return;
+    return () => {
+      if (debugWindow.__EXPLORE_REMOUNT_BREADCRUMB_LOGGED__) return;
+      debugWindow.__EXPLORE_REMOUNT_BREADCRUMB_LOGGED__ = true;
+      console.info("[explore][pager-remount-check]", {
+        listingId: property.id,
+        slideIndex: index,
+      });
+    };
+  }, [index, property.id]);
+
   useEffect(() => {
     const rafId = window.requestAnimationFrame(() => {
       setShowDetailsHint(!hasSeenExploreDetailsHint());
@@ -176,7 +204,7 @@ function ExploreSlideInner({
     return () => {
       window.cancelAnimationFrame(rafId);
     };
-  }, []);
+  }, [property.id]);
 
   const dismissDetailsHint = useCallback(() => {
     setShowDetailsHint((current) => {
@@ -196,16 +224,25 @@ function ExploreSlideInner({
     });
     if (result === "shared" || result === "copied") {
       onShareAction?.({ listingId: property.id, index, result, intentType });
-      setShareFeedback("copied");
+      setShareFeedbackState({
+        listingId: property.id,
+        value: "copied",
+      });
       return;
     }
     if (result === "dismissed") {
       onShareAction?.({ listingId: property.id, index, result, intentType });
-      setShareFeedback(null);
+      setShareFeedbackState({
+        listingId: property.id,
+        value: null,
+      });
       return;
     }
     onShareAction?.({ listingId: property.id, index, result: "error", intentType });
-    setShareFeedback("error");
+    setShareFeedbackState({
+      listingId: property.id,
+      value: "error",
+    });
   }, [detailsHref, index, intentType, location, onShareAction, property.id, property.title]);
 
   const handleLongPress = useCallback(() => {
@@ -224,7 +261,7 @@ function ExploreSlideInner({
   const handleOpenDetails = useCallback(() => {
     dismissDetailsHint();
     onOpenDetails?.({ listingId: property.id, index, intentType });
-    setDetailsOpen(true);
+    setDetailsOpenListingId(property.id);
   }, [dismissDetailsHint, index, intentType, onOpenDetails, property.id]);
 
   return (
@@ -315,7 +352,7 @@ function ExploreSlideInner({
       <ExploreDetailsSheet
         open={detailsOpen}
         onOpenChange={(nextOpen) => {
-          setDetailsOpen(nextOpen);
+          setDetailsOpenListingId(nextOpen ? property.id : null);
           if (nextOpen) dismissDetailsHint();
         }}
         property={property}

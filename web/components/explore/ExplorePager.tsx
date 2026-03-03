@@ -19,11 +19,12 @@ import {
 import { resolveSimilarHomes } from "@/lib/explore/similar-homes";
 import {
   EXPLORE_GALLERY_FALLBACK_IMAGE,
+  normalizeExploreGalleryImageUrl,
   resolveExplorePropertyImageRecords,
 } from "@/lib/explore/gallery-images";
 import { trackExploreFunnelEvent } from "@/lib/explore/explore-funnel";
 import { resolveExploreAnalyticsIntentType } from "@/lib/explore/explore-presentation";
-import { ExplorePagerV2 } from "@/components/explore/ExplorePagerV2";
+import { ExplorePagerV3 } from "@/components/explore/ExplorePagerV3";
 import { readShouldConserveData } from "@/lib/explore/network-hints";
 import { predecodeImageUrl } from "@/lib/images/decode";
 
@@ -58,6 +59,21 @@ function resolveExploreHeroImageUrl(property: Property): string {
     fallbackImage: EXPLORE_FALLBACK_IMAGE,
   });
   return imageSources[0] ?? EXPLORE_FALLBACK_IMAGE;
+}
+
+export function resolveExploreSlideShellReady(property: Property | null | undefined): boolean {
+  if (!property) return false;
+  const propertyImages = resolveExplorePropertyImageRecords(property);
+  const imageSources = resolvePropertyImageSources({
+    coverImageUrl: property.cover_image_url,
+    images: propertyImages,
+    primaryImageUrl: getPrimaryImageUrl(property),
+    fallbackImage: EXPLORE_FALLBACK_IMAGE,
+  });
+  return imageSources.some((source) => {
+    const normalized = normalizeExploreGalleryImageUrl(source, EXPLORE_FALLBACK_IMAGE);
+    return normalized !== EXPLORE_FALLBACK_IMAGE;
+  });
 }
 
 export function resolveExploreActiveSlideIndex(
@@ -236,6 +252,10 @@ export function ExplorePager({
   );
   const heroImageUrls = useMemo(
     () => visibleListings.map((property) => resolveExploreHeroImageUrl(property)),
+    [visibleListings]
+  );
+  const slideShellReadyByIndex = useMemo(
+    () => visibleListings.map((property) => resolveExploreSlideShellReady(property)),
     [visibleListings]
   );
   const displayedIndex = Math.min(activeIndex, Math.max(0, visibleListings.length - 1));
@@ -636,11 +656,12 @@ export function ExplorePager({
         section={activeSection}
         limitedResults={Boolean(sectionMeta?.limitedResults && activeSection === "more_to_explore")}
       />
-      <ExplorePagerV2
+      <ExplorePagerV3
         totalSlides={feedSize}
         activeIndex={displayedIndex}
         onActiveIndexChange={handleActiveIndexChange}
         gestureLocked={isGestureLocked}
+        canAdvanceToIndex={(index) => Boolean(visibleListings[index]) && Boolean(slideShellReadyByIndex[index])}
         testId="explore-pager"
         resolveSlideKey={(index) => visibleListings[index]?.id ?? String(index)}
         renderSlide={(index) => {
