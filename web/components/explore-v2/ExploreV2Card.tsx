@@ -1,23 +1,26 @@
 "use client";
 
-import { memo, useMemo, useState } from "react";
-import Image from "next/image";
-import type { ImageLoader } from "next/image";
-import { cn } from "@/components/ui/cn";
+import { memo, useMemo } from "react";
+import {
+  UnifiedImageCarousel,
+  type UnifiedImageCarouselItem,
+} from "@/components/ui/UnifiedImageCarousel";
 import type { Property } from "@/lib/types";
-import { resolveImagePlaceholder } from "@/lib/images/placeholders";
 import { resolveExploreIntentTag, resolveExplorePriceCopy } from "@/lib/explore/explore-presentation";
-import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
-import { resolveExploreHeroImageUrl } from "@/lib/explore/gallery-images";
+import {
+  EXPLORE_GALLERY_FALLBACK_IMAGE,
+  normalizeExploreGalleryImageUrl,
+  resolveExploreImagePlaceholderMeta,
+  resolveExplorePropertyImageRecords,
+} from "@/lib/explore/gallery-images";
 
 type ExploreV2CardProps = {
   listing: Property;
   marketCurrency: string | null;
+  imageRecords?: ExploreImageRecord[];
 };
 
-export type ExploreV2HeroLoadState = "loading" | "loaded" | "error";
-
-const directImageLoader: ImageLoader = ({ src }) => src;
+type ExploreImageRecord = ReturnType<typeof resolveExplorePropertyImageRecords>[number];
 
 function resolveExploreV2LocationLine(listing: Property): string {
   const parts = [listing.city, listing.country_code ?? listing.country]
@@ -27,121 +30,157 @@ function resolveExploreV2LocationLine(listing: Property): string {
   return parts.join(", ");
 }
 
-function resolveExploreV2PlaceholderStyle(listing: Property) {
-  const heroImage = resolveExploreHeroImageUrl(listing);
-  const placeholder = resolveImagePlaceholder({
-    dominantColor: heroImage.meta?.dominantColor ?? null,
-    blurhash: heroImage.meta?.blurhash ?? null,
-    imageUrl: heroImage.url ?? listing.cover_image_url ?? listing.id,
-  });
-  return {
-    backgroundColor: placeholder.dominantColor,
-    backgroundImage: `url("${placeholder.blurDataURL}")`,
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-  } as const;
+function resolveCreatedAtTimestamp(value: string | null | undefined): number {
+  if (!value) return Number.POSITIVE_INFINITY;
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) return Number.POSITIVE_INFINITY;
+  return parsed;
 }
 
-export function reduceExploreV2HeroLoadState(
-  current: ExploreV2HeroLoadState,
-  event: "load" | "error" | "reset"
-): ExploreV2HeroLoadState {
-  if (event === "reset") return "loading";
-  if (event === "load") return "loaded";
-  if (current === "loaded" && event === "error") return current;
-  return "error";
-}
-
-export function resolveExploreV2HeroRenderState(input: {
-  heroImageUrl: string | null;
-  loadState: ExploreV2HeroLoadState;
-}) {
-  const hasImageUrl = Boolean(input.heroImageUrl);
-  const shouldRenderImage = hasImageUrl && input.loadState !== "error";
+export function resolveExploreV2HeroUiState(totalImages: number): {
+  showSwipeAffordance: boolean;
+  showDots: boolean;
+  showCountBadge: boolean;
+} {
+  const showSwipeAffordance = totalImages > 1;
   return {
-    shouldRenderImage,
-    showUnavailableBadge: !hasImageUrl || input.loadState === "error",
-    imageOpacityClass: input.loadState === "loaded" ? "opacity-100" : "opacity-0",
-    placeholderPersistent: true,
+    showSwipeAffordance,
+    showDots: showSwipeAffordance,
+    showCountBadge: showSwipeAffordance,
   };
 }
 
-function ExploreV2CardInner({ listing, marketCurrency }: ExploreV2CardProps) {
-  const heroImage = useMemo(() => resolveExploreHeroImageUrl(listing), [listing]);
-  const placeholderStyle = useMemo(() => resolveExploreV2PlaceholderStyle(listing), [listing]);
+export function resolveExploreV2CarouselItems(input: {
+  listing: Property;
+  imageRecords: ExploreImageRecord[];
+}): {
+  items: UnifiedImageCarouselItem[];
+  hasRealImage: boolean;
+} {
+  const dedupedUrls = new Set<string>();
+  const orderedRecords = input.imageRecords
+    .map((record, index) => ({ record, index }))
+    .sort((left, right) => {
+      const leftPosition =
+        typeof left.record.position === "number" && Number.isFinite(left.record.position)
+          ? left.record.position
+          : Number.POSITIVE_INFINITY;
+      const rightPosition =
+        typeof right.record.position === "number" && Number.isFinite(right.record.position)
+          ? right.record.position
+          : Number.POSITIVE_INFINITY;
+      if (leftPosition !== rightPosition) return leftPosition - rightPosition;
+
+      const leftCreatedAt = resolveCreatedAtTimestamp(left.record.created_at ?? null);
+      const rightCreatedAt = resolveCreatedAtTimestamp(right.record.created_at ?? null);
+      if (leftCreatedAt !== rightCreatedAt) return leftCreatedAt - rightCreatedAt;
+
+      return left.index - right.index;
+    });
+
+  const items: UnifiedImageCarouselItem[] = [];
+  for (const { record } of orderedRecords) {
+    const normalizedUrl = normalizeExploreGalleryImageUrl(record.image_url, "");
+    if (!normalizedUrl || dedupedUrls.has(normalizedUrl)) continue;
+    dedupedUrls.add(normalizedUrl);
+    const placeholder = resolveExploreImagePlaceholderMeta({
+      imageUrl: normalizedUrl,
+      imageRecord: record,
+    });
+    items.push({
+      id: record.id,
+      src: normalizedUrl,
+      alt: input.listing.title || "Explore listing image",
+      placeholderColor: placeholder.dominantColor,
+      placeholderBlurDataURL: placeholder.blurDataURL,
+      placeholderSource: placeholder.source,
+    });
+  }
+
+  if (items.length > 0) {
+    return {
+      items,
+      hasRealImage: true,
+    };
+  }
+
+  const fallbackCoverUrl = normalizeExploreGalleryImageUrl(input.listing.cover_image_url, "");
+  if (fallbackCoverUrl) {
+    const placeholder = resolveExploreImagePlaceholderMeta({ imageUrl: fallbackCoverUrl });
+    return {
+      items: [
+        {
+          id: `${input.listing.id}-cover`,
+          src: fallbackCoverUrl,
+          alt: input.listing.title || "Explore listing image",
+          placeholderColor: placeholder.dominantColor,
+          placeholderBlurDataURL: placeholder.blurDataURL,
+          placeholderSource: placeholder.source,
+        },
+      ],
+      hasRealImage: true,
+    };
+  }
+
+  return {
+    items: [],
+    hasRealImage: false,
+  };
+}
+
+function ExploreV2CardInner({ listing, marketCurrency, imageRecords }: ExploreV2CardProps) {
+  const resolvedImageRecords = useMemo(
+    () => imageRecords ?? resolveExplorePropertyImageRecords(listing),
+    [imageRecords, listing]
+  );
+  const heroCarousel = useMemo(
+    () =>
+      resolveExploreV2CarouselItems({
+        listing,
+        imageRecords: resolvedImageRecords,
+      }),
+    [listing, resolvedImageRecords]
+  );
+  const heroUiState = useMemo(
+    () => resolveExploreV2HeroUiState(heroCarousel.items.length),
+    [heroCarousel.items.length]
+  );
   const price = useMemo(
     () => resolveExplorePriceCopy(listing, { marketCurrency, stayContext: null }),
     [listing, marketCurrency]
   );
   const intentTag = useMemo(() => resolveExploreIntentTag(listing), [listing]);
   const locationLine = useMemo(() => resolveExploreV2LocationLine(listing), [listing]);
-  const [loadedHeroUrl, setLoadedHeroUrl] = useState<string | null>(null);
-  const [failedHeroUrl, setFailedHeroUrl] = useState<string | null>(null);
-  const heroLoadState: ExploreV2HeroLoadState =
-    heroImage.url && failedHeroUrl === heroImage.url
-      ? "error"
-      : heroImage.url && loadedHeroUrl === heroImage.url
-        ? "loaded"
-        : "loading";
-  const bypassOptimizer = heroImage.url ? shouldBypassNextImageOptimizer(heroImage.url) : false;
-  const heroRenderState = resolveExploreV2HeroRenderState({
-    heroImageUrl: heroImage.url,
-    loadState: heroLoadState,
-  });
 
   return (
     <article
       className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
       data-testid="explore-v2-card"
     >
-      <div
-        className="relative aspect-[4/5] min-h-[320px] w-full overflow-hidden"
-        style={placeholderStyle}
-        data-testid="explore-v2-hero"
-      >
-        <div
-          className="absolute inset-0 scale-[1.04]"
-          style={placeholderStyle}
-          data-placeholder-persistent={heroRenderState.placeholderPersistent ? "true" : "false"}
-          aria-hidden
+      <div className="relative aspect-[4/5] min-h-[320px] w-full overflow-hidden" data-testid="explore-v2-hero">
+        <UnifiedImageCarousel
+          items={heroCarousel.items}
+          fallbackImage={EXPLORE_GALLERY_FALLBACK_IMAGE}
+          sizes="(max-width: 768px) 100vw, 460px"
+          className="h-full w-full"
+          rootTestId="explore-v2-hero-carousel"
+          dotsTestId="explore-v2-hero-carousel-dots"
+          showArrows={false}
+          showDots={heroUiState.showDots}
+          showCountBadge={heroUiState.showCountBadge}
+          countBadgeClassName="border-white/18 bg-slate-900/48 px-2.5 py-0.5 text-white backdrop-blur-md backdrop-saturate-150 shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_8px_22px_rgba(15,23,42,0.24)]"
+          prioritizeFirstImage
+          renderWindowRadius={1}
+          progressiveUpgradeOnIdle
+          maxConcurrentImageLoads={2}
+          showLoadingCue={heroUiState.showSwipeAffordance}
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/25" />
-        {heroRenderState.shouldRenderImage && heroImage.url ? (
-          <Image
-            src={heroImage.url}
-            alt={listing.title || "Explore listing image"}
-            fill
-            sizes="(max-width: 768px) 100vw, 460px"
-            className={cn(
-              "select-none object-cover transition-opacity duration-300",
-              heroRenderState.imageOpacityClass
-            )}
-            decoding="async"
-            placeholder="blur"
-            blurDataURL={resolveImagePlaceholder({
-              dominantColor: heroImage.meta?.dominantColor ?? null,
-              blurhash: heroImage.meta?.blurhash ?? null,
-              imageUrl: heroImage.url,
-            }).blurDataURL}
-            unoptimized={bypassOptimizer}
-            loader={bypassOptimizer ? directImageLoader : undefined}
-            onLoad={() => {
-              if (!heroImage.url) return;
-              setLoadedHeroUrl(heroImage.url);
-              setFailedHeroUrl((current) => (current === heroImage.url ? null : current));
-            }}
-            onError={() => {
-              if (!heroImage.url) return;
-              setFailedHeroUrl(heroImage.url);
-            }}
-          />
-        ) : null}
-        {heroImage.url ? (
+        {heroCarousel.hasRealImage ? (
           <span className="sr-only" data-testid="explore-v2-hero-has-image">
             Hero image available
           </span>
         ) : null}
-        {heroRenderState.showUnavailableBadge ? (
+        {!heroCarousel.hasRealImage ? (
           <span
             className="absolute right-3 top-3 rounded-full bg-slate-900/70 px-2.5 py-1 text-[10px] font-medium uppercase tracking-[0.12em] text-white"
             data-testid="explore-v2-hero-image-unavailable"

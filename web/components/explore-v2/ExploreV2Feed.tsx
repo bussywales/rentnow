@@ -4,7 +4,10 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type ListRange } from "react-virtuoso";
 import type { Property } from "@/lib/types";
 import { ExploreV2Card } from "@/components/explore-v2/ExploreV2Card";
-import { resolveExploreHeroImageUrl } from "@/lib/explore/gallery-images";
+import {
+  resolveExploreHeroImageUrl,
+  resolveExplorePropertyImageRecords,
+} from "@/lib/explore/gallery-images";
 import {
   readShouldConserveData,
   subscribeToConserveDataChanges,
@@ -44,11 +47,18 @@ function ExploreV2FeedInner({ listings, marketCurrency }: ExploreV2FeedProps) {
     preloadIndex === null ? null : (heroImageUrls[preloadIndex] ?? null);
 
   const renderCard = useCallback(
-    (index: number, listing: Property) => (
-      <div className={index === 0 ? "pt-1 pb-4" : "pb-4"}>
-        <ExploreV2Card listing={listing} marketCurrency={marketCurrency} />
-      </div>
-    ),
+    (index: number, listing: Property) => {
+      const imageRecords = resolveExplorePropertyImageRecords(listing);
+      return (
+        <div className={index === 0 ? "pt-1 pb-4" : "pb-4"}>
+          <ExploreV2Card
+            listing={listing}
+            marketCurrency={marketCurrency}
+            imageRecords={imageRecords}
+          />
+        </div>
+      );
+    },
     [marketCurrency]
   );
 
