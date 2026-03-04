@@ -39,7 +39,8 @@ void test("shortlets shell mounts only one compact sticky bar component", () => 
 
   const componentMatches = contents.match(/<ShortletsMobileStickyBar/g) ?? [];
   assert.equal(componentMatches.length, 1);
-  assert.equal(contents.includes('data-testid="shortlets-compact-search-pill"'), false);
+  assert.equal((contents.match(/shortlets-compact-search-pill/g) ?? []).length, 1);
+  assert.ok(contents.includes("<FloatingActionRail"));
 });
 
 void test("shortlets mobile sticky bar keeps compact sizing constraints and avoids oversized overlays", () => {

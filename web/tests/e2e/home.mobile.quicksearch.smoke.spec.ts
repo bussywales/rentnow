@@ -99,6 +99,19 @@ test.describe("home mobile quick search smoke", () => {
     await expect(page.getByTestId(smokeSelectors.homeMobileQuickSearchGuestsValue)).toHaveText("3");
     const locationInput = page.getByTestId(smokeSelectors.homeMobileQuickSearchLocation);
     await locationInput.fill("Lekki");
+    const supportWidgetRoot = page.getByTestId(smokeSelectors.supportWidgetRoot);
+    await expect
+      .poll(
+        async () => {
+          const [isVisible, formFocused] = await Promise.all([
+            supportWidgetRoot.isVisible().catch(() => false),
+            supportWidgetRoot.getAttribute("data-form-focused").catch(() => null),
+          ]);
+          return !isVisible || formFocused === "true";
+        },
+        { timeout: 10_000 }
+      )
+      .toBeTruthy();
     markStep("submit-shortlet-search-enter");
     await locationInput.press("Enter");
 

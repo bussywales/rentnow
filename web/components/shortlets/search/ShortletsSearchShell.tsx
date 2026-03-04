@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { DateRange } from "react-day-picker";
 import type { Property } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
+import { FloatingActionRail } from "@/components/ui/FloatingActionRail";
 import { Select } from "@/components/ui/Select";
 import { Calendar } from "@/components/ui/calendar";
 import { FilterChipRow } from "@/components/filters/FilterChipRow";
@@ -85,6 +86,7 @@ import {
   type MapListCouplingState,
 } from "@/lib/shortlet/map-list-coupling";
 import { getSavedIds, toggleSaved } from "@/lib/shortlet/saved.client";
+import { glassSurface } from "@/lib/ui/glass";
 import { shouldPriorityImage } from "@/lib/images/loading-profile";
 
 type SearchItem = Property & {
@@ -2461,18 +2463,25 @@ export function ShortletsSearchShell({
         )}
       </div>
 
-      <button
-        ref={mobileMapTriggerRef}
-        type="button"
-        onClick={openMapView}
-        aria-haspopup="dialog"
-        aria-expanded={mobileMapOpen}
-        aria-controls="shortlets-mobile-map-modal"
-        className="fixed bottom-4 right-4 z-20 inline-flex h-10 items-center rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm lg:hidden"
-        data-testid="shortlets-open-map"
+      <FloatingActionRail
+        className="lg:hidden"
+        avoidSelector='[data-testid="shortlets-expanded-search-controls"], [data-testid="shortlets-compact-search-pill"], [data-testid="support-widget-button"], [data-testid="support-widget-panel"]'
       >
-        Map
-      </button>
+        <button
+          ref={mobileMapTriggerRef}
+          type="button"
+          onClick={openMapView}
+          aria-haspopup="dialog"
+          aria-expanded={mobileMapOpen}
+          aria-controls="shortlets-mobile-map-modal"
+          className={glassSurface(
+            "inline-flex h-11 min-w-11 items-center justify-center px-4 text-sm font-semibold transition-[transform,opacity] duration-100 ease-out motion-reduce:transition-none active:scale-[0.97] active:opacity-80"
+          )}
+          data-testid="shortlets-open-map"
+        >
+          Map
+        </button>
+      </FloatingActionRail>
       </div>
 
       {mobileMapOpen ? (

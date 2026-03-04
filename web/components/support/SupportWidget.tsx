@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { FLOATING_ACTION_RAIL_BASE_BOTTOM_OFFSET_PX, FloatingActionRail } from "@/components/ui/FloatingActionRail";
+import { glassSurface } from "@/lib/ui/glass";
 
 const QUICK_ACTIONS: Array<{ id: string; label: string; href: string }> = [
   { id: "payments", label: "Payments help", href: "/help/tenant/shortlets" },
@@ -37,6 +39,7 @@ export function SupportWidget({
   const [hasMounted, setHasMounted] = useState(false);
   const isShortletsRoute = hasMounted && (pathname?.startsWith("/shortlets") ?? false);
   const isExploreRoute = pathname?.startsWith("/explore") ?? false;
+  const isHomeRoute = pathname === "/" || pathname === "/home";
   const [open, setOpen] = useState(false);
   const [hasBlockingDialog, setHasBlockingDialog] = useState(false);
   const [query, setQuery] = useState("");
@@ -301,14 +304,22 @@ export function SupportWidget({
     chatMessages,
   ]);
 
-  const widgetPositionClass = isShortletsRoute
-    ? "bottom-[calc(env(safe-area-inset-bottom)+5rem)] right-4 sm:bottom-6 sm:right-6"
-    : "bottom-4 right-4 sm:bottom-6 sm:right-6";
+  const railAvoidSelector = isShortletsRoute
+    ? '[data-testid="shortlets-open-map"], [data-testid="shortlets-expanded-search-controls"], [data-testid="shortlets-compact-search-pill"]'
+    : isHomeRoute
+      ? '[data-testid="mobile-quickstart-search-trigger"], [data-testid="mobile-quicksearch-location-input"]'
+      : null;
+  const railBaseBottomOffset = isShortletsRoute
+    ? FLOATING_ACTION_RAIL_BASE_BOTTOM_OFFSET_PX + 56
+    : FLOATING_ACTION_RAIL_BASE_BOTTOM_OFFSET_PX;
 
   return (
-    <div
-      className={`fixed z-[35] ${widgetPositionClass} ${hasBlockingDialog || isExploreRoute ? "hidden" : ""}`}
-      data-testid="support-widget"
+    <FloatingActionRail
+      hidden={hasBlockingDialog || isExploreRoute}
+      hideWhenFormFocused={!open && !isShortletsRoute}
+      avoidSelector={railAvoidSelector}
+      baseBottomOffsetPx={railBaseBottomOffset}
+      testId="support-widget"
     >
       {open ? (
         <div
@@ -504,13 +515,15 @@ export function SupportWidget({
           ref={triggerRef}
           type="button"
           onClick={() => setOpen(true)}
-          className="inline-flex h-12 items-center gap-2 rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-800 shadow-lg transition hover:bg-slate-50"
+          className={glassSurface(
+            "inline-flex h-11 min-w-11 items-center gap-2 px-4 text-sm font-semibold transition-[transform,opacity] duration-100 ease-out motion-reduce:transition-none active:scale-[0.97] active:opacity-80"
+          )}
           aria-label="Open support widget"
           data-testid="support-widget-button"
         >
           Help
         </button>
       )}
-    </div>
+    </FloatingActionRail>
   );
 }

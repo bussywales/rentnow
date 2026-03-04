@@ -16,7 +16,7 @@ void test("support widget exposes open, close, quick actions, and /support fallb
   const widgetPath = path.join(process.cwd(), "components", "support", "SupportWidget.tsx");
   const source = fs.readFileSync(widgetPath, "utf8");
 
-  assert.match(source, /data-testid="support-widget"/);
+  assert.match(source, /testId="support-widget"/);
   assert.match(source, /data-testid="support-widget-button"/);
   assert.match(source, /data-testid="support-widget-panel"/);
   assert.match(source, /data-testid="support-widget-search"/);
@@ -30,8 +30,10 @@ void test("support widget exposes open, close, quick actions, and /support fallb
   assert.match(source, /Open full support page/);
   assert.match(source, /href="\/support"/);
   assert.match(source, /if\s*\(event\.key === "Escape"\)/);
-  assert.match(source, /z-\[35\]/);
+  assert.match(source, /FloatingActionRail/);
   assert.match(source, /\[role="dialog"\]\[aria-modal="true"\]/);
   assert.match(source, /const isExploreRoute = pathname\?\.startsWith\("\/explore"\) \?\? false/);
-  assert.match(source, /hasBlockingDialog \|\| isExploreRoute \? "hidden" : ""/);
+  assert.match(source, /hidden=\{hasBlockingDialog \|\| isExploreRoute\}/);
+  assert.match(source, /hideWhenFormFocused=\{!open && !isShortletsRoute\}/);
+  assert.match(source, /baseBottomOffsetPx=\{railBaseBottomOffset\}/);
 });

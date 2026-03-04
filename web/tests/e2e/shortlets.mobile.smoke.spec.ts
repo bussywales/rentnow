@@ -162,6 +162,17 @@ test.describe("shortlets mobile smoke", () => {
     const mapOpen = page.getByTestId(smokeSelectors.shortletsMapOpen);
     const hasMapSheetToggle = await mapOpen.isVisible().catch(() => false);
     if (hasMapSheetToggle) {
+      const whereInput = page.getByLabel("Where").first();
+      if (await whereInput.isVisible().catch(() => false)) {
+        setLastAction("focus:where-input");
+        await whereInput.focus();
+        await expect
+          .poll(async () => mapOpen.isVisible().catch(() => false), { timeout: 10_000 })
+          .toBeFalsy();
+        await page.getByRole("heading", { name: /find shortlets/i }).click({ force: true });
+        await expect(mapOpen).toBeVisible();
+      }
+
       const supportButton = page.getByTestId(smokeSelectors.supportWidgetButton);
       const supportVisible = await supportButton.isVisible().catch(() => false);
       if (supportVisible) {
