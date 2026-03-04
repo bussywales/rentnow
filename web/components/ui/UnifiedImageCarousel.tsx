@@ -76,6 +76,8 @@ const UNIFIED_CAROUSEL_PROGRESSIVE_IDLE_DELAY_MS = 260;
 export const UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS = 300;
 export const UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS = 600;
 export const UNIFIED_CAROUSEL_MIN_PLACEHOLDER_VISIBLE_MS = 160;
+export const UNIFIED_CAROUSEL_PREMIUM_NEUTRAL_SLIDE_BACKGROUND_CLASS =
+  "bg-slate-950/10 dark:bg-slate-100/10";
 
 type UnifiedIdleCallback = (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void;
 type UnifiedIdleWindow = Window & {
@@ -574,7 +576,13 @@ export function UnifiedImageCarousel({
             const bypassOptimizer = shouldBypassNextImageOptimizer(item.src);
             const imageLoading = resolveImageLoadingProfile(prioritizeFirstImage && index === 0);
             const imageElement = (
-              <div className="relative h-full w-full overflow-hidden">
+              <div
+                className={cn(
+                  "relative h-full w-full overflow-hidden",
+                  UNIFIED_CAROUSEL_PREMIUM_NEUTRAL_SLIDE_BACKGROUND_CLASS
+                )}
+                style={{ backgroundColor: placeholder.dominantColor }}
+              >
                 <div
                   className="absolute inset-0 scale-[1.04]"
                   style={placeholder.style}
@@ -632,6 +640,7 @@ export function UnifiedImageCarousel({
                 key={slideKey}
                 className={cn(
                   "relative h-full w-full flex-none snap-start",
+                  UNIFIED_CAROUSEL_PREMIUM_NEUTRAL_SLIDE_BACKGROUND_CLASS,
                   shouldAnimateSlides &&
                     "transition-[opacity,transform] duration-300 ease-out motion-reduce:transition-none",
                   applyInertialSnapHint({
@@ -640,6 +649,7 @@ export function UnifiedImageCarousel({
                   }),
                   slideClassName
                 )}
+                style={{ backgroundColor: placeholder.dominantColor }}
                 data-active-slide={isActiveSlide ? "true" : "false"}
               >
                 {href ? (

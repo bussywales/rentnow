@@ -6,6 +6,7 @@ import {
   UNIFIED_CAROUSEL_LOADING_CUE_MIN_VISIBLE_MS,
   UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS,
   UNIFIED_CAROUSEL_MIN_PLACEHOLDER_VISIBLE_MS,
+  UNIFIED_CAROUSEL_PREMIUM_NEUTRAL_SLIDE_BACKGROUND_CLASS,
   resolveUnifiedImageCarouselLoadCandidates,
   resolveUnifiedImageCarouselMaxConcurrentImageLoads,
   resolveUnifiedImagePlaceholderHoldMs,
@@ -156,6 +157,13 @@ void test("unified image carousel placeholder presentation falls back when metad
   assert.ok(presentation.blurDataURL.startsWith("data:image/svg+xml,"));
 });
 
+void test("unified image carousel uses a stable premium neutral slide background token", () => {
+  assert.equal(
+    UNIFIED_CAROUSEL_PREMIUM_NEUTRAL_SLIDE_BACKGROUND_CLASS,
+    "bg-slate-950/10 dark:bg-slate-100/10"
+  );
+});
+
 void test("unified image carousel consumes the shared interaction policy module", () => {
   const contents = fs.readFileSync(unifiedCarouselPath, "utf8");
   assert.ok(contents.includes('from "@/lib/ui/carousel-interactions"'));
@@ -170,6 +178,8 @@ void test("unified image carousel consumes the shared interaction policy module"
   assert.ok(contents.includes("loader={bypassOptimizer ? directImageLoader : undefined}"));
   assert.ok(contents.includes("data-placeholder-source={placeholder.source}"));
   assert.ok(contents.includes('data-placeholder-persistent="true"'));
+  assert.ok(contents.includes("UNIFIED_CAROUSEL_PREMIUM_NEUTRAL_SLIDE_BACKGROUND_CLASS"));
+  assert.ok(contents.includes('style={{ backgroundColor: placeholder.dominantColor }}'));
   assert.ok(contents.includes('"h-full overflow-hidden overscroll-x-contain"'));
   assert.ok(contents.includes('style={{ touchAction: "pan-y pinch-zoom" }}'));
   assert.ok(contents.includes('data-testid={`${rootTestId}-viewport`}'));
