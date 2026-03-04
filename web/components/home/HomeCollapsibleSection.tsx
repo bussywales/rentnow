@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
 import {
   readCollapsedPreference,
@@ -33,9 +33,12 @@ export function HomeCollapsibleSection({
   testId,
   children,
 }: Props) {
-  const [collapsed, setCollapsed] = useState(() =>
-    readCollapsedPreference(getClientStorage(), storageKey, defaultCollapsed)
-  );
+  // Keep the first client render deterministic with the server output.
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+  useEffect(() => {
+    setCollapsed(readCollapsedPreference(getClientStorage(), storageKey, defaultCollapsed));
+  }, [defaultCollapsed, storageKey]);
 
   return (
     <section

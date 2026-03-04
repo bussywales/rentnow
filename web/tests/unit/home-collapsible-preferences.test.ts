@@ -101,3 +101,16 @@ void test("home pages wire role-specific localStorage keys for collapsible secti
   assert.match(hostDashboardContents, /panelKey="analytics_preview"/);
   assert.match(hostDashboardContents, /HostHomePanel/);
 });
+
+void test("home collapsible section defers storage preference read until after mount", () => {
+  const collapsibleSectionPath = path.join(
+    process.cwd(),
+    "components",
+    "home",
+    "HomeCollapsibleSection.tsx"
+  );
+  const source = fs.readFileSync(collapsibleSectionPath, "utf8");
+
+  assert.match(source, /const \[collapsed, setCollapsed\] = useState\(defaultCollapsed\)/);
+  assert.match(source, /useEffect\(\(\) => \{\s*setCollapsed\(readCollapsedPreference/);
+});
