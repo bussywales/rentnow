@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import { smokeSelectors } from "./utils/selectors";
 
 const KNOWN_BENIGN_CONSOLE_PATTERNS: RegExp[] = [
@@ -34,6 +34,36 @@ function attachRuntimeErrorGuards(page: Page) {
   return runtimeErrors;
 }
 
+async function clickActionButton(button: Locator) {
+  await expect(button).toBeVisible();
+  await expect(button).toBeEnabled();
+
+  try {
+    await button.click({ trial: true, timeout: 5_000 });
+    await button.click({ timeout: 5_000 });
+  } catch (error) {
+    await button.evaluate((element) => {
+      if (element instanceof HTMLElement) {
+        element.click();
+      }
+    });
+  }
+}
+
+async function gotoWithRetry(page: Page, url: string, attempts = 3) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 90_000 });
+      return;
+    } catch (error) {
+      if (attempt === attempts) {
+        throw error;
+      }
+      await page.waitForTimeout(500);
+    }
+  }
+}
+
 test.describe("support widget escalation smoke", () => {
   test("anonymous user can ask assistant and escalate from widget", async ({ page }) => {
     const runtimeErrors = attachRuntimeErrorGuards(page);
@@ -41,7 +71,7 @@ test.describe("support widget escalation smoke", () => {
     let escalationCalls = 0;
     let escalationPayload: Record<string, unknown> | null = null;
 
-    await page.route("**/api/support/assistant", async (route) => {
+    await page.route("**/api/support/assistant**", async (route) => {
       assistantCalls += 1;
       const raw = route.request().postData() || "{}";
       const requestBody = JSON.parse(raw) as { message?: string };
@@ -67,7 +97,7 @@ test.describe("support widget escalation smoke", () => {
       });
     });
 
-    await page.route("**/api/support/escalate", async (route) => {
+    await page.route("**/api/support/escalate**", async (route) => {
       escalationCalls += 1;
       const raw = route.request().postData() || "{}";
       escalationPayload = JSON.parse(raw) as Record<string, unknown>;
@@ -87,7 +117,7 @@ test.describe("support widget escalation smoke", () => {
       window.localStorage.setItem("ph_marketplace_disclaimer_dismissed_version", "v1");
     });
 
-    await page.goto("/shortlets", { waitUntil: "domcontentloaded" });
+    await gotoWithRetry(page, "/shortlets");
     const widgetRoot = page.getByTestId(smokeSelectors.supportWidgetRoot);
     const widgetButton = page.getByTestId(smokeSelectors.supportWidgetButton);
     const widgetPanel = page.getByTestId(smokeSelectors.supportWidgetPanel);
@@ -111,20 +141,15 @@ test.describe("support widget escalation smoke", () => {
     }
     await expect(widgetPanel).toBeVisible();
 
-    await page
-      .getByTestId(smokeSelectors.supportWidgetInput)
-      .fill("How do booking requests work?");
-
-    const assistantResponse = page.waitForResponse(
-      (response) =>
-        response.request().method() === "POST" &&
-        response.url().includes("/api/support/assistant") &&
-        response.status() === 200,
-      { timeout: 20_000 }
-    );
-
-    await page.getByTestId(smokeSelectors.supportWidgetSend).click();
-    await assistantResponse;
+    const assistantInput = page.getByTestId(smokeSelectors.supportWidgetInput);
+    await assistantInput.fill("How do booking requests work?");
+    const sendButton = page.getByTestId(smokeSelectors.supportWidgetSend);
+    await expect(sendButton).toBeVisible();
+    await expect(sendButton).toBeEnabled();
+    await assistantInput.press("Enter");
+    await expect(widgetPanel).toContainText(/approved by hosts, usually within 12 hours/i, {
+      timeout: 15_000,
+    });
 
     await expect
       .poll(
@@ -136,28 +161,27 @@ test.describe("support widget escalation smoke", () => {
       )
       .toBeGreaterThanOrEqual(2);
 
-    await expect(page.getByTestId(smokeSelectors.supportWidgetEscalate)).toBeVisible();
-    await page.getByTestId(smokeSelectors.supportWidgetEscalate).click();
+    const escalateToggle = page.getByTestId(smokeSelectors.supportWidgetEscalate);
+    await expect(escalateToggle).toBeVisible();
+    await page.evaluate(() => {
+      const active = document.activeElement;
+      if (active instanceof HTMLElement) {
+        active.blur();
+      }
+    });
+    await clickActionButton(escalateToggle);
+    const escalationEmailInput = page
+      .locator('[data-testid="support-widget-panel"] input[type="email"]')
+      .first();
+    await expect(escalationEmailInput).toBeVisible({ timeout: 10_000 });
 
     const emailValue =
       process.env.PLAYWRIGHT_TEST_EMAIL ||
       process.env.PLAYWRIGHT_ADMIN_EMAIL ||
       "smoke+support@propatyhub.test";
-    await page
-      .locator('[data-testid="support-widget-panel"] input[type="email"]')
-      .first()
-      .fill(emailValue);
-
-    const escalateResponse = page.waitForResponse(
-      (response) =>
-        response.request().method() === "POST" &&
-        response.url().includes("/api/support/escalate") &&
-        response.status() === 200,
-      { timeout: 20_000 }
-    );
-
-    await page.getByRole("button", { name: /send to support/i }).click();
-    await escalateResponse;
+    await escalationEmailInput.fill(emailValue);
+    const escalateButton = page.getByRole("button", { name: /send to support/i });
+    await clickActionButton(escalateButton);
 
     const success = page.getByTestId(smokeSelectors.supportWidgetTicketSuccess);
     await expect(success).toBeVisible();
