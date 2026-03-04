@@ -396,9 +396,12 @@ function ExploreV2CardInner({
               Image unavailable
             </span>
           ) : null}
-          <div className="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-end pr-3">
-            <div className="pointer-events-auto flex flex-col gap-2" data-testid="explore-v2-action-rail">
-              <GlassPill variant="dark" className="h-11 w-11 p-0.5">
+          <div className="pointer-events-none absolute inset-0 z-20">
+            <div
+              className="pointer-events-auto absolute right-4 top-1/2 flex -translate-y-1/2 flex-col gap-2.5"
+              data-testid="explore-v2-action-rail"
+            >
+              <GlassPill variant="dark" className="h-11 w-11 border-white/15 bg-slate-900/52 p-0.5 shadow-[0_8px_20px_rgba(15,23,42,0.24)]">
                 <SaveToggle
                   itemId={listing.id}
                   kind={listingKind}
@@ -409,26 +412,28 @@ function ExploreV2CardInner({
                   marketCountry={actionContext.marketCode}
                   testId={`explore-v2-save-toggle-${listing.id}`}
                   onToggle={handleSaveToggle}
-                  className="h-full w-full border-transparent bg-transparent text-white ring-0 shadow-none hover:bg-white/10 hover:text-white"
+                  className="mx-auto h-10 w-10 rounded-full border-transparent bg-transparent text-white ring-0 shadow-none hover:bg-white/10 hover:text-white"
                 />
               </GlassPill>
-              <GlassPill variant="dark" className="h-11 w-11 p-0.5">
+              <GlassPill variant="dark" className="h-11 w-11 border-white/15 bg-slate-900/52 p-0.5 shadow-[0_8px_20px_rgba(15,23,42,0.24)]">
                 <button
                   type="button"
                   onClick={() => {
                     void handleShare();
                   }}
-                  className="inline-flex h-full w-full items-center justify-center rounded-full text-base font-semibold text-white"
+                  className="mx-auto inline-flex h-10 w-10 items-center justify-center rounded-full text-base font-semibold text-white"
                   aria-label="Share listing"
                   data-testid="explore-v2-share-action"
                 >
                   ↗
                 </button>
               </GlassPill>
+            </div>
+            <div className="pointer-events-auto absolute bottom-14 right-4">
               <button
                 type="button"
                 onClick={openCtaSheet}
-                className="inline-flex h-11 min-w-[92px] items-center justify-center rounded-full border border-white/20 bg-slate-900/55 px-3 text-xs font-semibold text-white backdrop-blur-md backdrop-saturate-150 shadow-[inset_0_1px_0_rgba(255,255,255,0.22),0_8px_20px_rgba(15,23,42,0.22)]"
+                className="inline-flex h-10 min-w-[104px] items-center justify-center rounded-full border border-white/15 bg-slate-900/52 px-3.5 text-xs font-semibold text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_rgba(15,23,42,0.2)]"
                 aria-label={`${primaryAction.label} for ${listing.title || "listing"}`}
                 data-testid="explore-v2-cta-action"
               >

@@ -106,6 +106,13 @@ void test("explore-v2 card renders carousel with count and dots for multi-image 
   assert.match(html, /data-testid=\"explore-v2-action-rail\"/);
   assert.match(html, /data-testid=\"explore-v2-share-action\"/);
   assert.match(html, /data-testid=\"explore-v2-cta-action\"/);
+  assert.match(
+    html,
+    /class=\"[^\"]*right-4[^\"]*top-1\/2[^\"]*-translate-y-1\/2[^\"]*gap-2\.5[^\"]*\" data-testid=\"explore-v2-action-rail\"/
+  );
+  assert.match(html, /class=\"[^\"]*absolute bottom-14 right-4[^\"]*\"/);
+  assert.match(html, /class=\"[^\"]*h-10[^\"]*min-w-\[104px\][^\"]*\"[^>]*data-testid=\"explore-v2-cta-action\"/);
+  assert.match(html, /class=\"[^\"]*h-10 w-10[^\"]*\"[^>]*data-testid=\"explore-v2-share-action\"/);
 });
 
 void test("explore-v2 card hides count and dots for single-image listing", () => {
