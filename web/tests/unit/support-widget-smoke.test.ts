@@ -16,6 +16,7 @@ void test("support widget exposes open, close, quick actions, and /support fallb
   const widgetPath = path.join(process.cwd(), "components", "support", "SupportWidget.tsx");
   const source = fs.readFileSync(widgetPath, "utf8");
 
+  assert.match(source, /data-testid="support-widget"/);
   assert.match(source, /data-testid="support-widget-button"/);
   assert.match(source, /data-testid="support-widget-panel"/);
   assert.match(source, /data-testid="support-widget-search"/);

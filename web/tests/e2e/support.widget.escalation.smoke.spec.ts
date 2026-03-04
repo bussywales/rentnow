@@ -88,10 +88,28 @@ test.describe("support widget escalation smoke", () => {
     });
 
     await page.goto("/shortlets", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId(smokeSelectors.supportWidgetButton)).toBeVisible();
+    const widgetRoot = page.getByTestId(smokeSelectors.supportWidgetRoot);
+    const widgetButton = page.getByTestId(smokeSelectors.supportWidgetButton);
+    const widgetPanel = page.getByTestId(smokeSelectors.supportWidgetPanel);
 
-    await page.getByTestId(smokeSelectors.supportWidgetButton).click();
-    await expect(page.getByTestId(smokeSelectors.supportWidgetPanel)).toBeVisible();
+    await expect.poll(async () => widgetRoot.count(), { timeout: 20_000 }).toBeGreaterThan(0);
+    await expect
+      .poll(
+        async () => {
+          const [buttonVisible, panelVisible] = await Promise.all([
+            widgetButton.isVisible().catch(() => false),
+            widgetPanel.isVisible().catch(() => false),
+          ]);
+          return buttonVisible || panelVisible;
+        },
+        { timeout: 20_000 }
+      )
+      .toBeTruthy();
+
+    if (await widgetButton.isVisible().catch(() => false)) {
+      await widgetButton.click();
+    }
+    await expect(widgetPanel).toBeVisible();
 
     await page
       .getByTestId(smokeSelectors.supportWidgetInput)

@@ -135,6 +135,7 @@ export const smokeSelectors = {
   adminShortletsOpsRoot: "admin-shortlets-ops",
   adminShortletsOpsRefresh: "admin-shortlets-ops-refresh",
   adminShortletsOpsMetrics: "admin-shortlets-ops-metrics",
+  supportWidgetRoot: "support-widget",
   supportWidgetButton: "support-widget-button",
   supportWidgetPanel: "support-widget-panel",
   supportWidgetInput: "support-widget-input",
