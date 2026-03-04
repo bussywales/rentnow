@@ -7,6 +7,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
 import { GlassDockSearchOverlay } from "@/components/layout/GlassDockSearchOverlay";
 import { useScrollDirection, type ScrollDirection } from "@/lib/ui/useScrollDirection";
+import { useScrollIdle } from "@/lib/ui/useScrollIdle";
 
 type DockRoute = {
   id: string;
@@ -112,6 +113,7 @@ export function GlassDock() {
   const [searchQuery, setSearchQuery] = useState("");
   const [nearMe, setNearMe] = useState(false);
   const { direction, isNearBottomNavSafeZone } = useScrollDirection();
+  const { isScrolling } = useScrollIdle({ idleMs: 140 });
   const routeHidden = isRouteHidden(pathname);
   const dockLinks = useMemo(() => DOCK_ROUTES, []);
   const collapsed = useMemo(
@@ -157,12 +159,15 @@ export function GlassDock() {
       >
         <div
           className={cn(
-            "pointer-events-auto mx-auto w-full max-w-md rounded-[1.75rem] border border-white/45 bg-white/70 transition-all duration-200",
-            "backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_14px_32px_rgba(15,23,42,0.16)]",
+            "pointer-events-auto mx-auto w-full max-w-md rounded-[1.75rem] border border-white/45 bg-white/70 transition-all duration-200 motion-reduce:transition-none",
+            isScrolling
+              ? "shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_14px_32px_rgba(15,23,42,0.16)]"
+              : "backdrop-blur-xl backdrop-saturate-150 shadow-[inset_0_1px_0_rgba(255,255,255,0.3),0_14px_32px_rgba(15,23,42,0.16)]",
             collapsed && !searchOpen ? "py-1.5" : "py-2.5"
           )}
           data-testid="glass-dock"
           data-collapsed={collapsed ? "true" : "false"}
+          data-scrolling={isScrolling ? "true" : "false"}
         >
           <div className="flex items-center gap-1 px-2">
             <div

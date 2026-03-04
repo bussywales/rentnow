@@ -38,6 +38,7 @@ export const smokeSelectors = {
   exploreDisabledScreen: "explore-disabled-screen",
   exploreV2Page: "explore-v2-page",
   exploreV2Feed: "explore-v2-feed",
+  exploreV2DockSafeZone: "explore-v2-dock-safe-zone",
   exploreV2Card: "explore-v2-card",
   exploreV2HeroHasImage: "explore-v2-hero-has-image",
   exploreV2HeroCarousel: "explore-v2-hero-carousel",

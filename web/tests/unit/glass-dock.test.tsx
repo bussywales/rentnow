@@ -45,11 +45,15 @@ void test("glass dock source declares mobile dock shell, route gating, and searc
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /const HIDE_PREFIXES = \["\/admin", "\/auth"\]/);
+  assert.match(source, /useScrollIdle\(\{ idleMs: 140 \}\)/);
   assert.match(source, /data-testid="glass-dock"/);
   assert.match(source, /data-testid="glass-dock-search-trigger"/);
   assert.match(source, /GlassDockSearchOverlay/);
   assert.match(source, /setSearchOpen\(\(current\) => !current\)/);
   assert.match(source, /style=\{\{ paddingBottom: "calc\(env\(safe-area-inset-bottom, 0px\) \+ 0.4rem\)" \}\}/);
+  assert.match(source, /data-scrolling=\{isScrolling \? "true" : "false"\}/);
+  assert.match(source, /isScrolling[\s\S]*\? "shadow-\[inset_0_1px_0_rgba\(255,255,255,0.3\),0_14px_32px_rgba\(15,23,42,0.16\)\]"/);
+  assert.match(source, /: "backdrop-blur-xl backdrop-saturate-150 shadow-\[inset_0_1px_0_rgba\(255,255,255,0.3\),0_14px_32px_rgba\(15,23,42,0.16\)\]"/);
 });
 
 void test("glass dock search overlay source supports open-close and command actions", () => {

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  EXPLORE_V2_DOCK_SAFE_ZONE_PX,
   ExploreV2Feed,
   resolveExploreV2HeroPrefetchPlan,
 } from "@/components/explore-v2/ExploreV2Feed";
@@ -43,6 +44,9 @@ void test("explore-v2 feed renders root and cards for listing fixtures", () => {
   const cardMatches = html.match(/data-testid="explore-v2-card"/g) ?? [];
   assert.ok(cardMatches.length >= 1, "expected explore-v2 cards to render for fixture listings");
   assert.match(html, /data-testid="explore-v2-action-rail"/);
+  assert.match(html, /data-testid="explore-v2-dock-safe-zone"/);
+  assert.match(html, /class="[^"]*h-\[136px\][^"]*"/);
+  assert.match(html, new RegExp(`height:${EXPLORE_V2_DOCK_SAFE_ZONE_PX}px`));
 });
 
 void test("explore-v2 page data resolver supports mocked server feed fixtures", async () => {

@@ -16,6 +16,7 @@ type ExploreV2FeedProps = {
 export const EXPLORE_V2_PRELOAD_MAX_INFLIGHT = 2;
 export const EXPLORE_V2_PREFETCH_MAX_LOOKAHEAD = 2;
 export const EXPLORE_V2_PREFETCH_SESSION_CAP = 20;
+export const EXPLORE_V2_DOCK_SAFE_ZONE_PX = 136;
 export const EXPLORE_V2_PREFETCH_ENABLED =
   process.env.NEXT_PUBLIC_EXPLORE_V2_PREFETCH_ENABLED !== "false";
 
@@ -115,6 +116,20 @@ function ExploreV2FeedInner({ listings, marketCurrency }: ExploreV2FeedProps) {
     setTopVisibleIndex(range.startIndex);
   }, []);
 
+  const feedComponents = useMemo(
+    () => ({
+      Footer: () => (
+        <div
+          className="h-[136px] md:h-8"
+          data-testid="explore-v2-dock-safe-zone"
+          style={{ height: `${EXPLORE_V2_DOCK_SAFE_ZONE_PX}px` }}
+          aria-hidden
+        />
+      ),
+    }),
+    []
+  );
+
   useEffect(() => {
     return subscribeToConserveDataChanges(() => {
       setPrefetchLookahead(
@@ -161,12 +176,13 @@ function ExploreV2FeedInner({ listings, marketCurrency }: ExploreV2FeedProps) {
   }
 
   return (
-    <section className="pb-24" data-testid="explore-v2-feed">
+    <section className="pb-6 md:pb-8" data-testid="explore-v2-feed">
       <Virtuoso
         data={listings}
         useWindowScroll
         initialItemCount={Math.min(listings.length, 8)}
         increaseViewportBy={{ top: 600, bottom: 1200 }}
+        components={feedComponents}
         rangeChanged={handleRangeChanged}
         itemContent={renderCard}
       />

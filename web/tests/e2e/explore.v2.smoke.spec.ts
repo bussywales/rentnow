@@ -34,6 +34,7 @@ test("explore-v2 feed renders and stays stable after native scroll", async ({ pa
   await page.goto("/explore-v2", { waitUntil: "domcontentloaded" });
   await expect(page.getByTestId(smokeSelectors.exploreV2Page)).toBeVisible();
   await expect(page.getByTestId(smokeSelectors.exploreV2Feed)).toBeVisible();
+  await expect.poll(async () => page.getByTestId(smokeSelectors.exploreV2DockSafeZone).count()).toBeGreaterThan(0);
   await expect.poll(async () => page.getByTestId(smokeSelectors.exploreV2Card).count()).toBeGreaterThan(0);
   await expect
     .poll(async () => page.getByTestId(smokeSelectors.exploreV2HeroCarousel).count())
