@@ -56,6 +56,7 @@ type Props = {
   enableActiveSlideMotion?: boolean;
   rootTestId?: string;
   dotsTestId?: string;
+  dotsClassName?: string;
   blurDataURL?: string;
   prioritizeFirstImage?: boolean;
   renderWindowRadius?: number;
@@ -227,6 +228,7 @@ export function UnifiedImageCarousel({
   enableActiveSlideMotion = false,
   rootTestId = "unified-image-carousel",
   dotsTestId = "unified-image-carousel-dots",
+  dotsClassName,
   blurDataURL = BLUR_DATA_URL,
   prioritizeFirstImage = false,
   renderWindowRadius,
@@ -722,7 +724,7 @@ export function UnifiedImageCarousel({
 
       {shouldShowDots ? (
         <div
-          className="absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1"
+          className={cn("absolute inset-x-0 bottom-2 z-10 flex items-center justify-center gap-1", dotsClassName)}
           data-testid={dotsTestId}
         >
           {imageItems.map((item, index) => (

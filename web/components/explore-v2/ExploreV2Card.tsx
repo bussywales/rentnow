@@ -6,7 +6,6 @@ import {
   UnifiedImageCarousel,
   type UnifiedImageCarouselItem,
 } from "@/components/ui/UnifiedImageCarousel";
-import { GlassPill } from "@/components/ui/GlassPill";
 import { SaveToggle } from "@/components/saved/SaveToggle";
 import { trackExploreFunnelEvent, type ExploreFunnelIntent } from "@/lib/explore/explore-funnel";
 import { performShare, type ShareActionResult } from "@/lib/share/client-share";
@@ -26,6 +25,7 @@ import {
   resolveExploreImagePlaceholderMeta,
   resolveExplorePropertyImageRecords,
 } from "@/lib/explore/gallery-images";
+import { glassSurface } from "@/lib/ui/glass";
 
 type ExploreV2CardProps = {
   listing: Property;
@@ -375,8 +375,9 @@ function ExploreV2CardInner({
             dotsTestId="explore-v2-hero-carousel-dots"
             showArrows={false}
             showDots={heroUiState.showDots}
+            dotsClassName="bottom-3"
             showCountBadge={heroUiState.showCountBadge}
-            countBadgeClassName="border-white/18 bg-slate-900/48 px-2.5 py-0.5 text-white backdrop-blur-md backdrop-saturate-150 shadow-[inset_0_1px_0_rgba(255,255,255,0.24),0_8px_22px_rgba(15,23,42,0.24)]"
+            countBadgeClassName={glassSurface("right-4 top-4 px-2.5 py-0.5 text-white")}
             prioritizeFirstImage
             renderWindowRadius={1}
             progressiveUpgradeOnIdle
@@ -398,10 +399,13 @@ function ExploreV2CardInner({
           ) : null}
           <div className="pointer-events-none absolute inset-0 z-20">
             <div
-              className="pointer-events-auto absolute right-4 top-1/2 flex -translate-y-1/2 flex-col gap-2.5"
+              className="pointer-events-auto absolute right-4 top-1/2 flex -translate-y-1/2 flex-col gap-3"
               data-testid="explore-v2-action-rail"
             >
-              <GlassPill variant="dark" className="h-11 w-11 border-white/15 bg-slate-900/52 p-0.5 shadow-[0_8px_20px_rgba(15,23,42,0.24)]">
+              <div
+                className={glassSurface("inline-flex h-11 w-11 items-center justify-center p-0.5")}
+                data-testid="explore-v2-save-surface"
+              >
                 <SaveToggle
                   itemId={listing.id}
                   kind={listingKind}
@@ -414,8 +418,11 @@ function ExploreV2CardInner({
                   onToggle={handleSaveToggle}
                   className="mx-auto h-10 w-10 rounded-full border-transparent bg-transparent text-white ring-0 shadow-none hover:bg-white/10 hover:text-white"
                 />
-              </GlassPill>
-              <GlassPill variant="dark" className="h-11 w-11 border-white/15 bg-slate-900/52 p-0.5 shadow-[0_8px_20px_rgba(15,23,42,0.24)]">
+              </div>
+              <div
+                className={glassSurface("inline-flex h-11 w-11 items-center justify-center p-0.5")}
+                data-testid="explore-v2-share-surface"
+              >
                 <button
                   type="button"
                   onClick={() => {
@@ -427,13 +434,15 @@ function ExploreV2CardInner({
                 >
                   ↗
                 </button>
-              </GlassPill>
+              </div>
             </div>
-            <div className="pointer-events-auto absolute bottom-14 right-4">
+            <div className="pointer-events-auto absolute bottom-16 right-4" data-testid="explore-v2-cta-container">
               <button
                 type="button"
                 onClick={openCtaSheet}
-                className="inline-flex h-10 min-w-[104px] items-center justify-center rounded-full border border-white/15 bg-slate-900/52 px-3.5 text-xs font-semibold text-white backdrop-blur-sm shadow-[inset_0_1px_0_rgba(255,255,255,0.18),0_8px_18px_rgba(15,23,42,0.2)]"
+                className={glassSurface(
+                  "inline-flex h-10 min-w-[112px] max-w-[156px] items-center justify-center px-3.5 text-xs font-semibold"
+                )}
                 aria-label={`${primaryAction.label} for ${listing.title || "listing"}`}
                 data-testid="explore-v2-cta-action"
               >
