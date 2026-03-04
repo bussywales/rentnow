@@ -1,7 +1,8 @@
 "use client";
 
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useState } from "react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { cn } from "@/components/ui/cn";
 import {
   UnifiedImageCarousel,
   type UnifiedImageCarouselItem,
@@ -66,6 +67,16 @@ type ExploreV2CtaContinueInput = {
 type ExploreV2CtaContinueDeps = {
   pushFn: (href: string) => void;
   trackFn?: typeof trackExploreFunnelEvent;
+};
+
+export const EXPLORE_V2_QUIET_OVERLAY_FOCUS_MS = 2600;
+export const EXPLORE_V2_QUIET_OVERLAY_OPACITY_CLASS = "opacity-[0.85]";
+
+type ExploreV2OverlayFocusControllerOptions = {
+  focusDurationMs?: number;
+  onChange: (focused: boolean) => void;
+  setTimer?: (callback: () => void, delayMs: number) => ReturnType<typeof setTimeout>;
+  clearTimer?: (timerId: ReturnType<typeof setTimeout>) => void;
 };
 
 function resolveExploreV2LocationLine(listing: Property): string {
@@ -181,6 +192,49 @@ export function continueExploreV2Cta(
   deps.pushFn(input.href);
 }
 
+export function resolveExploreV2OverlayOpacityClass(overlayFocused: boolean): string {
+  return overlayFocused ? "opacity-100" : EXPLORE_V2_QUIET_OVERLAY_OPACITY_CLASS;
+}
+
+export function createExploreV2OverlayFocusController({
+  focusDurationMs = EXPLORE_V2_QUIET_OVERLAY_FOCUS_MS,
+  onChange,
+  setTimer = (callback, delayMs) => setTimeout(callback, delayMs),
+  clearTimer = (timerId) => clearTimeout(timerId),
+}: ExploreV2OverlayFocusControllerOptions) {
+  const duration = Number.isFinite(focusDurationMs) ? Math.max(0, Math.trunc(focusDurationMs)) : 0;
+  let timerId: ReturnType<typeof setTimeout> | null = null;
+  let focused = false;
+
+  const setFocused = (next: boolean) => {
+    if (focused === next) return;
+    focused = next;
+    onChange(next);
+  };
+
+  return {
+    trigger() {
+      setFocused(true);
+      if (timerId !== null) {
+        clearTimer(timerId);
+      }
+      timerId = setTimer(() => {
+        timerId = null;
+        setFocused(false);
+      }, duration);
+    },
+    dispose() {
+      if (timerId !== null) {
+        clearTimer(timerId);
+        timerId = null;
+      }
+    },
+    isFocused() {
+      return focused;
+    },
+  };
+}
+
 export function resolveExploreV2CarouselItems(input: {
   listing: Property;
   imageRecords: ExploreImageRecord[];
@@ -267,7 +321,15 @@ function ExploreV2CardInner({
   feedSize = 0,
 }: ExploreV2CardProps) {
   const [ctaSheetOpen, setCtaSheetOpen] = useState(false);
+  const [overlayFocused, setOverlayFocused] = useState(false);
   const [shareFeedback, setShareFeedback] = useState<"copied" | "shared" | "error" | null>(null);
+  const overlayFocusController = useMemo(
+    () =>
+      createExploreV2OverlayFocusController({
+        onChange: setOverlayFocused,
+      }),
+    []
+  );
   const resolvedImageRecords = useMemo(
     () => imageRecords ?? resolveExplorePropertyImageRecords(listing),
     [imageRecords, listing]
@@ -303,6 +365,16 @@ function ExploreV2CardInner({
   const intentTag = useMemo(() => resolveExploreIntentTag(listing), [listing]);
   const locationLine = useMemo(() => resolveExploreV2LocationLine(listing), [listing]);
   const shareFeedbackCopy = shareFeedback === "error" ? "Share unavailable" : "Link ready";
+  const overlayOpacityClass = useMemo(
+    () => resolveExploreV2OverlayOpacityClass(overlayFocused),
+    [overlayFocused]
+  );
+
+  useEffect(() => {
+    return () => {
+      overlayFocusController.dispose();
+    };
+  }, [overlayFocusController]);
 
   const handleSaveToggle = useCallback(
     (saved: boolean) => {
@@ -359,13 +431,23 @@ function ExploreV2CardInner({
     );
   }, [actionContext, primaryAction.href]);
 
+  const handleHeroInteractionCapture = useCallback(() => {
+    overlayFocusController.trigger();
+  }, [overlayFocusController]);
+
   return (
     <>
       <article
         className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.08)]"
         data-testid="explore-v2-card"
       >
-        <div className="relative aspect-[4/5] min-h-[320px] w-full overflow-hidden" data-testid="explore-v2-hero">
+        <div
+          className="relative aspect-[4/5] min-h-[320px] w-full overflow-hidden"
+          data-testid="explore-v2-hero"
+          onPointerDownCapture={handleHeroInteractionCapture}
+          onTouchStartCapture={handleHeroInteractionCapture}
+          onFocusCapture={handleHeroInteractionCapture}
+        >
           <UnifiedImageCarousel
             items={heroCarousel.items}
             fallbackImage={EXPLORE_GALLERY_FALLBACK_IMAGE}
@@ -399,7 +481,10 @@ function ExploreV2CardInner({
           ) : null}
           <div className="pointer-events-none absolute inset-0 z-20">
             <div
-              className="pointer-events-auto absolute right-4 top-1/2 flex -translate-y-1/2 flex-col gap-3"
+              className={cn(
+                "pointer-events-auto absolute right-4 top-1/2 flex -translate-y-1/2 flex-col gap-3 transition-opacity duration-200 ease-out motion-reduce:transition-none focus-within:opacity-100",
+                overlayOpacityClass
+              )}
               data-testid="explore-v2-action-rail"
             >
               <div
@@ -436,7 +521,13 @@ function ExploreV2CardInner({
                 </button>
               </div>
             </div>
-            <div className="pointer-events-auto absolute bottom-16 right-4" data-testid="explore-v2-cta-container">
+            <div
+              className={cn(
+                "pointer-events-auto absolute bottom-16 right-4 transition-opacity duration-200 ease-out motion-reduce:transition-none focus-within:opacity-100",
+                overlayOpacityClass
+              )}
+              data-testid="explore-v2-cta-container"
+            >
               <button
                 type="button"
                 onClick={openCtaSheet}

@@ -3,11 +3,15 @@ import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
+  createExploreV2OverlayFocusController,
   continueExploreV2Cta,
+  EXPLORE_V2_QUIET_OVERLAY_FOCUS_MS,
+  EXPLORE_V2_QUIET_OVERLAY_OPACITY_CLASS,
   ExploreV2Card,
   resolveExploreV2ActionContext,
   resolveExploreV2CarouselItems,
   resolveExploreV2HeroUiState,
+  resolveExploreV2OverlayOpacityClass,
   trackExploreV2SaveToggle,
   triggerExploreV2ShareAction,
 } from "@/components/explore-v2/ExploreV2Card";
@@ -120,6 +124,14 @@ void test("explore-v2 card renders carousel with count and dots for multi-image 
   assert.match(html, /data-testid=\"explore-v2-share-surface\"/);
   assert.match(html, /class=\"[^\"]*right-4[^\"]*top-4[^\"]*\"[^>]*data-testid=\"explore-v2-hero-carousel-count-badge\"/);
   assert.match(html, /class=\"[^\"]*bottom-3[^\"]*\" data-testid=\"explore-v2-hero-carousel-dots\"/);
+  assert.match(
+    html,
+    /class=\"[^\"]*transition-opacity[^\"]*duration-200[^\"]*opacity-\[0\.85\][^\"]*\" data-testid=\"explore-v2-action-rail\"/
+  );
+  assert.match(
+    html,
+    /class=\"[^\"]*transition-opacity[^\"]*duration-200[^\"]*opacity-\[0\.85\][^\"]*\" data-testid=\"explore-v2-cta-container\"/
+  );
 });
 
 void test("explore-v2 card hides count and dots for single-image listing", () => {
@@ -230,4 +242,32 @@ void test("explore-v2 cta continue helper tracks and navigates", () => {
 
   assert.equal(pushedHref, `/properties/${listing.id}?source=explore_v0#cta`);
   assert.deepEqual(tracked, ["explore_v2_cta_continue"]);
+});
+
+void test("explore-v2 quiet overlay controller elevates opacity on interaction and resets after timeout", (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+
+  const focusedStates: boolean[] = [];
+  const controller = createExploreV2OverlayFocusController({
+    focusDurationMs: EXPLORE_V2_QUIET_OVERLAY_FOCUS_MS,
+    onChange: (next) => {
+      focusedStates.push(next);
+    },
+  });
+
+  assert.equal(resolveExploreV2OverlayOpacityClass(controller.isFocused()), EXPLORE_V2_QUIET_OVERLAY_OPACITY_CLASS);
+
+  controller.trigger();
+  assert.equal(controller.isFocused(), true);
+  assert.equal(resolveExploreV2OverlayOpacityClass(controller.isFocused()), "opacity-100");
+
+  t.mock.timers.tick(EXPLORE_V2_QUIET_OVERLAY_FOCUS_MS - 1);
+  assert.equal(controller.isFocused(), true);
+
+  t.mock.timers.tick(1);
+  assert.equal(controller.isFocused(), false);
+  assert.equal(resolveExploreV2OverlayOpacityClass(controller.isFocused()), EXPLORE_V2_QUIET_OVERLAY_OPACITY_CLASS);
+
+  controller.dispose();
+  assert.deepEqual(focusedStates, [true, false]);
 });
