@@ -93,17 +93,17 @@ export default function AdminDemoToggleButton({
           }}
         >
           <div
-            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl"
+            className="w-[calc(100vw-2rem)] max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl sm:w-full sm:p-6"
             onPointerDown={(event) => {
               event.stopPropagation();
             }}
           >
             <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
-            <div className="mt-2 space-y-2 text-sm text-slate-700">
-              <p>
+            <div className="mt-2 min-w-0 space-y-2 text-sm text-slate-700" data-testid="admin-demo-confirm-body">
+              <p className="whitespace-normal break-words leading-relaxed">
                 This listing will show a Demo badge/watermark depending on platform settings.
               </p>
-              <p>
+              <p className="whitespace-normal break-words leading-relaxed">
                 Demo listings may be excluded from search/browse if that exclusion toggle is
                 enabled.
               </p>

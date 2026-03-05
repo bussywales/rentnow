@@ -70,6 +70,14 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     "expected demo confirm modal test id"
   );
   assert.ok(
+    demoToggleContents.includes('data-testid="admin-demo-confirm-body"'),
+    "expected demo confirm body test id for copy wrapping guards"
+  );
+  assert.ok(
+    demoToggleContents.includes("whitespace-normal break-words leading-relaxed"),
+    "expected wrapped modal copy classes to prevent overflow"
+  );
+  assert.ok(
     demoToggleContents.includes("event.preventDefault();"),
     "expected demo toggle handlers to prevent default navigation"
   );
