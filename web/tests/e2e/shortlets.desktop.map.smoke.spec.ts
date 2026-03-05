@@ -45,7 +45,56 @@ async function clickSearchThisArea(page: Page) {
   return false;
 }
 
+function readBboxParam(page: Page) {
+  return new URL(page.url()).searchParams.get("bbox");
+}
+
+function isValidBbox(value: string | null): value is string {
+  if (!value) return false;
+  const parts = value.split(",").map((part) => Number.parseFloat(part.trim()));
+  if (parts.length !== 4 || parts.some((part) => !Number.isFinite(part))) {
+    return false;
+  }
+  const [minLng, minLat, maxLng, maxLat] = parts;
+  return minLng < maxLng && minLat < maxLat;
+}
+
+async function waitForBboxChange(page: Page, previousValue: string | null, timeout = 10_000) {
+  await expect
+    .poll(() => {
+      const current = readBboxParam(page);
+      return {
+        changed: current !== null && current !== previousValue,
+        current,
+      };
+    }, { timeout })
+    .toEqual(
+      expect.objectContaining({
+        changed: true,
+      })
+    );
+}
+
+async function expectBboxUnchangedForDuration(
+  page: Page,
+  expectedValue: string | null,
+  durationMs = 700
+) {
+  const start = Date.now();
+  await expect
+    .poll(() => {
+      const current = readBboxParam(page);
+      if (current !== expectedValue) {
+        throw new Error(`bbox changed during manual mode window: expected=${expectedValue} current=${current}`);
+      }
+      return Date.now() - start;
+    }, { timeout: durationMs + 600 })
+    .toBeGreaterThanOrEqual(durationMs);
+}
+
 test.describe("shortlets desktop map behaviour", () => {
+  test.use({ viewport: { width: 1440, height: 900 } });
+
   test("mapAuto updates bbox automatically and manual mode requires Search this area", async ({ page }) => {
     await mockShortletsSearch(page);
 
@@ -67,9 +116,13 @@ test.describe("shortlets desktop map behaviour", () => {
       .click({ force: true });
 
     const map = page.getByTestId(smokeSelectors.shortletsMap).locator(".leaflet-container");
+    const autoBboxBeforeDrag = readBboxParam(page);
     await dragMap(page, map);
-    await waitForUrlParam(page, "bbox");
+    await waitForBboxChange(page, autoBboxBeforeDrag);
     await waitForShortletsResultsSettled(page);
+    const bboxInAutoMode = readBboxParam(page);
+    expect(bboxInAutoMode).not.toBe(autoBboxBeforeDrag);
+    expect(isValidBbox(bboxInAutoMode)).toBeTruthy();
 
     await openFilters(page);
     autoToggle = page.getByTestId(smokeSelectors.shortletsMapMoveToggle);
@@ -80,14 +133,20 @@ test.describe("shortlets desktop map behaviour", () => {
       .getByTestId(smokeSelectors.shortletsFiltersDrawer)
       .getByRole("button", { name: /^Apply$/i })
       .click({ force: true });
+    await waitForShortletsResultsSettled(page);
 
-    const bboxInManualMode = new URL(page.url()).searchParams.get("bbox");
+    const bboxInManualMode = readBboxParam(page);
+    expect(isValidBbox(bboxInManualMode)).toBeTruthy();
     await dragMap(page, map);
-    expect(new URL(page.url()).searchParams.get("bbox")).toBe(bboxInManualMode);
+    await expectBboxUnchangedForDuration(page, bboxInManualMode);
 
     if (await clickSearchThisArea(page)) {
+      await waitForBboxChange(page, bboxInManualMode);
       await waitForUrlParam(page, "bbox", { previousValue: bboxInManualMode });
       await waitForShortletsResultsSettled(page);
+      const bboxAfterManualApply = readBboxParam(page);
+      expect(bboxAfterManualApply).not.toBe(bboxInManualMode);
+      expect(isValidBbox(bboxAfterManualApply)).toBeTruthy();
     }
   });
 });
