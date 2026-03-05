@@ -65,6 +65,8 @@ export const smokeSelectors = {
   exploreV2CtaClose: "explore-v2-cta-close",
   exploreV2ShareFeedback: "explore-v2-share-feedback",
   glassDock: "glass-dock",
+  glassDockLinkExploreV2: "glass-dock-link-explore-v2",
+  glassDockLinkSaved: "glass-dock-link-saved",
   glassDockSearchTrigger: "glass-dock-search-trigger",
   glassDockSearchOverlay: "glass-dock-search-overlay",
   glassDockSearchClose: "glass-dock-search-close",

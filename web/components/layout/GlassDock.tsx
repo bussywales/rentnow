@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { MouseEvent } from "react";
 import type { ReactNode } from "react";
 import { cn } from "@/components/ui/cn";
 import { GlassDockSearchOverlay } from "@/components/layout/GlassDockSearchOverlay";
@@ -23,7 +24,26 @@ type ResolveGlassDockCollapsedInput = {
   searchOpen: boolean;
 };
 
+type DockRouteTapInput = {
+  routeId: string;
+  isAlreadyActive: boolean;
+};
+
+type CreateGlassDockTapFeedbackControllerInput = {
+  onOptimisticActiveRouteIdChange: (routeId: string | null) => void;
+  onPendingRouteIdChange: (routeId: string | null) => void;
+  onLoadingRouteIdChange: (routeId: string | null) => void;
+  optimisticActiveMs?: number;
+  navigationLoadingDelayMs?: number;
+  navigationLoadingMaxMs?: number;
+  setTimeoutFn?: typeof setTimeout;
+  clearTimeoutFn?: typeof clearTimeout;
+};
+
 const HIDE_PREFIXES = ["/admin", "/auth"];
+export const GLASS_DOCK_OPTIMISTIC_ACTIVE_MS = 520;
+export const GLASS_DOCK_NAVIGATION_LOADING_DELAY_MS = 250;
+export const GLASS_DOCK_NAVIGATION_LOADING_MAX_MS = 4000;
 
 const DOCK_ROUTES: DockRoute[] = [
   {
@@ -95,6 +115,99 @@ export function resolveGlassDockCollapsedState(input: ResolveGlassDockCollapsedI
   return input.direction === "down";
 }
 
+export function resolveGlassDockRouteActiveState(input: {
+  pathname: string | null;
+  href: string;
+  routeId: string;
+  optimisticActiveRouteId: string | null;
+}): boolean {
+  if (input.optimisticActiveRouteId === input.routeId) return true;
+  return isActiveRoute(input.pathname, input.href);
+}
+
+export function createGlassDockTapFeedbackController({
+  onOptimisticActiveRouteIdChange,
+  onPendingRouteIdChange,
+  onLoadingRouteIdChange,
+  optimisticActiveMs = GLASS_DOCK_OPTIMISTIC_ACTIVE_MS,
+  navigationLoadingDelayMs = GLASS_DOCK_NAVIGATION_LOADING_DELAY_MS,
+  navigationLoadingMaxMs = GLASS_DOCK_NAVIGATION_LOADING_MAX_MS,
+  setTimeoutFn = setTimeout,
+  clearTimeoutFn = clearTimeout,
+}: CreateGlassDockTapFeedbackControllerInput) {
+  let optimisticTimer: ReturnType<typeof setTimeout> | null = null;
+  let loadingDelayTimer: ReturnType<typeof setTimeout> | null = null;
+  let loadingMaxTimer: ReturnType<typeof setTimeout> | null = null;
+
+  const clearTimer = (timer: ReturnType<typeof setTimeout> | null) => {
+    if (timer !== null) {
+      clearTimeoutFn(timer);
+    }
+  };
+
+  const clearOptimisticTimer = () => {
+    clearTimer(optimisticTimer);
+    optimisticTimer = null;
+  };
+
+  const clearLoadingTimers = () => {
+    clearTimer(loadingDelayTimer);
+    clearTimer(loadingMaxTimer);
+    loadingDelayTimer = null;
+    loadingMaxTimer = null;
+  };
+
+  const clearNavigationState = () => {
+    clearLoadingTimers();
+    onPendingRouteIdChange(null);
+    onLoadingRouteIdChange(null);
+  };
+
+  const handleTap = ({ routeId, isAlreadyActive }: DockRouteTapInput) => {
+    clearOptimisticTimer();
+    onOptimisticActiveRouteIdChange(routeId);
+    optimisticTimer = setTimeoutFn(() => {
+      onOptimisticActiveRouteIdChange(null);
+      optimisticTimer = null;
+    }, optimisticActiveMs);
+
+    if (isAlreadyActive) {
+      clearNavigationState();
+      return;
+    }
+
+    onPendingRouteIdChange(routeId);
+    onLoadingRouteIdChange(null);
+    clearLoadingTimers();
+    loadingDelayTimer = setTimeoutFn(() => {
+      onLoadingRouteIdChange(routeId);
+      loadingDelayTimer = null;
+      loadingMaxTimer = setTimeoutFn(() => {
+        onPendingRouteIdChange(null);
+        onLoadingRouteIdChange(null);
+        loadingMaxTimer = null;
+      }, navigationLoadingMaxMs);
+    }, navigationLoadingDelayMs);
+  };
+
+  const handlePathSettled = () => {
+    clearOptimisticTimer();
+    clearNavigationState();
+    onOptimisticActiveRouteIdChange(null);
+  };
+
+  const dispose = () => {
+    clearOptimisticTimer();
+    clearLoadingTimers();
+  };
+
+  return {
+    handleTap,
+    handlePathSettled,
+    dispose,
+  };
+}
+
 function isRouteHidden(pathname: string | null) {
   if (!pathname) return false;
   return HIDE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -112,10 +225,22 @@ export function GlassDock() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [nearMe, setNearMe] = useState(false);
+  const [optimisticActiveRouteId, setOptimisticActiveRouteId] = useState<string | null>(null);
+  const [pendingRouteId, setPendingRouteId] = useState<string | null>(null);
+  const [loadingRouteId, setLoadingRouteId] = useState<string | null>(null);
   const { direction, isNearBottomNavSafeZone } = useScrollDirection();
   const { isScrolling } = useScrollIdle({ idleMs: 140 });
   const routeHidden = isRouteHidden(pathname);
   const dockLinks = useMemo(() => DOCK_ROUTES, []);
+  const tapFeedbackController = useMemo(
+    () =>
+      createGlassDockTapFeedbackController({
+        onOptimisticActiveRouteIdChange: setOptimisticActiveRouteId,
+        onPendingRouteIdChange: setPendingRouteId,
+        onLoadingRouteIdChange: setLoadingRouteId,
+      }),
+    []
+  );
   const collapsed = useMemo(
     () =>
       resolveGlassDockCollapsedState({
@@ -125,6 +250,16 @@ export function GlassDock() {
       }),
     [direction, isNearBottomNavSafeZone, searchOpen]
   );
+
+  useEffect(() => {
+    tapFeedbackController.handlePathSettled();
+  }, [pathname, tapFeedbackController]);
+
+  useEffect(() => {
+    return () => {
+      tapFeedbackController.dispose();
+    };
+  }, [tapFeedbackController]);
 
   const closeSearch = useCallback(() => {
     setSearchOpen(false);
@@ -148,6 +283,20 @@ export function GlassDock() {
     setSearchQuery("");
     setNearMe(false);
   }, []);
+
+  const handleDockRouteClick = useCallback(
+    (route: DockRoute, event: MouseEvent<HTMLAnchorElement>) => {
+      if (event.defaultPrevented) return;
+      if (event.button !== 0) return;
+      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+      tapFeedbackController.handleTap({
+        routeId: route.id,
+        isAlreadyActive: isActiveRoute(pathname, route.href),
+      });
+    },
+    [pathname, tapFeedbackController]
+  );
 
   if (routeHidden) return null;
 
@@ -177,22 +326,40 @@ export function GlassDock() {
               )}
             >
               {dockLinks.map((route) => {
-                const active = isActiveRoute(pathname, route.href);
+                const active = resolveGlassDockRouteActiveState({
+                  pathname,
+                  href: route.href,
+                  routeId: route.id,
+                  optimisticActiveRouteId,
+                });
+                const isPending = pendingRouteId === route.id;
+                const showLoadingCue = isPending && loadingRouteId === route.id;
                 return (
                   <Link
                     key={route.id}
                     href={route.href}
+                    onClick={(event) => handleDockRouteClick(route, event)}
                     className={cn(
-                      "group inline-flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-1.5 text-[10px] font-semibold transition",
+                      "group relative inline-flex min-h-11 min-w-11 min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-1.5 text-[10px] font-semibold transition-[transform,opacity,background-color,color] duration-100 ease-out motion-reduce:transition-none",
+                      "pointer-events-auto active:scale-[0.97] active:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70",
                       active
                         ? "bg-slate-900/82 text-white"
                         : "text-slate-600 hover:bg-white/60 hover:text-slate-900"
                     )}
                     data-testid={route.testId}
+                    aria-label={route.label}
+                    aria-current={active ? "page" : undefined}
                   >
                     <svg viewBox="0 0 24 24" aria-hidden className="h-[18px] w-[18px] shrink-0">
                       {route.icon}
                     </svg>
+                    {showLoadingCue ? (
+                      <span
+                        data-testid={`glass-dock-loading-${route.id}`}
+                        aria-hidden
+                        className="pointer-events-none absolute right-2.5 top-2.5 inline-flex h-1.5 w-1.5 rounded-full bg-white/85 shadow-[0_0_0_2px_rgba(15,23,42,0.22)] animate-pulse"
+                      />
+                    ) : null}
                     <span className={cn("truncate", collapsed && !searchOpen ? "sr-only" : "block")}>
                       {route.label}
                     </span>
@@ -203,7 +370,8 @@ export function GlassDock() {
             <button
               type="button"
               className={cn(
-                "inline-flex items-center justify-center rounded-2xl border border-white/50 bg-white/60 px-3 py-2 text-xs font-semibold text-slate-700 transition",
+                "pointer-events-auto inline-flex min-h-11 min-w-11 items-center justify-center rounded-2xl border border-white/50 bg-white/60 px-3 py-2 text-xs font-semibold text-slate-700 transition-[transform,opacity,background-color,color] duration-100 ease-out motion-reduce:transition-none",
+                "active:scale-[0.97] active:opacity-80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-300/70",
                 "hover:bg-white/80",
                 searchOpen ? "w-[30%]" : "w-auto"
               )}

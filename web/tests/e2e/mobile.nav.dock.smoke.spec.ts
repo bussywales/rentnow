@@ -28,7 +28,7 @@ test.use({
   hasTouch: true,
 });
 
-test("mobile glass dock renders on home, search overlay opens, and dock stays hidden on admin/auth route", async ({
+test("mobile glass dock renders, supports dock navigation taps, and stays hidden on admin/auth route", async ({
   page,
 }) => {
   const runtimeErrors = attachRuntimeErrorGuards(page);
@@ -57,6 +57,18 @@ test("mobile glass dock renders on home, search overlay opens, and dock stays hi
   await expect(page.getByTestId(smokeSelectors.glassDockSearchOverlay)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId(smokeSelectors.glassDockSearchOverlay)).toBeHidden();
+
+  await page.getByTestId(smokeSelectors.glassDockLinkExploreV2).click();
+  await page.waitForURL(/\/explore-v2(?:\?|$)/, { timeout: 15_000 });
+
+  await page.getByTestId(smokeSelectors.glassDockLinkSaved).click();
+  await page.waitForURL(
+    (url) => {
+      const pathname = new URL(url).pathname;
+      return pathname.startsWith("/tenant/saved") || pathname.startsWith("/auth");
+    },
+    { timeout: 15_000 }
+  );
 
   await page.goto("/admin/settings", { waitUntil: "domcontentloaded" });
   const adminAttemptPath = new URL(page.url()).pathname;
