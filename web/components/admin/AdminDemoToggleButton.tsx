@@ -60,6 +60,9 @@ export default function AdminDemoToggleButton({
     <>
       <button
         type="button"
+        onPointerDown={(event) => {
+          event.stopPropagation();
+        }}
         onClick={(event) => {
           event.preventDefault();
           event.stopPropagation();
@@ -89,7 +92,12 @@ export default function AdminDemoToggleButton({
             }
           }}
         >
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl">
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-xl"
+            onPointerDown={(event) => {
+              event.stopPropagation();
+            }}
+          >
             <h3 className="text-lg font-semibold text-slate-900">{title}</h3>
             <div className="mt-2 space-y-2 text-sm text-slate-700">
               <p>

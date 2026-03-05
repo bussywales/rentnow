@@ -78,6 +78,10 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     "expected demo toggle handlers to stop row click propagation"
   );
   assert.ok(
+    demoToggleContents.includes("onPointerDown={(event) => {"),
+    "expected demo toggle handlers to guard pointer-down propagation"
+  );
+  assert.ok(
     demoToggleContents.includes("void handleConfirm();"),
     "expected confirm action to run from guarded click handler"
   );
