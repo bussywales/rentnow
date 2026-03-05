@@ -24,6 +24,18 @@ void test("admin review decision desk renders split panes", () => {
     drawerContents.includes("admin-review-media-hero"),
     "expected media hero marker in inspector"
   );
+  assert.ok(
+    drawerContents.includes("shouldBypassNextImageOptimizer"),
+    "expected inspector media to bypass Next image optimizer for Supabase URLs"
+  );
+  assert.ok(
+    drawerContents.includes("unoptimized={heroBypassesOptimizer}"),
+    "expected hero image unoptimized guard for bypass hosts"
+  );
+  assert.ok(
+    drawerContents.includes("Open raw image"),
+    "expected fallback link for failed admin inspector images"
+  );
   assert.ok(drawerContents.includes("Key facts"), "expected key facts marker in inspector");
   assert.ok(
     contents.includes("scroll: false"),

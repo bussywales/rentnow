@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
+import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
 import { z } from "zod";
 import { isPhotoLowQuality } from "@/lib/properties/photo-quality";
 import { AdminReviewChecklistPanel } from "./AdminReviewChecklistPanel";
@@ -250,6 +251,8 @@ export function AdminReviewDrawer({
   const [copiedId, setCopiedId] = useState(false);
   const [checklistOpen, setChecklistOpen] = useState(false);
   const [scrollTarget, setScrollTarget] = useState<ChecklistSectionKey | null>(null);
+  const [coverImageFailed, setCoverImageFailed] = useState(false);
+  const [failedImageIds, setFailedImageIds] = useState<Set<string>>(new Set());
   const navIds = filteredIds;
   const currentIndex = useMemo(() => (listing ? navIds.indexOf(listing.id) : -1), [listing, navIds]);
   const prevId = currentIndex > 0 ? navIds[currentIndex - 1] : null;
@@ -285,6 +288,8 @@ export function AdminReviewDrawer({
     setChecklistState(null);
     setChecklistOpen(false);
     setScrollTarget(null);
+    setCoverImageFailed(false);
+    setFailedImageIds(new Set());
     setFeaturedDefaulted(false);
     const parsed = parseRejectionReason(listing.rejectionReason);
     const normalized = normalizeReasons(parsed.reasons);
@@ -545,6 +550,7 @@ export function AdminReviewDrawer({
   const checklistSummary = useMemo(() => getChecklistSummary(checklistState), [checklistState]);
   const missingLabels = formatChecklistMissingSections(checklistState);
   const heroUrl = detail?.listing.cover_image_url ?? listing?.coverImageUrl ?? null;
+  const heroBypassesOptimizer = heroUrl ? shouldBypassNextImageOptimizer(heroUrl) : false;
   const submittedAt = detail?.listing.submitted_at ?? listing?.submitted_at ?? null;
   const updatedAt = detail?.listing.updated_at ?? listing?.updatedAt ?? null;
   const ownerVerification = detail?.owner_verification ?? null;
@@ -984,18 +990,30 @@ export function AdminReviewDrawer({
             data-testid="admin-review-media-hero"
           >
             <div className="relative aspect-[16/9] w-full bg-slate-100">
-              {heroUrl ? (
+              {heroUrl && !coverImageFailed ? (
                 <Image
                   src={heroUrl}
                   alt="Cover"
                   fill
                   sizes="(min-width: 1024px) 640px, 100vw"
                   className="object-cover"
+                  unoptimized={heroBypassesOptimizer}
+                  onError={() => setCoverImageFailed(true)}
                   priority
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
-                  No cover yet
+                <div className="flex h-full w-full flex-col items-center justify-center gap-1 px-3 text-center text-xs text-slate-600">
+                  <span>{heroUrl ? "Image failed to load" : "No cover yet"}</span>
+                  {heroUrl ? (
+                    <a
+                      href={heroUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline underline-offset-2 text-slate-700"
+                    >
+                      Open raw image
+                    </a>
+                  ) : null}
                 </div>
               )}
             </div>
@@ -1008,7 +1026,7 @@ export function AdminReviewDrawer({
             <div className="grid grid-cols-2 gap-2">
               {images.map((img) => (
                 <div key={img.id} className="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
-                  {img.image_url ? (
+                  {img.image_url && !failedImageIds.has(img.id) ? (
                     <div className="relative aspect-[4/3] w-full bg-slate-100">
                       <Image
                         src={img.image_url}
@@ -1016,10 +1034,30 @@ export function AdminReviewDrawer({
                         fill
                         sizes="(min-width: 1024px) 200px, 50vw"
                         className="object-cover transition group-hover:scale-[1.02]"
+                        unoptimized={shouldBypassNextImageOptimizer(img.image_url)}
+                        onError={() => {
+                          setFailedImageIds((current) => {
+                            const next = new Set(current);
+                            next.add(img.id);
+                            return next;
+                          });
+                        }}
                       />
                     </div>
                   ) : (
-                    <div className="aspect-[4/3] w-full bg-slate-100" />
+                    <div className="flex aspect-[4/3] w-full flex-col items-center justify-center gap-1 bg-slate-100 px-3 text-center text-[11px] text-slate-600">
+                      <span>{img.image_url ? "Image failed" : "No image URL"}</span>
+                      {img.image_url ? (
+                        <a
+                          href={img.image_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="underline underline-offset-2 text-slate-700"
+                        >
+                          Open raw image
+                        </a>
+                      ) : null}
+                    </div>
                   )}
                   <div className="px-2 py-1 text-[11px] text-slate-600">
                     {img.width && img.height ? `${img.width}×${img.height}` : ""}
