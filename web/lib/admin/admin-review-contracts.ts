@@ -61,9 +61,15 @@ export const ADMIN_REVIEW_IMAGE_SELECT = `
   id,
   image_url,
   property_id,
+  position,
   created_at,
   width,
-  height
+  height,
+  storage_path,
+  original_storage_path,
+  thumb_storage_path,
+  card_storage_path,
+  hero_storage_path
 `;
 
 export const ADMIN_REVIEW_VIDEO_SELECT = `

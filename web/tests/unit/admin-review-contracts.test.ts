@@ -87,7 +87,8 @@ void test("pricing select only includes pricing fields", () => {
 });
 
 void test("image select matches expected normalized contract", () => {
-  const expected = "id,image_url,property_id,created_at,width,height";
+  const expected =
+    "id,image_url,property_id,position,created_at,width,height,storage_path,original_storage_path,thumb_storage_path,card_storage_path,hero_storage_path";
   assert.equal(normalizeSelect(ADMIN_REVIEW_IMAGE_SELECT), expected);
 });
 

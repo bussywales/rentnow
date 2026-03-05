@@ -44,7 +44,20 @@ export const ADMIN_REVIEW_PROPERTIES_COLUMNS = [
   "has_video",
 ];
 
-export const ADMIN_REVIEW_IMAGE_COLUMNS = ["id", "image_url", "property_id", "created_at", "width", "height"];
+export const ADMIN_REVIEW_IMAGE_COLUMNS = [
+  "id",
+  "image_url",
+  "property_id",
+  "position",
+  "created_at",
+  "width",
+  "height",
+  "storage_path",
+  "original_storage_path",
+  "thumb_storage_path",
+  "card_storage_path",
+  "hero_storage_path",
+];
 
 export const ADMIN_REVIEW_VIDEO_COLUMNS = ["id", "video_url", "property_id", "created_at"];
 

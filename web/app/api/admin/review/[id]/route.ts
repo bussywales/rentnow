@@ -11,6 +11,10 @@ import {
 } from "@/lib/admin/admin-review-contracts";
 import { assertNoForbiddenColumns } from "@/lib/admin/admin-review-schema-allowlist";
 import { getVerificationStatus } from "@/lib/verification/status";
+import {
+  normalizeAdminReviewMedia,
+  type AdminReviewImageRow,
+} from "@/lib/admin/admin-review-media";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +44,12 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
 
   const [detailRes, imagesRes, videosRes, activityRes] = await Promise.all([
     client.from(ADMIN_REVIEW_VIEW_TABLE).select(detailSelect).eq("id", id).maybeSingle(),
-    client.from("property_images").select(imageSelect).eq("property_id", id).order("created_at", { ascending: true }),
+    client
+      .from("property_images")
+      .select(imageSelect)
+      .eq("property_id", id)
+      .order("position", { ascending: true })
+      .order("created_at", { ascending: true }),
     client.from("property_videos").select(videoSelect).eq("property_id", id).order("created_at", { ascending: true }),
     client
       .from("admin_actions_log")
@@ -84,9 +93,24 @@ export async function GET(_req: Request, context: { params: Promise<{ id: string
       }
     : null;
 
+  const normalizedMedia = normalizeAdminReviewMedia({
+    coverImageUrl:
+      (detailRes.data as { cover_image_url?: string | null } | null)
+        ?.cover_image_url ?? null,
+    images: (imagesRes.data as AdminReviewImageRow[] | null) ?? [],
+  });
+
+  const listingRow =
+    detailRes.data && typeof detailRes.data === "object"
+      ? (detailRes.data as Record<string, unknown>)
+      : {};
+
   return NextResponse.json({
-    listing: detailRes.data,
-    images: imagesRes.data ?? [],
+    listing: {
+      ...listingRow,
+      cover_image_url: normalizedMedia.coverImageUrl,
+    },
+    images: normalizedMedia.images,
     videos: videosRes.data ?? [],
     activity,
     owner_verification: ownerVerification,
