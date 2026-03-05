@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 type Props = {
   propertyId: string;
   isDemo: boolean;
+  onOptimisticUpdate?: (next: boolean) => void;
   onUpdated?: (next: boolean) => void;
   onToast?: (message: string) => void;
   buttonClassName?: string;
@@ -15,6 +16,7 @@ type Props = {
 export default function AdminDemoToggleButton({
   propertyId,
   isDemo,
+  onOptimisticUpdate,
   onUpdated,
   onToast,
   buttonClassName,
@@ -28,6 +30,8 @@ export default function AdminDemoToggleButton({
   const title = nextIsDemo ? "Mark listing as demo?" : "Remove demo status?";
 
   const handleConfirm = async () => {
+    const previousIsDemo = isDemo;
+    onOptimisticUpdate?.(nextIsDemo);
     setPending(true);
     setError(null);
     try {
@@ -45,6 +49,7 @@ export default function AdminDemoToggleButton({
       onToast?.("Updated");
       setOpen(false);
     } catch (err) {
+      onOptimisticUpdate?.(previousIsDemo);
       setError(err instanceof Error ? err.message : "Unable to update demo status.");
     } finally {
       setPending(false);
@@ -56,6 +61,7 @@ export default function AdminDemoToggleButton({
       <button
         type="button"
         onClick={(event) => {
+          event.preventDefault();
           event.stopPropagation();
           setOpen(true);
           setError(null);
@@ -77,6 +83,7 @@ export default function AdminDemoToggleButton({
           aria-modal="true"
           data-testid="admin-demo-confirm-modal"
           onClick={(event) => {
+            event.stopPropagation();
             if (event.target === event.currentTarget && !pending) {
               setOpen(false);
             }
@@ -98,7 +105,11 @@ export default function AdminDemoToggleButton({
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => setOpen(false)}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setOpen(false);
+                }}
                 disabled={pending}
                 data-testid="admin-demo-cancel"
               >
@@ -106,7 +117,11 @@ export default function AdminDemoToggleButton({
               </Button>
               <Button
                 size="sm"
-                onClick={handleConfirm}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  void handleConfirm();
+                }}
                 disabled={pending}
                 data-testid="admin-demo-confirm"
               >

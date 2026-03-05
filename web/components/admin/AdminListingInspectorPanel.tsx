@@ -61,6 +61,7 @@ export default function AdminListingInspectorPanel({ listing, backHref = "/admin
             <AdminDemoToggleButton
               propertyId={listing.id}
               isDemo={isDemo}
+              onOptimisticUpdate={(next) => setOverrideDemo(next)}
               onUpdated={(next) => setOverrideDemo(next)}
               onToast={(message) => {
                 setToast(message);

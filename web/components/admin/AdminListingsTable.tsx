@@ -306,6 +306,11 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                       isDemo={!!item.is_demo}
                       dataTestId={`admin-demo-toggle-${item.id}`}
                       buttonClassName="shrink-0 rounded border border-slate-300 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 lg:px-3 lg:text-xs"
+                      onOptimisticUpdate={(next) => {
+                        setRows((prev) =>
+                          prev.map((row) => (row.id === item.id ? { ...row, is_demo: next } : row))
+                        );
+                      }}
                       onUpdated={(next) => {
                         setRows((prev) =>
                           prev.map((row) => (row.id === item.id ? { ...row, is_demo: next } : row))
@@ -316,6 +321,14 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                         setTimeout(() => setToast(null), 2000);
                       }}
                     />
+                    {item.is_demo ? (
+                      <span
+                        className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
+                        data-testid={`admin-listings-row-demo-pill-${item.id}`}
+                      >
+                        Demo
+                      </span>
+                    ) : null}
                     <button
                       type="button"
                       onClick={(event) => {

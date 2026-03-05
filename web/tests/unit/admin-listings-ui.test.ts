@@ -54,4 +54,35 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     tableContents.includes('className="w-[220px] px-3 py-2 text-right whitespace-nowrap"'),
     "expected fixed width actions cell classes"
   );
+  assert.ok(
+    tableContents.includes("admin-listings-row-demo-pill"),
+    "expected demo status pill test id near actions"
+  );
+  assert.ok(
+    tableContents.includes("onOptimisticUpdate"),
+    "expected optimistic demo updates in listings table actions"
+  );
+
+  const demoTogglePath = path.join(root, "components", "admin", "AdminDemoToggleButton.tsx");
+  const demoToggleContents = fs.readFileSync(demoTogglePath, "utf8");
+  assert.ok(
+    demoToggleContents.includes('data-testid="admin-demo-confirm-modal"'),
+    "expected demo confirm modal test id"
+  );
+  assert.ok(
+    demoToggleContents.includes("event.preventDefault();"),
+    "expected demo toggle handlers to prevent default navigation"
+  );
+  assert.ok(
+    demoToggleContents.includes("event.stopPropagation();"),
+    "expected demo toggle handlers to stop row click propagation"
+  );
+  assert.ok(
+    demoToggleContents.includes("void handleConfirm();"),
+    "expected confirm action to run from guarded click handler"
+  );
+  assert.ok(
+    demoToggleContents.includes("onOptimisticUpdate?.(nextIsDemo);"),
+    "expected optimistic demo update callback before API round-trip"
+  );
 });
