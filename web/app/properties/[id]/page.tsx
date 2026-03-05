@@ -40,7 +40,7 @@ import { resolveBackHref } from "@/lib/properties/back-href";
 import { derivePhotoTrust } from "@/lib/properties/photo-trust";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { isListingExpired } from "@/lib/properties/expiry";
-import { includeDemoListingsForViewer } from "@/lib/properties/demo";
+import { includeDemoListingsForViewerFromSettings } from "@/lib/settings/demo";
 import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
 import {
   derivePublicAdvertiserName,
@@ -326,8 +326,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   const envPresence = getEnvPresence();
   const supabaseReady = hasServerSupabaseEnv();
   const profile = supabaseReady ? await getProfile() : null;
-  const includeDemoListings = includeDemoListingsForViewer({
+  const includeDemoListings = await includeDemoListingsForViewerFromSettings({
     viewerRole: normalizeRole(profile?.role),
+    viewerId: profile?.id ?? null,
   });
   const listingCta = getListingCta(normalizeRole(profile?.role));
   const siteUrl = await getCanonicalBaseUrl();
@@ -483,9 +484,11 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
         const priceFloor = property.price ? Math.max(0, property.price * 0.6) : null;
         const priceCeil = property.price ? property.price * 1.4 : null;
         const nowIso = new Date().toISOString();
-        const includeDemoListingsInSimilar = includeDemoListingsForViewer({
-          viewerRole: isAdmin ? "admin" : null,
-        });
+        const includeDemoListingsInSimilar =
+          await includeDemoListingsForViewerFromSettings({
+            viewerRole: isAdmin ? "admin" : normalizeRole(currentUser?.role ?? null),
+            viewerId: currentUser?.id ?? null,
+          });
         let similarQuery = supabase
           .from("properties")
           .select("*, property_images(id, image_url, position, created_at)")

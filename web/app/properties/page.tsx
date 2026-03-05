@@ -31,7 +31,7 @@ import { computeLocationScore, extractLocationQuery, type LocationQueryInfo } fr
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import { isListingPubliclyVisible } from "@/lib/properties/expiry";
-import { includeDemoListingsForViewer } from "@/lib/properties/demo";
+import { includeDemoListingsForViewerFromSettings } from "@/lib/settings/demo";
 import { fetchSavedPropertyIds } from "@/lib/saved-properties.server";
 import { getFastResponderByHostIds } from "@/lib/trust/fast-responder.server";
 import { getListingPopularitySignals } from "@/lib/properties/popularity.server";
@@ -452,7 +452,10 @@ export default async function PropertiesPage({ searchParams }: Props) {
       </div>
     </div>
   ) : null;
-  const includeDemoListings = includeDemoListingsForViewer({ viewerRole: role });
+  const includeDemoListings = await includeDemoListingsForViewerFromSettings({
+    viewerRole: role,
+    viewerId: userId,
+  });
   const apiBaseUrl = await getApiBaseUrl();
   const listParams = buildSearchParams(resolvedSearchParams, {
     page: String(page),

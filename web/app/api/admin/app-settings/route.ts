@@ -38,6 +38,9 @@ const textValueSchema = z.object({
 const socialValueSchema = z.object({
   value: z.string().trim().max(2048),
 });
+const demoListingsVisibilityPolicyValueSchema = z.object({
+  value: z.enum(["restricted", "public"]),
+});
 
 const referralEnabledLevelsSchema = z.object({
   value: z.array(z.number().int().min(1).max(5)).min(1).max(5),
@@ -100,6 +103,7 @@ export const patchSchema = z.object({
     numericValueSchema,
     textValueSchema,
     socialValueSchema,
+    demoListingsVisibilityPolicyValueSchema,
     referralEnabledLevelsSchema,
     referralRewardRulesSchema,
     referralTierThresholdSchema,
@@ -166,6 +170,8 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   const isBrandSocialTiktok = key === APP_SETTING_KEYS.brandSocialTiktokUrl;
   const isBrandSocialFacebook = key === APP_SETTING_KEYS.brandSocialFacebookUrl;
   const isBrandSocialWhatsapp = key === APP_SETTING_KEYS.brandSocialWhatsappLink;
+  const isDemoListingsVisibilityPolicy =
+    key === APP_SETTING_KEYS.demoListingsVisibilityPolicy;
   const isAlertsKillSwitchEnabled = key === APP_SETTING_KEYS.alertsKillSwitchEnabled;
   const isAlertsLastRunStatus = key === APP_SETTING_KEYS.alertsLastRunStatusJson;
 
@@ -230,6 +236,9 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   if (isBrandSocialTiktok) return socialValueSchema.safeParse(value).success;
   if (isBrandSocialFacebook) return socialValueSchema.safeParse(value).success;
   if (isBrandSocialWhatsapp) return socialValueSchema.safeParse(value).success;
+  if (isDemoListingsVisibilityPolicy) {
+    return demoListingsVisibilityPolicyValueSchema.safeParse(value).success;
+  }
   if (isAlertsKillSwitchEnabled) return enabledValueSchema.safeParse(value).success;
   if (isAlertsLastRunStatus) return alertsLastRunStatusSchema.safeParse(value).success;
   return enabledValueSchema.safeParse(value).success;

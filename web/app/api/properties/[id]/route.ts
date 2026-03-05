@@ -34,7 +34,7 @@ import { logPropertyEvent, resolveEventSessionKey } from "@/lib/analytics/proper
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 import { cleanNullableString } from "@/lib/strings";
-import { includeDemoListingsForViewer } from "@/lib/properties/demo";
+import { includeDemoListingsForViewerFromSettings } from "@/lib/settings/demo";
 import type { UserRole } from "@/lib/types";
 import {
   canShowExpiredListingPublic,
@@ -438,8 +438,10 @@ export async function GET(
   const { viewerId, viewerRole } = await resolveViewerContext(supabase);
   const normalizedViewerRole: UserRole | null =
     viewerRole === "anon" ? null : (viewerRole as UserRole);
-  const includeDemoListings = includeDemoListingsForViewer({
+  const includeDemoListings = await includeDemoListingsForViewerFromSettings({
     viewerRole: normalizedViewerRole,
+    viewerId,
+    ownerId: data.owner_id,
   });
   const isDemoHiddenForViewer =
     !!(data as { is_demo?: boolean | null }).is_demo && !includeDemoListings;

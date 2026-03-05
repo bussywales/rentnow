@@ -10,6 +10,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { includeDemoListingsForViewer } from "@/lib/properties/demo";
+import { getDemoListingsVisibilityPolicy } from "@/lib/settings/demo";
 import { logFailure, logPlanLimitHit } from "@/lib/observability";
 import { normalizeCountryForCreate } from "@/lib/properties/country-normalize";
 import {
@@ -704,7 +705,11 @@ export async function GET(request: NextRequest) {
     }
 
     const nowIso = new Date().toISOString();
-    const includeDemoListings = includeDemoListingsForViewer({ viewerRole });
+    const includeDemoListings = includeDemoListingsForViewer({
+      viewerRole,
+      viewerId: viewerUserId,
+      policy: await getDemoListingsVisibilityPolicy(),
+    });
     const missingExpiresAt = (message?: string | null) =>
       typeof message === "string" &&
       message.includes("expires_at") &&

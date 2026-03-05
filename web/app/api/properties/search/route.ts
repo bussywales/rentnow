@@ -11,6 +11,7 @@ import { orderImagesWithCover } from "@/lib/properties/images";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { fetchLatestCheckins, buildCheckinSignal } from "@/lib/properties/checkin-signal";
 import { includeDemoListingsForViewer } from "@/lib/properties/demo";
+import { getDemoListingsVisibilityPolicy } from "@/lib/settings/demo";
 
 function parsePagination(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -64,24 +65,32 @@ export async function GET(request: Request) {
 
   try {
     let viewerRole = null as ReturnType<typeof normalizeRole>;
+    let viewerUserId: string | null = null;
     try {
       const supabaseForViewer = await createServerSupabaseClient();
       const {
         data: { user },
       } = await supabaseForViewer.auth.getUser();
       if (user) {
+        viewerUserId = user.id;
         viewerRole = normalizeRole(await getUserRole(supabaseForViewer, user.id));
       }
     } catch {
       viewerRole = null;
+      viewerUserId = null;
     }
+    const demoVisibilityPolicy = await getDemoListingsVisibilityPolicy();
 
     const { data, error, count } = await searchProperties(filters, {
       page,
       pageSize,
       featuredOnly,
       createdAfter,
-      includeDemo: includeDemoListingsForViewer({ viewerRole }),
+      includeDemo: includeDemoListingsForViewer({
+        viewerRole,
+        viewerId: viewerUserId,
+        policy: demoVisibilityPolicy,
+      }),
     });
     if (error) {
       logFailure({

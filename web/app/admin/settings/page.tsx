@@ -35,6 +35,8 @@ import AdminSettingsBrandSocials from "@/components/admin/AdminSettingsBrandSoci
 import AdminSettingsLayout, {
   type AdminSettingsLayoutSection,
 } from "@/components/admin/AdminSettingsLayout";
+import AdminSettingsDemoVisibilityPolicy from "@/components/admin/AdminSettingsDemoVisibilityPolicy";
+import { normalizeDemoListingsVisibilityPolicy } from "@/lib/properties/demo";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +64,7 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.agentNetworkDiscoveryEnabled,
       APP_SETTING_KEYS.demoBadgeEnabled,
       APP_SETTING_KEYS.demoWatermarkEnabled,
+      APP_SETTING_KEYS.demoListingsVisibilityPolicy,
       APP_SETTING_KEYS.verificationRequireEmail,
       APP_SETTING_KEYS.verificationRequirePhone,
       APP_SETTING_KEYS.verificationRequireBank,
@@ -234,6 +237,13 @@ export default async function AdminSettingsPage() {
     facebookUrl: parseAppSettingString(brandSocialFacebookRow?.value, ""),
     whatsappLink: parseAppSettingString(brandSocialWhatsappRow?.value, ""),
   };
+  const demoVisibilityPolicyRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.demoListingsVisibilityPolicy
+  );
+  const demoVisibilityPolicy = normalizeDemoListingsVisibilityPolicy(
+    demoVisibilityPolicyRow?.value,
+    "restricted"
+  );
 
   const paygFeaturedRow = data?.find(
     (item) => item.key === APP_SETTING_KEYS.paygFeaturedFeeAmount
@@ -369,6 +379,19 @@ export default async function AdminSettingsPage() {
       description: "Global feature switches and guard toggles for tenant, host, and admin surfaces.",
       keywords: ["feature", "toggle", "alerts", "verification", "explore", "shortlet"],
       content: <AdminSettingsFeatureFlags settings={settings} />,
+    },
+    {
+      id: "demo-visibility",
+      title: "Demo visibility policy",
+      description:
+        "Controls whether demo listings are public to everyone or restricted to admin/host viewers.",
+      keywords: ["demo", "visibility", "restricted", "public", "listings"],
+      content: (
+        <AdminSettingsDemoVisibilityPolicy
+          policy={demoVisibilityPolicy}
+          updatedAt={demoVisibilityPolicyRow?.updated_at ?? null}
+        />
+      ),
     },
     {
       id: "market-defaults",

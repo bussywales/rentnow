@@ -5,6 +5,8 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { getUserRole } from "@/lib/authz";
 import { normalizeRole } from "@/lib/roles";
 import { searchProperties } from "@/lib/search";
+import { includeDemoListingsForViewer } from "@/lib/properties/demo";
+import { getDemoListingsVisibilityPolicy } from "@/lib/settings/demo";
 import {
   filterShortletRowsByDateAvailability,
   isNigeriaDestinationQuery,
@@ -94,18 +96,25 @@ export async function GET(request: NextRequest) {
     const supabase = await createServerSupabaseClient();
     const debugRequested = request.nextUrl.searchParams.get("debug") === "1";
     let viewerRole: ReturnType<typeof normalizeRole> = null;
-    if (debugRequested && process.env.NODE_ENV !== "production") {
-      try {
-        const {
-          data: { user },
-        } = await supabase.auth.getUser();
-        if (user) {
-          viewerRole = normalizeRole(await getUserRole(supabase, user.id));
-        }
-      } catch {
-        viewerRole = null;
+    let viewerUserId: string | null = null;
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        viewerUserId = user.id;
+        viewerRole = normalizeRole(await getUserRole(supabase, user.id));
       }
+    } catch {
+      viewerRole = null;
+      viewerUserId = null;
     }
+    const demoVisibilityPolicy = await getDemoListingsVisibilityPolicy();
+    const includeDemoListings = includeDemoListingsForViewer({
+      viewerRole,
+      viewerId: viewerUserId,
+      policy: demoVisibilityPolicy,
+    });
     const debugEnabled =
       debugRequested && process.env.NODE_ENV !== "production" && viewerRole === "admin";
 
@@ -128,7 +137,7 @@ export async function GET(request: NextRequest) {
       {
         page: 1,
         pageSize: sourceRowsLimit,
-        includeDemo: false,
+        includeDemo: includeDemoListings,
         locationQuery: filters.where,
         bounds: filters.bounds,
         boundsRequireCoords: !!filters.bounds,

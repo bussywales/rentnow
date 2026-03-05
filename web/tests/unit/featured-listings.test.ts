@@ -35,7 +35,7 @@ void test("featured listings still require public visibility to appear", () => {
       expires_at: future,
       is_demo: false,
     },
-    { viewerRole: "tenant", now, nodeEnv: "production" }
+    { viewerRole: "tenant", now, policy: "restricted" }
   );
   assert.equal(hiddenByApproval, false);
 
@@ -49,7 +49,7 @@ void test("featured listings still require public visibility to appear", () => {
       expires_at: future,
       is_demo: false,
     },
-    { viewerRole: "tenant", now, nodeEnv: "production" }
+    { viewerRole: "tenant", now, policy: "restricted" }
   );
   assert.equal(visible, true);
 });
@@ -68,7 +68,7 @@ void test("demo featured listings remain hidden from non-admin viewers", () => {
       expires_at: future,
       is_demo: true,
     },
-    { viewerRole: "tenant", now, nodeEnv: "production" }
+    { viewerRole: "tenant", now, policy: "restricted" }
   );
   assert.equal(tenantVisible, false);
 
@@ -82,7 +82,7 @@ void test("demo featured listings remain hidden from non-admin viewers", () => {
       expires_at: future,
       is_demo: true,
     },
-    { viewerRole: "admin", now, nodeEnv: "production" }
+    { viewerRole: "admin", now, policy: "restricted" }
   );
   assert.equal(adminVisible, true);
 });

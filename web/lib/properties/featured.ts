@@ -1,6 +1,9 @@
 import type { UserRole } from "@/lib/types";
 import { isListingPubliclyVisible, type ListingVisibilityInput } from "@/lib/properties/expiry";
-import { includeDemoListingsForViewer } from "@/lib/properties/demo";
+import {
+  includeDemoListingsForViewer,
+  type DemoListingsVisibilityPolicy,
+} from "@/lib/properties/demo";
 
 export type FeaturedListingInput = {
   is_featured?: boolean | null;
@@ -26,7 +29,7 @@ export function isPubliclyEligibleFeaturedListing(
   input: {
     viewerRole?: UserRole | null;
     now?: Date;
-    nodeEnv?: string;
+    policy?: DemoListingsVisibilityPolicy;
   } = {}
 ): boolean {
   const now = input.now ?? new Date();
@@ -34,7 +37,7 @@ export function isPubliclyEligibleFeaturedListing(
   if (!isListingPubliclyVisible(listing, now)) return false;
   const includeDemo = includeDemoListingsForViewer({
     viewerRole: input.viewerRole,
-    nodeEnv: input.nodeEnv,
+    policy: input.policy,
   });
   if (!includeDemo && listing.is_demo) return false;
   return true;

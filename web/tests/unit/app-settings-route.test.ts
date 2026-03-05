@@ -179,6 +179,21 @@ void test("validateSettingValueByKey accepts demo presentation toggles", () => {
   assert.equal(validateSettingValueByKey("demo_watermark_enabled", { enabled: false }), true);
 });
 
+void test("validateSettingValueByKey accepts demo visibility policy payload", () => {
+  assert.equal(
+    validateSettingValueByKey("demo_listings_visibility_policy", { value: "restricted" }),
+    true
+  );
+  assert.equal(
+    validateSettingValueByKey("demo_listings_visibility_policy", { value: "public" }),
+    true
+  );
+  assert.equal(
+    validateSettingValueByKey("demo_listings_visibility_policy", { value: "internal" }),
+    false
+  );
+});
+
 void test("validateSettingValueByKey accepts saved-search email alerts toggle", () => {
   assert.equal(validateSettingValueByKey("alerts_email_enabled", { enabled: true }), true);
 });

@@ -1,5 +1,6 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { includeDemoListingsForViewer } from "@/lib/properties/demo";
+import { getDemoListingsVisibilityPolicy } from "@/lib/settings/demo";
 import type { ListingIntent, ParsedSearchFilters, RentalType } from "@/lib/types";
 import { mapSearchFilterToListingIntents } from "@/lib/listing-intents";
 import { normalizeIntentStaySelection } from "@/lib/search-filters";
@@ -72,10 +73,14 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     stay: filters.stay ?? null,
   });
   const supabase = await createServerSupabaseClient();
+  const demoVisibilityPolicy = await getDemoListingsVisibilityPolicy();
   const includeDemoListings =
     typeof options.includeDemo === "boolean"
       ? options.includeDemo
-      : includeDemoListingsForViewer({ viewerRole: null });
+      : includeDemoListingsForViewer({
+          viewerRole: null,
+          policy: demoVisibilityPolicy,
+        });
   const missingPosition = (message?: string | null) =>
     typeof message === "string" &&
     message.includes("position") &&
