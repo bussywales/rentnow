@@ -5,8 +5,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   EXPLORE_V2_DOCK_SAFE_ZONE_PX,
   ExploreV2Feed,
+  filterExploreV2Listings,
   resolveExploreV2HeroPrefetchPlan,
 } from "@/components/explore-v2/ExploreV2Feed";
+import {
+  createExploreV2DefaultFilters,
+  ExploreV2Header,
+  hasExploreV2ActiveFilters,
+  resolveExploreV2FilterSummary,
+} from "@/components/explore-v2/ExploreV2Header";
 import { resolveExploreV2PageData } from "@/app/explore-v2/page";
 import type { Property } from "@/lib/types";
 import { resolveExploreHeroImageUrl } from "@/lib/explore/gallery-images";
@@ -36,13 +43,17 @@ void test("explore-v2 feed renders root and cards for listing fixtures", () => {
   const html = renderToStaticMarkup(
     React.createElement(ExploreV2Feed, {
       listings,
+      marketCountry: "NG",
       marketCurrency: "NGN",
     })
   );
 
   assert.match(html, /data-testid="explore-v2-feed"/);
+  assert.match(html, /data-testid="explore-v2-chip-row"/);
+  assert.match(html, /data-testid="explore-v2-header-summary"/);
   const cardMatches = html.match(/data-testid="explore-v2-card"/g) ?? [];
   assert.ok(cardMatches.length >= 1, "expected explore-v2 cards to render for fixture listings");
+  assert.match(html, />Explore<\/h1>/);
   assert.match(html, /data-testid="explore-v2-action-rail"/);
   assert.match(html, /data-testid="explore-v2-dock-safe-zone"/);
   assert.match(html, /class="[^"]*h-\[136px\][^"]*"/);
@@ -98,6 +109,95 @@ void test("explore-v2 hero resolver returns null when listing has no usable imag
 
   assert.equal(hero.url, null);
   assert.equal(hero.meta, null);
+});
+
+void test("explore-v2 listing filter applies market, type, beds, and budget locally", () => {
+  const listings = [
+    createExploreV2Listing({
+      id: "ng-shortlet-2beds",
+      listing_intent: "shortlet",
+      rental_type: "short_let",
+      bedrooms: 2,
+      price: 900,
+      currency: "NGN",
+      country_code: "NG",
+    }),
+    createExploreV2Listing({
+      id: "ng-rent-3beds",
+      listing_intent: "rent_lease",
+      rental_type: "long_term",
+      bedrooms: 3,
+      price: 1400,
+      currency: "NGN",
+      country_code: "NG",
+    }),
+    createExploreV2Listing({
+      id: "gb-buy-4beds",
+      listing_intent: "sale",
+      rental_type: "long_term",
+      bedrooms: 4,
+      price: 3200,
+      currency: "GBP",
+      country_code: "GB",
+    }),
+  ];
+
+  const baseline = createExploreV2DefaultFilters("ng");
+  const filtered = filterExploreV2Listings({
+    listings,
+    filters: {
+      ...baseline,
+      type: "shortlets",
+      beds: "2",
+      budgetMin: 800,
+      budgetMax: 1200,
+    },
+    fallbackMarketCountry: "NG",
+  });
+
+  assert.deepEqual(
+    filtered.map((listing) => listing.id),
+    ["ng-shortlet-2beds"]
+  );
+});
+
+void test("explore-v2 filter helpers resolve active state and subtitle summary", () => {
+  const defaultFilters = createExploreV2DefaultFilters("ng");
+  assert.equal(hasExploreV2ActiveFilters(defaultFilters, "ng"), false);
+
+  const activeFilters = {
+    ...defaultFilters,
+    type: "shortlets" as const,
+    beds: "2" as const,
+    budgetMin: 500,
+    budgetMax: 1200,
+  };
+  assert.equal(hasExploreV2ActiveFilters(activeFilters, "ng"), true);
+  assert.match(
+    resolveExploreV2FilterSummary(activeFilters, "NGN"),
+    /NG • Shortlets • 2\+ beds • ₦500-₦1,200/
+  );
+});
+
+void test("explore-v2 header shows active chip state and clear-all action when filters are active", () => {
+  const filters = {
+    ...createExploreV2DefaultFilters("ng"),
+    type: "shortlets" as const,
+  };
+  const html = renderToStaticMarkup(
+    React.createElement(ExploreV2Header, {
+      filters,
+      defaultMarket: "ng",
+      fallbackCurrency: "NGN",
+      onApplyFilters: () => undefined,
+      onClearAll: () => undefined,
+    })
+  );
+
+  assert.match(html, /data-testid="explore-v2-chip-type"/);
+  assert.match(html, /Type: Shortlets/);
+  assert.match(html, /bg-slate-900\/62/);
+  assert.match(html, /data-testid="explore-v2-clear-all"/);
 });
 
 void test("explore-v2 prefetch plan selects next 1-2 hero urls from top visible index", () => {

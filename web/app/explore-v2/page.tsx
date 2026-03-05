@@ -61,14 +61,11 @@ export default async function ExploreV2Page() {
 
   return (
     <main className="mx-auto w-full max-w-xl px-3 pb-12 pt-4" data-testid="explore-v2-page">
-      <header className="mb-4 rounded-3xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-slate-500">Experimental</p>
-        <h1 className="text-xl font-semibold text-slate-900">Explore V2</h1>
-        <p className="text-sm text-slate-600">
-          Native vertical feed with virtualised cards. Market: {pageData.marketCountry}.
-        </p>
-      </header>
-      <ExploreV2Feed listings={pageData.listings} marketCurrency={pageData.marketCurrency} />
+      <ExploreV2Feed
+        listings={pageData.listings}
+        marketCountry={pageData.marketCountry}
+        marketCurrency={pageData.marketCurrency}
+      />
     </main>
   );
 }

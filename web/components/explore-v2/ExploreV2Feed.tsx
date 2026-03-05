@@ -3,13 +3,24 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Virtuoso, type ListRange } from "react-virtuoso";
 import type { Property } from "@/lib/types";
+import {
+  ExploreV2Header,
+  createExploreV2DefaultFilters,
+  normalizeExploreV2MarketFilter,
+  type ExploreV2Filters,
+} from "@/components/explore-v2/ExploreV2Header";
 import { ExploreV2Card, resolveExploreV2CarouselItems } from "@/components/explore-v2/ExploreV2Card";
 import { resolveExplorePropertyImageRecords } from "@/lib/explore/gallery-images";
+import {
+  resolveExploreAnalyticsIntentType,
+  resolveExploreListingMarketCountry,
+} from "@/lib/explore/explore-presentation";
 import { resolveExploreV2PrefetchLookahead, subscribeToConserveDataChanges } from "@/lib/explore/network-hints";
 import { predecodeImageUrl } from "@/lib/images/decode";
 
 type ExploreV2FeedProps = {
   listings: Property[];
+  marketCountry: string | null;
   marketCurrency: string | null;
 };
 
@@ -67,30 +78,98 @@ export function resolveExploreV2HeroPrefetchPlan(input: ExploreV2PrefetchPlanInp
   return plan;
 }
 
-function ExploreV2FeedInner({ listings, marketCurrency }: ExploreV2FeedProps) {
+type ExploreV2ListingFilterInput = {
+  listings: ReadonlyArray<Property>;
+  filters: ExploreV2Filters;
+  fallbackMarketCountry: string | null;
+};
+
+function resolveBedsMinimum(filter: ExploreV2Filters["beds"]): number | null {
+  if (filter === "any") return null;
+  const parsed = Number.parseInt(filter, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return null;
+  return parsed;
+}
+
+export function filterExploreV2Listings(input: ExploreV2ListingFilterInput): Property[] {
+  const minimumBeds = resolveBedsMinimum(input.filters.beds);
+  return input.listings.filter((listing) => {
+    if (input.filters.market !== "all") {
+      const listingMarket = resolveExploreListingMarketCountry(
+        listing,
+        input.fallbackMarketCountry
+      ).toLowerCase();
+      if (listingMarket !== input.filters.market) return false;
+    }
+
+    if (input.filters.type !== "all") {
+      const intentType = resolveExploreAnalyticsIntentType(listing);
+      if (input.filters.type === "shortlets" && intentType !== "shortlet") return false;
+      if (input.filters.type === "rent" && intentType !== "rent") return false;
+      if (input.filters.type === "buy" && intentType !== "buy") return false;
+    }
+
+    if (minimumBeds !== null) {
+      const bedrooms = Number.isFinite(listing.bedrooms) ? listing.bedrooms : 0;
+      if (bedrooms < minimumBeds) return false;
+    }
+
+    if (input.filters.market !== "all" && (input.filters.budgetMin !== null || input.filters.budgetMax !== null)) {
+      const price = Number.isFinite(listing.price) ? listing.price : null;
+      if (price === null) return false;
+      if (input.filters.budgetMin !== null && price < input.filters.budgetMin) return false;
+      if (input.filters.budgetMax !== null && price > input.filters.budgetMax) return false;
+    }
+
+    return true;
+  });
+}
+
+function ExploreV2FeedInner({ listings, marketCountry, marketCurrency }: ExploreV2FeedProps) {
   const [topVisibleIndex, setTopVisibleIndex] = useState(0);
   const [prefetchLookahead, setPrefetchLookahead] = useState(() =>
     resolveExploreV2PrefetchLookahead(undefined, EXPLORE_V2_PREFETCH_MAX_LOOKAHEAD)
   );
+  const defaultMarket = useMemo(
+    () => normalizeExploreV2MarketFilter(marketCountry),
+    [marketCountry]
+  );
+  const [filters, setFilters] = useState<ExploreV2Filters>(() =>
+    createExploreV2DefaultFilters(defaultMarket)
+  );
   const inflightPreloadUrlsRef = useRef<Set<string>>(new Set());
   const completedPreloadUrlsRef = useRef<Set<string>>(new Set());
 
+  useEffect(() => {
+    setFilters(createExploreV2DefaultFilters(defaultMarket));
+  }, [defaultMarket]);
+
+  const filteredListings = useMemo(
+    () =>
+      filterExploreV2Listings({
+        listings,
+        filters,
+        fallbackMarketCountry: marketCountry,
+      }),
+    [filters, listings, marketCountry]
+  );
+
   const listingImageRecordsById = useMemo(() => {
     const next = new Map<string, ReturnType<typeof resolveExplorePropertyImageRecords>>();
-    listings.forEach((listing) => {
+    filteredListings.forEach((listing) => {
       next.set(listing.id, resolveExplorePropertyImageRecords(listing));
     });
     return next;
-  }, [listings]);
+  }, [filteredListings]);
 
   const heroImageUrls = useMemo(
     () =>
-      listings.map((listing) => {
+      filteredListings.map((listing) => {
         const imageRecords = listingImageRecordsById.get(listing.id) ?? [];
         const resolved = resolveExploreV2CarouselItems({ listing, imageRecords });
         return resolved.items[0]?.src ?? null;
       }),
-    [listingImageRecordsById, listings]
+    [filteredListings, listingImageRecordsById]
   );
 
   const renderCard = useCallback(
@@ -104,12 +183,12 @@ function ExploreV2FeedInner({ listings, marketCurrency }: ExploreV2FeedProps) {
             marketCurrency={marketCurrency}
             imageRecords={imageRecords}
             index={index}
-            feedSize={listings.length}
+            feedSize={filteredListings.length}
           />
         </div>
       );
     },
-    [listingImageRecordsById, listings.length, marketCurrency]
+    [filteredListings.length, listingImageRecordsById, marketCurrency]
   );
 
   const handleRangeChanged = useCallback((range: ListRange) => {
@@ -142,7 +221,7 @@ function ExploreV2FeedInner({ listings, marketCurrency }: ExploreV2FeedProps) {
     if (!EXPLORE_V2_PREFETCH_ENABLED) return;
     const plan = resolveExploreV2HeroPrefetchPlan({
       topVisibleIndex,
-      totalListings: listings.length,
+      totalListings: filteredListings.length,
       heroImageUrls,
       lookaheadCount: prefetchLookahead,
       maxInflight: EXPLORE_V2_PRELOAD_MAX_INFLIGHT,
@@ -163,29 +242,43 @@ function ExploreV2FeedInner({ listings, marketCurrency }: ExploreV2FeedProps) {
         completedPreloadUrlsRef.current.add(imageUrl);
       });
     });
-  }, [heroImageUrls, listings.length, prefetchLookahead, topVisibleIndex]);
+  }, [filteredListings.length, heroImageUrls, prefetchLookahead, topVisibleIndex]);
 
-  if (listings.length === 0) {
-    return (
-      <section className="py-16" data-testid="explore-v2-feed">
-        <div className="rounded-3xl border border-slate-200 bg-white px-5 py-10 text-center shadow-sm">
-          <p className="text-sm font-medium text-slate-600">No listings yet for this market.</p>
-        </div>
-      </section>
-    );
-  }
+  const handleApplyFilters = useCallback((next: ExploreV2Filters) => {
+    setFilters(next);
+  }, []);
+
+  const handleClearFilters = useCallback(() => {
+    setFilters(createExploreV2DefaultFilters(defaultMarket));
+  }, [defaultMarket]);
 
   return (
     <section className="pb-6 md:pb-8" data-testid="explore-v2-feed">
-      <Virtuoso
-        data={listings}
-        useWindowScroll
-        initialItemCount={Math.min(listings.length, 8)}
-        increaseViewportBy={{ top: 600, bottom: 1200 }}
-        components={feedComponents}
-        rangeChanged={handleRangeChanged}
-        itemContent={renderCard}
+      <ExploreV2Header
+        filters={filters}
+        defaultMarket={defaultMarket}
+        fallbackCurrency={marketCurrency}
+        onApplyFilters={handleApplyFilters}
+        onClearAll={handleClearFilters}
       />
+      {filteredListings.length === 0 ? (
+        <div
+          className="rounded-3xl border border-slate-200 bg-white px-5 py-10 text-center shadow-sm"
+          data-testid="explore-v2-feed-empty"
+        >
+          <p className="text-sm font-medium text-slate-600">No listings match these filters.</p>
+        </div>
+      ) : (
+        <Virtuoso
+          data={filteredListings}
+          useWindowScroll
+          initialItemCount={Math.min(filteredListings.length, 8)}
+          increaseViewportBy={{ top: 600, bottom: 1200 }}
+          components={feedComponents}
+          rangeChanged={handleRangeChanged}
+          itemContent={renderCard}
+        />
+      )}
     </section>
   );
 }
