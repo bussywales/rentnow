@@ -126,6 +126,7 @@ export const propertySchema = z
     .optional(),
   is_active: z.boolean().optional(),
   is_demo: z.boolean().optional(),
+  featured_media: z.enum(["image", "video"]).optional().nullable(),
   imageUrls: z.array(z.string().url()).optional(),
   cover_image_url: z.string().url().optional().nullable(),
   admin_area_1: z.string().optional().nullable(),
@@ -270,6 +271,7 @@ export async function POST(request: Request) {
       deposit_currency: normalizedDepositCurrency,
       bathroom_type: rest.bathroom_type ?? null,
       pets_allowed: typeof rest.pets_allowed === "boolean" ? rest.pets_allowed : false,
+      featured_media: rest.featured_media === "video" ? "video" : "image",
       cover_image_url: cover_image_url ?? (imageUrls[0] ?? null),
     };
     const shortletPersistence = resolveShortletPersistenceInput({

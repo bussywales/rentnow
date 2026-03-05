@@ -144,6 +144,7 @@ export const updateSchema = z.object({
   rejection_reason: z.string().optional().nullable(),
   is_active: z.boolean().optional(),
   is_demo: z.boolean().optional(),
+  featured_media: z.enum(["image", "video"]).optional().nullable(),
   imageUrls: z.array(z.string().url()).optional(),
   cover_image_url: z.string().url().optional().nullable(),
   imageMeta: z
@@ -761,6 +762,12 @@ export async function PUT(
           : typeof rest.deposit_currency === "undefined"
             ? undefined
             : null,
+      featured_media:
+        typeof rest.featured_media === "undefined"
+          ? undefined
+          : rest.featured_media === "video"
+            ? "video"
+            : "image",
       bathroom_type:
         typeof rest.bathroom_type === "undefined" ? undefined : rest.bathroom_type,
       pets_allowed: typeof rest.pets_allowed === "undefined" ? undefined : rest.pets_allowed,

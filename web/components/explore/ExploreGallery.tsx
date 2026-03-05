@@ -158,6 +158,7 @@ function ExploreGalleryInner({
     ]
   );
   const activeImageUnavailable = failedImageIndexes.has(effectiveActiveImageIndex);
+  const showFeaturedVideoBadge = property.featured_media === "video";
 
   const setHorizontalLock = useCallback((next: boolean) => {
     setHorizontalLockActive((current) => (current === next ? current : next));
@@ -416,6 +417,14 @@ function ExploreGalleryInner({
           aria-live="polite"
         >
           Image unavailable
+        </span>
+      ) : null}
+      {showFeaturedVideoBadge ? (
+        <span
+          className="pointer-events-none absolute left-3 top-3 z-10 rounded-full bg-slate-900/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white"
+          data-testid="explore-gallery-video-badge"
+        >
+          Video
         </span>
       ) : null}
     </div>

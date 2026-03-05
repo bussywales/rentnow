@@ -369,6 +369,7 @@ function ExploreV2CardInner({
     () => resolveExploreV2OverlayOpacityClass(overlayFocused),
     [overlayFocused]
   );
+  const showFeaturedVideoBadge = listing.featured_media === "video";
 
   useEffect(() => {
     return () => {
@@ -477,6 +478,14 @@ function ExploreV2CardInner({
               data-testid="explore-v2-hero-image-unavailable"
             >
               Image unavailable
+            </span>
+          ) : null}
+          {showFeaturedVideoBadge ? (
+            <span
+              className="pointer-events-none absolute left-3 top-3 rounded-full bg-slate-900/72 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white"
+              data-testid="explore-v2-video-badge"
+            >
+              Video
             </span>
           ) : null}
           <div className="pointer-events-none absolute inset-0 z-20">

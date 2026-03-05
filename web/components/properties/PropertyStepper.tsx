@@ -224,7 +224,7 @@ const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | 
     "max_guests",
     "is_demo",
   ],
-  photos: ["imageUrls", "cover_image_url"],
+  photos: ["imageUrls", "cover_image_url", "featured_media"],
   preview: [],
   submit: [],
 };
@@ -564,6 +564,7 @@ export function PropertyStepper({
     pets_allowed: initialData?.pets_allowed ?? false,
     furnished: initialData?.furnished ?? false,
     is_demo: initialData?.is_demo ?? false,
+    featured_media: initialData?.featured_media === "video" ? "video" : "image",
     bills_included: initialData?.bills_included ?? false,
     status: initialData?.status ?? "draft",
     amenitiesText: initialData?.amenities?.join(", ") ?? "",
@@ -787,6 +788,8 @@ export function PropertyStepper({
     const normalizedPrice = shortletIntent
       ? shortletNightlyPriceMinor ?? (typeof form.price === "number" ? form.price : undefined)
       : form.price;
+    const featuredMedia =
+      videoPath && form.featured_media === "video" ? "video" : "image";
 
     return {
       ...form,
@@ -834,9 +837,10 @@ export function PropertyStepper({
       features: form.featuresText
         ? form.featuresText.split(",").map((item) => item.trim()).filter(Boolean)
         : [],
+      featured_media: featuredMedia,
       cover_image_url: coverImageUrl ?? undefined,
     };
-  }, [form, coverImageUrl]);
+  }, [form, coverImageUrl, videoPath]);
 
   const locationQuality = useMemo(
     () =>
@@ -1248,6 +1252,7 @@ export function PropertyStepper({
       }
       setVideoPath(null);
       setVideoSignedUrl(null);
+      setForm((prev) => ({ ...prev, featured_media: "image" }));
     } catch (err) {
       setVideoError(err instanceof Error ? err.message : "Unable to remove video.");
     } finally {
@@ -4177,6 +4182,21 @@ export function PropertyStepper({
                 )}
               </div>
             </div>
+            <label className="mt-3 inline-flex items-center gap-2 text-xs font-medium text-slate-700">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-slate-300 text-slate-900 focus:ring-slate-400"
+                checked={form.featured_media === "video"}
+                disabled={!videoPath}
+                onChange={(event) => {
+                  handleChange(
+                    "featured_media",
+                    event.target.checked ? "video" : "image"
+                  );
+                }}
+              />
+              Use video as featured media
+            </label>
             {videoPath ? (
               <div className="mt-3 space-y-2">
                 <div className="overflow-hidden rounded-xl border border-slate-200">
@@ -4440,6 +4460,7 @@ export function PropertyStepper({
               pets_allowed: !!form.pets_allowed,
               amenities:
                 payload.amenities && payload.amenities.length ? payload.amenities : null,
+              featured_media: form.featured_media === "video" ? "video" : "image",
               cover_image_url: coverImageUrl ?? null,
               images: previewImages,
             }}

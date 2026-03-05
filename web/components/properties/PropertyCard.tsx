@@ -138,6 +138,7 @@ export function PropertyCard({
   });
   const showDemoBadge = shouldRenderDemoBadge({ isDemo, enabled: true });
   const showDemoWatermark = shouldRenderDemoWatermark({ isDemo, enabled: true });
+  const showFeaturedVideoBadge = property.featured_media === "video";
   const ctaLabel = isShortlet
     ? shortletMode === "request"
       ? "Request to book"
@@ -223,6 +224,14 @@ export function PropertyCard({
           Demo
         </div>
       )}
+      {showFeaturedVideoBadge ? (
+        <span
+          className="pointer-events-none absolute bottom-3 left-3 z-10 rounded-full bg-slate-900/75 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white"
+          data-testid="property-card-video-badge"
+        >
+          Video
+        </span>
+      ) : null}
     </div>
   );
 

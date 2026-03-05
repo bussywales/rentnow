@@ -5,7 +5,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { MessageThreadClient } from "@/components/messaging/MessageThreadClient";
 import { PropertyMapToggle } from "@/components/properties/PropertyMapToggle";
-import { PropertyGallery } from "@/components/properties/PropertyGallery";
+import { PropertyMediaHero } from "@/components/properties/PropertyMediaHero";
 import { PropertyCard } from "@/components/properties/PropertyCard";
 import { HostIdentityBlock } from "@/components/properties/HostIdentityBlock";
 import { SaveButton } from "@/components/properties/SaveButton";
@@ -797,10 +797,14 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
       )}
       <div className="grid min-w-0 gap-6 md:grid-cols-3">
         <div className="md:col-span-2 min-w-0">
-          <PropertyGallery
+          <PropertyMediaHero
+            key={`${property.id}:${property.featured_media ?? "image"}`}
+            propertyId={property.id}
             images={property.images || []}
             title={property.title}
             isDemo={!!property.is_demo}
+            featuredMedia={property.featured_media ?? "image"}
+            coverImageUrl={property.cover_image_url ?? null}
           />
         </div>
         <div className="min-w-0 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
