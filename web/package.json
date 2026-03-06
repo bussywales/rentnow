@@ -25,7 +25,7 @@
     "setup": "npm install && npx playwright install --with-deps",
     "test:e2e": "playwright test",
     "test:e2e:smoke": "playwright test --config=playwright.smoke.config.ts",
-    "test:e2e:golive": "playwright test --config=playwright.golive.config.ts",
+    "test:e2e:golive": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 playwright test --config=playwright.golive.config.ts",
     "test:e2e:ci": "node ./scripts/run-test-e2e-ci.mjs",
     "test:e2e:cleanup": "node scripts/cleanup-playwright.mjs"
   },
