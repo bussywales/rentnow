@@ -7,6 +7,7 @@ import {
   UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS,
   UNIFIED_CAROUSEL_MIN_PLACEHOLDER_VISIBLE_MS,
   UNIFIED_CAROUSEL_PREMIUM_NEUTRAL_SLIDE_BACKGROUND_CLASS,
+  resolveUnifiedImageCarouselGestureRetainedIndexes,
   resolveUnifiedImageCarouselLoadCandidates,
   resolveUnifiedImageCarouselMaxConcurrentImageLoads,
   resolveUnifiedImagePlaceholderHoldMs,
@@ -127,6 +128,28 @@ void test("unified image carousel mounts only capped pending slides while preser
   assert.deepEqual(Array.from(mounted.values()).sort((a, b) => a - b), [1, 2, 3]);
 });
 
+void test("unified image carousel keeps outgoing and incoming slide indexes retained while dragging", () => {
+  const retained = resolveUnifiedImageCarouselGestureRetainedIndexes({
+    totalImages: 5,
+    selectedIndex: 2,
+    gestureStartIndex: 1,
+    isDragging: true,
+    isInMotion: true,
+  });
+  assert.deepEqual(Array.from(retained.values()).sort((a, b) => a - b), [0, 1, 2, 3]);
+});
+
+void test("unified image carousel does not retain extra slide indexes when idle", () => {
+  const retained = resolveUnifiedImageCarouselGestureRetainedIndexes({
+    totalImages: 5,
+    selectedIndex: 2,
+    gestureStartIndex: 1,
+    isDragging: false,
+    isInMotion: false,
+  });
+  assert.deepEqual(Array.from(retained.values()), []);
+});
+
 void test("unified image carousel placeholder presentation prioritizes item metadata", () => {
   const presentation = resolveUnifiedImagePlaceholderPresentation({
     item: {
@@ -187,6 +210,12 @@ void test("unified image carousel consumes the shared interaction policy module"
   assert.ok(!contents.includes("overflow-x-scroll overflow-y-hidden"));
   assert.ok(!contents.includes("touch-pan-x"));
   assert.ok(contents.includes("waitForUnifiedImageRevealGate"));
+  assert.ok(contents.includes('emblaApi.on("pointerDown", onPointerDown)'));
+  assert.ok(contents.includes('emblaApi.on("pointerUp", onPointerUp)'));
+  assert.ok(contents.includes('emblaApi.on("scroll", onScroll)'));
+  assert.ok(contents.includes('emblaApi.on("settle", onSettle)'));
+  assert.ok(contents.includes("resolveUnifiedImageCarouselGestureRetainedIndexes"));
+  assert.ok(contents.includes("gestureRetainedIndexes.forEach((index) => {"));
   assert.ok(contents.includes("UNIFIED_CAROUSEL_MIN_PLACEHOLDER_VISIBLE_MS"));
   assert.ok(contents.includes("const shouldShowDebouncedLoadingCue = useDebouncedVisibility"));
   assert.ok(contents.includes('showAfterMs: UNIFIED_CAROUSEL_LOADING_CUE_SHOW_AFTER_MS'));

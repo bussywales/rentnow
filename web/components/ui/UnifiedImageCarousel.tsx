@@ -151,6 +151,37 @@ export function resolveUnifiedImageCarouselLoadCandidates(input: {
   return mounted;
 }
 
+export function resolveUnifiedImageCarouselGestureRetainedIndexes(input: {
+  totalImages: number;
+  selectedIndex: number;
+  gestureStartIndex: number | null;
+  isDragging: boolean;
+  isInMotion: boolean;
+}): Set<number> {
+  if (!input.isDragging && !input.isInMotion) {
+    return new Set<number>();
+  }
+
+  const retained = new Set<number>();
+  const total = Math.max(0, input.totalImages);
+  const addIndex = (index: number | null | undefined) => {
+    if (!Number.isInteger(index)) return;
+    const value = index as number;
+    if (value < 0 || value >= total) return;
+    retained.add(value);
+  };
+
+  addIndex(input.selectedIndex);
+  addIndex(input.selectedIndex - 1);
+  addIndex(input.selectedIndex + 1);
+  addIndex(input.gestureStartIndex);
+  if (input.gestureStartIndex !== null) {
+    addIndex(input.gestureStartIndex - 1);
+    addIndex(input.gestureStartIndex + 1);
+  }
+  return retained;
+}
+
 export function resolveUnifiedImagePlaceholderPresentation(input: {
   item: UnifiedImageCarouselItem;
   fallbackBlurDataURL: string;
@@ -247,6 +278,9 @@ export function UnifiedImageCarousel({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [loadedImageKeys, setLoadedImageKeys] = useState<Set<string>>(new Set());
   const [revealedImageKeys, setRevealedImageKeys] = useState<Set<string>>(new Set());
+  const [isDragging, setIsDragging] = useState(false);
+  const [isInMotion, setIsInMotion] = useState(false);
+  const [gestureStartIndex, setGestureStartIndex] = useState<number | null>(null);
   const [idleReadyKey, setIdleReadyKey] = useState<string | null>(
     progressiveUpgradeOnIdle ? null : "ready"
   );
@@ -259,6 +293,7 @@ export function UnifiedImageCarousel({
   const viewportRef = useRef<HTMLDivElement | null>(null);
   const imageLoadStartedAtRef = useRef<Map<string, number>>(new Map());
   const componentMountedRef = useRef(true);
+  const motionIdleTimeoutRef = useRef<ReturnType<typeof globalThis.setTimeout> | null>(null);
   const [emblaRef, emblaApi] = useEmblaCarousel({
     loop: false,
     dragFree: false,
@@ -316,19 +351,36 @@ export function UnifiedImageCarousel({
     });
     return next;
   }, [imageItems, loadedImageKeys]);
-  const mountedImageIndexes = useMemo(
+  const gestureRetainedIndexes = useMemo(
     () =>
-      resolveUnifiedImageCarouselLoadCandidates({
+      resolveUnifiedImageCarouselGestureRetainedIndexes({
+        totalImages,
+        selectedIndex: boundedSelectedIndex,
+        gestureStartIndex,
+        isDragging,
+        isInMotion,
+      }),
+    [boundedSelectedIndex, gestureStartIndex, isDragging, isInMotion, totalImages]
+  );
+  const mountedImageIndexes = useMemo(
+    () => {
+      const mounted = resolveUnifiedImageCarouselLoadCandidates({
         totalImages,
         selectedIndex: boundedSelectedIndex,
         windowRadius: effectiveRenderWindowRadius,
         loadedIndexes,
         maxConcurrentImageLoads: effectiveMaxConcurrentImageLoads,
-      }),
+      });
+      gestureRetainedIndexes.forEach((index) => {
+        mounted.add(index);
+      });
+      return mounted;
+    },
     [
       boundedSelectedIndex,
       effectiveMaxConcurrentImageLoads,
       effectiveRenderWindowRadius,
+      gestureRetainedIndexes,
       loadedIndexes,
       totalImages,
     ]
@@ -356,18 +408,63 @@ export function UnifiedImageCarousel({
     componentMountedRef.current = true;
     return () => {
       componentMountedRef.current = false;
+      if (motionIdleTimeoutRef.current !== null) {
+        globalThis.clearTimeout(motionIdleTimeoutRef.current);
+      }
     };
   }, []);
 
   useEffect(() => {
     if (!emblaApi) return;
+    const markMotion = () => {
+      setIsInMotion(true);
+      if (motionIdleTimeoutRef.current !== null) {
+        globalThis.clearTimeout(motionIdleTimeoutRef.current);
+      }
+      motionIdleTimeoutRef.current = globalThis.setTimeout(() => {
+        setIsInMotion(false);
+      }, 180);
+    };
     const onSelect = () => setSelectedIndex(emblaApi.selectedScrollSnap());
+    const onPointerDown = () => {
+      setIsDragging(true);
+      setGestureStartIndex(emblaApi.selectedScrollSnap());
+      markMotion();
+    };
+    const onPointerUp = () => {
+      setIsDragging(false);
+      markMotion();
+    };
+    const onScroll = () => {
+      markMotion();
+    };
+    const onSettle = () => {
+      setIsDragging(false);
+      setIsInMotion(false);
+      setGestureStartIndex(null);
+      if (motionIdleTimeoutRef.current !== null) {
+        globalThis.clearTimeout(motionIdleTimeoutRef.current);
+        motionIdleTimeoutRef.current = null;
+      }
+    };
     emblaApi.on("select", onSelect);
     emblaApi.on("reInit", onSelect);
+    emblaApi.on("pointerDown", onPointerDown);
+    emblaApi.on("pointerUp", onPointerUp);
+    emblaApi.on("scroll", onScroll);
+    emblaApi.on("settle", onSettle);
     onSelect();
     return () => {
       emblaApi.off("select", onSelect);
       emblaApi.off("reInit", onSelect);
+      emblaApi.off("pointerDown", onPointerDown);
+      emblaApi.off("pointerUp", onPointerUp);
+      emblaApi.off("scroll", onScroll);
+      emblaApi.off("settle", onSettle);
+      if (motionIdleTimeoutRef.current !== null) {
+        globalThis.clearTimeout(motionIdleTimeoutRef.current);
+        motionIdleTimeoutRef.current = null;
+      }
     };
   }, [emblaApi]);
 
