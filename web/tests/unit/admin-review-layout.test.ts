@@ -25,12 +25,12 @@ void test("admin review decision desk renders split panes", () => {
     "expected media hero marker in inspector"
   );
   assert.ok(
-    drawerContents.includes("shouldBypassNextImageOptimizer"),
-    "expected inspector media to bypass Next image optimizer for Supabase URLs"
+    drawerContents.includes('import { SafeImage } from "@/components/ui/SafeImage"'),
+    "expected inspector media to use SafeImage for optimizer bypass safety"
   );
   assert.ok(
-    drawerContents.includes("unoptimized={heroBypassesOptimizer}"),
-    "expected hero image unoptimized guard for bypass hosts"
+    !drawerContents.includes('from "next/image"'),
+    "expected no direct next/image import in admin inspector media"
   );
   assert.ok(
     drawerContents.includes("Open raw image"),

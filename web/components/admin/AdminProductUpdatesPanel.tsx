@@ -2,9 +2,9 @@
 
 import { useMemo, useState, useTransition } from "react";
 import Link from "next/link";
-import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { Select } from "@/components/ui/Select";
 import { Textarea } from "@/components/ui/Textarea";
 import {
@@ -235,7 +235,7 @@ function AdminProductUpdateEditor({
             <p className="text-xs text-slate-500">Uploading screenshot…</p>
           )}
           {imageUrl && (
-            <Image
+            <SafeImage
               src={imageUrl}
               alt="Update preview"
               width={320}

@@ -3,9 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { ExploreTrustBadges } from "@/components/explore/ExploreTrustBadges";
 import { formatLocationLabel, formatPriceValue } from "@/lib/property-discovery";
@@ -25,7 +25,6 @@ import {
   resolveExploreViewingRequestTemplate,
 } from "@/lib/explore/explore-presentation";
 import { EXPLORE_GALLERY_FALLBACK_IMAGE } from "@/lib/explore/gallery-images";
-import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
 import { ExploreCtaNextStepsSheet } from "@/components/explore/ExploreCtaNextStepsSheet";
 import { trackExploreFunnelEvent } from "@/lib/explore/explore-funnel";
 
@@ -364,13 +363,12 @@ export function ExploreDetailsSheet({
                       }}
                     >
                       <div className="relative h-16 w-full overflow-hidden rounded-xl">
-                        <Image
+                        <SafeImage
                           src={previewImage}
                           alt={similar.title}
                           fill
                           className="object-cover"
                           sizes="72px"
-                          unoptimized={shouldBypassNextImageOptimizer(previewImage)}
                         />
                       </div>
                       <div className="min-w-0">

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
 import { ListingImagePlaceholder } from "@/components/ui/ListingImagePlaceholder";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { resolveImageLoadingProfile, shouldPriorityImage } from "@/lib/images/loading-profile";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import type { Property } from "@/lib/types";
@@ -156,11 +156,11 @@ export function HomeListingRail({
               >
                 <Link
                   href={`/properties/${listing.id}?source=${encodeURIComponent(source)}`}
-                  className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+                    className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
                 >
                   <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
                     {imageUrl ? (
-                      <Image
+                      <SafeImage
                         src={imageUrl}
                         alt={listingTitle}
                         fill

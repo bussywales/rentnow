@@ -1,13 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { ADMIN_REVIEW_COPY } from "@/lib/admin/admin-review-microcopy";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
-import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
 import { z } from "zod";
 import { isPhotoLowQuality } from "@/lib/properties/photo-quality";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { AdminReviewChecklistPanel } from "./AdminReviewChecklistPanel";
 import {
   canApproveChecklist,
@@ -550,7 +549,6 @@ export function AdminReviewDrawer({
   const checklistSummary = useMemo(() => getChecklistSummary(checklistState), [checklistState]);
   const missingLabels = formatChecklistMissingSections(checklistState);
   const heroUrl = detail?.listing.cover_image_url ?? listing?.coverImageUrl ?? null;
-  const heroBypassesOptimizer = heroUrl ? shouldBypassNextImageOptimizer(heroUrl) : false;
   const submittedAt = detail?.listing.submitted_at ?? listing?.submitted_at ?? null;
   const updatedAt = detail?.listing.updated_at ?? listing?.updatedAt ?? null;
   const ownerVerification = detail?.owner_verification ?? null;
@@ -991,13 +989,12 @@ export function AdminReviewDrawer({
           >
             <div className="relative aspect-[16/9] w-full bg-slate-100">
               {heroUrl && !coverImageFailed ? (
-                <Image
+                <SafeImage
                   src={heroUrl}
                   alt="Cover"
                   fill
                   sizes="(min-width: 1024px) 640px, 100vw"
                   className="object-cover"
-                  unoptimized={heroBypassesOptimizer}
                   onError={() => setCoverImageFailed(true)}
                   priority
                 />
@@ -1028,13 +1025,12 @@ export function AdminReviewDrawer({
                 <div key={img.id} className="group overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
                   {img.image_url && !failedImageIds.has(img.id) ? (
                     <div className="relative aspect-[4/3] w-full bg-slate-100">
-                      <Image
+                      <SafeImage
                         src={img.image_url}
                         alt="Listing photo"
                         fill
                         sizes="(min-width: 1024px) 200px, 50vw"
                         className="object-cover transition group-hover:scale-[1.02]"
-                        unoptimized={shouldBypassNextImageOptimizer(img.image_url)}
                         onError={() => {
                           setFailedImageIds((current) => {
                             const next = new Set(current);
