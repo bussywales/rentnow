@@ -11,6 +11,7 @@ import {
   ExploreV2Card,
   resolveExploreV2GlassToastBottom,
   resolveExploreV2GlassToastClassName,
+  resolveExploreV2HasVideo,
   resolveExploreV2ActionContext,
   resolveExploreV2CarouselItems,
   resolveExploreV2SaveFeedbackMessage,
@@ -176,6 +177,67 @@ void test("explore-v2 card applies logged-out save guard to prevent hard redirec
 
   assert.match(html, /data-testid=\"explore-v2-save-surface\"/);
   assert.match(html, /pointer-events-none/);
+});
+
+void test("explore-v2 video badge only renders when listing has video signal", () => {
+  const withoutVideo = createExploreV2Listing({
+    featured_media: "image",
+    property_videos: [],
+  });
+  const withVideo = createExploreV2Listing({
+    featured_media: "image",
+    property_videos: [{ id: "video-1", video_url: "https://example.test/video.mp4" }],
+  });
+
+  const withoutVideoHtml = renderToStaticMarkup(
+    React.createElement(ExploreV2Card, {
+      listing: withoutVideo,
+      marketCurrency: "NGN",
+      imageRecords: [],
+    })
+  );
+  const withVideoHtml = renderToStaticMarkup(
+    React.createElement(ExploreV2Card, {
+      listing: withVideo,
+      marketCurrency: "NGN",
+      imageRecords: [],
+    })
+  );
+
+  assert.doesNotMatch(withoutVideoHtml, /data-testid=\"explore-v2-video-badge\"/);
+  assert.match(withVideoHtml, /data-testid=\"explore-v2-video-badge\"/);
+  assert.match(withVideoHtml, /Video tour/);
+  assert.match(withVideoHtml, /media=video/);
+});
+
+void test("explore-v2 has-video resolver prefers property_videos with featured-media fallback", () => {
+  assert.equal(
+    resolveExploreV2HasVideo(
+      createExploreV2Listing({
+        featured_media: "image",
+        property_videos: [{ id: "video-1", video_url: "https://example.test/video.mp4" }],
+      })
+    ),
+    true
+  );
+  assert.equal(
+    resolveExploreV2HasVideo(
+      createExploreV2Listing({
+        featured_media: "video",
+        property_videos: [],
+      })
+    ),
+    true
+  );
+  assert.equal(
+    resolveExploreV2HasVideo(
+      createExploreV2Listing({
+        featured_media: "image",
+        property_videos: [],
+      })
+    ),
+    false
+  );
 });
 
 void test("explore-v2 save toggle analytics helper emits saved/unsaved results", () => {

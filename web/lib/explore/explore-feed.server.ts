@@ -205,8 +205,17 @@ export async function getSectionedExploreFeed(options: ExploreFeedOptions = {}):
 
   const baseFilters = parseFiltersFromSearchParams(new URLSearchParams());
   const [featuredResult, browseResult] = await Promise.all([
-    searchProperties(baseFilters, { page: 1, pageSize: Math.max(8, feedSourceLimit), featuredOnly: true }),
-    searchProperties(baseFilters, { page: 1, pageSize: Math.max(20, feedSourceLimit) }),
+    searchProperties(baseFilters, {
+      page: 1,
+      pageSize: Math.max(8, feedSourceLimit),
+      featuredOnly: true,
+      includeVideoSignal: true,
+    }),
+    searchProperties(baseFilters, {
+      page: 1,
+      pageSize: Math.max(20, feedSourceLimit),
+      includeVideoSignal: true,
+    }),
   ]);
 
   if (featuredResult.error) {

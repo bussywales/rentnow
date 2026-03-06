@@ -21,6 +21,8 @@ void test("property media hero requests public signed URL and exposes play affor
   assert.match(heroSource, /fetch\(`\/api\/properties\/\$\{propertyId\}\/video\/public`/);
   assert.match(heroSource, /data-testid="property-video-hero"/);
   assert.match(heroSource, /data-testid="property-video-hero-play"/);
+  assert.match(heroSource, /id="video-tour"/);
+  assert.match(heroSource, /data-testid="property-video-tour-chip"/);
   assert.match(heroSource, /<PropertyGallery images=\{images\} title=\{title\} isDemo=\{isDemo\} \/>/);
-  assert.match(heroSource, /\{images\.length > 0 \? \(/);
+  assert.doesNotMatch(heroSource, /\{images\.length > 0 \? \(/);
 });

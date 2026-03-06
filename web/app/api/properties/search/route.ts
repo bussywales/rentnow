@@ -103,7 +103,7 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message, properties: [] }, { status: 400 });
     }
 
-    const typed = (data ?? []) as Array<
+    const typed = (data ?? []) as unknown as Array<
       Property & {
         property_images?: Array<{
           id: string;

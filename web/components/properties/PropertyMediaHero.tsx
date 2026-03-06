@@ -34,6 +34,7 @@ export function PropertyMediaHero({
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const heroSectionRef = useRef<HTMLDivElement | null>(null);
   const showDemoWatermark = shouldRenderDemoWatermark({ isDemo, enabled: true });
   const posterUrl = useMemo(
     () => coverImageUrl ?? images[0]?.image_url ?? HERO_FALLBACK_IMAGE,
@@ -85,6 +86,18 @@ export function PropertyMediaHero({
     });
   }, []);
 
+  const handleOpenVideoTour = useCallback(() => {
+    heroSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!videoUrl) return;
+    setIsPlaying(true);
+    setPlaybackError(null);
+    const element = videoRef.current;
+    if (!element) return;
+    void element.play().catch(() => {
+      setPlaybackError("Unable to start playback right now.");
+    });
+  }, [videoUrl]);
+
   if (!prefersVideo || mediaMode === "fallback") {
     return <PropertyGallery images={images} title={title} isDemo={isDemo} />;
   }
@@ -92,6 +105,8 @@ export function PropertyMediaHero({
   return (
     <div className="space-y-3 min-w-0 max-w-full">
       <div
+        id="video-tour"
+        ref={heroSectionRef}
         className="relative h-72 w-full max-w-full overflow-hidden rounded-2xl bg-slate-950"
         data-testid="property-video-hero"
       >
@@ -143,9 +158,22 @@ export function PropertyMediaHero({
           </div>
         ) : null}
       </div>
-      {images.length > 0 ? (
-        <PropertyGallery images={images} title={title} isDemo={isDemo} />
-      ) : null}
+      <div className="flex items-center justify-between gap-3 px-1">
+        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+          Photo gallery
+        </p>
+        <button
+          type="button"
+          onClick={handleOpenVideoTour}
+          className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-700 shadow-sm transition hover:bg-slate-50"
+          data-testid="property-video-tour-chip"
+          aria-label="Play video tour"
+        >
+          <span aria-hidden>▶</span>
+          <span>Video tour</span>
+        </button>
+      </div>
+      <PropertyGallery images={images} title={title} isDemo={isDemo} />
     </div>
   );
 }

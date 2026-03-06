@@ -22,6 +22,13 @@ type SearchOptions = {
   } | null;
   boundsRequireCoords?: boolean;
   exactListingIntent?: ListingIntent | null;
+  includeVideoSignal?: boolean;
+};
+
+type SearchPropertiesResult = {
+  data: unknown[] | null;
+  error: { message: string } | null;
+  count: number | null;
 };
 
 type QueryWithOr<T> = {
@@ -67,7 +74,10 @@ export function buildSearchLocationIlikeClause(
   ].join(",");
 }
 
-export async function searchProperties(filters: ParsedSearchFilters, options: SearchOptions = {}) {
+export async function searchProperties(
+  filters: ParsedSearchFilters,
+  options: SearchOptions = {}
+): Promise<SearchPropertiesResult> {
   const normalizedSelection = normalizeIntentStaySelection({
     listingIntent: filters.listingIntent,
     stay: filters.stay ?? null,
@@ -104,12 +114,14 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
       : "id,image_url,created_at,width,height,bytes,format,blurhash,storage_path,original_storage_path,thumb_storage_path,card_storage_path,hero_storage_path";
 
     const nowIso = new Date().toISOString();
+    const selectWithoutVideoSignal = `*, property_images(${imageFields}), shortlet_settings(property_id,booking_mode,nightly_price_minor,cancellation_policy)`;
+    const selectWithVideoSignal = `*, property_images(${imageFields}), shortlet_settings(property_id,booking_mode,nightly_price_minor,cancellation_policy), property_videos(id)`;
+
     let query = supabase
       .from("properties")
-      .select(
-        `*, property_images(${imageFields}), shortlet_settings(property_id,booking_mode,nightly_price_minor,cancellation_policy)`,
-        { count: "exact" }
-      )
+      .select(options.includeVideoSignal ? selectWithVideoSignal : selectWithoutVideoSignal, {
+        count: "exact",
+      })
       .eq("is_approved", true)
       .eq("is_active", true)
       .eq("status", "live");
@@ -226,7 +238,11 @@ export async function searchProperties(filters: ParsedSearchFilters, options: Se
     }
 
     const { data, error, count } = await ordered.range(from, to);
-    return { data, error, count };
+    return {
+      data: (data as unknown[] | null) ?? null,
+      error: error ? { message: error.message } : null,
+      count: typeof count === "number" ? count : null,
+    };
   };
 
   const attempt = async (includePosition: boolean, approvedBefore: string | null) => {

@@ -97,6 +97,14 @@ test("explore-v2 feed renders and stays stable after native scroll", async ({ pa
     );
   }
 
+  const videoBadge = page.getByTestId(smokeSelectors.exploreV2VideoBadge).first();
+  const hasVideoBadge = await videoBadge.isVisible().catch(() => false);
+  if (hasVideoBadge) {
+    await expect(videoBadge).toContainText(/Video tour/i);
+    const href = await videoBadge.getAttribute("href");
+    expect(href ?? "").toMatch(/\/properties\/.+media=video/i);
+  }
+
   await page.evaluate(() => window.scrollBy(0, 900));
   await expect.poll(async () => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   await expect.poll(async () => page.getByTestId(smokeSelectors.exploreV2Card).count()).toBeGreaterThan(0);

@@ -57,6 +57,7 @@ export const smokeSelectors = {
   exploreV2HeroCarouselTrack: "explore-v2-hero-carousel-track",
   exploreV2HeroCarouselCountBadge: "explore-v2-hero-carousel-count-badge",
   exploreV2HeroCarouselDots: "explore-v2-hero-carousel-dots",
+  exploreV2VideoBadge: "explore-v2-video-badge",
   exploreV2ActionRail: "explore-v2-action-rail",
   exploreV2ShareAction: "explore-v2-share-action",
   exploreV2CtaAction: "explore-v2-cta-action",

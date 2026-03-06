@@ -86,7 +86,10 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
 
   if (!safeImages.length) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center text-sm text-slate-600">
+      <div
+        className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-12 text-center text-sm text-slate-600"
+        data-testid="property-photo-gallery-section"
+      >
         <p className="text-base font-semibold text-slate-900">No photos available</p>
         <p className="mt-1 text-sm text-slate-600">
           This listing doesn&apos;t have images yet. Check back soon.
@@ -99,7 +102,7 @@ export function PropertyGallery({ images, title, isDemo = false }: Props) {
   const showDemoWatermark = shouldRenderDemoWatermark({ isDemo, enabled: true });
 
   return (
-    <div className="space-y-3 min-w-0 max-w-full">
+    <div className="space-y-3 min-w-0 max-w-full" data-testid="property-photo-gallery-section">
       <div
         className="group/property-gallery relative h-72 w-full max-w-full overflow-hidden rounded-2xl bg-slate-100"
         tabIndex={0}

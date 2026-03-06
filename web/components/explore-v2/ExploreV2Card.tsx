@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { GlassTooltip, shouldEnableGlassTooltip } from "@/components/ui/GlassTooltip";
@@ -120,6 +121,18 @@ export function resolveExploreV2HeroUiState(totalImages: number): {
     showDots: showSwipeAffordance,
     showCountBadge: showSwipeAffordance,
   };
+}
+
+export function resolveExploreV2HasVideo(
+  listing: Pick<Property, "featured_media" | "property_videos">
+): boolean {
+  return (Array.isArray(listing.property_videos) && listing.property_videos.length > 0)
+    || listing.featured_media === "video";
+}
+
+export function resolveExploreV2VideoTourHref(detailsHref: string): string {
+  if (detailsHref.includes("media=video")) return detailsHref;
+  return detailsHref.includes("?") ? `${detailsHref}&media=video` : `${detailsHref}?media=video`;
 }
 
 export function resolveExploreV2ActionContext(input: {
@@ -436,7 +449,8 @@ function ExploreV2CardInner({
     () => resolveExploreV2OverlayOpacityClass(overlayFocused),
     [overlayFocused]
   );
-  const showFeaturedVideoBadge = listing.featured_media === "video";
+  const showFeaturedVideoBadge = resolveExploreV2HasVideo(listing);
+  const videoTourHref = useMemo(() => resolveExploreV2VideoTourHref(detailsHref), [detailsHref]);
 
   useEffect(() => {
     return () => {
@@ -593,12 +607,21 @@ function ExploreV2CardInner({
             </span>
           ) : null}
           {showFeaturedVideoBadge ? (
-            <span
-              className="pointer-events-none absolute left-3 top-3 rounded-full bg-slate-900/72 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white"
+            <Link
+              href={videoTourHref}
+              onClick={(event) => {
+                event.stopPropagation();
+              }}
+              className={cn(
+                "absolute left-3 top-3 z-30 inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white",
+                glassSurface("rounded-full")
+              )}
               data-testid="explore-v2-video-badge"
+              aria-label={`Open video tour for ${formattedTitle || "listing"}`}
             >
-              Video
-            </span>
+              <span aria-hidden>▶</span>
+              <span>Video tour</span>
+            </Link>
           ) : null}
           <div className="pointer-events-none absolute inset-0 z-20">
             <div

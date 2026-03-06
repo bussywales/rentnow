@@ -61,7 +61,7 @@ test("property detail renders video hero for featured-video listings when public
   await expect(page.getByTestId("property-video-hero")).toBeVisible();
   await expect(page.getByTestId("property-video-hero-play")).toBeVisible();
   await expect(page.locator('[data-testid="property-video-hero"] video')).toBeVisible();
-  await expect(page.getByTestId("property-detail-gallery-carousel")).toBeVisible();
+  await expect(page.getByTestId("property-photo-gallery-section")).toBeVisible();
 
   expect(
     runtimeErrors,
