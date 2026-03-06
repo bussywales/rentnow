@@ -181,10 +181,12 @@ void test("explore-v2 card applies logged-out save guard to prevent hard redirec
 
 void test("explore-v2 video badge only renders when listing has video signal", () => {
   const withoutVideo = createExploreV2Listing({
+    has_video: false,
     featured_media: "image",
     property_videos: [],
   });
   const withVideo = createExploreV2Listing({
+    has_video: true,
     featured_media: "image",
     property_videos: [{ id: "video-1", video_url: "https://example.test/video.mp4" }],
   });
@@ -211,6 +213,26 @@ void test("explore-v2 video badge only renders when listing has video signal", (
 });
 
 void test("explore-v2 has-video resolver prefers property_videos with featured-media fallback", () => {
+  assert.equal(
+    resolveExploreV2HasVideo(
+      createExploreV2Listing({
+        has_video: true,
+        featured_media: "image",
+        property_videos: [],
+      })
+    ),
+    true
+  );
+  assert.equal(
+    resolveExploreV2HasVideo(
+      createExploreV2Listing({
+        has_video: false,
+        featured_media: "video",
+        property_videos: [{ id: "video-1", video_url: "https://example.test/video.mp4" }],
+      })
+    ),
+    false
+  );
   assert.equal(
     resolveExploreV2HasVideo(
       createExploreV2Listing({

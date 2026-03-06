@@ -73,11 +73,16 @@ function resolveExploreListingMarket(property: Property): string | null {
 }
 
 function normalizeExplorePropertyRow(row: ExplorePropertyRow): Property {
+  const hasVideo =
+    typeof row.has_video === "boolean"
+      ? row.has_video
+      : Array.isArray(row.property_videos) && row.property_videos.length > 0;
   const images = resolveExplorePropertyImageRecords(row);
-  if (images.length === 0 && Array.isArray(row.images)) return row;
+  const normalizedImages = images.length === 0 && Array.isArray(row.images) ? row.images : images;
   return {
     ...row,
-    images,
+    has_video: hasVideo,
+    images: normalizedImages,
   };
 }
 
