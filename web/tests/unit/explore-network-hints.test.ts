@@ -65,7 +65,7 @@ void test("network hints disables explore-v2 prefetch on slow-2g/2g only", () =>
       connection: { effectiveType: "3g", saveData: false },
       deviceMemory: 8,
     } as Navigator),
-    2
+    1
   );
 });
 

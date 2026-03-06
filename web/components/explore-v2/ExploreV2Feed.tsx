@@ -16,7 +16,6 @@ import {
   resolveExploreListingMarketCountry,
 } from "@/lib/explore/explore-presentation";
 import { resolveExploreV2PrefetchLookahead, subscribeToConserveDataChanges } from "@/lib/explore/network-hints";
-import { predecodeImageUrl } from "@/lib/images/decode";
 
 type ExploreV2FeedProps = {
   listings: Property[];
@@ -26,7 +25,7 @@ type ExploreV2FeedProps = {
 };
 
 export const EXPLORE_V2_PRELOAD_MAX_INFLIGHT = 2;
-export const EXPLORE_V2_PREFETCH_MAX_LOOKAHEAD = 2;
+export const EXPLORE_V2_PREFETCH_MAX_LOOKAHEAD = 1;
 export const EXPLORE_V2_PREFETCH_SESSION_CAP = 20;
 export const EXPLORE_V2_DOCK_SAFE_ZONE_PX = 136;
 export const EXPLORE_V2_PREFETCH_ENABLED =
@@ -77,6 +76,30 @@ export function resolveExploreV2HeroPrefetchPlan(input: ExploreV2PrefetchPlanInp
   }
 
   return plan;
+}
+
+export async function prefetchExploreV2HeroImageUrl(imageUrl: string): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  const normalizedUrl = imageUrl.trim();
+  if (!normalizedUrl) return false;
+
+  return new Promise<boolean>((resolve) => {
+    const image = new Image();
+    const cleanup = () => {
+      image.onload = null;
+      image.onerror = null;
+    };
+    image.onload = () => {
+      cleanup();
+      resolve(true);
+    };
+    image.onerror = () => {
+      cleanup();
+      resolve(false);
+    };
+    image.decoding = "async";
+    image.src = normalizedUrl;
+  });
 }
 
 type ExploreV2ListingFilterInput = {
@@ -198,6 +221,8 @@ function ExploreV2FeedInner({
     [filteredListings.length, listingImageRecordsById, marketCurrency, viewerIsAuthenticated]
   );
 
+  const computeItemKey = useCallback((_index: number, listing: Property) => listing.id, []);
+
   const handleRangeChanged = useCallback((range: ListRange) => {
     setTopVisibleIndex(range.startIndex);
   }, []);
@@ -213,6 +238,10 @@ function ExploreV2FeedInner({
         />
       ),
     }),
+    []
+  );
+  const feedViewportBy = useMemo(
+    () => ({ top: 600, bottom: 1200 }),
     []
   );
 
@@ -240,10 +269,7 @@ function ExploreV2FeedInner({
 
     plan.forEach((imageUrl) => {
       inflightPreloadUrlsRef.current.add(imageUrl);
-      void predecodeImageUrl({
-        imageUrl,
-        maxConcurrent: EXPLORE_V2_PRELOAD_MAX_INFLIGHT,
-      }).finally(() => {
+      void prefetchExploreV2HeroImageUrl(imageUrl).finally(() => {
         inflightPreloadUrlsRef.current.delete(imageUrl);
         if (completedPreloadUrlsRef.current.size >= EXPLORE_V2_PREFETCH_SESSION_CAP) return;
         completedPreloadUrlsRef.current.add(imageUrl);
@@ -280,7 +306,8 @@ function ExploreV2FeedInner({
           data={filteredListings}
           useWindowScroll
           initialItemCount={Math.min(filteredListings.length, 8)}
-          increaseViewportBy={{ top: 600, bottom: 1200 }}
+          increaseViewportBy={feedViewportBy}
+          computeItemKey={computeItemKey}
           components={feedComponents}
           rangeChanged={handleRangeChanged}
           itemContent={renderCard}

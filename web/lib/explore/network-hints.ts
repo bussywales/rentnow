@@ -17,7 +17,7 @@ export type ExploreNavigatorWithConnection = Navigator & {
 
 const SLOW_EFFECTIVE_TYPES = new Set<string>(["slow-2g", "2g", "3g"]);
 const PREFETCH_BLOCKED_EFFECTIVE_TYPES = new Set<string>(["slow-2g", "2g"]);
-const EXPLORE_V2_PREFETCH_MAX_LOOKAHEAD = 2;
+const EXPLORE_V2_PREFETCH_MAX_LOOKAHEAD = 1;
 
 export function isConstrainedEffectiveType(effectiveType: string | null | undefined): boolean {
   if (typeof effectiveType !== "string") return false;

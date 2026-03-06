@@ -206,7 +206,7 @@ void test("explore-v2 header shows active chip state and clear-all action when f
   assert.match(html, /data-testid="explore-v2-clear-all"/);
 });
 
-void test("explore-v2 prefetch plan selects next 1-2 hero urls from top visible index", () => {
+void test("explore-v2 prefetch plan selects only the next hero url from top visible index", () => {
   const plan = resolveExploreV2HeroPrefetchPlan({
     topVisibleIndex: 3,
     totalListings: 8,
@@ -227,7 +227,7 @@ void test("explore-v2 prefetch plan selects next 1-2 hero urls from top visible 
     inflightUrls: new Set<string>(),
   });
 
-  assert.deepEqual(plan, ["https://cdn.example/4.jpg", "https://cdn.example/5.jpg"]);
+  assert.deepEqual(plan, ["https://cdn.example/4.jpg"]);
 });
 
 void test("explore-v2 prefetch plan respects session cap and inflight limits", () => {
@@ -264,4 +264,42 @@ void test("explore-v2 prefetch plan respects session cap and inflight limits", (
     inflightUrls: new Set<string>(["https://cdn.example/1.jpg", "https://cdn.example/2.jpg"]),
   });
   assert.deepEqual(blockedByInflight, []);
+});
+
+void test("explore-v2 prefetch plan dedupes repeated range passes using completed urls", () => {
+  const completedUrls = new Set<string>();
+  const firstPass = resolveExploreV2HeroPrefetchPlan({
+    topVisibleIndex: 0,
+    totalListings: 4,
+    heroImageUrls: [
+      "https://cdn.example/0.jpg",
+      "https://cdn.example/1.jpg",
+      "https://cdn.example/2.jpg",
+      "https://cdn.example/3.jpg",
+    ],
+    lookaheadCount: 2,
+    maxInflight: 2,
+    sessionCap: 20,
+    completedUrls,
+    inflightUrls: new Set<string>(),
+  });
+  assert.deepEqual(firstPass, ["https://cdn.example/1.jpg"]);
+
+  completedUrls.add("https://cdn.example/1.jpg");
+  const secondPass = resolveExploreV2HeroPrefetchPlan({
+    topVisibleIndex: 0,
+    totalListings: 4,
+    heroImageUrls: [
+      "https://cdn.example/0.jpg",
+      "https://cdn.example/1.jpg",
+      "https://cdn.example/2.jpg",
+      "https://cdn.example/3.jpg",
+    ],
+    lookaheadCount: 2,
+    maxInflight: 2,
+    sessionCap: 20,
+    completedUrls,
+    inflightUrls: new Set<string>(),
+  });
+  assert.deepEqual(secondPass, []);
 });
