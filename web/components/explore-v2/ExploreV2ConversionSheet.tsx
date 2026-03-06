@@ -1,0 +1,175 @@
+"use client";
+
+import { type MouseEvent } from "react";
+import Link from "next/link";
+import { BottomSheet } from "@/components/ui/BottomSheet";
+import { SaveToggle } from "@/components/saved/SaveToggle";
+import { SafeImage } from "@/components/ui/SafeImage";
+import { cn } from "@/components/ui/cn";
+import { EXPLORE_GALLERY_FALLBACK_IMAGE } from "@/lib/explore/gallery-images";
+import { glassSurface } from "@/lib/ui/glass";
+import type { SavedItemKind } from "@/lib/saved";
+
+type ExploreV2ConversionSheetProps = {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  sheetId: string;
+  title: string;
+  locationLine: string;
+  pricePrimary: string;
+  intentTag: string;
+  hasVideo: boolean;
+  thumbnailSrc: string | null;
+  primaryActionLabel: "Book" | "Request viewing";
+  onPrimaryAction: () => void;
+  detailsHref: string;
+  onViewDetails: () => void;
+  onShare: () => void;
+  onSaveSurfaceCapture: (event: MouseEvent<HTMLDivElement>) => void;
+  viewerIsAuthenticated: boolean;
+  saveToggle: {
+    itemId: string;
+    kind: SavedItemKind;
+    href: string;
+    title: string;
+    subtitle: string;
+    tag: string;
+    marketCountry: string;
+    onToggle: (saved: boolean) => void;
+  };
+};
+
+export function resolveExploreV2ConversionQuickActionLabel(
+  label: "Book" | "Request viewing"
+): "Book now" | "Request viewing" {
+  return label === "Book" ? "Book now" : "Request viewing";
+}
+
+export function ExploreV2ConversionSheet({
+  open,
+  onOpenChange,
+  sheetId,
+  title,
+  locationLine,
+  pricePrimary,
+  intentTag,
+  hasVideo,
+  thumbnailSrc,
+  primaryActionLabel,
+  onPrimaryAction,
+  detailsHref,
+  onViewDetails,
+  onShare,
+  onSaveSurfaceCapture,
+  viewerIsAuthenticated,
+  saveToggle,
+}: ExploreV2ConversionSheetProps) {
+  const quickActionLabel = resolveExploreV2ConversionQuickActionLabel(primaryActionLabel);
+  return (
+    <BottomSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Quick action"
+      description={quickActionLabel}
+      testId="explore-v2-cta-sheet"
+      sheetId={sheetId}
+    >
+      <div className="space-y-3.5" data-testid="explore-v2-conversion-sheet-content">
+        <div className={cn(glassSurface("rounded-2xl border-white/12 p-3"), "flex items-start gap-3")}>
+          <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-white/15">
+            <SafeImage
+              src={thumbnailSrc || EXPLORE_GALLERY_FALLBACK_IMAGE}
+              alt={title}
+              fill
+              sizes="64px"
+              className="object-cover"
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="line-clamp-2 text-sm font-semibold text-white" data-testid="explore-v2-cta-summary-title">
+              {title}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-white/80" data-testid="explore-v2-cta-summary-location">
+              {locationLine}
+            </p>
+            <p className="mt-1.5 text-sm font-semibold text-white" data-testid="explore-v2-cta-summary-price">
+              {pricePrimary}
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className="rounded-full border border-white/25 bg-white/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                {intentTag}
+              </span>
+              {hasVideo ? (
+                <span className="rounded-full border border-white/25 bg-white/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
+                  Video
+                </span>
+              ) : null}
+            </div>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          className={glassSurface("inline-flex h-11 w-full items-center justify-center px-4 text-sm font-semibold")}
+          onClick={onPrimaryAction}
+          data-testid="explore-v2-cta-continue"
+          aria-label={`${primaryActionLabel} for ${title}`}
+        >
+          {primaryActionLabel}
+        </button>
+
+        <div className="grid grid-cols-3 gap-2" data-testid="explore-v2-cta-secondary-actions">
+          <Link
+            href={detailsHref}
+            onClick={(event) => {
+              event.preventDefault();
+              onViewDetails();
+            }}
+            className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-700"
+            data-testid="explore-v2-cta-view-details"
+          >
+            View details
+          </Link>
+          <div
+            className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white"
+            onClickCapture={onSaveSurfaceCapture}
+            data-testid="explore-v2-cta-save-surface"
+          >
+            <SaveToggle
+              itemId={saveToggle.itemId}
+              kind={saveToggle.kind}
+              href={saveToggle.href}
+              title={saveToggle.title}
+              subtitle={saveToggle.subtitle}
+              tag={saveToggle.tag}
+              marketCountry={saveToggle.marketCountry}
+              testId={`explore-v2-cta-save-toggle-${saveToggle.itemId}`}
+              onToggle={saveToggle.onToggle}
+              className={cn(
+                "h-9 w-9 rounded-full border-transparent bg-transparent text-slate-700 shadow-none ring-0 hover:bg-slate-100",
+                !viewerIsAuthenticated ? "pointer-events-none" : ""
+              )}
+            />
+          </div>
+          <button
+            type="button"
+            className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-700"
+            onClick={onShare}
+            data-testid="explore-v2-cta-share-action"
+          >
+            Share
+          </button>
+        </div>
+
+        <button
+          type="button"
+          className="inline-flex h-10 w-full items-center justify-center rounded-full border border-slate-200 bg-white px-4 text-sm font-semibold text-slate-700"
+          onClick={() => onOpenChange(false)}
+          data-testid="explore-v2-cta-close"
+        >
+          Close
+        </button>
+      </div>
+    </BottomSheet>
+  );
+}

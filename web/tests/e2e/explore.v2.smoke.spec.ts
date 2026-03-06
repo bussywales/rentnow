@@ -87,6 +87,8 @@ test("explore-v2 feed renders and stays stable after native scroll", async ({ pa
 
   await page.getByTestId(smokeSelectors.exploreV2CtaAction).first().click();
   await expect(page.getByTestId(smokeSelectors.exploreV2CtaSheet)).toBeVisible();
+  await expect(page.getByTestId(smokeSelectors.exploreV2CtaViewDetails)).toBeVisible();
+  await expect(page.getByTestId(smokeSelectors.exploreV2CtaShareAction)).toBeVisible();
   await page.getByTestId(smokeSelectors.exploreV2CtaClose).click();
   await expect(page.getByTestId(smokeSelectors.exploreV2CtaSheet)).toHaveCount(0);
 
@@ -108,6 +110,13 @@ test("explore-v2 feed renders and stays stable after native scroll", async ({ pa
   await page.evaluate(() => window.scrollBy(0, 900));
   await expect.poll(async () => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
   await expect.poll(async () => page.getByTestId(smokeSelectors.exploreV2Card).count()).toBeGreaterThan(0);
+
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await expect.poll(async () => page.evaluate(() => window.scrollY)).toBe(0);
+  await page.getByTestId(smokeSelectors.exploreV2CtaAction).first().click();
+  await expect(page.getByTestId(smokeSelectors.exploreV2CtaSheet)).toBeVisible();
+  await page.getByTestId(smokeSelectors.exploreV2CtaViewDetails).click();
+  await expect(page).toHaveURL(/\/properties\/.+source=explore_v0/i);
 
   expect(
     runtimeErrors,

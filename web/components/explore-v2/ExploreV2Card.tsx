@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { ExploreV2ConversionSheet } from "@/components/explore-v2/ExploreV2ConversionSheet";
 import { GlassTooltip, shouldEnableGlassTooltip } from "@/components/ui/GlassTooltip";
 import { cn } from "@/components/ui/cn";
 import {
@@ -72,6 +73,14 @@ type ExploreV2CtaContinueInput = {
 type ExploreV2CtaContinueDeps = {
   pushFn: (href: string) => void;
   trackFn?: typeof trackExploreFunnelEvent;
+};
+
+type ExploreV2ViewDetailsInput = {
+  href: string;
+};
+
+type ExploreV2ViewDetailsDeps = {
+  pushFn: (href: string) => void;
 };
 
 export const EXPLORE_V2_QUIET_OVERLAY_FOCUS_MS = 2600;
@@ -219,6 +228,13 @@ export function continueExploreV2Cta(
     action: "continue",
     result: "navigated",
   });
+  deps.pushFn(input.href);
+}
+
+export function continueExploreV2ViewDetails(
+  input: ExploreV2ViewDetailsInput,
+  deps: ExploreV2ViewDetailsDeps
+) {
   deps.pushFn(input.href);
 }
 
@@ -453,6 +469,7 @@ function ExploreV2CardInner({
   );
   const showFeaturedVideoBadge = resolveExploreV2HasVideo(listing);
   const videoTourHref = useMemo(() => resolveExploreV2VideoTourHref(detailsHref), [detailsHref]);
+  const sheetThumbnailSrc = heroCarousel.items[0]?.src ?? listing.cover_image_url ?? null;
 
   useEffect(() => {
     return () => {
@@ -552,6 +569,20 @@ function ExploreV2CardInner({
       }
     );
   }, [actionContext, primaryAction.href]);
+
+  const handleViewDetails = useCallback(() => {
+    setCtaSheetOpen(false);
+    continueExploreV2ViewDetails(
+      { href: detailsHref },
+      {
+        pushFn: (href) => {
+          if (typeof window !== "undefined") {
+            window.location.assign(href);
+          }
+        },
+      }
+    );
+  }, [detailsHref]);
 
   const handleHeroInteractionCapture = useCallback(() => {
     overlayFocusController.trigger();
@@ -730,38 +761,36 @@ function ExploreV2CardInner({
           </div>
         </div>
       </article>
-      <BottomSheet
+      <ExploreV2ConversionSheet
         open={ctaSheetOpen}
         onOpenChange={setCtaSheetOpen}
-        title={primaryAction.label}
-        description="Quick action"
-        testId="explore-v2-cta-sheet"
         sheetId={`explore-v2-cta-sheet-${listing.id}`}
-      >
-        <div className="space-y-3">
-          <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-            <p className="truncate text-sm font-semibold text-slate-900">{formattedTitle}</p>
-            <p className="mt-0.5 truncate text-xs text-slate-600">{locationLine}</p>
-            <p className="mt-1.5 text-sm font-semibold text-slate-900">{price.primary}</p>
-          </div>
-          <button
-            type="button"
-            className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white"
-            onClick={handleCtaContinue}
-            data-testid="explore-v2-cta-continue"
-          >
-            Continue
-          </button>
-          <button
-            type="button"
-            className="inline-flex w-full items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
-            onClick={() => setCtaSheetOpen(false)}
-            data-testid="explore-v2-cta-close"
-          >
-            Close
-          </button>
-        </div>
-      </BottomSheet>
+        title={formattedTitle}
+        locationLine={locationLine}
+        pricePrimary={price.primary}
+        intentTag={intentTag}
+        hasVideo={showFeaturedVideoBadge}
+        thumbnailSrc={sheetThumbnailSrc}
+        primaryActionLabel={primaryAction.label}
+        onPrimaryAction={handleCtaContinue}
+        detailsHref={detailsHref}
+        onViewDetails={handleViewDetails}
+        onShare={() => {
+          void handleShare();
+        }}
+        onSaveSurfaceCapture={handleSaveSurfaceCapture}
+        viewerIsAuthenticated={viewerIsAuthenticated}
+        saveToggle={{
+          itemId: listing.id,
+          kind: listingKind,
+          href: detailsHref,
+          title: formattedTitle,
+          subtitle: locationLine,
+          tag: intentTag,
+          marketCountry: actionContext.marketCode,
+          onToggle: handleSaveToggle,
+        }}
+      />
       <BottomSheet
         open={saveAuthSheetOpen}
         onOpenChange={setSaveAuthSheetOpen}

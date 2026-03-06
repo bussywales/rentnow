@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   createExploreV2OverlayFocusController,
   continueExploreV2Cta,
+  continueExploreV2ViewDetails,
   EXPLORE_V2_GLASS_TOAST_BOTTOM_OFFSET_PX,
   EXPLORE_V2_QUIET_OVERLAY_FOCUS_MS,
   EXPLORE_V2_QUIET_OVERLAY_OPACITY_CLASS,
@@ -398,6 +399,22 @@ void test("explore-v2 cta continue helper tracks and navigates", () => {
 
   assert.equal(pushedHref, `/properties/${listing.id}?source=explore_v0#cta`);
   assert.deepEqual(tracked, ["explore_v2_cta_continue"]);
+});
+
+void test("explore-v2 view-details helper navigates to details route", () => {
+  let pushedHref: string | null = null;
+  continueExploreV2ViewDetails(
+    {
+      href: "/properties/listing-42?source=explore_v0",
+    },
+    {
+      pushFn: (href) => {
+        pushedHref = href;
+      },
+    }
+  );
+
+  assert.equal(pushedHref, "/properties/listing-42?source=explore_v0");
 });
 
 void test("explore-v2 quiet overlay controller elevates opacity on interaction and resets after timeout", (t) => {

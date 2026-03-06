@@ -63,6 +63,8 @@ export const smokeSelectors = {
   exploreV2CtaAction: "explore-v2-cta-action",
   exploreV2CtaSheet: "explore-v2-cta-sheet",
   exploreV2CtaContinue: "explore-v2-cta-continue",
+  exploreV2CtaViewDetails: "explore-v2-cta-view-details",
+  exploreV2CtaShareAction: "explore-v2-cta-share-action",
   exploreV2CtaClose: "explore-v2-cta-close",
   exploreV2ShareFeedback: "explore-v2-share-feedback",
   exploreV2GlassToast: "explore-v2-glass-toast",
