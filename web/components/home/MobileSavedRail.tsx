@@ -7,6 +7,7 @@ import { TrustBadges } from "@/components/ui/TrustBadges";
 import { getMotionSafeScrollBehavior } from "@/lib/a11y/reduced-motion";
 import { getDiscoveryCatalogueItemById, resolveDiscoveryTrustBadges } from "@/lib/discovery";
 import { clearSavedItems, getSavedItems, subscribeSavedItems, type SavedItemRecord } from "@/lib/saved";
+import { formatListingTitle } from "@/lib/ui/format-listing-title";
 
 export function MobileSavedRail() {
   const { market } = useMarketPreference();
@@ -111,24 +112,27 @@ export function MobileSavedRail() {
           aria-label="Saved items carousel"
           onKeyDown={onRailKeyDown}
         >
-          {displayItems.map(({ item, badges }) => (
-            <Link
-              key={`${item.marketCountry}:${item.id}`}
-              href={item.href}
-              data-testid="mobile-saved-item"
-              className="inline-flex w-[235px] shrink-0 snap-start snap-always flex-col gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-slate-900 shadow-sm"
-            >
-              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-                {item.tag ?? (item.kind === "shortlet" ? "Shortlets" : "Properties")}
-              </span>
-              <TrustBadges badges={badges} marketCountry={item.marketCountry} />
-              <p className="line-clamp-2 text-sm font-semibold">{item.title}</p>
-              {item.subtitle ? <p className="line-clamp-2 text-xs text-slate-600">{item.subtitle}</p> : null}
-              <span className="pt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-700">
-                Open
-              </span>
-            </Link>
-          ))}
+          {displayItems.map(({ item, badges }) => {
+            const titleText = formatListingTitle(item.title || "") || item.title || "Listing";
+            return (
+              <Link
+                key={`${item.marketCountry}:${item.id}`}
+                href={item.href}
+                data-testid="mobile-saved-item"
+                className="inline-flex w-[235px] shrink-0 snap-start snap-always flex-col gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-slate-900 shadow-sm"
+              >
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  {item.tag ?? (item.kind === "shortlet" ? "Shortlets" : "Properties")}
+                </span>
+                <TrustBadges badges={badges} marketCountry={item.marketCountry} />
+                <p className="line-clamp-2 text-sm font-semibold">{titleText}</p>
+                {item.subtitle ? <p className="line-clamp-2 text-xs text-slate-600">{item.subtitle}</p> : null}
+                <span className="pt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-700">
+                  Open
+                </span>
+              </Link>
+            );
+          })}
           <div className="w-5 shrink-0" aria-hidden="true" />
         </div>
       </div>

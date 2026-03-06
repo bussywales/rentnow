@@ -9,6 +9,7 @@ import { getMotionSafeScrollBehavior } from "@/lib/a11y/reduced-motion";
 import { buildRecommendedNextItems, RECO_WHY_COPY, type RecommendedNextItem } from "@/lib/reco";
 import { getLastSearchHref } from "@/lib/search/last-search";
 import { getSavedItems, subscribeSavedItems } from "@/lib/saved";
+import { formatListingTitle } from "@/lib/ui/format-listing-title";
 import { getLastBrowseUrl, getViewedItems, subscribeLastBrowseUrl, subscribeViewedItems } from "@/lib/viewed";
 
 function resolveLastBrowseHref(input: {
@@ -166,35 +167,38 @@ export function MobileRecommendedNextRail() {
           aria-label="Recommended next carousel"
           onKeyDown={onRailKeyDown}
         >
-          {items.map((item) => (
-            <TrackViewedLink
-              key={item.id}
-              href={item.href}
-              viewedItem={{
-                id: item.id,
-                kind: item.kind,
-                href: item.href,
-                title: item.title,
-                subtitle: item.subtitle,
-                tag: item.tag,
-                marketCountry: market.country,
-              }}
-              data-testid="recommended-next-item"
-              className="inline-flex w-[235px] shrink-0 snap-start snap-always flex-col gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-slate-900 shadow-sm"
-            >
-              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{item.tag}</span>
-              <TrustBadges badges={item.badges} marketCountry={market.country} />
-              <p className="line-clamp-2 text-sm font-semibold">{item.title}</p>
-              <p className="line-clamp-2 text-xs text-slate-600">{item.subtitle}</p>
-              <span
-                className="line-clamp-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-700"
-                data-testid="recommended-next-reason"
-                data-reason-code={item.reasonCode}
+          {items.map((item) => {
+            const titleText = formatListingTitle(item.title || "") || item.title || "Listing";
+            return (
+              <TrackViewedLink
+                key={item.id}
+                href={item.href}
+                viewedItem={{
+                  id: item.id,
+                  kind: item.kind,
+                  href: item.href,
+                  title: titleText,
+                  subtitle: item.subtitle,
+                  tag: item.tag,
+                  marketCountry: market.country,
+                }}
+                data-testid="recommended-next-item"
+                className="inline-flex w-[235px] shrink-0 snap-start snap-always flex-col gap-1.5 rounded-2xl border border-slate-200 bg-slate-50 p-3.5 text-slate-900 shadow-sm"
               >
-                {item.reason}
-              </span>
-            </TrackViewedLink>
-          ))}
+                <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">{item.tag}</span>
+                <TrustBadges badges={item.badges} marketCountry={market.country} />
+                <p className="line-clamp-2 text-sm font-semibold">{titleText}</p>
+                <p className="line-clamp-2 text-xs text-slate-600">{item.subtitle}</p>
+                <span
+                  className="line-clamp-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-700"
+                  data-testid="recommended-next-reason"
+                  data-reason-code={item.reasonCode}
+                >
+                  {item.reason}
+                </span>
+              </TrackViewedLink>
+            );
+          })}
           <div className="w-5 shrink-0" aria-hidden="true" />
         </div>
       </div>

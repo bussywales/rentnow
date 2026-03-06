@@ -28,6 +28,7 @@ import {
   resolveExplorePropertyImageRecords,
 } from "@/lib/explore/gallery-images";
 import { glassSurface } from "@/lib/ui/glass";
+import { formatListingTitle } from "@/lib/ui/format-listing-title";
 import { useIsTruncated } from "@/lib/ui/useIsTruncated";
 
 type ExploreV2CardProps = {
@@ -298,6 +299,8 @@ export function resolveExploreV2CarouselItems(input: {
   items: UnifiedImageCarouselItem[];
   hasRealImage: boolean;
 } {
+  const listingTitle =
+    formatListingTitle(input.listing.title || "") || input.listing.title || "Explore listing image";
   const dedupedUrls = new Set<string>();
   const orderedRecords = input.imageRecords
     .map((record, index) => ({ record, index }))
@@ -331,7 +334,7 @@ export function resolveExploreV2CarouselItems(input: {
     items.push({
       id: record.id,
       src: normalizedUrl,
-      alt: input.listing.title || "Explore listing image",
+      alt: listingTitle,
       placeholderColor: placeholder.dominantColor,
       placeholderBlurDataURL: placeholder.blurDataURL,
       placeholderSource: placeholder.source,
@@ -353,7 +356,7 @@ export function resolveExploreV2CarouselItems(input: {
         {
           id: `${input.listing.id}-cover`,
           src: fallbackCoverUrl,
-          alt: input.listing.title || "Explore listing image",
+          alt: listingTitle,
           placeholderColor: placeholder.dominantColor,
           placeholderBlurDataURL: placeholder.blurDataURL,
           placeholderSource: placeholder.source,
@@ -425,6 +428,10 @@ function ExploreV2CardInner({
   );
   const intentTag = useMemo(() => resolveExploreIntentTag(listing), [listing]);
   const locationLine = useMemo(() => resolveExploreV2LocationLine(listing), [listing]);
+  const formattedTitle = useMemo(
+    () => formatListingTitle(listing.title || "") || listing.title || "Untitled listing",
+    [listing.title]
+  );
   const overlayOpacityClass = useMemo(
     () => resolveExploreV2OverlayOpacityClass(overlayFocused),
     [overlayFocused]
@@ -474,12 +481,12 @@ function ExploreV2CardInner({
   const handleShare = useCallback(async () => {
     const result = await triggerExploreV2ShareAction({
       detailsHref,
-      title: listing.title,
+      title: formattedTitle,
       locationLine,
       context: actionContext,
     });
     showGlassToast(resolveExploreV2ShareFeedback(result));
-  }, [actionContext, detailsHref, listing.title, locationLine, showGlassToast]);
+  }, [actionContext, detailsHref, formattedTitle, locationLine, showGlassToast]);
 
   const resolveAuthRedirectPath = useCallback(
     (basePath: "/auth/login" | "/auth/register") => {
@@ -534,7 +541,7 @@ function ExploreV2CardInner({
     overlayFocusController.trigger();
   }, [overlayFocusController]);
 
-  const titleText = listing.title || "Untitled listing";
+  const titleText = formattedTitle;
   const { ref: titleRef, isTruncated: isTitleTruncated } = useIsTruncated<HTMLParagraphElement>();
   const titleTooltipEnabled = shouldShowExploreV2TitleTooltip({
     title: titleText,
@@ -615,7 +622,7 @@ function ExploreV2CardInner({
                   itemId={listing.id}
                   kind={listingKind}
                   href={detailsHref}
-                  title={listing.title || "Explore listing"}
+                  title={formattedTitle}
                   subtitle={locationLine}
                   tag={intentTag}
                   marketCountry={actionContext.marketCode}
@@ -657,7 +664,7 @@ function ExploreV2CardInner({
                 className={glassSurface(
                   "inline-flex h-10 min-w-[112px] max-w-[156px] items-center justify-center px-3.5 text-xs font-semibold"
                 )}
-                aria-label={`${primaryAction.label} for ${listing.title || "listing"}`}
+                aria-label={`${primaryAction.label} for ${formattedTitle || "listing"}`}
                 data-testid="explore-v2-cta-action"
               >
                 {primaryAction.label}
@@ -700,7 +707,7 @@ function ExploreV2CardInner({
       >
         <div className="space-y-3">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-            <p className="truncate text-sm font-semibold text-slate-900">{listing.title || "Untitled listing"}</p>
+            <p className="truncate text-sm font-semibold text-slate-900">{formattedTitle}</p>
             <p className="mt-0.5 truncate text-xs text-slate-600">{locationLine}</p>
             <p className="mt-1.5 text-sm font-semibold text-slate-900">{price.primary}</p>
           </div>

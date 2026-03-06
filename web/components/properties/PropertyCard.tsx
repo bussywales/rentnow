@@ -26,6 +26,7 @@ import {
 } from "@/lib/advertisers/public-profile";
 import { PropertyImageCarousel } from "@/components/properties/PropertyImageCarousel";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
+import { formatListingTitle } from "@/lib/ui/format-listing-title";
 import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 import {
   isShortletProperty,
@@ -149,6 +150,7 @@ export function PropertyCard({
   const cardHref = href || `/properties/${property.id}`;
   const normalizedCardHref = cardHref.trim();
   const showFastResponder = !!fastResponder;
+  const formattedTitle = formatListingTitle(property.title || "") || property.title || "Untitled listing";
   const advertiserName = property.owner_id
     ? derivePublicAdvertiserName({
         display_name: property.owner_display_name ?? property.owner_profile?.display_name ?? null,
@@ -179,7 +181,7 @@ export function PropertyCard({
       )}
     >
       <PropertyImageCarousel
-        title={property.title}
+        title={formattedTitle}
         href={href ? cardHref : undefined}
         coverImageUrl={property.cover_image_url}
         primaryImageUrl={primaryImage}
@@ -252,7 +254,7 @@ export function PropertyCard({
           kind: isShortlet ? "shortlet" : "property",
           marketCountry: market.country,
           href: normalizedCardHref,
-          title: property.title,
+          title: formattedTitle,
           subtitle: locationLabel,
           tag: isShortlet ? "Shortlets" : "Properties",
         });
@@ -271,7 +273,7 @@ export function PropertyCard({
                   <p className="text-xs text-slate-500 break-words">{metaLine}</p>
                 )}
                 <h3 className="text-base font-semibold text-slate-900 line-clamp-1">
-                  {property.title}
+                  {formattedTitle}
                 </h3>
               </Link>
             ) : (
@@ -283,7 +285,7 @@ export function PropertyCard({
                   <p className="text-xs text-slate-500 break-words">{metaLine}</p>
                 )}
                 <h3 className="text-base font-semibold text-slate-900 line-clamp-1">
-                  {property.title}
+                  {formattedTitle}
                 </h3>
               </>
             )}

@@ -9,6 +9,7 @@ import { ExploreTrustBadges } from "@/components/explore/ExploreTrustBadges";
 import { TrackViewedLink } from "@/components/viewed/TrackViewedLink";
 import { performShare } from "@/lib/share/client-share";
 import { formatLocationLabel } from "@/lib/property-discovery";
+import { formatListingTitle } from "@/lib/ui/format-listing-title";
 import type { Property } from "@/lib/types";
 import { ExploreGallery } from "@/components/explore/ExploreGallery";
 import { ExploreDetailsSheet } from "@/components/explore/ExploreDetailsSheet";
@@ -59,6 +60,7 @@ type ExploreSlideProps = {
 
 type ExploreSlideActionStackProps = {
   property: Property;
+  title: string;
   kind: "shortlet" | "property";
   detailsHref: string;
   location: string;
@@ -71,6 +73,7 @@ type ExploreSlideActionStackProps = {
 
 const ExploreSlideActionStack = memo(function ExploreSlideActionStack({
   property,
+  title,
   kind,
   detailsHref,
   location,
@@ -87,7 +90,7 @@ const ExploreSlideActionStack = memo(function ExploreSlideActionStack({
           itemId={property.id}
           kind={kind}
           href={detailsHref}
-          title={property.title}
+          title={title}
           subtitle={location}
           tag={intentTag}
           marketCountry={marketCountry}
@@ -152,6 +155,7 @@ function ExploreSlideInner({
   const intentType = resolveExploreAnalyticsIntentType(property);
   const detailsHref = resolveExploreDetailsHref(property);
   const location = formatLocationLabel(property.city, property.neighbourhood);
+  const formattedTitle = formatListingTitle(property.title || "") || property.title || "Untitled listing";
   const intentTag = resolveExploreIntentTag(property);
   const badges = resolveExploreTrustBadges(property);
   const stayContext = useMemo(
@@ -218,7 +222,7 @@ function ExploreSlideInner({
     const absoluteUrl =
       typeof window === "undefined" ? detailsHref : new URL(detailsHref, window.location.origin).toString();
     const result = await performShare({
-      title: property.title,
+      title: formattedTitle,
       text: location,
       url: absoluteUrl,
     });
@@ -243,7 +247,7 @@ function ExploreSlideInner({
       listingId: property.id,
       value: "error",
     });
-  }, [detailsHref, index, intentType, location, onShareAction, property.id, property.title]);
+  }, [detailsHref, formattedTitle, index, intentType, location, onShareAction, property.id]);
 
   const handleLongPress = useCallback(() => {
     dismissDetailsHint();
@@ -288,7 +292,7 @@ function ExploreSlideInner({
             {intentTag}
           </span>
           <ExploreTrustBadges badges={badges} tone="overlay" />
-          <h2 className="line-clamp-2 text-[1.65rem] font-semibold leading-[1.15]">{property.title}</h2>
+          <h2 className="line-clamp-2 text-[1.65rem] font-semibold leading-[1.15]">{formattedTitle}</h2>
           <p className="line-clamp-1 text-sm text-white/90">{location}</p>
           <p className="line-clamp-1 text-sm font-semibold text-white" data-testid="explore-price-primary">
             {priceCopy.primary}
@@ -304,7 +308,7 @@ function ExploreSlideInner({
               id: property.id,
               kind,
               href: detailsHref,
-              title: property.title,
+              title: formattedTitle,
               subtitle: location,
               tag: intentTag,
               marketCountry: market.country,
@@ -319,6 +323,7 @@ function ExploreSlideInner({
 
       <ExploreSlideActionStack
         property={property}
+        title={formattedTitle}
         kind={kind}
         detailsHref={detailsHref}
         location={location}

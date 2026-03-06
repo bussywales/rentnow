@@ -139,7 +139,7 @@ void test("explore-v2 card renders carousel with count and dots for multi-image 
     /class=\"[^\"]*transition-opacity[^\"]*duration-200[^\"]*opacity-\[0\.85\][^\"]*\" data-testid=\"explore-v2-cta-container\"/
   );
   assert.match(html, /data-testid=\"explore-v2-title\"/);
-  assert.match(html, /aria-label=\"Victoria Island apartment\"/);
+  assert.match(html, /aria-label=\"Victoria Island Apartment\"/);
 });
 
 void test("explore-v2 card hides count and dots for single-image listing", () => {

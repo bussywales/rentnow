@@ -11,6 +11,7 @@ import {
   getMobileFeaturedDiscoveryItems,
 } from "@/lib/home/mobile-featured-discovery";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
+import { formatListingTitle } from "@/lib/ui/format-listing-title";
 
 const ACCENT_CLASSES = [
   "from-sky-600/95 via-cyan-500/90 to-emerald-400/80",
@@ -84,13 +85,14 @@ export function MobileFeaturedDiscoveryStrip() {
           {featuredItems.map((item, index) => {
             const href = buildFeaturedDiscoveryHref(item);
             const kind = item.category === "shortlet" ? "shortlet" : "property";
+            const titleText = formatListingTitle(item.title || "") || item.title || "Listing";
             return (
               <div key={item.id} className="relative w-[255px] shrink-0 snap-start snap-always">
                 <SaveToggle
                   itemId={item.id}
                   kind={kind}
                   href={href}
-                  title={item.title}
+                  title={titleText}
                   subtitle={item.subtitle}
                   tag={item.tag}
                   marketCountry={market.country}
@@ -103,7 +105,7 @@ export function MobileFeaturedDiscoveryStrip() {
                     id: item.id,
                     kind,
                     href,
-                    title: item.title,
+                    title: titleText,
                     subtitle: item.subtitle,
                     tag: item.tag,
                     marketCountry: market.country,
@@ -112,7 +114,7 @@ export function MobileFeaturedDiscoveryStrip() {
                     id: item.id,
                     kind,
                     href,
-                    label: item.title,
+                    label: titleText,
                     query: item.city ?? null,
                     marketCountry: market.country,
                   }}
@@ -129,7 +131,7 @@ export function MobileFeaturedDiscoveryStrip() {
                     </span>
                     <TrustBadges badges={item.badges} marketCountry={market.country} tone="overlay" />
                     <p className="text-base font-semibold leading-tight" data-testid="mobile-featured-item-title">
-                      {item.title}
+                      {titleText}
                     </p>
                     <p className="text-xs text-white/90">{item.subtitle}</p>
                   </div>

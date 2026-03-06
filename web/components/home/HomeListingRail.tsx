@@ -8,6 +8,7 @@ import { ListingImagePlaceholder } from "@/components/ui/ListingImagePlaceholder
 import { resolveImageLoadingProfile, shouldPriorityImage } from "@/lib/images/loading-profile";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import type { Property } from "@/lib/types";
+import { formatListingTitle } from "@/lib/ui/format-listing-title";
 
 type Props = {
   title: string;
@@ -131,6 +132,7 @@ export function HomeListingRail({
           className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-5 pb-1 pr-5 scroll-px-5 sm:px-7 sm:pr-7 sm:scroll-px-7"
         >
           {listings.map((listing, index) => {
+            const listingTitle = formatListingTitle(listing.title || "") || listing.title || "Listing";
             const imageUrl = getPrimaryImageUrl(listing);
             const loadingProfile = resolveImageLoadingProfile(
               shouldPriorityImage({
@@ -160,7 +162,7 @@ export function HomeListingRail({
                     {imageUrl ? (
                       <Image
                         src={imageUrl}
-                        alt={listing.title}
+                        alt={listingTitle}
                         fill
                         sizes="(max-width: 640px) 58vw, (max-width: 1024px) 240px, 280px"
                         className={cn("h-full w-full object-cover")}
@@ -175,7 +177,7 @@ export function HomeListingRail({
                     )}
                   </div>
                   <div className="space-y-1 p-2.5">
-                    <p className="line-clamp-1 text-sm font-semibold text-slate-900">{listing.title}</p>
+                    <p className="line-clamp-1 text-sm font-semibold text-slate-900">{listingTitle}</p>
                     <p className="line-clamp-1 text-xs text-slate-500">{locationLabel(listing)}</p>
                     <p className="text-xs font-semibold text-slate-800">{formatPrice(listing)}</p>
                   </div>
