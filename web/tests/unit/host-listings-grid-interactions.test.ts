@@ -8,6 +8,7 @@ void test("host listings grid uses stable skeleton and hover/focus CTA reveal", 
   const source = fs.readFileSync(filePath, "utf8");
 
   assert.match(source, /resolveStableListingImageSrc/);
+  assert.match(source, /SafeImage/);
   assert.match(source, /key=\{`listing-image-\$\{listing\.id\}`\}/);
   assert.doesNotMatch(source, /animate-pulse/);
   assert.match(source, /max-h-\[60vh\]/);

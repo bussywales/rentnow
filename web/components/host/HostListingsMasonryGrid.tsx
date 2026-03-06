@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
 import { HostListingActionsMenu } from "@/components/host/HostListingActionsMenu";
 import { resolveStableListingImageSrc } from "@/lib/host/listing-image-stability";
 import { ListingImagePlaceholder } from "@/components/ui/ListingImagePlaceholder";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { getPrimaryImageUrl } from "@/lib/properties/images";
 import { resolvePropertyImageUrl } from "@/lib/properties/image-url";
 import { mapStatusLabel, normalizePropertyStatus } from "@/lib/properties/status";
@@ -70,7 +70,6 @@ export function HostListingsMasonryGrid({
 }: Props) {
   const stableImageSrcByListingId = useMemo(() => new Map<string, string | null>(), []);
   const visibleListings = listings.slice(0, Math.max(0, maxListings));
-  const [loadedById, setLoadedById] = useState<Record<string, boolean>>({});
   const [selectedImageIndexById, setSelectedImageIndexById] = useState<Record<string, number>>({});
   const touchStartByIdRef = useRef<Record<string, { x: number; y: number }>>({});
 
@@ -126,7 +125,6 @@ export function HostListingsMasonryGrid({
           );
           const activeImageUrl = imageSources[selectedImageIndex] ?? imageUrl;
           const pattern = getHostListingTilePattern(index);
-          const imageLoaded = loadedById[listing.id] ?? false;
           const loadingProfile = resolveImageLoadingProfile(
             shouldPriorityImage({
               surface: "properties_list",
@@ -183,15 +181,8 @@ export function HostListingsMasonryGrid({
                     });
                   }}
                 >
-                <div
-                  className={cn(
-                    "absolute inset-0 z-[1] bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200",
-                    imageLoaded ? "opacity-0" : "opacity-100"
-                  )}
-                  aria-hidden="true"
-                />
                 {activeImageUrl ? (
-                  <Image
+                  <SafeImage
                     key={`listing-image-${listing.id}`}
                     src={activeImageUrl}
                     alt={listing.title}
@@ -201,13 +192,7 @@ export function HostListingsMasonryGrid({
                     priority={loadingProfile.priority}
                     loading={loadingProfile.loading}
                     fetchPriority={loadingProfile.fetchPriority}
-                    onLoad={() =>
-                      setLoadedById((current) =>
-                        current[listing.id]
-                          ? current
-                          : { ...current, [listing.id]: true }
-                      )
-                    }
+                    fallbackLabel="Image unavailable"
                   />
                 ) : (
                   <ListingImagePlaceholder />

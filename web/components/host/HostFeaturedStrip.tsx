@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { cn } from "@/components/ui/cn";
+import { SafeImage } from "@/components/ui/SafeImage";
 import { ListingImagePlaceholder } from "@/components/ui/ListingImagePlaceholder";
 import { HostListingActionsMenu } from "@/components/host/HostListingActionsMenu";
 import { resolveStableListingImageSrc } from "@/lib/host/listing-image-stability";
@@ -59,7 +58,6 @@ export function HostFeaturedStrip({
 }: Props) {
   const railRef = useRef<HTMLDivElement | null>(null);
   const stableImageSrcByListingId = useMemo(() => new Map<string, string | null>(), []);
-  const [loadedById, setLoadedById] = useState<Record<string, boolean>>({});
   const [hasOverflow, setHasOverflow] = useState(false);
   const featuredListings = useMemo(
     () => selectHostFeaturedStripListings(listings),
@@ -166,7 +164,6 @@ export function HostFeaturedStrip({
               listing.id,
               getPrimaryImageUrl(listing)
             );
-            const imageLoaded = loadedById[listing.id] ?? false;
             const loadingProfile = resolveImageLoadingProfile(
               shouldPriorityImage({
                 surface: "properties_list",
@@ -187,15 +184,8 @@ export function HostFeaturedStrip({
                   className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
                 >
                   <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-100">
-                    <div
-                      className={cn(
-                        "absolute inset-0 z-[1] bg-gradient-to-br from-slate-200 via-slate-100 to-slate-200",
-                        imageLoaded ? "opacity-0" : "opacity-100"
-                      )}
-                      aria-hidden="true"
-                    />
                     {imageUrl ? (
-                      <Image
+                      <SafeImage
                         key={`listing-image-${listing.id}`}
                         src={imageUrl}
                         alt={listing.title}
@@ -205,16 +195,7 @@ export function HostFeaturedStrip({
                         priority={loadingProfile.priority}
                         loading={loadingProfile.loading}
                         fetchPriority={loadingProfile.fetchPriority}
-                        onLoad={() => {
-                          setLoadedById((current) =>
-                            current[listing.id]
-                              ? current
-                              : {
-                                  ...current,
-                                  [listing.id]: true,
-                                }
-                          );
-                        }}
+                        fallbackLabel="Image unavailable"
                       />
                     ) : (
                       <ListingImagePlaceholder />
