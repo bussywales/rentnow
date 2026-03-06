@@ -124,13 +124,12 @@ export function resolveExploreV2HeroUiState(totalImages: number): {
 }
 
 export function resolveExploreV2HasVideo(
-  listing: Pick<Property, "has_video" | "featured_media" | "property_videos">
+  listing: Pick<Property, "has_video" | "featured_media">
 ): boolean {
   if (typeof listing.has_video === "boolean") {
     return listing.has_video;
   }
-  return (Array.isArray(listing.property_videos) && listing.property_videos.length > 0)
-    || listing.featured_media === "video";
+  return listing.featured_media === "video";
 }
 
 export function resolveExploreV2VideoTourHref(detailsHref: string): string {

@@ -212,13 +212,12 @@ void test("explore-v2 video badge only renders when listing has video signal", (
   assert.match(withVideoHtml, /media=video/);
 });
 
-void test("explore-v2 has-video resolver prefers property_videos with featured-media fallback", () => {
+void test("explore-v2 has-video resolver uses canonical has_video with featured-media fallback", () => {
   assert.equal(
     resolveExploreV2HasVideo(
       createExploreV2Listing({
         has_video: true,
         featured_media: "image",
-        property_videos: [],
       })
     ),
     true
@@ -228,7 +227,6 @@ void test("explore-v2 has-video resolver prefers property_videos with featured-m
       createExploreV2Listing({
         has_video: false,
         featured_media: "video",
-        property_videos: [{ id: "video-1", video_url: "https://example.test/video.mp4" }],
       })
     ),
     false
@@ -237,16 +235,15 @@ void test("explore-v2 has-video resolver prefers property_videos with featured-m
     resolveExploreV2HasVideo(
       createExploreV2Listing({
         featured_media: "image",
-        property_videos: [{ id: "video-1", video_url: "https://example.test/video.mp4" }],
       })
     ),
-    true
+    false
   );
   assert.equal(
     resolveExploreV2HasVideo(
       createExploreV2Listing({
+        has_video: undefined,
         featured_media: "video",
-        property_videos: [],
       })
     ),
     true
@@ -255,7 +252,6 @@ void test("explore-v2 has-video resolver prefers property_videos with featured-m
     resolveExploreV2HasVideo(
       createExploreV2Listing({
         featured_media: "image",
-        property_videos: [],
       })
     ),
     false

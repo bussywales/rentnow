@@ -77,10 +77,12 @@ function normalizeExplorePropertyRow(row: ExplorePropertyRow): Property {
     typeof row.has_video === "boolean"
       ? row.has_video
       : Array.isArray(row.property_videos) && row.property_videos.length > 0;
+  const rest: ExplorePropertyRow = { ...row };
+  delete rest.property_videos;
   const images = resolveExplorePropertyImageRecords(row);
   const normalizedImages = images.length === 0 && Array.isArray(row.images) ? row.images : images;
   return {
-    ...row,
+    ...rest,
     has_video: hasVideo,
     images: normalizedImages,
   };
