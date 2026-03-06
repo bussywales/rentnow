@@ -22,4 +22,5 @@ void test("property media hero requests public signed URL and exposes play affor
   assert.match(heroSource, /data-testid="property-video-hero"/);
   assert.match(heroSource, /data-testid="property-video-hero-play"/);
   assert.match(heroSource, /<PropertyGallery images=\{images\} title=\{title\} isDemo=\{isDemo\} \/>/);
+  assert.match(heroSource, /\{images\.length > 0 \? \(/);
 });

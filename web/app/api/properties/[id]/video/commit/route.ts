@@ -96,8 +96,20 @@ export async function POST(
   const adminClient = createServiceRoleClient();
   const publicUrl = adminClient.storage.from(VIDEO_STORAGE_BUCKET).getPublicUrl(path);
   const videoUrl = publicUrl.data.publicUrl;
+  const adminDb = adminClient as unknown as {
+    from: (table: string) => {
+      upsert: (values: Record<string, unknown>, options?: { onConflict?: string }) => {
+        select: (columns: string) => {
+          maybeSingle: () => Promise<{
+            data: { video_url?: string; storage_path?: string; bytes?: number; format?: string } | null;
+            error: { message: string } | null;
+          }>;
+        };
+      };
+    };
+  };
 
-  const upsert = await supabase
+  const upsert = await adminDb
     .from("property_videos")
     .upsert(
       {

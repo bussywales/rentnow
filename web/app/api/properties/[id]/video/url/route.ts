@@ -94,7 +94,20 @@ export async function handleVideoSignedUrl(
     );
   }
 
-  const { data: videoRow } = await supabase
+  const adminClient = deps.createServiceRoleClient();
+  const adminDb = adminClient as unknown as {
+    from: (table: string) => {
+      select: (columns: string) => {
+        eq: (column: string, value: string) => {
+          maybeSingle: () => Promise<{
+            data: { storage_path?: string | null } | null;
+            error?: { message: string } | null;
+          }>;
+        };
+      };
+    };
+  };
+  const { data: videoRow } = await adminDb
     .from("property_videos")
     .select("storage_path")
     .eq("property_id", propertyId)
@@ -106,7 +119,6 @@ export async function handleVideoSignedUrl(
     );
   }
 
-  const adminClient = deps.createServiceRoleClient();
   const signed = await adminClient.storage
     .from(VIDEO_STORAGE_BUCKET)
     .createSignedUrl(videoRow.storage_path, SIGNED_VIDEO_URL_TTL_SECONDS);
@@ -127,6 +139,7 @@ export async function handleVideoSignedUrl(
 
   return NextResponse.json({
     url: signed.data.signedUrl,
+    storage_path: videoRow.storage_path,
     expiresIn: SIGNED_VIDEO_URL_TTL_SECONDS,
   });
 }

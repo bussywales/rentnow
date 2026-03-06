@@ -143,6 +143,9 @@ export function PropertyMediaHero({
           </div>
         ) : null}
       </div>
+      {images.length > 0 ? (
+        <PropertyGallery images={images} title={title} isDemo={isDemo} />
+      ) : null}
     </div>
   );
 }

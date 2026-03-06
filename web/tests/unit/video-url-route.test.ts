@@ -22,6 +22,13 @@ void test("signed URL route returns URL for authorized owner", async () => {
       }),
     }),
     createServiceRoleClient: () => ({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: { storage_path: "prop1/video.mp4" } }),
+          }),
+        }),
+      }),
       storage: {
         from: () => ({
           createSignedUrl: async () => ({ data: { signedUrl: "https://signed.test/video.mp4" } }),
@@ -37,8 +44,9 @@ void test("signed URL route returns URL for authorized owner", async () => {
 
   const res = await handleVideoSignedUrl(makeRequest(), "prop1", deps);
   assert.equal(res.status, 200);
-  const json = (await res.json()) as { url?: string; expiresIn?: number };
+  const json = (await res.json()) as { url?: string; storage_path?: string; expiresIn?: number };
   assert.equal(json.url, "https://signed.test/video.mp4");
+  assert.equal(json.storage_path, "prop1/video.mp4");
   assert.equal(json.expiresIn, 600);
 });
 
@@ -59,6 +67,13 @@ void test("signed URL route rejects unauthorized user", async () => {
       }),
     }),
     createServiceRoleClient: () => ({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            maybeSingle: async () => ({ data: { storage_path: "prop1/video.mp4" } }),
+          }),
+        }),
+      }),
       storage: {
         from: () => ({
           createSignedUrl: async () => ({ data: { signedUrl: "https://signed.test/video.mp4" } }),

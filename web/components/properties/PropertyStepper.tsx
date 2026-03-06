@@ -86,6 +86,7 @@ import {
   resolveShortletBookingMode,
   resolveShortletNightlyPriceMinor,
 } from "@/lib/shortlet/listing-setup";
+import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
 
 type FormState = Partial<Property> & {
   amenitiesText?: string;
@@ -334,6 +335,10 @@ export function PropertyStepper({
   const [videoSignedUrl, setVideoSignedUrl] = useState<string | null>(null);
   const [videoUploading, setVideoUploading] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const videoGalleryPosterUrl = useMemo(
+    () => coverImageUrl ?? imageUrls[0] ?? "/og-propatyhub.png",
+    [coverImageUrl, imageUrls]
+  );
   const [recommended, setRecommended] = useState<RecommendedSuggestion | null>(null);
   const [recommendedDismissed, setRecommendedDismissed] = useState(false);
   const {
@@ -658,6 +663,7 @@ export function PropertyStepper({
   const locationSectionRef = useRef<HTMLDivElement | null>(null);
   const locationSearchInputRef = useRef<HTMLInputElement | null>(null);
   const countryButtonRef = useRef<HTMLButtonElement | null>(null);
+  const videoSectionRef = useRef<HTMLDivElement | null>(null);
   const videoInputRef = useRef<HTMLInputElement | null>(null);
   const videoRefreshAttemptRef = useRef(0);
   const [locationActiveIndex, setLocationActiveIndex] = useState(0);
@@ -1061,9 +1067,8 @@ export function PropertyStepper({
   }, [setError]);
 
   const fetchSignedVideoUrl = useCallback(
-    async (overridePath?: string) => {
-      const path = overridePath ?? videoPath;
-      if (!propertyId || !path) return;
+    async (options?: { silentNotFound?: boolean; hydratePathIfMissing?: boolean }) => {
+      if (!propertyId) return;
       const supabase = getSupabase();
       if (!supabase) return;
       const { user, accessToken } = await resolveAuthUser(supabase);
@@ -1079,9 +1084,18 @@ export function PropertyStepper({
             ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
           },
         });
-        const data = (await res.json().catch(() => null)) as { url?: string; code?: string; error?: string } | null;
+        const data = (await res.json().catch(() => null)) as {
+          url?: string;
+          storage_path?: string | null;
+          code?: string;
+          error?: string;
+        } | null;
         if (!res.ok || !data?.url) {
           const code = data?.code;
+          if (options?.silentNotFound && code === "VIDEO_NOT_FOUND") {
+            setVideoSignedUrl(null);
+            return;
+          }
           const message =
             code === "VIDEO_BUCKET_NOT_CONFIGURED" || code === "STORAGE_BUCKET_NOT_FOUND"
               ? "Video storage isn't configured yet. Ask an admin to create the 'property-videos' bucket in Supabase Storage."
@@ -1094,6 +1108,10 @@ export function PropertyStepper({
           setVideoSignedUrl(null);
           return;
         }
+        if (options?.hydratePathIfMissing) {
+          const hydratedPath = data.storage_path ?? "__property_video__";
+          setVideoPath((prev) => prev ?? hydratedPath);
+        }
         setVideoSignedUrl(data.url);
         setVideoError(null);
         videoRefreshAttemptRef.current = 0;
@@ -1101,17 +1119,20 @@ export function PropertyStepper({
         setVideoError(err instanceof Error ? err.message : "Unable to load video.");
       }
     },
-    [getSupabase, propertyId, resolveAuthUser, setError, videoPath]
+    [getSupabase, propertyId, resolveAuthUser, setError]
   );
 
   useEffect(() => {
     videoRefreshAttemptRef.current = 0;
-    if (videoPath) {
-      void fetchSignedVideoUrl(videoPath);
-    } else {
+    if (!propertyId) {
       setVideoSignedUrl(null);
+      return;
     }
-  }, [fetchSignedVideoUrl, videoPath]);
+    void fetchSignedVideoUrl({
+      silentNotFound: !videoPath,
+      hydratePathIfMissing: !videoPath,
+    });
+  }, [fetchSignedVideoUrl, propertyId, videoPath]);
 
   const handleVideoUpload = useCallback(
     async (file: File) => {
@@ -1201,9 +1222,7 @@ export function PropertyStepper({
         setVideoPath(nextPath);
         setVideoSignedUrl(null);
         videoRefreshAttemptRef.current = 0;
-        if (nextPath) {
-          void fetchSignedVideoUrl(nextPath);
-        }
+        void fetchSignedVideoUrl({ hydratePathIfMissing: true });
       } catch (err) {
         setVideoError(err instanceof Error ? err.message : "Video upload failed. Try again.");
       } finally {
@@ -1264,8 +1283,12 @@ export function PropertyStepper({
     if (!videoPath) return;
     if (videoRefreshAttemptRef.current >= 1) return;
     videoRefreshAttemptRef.current += 1;
-    void fetchSignedVideoUrl(videoPath);
+    void fetchSignedVideoUrl();
   }, [fetchSignedVideoUrl, videoPath]);
+
+  const scrollToVideoSection = useCallback(() => {
+    videoSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
 
   const persistImageOrder = useCallback(
     async (order: string[]) => {
@@ -4135,7 +4158,10 @@ export function PropertyStepper({
               {uploading ? "Uploading..." : "Upload photos"}
             </Button>
           </div>
-          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+          <div
+            ref={videoSectionRef}
+            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+          >
             <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-slate-900">Video (optional)</p>
@@ -4197,6 +4223,11 @@ export function PropertyStepper({
               />
               Use video as featured media
             </label>
+            {form.featured_media === "video" && !videoPath && (
+              <p className="mt-2 text-xs text-amber-700">
+                No video is attached yet. We&apos;ll keep image hero media until a video is available.
+              </p>
+            )}
             {videoPath ? (
               <div className="mt-3 space-y-2">
                 <div className="overflow-hidden rounded-xl border border-slate-200">
@@ -4218,9 +4249,9 @@ export function PropertyStepper({
             )}
           </div>
 
-          {imageUrls.length > 0 && (
+          {(imageUrls.length > 0 || Boolean(videoPath)) && (
             <div className="space-y-3">
-              {!recommendedDismissed && (
+              {imageUrls.length > 0 && !recommendedDismissed && (
                 <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
                   <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <div className="space-y-1">
@@ -4255,6 +4286,7 @@ export function PropertyStepper({
                             fill
                             className="object-cover"
                             sizes="120px"
+                            unoptimized={shouldBypassNextImageOptimizer(recommended.url)}
                           />
                           {recommended?.url && recommended.url === coverImageUrl && (
                             <span className="absolute left-1 top-1 rounded bg-emerald-600 px-2 py-0.5 text-[11px] font-semibold text-white">
@@ -4299,9 +4331,9 @@ export function PropertyStepper({
                 </div>
               )}
               <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-sm font-medium text-slate-700">Photo gallery</p>
+                <p className="text-sm font-medium text-slate-700">Media gallery</p>
                 <p className="text-xs text-slate-500">
-                  Drag controls let you reorder; set a cover to choose the thumbnail.
+                  Video stays pinned first. Drag controls reorder photos only.
                 </p>
               </div>
               {(coverWarning.tooSmall || coverWarning.portrait) && (
@@ -4314,6 +4346,47 @@ export function PropertyStepper({
                 </div>
               )}
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {videoPath && (
+                  <div
+                    className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"
+                    data-testid="property-stepper-video-gallery-tile"
+                  >
+                    <div className="relative h-44 w-full bg-slate-900">
+                      <NextImage
+                        src={videoGalleryPosterUrl}
+                        alt="Listing video poster"
+                        fill
+                        sizes="(max-width: 768px) 100vw, 33vw"
+                        className="object-cover opacity-90"
+                        unoptimized={shouldBypassNextImageOptimizer(videoGalleryPosterUrl)}
+                      />
+                      <div className="absolute inset-0 bg-slate-900/35" />
+                      <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2.5 py-1 text-xs font-semibold text-white">
+                        Video tour
+                      </span>
+                      <button
+                        type="button"
+                        className="absolute inset-0 flex items-center justify-center"
+                        onClick={scrollToVideoSection}
+                        aria-label="Open listing video section"
+                      >
+                        <span className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-white/90 text-lg text-slate-900 shadow-lg">
+                          ▶
+                        </span>
+                      </button>
+                    </div>
+                    <div className="flex items-center justify-between px-3 py-2 text-xs text-slate-700">
+                      <span className="truncate">Video tour</span>
+                      <button
+                        type="button"
+                        className="text-sky-700 hover:text-sky-900"
+                        onClick={scrollToVideoSection}
+                      >
+                        View
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {imageUrls.map((url, index) => {
                   const meta = imageMeta[url];
                   const hasGps = meta?.exif_has_gps ?? meta?.exif?.hasGps ?? null;
@@ -4339,6 +4412,7 @@ export function PropertyStepper({
                           fill
                           sizes="(max-width: 768px) 100vw, 33vw"
                           className="object-cover"
+                          unoptimized={shouldBypassNextImageOptimizer(url)}
                         />
                       </div>
                       <div className="absolute left-2 top-2 flex gap-2">
@@ -4460,7 +4534,7 @@ export function PropertyStepper({
               pets_allowed: !!form.pets_allowed,
               amenities:
                 payload.amenities && payload.amenities.length ? payload.amenities : null,
-              featured_media: form.featured_media === "video" ? "video" : "image",
+              featured_media: payload.featured_media === "video" ? "video" : "image",
               cover_image_url: coverImageUrl ?? null,
               images: previewImages,
             }}
