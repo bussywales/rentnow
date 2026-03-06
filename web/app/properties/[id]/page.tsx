@@ -742,6 +742,8 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
     createdAt: property.created_at,
   });
   const showTrustSignals = !!hostTrust || hostTrustCues.length > 0;
+  const propertyHasVideo =
+    property.has_video === true || ((property.property_videos?.length ?? 0) > 0);
 
   return (
     <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-8 px-4">
@@ -798,11 +800,12 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
       <div className="grid min-w-0 gap-6 md:grid-cols-3">
         <div className="md:col-span-2 min-w-0">
           <PropertyMediaHero
-            key={`${property.id}:${property.featured_media ?? "image"}`}
+            key={`${property.id}:${property.featured_media ?? "image"}:${propertyHasVideo ? "video" : "novideo"}`}
             propertyId={property.id}
             images={property.images || []}
             title={property.title}
             isDemo={!!property.is_demo}
+            hasVideo={propertyHasVideo}
             featuredMedia={property.featured_media ?? "image"}
             coverImageUrl={property.cover_image_url ?? null}
           />

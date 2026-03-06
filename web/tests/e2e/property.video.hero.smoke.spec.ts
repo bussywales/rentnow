@@ -68,3 +68,39 @@ test("property detail renders video hero for featured-video listings when public
     `property video hero smoke emitted runtime errors:\n${runtimeErrors.join("\n")}`
   ).toEqual([]);
 });
+
+test("property detail shows video tour chip and section when listing has video but hero stays image-first", async ({
+  page,
+}) => {
+  const runtimeErrors = attachRuntimeErrorGuards(page);
+
+  const listResponse = await page.request.get("/api/properties?page=1&pageSize=40");
+  test.skip(!listResponse.ok(), "Public properties API unavailable for video section smoke.");
+
+  const payload = (await listResponse.json()) as {
+    properties?: Array<{ id?: string; featured_media?: string | null }>;
+  };
+  const candidate = (payload.properties ?? []).find(
+    (entry) =>
+      typeof entry.id === "string" && entry.id.length > 0 && entry.featured_media !== "video"
+  );
+  test.skip(!candidate?.id, "No image-featured listing found for video section smoke.");
+
+  const detailResponse = await page.request.get(`/api/properties/${candidate.id}`);
+  test.skip(!detailResponse.ok(), "Property detail API unavailable for selected image-featured listing.");
+  const detailPayload = (await detailResponse.json()) as {
+    property?: { property_videos?: Array<{ id?: string }> | null } | null;
+  };
+  const hasVideo = (detailPayload.property?.property_videos?.length ?? 0) > 0;
+  test.skip(!hasVideo, "Selected image-featured listing has no attached video.");
+
+  await page.goto(`/properties/${candidate.id}`, { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId("property-photo-gallery-section")).toBeVisible();
+  await expect(page.getByTestId("property-video-tour-chip")).toBeVisible();
+  await expect(page.getByTestId("property-video-tour-section")).toBeVisible();
+
+  expect(
+    runtimeErrors,
+    `property video section smoke emitted runtime errors:\n${runtimeErrors.join("\n")}`
+  ).toEqual([]);
+});
