@@ -22,6 +22,7 @@ type ExploreV2FeedProps = {
   listings: Property[];
   marketCountry: string | null;
   marketCurrency: string | null;
+  viewerIsAuthenticated?: boolean;
 };
 
 export const EXPLORE_V2_PRELOAD_MAX_INFLIGHT = 2;
@@ -125,7 +126,12 @@ export function filterExploreV2Listings(input: ExploreV2ListingFilterInput): Pro
   });
 }
 
-function ExploreV2FeedInner({ listings, marketCountry, marketCurrency }: ExploreV2FeedProps) {
+function ExploreV2FeedInner({
+  listings,
+  marketCountry,
+  marketCurrency,
+  viewerIsAuthenticated = false,
+}: ExploreV2FeedProps) {
   const [topVisibleIndex, setTopVisibleIndex] = useState(0);
   const [prefetchLookahead, setPrefetchLookahead] = useState(() =>
     resolveExploreV2PrefetchLookahead(undefined, EXPLORE_V2_PREFETCH_MAX_LOOKAHEAD)
@@ -184,11 +190,12 @@ function ExploreV2FeedInner({ listings, marketCountry, marketCurrency }: Explore
             imageRecords={imageRecords}
             index={index}
             feedSize={filteredListings.length}
+            viewerIsAuthenticated={viewerIsAuthenticated}
           />
         </div>
       );
     },
-    [filteredListings.length, listingImageRecordsById, marketCurrency]
+    [filteredListings.length, listingImageRecordsById, marketCurrency, viewerIsAuthenticated]
   );
 
   const handleRangeChanged = useCallback((range: ListRange) => {

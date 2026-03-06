@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useCallback, useEffect, useMemo, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { cn } from "@/components/ui/cn";
 import {
@@ -34,6 +34,7 @@ type ExploreV2CardProps = {
   imageRecords?: ExploreImageRecord[];
   index?: number;
   feedSize?: number;
+  viewerIsAuthenticated?: boolean;
 };
 
 type ExploreImageRecord = ReturnType<typeof resolveExplorePropertyImageRecords>[number];
@@ -71,6 +72,17 @@ type ExploreV2CtaContinueDeps = {
 
 export const EXPLORE_V2_QUIET_OVERLAY_FOCUS_MS = 2600;
 export const EXPLORE_V2_QUIET_OVERLAY_OPACITY_CLASS = "opacity-[0.85]";
+export const EXPLORE_V2_GLASS_TOAST_DISMISS_MS = 2000;
+export const EXPLORE_V2_DOCK_SAFE_ZONE_PX = 136;
+export const EXPLORE_V2_GLASS_TOAST_BOTTOM_OFFSET_PX = EXPLORE_V2_DOCK_SAFE_ZONE_PX + 12;
+
+type ExploreV2GlassToastTone = "success" | "error";
+
+type ExploreV2GlassToastState = {
+  message: string;
+  tone: ExploreV2GlassToastTone;
+  showRetry: boolean;
+} | null;
 
 type ExploreV2OverlayFocusControllerOptions = {
   focusDurationMs?: number;
@@ -196,6 +208,38 @@ export function resolveExploreV2OverlayOpacityClass(overlayFocused: boolean): st
   return overlayFocused ? "opacity-100" : EXPLORE_V2_QUIET_OVERLAY_OPACITY_CLASS;
 }
 
+export function resolveExploreV2SaveFeedbackMessage(saved: boolean): string {
+  return saved ? "Saved" : "Removed";
+}
+
+export function resolveExploreV2ShareFeedback(input: ShareActionResult | "error"): ExploreV2GlassToastState {
+  if (input === "shared") {
+    return { message: "Shared", tone: "success", showRetry: false };
+  }
+  if (input === "copied") {
+    return { message: "Link copied", tone: "success", showRetry: false };
+  }
+  if (input === "dismissed") {
+    return null;
+  }
+  return { message: "Copy failed", tone: "error", showRetry: true };
+}
+
+export function resolveExploreV2GlassToastBottom(): string {
+  return `calc(${EXPLORE_V2_GLASS_TOAST_BOTTOM_OFFSET_PX}px + env(safe-area-inset-bottom))`;
+}
+
+export function resolveExploreV2GlassToastClassName(tone: ExploreV2GlassToastTone): string {
+  return cn(
+    glassSurface(
+      "pointer-events-auto inline-flex min-h-[42px] max-w-[88vw] items-center gap-2 rounded-[999px] px-4 py-2 text-xs font-medium text-white"
+    ),
+    tone === "error"
+      ? "border-rose-200/30 bg-rose-900/45 text-rose-50"
+      : "border-white/18 bg-slate-900/48 text-white"
+  );
+}
+
 export function createExploreV2OverlayFocusController({
   focusDurationMs = EXPLORE_V2_QUIET_OVERLAY_FOCUS_MS,
   onChange,
@@ -319,10 +363,15 @@ function ExploreV2CardInner({
   imageRecords,
   index = 0,
   feedSize = 0,
+  viewerIsAuthenticated = false,
 }: ExploreV2CardProps) {
   const [ctaSheetOpen, setCtaSheetOpen] = useState(false);
+  const [saveAuthSheetOpen, setSaveAuthSheetOpen] = useState(false);
   const [overlayFocused, setOverlayFocused] = useState(false);
-  const [shareFeedback, setShareFeedback] = useState<"copied" | "shared" | "error" | null>(null);
+  const [glassToast, setGlassToast] = useState<ExploreV2GlassToastState>(null);
+  const [savePulseActive, setSavePulseActive] = useState(false);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savePulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const overlayFocusController = useMemo(
     () =>
       createExploreV2OverlayFocusController({
@@ -364,7 +413,6 @@ function ExploreV2CardInner({
   );
   const intentTag = useMemo(() => resolveExploreIntentTag(listing), [listing]);
   const locationLine = useMemo(() => resolveExploreV2LocationLine(listing), [listing]);
-  const shareFeedbackCopy = shareFeedback === "error" ? "Share unavailable" : "Link ready";
   const overlayOpacityClass = useMemo(
     () => resolveExploreV2OverlayOpacityClass(overlayFocused),
     [overlayFocused]
@@ -374,14 +422,41 @@ function ExploreV2CardInner({
   useEffect(() => {
     return () => {
       overlayFocusController.dispose();
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      if (savePulseTimerRef.current) clearTimeout(savePulseTimerRef.current);
     };
   }, [overlayFocusController]);
+
+  const showGlassToast = useCallback((next: ExploreV2GlassToastState) => {
+    setGlassToast(next);
+    if (toastTimerRef.current) {
+      clearTimeout(toastTimerRef.current);
+    }
+    if (!next) return;
+    toastTimerRef.current = setTimeout(() => {
+      toastTimerRef.current = null;
+      setGlassToast(null);
+    }, EXPLORE_V2_GLASS_TOAST_DISMISS_MS);
+  }, []);
 
   const handleSaveToggle = useCallback(
     (saved: boolean) => {
       trackExploreV2SaveToggle({ context: actionContext, saved });
+      setSavePulseActive(true);
+      if (savePulseTimerRef.current) {
+        clearTimeout(savePulseTimerRef.current);
+      }
+      savePulseTimerRef.current = setTimeout(() => {
+        savePulseTimerRef.current = null;
+        setSavePulseActive(false);
+      }, 160);
+      showGlassToast({
+        message: resolveExploreV2SaveFeedbackMessage(saved),
+        tone: "success",
+        showRetry: false,
+      });
     },
-    [actionContext]
+    [actionContext, showGlassToast]
   );
 
   const handleShare = useCallback(async () => {
@@ -391,16 +466,27 @@ function ExploreV2CardInner({
       locationLine,
       context: actionContext,
     });
-    if (result === "shared") {
-      setShareFeedback("shared");
-      return;
-    }
-    if (result === "copied") {
-      setShareFeedback("copied");
-      return;
-    }
-    setShareFeedback("error");
-  }, [actionContext, detailsHref, listing.title, locationLine]);
+    showGlassToast(resolveExploreV2ShareFeedback(result));
+  }, [actionContext, detailsHref, listing.title, locationLine, showGlassToast]);
+
+  const resolveAuthRedirectPath = useCallback(
+    (basePath: "/auth/login" | "/auth/register") => {
+      if (typeof window === "undefined") return `${basePath}?reason=auth&redirect=%2Fexplore-v2`;
+      const redirectTarget = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+      return `${basePath}?reason=auth&redirect=${encodeURIComponent(redirectTarget)}`;
+    },
+    []
+  );
+
+  const handleSaveSurfaceCapture = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (viewerIsAuthenticated) return;
+      event.preventDefault();
+      event.stopPropagation();
+      setSaveAuthSheetOpen(true);
+    },
+    [viewerIsAuthenticated]
+  );
 
   const openCtaSheet = useCallback(() => {
     trackExploreFunnelEvent({
@@ -497,8 +583,14 @@ function ExploreV2CardInner({
               data-testid="explore-v2-action-rail"
             >
               <div
-                className={glassSurface("inline-flex h-11 w-11 items-center justify-center p-0.5")}
+                className={glassSurface(
+                  cn(
+                    "inline-flex h-11 w-11 items-center justify-center p-0.5 transition-transform duration-150 ease-out",
+                    savePulseActive ? "scale-[1.05] ring-2 ring-white/55" : ""
+                  )
+                )}
                 data-testid="explore-v2-save-surface"
+                onClickCapture={handleSaveSurfaceCapture}
               >
                 <SaveToggle
                   itemId={listing.id}
@@ -510,7 +602,10 @@ function ExploreV2CardInner({
                   marketCountry={actionContext.marketCode}
                   testId={`explore-v2-save-toggle-${listing.id}`}
                   onToggle={handleSaveToggle}
-                  className="mx-auto h-10 w-10 rounded-full border-transparent bg-transparent text-white ring-0 shadow-none hover:bg-white/10 hover:text-white"
+                  className={cn(
+                    "mx-auto h-10 w-10 rounded-full border-transparent bg-transparent text-white ring-0 shadow-none hover:bg-white/10 hover:text-white",
+                    !viewerIsAuthenticated ? "pointer-events-none" : ""
+                  )}
                 />
               </div>
               <div
@@ -550,14 +645,6 @@ function ExploreV2CardInner({
               </button>
             </div>
           </div>
-          {shareFeedback ? (
-            <span
-              className="pointer-events-none absolute left-3 top-3 rounded-full bg-slate-900/68 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white"
-              data-testid="explore-v2-share-feedback"
-            >
-              {shareFeedbackCopy}
-            </span>
-          ) : null}
         </div>
         <div className="space-y-1.5 px-4 py-3">
           <p className="truncate text-sm font-semibold text-slate-900">{listing.title || "Untitled listing"}</p>
@@ -602,6 +689,77 @@ function ExploreV2CardInner({
           </button>
         </div>
       </BottomSheet>
+      <BottomSheet
+        open={saveAuthSheetOpen}
+        onOpenChange={setSaveAuthSheetOpen}
+        title="Sign in to save listings"
+        description="Save favourites across devices and revisit them anytime."
+        testId="explore-v2-save-auth-sheet"
+        sheetId={`explore-v2-save-auth-sheet-${listing.id}`}
+      >
+        <div className="space-y-2.5">
+          <button
+            type="button"
+            className="inline-flex w-full items-center justify-center rounded-full bg-slate-900 px-4 py-3 text-sm font-semibold text-white"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.location.assign(resolveAuthRedirectPath("/auth/login"));
+              }
+            }}
+            data-testid="explore-v2-save-auth-sign-in"
+          >
+            Sign in
+          </button>
+          <button
+            type="button"
+            className="inline-flex w-full items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-3 text-sm font-semibold text-slate-700"
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                window.location.assign(resolveAuthRedirectPath("/auth/register"));
+              }
+            }}
+            data-testid="explore-v2-save-auth-create-account"
+          >
+            Create account
+          </button>
+          <button
+            type="button"
+            className="inline-flex w-full items-center justify-center rounded-full border border-transparent bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-600"
+            onClick={() => setSaveAuthSheetOpen(false)}
+            data-testid="explore-v2-save-auth-not-now"
+          >
+            Not now
+          </button>
+        </div>
+      </BottomSheet>
+      {glassToast ? (
+        <div
+          className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
+          data-testid="explore-v2-glass-toast-anchor"
+          style={{
+            bottom: resolveExploreV2GlassToastBottom(),
+          }}
+        >
+          <div
+            className={resolveExploreV2GlassToastClassName(glassToast.tone)}
+            data-testid="explore-v2-glass-toast"
+          >
+            <span>{glassToast.message}</span>
+            {glassToast.showRetry ? (
+              <button
+                type="button"
+                className="pointer-events-auto rounded-full border border-white/35 px-2 py-0.5 text-[11px] font-semibold"
+                onClick={() => {
+                  void handleShare();
+                }}
+                data-testid="explore-v2-glass-toast-retry"
+              >
+                Try again
+              </button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </>
   );
 }

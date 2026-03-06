@@ -5,11 +5,16 @@ import { renderToStaticMarkup } from "react-dom/server";
 import {
   createExploreV2OverlayFocusController,
   continueExploreV2Cta,
+  EXPLORE_V2_GLASS_TOAST_BOTTOM_OFFSET_PX,
   EXPLORE_V2_QUIET_OVERLAY_FOCUS_MS,
   EXPLORE_V2_QUIET_OVERLAY_OPACITY_CLASS,
   ExploreV2Card,
+  resolveExploreV2GlassToastBottom,
+  resolveExploreV2GlassToastClassName,
   resolveExploreV2ActionContext,
   resolveExploreV2CarouselItems,
+  resolveExploreV2SaveFeedbackMessage,
+  resolveExploreV2ShareFeedback,
   resolveExploreV2HeroUiState,
   resolveExploreV2OverlayOpacityClass,
   trackExploreV2SaveToggle,
@@ -155,6 +160,21 @@ void test("explore-v2 card hides count and dots for single-image listing", () =>
   assert.doesNotMatch(html, /data-testid=\"explore-v2-hero-carousel-dots\"/);
 });
 
+void test("explore-v2 card applies logged-out save guard to prevent hard redirect", () => {
+  const listing = createExploreV2Listing();
+  const html = renderToStaticMarkup(
+    React.createElement(ExploreV2Card, {
+      listing,
+      marketCurrency: "NGN",
+      imageRecords: [],
+      viewerIsAuthenticated: false,
+    })
+  );
+
+  assert.match(html, /data-testid=\"explore-v2-save-surface\"/);
+  assert.match(html, /pointer-events-none/);
+});
+
 void test("explore-v2 save toggle analytics helper emits saved/unsaved results", () => {
   const listing = createExploreV2Listing({ id: "listing-save", country_code: "NG" });
   const context = resolveExploreV2ActionContext({
@@ -187,6 +207,11 @@ void test("explore-v2 save toggle analytics helper emits saved/unsaved results",
   ]);
 });
 
+void test("explore-v2 save feedback copy resolves to saved/removed labels", () => {
+  assert.equal(resolveExploreV2SaveFeedbackMessage(true), "Saved");
+  assert.equal(resolveExploreV2SaveFeedbackMessage(false), "Removed");
+});
+
 void test("explore-v2 share helper uses share util and emits analytics", async () => {
   const listing = createExploreV2Listing({ id: "listing-share", country_code: "NG" });
   const context = resolveExploreV2ActionContext({ listing, index: 1, feedSize: 10 });
@@ -216,6 +241,24 @@ void test("explore-v2 share helper uses share util and emits analytics", async (
   assert.equal(result, "shared");
   assert.equal(sharePayloads[0], `https://propatyhub.com/properties/${listing.id}?source=explore_v0`);
   assert.deepEqual(tracked, ["explore_v2_share"]);
+});
+
+void test("explore-v2 share feedback maps copied path to link copied toast", () => {
+  assert.deepEqual(resolveExploreV2ShareFeedback("copied"), {
+    message: "Link copied",
+    tone: "success",
+    showRetry: false,
+  });
+});
+
+void test("explore-v2 glass toast contract uses glass classes and dock-safe offset", () => {
+  const successClassName = resolveExploreV2GlassToastClassName("success");
+  assert.match(successClassName, /backdrop-blur-md/);
+  assert.match(successClassName, /rounded-\[999px\]/);
+  assert.equal(
+    resolveExploreV2GlassToastBottom(),
+    `calc(${EXPLORE_V2_GLASS_TOAST_BOTTOM_OFFSET_PX}px + env(safe-area-inset-bottom))`
+  );
 });
 
 void test("explore-v2 cta continue helper tracks and navigates", () => {

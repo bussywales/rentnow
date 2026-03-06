@@ -74,10 +74,16 @@ void test("explore-v2 page data resolver supports mocked server feed fixtures", 
       selectorEnabled: true,
     }),
     loadExploreFeed: async () => feedFixture,
+    loadAuthUser: async () => ({
+      supabase: {} as never,
+      user: null,
+      sessionRefreshed: false,
+    }),
   });
 
   assert.equal(data.listings.length, 1);
   assert.equal(data.listings[0]?.id, "fixture-1");
+  assert.equal(data.viewerIsAuthenticated, false);
 });
 
 void test("explore-v2 hero resolver returns normalized hero url from property_images", () => {

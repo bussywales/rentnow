@@ -63,10 +63,27 @@ test("explore-v2 feed renders and stays stable after native scroll", async ({ pa
   expect(heroViewportClassName).not.toContain("overflow-x-scroll");
 
   const firstSaveToggle = page.locator('[data-testid^="explore-v2-save-toggle-"]').first();
+  const firstSaveSurface = page.getByTestId("explore-v2-save-surface").first();
   await expect(firstSaveToggle).toBeVisible();
+  await expect(firstSaveSurface).toBeVisible();
   const previousSaved = (await firstSaveToggle.getAttribute("aria-pressed")) === "true";
-  await firstSaveToggle.click();
-  await expect(firstSaveToggle).toHaveAttribute("aria-pressed", previousSaved ? "false" : "true");
+  await firstSaveSurface.click();
+  const saveAuthSheet = page.getByTestId(smokeSelectors.exploreV2SaveAuthSheet);
+  const saveAuthPromptVisible = await saveAuthSheet
+    .isVisible()
+    .catch(() => false);
+  if (saveAuthPromptVisible) {
+    await page.getByTestId(smokeSelectors.exploreV2SaveAuthNotNow).click();
+    await expect(saveAuthSheet).toHaveCount(0);
+  } else {
+    await expect(firstSaveToggle).toHaveAttribute("aria-pressed", previousSaved ? "false" : "true");
+    await expect(page.getByTestId(smokeSelectors.exploreV2GlassToast)).toContainText(/Saved|Removed/i);
+  }
+
+  await page.getByTestId(smokeSelectors.exploreV2ShareAction).first().click();
+  await expect(page.getByTestId(smokeSelectors.exploreV2GlassToast)).toContainText(
+    /Shared|Link copied|Copy failed/i
+  );
 
   await page.getByTestId(smokeSelectors.exploreV2CtaAction).first().click();
   await expect(page.getByTestId(smokeSelectors.exploreV2CtaSheet)).toBeVisible();
