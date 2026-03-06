@@ -87,6 +87,7 @@ import {
   resolveShortletNightlyPriceMinor,
 } from "@/lib/shortlet/listing-setup";
 import { shouldBypassNextImageOptimizer } from "@/lib/images/optimizer-bypass";
+import { resolvePropertyImageUrl, resolveSupabasePublicUrlFromPath } from "@/lib/properties/image-url";
 
 type FormState = Partial<Property> & {
   amenitiesText?: string;
@@ -275,42 +276,80 @@ export function PropertyStepper({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [aiLoading, setAiLoading] = useState(false);
+  const initialImages = useMemo(() => {
+    return (initialData?.images ?? [])
+      .map((img) => {
+        const resolvedUrl =
+          resolvePropertyImageUrl(img, "card") ??
+          resolvePropertyImageUrl(img, "hero") ??
+          resolvePropertyImageUrl(img, "original") ??
+          img.image_url;
+        if (!resolvedUrl) return null;
+        return {
+          image: img,
+          resolvedUrl,
+          sourceUrl: img.image_url,
+        };
+      })
+      .filter((entry): entry is NonNullable<typeof entry> => Boolean(entry));
+  }, [initialData?.images]);
   const [imageUrls, setImageUrls] = useState<string[]>(
-    initialData?.images?.map((img) => img.image_url) || []
+    initialImages.map((entry) => entry.resolvedUrl)
   );
   const initialImageMeta = useMemo(() => {
     const meta: Record<string, ImageMeta> = {};
-    initialData?.images?.forEach((img) => {
-      meta[img.image_url] = {
-        width: (img as { width?: number | null }).width ?? undefined,
-        height: (img as { height?: number | null }).height ?? undefined,
-        bytes: (img as { bytes?: number | null }).bytes ?? undefined,
-        format: (img as { format?: string | null }).format ?? undefined,
-        storage_path: (img as { storage_path?: string | null }).storage_path ?? undefined,
+    initialImages.forEach(({ image, resolvedUrl, sourceUrl }) => {
+      const payload: ImageMeta = {
+        width: (image as { width?: number | null }).width ?? undefined,
+        height: (image as { height?: number | null }).height ?? undefined,
+        bytes: (image as { bytes?: number | null }).bytes ?? undefined,
+        format: (image as { format?: string | null }).format ?? undefined,
+        storage_path: (image as { storage_path?: string | null }).storage_path ?? undefined,
         original_storage_path:
-          (img as { original_storage_path?: string | null }).original_storage_path ?? undefined,
+          (image as { original_storage_path?: string | null }).original_storage_path ?? undefined,
         thumb_storage_path:
-          (img as { thumb_storage_path?: string | null }).thumb_storage_path ?? undefined,
+          (image as { thumb_storage_path?: string | null }).thumb_storage_path ?? undefined,
         card_storage_path:
-          (img as { card_storage_path?: string | null }).card_storage_path ?? undefined,
+          (image as { card_storage_path?: string | null }).card_storage_path ?? undefined,
         hero_storage_path:
-          (img as { hero_storage_path?: string | null }).hero_storage_path ?? undefined,
-        exif_has_gps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? undefined,
+          (image as { hero_storage_path?: string | null }).hero_storage_path ?? undefined,
+        exif_has_gps: (image as { exif_has_gps?: boolean | null }).exif_has_gps ?? undefined,
         exif_captured_at:
-          (img as { exif_captured_at?: string | null }).exif_captured_at ?? undefined,
+          (image as { exif_captured_at?: string | null }).exif_captured_at ?? undefined,
         exif: {
-          hasGps: (img as { exif_has_gps?: boolean | null }).exif_has_gps ?? undefined,
-          capturedAt: (img as { exif_captured_at?: string | null }).exif_captured_at ?? undefined,
+          hasGps: (image as { exif_has_gps?: boolean | null }).exif_has_gps ?? undefined,
+          capturedAt: (image as { exif_captured_at?: string | null }).exif_captured_at ?? undefined,
         },
       };
+      meta[resolvedUrl] = payload;
+      if (sourceUrl && sourceUrl !== resolvedUrl) {
+        meta[sourceUrl] = payload;
+      }
     });
     return meta;
-  }, [initialData?.images]);
+  }, [initialImages]);
   const [imageMeta, setImageMeta] = useState<Record<string, ImageMeta>>(initialImageMeta);
+  const initialCoverImageUrl = useMemo(() => {
+    const rawCover = initialData?.cover_image_url ?? null;
+    if (!rawCover) {
+      return initialImages[0]?.resolvedUrl ?? null;
+    }
+    const normalizedCover = resolveSupabasePublicUrlFromPath(rawCover) ?? rawCover;
+    const matchedImage = initialImages.find(({ image }) => {
+      return (
+        rawCover === image.image_url ||
+        rawCover === image.storage_path ||
+        rawCover === image.original_storage_path ||
+        rawCover === image.thumb_storage_path ||
+        rawCover === image.card_storage_path ||
+        rawCover === image.hero_storage_path ||
+        normalizedCover === image.image_url
+      );
+    });
+    return matchedImage?.resolvedUrl ?? normalizedCover;
+  }, [initialData?.cover_image_url, initialImages]);
   const [coverImageUrl, setCoverImageUrl] = useState<string | null>(
-    initialData?.cover_image_url ??
-      initialData?.images?.[0]?.image_url ??
-      null
+    initialCoverImageUrl
   );
   const [coverWarning, setCoverWarning] = useState<{
     tooSmall: boolean;
@@ -1071,11 +1110,7 @@ export function PropertyStepper({
       if (!propertyId) return;
       const supabase = getSupabase();
       if (!supabase) return;
-      const { user, accessToken } = await resolveAuthUser(supabase);
-      if (!user) {
-        setError("Please log in to load video.");
-        return;
-      }
+      const { accessToken } = await resolveAuthUser(supabase);
       try {
         const res = await fetch(`/api/properties/${propertyId}/video/url`, {
           method: "POST",
@@ -1119,7 +1154,7 @@ export function PropertyStepper({
         setVideoError(err instanceof Error ? err.message : "Unable to load video.");
       }
     },
-    [getSupabase, propertyId, resolveAuthUser, setError]
+    [getSupabase, propertyId, resolveAuthUser]
   );
 
   useEffect(() => {

@@ -29,6 +29,14 @@ void test("property stepper hydrates existing video state and renders unified me
     "expected signed video URL probe to hydrate missing video state"
   );
   assert.ok(
+    contents.includes("const { accessToken } = await resolveAuthUser(supabase);"),
+    "expected signed video URL probe to request signed URLs even before user hydration settles"
+  );
+  assert.ok(
+    !contents.includes('setError("Please log in to load video.");'),
+    "expected signed video URL probe to avoid hard-failing when browser auth hydration lags"
+  );
+  assert.ok(
     contents.includes('featured_media: payload.featured_media === "video" ? "video" : "image"'),
     "expected preview state to fall back to image hero when video is unavailable"
   );

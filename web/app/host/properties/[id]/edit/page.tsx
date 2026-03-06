@@ -14,6 +14,7 @@ import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { normalizeFocusParam, normalizeStepParam, type StepId } from "@/lib/properties/step-params";
 import { isListingExpired } from "@/lib/properties/expiry";
 import { RenewListingButton } from "@/components/host/RenewListingButton";
+import { resolvePropertyImageUrl, resolveSupabasePublicUrlFromPath } from "@/lib/properties/image-url";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,77 @@ function extractId(raw: Params | Promise<Params>): Promise<string | undefined> {
     return maybePromise.then((p) => p?.id);
   }
   return Promise.resolve((raw as Params)?.id);
+}
+
+type EditPropertyImageRow = {
+  id: string;
+  image_url: string;
+  position?: number | null;
+  created_at?: string | null;
+  width?: number | null;
+  height?: number | null;
+  bytes?: number | null;
+  format?: string | null;
+  storage_path?: string | null;
+  original_storage_path?: string | null;
+  thumb_storage_path?: string | null;
+  card_storage_path?: string | null;
+  hero_storage_path?: string | null;
+  exif_has_gps?: boolean | null;
+  exif_captured_at?: string | null;
+};
+
+type EditPropertyVideoRow = {
+  id: string;
+  video_url: string;
+  storage_path?: string | null;
+  bytes?: number | null;
+  format?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+type PropertyWithEditMedia = Property & {
+  property_images?: EditPropertyImageRow[] | null;
+  property_videos?: EditPropertyVideoRow[] | null;
+};
+
+function mapPropertyForEditInput(property: PropertyWithEditMedia): Property {
+  const images = (property.property_images ?? [])
+    .map((image) => {
+      const resolvedUrl =
+        resolvePropertyImageUrl(image, "card") ??
+        resolvePropertyImageUrl(image, "hero") ??
+        resolvePropertyImageUrl(image, "original") ??
+        image.image_url;
+      if (!resolvedUrl) return null;
+      return {
+        id: image.id,
+        image_url: resolvedUrl,
+        position: image.position ?? null,
+        created_at: image.created_at ?? undefined,
+        width: image.width ?? null,
+        height: image.height ?? null,
+        bytes: image.bytes ?? null,
+        format: image.format ?? null,
+        storage_path: image.storage_path ?? null,
+        original_storage_path: image.original_storage_path ?? null,
+        thumb_storage_path: image.thumb_storage_path ?? null,
+        card_storage_path: image.card_storage_path ?? null,
+        hero_storage_path: image.hero_storage_path ?? null,
+        exif_has_gps: image.exif_has_gps ?? null,
+        exif_captured_at: image.exif_captured_at ?? null,
+      };
+    })
+    .filter((image): image is NonNullable<typeof image> => Boolean(image));
+
+  return {
+    ...property,
+    images,
+    cover_image_url:
+      resolveSupabasePublicUrlFromPath(property.cover_image_url ?? null) ?? property.cover_image_url,
+    property_videos: property.property_videos ?? null,
+  };
 }
 
 async function loadProperty(id: string | undefined): Promise<{ property: Property | null; error: string | null }> {
@@ -60,25 +132,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
       const found = all.find((p) => p.id === cleanId);
       if (found) {
         console.log("[dashboard edit] fetched via list", { id: cleanId, listUrl });
-        const typed = found as Property & {
-          property_images?: Array<{ id: string; image_url: string }>;
-          property_videos?: Array<{
-            id: string;
-            video_url: string;
-            storage_path?: string | null;
-            bytes?: number | null;
-            format?: string | null;
-          }>;
-        };
-        const withImages: Property = {
-          ...typed,
-          images: typed.property_images?.map((img) => ({
-            id: img.id,
-            image_url: img.image_url,
-          })),
-          property_videos: typed.property_videos ?? null,
-        };
-        return { property: withImages, error: null };
+        return { property: mapPropertyForEditInput(found as PropertyWithEditMedia), error: null };
       }
     } else {
       console.warn("[dashboard edit] list fetch failed", { status: listRes.status });
@@ -92,27 +146,10 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
     });
     if (res.ok) {
       const json = await res.json();
-      const data = json.property as Property & {
-        property_images?: Array<{ id: string; image_url: string }>;
-        property_videos?: Array<{
-          id: string;
-          video_url: string;
-          storage_path?: string | null;
-          bytes?: number | null;
-          format?: string | null;
-        }>;
-      };
+      const data = json.property as PropertyWithEditMedia;
       if (data) {
         console.log("[dashboard edit] fetched via detail API", { id: cleanId, detailUrl });
-        const withImages: Property = {
-          ...data,
-          images: data.property_images?.map((img) => ({
-            id: img.id,
-            image_url: img.image_url,
-          })),
-          property_videos: data.property_videos ?? null,
-        };
-        return { property: withImages, error: null };
+        return { property: mapPropertyForEditInput(data), error: null };
       }
     } else {
       console.warn("[dashboard edit] detail fetch failed", { status: res.status, detailUrl });
@@ -150,56 +187,7 @@ async function loadProperty(id: string | undefined): Promise<{ property: Propert
 
     const { data, error } = await query.maybeSingle();
     if (!error && data) {
-      const typed = data as Property & {
-        property_images?: Array<{
-          id: string;
-          image_url: string;
-          position?: number | null;
-          created_at?: string | null;
-          width?: number | null;
-          height?: number | null;
-          bytes?: number | null;
-          format?: string | null;
-          storage_path?: string | null;
-          original_storage_path?: string | null;
-          thumb_storage_path?: string | null;
-          card_storage_path?: string | null;
-          hero_storage_path?: string | null;
-          exif_has_gps?: boolean | null;
-          exif_captured_at?: string | null;
-        }>;
-        property_videos?: Array<{
-          id: string;
-          video_url: string;
-          storage_path?: string | null;
-          bytes?: number | null;
-          format?: string | null;
-          created_at?: string | null;
-          updated_at?: string | null;
-        }>;
-      };
-      const withImages: Property = {
-        ...typed,
-        images: typed.property_images?.map((img) => ({
-          id: img.id,
-          image_url: img.image_url,
-          position: img.position ?? null,
-          created_at: img.created_at ?? undefined,
-          width: img.width ?? null,
-          height: img.height ?? null,
-          bytes: img.bytes ?? null,
-          format: img.format ?? null,
-          storage_path: img.storage_path ?? null,
-          original_storage_path: img.original_storage_path ?? null,
-          thumb_storage_path: img.thumb_storage_path ?? null,
-          card_storage_path: img.card_storage_path ?? null,
-          hero_storage_path: img.hero_storage_path ?? null,
-          exif_has_gps: img.exif_has_gps ?? null,
-          exif_captured_at: img.exif_captured_at ?? null,
-        })),
-        property_videos: typed.property_videos ?? null,
-      };
-      return { property: withImages, error: null };
+      return { property: mapPropertyForEditInput(data as PropertyWithEditMedia), error: null };
     }
     if (error) {
       return { property: null, error: error.message };
