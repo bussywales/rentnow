@@ -2,6 +2,7 @@
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { BottomSheet } from "@/components/ui/BottomSheet";
+import { GlassTooltip, shouldEnableGlassTooltip } from "@/components/ui/GlassTooltip";
 import { cn } from "@/components/ui/cn";
 import {
   UnifiedImageCarousel,
@@ -27,6 +28,7 @@ import {
   resolveExplorePropertyImageRecords,
 } from "@/lib/explore/gallery-images";
 import { glassSurface } from "@/lib/ui/glass";
+import { useIsTruncated } from "@/lib/ui/useIsTruncated";
 
 type ExploreV2CardProps = {
   listing: Property;
@@ -210,6 +212,16 @@ export function resolveExploreV2OverlayOpacityClass(overlayFocused: boolean): st
 
 export function resolveExploreV2SaveFeedbackMessage(saved: boolean): string {
   return saved ? "Saved" : "Removed";
+}
+
+export function shouldShowExploreV2TitleTooltip(input: {
+  title: string | null | undefined;
+  isTruncated: boolean;
+}): boolean {
+  return shouldEnableGlassTooltip({
+    content: input.title ?? "",
+    isTruncated: input.isTruncated,
+  });
 }
 
 export function resolveExploreV2ShareFeedback(input: ShareActionResult | "error"): ExploreV2GlassToastState {
@@ -522,6 +534,13 @@ function ExploreV2CardInner({
     overlayFocusController.trigger();
   }, [overlayFocusController]);
 
+  const titleText = listing.title || "Untitled listing";
+  const { ref: titleRef, isTruncated: isTitleTruncated } = useIsTruncated<HTMLParagraphElement>();
+  const titleTooltipEnabled = shouldShowExploreV2TitleTooltip({
+    title: titleText,
+    isTruncated: isTitleTruncated,
+  });
+
   return (
     <>
       <article
@@ -647,7 +666,21 @@ function ExploreV2CardInner({
           </div>
         </div>
         <div className="space-y-1.5 px-4 py-3">
-          <p className="truncate text-sm font-semibold text-slate-900">{listing.title || "Untitled listing"}</p>
+          <GlassTooltip
+            content={titleText}
+            disabled={!titleTooltipEnabled}
+            testId="explore-v2-title-tooltip"
+          >
+            <p
+              ref={titleRef}
+              className="truncate text-sm font-semibold text-slate-900"
+              aria-label={titleText}
+              data-testid="explore-v2-title"
+              tabIndex={titleTooltipEnabled ? 0 : undefined}
+            >
+              {titleText}
+            </p>
+          </GlassTooltip>
           <p className="truncate text-xs text-slate-500">{locationLine}</p>
           <div className="flex items-center justify-between gap-3">
             <p className="truncate text-sm font-semibold text-slate-900">{price.primary}</p>

@@ -17,6 +17,7 @@ import {
   resolveExploreV2ShareFeedback,
   resolveExploreV2HeroUiState,
   resolveExploreV2OverlayOpacityClass,
+  shouldShowExploreV2TitleTooltip,
   trackExploreV2SaveToggle,
   triggerExploreV2ShareAction,
 } from "@/components/explore-v2/ExploreV2Card";
@@ -137,6 +138,8 @@ void test("explore-v2 card renders carousel with count and dots for multi-image 
     html,
     /class=\"[^\"]*transition-opacity[^\"]*duration-200[^\"]*opacity-\[0\.85\][^\"]*\" data-testid=\"explore-v2-cta-container\"/
   );
+  assert.match(html, /data-testid=\"explore-v2-title\"/);
+  assert.match(html, /aria-label=\"Victoria Island apartment\"/);
 });
 
 void test("explore-v2 card hides count and dots for single-image listing", () => {
@@ -210,6 +213,23 @@ void test("explore-v2 save toggle analytics helper emits saved/unsaved results",
 void test("explore-v2 save feedback copy resolves to saved/removed labels", () => {
   assert.equal(resolveExploreV2SaveFeedbackMessage(true), "Saved");
   assert.equal(resolveExploreV2SaveFeedbackMessage(false), "Removed");
+});
+
+void test("explore-v2 title tooltip helper only enables when title is truncated", () => {
+  assert.equal(
+    shouldShowExploreV2TitleTooltip({
+      title: "A very long listing title",
+      isTruncated: true,
+    }),
+    true
+  );
+  assert.equal(
+    shouldShowExploreV2TitleTooltip({
+      title: "Short title",
+      isTruncated: false,
+    }),
+    false
+  );
 });
 
 void test("explore-v2 share helper uses share util and emits analytics", async () => {
