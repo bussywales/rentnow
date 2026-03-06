@@ -595,6 +595,10 @@ function ExploreV2CardInner({
             maxConcurrentImageLoads={2}
             showLoadingCue={heroUiState.showSwipeAffordance}
           />
+          <div
+            className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-28 bg-gradient-to-t from-slate-950/42 via-slate-950/14 to-transparent"
+            aria-hidden
+          />
           {heroCarousel.hasRealImage ? (
             <span className="sr-only" data-testid="explore-v2-hero-has-image">
               Hero image available
@@ -615,7 +619,7 @@ function ExploreV2CardInner({
                 event.stopPropagation();
               }}
               className={cn(
-                "absolute left-3 top-3 z-30 inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white",
+                "absolute left-4 top-4 z-30 inline-flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white",
                 glassSurface("rounded-full")
               )}
               data-testid="explore-v2-video-badge"
@@ -678,7 +682,7 @@ function ExploreV2CardInner({
             </div>
             <div
               className={cn(
-                "pointer-events-auto absolute bottom-16 right-4 transition-opacity duration-200 ease-out motion-reduce:transition-none focus-within:opacity-100",
+                "pointer-events-auto absolute bottom-[76px] right-4 transition-opacity duration-200 ease-out motion-reduce:transition-none focus-within:opacity-100",
                 overlayOpacityClass
               )}
               data-testid="explore-v2-cta-container"
@@ -687,7 +691,7 @@ function ExploreV2CardInner({
                 type="button"
                 onClick={openCtaSheet}
                 className={glassSurface(
-                  "inline-flex h-10 min-w-[112px] max-w-[156px] items-center justify-center px-3.5 text-xs font-semibold"
+                  "inline-flex h-10 min-w-[112px] max-w-[156px] items-center justify-center px-3.5 text-xs font-semibold leading-none"
                 )}
                 aria-label={`${primaryAction.label} for ${formattedTitle || "listing"}`}
                 data-testid="explore-v2-cta-action"
@@ -697,7 +701,7 @@ function ExploreV2CardInner({
             </div>
           </div>
         </div>
-        <div className="space-y-1.5 px-4 py-3">
+        <div className="space-y-2 px-4 py-3.5">
           <GlassTooltip
             content={titleText}
             disabled={!titleTooltipEnabled}
@@ -705,7 +709,7 @@ function ExploreV2CardInner({
           >
             <p
               ref={titleRef}
-              className="truncate text-sm font-semibold text-slate-900"
+              className="line-clamp-2 min-h-[2.5rem] text-[15px] font-semibold leading-5 text-slate-900"
               aria-label={titleText}
               data-testid="explore-v2-title"
               tabIndex={titleTooltipEnabled ? 0 : undefined}
@@ -713,10 +717,14 @@ function ExploreV2CardInner({
               {titleText}
             </p>
           </GlassTooltip>
-          <p className="truncate text-xs text-slate-500">{locationLine}</p>
-          <div className="flex items-center justify-between gap-3">
-            <p className="truncate text-sm font-semibold text-slate-900">{price.primary}</p>
-            <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium text-slate-600">
+          <p className="truncate text-[13px] leading-5 text-slate-500" data-testid="explore-v2-location">
+            {locationLine}
+          </p>
+          <div className="flex items-center justify-between gap-3 pt-0.5">
+            <p className="truncate text-base font-semibold leading-5 text-slate-950" data-testid="explore-v2-price">
+              {price.primary}
+            </p>
+            <span className="shrink-0 rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-[11px] font-medium leading-none text-slate-600">
               {intentTag}
             </span>
           </div>

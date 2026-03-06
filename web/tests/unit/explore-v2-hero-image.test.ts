@@ -121,7 +121,10 @@ void test("explore-v2 card renders carousel with count and dots for multi-image 
     html,
     /class=\"[^\"]*right-4[^\"]*top-1\/2[^\"]*-translate-y-1\/2[^\"]*gap-3[^\"]*\" data-testid=\"explore-v2-action-rail\"/
   );
-  assert.match(html, /class=\"[^\"]*absolute bottom-16 right-4[^\"]*\" data-testid=\"explore-v2-cta-container\"/);
+  assert.match(
+    html,
+    /class=\"[^\"]*absolute bottom-\[76px\] right-4[^\"]*\" data-testid=\"explore-v2-cta-container\"/
+  );
   assert.match(
     html,
     /class=\"[^\"]*h-10[^\"]*min-w-\[112px\][^\"]*max-w-\[156px\][^\"]*\"[^>]*data-testid=\"explore-v2-cta-action\"/
@@ -133,6 +136,10 @@ void test("explore-v2 card renders carousel with count and dots for multi-image 
   assert.match(html, /class=\"[^\"]*bottom-3[^\"]*\" data-testid=\"explore-v2-hero-carousel-dots\"/);
   assert.match(
     html,
+    /class=\"[^\"]*absolute inset-x-0 bottom-0[^\"]*bg-gradient-to-t[^\"]*from-slate-950\/42[^\"]*\" aria-hidden=\"true\"/
+  );
+  assert.match(
+    html,
     /class=\"[^\"]*transition-opacity[^\"]*duration-200[^\"]*opacity-\[0\.85\][^\"]*\" data-testid=\"explore-v2-action-rail\"/
   );
   assert.match(
@@ -140,6 +147,12 @@ void test("explore-v2 card renders carousel with count and dots for multi-image 
     /class=\"[^\"]*transition-opacity[^\"]*duration-200[^\"]*opacity-\[0\.85\][^\"]*\" data-testid=\"explore-v2-cta-container\"/
   );
   assert.match(html, /data-testid=\"explore-v2-title\"/);
+  assert.match(
+    html,
+    /class=\"[^\"]*line-clamp-2[^\"]*min-h-\[2\.5rem\][^\"]*text-\[15px\][^\"]*\"[^>]*data-testid=\"explore-v2-title\"/
+  );
+  assert.match(html, /data-testid=\"explore-v2-location\"/);
+  assert.match(html, /data-testid=\"explore-v2-price\"/);
   assert.match(html, /aria-label=\"Victoria Island Apartment\"/);
 });
 
