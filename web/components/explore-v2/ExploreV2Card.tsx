@@ -67,6 +67,7 @@ type ExploreV2ShareActionDeps = {
 
 type ExploreV2CtaContinueInput = {
   href: string;
+  label: "Book" | "Request viewing";
   context: ExploreV2ActionContext;
 };
 
@@ -77,10 +78,12 @@ type ExploreV2CtaContinueDeps = {
 
 type ExploreV2ViewDetailsInput = {
   href: string;
+  context: ExploreV2ActionContext;
 };
 
 type ExploreV2ViewDetailsDeps = {
   pushFn: (href: string) => void;
+  trackFn?: typeof trackExploreFunnelEvent;
 };
 
 export const EXPLORE_V2_QUIET_OVERLAY_FOCUS_MS = 2600;
@@ -179,10 +182,99 @@ export function trackExploreV2SaveToggle(input: {
   });
 }
 
+export function trackExploreV2CtaSheetOpened(input: {
+  context: ExploreV2ActionContext;
+  label: "Book" | "Request viewing";
+  trackFn?: typeof trackExploreFunnelEvent;
+}) {
+  const trackFn = input.trackFn ?? trackExploreFunnelEvent;
+  trackFn({
+    name: "explore_v2_cta_sheet_opened",
+    listingId: input.context.listingId,
+    marketCode: input.context.marketCode,
+    intentType: input.context.intentType,
+    index: input.context.index,
+    feedSize: input.context.feedSize,
+    action: input.label.toLowerCase(),
+    result: "opened",
+  });
+}
+
+export function trackExploreV2CtaPrimaryClicked(input: {
+  context: ExploreV2ActionContext;
+  label: "Book" | "Request viewing";
+  trackFn?: typeof trackExploreFunnelEvent;
+}) {
+  const trackFn = input.trackFn ?? trackExploreFunnelEvent;
+  trackFn({
+    name: "explore_v2_cta_primary_clicked",
+    listingId: input.context.listingId,
+    marketCode: input.context.marketCode,
+    intentType: input.context.intentType,
+    index: input.context.index,
+    feedSize: input.context.feedSize,
+    action: input.label.toLowerCase(),
+    result: "clicked",
+  });
+}
+
+export function trackExploreV2CtaViewDetailsClicked(input: {
+  context: ExploreV2ActionContext;
+  trackFn?: typeof trackExploreFunnelEvent;
+}) {
+  const trackFn = input.trackFn ?? trackExploreFunnelEvent;
+  trackFn({
+    name: "explore_v2_cta_view_details_clicked",
+    listingId: input.context.listingId,
+    marketCode: input.context.marketCode,
+    intentType: input.context.intentType,
+    index: input.context.index,
+    feedSize: input.context.feedSize,
+    action: "view_details",
+    result: "clicked",
+  });
+}
+
+export function trackExploreV2CtaSaveClicked(input: {
+  context: ExploreV2ActionContext;
+  result: "saved" | "unsaved" | "auth_required";
+  trackFn?: typeof trackExploreFunnelEvent;
+}) {
+  const trackFn = input.trackFn ?? trackExploreFunnelEvent;
+  trackFn({
+    name: "explore_v2_cta_save_clicked",
+    listingId: input.context.listingId,
+    marketCode: input.context.marketCode,
+    intentType: input.context.intentType,
+    index: input.context.index,
+    feedSize: input.context.feedSize,
+    action: "save",
+    result: input.result,
+  });
+}
+
+export function trackExploreV2CtaShareClicked(input: {
+  context: ExploreV2ActionContext;
+  result: "shared" | "copied" | "dismissed" | "error";
+  trackFn?: typeof trackExploreFunnelEvent;
+}) {
+  const trackFn = input.trackFn ?? trackExploreFunnelEvent;
+  trackFn({
+    name: "explore_v2_cta_share_clicked",
+    listingId: input.context.listingId,
+    marketCode: input.context.marketCode,
+    intentType: input.context.intentType,
+    index: input.context.index,
+    feedSize: input.context.feedSize,
+    action: "share",
+    result: input.result,
+  });
+}
+
 export async function triggerExploreV2ShareAction(
   input: ExploreV2ShareActionInput,
   deps: ExploreV2ShareActionDeps = {}
-): Promise<ShareActionResult | "error"> {
+): Promise<Exclude<ShareActionResult, "unavailable"> | "error"> {
   const shareFn = deps.shareFn ?? performShare;
   const origin =
     deps.origin === undefined
@@ -228,6 +320,11 @@ export function continueExploreV2Cta(
     action: "continue",
     result: "navigated",
   });
+  trackExploreV2CtaPrimaryClicked({
+    context: input.context,
+    label: input.label,
+    trackFn,
+  });
   deps.pushFn(input.href);
 }
 
@@ -235,6 +332,11 @@ export function continueExploreV2ViewDetails(
   input: ExploreV2ViewDetailsInput,
   deps: ExploreV2ViewDetailsDeps
 ) {
+  const trackFn = deps.trackFn ?? trackExploreFunnelEvent;
+  trackExploreV2CtaViewDetailsClicked({
+    context: input.context,
+    trackFn,
+  });
   deps.pushFn(input.href);
 }
 
@@ -511,13 +613,30 @@ function ExploreV2CardInner({
     [actionContext, showGlassToast]
   );
 
-  const handleShare = useCallback(async () => {
+  const handleSheetSaveToggle = useCallback(
+    (saved: boolean) => {
+      handleSaveToggle(saved);
+      trackExploreV2CtaSaveClicked({
+        context: actionContext,
+        result: saved ? "saved" : "unsaved",
+      });
+    },
+    [actionContext, handleSaveToggle]
+  );
+
+  const handleShare = useCallback(async (source: "rail" | "sheet" = "rail") => {
     const result = await triggerExploreV2ShareAction({
       detailsHref,
       title: formattedTitle,
       locationLine,
       context: actionContext,
     });
+    if (source === "sheet") {
+      trackExploreV2CtaShareClicked({
+        context: actionContext,
+        result: result === "error" ? "error" : result,
+      });
+    }
     showGlassToast(resolveExploreV2ShareFeedback(result));
   }, [actionContext, detailsHref, formattedTitle, locationLine, showGlassToast]);
 
@@ -540,6 +659,20 @@ function ExploreV2CardInner({
     [viewerIsAuthenticated]
   );
 
+  const handleSheetSaveSurfaceCapture = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (viewerIsAuthenticated) return;
+      trackExploreV2CtaSaveClicked({
+        context: actionContext,
+        result: "auth_required",
+      });
+      event.preventDefault();
+      event.stopPropagation();
+      setSaveAuthSheetOpen(true);
+    },
+    [actionContext, viewerIsAuthenticated]
+  );
+
   const openCtaSheet = useCallback(() => {
     trackExploreFunnelEvent({
       name: "explore_v2_cta_open",
@@ -550,6 +683,10 @@ function ExploreV2CardInner({
       feedSize: actionContext.feedSize,
       action: primaryAction.label.toLowerCase(),
     });
+    trackExploreV2CtaSheetOpened({
+      context: actionContext,
+      label: primaryAction.label,
+    });
     setCtaSheetOpen(true);
   }, [actionContext, primaryAction.label]);
 
@@ -558,6 +695,7 @@ function ExploreV2CardInner({
     continueExploreV2Cta(
       {
         href: primaryAction.href,
+        label: primaryAction.label,
         context: actionContext,
       },
       {
@@ -568,12 +706,15 @@ function ExploreV2CardInner({
         },
       }
     );
-  }, [actionContext, primaryAction.href]);
+  }, [actionContext, primaryAction.href, primaryAction.label]);
 
   const handleViewDetails = useCallback(() => {
     setCtaSheetOpen(false);
     continueExploreV2ViewDetails(
-      { href: detailsHref },
+      {
+        href: detailsHref,
+        context: actionContext,
+      },
       {
         pushFn: (href) => {
           if (typeof window !== "undefined") {
@@ -582,7 +723,7 @@ function ExploreV2CardInner({
         },
       }
     );
-  }, [detailsHref]);
+  }, [actionContext, detailsHref]);
 
   const handleHeroInteractionCapture = useCallback(() => {
     overlayFocusController.trigger();
@@ -776,9 +917,9 @@ function ExploreV2CardInner({
         detailsHref={detailsHref}
         onViewDetails={handleViewDetails}
         onShare={() => {
-          void handleShare();
+          void handleShare("sheet");
         }}
-        onSaveSurfaceCapture={handleSaveSurfaceCapture}
+        onSaveSurfaceCapture={handleSheetSaveSurfaceCapture}
         viewerIsAuthenticated={viewerIsAuthenticated}
         saveToggle={{
           itemId: listing.id,
@@ -788,7 +929,7 @@ function ExploreV2CardInner({
           subtitle: locationLine,
           tag: intentTag,
           marketCountry: actionContext.marketCode,
-          onToggle: handleSaveToggle,
+          onToggle: handleSheetSaveToggle,
         }}
       />
       <BottomSheet

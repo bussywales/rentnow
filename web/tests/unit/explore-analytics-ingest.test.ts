@@ -181,7 +181,7 @@ void test("explore analytics ingest accepts explore-v2 micro-action events", asy
   const response = await postExploreAnalyticsIngestResponse(
     buildRequest(
       {
-        eventName: "explore_v2_cta_open",
+        eventName: "explore_v2_cta_sheet_opened",
         listingId: "33333333-3333-4333-8333-333333333333",
         marketCode: "NG",
         intentType: "rent",
@@ -221,5 +221,5 @@ void test("explore analytics ingest accepts explore-v2 micro-action events", asy
   );
 
   assert.equal(response.status, 201);
-  assert.equal(insertedEventName, "explore_v2_cta_open");
+  assert.equal(insertedEventName, "explore_v2_cta_sheet_opened");
 });

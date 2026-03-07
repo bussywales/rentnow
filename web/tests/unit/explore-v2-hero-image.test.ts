@@ -20,6 +20,10 @@ import {
   resolveExploreV2HeroUiState,
   resolveExploreV2OverlayOpacityClass,
   shouldShowExploreV2TitleTooltip,
+  trackExploreV2CtaSaveClicked,
+  trackExploreV2CtaShareClicked,
+  trackExploreV2CtaSheetOpened,
+  trackExploreV2CtaViewDetailsClicked,
   trackExploreV2SaveToggle,
   triggerExploreV2ShareAction,
 } from "@/components/explore-v2/ExploreV2Card";
@@ -384,6 +388,7 @@ void test("explore-v2 cta continue helper tracks and navigates", () => {
   continueExploreV2Cta(
     {
       href: `/properties/${listing.id}?source=explore_v0#cta`,
+      label: "Request viewing",
       context,
     },
     {
@@ -398,23 +403,54 @@ void test("explore-v2 cta continue helper tracks and navigates", () => {
   );
 
   assert.equal(pushedHref, `/properties/${listing.id}?source=explore_v0#cta`);
-  assert.deepEqual(tracked, ["explore_v2_cta_continue"]);
+  assert.deepEqual(tracked, ["explore_v2_cta_continue", "explore_v2_cta_primary_clicked"]);
 });
 
 void test("explore-v2 view-details helper navigates to details route", () => {
+  const listing = createExploreV2Listing({ id: "listing-view-details", country_code: "NG" });
+  const context = resolveExploreV2ActionContext({ listing, index: 1, feedSize: 10 });
   let pushedHref: string | null = null;
+  const tracked: string[] = [];
   continueExploreV2ViewDetails(
     {
       href: "/properties/listing-42?source=explore_v0",
+      context,
     },
     {
       pushFn: (href) => {
         pushedHref = href;
       },
+      trackFn: (event) => {
+        tracked.push(event.name);
+        return [];
+      },
     }
   );
 
   assert.equal(pushedHref, "/properties/listing-42?source=explore_v0");
+  assert.deepEqual(tracked, ["explore_v2_cta_view_details_clicked"]);
+});
+
+void test("explore-v2 conversion sheet analytics helpers emit contextual events", () => {
+  const listing = createExploreV2Listing({ id: "listing-analytics", country_code: "NG" });
+  const context = resolveExploreV2ActionContext({ listing, index: 4, feedSize: 15 });
+  const tracked: string[] = [];
+  const trackFn = (event: { name: string }) => {
+    tracked.push(event.name);
+    return [];
+  };
+
+  trackExploreV2CtaSheetOpened({ context, label: "Book", trackFn });
+  trackExploreV2CtaViewDetailsClicked({ context, trackFn });
+  trackExploreV2CtaSaveClicked({ context, result: "saved", trackFn });
+  trackExploreV2CtaShareClicked({ context, result: "copied", trackFn });
+
+  assert.deepEqual(tracked, [
+    "explore_v2_cta_sheet_opened",
+    "explore_v2_cta_view_details_clicked",
+    "explore_v2_cta_save_clicked",
+    "explore_v2_cta_share_clicked",
+  ]);
 });
 
 void test("explore-v2 quiet overlay controller elevates opacity on interaction and resets after timeout", (t) => {

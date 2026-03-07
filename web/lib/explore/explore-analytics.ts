@@ -23,7 +23,12 @@ export type ExploreAnalyticsEventName =
   | "explore_v2_save_toggle"
   | "explore_v2_share"
   | "explore_v2_cta_open"
-  | "explore_v2_cta_continue";
+  | "explore_v2_cta_continue"
+  | "explore_v2_cta_sheet_opened"
+  | "explore_v2_cta_primary_clicked"
+  | "explore_v2_cta_view_details_clicked"
+  | "explore_v2_cta_save_clicked"
+  | "explore_v2_cta_share_clicked";
 
 export type ExploreAnalyticsEvent = {
   name: ExploreAnalyticsEventName;

@@ -166,3 +166,14 @@ void test("explore source records funnel events across pager and details sheet",
   assert.match(detailsSource, /name: "explore_submit_request_fail"/);
   assert.match(detailsSource, /name: "explore_continue_booking"/);
 });
+
+void test("explore-v2 conversion sheet source records consent-aware micro-action events", () => {
+  const sourcePath = path.join(process.cwd(), "components", "explore-v2", "ExploreV2Card.tsx");
+  const source = readFileSync(sourcePath, "utf8");
+
+  assert.match(source, /name: "explore_v2_cta_sheet_opened"/);
+  assert.match(source, /name: "explore_v2_cta_primary_clicked"/);
+  assert.match(source, /name: "explore_v2_cta_view_details_clicked"/);
+  assert.match(source, /name: "explore_v2_cta_save_clicked"/);
+  assert.match(source, /name: "explore_v2_cta_share_clicked"/);
+});
