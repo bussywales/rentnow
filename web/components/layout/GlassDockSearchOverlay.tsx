@@ -56,9 +56,10 @@ export function GlassDockSearchOverlay({
         className="fixed inset-0 z-40 bg-slate-900/30 transition-opacity md:hidden"
       />
       <div
+        id="glass-dock-search-overlay"
         hidden={!open}
         aria-hidden={!open}
-        className="fixed inset-x-0 bottom-[calc(5rem+env(safe-area-inset-bottom))] z-50 px-3 transition-all md:hidden"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] left-3 right-3 z-50 overflow-x-clip transition-all md:hidden"
         data-testid="glass-dock-search-overlay"
       >
         <div className="mx-auto w-full max-w-md rounded-3xl border border-white/45 bg-white/80 p-3 shadow-[0_18px_36px_rgba(15,23,42,0.18)] backdrop-blur-xl backdrop-saturate-150">

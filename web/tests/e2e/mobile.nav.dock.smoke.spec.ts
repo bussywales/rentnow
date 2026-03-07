@@ -22,13 +22,38 @@ function attachRuntimeErrorGuards(page: Page) {
   return runtimeErrors;
 }
 
+async function getHorizontalOverflowSnapshot(page: Page) {
+  return page.evaluate(() => {
+    const root = document.documentElement;
+    const offenders: Array<{ tag: string; testId: string | null; right: number; width: number }> = [];
+    const maxRight = root.clientWidth + 1;
+    for (const node of Array.from(document.querySelectorAll<HTMLElement>("body *"))) {
+      const rect = node.getBoundingClientRect();
+      if (!Number.isFinite(rect.right) || rect.width <= 0) continue;
+      if (rect.right <= maxRight) continue;
+      offenders.push({
+        tag: node.tagName.toLowerCase(),
+        testId: node.getAttribute("data-testid"),
+        right: Math.round(rect.right * 100) / 100,
+        width: Math.round(rect.width * 100) / 100,
+      });
+      if (offenders.length >= 8) break;
+    }
+    return {
+      scrollWidth: root.scrollWidth,
+      clientWidth: root.clientWidth,
+      offenders,
+    };
+  });
+}
+
 test.use({
   viewport: { width: 390, height: 844 },
   isMobile: true,
   hasTouch: true,
 });
 
-test("mobile glass dock renders, supports dock navigation taps, and stays hidden on admin/auth route", async ({
+test("mobile glass dock renders, supports dock navigation taps, and stays hidden on auth route", async ({
   page,
 }) => {
   const runtimeErrors = attachRuntimeErrorGuards(page);
@@ -57,6 +82,18 @@ test("mobile glass dock renders, supports dock navigation taps, and stays hidden
   await expect(page.getByTestId(smokeSelectors.glassDockSearchOverlay)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId(smokeSelectors.glassDockSearchOverlay)).toBeHidden();
+  await expect
+    .poll(
+      async () => {
+        const snapshot = await getHorizontalOverflowSnapshot(page);
+        return snapshot.scrollWidth - snapshot.clientWidth;
+      },
+      {
+        timeout: 5_000,
+        message: "mobile dock search close should not leave document horizontally pannable",
+      }
+    )
+    .toBeLessThanOrEqual(1);
 
   await page.getByTestId(smokeSelectors.glassDockLinkExploreV2).click();
   await page.waitForURL(/\/explore-v2(?:\?|$)/, { timeout: 15_000 });
@@ -70,11 +107,8 @@ test("mobile glass dock renders, supports dock navigation taps, and stays hidden
     { timeout: 15_000 }
   );
 
-  await page.goto("/admin/settings", { waitUntil: "domcontentloaded" });
-  const adminAttemptPath = new URL(page.url()).pathname;
-  if (adminAttemptPath.startsWith("/admin") || adminAttemptPath.startsWith("/auth")) {
-    await expect(page.getByTestId(smokeSelectors.glassDock)).toBeHidden();
-  }
+  await page.goto("/auth/login", { waitUntil: "domcontentloaded" });
+  await expect(page.getByTestId(smokeSelectors.glassDock)).toBeHidden();
 
   expect(runtimeErrors, `mobile nav dock smoke emitted runtime errors:\n${runtimeErrors.join("\n")}`).toEqual(
     []

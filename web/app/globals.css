@@ -12,6 +12,7 @@
 html,
 body {
   background-color: #f8fafc;
+  overflow-x: hidden;
 }
 
 @theme inline {

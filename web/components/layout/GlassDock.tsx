@@ -303,7 +303,7 @@ export function GlassDock() {
   return (
     <>
       <div
-        className="pointer-events-none fixed inset-x-0 bottom-0 z-10 px-3 md:hidden"
+        className="pointer-events-none fixed bottom-0 left-3 right-3 z-10 overflow-x-clip md:hidden"
         style={{ paddingBottom: "calc(env(safe-area-inset-bottom, 0px) + 0.4rem)" }}
       >
         <div

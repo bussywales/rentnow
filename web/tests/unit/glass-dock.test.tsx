@@ -53,6 +53,7 @@ void test("glass dock source declares mobile dock shell, route gating, and searc
   assert.match(source, /const HIDE_PREFIXES = \["\/admin", "\/auth"\]/);
   assert.match(source, /useScrollIdle\(\{ idleMs: 140 \}\)/);
   assert.match(source, /data-testid="glass-dock"/);
+  assert.match(source, /fixed bottom-0 left-3 right-3/);
   assert.match(source, /data-testid="glass-dock-search-trigger"/);
   assert.match(source, /GlassDockSearchOverlay/);
   assert.match(source, /setSearchOpen\(\(current\) => !current\)/);
@@ -72,6 +73,8 @@ void test("glass dock search overlay source supports open-close and command acti
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /data-testid="glass-dock-search-overlay"/);
+  assert.match(source, /id="glass-dock-search-overlay"/);
+  assert.match(source, /fixed bottom-\[calc\(5rem\+env\(safe-area-inset-bottom\)\)\] left-3 right-3/);
   assert.match(source, /data-testid="glass-dock-search-input"/);
   assert.match(source, /data-testid="glass-dock-search-close"/);
   assert.match(source, /data-testid="glass-dock-search-near-me"/);

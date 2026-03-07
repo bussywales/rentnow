@@ -14,6 +14,11 @@ void test("globals set deterministic light first-paint background", () => {
   );
   assert.match(
     css,
+    /html,\s*body\s*\{[\s\S]*overflow-x:\s*hidden;/,
+    "expected html/body horizontal overflow lock"
+  );
+  assert.match(
+    css,
     /html\s*\{[\s\S]*color-scheme:\s*light;/,
     "expected html color-scheme to be light"
   );
