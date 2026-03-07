@@ -128,6 +128,12 @@ type ExplorePriceCopy = {
   estTotal: string | null;
 };
 
+export type ExplorePriceClarityCopy = {
+  amount: string;
+  suffix: "/ night" | "/ month" | "/ year" | "";
+  note: string | null;
+};
+
 type SearchParamsLike = {
   get: (key: string) => string | null;
 };
@@ -233,6 +239,63 @@ export function resolveExplorePriceCopy(
     primary: basePrice,
     secondary: null,
     estTotal: null,
+  };
+}
+
+function resolveKnownShortletFeeNote(property: Property): string | null {
+  const firstSettings = Array.isArray(property.shortlet_settings) ? property.shortlet_settings[0] : null;
+  if (!firstSettings || typeof firstSettings !== "object") return null;
+  const setting = firstSettings as Record<string, unknown>;
+  const cleaningFeeMinor =
+    typeof setting.cleaning_fee_minor === "number" && Number.isFinite(setting.cleaning_fee_minor)
+      ? Math.max(0, Math.trunc(setting.cleaning_fee_minor))
+      : 0;
+  const taxPct =
+    typeof setting.tax_pct === "number" && Number.isFinite(setting.tax_pct)
+      ? Math.max(0, setting.tax_pct)
+      : 0;
+
+  if (cleaningFeeMinor > 0 && taxPct > 0) return "Excludes cleaning fee and taxes";
+  if (cleaningFeeMinor > 0) return "Excludes cleaning fee";
+  if (taxPct > 0) return "Excludes taxes";
+  return null;
+}
+
+export function resolveExplorePriceClarityCopy(
+  property: Property,
+  options: {
+    marketCurrency?: string | null;
+    stayContext?: ExploreStayContext | null;
+  } = {}
+): ExplorePriceClarityCopy {
+  const intent = resolveExploreAnalyticsIntentType(property);
+  const marketCurrency = options.marketCurrency ?? null;
+  const baseCopy = resolveExplorePriceCopy(property, options);
+
+  if (intent === "shortlet") {
+    const nightlyMinor = resolveShortletNightlyPriceMinor(property);
+    const nightly = typeof nightlyMinor === "number" && nightlyMinor > 0 ? nightlyMinor / 100 : property.price;
+    const amount = formatPriceValue(property.currency, nightly, { marketCurrency });
+    return {
+      amount,
+      suffix: "/ night",
+      note: baseCopy.estTotal ?? resolveKnownShortletFeeNote(property),
+    };
+  }
+
+  const amount = formatPriceValue(property.currency, property.price, { marketCurrency });
+  if (intent === "rent") {
+    return {
+      amount,
+      suffix: property.rent_period === "yearly" ? "/ year" : "/ month",
+      note: baseCopy.estTotal,
+    };
+  }
+
+  return {
+    amount,
+    suffix: "",
+    note: baseCopy.estTotal,
   };
 }
 

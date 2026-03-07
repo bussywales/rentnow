@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { mockProperties } from "@/lib/mock";
 import type { Property } from "@/lib/types";
 import {
+  resolveExplorePriceClarityCopy,
   resolveExplorePriceCopy,
   resolveExploreStayContextFromSearchParams,
 } from "@/lib/explore/explore-presentation";
@@ -75,6 +76,60 @@ void test("buy pricing shows a single clear amount without cadence suffix", () =
   const copy = resolveExplorePriceCopy(buyListing, { marketCurrency: "GBP" });
   assert.doesNotMatch(copy.primary, /\/(month|year|night)$/);
   assert.equal(copy.estTotal, null);
+});
+
+void test("price clarity copy uses truthful cadence by intent", () => {
+  const shortlet = {
+    ...buildBaseListing(),
+    listing_intent: "shortlet" as const,
+    rental_type: "short_let" as const,
+    shortlet_settings: [{ booking_mode: "instant", nightly_price_minor: 12000 }],
+  };
+  const rent = {
+    ...buildBaseListing(),
+    listing_intent: "rent_lease" as const,
+    rental_type: "long_term" as const,
+    rent_period: "monthly" as const,
+    price: 950,
+  };
+  const buy = {
+    ...buildBaseListing(),
+    listing_intent: "sale" as const,
+    rental_type: "long_term" as const,
+    price: 250000,
+  };
+
+  const shortletClarity = resolveExplorePriceClarityCopy(shortlet, { marketCurrency: "GBP" });
+  const rentClarity = resolveExplorePriceClarityCopy(rent, { marketCurrency: "GBP" });
+  const buyClarity = resolveExplorePriceClarityCopy(buy, { marketCurrency: "GBP" });
+
+  assert.equal(shortletClarity.suffix, "/ night");
+  assert.equal(rentClarity.suffix, "/ month");
+  assert.equal(buyClarity.suffix, "");
+  assert.match(shortletClarity.amount, /£/);
+  assert.match(rentClarity.amount, /£/);
+  assert.match(buyClarity.amount, /£/);
+});
+
+void test("price clarity fee note appears only when known fee fields exist", () => {
+  const noFeeShortlet = {
+    ...buildBaseListing(),
+    listing_intent: "shortlet" as const,
+    rental_type: "short_let" as const,
+    shortlet_settings: [{ booking_mode: "instant", nightly_price_minor: 12000 }],
+  };
+  const withFeeShortlet = {
+    ...buildBaseListing(),
+    listing_intent: "shortlet" as const,
+    rental_type: "short_let" as const,
+    shortlet_settings: [{ booking_mode: "instant", nightly_price_minor: 12000, cleaning_fee_minor: 3000 }],
+  };
+
+  const noFeeClarity = resolveExplorePriceClarityCopy(noFeeShortlet, { marketCurrency: "GBP" });
+  const feeClarity = resolveExplorePriceClarityCopy(withFeeShortlet, { marketCurrency: "GBP" });
+
+  assert.equal(noFeeClarity.note, null);
+  assert.equal(feeClarity.note, "Excludes cleaning fee");
 });
 
 void test("search params parser extracts flexible date and guest keys safely", () => {

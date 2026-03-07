@@ -15,7 +15,11 @@ void test("explore-v2 conversion sheet renders summary and actions when open", (
       sheetId: "explore-v2-cta-sheet-listing-1",
       title: "Lekki Waterfront Apartment",
       locationLine: "Lagos, NG",
-      pricePrimary: "From ₦120,000/night",
+      priceClarity: {
+        amount: "₦120,000",
+        suffix: "/ night",
+        note: "Excludes cleaning fee",
+      },
       intentTag: "Shortlets",
       hasVideo: true,
       thumbnailSrc: "https://example.supabase.co/storage/v1/object/public/property-images/listing-1.jpg",
@@ -46,7 +50,13 @@ void test("explore-v2 conversion sheet renders summary and actions when open", (
   assert.match(html, /data-testid="explore-v2-cta-summary-location"/);
   assert.match(html, /Lagos, NG/);
   assert.match(html, /data-testid="explore-v2-cta-summary-price"/);
-  assert.match(html, /From ₦120,000\/night/);
+  assert.match(html, /From/);
+  assert.match(html, /data-testid="explore-v2-cta-price-amount"/);
+  assert.match(html, /₦120,000/);
+  assert.match(html, /data-testid="explore-v2-cta-price-suffix"/);
+  assert.match(html, /\/ night/);
+  assert.match(html, /data-testid="explore-v2-cta-price-note"/);
+  assert.match(html, /Excludes cleaning fee/);
   assert.match(html, /data-testid="explore-v2-cta-continue"/);
   assert.match(html, />Book</);
   assert.match(html, /data-testid="explore-v2-cta-view-details"/);

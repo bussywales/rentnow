@@ -20,6 +20,7 @@ import {
   resolveExploreIntentTag,
   resolveExploreListingKind,
   resolveExploreListingMarketCountry,
+  resolveExplorePriceClarityCopy,
   resolveExplorePrimaryAction,
   resolveExplorePriceCopy,
 } from "@/lib/explore/explore-presentation";
@@ -547,6 +548,10 @@ function ExploreV2CardInner({
     () => resolveExplorePriceCopy(listing, { marketCurrency, stayContext: null }),
     [listing, marketCurrency]
   );
+  const priceClarity = useMemo(
+    () => resolveExplorePriceClarityCopy(listing, { marketCurrency, stayContext: null }),
+    [listing, marketCurrency]
+  );
   const detailsHref = useMemo(() => resolveExploreDetailsHref(listing), [listing]);
   const primaryAction = useMemo(() => resolveExplorePrimaryAction(listing), [listing]);
   const listingKind = useMemo(() => resolveExploreListingKind(listing), [listing]);
@@ -908,7 +913,7 @@ function ExploreV2CardInner({
         sheetId={`explore-v2-cta-sheet-${listing.id}`}
         title={formattedTitle}
         locationLine={locationLine}
-        pricePrimary={price.primary}
+        priceClarity={priceClarity}
         intentTag={intentTag}
         hasVideo={showFeaturedVideoBadge}
         thumbnailSrc={sheetThumbnailSrc}

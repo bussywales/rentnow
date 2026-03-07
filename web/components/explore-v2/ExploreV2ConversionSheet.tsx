@@ -7,6 +7,7 @@ import { SaveToggle } from "@/components/saved/SaveToggle";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { cn } from "@/components/ui/cn";
 import { EXPLORE_GALLERY_FALLBACK_IMAGE } from "@/lib/explore/gallery-images";
+import type { ExplorePriceClarityCopy } from "@/lib/explore/explore-presentation";
 import { glassSurface } from "@/lib/ui/glass";
 import type { SavedItemKind } from "@/lib/saved";
 
@@ -16,7 +17,7 @@ type ExploreV2ConversionSheetProps = {
   sheetId: string;
   title: string;
   locationLine: string;
-  pricePrimary: string;
+  priceClarity: ExplorePriceClarityCopy;
   intentTag: string;
   hasVideo: boolean;
   thumbnailSrc: string | null;
@@ -51,7 +52,7 @@ export function ExploreV2ConversionSheet({
   sheetId,
   title,
   locationLine,
-  pricePrimary,
+  priceClarity,
   intentTag,
   hasVideo,
   thumbnailSrc,
@@ -92,9 +93,22 @@ export function ExploreV2ConversionSheet({
             <p className="mt-0.5 truncate text-xs text-white/80" data-testid="explore-v2-cta-summary-location">
               {locationLine}
             </p>
-            <p className="mt-1.5 text-sm font-semibold text-white" data-testid="explore-v2-cta-summary-price">
-              {pricePrimary}
+            <p className="mt-1.5 flex items-baseline gap-1 text-sm text-white" data-testid="explore-v2-cta-summary-price">
+              <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-white/70">From</span>
+              <span className="text-base font-semibold text-white" data-testid="explore-v2-cta-price-amount">
+                {priceClarity.amount}
+              </span>
+              {priceClarity.suffix ? (
+                <span className="text-[13px] font-medium text-white/85" data-testid="explore-v2-cta-price-suffix">
+                  {priceClarity.suffix}
+                </span>
+              ) : null}
             </p>
+            {priceClarity.note ? (
+              <p className="mt-0.5 text-[11px] text-white/75" data-testid="explore-v2-cta-price-note">
+                {priceClarity.note}
+              </p>
+            ) : null}
             <div className="mt-2 flex flex-wrap gap-1.5">
               <span className="rounded-full border border-white/25 bg-white/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white">
                 {intentTag}
