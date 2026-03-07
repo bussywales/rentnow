@@ -21,7 +21,7 @@ import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import { getListingPopularitySignals } from "@/lib/properties/popularity.server";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import type { ListingSocialProof } from "@/lib/properties/listing-trust-badges";
-import { BRAND_OG_IMAGE } from "@/lib/brand";
+import { BRAND_OG_SHARE_IMAGE } from "@/lib/brand";
 import { getCanonicalBaseUrl, getSiteUrl } from "@/lib/env";
 import { deriveSavedSearchFiltersFromCollectionListings } from "@/lib/saved-searches/from-collection";
 import { filtersToSearchParams, parseFiltersFromSavedSearch } from "@/lib/search-filters";
@@ -89,7 +89,7 @@ export function buildCollectionShareMetadata(input: {
   const description = input.city
     ? `Shared shortlist of homes in ${input.city} on PropatyHub.`
     : "Shared shortlist of homes on PropatyHub.";
-  const imageUrl = input.imageUrl || BRAND_OG_IMAGE;
+  const imageUrl = input.imageUrl || BRAND_OG_SHARE_IMAGE;
 
   return {
     title,
@@ -120,7 +120,9 @@ export function buildStaticCollectionMetadata(input: {
 }): Metadata {
   const canonicalPath = `/collections/${encodeURIComponent(input.slug)}`;
   const canonicalUrl = input.baseUrl ? `${input.baseUrl}${canonicalPath}` : canonicalPath;
-  const ogImageUrl = input.baseUrl ? `${input.baseUrl}${BRAND_OG_IMAGE}` : BRAND_OG_IMAGE;
+  const ogImageUrl = input.baseUrl
+    ? `${input.baseUrl}${BRAND_OG_SHARE_IMAGE}`
+    : BRAND_OG_SHARE_IMAGE;
   const title = `${input.title} · PropatyHub`;
   const description = `${input.description} Share this market-aware collection on PropatyHub.`;
 

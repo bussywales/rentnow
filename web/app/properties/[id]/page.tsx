@@ -62,6 +62,7 @@ import {
 } from "@/lib/shortlet/cancellation";
 import { CtaHashAnchorClient } from "@/components/properties/CtaHashAnchorClient";
 import { resolvePropertyDetailWithFallback } from "@/lib/properties/property-detail-resilience";
+import { BRAND_OG_SHARE_IMAGE } from "@/lib/brand";
 
 type Params = { id?: string };
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -287,7 +288,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description =
     property.description ||
     `Discover ${property.title} in ${property.city}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${formatPriceValue(property.currency, property.price, { marketCurrency: market.currency })}.`;
-  const imageUrl = property.cover_image_url || property.images?.[0]?.image_url;
+  const imageUrl = property.cover_image_url || property.images?.[0]?.image_url || BRAND_OG_SHARE_IMAGE;
 
   const canonicalPath = `/properties/${property.id}`;
   const canonicalUrl = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;
@@ -303,13 +304,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: canonicalUrl,
       type: "article",
       siteName: "PropatyHub",
-      images: imageUrl ? [{ url: imageUrl, alt: property.title }] : undefined,
+      images: [{ url: imageUrl, alt: property.title }],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
-      images: imageUrl ? [imageUrl] : undefined,
+      images: [imageUrl],
     },
     ...(isDemoListing
       ? {

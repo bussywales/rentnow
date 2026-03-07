@@ -8,6 +8,8 @@ export const BRAND_LOGO_LIGHT = "/logo.svg";
 export const BRAND_LOGO_DARK = "/logo-dark.svg";
 export const BRAND_MARK = "/mark.svg";
 export const BRAND_OG_IMAGE = "/og-propatyhub.png";
+export const BRAND_OG_SHARE_IMAGE = "/og-default.png";
+export const BRAND_SOCIAL_TAGLINE = "PropatyHub — Rent • Buy • Shortlets";
 export const BRAND_SITE_URL = `https://www.${BRAND_DOMAIN_PRIMARY}`;
 
 export const BRAND = {
@@ -23,6 +25,8 @@ export const BRAND = {
   },
   mark: BRAND_MARK,
   ogImage: BRAND_OG_IMAGE,
+  socialOgImage: BRAND_OG_SHARE_IMAGE,
+  socialTagline: BRAND_SOCIAL_TAGLINE,
 } as const;
 
 export function getBrandHostLabel(hostname?: string | null) {

@@ -8,7 +8,7 @@ import { buildPropertyShareRedirect, resolvePropertyShareStatus } from "@/lib/sh
 import { logPropertyEvent } from "@/lib/analytics/property-events.server";
 import { getSessionKeyFromCookies } from "@/lib/analytics/session.server";
 import { getCanonicalBaseUrl } from "@/lib/env";
-import { BRAND_OG_IMAGE } from "@/lib/brand";
+import { BRAND_OG_SHARE_IMAGE } from "@/lib/brand";
 import { formatPriceValue } from "@/lib/property-discovery";
 import {
   MARKET_COOKIE_NAME,
@@ -96,13 +96,13 @@ export async function generateMetadata({
       url: fallbackCanonical,
       type: "website",
       siteName: "PropatyHub",
-      images: [{ url: BRAND_OG_IMAGE, alt: "PropatyHub" }],
+      images: [{ url: BRAND_OG_SHARE_IMAGE, alt: "PropatyHub" }],
     },
     twitter: {
       card: "summary_large_image",
       title: "Property link · PropatyHub",
       description: "Open this shared property on PropatyHub.",
-      images: [BRAND_OG_IMAGE],
+      images: [BRAND_OG_SHARE_IMAGE],
     },
   };
 
@@ -119,7 +119,8 @@ export async function generateMetadata({
     const description =
       property.description ||
       `Discover ${property.title} in ${property.city}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${formatPriceValue(property.currency, property.price, { marketCurrency: market.currency })}.`;
-    const imageUrl = property.cover_image_url || property.property_images?.[0]?.image_url || BRAND_OG_IMAGE;
+    const imageUrl =
+      property.cover_image_url || property.property_images?.[0]?.image_url || BRAND_OG_SHARE_IMAGE;
     const canonicalPath = `/properties/${property.id}`;
     const canonicalUrl = baseUrl ? `${baseUrl}${canonicalPath}` : canonicalPath;
 

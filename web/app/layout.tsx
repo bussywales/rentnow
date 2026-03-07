@@ -16,7 +16,8 @@ import { GlassDock } from "@/components/layout/GlassDock";
 import {
   BRAND,
   BRAND_NAME,
-  BRAND_OG_IMAGE,
+  BRAND_OG_SHARE_IMAGE,
+  BRAND_SOCIAL_TAGLINE,
 } from "@/lib/brand";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
@@ -39,8 +40,7 @@ const geistMono = Geist_Mono({
   preload: false,
 });
 
-const metadataDescription =
-  "Find, list, and manage rentals across Africa with verified listings and secure messaging.";
+const metadataDescription = `${BRAND_SOCIAL_TAGLINE}. Find, list, and manage rentals with verified listings and secure messaging.`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(BRAND.siteUrl),
@@ -52,23 +52,23 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: BRAND_NAME,
-    title: BRAND_NAME,
+    title: BRAND_SOCIAL_TAGLINE,
     description: metadataDescription,
     url: BRAND.siteUrl,
     images: [
       {
-        url: BRAND_OG_IMAGE,
+        url: BRAND_OG_SHARE_IMAGE,
         width: 1200,
         height: 630,
-        alt: `${BRAND_NAME} preview`,
+        alt: BRAND_SOCIAL_TAGLINE,
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: BRAND_NAME,
+    title: BRAND_SOCIAL_TAGLINE,
     description: metadataDescription,
-    images: [BRAND_OG_IMAGE],
+    images: [BRAND_OG_SHARE_IMAGE],
   },
   icons: {
     icon: [

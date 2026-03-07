@@ -40,9 +40,9 @@ void test("static collections metadata resolves canonical and OG urls from base 
   );
   assert.equal(
     metadata.openGraph?.images?.[0]?.url,
-    "https://www.propatyhub.com/og-propatyhub.png"
+    "https://www.propatyhub.com/og-default.png"
   );
-  assert.equal(metadata.twitter?.images?.[0], "https://www.propatyhub.com/og-propatyhub.png");
+  assert.equal(metadata.twitter?.images?.[0], "https://www.propatyhub.com/og-default.png");
 });
 
 void test("collection share id resolution prefers static slugs, then UUIDs, then invalid", () => {
