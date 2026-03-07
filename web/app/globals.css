@@ -9,6 +9,11 @@
   color-scheme: light;
 }
 
+html,
+body {
+  background-color: #f8fafc;
+}
+
 @theme inline {
   --color-background: #f8fafc;
   --color-foreground: #0f172a;
@@ -30,6 +35,7 @@ body {
 }
 
 html {
+  color-scheme: light;
   scroll-padding-top: 5rem;
 }
 
