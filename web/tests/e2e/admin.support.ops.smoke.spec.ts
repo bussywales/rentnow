@@ -210,4 +210,29 @@ test.describe("admin support ops smoke", () => {
       `admin settings flow emitted runtime errors:\n${runtimeErrors.join("\n")}`
     ).toEqual([]);
   });
+
+  test("admin explore v2 conversion report renders KPI and export controls", async ({ page }) => {
+    test.skip(
+      !ADMIN_EMAIL || !ADMIN_PASSWORD,
+      "Admin credentials not configured for smoke run."
+    );
+
+    const runtimeErrors = attachRuntimeErrorGuards(page);
+
+    await loginAsAdmin(page);
+    await page.goto("/admin/analytics/explore-v2", { waitUntil: "domcontentloaded" });
+
+    if (page.url().includes("/auth/login")) {
+      test.skip(true, "Admin session could not be established.");
+    }
+
+    await expect(page.getByTestId(smokeSelectors.adminExploreV2ConversionPage)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.adminExploreV2ConversionKpis)).toBeVisible();
+    await expect(page.getByTestId(smokeSelectors.adminExploreV2ConversionExport)).toBeVisible();
+
+    expect(
+      runtimeErrors,
+      `admin explore v2 conversion flow emitted runtime errors:\n${runtimeErrors.join("\n")}`
+    ).toEqual([]);
+  });
 });

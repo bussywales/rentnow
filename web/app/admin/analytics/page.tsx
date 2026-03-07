@@ -139,6 +139,10 @@ export default async function AdminAnalyticsPage() {
           <Link className="font-semibold text-sky-700 hover:text-sky-800" href="/admin/analytics/explore">
             Open Explore analytics
           </Link>
+          {" · "}
+          <Link className="font-semibold text-sky-700 hover:text-sky-800" href="/admin/analytics/explore-v2">
+            Open Explore V2 conversion report
+          </Link>
         </p>
       </div>
 

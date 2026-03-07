@@ -1,0 +1,301 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { resolveExploreAnalyticsRange, type ExploreAnalyticsRange } from "@/lib/explore/explore-analytics.server";
+
+export const EXPLORE_V2_CONVERSION_EVENT_NAMES = [
+  "explore_v2_cta_sheet_opened",
+  "explore_v2_cta_primary_clicked",
+  "explore_v2_cta_view_details_clicked",
+  "explore_v2_cta_save_clicked",
+  "explore_v2_cta_share_clicked",
+] as const;
+
+export type ExploreV2ConversionEventName = (typeof EXPLORE_V2_CONVERSION_EVENT_NAMES)[number];
+export type ExploreV2ConversionMarketFilter = "ALL" | "NG" | "GB" | "CA" | "US";
+export type ExploreV2ConversionIntentFilter = "ALL" | "shortlet" | "rent" | "buy";
+export type ExploreV2ConversionFormat = "json" | "csv";
+export type ExploreV2ConversionMetricKey =
+  | "sheet_opened"
+  | "primary_clicked"
+  | "view_details_clicked"
+  | "save_clicked"
+  | "share_clicked";
+
+export type ExploreV2ConversionRow = {
+  created_at: string;
+  event_name: ExploreV2ConversionEventName;
+  listing_id: string | null;
+  market_code: string | null;
+  intent_type: "shortlet" | "rent" | "buy" | null;
+};
+
+export type ExploreV2ConversionTotals = Record<ExploreV2ConversionMetricKey, number>;
+
+export type ExploreV2ConversionRateSummary = {
+  primary_per_open: number | null;
+  view_details_per_open: number | null;
+  save_per_open: number | null;
+  share_per_open: number | null;
+};
+
+export type ExploreV2ConversionBreakdownRow = {
+  key: string;
+  label: string;
+} & ExploreV2ConversionTotals;
+
+export type ExploreV2ConversionDayBreakdownRow = {
+  date: string;
+} & ExploreV2ConversionTotals;
+
+export type ExploreV2ConversionReport = {
+  range: ExploreAnalyticsRange;
+  market: ExploreV2ConversionMarketFilter;
+  intent: ExploreV2ConversionIntentFilter;
+  totals: ExploreV2ConversionTotals;
+  rates: ExploreV2ConversionRateSummary;
+  by_day: ExploreV2ConversionDayBreakdownRow[];
+  by_market: ExploreV2ConversionBreakdownRow[];
+  by_intent: ExploreV2ConversionBreakdownRow[];
+};
+
+export type ExploreV2ConversionQuery = {
+  range: ExploreAnalyticsRange;
+  market: ExploreV2ConversionMarketFilter;
+  intent: ExploreV2ConversionIntentFilter;
+  format: ExploreV2ConversionFormat;
+};
+
+const EVENT_TO_METRIC: Record<ExploreV2ConversionEventName, ExploreV2ConversionMetricKey> = {
+  explore_v2_cta_sheet_opened: "sheet_opened",
+  explore_v2_cta_primary_clicked: "primary_clicked",
+  explore_v2_cta_view_details_clicked: "view_details_clicked",
+  explore_v2_cta_save_clicked: "save_clicked",
+  explore_v2_cta_share_clicked: "share_clicked",
+};
+
+const ALLOWED_MARKETS = new Set<ExploreV2ConversionMarketFilter>(["ALL", "NG", "GB", "CA", "US"]);
+const ALLOWED_INTENTS = new Set<ExploreV2ConversionIntentFilter>(["ALL", "shortlet", "rent", "buy"]);
+
+function parseMarketFilter(value: string | null | undefined): ExploreV2ConversionMarketFilter {
+  const normalized = (value || "").trim().toUpperCase();
+  if (ALLOWED_MARKETS.has(normalized as ExploreV2ConversionMarketFilter)) {
+    return normalized as ExploreV2ConversionMarketFilter;
+  }
+  return "ALL";
+}
+
+function parseIntentFilter(value: string | null | undefined): ExploreV2ConversionIntentFilter {
+  const normalized = (value || "").trim().toLowerCase();
+  if (ALLOWED_INTENTS.has(normalized as ExploreV2ConversionIntentFilter)) {
+    return normalized as ExploreV2ConversionIntentFilter;
+  }
+  return "ALL";
+}
+
+function parseFormat(value: string | null | undefined): ExploreV2ConversionFormat {
+  return (value || "").trim().toLowerCase() === "csv" ? "csv" : "json";
+}
+
+function toIsoDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+function cloneTotals(): ExploreV2ConversionTotals {
+  return {
+    sheet_opened: 0,
+    primary_clicked: 0,
+    view_details_clicked: 0,
+    save_clicked: 0,
+    share_clicked: 0,
+  };
+}
+
+function toRate(value: number, opened: number): number | null {
+  if (opened <= 0) return null;
+  return Number(((value / opened) * 100).toFixed(2));
+}
+
+function toMarketBucket(value: string | null): string {
+  const code = (value || "").trim().toUpperCase();
+  if (code === "NG" || code === "GB" || code === "CA" || code === "US") return code;
+  return "UNKNOWN";
+}
+
+function toIntentBucket(value: string | null): string {
+  const intent = (value || "").trim().toLowerCase();
+  if (intent === "shortlet" || intent === "rent" || intent === "buy") return intent;
+  return "unknown";
+}
+
+function buildDateSeries(startDate: string, endDate: string): string[] {
+  const start = new Date(`${startDate}T00:00:00.000Z`);
+  const end = new Date(`${endDate}T00:00:00.000Z`);
+  const days: string[] = [];
+  for (let cursor = start; cursor <= end; cursor = new Date(cursor.getTime() + 86_400_000)) {
+    days.push(toIsoDate(cursor));
+  }
+  return days;
+}
+
+function escapeCsvValue(value: string): string {
+  if (value.includes(",") || value.includes('"') || value.includes("\n")) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+export function resolveExploreV2ConversionQuery(input: {
+  date?: string | null;
+  start?: string | null;
+  end?: string | null;
+  market?: string | null;
+  intent?: string | null;
+  format?: string | null;
+  now?: Date;
+}): ExploreV2ConversionQuery {
+  return {
+    range: resolveExploreAnalyticsRange({
+      date: input.date,
+      start: input.start,
+      end: input.end,
+      now: input.now,
+    }),
+    market: parseMarketFilter(input.market),
+    intent: parseIntentFilter(input.intent),
+    format: parseFormat(input.format),
+  };
+}
+
+export async function fetchExploreV2ConversionRows(input: {
+  client: SupabaseClient;
+  startIso: string;
+  endIso: string;
+  market: ExploreV2ConversionMarketFilter;
+  intent: ExploreV2ConversionIntentFilter;
+  limit?: number;
+}): Promise<ExploreV2ConversionRow[]> {
+  const limit = Math.max(1, Math.min(input.limit ?? 10000, 50000));
+  let query = input.client
+    .from("explore_events")
+    .select("created_at,event_name,listing_id,market_code,intent_type")
+    .in("event_name", [...EXPLORE_V2_CONVERSION_EVENT_NAMES])
+    .gte("created_at", input.startIso)
+    .lte("created_at", input.endIso)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+
+  if (input.market !== "ALL") {
+    query = query.eq("market_code", input.market);
+  }
+  if (input.intent !== "ALL") {
+    query = query.eq("intent_type", input.intent);
+  }
+
+  const { data, error } = await query;
+  if (error) return [];
+  return (data as ExploreV2ConversionRow[] | null) ?? [];
+}
+
+export function buildExploreV2ConversionReport(input: {
+  rows: ReadonlyArray<ExploreV2ConversionRow>;
+  range: ExploreAnalyticsRange;
+  market: ExploreV2ConversionMarketFilter;
+  intent: ExploreV2ConversionIntentFilter;
+}): ExploreV2ConversionReport {
+  const totals = cloneTotals();
+  const byDayMap = new Map<string, ExploreV2ConversionTotals>();
+  const byMarketMap = new Map<string, ExploreV2ConversionTotals>();
+  const byIntentMap = new Map<string, ExploreV2ConversionTotals>();
+  const dateSeries = buildDateSeries(input.range.startDate, input.range.endDate);
+
+  for (const day of dateSeries) {
+    byDayMap.set(day, cloneTotals());
+  }
+
+  byMarketMap.set("NG", cloneTotals());
+  byMarketMap.set("GB", cloneTotals());
+  byMarketMap.set("CA", cloneTotals());
+  byMarketMap.set("US", cloneTotals());
+
+  byIntentMap.set("shortlet", cloneTotals());
+  byIntentMap.set("rent", cloneTotals());
+  byIntentMap.set("buy", cloneTotals());
+
+  for (const row of input.rows) {
+    const metric = EVENT_TO_METRIC[row.event_name];
+    totals[metric] += 1;
+
+    const dayKey = row.created_at.slice(0, 10);
+    if (!byDayMap.has(dayKey)) {
+      byDayMap.set(dayKey, cloneTotals());
+    }
+    byDayMap.get(dayKey)![metric] += 1;
+
+    const marketKey = toMarketBucket(row.market_code);
+    if (!byMarketMap.has(marketKey)) {
+      byMarketMap.set(marketKey, cloneTotals());
+    }
+    byMarketMap.get(marketKey)![metric] += 1;
+
+    const intentKey = toIntentBucket(row.intent_type);
+    if (!byIntentMap.has(intentKey)) {
+      byIntentMap.set(intentKey, cloneTotals());
+    }
+    byIntentMap.get(intentKey)![metric] += 1;
+  }
+
+  const by_day: ExploreV2ConversionDayBreakdownRow[] = [...byDayMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, counts]) => ({ date, ...counts }));
+
+  const by_market: ExploreV2ConversionBreakdownRow[] = [...byMarketMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, counts]) => ({
+      key,
+      label: key === "UNKNOWN" ? "Unknown" : key,
+      ...counts,
+    }));
+
+  const by_intent: ExploreV2ConversionBreakdownRow[] = [...byIntentMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, counts]) => ({
+      key,
+      label: key === "unknown" ? "Unknown" : key,
+      ...counts,
+    }));
+
+  return {
+    range: input.range,
+    market: input.market,
+    intent: input.intent,
+    totals,
+    rates: {
+      primary_per_open: toRate(totals.primary_clicked, totals.sheet_opened),
+      view_details_per_open: toRate(totals.view_details_clicked, totals.sheet_opened),
+      save_per_open: toRate(totals.save_clicked, totals.sheet_opened),
+      share_per_open: toRate(totals.share_clicked, totals.sheet_opened),
+    },
+    by_day,
+    by_market,
+    by_intent,
+  };
+}
+
+export function buildExploreV2ConversionCsv(rows: ReadonlyArray<ExploreV2ConversionRow>): string {
+  const grouped = new Map<string, number>();
+  for (const row of rows) {
+    const date = row.created_at.slice(0, 10);
+    const market = toMarketBucket(row.market_code);
+    const intent = toIntentBucket(row.intent_type);
+    const key = `${date}|${market}|${intent}|${row.event_name}`;
+    grouped.set(key, (grouped.get(key) ?? 0) + 1);
+  }
+
+  const lines = ["date,market,intent,event_name,count"];
+  for (const [key, count] of [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b))) {
+    const [date, market, intent, eventName] = key.split("|");
+    lines.push(
+      [date, market, intent, eventName, String(count)].map((value) => escapeCsvValue(value)).join(",")
+    );
+  }
+  return lines.join("\n");
+}

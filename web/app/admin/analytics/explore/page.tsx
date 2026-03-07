@@ -119,6 +119,13 @@ export default async function AdminExploreAnalyticsPage({
           >
             Export current range
           </a>
+          {" · "}
+          <a
+            className="font-semibold text-sky-700 hover:text-sky-800"
+            href={`/admin/analytics/explore-v2?start=${range.startDate}&end=${range.endDate}`}
+          >
+            Explore V2 conversion report
+          </a>
         </p>
       </section>
     </div>
