@@ -28,11 +28,12 @@ const PWA_START_URL = "/?source=pwa";
 const PWA_SCOPE = "/";
 const PWA_SW_PATH = "/sw.js";
 const PWA_ICON_PATHS = [
-  "/icons/app-icon-192.png",
-  "/icons/app-icon-512.png",
-  "/icons/app-icon-512-maskable.png",
-  "/icons/app-icon-1024.png",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-192-maskable.png",
+  "/icon-512-maskable.png",
   "/apple-touch-icon.png",
+  "/favicon.ico",
 ];
 
 function statusPill(enabled: boolean) {

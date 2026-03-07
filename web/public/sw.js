@@ -4,9 +4,9 @@ const OFFLINE_QUERY_PARAM = "from";
 const PRECACHE_URLS = [
   OFFLINE_URL,
   "/icon.svg",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png",
-  "/icons/icon-512-maskable.png",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/icon-512-maskable.png",
 ];
 
 const SKIP_CACHE_PATHS = [
@@ -118,7 +118,7 @@ self.addEventListener("push", (event) => {
   const title = payload.title || "PropatyHub";
   const options = {
     body: payload.body || "You have a new alert.",
-    icon: "/icons/icon-192.png",
+    icon: "/icon-192.png",
     badge: "/icon.svg",
     data: {
       url: payload.url || "/",

@@ -23,6 +23,7 @@
     "doctor": "node ./scripts/doctor.mjs",
     "test": "tsx --test tests/unit/*.test.ts",
     "check:migrations": "node ./scripts/check-migration-timestamps.mjs",
+    "icons:generate": "node ./scripts/generate-icons.mjs",
     "setup": "npm install && npx playwright install --with-deps",
     "test:e2e": "playwright test",
     "test:e2e:smoke": "playwright test --config=playwright.smoke.config.ts",
@@ -66,6 +67,7 @@
     "eslint": "^9",
     "eslint-config-next": "^16.0.7",
     "playwright": "^1.49.0",
+    "png-to-ico": "^3.0.1",
     "tailwindcss": "^4",
     "tsx": "^4.20.5",
     "typescript": "^5"

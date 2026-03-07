@@ -16,9 +16,10 @@ void test("pwa manifest exposes installable metadata", () => {
   const srcs = new Set(data.icons.map((icon) => icon.src));
   assert.ok(sizes.has("192x192"), "expected a 192x192 app icon");
   assert.ok(sizes.has("512x512"), "expected a 512x512 app icon");
-  assert.ok(srcs.has("/icons/app-icon-192.png"), "expected padded 192 icon path");
-  assert.ok(srcs.has("/icons/app-icon-512.png"), "expected padded 512 icon path");
-  assert.ok(srcs.has("/icons/app-icon-512-maskable.png"), "expected padded maskable icon path");
+  assert.ok(srcs.has("/icon-192.png"), "expected 192 icon path");
+  assert.ok(srcs.has("/icon-512.png"), "expected 512 icon path");
+  assert.ok(srcs.has("/icon-192-maskable.png"), "expected 192 maskable icon path");
+  assert.ok(srcs.has("/icon-512-maskable.png"), "expected 512 maskable icon path");
   assert.ok(srcs.has("/apple-touch-icon.png"), "expected apple touch icon path");
   assert.ok(
     data.icons.some((icon) =>
