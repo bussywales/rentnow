@@ -2,7 +2,7 @@
 title: "Explore V2 conversion sheet now shows clearer pricing context before CTA"
 areas: [Explore-V2, Conversion, Pricing, UI]
 audiences: [TENANT]
-published_at: "2026-03-06"
+published_at: "2026-03-07"
 ---
 
 ## What changed
