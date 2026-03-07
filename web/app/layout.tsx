@@ -70,6 +70,11 @@ export const metadata: Metadata = {
     description: metadataDescription,
     images: [BRAND_OG_SHARE_IMAGE],
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: BRAND_NAME,
+  },
   icons: {
     icon: [
       { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
@@ -83,6 +88,7 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: "#0f172a",
+  colorScheme: "light",
 };
 
 export default async function RootLayout({
