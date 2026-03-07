@@ -8,7 +8,8 @@ void test("mobile recommended next rail source keeps stable hooks and testids", 
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /data-testid="recommended-next-rail"/);
-  assert.match(source, /data-testid="recommended-next-scroll"/);
+  assert.match(source, /HorizontalSnapRail/);
+  assert.match(source, /testId="recommended-next-scroll"/);
   assert.match(source, /data-testid="recommended-next-item"/);
   assert.match(source, /data-testid="recommended-next-reason"/);
   assert.match(source, /data-testid="recommended-next-why-toggle"/);
@@ -25,6 +26,11 @@ void test("mobile recommended next rail source keeps stable hooks and testids", 
   assert.match(source, /subscribeSavedItems/);
   assert.match(source, /subscribeViewedItems/);
   assert.match(source, /subscribeLastBrowseUrl/);
+  assert.match(source, /"aria-label": "Recommended next carousel"/);
+  assert.match(source, /tabIndex:\s*0/);
+  assert.match(source, /onKeyDown:\s*onRailKeyDown/);
+  assert.match(source, /motion-reduce:scroll-auto/);
+  assert.match(source, /snap-start snap-always/);
 });
 
 void test("home page mounts mobile recommended rail after featured discovery and before recently viewed", () => {

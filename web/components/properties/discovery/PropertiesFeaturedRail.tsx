@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, type KeyboardEvent } from "react";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
 import { SaveToggle } from "@/components/saved/SaveToggle";
+import { HorizontalSnapRail } from "@/components/ui/HorizontalSnapRail";
 import { TrustBadges } from "@/components/ui/TrustBadges";
 import { TrackViewedLink } from "@/components/viewed/TrackViewedLink";
 import { getMotionSafeScrollBehavior } from "@/lib/a11y/reduced-motion";
@@ -78,11 +79,14 @@ export function PropertiesFeaturedRail() {
       <div className="relative">
         <div className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 bg-gradient-to-r from-white to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-white to-transparent" />
-        <div
-          className="scrollbar-none flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-4 pb-1 pr-4 scroll-px-4 scroll-smooth motion-reduce:scroll-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-          tabIndex={0}
-          aria-label="Featured properties carousel"
-          onKeyDown={onRailKeyDown}
+        <HorizontalSnapRail
+          scrollerClassName="px-4 pb-1 pr-4 scroll-px-4 motion-reduce:scroll-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+          trackClassName="gap-2.5"
+          scrollerProps={{
+            tabIndex: 0,
+            "aria-label": "Featured properties carousel",
+            onKeyDown: onRailKeyDown,
+          }}
         >
           {featuredItems.map((item, index) => {
             const titleText = formatListingTitle(item.title || "") || item.title || "Listing";
@@ -138,7 +142,7 @@ export function PropertiesFeaturedRail() {
             );
           })}
           <div className="w-4 shrink-0" aria-hidden="true" />
-        </div>
+        </HorizontalSnapRail>
       </div>
     </section>
   );

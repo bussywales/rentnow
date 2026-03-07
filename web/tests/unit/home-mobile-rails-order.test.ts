@@ -43,10 +43,9 @@ void test("home listing rails keep snap and peek class contract", () => {
   const railPath = path.join(process.cwd(), "components", "home", "HomeListingRail.tsx");
   const source = fs.readFileSync(railPath, "utf8");
 
-  assert.match(source, /snap-x snap-mandatory/);
-  assert.match(source, /scrollbar-none/);
+  assert.match(source, /HorizontalSnapRail/);
   assert.match(source, /scroll-px-5/);
-  assert.match(source, /px-5 pb-1 pr-5/);
+  assert.match(source, /scrollerClassName="px-5 pb-1 pr-5 scroll-px-5/);
   assert.match(source, /w-5 shrink-0/);
   assert.match(source, /snap-start snap-always/);
 });

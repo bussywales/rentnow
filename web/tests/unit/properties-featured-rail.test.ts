@@ -84,7 +84,7 @@ void test("properties featured href uses category mapping and does not inject ma
   assert.equal(href.includes("market="), false);
 });
 
-void test("properties featured rail source includes stable testids and snap classes", () => {
+void test("properties featured rail source includes stable testids and snap rail contract", () => {
   const sourcePath = path.join(
     process.cwd(),
     "components",
@@ -101,10 +101,11 @@ void test("properties featured rail source includes stable testids and snap clas
   assert.match(source, /data-testid="properties-featured-item"/);
   assert.match(source, /role="region"/);
   assert.match(source, /aria-label=\{`Featured property picks for \$\{market\.country\}`\}/);
-  assert.match(source, /tabIndex=\{0\}/);
-  assert.match(source, /onKeyDown=\{onRailKeyDown\}/);
-  assert.match(source, /snap-x snap-mandatory/);
-  assert.match(source, /scroll-smooth motion-reduce:scroll-auto/);
+  assert.match(source, /HorizontalSnapRail/);
+  assert.match(source, /tabIndex:\s*0/);
+  assert.match(source, /onKeyDown:\s*onRailKeyDown/);
+  assert.match(source, /"aria-label": "Featured properties carousel"/);
+  assert.match(source, /motion-reduce:scroll-auto/);
   assert.match(source, /snap-start snap-always/);
   assert.match(source, /useMarketPreference/);
 });

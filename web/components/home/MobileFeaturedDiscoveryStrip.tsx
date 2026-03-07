@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useMemo, type KeyboardEvent } from "react";
 import { SaveToggle } from "@/components/saved/SaveToggle";
+import { HorizontalSnapRail } from "@/components/ui/HorizontalSnapRail";
 import { TrustBadges } from "@/components/ui/TrustBadges";
 import { TrackViewedLink } from "@/components/viewed/TrackViewedLink";
 import { getMotionSafeScrollBehavior } from "@/lib/a11y/reduced-motion";
@@ -75,12 +76,15 @@ export function MobileFeaturedDiscoveryStrip() {
       <div className="relative">
         <div className="pointer-events-none absolute inset-y-0 left-0 z-[1] w-8 bg-gradient-to-r from-white to-transparent" />
         <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] w-8 bg-gradient-to-l from-white to-transparent" />
-        <div
-          className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 pr-5 scroll-px-5 scroll-smooth motion-reduce:scroll-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
-          data-testid="mobile-featured-scroll"
-          tabIndex={0}
-          aria-label="Featured discovery carousel"
-          onKeyDown={onRailKeyDown}
+        <HorizontalSnapRail
+          testId="mobile-featured-scroll"
+          scrollerClassName="px-5 pb-1 pr-5 scroll-px-5 motion-reduce:scroll-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500"
+          trackClassName="gap-3"
+          scrollerProps={{
+            tabIndex: 0,
+            "aria-label": "Featured discovery carousel",
+            onKeyDown: onRailKeyDown,
+          }}
         >
           {featuredItems.map((item, index) => {
             const href = buildFeaturedDiscoveryHref(item);
@@ -143,7 +147,7 @@ export function MobileFeaturedDiscoveryStrip() {
             );
           })}
           <div className="w-5 shrink-0" aria-hidden="true" />
-        </div>
+        </HorizontalSnapRail>
       </div>
     </section>
   );

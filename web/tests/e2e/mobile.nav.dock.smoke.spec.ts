@@ -47,6 +47,21 @@ async function getHorizontalOverflowSnapshot(page: Page) {
   });
 }
 
+async function expectNoHorizontalOverflow(page: Page, message: string) {
+  await expect
+    .poll(
+      async () => {
+        const snapshot = await getHorizontalOverflowSnapshot(page);
+        return snapshot.scrollWidth - snapshot.clientWidth;
+      },
+      {
+        timeout: 5_000,
+        message,
+      }
+    )
+    .toBeLessThanOrEqual(1);
+}
+
 test.use({
   viewport: { width: 390, height: 844 },
   isMobile: true,
@@ -76,24 +91,14 @@ test("mobile glass dock renders, supports dock navigation taps, and stays hidden
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await dismissDisclaimerIfPresent();
   await expect(page.getByTestId(smokeSelectors.glassDock)).toBeVisible();
+  await expectNoHorizontalOverflow(page, "home rails should not expand document width before opening search");
   await page
     .getByTestId(smokeSelectors.glassDockSearchTrigger)
     .evaluate((node) => (node as HTMLElement).click());
   await expect(page.getByTestId(smokeSelectors.glassDockSearchOverlay)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByTestId(smokeSelectors.glassDockSearchOverlay)).toBeHidden();
-  await expect
-    .poll(
-      async () => {
-        const snapshot = await getHorizontalOverflowSnapshot(page);
-        return snapshot.scrollWidth - snapshot.clientWidth;
-      },
-      {
-        timeout: 5_000,
-        message: "mobile dock search close should not leave document horizontally pannable",
-      }
-    )
-    .toBeLessThanOrEqual(1);
+  await expectNoHorizontalOverflow(page, "mobile dock search close should not leave document horizontally pannable");
 
   await page.getByTestId(smokeSelectors.glassDockLinkExploreV2).click();
   await page.waitForURL(/\/explore-v2(?:\?|$)/, { timeout: 15_000 });

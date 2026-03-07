@@ -8,14 +8,16 @@ void test("mobile saved rail source keeps stable testids and storage hooks", () 
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /data-testid="mobile-saved-rail"/);
-  assert.match(source, /data-testid="mobile-saved-scroll"/);
+  assert.match(source, /HorizontalSnapRail/);
+  assert.match(source, /testId="mobile-saved-scroll"/);
   assert.match(source, /data-testid="mobile-saved-item"/);
   assert.match(source, /data-testid="mobile-saved-rail-clear"/);
   assert.match(source, /role="region"/);
   assert.match(source, /aria-label=\{`Saved items for \$\{market\.country\}`\}/);
-  assert.match(source, /tabIndex=\{0\}/);
-  assert.match(source, /onKeyDown=\{onRailKeyDown\}/);
-  assert.match(source, /scroll-smooth motion-reduce:scroll-auto/);
+  assert.match(source, /"aria-label": "Saved items carousel"/);
+  assert.match(source, /tabIndex:\s*0/);
+  assert.match(source, /onKeyDown:\s*onRailKeyDown/);
+  assert.match(source, /motion-reduce:scroll-auto/);
   assert.match(source, /href="\/saved"/);
   assert.match(source, /getSavedItems/);
   assert.match(source, /subscribeSavedItems/);

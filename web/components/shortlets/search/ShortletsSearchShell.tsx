@@ -7,6 +7,7 @@ import type { DateRange } from "react-day-picker";
 import type { Property } from "@/lib/types";
 import { Button } from "@/components/ui/Button";
 import { FloatingActionRail } from "@/components/ui/FloatingActionRail";
+import { HorizontalSnapRail } from "@/components/ui/HorizontalSnapRail";
 import { Select } from "@/components/ui/Select";
 import { Calendar } from "@/components/ui/calendar";
 import { FilterChipRow } from "@/components/filters/FilterChipRow";
@@ -2565,7 +2566,7 @@ export function ShortletsSearchShell({
               </div>
             ) : null}
             <div className="absolute inset-x-0 bottom-0 rounded-t-3xl border-t border-slate-200 bg-white/95 p-3 backdrop-blur">
-              <div className="flex snap-x gap-3 overflow-x-auto pb-1">
+              <HorizontalSnapRail scrollerClassName="pb-1" trackClassName="gap-3 snap-x">
                 {filteredItems.map((property) => {
                   const selected = selectedSummary?.id === property.id;
                   const nightlyPrice = resolveShortletNightlyPriceMinor(property);
@@ -2591,7 +2592,7 @@ export function ShortletsSearchShell({
                     </button>
                   );
                 })}
-              </div>
+              </HorizontalSnapRail>
             </div>
           </div>
         </div>

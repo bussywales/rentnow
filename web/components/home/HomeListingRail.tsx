@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { cn } from "@/components/ui/cn";
+import { HorizontalSnapRail } from "@/components/ui/HorizontalSnapRail";
 import { ListingImagePlaceholder } from "@/components/ui/ListingImagePlaceholder";
 import { SafeImage } from "@/components/ui/SafeImage";
 import { resolveImageLoadingProfile, shouldPriorityImage } from "@/lib/images/loading-profile";
@@ -127,9 +128,10 @@ export function HomeListingRail({
             <div className="pointer-events-none absolute inset-y-0 right-0 z-[1] hidden w-8 bg-gradient-to-l from-white to-transparent md:block" />
           </>
         ) : null}
-        <div
-          ref={railRef}
-          className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto scroll-smooth px-5 pb-1 pr-5 scroll-px-5 sm:px-7 sm:pr-7 sm:scroll-px-7"
+        <HorizontalSnapRail
+          scrollerRef={railRef}
+          scrollerClassName="px-5 pb-1 pr-5 scroll-px-5 sm:px-7 sm:pr-7 sm:scroll-px-7"
+          trackClassName="gap-3"
         >
           {listings.map((listing, index) => {
             const listingTitle = formatListingTitle(listing.title || "") || listing.title || "Listing";
@@ -186,7 +188,7 @@ export function HomeListingRail({
             );
           })}
           <div className="w-5 shrink-0 sm:w-7" aria-hidden="true" />
-        </div>
+        </HorizontalSnapRail>
       </div>
     </section>
   );

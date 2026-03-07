@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { SaveToggle } from "@/components/saved/SaveToggle";
+import { HorizontalSnapRail } from "@/components/ui/HorizontalSnapRail";
 import { TrustBadges } from "@/components/ui/TrustBadges";
 import { getMarketSearchTerminology } from "@/lib/market/terminology";
 import type { SavedSuggestionItem } from "@/lib/saved";
@@ -28,7 +29,7 @@ function SuggestionStrip({
   return (
     <div className="space-y-2" data-testid={`saved-empty-suggestions-${kind}`}>
       <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{title}</p>
-      <div className="scrollbar-none flex snap-x snap-mandatory gap-2.5 overflow-x-auto pb-1">
+      <HorizontalSnapRail scrollerClassName="pb-1" trackClassName="gap-2.5">
         {items.map((item) => (
           <div
             key={`${item.kind}:${item.id}`}
@@ -56,7 +57,7 @@ function SuggestionStrip({
             </Link>
           </div>
         ))}
-      </div>
+      </HorizontalSnapRail>
     </div>
   );
 }

@@ -8,14 +8,16 @@ void test("mobile recently viewed rail includes stable testids and viewed-store 
   const source = fs.readFileSync(sourcePath, "utf8");
 
   assert.match(source, /data-testid="mobile-recently-viewed-rail"/);
-  assert.match(source, /data-testid="mobile-recently-viewed-scroll"/);
+  assert.match(source, /HorizontalSnapRail/);
+  assert.match(source, /testId="mobile-recently-viewed-scroll"/);
   assert.match(source, /data-testid="mobile-recently-viewed-item"/);
   assert.match(source, /data-testid="mobile-recently-viewed-clear"/);
   assert.match(source, /role="region"/);
   assert.match(source, /aria-label=\{`Recently viewed for \$\{market\.country\}`\}/);
-  assert.match(source, /tabIndex=\{0\}/);
-  assert.match(source, /onKeyDown=\{onRailKeyDown\}/);
-  assert.match(source, /scroll-smooth motion-reduce:scroll-auto/);
+  assert.match(source, /"aria-label": "Recently viewed carousel"/);
+  assert.match(source, /tabIndex:\s*0/);
+  assert.match(source, /onKeyDown:\s*onRailKeyDown/);
+  assert.match(source, /motion-reduce:scroll-auto/);
   assert.match(source, /getViewedItems/);
   assert.match(source, /subscribeViewedItems/);
   assert.match(source, /clearViewedItems/);
