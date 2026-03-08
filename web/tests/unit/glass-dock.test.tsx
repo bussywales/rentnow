@@ -80,6 +80,15 @@ void test("glass dock search overlay source supports open-close and command acti
   assert.match(source, /data-testid="glass-dock-search-near-me"/);
   assert.match(source, /data-testid="glass-dock-search-reset"/);
   assert.match(source, /data-testid="glass-dock-search-submit"/);
+  assert.match(source, /text-\[16px\][\s\S]*md:text-sm/);
+  assert.match(source, /className="flex min-w-0 items-center gap-2"/);
+  assert.match(source, /min-w-0 flex-1/);
+  assert.match(source, /const blurInput = \(\) => \{/);
+  assert.match(source, /inputRef\.current\?\.blur\(\)/);
+  assert.match(source, /const handleClose = \(\) => \{[\s\S]*onClose\(\)/);
+  assert.match(source, /const handleSubmit = \(\) => \{[\s\S]*onSubmit\(\)/);
+  assert.match(source, /onClick=\{handleClose\}/);
+  assert.match(source, /onClick=\{handleSubmit\}/);
   assert.match(source, /if \(event.key !== "Escape"\) return;/);
 });
 
