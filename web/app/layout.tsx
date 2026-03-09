@@ -13,6 +13,7 @@ import { LegalDisclaimerBanner } from "@/components/legal/LegalDisclaimerBanner"
 import { LegalAcceptanceModalGate } from "@/components/legal/LegalAcceptanceModalGate";
 import { SupportWidget } from "@/components/support/SupportWidget";
 import { GlassDock } from "@/components/layout/GlassDock";
+import { AppStartupShellRemover } from "@/components/layout/AppStartupShellRemover";
 import {
   BRAND,
   BRAND_NAME,
@@ -41,6 +42,12 @@ const geistMono = Geist_Mono({
 });
 
 const metadataDescription = `${BRAND_SOCIAL_TAGLINE}. Find, list, and manage rentals with verified listings and secure messaging.`;
+const STARTUP_SHELL_BACKGROUND = "#f8fafc";
+const STARTUP_SHELL_CRITICAL_CSS = `
+#app-startup-shell{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:${STARTUP_SHELL_BACKGROUND};pointer-events:none;opacity:1;transform:translate3d(0,0,0);transition:opacity 160ms ease,transform 160ms ease}
+#app-startup-shell[data-state="removing"]{opacity:0;transform:translate3d(0,6px,0) scale(.98)}
+#app-startup-shell-icon{display:block;width:min(120px,32vw);height:min(120px,32vw);background:url('/icon-512.png') center/contain no-repeat}
+`;
 
 export const metadata: Metadata = {
   metadataBase: new URL(BRAND.siteUrl),
@@ -96,6 +103,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const startupShellDisabled = process.env.NEXT_PUBLIC_SPLASH_SHELL_DISABLED === "true";
   let supportPrefillName: string | null = null;
   let supportPrefillEmail: string | null = null;
   let supportPrefillRole: string | null = null;
@@ -141,6 +149,11 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
+      {!startupShellDisabled ? (
+        <head>
+          <style dangerouslySetInnerHTML={{ __html: STARTUP_SHELL_CRITICAL_CSS }} />
+        </head>
+      ) : null}
       <body
         data-market-country={market.country}
         data-market-currency={market.currency}
@@ -149,6 +162,14 @@ export default async function RootLayout({
         data-featured-listings-enabled={featuredListingsEnabled ? "true" : "false"}
         className={`${geistSans.variable} ${geistMono.variable} antialiased text-slate-900`}
       >
+        {!startupShellDisabled ? (
+          <>
+            <div id="app-startup-shell" data-state="visible" aria-hidden="true">
+              <span id="app-startup-shell-icon" />
+            </div>
+            <AppStartupShellRemover />
+          </>
+        ) : null}
         <MarketPreferenceProvider initialMarket={market}>
           <MainNav marketSelectorEnabled={marketSettings.selectorEnabled} />
           <SessionBootstrap />

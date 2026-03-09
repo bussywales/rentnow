@@ -40,6 +40,23 @@ html {
   scroll-padding-top: 5rem;
 }
 
+#app-startup-shell {
+  contain: strict;
+  will-change: opacity, transform;
+}
+
+#app-startup-shell[data-state="removing"] {
+  opacity: 0;
+  transform: translate3d(0, 6px, 0) scale(0.98);
+}
+
+#app-startup-shell-icon {
+  display: block;
+  width: min(120px, 32vw);
+  height: min(120px, 32vw);
+  background: url("/icon-512.png") center / contain no-repeat;
+}
+
 @layer base {
   a {
     color: inherit;
