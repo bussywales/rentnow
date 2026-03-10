@@ -1,4 +1,7 @@
 const CACHE_NAME = "propatyhub-shell-v1";
+const START_ROUTE_CACHE_NAME = "ph-nav-start-v1";
+const START_ROUTE_CACHE_TIMEOUT_MS = 1200;
+const START_ROUTE_PATH = "/";
 const OFFLINE_URL = "/offline";
 const OFFLINE_QUERY_PARAM = "from";
 const PRECACHE_URLS = [
@@ -32,7 +35,11 @@ self.addEventListener("activate", (event) => {
     caches
       .keys()
       .then((keys) =>
-        Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
+        Promise.all(
+          keys
+            .filter((key) => key !== CACHE_NAME && key !== START_ROUTE_CACHE_NAME)
+            .map((key) => caches.delete(key))
+        )
       )
       .then(() => self.clients.claim())
   );
@@ -57,6 +64,48 @@ function buildOfflinePathWithFrom(url) {
   return `${OFFLINE_URL}?${params.toString()}`;
 }
 
+function getStartRouteCacheKey() {
+  return new URL(START_ROUTE_PATH, self.location.origin).href;
+}
+
+function isStartRouteNavigation(request, url) {
+  return request.mode === "navigate" && url.pathname === START_ROUTE_PATH && !url.search;
+}
+
+function isCacheableStartRouteResponse(response) {
+  if (!response || response.status !== 200 || response.type !== "basic") {
+    return false;
+  }
+  const contentType = response.headers.get("content-type") || "";
+  return contentType.includes("text/html");
+}
+
+async function fetchWithTimeout(request, timeoutMs) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(request, { signal: controller.signal });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function updateStartRouteCache() {
+  const response = await fetch(getStartRouteCacheKey(), {
+    method: "GET",
+    credentials: "omit",
+    cache: "no-store",
+    redirect: "follow",
+    headers: {
+      Accept: "text/html",
+    },
+  });
+
+  if (!isCacheableStartRouteResponse(response)) return;
+  const cache = await caches.open(START_ROUTE_CACHE_NAME);
+  await cache.put(getStartRouteCacheKey(), response.clone());
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
@@ -66,6 +115,26 @@ self.addEventListener("fetch", (event) => {
   if (isSkippableRequest(url)) return;
 
   if (request.mode === "navigate") {
+    if (isStartRouteNavigation(request, url)) {
+      event.respondWith(
+        (async () => {
+          const startRouteCache = await caches.open(START_ROUTE_CACHE_NAME);
+          const startRouteCacheKey = getStartRouteCacheKey();
+
+          try {
+            const networkResponse = await fetchWithTimeout(request, START_ROUTE_CACHE_TIMEOUT_MS);
+            event.waitUntil(updateStartRouteCache().catch(() => undefined));
+            return networkResponse;
+          } catch {
+            const cached = await startRouteCache.match(startRouteCacheKey);
+            if (cached) return cached;
+            return fetch(request).catch(() => Response.redirect(buildOfflinePathWithFrom(url), 302));
+          }
+        })()
+      );
+      return;
+    }
+
     if (url.pathname.startsWith(OFFLINE_URL)) {
       event.respondWith(
         fetch(request).catch(async () => {

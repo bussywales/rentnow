@@ -59,3 +59,24 @@ void test("service worker includes offline and skip-cache paths", () => {
     "expected service worker to register push handlers"
   );
 });
+
+void test("service worker caches only the exact anonymous start route", () => {
+  const swPath = path.join(process.cwd(), "public", "sw.js");
+  const contents = fs.readFileSync(swPath, "utf8");
+
+  assert.ok(
+    contents.includes('const START_ROUTE_CACHE_NAME = "ph-nav-start-v1";'),
+    "expected dedicated start-route cache name"
+  );
+  assert.ok(
+    contents.includes("const START_ROUTE_CACHE_TIMEOUT_MS = 1200;"),
+    "expected start-route timeout for fast fallback"
+  );
+  assert.match(
+    contents,
+    /request\.mode === "navigate" && url\.pathname === START_ROUTE_PATH && !url\.search/
+  );
+  assert.match(contents, /credentials:\s*"omit"/);
+  assert.match(contents, /caches\.open\(START_ROUTE_CACHE_NAME\)/);
+  assert.match(contents, /cache\.put\(getStartRouteCacheKey\(\), response\.clone\(\)\)/);
+});
