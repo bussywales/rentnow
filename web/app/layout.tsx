@@ -124,7 +124,7 @@ export default async function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const startupShellDisabled = process.env.NEXT_PUBLIC_SPLASH_SHELL_DISABLED === "true";
+  const startupShellDisabled = process.env.NEXT_PUBLIC_SPLASH_SHELL_DISABLED !== "false";
   let supportPrefillName: string | null = null;
   let supportPrefillEmail: string | null = null;
   let supportPrefillRole: string | null = null;
