@@ -21,6 +21,7 @@ type ExploreV2ConversionSheetProps = {
   intentTag: string;
   hasVideo: boolean;
   thumbnailSrc: string | null;
+  trustCueCopy: string | null;
   primaryActionLabel: "Book" | "Request viewing";
   onPrimaryAction: () => void;
   detailsHref: string;
@@ -56,6 +57,7 @@ export function ExploreV2ConversionSheet({
   intentTag,
   hasVideo,
   thumbnailSrc,
+  trustCueCopy,
   primaryActionLabel,
   onPrimaryAction,
   detailsHref,
@@ -121,6 +123,15 @@ export function ExploreV2ConversionSheet({
             </div>
           </div>
         </div>
+
+        {trustCueCopy ? (
+          <div
+            className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2"
+            data-testid="explore-v2-cta-trust-cue"
+          >
+            <p className="text-xs font-medium text-emerald-900">{trustCueCopy}</p>
+          </div>
+        ) : null}
 
         <button
           type="button"

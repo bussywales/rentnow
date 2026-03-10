@@ -26,6 +26,8 @@ export type ExploreV2ConversionRow = {
   listing_id: string | null;
   market_code: string | null;
   intent_type: "shortlet" | "rent" | "buy" | null;
+  trust_cue_variant?: "none" | "instant_confirmation" | null;
+  trust_cue_enabled?: boolean | null;
 };
 
 export type ExploreV2ConversionTotals = Record<ExploreV2ConversionMetricKey, number>;
@@ -55,6 +57,7 @@ export type ExploreV2ConversionReport = {
   by_day: ExploreV2ConversionDayBreakdownRow[];
   by_market: ExploreV2ConversionBreakdownRow[];
   by_intent: ExploreV2ConversionBreakdownRow[];
+  by_trust_cue_variant: ExploreV2ConversionBreakdownRow[];
 };
 
 export type ExploreV2ConversionQuery = {
@@ -126,6 +129,13 @@ function toIntentBucket(value: string | null): string {
   return "unknown";
 }
 
+function toTrustCueVariantBucket(value: string | null | undefined): "none" | "instant_confirmation" | "unknown" {
+  const normalized = (value || "").trim().toLowerCase();
+  if (normalized === "none") return "none";
+  if (normalized === "instant_confirmation") return "instant_confirmation";
+  return "unknown";
+}
+
 function buildDateSeries(startDate: string, endDate: string): string[] {
   const start = new Date(`${startDate}T00:00:00.000Z`);
   const end = new Date(`${endDate}T00:00:00.000Z`);
@@ -176,7 +186,7 @@ export async function fetchExploreV2ConversionRows(input: {
   const limit = Math.max(1, Math.min(input.limit ?? 10000, 50000));
   let query = input.client
     .from("explore_events")
-    .select("created_at,event_name,listing_id,market_code,intent_type")
+    .select("created_at,event_name,listing_id,market_code,intent_type,trust_cue_variant,trust_cue_enabled")
     .in("event_name", [...EXPLORE_V2_CONVERSION_EVENT_NAMES])
     .gte("created_at", input.startIso)
     .lte("created_at", input.endIso)
@@ -205,6 +215,7 @@ export function buildExploreV2ConversionReport(input: {
   const byDayMap = new Map<string, ExploreV2ConversionTotals>();
   const byMarketMap = new Map<string, ExploreV2ConversionTotals>();
   const byIntentMap = new Map<string, ExploreV2ConversionTotals>();
+  const byTrustCueVariantMap = new Map<string, ExploreV2ConversionTotals>();
   const dateSeries = buildDateSeries(input.range.startDate, input.range.endDate);
 
   for (const day of dateSeries) {
@@ -219,6 +230,8 @@ export function buildExploreV2ConversionReport(input: {
   byIntentMap.set("shortlet", cloneTotals());
   byIntentMap.set("rent", cloneTotals());
   byIntentMap.set("buy", cloneTotals());
+  byTrustCueVariantMap.set("none", cloneTotals());
+  byTrustCueVariantMap.set("instant_confirmation", cloneTotals());
 
   for (const row of input.rows) {
     const metric = EVENT_TO_METRIC[row.event_name];
@@ -241,6 +254,12 @@ export function buildExploreV2ConversionReport(input: {
       byIntentMap.set(intentKey, cloneTotals());
     }
     byIntentMap.get(intentKey)![metric] += 1;
+
+    const trustCueKey = toTrustCueVariantBucket(row.trust_cue_variant);
+    if (!byTrustCueVariantMap.has(trustCueKey)) {
+      byTrustCueVariantMap.set(trustCueKey, cloneTotals());
+    }
+    byTrustCueVariantMap.get(trustCueKey)![metric] += 1;
   }
 
   const by_day: ExploreV2ConversionDayBreakdownRow[] = [...byDayMap.entries()]
@@ -263,6 +282,19 @@ export function buildExploreV2ConversionReport(input: {
       ...counts,
     }));
 
+  const by_trust_cue_variant: ExploreV2ConversionBreakdownRow[] = [...byTrustCueVariantMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, counts]) => ({
+      key,
+      label:
+        key === "instant_confirmation"
+          ? "Instant confirmation"
+          : key === "none"
+            ? "None"
+            : "Unknown",
+      ...counts,
+    }));
+
   return {
     range: input.range,
     market: input.market,
@@ -277,6 +309,7 @@ export function buildExploreV2ConversionReport(input: {
     by_day,
     by_market,
     by_intent,
+    by_trust_cue_variant,
   };
 }
 
@@ -286,15 +319,18 @@ export function buildExploreV2ConversionCsv(rows: ReadonlyArray<ExploreV2Convers
     const date = row.created_at.slice(0, 10);
     const market = toMarketBucket(row.market_code);
     const intent = toIntentBucket(row.intent_type);
-    const key = `${date}|${market}|${intent}|${row.event_name}`;
+    const trustCueVariant = toTrustCueVariantBucket(row.trust_cue_variant);
+    const key = `${date}|${market}|${intent}|${trustCueVariant}|${row.event_name}`;
     grouped.set(key, (grouped.get(key) ?? 0) + 1);
   }
 
-  const lines = ["date,market,intent,event_name,count"];
+  const lines = ["date,market,intent,trust_cue_variant,event_name,count"];
   for (const [key, count] of [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    const [date, market, intent, eventName] = key.split("|");
+    const [date, market, intent, trustCueVariant, eventName] = key.split("|");
     lines.push(
-      [date, market, intent, eventName, String(count)].map((value) => escapeCsvValue(value)).join(",")
+      [date, market, intent, trustCueVariant, eventName, String(count)]
+        .map((value) => escapeCsvValue(value))
+        .join(",")
     );
   }
   return lines.join("\n");

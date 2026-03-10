@@ -136,6 +136,6 @@ void test("admin explore v2 analytics route can return CSV export", async () => 
 
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /text\/csv/);
-  assert.match(body, /^date,market,intent,event_name,count/m);
-  assert.match(body, /2026-03-05,NG,shortlet,explore_v2_cta_sheet_opened,1/);
+  assert.match(body, /^date,market,intent,trust_cue_variant,event_name,count/m);
+  assert.match(body, /2026-03-05,NG,shortlet,unknown,explore_v2_cta_sheet_opened,1/);
 });

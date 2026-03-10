@@ -7,6 +7,7 @@ import { getServerAuthUser } from "@/lib/auth/server-session";
 import { getExploreFeed } from "@/lib/explore/explore-feed.server";
 import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/market";
 import { getMarketSettings } from "@/lib/market/market.server";
+import { isExploreV2TrustCueEnabled } from "@/lib/settings/explore";
 import type { Property } from "@/lib/types";
 
 type ExploreV2PageData = {
@@ -14,6 +15,7 @@ type ExploreV2PageData = {
   marketCountry: string;
   marketCurrency: string;
   viewerIsAuthenticated: boolean;
+  trustCueEnabled: boolean;
 };
 
 type ExploreV2PageDependencies = {
@@ -22,6 +24,7 @@ type ExploreV2PageDependencies = {
   loadMarketSettings: typeof getMarketSettings;
   loadExploreFeed: typeof getExploreFeed;
   loadAuthUser: typeof getServerAuthUser;
+  loadTrustCueEnabled: typeof isExploreV2TrustCueEnabled;
 };
 
 export const metadata: Metadata = {
@@ -37,12 +40,14 @@ export async function resolveExploreV2PageData(
   const loadMarketSettings = overrides.loadMarketSettings ?? getMarketSettings;
   const loadExploreFeed = overrides.loadExploreFeed ?? getExploreFeed;
   const loadAuthUser = overrides.loadAuthUser ?? getServerAuthUser;
+  const loadTrustCueEnabled = overrides.loadTrustCueEnabled ?? isExploreV2TrustCueEnabled;
 
-  const [requestHeaders, cookieStore, marketSettings, authUser] = await Promise.all([
+  const [requestHeaders, cookieStore, marketSettings, authUser, trustCueEnabled] = await Promise.all([
     readHeaders(),
     readCookies(),
     loadMarketSettings(),
     loadAuthUser(),
+    loadTrustCueEnabled(),
   ]);
   const market = resolveMarketFromRequest({
     headers: requestHeaders,
@@ -59,6 +64,7 @@ export async function resolveExploreV2PageData(
     marketCountry: market.country,
     marketCurrency: market.currency,
     viewerIsAuthenticated: !!authUser.user,
+    trustCueEnabled,
   };
 }
 
@@ -72,6 +78,7 @@ export default async function ExploreV2Page() {
         marketCountry={pageData.marketCountry}
         marketCurrency={pageData.marketCurrency}
         viewerIsAuthenticated={pageData.viewerIsAuthenticated}
+        trustCueEnabled={pageData.trustCueEnabled}
       />
     </main>
   );

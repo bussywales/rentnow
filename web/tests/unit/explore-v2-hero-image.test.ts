@@ -19,6 +19,8 @@ import {
   resolveExploreV2ShareFeedback,
   resolveExploreV2HeroUiState,
   resolveExploreV2OverlayOpacityClass,
+  resolveExploreV2TrustCueCopy,
+  resolveExploreV2TrustCueVariant,
   shouldShowExploreV2TitleTooltip,
   trackExploreV2CtaSaveClicked,
   trackExploreV2CtaShareClicked,
@@ -276,6 +278,51 @@ void test("explore-v2 has-video resolver uses canonical has_video with featured-
   );
 });
 
+void test("explore-v2 trust cue resolver returns none when flag is off", () => {
+  const listing = createExploreV2Listing({
+    listing_intent: "shortlet",
+    rental_type: "short_let",
+    shortlet_settings: [{ booking_mode: "instant" }],
+  });
+
+  const variant = resolveExploreV2TrustCueVariant({
+    listing,
+    trustCueEnabled: false,
+  });
+  assert.equal(variant, "none");
+  assert.equal(resolveExploreV2TrustCueCopy(variant), null);
+});
+
+void test("explore-v2 trust cue resolver returns instant confirmation for qualifying listings", () => {
+  const listing = createExploreV2Listing({
+    listing_intent: "shortlet",
+    rental_type: "short_let",
+    shortlet_settings: [{ booking_mode: "instant" }],
+  });
+
+  const variant = resolveExploreV2TrustCueVariant({
+    listing,
+    trustCueEnabled: true,
+  });
+  assert.equal(variant, "instant_confirmation");
+  assert.equal(resolveExploreV2TrustCueCopy(variant), "Instant confirmation available");
+});
+
+void test("explore-v2 trust cue resolver keeps cue hidden for non-qualifying listings", () => {
+  const listing = createExploreV2Listing({
+    listing_intent: "shortlet",
+    rental_type: "short_let",
+    shortlet_settings: [{ booking_mode: "request" }],
+  });
+
+  const variant = resolveExploreV2TrustCueVariant({
+    listing,
+    trustCueEnabled: true,
+  });
+  assert.equal(variant, "none");
+  assert.equal(resolveExploreV2TrustCueCopy(variant), null);
+});
+
 void test("explore-v2 save toggle analytics helper emits saved/unsaved results", () => {
   const listing = createExploreV2Listing({ id: "listing-save", country_code: "NG" });
   const context = resolveExploreV2ActionContext({
@@ -433,10 +480,14 @@ void test("explore-v2 view-details helper navigates to details route", () => {
 
 void test("explore-v2 conversion sheet analytics helpers emit contextual events", () => {
   const listing = createExploreV2Listing({ id: "listing-analytics", country_code: "NG" });
-  const context = resolveExploreV2ActionContext({ listing, index: 4, feedSize: 15 });
-  const tracked: string[] = [];
-  const trackFn = (event: { name: string }) => {
-    tracked.push(event.name);
+  const context = {
+    ...resolveExploreV2ActionContext({ listing, index: 4, feedSize: 15 }),
+    trustCueVariant: "instant_confirmation" as const,
+    trustCueEnabled: true,
+  };
+  const tracked: Array<{ name: string; trustCueVariant?: string | null; trustCueEnabled?: boolean | null }> = [];
+  const trackFn = (event: { name: string; trustCueVariant?: string | null; trustCueEnabled?: boolean | null }) => {
+    tracked.push(event);
     return [];
   };
 
@@ -445,12 +496,19 @@ void test("explore-v2 conversion sheet analytics helpers emit contextual events"
   trackExploreV2CtaSaveClicked({ context, result: "saved", trackFn });
   trackExploreV2CtaShareClicked({ context, result: "copied", trackFn });
 
-  assert.deepEqual(tracked, [
-    "explore_v2_cta_sheet_opened",
-    "explore_v2_cta_view_details_clicked",
-    "explore_v2_cta_save_clicked",
-    "explore_v2_cta_share_clicked",
-  ]);
+  assert.deepEqual(
+    tracked.map((event) => event.name),
+    [
+      "explore_v2_cta_sheet_opened",
+      "explore_v2_cta_view_details_clicked",
+      "explore_v2_cta_save_clicked",
+      "explore_v2_cta_share_clicked",
+    ]
+  );
+  tracked.forEach((event) => {
+    assert.equal(event.trustCueVariant, "instant_confirmation");
+    assert.equal(event.trustCueEnabled, true);
+  });
 });
 
 void test("explore-v2 quiet overlay controller elevates opacity on interaction and resets after timeout", (t) => {

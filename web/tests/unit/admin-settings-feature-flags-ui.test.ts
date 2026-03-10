@@ -9,6 +9,7 @@ void test("app settings keys include listings auto-approve toggle", () => {
 
   assert.match(source, /listingsAutoApproveEnabled:\s*"listings_auto_approve_enabled"/);
   assert.match(source, /exploreEnabled:\s*"explore_enabled"/);
+  assert.match(source, /exploreV2TrustCueEnabled:\s*"explore_v2_trust_cue_enabled"/);
 });
 
 void test("app settings keys include brand social links", () => {
@@ -28,6 +29,7 @@ void test("admin settings page loads listings auto-approve toggle data", () => {
 
   assert.match(source, /APP_SETTING_KEYS\.listingsAutoApproveEnabled/);
   assert.match(source, /APP_SETTING_KEYS\.exploreEnabled/);
+  assert.match(source, /APP_SETTING_KEYS\.exploreV2TrustCueEnabled/);
 });
 
 void test("admin settings page loads brand social links section data", () => {
@@ -50,6 +52,8 @@ void test("admin feature flags UI renders listings auto-approve label", () => {
   assert.match(source, /APP_SETTING_KEYS\.listingsAutoApproveEnabled/);
   assert.match(source, /Explore feed availability/);
   assert.match(source, /APP_SETTING_KEYS\.exploreEnabled/);
+  assert.match(source, /Explore V2 trust cue experiment/);
+  assert.match(source, /APP_SETTING_KEYS\.exploreV2TrustCueEnabled/);
 });
 
 void test("admin brand socials UI renders social fields", () => {

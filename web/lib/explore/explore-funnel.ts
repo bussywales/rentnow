@@ -14,6 +14,8 @@ export type TrackExploreFunnelEventInput = {
   fromIndex?: number;
   toIndex?: number;
   depth?: number;
+  trustCueVariant?: "none" | "instant_confirmation" | null;
+  trustCueEnabled?: boolean | null;
 };
 
 export function trackExploreFunnelEvent(input: TrackExploreFunnelEventInput) {
@@ -29,5 +31,7 @@ export function trackExploreFunnelEvent(input: TrackExploreFunnelEventInput) {
     fromIndex: input.fromIndex,
     toIndex: input.toIndex,
     depth: input.depth,
+    trustCueVariant: input.trustCueVariant ?? null,
+    trustCueEnabled: input.trustCueEnabled ?? null,
   });
 }

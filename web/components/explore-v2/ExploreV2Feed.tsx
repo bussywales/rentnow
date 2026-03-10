@@ -22,6 +22,7 @@ type ExploreV2FeedProps = {
   marketCountry: string | null;
   marketCurrency: string | null;
   viewerIsAuthenticated?: boolean;
+  trustCueEnabled?: boolean;
 };
 
 export const EXPLORE_V2_PRELOAD_MAX_INFLIGHT = 2;
@@ -154,6 +155,7 @@ function ExploreV2FeedInner({
   marketCountry,
   marketCurrency,
   viewerIsAuthenticated = false,
+  trustCueEnabled = false,
 }: ExploreV2FeedProps) {
   const [topVisibleIndex, setTopVisibleIndex] = useState(0);
   const [prefetchLookahead, setPrefetchLookahead] = useState(() =>
@@ -214,11 +216,12 @@ function ExploreV2FeedInner({
             index={index}
             feedSize={filteredListings.length}
             viewerIsAuthenticated={viewerIsAuthenticated}
+            trustCueEnabled={trustCueEnabled}
           />
         </div>
       );
     },
-    [filteredListings.length, listingImageRecordsById, marketCurrency, viewerIsAuthenticated]
+    [filteredListings.length, listingImageRecordsById, marketCurrency, trustCueEnabled, viewerIsAuthenticated]
   );
 
   const computeItemKey = useCallback((_index: number, listing: Property) => listing.id, []);

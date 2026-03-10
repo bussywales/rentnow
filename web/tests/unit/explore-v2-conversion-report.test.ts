@@ -27,6 +27,7 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
       listing_id: "l-1",
       market_code: "NG",
       intent_type: "shortlet",
+      trust_cue_variant: "instant_confirmation",
     },
     {
       created_at: "2026-03-05T09:00:01.000Z",
@@ -34,6 +35,7 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
       listing_id: "l-1",
       market_code: "NG",
       intent_type: "shortlet",
+      trust_cue_variant: "instant_confirmation",
     },
     {
       created_at: "2026-03-05T09:00:02.000Z",
@@ -41,6 +43,7 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
       listing_id: "l-1",
       market_code: "NG",
       intent_type: "shortlet",
+      trust_cue_variant: "instant_confirmation",
     },
     {
       created_at: "2026-03-06T10:00:00.000Z",
@@ -48,6 +51,7 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
       listing_id: "l-2",
       market_code: "GB",
       intent_type: "rent",
+      trust_cue_variant: "none",
     },
     {
       created_at: "2026-03-06T10:00:01.000Z",
@@ -55,6 +59,7 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
       listing_id: "l-2",
       market_code: "GB",
       intent_type: "rent",
+      trust_cue_variant: "none",
     },
   ];
 
@@ -78,6 +83,11 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
   assert.equal(report.rates.primary_per_open, 50);
   assert.equal(report.rates.view_details_per_open, 50);
   assert.equal(report.rates.share_per_open, 50);
+  assert.equal(
+    report.by_trust_cue_variant.find((row) => row.key === "instant_confirmation")?.sheet_opened,
+    1
+  );
+  assert.equal(report.by_trust_cue_variant.find((row) => row.key === "none")?.sheet_opened, 1);
 
   const day1 = report.by_day.find((row) => row.date === "2026-03-05");
   const day2 = report.by_day.find((row) => row.date === "2026-03-06");
@@ -93,6 +103,7 @@ void test("explore v2 conversion csv groups by day, market, intent, event", () =
       listing_id: "l-1",
       market_code: "NG",
       intent_type: "shortlet",
+      trust_cue_variant: "none",
     },
     {
       created_at: "2026-03-05T10:00:00.000Z",
@@ -100,10 +111,11 @@ void test("explore v2 conversion csv groups by day, market, intent, event", () =
       listing_id: "l-2",
       market_code: "NG",
       intent_type: "shortlet",
+      trust_cue_variant: "none",
     },
   ];
 
   const csv = buildExploreV2ConversionCsv(rows);
-  assert.match(csv, /^date,market,intent,event_name,count/m);
-  assert.match(csv, /2026-03-05,NG,shortlet,explore_v2_cta_sheet_opened,2/);
+  assert.match(csv, /^date,market,intent,trust_cue_variant,event_name,count/m);
+  assert.match(csv, /2026-03-05,NG,shortlet,none,explore_v2_cta_sheet_opened,2/);
 });

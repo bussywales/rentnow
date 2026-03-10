@@ -79,11 +79,13 @@ void test("explore-v2 page data resolver supports mocked server feed fixtures", 
       user: null,
       sessionRefreshed: false,
     }),
+    loadTrustCueEnabled: async () => true,
   });
 
   assert.equal(data.listings.length, 1);
   assert.equal(data.listings[0]?.id, "fixture-1");
   assert.equal(data.viewerIsAuthenticated, false);
+  assert.equal(data.trustCueEnabled, true);
 });
 
 void test("explore-v2 hero resolver returns normalized hero url from property_images", () => {

@@ -255,6 +255,10 @@ void test("validateSettingValueByKey accepts explore enable toggle payload", () 
   assert.equal(validateSettingValueByKey("explore_enabled", { enabled: true }), true);
 });
 
+void test("validateSettingValueByKey accepts explore v2 trust cue toggle payload", () => {
+  assert.equal(validateSettingValueByKey("explore_v2_trust_cue_enabled", { enabled: true }), true);
+});
+
 void test("validateSettingValueByKey accepts brand socials payloads", () => {
   assert.equal(
     validateSettingValueByKey("brand_social_instagram_url", {

@@ -55,6 +55,8 @@ const ingestSchema = z
     toIndex: z.number().int().min(0).max(9999).nullable().optional(),
     action: z.string().trim().min(1).max(64).nullable().optional(),
     result: z.string().trim().min(1).max(64).nullable().optional(),
+    trustCueVariant: z.enum(["none", "instant_confirmation"]).nullable().optional(),
+    trustCueEnabled: z.boolean().nullable().optional(),
   })
   .strict();
 
@@ -158,6 +160,8 @@ export async function postExploreAnalyticsIngestResponse(
     intent_type: payload.intentType ?? null,
     slide_index: payload.index ?? null,
     feed_size: payload.feedSize ?? null,
+    trust_cue_variant: payload.trustCueVariant ?? null,
+    trust_cue_enabled: payload.trustCueEnabled ?? null,
     user_id: auth.user.id,
   });
 

@@ -45,6 +45,8 @@ export type ExploreAnalyticsEvent = {
   toIndex?: number;
   action?: string | null;
   result?: string | null;
+  trustCueVariant?: "none" | "instant_confirmation" | null;
+  trustCueEnabled?: boolean | null;
 };
 
 type ExploreAnalyticsPayload = {
@@ -157,6 +159,8 @@ async function sendExploreAnalyticsEventToServer(event: ExploreAnalyticsEvent) {
       toIndex: Number.isFinite(event.toIndex) ? event.toIndex : null,
       action: event.action ?? null,
       result: event.result ?? null,
+      trustCueVariant: event.trustCueVariant ?? null,
+      trustCueEnabled: typeof event.trustCueEnabled === "boolean" ? event.trustCueEnabled : null,
     }),
   }).catch(() => undefined);
 }
@@ -204,6 +208,11 @@ export function parseExploreAnalyticsPayload(raw: string | null | undefined): Ex
             typeof typed.toIndex === "number" && Number.isFinite(typed.toIndex) ? typed.toIndex : undefined,
           action: typeof typed.action === "string" ? typed.action : null,
           result: typeof typed.result === "string" ? typed.result : null,
+          trustCueVariant:
+            typed.trustCueVariant === "none" || typed.trustCueVariant === "instant_confirmation"
+              ? typed.trustCueVariant
+              : null,
+          trustCueEnabled: typeof typed.trustCueEnabled === "boolean" ? typed.trustCueEnabled : null,
         } satisfies ExploreAnalyticsEvent;
       })
       .filter((event): event is NonNullable<typeof event> => event !== null);
@@ -317,6 +326,8 @@ export function recordExploreAnalyticsEvent(
     toIndex: input.toIndex,
     action: input.action ?? null,
     result: input.result ?? null,
+    trustCueVariant: input.trustCueVariant ?? null,
+    trustCueEnabled: typeof input.trustCueEnabled === "boolean" ? input.trustCueEnabled : null,
   };
   const nextEvents = writeExploreAnalyticsEvents(storage, [...existing.events, nextEvent]);
   void sendExploreAnalyticsEventToServer(nextEvent);

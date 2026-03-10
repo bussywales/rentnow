@@ -13,6 +13,7 @@ import {
 import { SaveToggle } from "@/components/saved/SaveToggle";
 import { trackExploreFunnelEvent, type ExploreFunnelIntent } from "@/lib/explore/explore-funnel";
 import { performShare, type ShareActionResult } from "@/lib/share/client-share";
+import { resolveShortletBookingMode } from "@/lib/shortlet/discovery";
 import type { Property } from "@/lib/types";
 import {
   resolveExploreAnalyticsIntentType,
@@ -41,6 +42,7 @@ type ExploreV2CardProps = {
   index?: number;
   feedSize?: number;
   viewerIsAuthenticated?: boolean;
+  trustCueEnabled?: boolean;
 };
 
 type ExploreImageRecord = ReturnType<typeof resolveExplorePropertyImageRecords>[number];
@@ -51,7 +53,11 @@ type ExploreV2ActionContext = {
   intentType: ExploreFunnelIntent;
   index: number;
   feedSize: number;
+  trustCueVariant?: ExploreV2TrustCueVariant;
+  trustCueEnabled?: boolean;
 };
+
+export type ExploreV2TrustCueVariant = "none" | "instant_confirmation";
 
 type ExploreV2ShareActionInput = {
   detailsHref: string;
@@ -150,6 +156,21 @@ export function resolveExploreV2VideoTourHref(detailsHref: string): string {
   return detailsHref.includes("?") ? `${detailsHref}&media=video` : `${detailsHref}?media=video`;
 }
 
+export function resolveExploreV2TrustCueVariant(input: {
+  listing: Property;
+  trustCueEnabled: boolean;
+}): ExploreV2TrustCueVariant {
+  if (!input.trustCueEnabled) return "none";
+  return resolveShortletBookingMode(input.listing) === "instant" ? "instant_confirmation" : "none";
+}
+
+export function resolveExploreV2TrustCueCopy(variant: ExploreV2TrustCueVariant): string | null {
+  if (variant === "instant_confirmation") {
+    return "Instant confirmation available";
+  }
+  return null;
+}
+
 export function resolveExploreV2ActionContext(input: {
   listing: Property;
   index?: number;
@@ -178,6 +199,8 @@ export function trackExploreV2SaveToggle(input: {
     intentType: input.context.intentType,
     index: input.context.index,
     feedSize: input.context.feedSize,
+    trustCueVariant: input.context.trustCueVariant ?? "none",
+    trustCueEnabled: input.context.trustCueEnabled ?? false,
     action: "save",
     result: input.saved ? "saved" : "unsaved",
   });
@@ -196,6 +219,8 @@ export function trackExploreV2CtaSheetOpened(input: {
     intentType: input.context.intentType,
     index: input.context.index,
     feedSize: input.context.feedSize,
+    trustCueVariant: input.context.trustCueVariant ?? "none",
+    trustCueEnabled: input.context.trustCueEnabled ?? false,
     action: input.label.toLowerCase(),
     result: "opened",
   });
@@ -214,6 +239,8 @@ export function trackExploreV2CtaPrimaryClicked(input: {
     intentType: input.context.intentType,
     index: input.context.index,
     feedSize: input.context.feedSize,
+    trustCueVariant: input.context.trustCueVariant ?? "none",
+    trustCueEnabled: input.context.trustCueEnabled ?? false,
     action: input.label.toLowerCase(),
     result: "clicked",
   });
@@ -231,6 +258,8 @@ export function trackExploreV2CtaViewDetailsClicked(input: {
     intentType: input.context.intentType,
     index: input.context.index,
     feedSize: input.context.feedSize,
+    trustCueVariant: input.context.trustCueVariant ?? "none",
+    trustCueEnabled: input.context.trustCueEnabled ?? false,
     action: "view_details",
     result: "clicked",
   });
@@ -249,6 +278,8 @@ export function trackExploreV2CtaSaveClicked(input: {
     intentType: input.context.intentType,
     index: input.context.index,
     feedSize: input.context.feedSize,
+    trustCueVariant: input.context.trustCueVariant ?? "none",
+    trustCueEnabled: input.context.trustCueEnabled ?? false,
     action: "save",
     result: input.result,
   });
@@ -267,6 +298,8 @@ export function trackExploreV2CtaShareClicked(input: {
     intentType: input.context.intentType,
     index: input.context.index,
     feedSize: input.context.feedSize,
+    trustCueVariant: input.context.trustCueVariant ?? "none",
+    trustCueEnabled: input.context.trustCueEnabled ?? false,
     action: "share",
     result: input.result,
   });
@@ -297,6 +330,8 @@ export async function triggerExploreV2ShareAction(
     intentType: input.context.intentType,
     index: input.context.index,
     feedSize: input.context.feedSize,
+    trustCueVariant: input.context.trustCueVariant ?? "none",
+    trustCueEnabled: input.context.trustCueEnabled ?? false,
     action: "share",
     result: shareResult,
   });
@@ -318,6 +353,8 @@ export function continueExploreV2Cta(
     intentType: input.context.intentType,
     index: input.context.index,
     feedSize: input.context.feedSize,
+    trustCueVariant: input.context.trustCueVariant ?? "none",
+    trustCueEnabled: input.context.trustCueEnabled ?? false,
     action: "continue",
     result: "navigated",
   });
@@ -513,6 +550,7 @@ function ExploreV2CardInner({
   index = 0,
   feedSize = 0,
   viewerIsAuthenticated = false,
+  trustCueEnabled = false,
 }: ExploreV2CardProps) {
   const [ctaSheetOpen, setCtaSheetOpen] = useState(false);
   const [saveAuthSheetOpen, setSaveAuthSheetOpen] = useState(false);
@@ -564,6 +602,26 @@ function ExploreV2CardInner({
       }),
     [feedSize, index, listing]
   );
+  const trustCueVariant = useMemo(
+    () =>
+      resolveExploreV2TrustCueVariant({
+        listing,
+        trustCueEnabled,
+      }),
+    [listing, trustCueEnabled]
+  );
+  const trustCueCopy = useMemo(
+    () => resolveExploreV2TrustCueCopy(trustCueVariant),
+    [trustCueVariant]
+  );
+  const ctaAnalyticsContext = useMemo(
+    () => ({
+      ...actionContext,
+      trustCueVariant,
+      trustCueEnabled,
+    }),
+    [actionContext, trustCueEnabled, trustCueVariant]
+  );
   const intentTag = useMemo(() => resolveExploreIntentTag(listing), [listing]);
   const locationLine = useMemo(() => resolveExploreV2LocationLine(listing), [listing]);
   const formattedTitle = useMemo(
@@ -600,7 +658,7 @@ function ExploreV2CardInner({
 
   const handleSaveToggle = useCallback(
     (saved: boolean) => {
-      trackExploreV2SaveToggle({ context: actionContext, saved });
+      trackExploreV2SaveToggle({ context: ctaAnalyticsContext, saved });
       setSavePulseActive(true);
       if (savePulseTimerRef.current) {
         clearTimeout(savePulseTimerRef.current);
@@ -615,18 +673,18 @@ function ExploreV2CardInner({
         showRetry: false,
       });
     },
-    [actionContext, showGlassToast]
+    [ctaAnalyticsContext, showGlassToast]
   );
 
   const handleSheetSaveToggle = useCallback(
     (saved: boolean) => {
       handleSaveToggle(saved);
       trackExploreV2CtaSaveClicked({
-        context: actionContext,
+        context: ctaAnalyticsContext,
         result: saved ? "saved" : "unsaved",
       });
     },
-    [actionContext, handleSaveToggle]
+    [ctaAnalyticsContext, handleSaveToggle]
   );
 
   const handleShare = useCallback(async (source: "rail" | "sheet" = "rail") => {
@@ -634,16 +692,16 @@ function ExploreV2CardInner({
       detailsHref,
       title: formattedTitle,
       locationLine,
-      context: actionContext,
+      context: ctaAnalyticsContext,
     });
     if (source === "sheet") {
       trackExploreV2CtaShareClicked({
-        context: actionContext,
+        context: ctaAnalyticsContext,
         result: result === "error" ? "error" : result,
       });
     }
     showGlassToast(resolveExploreV2ShareFeedback(result));
-  }, [actionContext, detailsHref, formattedTitle, locationLine, showGlassToast]);
+  }, [ctaAnalyticsContext, detailsHref, formattedTitle, locationLine, showGlassToast]);
 
   const resolveAuthRedirectPath = useCallback(
     (basePath: "/auth/login" | "/auth/register") => {
@@ -668,32 +726,34 @@ function ExploreV2CardInner({
     (event: MouseEvent<HTMLDivElement>) => {
       if (viewerIsAuthenticated) return;
       trackExploreV2CtaSaveClicked({
-        context: actionContext,
+        context: ctaAnalyticsContext,
         result: "auth_required",
       });
       event.preventDefault();
       event.stopPropagation();
       setSaveAuthSheetOpen(true);
     },
-    [actionContext, viewerIsAuthenticated]
+    [ctaAnalyticsContext, viewerIsAuthenticated]
   );
 
   const openCtaSheet = useCallback(() => {
     trackExploreFunnelEvent({
       name: "explore_v2_cta_open",
-      listingId: actionContext.listingId,
-      marketCode: actionContext.marketCode,
-      intentType: actionContext.intentType,
-      index: actionContext.index,
-      feedSize: actionContext.feedSize,
+      listingId: ctaAnalyticsContext.listingId,
+      marketCode: ctaAnalyticsContext.marketCode,
+      intentType: ctaAnalyticsContext.intentType,
+      index: ctaAnalyticsContext.index,
+      feedSize: ctaAnalyticsContext.feedSize,
+      trustCueVariant: ctaAnalyticsContext.trustCueVariant ?? "none",
+      trustCueEnabled: ctaAnalyticsContext.trustCueEnabled ?? false,
       action: primaryAction.label.toLowerCase(),
     });
     trackExploreV2CtaSheetOpened({
-      context: actionContext,
+      context: ctaAnalyticsContext,
       label: primaryAction.label,
     });
     setCtaSheetOpen(true);
-  }, [actionContext, primaryAction.label]);
+  }, [ctaAnalyticsContext, primaryAction.label]);
 
   const handleCtaContinue = useCallback(() => {
     setCtaSheetOpen(false);
@@ -701,7 +761,7 @@ function ExploreV2CardInner({
       {
         href: primaryAction.href,
         label: primaryAction.label,
-        context: actionContext,
+        context: ctaAnalyticsContext,
       },
       {
         pushFn: (href) => {
@@ -711,14 +771,14 @@ function ExploreV2CardInner({
         },
       }
     );
-  }, [actionContext, primaryAction.href, primaryAction.label]);
+  }, [ctaAnalyticsContext, primaryAction.href, primaryAction.label]);
 
   const handleViewDetails = useCallback(() => {
     setCtaSheetOpen(false);
     continueExploreV2ViewDetails(
       {
         href: detailsHref,
-        context: actionContext,
+        context: ctaAnalyticsContext,
       },
       {
         pushFn: (href) => {
@@ -728,7 +788,7 @@ function ExploreV2CardInner({
         },
       }
     );
-  }, [actionContext, detailsHref]);
+  }, [ctaAnalyticsContext, detailsHref]);
 
   const handleHeroInteractionCapture = useCallback(() => {
     overlayFocusController.trigger();
@@ -917,6 +977,7 @@ function ExploreV2CardInner({
         intentTag={intentTag}
         hasVideo={showFeaturedVideoBadge}
         thumbnailSrc={sheetThumbnailSrc}
+        trustCueCopy={trustCueCopy}
         primaryActionLabel={primaryAction.label}
         onPrimaryAction={handleCtaContinue}
         detailsHref={detailsHref}

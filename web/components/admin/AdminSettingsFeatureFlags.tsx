@@ -84,6 +84,11 @@ const DESCRIPTIONS: Partial<Record<AppSettingKey, { title: string; helper: strin
     helper:
       "Disable to hide Explore entry points on home and show a temporary unavailable screen on /explore.",
   },
+  [APP_SETTING_KEYS.exploreV2TrustCueEnabled]: {
+    title: "Explore V2 trust cue experiment",
+    helper:
+      "Show an instant-confirmation trust cue in the Explore V2 conversion sheet when the listing supports it.",
+  },
   [APP_SETTING_KEYS.shortletPaymentsStripeEnabled]: {
     title: "Shortlet Stripe checkout",
     helper: "Enable card checkout for shortlet bookings.",

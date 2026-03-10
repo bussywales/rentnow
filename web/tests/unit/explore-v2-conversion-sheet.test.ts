@@ -23,6 +23,7 @@ void test("explore-v2 conversion sheet renders summary and actions when open", (
       intentTag: "Shortlets",
       hasVideo: true,
       thumbnailSrc: "https://example.supabase.co/storage/v1/object/public/property-images/listing-1.jpg",
+      trustCueCopy: "Instant confirmation available",
       primaryActionLabel: "Book",
       onPrimaryAction: () => undefined,
       detailsHref: "/properties/listing-1?source=explore_v0",
@@ -57,6 +58,8 @@ void test("explore-v2 conversion sheet renders summary and actions when open", (
   assert.match(html, /\/ night/);
   assert.match(html, /data-testid="explore-v2-cta-price-note"/);
   assert.match(html, /Excludes cleaning fee/);
+  assert.match(html, /data-testid="explore-v2-cta-trust-cue"/);
+  assert.match(html, /Instant confirmation available/);
   assert.match(html, /data-testid="explore-v2-cta-continue"/);
   assert.match(html, />Book</);
   assert.match(html, /data-testid="explore-v2-cta-view-details"/);
@@ -64,6 +67,46 @@ void test("explore-v2 conversion sheet renders summary and actions when open", (
   assert.match(html, /data-testid="explore-v2-cta-save-surface"/);
   assert.match(html, /data-testid="explore-v2-cta-share-action"/);
   assert.match(html, />Video</);
+});
+
+void test("explore-v2 conversion sheet hides trust cue row when not provided", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ExploreV2ConversionSheet, {
+      open: true,
+      onOpenChange: () => undefined,
+      sheetId: "explore-v2-cta-sheet-listing-1",
+      title: "Lekki Waterfront Apartment",
+      locationLine: "Lagos, NG",
+      priceClarity: {
+        amount: "₦120,000",
+        suffix: "/ night",
+        note: null,
+      },
+      intentTag: "Shortlets",
+      hasVideo: false,
+      thumbnailSrc: "https://example.supabase.co/storage/v1/object/public/property-images/listing-1.jpg",
+      trustCueCopy: null,
+      primaryActionLabel: "Book",
+      onPrimaryAction: () => undefined,
+      detailsHref: "/properties/listing-1?source=explore_v0",
+      onViewDetails: () => undefined,
+      onShare: () => undefined,
+      onSaveSurfaceCapture: () => undefined,
+      viewerIsAuthenticated: true,
+      saveToggle: {
+        itemId: "listing-1",
+        kind: "shortlet",
+        href: "/properties/listing-1?source=explore_v0",
+        title: "Lekki Waterfront Apartment",
+        subtitle: "Lagos, NG",
+        tag: "Shortlets",
+        marketCountry: "NG",
+        onToggle: () => undefined,
+      },
+    })
+  );
+
+  assert.doesNotMatch(html, /data-testid="explore-v2-cta-trust-cue"/);
 });
 
 void test("explore-v2 conversion quick action label copy maps book and viewing intents", () => {
