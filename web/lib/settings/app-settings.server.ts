@@ -22,6 +22,29 @@ import {
 
 type AppSettingRow = { key: string; value: unknown };
 
+export async function getAppSettingsMap(
+  keys: string[],
+  client?: SupabaseClient
+): Promise<Map<string, unknown>> {
+  if (!hasServerSupabaseEnv()) return new Map();
+  const uniqueKeys = Array.from(new Set(keys.filter(Boolean)));
+  if (!uniqueKeys.length) return new Map();
+
+  try {
+    const supabase = client ?? (await createServerSupabaseClient());
+    const { data, error } = await supabase
+      .from("app_settings")
+      .select("key, value")
+      .in("key", uniqueKeys);
+    if (error || !data) return new Map();
+    return new Map(
+      (data as AppSettingRow[]).map((row) => [row.key, row.value] as const)
+    );
+  } catch {
+    return new Map();
+  }
+}
+
 export async function getAppSettingBool(key: string, defaultValue: boolean): Promise<boolean> {
   if (!hasServerSupabaseEnv()) return defaultValue;
   try {

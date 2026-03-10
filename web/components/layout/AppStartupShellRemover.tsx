@@ -13,7 +13,7 @@ export function fadeAndRemoveStartupShell(
   input: { fadeMs?: number; schedule?: TimerSchedule } = {}
 ) {
   const shell = documentLike?.getElementById(STARTUP_SHELL_ID) as HTMLElement | null;
-  if (!shell || shell.dataset.state === "removing") return false;
+  if (!shell || shell.dataset.state === "removing" || shell.dataset.state === "removed") return false;
 
   shell.dataset.state = "removing";
   shell.style.opacity = "0";
@@ -25,7 +25,9 @@ export function fadeAndRemoveStartupShell(
     input.schedule ?? ((callback, delayMs) => globalThis.setTimeout(callback, delayMs));
 
   schedule(() => {
-    shell.remove();
+    shell.dataset.state = "removed";
+    shell.style.display = "none";
+    shell.style.visibility = "hidden";
   }, fadeMs);
 
   return true;
@@ -38,4 +40,3 @@ export function AppStartupShellRemover() {
 
   return null;
 }
-

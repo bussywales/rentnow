@@ -20,10 +20,16 @@ import {
   BRAND_OG_SHARE_IMAGE,
   BRAND_SOCIAL_TAGLINE,
 } from "@/lib/brand";
-import { getAppSettingBool } from "@/lib/settings/app-settings.server";
+import { resolveBrandSocialLinks, type BrandSocialLink } from "@/lib/brand-socials";
+import { parseAppSettingBool, parseAppSettingString } from "@/lib/settings/app-settings";
+import { getAppSettingsMap } from "@/lib/settings/app-settings.server";
 import { APP_SETTING_KEYS } from "@/lib/settings/app-settings-keys";
-import { getMarketSettings } from "@/lib/market/market.server";
-import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/market";
+import {
+  DEFAULT_MARKET_SETTINGS,
+  MARKET_COOKIE_NAME,
+  resolveMarketFromRequest,
+  type MarketSettings,
+} from "@/lib/market/market";
 import { MarketPreferenceProvider } from "@/components/layout/MarketPreferenceProvider";
 import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { normalizeRole } from "@/lib/roles";
@@ -46,8 +52,23 @@ const STARTUP_SHELL_BACKGROUND = "#f8fafc";
 const STARTUP_SHELL_CRITICAL_CSS = `
 #app-startup-shell{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;background:${STARTUP_SHELL_BACKGROUND};pointer-events:none;opacity:1;transform:translate3d(0,0,0);transition:opacity 160ms ease,transform 160ms ease}
 #app-startup-shell[data-state="removing"]{opacity:0;transform:translate3d(0,6px,0) scale(.98)}
+#app-startup-shell[data-state="removed"]{opacity:0;visibility:hidden}
 #app-startup-shell-icon{display:block;width:min(120px,32vw);height:min(120px,32vw);background:url('/icon-512.png') center/contain no-repeat}
 `;
+const ROOT_LAYOUT_SETTING_KEYS = [
+  APP_SETTING_KEYS.demoBadgeEnabled,
+  APP_SETTING_KEYS.demoWatermarkEnabled,
+  APP_SETTING_KEYS.featuredListingsEnabled,
+  APP_SETTING_KEYS.defaultMarketCountry,
+  APP_SETTING_KEYS.defaultMarketCurrency,
+  APP_SETTING_KEYS.marketAutoDetectEnabled,
+  APP_SETTING_KEYS.marketSelectorEnabled,
+  APP_SETTING_KEYS.brandSocialInstagramUrl,
+  APP_SETTING_KEYS.brandSocialYoutubeUrl,
+  APP_SETTING_KEYS.brandSocialTiktokUrl,
+  APP_SETTING_KEYS.brandSocialFacebookUrl,
+  APP_SETTING_KEYS.brandSocialWhatsappLink,
+] as const;
 
 export const metadata: Metadata = {
   metadataBase: new URL(BRAND.siteUrl),
@@ -107,14 +128,25 @@ export default async function RootLayout({
   let supportPrefillName: string | null = null;
   let supportPrefillEmail: string | null = null;
   let supportPrefillRole: string | null = null;
+  let navInitialAuthed = false;
+  let navInitialRole: "super_admin" | "tenant" | "landlord" | "agent" | "admin" | null = null;
+  let socialLinks: BrandSocialLink[] = [];
+  let settingsMap = new Map<string, unknown>();
+
+  const requestHeadersPromise = headers();
+  const cookieStorePromise = cookies();
 
   if (hasServerSupabaseEnv()) {
     try {
       const supabase = await createServerSupabaseClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const [resolvedSettings, userResult] = await Promise.all([
+        getAppSettingsMap([...ROOT_LAYOUT_SETTING_KEYS], supabase),
+        supabase.auth.getUser(),
+      ]);
+      settingsMap = resolvedSettings;
+      const user = userResult.data.user;
       if (user) {
+        navInitialAuthed = true;
         supportPrefillEmail = user.email ?? null;
         const { data: profile } = await supabase
           .from("profiles")
@@ -123,24 +155,55 @@ export default async function RootLayout({
           .maybeSingle();
         supportPrefillName = profile?.full_name ?? null;
         supportPrefillRole = normalizeRole(profile?.role);
+        navInitialRole = normalizeRole(profile?.role) as typeof navInitialRole;
       }
     } catch {
-      // Keep support prefill optional if auth resolution fails.
+      // Keep support prefill optional if auth or settings resolution fails.
+      settingsMap = new Map<string, unknown>();
     }
   }
 
-  const demoBadgeEnabled = await getAppSettingBool(APP_SETTING_KEYS.demoBadgeEnabled, true);
-  const demoWatermarkEnabled = await getAppSettingBool(
-    APP_SETTING_KEYS.demoWatermarkEnabled,
-    false
-  );
-  const featuredListingsEnabled = await getAppSettingBool(
-    APP_SETTING_KEYS.featuredListingsEnabled,
+  const demoBadgeEnabled = parseAppSettingBool(
+    settingsMap.get(APP_SETTING_KEYS.demoBadgeEnabled),
     true
   );
-  const marketSettings = await getMarketSettings();
-  const requestHeaders = await headers();
-  const cookieStore = await cookies();
+  const demoWatermarkEnabled = parseAppSettingBool(
+    settingsMap.get(APP_SETTING_KEYS.demoWatermarkEnabled),
+    false
+  );
+  const featuredListingsEnabled = parseAppSettingBool(
+    settingsMap.get(APP_SETTING_KEYS.featuredListingsEnabled),
+    true
+  );
+  const marketSettings: MarketSettings = {
+    defaultCountry: parseAppSettingString(
+      settingsMap.get(APP_SETTING_KEYS.defaultMarketCountry),
+      DEFAULT_MARKET_SETTINGS.defaultCountry
+    ).toUpperCase(),
+    defaultCurrency: parseAppSettingString(
+      settingsMap.get(APP_SETTING_KEYS.defaultMarketCurrency),
+      DEFAULT_MARKET_SETTINGS.defaultCurrency
+    ).toUpperCase(),
+    autoDetectEnabled: parseAppSettingBool(
+      settingsMap.get(APP_SETTING_KEYS.marketAutoDetectEnabled),
+      DEFAULT_MARKET_SETTINGS.autoDetectEnabled
+    ),
+    selectorEnabled: parseAppSettingBool(
+      settingsMap.get(APP_SETTING_KEYS.marketSelectorEnabled),
+      DEFAULT_MARKET_SETTINGS.selectorEnabled
+    ),
+  };
+
+  socialLinks = resolveBrandSocialLinks({
+    instagram: parseAppSettingString(settingsMap.get(APP_SETTING_KEYS.brandSocialInstagramUrl), ""),
+    youtube: parseAppSettingString(settingsMap.get(APP_SETTING_KEYS.brandSocialYoutubeUrl), ""),
+    tiktok: parseAppSettingString(settingsMap.get(APP_SETTING_KEYS.brandSocialTiktokUrl), ""),
+    facebook: parseAppSettingString(settingsMap.get(APP_SETTING_KEYS.brandSocialFacebookUrl), ""),
+    whatsapp: parseAppSettingString(settingsMap.get(APP_SETTING_KEYS.brandSocialWhatsappLink), ""),
+  });
+
+  const requestHeaders = await requestHeadersPromise;
+  const cookieStore = await cookieStorePromise;
   const market = resolveMarketFromRequest({
     headers: requestHeaders,
     cookieValue: cookieStore.get(MARKET_COOKIE_NAME)?.value ?? null,
@@ -171,7 +234,12 @@ export default async function RootLayout({
           </>
         ) : null}
         <MarketPreferenceProvider initialMarket={market}>
-          <MainNav marketSelectorEnabled={marketSettings.selectorEnabled} />
+          <MainNav
+            marketSelectorEnabled={marketSettings.selectorEnabled}
+            initialAuthed={navInitialAuthed}
+            initialRole={navInitialRole}
+            socialLinks={socialLinks}
+          />
           <SessionBootstrap />
           <LegalAcceptanceModalGate />
           <Suspense fallback={null}>

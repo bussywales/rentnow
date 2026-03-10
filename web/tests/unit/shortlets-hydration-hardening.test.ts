@@ -12,16 +12,15 @@ const shellNoSsrPath = path.join(
 );
 const navLinksPath = path.join(process.cwd(), "components", "layout", "NavLinksClient.tsx");
 
-void test("shortlets shell no-ssr waits for mount with deterministic null first paint", () => {
+void test("shortlets shell no-ssr delegates directly to dynamic client shell", () => {
   const contents = fs.readFileSync(shellNoSsrPath, "utf8");
 
-  assert.ok(contents.includes('import { useSyncExternalStore } from "react";'));
-  assert.ok(contents.includes("const hasMounted = useSyncExternalStore("));
-  assert.ok(contents.includes("if (!hasMounted) {"));
-  assert.ok(contents.includes("return null;"));
+  assert.equal(contents.includes('import { useSyncExternalStore } from "react";'), false);
+  assert.equal(contents.includes("const hasMounted = useSyncExternalStore("), false);
+  assert.equal(contents.includes("if (!hasMounted) {"), false);
+  assert.equal(contents.includes("return null;"), false);
   assert.ok(contents.includes("{ ssr: false }"));
-  assert.ok(contents.includes("const getServerSnapshot = () => false;"));
-  assert.ok(contents.includes("const getClientSnapshot = () => true;"));
+  assert.ok(contents.includes("return <ShortletsSearchShellClient {...props} />;"));
 });
 
 void test("nav links defer pathname-dependent active state until after mount", () => {

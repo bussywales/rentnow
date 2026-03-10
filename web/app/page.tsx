@@ -27,6 +27,7 @@ import { fetchTrustPublicSnapshots } from "@/lib/trust-public";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { getListingPopularitySignals, type ListingPopularitySignal } from "@/lib/properties/popularity.server";
 import { isExploreEnabled } from "@/lib/settings/explore";
+import { includeDemoListingsForViewerFromSettings } from "@/lib/settings/demo";
 
 const HOME_MOBILE_WHY_COLLAPSED_KEY = "home:public:why-propatyhub:collapsed:v1";
 
@@ -35,27 +36,37 @@ export default async function Home() {
   let popularHomes: Property[] = [];
   let newHomes: Property[] = [];
   const supabaseReady = hasServerSupabaseEnv();
-  let role = null;
+  const profilePromise = supabaseReady ? getProfile() : Promise.resolve(null);
+  const [profile, exploreEnabled] = await Promise.all([profilePromise, isExploreEnabled()]);
+  const role = normalizeRole(profile?.role);
   let profileId: string | null = null;
 
-  if (supabaseReady) {
-    const profile = await getProfile();
-    role = normalizeRole(profile?.role);
-    profileId = profile?.id ?? null;
-  }
+  if (supabaseReady) profileId = profile?.id ?? null;
   const listingCta = getListingCta(role);
-  const exploreEnabled = await isExploreEnabled();
 
   if (supabaseReady) {
     try {
       const baseFilters = parseFiltersFromSearchParams(new URLSearchParams());
+      const includeDemoListings = await includeDemoListingsForViewerFromSettings({
+        viewerRole: role,
+      });
       const [featuredResult, popularResult, newHomesResult] = await Promise.all([
-        searchProperties(baseFilters, { page: 1, pageSize: 10, featuredOnly: true }),
-        searchProperties(baseFilters, { page: 1, pageSize: 10 }),
+        searchProperties(baseFilters, {
+          page: 1,
+          pageSize: 10,
+          featuredOnly: true,
+          includeDemo: includeDemoListings,
+        }),
+        searchProperties(baseFilters, {
+          page: 1,
+          pageSize: 10,
+          includeDemo: includeDemoListings,
+        }),
         searchProperties(baseFilters, {
           page: 1,
           pageSize: 10,
           recentDays: 7,
+          includeDemo: includeDemoListings,
         }),
       ]);
 
@@ -125,19 +136,24 @@ export default async function Home() {
   if (supabaseReady && profileId && featuredPreview.length) {
     try {
       const supabase = await createServerSupabaseClient();
-      savedIds = await fetchSavedPropertyIds({
-        supabase,
-        userId: profileId,
-        propertyIds: featuredPreview.map((property) => property.id),
-      });
       const ownerIds = Array.from(new Set(featuredPreview.map((property) => property.owner_id).filter(Boolean)));
-      if (ownerIds.length) {
-        trustSnapshots = await fetchTrustPublicSnapshots(supabase, ownerIds);
-      }
-      socialProofByListing = await getListingPopularitySignals({
-        client: supabase,
-        listingIds: featuredPreview.map((property) => property.id),
-      });
+      const [nextSavedIds, nextTrustSnapshots, nextSocialProof] = await Promise.all([
+        fetchSavedPropertyIds({
+          supabase,
+          userId: profileId,
+          propertyIds: featuredPreview.map((property) => property.id),
+        }),
+        ownerIds.length
+          ? fetchTrustPublicSnapshots(supabase, ownerIds)
+          : Promise.resolve({} as Record<string, TrustMarkerState>),
+        getListingPopularitySignals({
+          client: supabase,
+          listingIds: featuredPreview.map((property) => property.id),
+        }),
+      ]);
+      savedIds = nextSavedIds;
+      trustSnapshots = nextTrustSnapshots;
+      socialProofByListing = nextSocialProof;
     } catch (err) {
       console.warn("[home] saved property lookup failed", err);
       savedIds = new Set<string>();
@@ -149,13 +165,17 @@ export default async function Home() {
     try {
       const supabase = await createServerSupabaseClient();
       const ownerIds = Array.from(new Set(featuredPreview.map((property) => property.owner_id).filter(Boolean)));
-      if (ownerIds.length) {
-        trustSnapshots = await fetchTrustPublicSnapshots(supabase, ownerIds);
-      }
-      socialProofByListing = await getListingPopularitySignals({
-        client: supabase,
-        listingIds: featuredPreview.map((property) => property.id),
-      });
+      const [nextTrustSnapshots, nextSocialProof] = await Promise.all([
+        ownerIds.length
+          ? fetchTrustPublicSnapshots(supabase, ownerIds)
+          : Promise.resolve({} as Record<string, TrustMarkerState>),
+        getListingPopularitySignals({
+          client: supabase,
+          listingIds: featuredPreview.map((property) => property.id),
+        }),
+      ]);
+      trustSnapshots = nextTrustSnapshots;
+      socialProofByListing = nextSocialProof;
     } catch (err) {
       console.warn("[home] trust signal lookup failed", err);
       trustSnapshots = {};

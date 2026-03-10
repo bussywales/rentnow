@@ -6,14 +6,10 @@ function createMockShell() {
   return {
     dataset: {} as Record<string, string | undefined>,
     style: {} as Record<string, string>,
-    removed: false,
-    remove() {
-      this.removed = true;
-    },
   };
 }
 
-void test("fadeAndRemoveStartupShell fades and removes the startup shell", () => {
+void test("fadeAndRemoveStartupShell fades and hides the startup shell", () => {
   const shell = createMockShell();
   let scheduledDelay: number | null = null;
   let scheduledCallback: (() => void) | null = null;
@@ -38,11 +34,13 @@ void test("fadeAndRemoveStartupShell fades and removes the startup shell", () =>
   assert.equal(shell.style.transform, "translate3d(0, 6px, 0) scale(0.98)");
   assert.equal(shell.style.pointerEvents, "none");
   assert.equal(scheduledDelay, 170);
-  assert.equal(shell.removed, false);
+  assert.equal(shell.dataset.state, "removing");
 
   assert.ok(scheduledCallback);
   scheduledCallback();
-  assert.equal(shell.removed, true);
+  assert.equal(shell.dataset.state, "removed");
+  assert.equal(shell.style.display, "none");
+  assert.equal(shell.style.visibility, "hidden");
 });
 
 void test("fadeAndRemoveStartupShell does nothing when already removing", () => {
@@ -64,6 +62,5 @@ void test("fadeAndRemoveStartupShell does nothing when already removing", () => 
 
   assert.equal(started, false);
   assert.equal(scheduled, false);
-  assert.equal(shell.removed, false);
+  assert.equal(shell.dataset.state, "removing");
 });
-

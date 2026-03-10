@@ -7,11 +7,8 @@ import { ProductUpdatesBell } from "@/components/updates/ProductUpdatesBell";
 import { ProductUpdatesOnboarding } from "@/components/updates/ProductUpdatesOnboarding";
 import { MarketSelector } from "@/components/layout/MarketSelector";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
-import { normalizeRole } from "@/lib/roles";
-import { countAwaitingApprovalBookings } from "@/lib/shortlet/host-bookings-inbox";
-import { getEnabledBrandSocialLinks } from "@/lib/brand-socials";
+import type { BrandSocialLink } from "@/lib/brand-socials";
 
 export const MAIN_NAV_LINKS: Array<{
   href: string;
@@ -110,96 +107,25 @@ export function applyHostBookingsBadge(
   });
 }
 
-export async function MainNav({
+export function MainNav({
   marketSelectorEnabled,
+  initialAuthed = false,
+  initialRole = null,
+  socialLinks = [],
+  hostAwaitingApprovalCount = 0,
 }: {
   marketSelectorEnabled: boolean;
+  initialAuthed?: boolean;
+  initialRole?: UserRole | "super_admin" | null;
+  socialLinks?: BrandSocialLink[];
+  hostAwaitingApprovalCount?: number;
 }) {
-  let initialAuthed = false;
-  let role: UserRole | "super_admin" | null = null;
-  let hostAwaitingApprovalCount = 0;
-
-  if (hasServerSupabaseEnv()) {
-    try {
-      const supabase = await createServerSupabaseClient();
-      const {
-        data: { user },
-        error,
-      } = await supabase.auth.getUser();
-      if (!error) {
-        initialAuthed = !!user;
-        const userId = user?.id;
-        if (userId) {
-          const { data: profile } = await supabase
-            .from("profiles")
-            .select("role")
-            .eq("id", userId)
-            .maybeSingle();
-          role = normalizeRole(profile?.role) as UserRole | "super_admin" | null;
-
-          if (role === "landlord" || role === "agent") {
-            const { data: shortletProperties } = await supabase
-              .from("properties")
-              .select("id")
-              .eq("owner_id", userId)
-              .eq("listing_intent", "shortlet")
-              .limit(600);
-
-            const propertyIds = (shortletProperties ?? [])
-              .map((row) => String(row.id || ""))
-              .filter(Boolean);
-
-            if (propertyIds.length) {
-              const bookingsWithRespondBy = await supabase
-                .from("shortlet_bookings")
-                .select("id,status,respond_by,expires_at")
-                .eq("status", "pending")
-                .in("property_id", propertyIds)
-                .order("created_at", { ascending: false })
-                .limit(800);
-
-              let bookingsError = bookingsWithRespondBy.error;
-              let bookingsRows: Array<Record<string, unknown>> =
-                (bookingsWithRespondBy.data as Array<Record<string, unknown>> | null) ?? [];
-
-              if (bookingsError?.message?.toLowerCase().includes("respond_by")) {
-                const bookingsWithoutRespondBy = await supabase
-                  .from("shortlet_bookings")
-                  .select("id,status,expires_at")
-                  .eq("status", "pending")
-                  .in("property_id", propertyIds)
-                  .order("created_at", { ascending: false })
-                  .limit(800);
-                bookingsError = bookingsWithoutRespondBy.error;
-                bookingsRows =
-                  (bookingsWithoutRespondBy.data as Array<Record<string, unknown>> | null) ?? [];
-              }
-
-              if (!bookingsError) {
-                hostAwaitingApprovalCount = countAwaitingApprovalBookings(
-                  bookingsRows.map((row) => ({
-                    id: String(row.id || ""),
-                    status: String(row.status || ""),
-                    respond_by: typeof row.respond_by === "string" ? row.respond_by : null,
-                    expires_at: typeof row.expires_at === "string" ? row.expires_at : null,
-                  }))
-                );
-              }
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.warn("Unable to resolve initial auth state", err);
-    }
-  }
-
+  const role = initialRole;
   const navLinks = applyHostBookingsBadge(MAIN_NAV_LINKS, hostAwaitingApprovalCount);
   const desktopLinks = resolveDesktopTopNavLinks(navLinks, {
     isAuthed: initialAuthed,
     role,
   });
-  const socialLinks = await getEnabledBrandSocialLinks();
 
   return (
     <header className="sticky top-0 z-30 border-b border-slate-200/70 bg-white/95 backdrop-blur-lg shadow-[0_1px_10px_rgba(15,23,42,0.06)]">

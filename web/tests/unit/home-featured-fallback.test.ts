@@ -22,6 +22,8 @@ void test("public home no longer fetches featured rails through external API bas
 
   assert.ok(!source.includes("featuredApiUrl"), "expected external featuredApiUrl fetch removed");
   assert.ok(!source.includes("getApiBaseUrl"), "expected home page to avoid getApiBaseUrl for listing rails");
-  assert.match(source, /searchProperties\(baseFilters, \{ page: 1, pageSize: 10, featuredOnly: true \}\)/);
+  assert.match(source, /searchProperties\(baseFilters,\s*\{/);
+  assert.match(source, /featuredOnly:\s*true/);
+  assert.match(source, /includeDemo:\s*includeDemoListings/);
   assert.match(source, /recentDays: 7/);
 });
