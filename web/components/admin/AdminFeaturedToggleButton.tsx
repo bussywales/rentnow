@@ -7,6 +7,7 @@ import { isFeaturedListingActive } from "@/lib/properties/featured";
 type Props = {
   propertyId: string;
   isFeatured: boolean;
+  isDemo?: boolean;
   featuredUntil?: string | null;
   onUpdated?: (next: { is_featured: boolean; featured_until: string | null }) => void;
   onToast?: (message: string) => void;
@@ -19,6 +20,7 @@ type DurationPreset = "7" | "30" | "none";
 export default function AdminFeaturedToggleButton({
   propertyId,
   isFeatured,
+  isDemo = false,
   featuredUntil = null,
   onUpdated,
   onToast,
@@ -35,9 +37,14 @@ export default function AdminFeaturedToggleButton({
     [isFeatured, featuredUntil]
   );
   const nextFeatured = !featuredActive;
+  const featureBlockedByDemo = isDemo && nextFeatured;
   const title = nextFeatured ? "Mark listing as featured?" : "Remove featured status?";
 
   const handleConfirm = async () => {
+    if (featureBlockedByDemo) {
+      setError("Demo listings can't be featured.");
+      return;
+    }
     setPending(true);
     setError(null);
     try {
@@ -76,15 +83,29 @@ export default function AdminFeaturedToggleButton({
         type="button"
         onClick={(event) => {
           event.stopPropagation();
+          if (featureBlockedByDemo) {
+            setError("Demo listings can't be featured.");
+            onToast?.("Demo listings can't be featured.");
+            return;
+          }
           setError(null);
           setOpen(true);
         }}
+        disabled={featureBlockedByDemo}
         className={
-          buttonClassName ||
+          featureBlockedByDemo
+            ? "rounded border border-slate-200 bg-slate-100 px-3 py-1 text-xs text-slate-400"
+            : buttonClassName ||
           "rounded border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-50"
         }
         data-testid={dataTestId}
-        title={nextFeatured ? "Mark as featured" : "Remove featured"}
+        title={
+          featureBlockedByDemo
+            ? "Demo listings can't be featured"
+            : nextFeatured
+              ? "Mark as featured"
+              : "Remove featured"
+        }
       >
         <span className="hidden lg:inline">
           {nextFeatured ? "Mark as featured" : "Remove featured"}
@@ -177,7 +198,7 @@ export default function AdminFeaturedToggleButton({
               <Button
                 size="sm"
                 onClick={handleConfirm}
-                disabled={pending}
+                disabled={pending || featureBlockedByDemo}
                 data-testid="admin-featured-confirm"
               >
                 {pending ? "Saving..." : "Confirm"}

@@ -25,6 +25,7 @@ export type ListingHealthRow = {
   paused_at: string | null;
   is_featured: boolean | null;
   featured_until: string | null;
+  is_demo: boolean | null;
   views_range: number;
   views_7d: number;
   leads_14d: number;
@@ -359,7 +360,7 @@ export async function buildInsightsDrilldowns(
 
   const listingResult = await client
     .from("properties")
-    .select("id,title,city,status,updated_at,paused_at,expires_at,is_featured,featured_until")
+    .select("id,title,city,status,updated_at,paused_at,expires_at,is_featured,featured_until,is_demo")
     .order("updated_at", { ascending: false })
     .limit(300);
   if (listingResult.error) {

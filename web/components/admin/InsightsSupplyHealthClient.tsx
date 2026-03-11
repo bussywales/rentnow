@@ -17,6 +17,7 @@ type SupplyHealthRow = {
   missing_flags: string[];
   views: number;
   enquiries: number;
+  is_demo?: boolean | null;
 };
 
 type Props = {
@@ -68,6 +69,10 @@ export default function InsightsSupplyHealthClient({ initialRows }: Props) {
   }, [rows, scoreOnly, noEnquiriesOnly, expiringOnly, featuredOnly, query]);
 
   async function updateFeatured(row: SupplyHealthRow, nextFeatured: boolean) {
+    if (nextFeatured && row.is_demo) {
+      setError("Demo listings can't be featured.");
+      return;
+    }
     setBusyId(row.id);
     setError(null);
     try {
@@ -80,7 +85,8 @@ export default function InsightsSupplyHealthClient({ initialRows }: Props) {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        throw new Error(`Request failed (${res.status})`);
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || `Request failed (${res.status})`);
       }
       const data = await res.json();
       const updated = data?.property ?? data?.data ?? data;
@@ -233,13 +239,19 @@ export default function InsightsSupplyHealthClient({ initialRows }: Props) {
                         ) : (
                           <button
                             type="button"
-                            disabled={busyId === row.id}
+                            disabled={busyId === row.id || !!row.is_demo}
                             onClick={() => updateFeatured(row, true)}
-                            className="rounded-full bg-slate-900 px-2 py-1 text-xs font-semibold text-white disabled:opacity-60"
+                            className="rounded-full bg-slate-900 px-2 py-1 text-xs font-semibold text-white disabled:cursor-not-allowed disabled:opacity-60"
+                            title={row.is_demo ? "Demo listings can't be featured." : "Feature"}
                           >
                             Feature
                           </button>
                         )}
+                        {row.is_demo ? (
+                          <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-700">
+                            Demo
+                          </span>
+                        ) : null}
                         <button
                           type="button"
                           disabled

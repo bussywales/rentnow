@@ -12,6 +12,7 @@ export type SupplyHealthRow = {
   updated_at: string | null;
   expires_at: string | null;
   is_featured: boolean | null;
+  is_demo: boolean | null;
   listing_intent: string | null;
   photo_count: number;
   quality_score: number;
@@ -33,6 +34,7 @@ type SupplyListingRow = {
   updated_at?: string | null;
   expires_at?: string | null;
   is_featured?: boolean | null;
+  is_demo?: boolean | null;
   listing_intent?: string | null;
   price?: number | null;
   currency?: string | null;
@@ -142,7 +144,7 @@ export async function getSupplyHealth({
   const { data, error } = await client
     .from("properties")
     .select(
-      "id,title,description,city,location_label,latitude,longitude,status,owner_id,updated_at,expires_at,is_featured,listing_intent,price,currency,created_at,approved_at,profiles!inner(full_name,email_verified,phone_verified)"
+      "id,title,description,city,location_label,latitude,longitude,status,owner_id,updated_at,expires_at,is_featured,is_demo,listing_intent,price,currency,created_at,approved_at,profiles!inner(full_name,email_verified,phone_verified)"
     )
     .order("updated_at", { ascending: false })
     .limit(limit);
@@ -193,6 +195,7 @@ export async function getSupplyHealth({
       updated_at: listing.updated_at ?? null,
       expires_at: listing.expires_at ?? null,
       is_featured: listing.is_featured ?? null,
+      is_demo: listing.is_demo ?? null,
       listing_intent: listing.listing_intent ?? null,
       photo_count: photoCount,
       quality_score: score,

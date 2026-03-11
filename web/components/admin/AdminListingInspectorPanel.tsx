@@ -92,6 +92,7 @@ export default function AdminListingInspectorPanel({ listing, backHref = "/admin
               isFeatured={
                 overrideFeatured?.is_featured ?? !!listing.is_featured
               }
+              isDemo={isDemo}
               featuredUntil={overrideFeatured?.featured_until ?? listing.featured_until}
               onUpdated={(next) => setOverrideFeatured(next)}
               onToast={(message) => {

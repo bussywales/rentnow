@@ -280,6 +280,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                     <AdminFeaturedToggleButton
                       propertyId={item.id}
                       isFeatured={!!item.is_featured}
+                      isDemo={!!item.is_demo}
                       featuredUntil={item.featured_until ?? null}
                       dataTestId={`admin-featured-toggle-${item.id}`}
                       buttonClassName="shrink-0 rounded border border-slate-300 px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-50 lg:px-3 lg:text-xs"

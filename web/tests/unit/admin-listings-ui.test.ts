@@ -97,4 +97,26 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     demoToggleContents.includes("onOptimisticUpdate?.(nextIsDemo);"),
     "expected optimistic demo update callback before API round-trip"
   );
+
+  const featuredTogglePath = path.join(root, "components", "admin", "AdminFeaturedToggleButton.tsx");
+  const featuredToggleContents = fs.readFileSync(featuredTogglePath, "utf8");
+  assert.ok(
+    featuredToggleContents.includes("isDemo?: boolean;"),
+    "expected featured toggle to accept demo state"
+  );
+  assert.ok(
+    featuredToggleContents.includes("featureBlockedByDemo"),
+    "expected featured toggle to block demo feature attempts client-side"
+  );
+  assert.ok(
+    featuredToggleContents.includes("Demo listings can't be featured."),
+    "expected featured toggle to show explicit demo guardrail copy"
+  );
+
+  const inspectorPath = path.join(root, "components", "admin", "AdminListingInspectorPanel.tsx");
+  const inspectorContents = fs.readFileSync(inspectorPath, "utf8");
+  assert.ok(
+    inspectorContents.includes("isDemo={isDemo}"),
+    "expected listing inspector featured toggle to receive demo state"
+  );
 });
