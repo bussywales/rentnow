@@ -85,6 +85,39 @@ void test("explore-v2 carousel items prefer position order and fallback to creat
   );
 });
 
+void test("explore-v2 carousel promotes cover image as first hero media when available", () => {
+  const listing = createExploreV2Listing({
+    cover_image_url: "https://example.supabase.co/storage/v1/object/public/images/cover.jpg",
+  });
+  const imageRecords: PropertyImage[] = [
+    {
+      id: "img-1",
+      image_url: "https://example.supabase.co/storage/v1/object/public/images/1.jpg",
+      position: 0,
+    },
+    {
+      id: "img-cover",
+      image_url: "https://example.supabase.co/storage/v1/object/public/images/cover.jpg",
+      position: 2,
+    },
+    {
+      id: "img-2",
+      image_url: "https://example.supabase.co/storage/v1/object/public/images/2.jpg",
+      position: 1,
+    },
+  ];
+
+  const resolved = resolveExploreV2CarouselItems({
+    listing,
+    imageRecords,
+  });
+
+  assert.equal(
+    resolved.items[0]?.src,
+    "https://example.supabase.co/storage/v1/object/public/images/cover.jpg"
+  );
+});
+
 void test("explore-v2 hero UI state enables dots/count only for multi-image listings", () => {
   assert.deepEqual(resolveExploreV2HeroUiState(1), {
     showSwipeAffordance: false,

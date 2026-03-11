@@ -32,7 +32,10 @@ import {
   resolveExplorePropertyImageRecords,
 } from "@/lib/explore/gallery-images";
 import { glassSurface } from "@/lib/ui/glass";
-import { formatListingTitle } from "@/lib/ui/format-listing-title";
+import {
+  normalizeListingTitleForDisplay,
+  resolveListingHeroMediaPreference,
+} from "@/lib/properties/listing-quality";
 import { useIsTruncated } from "@/lib/ui/useIsTruncated";
 
 type ExploreV2CardProps = {
@@ -470,8 +473,14 @@ export function resolveExploreV2CarouselItems(input: {
   items: UnifiedImageCarouselItem[];
   hasRealImage: boolean;
 } {
-  const listingTitle =
-    formatListingTitle(input.listing.title || "") || input.listing.title || "Explore listing image";
+  const listingTitle = normalizeListingTitleForDisplay(input.listing.title, {
+    fallback: "Explore listing image",
+  });
+  const heroMediaPreference = resolveListingHeroMediaPreference({
+    ...input.listing,
+    images: input.imageRecords,
+  });
+  const preferredHeroUrl = normalizeExploreGalleryImageUrl(heroMediaPreference.imageUrl, "");
   const dedupedUrls = new Set<string>();
   const orderedRecords = input.imageRecords
     .map((record, index) => ({ record, index }))
@@ -513,8 +522,42 @@ export function resolveExploreV2CarouselItems(input: {
   }
 
   if (items.length > 0) {
+    if (preferredHeroUrl) {
+      const preferredHeroIndex = items.findIndex((item) => item.src === preferredHeroUrl);
+      if (preferredHeroIndex > 0) {
+        const [preferredItem] = items.splice(preferredHeroIndex, 1);
+        items.unshift(preferredItem);
+      } else if (preferredHeroIndex < 0) {
+        const placeholder = resolveExploreImagePlaceholderMeta({ imageUrl: preferredHeroUrl });
+        items.unshift({
+          id: `${input.listing.id}-preferred-hero`,
+          src: preferredHeroUrl,
+          alt: listingTitle,
+          placeholderColor: placeholder.dominantColor,
+          placeholderBlurDataURL: placeholder.blurDataURL,
+          placeholderSource: placeholder.source,
+        });
+      }
+    }
     return {
       items,
+      hasRealImage: true,
+    };
+  }
+
+  if (preferredHeroUrl) {
+    const placeholder = resolveExploreImagePlaceholderMeta({ imageUrl: preferredHeroUrl });
+    return {
+      items: [
+        {
+          id: `${input.listing.id}-preferred-hero`,
+          src: preferredHeroUrl,
+          alt: listingTitle,
+          placeholderColor: placeholder.dominantColor,
+          placeholderBlurDataURL: placeholder.blurDataURL,
+          placeholderSource: placeholder.source,
+        },
+      ],
       hasRealImage: true,
     };
   }
@@ -625,7 +668,10 @@ function ExploreV2CardInner({
   const intentTag = useMemo(() => resolveExploreIntentTag(listing), [listing]);
   const locationLine = useMemo(() => resolveExploreV2LocationLine(listing), [listing]);
   const formattedTitle = useMemo(
-    () => formatListingTitle(listing.title || "") || listing.title || "Untitled listing",
+    () =>
+      normalizeListingTitleForDisplay(listing.title, {
+        fallback: "Untitled listing",
+      }),
     [listing.title]
   );
   const overlayOpacityClass = useMemo(

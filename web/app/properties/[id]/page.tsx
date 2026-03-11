@@ -38,6 +38,7 @@ import type { TrustMarkerState } from "@/lib/trust-markers";
 import { orderImagesWithCover } from "@/lib/properties/images";
 import { resolveBackHref } from "@/lib/properties/back-href";
 import { derivePhotoTrust } from "@/lib/properties/photo-trust";
+import { normalizeListingTitleForDisplay } from "@/lib/properties/listing-quality";
 import { getAppSettingBool } from "@/lib/settings/app-settings.server";
 import { isListingExpired } from "@/lib/properties/expiry";
 import { includeDemoListingsForViewerFromSettings } from "@/lib/settings/demo";
@@ -284,10 +285,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     };
   }
 
-  const title = `${property.title} | ${property.city}${property.neighbourhood ? ` - ${property.neighbourhood}` : ""}`;
+  const displayTitle = normalizeListingTitleForDisplay(property.title, {
+    fallback: "Untitled listing",
+  });
+  const title = `${displayTitle} | ${property.city}${property.neighbourhood ? ` - ${property.neighbourhood}` : ""}`;
   const description =
     property.description ||
-    `Discover ${property.title} in ${property.city}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${formatPriceValue(property.currency, property.price, { marketCurrency: market.currency })}.`;
+    `Discover ${displayTitle} in ${property.city}. ${property.bedrooms} bed, ${property.bathrooms} bath ${property.rental_type === "short_let" ? "short-let" : "rental"} for ${formatPriceValue(property.currency, property.price, { marketCurrency: market.currency })}.`;
   const imageUrl = property.cover_image_url || property.images?.[0]?.image_url || BRAND_OG_SHARE_IMAGE;
 
   const canonicalPath = `/properties/${property.id}`;
@@ -304,7 +308,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: canonicalUrl,
       type: "article",
       siteName: "PropatyHub",
-      images: [{ url: imageUrl, alt: property.title }],
+      images: [{ url: imageUrl, alt: displayTitle }],
     },
     twitter: {
       card: "summary_large_image",
@@ -745,6 +749,9 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
   const showTrustSignals = !!hostTrust || hostTrustCues.length > 0;
   const propertyHasVideo =
     property.has_video === true || ((property.property_videos?.length ?? 0) > 0);
+  const displayTitle = normalizeListingTitleForDisplay(property.title, {
+    fallback: "Untitled listing",
+  });
 
   return (
     <div className="mx-auto flex w-full max-w-6xl min-w-0 flex-col gap-8 px-4">
@@ -772,7 +779,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "RealEstateListing",
-              name: property.title,
+              name: displayTitle,
               description: property.description,
               url: siteUrl ? `${siteUrl}/properties/${property.id}` : `/properties/${property.id}`,
               image: property.images?.map((img) => img.image_url),
@@ -804,7 +811,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             key={`${property.id}:${property.featured_media ?? "image"}:${propertyHasVideo ? "video" : "novideo"}`}
             propertyId={property.id}
             images={property.images || []}
-            title={property.title}
+            title={displayTitle}
             isDemo={!!property.is_demo}
             hasVideo={propertyHasVideo}
             featuredMedia={property.featured_media ?? "image"}
@@ -825,7 +832,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-2xl font-semibold text-slate-900">{property.title}</h1>
+            <h1 className="text-2xl font-semibold text-slate-900">{displayTitle}</h1>
             {property.is_demo && (
               <span className="property-demo-badge inline-flex rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-white">
                 Demo listing
@@ -983,7 +990,7 @@ export default async function PropertyDetail({ params, searchParams }: Props) {
           {showPublicActions && !expiredReadOnly && isShortletListing && (
             <ShortletBookingWidget
               propertyId={property.id}
-              listingTitle={property.title}
+              listingTitle={displayTitle}
               isAuthenticated={!isGuest}
               loginHref={loginRedirect}
               cancellationLabel={shortletCancellationLabel ?? undefined}

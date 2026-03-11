@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PropertyImage } from "@/lib/types";
 import { shouldRenderDemoWatermark } from "@/lib/properties/demo";
+import { resolveListingHeroMediaPreference } from "@/lib/properties/listing-quality";
 import { PropertyGallery } from "@/components/properties/PropertyGallery";
 
 type PropertyMediaHeroProps = {
@@ -33,8 +34,12 @@ type PropertyVideoPresentation = {
 export function resolvePropertyVideoPresentation(
   input: PropertyVideoPresentationInput
 ): PropertyVideoPresentation {
-  const prefersVideoHero = input.featuredMedia === "video";
-  const hasVideoSignal = Boolean(input.hasVideo) || prefersVideoHero;
+  const heroPreference = resolveListingHeroMediaPreference({
+    featured_media: input.featuredMedia ?? null,
+    has_video: input.hasVideo ?? null,
+  });
+  const prefersVideoHero = heroPreference.mode === "video";
+  const hasVideoSignal = heroPreference.hasVideo;
   return {
     prefersVideoHero,
     showVideoTourChip: hasVideoSignal,
@@ -51,9 +56,23 @@ export function PropertyMediaHero({
   featuredMedia = "image",
   coverImageUrl = null,
 }: PropertyMediaHeroProps) {
+  const heroMediaPreference = useMemo(
+    () =>
+      resolveListingHeroMediaPreference({
+        featured_media: featuredMedia,
+        has_video: hasVideo,
+        cover_image_url: coverImageUrl,
+        images,
+      }),
+    [coverImageUrl, featuredMedia, hasVideo, images]
+  );
   const presentation = useMemo(
-    () => resolvePropertyVideoPresentation({ featuredMedia, hasVideo }),
-    [featuredMedia, hasVideo]
+    () =>
+      resolvePropertyVideoPresentation({
+        featuredMedia,
+        hasVideo: heroMediaPreference.hasVideo,
+      }),
+    [featuredMedia, heroMediaPreference.hasVideo]
   );
   const [mediaMode, setMediaMode] = useState<MediaMode>(() =>
     presentation.prefersVideoHero
@@ -73,8 +92,8 @@ export function PropertyMediaHero({
   const videoTourSectionRef = useRef<HTMLDivElement | null>(null);
   const showDemoWatermark = shouldRenderDemoWatermark({ isDemo, enabled: true });
   const posterUrl = useMemo(
-    () => coverImageUrl ?? images[0]?.image_url ?? HERO_FALLBACK_IMAGE,
-    [coverImageUrl, images]
+    () => heroMediaPreference.imageUrl ?? images[0]?.image_url ?? HERO_FALLBACK_IMAGE,
+    [heroMediaPreference.imageUrl, images]
   );
 
   const shouldFetchVideo =

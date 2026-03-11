@@ -49,3 +49,13 @@ void test("video tour presentation keeps video hero and chip when featured media
   assert.equal(presentation.showVideoTourChip, true);
   assert.equal(presentation.showInlineVideoSection, false);
 });
+
+void test("video hero falls back to image when featured video has no valid video signal", () => {
+  const presentation = resolvePropertyVideoPresentation({
+    hasVideo: false,
+    featuredMedia: "video",
+  });
+  assert.equal(presentation.prefersVideoHero, false);
+  assert.equal(presentation.showVideoTourChip, false);
+  assert.equal(presentation.showInlineVideoSection, false);
+});

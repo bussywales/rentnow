@@ -108,6 +108,24 @@ void test("explore-v2 hero resolver returns normalized hero url from property_im
   assert.equal(hero.meta?.dominantColor, "#112233");
 });
 
+void test("explore-v2 hero resolver prefers cover image when present", () => {
+  const hero = resolveExploreHeroImageUrl({
+    cover_image_url: "https://example.supabase.co/storage/v1/object/public/images/cover.jpg",
+    images: [],
+    property_images: [
+      {
+        id: "img-hero",
+        image_url: "https://example.supabase.co/storage/v1/object/public/images/hero.jpg",
+      },
+    ],
+  });
+
+  assert.equal(
+    hero.url,
+    "https://example.supabase.co/storage/v1/object/public/images/cover.jpg"
+  );
+});
+
 void test("explore-v2 hero resolver returns null when listing has no usable images", () => {
   const hero = resolveExploreHeroImageUrl({
     images: [],

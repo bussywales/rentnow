@@ -76,6 +76,7 @@ import {
   buildReviewAndPublishChecklist,
   type ReviewActionTarget,
 } from "@/lib/properties/review-publish";
+import { computeListingCompleteness } from "@/lib/properties/listing-quality";
 import { formatRelativeTime } from "@/lib/date/relative-time";
 import { buildEditorUrl } from "@/lib/properties/host-dashboard";
 import { normalizeFocusParam, normalizeStepParam, STEP_IDS, type StepId } from "@/lib/properties/step-params";
@@ -1749,6 +1750,57 @@ export function PropertyStepper({
         requireLocationPinForPublish,
       }),
     [reviewListing, requireLocationPinForPublish]
+  );
+  const listingCompleteness = useMemo(
+    () =>
+      computeListingCompleteness({
+        title: form.title ?? null,
+        description: form.description ?? null,
+        cover_image_url: coverImageUrl ?? null,
+        featured_media: form.featured_media ?? "image",
+        has_video: Boolean(videoPath),
+        price: isShortletListing
+          ? form.shortlet_nightly_price_minor ?? form.price ?? null
+          : form.price ?? null,
+        currency: form.currency ?? null,
+        city: form.city ?? null,
+        country: form.country ?? null,
+        country_code: form.country_code ?? null,
+        latitude: form.latitude ?? null,
+        longitude: form.longitude ?? null,
+        location_label: form.location_label ?? null,
+        location_place_id: form.location_place_id ?? null,
+        shortlet_nightly_price_minor: form.shortlet_nightly_price_minor ?? null,
+        images: imageUrls.map((url, index) => ({
+          id: `quality-image-${index}`,
+          image_url: url,
+          position: index,
+        })),
+        property_videos: videoPath ? [{ id: "listing-video", storage_path: videoPath }] : [],
+      }),
+    [
+      coverImageUrl,
+      form.city,
+      form.country,
+      form.country_code,
+      form.currency,
+      form.description,
+      form.featured_media,
+      form.latitude,
+      form.location_label,
+      form.location_place_id,
+      form.longitude,
+      form.price,
+      form.shortlet_nightly_price_minor,
+      form.title,
+      imageUrls,
+      isShortletListing,
+      videoPath,
+    ]
+  );
+  const listingQualityMissingItems = useMemo(
+    () => listingCompleteness.missingItems.slice(0, 5),
+    [listingCompleteness.missingItems]
   );
 
   const lastUpdatedText = useMemo(
@@ -4595,6 +4647,31 @@ export function PropertyStepper({
           <p className="text-sm text-slate-600">
             Submitting sends your listing for admin review. It will go live after approval.
           </p>
+          <div
+            className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+            data-testid="listing-quality-summary"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-slate-900">Listing quality</p>
+              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">
+                {listingCompleteness.score}% complete
+              </span>
+            </div>
+            {listingQualityMissingItems.length > 0 ? (
+              <ul className="mt-3 space-y-1 text-sm text-slate-700">
+                {listingQualityMissingItems.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="mt-3 text-sm text-slate-700">
+                Core listing details are complete and ready for review.
+              </p>
+            )}
+            <p className="mt-2 text-xs text-slate-500">
+              {listingCompleteness.has_video ? "Video added (optional)." : "Video is optional."}
+            </p>
+          </div>
           {!reviewDismissed && (
             <ReviewAndPublishCard
               checklist={reviewChecklist}

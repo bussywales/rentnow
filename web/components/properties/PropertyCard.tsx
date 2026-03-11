@@ -26,7 +26,7 @@ import {
 } from "@/lib/advertisers/public-profile";
 import { PropertyImageCarousel } from "@/components/properties/PropertyImageCarousel";
 import { useMarketPreference } from "@/components/layout/MarketPreferenceProvider";
-import { formatListingTitle } from "@/lib/ui/format-listing-title";
+import { normalizeListingTitleForDisplay } from "@/lib/properties/listing-quality";
 import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 import {
   isShortletProperty,
@@ -150,7 +150,9 @@ export function PropertyCard({
   const cardHref = href || `/properties/${property.id}`;
   const normalizedCardHref = cardHref.trim();
   const showFastResponder = !!fastResponder;
-  const formattedTitle = formatListingTitle(property.title || "") || property.title || "Untitled listing";
+  const formattedTitle = normalizeListingTitleForDisplay(property.title, {
+    fallback: "Untitled listing",
+  });
   const advertiserName = property.owner_id
     ? derivePublicAdvertiserName({
         display_name: property.owner_display_name ?? property.owner_profile?.display_name ?? null,

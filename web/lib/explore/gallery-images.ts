@@ -3,6 +3,7 @@ import {
   shouldUpgradeImageUrlToHttps,
 } from "@/lib/images/optimizer-bypass";
 import { resolveImagePlaceholder, type PlaceholderSource } from "@/lib/images/placeholders";
+import { resolveListingHeroMediaPreference } from "@/lib/properties/listing-quality";
 import type { PropertyImage } from "@/lib/types";
 
 export const EXPLORE_GALLERY_FALLBACK_IMAGE = "/og-propatyhub.png";
@@ -97,15 +98,23 @@ export function resolveExploreHeroImageUrl(
   }
 
   const records = resolveExplorePropertyImageRecords(property);
-  for (const record of records) {
-    const normalizedUrl = normalizeExploreGalleryImageUrl(record.image_url, "");
-    if (!normalizedUrl) continue;
+  const heroPreference = resolveListingHeroMediaPreference({
+    cover_image_url: property.cover_image_url ?? null,
+    images: records,
+  });
+  const preferredHeroUrl = normalizeExploreGalleryImageUrl(heroPreference.imageUrl, "");
+  if (preferredHeroUrl) {
+    const matchingRecord = records.find(
+      (record) => normalizeExploreGalleryImageUrl(record.image_url, "") === preferredHeroUrl
+    );
     return {
-      url: normalizedUrl,
-      meta: {
-        blurhash: record.blurhash ?? null,
-        dominantColor: record.dominant_color ?? record.dominantColor ?? null,
-      },
+      url: preferredHeroUrl,
+      meta: matchingRecord
+        ? {
+            blurhash: matchingRecord.blurhash ?? null,
+            dominantColor: matchingRecord.dominant_color ?? matchingRecord.dominantColor ?? null,
+          }
+        : null,
     };
   }
 
