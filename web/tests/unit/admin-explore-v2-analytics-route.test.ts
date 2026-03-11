@@ -58,6 +58,7 @@ void test("admin explore v2 analytics route aggregates metrics and forwards filt
       listing_id: "l-1",
       market_code: "NG",
       intent_type: "shortlet",
+      trust_cue_variant: "instant_confirmation",
     },
     {
       created_at: "2026-03-05T09:00:01.000Z",
@@ -65,6 +66,7 @@ void test("admin explore v2 analytics route aggregates metrics and forwards filt
       listing_id: "l-1",
       market_code: "NG",
       intent_type: "shortlet",
+      trust_cue_variant: "instant_confirmation",
     },
     {
       created_at: "2026-03-05T09:00:02.000Z",
@@ -104,6 +106,13 @@ void test("admin explore v2 analytics route aggregates metrics and forwards filt
     totals: { sheet_opened: number; primary_clicked: number; share_clicked: number };
     market: string;
     intent: string;
+    by_trust_cue_variant: Array<{
+      key: string;
+      sheet_opened: number;
+      primary_clicked: number;
+      primary_per_open: number | null;
+      view_details_per_open: number | null;
+    }>;
   };
 
   assert.equal(response.status, 200);
@@ -115,6 +124,11 @@ void test("admin explore v2 analytics route aggregates metrics and forwards filt
   assert.equal(body.totals.sheet_opened, 1);
   assert.equal(body.totals.primary_clicked, 1);
   assert.equal(body.totals.share_clicked, 1);
+  const instantRow = body.by_trust_cue_variant.find((row) => row.key === "instant_confirmation");
+  assert.equal(instantRow?.sheet_opened, 1);
+  assert.equal(instantRow?.primary_clicked, 1);
+  assert.equal(instantRow?.primary_per_open, 100);
+  assert.equal(instantRow?.view_details_per_open, 0);
 });
 
 void test("admin explore v2 analytics route can return CSV export", async () => {
@@ -123,6 +137,14 @@ void test("admin explore v2 analytics route can return CSV export", async () => 
       created_at: "2026-03-05T09:00:00.000Z",
       event_name: "explore_v2_cta_sheet_opened",
       listing_id: "l-1",
+      market_code: "NG",
+      intent_type: "shortlet",
+      trust_cue_variant: "instant_confirmation",
+    },
+    {
+      created_at: "2026-03-05T09:05:00.000Z",
+      event_name: "explore_v2_cta_sheet_opened",
+      listing_id: "l-2",
       market_code: "NG",
       intent_type: "shortlet",
     },
@@ -137,5 +159,6 @@ void test("admin explore v2 analytics route can return CSV export", async () => 
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /text\/csv/);
   assert.match(body, /^date,market,intent,trust_cue_variant,event_name,count/m);
+  assert.match(body, /2026-03-05,NG,shortlet,instant_confirmation,explore_v2_cta_sheet_opened,1/);
   assert.match(body, /2026-03-05,NG,shortlet,unknown,explore_v2_cta_sheet_opened,1/);
 });

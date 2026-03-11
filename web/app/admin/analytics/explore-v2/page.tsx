@@ -9,6 +9,7 @@ import {
   type ExploreV2ConversionMarketFilter,
   type ExploreV2ConversionIntentFilter,
   type ExploreV2ConversionMetricKey,
+  type ExploreV2ConversionTrustCueBreakdownRow,
 } from "@/lib/explore/explore-v2-conversion-report";
 import { AdminAnalyticsSectionNav } from "@/components/admin/AdminAnalyticsSectionNav";
 
@@ -75,6 +76,33 @@ function buildExportHref(input: {
   return `/api/admin/analytics/explore-v2?${params.toString()}`;
 }
 
+function isTrustCueRowActive(row: ExploreV2ConversionTrustCueBreakdownRow): boolean {
+  return (
+    row.sheet_opened > 0 ||
+    row.primary_clicked > 0 ||
+    row.view_details_clicked > 0 ||
+    row.save_clicked > 0 ||
+    row.share_clicked > 0
+  );
+}
+
+function orderTrustCueRows(rows: ReadonlyArray<ExploreV2ConversionTrustCueBreakdownRow>) {
+  const rowsByKey = new Map(rows.map((row) => [row.key, row]));
+  const ordered: ExploreV2ConversionTrustCueBreakdownRow[] = [];
+  const noneRow = rowsByKey.get("none");
+  if (noneRow) ordered.push(noneRow);
+
+  const instantRow = rowsByKey.get("instant_confirmation");
+  if (instantRow) ordered.push(instantRow);
+
+  const unknownRow = rowsByKey.get("unknown");
+  if (unknownRow && isTrustCueRowActive(unknownRow)) {
+    ordered.push(unknownRow);
+  }
+
+  return ordered;
+}
+
 export default async function AdminExploreV2AnalyticsPage({
   searchParams,
 }: AdminExploreV2AnalyticsPageProps) {
@@ -118,6 +146,7 @@ export default async function AdminExploreV2AnalyticsPage({
     intent: report.intent,
   });
   const hasData = rows.length > 0;
+  const trustCueRows = orderTrustCueRows(report.by_trust_cue_variant);
 
   return (
     <div
@@ -223,6 +252,43 @@ export default async function AdminExploreV2AnalyticsPage({
             )}
           </article>
         ))}
+      </section>
+
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+        data-testid="admin-explore-v2-conversion-trust-cue"
+      >
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm font-semibold text-slate-900">Trust cue experiment</h2>
+          <p className="text-xs text-slate-600">
+            Compare conversion from `sheet_opened` by trust cue variant. Older rows without `trust_cue_variant` are
+            grouped as Unknown.
+          </p>
+        </div>
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-full text-left text-xs text-slate-700">
+            <thead>
+              <tr className="border-b border-slate-200 text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                <th className="px-2 py-2">Variant</th>
+                <th className="px-2 py-2">Opens</th>
+                <th className="px-2 py-2">Primary clicks</th>
+                <th className="px-2 py-2">Primary CTR</th>
+                <th className="px-2 py-2">View details CTR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {trustCueRows.map((row) => (
+                <tr key={row.key} className="border-b border-slate-100">
+                  <td className="px-2 py-2 font-medium text-slate-800">{row.label}</td>
+                  <td className="px-2 py-2">{row.sheet_opened}</td>
+                  <td className="px-2 py-2">{row.primary_clicked}</td>
+                  <td className="px-2 py-2">{formatRate(row.primary_per_open)}</td>
+                  <td className="px-2 py-2">{formatRate(row.view_details_per_open)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
 
       {!hasData && (

@@ -44,6 +44,11 @@ export type ExploreV2ConversionBreakdownRow = {
   label: string;
 } & ExploreV2ConversionTotals;
 
+export type ExploreV2ConversionTrustCueBreakdownRow = ExploreV2ConversionBreakdownRow & {
+  primary_per_open: number | null;
+  view_details_per_open: number | null;
+};
+
 export type ExploreV2ConversionDayBreakdownRow = {
   date: string;
 } & ExploreV2ConversionTotals;
@@ -57,7 +62,7 @@ export type ExploreV2ConversionReport = {
   by_day: ExploreV2ConversionDayBreakdownRow[];
   by_market: ExploreV2ConversionBreakdownRow[];
   by_intent: ExploreV2ConversionBreakdownRow[];
-  by_trust_cue_variant: ExploreV2ConversionBreakdownRow[];
+  by_trust_cue_variant: ExploreV2ConversionTrustCueBreakdownRow[];
 };
 
 export type ExploreV2ConversionQuery = {
@@ -134,6 +139,12 @@ function toTrustCueVariantBucket(value: string | null | undefined): "none" | "in
   if (normalized === "none") return "none";
   if (normalized === "instant_confirmation") return "instant_confirmation";
   return "unknown";
+}
+
+function toTrustCueVariantLabel(value: string): string {
+  if (value === "instant_confirmation") return "Instant confirmation";
+  if (value === "none") return "None";
+  return "Unknown";
 }
 
 function buildDateSeries(startDate: string, endDate: string): string[] {
@@ -282,17 +293,14 @@ export function buildExploreV2ConversionReport(input: {
       ...counts,
     }));
 
-  const by_trust_cue_variant: ExploreV2ConversionBreakdownRow[] = [...byTrustCueVariantMap.entries()]
+  const by_trust_cue_variant: ExploreV2ConversionTrustCueBreakdownRow[] = [...byTrustCueVariantMap.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, counts]) => ({
       key,
-      label:
-        key === "instant_confirmation"
-          ? "Instant confirmation"
-          : key === "none"
-            ? "None"
-            : "Unknown",
+      label: toTrustCueVariantLabel(key),
       ...counts,
+      primary_per_open: toRate(counts.primary_clicked, counts.sheet_opened),
+      view_details_per_open: toRate(counts.view_details_clicked, counts.sheet_opened),
     }));
 
   return {

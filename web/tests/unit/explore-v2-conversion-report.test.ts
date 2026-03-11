@@ -88,11 +88,58 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
     1
   );
   assert.equal(report.by_trust_cue_variant.find((row) => row.key === "none")?.sheet_opened, 1);
+  assert.equal(
+    report.by_trust_cue_variant.find((row) => row.key === "instant_confirmation")?.primary_per_open,
+    100
+  );
+  assert.equal(report.by_trust_cue_variant.find((row) => row.key === "none")?.primary_per_open, 0);
+  assert.equal(
+    report.by_trust_cue_variant.find((row) => row.key === "none")?.view_details_per_open,
+    100
+  );
 
   const day1 = report.by_day.find((row) => row.date === "2026-03-05");
   const day2 = report.by_day.find((row) => row.date === "2026-03-06");
   assert.equal(day1?.sheet_opened, 1);
   assert.equal(day2?.sheet_opened, 1);
+});
+
+void test("explore v2 conversion report maps missing trust cue variant rows to unknown", () => {
+  const rows: ExploreV2ConversionRow[] = [
+    {
+      created_at: "2026-03-05T09:00:00.000Z",
+      event_name: "explore_v2_cta_sheet_opened",
+      listing_id: "l-1",
+      market_code: "NG",
+      intent_type: "shortlet",
+    },
+    {
+      created_at: "2026-03-05T09:00:01.000Z",
+      event_name: "explore_v2_cta_primary_clicked",
+      listing_id: "l-1",
+      market_code: "NG",
+      intent_type: "shortlet",
+    },
+  ];
+
+  const report = buildExploreV2ConversionReport({
+    rows,
+    range: {
+      startIso: "2026-03-05T00:00:00.000Z",
+      endIso: "2026-03-05T23:59:59.999Z",
+      startDate: "2026-03-05",
+      endDate: "2026-03-05",
+      label: "fixture",
+    },
+    market: "ALL",
+    intent: "ALL",
+  });
+
+  const unknownRow = report.by_trust_cue_variant.find((row) => row.key === "unknown");
+  assert.equal(unknownRow?.sheet_opened, 1);
+  assert.equal(unknownRow?.primary_clicked, 1);
+  assert.equal(unknownRow?.primary_per_open, 100);
+  assert.equal(unknownRow?.view_details_per_open, 0);
 });
 
 void test("explore v2 conversion csv groups by day, market, intent, event", () => {
