@@ -66,6 +66,8 @@ export type ListingCompletenessResult = {
   has_video: boolean;
 };
 
+export type ListingCompletenessStatus = "Strong" | "Fair" | "Needs work";
+
 export type ListingHeroMediaPreference = {
   mode: "image" | "video";
   source: "featured_video" | "cover_image" | "first_image" | "none";
@@ -88,6 +90,12 @@ const TITLE_PLACEHOLDER_PATTERNS = [
 ];
 
 const clampScore = (value: number) => Math.min(100, Math.max(0, Math.round(value)));
+
+export function resolveListingCompletenessStatus(score: number): ListingCompletenessStatus {
+  if (score >= 85) return "Strong";
+  if (score >= 60) return "Fair";
+  return "Needs work";
+}
 
 function cleanText(value: string | null | undefined): string {
   return typeof value === "string" ? value.trim() : "";

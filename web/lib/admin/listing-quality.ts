@@ -1,10 +1,12 @@
 import {
   computeListingCompleteness,
+  resolveListingCompletenessStatus,
   type ListingCompletenessResult,
+  type ListingCompletenessStatus,
   type ListingQualityInput,
 } from "@/lib/properties/listing-quality";
 
-export type AdminListingQualityStatus = "Strong" | "Fair" | "Needs work";
+export type AdminListingQualityStatus = ListingCompletenessStatus;
 
 export type AdminListingQualitySummary = {
   completeness: ListingCompletenessResult;
@@ -12,9 +14,7 @@ export type AdminListingQualitySummary = {
 };
 
 export function resolveAdminListingQualityStatus(score: number): AdminListingQualityStatus {
-  if (score >= 85) return "Strong";
-  if (score >= 60) return "Fair";
-  return "Needs work";
+  return resolveListingCompletenessStatus(score);
 }
 
 export function computeAdminListingQuality(listing: ListingQualityInput): AdminListingQualitySummary {

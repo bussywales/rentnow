@@ -76,7 +76,11 @@ import {
   buildReviewAndPublishChecklist,
   type ReviewActionTarget,
 } from "@/lib/properties/review-publish";
-import { computeListingCompleteness } from "@/lib/properties/listing-quality";
+import {
+  computeListingCompleteness,
+  resolveListingCompletenessStatus,
+  type ListingCompletenessStatus,
+} from "@/lib/properties/listing-quality";
 import { formatRelativeTime } from "@/lib/date/relative-time";
 import { buildEditorUrl } from "@/lib/properties/host-dashboard";
 import { normalizeFocusParam, normalizeStepParam, STEP_IDS, type StepId } from "@/lib/properties/step-params";
@@ -231,6 +235,12 @@ const STEP_FIELDS: Record<(typeof steps)[number]["id"], Array<keyof FormState | 
   preview: [],
   submit: [],
 };
+
+function listingQualityStatusTone(status: ListingCompletenessStatus) {
+  if (status === "Strong") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (status === "Fair") return "bg-amber-50 text-amber-700 border-amber-200";
+  return "bg-rose-50 text-rose-700 border-rose-200";
+}
 
 export function PropertyStepper({
   initialData,
@@ -1802,6 +1812,14 @@ export function PropertyStepper({
     () => listingCompleteness.missingItems.slice(0, 5),
     [listingCompleteness.missingItems]
   );
+  const listingQualityStatus = useMemo(
+    () => resolveListingCompletenessStatus(listingCompleteness.score),
+    [listingCompleteness.score]
+  );
+  const photosQualityHint = useMemo(() => {
+    if (listingCompleteness.has_min_images) return null;
+    return "Add at least 3 images for stronger listing quality.";
+  }, [listingCompleteness.has_min_images]);
 
   const lastUpdatedText = useMemo(
     () => formatRelativeTime(initialData?.updated_at ?? initialData?.created_at ?? null),
@@ -4149,6 +4167,14 @@ export function PropertyStepper({
             <p className="text-xs text-slate-600">
               Add at least 3 photos. Choose a cover photo — it&apos;s the image shown in search results and your listing preview.
             </p>
+            {photosQualityHint ? (
+              <p
+                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800"
+                data-testid="listing-quality-photos-hint"
+              >
+                {photosQualityHint}
+              </p>
+            ) : null}
             <input
               id="photo-upload"
               type="file"
@@ -4653,19 +4679,35 @@ export function PropertyStepper({
           >
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-semibold text-slate-900">Listing quality</p>
-              <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">
-                {listingCompleteness.score}% complete
-              </span>
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-700">
+                  {listingCompleteness.score}% complete
+                </span>
+                <span
+                  className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${listingQualityStatusTone(
+                    listingQualityStatus
+                  )}`}
+                  data-testid="listing-quality-status"
+                >
+                  {listingQualityStatus}
+                </span>
+              </div>
             </div>
+            <p className="mt-3 text-sm text-slate-700">Improve your listing quality before submit.</p>
             {listingQualityMissingItems.length > 0 ? (
-              <ul className="mt-3 space-y-1 text-sm text-slate-700">
-                {listingQualityMissingItems.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
+              <>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Recommended next fixes
+                </p>
+                <ul className="mt-2 space-y-1 text-sm text-slate-700">
+                  {listingQualityMissingItems.map((item) => (
+                    <li key={item}>Missing: {item}</li>
+                  ))}
+                </ul>
+              </>
             ) : (
               <p className="mt-3 text-sm text-slate-700">
-                Core listing details are complete and ready for review.
+                Strong listing quality. Core details are ready for review.
               </p>
             )}
             <p className="mt-2 text-xs text-slate-500">

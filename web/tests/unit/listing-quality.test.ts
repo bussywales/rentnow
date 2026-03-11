@@ -4,6 +4,7 @@ import {
   computeListingCompleteness,
   hasMeaningfulListingTitle,
   normalizeListingTitleForDisplay,
+  resolveListingCompletenessStatus,
   resolveListingHeroMediaPreference,
 } from "@/lib/properties/listing-quality";
 
@@ -138,4 +139,12 @@ void test("normalize listing title display reuses formatter behaviour", () => {
   );
   assert.equal(hasMeaningfulListingTitle("CCTV AND AC WITH WIFI"), false);
   assert.equal(hasMeaningfulListingTitle("Luxury 2 Bed in Lekki"), true);
+});
+
+void test("listing completeness status thresholds map to strong/fair/needs work", () => {
+  assert.equal(resolveListingCompletenessStatus(95), "Strong");
+  assert.equal(resolveListingCompletenessStatus(85), "Strong");
+  assert.equal(resolveListingCompletenessStatus(84), "Fair");
+  assert.equal(resolveListingCompletenessStatus(60), "Fair");
+  assert.equal(resolveListingCompletenessStatus(59), "Needs work");
 });
