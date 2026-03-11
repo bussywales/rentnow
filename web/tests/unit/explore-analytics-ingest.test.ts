@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { postExploreAnalyticsIngestResponse } from "@/app/api/analytics/explore/route";
+import { EXPLORE_ANALYTICS_EVENT_NAMES } from "@/lib/explore/explore-analytics-event-names";
 
 function buildRequest(body: Record<string, unknown>, headers?: Record<string, string>) {
   return new Request("http://localhost/api/analytics/explore", {
@@ -213,50 +214,54 @@ void test("explore analytics ingest stores allowed payload when enabled", async 
   assert.equal(insertedPayload?.user_id, "22222222-2222-2222-2222-222222222222");
 });
 
-void test("explore analytics ingest accepts explore-v2 micro-action events", async () => {
-  let insertedEventName: string | null = null;
-  const response = await postExploreAnalyticsIngestResponse(
-    buildRequest(
-      {
-        eventName: "explore_v2_cta_sheet_opened",
-        listingId: "33333333-3333-4333-8333-333333333333",
-        marketCode: "NG",
-        intentType: "rent",
-      },
-      { "x-explore-analytics-consent": "accepted" }
-    ),
-    {
-      hasServerSupabaseEnv: () => true,
-      requireRole: async () =>
-        ({
-          ok: true,
-          role: "tenant",
-          user: { id: "44444444-4444-4444-4444-444444444444" },
-          supabase: {
-            from: () => ({
-              insert: async (payload: Record<string, unknown>) => {
-                insertedEventName = String(payload.event_name ?? "");
-                return { error: null };
-              },
-            }),
-          },
-        }) as never,
-      getExploreAnalyticsSettings: async () => ({
-        enabled: true,
-        consentRequired: true,
-        noticeEnabled: true,
-      }),
-      checkExploreAnalyticsRateLimit: () =>
-        ({
-          allowed: true,
-          retryAfterSeconds: 0,
-          remaining: 59,
-          limit: 60,
-          resetAt: Date.now() + 60_000,
-        }) as never,
-    }
-  );
+void test("explore analytics ingest accepts all explore-v2 events in the shared allowlist", async () => {
+  const insertedEventNames: string[] = [];
+  const exploreV2EventNames = EXPLORE_ANALYTICS_EVENT_NAMES.filter((eventName) => eventName.startsWith("explore_v2"));
 
-  assert.equal(response.status, 201);
-  assert.equal(insertedEventName, "explore_v2_cta_sheet_opened");
+  for (const eventName of exploreV2EventNames) {
+    const response = await postExploreAnalyticsIngestResponse(
+      buildRequest(
+        {
+          eventName,
+          listingId: "33333333-3333-4333-8333-333333333333",
+          marketCode: "NG",
+          intentType: "rent",
+        },
+        { "x-explore-analytics-consent": "accepted" }
+      ),
+      {
+        hasServerSupabaseEnv: () => true,
+        requireRole: async () =>
+          ({
+            ok: true,
+            role: "tenant",
+            user: { id: "44444444-4444-4444-4444-444444444444" },
+            supabase: {
+              from: () => ({
+                insert: async (payload: Record<string, unknown>) => {
+                  insertedEventNames.push(String(payload.event_name ?? ""));
+                  return { error: null };
+                },
+              }),
+            },
+          }) as never,
+        getExploreAnalyticsSettings: async () => ({
+          enabled: true,
+          consentRequired: true,
+          noticeEnabled: true,
+        }),
+        checkExploreAnalyticsRateLimit: () =>
+          ({
+            allowed: true,
+            retryAfterSeconds: 0,
+            remaining: 59,
+            limit: 60,
+            resetAt: Date.now() + 60_000,
+          }) as never,
+      }
+    );
+    assert.equal(response.status, 201);
+  }
+
+  assert.deepEqual(insertedEventNames, exploreV2EventNames);
 });
