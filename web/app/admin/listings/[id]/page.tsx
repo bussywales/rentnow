@@ -6,6 +6,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { formatRoleLabel } from "@/lib/roles";
 import { computeListingReadiness } from "@/lib/properties/listing-readiness";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
+import { computeAdminListingQuality } from "@/lib/admin/listing-quality";
 import type { PropertyImage } from "@/lib/types";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import { normalizeStatus, isReviewableRow, isFixRequestRow } from "@/lib/admin/admin-review-queue";
@@ -63,6 +64,7 @@ type RawReviewRow = {
 };
 
 type OwnerProfile = { id: string; full_name: string | null; role: string | null };
+type PropertyDescriptionRow = { id: string; description: string | null };
 
 export default async function AdminListingInspectorPage({ params }: Props) {
   const { id } = await params;
@@ -126,13 +128,18 @@ export default async function AdminListingInspectorPage({ params }: Props) {
   }
 
   const row = detailResult.data as unknown as RawReviewRow;
-  const { data: ownerProfile } = row.owner_id
-    ? await supabase
-        .from("profiles")
-        .select("id, full_name, role")
-        .eq("id", row.owner_id)
-        .maybeSingle()
-    : { data: null };
+  const ownerProfilePromise = row.owner_id
+    ? supabase.from("profiles").select("id, full_name, role").eq("id", row.owner_id).maybeSingle()
+    : Promise.resolve({ data: null, error: null });
+  const descriptionRowPromise = client
+    .from("properties")
+    .select("id, description")
+    .eq("id", row.id)
+    .maybeSingle();
+  const [{ data: ownerProfile }, { data: descriptionRow }] = await Promise.all([
+    ownerProfilePromise,
+    descriptionRowPromise,
+  ]);
 
   const ownerName =
     (ownerProfile as OwnerProfile | null)?.full_name ||
@@ -174,6 +181,22 @@ export default async function AdminListingInspectorPage({ params }: Props) {
     : reviewable
       ? "pending"
       : null;
+  const listingQuality = computeAdminListingQuality({
+    title: row.title ?? null,
+    description: (descriptionRow as PropertyDescriptionRow | null)?.description ?? null,
+    cover_image_url: row.cover_image_url ?? null,
+    has_cover: row.has_cover ?? null,
+    photo_count: row.photo_count ?? null,
+    has_video: !!row.has_video || (row.video_count ?? 0) > 0,
+    price: row.price ?? null,
+    currency: row.currency ?? null,
+    city: row.city ?? null,
+    country_code: row.country_code ?? null,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
+    location_label: row.location_label ?? null,
+    location_place_id: row.location_place_id ?? null,
+  });
 
   const listing: AdminReviewListItem = {
     id: row.id,
@@ -208,6 +231,8 @@ export default async function AdminListingInspectorPage({ params }: Props) {
     is_featured: !!row.is_featured,
     featured_until: row.featured_until ?? null,
     featured_rank: typeof row.featured_rank === "number" ? row.featured_rank : null,
+    listingQuality: listingQuality.completeness,
+    listingQualityStatus: listingQuality.status,
     reviewable,
     reviewStage,
   };

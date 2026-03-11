@@ -6,6 +6,7 @@ import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin
 import { formatRoleLabel } from "@/lib/roles";
 import { computeListingReadiness } from "@/lib/properties/listing-readiness";
 import { computeLocationQuality } from "@/lib/properties/location-quality";
+import { computeAdminListingQuality } from "@/lib/admin/listing-quality";
 import type { PropertyImage } from "@/lib/types";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import { normalizeStatus, isReviewableRow, isFixRequestRow, ALLOWED_PROPERTY_STATUSES } from "@/lib/admin/admin-review-queue";
@@ -83,6 +84,7 @@ type RawReviewRow = {
 };
 
 type OwnerProfile = { id: string; full_name: string | null; role: string | null };
+type PropertyDescriptionRow = { id: string; description: string | null };
 
 type ListingsPageData = {
   listings: AdminReviewListItem[];
@@ -167,19 +169,27 @@ async function getListingsData(
     const ownerIds = Array.from(
       new Set(rows.map((row) => row.owner_id).filter(Boolean))
     ) as string[];
+    const listingIds = rows.map((row) => row.id);
 
-    const { data: ownerProfiles } = ownerIds.length
-      ? await supabase
-          .from("profiles")
-          .select("id, full_name, role")
-          .in("id", ownerIds)
-      : { data: [] };
+    const ownerProfilesPromise = ownerIds.length
+      ? supabase.from("profiles").select("id, full_name, role").in("id", ownerIds)
+      : Promise.resolve({ data: [] as OwnerProfile[], error: null });
+    const descriptionRowsPromise = listingIds.length
+      ? client.from("properties").select("id, description").in("id", listingIds)
+      : Promise.resolve({ data: [] as PropertyDescriptionRow[], error: null });
+    const [{ data: ownerProfiles }, { data: descriptionRows }] = await Promise.all([
+      ownerProfilesPromise,
+      descriptionRowsPromise,
+    ]);
 
     const owners = Object.fromEntries(
       ((ownerProfiles as OwnerProfile[]) || []).map((p) => [
         p.id,
         p.full_name || formatRoleLabel(p.role || undefined) || "Host",
       ])
+    );
+    const descriptionsById = new Map<string, string | null>(
+      ((descriptionRows as PropertyDescriptionRow[]) || []).map((row) => [row.id, row.description ?? null])
     );
 
     const listings = rows.map((row) => {
@@ -219,6 +229,22 @@ async function getListingsData(
         : reviewable
           ? "pending"
           : null;
+      const listingQuality = computeAdminListingQuality({
+        title: row.title ?? null,
+        description: descriptionsById.get(row.id) ?? null,
+        cover_image_url: row.cover_image_url ?? null,
+        has_cover: row.has_cover ?? null,
+        photo_count: row.photo_count ?? null,
+        has_video: !!row.has_video || (row.video_count ?? 0) > 0,
+        price: row.price ?? null,
+        currency: row.currency ?? null,
+        city: row.city ?? null,
+        country_code: row.country_code ?? null,
+        latitude: row.latitude ?? null,
+        longitude: row.longitude ?? null,
+        location_label: row.location_label ?? null,
+        location_place_id: row.location_place_id ?? null,
+      });
 
       return {
         id: row.id,
@@ -256,6 +282,8 @@ async function getListingsData(
         featured_until: row.featured_until ?? null,
         featured_rank:
           typeof row.featured_rank === "number" ? row.featured_rank : null,
+        listingQuality: listingQuality.completeness,
+        listingQualityStatus: listingQuality.status,
         reviewable,
         reviewStage,
       };

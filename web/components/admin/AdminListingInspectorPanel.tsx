@@ -7,6 +7,8 @@ import { DrawerErrorBoundary } from "@/components/admin/AdminReviewShell";
 import { formatLocationLine, type AdminReviewListItem } from "@/lib/admin/admin-review";
 import AdminDemoToggleButton from "@/components/admin/AdminDemoToggleButton";
 import AdminFeaturedToggleButton from "@/components/admin/AdminFeaturedToggleButton";
+import { resolveAdminListingQualityStatus } from "@/lib/admin/listing-quality";
+import { computeListingCompleteness } from "@/lib/properties/listing-quality";
 import { isFeaturedListingActive } from "@/lib/properties/featured";
 
 type Props = {
@@ -27,6 +29,24 @@ export default function AdminListingInspectorPanel({ listing, backHref = "/admin
     is_featured: overrideFeatured?.is_featured ?? listing.is_featured,
     featured_until: overrideFeatured?.featured_until ?? listing.featured_until,
   });
+  const listingQuality =
+    listing.listingQuality ??
+    computeListingCompleteness({
+      title: listing.title,
+      cover_image_url: listing.coverImageUrl ?? null,
+      has_cover: listing.hasCover ?? null,
+      photo_count: listing.photoCount ?? null,
+      has_video: listing.hasVideo,
+      price: listing.price ?? null,
+      currency: listing.currency ?? null,
+      city: listing.city ?? null,
+      country_code: listing.country_code ?? null,
+      location_label: null,
+      location_place_id: null,
+    });
+  const listingQualityStatus =
+    listing.listingQualityStatus ?? resolveAdminListingQualityStatus(listingQuality.score);
+  const missingItems = listingQuality.missingItems.slice(0, 5);
 
   return (
     <div className="flex flex-col gap-4">
@@ -102,6 +122,50 @@ export default function AdminListingInspectorPanel({ listing, backHref = "/admin
               dataTestId="admin-inspector-featured-toggle"
             />
           </div>
+        </div>
+      </section>
+
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+        data-testid="admin-inspector-listing-quality"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">Listing quality</h2>
+            <p className="text-sm text-slate-600">Completeness score and missing core details.</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span
+              className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700"
+              data-testid="admin-inspector-listing-quality-score"
+            >
+              {listingQuality.score}% complete
+            </span>
+            <span className="rounded-full bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+              {listingQualityStatus}
+            </span>
+          </div>
+        </div>
+        {missingItems.length > 0 ? (
+          <ul
+            className="mt-3 space-y-1 text-sm text-slate-700"
+            data-testid="admin-inspector-listing-quality-missing"
+          >
+            {missingItems.map((item) => (
+              <li key={item}>Missing: {item}</li>
+            ))}
+          </ul>
+        ) : (
+          <p className="mt-3 text-sm text-emerald-700">No missing core items.</p>
+        )}
+        <div className="mt-3 grid gap-2 text-xs text-slate-600 sm:grid-cols-2">
+          <p>Title quality: {listingQuality.has_meaningful_title ? "OK" : "Needs work"}</p>
+          <p>Cover image: {listingQuality.has_cover_image ? "OK" : "Missing"}</p>
+          <p>Minimum images: {listingQuality.has_min_images ? "OK" : "Missing"}</p>
+          <p>Description: {listingQuality.has_description ? "OK" : "Missing"}</p>
+          <p>Price: {listingQuality.has_price ? "OK" : "Missing"}</p>
+          <p>Location: {listingQuality.has_location ? "OK" : "Missing"}</p>
+          <p>Video: {listingQuality.has_video ? "Added (optional)" : "Optional"}</p>
         </div>
       </section>
 

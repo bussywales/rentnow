@@ -27,6 +27,10 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     "expected colgroup for header/body alignment"
   );
   assert.ok(
+    tableContents.includes(">Quality</th>"),
+    "expected quality column header in listings table"
+  );
+  assert.ok(
     tableContents.includes('data-testid="admin-listings-header-spacer"'),
     "expected header spacer for status accent column"
   );
@@ -49,6 +53,10 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
   assert.ok(
     tableContents.includes('data-testid="admin-listings-row-actions"'),
     "expected row actions cell test id"
+  );
+  assert.ok(
+    tableContents.includes('data-testid="admin-listings-row-quality"'),
+    "expected row quality cell test id"
   );
   assert.ok(
     tableContents.includes('className="w-[220px] px-3 py-2 text-right whitespace-nowrap"'),
@@ -118,5 +126,13 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
   assert.ok(
     inspectorContents.includes("isDemo={isDemo}"),
     "expected listing inspector featured toggle to receive demo state"
+  );
+  assert.ok(
+    inspectorContents.includes('data-testid="admin-inspector-listing-quality"'),
+    "expected inspector listing quality section test id"
+  );
+  assert.ok(
+    inspectorContents.includes("Completeness score and missing core details."),
+    "expected inspector listing quality guidance copy"
   );
 });

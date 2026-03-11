@@ -63,6 +63,40 @@ void test("listing completeness flags missing core fields and weak title quality
   assert.ok(completeness.missingItems.some((item) => item.includes("location")));
 });
 
+void test("listing completeness supports admin fallback photo summary fields", () => {
+  const completeness = computeListingCompleteness({
+    title: "Modern two bed apartment in Lekki",
+    description: "Well-finished apartment close to schools and transport links.",
+    has_cover: true,
+    photo_count: 4,
+    price: 3500,
+    currency: "USD",
+    city: "Lagos",
+    has_video: false,
+  });
+
+  assert.equal(completeness.has_cover_image, true);
+  assert.equal(completeness.has_min_images, true);
+  assert.equal(completeness.has_video, false);
+  assert.equal(completeness.score, 100);
+});
+
+void test("listing completeness reports missing cover when only photo count is provided", () => {
+  const completeness = computeListingCompleteness({
+    title: "Spacious three bed in Ikeja",
+    description: "Family-friendly home with parking and en-suite rooms.",
+    photo_count: 3,
+    has_cover: false,
+    price: 1800,
+    currency: "USD",
+    city: "Lagos",
+  });
+
+  assert.equal(completeness.has_cover_image, false);
+  assert.equal(completeness.has_min_images, true);
+  assert.ok(completeness.missingFlags.includes("missing_cover"));
+});
+
 void test("hero media preference uses featured video only when video is valid", () => {
   const featuredVideo = resolveListingHeroMediaPreference({
     featured_media: "video",

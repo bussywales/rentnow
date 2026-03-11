@@ -22,6 +22,8 @@ export type ListingQualityInput = {
   title?: string | null;
   description?: string | null;
   cover_image_url?: string | null;
+  has_cover?: boolean | null;
+  photo_count?: number | null;
   featured_media?: "image" | "video" | null;
   has_video?: boolean | null;
   price?: number | null;
@@ -104,8 +106,17 @@ function isValidPositiveNumber(value: unknown): boolean {
 
 function collectImageUrls(listing: ListingQualityInput): string[] {
   const merged = [...(listing.images ?? []), ...(listing.property_images ?? [])];
+  const fallbackPhotoCount =
+    typeof listing.photo_count === "number" && Number.isFinite(listing.photo_count)
+      ? Math.max(0, Math.floor(listing.photo_count))
+      : 0;
   if (!merged.length) {
     const coverOnly = cleanText(listing.cover_image_url);
+    if (fallbackPhotoCount > 0) {
+      return Array.from({ length: fallbackPhotoCount }, (_, index) =>
+        index === 0 && coverOnly ? coverOnly : `photo-count://${index + 1}`
+      );
+    }
     return coverOnly ? [coverOnly] : [];
   }
 
@@ -190,7 +201,7 @@ export function resolveListingHasVideoSignal(listing: ListingQualityInput): bool
 export function computeListingCompleteness(listing: ListingQualityInput): ListingCompletenessResult {
   const normalizedTitle = cleanText(listing.title);
   const imageUrls = collectImageUrls(listing);
-  const hasCoverImage = cleanText(listing.cover_image_url).length > 0;
+  const hasCoverImage = listing.has_cover === true || cleanText(listing.cover_image_url).length > 0;
   const hasTitle = normalizedTitle.length > 0;
   const hasMeaningfulTitle = hasMeaningfulListingTitle(normalizedTitle);
   const hasMinImages = imageUrls.length >= 3;

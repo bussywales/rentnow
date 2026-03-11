@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import AdminDemoToggleButton from "@/components/admin/AdminDemoToggleButton";
 import AdminFeaturedToggleButton from "@/components/admin/AdminFeaturedToggleButton";
+import { resolveAdminListingQualityStatus } from "@/lib/admin/listing-quality";
 import { isFeaturedListingActive } from "@/lib/properties/featured";
 
 type Props = {
@@ -46,6 +47,12 @@ function formatIntent(value?: string | null) {
   return value;
 }
 
+function qualityTone(status: "Strong" | "Fair" | "Needs work") {
+  if (status === "Strong") return "bg-emerald-50 text-emerald-700";
+  if (status === "Fair") return "bg-amber-50 text-amber-700";
+  return "bg-rose-50 text-rose-700";
+}
+
 export function AdminListingsTable({ items, onSelect }: Props) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [rows, setRows] = useState<AdminReviewListItem[]>(items);
@@ -63,7 +70,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
         </div>
       ) : null}
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[1480px] table-fixed text-left text-sm">
+        <table className="w-full min-w-[1600px] table-fixed text-left text-sm">
           <colgroup>
             <col className="w-2" />
             <col className="w-[230px]" />
@@ -75,6 +82,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             <col className="w-[90px]" />
             <col className="w-[90px]" />
             <col className="w-[140px]" />
+            <col className="w-[120px]" />
             <col className="w-[120px]" />
             <col className="w-[120px]" />
             <col className="w-[220px]" />
@@ -96,6 +104,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
               <th className="px-3 py-2">Expires</th>
               <th className="px-3 py-2">Owner</th>
               <th className="px-3 py-2">Media</th>
+              <th className="px-3 py-2">Quality</th>
               <th className="w-[120px] px-3 py-2 text-right">Price</th>
               <th className="w-[220px] px-3 py-2 text-right whitespace-nowrap">Actions</th>
             </tr>
@@ -106,6 +115,12 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                 is_featured: item.is_featured,
                 featured_until: item.featured_until,
               });
+              const qualityScore = item.listingQuality?.score ?? null;
+              const qualityStatus =
+                item.listingQualityStatus ??
+                (typeof qualityScore === "number"
+                  ? resolveAdminListingQualityStatus(qualityScore)
+                  : null);
               return (
               <tr
                 key={item.id}
@@ -255,6 +270,29 @@ export function AdminListingsTable({ items, onSelect }: Props) {
                   </div>
                 </td>
                 <td
+                  className="px-3 py-2 text-slate-600"
+                  data-testid="admin-listings-row-quality"
+                >
+                  {typeof qualityScore === "number" ? (
+                    <div className="flex flex-col gap-1">
+                      <div className="text-sm font-semibold text-slate-800 tabular-nums">
+                        {qualityScore}%
+                      </div>
+                      {qualityStatus ? (
+                        <span
+                          className={`w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${qualityTone(
+                            qualityStatus
+                          )}`}
+                        >
+                          {qualityStatus}
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : (
+                    "—"
+                  )}
+                </td>
+                <td
                   className="w-[120px] px-3 py-2 text-right text-slate-700 tabular-nums overflow-hidden"
                   data-testid="admin-listings-row-price"
                 >
@@ -347,7 +385,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             })}
             {!rows.length && (
               <tr>
-                <td colSpan={13} className="px-3 py-6 text-center text-sm text-slate-600">
+                <td colSpan={14} className="px-3 py-6 text-center text-sm text-slate-600">
                   No listings found.
                 </td>
               </tr>

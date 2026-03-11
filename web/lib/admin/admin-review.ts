@@ -1,4 +1,6 @@
 import type { ReadinessResult } from "@/lib/properties/listing-readiness";
+import type { ListingCompletenessResult } from "@/lib/properties/listing-quality";
+import type { AdminListingQualityStatus } from "@/lib/admin/listing-quality";
 import { isStatusInView } from "./admin-review-queue";
 
 export type AdminReviewListItem = {
@@ -38,6 +40,8 @@ export type AdminReviewListItem = {
   is_featured?: boolean | null;
   featured_until?: string | null;
   featured_rank?: number | null;
+  listingQuality?: ListingCompletenessResult | null;
+  listingQualityStatus?: AdminListingQualityStatus | null;
 };
 
 export function parseSelectedId(
