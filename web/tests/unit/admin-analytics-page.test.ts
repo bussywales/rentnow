@@ -27,4 +27,23 @@ void test("admin analytics page includes admin guard and empty state copy", () =
     contents.includes("Marketplace demand funnel"),
     "expected demand funnel section"
   );
+  assert.ok(
+    contents.includes('data-testid="admin-analytics-destinations"'),
+    "expected analytics destinations section"
+  );
+  assert.ok(
+    contents.includes("data-testid={`admin-analytics-destination-${item.key}`}"),
+    "expected analytics destination card test-id contract"
+  );
+  assert.ok(
+    contents.includes("<AdminAnalyticsSectionNav current=\"marketplace\" />"),
+    "expected sibling analytics nav on marketplace analytics page"
+  );
+
+  const navPath = path.join(process.cwd(), "components", "admin", "AdminAnalyticsSectionNav.tsx");
+  const navContents = fs.readFileSync(navPath, "utf8");
+  assert.ok(
+    navContents.includes('href: "/admin/analytics/explore-v2"'),
+    "expected explore v2 destination href in shared analytics nav config"
+  );
 });

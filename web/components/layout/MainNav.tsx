@@ -50,9 +50,9 @@ export const MAIN_NAV_LINKS: Array<{
   },
   { href: "/admin", label: "Admin", requireAuth: true, requireRole: "admin" },
   {
-    href: "/admin/insights",
-    label: "Insights",
-    testId: "nav-admin-insights",
+    href: "/admin/analytics",
+    label: "Analytics",
+    testId: "nav-admin-analytics",
     requireAuth: true,
     requireRole: "admin",
   },

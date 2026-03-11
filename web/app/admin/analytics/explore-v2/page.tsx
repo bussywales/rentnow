@@ -10,6 +10,7 @@ import {
   type ExploreV2ConversionIntentFilter,
   type ExploreV2ConversionMetricKey,
 } from "@/lib/explore/explore-v2-conversion-report";
+import { AdminAnalyticsSectionNav } from "@/components/admin/AdminAnalyticsSectionNav";
 
 export const dynamic = "force-dynamic";
 
@@ -125,7 +126,7 @@ export default async function AdminExploreV2AnalyticsPage({
     >
       <section className="rounded-2xl bg-slate-900 px-5 py-4 text-white shadow-lg">
         <p className="text-xs uppercase tracking-[0.2em] text-cyan-200">Admin</p>
-        <h1 className="text-2xl font-semibold">Explore V2 Conversion</h1>
+        <h1 className="text-2xl font-semibold">Explore V2 conversion</h1>
         <p className="mt-1 text-sm text-slate-200">
           Consent-gated micro-sheet funnel metrics for `sheet_opened`, primary CTA, details, save, and share actions.
         </p>
@@ -133,6 +134,8 @@ export default async function AdminExploreV2AnalyticsPage({
           Range: {report.range.startDate} → {report.range.endDate}
         </p>
       </section>
+
+      <AdminAnalyticsSectionNav current="explore_v2" />
 
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
         <form action="/admin/analytics/explore-v2" method="get" className="grid gap-3 md:grid-cols-5">

@@ -56,7 +56,7 @@ export function NavHamburgerMenu({ initialAuthed, initialRole = null }: Props) {
     if (role === "admin") {
       return [
         { label: "Admin", href: "/admin", testId: "menu-item-admin" },
-        { label: "Insights", href: "/admin/insights", testId: "hamburger-admin-insights" },
+        { label: "Analytics", href: "/admin/analytics", testId: "hamburger-admin-analytics" },
         { label: "Updates inbox", onClick: openProductUpdatesDrawer, testId: "menu-item-updates" },
         { label: "Ops docs", href: "/help/admin", testId: "menu-item-ops-docs" },
         { label: "Settings", href: "/admin/settings", testId: "menu-item-settings" },

@@ -10,8 +10,8 @@ void test("mobile drawer links are role-aware", () => {
   const adminLinks = buildMobileNavLinks(MAIN_NAV_LINKS, { isAuthed: true, role: "admin" });
   assert.ok(adminLinks.find((link) => link.href === "/admin"), "admin should see Admin link");
   assert.ok(
-    adminLinks.find((link) => link.href === "/admin/insights"),
-    "admin should see Insights link"
+    adminLinks.find((link) => link.href === "/admin/analytics"),
+    "admin should see Analytics link"
   );
   assert.ok(!adminLinks.find((link) => link.href === "/dashboard"), "admin should not see Dashboard link");
   assert.ok(adminLinks.find((link) => link.href === "/dashboard/messages"), "admin should see Messages link");
@@ -48,8 +48,8 @@ void test("mobile drawer links are role-aware", () => {
   );
   assert.ok(!userLinks.find((link) => link.href === "/admin"), "non-admin should not see Admin link");
   assert.ok(
-    !userLinks.find((link) => link.href === "/admin/insights"),
-    "non-admin should not see Insights link"
+    !userLinks.find((link) => link.href === "/admin/analytics"),
+    "non-admin should not see Analytics link"
   );
   assert.ok(userLinks.find((link) => link.href === "/dashboard/messages"), "non-admin should see Messages link");
 

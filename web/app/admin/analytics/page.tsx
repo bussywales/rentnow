@@ -4,6 +4,10 @@ import { buildDataQualitySnapshot, type DataQualitySnapshot } from "@/lib/admin/
 import { buildBetaReadinessSnapshot } from "@/lib/admin/beta-readiness";
 import { buildMarketplaceAnalytics, type MarketplaceAnalyticsSnapshot } from "@/lib/admin/marketplace-analytics";
 import { DemandFunnelCard } from "@/components/analytics/DemandFunnelCard";
+import {
+  AdminAnalyticsSectionNav,
+  ADMIN_ANALYTICS_DESTINATIONS,
+} from "@/components/admin/AdminAnalyticsSectionNav";
 import { getDemandFunnelSnapshot, type DemandFunnelSnapshot } from "@/lib/analytics/demand-funnel";
 import { resolveAnalyticsRange } from "@/lib/analytics/landlord-analytics";
 import { getServerAuthUser } from "@/lib/auth/server-session";
@@ -135,16 +139,28 @@ export default async function AdminAnalyticsPage() {
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Admin</p>
         <h1 className="text-3xl font-semibold text-slate-900">Marketplace analytics</h1>
         <p className="text-sm text-slate-600">Read-only marketplace health snapshot for beta operators.</p>
-        <p className="text-sm">
-          <Link className="font-semibold text-sky-700 hover:text-sky-800" href="/admin/analytics/explore">
-            Open Explore analytics
-          </Link>
-          {" · "}
-          <Link className="font-semibold text-sky-700 hover:text-sky-800" href="/admin/analytics/explore-v2">
-            Open Explore V2 conversion report
-          </Link>
-        </p>
+        <AdminAnalyticsSectionNav current="marketplace" />
       </div>
+
+      <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="admin-analytics-destinations">
+        <h2 className="text-base font-semibold text-slate-900">Analytics destinations</h2>
+        <p className="mt-1 text-sm text-slate-600">
+          Use these workspaces to move between marketplace, Explore, and Explore V2 analytics.
+        </p>
+        <div className="mt-3 grid gap-3 md:grid-cols-3">
+          {ADMIN_ANALYTICS_DESTINATIONS.map((item) => (
+            <Link
+              key={item.key}
+              href={item.href}
+              data-testid={`admin-analytics-destination-${item.key}`}
+              className="rounded-xl border border-slate-200 bg-slate-50/60 p-3 text-sm transition hover:border-slate-300 hover:bg-white"
+            >
+              <p className="font-semibold text-slate-900">{item.label}</p>
+              <p className="mt-1 text-xs text-slate-600">{item.description}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       {!diag.supabaseReady && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">

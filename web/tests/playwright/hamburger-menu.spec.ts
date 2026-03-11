@@ -54,7 +54,7 @@ test("hamburger menu shows admin items when logged in", async ({ page }) => {
 
   await page.getByRole("button", { name: /open menu/i }).click();
   await expect(page.getByRole("link", { name: "Admin" })).toBeVisible();
-  await expect(page.getByRole("link", { name: "Insights" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Analytics" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Updates" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Support" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Settings" })).toBeVisible();
@@ -76,7 +76,7 @@ test("hamburger menu hides admin insights for tenant", async ({ page }) => {
   await expect(topHomeLinks).toHaveCount(1);
   await page.getByRole("button", { name: /open menu/i }).click();
 
-  await expect(page.getByRole("link", { name: "Insights" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Analytics" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Home" })).toBeVisible();
 });
 
@@ -100,7 +100,7 @@ test("host sees a single hamburger with host-only items", async ({ page }) => {
   await page.getByRole("button", { name: /open menu/i }).click();
   await expect(page.getByRole("link", { name: "Dashboard" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Admin" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Insights" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Analytics" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Home" })).toHaveCount(0);
   await expect(page.getByRole("link", { name: "Saved searches" })).toBeVisible();
 

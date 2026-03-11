@@ -11,6 +11,7 @@ import {
 import { ExploreAnalyticsDashboard } from "@/components/admin/ExploreAnalyticsDashboard";
 import { ExploreAnalyticsExports } from "@/components/admin/ExploreAnalyticsExports";
 import { ExploreAnalyticsToggles } from "@/components/admin/ExploreAnalyticsToggles";
+import { AdminAnalyticsSectionNav } from "@/components/admin/AdminAnalyticsSectionNav";
 
 export const dynamic = "force-dynamic";
 
@@ -90,6 +91,8 @@ export default async function AdminExploreAnalyticsPage({
           Non-PII funnel telemetry for Explore. Exports include event timestamp, session, listing, market, and intent only.
         </p>
       </section>
+
+      <AdminAnalyticsSectionNav current="explore" />
 
       <ExploreAnalyticsDashboard counters={counters} totalEvents={rows.length} rangeLabel={range.label} />
 

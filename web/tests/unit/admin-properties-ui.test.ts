@@ -18,6 +18,18 @@ void test("admin overview + listings registry are wired to new workspaces", () =
     adminContents.includes("href=\"/admin/listings\""),
     "expected link to /admin/listings in overview"
   );
+  assert.ok(
+    adminContents.includes("href=\"/admin/analytics\""),
+    "expected link to /admin/analytics in overview"
+  );
+  assert.ok(
+    adminContents.includes("Analytics"),
+    "expected Analytics label in admin control panel links"
+  );
+  assert.ok(
+    !adminContents.includes("href=\"/admin/insights\""),
+    "expected legacy /admin/insights control panel shortcut to be removed"
+  );
 
   const listingsPath = path.join(process.cwd(), "app", "admin", "listings", "page.tsx");
   const listingsContents = fs.readFileSync(listingsPath, "utf8");

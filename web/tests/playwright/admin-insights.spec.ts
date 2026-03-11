@@ -23,7 +23,7 @@ test("admin can view insights dashboard", async ({ page }) => {
 
   await login(page, ADMIN_EMAIL, ADMIN_PASSWORD);
   await page.goto("/");
-  await expect(page.getByTestId("nav-admin-insights")).toHaveCount(0);
+  await expect(page.getByTestId("nav-admin-analytics")).toHaveCount(0);
 
   await page.goto("/admin/insights");
 
@@ -68,7 +68,7 @@ test("non-admin is blocked from insights", async ({ page }) => {
 
   await login(page, TENANT_EMAIL, TENANT_PASSWORD);
   await page.goto("/");
-  await expect(page.getByTestId("nav-admin-insights")).toHaveCount(0);
+  await expect(page.getByTestId("nav-admin-analytics")).toHaveCount(0);
 
   await page.goto("/admin/insights");
 
