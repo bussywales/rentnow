@@ -31,4 +31,12 @@ void test("admin explore v2 conversion page renders trust cue experiment section
     contents.includes("View details CTR"),
     "expected details conversion column"
   );
+  assert.ok(
+    contents.includes("Scope: this report covers Explore V2 micro-sheet interactions only."),
+    "expected explicit micro-sheet scope copy"
+  );
+  assert.ok(
+    contents.includes("Rail-level save/share events are excluded."),
+    "expected explicit exclusion of rail-level events"
+  );
 });

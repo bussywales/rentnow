@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import {
@@ -86,6 +88,14 @@ void test("explore-v2 page data resolver supports mocked server feed fixtures", 
   assert.equal(data.listings[0]?.id, "fixture-1");
   assert.equal(data.viewerIsAuthenticated, false);
   assert.equal(data.trustCueEnabled, true);
+});
+
+void test("explore-v2 page mounts analytics notice banner for consent parity", () => {
+  const pagePath = path.join(process.cwd(), "app", "explore-v2", "page.tsx");
+  const contents = fs.readFileSync(pagePath, "utf8");
+
+  assert.match(contents, /import\s+\{\s*AnalyticsNoticeBanner\s*\}\s+from\s+"@\/components\/tenant\/AnalyticsNoticeBanner"/);
+  assert.match(contents, /<AnalyticsNoticeBanner\s*\/>/);
 });
 
 void test("explore-v2 hero resolver returns normalized hero url from property_images", () => {

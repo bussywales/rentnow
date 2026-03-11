@@ -55,6 +55,39 @@ void test("explore analytics ingest returns analytics_disabled when kill-switch 
   assert.equal(inserted, false);
 });
 
+void test("explore analytics ingest route allows tenant, agent, and landlord roles", async () => {
+  let capturedRoles: string[] | null = null;
+  const response = await postExploreAnalyticsIngestResponse(
+    buildRequest({ eventName: "explore_view" }),
+    {
+      hasServerSupabaseEnv: () => true,
+      requireRole: async ({ roles }) => {
+        capturedRoles = [...roles];
+        return {
+          ok: false,
+          response: new Response(null, { status: 401 }),
+        } as never;
+      },
+      getExploreAnalyticsSettings: async () => ({
+        enabled: true,
+        consentRequired: false,
+        noticeEnabled: true,
+      }),
+      checkExploreAnalyticsRateLimit: () =>
+        ({
+          allowed: true,
+          retryAfterSeconds: 0,
+          remaining: 59,
+          limit: 60,
+          resetAt: Date.now() + 60_000,
+        }) as never,
+    }
+  );
+
+  assert.equal(response.status, 401);
+  assert.deepEqual(capturedRoles, ["tenant", "agent", "landlord"]);
+});
+
 void test("explore analytics ingest enforces consent header when consent_required is enabled", async () => {
   const response = await postExploreAnalyticsIngestResponse(
     buildRequest({ eventName: "explore_view" }),

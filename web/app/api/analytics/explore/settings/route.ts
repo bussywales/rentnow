@@ -38,7 +38,7 @@ export async function getExploreAnalyticsSettingsResponse(
     request,
     route: routeLabel,
     startTime,
-    roles: ["tenant"],
+    roles: ["tenant", "agent", "landlord"],
   });
   if (!auth.ok) return auth.response;
 

@@ -3,6 +3,7 @@ export const dynamic = "force-dynamic";
 import type { Metadata } from "next";
 import { cookies, headers } from "next/headers";
 import { ExploreV2Feed } from "@/components/explore-v2/ExploreV2Feed";
+import { AnalyticsNoticeBanner } from "@/components/tenant/AnalyticsNoticeBanner";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { getExploreFeed } from "@/lib/explore/explore-feed.server";
 import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/market";
@@ -73,6 +74,7 @@ export default async function ExploreV2Page() {
 
   return (
     <main className="mx-auto w-full max-w-xl px-3 pb-12 pt-4" data-testid="explore-v2-page">
+      <AnalyticsNoticeBanner />
       <ExploreV2Feed
         listings={pageData.listings}
         marketCountry={pageData.marketCountry}

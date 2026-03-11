@@ -159,6 +159,9 @@ export default async function AdminExploreV2AnalyticsPage({
         <p className="mt-1 text-sm text-slate-200">
           Consent-gated micro-sheet funnel metrics for `sheet_opened`, primary CTA, details, save, and share actions.
         </p>
+        <p className="mt-1 text-xs text-slate-300">
+          Scope: this report covers Explore V2 micro-sheet interactions only. Rail-level save/share events are excluded.
+        </p>
         <p className="mt-2 text-xs text-cyan-100">
           Range: {report.range.startDate} → {report.range.endDate}
         </p>
@@ -297,7 +300,7 @@ export default async function AdminExploreV2AnalyticsPage({
           data-testid="admin-explore-v2-conversion-empty"
         >
           No data yet for this filter set. Events appear only when analytics consent is granted and Explore V2 micro-sheet
-          actions occur.
+          actions occur. Rail-level save/share interactions are not included in this funnel.
         </section>
       )}
 

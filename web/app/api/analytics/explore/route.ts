@@ -115,7 +115,7 @@ export async function postExploreAnalyticsIngestResponse(
     request,
     route: routeLabel,
     startTime,
-    roles: ["tenant"],
+    roles: ["tenant", "agent", "landlord"],
   });
   if (!auth.ok) return auth.response;
 
