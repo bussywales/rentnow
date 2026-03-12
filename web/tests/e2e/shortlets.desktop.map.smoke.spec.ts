@@ -18,6 +18,21 @@ async function dragMap(page: Page, mapLocator: Locator) {
   await page.mouse.up();
 }
 
+async function panMapUntil(
+  page: Page,
+  mapLocator: Locator,
+  predicate: () => Promise<boolean>,
+  attempts = 4
+) {
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    await dragMap(page, mapLocator);
+    if (await predicate()) {
+      return true;
+    }
+  }
+  return false;
+}
+
 async function openFilters(page: Page) {
   await page.getByTestId(smokeSelectors.shortletsFiltersButton).click({ force: true });
   await expect(page.getByTestId(smokeSelectors.shortletsFiltersDrawer)).toBeVisible();
@@ -73,6 +88,16 @@ async function waitForBboxChange(page: Page, previousValue: string | null, timeo
         changed: true,
       })
     );
+  return readBboxParam(page);
+}
+
+async function hasBboxChanged(page: Page, previousValue: string | null, timeout = 2_500) {
+  try {
+    await waitForBboxChange(page, previousValue, timeout);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function expectBboxUnchangedForDuration(
@@ -117,8 +142,13 @@ test.describe("shortlets desktop map behaviour", () => {
 
     const map = page.getByTestId(smokeSelectors.shortletsMap).locator(".leaflet-container");
     const autoBboxBeforeDrag = readBboxParam(page);
-    await dragMap(page, map);
-    await waitForBboxChange(page, autoBboxBeforeDrag);
+    const autoBboxChanged = await panMapUntil(
+      page,
+      map,
+      () => hasBboxChanged(page, autoBboxBeforeDrag),
+      4
+    );
+    expect(autoBboxChanged).toBeTruthy();
     await waitForShortletsResultsSettled(page);
     const bboxInAutoMode = readBboxParam(page);
     expect(bboxInAutoMode).not.toBe(autoBboxBeforeDrag);
@@ -137,7 +167,18 @@ test.describe("shortlets desktop map behaviour", () => {
 
     const bboxInManualMode = readBboxParam(page);
     expect(isValidBbox(bboxInManualMode)).toBeTruthy();
-    await dragMap(page, map);
+    const manualSearchAreaVisible = await panMapUntil(
+      page,
+      map,
+      async () =>
+        page
+          .getByTestId(smokeSelectors.shortletsSearchThisArea)
+          .first()
+          .isVisible()
+          .catch(() => false),
+      4
+    );
+    expect(manualSearchAreaVisible).toBeTruthy();
     await expectBboxUnchangedForDuration(page, bboxInManualMode);
 
     if (await clickSearchThisArea(page)) {
