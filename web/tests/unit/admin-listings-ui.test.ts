@@ -67,6 +67,30 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     "expected quality sort control test id"
   );
   assert.ok(
+    tableContents.includes('data-testid="admin-listings-missing-item-filter"'),
+    "expected missing-item filter control test id"
+  );
+  assert.ok(
+    tableContents.includes("Missing cover image"),
+    "expected missing cover image filter label"
+  );
+  assert.ok(
+    tableContents.includes("Missing minimum images"),
+    "expected missing minimum images filter label"
+  );
+  assert.ok(
+    tableContents.includes("Missing description"),
+    "expected missing description filter label"
+  );
+  assert.ok(
+    tableContents.includes("Missing price"),
+    "expected missing price filter label"
+  );
+  assert.ok(
+    tableContents.includes("Missing location"),
+    "expected missing location filter label"
+  );
+  assert.ok(
     tableContents.includes("Showing {visibleRows.length} of {rows.length} rows."),
     "expected visible rows summary text for filter/sort feedback"
   );

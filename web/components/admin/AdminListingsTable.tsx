@@ -7,6 +7,7 @@ import AdminFeaturedToggleButton from "@/components/admin/AdminFeaturedToggleBut
 import {
   applyAdminListingsQualityView,
   type AdminListingsQualityFilter,
+  type AdminListingsMissingItemFilter,
   type AdminListingsQualitySort,
 } from "@/lib/admin/admin-listings-quality-view";
 import { resolveAdminListingQualityStatus } from "@/lib/admin/listing-quality";
@@ -63,6 +64,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
   const [rows, setRows] = useState<AdminReviewListItem[]>(items);
   const [toast, setToast] = useState<string | null>(null);
   const [qualityFilter, setQualityFilter] = useState<AdminListingsQualityFilter>("all");
+  const [missingItemFilter, setMissingItemFilter] = useState<AdminListingsMissingItemFilter>("all");
   const [qualitySort, setQualitySort] = useState<AdminListingsQualitySort>("default");
 
   useEffect(() => {
@@ -70,6 +72,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
   }, [items]);
   const visibleRows = applyAdminListingsQualityView(rows, {
     filter: qualityFilter,
+    missingItemFilter,
     sort: qualitySort,
   });
 
@@ -107,6 +110,22 @@ export function AdminListingsTable({ items, onSelect }: Props) {
               <option value="default">Default order</option>
               <option value="score_desc">Score (high to low)</option>
               <option value="score_asc">Score (low to high)</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
+            Missing item
+            <select
+              value={missingItemFilter}
+              onChange={(event) => setMissingItemFilter(event.target.value as AdminListingsMissingItemFilter)}
+              className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700"
+              data-testid="admin-listings-missing-item-filter"
+            >
+              <option value="all">All listings</option>
+              <option value="missing_cover">Missing cover image</option>
+              <option value="missing_images">Missing minimum images</option>
+              <option value="missing_description">Missing description</option>
+              <option value="missing_price">Missing price</option>
+              <option value="missing_location">Missing location</option>
             </select>
           </label>
           <p className="pb-0.5 text-xs text-slate-500">
