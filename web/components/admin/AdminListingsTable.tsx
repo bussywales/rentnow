@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import type { AdminReviewListItem } from "@/lib/admin/admin-review";
 import AdminDemoToggleButton from "@/components/admin/AdminDemoToggleButton";
 import AdminFeaturedToggleButton from "@/components/admin/AdminFeaturedToggleButton";
+import {
+  applyAdminListingsQualityView,
+  type AdminListingsQualityFilter,
+  type AdminListingsQualitySort,
+} from "@/lib/admin/admin-listings-quality-view";
 import { resolveAdminListingQualityStatus } from "@/lib/admin/listing-quality";
 import { isFeaturedListingActive } from "@/lib/properties/featured";
 
@@ -57,10 +62,16 @@ export function AdminListingsTable({ items, onSelect }: Props) {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [rows, setRows] = useState<AdminReviewListItem[]>(items);
   const [toast, setToast] = useState<string | null>(null);
+  const [qualityFilter, setQualityFilter] = useState<AdminListingsQualityFilter>("all");
+  const [qualitySort, setQualitySort] = useState<AdminListingsQualitySort>("default");
 
   useEffect(() => {
     setRows(items);
   }, [items]);
+  const visibleRows = applyAdminListingsQualityView(rows, {
+    filter: qualityFilter,
+    sort: qualitySort,
+  });
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
@@ -69,6 +80,40 @@ export function AdminListingsTable({ items, onSelect }: Props) {
           {toast}
         </div>
       ) : null}
+      <div className="border-b border-slate-200 bg-slate-50/70 px-3 py-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
+            Quality filter
+            <select
+              value={qualityFilter}
+              onChange={(event) => setQualityFilter(event.target.value as AdminListingsQualityFilter)}
+              className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700"
+              data-testid="admin-listings-quality-filter"
+            >
+              <option value="all">All</option>
+              <option value="strong">Strong</option>
+              <option value="fair">Fair</option>
+              <option value="needs_work">Needs work</option>
+            </select>
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-600">
+            Quality sort
+            <select
+              value={qualitySort}
+              onChange={(event) => setQualitySort(event.target.value as AdminListingsQualitySort)}
+              className="rounded border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700"
+              data-testid="admin-listings-quality-sort"
+            >
+              <option value="default">Default order</option>
+              <option value="score_desc">Score (high to low)</option>
+              <option value="score_asc">Score (low to high)</option>
+            </select>
+          </label>
+          <p className="pb-0.5 text-xs text-slate-500">
+            Showing {visibleRows.length} of {rows.length} rows.
+          </p>
+        </div>
+      </div>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[1600px] table-fixed text-left text-sm">
           <colgroup>
@@ -110,7 +155,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {rows.map((item) => {
+            {visibleRows.map((item) => {
               const featuredActive = isFeaturedListingActive({
                 is_featured: item.is_featured,
                 featured_until: item.featured_until,
@@ -383,7 +428,7 @@ export function AdminListingsTable({ items, onSelect }: Props) {
               </tr>
               );
             })}
-            {!rows.length && (
+            {!visibleRows.length && (
               <tr>
                 <td colSpan={14} className="px-3 py-6 text-center text-sm text-slate-600">
                   No listings found.

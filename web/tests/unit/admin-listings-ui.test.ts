@@ -59,6 +59,18 @@ void test("admin listings UI exposes applied filter chips and row markers", () =
     "expected row quality cell test id"
   );
   assert.ok(
+    tableContents.includes('data-testid="admin-listings-quality-filter"'),
+    "expected quality filter control test id"
+  );
+  assert.ok(
+    tableContents.includes('data-testid="admin-listings-quality-sort"'),
+    "expected quality sort control test id"
+  );
+  assert.ok(
+    tableContents.includes("Showing {visibleRows.length} of {rows.length} rows."),
+    "expected visible rows summary text for filter/sort feedback"
+  );
+  assert.ok(
     tableContents.includes('className="w-[220px] px-3 py-2 text-right whitespace-nowrap"'),
     "expected fixed width actions cell classes"
   );
