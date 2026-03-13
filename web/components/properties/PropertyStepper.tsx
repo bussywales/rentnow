@@ -78,7 +78,10 @@ import {
 } from "@/lib/properties/review-publish";
 import {
   computeListingCompleteness,
+  resolveListingQualityNudges,
   resolveListingCompletenessStatus,
+  type ListingQualityInput,
+  type ListingQualityNudge,
   type ListingCompletenessStatus,
 } from "@/lib/properties/listing-quality";
 import { formatRelativeTime } from "@/lib/date/relative-time";
@@ -240,6 +243,30 @@ function listingQualityStatusTone(status: ListingCompletenessStatus) {
   if (status === "Strong") return "bg-emerald-50 text-emerald-700 border-emerald-200";
   if (status === "Fair") return "bg-amber-50 text-amber-700 border-amber-200";
   return "bg-rose-50 text-rose-700 border-rose-200";
+}
+
+function StepQualityNudgeCard({
+  nudges,
+  testId,
+}: {
+  nudges: ListingQualityNudge[];
+  testId: string;
+}) {
+  if (!nudges.length) return null;
+
+  return (
+    <div
+      className="rounded-xl border border-amber-200 bg-amber-50/80 px-3 py-2"
+      data-testid={testId}
+    >
+      <p className="text-xs font-semibold text-amber-900">Listing quality tip</p>
+      <ul className="mt-1 space-y-1 text-xs text-amber-800">
+        {nudges.map((nudge) => (
+          <li key={nudge.key}>{nudge.message}</li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 export function PropertyStepper({
@@ -1754,40 +1781,32 @@ export function PropertyStepper({
     recommended?.url,
   ]);
 
-  const reviewChecklist = useMemo(
-    () =>
-      buildReviewAndPublishChecklist(reviewListing, {
-        requireLocationPinForPublish,
-      }),
-    [reviewListing, requireLocationPinForPublish]
-  );
-  const listingCompleteness = useMemo(
-    () =>
-      computeListingCompleteness({
-        title: form.title ?? null,
-        description: form.description ?? null,
-        cover_image_url: coverImageUrl ?? null,
-        featured_media: form.featured_media ?? "image",
-        has_video: Boolean(videoPath),
-        price: isShortletListing
-          ? form.shortlet_nightly_price_minor ?? form.price ?? null
-          : form.price ?? null,
-        currency: form.currency ?? null,
-        city: form.city ?? null,
-        country: form.country ?? null,
-        country_code: form.country_code ?? null,
-        latitude: form.latitude ?? null,
-        longitude: form.longitude ?? null,
-        location_label: form.location_label ?? null,
-        location_place_id: form.location_place_id ?? null,
-        shortlet_nightly_price_minor: form.shortlet_nightly_price_minor ?? null,
-        images: imageUrls.map((url, index) => ({
-          id: `quality-image-${index}`,
-          image_url: url,
-          position: index,
-        })),
-        property_videos: videoPath ? [{ id: "listing-video", storage_path: videoPath }] : [],
-      }),
+  const listingQualityInput = useMemo<ListingQualityInput>(
+    () => ({
+      title: form.title ?? null,
+      description: form.description ?? null,
+      cover_image_url: coverImageUrl ?? null,
+      featured_media: form.featured_media ?? "image",
+      has_video: Boolean(videoPath),
+      price: isShortletListing
+        ? form.shortlet_nightly_price_minor ?? form.price ?? null
+        : form.price ?? null,
+      currency: form.currency ?? null,
+      city: form.city ?? null,
+      country: form.country ?? null,
+      country_code: form.country_code ?? null,
+      latitude: form.latitude ?? null,
+      longitude: form.longitude ?? null,
+      location_label: form.location_label ?? null,
+      location_place_id: form.location_place_id ?? null,
+      shortlet_nightly_price_minor: form.shortlet_nightly_price_minor ?? null,
+      images: imageUrls.map((url, index) => ({
+        id: `quality-image-${index}`,
+        image_url: url,
+        position: index,
+      })),
+      property_videos: videoPath ? [{ id: "listing-video", storage_path: videoPath }] : [],
+    }),
     [
       coverImageUrl,
       form.city,
@@ -1808,6 +1827,17 @@ export function PropertyStepper({
       videoPath,
     ]
   );
+  const reviewChecklist = useMemo(
+    () =>
+      buildReviewAndPublishChecklist(reviewListing, {
+        requireLocationPinForPublish,
+      }),
+    [reviewListing, requireLocationPinForPublish]
+  );
+  const listingCompleteness = useMemo(
+    () => computeListingCompleteness(listingQualityInput),
+    [listingQualityInput]
+  );
   const listingQualityMissingItems = useMemo(
     () => listingCompleteness.missingItems.slice(0, 5),
     [listingCompleteness.missingItems]
@@ -1816,10 +1846,26 @@ export function PropertyStepper({
     () => resolveListingCompletenessStatus(listingCompleteness.score),
     [listingCompleteness.score]
   );
-  const photosQualityHint = useMemo(() => {
-    if (listingCompleteness.has_min_images) return null;
-    return "Add at least 3 images for stronger listing quality.";
-  }, [listingCompleteness.has_min_images]);
+  const basicsQualityNudges = useMemo(
+    () => resolveListingQualityNudges(listingQualityInput, "basics"),
+    [listingQualityInput]
+  );
+  const detailsQualityNudges = useMemo(
+    () => resolveListingQualityNudges(listingQualityInput, "details"),
+    [listingQualityInput]
+  );
+  const photosQualityNudges = useMemo(
+    () => resolveListingQualityNudges(listingQualityInput, "photos"),
+    [listingQualityInput]
+  );
+  const pricingQualityNudges = useMemo(
+    () => resolveListingQualityNudges(listingQualityInput, "pricing"),
+    [listingQualityInput]
+  );
+  const locationQualityNudges = useMemo(
+    () => resolveListingQualityNudges(listingQualityInput, "location"),
+    [listingQualityInput]
+  );
 
   const lastUpdatedText = useMemo(
     () => formatRelativeTime(initialData?.updated_at ?? initialData?.created_at ?? null),
@@ -2931,6 +2977,10 @@ export function PropertyStepper({
                 </div>
               </div>
               <div className="mt-4 grid gap-4">
+                <StepQualityNudgeCard
+                  nudges={basicsQualityNudges}
+                  testId="listing-quality-basics-nudges"
+                />
                 <div className="space-y-2" id="field-title">
                   <label htmlFor="listing-title" className="text-sm font-medium text-slate-700">
                     Listing title <span className="text-rose-500">*</span>
@@ -3059,6 +3109,10 @@ export function PropertyStepper({
                 </div>
               </div>
               <div className="mt-4 space-y-4" ref={locationSectionRef}>
+                <StepQualityNudgeCard
+                  nudges={locationQualityNudges}
+                  testId="listing-quality-location-nudges"
+                />
                 {enableLocationPicker ? (
                   <div className="space-y-3">
                     <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
@@ -3709,6 +3763,10 @@ export function PropertyStepper({
                 </div>
               </div>
               <div className="mt-4 space-y-4">
+                <StepQualityNudgeCard
+                  nudges={pricingQualityNudges}
+                  testId="listing-quality-pricing-nudges"
+                />
                 {isShortletListing ? (
                   <div className="space-y-2" id="field-shortlet_nightly_price_minor">
                     <label htmlFor="shortlet-nightly-price" className="text-sm font-medium text-slate-700">
@@ -4083,6 +4141,10 @@ export function PropertyStepper({
                 </Button>
               </div>
               <div className="mt-4 space-y-4">
+                <StepQualityNudgeCard
+                  nudges={detailsQualityNudges}
+                  testId="listing-quality-details-nudges"
+                />
                 <div className="space-y-2">
                   <label htmlFor="description" className="text-sm font-medium text-slate-700">
                     Description
@@ -4167,14 +4229,10 @@ export function PropertyStepper({
             <p className="text-xs text-slate-600">
               Add at least 3 photos. Choose a cover photo — it&apos;s the image shown in search results and your listing preview.
             </p>
-            {photosQualityHint ? (
-              <p
-                className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800"
-                data-testid="listing-quality-photos-hint"
-              >
-                {photosQualityHint}
-              </p>
-            ) : null}
+            <StepQualityNudgeCard
+              nudges={photosQualityNudges}
+              testId="listing-quality-photos-hint"
+            />
             <input
               id="photo-upload"
               type="file"

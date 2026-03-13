@@ -24,5 +24,15 @@ void test("property stepper renders listing quality summary with incomplete and 
   assert.match(source, /Recommended next fixes/);
   assert.match(source, /Missing: \{item\}/);
   assert.match(source, /Strong listing quality\. Core details are ready for review\./);
-  assert.match(source, /data-testid="listing-quality-photos-hint"/);
+  assert.match(source, /testId="listing-quality-photos-hint"/);
+  assert.match(source, /testId="listing-quality-basics-nudges"/);
+  assert.match(source, /testId="listing-quality-location-nudges"/);
+  assert.match(source, /testId="listing-quality-pricing-nudges"/);
+  assert.match(source, /testId="listing-quality-details-nudges"/);
+  assert.match(source, /resolveListingQualityNudges\(listingQualityInput, "basics"\)/);
+  assert.match(source, /resolveListingQualityNudges\(listingQualityInput, "details"\)/);
+  assert.match(source, /resolveListingQualityNudges\(listingQualityInput, "photos"\)/);
+  assert.match(source, /resolveListingQualityNudges\(listingQualityInput, "pricing"\)/);
+  assert.match(source, /resolveListingQualityNudges\(listingQualityInput, "location"\)/);
+  assert.match(source, /Listing quality tip/);
 });

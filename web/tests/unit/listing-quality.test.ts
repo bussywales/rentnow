@@ -6,6 +6,7 @@ import {
   normalizeListingTitleForDisplay,
   resolveListingCompletenessStatus,
   resolveListingHeroMediaPreference,
+  resolveListingQualityNudges,
 } from "@/lib/properties/listing-quality";
 
 void test("listing completeness returns 100 for complete core listing fields", () => {
@@ -147,4 +148,56 @@ void test("listing completeness status thresholds map to strong/fair/needs work"
   assert.equal(resolveListingCompletenessStatus(84), "Fair");
   assert.equal(resolveListingCompletenessStatus(60), "Fair");
   assert.equal(resolveListingCompletenessStatus(59), "Needs work");
+});
+
+void test("listing quality nudges resolve by target using existing missing flags", () => {
+  const listing = {
+    title: "LISTING",
+    description: "",
+    cover_image_url: null,
+    images: [{ id: "img-1", image_url: "https://images.example.com/a.jpg", position: 0 }],
+    price: 0,
+    currency: "",
+    city: "",
+  };
+
+  assert.deepEqual(
+    resolveListingQualityNudges(listing, "basics").map((item) => item.key),
+    ["weak_title"]
+  );
+  assert.deepEqual(
+    resolveListingQualityNudges(listing, "details").map((item) => item.key),
+    ["missing_description"]
+  );
+  assert.deepEqual(
+    resolveListingQualityNudges(listing, "photos").map((item) => item.key),
+    ["missing_images", "missing_cover"]
+  );
+  assert.deepEqual(
+    resolveListingQualityNudges(listing, "pricing").map((item) => item.key),
+    ["missing_price"]
+  );
+  assert.deepEqual(
+    resolveListingQualityNudges(listing, "location").map((item) => item.key),
+    ["missing_location"]
+  );
+});
+
+void test("listing quality nudges respect max count and hide resolved items", () => {
+  const listing = {
+    title: "Modern 2 Bed Apartment in Victoria Island",
+    description: "Bright and spacious apartment with ensuite rooms, balcony, and secure parking.",
+    cover_image_url: "https://images.example.com/cover.jpg",
+    images: [
+      { id: "img-1", image_url: "https://images.example.com/cover.jpg", position: 0 },
+      { id: "img-2", image_url: "https://images.example.com/lounge.jpg", position: 1 },
+    ],
+    price: 2500,
+    currency: "USD",
+    city: "Lagos",
+  };
+
+  assert.deepEqual(resolveListingQualityNudges(listing, "pricing"), []);
+  assert.deepEqual(resolveListingQualityNudges(listing, "location"), []);
+  assert.equal(resolveListingQualityNudges(listing, "photos", { max: 1 }).length, 1);
 });

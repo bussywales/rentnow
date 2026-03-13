@@ -68,6 +68,18 @@ export type ListingCompletenessResult = {
 
 export type ListingCompletenessStatus = "Strong" | "Fair" | "Needs work";
 
+export type ListingQualityNudgeTarget =
+  | "basics"
+  | "details"
+  | "photos"
+  | "pricing"
+  | "location";
+
+export type ListingQualityNudge = {
+  key: ListingCompletenessMissingFlag;
+  message: string;
+};
+
 export type ListingHeroMediaPreference = {
   mode: "image" | "video";
   source: "featured_video" | "cover_image" | "first_image" | "none";
@@ -90,6 +102,50 @@ const TITLE_PLACEHOLDER_PATTERNS = [
 ];
 
 const clampScore = (value: number) => Math.min(100, Math.max(0, Math.round(value)));
+
+const LISTING_QUALITY_NUDGE_COPY: Record<
+  ListingQualityNudgeTarget,
+  Array<{ key: ListingCompletenessMissingFlag; message: string }>
+> = {
+  basics: [
+    {
+      key: "missing_title",
+      message: "Add a clear listing title so guests know what makes this place worth opening.",
+    },
+    {
+      key: "weak_title",
+      message: "Tighten the title so it feels specific and trustworthy in search results.",
+    },
+  ],
+  details: [
+    {
+      key: "missing_description",
+      message: "Add a clearer description so guests understand the space before they enquire.",
+    },
+  ],
+  photos: [
+    {
+      key: "missing_images",
+      message: "Add at least 3 images to strengthen listing quality.",
+    },
+    {
+      key: "missing_cover",
+      message: "Choose a cover image so your listing looks stronger in search and previews.",
+    },
+  ],
+  pricing: [
+    {
+      key: "missing_price",
+      message: "Add a price and currency to strengthen listing quality.",
+    },
+  ],
+  location: [
+    {
+      key: "missing_location",
+      message: "Add a location so guests can discover this listing in search and on the map.",
+    },
+  ],
+};
 
 export function resolveListingCompletenessStatus(score: number): ListingCompletenessStatus {
   if (score >= 85) return "Strong";
@@ -273,6 +329,20 @@ export function computeListingCompleteness(listing: ListingQualityInput): Listin
     has_location: hasLocation,
     has_video: hasVideo,
   };
+}
+
+export function resolveListingQualityNudges(
+  listing: ListingQualityInput,
+  target: ListingQualityNudgeTarget,
+  options?: { max?: number }
+): ListingQualityNudge[] {
+  const max = Math.max(1, options?.max ?? 2);
+  const completeness = computeListingCompleteness(listing);
+
+  return LISTING_QUALITY_NUDGE_COPY[target]
+    .filter((item) => completeness.missingFlags.includes(item.key))
+    .slice(0, max)
+    .map((item) => ({ key: item.key, message: item.message }));
 }
 
 export function resolveListingHeroMediaPreference(
