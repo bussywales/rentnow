@@ -19,7 +19,11 @@ void test("shortlets shell no-ssr delegates directly to dynamic client shell", (
   assert.equal(contents.includes("const hasMounted = useSyncExternalStore("), false);
   assert.equal(contents.includes("if (!hasMounted) {"), false);
   assert.equal(contents.includes("return null;"), false);
-  assert.ok(contents.includes("{ ssr: false }"));
+  assert.ok(contents.includes("function ShortletsSearchShellFallback()"));
+  assert.ok(contents.includes('data-testid="shortlets-search-shell"'));
+  assert.ok(contents.includes('data-testid="shortlets-shell-background"'));
+  assert.match(contents, /ssr:\s*false/);
+  assert.match(contents, /loading:\s*ShortletsSearchShellFallback/);
   assert.ok(contents.includes("return <ShortletsSearchShellClient {...props} />;"));
 });
 

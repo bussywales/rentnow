@@ -1,6 +1,3 @@
-import { getUserRole } from "@/lib/authz";
-import { normalizeRole } from "@/lib/roles";
-import { createServerSupabaseClient, hasServerSupabaseEnv } from "@/lib/supabase/server";
 import { ShortletsSearchShellNoSsr } from "@/components/shortlets/search/ShortletsSearchShellNoSsr";
 
 type SearchParams = Record<string, string | string[] | undefined>;
@@ -22,25 +19,6 @@ export const dynamic = "force-dynamic";
 
 export default async function ShortletsPage({ searchParams }: Props) {
   const resolvedSearchParams = await resolveSearchParams(searchParams);
-  let initialViewerRole: "tenant" | "landlord" | "agent" | "admin" | null = null;
-  if (hasServerSupabaseEnv()) {
-    try {
-      const supabase = await createServerSupabaseClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        initialViewerRole = normalizeRole(await getUserRole(supabase, user.id));
-      }
-    } catch {
-      initialViewerRole = null;
-    }
-  }
 
-  return (
-    <ShortletsSearchShellNoSsr
-      initialSearchParams={resolvedSearchParams}
-      initialViewerRole={initialViewerRole}
-    />
-  );
+  return <ShortletsSearchShellNoSsr initialSearchParams={resolvedSearchParams} />;
 }

@@ -151,5 +151,6 @@ void test("shortlets page mounts the no-SSR shell wrapper to avoid hydration dri
   );
   const wrapperSource = fs.readFileSync(wrapperSourcePath, "utf8");
   assert.match(wrapperSource, /const ShortletsSearchShellClient = dynamic/);
-  assert.match(wrapperSource, /\{\s*ssr:\s*false\s*\}/);
+  assert.match(wrapperSource, /ssr:\s*false/);
+  assert.match(wrapperSource, /loading:\s*ShortletsSearchShellFallback/);
 });
