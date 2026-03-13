@@ -372,15 +372,16 @@ export function buildExploreV2ConversionCsv(rows: ReadonlyArray<ExploreV2Convers
     const market = toMarketBucket(row.market_code);
     const intent = toIntentBucket(row.intent_type);
     const trustCueVariant = toTrustCueVariantBucket(row.trust_cue_variant);
-    const key = `${date}|${market}|${intent}|${trustCueVariant}|${row.event_name}`;
+    const ctaCopyVariant = toCtaCopyVariantBucket(row.cta_copy_variant);
+    const key = `${date}|${market}|${intent}|${trustCueVariant}|${ctaCopyVariant}|${row.event_name}`;
     grouped.set(key, (grouped.get(key) ?? 0) + 1);
   }
 
-  const lines = ["date,market,intent,trust_cue_variant,event_name,count"];
+  const lines = ["date,market,intent,trust_cue_variant,cta_copy_variant,event_name,count"];
   for (const [key, count] of [...grouped.entries()].sort(([a], [b]) => a.localeCompare(b))) {
-    const [date, market, intent, trustCueVariant, eventName] = key.split("|");
+    const [date, market, intent, trustCueVariant, ctaCopyVariant, eventName] = key.split("|");
     lines.push(
-      [date, market, intent, trustCueVariant, eventName, String(count)]
+      [date, market, intent, trustCueVariant, ctaCopyVariant, eventName, String(count)]
         .map((value) => escapeCsvValue(value))
         .join(",")
     );

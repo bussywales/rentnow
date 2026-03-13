@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
 
-void test("admin explore v2 conversion page renders trust cue experiment section", () => {
+void test("admin explore v2 conversion page renders experiment comparison sections", () => {
   const pagePath = path.join(process.cwd(), "app", "admin", "analytics", "explore-v2", "page.tsx");
   const contents = fs.readFileSync(pagePath, "utf8");
 
@@ -16,12 +16,28 @@ void test("admin explore v2 conversion page renders trust cue experiment section
     "expected trust cue section test id"
   );
   assert.ok(
+    contents.includes("CTA copy experiment"),
+    "expected cta copy experiment section title"
+  );
+  assert.ok(
+    contents.includes('data-testid="admin-explore-v2-conversion-cta-copy"'),
+    "expected cta copy section test id"
+  );
+  assert.ok(
     contents.includes('rowsByKey.get("instant_confirmation")'),
     "expected trust cue variant ordering key"
   );
   assert.ok(
+    contents.includes('rowsByKey.get("clarity")'),
+    "expected cta copy variant ordering key"
+  );
+  assert.ok(
     contents.includes("Older rows without `trust_cue_variant` are"),
     "expected legacy row handling note"
+  );
+  assert.ok(
+    contents.includes("Older rows without `ctaCopyVariant` are"),
+    "expected legacy cta copy row handling note"
   );
   assert.ok(
     contents.includes("Primary CTR"),

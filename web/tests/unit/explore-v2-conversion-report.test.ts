@@ -104,6 +104,8 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
   );
   assert.equal(report.by_cta_copy_variant.find((row) => row.key === "clarity")?.sheet_opened, 1);
   assert.equal(report.by_cta_copy_variant.find((row) => row.key === "default")?.sheet_opened, 1);
+  assert.equal(report.by_cta_copy_variant.find((row) => row.key === "clarity")?.primary_per_open, 100);
+  assert.equal(report.by_cta_copy_variant.find((row) => row.key === "default")?.view_details_per_open, 100);
 
   const day1 = report.by_day.find((row) => row.date === "2026-03-05");
   const day2 = report.by_day.find((row) => row.date === "2026-03-06");
@@ -150,6 +152,7 @@ void test("explore v2 conversion report maps missing trust cue variant rows to u
   const unknownCtaCopyRow = report.by_cta_copy_variant.find((row) => row.key === "unknown");
   assert.equal(unknownCtaCopyRow?.sheet_opened, 1);
   assert.equal(unknownCtaCopyRow?.primary_clicked, 1);
+  assert.equal(unknownCtaCopyRow?.primary_per_open, 100);
 });
 
 void test("explore v2 conversion csv groups by day, market, intent, event", () => {
@@ -161,6 +164,7 @@ void test("explore v2 conversion csv groups by day, market, intent, event", () =
       market_code: "NG",
       intent_type: "shortlet",
       trust_cue_variant: "none",
+      cta_copy_variant: "clarity",
     },
     {
       created_at: "2026-03-05T10:00:00.000Z",
@@ -169,10 +173,27 @@ void test("explore v2 conversion csv groups by day, market, intent, event", () =
       market_code: "NG",
       intent_type: "shortlet",
       trust_cue_variant: "none",
+      cta_copy_variant: "clarity",
     },
   ];
 
   const csv = buildExploreV2ConversionCsv(rows);
-  assert.match(csv, /^date,market,intent,trust_cue_variant,event_name,count/m);
-  assert.match(csv, /2026-03-05,NG,shortlet,none,explore_v2_cta_sheet_opened,2/);
+  assert.match(csv, /^date,market,intent,trust_cue_variant,cta_copy_variant,event_name,count/m);
+  assert.match(csv, /2026-03-05,NG,shortlet,none,clarity,explore_v2_cta_sheet_opened,2/);
+});
+
+void test("explore v2 conversion csv maps missing cta copy variants to unknown", () => {
+  const rows: ExploreV2ConversionRow[] = [
+    {
+      created_at: "2026-03-05T09:00:00.000Z",
+      event_name: "explore_v2_cta_sheet_opened",
+      listing_id: "l-1",
+      market_code: "NG",
+      intent_type: "shortlet",
+      trust_cue_variant: "none",
+    },
+  ];
+
+  const csv = buildExploreV2ConversionCsv(rows);
+  assert.match(csv, /2026-03-05,NG,shortlet,none,unknown,explore_v2_cta_sheet_opened,1/);
 });

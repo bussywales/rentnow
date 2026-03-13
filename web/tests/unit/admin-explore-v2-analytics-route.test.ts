@@ -59,6 +59,7 @@ void test("admin explore v2 analytics route aggregates metrics and forwards filt
       market_code: "NG",
       intent_type: "shortlet",
       trust_cue_variant: "instant_confirmation",
+      cta_copy_variant: "clarity",
     },
     {
       created_at: "2026-03-05T09:00:01.000Z",
@@ -67,6 +68,7 @@ void test("admin explore v2 analytics route aggregates metrics and forwards filt
       market_code: "NG",
       intent_type: "shortlet",
       trust_cue_variant: "instant_confirmation",
+      cta_copy_variant: "clarity",
     },
     {
       created_at: "2026-03-05T09:00:02.000Z",
@@ -113,6 +115,13 @@ void test("admin explore v2 analytics route aggregates metrics and forwards filt
       primary_per_open: number | null;
       view_details_per_open: number | null;
     }>;
+    by_cta_copy_variant: Array<{
+      key: string;
+      sheet_opened: number;
+      primary_clicked: number;
+      primary_per_open: number | null;
+      view_details_per_open: number | null;
+    }>;
   };
 
   assert.equal(response.status, 200);
@@ -129,6 +138,12 @@ void test("admin explore v2 analytics route aggregates metrics and forwards filt
   assert.equal(instantRow?.primary_clicked, 1);
   assert.equal(instantRow?.primary_per_open, 100);
   assert.equal(instantRow?.view_details_per_open, 0);
+  const clarityRow = body.by_cta_copy_variant.find((row) => row.key === "clarity");
+  assert.equal(clarityRow?.sheet_opened, 1);
+  assert.equal(clarityRow?.primary_clicked, 1);
+  assert.equal(clarityRow?.primary_per_open, 100);
+  const unknownRow = body.by_cta_copy_variant.find((row) => row.key === "unknown");
+  assert.equal(unknownRow?.sheet_opened, 0);
 });
 
 void test("admin explore v2 analytics route can return CSV export", async () => {
@@ -140,6 +155,7 @@ void test("admin explore v2 analytics route can return CSV export", async () => 
       market_code: "NG",
       intent_type: "shortlet",
       trust_cue_variant: "instant_confirmation",
+      cta_copy_variant: "action",
     },
     {
       created_at: "2026-03-05T09:05:00.000Z",
@@ -158,7 +174,7 @@ void test("admin explore v2 analytics route can return CSV export", async () => 
 
   assert.equal(response.status, 200);
   assert.match(response.headers.get("content-type") ?? "", /text\/csv/);
-  assert.match(body, /^date,market,intent,trust_cue_variant,event_name,count/m);
-  assert.match(body, /2026-03-05,NG,shortlet,instant_confirmation,explore_v2_cta_sheet_opened,1/);
-  assert.match(body, /2026-03-05,NG,shortlet,unknown,explore_v2_cta_sheet_opened,1/);
+  assert.match(body, /^date,market,intent,trust_cue_variant,cta_copy_variant,event_name,count/m);
+  assert.match(body, /2026-03-05,NG,shortlet,instant_confirmation,action,explore_v2_cta_sheet_opened,1/);
+  assert.match(body, /2026-03-05,NG,shortlet,unknown,unknown,explore_v2_cta_sheet_opened,1/);
 });

@@ -9,6 +9,7 @@ import {
   type ExploreV2ConversionMarketFilter,
   type ExploreV2ConversionIntentFilter,
   type ExploreV2ConversionMetricKey,
+  type ExploreV2ConversionCtaCopyBreakdownRow,
   type ExploreV2ConversionTrustCueBreakdownRow,
 } from "@/lib/explore/explore-v2-conversion-report";
 import { AdminAnalyticsSectionNav } from "@/components/admin/AdminAnalyticsSectionNav";
@@ -103,6 +104,37 @@ function orderTrustCueRows(rows: ReadonlyArray<ExploreV2ConversionTrustCueBreakd
   return ordered;
 }
 
+function isCtaCopyRowActive(row: ExploreV2ConversionCtaCopyBreakdownRow): boolean {
+  return (
+    row.sheet_opened > 0 ||
+    row.primary_clicked > 0 ||
+    row.view_details_clicked > 0 ||
+    row.save_clicked > 0 ||
+    row.share_clicked > 0
+  );
+}
+
+function orderCtaCopyRows(rows: ReadonlyArray<ExploreV2ConversionCtaCopyBreakdownRow>) {
+  const rowsByKey = new Map(rows.map((row) => [row.key, row]));
+  const ordered: ExploreV2ConversionCtaCopyBreakdownRow[] = [];
+
+  const defaultRow = rowsByKey.get("default");
+  if (defaultRow) ordered.push(defaultRow);
+
+  const clarityRow = rowsByKey.get("clarity");
+  if (clarityRow) ordered.push(clarityRow);
+
+  const actionRow = rowsByKey.get("action");
+  if (actionRow) ordered.push(actionRow);
+
+  const unknownRow = rowsByKey.get("unknown");
+  if (unknownRow && isCtaCopyRowActive(unknownRow)) {
+    ordered.push(unknownRow);
+  }
+
+  return ordered;
+}
+
 export default async function AdminExploreV2AnalyticsPage({
   searchParams,
 }: AdminExploreV2AnalyticsPageProps) {
@@ -147,6 +179,7 @@ export default async function AdminExploreV2AnalyticsPage({
   });
   const hasData = rows.length > 0;
   const trustCueRows = orderTrustCueRows(report.by_trust_cue_variant);
+  const ctaCopyRows = orderCtaCopyRows(report.by_cta_copy_variant);
 
   return (
     <div
@@ -281,6 +314,43 @@ export default async function AdminExploreV2AnalyticsPage({
             </thead>
             <tbody>
               {trustCueRows.map((row) => (
+                <tr key={row.key} className="border-b border-slate-100">
+                  <td className="px-2 py-2 font-medium text-slate-800">{row.label}</td>
+                  <td className="px-2 py-2">{row.sheet_opened}</td>
+                  <td className="px-2 py-2">{row.primary_clicked}</td>
+                  <td className="px-2 py-2">{formatRate(row.primary_per_open)}</td>
+                  <td className="px-2 py-2">{formatRate(row.view_details_per_open)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+        data-testid="admin-explore-v2-conversion-cta-copy"
+      >
+        <div className="flex flex-col gap-1">
+          <h2 className="text-sm font-semibold text-slate-900">CTA copy experiment</h2>
+          <p className="text-xs text-slate-600">
+            Compare conversion from `sheet_opened` by CTA copy variant. Older rows without `ctaCopyVariant` are
+            grouped as Unknown.
+          </p>
+        </div>
+        <div className="mt-3 overflow-x-auto">
+          <table className="min-w-full text-left text-xs text-slate-700">
+            <thead>
+              <tr className="border-b border-slate-200 text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                <th className="px-2 py-2">Variant</th>
+                <th className="px-2 py-2">Opens</th>
+                <th className="px-2 py-2">Primary clicks</th>
+                <th className="px-2 py-2">Primary CTR</th>
+                <th className="px-2 py-2">View details CTR</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ctaCopyRows.map((row) => (
                 <tr key={row.key} className="border-b border-slate-100">
                   <td className="px-2 py-2 font-medium text-slate-800">{row.label}</td>
                   <td className="px-2 py-2">{row.sheet_opened}</td>
