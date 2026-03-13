@@ -31,6 +31,13 @@ function attachRuntimeErrorGuards(page: Page, getStep: () => string) {
   return runtimeErrors;
 }
 
+async function openExploreLabsPage(page: Page) {
+  await page.goto("/explore-labs", { waitUntil: "commit" });
+  await expect(page.getByTestId(smokeSelectors.exploreLabsShell)).toBeVisible();
+  await expect(page.getByTestId(smokeSelectors.exploreLabsPage)).toBeVisible();
+  await expect(page.getByTestId(smokeSelectors.explorePager)).toBeVisible();
+}
+
 test.use({
   viewport: { width: 390, height: 844 },
   isMobile: true,
@@ -60,10 +67,7 @@ test.describe("explore labs smoke", () => {
     }
 
     setStep("open-explore-labs");
-    await page.goto("/explore-labs", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId(smokeSelectors.exploreLabsShell)).toBeVisible();
-    await expect(page.getByTestId(smokeSelectors.exploreLabsPage)).toBeVisible();
-    await expect(page.getByTestId(smokeSelectors.explorePager)).toBeVisible();
+    await openExploreLabsPage(page);
     await expect(page.getByTestId(smokeSelectors.explorePagerLiteTrack)).toBeVisible();
     await expect(page.getByTestId(smokeSelectors.exploreSlide).first()).toBeVisible();
 
@@ -150,9 +154,7 @@ test.describe("explore labs smoke", () => {
     };
 
     setStep("open-explore-labs-desktop");
-    await page.goto("/explore-labs", { waitUntil: "domcontentloaded" });
-    await expect(page.getByTestId(smokeSelectors.exploreLabsPage)).toBeVisible();
-    await expect(page.getByTestId(smokeSelectors.explorePager)).toBeVisible();
+    await openExploreLabsPage(page);
     await expect(currentSlideLocator).toBeVisible();
 
     const initialIndex = await readCurrentSlideIndex();
