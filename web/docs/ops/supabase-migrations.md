@@ -2,6 +2,26 @@
 
 This runbook documents how to apply the Supabase migrations in a repeatable way.
 
+## Required status check before deploy
+
+Before shipping any schema-backed batch, run:
+
+```bash
+npm --prefix web run db:migrations:status
+```
+
+Expected result:
+- exits `0` only when the linked remote project has every local migration in `web/supabase/migrations`
+- exits non-zero when the check cannot verify the remote project
+- exits non-zero when local migrations exist that are not yet applied remotely
+
+If the command reports pending local migrations, stop the release and apply them with:
+
+```bash
+cd web
+npx supabase@latest db push --include-all
+```
+
 ## Migration Order
 
 Apply SQL files in this order:
@@ -89,6 +109,11 @@ If the project has Supabase CLI configured:
 ```bash
 supabase status
 supabase db push
+```
+
+To verify remote drift before or after `db push`:
+```bash
+npm --prefix web run db:migrations:status
 ```
 
 If using migration files directly:

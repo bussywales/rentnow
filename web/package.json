@@ -23,6 +23,7 @@
     "doctor": "node ./scripts/doctor.mjs",
     "test": "tsx --test tests/unit/*.test.ts",
     "check:migrations": "node ./scripts/check-migration-timestamps.mjs",
+    "db:migrations:status": "tsx ./scripts/check-supabase-migration-status.ts",
     "icons:generate": "node ./scripts/generate-icons.mjs",
     "setup": "npm install && npx playwright install --with-deps",
     "test:e2e": "playwright test",

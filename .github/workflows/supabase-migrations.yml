@@ -1,0 +1,65 @@
+name: Supabase Migration Guard
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "web/supabase/migrations/**"
+      - "web/lib/ops/supabase-migration-status.ts"
+      - "web/scripts/check-supabase-migration-status.ts"
+      - "web/package.json"
+      - "docs/go-live-checklist.md"
+      - "web/docs/ops/supabase-migrations.md"
+  pull_request:
+    branches: [main]
+    paths:
+      - "web/supabase/migrations/**"
+      - "web/lib/ops/supabase-migration-status.ts"
+      - "web/scripts/check-supabase-migration-status.ts"
+      - "web/package.json"
+      - "docs/go-live-checklist.md"
+      - "web/docs/ops/supabase-migrations.md"
+
+jobs:
+  migration-status:
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN || '' }}
+      SUPABASE_PROJECT_REF: ${{ secrets.SUPABASE_PROJECT_REF || '' }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD || '' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.9.0"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      - name: Verify Supabase migration guard secrets
+        run: |
+          missing=0
+          for name in SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF SUPABASE_DB_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error ::Missing $name. Remote migration drift cannot be verified."
+              missing=1
+            fi
+          done
+
+          if [ "$missing" -ne 0 ]; then
+            echo "Set the Supabase CI secrets, or run 'npm --prefix web run db:migrations:status' locally before deploy."
+            exit 1
+          fi
+
+      - name: Check remote migration status
+        run: npm run db:migrations:status

@@ -20,7 +20,9 @@
 
 - ✅ Deployer runtime is Node **20+**
 - ✅ `npm run build` succeeds in CI/deploy environment
-- ✅ Latest Supabase migrations applied to production (verify timestamps match repo)
+- ✅ Latest Supabase migrations applied to production
+  - Run `npm --prefix web run db:migrations:status`
+  - If it reports pending local migrations, stop launch and run `cd web && npx supabase@latest db push --include-all`
 - ✅ Secrets are server-side only (no service role keys exposed to client)
 
 **Fail = stop launch.**
