@@ -8,7 +8,8 @@ import { getServerAuthUser } from "@/lib/auth/server-session";
 import { getExploreFeed } from "@/lib/explore/explore-feed.server";
 import { MARKET_COOKIE_NAME, resolveMarketFromRequest } from "@/lib/market/market";
 import { getMarketSettings } from "@/lib/market/market.server";
-import { isExploreV2TrustCueEnabled } from "@/lib/settings/explore";
+import { getExploreV2CtaCopyVariant, isExploreV2TrustCueEnabled } from "@/lib/settings/explore";
+import type { ExploreV2CtaCopyVariant } from "@/lib/explore/explore-presentation";
 import type { Property } from "@/lib/types";
 
 type ExploreV2PageData = {
@@ -17,6 +18,7 @@ type ExploreV2PageData = {
   marketCurrency: string;
   viewerIsAuthenticated: boolean;
   trustCueEnabled: boolean;
+  ctaCopyVariant: ExploreV2CtaCopyVariant;
 };
 
 type ExploreV2PageDependencies = {
@@ -26,6 +28,7 @@ type ExploreV2PageDependencies = {
   loadExploreFeed: typeof getExploreFeed;
   loadAuthUser: typeof getServerAuthUser;
   loadTrustCueEnabled: typeof isExploreV2TrustCueEnabled;
+  loadCtaCopyVariant: typeof getExploreV2CtaCopyVariant;
 };
 
 export const metadata: Metadata = {
@@ -42,13 +45,15 @@ export async function resolveExploreV2PageData(
   const loadExploreFeed = overrides.loadExploreFeed ?? getExploreFeed;
   const loadAuthUser = overrides.loadAuthUser ?? getServerAuthUser;
   const loadTrustCueEnabled = overrides.loadTrustCueEnabled ?? isExploreV2TrustCueEnabled;
+  const loadCtaCopyVariant = overrides.loadCtaCopyVariant ?? getExploreV2CtaCopyVariant;
 
-  const [requestHeaders, cookieStore, marketSettings, authUser, trustCueEnabled] = await Promise.all([
+  const [requestHeaders, cookieStore, marketSettings, authUser, trustCueEnabled, ctaCopyVariant] = await Promise.all([
     readHeaders(),
     readCookies(),
     loadMarketSettings(),
     loadAuthUser(),
     loadTrustCueEnabled(),
+    loadCtaCopyVariant(),
   ]);
   const market = resolveMarketFromRequest({
     headers: requestHeaders,
@@ -66,6 +71,7 @@ export async function resolveExploreV2PageData(
     marketCurrency: market.currency,
     viewerIsAuthenticated: !!authUser.user,
     trustCueEnabled,
+    ctaCopyVariant,
   };
 }
 
@@ -81,6 +87,7 @@ export default async function ExploreV2Page() {
         marketCurrency={pageData.marketCurrency}
         viewerIsAuthenticated={pageData.viewerIsAuthenticated}
         trustCueEnabled={pageData.trustCueEnabled}
+        ctaCopyVariant={pageData.ctaCopyVariant}
       />
     </main>
   );

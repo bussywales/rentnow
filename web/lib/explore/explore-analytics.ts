@@ -1,4 +1,5 @@
 import { hasExploreAnalyticsConsent } from "@/lib/analytics/consent";
+import type { ExploreV2CtaCopyVariant } from "@/lib/explore/explore-presentation";
 
 export const EXPLORE_ANALYTICS_STORAGE_KEY = "ph:explore:analytics:v0_3";
 export const EXPLORE_ANALYTICS_MAX_EVENTS = 200;
@@ -47,6 +48,7 @@ export type ExploreAnalyticsEvent = {
   result?: string | null;
   trustCueVariant?: "none" | "instant_confirmation" | null;
   trustCueEnabled?: boolean | null;
+  ctaCopyVariant?: ExploreV2CtaCopyVariant | null;
 };
 
 type ExploreAnalyticsPayload = {
@@ -161,6 +163,7 @@ async function sendExploreAnalyticsEventToServer(event: ExploreAnalyticsEvent) {
       result: event.result ?? null,
       trustCueVariant: event.trustCueVariant ?? null,
       trustCueEnabled: typeof event.trustCueEnabled === "boolean" ? event.trustCueEnabled : null,
+      ctaCopyVariant: event.ctaCopyVariant ?? null,
     }),
   }).catch(() => undefined);
 }
@@ -213,6 +216,12 @@ export function parseExploreAnalyticsPayload(raw: string | null | undefined): Ex
               ? typed.trustCueVariant
               : null,
           trustCueEnabled: typeof typed.trustCueEnabled === "boolean" ? typed.trustCueEnabled : null,
+          ctaCopyVariant:
+            typed.ctaCopyVariant === "default" ||
+            typed.ctaCopyVariant === "clarity" ||
+            typed.ctaCopyVariant === "action"
+              ? typed.ctaCopyVariant
+              : null,
         } satisfies ExploreAnalyticsEvent;
       })
       .filter((event): event is NonNullable<typeof event> => event !== null);
@@ -328,6 +337,7 @@ export function recordExploreAnalyticsEvent(
     result: input.result ?? null,
     trustCueVariant: input.trustCueVariant ?? null,
     trustCueEnabled: typeof input.trustCueEnabled === "boolean" ? input.trustCueEnabled : null,
+    ctaCopyVariant: input.ctaCopyVariant ?? null,
   };
   const nextEvents = writeExploreAnalyticsEvents(storage, [...existing.events, nextEvent]);
   void sendExploreAnalyticsEventToServer(nextEvent);

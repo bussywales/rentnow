@@ -14,6 +14,7 @@ import { resolveExplorePropertyImageRecords } from "@/lib/explore/gallery-images
 import {
   resolveExploreAnalyticsIntentType,
   resolveExploreListingMarketCountry,
+  type ExploreV2CtaCopyVariant,
 } from "@/lib/explore/explore-presentation";
 import { resolveExploreV2PrefetchLookahead, subscribeToConserveDataChanges } from "@/lib/explore/network-hints";
 
@@ -23,6 +24,7 @@ type ExploreV2FeedProps = {
   marketCurrency: string | null;
   viewerIsAuthenticated?: boolean;
   trustCueEnabled?: boolean;
+  ctaCopyVariant?: ExploreV2CtaCopyVariant;
 };
 
 export const EXPLORE_V2_PRELOAD_MAX_INFLIGHT = 2;
@@ -156,6 +158,7 @@ function ExploreV2FeedInner({
   marketCurrency,
   viewerIsAuthenticated = false,
   trustCueEnabled = false,
+  ctaCopyVariant = "default",
 }: ExploreV2FeedProps) {
   const [topVisibleIndex, setTopVisibleIndex] = useState(0);
   const [prefetchLookahead, setPrefetchLookahead] = useState(() =>
@@ -217,11 +220,19 @@ function ExploreV2FeedInner({
             feedSize={filteredListings.length}
             viewerIsAuthenticated={viewerIsAuthenticated}
             trustCueEnabled={trustCueEnabled}
+            ctaCopyVariant={ctaCopyVariant}
           />
         </div>
       );
     },
-    [filteredListings.length, listingImageRecordsById, marketCurrency, trustCueEnabled, viewerIsAuthenticated]
+    [
+      ctaCopyVariant,
+      filteredListings.length,
+      listingImageRecordsById,
+      marketCurrency,
+      trustCueEnabled,
+      viewerIsAuthenticated,
+    ]
   );
 
   const computeItemKey = useCallback((_index: number, listing: Property) => listing.id, []);

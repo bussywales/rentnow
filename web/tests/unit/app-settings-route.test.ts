@@ -259,6 +259,13 @@ void test("validateSettingValueByKey accepts explore v2 trust cue toggle payload
   assert.equal(validateSettingValueByKey("explore_v2_trust_cue_enabled", { enabled: true }), true);
 });
 
+void test("validateSettingValueByKey accepts explore v2 cta copy variant payload", () => {
+  assert.equal(validateSettingValueByKey("explore_v2_cta_copy_variant", { value: "default" }), true);
+  assert.equal(validateSettingValueByKey("explore_v2_cta_copy_variant", { value: "clarity" }), true);
+  assert.equal(validateSettingValueByKey("explore_v2_cta_copy_variant", { value: "action" }), true);
+  assert.equal(validateSettingValueByKey("explore_v2_cta_copy_variant", { value: "invalid" }), false);
+});
+
 void test("validateSettingValueByKey accepts brand socials payloads", () => {
   assert.equal(
     validateSettingValueByKey("brand_social_instagram_url", {

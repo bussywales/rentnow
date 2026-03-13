@@ -1,4 +1,5 @@
 import { recordExploreAnalyticsEvent, type ExploreAnalyticsEventName } from "@/lib/explore/explore-analytics";
+import type { ExploreV2CtaCopyVariant } from "@/lib/explore/explore-presentation";
 
 export type ExploreFunnelIntent = "shortlet" | "rent" | "buy";
 
@@ -16,6 +17,7 @@ export type TrackExploreFunnelEventInput = {
   depth?: number;
   trustCueVariant?: "none" | "instant_confirmation" | null;
   trustCueEnabled?: boolean | null;
+  ctaCopyVariant?: ExploreV2CtaCopyVariant | null;
 };
 
 export function trackExploreFunnelEvent(input: TrackExploreFunnelEventInput) {
@@ -33,5 +35,6 @@ export function trackExploreFunnelEvent(input: TrackExploreFunnelEventInput) {
     depth: input.depth,
     trustCueVariant: input.trustCueVariant ?? null,
     trustCueEnabled: input.trustCueEnabled ?? null,
+    ctaCopyVariant: input.ctaCopyVariant ?? null,
   });
 }

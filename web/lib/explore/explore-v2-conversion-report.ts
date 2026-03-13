@@ -28,6 +28,7 @@ export type ExploreV2ConversionRow = {
   intent_type: "shortlet" | "rent" | "buy" | null;
   trust_cue_variant?: "none" | "instant_confirmation" | null;
   trust_cue_enabled?: boolean | null;
+  cta_copy_variant?: "default" | "clarity" | "action" | null;
 };
 
 export type ExploreV2ConversionTotals = Record<ExploreV2ConversionMetricKey, number>;
@@ -49,6 +50,11 @@ export type ExploreV2ConversionTrustCueBreakdownRow = ExploreV2ConversionBreakdo
   view_details_per_open: number | null;
 };
 
+export type ExploreV2ConversionCtaCopyBreakdownRow = ExploreV2ConversionBreakdownRow & {
+  primary_per_open: number | null;
+  view_details_per_open: number | null;
+};
+
 export type ExploreV2ConversionDayBreakdownRow = {
   date: string;
 } & ExploreV2ConversionTotals;
@@ -63,6 +69,7 @@ export type ExploreV2ConversionReport = {
   by_market: ExploreV2ConversionBreakdownRow[];
   by_intent: ExploreV2ConversionBreakdownRow[];
   by_trust_cue_variant: ExploreV2ConversionTrustCueBreakdownRow[];
+  by_cta_copy_variant: ExploreV2ConversionCtaCopyBreakdownRow[];
 };
 
 export type ExploreV2ConversionQuery = {
@@ -147,6 +154,21 @@ function toTrustCueVariantLabel(value: string): string {
   return "Unknown";
 }
 
+function toCtaCopyVariantBucket(value: string | null | undefined): "default" | "clarity" | "action" | "unknown" {
+  const normalized = (value || "").trim().toLowerCase();
+  if (normalized === "clarity") return "clarity";
+  if (normalized === "action") return "action";
+  if (normalized === "default") return "default";
+  return "unknown";
+}
+
+function toCtaCopyVariantLabel(value: string): string {
+  if (value === "clarity") return "Clarity";
+  if (value === "action") return "Action";
+  if (value === "default") return "Default";
+  return "Unknown";
+}
+
 function buildDateSeries(startDate: string, endDate: string): string[] {
   const start = new Date(`${startDate}T00:00:00.000Z`);
   const end = new Date(`${endDate}T00:00:00.000Z`);
@@ -197,7 +219,9 @@ export async function fetchExploreV2ConversionRows(input: {
   const limit = Math.max(1, Math.min(input.limit ?? 10000, 50000));
   let query = input.client
     .from("explore_events")
-    .select("created_at,event_name,listing_id,market_code,intent_type,trust_cue_variant,trust_cue_enabled")
+    .select(
+      "created_at,event_name,listing_id,market_code,intent_type,trust_cue_variant,trust_cue_enabled,cta_copy_variant"
+    )
     .in("event_name", [...EXPLORE_V2_CONVERSION_EVENT_NAMES])
     .gte("created_at", input.startIso)
     .lte("created_at", input.endIso)
@@ -227,6 +251,7 @@ export function buildExploreV2ConversionReport(input: {
   const byMarketMap = new Map<string, ExploreV2ConversionTotals>();
   const byIntentMap = new Map<string, ExploreV2ConversionTotals>();
   const byTrustCueVariantMap = new Map<string, ExploreV2ConversionTotals>();
+  const byCtaCopyVariantMap = new Map<string, ExploreV2ConversionTotals>();
   const dateSeries = buildDateSeries(input.range.startDate, input.range.endDate);
 
   for (const day of dateSeries) {
@@ -243,6 +268,9 @@ export function buildExploreV2ConversionReport(input: {
   byIntentMap.set("buy", cloneTotals());
   byTrustCueVariantMap.set("none", cloneTotals());
   byTrustCueVariantMap.set("instant_confirmation", cloneTotals());
+  byCtaCopyVariantMap.set("default", cloneTotals());
+  byCtaCopyVariantMap.set("clarity", cloneTotals());
+  byCtaCopyVariantMap.set("action", cloneTotals());
 
   for (const row of input.rows) {
     const metric = EVENT_TO_METRIC[row.event_name];
@@ -271,6 +299,12 @@ export function buildExploreV2ConversionReport(input: {
       byTrustCueVariantMap.set(trustCueKey, cloneTotals());
     }
     byTrustCueVariantMap.get(trustCueKey)![metric] += 1;
+
+    const ctaCopyKey = toCtaCopyVariantBucket(row.cta_copy_variant);
+    if (!byCtaCopyVariantMap.has(ctaCopyKey)) {
+      byCtaCopyVariantMap.set(ctaCopyKey, cloneTotals());
+    }
+    byCtaCopyVariantMap.get(ctaCopyKey)![metric] += 1;
   }
 
   const by_day: ExploreV2ConversionDayBreakdownRow[] = [...byDayMap.entries()]
@@ -302,6 +336,15 @@ export function buildExploreV2ConversionReport(input: {
       primary_per_open: toRate(counts.primary_clicked, counts.sheet_opened),
       view_details_per_open: toRate(counts.view_details_clicked, counts.sheet_opened),
     }));
+  const by_cta_copy_variant: ExploreV2ConversionCtaCopyBreakdownRow[] = [...byCtaCopyVariantMap.entries()]
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([key, counts]) => ({
+      key,
+      label: toCtaCopyVariantLabel(key),
+      ...counts,
+      primary_per_open: toRate(counts.primary_clicked, counts.sheet_opened),
+      view_details_per_open: toRate(counts.view_details_clicked, counts.sheet_opened),
+    }));
 
   return {
     range: input.range,
@@ -318,6 +361,7 @@ export function buildExploreV2ConversionReport(input: {
     by_market,
     by_intent,
     by_trust_cue_variant,
+    by_cta_copy_variant,
   };
 }
 

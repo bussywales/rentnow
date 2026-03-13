@@ -33,6 +33,7 @@ const ingestSchema = z
     result: z.string().trim().min(1).max(64).nullable().optional(),
     trustCueVariant: z.enum(["none", "instant_confirmation"]).nullable().optional(),
     trustCueEnabled: z.boolean().nullable().optional(),
+    ctaCopyVariant: z.enum(["default", "clarity", "action"]).nullable().optional(),
   })
   .strict();
 
@@ -138,6 +139,7 @@ export async function postExploreAnalyticsIngestResponse(
     feed_size: payload.feedSize ?? null,
     trust_cue_variant: payload.trustCueVariant ?? null,
     trust_cue_enabled: payload.trustCueEnabled ?? null,
+    cta_copy_variant: payload.ctaCopyVariant ?? null,
     user_id: auth.user.id,
   });
 

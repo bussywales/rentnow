@@ -82,12 +82,14 @@ void test("explore-v2 page data resolver supports mocked server feed fixtures", 
       sessionRefreshed: false,
     }),
     loadTrustCueEnabled: async () => true,
+    loadCtaCopyVariant: async () => "clarity",
   });
 
   assert.equal(data.listings.length, 1);
   assert.equal(data.listings[0]?.id, "fixture-1");
   assert.equal(data.viewerIsAuthenticated, false);
   assert.equal(data.trustCueEnabled, true);
+  assert.equal(data.ctaCopyVariant, "clarity");
 });
 
 void test("explore-v2 page mounts analytics notice banner for consent parity", () => {

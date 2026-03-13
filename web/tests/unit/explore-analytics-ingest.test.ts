@@ -171,6 +171,7 @@ void test("explore analytics ingest stores allowed payload when enabled", async 
         feedSize: 20,
         trustCueVariant: "none",
         trustCueEnabled: false,
+        ctaCopyVariant: "clarity",
       },
       { "x-explore-analytics-consent": "accepted" }
     ),
@@ -211,6 +212,7 @@ void test("explore analytics ingest stores allowed payload when enabled", async 
   assert.equal(insertedPayload?.market_code, "GB");
   assert.equal(insertedPayload?.trust_cue_variant, "none");
   assert.equal(insertedPayload?.trust_cue_enabled, false);
+  assert.equal(insertedPayload?.cta_copy_variant, "clarity");
   assert.equal(insertedPayload?.user_id, "22222222-2222-2222-2222-222222222222");
 });
 

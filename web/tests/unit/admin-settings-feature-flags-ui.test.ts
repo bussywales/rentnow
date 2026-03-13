@@ -10,6 +10,7 @@ void test("app settings keys include listings auto-approve toggle", () => {
   assert.match(source, /listingsAutoApproveEnabled:\s*"listings_auto_approve_enabled"/);
   assert.match(source, /exploreEnabled:\s*"explore_enabled"/);
   assert.match(source, /exploreV2TrustCueEnabled:\s*"explore_v2_trust_cue_enabled"/);
+  assert.match(source, /exploreV2CtaCopyVariant:\s*"explore_v2_cta_copy_variant"/);
 });
 
 void test("app settings keys include brand social links", () => {
@@ -30,6 +31,15 @@ void test("admin settings page loads listings auto-approve toggle data", () => {
   assert.match(source, /APP_SETTING_KEYS\.listingsAutoApproveEnabled/);
   assert.match(source, /APP_SETTING_KEYS\.exploreEnabled/);
   assert.match(source, /APP_SETTING_KEYS\.exploreV2TrustCueEnabled/);
+  assert.match(source, /APP_SETTING_KEYS\.exploreV2CtaCopyVariant/);
+});
+
+void test("admin settings page includes explore v2 cta copy experiment section", () => {
+  const pagePath = path.join(process.cwd(), "app", "admin", "settings", "page.tsx");
+  const source = fs.readFileSync(pagePath, "utf8");
+
+  assert.match(source, /AdminSettingsExploreV2CtaCopy/);
+  assert.match(source, /Explore V2 CTA copy/);
 });
 
 void test("admin settings page loads brand social links section data", () => {

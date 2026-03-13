@@ -37,6 +37,8 @@ import AdminSettingsLayout, {
 } from "@/components/admin/AdminSettingsLayout";
 import AdminSettingsDemoVisibilityPolicy from "@/components/admin/AdminSettingsDemoVisibilityPolicy";
 import { normalizeDemoListingsVisibilityPolicy } from "@/lib/properties/demo";
+import AdminSettingsExploreV2CtaCopy from "@/components/admin/AdminSettingsExploreV2CtaCopy";
+import { normalizeExploreV2CtaCopyVariant } from "@/lib/explore/explore-presentation";
 
 export const dynamic = "force-dynamic";
 
@@ -72,6 +74,7 @@ export default async function AdminSettingsPage() {
       APP_SETTING_KEYS.alertsKillSwitchEnabled,
       APP_SETTING_KEYS.exploreEnabled,
       APP_SETTING_KEYS.exploreV2TrustCueEnabled,
+      APP_SETTING_KEYS.exploreV2CtaCopyVariant,
       APP_SETTING_KEYS.defaultMarketCountry,
       APP_SETTING_KEYS.defaultMarketCurrency,
       APP_SETTING_KEYS.marketAutoDetectEnabled,
@@ -188,6 +191,9 @@ export default async function AdminSettingsPage() {
   const marketCountryRow = data?.find(
     (item) => item.key === APP_SETTING_KEYS.defaultMarketCountry
   );
+  const exploreV2CtaCopyVariantRow = data?.find(
+    (item) => item.key === APP_SETTING_KEYS.exploreV2CtaCopyVariant
+  );
   const marketCurrencyRow = data?.find(
     (item) => item.key === APP_SETTING_KEYS.defaultMarketCurrency
   );
@@ -231,6 +237,9 @@ export default async function AdminSettingsPage() {
       DEFAULT_MARKET_SETTINGS.selectorEnabled
     ),
   };
+  const exploreV2CtaCopyVariant = normalizeExploreV2CtaCopyVariant(
+    parseAppSettingString(exploreV2CtaCopyVariantRow?.value, "default")
+  );
 
   const brandSocialSettings = {
     instagramUrl: parseAppSettingString(brandSocialInstagramRow?.value, ""),
@@ -381,6 +390,18 @@ export default async function AdminSettingsPage() {
       description: "Global feature switches and guard toggles for tenant, host, and admin surfaces.",
       keywords: ["feature", "toggle", "alerts", "verification", "explore", "shortlet"],
       content: <AdminSettingsFeatureFlags settings={settings} />,
+    },
+    {
+      id: "explore-v2-cta-copy",
+      title: "Explore V2 CTA copy",
+      description: "Variant control for the Explore V2 micro-sheet primary CTA experiment.",
+      keywords: ["explore", "v2", "cta", "copy", "experiment", "conversion"],
+      content: (
+        <AdminSettingsExploreV2CtaCopy
+          variant={exploreV2CtaCopyVariant}
+          updatedAt={exploreV2CtaCopyVariantRow?.updated_at ?? null}
+        />
+      ),
     },
     {
       id: "demo-visibility",

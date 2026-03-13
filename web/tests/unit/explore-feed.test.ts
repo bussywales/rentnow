@@ -2,7 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { mockProperties } from "@/lib/mock";
 import { buildExploreFeed, buildExploreSectionedFeed, flattenExploreSectionedFeed } from "@/lib/explore/explore-feed.server";
-import { resolveExploreCtaMicrocopy, resolveExplorePrimaryAction } from "@/lib/explore/explore-presentation";
+import {
+  resolveExploreCtaMicrocopy,
+  resolveExplorePrimaryAction,
+  resolveExploreV2MicroSheetCtaLabels,
+} from "@/lib/explore/explore-presentation";
 
 void test("buildExploreFeed keeps featured-first deterministic order and caps at 20 by default", () => {
   const featured = mockProperties.slice(0, 4);
@@ -42,6 +46,44 @@ void test("resolveExplorePrimaryAction switches CTA by listing type", () => {
   assert.equal(resolveExplorePrimaryAction(longTerm).label, "Request viewing");
   assert.match(resolveExploreCtaMicrocopy(shortlet), /Secure checkout/i);
   assert.match(resolveExploreCtaMicrocopy(longTerm), /No commitment/i);
+});
+
+void test("resolveExploreV2MicroSheetCtaLabels keeps CTA meaning truthful by intent and variant", () => {
+  const shortlet = {
+    ...mockProperties[0],
+    listing_intent: "shortlet" as const,
+    rental_type: "short_let" as const,
+  };
+  const instantShortlet = {
+    ...shortlet,
+    shortlet_settings: [{ booking_mode: "instant" as const }],
+  };
+  const rent = {
+    ...mockProperties[1],
+    listing_intent: "rent_lease" as const,
+    rental_type: "long_term" as const,
+  };
+
+  assert.equal(
+    resolveExploreV2MicroSheetCtaLabels({ property: shortlet, variant: "default" }).primaryLabel,
+    "Book"
+  );
+  assert.equal(
+    resolveExploreV2MicroSheetCtaLabels({ property: shortlet, variant: "clarity" }).primaryLabel,
+    "Check availability"
+  );
+  assert.equal(
+    resolveExploreV2MicroSheetCtaLabels({ property: shortlet, variant: "action" }).primaryLabel,
+    "Start booking"
+  );
+  assert.equal(
+    resolveExploreV2MicroSheetCtaLabels({ property: instantShortlet, variant: "action" }).primaryLabel,
+    "Book instantly"
+  );
+  assert.equal(
+    resolveExploreV2MicroSheetCtaLabels({ property: rent, variant: "clarity" }).primaryLabel,
+    "Request viewing"
+  );
 });
 
 void test("flattenExploreSectionedFeed returns market picks then fallback listings", () => {

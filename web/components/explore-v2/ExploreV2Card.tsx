@@ -16,6 +16,7 @@ import { performShare, type ShareActionResult } from "@/lib/share/client-share";
 import { resolveShortletBookingMode } from "@/lib/shortlet/discovery";
 import type { Property } from "@/lib/types";
 import {
+  resolveExploreV2MicroSheetCtaLabels,
   resolveExploreAnalyticsIntentType,
   resolveExploreDetailsHref,
   resolveExploreIntentTag,
@@ -24,6 +25,8 @@ import {
   resolveExplorePriceClarityCopy,
   resolveExplorePrimaryAction,
   resolveExplorePriceCopy,
+  type ExplorePrimaryActionLabel,
+  type ExploreV2CtaCopyVariant,
 } from "@/lib/explore/explore-presentation";
 import {
   EXPLORE_GALLERY_FALLBACK_IMAGE,
@@ -46,6 +49,7 @@ type ExploreV2CardProps = {
   feedSize?: number;
   viewerIsAuthenticated?: boolean;
   trustCueEnabled?: boolean;
+  ctaCopyVariant?: ExploreV2CtaCopyVariant;
 };
 
 type ExploreImageRecord = ReturnType<typeof resolveExplorePropertyImageRecords>[number];
@@ -58,6 +62,7 @@ type ExploreV2ActionContext = {
   feedSize: number;
   trustCueVariant?: ExploreV2TrustCueVariant;
   trustCueEnabled?: boolean;
+  ctaCopyVariant?: ExploreV2CtaCopyVariant;
 };
 
 export type ExploreV2TrustCueVariant = "none" | "instant_confirmation";
@@ -77,7 +82,7 @@ type ExploreV2ShareActionDeps = {
 
 type ExploreV2CtaContinueInput = {
   href: string;
-  label: "Book" | "Request viewing";
+  label: ExplorePrimaryActionLabel;
   context: ExploreV2ActionContext;
 };
 
@@ -211,7 +216,7 @@ export function trackExploreV2SaveToggle(input: {
 
 export function trackExploreV2CtaSheetOpened(input: {
   context: ExploreV2ActionContext;
-  label: "Book" | "Request viewing";
+  label: ExplorePrimaryActionLabel;
   trackFn?: typeof trackExploreFunnelEvent;
 }) {
   const trackFn = input.trackFn ?? trackExploreFunnelEvent;
@@ -224,6 +229,7 @@ export function trackExploreV2CtaSheetOpened(input: {
     feedSize: input.context.feedSize,
     trustCueVariant: input.context.trustCueVariant ?? "none",
     trustCueEnabled: input.context.trustCueEnabled ?? false,
+    ctaCopyVariant: input.context.ctaCopyVariant ?? "default",
     action: input.label.toLowerCase(),
     result: "opened",
   });
@@ -231,7 +237,7 @@ export function trackExploreV2CtaSheetOpened(input: {
 
 export function trackExploreV2CtaPrimaryClicked(input: {
   context: ExploreV2ActionContext;
-  label: "Book" | "Request viewing";
+  label: ExplorePrimaryActionLabel;
   trackFn?: typeof trackExploreFunnelEvent;
 }) {
   const trackFn = input.trackFn ?? trackExploreFunnelEvent;
@@ -244,6 +250,7 @@ export function trackExploreV2CtaPrimaryClicked(input: {
     feedSize: input.context.feedSize,
     trustCueVariant: input.context.trustCueVariant ?? "none",
     trustCueEnabled: input.context.trustCueEnabled ?? false,
+    ctaCopyVariant: input.context.ctaCopyVariant ?? "default",
     action: input.label.toLowerCase(),
     result: "clicked",
   });
@@ -263,6 +270,7 @@ export function trackExploreV2CtaViewDetailsClicked(input: {
     feedSize: input.context.feedSize,
     trustCueVariant: input.context.trustCueVariant ?? "none",
     trustCueEnabled: input.context.trustCueEnabled ?? false,
+    ctaCopyVariant: input.context.ctaCopyVariant ?? "default",
     action: "view_details",
     result: "clicked",
   });
@@ -283,6 +291,7 @@ export function trackExploreV2CtaSaveClicked(input: {
     feedSize: input.context.feedSize,
     trustCueVariant: input.context.trustCueVariant ?? "none",
     trustCueEnabled: input.context.trustCueEnabled ?? false,
+    ctaCopyVariant: input.context.ctaCopyVariant ?? "default",
     action: "save",
     result: input.result,
   });
@@ -303,6 +312,7 @@ export function trackExploreV2CtaShareClicked(input: {
     feedSize: input.context.feedSize,
     trustCueVariant: input.context.trustCueVariant ?? "none",
     trustCueEnabled: input.context.trustCueEnabled ?? false,
+    ctaCopyVariant: input.context.ctaCopyVariant ?? "default",
     action: "share",
     result: input.result,
   });
@@ -335,6 +345,7 @@ export async function triggerExploreV2ShareAction(
     feedSize: input.context.feedSize,
     trustCueVariant: input.context.trustCueVariant ?? "none",
     trustCueEnabled: input.context.trustCueEnabled ?? false,
+    ctaCopyVariant: input.context.ctaCopyVariant ?? "default",
     action: "share",
     result: shareResult,
   });
@@ -358,6 +369,7 @@ export function continueExploreV2Cta(
     feedSize: input.context.feedSize,
     trustCueVariant: input.context.trustCueVariant ?? "none",
     trustCueEnabled: input.context.trustCueEnabled ?? false,
+    ctaCopyVariant: input.context.ctaCopyVariant ?? "default",
     action: "continue",
     result: "navigated",
   });
@@ -594,6 +606,7 @@ function ExploreV2CardInner({
   feedSize = 0,
   viewerIsAuthenticated = false,
   trustCueEnabled = false,
+  ctaCopyVariant = "default",
 }: ExploreV2CardProps) {
   const [ctaSheetOpen, setCtaSheetOpen] = useState(false);
   const [saveAuthSheetOpen, setSaveAuthSheetOpen] = useState(false);
@@ -662,8 +675,17 @@ function ExploreV2CardInner({
       ...actionContext,
       trustCueVariant,
       trustCueEnabled,
+      ctaCopyVariant,
     }),
-    [actionContext, trustCueEnabled, trustCueVariant]
+    [actionContext, ctaCopyVariant, trustCueEnabled, trustCueVariant]
+  );
+  const microSheetCtaCopy = useMemo(
+    () =>
+      resolveExploreV2MicroSheetCtaLabels({
+        property: listing,
+        variant: ctaCopyVariant,
+      }),
+    [ctaCopyVariant, listing]
   );
   const intentTag = useMemo(() => resolveExploreIntentTag(listing), [listing]);
   const locationLine = useMemo(() => resolveExploreV2LocationLine(listing), [listing]);
@@ -792,6 +814,7 @@ function ExploreV2CardInner({
       feedSize: ctaAnalyticsContext.feedSize,
       trustCueVariant: ctaAnalyticsContext.trustCueVariant ?? "none",
       trustCueEnabled: ctaAnalyticsContext.trustCueEnabled ?? false,
+      ctaCopyVariant: ctaAnalyticsContext.ctaCopyVariant ?? "default",
       action: primaryAction.label.toLowerCase(),
     });
     trackExploreV2CtaSheetOpened({
@@ -1024,9 +1047,10 @@ function ExploreV2CardInner({
         hasVideo={showFeaturedVideoBadge}
         thumbnailSrc={sheetThumbnailSrc}
         trustCueCopy={trustCueCopy}
-        primaryActionLabel={primaryAction.label}
+        primaryActionLabel={microSheetCtaCopy.primaryLabel}
         onPrimaryAction={handleCtaContinue}
         detailsHref={detailsHref}
+        detailsActionLabel={microSheetCtaCopy.detailsLabel}
         onViewDetails={handleViewDetails}
         onShare={() => {
           void handleShare("sheet");

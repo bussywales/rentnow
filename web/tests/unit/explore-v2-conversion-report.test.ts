@@ -28,6 +28,7 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
       market_code: "NG",
       intent_type: "shortlet",
       trust_cue_variant: "instant_confirmation",
+      cta_copy_variant: "clarity",
     },
     {
       created_at: "2026-03-05T09:00:01.000Z",
@@ -36,6 +37,7 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
       market_code: "NG",
       intent_type: "shortlet",
       trust_cue_variant: "instant_confirmation",
+      cta_copy_variant: "clarity",
     },
     {
       created_at: "2026-03-05T09:00:02.000Z",
@@ -44,6 +46,7 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
       market_code: "NG",
       intent_type: "shortlet",
       trust_cue_variant: "instant_confirmation",
+      cta_copy_variant: "clarity",
     },
     {
       created_at: "2026-03-06T10:00:00.000Z",
@@ -52,6 +55,7 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
       market_code: "GB",
       intent_type: "rent",
       trust_cue_variant: "none",
+      cta_copy_variant: "default",
     },
     {
       created_at: "2026-03-06T10:00:01.000Z",
@@ -60,6 +64,7 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
       market_code: "GB",
       intent_type: "rent",
       trust_cue_variant: "none",
+      cta_copy_variant: "default",
     },
   ];
 
@@ -97,6 +102,8 @@ void test("explore v2 conversion report aggregates totals and rates", () => {
     report.by_trust_cue_variant.find((row) => row.key === "none")?.view_details_per_open,
     100
   );
+  assert.equal(report.by_cta_copy_variant.find((row) => row.key === "clarity")?.sheet_opened, 1);
+  assert.equal(report.by_cta_copy_variant.find((row) => row.key === "default")?.sheet_opened, 1);
 
   const day1 = report.by_day.find((row) => row.date === "2026-03-05");
   const day2 = report.by_day.find((row) => row.date === "2026-03-06");
@@ -140,6 +147,9 @@ void test("explore v2 conversion report maps missing trust cue variant rows to u
   assert.equal(unknownRow?.primary_clicked, 1);
   assert.equal(unknownRow?.primary_per_open, 100);
   assert.equal(unknownRow?.view_details_per_open, 0);
+  const unknownCtaCopyRow = report.by_cta_copy_variant.find((row) => row.key === "unknown");
+  assert.equal(unknownCtaCopyRow?.sheet_opened, 1);
+  assert.equal(unknownCtaCopyRow?.primary_clicked, 1);
 });
 
 void test("explore v2 conversion csv groups by day, market, intent, event", () => {

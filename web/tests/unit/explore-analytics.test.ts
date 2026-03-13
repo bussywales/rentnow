@@ -134,6 +134,7 @@ void test("explore analytics events keep non-creepy payload keys only", () => {
       result: "attempt",
       trustCueVariant: "none",
       trustCueEnabled: false,
+      ctaCopyVariant: "clarity",
     });
     const [event] = getExploreAnalyticsEvents();
     assert.equal(event?.name, "explore_tap_cta");
@@ -143,6 +144,7 @@ void test("explore analytics events keep non-creepy payload keys only", () => {
     assert.equal(event?.feedSize, 20);
     assert.equal(event?.trustCueVariant, "none");
     assert.equal(event?.trustCueEnabled, false);
+    assert.equal(event?.ctaCopyVariant, "clarity");
     const eventRecord = event as Record<string, unknown>;
     assert.equal(eventRecord.message, undefined);
     assert.equal(eventRecord.email, undefined);

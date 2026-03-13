@@ -517,9 +517,20 @@ void test("explore-v2 conversion sheet analytics helpers emit contextual events"
     ...resolveExploreV2ActionContext({ listing, index: 4, feedSize: 15 }),
     trustCueVariant: "instant_confirmation" as const,
     trustCueEnabled: true,
+    ctaCopyVariant: "clarity" as const,
   };
-  const tracked: Array<{ name: string; trustCueVariant?: string | null; trustCueEnabled?: boolean | null }> = [];
-  const trackFn = (event: { name: string; trustCueVariant?: string | null; trustCueEnabled?: boolean | null }) => {
+  const tracked: Array<{
+    name: string;
+    trustCueVariant?: string | null;
+    trustCueEnabled?: boolean | null;
+    ctaCopyVariant?: string | null;
+  }> = [];
+  const trackFn = (event: {
+    name: string;
+    trustCueVariant?: string | null;
+    trustCueEnabled?: boolean | null;
+    ctaCopyVariant?: string | null;
+  }) => {
     tracked.push(event);
     return [];
   };
@@ -541,6 +552,7 @@ void test("explore-v2 conversion sheet analytics helpers emit contextual events"
   tracked.forEach((event) => {
     assert.equal(event.trustCueVariant, "instant_confirmation");
     assert.equal(event.trustCueEnabled, true);
+    assert.equal(event.ctaCopyVariant, "clarity");
   });
 });
 

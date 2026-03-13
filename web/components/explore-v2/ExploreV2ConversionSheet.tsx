@@ -22,9 +22,10 @@ type ExploreV2ConversionSheetProps = {
   hasVideo: boolean;
   thumbnailSrc: string | null;
   trustCueCopy: string | null;
-  primaryActionLabel: "Book" | "Request viewing";
+  primaryActionLabel: string;
   onPrimaryAction: () => void;
   detailsHref: string;
+  detailsActionLabel?: string;
   onViewDetails: () => void;
   onShare: () => void;
   onSaveSurfaceCapture: (event: MouseEvent<HTMLDivElement>) => void;
@@ -41,12 +42,6 @@ type ExploreV2ConversionSheetProps = {
   };
 };
 
-export function resolveExploreV2ConversionQuickActionLabel(
-  label: "Book" | "Request viewing"
-): "Book now" | "Request viewing" {
-  return label === "Book" ? "Book now" : "Request viewing";
-}
-
 export function ExploreV2ConversionSheet({
   open,
   onOpenChange,
@@ -61,19 +56,19 @@ export function ExploreV2ConversionSheet({
   primaryActionLabel,
   onPrimaryAction,
   detailsHref,
+  detailsActionLabel = "View details",
   onViewDetails,
   onShare,
   onSaveSurfaceCapture,
   viewerIsAuthenticated,
   saveToggle,
 }: ExploreV2ConversionSheetProps) {
-  const quickActionLabel = resolveExploreV2ConversionQuickActionLabel(primaryActionLabel);
   return (
     <BottomSheet
       open={open}
       onOpenChange={onOpenChange}
       title="Quick action"
-      description={quickActionLabel}
+      description={primaryActionLabel}
       testId="explore-v2-cta-sheet"
       sheetId={sheetId}
     >
@@ -153,7 +148,7 @@ export function ExploreV2ConversionSheet({
             className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-700"
             data-testid="explore-v2-cta-view-details"
           >
-            View details
+            {detailsActionLabel}
           </Link>
           <div
             className="inline-flex h-10 items-center justify-center rounded-full border border-slate-200 bg-white"

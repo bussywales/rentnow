@@ -1,6 +1,10 @@
 import { isSaleIntent, normalizeListingIntent } from "@/lib/listing-intents";
 import { formatPriceValue } from "@/lib/property-discovery";
-import { isShortletProperty, resolveShortletNightlyPriceMinor } from "@/lib/shortlet/discovery";
+import {
+  isShortletProperty,
+  resolveShortletBookingMode,
+  resolveShortletNightlyPriceMinor,
+} from "@/lib/shortlet/discovery";
 import type { Property } from "@/lib/types";
 import type { TrustMarkerState } from "@/lib/trust-markers";
 import { DEFAULT_VERIFICATION_REQUIREMENTS, isAdvertiserVerified } from "@/lib/trust-markers";
@@ -36,13 +40,59 @@ export function resolveExploreDetailsHref(property: Property): string {
 }
 
 export function resolveExplorePrimaryAction(property: Property): {
-  label: "Book" | "Request viewing";
+  label: ExplorePrimaryActionLabel;
   href: string;
 } {
   const detailsHref = resolveExploreDetailsHref(property);
   return {
     label: isShortletProperty(property) ? "Book" : "Request viewing",
     href: `${detailsHref}#cta`,
+  };
+}
+
+export type ExplorePrimaryActionLabel = "Book" | "Request viewing";
+export type ExploreV2CtaCopyVariant = "default" | "clarity" | "action";
+
+export function normalizeExploreV2CtaCopyVariant(
+  value: string | null | undefined
+): ExploreV2CtaCopyVariant {
+  const normalized = (value || "").trim().toLowerCase();
+  if (normalized === "clarity") return "clarity";
+  if (normalized === "action") return "action";
+  return "default";
+}
+
+export function resolveExploreV2MicroSheetCtaLabels(input: {
+  property: Property;
+  variant: ExploreV2CtaCopyVariant;
+}): {
+  primaryLabel: string;
+  detailsLabel: "View details";
+  actionMeaning: ExplorePrimaryActionLabel;
+} {
+  const actionMeaning = resolveExplorePrimaryAction(input.property).label;
+  if (actionMeaning === "Book") {
+    if (input.variant === "clarity") {
+      return {
+        primaryLabel: "Check availability",
+        detailsLabel: "View details",
+        actionMeaning,
+      };
+    }
+    if (input.variant === "action") {
+      return {
+        primaryLabel:
+          resolveShortletBookingMode(input.property) === "instant" ? "Book instantly" : "Start booking",
+        detailsLabel: "View details",
+        actionMeaning,
+      };
+    }
+  }
+
+  return {
+    primaryLabel: actionMeaning,
+    detailsLabel: "View details",
+    actionMeaning,
   };
 }
 

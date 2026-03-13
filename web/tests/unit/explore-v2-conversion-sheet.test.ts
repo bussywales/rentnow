@@ -2,10 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import {
-  ExploreV2ConversionSheet,
-  resolveExploreV2ConversionQuickActionLabel,
-} from "@/components/explore-v2/ExploreV2ConversionSheet";
+import { ExploreV2ConversionSheet } from "@/components/explore-v2/ExploreV2ConversionSheet";
 
 void test("explore-v2 conversion sheet renders summary and actions when open", () => {
   const html = renderToStaticMarkup(
@@ -109,7 +106,44 @@ void test("explore-v2 conversion sheet hides trust cue row when not provided", (
   assert.doesNotMatch(html, /data-testid="explore-v2-cta-trust-cue"/);
 });
 
-void test("explore-v2 conversion quick action label copy maps book and viewing intents", () => {
-  assert.equal(resolveExploreV2ConversionQuickActionLabel("Book"), "Book now");
-  assert.equal(resolveExploreV2ConversionQuickActionLabel("Request viewing"), "Request viewing");
+void test("explore-v2 conversion sheet renders variant CTA labels passed from the resolver", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(ExploreV2ConversionSheet, {
+      open: true,
+      onOpenChange: () => undefined,
+      sheetId: "explore-v2-cta-sheet-listing-2",
+      title: "Victoria Island Shortlet",
+      locationLine: "Lagos, NG",
+      priceClarity: {
+        amount: "₦180,000",
+        suffix: "/ night",
+        note: null,
+      },
+      intentTag: "Shortlets",
+      hasVideo: false,
+      thumbnailSrc: null,
+      trustCueCopy: null,
+      primaryActionLabel: "Check availability",
+      detailsActionLabel: "View details",
+      onPrimaryAction: () => undefined,
+      detailsHref: "/properties/listing-2?source=explore_v0",
+      onViewDetails: () => undefined,
+      onShare: () => undefined,
+      onSaveSurfaceCapture: () => undefined,
+      viewerIsAuthenticated: true,
+      saveToggle: {
+        itemId: "listing-2",
+        kind: "shortlet",
+        href: "/properties/listing-2?source=explore_v0",
+        title: "Victoria Island Shortlet",
+        subtitle: "Lagos, NG",
+        tag: "Shortlets",
+        marketCountry: "NG",
+        onToggle: () => undefined,
+      },
+    })
+  );
+
+  assert.match(html, /Check availability/);
+  assert.match(html, /View details/);
 });

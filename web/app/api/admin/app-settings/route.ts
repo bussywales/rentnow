@@ -35,6 +35,9 @@ const numericValueSchema = z.object({
 const textValueSchema = z.object({
   value: z.string().trim().min(1).max(16),
 });
+const exploreV2CtaCopyVariantValueSchema = z.object({
+  value: z.enum(["default", "clarity", "action"]),
+});
 const socialValueSchema = z.object({
   value: z.string().trim().max(2048),
 });
@@ -102,6 +105,7 @@ export const patchSchema = z.object({
     attributionWindowDaysSchema,
     numericValueSchema,
     textValueSchema,
+    exploreV2CtaCopyVariantValueSchema,
     socialValueSchema,
     demoListingsVisibilityPolicyValueSchema,
     referralEnabledLevelsSchema,
@@ -163,6 +167,7 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
   const isReferralCaps = key === APP_SETTING_KEYS.referralCaps;
   const isDefaultMarketCountry = key === APP_SETTING_KEYS.defaultMarketCountry;
   const isDefaultMarketCurrency = key === APP_SETTING_KEYS.defaultMarketCurrency;
+  const isExploreV2CtaCopyVariant = key === APP_SETTING_KEYS.exploreV2CtaCopyVariant;
   const isMarketAutoDetectEnabled = key === APP_SETTING_KEYS.marketAutoDetectEnabled;
   const isMarketSelectorEnabled = key === APP_SETTING_KEYS.marketSelectorEnabled;
   const isBrandSocialInstagram = key === APP_SETTING_KEYS.brandSocialInstagramUrl;
@@ -228,6 +233,9 @@ export function validateSettingValueByKey(key: AppSettingKey, value: unknown) {
     return textValueSchema
       .extend({ value: z.string().trim().toUpperCase().regex(/^[A-Z]{3}$/) })
       .safeParse(value).success;
+  }
+  if (isExploreV2CtaCopyVariant) {
+    return exploreV2CtaCopyVariantValueSchema.safeParse(value).success;
   }
   if (isMarketAutoDetectEnabled) return enabledValueSchema.safeParse(value).success;
   if (isMarketSelectorEnabled) return enabledValueSchema.safeParse(value).success;
