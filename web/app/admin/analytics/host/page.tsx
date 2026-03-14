@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { buildHostAnalyticsIndex } from "@/lib/admin/host-analytics-index";
+import { fetchHostListingQualityTelemetrySnapshot } from "@/lib/properties/listing-quality-telemetry-report";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
 import { getServerAuthUser } from "@/lib/auth/server-session";
 import { hasServerSupabaseEnv } from "@/lib/supabase/server";
@@ -63,6 +64,9 @@ export default async function AdminHostAnalyticsIndexPage({
 
   const adminClient = createServiceRoleClient();
   const snapshot = await buildHostAnalyticsIndex(adminClient);
+  const qualityTelemetry = await fetchHostListingQualityTelemetrySnapshot({
+    client: adminClient,
+  });
   const hosts = query
     ? snapshot.hosts.filter((host) => {
         const label = host.label.toLowerCase();
@@ -104,6 +108,100 @@ export default async function AdminHostAnalyticsIndexPage({
           {snapshot.error}
         </div>
       )}
+
+      <section
+        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        data-testid="admin-host-quality-telemetry"
+      >
+        <div className="space-y-2">
+          <h2 className="text-lg font-semibold text-slate-900">Host quality guidance telemetry</h2>
+          <p className="text-sm text-slate-600">
+            Submit-step listing quality telemetry for guidance views, fix clicks, and score changes before submit.
+          </p>
+          <p className="text-xs text-slate-500">{qualityTelemetry.range.label}</p>
+        </div>
+
+        {qualityTelemetry.error && (
+          <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {qualityTelemetry.error}
+          </div>
+        )}
+
+        <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Guidance viewed</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {qualityTelemetry.guidanceViewed}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Fix clicks</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {qualityTelemetry.fixClicked}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              CTR{" "}
+              {qualityTelemetry.clickThroughRate === null
+                ? "—"
+                : `${qualityTelemetry.clickThroughRate.toFixed(2)}%`}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Submit attempts</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {qualityTelemetry.submitAttempted}
+            </p>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+            <p className="text-xs uppercase tracking-wide text-slate-500">Improvement rate</p>
+            <p className="mt-2 text-2xl font-semibold text-slate-900">
+              {qualityTelemetry.improvementRate === null
+                ? "—"
+                : `${qualityTelemetry.improvementRate.toFixed(2)}%`}
+            </p>
+            <p className="mt-1 text-xs text-slate-500">
+              Avg score delta{" "}
+              {qualityTelemetry.averageScoreDelta === null
+                ? "—"
+                : `${qualityTelemetry.averageScoreDelta > 0 ? "+" : ""}${qualityTelemetry.averageScoreDelta.toFixed(2)}`}
+            </p>
+          </div>
+        </div>
+
+        <div className="mt-5 grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+          <div className="rounded-xl border border-slate-200">
+            <div className="border-b border-slate-100 px-4 py-3">
+              <h3 className="text-sm font-semibold text-slate-900">Fix clicks by target step</h3>
+            </div>
+            <table className="min-w-full text-left text-sm text-slate-700">
+              <thead className="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-4 py-3">Target step</th>
+                  <th className="px-4 py-3">Clicks</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {qualityTelemetry.byTargetStep.map((row) => (
+                  <tr key={row.key}>
+                    <td className="px-4 py-3 font-medium text-slate-900">{row.label}</td>
+                    <td className="px-4 py-3">{row.clicks}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4 text-sm text-slate-700">
+            <h3 className="font-semibold text-slate-900">What this answers</h3>
+            <ul className="mt-3 space-y-2">
+              <li>Are hosts reaching the submit-step guidance?</li>
+              <li>Are they using the jump-back fix actions?</li>
+              <li>Which step needs the most fixes right now?</li>
+              <li>Are listing scores improving before submit?</li>
+            </ul>
+          </div>
+        </div>
+      </section>
 
       <div className="rounded-2xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-100 px-4 py-3 text-sm text-slate-600">
