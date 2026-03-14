@@ -31,6 +31,19 @@ void test("property_events migration includes dedupe + cap logic", () => {
   );
 });
 
+void test("property_events migration includes listing quality telemetry event types", () => {
+  const migrationPath = path.join(
+    process.cwd(),
+    "supabase",
+    "migrations",
+    "20260314113000_listing_quality_telemetry_events.sql"
+  );
+  const contents = fs.readFileSync(migrationPath, "utf8");
+
+  assert.ok(contents.includes("listing_quality_guidance_viewed"));
+  assert.ok(contents.includes("listing_quality_fix_clicked"));
+});
+
 void test("buildPropertyEventSummary aggregates metrics and attribution", () => {
   const rows: PropertyEventRow[] = [
     {

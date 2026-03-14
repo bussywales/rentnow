@@ -17,6 +17,7 @@ import { isShortletProperty } from "@/lib/shortlet/discovery";
 import { normalizeShortletNightlyPriceMinor } from "@/lib/shortlet/listing-setup";
 import { buildLiveApprovalUpdate } from "@/lib/properties/expiry";
 import { getListingExpiryDays } from "@/lib/properties/expiry.server";
+import { normalizeListingQualitySubmitTelemetry } from "@/lib/properties/listing-quality-telemetry";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ const routeLabel = "/api/properties/[id]/submit";
 const bodySchema = z
   .object({
     idempotencyKey: z.string().min(8).optional(),
+    qualityTelemetry: z.unknown().optional(),
   })
   .optional();
 
@@ -111,6 +113,7 @@ export async function postPropertySubmitResponse(
 
   const payload = bodySchema.parse(await request.json().catch(() => ({})));
   const idempotencyKey = payload?.idempotencyKey || crypto.randomUUID();
+  const qualityTelemetry = normalizeListingQualitySubmitTelemetry(payload?.qualityTelemetry);
 
   const adminClient = deps.hasServiceRoleEnv() ? deps.createServiceRoleClient() : null;
   const lookupClient = adminClient ?? supabase;
@@ -215,6 +218,17 @@ export async function postPropertySubmitResponse(
     actorUserId: auth.user.id,
     actorRole: role,
     sessionKey,
+    meta: qualityTelemetry
+      ? {
+          quality_source: qualityTelemetry.source,
+          quality_best_next_fix_key: qualityTelemetry.bestNextFixKey,
+          quality_score_before: qualityTelemetry.scoreBefore,
+          quality_score_at_submit: qualityTelemetry.scoreAtSubmit,
+          quality_score_improved: qualityTelemetry.scoreImproved,
+          quality_missing_count_before: qualityTelemetry.missingCountBefore,
+          quality_missing_count_at_submit: qualityTelemetry.missingCountAtSubmit,
+        }
+      : undefined,
   });
 
   if (listing.status === "pending" || listing.status === "live") {

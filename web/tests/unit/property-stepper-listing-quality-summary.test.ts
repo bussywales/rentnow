@@ -28,6 +28,12 @@ void test("property stepper renders listing quality summary with incomplete and 
   assert.match(source, /listingPublishReadiness\.bestNextFix/);
   assert.match(source, /listingPublishReadiness\.topFixes\.map/);
   assert.match(source, /handleListingQualityFixAction/);
+  assert.match(source, /listingQualityGuidanceTrackedRef/);
+  assert.match(source, /sendListingQualityTelemetry/);
+  assert.match(source, /listing_quality_guidance_viewed/);
+  assert.match(source, /listing_quality_fix_clicked/);
+  assert.match(source, /qualityTelemetry/);
+  assert.match(source, /scoreImproved/);
   assert.match(source, /fix\.actionLabel/);
   assert.match(source, /Strong listing quality\. Core details are ready for review\./);
   assert.match(source, /testId="listing-quality-photos-hint"/);

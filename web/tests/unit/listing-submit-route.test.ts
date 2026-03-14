@@ -231,6 +231,89 @@ void test("submit keeps pending flow when auto-approve flag is disabled", async 
   assert.ok(!events.includes("listing_auto_approved"));
 });
 
+void test("submit attaches listing quality telemetry to submit attempt event", async () => {
+  const listing: ListingRow = {
+    id: "prop1",
+    owner_id: "owner",
+    status: "draft",
+    submitted_at: null,
+  };
+  const { supabase } = buildSupabaseStub(listing, {
+    nightlyPriceMinor: 240000,
+  });
+  const typedSupabase = supabase as ReturnType<
+    ListingSubmitDeps["createServerSupabaseClient"]
+  >;
+  let submitAttemptMeta: Record<string, unknown> | null = null;
+
+  const deps: ListingSubmitDeps = {
+    hasServerSupabaseEnv: () => true,
+    hasServiceRoleEnv: () => true,
+    createServerSupabaseClient: async () => typedSupabase,
+    createServiceRoleClient: () =>
+      typedSupabase as ReturnType<ListingSubmitDeps["createServiceRoleClient"]>,
+    requireUser: async () =>
+      ({
+        ok: true,
+        user: { id: "owner" } as User,
+        supabase: typedSupabase,
+      }) as Awaited<ReturnType<ListingSubmitDeps["requireUser"]>>,
+    getUserRole: async () => "landlord",
+    getListingAccessResult: () => ({ ok: true }),
+    hasActiveDelegation: async () => false,
+    getPaygConfig: async () => ({
+      enabled: true,
+      amount: 2000,
+      currency: "NGN",
+      trialAgentCredits: 0,
+      trialLandlordCredits: 0,
+    }),
+    consumeListingCredit: async () => ({ ok: true, consumed: false }),
+    issueTrialCreditsIfEligible: async () => ({ issued: false }),
+    getAppSettingBool: async () => false,
+    getListingExpiryDays: async () => 90,
+    requireLegalAcceptance: async () => ({ ok: true, status: {} }) as Awaited<
+      ReturnType<ListingSubmitDeps["requireLegalAcceptance"]>
+    >,
+    logPropertyEvent: async ({ eventType, meta }) => {
+      if (eventType === "listing_submit_attempted") {
+        submitAttemptMeta = (meta as Record<string, unknown> | null) ?? null;
+      }
+      return { ok: true, data: {} };
+    },
+    resolveEventSessionKey: () => null,
+    logFailure: () => undefined,
+  };
+
+  const res = await postPropertySubmitResponse(
+    makeRequest({
+      idempotencyKey: "idem-quality",
+      qualityTelemetry: {
+        source: "submit_step",
+        bestNextFixKey: "missing_images",
+        scoreBefore: 55,
+        scoreAtSubmit: 80,
+        scoreImproved: true,
+        missingCountBefore: 4,
+        missingCountAtSubmit: 1,
+      },
+    }),
+    "prop1",
+    deps
+  );
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(submitAttemptMeta, {
+    quality_source: "submit_step",
+    quality_best_next_fix_key: "missing_images",
+    quality_score_before: 55,
+    quality_score_at_submit: 80,
+    quality_score_improved: true,
+    quality_missing_count_before: 4,
+    quality_missing_count_at_submit: 1,
+  });
+});
+
 void test("submit auto-approves when listings auto-approve flag is enabled", async () => {
   const listing: ListingRow = {
     id: "prop1",

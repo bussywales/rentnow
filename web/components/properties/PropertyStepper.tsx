@@ -86,6 +86,11 @@ import {
   type ListingQualityNudge,
   type ListingCompletenessStatus,
 } from "@/lib/properties/listing-quality";
+import {
+  sendListingQualityTelemetry,
+  type ListingQualityGuidanceTelemetry,
+  type ListingQualitySubmitTelemetry,
+} from "@/lib/properties/listing-quality-telemetry";
 import { formatRelativeTime } from "@/lib/date/relative-time";
 import { buildEditorUrl } from "@/lib/properties/host-dashboard";
 import { normalizeFocusParam, normalizeStepParam, STEP_IDS, type StepId } from "@/lib/properties/step-params";
@@ -437,6 +442,8 @@ export function PropertyStepper({
   const [paywallError, setPaywallError] = useState<string | null>(null);
   const submitKeyRef = useRef<string | null>(null);
   const resumeAttemptedRef = useRef(false);
+  const listingQualityGuidanceTrackedRef = useRef(false);
+  const listingQualityGuidanceBaselineRef = useRef<ListingQualityGuidanceTelemetry | null>(null);
 
   useEffect(() => {
     if (!propertyId || typeof window === "undefined") return;
@@ -1872,6 +1879,19 @@ export function PropertyStepper({
     () => resolveListingQualityNudges(listingQualityInput, "location"),
     [listingQualityInput]
   );
+  const listingQualityTelemetryBaseline = useMemo<ListingQualityGuidanceTelemetry>(
+    () => ({
+      source: "submit_step",
+      bestNextFixKey: listingPublishReadiness.bestNextFix?.key ?? null,
+      scoreBefore: listingCompleteness.score,
+      missingCountBefore: listingCompleteness.missingFlags.length,
+    }),
+    [
+      listingCompleteness.missingFlags.length,
+      listingCompleteness.score,
+      listingPublishReadiness.bestNextFix?.key,
+    ]
+  );
 
   const lastUpdatedText = useMemo(
     () => formatRelativeTime(initialData?.updated_at ?? initialData?.created_at ?? null),
@@ -1885,6 +1905,17 @@ export function PropertyStepper({
     lastPersistedCover.current = current;
     void persistCover(current);
   }, [coverImageUrl, persistCover, propertyId]);
+
+  useEffect(() => {
+    if (stepIndex !== 4 || !propertyId || listingQualityGuidanceTrackedRef.current) return;
+    listingQualityGuidanceTrackedRef.current = true;
+    listingQualityGuidanceBaselineRef.current = listingQualityTelemetryBaseline;
+    void sendListingQualityTelemetry({
+      propertyId,
+      eventType: "listing_quality_guidance_viewed",
+      payload: listingQualityTelemetryBaseline,
+    }).catch(() => null);
+  }, [listingQualityTelemetryBaseline, propertyId, stepIndex]);
 
   const handleChange = useCallback(
     (key: keyof FormState, value: string | number | boolean | null) => {
@@ -2320,6 +2351,20 @@ export function PropertyStepper({
 
   const handleListingQualityFixAction = useCallback(
     (fix: ListingPublishReadinessFix) => {
+      if (propertyId) {
+        const baseline =
+          listingQualityGuidanceBaselineRef.current ?? listingQualityTelemetryBaseline;
+        void sendListingQualityTelemetry({
+          propertyId,
+          eventType: "listing_quality_fix_clicked",
+          payload: {
+            ...baseline,
+            clickedFixKey: fix.key,
+            targetStep: fix.step,
+          },
+        }).catch(() => null);
+      }
+
       if (fix.step === "photos") {
         setStepIndex(2);
         if (propertyId) {
@@ -2377,7 +2422,13 @@ export function PropertyStepper({
         }
       }, 120);
     },
-    [handleImproveLocation, isShortletListing, propertyId, router]
+    [
+      handleImproveLocation,
+      isShortletListing,
+      listingQualityTelemetryBaseline,
+      propertyId,
+      router,
+    ]
   );
 
   const scrollToField = (key: string) => {
@@ -2754,6 +2805,15 @@ export function PropertyStepper({
       }
 
       const submitKey = ensureSubmitKey();
+      const qualityTelemetry: ListingQualitySubmitTelemetry = {
+        ...(listingQualityGuidanceBaselineRef.current ?? listingQualityTelemetryBaseline),
+        scoreAtSubmit: listingCompleteness.score,
+        scoreImproved:
+          listingCompleteness.score >
+          (listingQualityGuidanceBaselineRef.current?.scoreBefore ??
+            listingQualityTelemetryBaseline.scoreBefore),
+        missingCountAtSubmit: listingCompleteness.missingFlags.length,
+      };
       const res = await fetch(`/api/properties/${propertyId}/submit`, {
         method: "POST",
         headers: {
@@ -2761,7 +2821,10 @@ export function PropertyStepper({
           ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
         credentials: "include",
-        body: JSON.stringify({ idempotencyKey: submitKey }),
+        body: JSON.stringify({
+          idempotencyKey: submitKey,
+          qualityTelemetry,
+        }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data?.ok) {
@@ -2772,7 +2835,16 @@ export function PropertyStepper({
       }
       return { ok: false as const, data, status: res.status };
     },
-    [ensureSubmitKey, getSupabase, propertyId, resolveAuthUser, setError]
+    [
+      ensureSubmitKey,
+      getSupabase,
+      listingCompleteness.missingFlags.length,
+      listingCompleteness.score,
+      listingQualityTelemetryBaseline,
+      propertyId,
+      resolveAuthUser,
+      setError,
+    ]
   );
 
   useEffect(() => {
