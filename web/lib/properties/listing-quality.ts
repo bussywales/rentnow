@@ -80,6 +80,20 @@ export type ListingQualityNudge = {
   message: string;
 };
 
+export type ListingPublishReadinessStep = "basics" | "details" | "photos";
+
+export type ListingPublishReadinessFix = {
+  key: ListingCompletenessMissingFlag;
+  message: string;
+  step: ListingPublishReadinessStep;
+  actionLabel: string;
+};
+
+export type ListingPublishReadinessResult = {
+  bestNextFix: ListingPublishReadinessFix | null;
+  topFixes: ListingPublishReadinessFix[];
+};
+
 export type ListingHeroMediaPreference = {
   mode: "image" | "video";
   source: "featured_video" | "cover_image" | "first_image" | "none";
@@ -145,6 +159,38 @@ const LISTING_QUALITY_NUDGE_COPY: Record<
       message: "Add a location so guests can discover this listing in search and on the map.",
     },
   ],
+};
+
+const LISTING_QUALITY_MESSAGE_BY_FLAG = Object.values(LISTING_QUALITY_NUDGE_COPY).reduce<
+  Record<ListingCompletenessMissingFlag, string>
+>((acc, items) => {
+  for (const item of items) {
+    acc[item.key] = item.message;
+  }
+  return acc;
+}, {} as Record<ListingCompletenessMissingFlag, string>);
+
+const LISTING_PUBLISH_READINESS_FIX_ORDER: ListingCompletenessMissingFlag[] = [
+  "missing_images",
+  "missing_cover",
+  "missing_description",
+  "missing_price",
+  "missing_location",
+  "missing_title",
+  "weak_title",
+];
+
+const LISTING_PUBLISH_READINESS_FIX_META: Record<
+  ListingCompletenessMissingFlag,
+  { step: ListingPublishReadinessStep; actionLabel: string }
+> = {
+  missing_title: { step: "basics", actionLabel: "Go to Basics" },
+  weak_title: { step: "basics", actionLabel: "Go to Basics" },
+  missing_cover: { step: "photos", actionLabel: "Go to Photos" },
+  missing_images: { step: "photos", actionLabel: "Go to Photos" },
+  missing_description: { step: "details", actionLabel: "Go to Details" },
+  missing_price: { step: "basics", actionLabel: "Go to Basics" },
+  missing_location: { step: "basics", actionLabel: "Go to Basics" },
 };
 
 export function resolveListingCompletenessStatus(score: number): ListingCompletenessStatus {
@@ -343,6 +389,28 @@ export function resolveListingQualityNudges(
     .filter((item) => completeness.missingFlags.includes(item.key))
     .slice(0, max)
     .map((item) => ({ key: item.key, message: item.message }));
+}
+
+export function resolveListingPublishReadiness(
+  completeness: ListingCompletenessResult,
+  options?: { max?: number }
+): ListingPublishReadinessResult {
+  const max = Math.max(1, options?.max ?? 3);
+  const topFixes = LISTING_PUBLISH_READINESS_FIX_ORDER.filter((key) =>
+    completeness.missingFlags.includes(key)
+  )
+    .slice(0, max)
+    .map((key) => ({
+      key,
+      message: LISTING_QUALITY_MESSAGE_BY_FLAG[key],
+      step: LISTING_PUBLISH_READINESS_FIX_META[key].step,
+      actionLabel: LISTING_PUBLISH_READINESS_FIX_META[key].actionLabel,
+    }));
+
+  return {
+    bestNextFix: topFixes[0] ?? null,
+    topFixes,
+  };
 }
 
 export function resolveListingHeroMediaPreference(

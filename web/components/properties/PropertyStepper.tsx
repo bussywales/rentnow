@@ -78,9 +78,11 @@ import {
 } from "@/lib/properties/review-publish";
 import {
   computeListingCompleteness,
+  resolveListingPublishReadiness,
   resolveListingQualityNudges,
   resolveListingCompletenessStatus,
   type ListingQualityInput,
+  type ListingPublishReadinessFix,
   type ListingQualityNudge,
   type ListingCompletenessStatus,
 } from "@/lib/properties/listing-quality";
@@ -1842,6 +1844,10 @@ export function PropertyStepper({
     () => listingCompleteness.missingItems.slice(0, 5),
     [listingCompleteness.missingItems]
   );
+  const listingPublishReadiness = useMemo(
+    () => resolveListingPublishReadiness(listingCompleteness),
+    [listingCompleteness]
+  );
   const listingQualityStatus = useMemo(
     () => resolveListingCompletenessStatus(listingCompleteness.score),
     [listingCompleteness.score]
@@ -2310,6 +2316,68 @@ export function PropertyStepper({
       }
     },
     [handleImproveLocation, propertyId, router]
+  );
+
+  const handleListingQualityFixAction = useCallback(
+    (fix: ListingPublishReadinessFix) => {
+      if (fix.step === "photos") {
+        setStepIndex(2);
+        if (propertyId) {
+          router.push(buildEditorUrl(propertyId, undefined, { step: "photos" }));
+        }
+        window.setTimeout(() => {
+          const el = document.getElementById("photos-step");
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+            const focusable = el.querySelector("input,button,select") as HTMLElement | null;
+            focusable?.focus();
+          } else {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        }, 120);
+        return;
+      }
+
+      if (fix.step === "details") {
+        setStepIndex(1);
+        if (propertyId) {
+          router.push(buildEditorUrl(propertyId, undefined, { step: "details" }));
+        }
+        window.setTimeout(() => {
+          const el = document.getElementById("description");
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+            (el as HTMLElement).focus();
+          } else {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
+        }, 120);
+        return;
+      }
+
+      setStepIndex(0);
+      if (propertyId) {
+        const focus = fix.key === "missing_location" ? "location" : undefined;
+        router.push(buildEditorUrl(propertyId, undefined, { step: "basics", focus }));
+      }
+      window.setTimeout(() => {
+        if (fix.key === "missing_location") {
+          handleImproveLocation();
+          return;
+        }
+        const targetId =
+          fix.key === "missing_price" ? (isShortletListing ? "field-shortlet_nightly_price_minor" : "field-price") : "field-title";
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          const focusable = el.querySelector("input,select,textarea,button") as HTMLElement | null;
+          focusable?.focus();
+        } else {
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        }
+      }, 120);
+    },
+    [handleImproveLocation, isShortletListing, propertyId, router]
   );
 
   const scrollToField = (key: string) => {
@@ -4752,16 +4820,67 @@ export function PropertyStepper({
               </div>
             </div>
             <p className="mt-3 text-sm text-slate-700">Improve your listing quality before submit.</p>
-            {listingQualityMissingItems.length > 0 ? (
+            {listingPublishReadiness.bestNextFix ? (
               <>
                 <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Recommended next fixes
+                  Best next fix
                 </p>
-                <ul className="mt-2 space-y-1 text-sm text-slate-700">
-                  {listingQualityMissingItems.map((item) => (
-                    <li key={item}>Missing: {item}</li>
+                <div
+                  className="mt-2 rounded-xl border border-sky-200 bg-white px-3 py-3"
+                  data-testid="listing-quality-best-next-fix"
+                >
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="space-y-1">
+                      <p className="text-sm font-semibold text-slate-900">
+                        {listingPublishReadiness.bestNextFix.message}
+                      </p>
+                      <p className="text-xs text-slate-500">
+                        Recommended before submit
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      onClick={() =>
+                        handleListingQualityFixAction(listingPublishReadiness.bestNextFix!)
+                      }
+                    >
+                      {listingPublishReadiness.bestNextFix.actionLabel}
+                    </Button>
+                  </div>
+                </div>
+                <p className="mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Top priority fixes
+                </p>
+                <ul className="mt-2 space-y-2 text-sm text-slate-700">
+                  {listingPublishReadiness.topFixes.map((fix) => (
+                    <li
+                      key={fix.key}
+                      className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                    >
+                      <span>{fix.message}</span>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleListingQualityFixAction(fix)}
+                      >
+                        {fix.actionLabel}
+                      </Button>
+                    </li>
                   ))}
                 </ul>
+                {listingQualityMissingItems.length > listingPublishReadiness.topFixes.length ? (
+                  <p className="mt-2 text-xs text-slate-500">
+                    {listingQualityMissingItems.length - listingPublishReadiness.topFixes.length} more
+                    improvement
+                    {listingQualityMissingItems.length - listingPublishReadiness.topFixes.length === 1
+                      ? ""
+                      : "s"}{" "}
+                    still available.
+                  </p>
+                ) : null}
               </>
             ) : (
               <p className="mt-3 text-sm text-slate-700">

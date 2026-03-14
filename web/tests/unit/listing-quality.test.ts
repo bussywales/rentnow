@@ -6,6 +6,7 @@ import {
   normalizeListingTitleForDisplay,
   resolveListingCompletenessStatus,
   resolveListingHeroMediaPreference,
+  resolveListingPublishReadiness,
   resolveListingQualityNudges,
 } from "@/lib/properties/listing-quality";
 
@@ -200,4 +201,50 @@ void test("listing quality nudges respect max count and hide resolved items", ()
   assert.deepEqual(resolveListingQualityNudges(listing, "pricing"), []);
   assert.deepEqual(resolveListingQualityNudges(listing, "location"), []);
   assert.equal(resolveListingQualityNudges(listing, "photos", { max: 1 }).length, 1);
+});
+
+void test("listing publish readiness returns best next fix and top fixes with step actions", () => {
+  const completeness = computeListingCompleteness({
+    title: "LISTING",
+    description: "",
+    cover_image_url: null,
+    images: [{ id: "img-1", image_url: "https://images.example.com/a.jpg", position: 0 }],
+    price: 0,
+    currency: "",
+    city: "",
+  });
+
+  const readiness = resolveListingPublishReadiness(completeness);
+
+  assert.equal(readiness.bestNextFix?.key, "missing_images");
+  assert.equal(readiness.bestNextFix?.step, "photos");
+  assert.equal(readiness.bestNextFix?.actionLabel, "Go to Photos");
+  assert.deepEqual(
+    readiness.topFixes.map((fix) => [fix.key, fix.step]),
+    [
+      ["missing_images", "photos"],
+      ["missing_cover", "photos"],
+      ["missing_description", "details"],
+    ]
+  );
+});
+
+void test("listing publish readiness is empty for strong listings", () => {
+  const completeness = computeListingCompleteness({
+    title: "Modern 2 Bed Apartment in Victoria Island",
+    description: "Bright and spacious apartment with ensuite rooms, balcony, and secure parking.",
+    cover_image_url: "https://images.example.com/cover.jpg",
+    images: [
+      { id: "img-1", image_url: "https://images.example.com/cover.jpg", position: 0 },
+      { id: "img-2", image_url: "https://images.example.com/lounge.jpg", position: 1 },
+      { id: "img-3", image_url: "https://images.example.com/bedroom.jpg", position: 2 },
+    ],
+    price: 2500,
+    currency: "USD",
+    city: "Lagos",
+  });
+
+  const readiness = resolveListingPublishReadiness(completeness);
+  assert.equal(readiness.bestNextFix, null);
+  assert.deepEqual(readiness.topFixes, []);
 });
