@@ -145,9 +145,9 @@ export default async function AdminAnalyticsPage() {
       <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm" data-testid="admin-analytics-destinations">
         <h2 className="text-base font-semibold text-slate-900">Analytics destinations</h2>
         <p className="mt-1 text-sm text-slate-600">
-          Use these workspaces to move between marketplace, Explore, and Explore V2 analytics.
+          Use these workspaces to move between marketplace, Explore, Explore V2, and host analytics.
         </p>
-        <div className="mt-3 grid gap-3 md:grid-cols-3">
+        <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {ADMIN_ANALYTICS_DESTINATIONS.map((item) => (
             <Link
               key={item.key}

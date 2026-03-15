@@ -39,11 +39,23 @@ void test("admin analytics page includes admin guard and empty state copy", () =
     contents.includes("<AdminAnalyticsSectionNav current=\"marketplace\" />"),
     "expected sibling analytics nav on marketplace analytics page"
   );
+  assert.ok(
+    contents.includes("marketplace, Explore, Explore V2, and host analytics"),
+    "expected host analytics in analytics hub helper copy"
+  );
 
   const navPath = path.join(process.cwd(), "components", "admin", "AdminAnalyticsSectionNav.tsx");
   const navContents = fs.readFileSync(navPath, "utf8");
   assert.ok(
     navContents.includes('href: "/admin/analytics/explore-v2"'),
     "expected explore v2 destination href in shared analytics nav config"
+  );
+  assert.ok(
+    navContents.includes('href: "/admin/analytics/host"'),
+    "expected host analytics destination href in shared analytics nav config"
+  );
+  assert.ok(
+    navContents.includes('label: "Host analytics"'),
+    "expected host analytics label in shared analytics nav config"
   );
 });

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { AdminAnalyticsSectionNav } from "@/components/admin/AdminAnalyticsSectionNav";
 import { buildHostAnalyticsIndex } from "@/lib/admin/host-analytics-index";
 import { fetchHostListingQualityTelemetrySnapshot } from "@/lib/properties/listing-quality-telemetry-report";
 import { createServiceRoleClient, hasServiceRoleEnv } from "@/lib/supabase/admin";
@@ -86,6 +87,7 @@ export default async function AdminHostAnalyticsIndexPage({
         <p className="text-sm text-slate-600">
           Search by host id or name. Click a host to view details.
         </p>
+        <AdminAnalyticsSectionNav current="host" />
       </div>
 
       <form method="get" className="flex flex-wrap items-center gap-3">

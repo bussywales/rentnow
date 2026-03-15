@@ -14,6 +14,10 @@ void test("admin host analytics index has guard, search, and table copy", () => 
   assert.ok(contents.includes("/forbidden?reason=role"), "expected role guard redirect");
   assert.ok(contents.includes("Host analytics"), "expected page title");
   assert.ok(
+    contents.includes("<AdminAnalyticsSectionNav current=\"host\" />"),
+    "expected sibling analytics nav on host analytics page"
+  );
+  assert.ok(
     contents.includes("Search hosts… (name or id)"),
     "expected search placeholder"
   );

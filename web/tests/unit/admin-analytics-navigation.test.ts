@@ -32,6 +32,13 @@ void test("analytics pages mount shared sibling navigation", () => {
     "expected explore v2 conversion page to render sibling nav"
   );
 
+  const hostPagePath = path.join(process.cwd(), "app", "admin", "analytics", "host", "page.tsx");
+  const hostContents = fs.readFileSync(hostPagePath, "utf8");
+  assert.ok(
+    hostContents.includes("<AdminAnalyticsSectionNav current=\"host\" />"),
+    "expected host analytics page to render sibling nav"
+  );
+
   const navComponentPath = path.join(
     process.cwd(),
     "components",
@@ -50,5 +57,13 @@ void test("analytics pages mount shared sibling navigation", () => {
   assert.ok(
     navContents.includes('href: "/admin/analytics/explore-v2"'),
     "expected explore v2 conversion destination href"
+  );
+  assert.ok(
+    navContents.includes('href: "/admin/analytics/host"'),
+    "expected host analytics destination href"
+  );
+  assert.ok(
+    navContents.includes('label: "Host analytics"'),
+    "expected host analytics destination label"
   );
 });

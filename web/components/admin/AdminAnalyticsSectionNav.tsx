@@ -1,6 +1,10 @@
 import Link from "next/link";
 
-export type AdminAnalyticsDestinationKey = "marketplace" | "explore" | "explore_v2";
+export type AdminAnalyticsDestinationKey =
+  | "marketplace"
+  | "explore"
+  | "explore_v2"
+  | "host";
 
 export const ADMIN_ANALYTICS_DESTINATIONS: Array<{
   key: AdminAnalyticsDestinationKey;
@@ -25,6 +29,12 @@ export const ADMIN_ANALYTICS_DESTINATIONS: Array<{
     href: "/admin/analytics/explore-v2",
     label: "Explore V2 conversion",
     description: "Micro-sheet conversion metrics for opens, primary, details, save, and share.",
+  },
+  {
+    key: "host",
+    href: "/admin/analytics/host",
+    label: "Host analytics",
+    description: "Host-level activity, listings summary, and listing quality guidance telemetry.",
   },
 ];
 
