@@ -16,6 +16,7 @@ import {
   type PropertyRequestCreateInput,
   type PropertyRequestRecord,
 } from "@/lib/requests/property-requests";
+import { notifyHostsOfPublishedPropertyRequest } from "@/lib/requests/property-request-alerts.server";
 
 export const dynamic = "force-dynamic";
 
@@ -42,6 +43,7 @@ export type PropertyRequestsRouteDeps = {
     payload: PropertyRequestCreateInput;
     now: Date;
   }) => Promise<{ data: PropertyRequestRecord | null; error: { message: string } | null }>;
+  notifyPublishedRequest: typeof notifyHostsOfPublishedPropertyRequest;
   now: () => Date;
 };
 
@@ -141,6 +143,7 @@ const defaultDeps: PropertyRequestsRouteDeps = {
       error: { message: string } | null;
     };
   },
+  notifyPublishedRequest: notifyHostsOfPublishedPropertyRequest,
   now: () => new Date(),
 };
 
@@ -238,7 +241,17 @@ export async function postPropertyRequestsResponse(
     return NextResponse.json({ error: "Unable to create request" }, { status: 500 });
   }
 
-  return NextResponse.json({ ok: true, item: mapPropertyRequestRecord(data) }, { status: 201 });
+  const item = mapPropertyRequestRecord(data);
+  if (item.status === "open" && item.publishedAt) {
+    deps.notifyPublishedRequest(item).catch((notifyError) => {
+      console.error("[property-requests] publish alert failed", {
+        requestId: item.id,
+        message: notifyError instanceof Error ? notifyError.message : "unknown_error",
+      });
+    });
+  }
+
+  return NextResponse.json({ ok: true, item }, { status: 201 });
 }
 
 export async function GET(request: NextRequest) {

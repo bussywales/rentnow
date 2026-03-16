@@ -64,6 +64,7 @@ function buildDeps(
     getUserRole: async () => role,
     loadRequest: async () => ({ data: openRow, error: null }),
     updateRequest: async () => ({ data: openRow, error: null }),
+    notifyPublishedRequest: async () => ({ ok: true, attempted: 0, sent: 0, skipped: 0 }),
     now: () => new Date("2026-03-16T10:00:00.000Z"),
     ...input,
   };
@@ -168,6 +169,7 @@ void test("property request detail patch returns 404 for non-owner tenants", asy
 
 void test("property request detail patch publishes a draft when required fields exist", async () => {
   let updates: Record<string, unknown> | null = null;
+  let notifiedRequestId: string | null = null;
   const response = await patchPropertyRequestDetailResponse(
     makePatchRequest({ status: "open", notes: "Ready to publish" }),
     "req-1",
@@ -196,6 +198,10 @@ void test("property request detail patch publishes a draft when required fields 
           error: null,
         };
       },
+      notifyPublishedRequest: async (request) => {
+        notifiedRequestId = request.id;
+        return { ok: true, attempted: 1, sent: 1, skipped: 0 };
+      },
     })
   );
   const json = await response.json();
@@ -204,6 +210,7 @@ void test("property request detail patch publishes a draft when required fields 
   assert.equal(json.item.status, "open");
   assert.equal(updates?.status, "open");
   assert.equal(typeof updates?.published_at, "string");
+  assert.equal(notifiedRequestId, "req-1");
 });
 
 void test("property request detail patch pauses an open request back to draft", async () => {
@@ -232,6 +239,30 @@ void test("property request detail patch pauses an open request back to draft", 
   assert.equal(json.item.status, "draft");
   assert.equal(updates?.published_at, null);
   assert.equal(updates?.expires_at, null);
+});
+
+void test("property request detail patch does not notify on non-publish edits", async () => {
+  let notified = false;
+  const response = await patchPropertyRequestDetailResponse(
+    makePatchRequest({ notes: "Refined preferences" }),
+    "req-1",
+    buildDeps({
+      updateRequest: async () => ({
+        data: {
+          ...openRow,
+          notes: "Refined preferences",
+        },
+        error: null,
+      }),
+      notifyPublishedRequest: async () => {
+        notified = true;
+        return { ok: true, attempted: 1, sent: 1, skipped: 0 };
+      },
+    })
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(notified, false);
 });
 
 void test("property request detail patch rejects closing a draft request", async () => {

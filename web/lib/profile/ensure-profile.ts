@@ -12,10 +12,11 @@ export type ProfileRecord = {
   agent_slug?: string | null;
   agent_bio?: string | null;
   listing_review_email_enabled?: boolean | null;
+  property_request_alerts_enabled?: boolean | null;
 };
 
 export const PROFILE_SELECT_FIELDS =
-  "id, role, first_name, last_name, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio, listing_review_email_enabled";
+  "id, role, first_name, last_name, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio, listing_review_email_enabled, property_request_alerts_enabled";
 
 const PROFILE_SELECT_FIELDS_LEGACY =
   "id, role, first_name, last_name, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio";
@@ -68,6 +69,29 @@ async function fetchProfile(
     .select(PROFILE_SELECT_FIELDS)
     .eq("id", userId)
     .maybeSingle();
+  if (selected.error && isUnknownColumn(selected.error, "property_request_alerts_enabled")) {
+    const fallbackColumns = isUnknownColumn(selected.error, "listing_review_email_enabled")
+      ? PROFILE_SELECT_FIELDS_LEGACY
+      : "id, role, first_name, last_name, display_name, full_name, phone, avatar_url, public_slug, agent_storefront_enabled, agent_slug, agent_bio, listing_review_email_enabled";
+    const fallback = await client
+      .from("profiles")
+      .select(fallbackColumns)
+      .eq("id", userId)
+      .maybeSingle();
+    return {
+      data: fallback.data
+        ? {
+            ...fallback.data,
+            listing_review_email_enabled:
+              "listing_review_email_enabled" in fallback.data
+                ? fallback.data.listing_review_email_enabled ?? null
+                : null,
+            property_request_alerts_enabled: null,
+          }
+        : null,
+      error: fallback.error,
+    };
+  }
   if (selected.error && isUnknownColumn(selected.error, "listing_review_email_enabled")) {
     const legacy = await client
       .from("profiles")
@@ -98,6 +122,7 @@ export async function ensureProfileRow(input: EnsureProfileInput): Promise<Ensur
     avatar_url: null,
     agent_storefront_enabled: false,
     listing_review_email_enabled: false,
+    property_request_alerts_enabled: true,
   };
 
   const trimmedEmail = email?.trim();
@@ -122,6 +147,13 @@ export async function ensureProfileRow(input: EnsureProfileInput): Promise<Ensur
   if (insertError && isUnknownColumn(insertError, "listing_review_email_enabled")) {
     const rest = { ...payload };
     delete rest.listing_review_email_enabled;
+    delete rest.property_request_alerts_enabled;
+    insertError = (await client.from("profiles").upsert(rest, { onConflict: "id" })).error;
+  }
+
+  if (insertError && isUnknownColumn(insertError, "property_request_alerts_enabled")) {
+    const rest = { ...payload };
+    delete rest.property_request_alerts_enabled;
     insertError = (await client.from("profiles").upsert(rest, { onConflict: "id" })).error;
   }
 

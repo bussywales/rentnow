@@ -72,6 +72,9 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   const [listingReviewEmailEnabled, setListingReviewEmailEnabled] = useState(
     initialProfile?.listing_review_email_enabled ?? false
   );
+  const [propertyRequestAlertsEnabled, setPropertyRequestAlertsEnabled] = useState(
+    initialProfile?.property_request_alerts_enabled ?? true
+  );
   const [agentBio, setAgentBio] = useState(initialProfile?.agent_bio ?? "");
   const [agentSlug, setAgentSlug] = useState(initialProfile?.agent_slug ?? null);
   const [publicSlugInput, setPublicSlugInput] = useState(initialPublicSlug);
@@ -99,6 +102,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
     avatarUrl: initialProfile?.avatar_url ?? null,
     agentStorefrontEnabled: initialProfile?.agent_storefront_enabled ?? true,
     listingReviewEmailEnabled: initialProfile?.listing_review_email_enabled ?? false,
+    propertyRequestAlertsEnabled: initialProfile?.property_request_alerts_enabled ?? true,
     agentBio: initialProfile?.agent_bio ?? "",
     agentSlug: initialProfile?.agent_slug ?? null,
   });
@@ -144,6 +148,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       setAvatarUrl(nextProfile?.avatar_url ?? null);
       setAgentStorefrontEnabled(nextProfile?.agent_storefront_enabled ?? true);
       setListingReviewEmailEnabled(nextProfile?.listing_review_email_enabled ?? false);
+      setPropertyRequestAlertsEnabled(nextProfile?.property_request_alerts_enabled ?? true);
       setAgentBio(nextProfile?.agent_bio ?? "");
       setAgentSlug(nextProfile?.agent_slug ?? null);
       const nextPublicSlug = normalizePublicSlugInput(nextProfile?.public_slug ?? "");
@@ -162,6 +167,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
         avatarUrl: nextProfile?.avatar_url ?? null,
         agentStorefrontEnabled: nextProfile?.agent_storefront_enabled ?? true,
         listingReviewEmailEnabled: nextProfile?.listing_review_email_enabled ?? false,
+        propertyRequestAlertsEnabled: nextProfile?.property_request_alerts_enabled ?? true,
         agentBio: nextProfile?.agent_bio ?? "",
         agentSlug: nextProfile?.agent_slug ?? null,
       });
@@ -208,6 +214,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
   const normalizedProfileRole = normalizeRole(profile?.role ?? null);
   const isAdmin = normalizedProfileRole === "admin";
   const isAgent = normalizedProfileRole === "agent";
+  const isHostRequestResponder =
+    normalizedProfileRole === "agent" || normalizedProfileRole === "landlord";
   const canManagePublicSlug = canEditPublicSlug(normalizedProfileRole);
   const hasChanges =
     !!profile &&
@@ -217,6 +225,8 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
       phone.trim() !== snapshot.phone ||
       avatarUrl !== snapshot.avatarUrl ||
       (isAdmin && listingReviewEmailEnabled !== snapshot.listingReviewEmailEnabled) ||
+      (isHostRequestResponder &&
+        propertyRequestAlertsEnabled !== snapshot.propertyRequestAlertsEnabled) ||
       (isAgent &&
         (agentStorefrontEnabled !== snapshot.agentStorefrontEnabled ||
           agentBio.trim() !== snapshot.agentBio ||
@@ -358,6 +368,11 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
             listing_review_email_enabled: listingReviewEmailEnabled,
           }
         : {}),
+      ...(isHostRequestResponder
+        ? {
+            property_request_alerts_enabled: propertyRequestAlertsEnabled,
+          }
+        : {}),
     };
     const { error: updateError } = await supabase
       .from("profiles")
@@ -374,6 +389,7 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
         avatarUrl,
         agentStorefrontEnabled,
         listingReviewEmailEnabled,
+        propertyRequestAlertsEnabled,
         agentBio: payload.agent_bio ?? "",
         agentSlug,
       });
@@ -662,6 +678,34 @@ export default function ProfileFormClient({ userId, email, initialProfile }: Pro
                 </span>
                 <span className="mt-1 block text-xs text-slate-500">
                   Sends an email when a listing moves into the admin review queue.
+                </span>
+              </span>
+            </label>
+          </div>
+        </section>
+      )}
+
+      {isHostRequestResponder && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-lg font-semibold text-slate-900">Property Requests alerts</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Control whether we email you when new matching demand is published in your market.
+          </p>
+          <div className="mt-4">
+            <label className="inline-flex items-start gap-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500"
+                checked={propertyRequestAlertsEnabled}
+                onChange={(event) => setPropertyRequestAlertsEnabled(event.target.checked)}
+                data-testid="property-request-alerts-toggle"
+              />
+              <span>
+                <span className="block font-semibold text-slate-900">
+                  Email me when a new property request is published in my market
+                </span>
+                <span className="mt-1 block text-xs text-slate-500">
+                  Sends a targeted email when a newly published request matches your role and live supply market.
                 </span>
               </span>
             </label>

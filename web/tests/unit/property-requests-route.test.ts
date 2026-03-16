@@ -63,6 +63,7 @@ function buildDeps(
     getUserRole: async () => role,
     listRequests: async () => ({ data: [baseRow], error: null }),
     insertRequest: async () => ({ data: baseRow, error: null }),
+    notifyPublishedRequest: async () => ({ ok: true, attempted: 0, sent: 0, skipped: 0 }),
     now: () => new Date("2026-03-16T10:00:00.000Z"),
     ...input,
   };
@@ -186,6 +187,7 @@ void test("property requests create inserts draft rows for tenants", async () =>
 
 void test("property requests create publishes open rows with published and expiry timestamps", async () => {
   let createdRow: PropertyRequestRecord | null = null;
+  let notifiedRequestId: string | null = null;
   const response = await postPropertyRequestsResponse(
     makePostRequest({
       status: "open",
@@ -209,6 +211,10 @@ void test("property requests create publishes open rows with published and expir
         };
         return { data: createdRow, error: null };
       },
+      notifyPublishedRequest: async (request) => {
+        notifiedRequestId = request.id;
+        return { ok: true, attempted: 1, sent: 1, skipped: 0 };
+      },
     })
   );
   const json = await response.json();
@@ -217,4 +223,27 @@ void test("property requests create publishes open rows with published and expir
   assert.equal(json.item.status, "open");
   assert.equal(typeof createdRow?.published_at, "string");
   assert.equal(typeof createdRow?.expires_at, "string");
+  assert.equal(notifiedRequestId, "req-1");
+});
+
+void test("property requests create does not notify on draft save", async () => {
+  let notified = false;
+  const response = await postPropertyRequestsResponse(
+    makePostRequest({
+      status: "draft",
+      intent: "rent",
+      marketCode: "NG",
+      currencyCode: "NGN",
+    }),
+    buildDeps({
+      role: "tenant",
+      notifyPublishedRequest: async () => {
+        notified = true;
+        return { ok: true, attempted: 1, sent: 1, skipped: 0 };
+      },
+    })
+  );
+
+  assert.equal(response.status, 201);
+  assert.equal(notified, false);
 });

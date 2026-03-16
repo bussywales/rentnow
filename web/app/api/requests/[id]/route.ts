@@ -11,6 +11,7 @@ import {
   resolvePropertyRequestPublishMissingFields,
   type PropertyRequestRecord,
 } from "@/lib/requests/property-requests";
+import { notifyHostsOfPublishedPropertyRequest } from "@/lib/requests/property-request-alerts.server";
 
 export const dynamic = "force-dynamic";
 
@@ -32,6 +33,7 @@ export type PropertyRequestDetailRouteDeps = {
     requestId: string;
     updates: Record<string, unknown>;
   }) => Promise<{ data: PropertyRequestRecord | null; error: { message: string } | null }>;
+  notifyPublishedRequest: typeof notifyHostsOfPublishedPropertyRequest;
   now: () => Date;
 };
 
@@ -65,6 +67,7 @@ const defaultDeps: PropertyRequestDetailRouteDeps = {
       error: { message: string } | null;
     };
   },
+  notifyPublishedRequest: notifyHostsOfPublishedPropertyRequest,
   now: () => new Date(),
 };
 
@@ -211,6 +214,8 @@ export async function patchPropertyRequestDetailResponse(
     currentExpiresAt: existing.expiresAt,
     now: deps.now(),
   });
+  const shouldNotifyPublished =
+    existing.publishedAt === null && nextStatus === "open" && lifecycle.publishedAt !== null;
 
   const { data: updated, error: updateError } = await deps.updateRequest({
     supabase,
@@ -241,9 +246,19 @@ export async function patchPropertyRequestDetailResponse(
     return NextResponse.json({ error: "Unable to update request" }, { status: 500 });
   }
 
+  const item = mapPropertyRequestRecord(updated);
+  if (shouldNotifyPublished && item.status === "open" && item.publishedAt) {
+    deps.notifyPublishedRequest(item).catch((notifyError) => {
+      console.error("[property-requests] publish alert failed", {
+        requestId: item.id,
+        message: notifyError instanceof Error ? notifyError.message : "unknown_error",
+      });
+    });
+  }
+
   return NextResponse.json({
     ok: true,
-    item: mapPropertyRequestRecord(updated),
+    item,
     viewerCanEdit: true,
   });
 }
