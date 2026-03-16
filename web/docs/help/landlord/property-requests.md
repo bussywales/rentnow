@@ -15,6 +15,7 @@ Use it to match your live inventory against real demand without exposing seeker 
 
 - Use the `Property Requests` link in the workspace sidebar while you are on landlord workspace routes such as `/host`, `/home`, `/profile`, or `/account/verification`.
 - The sidebar link opens `/requests`.
+- Manage responder email alerts from `/profile`.
 
 ## Routes you can use
 
@@ -63,6 +64,15 @@ Current responder rules:
 - listings must be eligible live inventory for the request
 - duplicate sends for the same listing are blocked
 - you may include a short optional note
+
+## Request alert emails
+
+- Newly published requests can trigger an email alert when:
+  - the request is in the same market
+  - you have matching live supply
+- Manage the preference at `/profile`:
+  - `Email me when a new property request is published in my market`
+- Turning the toggle off stops future request alert emails but does not affect your ability to browse `/requests`.
 
 ## What the seeker can see
 

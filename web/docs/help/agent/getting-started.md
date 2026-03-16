@@ -20,6 +20,7 @@ updated_at: "2026-03-16"
 - `/dashboard/referrals`: campaign/funnel tracking.
 - `/dashboard/saved-searches`: demand monitoring via followed searches.
 - `/requests`: property request board and request detail responder workflow.
+- `/profile`: manage responder email alerts for newly published property requests.
 
 ## Team operating model
 

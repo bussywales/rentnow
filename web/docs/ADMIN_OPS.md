@@ -59,6 +59,8 @@ PropatyHub admin operations are split into clear workspaces with URL-driven stat
   - breakdown by market
   - stall segments showing published zero-response demand
 - Registry columns surface owner, status, responses, publish date, and expiry.
+- Newly published requests can trigger targeted responder email alerts for landlords and agents with matching live supply in the same market.
+- Responder-side email alerts can be turned off from `/profile`.
 
 ## Property Request Inspector (`/admin/requests/[id]`)
 - Structured request summary (budget, type, bedrooms, move timeline, furnishing, notes).
@@ -69,6 +71,35 @@ PropatyHub admin operations are split into clear workspaces with URL-driven stat
   - Close
   - Expire
   - Remove
+
+## Admin review email notifications
+
+- Admins can opt in at `/profile` using `Email me when a new listing is submitted for review`.
+- Trigger condition:
+  - a listing enters `pending` review
+- No email is sent for:
+  - draft autosaves
+  - ordinary draft edits
+  - admin internal edits
+  - auto-approved submissions that go straight to `live`
+
+Use this notification for queue awareness, not as the only review monitoring mechanism. The review desk remains the source of truth.
+
+## Image optimisation mode control
+
+- Route: `/admin/settings`
+- Setting: `Image optimisation mode`
+
+Modes:
+
+- `Vercel default`
+  - normal shared image optimisation behaviour
+- `Disable non-critical`
+  - disables optimisation for shared non-critical surfaces such as rails, cards, and admin media panels
+- `Disable all shared images`
+  - disables optimisation for shared image wrappers, including gallery and carousel surfaces
+
+Use this only as an operational cost/stability lever when image optimisation usage spikes. It is not a product experiment toggle.
 
 ## Error handling & diagnostics
 - Admin review + listings surfaces never silently fail.

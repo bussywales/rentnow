@@ -9,9 +9,10 @@ updated_at: "2026-03-16"
 
 1. Open `/admin/system` and confirm env/config signals are healthy.
 2. Review `/admin/alerts` for last-run status and failed users.
-3. Review `/admin/payments` for stuck payments and receipts pending.
-4. Review `/admin/requests` for new demand, stalled segments, and moderation needs.
-5. Review `/admin/featured/requests` pending queue and stale items.
+3. Review `/admin/analytics` and move through the sibling nav for Marketplace, Explore, Explore V2 conversion, and Host analytics.
+4. Review `/admin/payments` for stuck payments and receipts pending.
+5. Review `/admin/requests` for new demand, stalled segments, and moderation needs.
+6. Review `/admin/featured/requests` pending queue and stale items.
 
 ## Core admin responsibilities
 
@@ -31,6 +32,8 @@ updated_at: "2026-03-16"
 ## Key links
 
 - `/admin/settings`
+- `/admin/analytics`
+- `/help/admin/analytics`
 - `/admin/system`
 - `/admin/alerts`
 - `/admin/payments`

@@ -15,6 +15,7 @@ Use it to surface structured demand without exposing seeker contact details or t
 
 - Use the `Property Requests` link in the workspace sidebar while you are on agent workspace routes such as `/home`, `/host`, `/profile`, or `/account/verification`.
 - The sidebar link opens `/requests`.
+- Manage responder email alerts from `/profile`.
 
 ## Routes you can use
 
@@ -62,6 +63,15 @@ Responder constraints:
 - only valid live inventory can be sent
 - include an optional short note if it helps explain fit
 - already-sent listings are marked and cannot be resent to the same request
+
+## Request alert emails
+
+- Newly published requests can trigger an email alert when:
+  - the request is in the same market
+  - you control matching live supply directly or through active delegation
+- Manage the preference at `/profile`:
+  - `Email me when a new property request is published in my market`
+- Turning the toggle off stops future request alert emails but does not affect access to `/requests`.
 
 ## Response privacy rules
 

@@ -66,6 +66,8 @@ These controls are for spam, stale demand, invalid requests, or operational clea
 - breakdown by market
 - stall segments showing published demand with zero responses
 
+Newly published requests can also trigger targeted responder email alerts for landlords and agents with matching live supply in the same market. Use the zero-response and first-response sections to confirm whether alerting is improving activation.
+
 ## Privacy rules admins must preserve
 
 - other seekers still cannot see seeker demand

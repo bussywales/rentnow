@@ -25,6 +25,7 @@ updated_at: "2026-03-16"
 - `/host`: listing management, featured request actions, payment history panel.
 - `/home`: workspace snapshot + discovery rails.
 - `/requests`: property request board for eligible responder workflows.
+- `/profile`: manage responder email alerts for new property requests.
 - `/admin/featured/requests` (admin only): request queue and decisions.
 
 <Callout type="info">

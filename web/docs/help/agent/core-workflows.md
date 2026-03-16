@@ -12,6 +12,17 @@ updated_at: "2026-03-16"
 3. Use demo flags strictly for non-customer-facing scenarios.
 4. Review status/expiry regularly to avoid dead inventory.
 
+## Listing quality workflow in the editor
+
+- Use `/host/properties/[id]/edit` when a listing needs quality cleanup before submit or resubmit.
+- The editor now gives step-specific nudges:
+  - `Photos` for cover and image count
+  - `Details` for stronger title and description quality
+  - `Basics` for pricing and location completeness
+- The submit step shows `Listing quality` and a `Best next fix` block with jump-back actions so you can fix the highest-impact gap quickly.
+
+These cues help improve conversion and approval readiness, but they do not act as hard publish blocks by themselves.
+
 ## Lead and message operations
 
 - Route and respond quickly to high-intent enquiries.
@@ -30,6 +41,13 @@ updated_at: "2026-03-16"
 - Filter hard before responding so your sent listings fit the brief.
 - Use `/requests/[id]` to review requirements and send up to 3 owned or managed listings.
 - Keep notes concise; direct contact details are intentionally not part of this workflow.
+
+## Property request alerts
+
+- Agents can receive email alerts when a newly published request matches live supply in the same market.
+- Manage the toggle from `/profile`:
+  - `Email me when a new property request is published in my market`
+- Alerts are targeted by relevance. They are not a blast to every agent account.
 
 ## Host featured strip workflow
 

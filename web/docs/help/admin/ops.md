@@ -12,6 +12,20 @@ updated_at: "2026-03-16"
 - `/admin/requests/[id]` is the admin inspection and moderation view.
 - Analytics currently include created, published, open, matched, closed, expired, removed, with-response, zero-response, total responses, response rate, first-response timing, and segment breakdowns.
 - Moderation actions are explicit: close, expire, or remove.
+- Newly published open requests can trigger targeted responder email alerts for landlords and agents with matching live supply in the same market.
+
+## Analytics operations
+
+- `/admin/analytics` is the analytics hub.
+- `/admin/analytics/explore-v2` is the Explore V2 micro-sheet report only.
+- Trust cue and CTA copy sections are experiment reads, not proofs of causation.
+- `/admin/analytics/host` includes submit-step listing quality telemetry:
+  - guidance viewed
+  - fix clicks and CTR
+  - submit attempts
+  - improvement rate
+  - average score delta
+  - fix clicks by `Basics`, `Details`, and `Photos`
 
 ## Payments/webhooks/reconcile
 
@@ -26,6 +40,21 @@ updated_at: "2026-03-16"
 - `alerts_kill_switch_enabled`: emergency stop regardless of other gates.
 - Last-run telemetry is persisted in app settings JSON.
 - Test route sends admin-only test digest without mutating alert baselines.
+
+## Admin profile notification controls
+
+- `/profile` includes `Email me when a new listing is submitted for review` for admins.
+- Use it if you need inbox-style email awareness for new review queue entries.
+- The notification fires only when a listing enters `pending`.
+
+## Image optimisation mode control
+
+- `/admin/settings` includes `Image optimisation mode`.
+- Use it as an ops lever when optimisation cost or transform volume spikes.
+- Modes:
+  - `Vercel default`
+  - `Disable non-critical`
+  - `Disable all shared images`
 
 ## Product updates sync
 

@@ -19,6 +19,20 @@ updated_at: "2026-03-16"
 - Accurate pricing and period fields.
 - Precise location and availability signals.
 
+## Listing quality workflow in the editor
+
+- Use `/host/properties/[id]/edit` to improve weak listings before submit.
+- The editor now surfaces step-specific quality nudges where the fix belongs:
+  - `Photos` for cover image and minimum images
+  - `Details` for title and description quality
+  - `Basics` for price and location gaps
+- On the submit step, look for:
+  - `Listing quality`
+  - `Best next fix`
+  - jump-back actions such as `Go to Basics`, `Go to Details`, or `Go to Photos`
+
+These are guidance cues, not hard publish blocks.
+
 ## Demand capture workflow
 
 - Use market hubs and discovery rails to identify demand locations.
@@ -31,6 +45,12 @@ updated_at: "2026-03-16"
 - Filter by intent, market, bedrooms, move timeline, and budget before responding.
 - Open `/requests/[id]` to inspect the brief and send up to 3 matching listings you own or manage.
 - Use this workflow for platform-mediated matching only; contact details stay private in this phase.
+
+## Property request alerts
+
+- New published requests can trigger email alerts to responder-side users with matching live supply in the same market.
+- Use `/profile` to manage `Email me when a new property request is published in my market`.
+- The alert is relevance-filtered; it is not sent for every request on the platform.
 
 ## Host featured strip workflow
 
